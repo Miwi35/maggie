@@ -149,7 +149,7 @@ class RoutineApiTest extends WebTestCase
         self::assertFalse($created['checkedToday']);
         self::assertSame(0, $created['monthCount']);
         self::assertSame(0, $created['totalCount']);
-        self::assertSame('2026-10-20T10:00:00+00:00', $created['createdAt']);
+        self::assertSame('2026-10-20T12:00:00+02:00', $created['createdAt'], 'in the user\'s zone');
         self::assertSame(
             [false, false, false, false, false, false, true],
             array_column($created['recentDays'], 'due'),

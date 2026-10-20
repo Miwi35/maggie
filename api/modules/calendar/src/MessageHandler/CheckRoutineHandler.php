@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\MessageHandler;
 
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\RoutineCheck;
 use Maggie\Calendar\Message\CheckRoutineCommand;
@@ -37,32 +38,40 @@ class CheckRoutineHandler
         $routine = $this->repository->findOwned($user, $command->routineId)
             ?? throw new \DomainException("Routine not found: {$command->routineId}");
 
-        $existing = $this->checks->findOneByRoutineAndDate($routine, $command->date);
+        if ($command->checked) {
+            if ($command->date > $this->schedule->today($user)) {
+                throw new \DomainException(\sprintf('date: %s is still to come, a routine is ticked once done.', $command->date->format('Y-m-d')));
+            }
+            if ($command->date < $this->schedule->createdOn($routine)) {
+                throw new \DomainException(\sprintf('date: %s is before the routine was created.', $command->date->format('Y-m-d')));
+            }
+        }
 
-        if (!$command->checked) {
-            if (null !== $existing) {
-                $this->em->remove($existing);
-                $this->em->flush();
+        // The routine's row is locked for the read-then-write: a double tap
+        // waits for the first tick instead of tripping the unique index.
+        return $this->em->wrapInTransaction(function () use ($routine, $command): ?RoutineCheck {
+            $this->em->lock($routine, LockMode::PESSIMISTIC_WRITE);
+            $existing = $this->checks->findOneByRoutineAndDate($routine, $command->date);
+
+            if (!$command->checked) {
+                if (null !== $existing) {
+                    $this->em->remove($existing);
+                    $this->em->flush();
+                }
+
+                return null;
             }
 
-            return null;
-        }
+            // Already ticked: nothing changes, nothing to announce.
+            if (null !== $existing) {
+                return null;
+            }
 
-        if ($command->date > $this->schedule->today($user)) {
-            throw new \DomainException(\sprintf('date: %s is still to come, a routine is ticked once done.', $command->date->format('Y-m-d')));
-        }
-        if ($command->date < $this->schedule->createdOn($routine)) {
-            throw new \DomainException(\sprintf('date: %s is before the routine was created.', $command->date->format('Y-m-d')));
-        }
-        // Already ticked: nothing changes, nothing to announce.
-        if (null !== $existing) {
-            return null;
-        }
+            $check = new RoutineCheck($routine, $command->date);
+            $this->em->persist($check);
+            $this->em->flush();
 
-        $check = new RoutineCheck($routine, $command->date);
-        $this->em->persist($check);
-        $this->em->flush();
-
-        return $check;
+            return $check;
+        });
     }
 }

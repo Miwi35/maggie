@@ -167,7 +167,8 @@ final class RoutineSchedule
             'recurrence' => $routine->getRecurrence(),
             'active' => $routine->isActive(),
             'remind' => $routine->isRemind(),
-            'createdAt' => $routine->getCreatedAt()->format(\DATE_ATOM),
+            // In the user's zone, so « depuis août » reads the month they created it in.
+            'createdAt' => $routine->getCreatedAt()->setTimezone($this->overdue->zone($routine->getUser()))->format(\DATE_ATOM),
             'checkedToday' => self::checkedOn($checks, $today),
             'dueToday' => $this->isDue($routine, $today),
             'monthCount' => $monthCount,
