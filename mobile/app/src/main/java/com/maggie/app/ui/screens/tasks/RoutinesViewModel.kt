@@ -199,6 +199,13 @@ class RoutinesViewModel(
         }
     }
 
+    /**
+     * The user's today as the API computes it in their zone: the last of a routine's seven days.
+     * The device's date only when no routine carries it (a phone past midnight in another zone).
+     */
+    private fun todayOf(routine: Routine?): LocalDate =
+        routine?.recentDays?.lastOrNull()?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: today()
+
     /** Ticks today, or unticks it; a short buzz on a tick when the user lets rewards vibrate. */
     fun toggleCheck(routine: Routine) {
         val state = _uiState.value
@@ -214,7 +221,7 @@ class RoutinesViewModel(
             )
         }
         viewModelScope.launch {
-            routineRepository.setChecked(current.id, today(), checked)
+            routineRepository.setChecked(current.id, todayOf(current), checked)
                 .onSuccess { answered ->
                     _uiState.update { s ->
                         s.copy(routines = s.routines.map { if (it.id == answered.id) answered else it }, pending = s.pending - current.id)
@@ -235,12 +242,12 @@ class RoutinesViewModel(
 
     /** « Nouvelle routine ». */
     fun openNew() {
-        _uiState.update { it.copy(draft = RoutineDraft.new(today()), message = null) }
+        _uiState.update { it.copy(draft = RoutineDraft.new(todayOf(it.routines.firstOrNull())), message = null) }
     }
 
     /** A card touched: the same sheet, on that routine. */
     fun openEdit(routine: Routine) {
-        _uiState.update { it.copy(draft = RoutineDraft.of(routine, today()), message = null) }
+        _uiState.update { it.copy(draft = RoutineDraft.of(routine, todayOf(routine)), message = null) }
     }
 
     fun updateDraft(draft: RoutineDraft) {

@@ -183,6 +183,57 @@ describe('TaskRoutines (MAG-511)', () => {
     expect(within(card("Grand verre d'eau")).getByText('ce mois : 13 fois')).toBeInTheDocument()
   })
 
+  test('the tick is on the API\'s today, the last of the seven days, not the browser\'s date', async () => {
+    // Past midnight in the browser, still the 15th for the user's time zone.
+    vi.setSystemTime(new Date(2026, 9, 16, 0, 30))
+    const user = setup()
+    render(<TaskRoutines />)
+
+    await user.click(await screen.findByRole('checkbox', { name: "Grand verre d'eau : fait aujourd'hui" }))
+
+    await waitFor(() => expect(calls('PUT')).toHaveLength(1))
+    expect(calls('PUT')[0].url).toBe('http://localhost/api/routines/01WATER/checks/2026-10-15')
+  })
+
+  test('a double click while the tick is on its way sends one PUT; the box waits for the answer', async () => {
+    const user = setup()
+    let answer: () => void = () => undefined
+    render(<TaskRoutines />)
+
+    const box = await screen.findByRole('checkbox', { name: "Grand verre d'eau : fait aujourd'hui" })
+    mockFetch.mockImplementationOnce((url, init) => {
+      const response = respond(String(url), init)
+
+      return new Promise((resolve) => {
+        answer = () => resolve(response)
+      })
+    })
+    await user.dblClick(box)
+
+    expect(calls('PUT')).toHaveLength(1)
+    expect(box).toBeDisabled()
+    answer()
+
+    await waitFor(() => expect(box).toBeChecked())
+    expect(box).toBeEnabled()
+    expect(calls('PUT')).toHaveLength(1)
+    expect(calls('DELETE')).toHaveLength(0)
+  })
+
+  test('the window coming back reads the list again: a page left open past midnight gets its new day', async () => {
+    render(<TaskRoutines />)
+
+    await screen.findByText("Grand verre d'eau")
+    const reads = calls('GET').length
+    list = [...list, routine('01MORE', 'Méditer', { time: '13:00', anchor: 'afterLunch' })]
+
+    window.dispatchEvent(new Event('focus'))
+    expect(await screen.findByRole('region', { name: 'Après-midi' })).toHaveTextContent('Méditer')
+
+    document.dispatchEvent(new Event('visibilitychange'))
+    await waitFor(() => expect(calls('GET').length).toBe(reads + 2))
+  })
+
   test('« Nouvelle routine » posts what, when, how often and the reminder', async () => {
     const user = setup()
     list = []
@@ -217,8 +268,13 @@ describe('TaskRoutines (MAG-511)', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Nouvelle routine' }))
     const dialog = screen.getByRole('dialog', { name: 'Nouvelle routine' })
-    await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+    // No red on the field: « Enregistrer » simply waits for a title.
+    expect(within(dialog).getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+    expect(within(dialog).getByRole('textbox', { name: /Quoi/ })).not.toHaveAttribute('aria-invalid', 'true')
+    await user.type(within(dialog).getByRole('textbox', { name: /Quoi/ }), '   {Enter}')
+    expect(within(dialog).getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
     expect(calls('POST')).toHaveLength(0)
+    await user.clear(within(dialog).getByRole('textbox', { name: /Quoi/ }))
 
     await user.type(within(dialog).getByRole('textbox', { name: /Quoi/ }), 'Relever les comptes')
     await user.click(within(dialog).getByRole('button', { name: 'À une heure' }))
@@ -344,5 +400,7 @@ describe('routine wording', () => {
   test('the count: the month for a daily rhythm, since the month created for the others', () => {
     expect(countLabel({ recurrence: { kind: 'weekdays' }, monthCount: 0, totalCount: 3, createdAt: '2026-08-03T09:00:00+02:00' })).toBe('ce mois : 0 fois')
     expect(countLabel({ recurrence: { kind: 'monthly', monthDay: 1 }, monthCount: 1, totalCount: 1, createdAt: '2026-01-03T09:00:00+01:00' })).toBe('depuis janvier : 1 fois')
+    // The user's own offset: the month as written, never turned into UTC (still August there).
+    expect(countLabel({ recurrence: { kind: 'weekly', weekday: 1 }, monthCount: 0, totalCount: 4, createdAt: '2026-09-01T00:30:00+02:00' })).toBe('depuis septembre : 4 fois')
   })
 })

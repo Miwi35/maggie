@@ -68,7 +68,6 @@ export const RoutineDialog = ({ open, routine, today, onClose, onSaved }: Routin
   const [monthDay, setMonthDay] = useState(routine?.recurrence.monthDay ?? day.getDate())
   const [remind, setRemind] = useState(routine?.remind ?? false)
   const [active, setActive] = useState(routine?.active ?? true)
-  const [titleError, setTitleError] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -104,10 +103,7 @@ export const RoutineDialog = ({ open, routine, today, onClose, onSaved }: Routin
   }
 
   const save = () => {
-    if (!title.trim()) {
-      setTitleError(true)
-      return
-    }
+    if (!title.trim()) return
     if (anchor === 'time' && !/^\d{2}:\d{2}$/.test(anchorTime)) return
 
     let request: Promise<unknown>
@@ -148,17 +144,13 @@ export const RoutineDialog = ({ open, routine, today, onClose, onSaved }: Routin
           <TextField
             label="Quoi"
             value={title}
-            onChange={(e) => {
-              setTitle(e.target.value)
-              setTitleError(false)
-            }}
+            onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
                 save()
               }
             }}
-            error={titleError}
             required
             fullWidth
             autoFocus
@@ -289,7 +281,8 @@ export const RoutineDialog = ({ open, routine, today, onClose, onSaved }: Routin
           <Button onClick={onClose} disabled={submitting}>
             Annuler
           </Button>
-          <Button onClick={save} variant="contained" disabled={submitting}>
+          {/* No red: « Enregistrer » simply waits for a title. */}
+          <Button onClick={save} variant="contained" disabled={submitting || !title.trim()}>
             Enregistrer
           </Button>
         </DialogActions>

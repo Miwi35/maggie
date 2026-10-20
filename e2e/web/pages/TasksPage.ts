@@ -3,8 +3,8 @@ import type { Locator, Page } from '@playwright/test'
 import { AdminShell } from './AdminShell.js'
 import { ROUTES } from './routes.js'
 
-/** The tabs of the « Tâches » page, by the word the owner reads (MAG-408), « Routines » last (MAG-511). */
-export type TasksTab = "Aujourd'hui" | 'À venir' | 'À faire un jour' | 'Faites' | 'Routines'
+/** The tabs of the « Tâches » page, by the word the owner reads (MAG-408), « Routines » right after « Aujourd'hui » (MAG-511). */
+export type TasksTab = "Aujourd'hui" | 'Routines' | 'À venir' | 'À faire un jour' | 'Faites'
 
 /** The groups of « Routines »: the part of the day for the daily ones, then the rhythm (MAG-511). */
 export type RoutineGroup = 'Matin' | 'Après-midi' | 'Soir' | 'Chaque semaine' | 'Chaque mois'

@@ -88,7 +88,14 @@ export const TaskRoutines = ({ animate = true }: TaskRoutinesProps) => {
   // Each opening mounts a fresh form.
   const [opening, setOpening] = useState(0)
 
-  const today = localDay(new Date())
+  // The routines' « today » is the API's, in the user's time zone: the last of the seven days.
+  const serverToday = (routine: Routine): string => routine.recentDays[routine.recentDays.length - 1]?.date ?? localDay(new Date())
+  // A new routine's default weekday and date: the API's today when a routine carries it.
+  const today = routines.length > 0 ? serverToday(routines[0]) : localDay(new Date())
+
+  // The ticks on their way, by routine: a second click before the answer sends nothing.
+  const inFlight = useRef(new Set<string>())
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
 
   // Only the answer to the last read is drawn; a tick's own answer wins over a read sent before it.
   const request = useRef(0)
@@ -115,15 +122,38 @@ export const TaskRoutines = ({ animate = true }: TaskRoutinesProps) => {
 
   useMercure(ROUTINE_TOPICS, load)
 
+  // A page left open past midnight reads the list again when it comes back: a new day, new ticks.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load()
+    }
+    window.addEventListener('focus', load)
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      window.removeEventListener('focus', load)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [load])
+
+  const settle = (id: string) => {
+    inFlight.current.delete(id)
+    setPending(new Set(inFlight.current))
+  }
+
   const toggle = (routine: Routine) => {
+    if (inFlight.current.has(routine.id)) return
+    inFlight.current.add(routine.id)
+    setPending(new Set(inFlight.current))
     const checked = !routine.checkedToday
-    checkRoutine(routine.id, localDay(new Date()), checked)
+    checkRoutine(routine.id, serverToday(routine), checked)
       .then((updated) => {
         request.current++
         setRoutines((list) => list.map((r) => (r.id === updated.id ? updated : r)))
         setTicked(checked ? routine.id : null)
       })
       .catch((error: Error) => notify(`Erreur : ${error.message}`, { type: 'info' }))
+      .finally(() => settle(routine.id))
   }
 
   const groups = GROUPS.map((group) => ({ ...group, routines: routines.filter((r) => groupOf(r) === group.key) })).filter(
@@ -174,6 +204,7 @@ export const TaskRoutines = ({ animate = true }: TaskRoutinesProps) => {
                   {routine.dueToday ? (
                     <Checkbox
                       checked={routine.checkedToday}
+                      disabled={pending.has(routine.id)}
                       onChange={() => toggle(routine)}
                       icon={<RadioButtonUncheckedIcon />}
                       checkedIcon={

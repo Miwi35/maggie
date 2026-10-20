@@ -36,7 +36,7 @@ import type { TaskCounts, TaskView, ViewTask } from './taskViews'
 const TASK_TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}', '/api/day_reviews/{id}', '/api/rewards/{id}']
 const PAGE_SIZE = 30
 
-/** The four views of the tasks, then the routines (MAG-511), which are not tasks. */
+/** The four views of the tasks, and the routines (MAG-511), which are not tasks. */
 type BoardTab = TaskView | 'routines'
 
 const TABS: Record<TaskView, { label: string; empty: string }> = {
@@ -282,14 +282,12 @@ export const TaskBoard = () => {
       </Typography>
 
       <Tabs value={view} onChange={selectView} variant="scrollable" aria-label="Vues des tâches" sx={{ mb: 2 }}>
-        {TASK_VIEWS.map((name) => (
-          <Tab
-            key={name}
-            value={name}
-            label={tabLabel(name)}
-          />
-        ))}
-        <Tab value="routines" label="Routines" />
+        {/* « Routines » right after « Aujourd'hui », as on the phone (MAG-511). */}
+        {TASK_VIEWS.flatMap((name) => {
+          const tab = <Tab key={name} value={name} label={tabLabel(name)} />
+
+          return name === 'today' ? [tab, <Tab key="routines" value="routines" label="Routines" />] : [tab]
+        })}
       </Tabs>
 
       {view !== 'done' && view !== 'today' && view !== 'routines' && (

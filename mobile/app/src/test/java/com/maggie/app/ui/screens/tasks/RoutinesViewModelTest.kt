@@ -157,7 +157,8 @@ class RoutinesViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() = RoutinesViewModel(repository, taskRepository, feedback, mercureService, authRepository, today = { today })
+    private fun createViewModel(deviceToday: LocalDate = today) =
+        RoutinesViewModel(repository, taskRepository, feedback, mercureService, authRepository, today = { deviceToday })
 
     private fun loaded(): RoutinesViewModel = createViewModel().also { it.refresh() }
 
@@ -273,6 +274,32 @@ class RoutinesViewModelTest {
         assertEquals(3, state.routines.first { it.id == "r1" }.monthCount)
         assertEquals("Refusé", state.message)
         assertTrue(state.pending.isEmpty())
+    }
+
+    @Test
+    fun `the tick is on the API's today, the last of the seven days, not the device's date`() = runTest {
+        // Past midnight on the phone, still the 20th in the user's zone.
+        coEvery { repository.setChecked("r1", today, true) } returns Result.success(water.copy(checkedToday = true))
+        val viewModel = createViewModel(deviceToday = today.plusDays(1)).also { it.refresh() }
+        advanceUntilIdle()
+
+        viewModel.toggleCheck(water)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.setChecked("r1", today, true) }
+        coVerify(exactly = 0) { repository.setChecked("r1", today.plusDays(1), any()) }
+    }
+
+    @Test
+    fun `a new routine takes its weekday and date from the API's today`() = runTest {
+        val viewModel = createViewModel(deviceToday = today.plusDays(1)).also { it.refresh() }
+        advanceUntilIdle()
+
+        viewModel.openNew()
+
+        val draft = viewModel.uiState.value.draft!!
+        assertEquals(2, draft.weekday)
+        assertEquals(20, draft.monthDay)
     }
 
     @Test

@@ -64,6 +64,11 @@ class RoutineTest {
             "depuis janvier : 9 fois",
             routine(recurrence = RoutineRecurrence(RoutineRecurrence.MONTHLY, monthDay = 1), createdAt = "2026-01-31T23:30:00+01:00").totalLabel,
         )
+        // The user's own offset: the month as written, never turned into UTC (still August there).
+        assertEquals(
+            "depuis septembre : 9 fois",
+            routine(recurrence = RoutineRecurrence(RoutineRecurrence.WEEKLY, weekday = 2), createdAt = "2026-09-01T00:30:00+02:00").totalLabel,
+        )
     }
 
     @Test

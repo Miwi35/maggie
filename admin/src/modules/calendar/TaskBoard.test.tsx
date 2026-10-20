@@ -642,10 +642,17 @@ describe('TaskBoard', () => {
       ])
     })
 
-    test('« Routines » is the last tab: it reads the routines, not a view of the tasks (MAG-511)', async () => {
+    test('« Routines » comes right after « Aujourd\'hui »: it reads the routines, not a view of the tasks (MAG-511)', async () => {
       const user = setup()
       render(<TaskBoard />)
       await screen.findByRole('list', { name: 'Mes 5' })
+      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+        "Aujourd'hui (3)",
+        'Routines',
+        'À venir (2)',
+        'À faire un jour (2)',
+        'Faites (1)',
+      ])
 
       await user.click(screen.getByRole('tab', { name: 'Routines' }))
       expect(await screen.findByRole('button', { name: 'Nouvelle routine' })).toBeInTheDocument()
