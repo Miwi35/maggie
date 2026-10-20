@@ -63,6 +63,7 @@ final class RoutineReminders
         foreach ($groups as &$group) {
             usort($group['routines'], static fn (Routine $a, Routine $b): int => $a->getTitle() <=> $b->getTitle());
         }
+        unset($group);
 
         return array_values($groups);
     }
