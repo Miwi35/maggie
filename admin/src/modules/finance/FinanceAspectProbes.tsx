@@ -6,6 +6,7 @@ import { useCushionStatus } from './useCushionStatus'
 import { useFinanceDashboard } from './useFinanceDashboard'
 import { useMonthlyReview } from './useMonthlyReview'
 import { fetchPeerDebtSummary } from './peerDebtsApi'
+import { fetchProjects } from './projectsApi'
 import { useRecognisedToControl } from './useRecognisedToControl'
 import { useRecurringOverview } from './useRecurringOperations'
 import { useSavingsAdvances } from './useSavingsAdvances'
@@ -84,6 +85,18 @@ const usePeerDebtsProbe: Probe = () => {
   return open
 }
 
+const useProjectsProbe: Probe = () => {
+  const [any, setAny] = useState<boolean | undefined>(undefined)
+
+  useEffect(() => {
+    fetchProjects()
+      .then((projects) => setAny(projects.length > 0))
+      .catch(() => setAny(false))
+  }, [])
+
+  return any
+}
+
 const useOutlookProbe: Probe = () => {
   const { outlook, loading, error } = useTreasuryOutlook()
 
@@ -120,6 +133,7 @@ const PROBES: Record<string, Probe> = {
   advances: useAdvancesProbe,
   'peer-debts': usePeerDebtsProbe,
   outlook: useOutlookProbe,
+  projects: useProjectsProbe,
   loans: useLoansProbe,
   independence: useIndependenceProbe,
   banks: useBanksProbe,

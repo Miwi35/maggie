@@ -50,6 +50,7 @@ import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.data.repository.SavingsAdvancesRepository
 import com.maggie.app.data.repository.LoanRepository
+import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.UpcomingRepository
 import com.maggie.app.data.repository.MonthBalanceRepository
@@ -88,6 +89,7 @@ import com.maggie.app.ui.screens.finance.CushionViewModel
 import com.maggie.app.ui.screens.finance.PeerDebtsViewModel
 import com.maggie.app.ui.screens.finance.SavingsAdvancesViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
+import com.maggie.app.ui.screens.finance.ProjectViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.UpcomingViewModel
 import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
@@ -303,6 +305,7 @@ class MaggieApp : Application() {
             single { TreasuryRepository(get()) }
             single { SavingsAdvancesRepository(get()) }
             single { LoanRepository(get()) }
+            single { ProjectRepository(get()) }
             single { MonthlyReviewRepository(get()) }
             single { ReviewRepository(get()) }
             single { FinanceDashboardRepository(get()) }
@@ -380,6 +383,7 @@ class MaggieApp : Application() {
             viewModel { SavingsAdvancesViewModel(get(), get()) }
             viewModel { PeerDebtsViewModel(get()) }
             viewModel { LoanViewModel(get()) }
+            viewModel { ProjectViewModel(get(), get(), get()) }
             viewModel { MonthlyReviewViewModel(get()) }
             viewModel { ReviewActivityViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { PeriodReviewViewModel(get()) }
@@ -387,7 +391,7 @@ class MaggieApp : Application() {
             viewModel { UpcomingViewModel(get(), get(), get()) }
             viewModel { MonthBalanceViewModel(get(), get(), get()) }
             viewModel { TreasuryViewModel(get(), get(), get()) }
-            viewModel { FinanceSummaryViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+            viewModel { FinanceSummaryViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
             viewModel { IndependenceViewModel(get()) }
             viewModel { (accountId: String) -> TransactionViewModel(get(), get(), accountId, get(), get(), get(), get(), get(), get()) }
         }

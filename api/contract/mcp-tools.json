@@ -2246,6 +2246,98 @@
         },
         "description": "List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with manage_ingredients instead — they are products too, so they show up in the list. To search by name use search_products. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. Season: seasonMonths lists the months (1 = January … 12 = December) a fruit or vegetable is in season in metropolitan France; it is pre-filled from the seasonality calendar on create when the name is known, and inSeason says whether the product is in season this month (null: no season). To empty an optional field on update, list its name in clear (defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths)."
     },
+    "manage_projects": {
+        "name": "manage_projects",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "projectId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "amountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "currency": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "wellbeing": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "dateMode": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "targetOn": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "dependsOn": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                },
+                "note": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "ids": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                },
+                "clear": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update, delete or reorder the user's projects — the things they save for (a trip, a move, a sofa). A project has a name, amountCents (what it costs, integer cents, > 0), currency (3-letter code, EUR by default), wellbeing (how much it counts for the user: essential = score 4, high = 3, medium = 2 (default), comfort = 1; read back as wellbeingScore), dateMode and targetOn (ISO date YYYY-MM-DD): none = no date, movable, the planning will place it (targetOn must be absent); fixed = a locked date the user cannot move (a wedding, moving house); deadline = done at the latest on targetOn. fixed and deadline require targetOn. dependsOn is the list of the user's project ids this one waits for (it replaces the whole list; a project cannot depend on itself, nor close a cycle A → B → A). note is free text. position is the priority order, 0 = highest priority: a new project goes last, only reorder changes it, with ids = EVERY project id of the user in the new order (a partial list is refused with the current order). unmetDependencies lists the ids of the dependencies whose date this project does not respect: both are dated and this one comes before the one it waits for. Nothing is ever deduced: create needs name and amountCents; a dateMode fixed or deadline needs targetOn, a targetOn needs a dateMode fixed or deadline; on update only provided fields change, and switching a dated project to none needs targetOn in clear. A refused request answers error plus current (what was given, or the project as it is now). clear empties note, dependsOn or targetOn."
+    },
     "manage_recurring_groceries": {
         "name": "manage_recurring_groceries",
         "inputSchema": {

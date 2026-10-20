@@ -1,0 +1,18 @@
+# « Oui, le canapé d'abord » after 91-projects-reorder-read.yaml (MAG-519): `manage_projects`
+# reorder with every project id, the Canapé first. `history_matches` captures both ids from the
+# replayed list result, in the seed's order (api/fixtures/e2e/50-finance.yaml: Déménagement at
+# position 0, Canapé at 1) — by position, not by name: the API's JSON escapes the accents.
+name: projects-reorder
+description: Move the Canapé to the top of the projects' priority order.
+
+match:
+  user_contains: "oui, le canapé d'abord"
+  history_matches: 'projects\W+id\W+([0-9A-HJKMNP-TV-Z]{26})[^}]*\}\W+id\W+([0-9A-HJKMNP-TV-Z]{26})'
+
+turns:
+  - tools:
+      - name: manage_projects
+        input:
+          action: reorder
+          ids: ["\\2", "\\1"]
+  - text: "C'est fait : le Canapé passe en premier, le Déménagement en second."

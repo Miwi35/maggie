@@ -29,6 +29,7 @@ import { EnvelopeCreate } from './EnvelopeCreate'
 import { EnvelopeEdit } from './EnvelopeEdit'
 import { EnvelopeList } from './EnvelopeList'
 import { PeerDebtsPage } from './PeerDebtsPage'
+import { ProjectsPage } from './ProjectsPage'
 import { RecognisedToControlPage } from './RecognisedToControlPage'
 import { ReviewActivityPage } from './ReviewActivityPage'
 import { REVIEW_ACTIVITY_PATH } from './reviewActivity'
@@ -51,6 +52,7 @@ export const financeResources = (
       <Route path="/finance/to-control" element={<RecognisedToControlPage />} />
       <Route path="/finance/import" element={<StatementImportPage />} />
       <Route path="/finance/treasury" element={<TreasuryPage />} />
+      <Route path="/finance/projects" element={<ProjectsPage />} />
       <Route path="/finance/cushion" element={<CushionPage />} />
       <Route path="/finance/savings-advances" element={<SavingsAdvancesPage />} />
       <Route path="/finance/monthly-review" element={<MonthlyReviewPage />} />

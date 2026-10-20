@@ -21,8 +21,9 @@ import { AGENT_STREAMS } from './agentTopics'
 
 // Matches both the resource-relative form the call sites are meant to use and
 // the user-scoped form they must not: the pre-scoped check below is only worth
-// making if a pre-scoped literal can actually be matched.
-const TOPIC_LITERAL = /'((?:\/users\/[^']*)?\/api\/[a-z_]+\/\{id\})'/g
+// making if a pre-scoped literal can actually be matched. A resource may sit
+// under a path of its own (`/api/finance/projects/{id}`, MAG-519).
+const TOPIC_LITERAL = /'((?:\/users\/[^']*)?\/api(?:\/[a-z_]+)+\/\{id\})'/g
 
 /**
  * A service's contract directory, wherever this suite happens to be running

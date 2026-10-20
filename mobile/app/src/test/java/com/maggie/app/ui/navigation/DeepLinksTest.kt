@@ -52,6 +52,7 @@ class DeepLinksTest {
             Screen.Treasury,
             Screen.SavingsAdvances,
             Screen.LoanList,
+            Screen.ProjectList,
             Screen.MonthlyReview,
             Screen.RecurringOperations,
         ).map { it.route }

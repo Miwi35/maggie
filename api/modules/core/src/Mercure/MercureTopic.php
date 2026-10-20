@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Mercure;
 
+use Maggie\Core\Mercure\Attribute\MercureCollection;
+
 /**
  * The one place that knows how a Mercure topic is spelled.
  *
@@ -32,15 +34,21 @@ namespace Maggie\Core\Mercure;
 final class MercureTopic
 {
     /**
-     * The collection topic for an entity: /api/grocery_lists.
+     * The collection topic for an entity: /api/grocery_lists, or the path its
+     * {@see MercureCollection} names when it is served under one of its own.
      *
      * @param class-string|object $entity
      */
     public static function collection(string|object $entity): string
     {
-        $shortName = (new \ReflectionClass($entity))->getShortName();
+        $class = new \ReflectionClass($entity);
 
-        return self::collectionFromShortName($shortName);
+        $declared = $class->getAttributes(MercureCollection::class);
+        if ([] !== $declared) {
+            return $declared[0]->newInstance()->path;
+        }
+
+        return self::collectionFromShortName($class->getShortName());
     }
 
     public static function collectionFromShortName(string $shortName): string

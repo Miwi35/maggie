@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.MonthlyReview
+import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.RecognisedToControl
 import com.maggie.app.data.model.SavingsAdvances
 import com.maggie.app.data.model.ToSortPile
@@ -23,6 +24,7 @@ import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.LoanRepository
+import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.MonthlyReviewRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.SavingsAdvancesRepository
@@ -45,6 +47,7 @@ enum class SummaryBlock {
     MONTHLY_REVIEW,
     RULES,
     RECURRING_OPERATIONS,
+    PROJECTS,
     LOANS,
     INDEPENDENCE,
     BANKS,
@@ -84,6 +87,7 @@ class FinanceSummaryViewModel(
     private val ruleRepository: CategorizationRuleRepository,
     private val recurringRepository: RecurringOperationRepository,
     private val loanRepository: LoanRepository,
+    private val projectRepository: ProjectRepository,
     private val dashboardRepository: FinanceDashboardRepository,
     private val bankRepository: BankConnectionRepository,
     private val categoryRepository: CategoryRepository,
@@ -122,6 +126,7 @@ class FinanceSummaryViewModel(
                 extra = if (it.totals.activeCount > 0) "${formatCents(it.totals.monthlyCostCents)} par mois" else null,
             )
         }
+        SummaryBlock.PROJECTS -> projectRepository.getProjects().toBlock(::projectsBlock)
         SummaryBlock.LOANS -> loanRepository.getLoans().toBlock {
             countBlock(
                 it.size, "prêt", "prêts", "Aucun prêt",
@@ -216,6 +221,21 @@ internal fun monthlyReviewBlock(review: MonthlyReview): BlockState = when {
     )
     review.ratedCount > 0 -> BlockState.Ready(listOf("Revue du mois terminée"), hasData = true)
     else -> BlockState.Ready(listOf("Rien à revoir ce mois-ci"))
+}
+
+/** « 2 projets », the first in priority order, and a warning when one waits for a project placed after it. */
+internal fun projectsBlock(projects: List<Project>): BlockState {
+    if (projects.isEmpty()) return BlockState.Ready(listOf("Aucun projet"))
+    val unmet = projects.count { it.unmetDependencies.isNotEmpty() }
+    return BlockState.Ready(
+        listOfNotNull(
+            "${projects.size} projet${if (projects.size > 1) "s" else ""}",
+            "En premier : ${projects.first().name}",
+            if (unmet > 0) "$unmet dépendance${if (unmet > 1) "s" else ""} non respectée${if (unmet > 1) "s" else ""}" else null,
+        ),
+        needsAttention = unmet > 0,
+        hasData = true,
+    )
 }
 
 internal fun countBlock(count: Int, one: String, many: String, none: String, extra: String? = null): BlockState =

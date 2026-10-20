@@ -53,6 +53,7 @@ object DeepLinks {
         Screen.SavingsAdvances.route to listOf("$SCHEME://finance/savings-advances"),
         Screen.PeerDebts.route to listOf("$SCHEME://finance/peer-debts"),
         Screen.LoanList.route to listOf("$SCHEME://finance/loans"),
+        Screen.ProjectList.route to listOf("$SCHEME://finance/projects"),
         Screen.MonthlyReview.route to listOf("$SCHEME://finance/review"),
         Screen.FinanceReviewActivity.route to listOf("$SCHEME://finance/review/activity"),
         Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}"),

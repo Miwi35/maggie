@@ -25,6 +25,8 @@ import com.maggie.app.ui.screens.finance.LoanListContent
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.MonthlyReviewContent
 import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
+import com.maggie.app.ui.screens.finance.ProjectListContent
+import com.maggie.app.ui.screens.finance.ProjectViewModel
 import com.maggie.app.ui.screens.finance.RecognisedToControlContent
 import com.maggie.app.ui.screens.finance.RecognisedToControlViewModel
 import com.maggie.app.ui.screens.finance.RecurringOperationListContent
@@ -58,6 +60,7 @@ internal class FinanceAspectHooks(
     val openSuggestions: () -> Unit,
     val openRules: () -> Unit,
     val declareRente: () -> Unit,
+    val openProjectForm: (projectId: String?) -> Unit,
     val recurringSeed: Transaction?,
     val onSeedConsumed: () -> Unit,
     val onBackToTransaction: () -> Unit,
@@ -135,6 +138,7 @@ private fun FinanceAspectBody(
         "outlook" -> TreasuryContent(koinViewModel<TreasuryViewModel>(), hooks.prepareAdvance, modifier)
         "cushion" -> CushionContent(koinViewModel<CushionViewModel>(), modifier)
         "advances" -> SavingsAdvancesContent(koinViewModel<SavingsAdvancesViewModel>(), modifier)
+        "projects" -> ProjectListContent(koinViewModel<ProjectViewModel>(), hooks.openProjectForm, modifier)
         "loans" -> LoanListContent(koinViewModel<LoanViewModel>(), modifier)
         "independence" -> IndependenceContent(koinViewModel<IndependenceViewModel>(), hooks.declareRente, modifier)
         "banks" -> BankConnectionListContent(koinViewModel<BankConnectionViewModel>(), modifier)

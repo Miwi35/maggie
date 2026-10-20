@@ -5,6 +5,7 @@ import { euros } from '../helpers/money.js'
 import { FinanceBanksPage } from '../pages/FinanceBanksPage.js'
 import { FinanceLoansPage } from '../pages/FinanceLoansPage.js'
 import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
+import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
 import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
 import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
 
@@ -419,11 +420,12 @@ test('Finance › Configuration: one tab per aspect, the banks tab is the banks 
 })
 
 /**
- * Given a loan declared and rentes measured, When I open Finance ›
- * Planification, Then I see the loan and its timeline without another click;
- * When I click the Indépendance tab, Then the counter is shown (MAG-518).
+ * Given projects, a loan declared and rentes measured, When I open Finance ›
+ * Planification, Then it opens on the projects, its first tab (MAG-519);
+ * When I click the Prêts tab, Then I see the loan and its timeline; When I
+ * click the Indépendance tab, Then the counter is shown (MAG-518).
  */
-test('Finance › Planification opens on the loans with their timeline, the Indépendance tab shows the counter', async ({
+test('Finance › Planification opens on the projects, the Prêts tab shows the loans, the Indépendance tab the counter', async ({
   page,
 }) => {
   const overview = new FinanceOverviewPage(page)
@@ -431,10 +433,15 @@ test('Finance › Planification opens on the loans with their timeline, the Ind�
 
   await overview.navigateTo('Planification', 'Finance')
 
+  const projects = new FinanceProjectsPage(page)
+  await expect(overview.content.getByRole('tab', { name: 'Projets' })).toHaveAttribute('aria-selected', 'true')
+  await expect(projects.row('Déménagement')).toBeVisible()
+
+  await overview.content.getByRole('tab', { name: 'Prêts' }).click()
+
   const loans = new FinanceLoansPage(page)
   await expect(loans.timeline).toBeVisible()
   await expect(loans.row('Crédit voiture')).toBeVisible()
-  await expect(overview.content.getByRole('tab', { name: 'Prêts' })).toHaveAttribute('aria-selected', 'true')
 
   await overview.content.getByRole('tab', { name: 'Indépendance' }).click()
 
@@ -442,7 +449,7 @@ test('Finance › Planification opens on the loans with their timeline, the Ind�
   await expect(overview.content.getByTestId('independence-card')).toContainText('60 %')
   await expect(loans.timeline).toHaveCount(0)
 
-  // The tab is in the URL: the back button returns to the first one.
+  // The tab is in the URL: the back button returns to the loans.
   await page.goBack()
   await expect(loans.timeline).toBeVisible()
 })

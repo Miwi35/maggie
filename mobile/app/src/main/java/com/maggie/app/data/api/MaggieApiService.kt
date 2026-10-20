@@ -106,6 +106,7 @@ import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.UpcomingProjection
 import com.maggie.app.data.model.MonthBalance
 import com.maggie.app.data.model.Loan
+import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
@@ -520,6 +521,33 @@ data class LoanCreateRequest(
     val lender: String? = null,
     val priority: Int = 0,
     val currency: String = "EUR",
+)
+
+/**
+ * A project as the form writes it, for `POST` and the merge-patch `PATCH` alike (MAG-519). No field
+ * has a default, so every one is sent — a project moved back to « Sans date » must say
+ * `targetOn: null`, which a default would leave out of the body.
+ */
+@Serializable
+data class ProjectWriteRequest(
+    val name: String,
+    val amountCents: Int,
+    val wellbeing: String,
+    val dateMode: String,
+    val targetOn: String?,
+    /** IRIs: `/api/finance/projects/{id}`. */
+    val dependsOn: List<String>,
+    val note: String?,
+)
+
+/** Every project id, in the new order: the API refuses a partial list. */
+@Serializable
+data class ProjectReorderRequest(val ids: List<String>)
+
+@Serializable
+data class ProjectReorderResult(
+    val success: Boolean = false,
+    val projects: List<Project> = emptyList(),
 )
 
 @Serializable
@@ -2020,6 +2048,43 @@ class MaggieApiService(
         return client.get("$baseUrl/api/finance/debt-timeline") {
             url.parameters.append("months", months.toString())
         }.body()
+    }
+
+    // Finance — Projects (MAG-519), in the owner's priority order
+    suspend fun getProjects(): List<Project> {
+        return client.get("$baseUrl/api/finance/projects") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.orRefusal().body<ApiCollection<Project>>().member
+    }
+
+    suspend fun createProject(request: ProjectWriteRequest): Project {
+        return client.post("$baseUrl/api/finance/projects") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun updateProject(id: String, request: ProjectWriteRequest): Project {
+        return client.patch("$baseUrl/api/finance/projects/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun deleteProject(id: String) {
+        client.delete("$baseUrl/api/finance/projects/$id").orRefusal()
+    }
+
+    /** The whole list in its new order; the answer is the list as stored, positions renumbered. */
+    suspend fun reorderProjects(ids: List<String>): ProjectReorderResult {
+        return client.post("$baseUrl/api/finance/projects/reorder") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(ProjectReorderRequest(ids))
+        }.orRefusal().body()
     }
 
     // Finance — Dashboard

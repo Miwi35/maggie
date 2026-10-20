@@ -9,6 +9,7 @@ import com.maggie.app.data.model.IndependenceCounter
 import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.MonthlyReview
+import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.SalaryDelay
 import com.maggie.app.data.model.SavingsAdvance
 import com.maggie.app.data.model.SavingsAdvances
@@ -22,6 +23,7 @@ import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.LoanRepository
+import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.MonthlyReviewRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.SavingsAdvancesRepository
@@ -57,6 +59,7 @@ class FinanceSummaryViewModelTest {
     private val rules = mockk<CategorizationRuleRepository>()
     private val recurring = mockk<RecurringOperationRepository>()
     private val loans = mockk<LoanRepository>()
+    private val projects = mockk<ProjectRepository>()
     private val dashboard = mockk<FinanceDashboardRepository>()
     private val banks = mockk<BankConnectionRepository>()
     private val categories = mockk<CategoryRepository>()
@@ -91,7 +94,7 @@ class FinanceSummaryViewModelTest {
     }
 
     private fun buildViewModel() = FinanceSummaryViewModel(
-        cushion, advances, treasury, review, rules, recurring, loans, dashboard, banks, categories, transactions,
+        cushion, advances, treasury, review, rules, recurring, loans, projects, dashboard, banks, categories, transactions,
         today = { LocalDate.of(2026, 10, 16) },
     )
 
@@ -154,6 +157,24 @@ class FinanceSummaryViewModelTest {
         val state = viewModel.blocks.value[SummaryBlock.LOANS] as BlockState.Ready
         assertEquals("2 prêts", state.lines.first())
         assertTrue(state.lines[1].endsWith("de mensualités"))
+    }
+
+    @Test
+    fun `the projects block counts them, names the first and flags a dependency placed after (MAG-519)`() = runTest {
+        coEvery { projects.getProjects() } returns Result.success(
+            listOf(
+                Project(id = "p1", name = "Déménagement", position = 0),
+                Project(id = "p2", name = "Canapé", position = 1, unmetDependencies = listOf("p3")),
+            ),
+        )
+        val viewModel = buildViewModel()
+
+        viewModel.load(listOf(SummaryBlock.PROJECTS))
+        advanceUntilIdle()
+
+        val state = viewModel.blocks.value[SummaryBlock.PROJECTS] as BlockState.Ready
+        assertEquals(listOf("2 projets", "En premier : Déménagement", "1 dépendance non respectée"), state.lines)
+        assertTrue(state.needsAttention)
     }
 
     @Test

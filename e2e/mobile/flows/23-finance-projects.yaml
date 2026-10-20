@@ -1,0 +1,125 @@
+appId: com.maggie.app.e2e
+name: 23-finance-projects
+tags:
+  - finance
+---
+# Les projets de Planification, from the phone (MAG-519, extends MAG-102).
+#
+# Étant donné « Déménagement » (position 0) et « Canapé » (position 1), tels que le seed les écrit
+# Quand je fais glisser « Canapé » en haut de la liste
+# Alors l'ordre change, et il reste après réouverture de l'écran
+# Étant donné « Canapé » sans date
+# Quand je lui donne une date limite
+# Alors la liste l'affiche
+#
+# The drag goes through the row's handle, which drags at once: Maestro's swipe moves from its first
+# millisecond, so it cannot hold still for the long press the row itself waits for (same gesture
+# library, same reorder; the long press is the handle's twin on the whole row). The reorder is a
+# custom controller no contract records, so `scripts/projects-api.js` reads the order the API stored.
+# The date picker opens on today: the date itself is not asserted, only « Date limite ».
+#
+# What is not here: the badges, the dependency line and its warning, the empty state, a refused
+# reorder put back, the form's refusals (`ProjectListScreenTest`, `ProjectViewModelTest`,
+# `ProjectDraftTest`), and the admin's side of the same API.
+#
+# The seed is put back before and after: a run that failed half-way is taken as it was left.
+
+- runScript:
+    file: ../scripts/projects-api.js
+    env:
+      ACTION: reset
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/23-finance-projects.yaml
+      e2e_email: e2e@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/projects"
+- extendedWaitUntil:
+    visible:
+      id: "projects"
+    timeout: 30000
+# A row is one node for accessibility: its texts are read together, hence the `.*`.
+- extendedWaitUntil:
+    visible: ".*1. Déménagement.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: ".*2. Canapé.*"
+      below: ".*1. Déménagement.*"
+    timeout: 10000
+
+# ---------------------------------------------------------------------------
+# « Canapé » dragged to the top: the order changes on screen, then on the server.
+# ---------------------------------------------------------------------------
+- swipe:
+    from:
+      text: "Déplacer Canapé"
+    direction: UP
+    duration: 2000
+- extendedWaitUntil:
+    visible:
+      text: ".*2. Déménagement.*"
+      below: ".*1. Canapé.*"
+    timeout: 10000
+- runScript:
+    file: ../scripts/projects-api.js
+    env:
+      ACTION: expect-order
+      ORDER: Canapé|Déménagement
+
+# Opened again: the list is read from the server, not from the screen that moved it.
+- openLink: "maggie-e2e://finance"
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_ring_week"
+    timeout: 30000
+- openLink: "maggie-e2e://finance/projects"
+- extendedWaitUntil:
+    visible:
+      text: ".*2. Déménagement.*"
+      below: ".*1. Canapé.*"
+    timeout: 30000
+
+# ---------------------------------------------------------------------------
+# « Canapé » gets a date limite in the full-screen form, and the list shows it.
+# ---------------------------------------------------------------------------
+- tapOn: ".*1. Canapé.*"
+- extendedWaitUntil:
+    visible:
+      id: "project_form"
+    timeout: 10000
+- tapOn:
+    id: "project_date_mode_deadline"
+- extendedWaitUntil:
+    visible:
+      id: "project_target_on"
+    timeout: 10000
+- tapOn:
+    id: "project_target_on"
+- tapOn:
+    id: "picker_confirm"
+- tapOn:
+    id: "project_save"
+- extendedWaitUntil:
+    visible:
+      id: "projects"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*Date limite · .*"
+    timeout: 20000
+- runScript:
+    file: ../scripts/projects-api.js
+    env:
+      ACTION: expect-deadline
+
+# Left as the seed wrote it.
+- runScript:
+    file: ../scripts/projects-api.js
+    env:
+      ACTION: reset
