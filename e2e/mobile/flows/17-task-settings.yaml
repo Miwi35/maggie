@@ -95,11 +95,10 @@ tags:
     visible:
       id: "picker_confirm"
     timeout: 20000
-# 22 is on the dial's inner ring, which Material 3 leaves out of the semantics tree (only
-# « 0 heures » … « 11 heures » are there): tapped at its place on the CI phone's dial, the
-# same angle as 10, closer to the centre.
+# A dial hour is labelled « 22 heures » with a no-break space, which a plain space in the
+# regex does not match: `\W` does. The inner ring (12 to 23) is in the tree like the outer.
 - tapOn:
-    point: "35%,51%"
+    text: "22\\Wheures"
 - tapOn:
     id: "picker_confirm"
 # The tag is on the button, its hour on the Text inside it: matched as its child.
@@ -117,7 +116,7 @@ tags:
       id: "picker_confirm"
     timeout: 20000
 - tapOn:
-    text: "0?7( .*)?"
+    text: "7\\Wheures"
 - tapOn:
     id: "picker_confirm"
 - extendedWaitUntil:
