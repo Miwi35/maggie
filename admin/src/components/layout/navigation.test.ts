@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'vitest'
-import { FINANCE_DASHBOARD_PATH, FINANCE_MENUS, NAVIGATION, financeMenuOf, financeSummaryPath, resolveTrail } from './navigation'
+import {
+  FINANCE_DASHBOARD_PATH,
+  FINANCE_MENUS,
+  NAVIGATION,
+  financeAspectPath,
+  financeMenuOf,
+  financeSummaryPath,
+  resolveTrail,
+} from './navigation'
 
 const labels = (path: string) => resolveTrail(path).map((crumb) => crumb.label)
 
@@ -87,6 +95,22 @@ describe('resolveTrail on the Finance menus', () => {
 
   test('an unknown menu has no trail', () => {
     expect(resolveTrail('/finance/summary/nowhere')).toEqual([])
+    expect(resolveTrail('/finance/summary/planning/nowhere')).toEqual([])
+  })
+
+  test('a tab of a menu is Finance › menu › aspect, and the sidebar keeps the menu lit', () => {
+    expect(financeAspectPath('planning', 'independence')).toBe('/finance/summary/planning/independence')
+    expect(labels('/finance/summary/planning/independence')).toEqual(['Finance', 'Planification', 'Indépendance'])
+    expect(resolveTrail('/finance/summary/planning/loans')[1].to).toBe('/finance/summary/planning')
+    expect(financeMenuOf('/finance/summary/treasury/cushion')).toBe('treasury')
+  })
+
+  test('every aspect of every menu has a tab address with a trail', () => {
+    for (const menu of FINANCE_MENUS) {
+      for (const aspect of menu.aspects) {
+        expect(labels(financeAspectPath(menu.key, aspect.id))).toEqual(['Finance', menu.label, aspect.label])
+      }
+    }
   })
 
   test('the detail of a record keeps its menu', () => {

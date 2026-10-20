@@ -3,6 +3,7 @@ import { test, expect, seedAnchorDate, seedDate } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { euros } from '../helpers/money.js'
 import { FinanceBanksPage } from '../pages/FinanceBanksPage.js'
+import { FinanceLoansPage } from '../pages/FinanceLoansPage.js'
 import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
 import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
 import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
@@ -396,24 +397,52 @@ test.describe('what is to do', () => {
 })
 
 /**
- * The seven Finance menus (MAG-427, extends MAG-102).
+ * The seven Finance menus (MAG-427, MAG-518, extends MAG-102).
  *
- * Finance › Configuration opens a summary page — a block for the banks, one for
- * the categories — and the banks block opens the banks page. The menu is never
- * a list of links to screens.
+ * A menu page is the content of its aspects, one tab each — never a summary and
+ * never a list of links. Configuration holds two tabs, and the banks tab is the
+ * banks page itself.
  */
-test('Finance › Configuration › Banques: the menu opens a summary, its block opens the banks page', async ({
-  page,
-}) => {
+test('Finance › Configuration: one tab per aspect, the banks tab is the banks page', async ({ page }) => {
   const overview = new FinanceOverviewPage(page)
   await overview.open()
 
   await overview.navigateTo('Configuration', 'Finance')
 
-  await expect(overview.content.getByTestId('summary-block')).toHaveCount(2)
-  await expect(overview.content.getByRole('link', { name: 'Catégories' })).toBeVisible()
+  await expect(overview.content.getByRole('tab')).toHaveText(['Banques', 'Catégories'])
+  await expect(overview.content.getByTestId('summary-block')).toHaveCount(0)
 
-  await overview.content.getByRole('link', { name: 'Banques' }).click()
+  await overview.content.getByRole('tab', { name: 'Banques' }).click()
 
+  await expect(page).toHaveURL(/#\/finance\/summary\/settings\/banks$/)
   await expect(new FinanceBanksPage(page).connectionsCard).toBeVisible()
+})
+
+/**
+ * Given a loan declared and rentes measured, When I open Finance ›
+ * Planification, Then I see the loan and its timeline without another click;
+ * When I click the Indépendance tab, Then the counter is shown (MAG-518).
+ */
+test('Finance › Planification opens on the loans with their timeline, the Indépendance tab shows the counter', async ({
+  page,
+}) => {
+  const overview = new FinanceOverviewPage(page)
+  await overview.open()
+
+  await overview.navigateTo('Planification', 'Finance')
+
+  const loans = new FinanceLoansPage(page)
+  await expect(loans.timeline).toBeVisible()
+  await expect(loans.row('Crédit voiture')).toBeVisible()
+  await expect(overview.content.getByRole('tab', { name: 'Prêts' })).toHaveAttribute('aria-selected', 'true')
+
+  await overview.content.getByRole('tab', { name: 'Indépendance' }).click()
+
+  await expect(page).toHaveURL(/#\/finance\/summary\/planning\/independence$/)
+  await expect(overview.content.getByTestId('independence-card')).toContainText('60 %')
+  await expect(loans.timeline).toHaveCount(0)
+
+  // The tab is in the URL: the back button returns to the first one.
+  await page.goBack()
+  await expect(loans.timeline).toBeVisible()
 })

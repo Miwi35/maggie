@@ -44,7 +44,7 @@ export const financeResources = (
       <Route path="/accounts/:id/transactions" element={<AccountTransactionsView />} />
       <Route path="/finance/dashboard" element={<FinanceDashboardPage />} />
       <Route path="/finance/dashboard/current" element={<FinanceDashboardPage initialTab="current" />} />
-      <Route path="/finance/summary/:key" element={<FinanceSummaryPage />} />
+      <Route path="/finance/summary/:key/:aspect?" element={<FinanceSummaryPage />} />
       <Route path="/finance/banks" element={<BankConnectionsPage />} />
       <Route path="/finance/to-sort" element={<ToSortPage />} />
       <Route path="/finance/peer-debts" element={<PeerDebtsPage />} />
