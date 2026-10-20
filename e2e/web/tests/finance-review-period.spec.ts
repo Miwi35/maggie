@@ -14,7 +14,7 @@ import { FinanceReviewActivityPage } from '../pages/FinanceReviewActivityPage.js
  */
 
 interface PlanCategory {
-  name: string
+  categoryName: string
   envelopeCents: number | null
 }
 
@@ -66,7 +66,7 @@ test('the review of a quarter plans the next one in one gesture', async ({ perio
     const res = await api.get(planUrl, { headers: json })
     expect(res.status(), await res.text()).toBe(200)
 
-    return ((await res.json()) as Plan).categories.find((c) => c.name === 'Loisirs')?.envelopeCents ?? null
+    return ((await res.json()) as Plan).categories.find((c) => c.categoryName === 'Loisirs')?.envelopeCents ?? null
   }
   const before = await read()
 
@@ -88,7 +88,8 @@ test('the review of a quarter plans the next one in one gesture', async ({ perio
   // When I walk the review of the quarter to its planning
   const activity = new FinanceReviewActivityPage(page)
   await activity.open()
-  await expect(activity.root).toContainText('Revue de fin de trimestre')
+  await expect(activity.root.locator('[data-testid^="review-segment-"]')).toHaveCount(7)
+  await expect(activity.root.getByTestId('review-segment-period_plan')).toBeVisible()
   for (let step = 0; step < 8; step++) {
     if ((await activity.root.getAttribute('data-step')) === 'period_balance') break
     await activity.next.click()
