@@ -21,7 +21,7 @@ class ProjectRepository extends ServiceEntityRepository
     /** @return list<Project> in priority order, 0 first */
     public function findByUser(User|string $user): array
     {
-        return array_values($this->findBy(['user' => $user], ['position' => 'ASC']));
+        return $this->findBy(['user' => $user], ['position' => 'ASC']);
     }
 
     /** The user's project, or null — also for an id that is not a ULID. */

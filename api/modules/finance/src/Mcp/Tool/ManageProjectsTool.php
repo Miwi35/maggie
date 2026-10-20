@@ -111,7 +111,7 @@ class ManageProjectsTool
                 wellbeing: $wellbeing ?? 'medium',
                 dateMode: $dateMode ?? 'none',
                 targetOn: $targetOn,
-                dependsOn: array_values($dependsOn ?? []),
+                dependsOn: $dependsOn ?? [],
                 note: $note,
             ))->last(HandledStamp::class)?->getResult();
         } catch (HandlerFailedException $e) {
@@ -150,7 +150,7 @@ class ManageProjectsTool
                 wellbeing: $wellbeing,
                 dateMode: $dateMode,
                 targetOn: $targetOn,
-                dependsOn: null === $dependsOn ? null : array_values($dependsOn),
+                dependsOn: $dependsOn,
                 note: $note,
                 clearFields: array_values(array_intersect($clear ?? [], UpdateProjectCommand::CLEARABLE)),
             ))->last(HandledStamp::class)?->getResult();
@@ -184,7 +184,7 @@ class ManageProjectsTool
             $this->projectRepository->findByUser($user),
         );
 
-        if (null === $ids || !array_is_list($ids) || [] !== array_filter($ids, static fn (mixed $id): bool => !\is_string($id))) {
+        if (null === $ids) {
             return self::json(['error' => 'ids is required for reorder: every project id of the user, in the new order.', 'current' => $current]);
         }
 
