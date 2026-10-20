@@ -2,6 +2,7 @@
 
 namespace Maggie\Finance\Tests\Api;
 
+use ApiPlatform\Metadata\Resource\Factory\ResourceMetadataCollectionFactoryInterface;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
@@ -307,6 +308,37 @@ class ProjectApiTest extends WebTestCase
 
         self::assertSame('2027-08-31', $members[0]['targetOn']);
         self::assertSame('deadline', $members[0]['dateMode']);
+    }
+
+    /** The admin reads every project in one answer: past the 30 of a page, none is lost. */
+    public function testPaginationFalseServesEveryProjectInOneAnswer(): void
+    {
+        $em = $this->em();
+        $user = $em->find(User::class, $this->getFixture('test_user')->getId());
+        \assert($user instanceof User);
+        for ($i = 3; $i < 35; ++$i) {
+            $em->persist((new Project())->setName("Projet {$i}")->setAmountCents(1000)->setPosition($i)->setUser($user));
+        }
+        $em->flush();
+        $this->login();
+
+        $this->send('GET', '/api/finance/projects');
+        self::assertCount(30, $this->response()['member']);
+
+        $this->send('GET', '/api/finance/projects?pagination=false');
+
+        self::assertResponseIsSuccessful();
+        $members = $this->response()['member'];
+        self::assertCount(35, $members);
+        self::assertSame(range(0, 34), array_column($members, 'position'));
+        self::assertNotContains('Projet secret', array_column($members, 'name'));
+
+        // Elasticsearch serves the collection outside the tests: its provider
+        // honours `pagination=false` only when the operation lets the client choose.
+        $factory = self::getContainer()->get('api_platform.metadata.resource.metadata_collection_factory');
+        \assert($factory instanceof ResourceMetadataCollectionFactoryInterface);
+        $operation = $factory->create(Project::class)->getOperation(forceCollection: true);
+        self::assertTrue($operation->getPaginationClientEnabled());
     }
 
     /** « Canapé » waits for « Déménagement » on 2027-03-01: dated 2027-01-15, it is flagged. */

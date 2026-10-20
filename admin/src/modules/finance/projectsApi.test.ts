@@ -1,6 +1,29 @@
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { eurosToCents, validateProject } from './projectForm'
-import { joinNames, patchProject, projectDateLabel, toProject } from './projectsApi'
+import { createProject, fetchProjects, joinNames, patchProject, projectDateLabel, toProject, updateProject } from './projectsApi'
+import type { ProjectInput } from './projectsApi'
+
+const INPUT: ProjectInput = {
+  name: 'Voyage au Japon',
+  amountCents: 300000,
+  wellbeing: 'high',
+  dateMode: 'none',
+  targetOn: null,
+  dependsOn: [],
+  note: null,
+}
+
+/** Stubs fetch with one answer and returns the calls it received. */
+const stubFetch = (body: unknown) => {
+  const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
+    async () => new Response(JSON.stringify(body), { status: 200 }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+
+  return fetchMock
+}
+
+const sentBody = (fetchMock: ReturnType<typeof stubFetch>) => JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
 
 describe('projects', () => {
   test.each([
@@ -49,6 +72,34 @@ describe('projects', () => {
     expect(validateProject({ ...valid, dependsOn: [], name: ' ', amount: '-3' })).toEqual({
       name: 'Le nom est obligatoire.',
       amount: 'Indiquez un montant supérieur à 0.',
+    })
+  })
+
+  describe('over the wire', () => {
+    afterEach(() => vi.unstubAllGlobals())
+
+    test('reads every project in one answer, not only the first page', async () => {
+      const fetchMock = stubFetch({ member: [{ id: 'B', position: 1 }, { id: 'A', position: 0 }] })
+
+      expect((await fetchProjects()).map((project) => project.id)).toEqual(['A', 'B'])
+      expect(String(fetchMock.mock.calls[0][0])).toBe('/api/finance/projects?pagination=false')
+    })
+
+    test('a new project is in euros', async () => {
+      const fetchMock = stubFetch({ id: 'NEW', ...INPUT, currency: 'EUR' })
+
+      await createProject(INPUT)
+
+      expect(sentBody(fetchMock).currency).toBe('EUR')
+    })
+
+    test('a changed project keeps its own currency', async () => {
+      const fetchMock = stubFetch({ id: 'JPY', ...INPUT, currency: 'JPY' })
+
+      await updateProject({ id: '/api/finance/projects/JPY', currency: 'JPY' }, INPUT)
+
+      expect(String(fetchMock.mock.calls[0][0])).toBe('/api/finance/projects/JPY')
+      expect(sentBody(fetchMock).currency).toBe('JPY')
     })
   })
 })

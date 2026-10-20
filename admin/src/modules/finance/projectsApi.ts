@@ -172,10 +172,11 @@ const refused = async (response: Response, fallback: string): Promise<ProjectErr
   return new ProjectError(typeof message === 'string' && message ? translate(message) : fallback)
 }
 
-const toBody = (input: ProjectInput) => ({
+/** The form has no currency: a new project is in euros, a changed one keeps its own. */
+const toBody = (input: ProjectInput, currency = 'EUR') => ({
   name: input.name,
   amountCents: input.amountCents,
-  currency: 'EUR',
+  currency,
   wellbeing: input.wellbeing,
   dateMode: input.dateMode,
   targetOn: input.dateMode === 'none' ? null : input.targetOn,
@@ -183,9 +184,9 @@ const toBody = (input: ProjectInput) => ({
   note: input.note,
 })
 
-/** Every project of the user, first priority first. */
+/** Every project of the user, first priority first — all of them, in one answer. */
 export async function fetchProjects(): Promise<Project[]> {
-  const response = await request(`${PROJECTS_PATH}?itemsPerPage=100`)
+  const response = await request(`${PROJECTS_PATH}?pagination=false`)
   if (!response.ok) throw new ProjectError(`projects: ${response.status}`)
   const body = (await response.json()) as { member?: Raw[] }
 
@@ -199,8 +200,8 @@ export async function createProject(input: ProjectInput): Promise<Project> {
   return toProject(await response.json())
 }
 
-export async function updateProject(id: string, input: ProjectInput): Promise<Project> {
-  const response = await request(`${PROJECTS_PATH}/${bareId(id)}`, 'PATCH', toBody(input))
+export async function updateProject(project: Pick<Project, 'id' | 'currency'>, input: ProjectInput): Promise<Project> {
+  const response = await request(`${PROJECTS_PATH}/${bareId(project.id)}`, 'PATCH', toBody(input, project.currency))
   if (!response.ok) throw await refused(response, `Le projet « ${input.name} » n'a pas été modifié.`)
 
   return toProject(await response.json())

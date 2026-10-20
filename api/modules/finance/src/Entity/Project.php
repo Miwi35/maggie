@@ -300,7 +300,14 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this->dependsOn;
     }
 
-    /** @param iterable<Project> $dependsOn the whole list: replaces the current one */
+    /**
+     * The whole list: replaces the current one with the very instances given.
+     * A PATCH resolves the IRIs through the Elasticsearch item provider, whose
+     * unmanaged copies land here first: the managed ones the handler passes
+     * must replace them, or Doctrine takes them for new entities on flush.
+     *
+     * @param iterable<Project> $dependsOn
+     */
     public function setDependsOn(iterable $dependsOn): static
     {
         $wanted = [];
@@ -309,7 +316,8 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
         }
 
         foreach ($this->dependsOn->toArray() as $current) {
-            if (!isset($wanted[(string) $current->getId()])) {
+            $id = (string) $current->getId();
+            if (!isset($wanted[$id]) || $wanted[$id] !== $current) {
                 $this->dependsOn->removeElement($current);
             }
         }

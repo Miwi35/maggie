@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Title, useNotify } from 'react-admin'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
@@ -66,14 +66,18 @@ interface RowProps {
   names: Map<string, string>
   picked: boolean
   onHandleKeyDown: (event: KeyboardEvent, project: Project) => void
+  onHandleBlur: (project: Project) => void
   registerHandle: (id: string, node: HTMLButtonElement | null) => void
   onEdit: (project: Project) => void
   onDelete: (project: Project) => void
 }
 
+/** Positions follow the order on screen: a Mercure update re-sorts by position. */
+const renumbered = (projects: Project[]): Project[] => projects.map((project, position) => ({ ...project, position }))
+
 const namesOf = (ids: string[], names: Map<string, string>) => ids.flatMap((id) => (names.has(id) ? [names.get(id) as string] : []))
 
-function ProjectRow({ project, rank, total, names, picked, onHandleKeyDown, registerHandle, onEdit, onDelete }: RowProps) {
+function ProjectRow({ project, rank, total, names, picked, onHandleKeyDown, onHandleBlur, registerHandle, onEdit, onDelete }: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: project.id,
   })
@@ -108,6 +112,7 @@ function ProjectRow({ project, rank, total, names, picked, onHandleKeyDown, regi
         aria-label={`Déplacer ${project.name}, priorité ${rank} sur ${total}`}
         aria-pressed={picked}
         onKeyDown={(event: KeyboardEvent) => onHandleKeyDown(event, project)}
+        onBlur={() => onHandleBlur(project)}
       >
         <DragIndicatorIcon fontSize="small" sx={{ color: 'action.active' }} />
       </IconButton>
@@ -162,6 +167,10 @@ export const ProjectsPage = () => {
   const [toDelete, setToDelete] = useState<Project | null>(null)
   // The project carried with the keyboard, and the order to go back to on Échap.
   const [picked, setPicked] = useState<{ id: string; original: Project[] } | null>(null)
+  const pickedRef = useRef(picked)
+  useLayoutEffect(() => {
+    pickedRef.current = picked
+  }, [picked])
   const [announcement, setAnnouncement] = useState('')
   const handles = useRef(new Map<string, HTMLButtonElement>())
   const current = useRef<Project[]>(projects)
@@ -220,8 +229,9 @@ export const ProjectsPage = () => {
     ),
   )
 
-  // A row moved with the keyboard keeps the focus on its handle.
-  useEffect(() => {
+  // A row moved with the keyboard keeps the focus on its handle — before the
+  // blur check below runs, since React may move the focused node to reorder.
+  useLayoutEffect(() => {
     if (picked) handles.current.get(picked.id)?.focus()
   }, [picked, projects])
 
@@ -231,7 +241,7 @@ export const ProjectsPage = () => {
   }, [])
 
   const commitOrder = async (next: Project[], previous: Project[]) => {
-    setProjects(next.map((project, position) => ({ ...project, position })))
+    setProjects(renumbered(next))
     try {
       await reorderProjects(next.map((project) => project.id))
     } catch (error) {
@@ -281,7 +291,7 @@ export const ProjectsPage = () => {
       event.preventDefault()
       const target = index + (event.key === 'ArrowUp' ? -1 : 1)
       if (target < 0 || target >= total) return
-      setProjects(arrayMove(projects, index, target))
+      setProjects(renumbered(arrayMove(projects, index, target)))
       setAnnouncement(`${project.name} : priorité ${target + 1} sur ${total}.`)
     } else if (isAction) {
       event.preventDefault()
@@ -291,10 +301,27 @@ export const ProjectsPage = () => {
       if (moved) commitOrder(projects, picked.original)
     } else if (event.key === 'Escape') {
       event.preventDefault()
-      setProjects(picked.original)
-      setPicked(null)
-      setAnnouncement(`Déplacement annulé : ${project.name} reste à sa place.`)
+      cancelPick(project)
     }
+  }
+
+  const cancelPick = (project: Project) => {
+    const original = pickedRef.current?.original
+    if (!original) return
+    setProjects(original)
+    setPicked(null)
+    setAnnouncement(`Déplacement annulé : ${project.name} reste à sa place.`)
+  }
+
+  // Leaving the handle while carrying the project drops nothing: it goes back,
+  // as with Échap. Checked once the reorder has given the focus back.
+  const handleBlur = (project: Project) => {
+    if (pickedRef.current?.id !== project.id) return
+    setTimeout(() => {
+      if (pickedRef.current?.id !== project.id) return
+      if (document.activeElement === handles.current.get(project.id)) return
+      cancelPick(project)
+    }, 0)
   }
 
   const save = async (input: ProjectInput) => {
@@ -306,7 +333,7 @@ export const ProjectsPage = () => {
           : byPosition([...previous, created]),
       )
     } else if (editing) {
-      const updated = await updateProject(editing.id, input)
+      const updated = await updateProject(editing, input)
       setProjects((previous) => previous.map((project) => (project.id === updated.id ? updated : project)))
     }
     setEditing(null)
@@ -387,6 +414,7 @@ export const ProjectsPage = () => {
                     names={names}
                     picked={picked?.id === project.id}
                     onHandleKeyDown={handleKeyDown}
+                    onHandleBlur={handleBlur}
                     registerHandle={registerHandle}
                     onEdit={setEditing}
                     onDelete={setToDelete}

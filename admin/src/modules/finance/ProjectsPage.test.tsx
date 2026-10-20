@@ -376,6 +376,42 @@ describe('ProjectsPage', () => {
     expect(writes).toEqual([])
   })
 
+  test('a Mercure update while a project is carried does not undo the move', async () => {
+    const user = userEvent.setup()
+    stubApi([MOVE, SOFA, BIKE])
+    render(<ProjectsPage />)
+    await loaded(3)
+
+    handle('Vélo').focus()
+    await user.keyboard(' {ArrowUp}')
+    expect(shown()).toEqual(['Déménagement', 'Vélo', 'Canapé'])
+
+    await emitMercure('/api/finance/projects/{id}', { '@id': iri('MOVE'), note: 'Le 1er mars' })
+
+    expect(shown()).toEqual(['Déménagement', 'Vélo', 'Canapé'])
+    expect(handle('Vélo')).toHaveFocus()
+  })
+
+  test('leaving the handle while carrying a project puts it back and sends nothing', async () => {
+    const user = userEvent.setup()
+    const { writes } = stubApi([MOVE, SOFA, BIKE])
+    render(<ProjectsPage />)
+    await loaded(3)
+
+    handle('Déménagement').focus()
+    await user.keyboard(' {ArrowDown}')
+    expect(shown()).toEqual(['Canapé', 'Déménagement', 'Vélo'])
+    expect(handle('Déménagement')).toHaveFocus()
+
+    await user.click(screen.getByRole('button', { name: 'Nouveau projet' }))
+    await user.keyboard('{Escape}')
+
+    await waitFor(() => expect(shown()).toEqual(['Déménagement', 'Canapé', 'Vélo']))
+    expect(handle('Déménagement')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByText('Déplacement annulé : Déménagement reste à sa place.')).toBeInTheDocument()
+    expect(writes).toEqual([])
+  })
+
   test('a refused order says so and puts the projects back', async () => {
     stubApi([MOVE, SOFA, BIKE], { failReorder: true })
     render(<ProjectsPage />)
