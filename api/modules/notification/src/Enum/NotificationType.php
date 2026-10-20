@@ -15,6 +15,8 @@ enum NotificationType: string
     case TaskDue = 'task_due';
     /** A nudge on the task « now » of the day, at a moment of it (MAG-510). */
     case TaskNudge = 'task_nudge';
+    /** The routines of a moment, grouped in one reminder (MAG-512). */
+    case Routine = 'routine';
     /** A grocery list needs attention. */
     case Grocery = 'grocery';
     /** An action waits for the user's approval before Maggie goes on. */

@@ -79,6 +79,47 @@ class ReminderMessagesTest extends TestCase
         }
     }
 
+    public function testTheRoutineBankHoldsSixMessagesPerTone(): void
+    {
+        self::assertSame(['doux', 'direct', 'drole'], array_keys(ReminderMessages::ROUTINE));
+        foreach (ReminderMessages::ROUTINE as $bank) {
+            self::assertCount(6, $bank);
+            foreach ($bank as $message) {
+                self::assertStringContainsString('{liste}', $message);
+            }
+        }
+    }
+
+    #[DataProvider('tones')]
+    public function testThirtyRoutineRemindersInARowNeverRepeatTheMessage(string $tone): void
+    {
+        $messages = self::seeded();
+        $previous = null;
+        $seen = [];
+
+        for ($i = 0; $i < 30; ++$i) {
+            $drawn = $messages->routine($tone, ['Brosser les dents', 'Passer le fil'], $previous['key'] ?? null);
+            self::assertStringStartsWith('routine.'.$tone.'.', $drawn['key']);
+            $index = (int) explode('.', $drawn['key'])[2] - 1;
+            self::assertSame(str_replace('{liste}', 'Brosser les dents, Passer le fil', ReminderMessages::ROUTINE[$tone][$index]), $drawn['message']);
+            self::assertStringNotContainsString('{', $drawn['message']);
+            if (null !== $previous) {
+                self::assertNotSame($previous['key'], $drawn['key']);
+            }
+            $previous = $drawn;
+            $seen[$drawn['key']] = true;
+        }
+
+        self::assertCount(6, $seen, 'the whole bank is drawn from');
+    }
+
+    public function testAnUnknownRoutineToneIsRefused(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        self::seeded()->routine('sec', ['x'], null);
+    }
+
     public function testTheDaysAreWrittenIn(): void
     {
         $drawn = self::seeded()->due('doux', TaskAlertReason::DaysBefore, 3, 'Déclarer les impôts', null);

@@ -1,8 +1,13 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { addDays } from '../../dates'
 import { Dashboard } from './Dashboard'
 import type { TodayTask } from './todayTasks'
+
+/** The routines due today (MAG-512): none unless a test sets some. */
+let routinesDay: unknown = { date: '2037-01-15', moments: [] }
+const mockFetch = vi.fn((): Promise<Response> => Promise.resolve(new Response(JSON.stringify(routinesDay))))
 
 class MockEventSource {
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -59,6 +64,8 @@ describe('Dashboard — all-day events are dates (MAG-382)', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2037, 0, 15, 10, 0))
     vi.stubGlobal('EventSource', MockEventSource)
+    vi.stubGlobal('fetch', mockFetch)
+    routinesDay = { date: '2037-01-15', moments: [] }
     mockGetList.mockImplementation((resource: string, params: { filter: Record<string, unknown> }) => {
       if (resource === 'events' && params.filter['startAt[after]']) {
         return Promise.resolve({ data: EVENTS, total: EVENTS.length })
@@ -73,7 +80,7 @@ describe('Dashboard — all-day events are dates (MAG-382)', () => {
   })
 
   test('places each all-day event on its own day, labelled « Journée »', async () => {
-    render(<Dashboard />)
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
     await screen.findByText('Congé posé')
 
     const today = dailyColumn("Aujourd'hui")
@@ -136,7 +143,7 @@ describe('Dashboard — all-day events are dates (MAG-382)', () => {
   })
 
   test('puts this year’s birthday in the week, on its date', async () => {
-    render(<Dashboard />)
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
     await screen.findByText('Anniversaire de Sacha')
 
     const week = digest('Cette semaine')
@@ -152,7 +159,7 @@ describe('Dashboard — all-day events are dates (MAG-382)', () => {
       }
       return Promise.resolve({ data: [], total: 0 })
     })
-    render(<Dashboard />)
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     expect(await screen.findByText('Congé posé')).toBeInTheDocument()
     expect(screen.getByText('Dentiste')).toBeInTheDocument()
@@ -162,11 +169,50 @@ describe('Dashboard — all-day events are dates (MAG-382)', () => {
   test('shows nothing to do when the events cannot be read', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockGetList.mockRejectedValue(new Error('500'))
-    render(<Dashboard />)
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     await waitFor(() => expect(consoleError).toHaveBeenCalled())
     expect(within(dailyColumn("Aujourd'hui")).getByText('Aucun événement')).toBeInTheDocument()
     consoleError.mockRestore()
+  })
+})
+
+describe('Dashboard — the routines of the day (MAG-512)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockFetchToday.mockResolvedValue([])
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2037, 0, 15, 10, 0))
+    vi.stubGlobal('EventSource', MockEventSource)
+    vi.stubGlobal('fetch', mockFetch)
+    mockGetList.mockResolvedValue({ data: [], total: 0 })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  test('shows them in « Aujourd’hui », under the tasks, with what is done of what is due', async () => {
+    routinesDay = {
+      date: '2037-01-15',
+      moments: [
+        {
+          anchor: 'wake',
+          time: '07:00',
+          routines: [
+            { id: '01WATER', title: "Grand verre d'eau", anchor: 'wake', anchorTime: null, time: '07:00', remind: false, recurrence: { kind: 'daily' }, checked: true },
+            { id: '01VITA', title: 'Vitamines', anchor: 'wake', anchorTime: null, time: '07:00', remind: false, recurrence: { kind: 'daily' }, checked: false },
+          ],
+        },
+      ],
+    }
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
+
+    const widget = (await within(dailyColumn("Aujourd'hui")).findByText("1 sur 2 aujourd'hui")).closest('.MuiCard-root') as HTMLElement
+    expect(within(widget).getByRole('link', { name: 'Routines' })).toBeInTheDocument()
+    expect(within(widget).getByRole('checkbox', { name: "Vitamines : fait aujourd'hui" })).not.toBeChecked()
+    expect(within(dailyColumn('Demain')).queryByText('Routines')).toBeNull()
   })
 })
 
@@ -189,6 +235,8 @@ describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2037, 0, 15, 10, 0))
     vi.stubGlobal('EventSource', MockEventSource)
+    vi.stubGlobal('fetch', mockFetch)
+    routinesDay = { date: '2037-01-15', moments: [] }
     mockFetchToday.mockResolvedValue(VIEW)
     mockGetList.mockImplementation((resource: string) => {
       if (resource !== 'tasks') return Promise.resolve({ data: [], total: 0 })
@@ -207,7 +255,7 @@ describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405
   })
 
   test('keeps the API order, the late task first, put off since its original day (MAG-497)', async () => {
-    render(<Dashboard />)
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     const late = (await screen.findByText('Renvoyer le formulaire')).closest('li') as HTMLElement
     expect(within(late).getByText('reportée depuis mardi')).toBeInTheDocument()
@@ -221,7 +269,7 @@ describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405
   })
 
   test('draws the urgency the API computed, in Today and on the other days (MAG-406)', async () => {
-    render(<Dashboard />)
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     const late = (await screen.findByText('Renvoyer le formulaire')).closest('li') as HTMLElement
     expect(within(late).getByTestId('urgency-badge')).toHaveTextContent('haute')
@@ -230,7 +278,7 @@ describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405
   })
 
   test('lists a subtask under its task in Today, but not an undated one on the other days', async () => {
-    render(<Dashboard />)
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     expect(await screen.findByText('Réserver le camion')).toBeInTheDocument()
     expect(screen.getByText('Payer la cantine')).toBeInTheDocument()
@@ -240,7 +288,7 @@ describe('Dashboard — « Aujourd’hui » reads the API view (MAG-404, MAG-405
   test('says « Tâches indisponibles » rather than « Aucune tâche » when the view cannot be read', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockFetchToday.mockRejectedValue(new Error('Tâches du jour : 500'))
-    render(<Dashboard />)
+    render(<MemoryRouter><Dashboard /></MemoryRouter>)
 
     expect(await within(dailyColumn("Aujourd'hui")).findByText('Tâches indisponibles')).toBeInTheDocument()
     // The rest of the page still shows.

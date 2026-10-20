@@ -7,6 +7,8 @@ describe('notificationLink', () => {
     ['/api/tasks/t1', 'Voir la tâche', '/tasks/%2Fapi%2Ftasks%2Ft1/show'],
     ['/api/recipes/r1', 'Voir la recette', '/recipes/%2Fapi%2Frecipes%2Fr1/show'],
     ['/api/grocery_items/g1', 'Voir la liste de courses', '/grocery'],
+    ['/tasks', 'Voir les routines', '/tasks'],
+    ['/tasks/', 'Voir les routines', '/tasks'],
     ['/finance/banks', 'Reconnecter la banque', '/finance/banks'],
     ['/finance/budgets', 'Voir les enveloppes', '/envelopes'],
     ['/finance', 'Ouvrir les finances', '/finance/dashboard'],

@@ -53,6 +53,10 @@ const defaultDueDate = (view: BoardTab): string | undefined => {
   return undefined
 }
 
+/** The tab a link opens: `#/tasks?tab=routines` (the home widget). Read once, the page keeps its own tabs after. */
+const initialTab = (): BoardTab =>
+  new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('tab') === 'routines' ? 'routines' : 'today'
+
 const shortDay = (day: string): string =>
   parseDay(day).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 
@@ -65,7 +69,7 @@ const shortDay = (day: string): string =>
 export const TaskBoard = () => {
   const notify = useNotify()
 
-  const [view, setView] = useState<BoardTab>('today')
+  const [view, setView] = useState<BoardTab>(initialTab)
   const [page, setPage] = useState(1)
   const [tasks, setTasks] = useState<ViewTask[]>([])
   const [total, setTotal] = useState(0)

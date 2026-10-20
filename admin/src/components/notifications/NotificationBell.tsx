@@ -44,6 +44,7 @@ const ACTION_LABELS: Record<string, string> = {
   tonight: 'Ce soir',
   done: 'Fait',
   tomorrow: 'Demain',
+  open: 'Voir',
 }
 
 const ANSWER_ERROR = 'Impossible de répondre au rappel.'
@@ -260,8 +261,8 @@ export const NotificationBell = () => {
             readAt: notification.readAt ?? new Date().toISOString(),
           })
         }
-        // No Focus screen has a route of its own: « Je m'y mets » opens the task.
-        const link = action === 'start' ? notificationLink(notification.relatedEntityIri) : null
+        // No Focus screen has a route of its own: « Je m'y mets » opens the task; « Voir » opens the routines of the day.
+        const link = action === 'start' || action === 'open' ? notificationLink(notification.relatedEntityIri) : null
         if (link) {
           setAnchorEl(null)
           redirect(link.path)

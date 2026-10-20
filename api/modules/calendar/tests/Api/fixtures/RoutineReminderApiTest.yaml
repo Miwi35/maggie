@@ -1,0 +1,56 @@
+# The routine reminders (MAG-512). The tests pin the clock on Tuesday 2026-10-20, Paris summer time (UTC+2): 18:00 UTC is 20:00, `afterDinner`.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    timezone: Europe/Paris
+    user: '@test_user'
+  other_preference:
+    timezone: Europe/Paris
+    user: '@other_user'
+
+Maggie\Calendar\Entity\Routine:
+  water:
+    user: '@test_user'
+    title: Grand verre d'eau
+    anchor: wake
+    recurrence: { kind: daily }
+    remind: true
+    createdAt: '<(new \DateTimeImmutable("2026-09-15 06:00:00 UTC"))>'
+  teeth:
+    user: '@test_user'
+    title: Brosser les dents
+    anchor: afterDinner
+    recurrence: { kind: daily }
+    remind: true
+    createdAt: '<(new \DateTimeImmutable("2026-09-15 06:00:00 UTC"))>'
+  floss:
+    user: '@test_user'
+    title: Passer le fil dentaire
+    anchor: afterDinner
+    recurrence: { kind: daily }
+    remind: true
+    createdAt: '<(new \DateTimeImmutable("2026-09-15 06:00:00 UTC"))>'
+  # Asks for no reminder: never reminded.
+  trash:
+    user: '@test_user'
+    title: Sortir les poubelles
+    anchor: afterDinner
+    recurrence: { kind: daily }
+    createdAt: '<(new \DateTimeImmutable("2026-09-15 06:00:00 UTC"))>'
+  # Another user's routine is never test_user's.
+  others:
+    user: '@other_user'
+    title: Méditer
+    anchor: afterDinner
+    recurrence: { kind: daily }
+    remind: true
+    createdAt: '<(new \DateTimeImmutable("2026-09-15 06:00:00 UTC"))>'

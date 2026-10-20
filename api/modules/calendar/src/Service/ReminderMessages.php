@@ -15,8 +15,9 @@ use Random\Randomizer;
  * same kind, so the same one never comes twice in a row.
  *
  * A message is known by its key, `{bank}.{tone}.{n}` counted from 1:
- * `nudge.direct.4`, `due.overdue.drole.2`. `{titre}` is the task's title,
- * `{jours}` the days before the due day or since it.
+ * `nudge.direct.4`, `due.overdue.drole.2`, `routine.doux.1`. `{titre}` is the
+ * task's title, `{jours}` the days before the due day or since it, `{liste}`
+ * the titles of the routines of a moment, separated by commas (MAG-512).
  */
 final class ReminderMessages
 {
@@ -122,6 +123,38 @@ final class ReminderMessages
         ],
     ];
 
+    /**
+     * The routines of a moment, grouped in one reminder (MAG-512), by tone.
+     *
+     * @var array<string, list<string>>
+     */
+    public const ROUTINE = [
+        TaskSettings::TONE_DOUX => [
+            '{liste}, si tu en as envie.',
+            'Un petit moment pour : {liste}.',
+            'Quand tu veux : {liste}.',
+            '{liste}. À ton rythme.',
+            'C\'est le bon moment pour : {liste}.',
+            '{liste}, tranquillement.',
+        ],
+        TaskSettings::TONE_DIRECT => [
+            '{liste}.',
+            'À faire maintenant : {liste}.',
+            'C\'est le moment : {liste}.',
+            'Au programme : {liste}.',
+            '{liste} — c\'est parti ?',
+            'Routine : {liste}.',
+        ],
+        TaskSettings::TONE_DROLE => [
+            '{liste} t\'attendent en coulisses.',
+            'Communiqué du ministère des Petites Habitudes : {liste}.',
+            '{liste}. Ton toi de demain te dit merci d\'avance.',
+            'Les routines frappent à la porte : {liste}.',
+            '{liste} — même pas mal.',
+            'Petit spoiler : {liste}, et après c\'est fait.',
+        ],
+    ];
+
     private readonly Randomizer $randomizer;
 
     public function __construct(?Randomizer $randomizer = null)
@@ -144,6 +177,23 @@ final class ReminderMessages
     }
 
     /**
+     * The reminder of the routines of a moment, in the tone set: the titles are
+     * listed, separated by commas.
+     *
+     * @param list<string> $titles
+     *
+     * @return array{key: string, message: string}
+     *
+     * @throws \InvalidArgumentException on an unknown tone
+     */
+    public function routine(string $tone, array $titles, ?string $previousKey): array
+    {
+        $messages = self::ROUTINE[$tone] ?? throw new \InvalidArgumentException(\sprintf('No reminder messages for the tone "%s".', $tone));
+
+        return $this->draw('routine.'.$tone, $messages, $previousKey, implode(', ', $titles), 0, '{liste}');
+    }
+
+    /**
      * A morning alert, by its reason and in the tone set.
      *
      * @return array{key: string, message: string}
@@ -161,7 +211,7 @@ final class ReminderMessages
     /** @return list<string> every message of every bank, placeholders left in */
     public static function all(): array
     {
-        return array_merge(...array_values(self::NUDGE), ...array_merge(...array_map(array_values(...), array_values(self::DUE))));
+        return array_merge(...array_values(self::NUDGE), ...array_merge(...array_map(array_values(...), array_values(self::DUE))), ...array_values(self::ROUTINE));
     }
 
     private static function bankOf(TaskAlertReason $reason): string
@@ -178,7 +228,7 @@ final class ReminderMessages
      *
      * @return array{key: string, message: string}
      */
-    private function draw(string $prefix, array $messages, ?string $previousKey, string $title, int $days): array
+    private function draw(string $prefix, array $messages, ?string $previousKey, string $title, int $days, string $placeholder = '{titre}'): array
     {
         $keys = [];
         foreach ($messages as $index => $message) {
@@ -192,8 +242,8 @@ final class ReminderMessages
         $message = str_replace('{jours}', (string) $days, $keys[$key]);
 
         // The title is cut, not the words around it: the whole fits a notification title.
-        $room = self::TITLE_MAX - mb_strlen(str_replace('{titre}', '', $message));
-        $message = str_replace('{titre}', mb_strimwidth($title, 0, max(1, $room), '…'), $message);
+        $room = self::TITLE_MAX - mb_strlen(str_replace($placeholder, '', $message));
+        $message = str_replace($placeholder, mb_strimwidth($title, 0, max(1, $room), '…'), $message);
 
         return ['key' => $key, 'message' => $message];
     }

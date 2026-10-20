@@ -19,7 +19,8 @@ class MockEventSource {
   onmessage: ((event: MessageEvent) => void) | null = null
   close = vi.fn()
   constructor(public url: string) {
-    MockEventSource.last = this
+    // The board's own stream, not the routines band's (MAG-512).
+    if (decodeURIComponent(url).includes('/api/tasks/')) MockEventSource.last = this
   }
 }
 
@@ -100,6 +101,9 @@ const describeDay = () => {
   }
 }
 
+/** The routines due on the 15th, as `GET /api/routines/day/{date}` sends them (MAG-512). */
+let routinesDay: unknown = { date: '2026-10-15', moments: [] }
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 
 const viewResponse = (view: string, member = VIEWS[view], counts = COUNTS) =>
@@ -114,6 +118,8 @@ const respond = (url: string, init?: RequestInit): Response => {
   const method = init?.method ?? 'GET'
   const view = /\/tasks\/view\/(\w+)/.exec(url)
   if (view) return viewResponse(view[1])
+
+  if (url.endsWith('/routines/day/2026-10-15')) return json(routinesDay)
 
   if (url.endsWith('/task-settings/me'))
     return json({ ...(morningTime ? { morningTime } : {}), ...(eveningTime ? { eveningTime } : {}), ...cheerSettings })
@@ -223,6 +229,8 @@ describe('TaskBoard', () => {
     vi.clearAllMocks()
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 9, 15, 10, 0))
+    routinesDay = { date: '2026-10-15', moments: [] }
+    window.location.hash = ''
     morningTime = null
     eveningTime = null
     confirmedAt = null
@@ -642,6 +650,26 @@ describe('TaskBoard', () => {
       ])
     })
 
+    test('the routines of the moment ride above the day without touching its ring or « Maintenant » (MAG-512)', async () => {
+      routinesDay = {
+        date: '2026-10-15',
+        moments: [
+          {
+            anchor: 'wake',
+            time: '07:00',
+            routines: [{ id: '01WATERR', title: "Grand verre d'eau", anchor: 'wake', anchorTime: null, time: '07:00', remind: false, recurrence: { kind: 'daily' }, checked: false }],
+          },
+        ],
+      }
+      render(<TaskBoard />)
+
+      const band = await screen.findByRole('region', { name: 'Routines · matin' })
+      expect(within(band).getByRole('button', { name: "Grand verre d'eau" })).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('img', { name: '0 sur 3' })).toBeInTheDocument()
+      expect(within(nowCard()).getByText('Appeler la banque')).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: "Aujourd'hui (3)" })).toBeInTheDocument()
+    })
+
     test('« Routines » comes right after « Aujourd\'hui »: it reads the routines, not a view of the tasks (MAG-511)', async () => {
       const user = setup()
       render(<TaskBoard />)
@@ -662,6 +690,14 @@ describe('TaskBoard', () => {
 
       await user.click(screen.getByRole('tab', { name: 'À venir (2)' }))
       expect(await screen.findByText('Préparer le déménagement')).toBeInTheDocument()
+    })
+
+    test('« Routines » opens first when the link says so (the home widget, MAG-512)', async () => {
+      window.location.hash = '#/tasks?tab=routines'
+      render(<TaskBoard />)
+
+      expect(await screen.findByRole('button', { name: 'Nouvelle routine' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Routines' })).toHaveAttribute('aria-selected', 'true')
     })
 
     test('a subtask goes under its task', async () => {
