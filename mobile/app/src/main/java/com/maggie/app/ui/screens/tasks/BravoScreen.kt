@@ -73,8 +73,9 @@ private const val BANNER_MS = 4_000L
 
 /**
  * The Bravo (MAG-508), after a task of the day ticked from « Mes 5 », « Maintenant » or the Focus:
- * a green circle that appears, small stars, « {titre} · faite », the reward's message, the day's bar,
- * « Suivante » (the Focus of the next task) and « Pause méritée » (back to the day). Nothing moves
+ * a green circle that appears, small stars, « {titre} · faite », the reward's message, the month's
+ * constellation, the day's bar, « Suivante » (the Focus of the next task) and « Pause méritée »
+ * (back to the day). Nothing moves
  * when the user turned the animation off or the system removes animations.
  */
 @Composable
@@ -147,6 +148,7 @@ internal fun BravoContent(
                         modifier = Modifier.testTag(UiTags.BRAVO_MESSAGE),
                     )
                 }
+                state.stars?.let { Constellation(stars = it, animate = animate) }
                 state.day?.takeIf { it.total > 0 }?.let { day -> DayBar(done = day.done, total = day.total) }
                 state.next?.let { next ->
                     Button(
@@ -299,6 +301,52 @@ internal fun RewardBanner(celebration: Celebration, onDismiss: () -> Unit, modif
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
+        }
+    }
+}
+
+/**
+ * A palier (MAG-509), a chapter finished: a gold banner with its title and the palier message,
+ * the star turning when the user lets it move. It stays until dismissed — a big moment is not
+ * taken away after four seconds.
+ */
+@Composable
+internal fun PalierBanner(celebration: Celebration, animate: Boolean, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    val turn = remember { Animatable(0f) }
+    LaunchedEffect(animate) {
+        if (animate) turn.animateTo(360f, tween(durationMillis = 1_200)) else turn.snapTo(0f)
+    }
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = PalierColor,
+        contentColor = Color(0xFF3B2A00),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable(onClick = onDismiss)
+            .testTag(UiTags.PALIER),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                Icons.Default.AutoAwesome,
+                contentDescription = "Palier",
+                modifier = Modifier.size(36.dp).rotate(turn.value),
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                celebration.reward.title?.let {
+                    Text(it, style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag(UiTags.PALIER_TITLE))
+                }
+                Text(
+                    celebration.reward.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.testTag(UiTags.PALIER_MESSAGE),
+                )
+            }
+            TextButton(onClick = onDismiss, modifier = Modifier.testTag(UiTags.PALIER_DISMISS)) { Text("Pause méritée") }
         }
     }
 }

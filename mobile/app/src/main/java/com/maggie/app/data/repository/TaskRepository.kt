@@ -12,6 +12,7 @@ import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DayReviewUpdateRequest
 import com.maggie.app.data.model.DaySlotRequest
 import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.Stars
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.model.TaskView
@@ -171,6 +172,11 @@ class TaskRepository(
         taskDao.upsertAll(listOf(TaskEntity.fromModel(task)))
         task
     }
+
+    /** The constellation of [month] (`YYYY-MM`), the current one when `null` (MAG-509). */
+    suspend fun getStars(month: String? = null): Result<Stars> = runCatching {
+        apiService.getStars(month)
+    }.rethrowCancellation()
 
     suspend fun createTask(request: TaskCreateRequest): Result<Task> = runCatching {
         val task = apiService.createTask(request)

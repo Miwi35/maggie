@@ -10,6 +10,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import com.maggie.app.R
 import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.repository.TaskRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -77,8 +78,18 @@ class TaskRewards(
         val reward = taskRepository.getTaskReward(taskId).getOrNull()
         val prefs = settings.await()
         if (reward == null) return@coroutineScope null
+        play(reward, prefs)
+    }
+
+    /** A reward that arrived on its own (a palier, MAG-509): the same buzz and sound, the same switches. */
+    suspend fun celebrate(reward: Reward): Celebration = play(reward, taskRepository.getTaskSettings().getOrNull())
+
+    /** Whether the user lets the stars move (MAG-509); true when the settings cannot be read. */
+    suspend fun animationAllowed(): Boolean = taskRepository.getTaskSettings().getOrNull()?.rewardAnimation ?: true
+
+    private fun play(reward: Reward, prefs: TaskSettings?): Celebration {
         if (prefs?.rewardVibration == true) feedback.vibrate()
         if (prefs?.rewardSound == true) feedback.playSound()
-        Celebration(reward = reward, animate = prefs?.rewardAnimation ?: true)
+        return Celebration(reward = reward, animate = prefs?.rewardAnimation ?: true)
     }
 }

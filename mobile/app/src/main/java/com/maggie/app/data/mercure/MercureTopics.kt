@@ -57,6 +57,7 @@ object MercureTopics {
     const val PROACTIONS = "proactions"
     const val RECIPES = "recipes"
     const val RECURRING_GROCERY_ITEMS = "recurring_grocery_items"
+    const val REWARDS = "rewards"
     const val TASKS = "tasks"
     const val TASK_SETTINGS = "task_settings"
     const val TRANSACTIONS = "transactions"
@@ -84,6 +85,7 @@ object MercureTopics {
         PROACTIONS,
         RECIPES,
         RECURRING_GROCERY_ITEMS,
+        REWARDS,
         TASKS,
         TASK_SETTINGS,
         TRANSACTIONS,

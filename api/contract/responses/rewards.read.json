@@ -6,6 +6,7 @@
     "surprise": "waited",
     "messageKey": "waited.1",
     "message": "Étoile filante : celle-là patientait depuis 33 jours. C'est réglé.",
+    "title": null,
     "star": true,
     "earnedAt": "2026-04-22T12:00:00+00:00"
 }

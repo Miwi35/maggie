@@ -250,6 +250,8 @@ private fun SlotRow(
             modifier = Modifier.testTag(UiTags.tasksSlotCheck(task.id)),
         )
         DayTaskText(task = task, day = day, modifier = Modifier.weight(1f))
+        // The star a task done earned (MAG-509).
+        if (task.isDone) TaskStar()
         task.estimatedMinutes?.let { Minutes(it) }
         Box {
             IconButton(

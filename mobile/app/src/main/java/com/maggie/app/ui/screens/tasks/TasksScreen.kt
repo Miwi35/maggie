@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.interruption.rememberReducedMotion
 import com.maggie.app.ui.screens.dashboard.DashboardTaskItem
 
 /** What a tab says when it holds nothing. */
@@ -85,6 +86,7 @@ fun TasksScreen(
     onBravo: (BravoRequest) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
+    val reducedMotion = rememberReducedMotion()
 
     DisposableEffect(viewModel) {
         viewModel.onOpened()
@@ -130,6 +132,7 @@ fun TasksScreen(
         }
 
         state.reward?.let { RewardBanner(celebration = it, onDismiss = viewModel::dismissReward) }
+        state.palier?.let { PalierBanner(celebration = it, animate = it.animate && !reducedMotion, onDismiss = viewModel::dismissPalier) }
 
         state.message?.let { message ->
             Row(

@@ -3,6 +3,8 @@ package com.maggie.app.ui.screens.tasks
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -15,6 +17,7 @@ import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DaySlot
 import com.maggie.app.data.model.DayTask
+import com.maggie.app.data.model.Stars
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.data.repository.TaskRepository
@@ -69,6 +72,9 @@ class TasksEveningScreenTest {
         coEvery { repository.getTaskView(TaskView.TODAY, null) } returns Result.success(TaskViewResponse())
         coEvery { repository.getMorningTime() } returns Result.success("08:00")
         coEvery { repository.getEveningTime() } returns Result.success("21:00")
+        coEvery { repository.getTaskSettings() } returns Result.failure(IllegalStateException("offline"))
+        coEvery { repository.getStars(null) } returns Result.success(Stars(month = "2026-10", count = 5, total = 12))
+        coEvery { repository.getStars("2026-09") } returns Result.success(Stars(month = "2026-09", count = 7, total = 12))
         coEvery { repository.getDayReview(today) } returns Result.success(DayReview(id = "rv", date = today.toString()))
         coEvery { repository.setDaySlots(today.plusDays(1), any(), false) } answers {
             Result.success(dayOf(today.plusDays(1), secondArg<List<String>>().map { id -> listOf(train, canteen).first { it.id == id } }))
@@ -140,5 +146,29 @@ class TasksEveningScreenTest {
 
         compose.onNodeWithTag(UiTags.TASKS_EVENING).assertDoesNotExist()
         coVerify(exactly = 0) { repository.saveDayReview(any(), any()) }
+    }
+
+    @Test
+    fun `the month's constellation sits beside what is done, with the total since always (MAG-509)`() {
+        show()
+
+        compose.onNodeWithTag(UiTags.CONSTELLATION_TITLE).assertTextEquals("Ta constellation d'octobre · 5 étoiles")
+        compose.onNodeWithTag(UiTags.CONSTELLATION_TOTAL).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CONSTELLATION_NEXT).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the previous month shows its stars, the next one brings the current month back (MAG-509)`() {
+        show()
+
+        compose.onNodeWithTag(UiTags.CONSTELLATION_PREVIOUS).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.CONSTELLATION_TITLE).assertTextEquals("Ta constellation de septembre · 7 étoiles")
+        compose.onNodeWithTag(UiTags.CONSTELLATION_NEXT).assertIsEnabled()
+
+        coEvery { repository.getStars("2026-10") } returns Result.success(Stars(month = "2026-10", count = 5, total = 12))
+        compose.onNodeWithTag(UiTags.CONSTELLATION_NEXT).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.CONSTELLATION_TITLE).assertTextEquals("Ta constellation d'octobre · 5 étoiles")
     }
 }

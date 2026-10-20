@@ -56,6 +56,9 @@ export class TasksPage extends AdminShell {
   readonly bravoMessage: Locator
   /** « Pause méritée »: back to the day. */
   readonly pause: Locator
+  /** The constellation of the month (MAG-509), in the bravo or in the evening: « Ta constellation d'octobre · 5 étoiles ». */
+  readonly constellationOfBravo: Locator
+  readonly constellationOfEvening: Locator
 
   constructor(page: Page) {
     super(page)
@@ -83,6 +86,8 @@ export class TasksPage extends AdminShell {
     this.bravo = page.getByRole('dialog', { name: / · faite$/ })
     this.bravoMessage = this.bravo.getByTestId('bravo-message')
     this.pause = this.bravo.getByRole('button', { name: 'Pause méritée', exact: true })
+    this.constellationOfBravo = this.bravo.getByTestId('constellation')
+    this.constellationOfEvening = this.evening.getByTestId('constellation')
   }
 
   /**
@@ -107,6 +112,11 @@ export class TasksPage extends AdminShell {
     // The counts come with the first answer: the tabs are not final before.
     await expect(this.tab("Aujourd'hui")).toHaveText(/\(\d+\)/)
     await expect(this.later.or(this.eveningLater).or(this.dayCreate)).toBeVisible()
+  }
+
+  /** The star a task done carries in « Mes 5 » (MAG-509). */
+  starOf(title: string): Locator {
+    return this.slot(title).getByTestId('task-star')
   }
 
   /** « Suivante : {titre} … », the next task of the day from the bravo. */

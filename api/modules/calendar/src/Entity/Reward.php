@@ -37,7 +37,7 @@ class Reward implements MercurePublishable, OwnedByUserInterface
 
     public const LEVEL_STANDARD = 'standard';
     public const LEVEL_SURPRISE = 'surprise';
-    /** Declared for the constellation (part 2). */
+    /** A big moment — a saga chapter finished (MAG-509): gold, no star. */
     public const LEVEL_PALIER = 'palier';
     public const LEVELS = [self::LEVEL_STANDARD, self::LEVEL_SURPRISE, self::LEVEL_PALIER];
 
@@ -75,6 +75,10 @@ class Reward implements MercurePublishable, OwnedByUserInterface
     /** The message as shown, its placeholders filled. */
     #[ORM\Column(type: Types::TEXT)]
     private string $message;
+
+    /** What a palier celebrates (the chapter's title); null for a task, whose title the screens already know. */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $title = null;
 
     #[ORM\Column(options: ['default' => true])]
     private bool $star = true;
@@ -188,6 +192,18 @@ class Reward implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getTitle(): ?string
+    {
+        return $this->title;
+    }
+
+    public function setTitle(?string $title): static
+    {
+        $this->title = $title;
+
+        return $this;
+    }
+
     public function isStar(): bool
     {
         return $this->star;
@@ -215,7 +231,7 @@ class Reward implements MercurePublishable, OwnedByUserInterface
     /**
      * The reward as the screens read it, over REST and Mercure alike.
      *
-     * @return array{id: string, subjectType: string, subjectId: string, level: string, surprise: string|null, messageKey: string, message: string, star: bool, earnedAt: string}
+     * @return array{id: string, subjectType: string, subjectId: string, level: string, surprise: string|null, messageKey: string, message: string, title: string|null, star: bool, earnedAt: string}
      */
     public function describe(): array
     {
@@ -227,6 +243,7 @@ class Reward implements MercurePublishable, OwnedByUserInterface
             'surprise' => $this->surprise,
             'messageKey' => $this->messageKey,
             'message' => $this->message,
+            'title' => $this->title,
             'star' => $this->star,
             'earnedAt' => $this->earnedAt->format(\DATE_ATOM),
         ];

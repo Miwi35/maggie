@@ -9,6 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Fidry\AliceDataFixtures\LoaderInterface;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Reward;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Service\AgendaCandidate;
 use Maggie\Calendar\Service\AgendaChoiceKind;
@@ -104,9 +105,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         // balance's (MAG-457): a held envelope and an overrun one that only
         // Dashboard › État courant reads. The sixteenth is the bravo's (MAG-508):
         // a shooting star comes once a day per user, and the other journeys tick
-        // tasks. A seventeenth would mean somebody added an account without
-        // saying why.
-        self::assertSame(17, $this->rowsOf(User::class));
+        // tasks. The seventeenth and eighteenth are the constellation's (MAG-509),
+        // web and mobile: four stars this month and seven last month, a count the
+        // journey asserts exactly. A nineteenth would mean somebody added an
+        // account without saying why.
+        self::assertSame(19, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -123,6 +126,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-adjust@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-balance@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-bravo@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-stars@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-stars-mobile@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
@@ -347,6 +352,26 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame($firstRun, $this->snapshot(), 'A second seed must replace the first, not add to it.');
     }
 
+    public function testTheConstellationAccountsStartWithFourStarsThisMonthAndSevenLastMonth(): void
+    {
+        // The constellation journeys (MAG-509) assert « 5 étoiles » after one
+        // tick and « 7 étoiles » on the month before: both counts are the seed's.
+        $this->seed(['--now' => '2026-03-15T12:00:00+01:00']);
+
+        foreach (['e2e-stars@maggie.local', 'e2e-stars-mobile@maggie.local'] as $email) {
+            $user = $this->repository(User::class)->findOneBy(['email' => $email]);
+            self::assertNotNull($user);
+
+            $perMonth = [];
+            foreach ($this->repository(Reward::class)->findBy(['user' => $user]) as $reward) {
+                $month = $reward->getEarnedAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m');
+                $perMonth[$month] = ($perMonth[$month] ?? 0) + 1;
+            }
+
+            self::assertSame(['2026-02' => 7, '2026-03' => 4], $perMonth, $email);
+        }
+    }
+
     public function testItPurgesRowsCreatedBetweenTwoRuns(): void
     {
         $this->seed();
@@ -357,11 +382,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(18, $this->rowsOf(User::class));
+        self::assertSame(20, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(17, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(19, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

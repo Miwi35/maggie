@@ -14,6 +14,7 @@ import {
   SCORES_USER_EMAIL,
   BALANCE_USER_EMAIL,
   BRAVO_USER_EMAIL,
+  STARS_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   MEALS_USER_EMAIL,
   OTHER_USER_EMAIL,
@@ -50,6 +51,7 @@ export {
   UPCOMING_USER_EMAIL,
   BALANCE_USER_EMAIL,
   BRAVO_USER_EMAIL,
+  STARS_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -171,6 +173,8 @@ export interface MaggieFixtures {
   balanceUser: OtherUser
   /** The seventeenth seeded account, for the bravo of a task done (MAG-508). */
   bravoUser: OtherUser
+  /** The eighteenth seeded account, for the constellation of the month (MAG-509). */
+  starsUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -410,6 +414,10 @@ export const test = base.extend<MaggieFixtures>({
 
   bravoUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(BRAVO_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  starsUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(STARS_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

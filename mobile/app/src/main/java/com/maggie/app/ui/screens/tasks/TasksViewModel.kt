@@ -11,6 +11,8 @@ import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayProposal
 import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DayTask
+import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.Stars
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
@@ -71,6 +73,8 @@ data class TasksUiState(
     val bravo: BravoRequest? = null,
     /** A task ticked in another tab: its reward as a short banner instead of the Bravo. */
     val reward: Celebration? = null,
+    /** A palier reached (MAG-509), pushed by the server: gold banner over the screen, until dismissed. */
+    val palier: Celebration? = null,
 ) {
     /** What the open tab draws has arrived: the day in « Aujourd'hui », the list elsewhere. */
     val hasContent: Boolean get() = if (view == TaskView.TODAY) day != null else tasks.isNotEmpty()
@@ -114,7 +118,16 @@ data class EveningState(
     val helped: Set<String> = emptySet(),
     /** A gesture or « Bonne nuit » is in flight. */
     val isSaving: Boolean = false,
+    /** The constellation shown next to what is done (MAG-509); `null` while read or unreadable. */
+    val stars: Stars? = null,
+    /** The current month, the one the constellation first showed: the arrows do not go past it. */
+    val currentMonth: String? = null,
+    /** The user lets the constellation move (the setting; the system's own switch is the screen's to read). */
+    val animate: Boolean = true,
 ) {
+    /** « Mois suivant » is out of reach on the current month. */
+    val canGoNextMonth: Boolean get() = stars != null && currentMonth != null && stars.month < currentMonth
+
     val done: List<DayTask> get() = day.slots.map { it.task }.filter { it.isDone }
 
     val left: List<DayTask> get() = day.slots.map { it.task }.filterNot { it.isDone }
@@ -164,6 +177,7 @@ class TasksViewModel(
     private var listenJob: Job? = null
     private var proposalJob: Job? = null
     private var tomorrowJob: Job? = null
+    private var starsJob: Job? = null
 
     /** The morning opens once per run of the app: leaving it unconfirmed does not bring it back. */
     private var morningOffered = false
@@ -198,15 +212,23 @@ class TasksViewModel(
                 .collectLatest { authenticated ->
                     if (!authenticated) return@collectLatest
                     val userId = authRepository.getUserId() ?: return@collectLatest
-                    // The day publishes apart from its tasks: a slot changed elsewhere moves no task.
-                    merge(
-                        mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TASKS))
-                            .catch { /* SSE reconnects automatically */ },
-                        mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.DAY_PLANS))
-                            .catch { /* SSE reconnects automatically */ },
-                    )
-                        .coalescedAndRechecked()
-                        .collect { reload() }
+                    coroutineScope {
+                        // A palier arrives on its own: it moves no task, so it does not reload the list.
+                        launch {
+                            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.REWARDS))
+                                .catch { /* SSE reconnects automatically */ }
+                                .collect { event -> Reward.fromPush(event.data)?.takeIf { it.isPalier }?.let { onPalier(it) } }
+                        }
+                        // The day publishes apart from its tasks: a slot changed elsewhere moves no task.
+                        merge(
+                            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TASKS))
+                                .catch { /* SSE reconnects automatically */ },
+                            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.DAY_PLANS))
+                                .catch { /* SSE reconnects automatically */ },
+                        )
+                            .coalescedAndRechecked()
+                            .collect { reload() }
+                    }
                 }
         }
     }
@@ -267,6 +289,18 @@ class TasksViewModel(
                 }
                 .onFailure { _uiState.update { it.copy(message = "Impossible de modifier la tâche.") } }
         }
+    }
+
+    /** A palier pushed by the server: shown once, with the buzz and the sound the settings allow. */
+    private suspend fun onPalier(reward: Reward) {
+        if (_uiState.value.palier?.reward?.id == reward.id) return
+        val celebration = rewards.celebrate(reward)
+        _uiState.update { it.copy(palier = celebration) }
+    }
+
+    /** The palier banner was dismissed. */
+    fun dismissPalier() {
+        _uiState.update { it.copy(palier = null) }
     }
 
     /** The banner went away. */
@@ -400,6 +434,13 @@ class TasksViewModel(
         val day = _uiState.value.day ?: return
         if (_uiState.value.evening != null || day.total == 0) return
         _uiState.update { it.copy(evening = EveningState(day = day), message = null) }
+        starsJob?.cancel()
+        starsJob = viewModelScope.launch {
+            val animate = rewards.animationAllowed()
+            taskRepository.getStars().onSuccess { stars ->
+                _uiState.update { s -> s.copy(evening = s.evening?.copy(stars = stars, currentMonth = stars.month, animate = animate)) }
+            }
+        }
         tomorrowJob?.cancel()
         tomorrowJob = viewModelScope.launch {
             taskRepository.getDayPlan(day.day.plusDays(1)).onSuccess { tomorrow ->
@@ -479,6 +520,30 @@ class TasksViewModel(
         }
     }
 
+    /** The constellation of the month before the one shown (MAG-509). */
+    fun previousMonth() {
+        val stars = _uiState.value.evening?.stars ?: return
+        showMonth(stars.previousMonth)
+    }
+
+    /** The month after the one shown; nothing past the current month. */
+    fun nextMonth() {
+        val evening = _uiState.value.evening ?: return
+        val stars = evening.stars ?: return
+        if (!evening.canGoNextMonth) return
+        showMonth(stars.nextMonth)
+    }
+
+    // A failed read leaves the month shown as it was: the arrows do not lose the constellation.
+    private fun showMonth(month: String) {
+        starsJob?.cancel()
+        starsJob = viewModelScope.launch {
+            taskRepository.getStars(month).onSuccess { stars ->
+                _uiState.update { s -> s.copy(evening = s.evening?.copy(stars = stars)) }
+            }
+        }
+    }
+
     /** « Qu'est-ce qui t'a aidé ? »: [value] ticked or unticked, recorded by « Bonne nuit ». */
     fun toggleHelped(value: String) {
         _uiState.update { s ->
@@ -510,6 +575,7 @@ class TasksViewModel(
     fun dismissEvening() {
         if (_uiState.value.evening?.isSaving == true) return
         tomorrowJob?.cancel()
+        starsJob?.cancel()
         _uiState.update { it.copy(evening = null) }
         reload()
     }

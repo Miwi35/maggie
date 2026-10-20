@@ -34,12 +34,13 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DayTask
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.interruption.rememberReducedMotion
 
 /** The key of [outcome] in the test tags: `tomorrow`, `later`, `aside`. */
 internal fun outcomeKeyOf(outcome: EveningOutcome): String = outcome.name.lowercase()
 
 /**
- * « Le soir » (MAG-500): « 3 sur 5 » with the day's ring, what is done first, then each task left
+ * « Le soir » (MAG-500): « 3 sur 5 » with the day's ring, the month's constellation (MAG-509), what is done first, then each task left
  * with its way out in one gesture — « Demain », « Plus tard », « Mettre de côté » (and « Annuler »
  * once set aside) — then « Qu'est-ce qui t'a aidé ? », « Bonne nuit » and « Plus tard ».
  */
@@ -47,8 +48,21 @@ internal fun outcomeKeyOf(outcome: EveningOutcome): String = outcome.name.lowerc
 @Composable
 internal fun EveningContent(evening: EveningState, viewModel: TasksViewModel) {
     val done = evening.done
+    val reducedMotion = rememberReducedMotion()
     LazyColumn(modifier = Modifier.fillMaxSize().testTag(UiTags.TASKS_EVENING)) {
         item(key = "ring") { DayRing(done = done.size, total = evening.day.total) }
+        evening.stars?.let { stars ->
+            item(key = "constellation") {
+                Constellation(
+                    stars = stars,
+                    animate = evening.animate && !reducedMotion,
+                    showTotal = true,
+                    onPrevious = viewModel::previousMonth,
+                    onNext = if (evening.canGoNextMonth) viewModel::nextMonth else null,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
         if (done.isNotEmpty()) {
             item(key = "done") {
                 Column(

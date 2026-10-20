@@ -186,6 +186,7 @@ class RewardApiTest extends WebTestCase
             'surprise' => null,
             'messageKey' => $stored->getMessageKey(),
             'message' => $stored->getMessage(),
+            'title' => null,
             'star' => true,
             'earnedAt' => '2026-10-14T12:00:00+00:00',
         ], $reward);

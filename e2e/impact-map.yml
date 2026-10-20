@@ -556,6 +556,9 @@ mobile:
   e2e/mobile/flows/17d-task-bravo.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/bravo-api.js]
+  e2e/mobile/flows/17e-task-constellation.yaml:
+    areas: [calendar]
+    paths: [e2e/mobile/scripts/stars-api.js]
   e2e/mobile/flows/13-finance-category-edit.yaml:
     areas: [finance]
   e2e/mobile/flows/13-finance-to-sort.yaml:

@@ -761,6 +761,61 @@ test('ticking from « Mes 5 » opens the bravo; the next message differs; the la
 })
 
 /**
+ * The constellation of the month (MAG-509, extends MAG-100): one star per task done, only
+ * those earned. The seed gives `e2e-stars@maggie.local` four stars this month and seven last
+ * month; a tick brings the month to five, drawn under the bravo and on the task in « Mes 5 »,
+ * and the evening goes back to last month and its seven, the total never lost.
+ *
+ * An account of its own, because the counts are exact: any other tick of it would move them.
+ * A run again on the same stack finds the star of the first one — reseed first.
+ */
+test('a tick adds a star to the month: the bravo draws five, the evening goes back to last month and its seven', async ({ starsUser }) => {
+  const { page, api } = starsUser
+  const today = parisDay()
+  const title = perAttempt('Étoile — ranger le bureau')
+  const ids: string[] = []
+
+  try {
+    // Given four stars this month and seven last month (the seed), and a day of one task…
+    ids.push(await createTask(api, { title }))
+    await setDayPlan(api, today, ids)
+
+    const board = new TasksPage(page)
+    await board.open()
+    await expect(board.starOf(title)).toBeHidden()
+
+    // When I tick it from « Mes 5 »…
+    await board.slot(title).getByRole('checkbox', { name: `Terminer ${title}` }).click()
+
+    // …then the bravo draws five stars, the latest one marked, and says « 5 étoiles »…
+    await expect(board.bravo).toHaveAccessibleName(`${title} · faite`)
+    await expect(board.constellationOfBravo).toContainText('· 5 étoiles')
+    await expect(board.constellationOfBravo.getByTestId('constellation-star')).toHaveCount(5)
+    await expect(board.constellationOfBravo.locator('[data-latest="true"]')).toHaveCount(1)
+    expect(await (await api.get('/api/stars', { headers: { Accept: 'application/json' } })).json()).toMatchObject({ count: 5, total: 12 })
+
+    // …and the task carries its star in « Mes 5 ».
+    await board.pause.click()
+    await expect(board.bravo).toBeHidden()
+    await expect(board.starOf(title)).toBeVisible()
+
+    // When I open the evening and go back a month, it shows the seven of last month and the total.
+    await board.openEveningButton.click()
+    await expect(board.evening).toBeVisible()
+    await expect(board.constellationOfEvening).toContainText('· 5 étoiles')
+    await expect(board.constellationOfEvening.getByRole('button', { name: 'Mois suivant' })).toBeDisabled()
+    await board.constellationOfEvening.getByRole('button', { name: 'Mois précédent' }).click()
+    await expect(board.constellationOfEvening).toContainText('· 7 étoiles')
+    await expect(board.constellationOfEvening.getByTestId('constellation-star')).toHaveCount(7)
+    await expect(board.constellationOfEvening.getByTestId('constellation-total')).toContainText('12 étoiles depuis toujours')
+    await expect(board.constellationOfEvening.getByRole('button', { name: 'Mois suivant' })).toBeEnabled()
+  } finally {
+    await setDayPlan(api, today, [])
+    for (const id of ids) await api.delete(`/api/tasks/${id}`)
+  }
+})
+
+/**
  * A finished task can be reopened — `MAG-112`, and the reason the seed ships one.
  *
  * From the calendar rather than from the dashboard, and that is not a detour: the

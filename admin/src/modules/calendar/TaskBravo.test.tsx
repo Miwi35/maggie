@@ -1,7 +1,7 @@
 import { describe, test, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { TaskBravo, TaskBravoBanner } from './TaskBravo'
+import { TaskBravo, TaskBravoBanner, TaskPalier } from './TaskBravo'
 import type { DayTask } from './dayPlan'
 import type { Reward } from './reward'
 
@@ -13,6 +13,7 @@ const REWARD: Reward = {
   surprise: null,
   messageKey: 'doux.9',
   message: 'Coché. Ta journée prend forme.',
+  title: null,
   star: true,
   earnedAt: '2026-10-15T08:00:00+00:00',
 }
@@ -92,5 +93,62 @@ describe('TaskBravo (MAG-508)', () => {
 
     rerender(<TaskBravoBanner title="Arroser" reward={null} onClose={vi.fn()} />)
     expect(screen.queryByText(/Coché/)).toBeNull()
+  })
+
+  test('the constellation of the month sits under the message when it is known', () => {
+    const stars = { month: '2026-10', count: 5, total: 20, best: null, latestAt: '2026-10-15T09:00:00+00:00' }
+    render(<TaskBravo {...props({ stars })} />)
+
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: "Ta constellation d'octobre · 5 étoiles" })).toBeInTheDocument()
+    expect(within(dialog).getAllByTestId('constellation-star')).toHaveLength(5)
+    expect(within(dialog).queryByRole('button', { name: 'Mois précédent' })).toBeNull()
+  })
+
+  test('without the stars (not read yet) the bravo is the same as before', () => {
+    render(<TaskBravo {...props()} />)
+
+    expect(screen.queryByTestId('constellation')).toBeNull()
+  })
+})
+
+const PALIER: Reward = {
+  ...REWARD,
+  id: '01PALIER',
+  subjectType: 'saga',
+  subjectId: '01CHAPTER',
+  level: 'palier',
+  messageKey: 'palier-doux.1',
+  message: 'Un chapitre entier. Prends le temps de le savourer.',
+  title: 'Chapitre 1 · Le départ',
+  star: false,
+}
+
+describe('TaskPalier (MAG-509)', () => {
+  test('the gold banner carries the title, with the palier message and its rays', () => {
+    render(<TaskPalier reward={PALIER} animate onClose={vi.fn()} />)
+
+    const dialog = screen.getByRole('dialog', { name: 'Chapitre 1 · Le départ' })
+    expect(within(dialog).getByTestId('palier-banner')).toHaveTextContent('Chapitre 1 · Le départ')
+    expect(getComputedStyle(within(dialog).getByTestId('palier-banner')).backgroundColor).toBe('rgb(242, 196, 109)')
+    expect(within(dialog).getByTestId('palier-message')).toHaveTextContent('Un chapitre entier. Prends le temps de le savourer.')
+    expect(within(dialog).getAllByTestId('palier-ray').length).toBeGreaterThan(4)
+    expect(within(dialog).getByTestId('palier')).toHaveAttribute('data-animated', 'true')
+  })
+
+  test('the animations can be off', () => {
+    render(<TaskPalier reward={PALIER} animate={false} onClose={vi.fn()} />)
+
+    expect(screen.getByTestId('palier')).toHaveAttribute('data-animated', 'false')
+  })
+
+  test('adds no star and no next task: « Pause méritée » closes', async () => {
+    const onClose = vi.fn()
+    render(<TaskPalier reward={PALIER} animate onClose={onClose} />)
+
+    expect(screen.queryByTestId('constellation')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Suivante/ })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Pause méritée' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

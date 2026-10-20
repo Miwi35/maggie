@@ -7,6 +7,8 @@ namespace App\Tests\Contract;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Calendar\Entity\Reward;
+use Maggie\Calendar\Service\RewardGranter;
 use Maggie\Calendar\Service\RewardMessages;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
@@ -640,6 +642,80 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/rewards.read.json',
             self::stabilise($body),
             sprintf('GET %s no longer returns what it used to. The mobile DTOs (Reward.kt) are written against this response.', $path),
+        );
+    }
+
+    /**
+     * A palier, as `/api/rewards/sagaChapter/{id}` sends it (MAG-509): gold, no
+     * star, the chapter's title. The message is drawn by chance among three:
+     * the recording keeps the first.
+     */
+    public function testThePalierRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $chapter = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
+        (new RewardGranter(self::getContainer()->get('messenger.bus.default')))->grantPalier($user, 'sagaChapter', $chapter, 'Le chapitre du port');
+
+        $path = '/api/rewards/sagaChapter/'.$chapter;
+        $this->client->request('GET', $path, [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertSame('palier', $body['level']);
+        self::assertMatchesRegularExpression('/^palier-doux\.[1-3]$/', $body['messageKey']);
+        $body['messageKey'] = 'palier-doux.1';
+        $body['message'] = RewardMessages::PALIERS['doux'][0];
+
+        $this->assertMatchesContract(
+            'responses/rewards.palier.json',
+            self::stabilise($body),
+            sprintf('GET %s no longer returns what it used to. The mobile DTOs (Reward.kt) are written against this response.', $path),
+        );
+    }
+
+    /**
+     * The constellation of a month (MAG-509), as `/api/stars` sends it: the
+     * task of the reward recording ticked, a month before it holding two stars.
+     */
+    public function testTheStarsRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+        $taskId = (string) $this->getFixture('recorded_open_task')->getId();
+
+        $this->client->request('PATCH', '/api/tasks/'.$taskId, [], [], array_merge(['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()), json_encode(['completedAt' => '2026-04-22T12:00:00+00:00'], \JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        foreach (['2026-03-03 08:00 UTC', '2026-03-09 08:00 UTC'] as $index => $earnedAt) {
+            $em->persist((new Reward())
+                ->setUser($user)
+                ->setSubjectId('01ARZ3NDEKTSV4RRFFQ69G5FA'.$index)
+                ->setMessageKey('doux.1')
+                ->setMessage(RewardMessages::TONES['doux'][0])
+                ->setEarnedAt(new \DateTimeImmutable($earnedAt)));
+        }
+        $em->flush();
+
+        $path = '/api/stars?month=2026-04';
+        $this->client->request('GET', $path, [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertSame(1, $body['count']);
+        self::assertNotNull($body['best'], 'The recorded stars have no best month, so they prove nothing about it.');
+
+        $this->assertMatchesContract(
+            'responses/stars.read.json',
+            self::stabilise($body),
+            sprintf('GET %s no longer returns what it used to. The mobile DTOs (Stars.kt) are written against this response.', $path),
         );
     }
 

@@ -5,6 +5,7 @@ import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DaySlot
 import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.Stars
 import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.model.TaskSettingsValues
 import com.maggie.app.data.repository.TaskRepository
@@ -52,6 +53,14 @@ class BravoViewModelTest {
         message = "Et une de faite. Doucement mais sûrement.",
         star = true,
         earnedAt = "2026-10-15T08:00:00+00:00",
+    )
+
+    private val stars = Stars(
+        month = "2026-10",
+        count = 5,
+        total = 12,
+        best = Stars.BestMonth(month = "2026-09", count = 7),
+        latestAt = "2026-10-15T08:00:00+00:00",
     )
 
     private val values = TaskSettingsValues(
@@ -106,6 +115,7 @@ class BravoViewModelTest {
         coEvery { repository.getTaskReward("d1") } returns Result.success(reward)
         coEvery { repository.getTaskSettings() } returns Result.success(settings())
         coEvery { repository.getDayPlan(today) } returns Result.success(day())
+        coEvery { repository.getStars() } returns Result.success(stars)
     }
 
     @After
@@ -133,6 +143,32 @@ class BravoViewModelTest {
         assertEquals("d4", state.next?.id)
         assertEquals("Suivante : Appeler le garage · 10 min", nextLabelOf(state.next!!))
         assertEquals("3 sur 5 aujourd'hui", dayBarLabelOf(state.day!!.done, state.day!!.total))
+    }
+
+    @Test
+    fun `the month's constellation is read with the new star in it (MAG-509)`() = runTest(testDispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.open(ticked)
+        advanceUntilIdle()
+
+        assertEquals(stars, viewModel.uiState.value.stars)
+        assertEquals("Ta constellation d'octobre · 5 étoiles", viewModel.uiState.value.stars?.title)
+    }
+
+    @Test
+    fun `a constellation that cannot be read leaves the rest of the Bravo as it was (MAG-509)`() = runTest(testDispatcher) {
+        coEvery { repository.getStars() } returns Result.failure(IllegalStateException("offline"))
+        val viewModel = viewModel()
+
+        viewModel.open(ticked)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.stars)
+        assertFalse(state.isLoading)
+        assertEquals(reward, state.celebration?.reward)
+        assertEquals(3, state.day?.done)
     }
 
     @Test

@@ -1,0 +1,65 @@
+# The constellation (MAG-509). The tests pin the clock in October 2026; the user lives in Paris.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    timezone: Europe/Paris
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Task:
+  t1:
+    title: Tâche 1
+    position: '00000000000000000001'
+    user: '@test_user'
+  t2:
+    title: Tâche 2
+    position: '00000000000000000002'
+    user: '@test_user'
+  t3:
+    title: Tâche 3
+    position: '00000000000000000003'
+    user: '@test_user'
+  t4:
+    title: Tâche 4
+    position: '00000000000000000004'
+    user: '@test_user'
+  t5:
+    title: Tâche 5
+    position: '00000000000000000005'
+    user: '@test_user'
+  t6:
+    title: Tâche 6
+    position: '00000000000000000006'
+    user: '@test_user'
+  t7:
+    title: Tâche 7
+    position: '00000000000000000007'
+    user: '@test_user'
+  t8:
+    title: Tâche 8
+    position: '00000000000000000008'
+    user: '@test_user'
+  t9:
+    title: Tâche 9
+    position: '00000000000000000009'
+    user: '@test_user'
+  t10:
+    title: Tâche 10
+    position: '00000000000000000010'
+    user: '@test_user'
+  t11:
+    title: Tâche 11
+    position: '00000000000000000011'
+    user: '@test_user'
+  t12:
+    title: Tâche 12
+    position: '00000000000000000012'
+    user: '@test_user'

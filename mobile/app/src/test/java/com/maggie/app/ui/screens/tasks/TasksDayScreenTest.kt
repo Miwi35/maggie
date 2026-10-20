@@ -5,6 +5,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
@@ -109,6 +110,14 @@ class TasksDayScreenTest {
         compose.onNodeWithText("reportée depuis lundi", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("critique", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("En retard", substring = true, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a task done carries its star in Mes 5, a task left carries none (MAG-509)`() {
+        show(listOf(form, bins))
+
+        compose.onNode(hasTestTag(UiTags.TASK_STAR) and hasAnyAncestor(hasTestTag(UiTags.tasksSlot(1))), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNode(hasTestTag(UiTags.TASK_STAR) and hasAnyAncestor(hasTestTag(UiTags.tasksSlot(2))), useUnmergedTree = true).assertExists()
     }
 
     @Test

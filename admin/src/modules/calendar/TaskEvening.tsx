@@ -14,11 +14,14 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { addDays } from '../../dates'
+import { Constellation } from './Constellation'
 import { DayRing } from './TaskDay'
 import { DAY_SLOTS, fetchDayPlan, saveDayPlan } from './dayPlan'
 import type { DayPlan, DayTask } from './dayPlan'
 import { HELPED, HELPED_LABELS, restoreAt, saveDayReview, setTaskDueDate } from './dayReview'
 import type { Helped, Outcome } from './dayReview'
+import { fetchStars, shiftMonth } from './stars'
+import type { Stars } from './stars'
 
 interface TaskEveningProps {
   /** The day reviewed, as it stood when the evening opened. */
@@ -27,6 +30,8 @@ interface TaskEveningProps {
   onClose: () => void
   /** « Bonne nuit »: the review is recorded, it does not open again today. */
   onDone: () => void
+  /** The animations, as the settings say. */
+  animate?: boolean
 }
 
 const OUTCOME_LABELS: Record<Outcome, string> = {
@@ -45,7 +50,7 @@ const ids = (plan: DayPlan): string[] => plan.slots.map((slot) => slot.task.id)
  * jour » and not « reportée »; « Annuler » puts it back. Each gesture writes
  * at once; « Bonne nuit » records what helped and closes the review.
  */
-export const TaskEvening = ({ day, onClose, onDone }: TaskEveningProps) => {
+export const TaskEvening = ({ day, onClose, onDone, animate = true }: TaskEveningProps) => {
   const notify = useNotify()
   // The review keeps the day as it opened on: a task set aside leaves today, not the review.
   const [opened] = useState(day)
@@ -57,6 +62,10 @@ export const TaskEvening = ({ day, onClose, onDone }: TaskEveningProps) => {
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({})
   const [helped, setHelped] = useState<Helped[]>([])
   const [busy, setBusy] = useState(false)
+  // The constellation of the month shown; none asked yet means the current month (MAG-509).
+  const [month, setMonth] = useState<string | undefined>(undefined)
+  const [currentMonth, setCurrentMonth] = useState<string | null>(null)
+  const [stars, setStars] = useState<Stars | null>(null)
 
   const done = opened.slots.filter((slot) => slot.task.completedAt != null).map((slot) => slot.task)
   const left = opened.slots.filter((slot) => slot.task.completedAt == null).map((slot) => slot.task)
@@ -84,6 +93,23 @@ export const TaskEvening = ({ day, onClose, onDone }: TaskEveningProps) => {
       current = false
     }
   }, [tomorrow])
+
+  useEffect(() => {
+    let current = true
+    fetchStars(month)
+      .then((result) => {
+        if (!current) return
+        setStars(result)
+        if (month === undefined) setCurrentMonth(result.month)
+      })
+      .catch((error: unknown) => {
+        if (current) console.error(error)
+      })
+
+    return () => {
+      current = false
+    }
+  }, [month])
 
   const outcomeOf = (task: DayTask): Outcome => outcomes[task.id] ?? 'later'
   const tomorrowFull = (task: DayTask) =>
@@ -156,16 +182,29 @@ export const TaskEvening = ({ day, onClose, onDone }: TaskEveningProps) => {
         <DayRing done={done.length} total={opened.total} />
       </Stack>
 
-      {done.length > 0 && (
-        <List disablePadding aria-label="Fait" sx={{ mb: 2 }}>
-          {done.map((task) => (
-            <ListItem key={task.id} disableGutters dense sx={{ gap: 1 }}>
-              <CheckCircleIcon color="primary" fontSize="small" aria-hidden />
-              <Typography variant="body2">{task.title}</Typography>
-            </ListItem>
-          ))}
-        </List>
-      )}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'flex-start' }} sx={{ mb: 2 }}>
+        {done.length > 0 && (
+          <List disablePadding aria-label="Fait" sx={{ flex: 1 }}>
+            {done.map((task) => (
+              <ListItem key={task.id} disableGutters dense sx={{ gap: 1 }}>
+                <CheckCircleIcon color="primary" fontSize="small" aria-hidden />
+                <Typography variant="body2">{task.title}</Typography>
+              </ListItem>
+            ))}
+          </List>
+        )}
+        {stars && (
+          <Box sx={{ flex: 1, maxWidth: 320 }}>
+            <Constellation
+              stars={stars}
+              animate={animate}
+              showTotal
+              onPrevious={() => setMonth(shiftMonth(stars.month, -1))}
+              onNext={currentMonth && stars.month < currentMonth ? () => setMonth(shiftMonth(stars.month, 1)) : null}
+            />
+          </Box>
+        )}
+      </Stack>
 
       {left.length > 0 && (
         <List disablePadding aria-label="Reste">

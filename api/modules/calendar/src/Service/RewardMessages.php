@@ -81,6 +81,30 @@ final class RewardMessages
         ],
     ];
 
+    /**
+     * The words of a palier (MAG-509), a chapter finished: one bank per tone,
+     * known by the key `palier-{tone}.{n}`.
+     *
+     * @var array<string, list<string>>
+     */
+    public const PALIERS = [
+        TaskSettings::TONE_DOUX => [
+            'Un chapitre entier. Prends le temps de le savourer.',
+            'Chapitre bouclé. Regarde tout le chemin fait.',
+            'Une belle étape franchie. Ça mérite une vraie pause.',
+        ],
+        TaskSettings::TONE_DIRECT => [
+            'Chapitre terminé.',
+            'Chapitre bouclé. Au suivant quand tu veux.',
+            'Un chapitre de fait. Solide.',
+        ],
+        TaskSettings::TONE_DROLE => [
+            'Chapitre terminé ! Les trompettes sont en route.',
+            'Fin du chapitre. Le public réclame la suite.',
+            'Chapitre bouclé. Quelque part, un dragon a perdu.',
+        ],
+    ];
+
     private readonly Randomizer $randomizer;
 
     public function __construct(?Randomizer $randomizer = null)
@@ -120,9 +144,33 @@ final class RewardMessages
         return ['key' => $key, 'message' => $message];
     }
 
+    /**
+     * A message of the tone's palier bank, never the previous reward's.
+     *
+     * @return array{key: string, message: string}
+     *
+     * @throws \InvalidArgumentException on an unknown tone
+     */
+    public function drawPalier(string $tone, ?string $previousKey): array
+    {
+        $messages = self::PALIERS[$tone] ?? throw new \InvalidArgumentException(\sprintf('No palier messages for "%s".', $tone));
+
+        $keys = [];
+        foreach ($messages as $index => $message) {
+            $key = 'palier-'.$tone.'.'.($index + 1);
+            if ($key !== $previousKey) {
+                $keys[$key] = $message;
+            }
+        }
+
+        $key = array_keys($keys)[$this->randomizer->getInt(0, \count($keys) - 1)];
+
+        return ['key' => $key, 'message' => $keys[$key]];
+    }
+
     /** @return list<string> every message of every bank, placeholders left in */
     public static function all(): array
     {
-        return array_merge(...array_values(self::TONES), ...array_values(self::SURPRISES));
+        return array_merge(...array_values(self::TONES), ...array_values(self::SURPRISES), ...array_values(self::PALIERS));
     }
 }
