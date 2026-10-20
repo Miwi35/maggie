@@ -18,7 +18,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * added to its menu's [routes] and nowhere else. The first route is the menu's [home].
  *
  * A menu never opens a list of links: its home is either the screen itself (Dashboard,
- * Comptes, Budget) or a summary page with one block per aspect (the four `Finance…` routes).
+ * Comptes, Budget) or a page with one tab per aspect, showing its content (the four `Finance…`
+ * routes, MAG-518).
  */
 enum class FinanceMenu(
     val key: String,
@@ -81,10 +82,21 @@ enum class FinanceMenu(
     val home: String get() = routes.first()
 
     companion object {
-        /** The menu a finance route belongs to, `null` for a route outside the module. */
-        fun of(route: String?): FinanceMenu? = entries.firstOrNull { route in it.routes }
+        /**
+         * The menu a finance route belongs to, `null` for a route outside the module. The query of
+         * a menu page (`finance_review?tab={tab}`) is not part of the route it is known by.
+         */
+        fun of(route: String?): FinanceMenu? = route?.let(::withoutQuery)?.let { bare -> entries.firstOrNull { bare in it.routes } }
     }
 }
+
+/** The route argument naming the aspect a menu page opens on: `finance_review?tab=rules`. */
+const val FINANCE_TAB_ARG = "tab"
+
+private fun withoutQuery(route: String): String = route.substringBefore('?')
+
+/** The pattern a menu page registers: its route, and the optional tab to open on. */
+internal fun financeMenuPattern(route: String): String = "$route?$FINANCE_TAB_ARG={$FINANCE_TAB_ARG}"
 
 private val FINANCE_ROUTES: Set<String> = FinanceMenu.entries.flatMap { it.routes }.toSet()
 
@@ -97,7 +109,7 @@ enum class FinanceBack { POP, REPLACE_WITH_DASHBOARD }
  * dashboard instead of leaving the finance module.
  */
 internal fun financeBackAction(previousRoute: String?): FinanceBack =
-    if (previousRoute in FINANCE_ROUTES) FinanceBack.POP else FinanceBack.REPLACE_WITH_DASHBOARD
+    if (previousRoute?.let(::withoutQuery) in FINANCE_ROUTES) FinanceBack.POP else FinanceBack.REPLACE_WITH_DASHBOARD
 
 /**
  * What a tap on a menu does to the back stack.
@@ -109,5 +121,8 @@ internal fun financeBackAction(previousRoute: String?): FinanceBack =
  */
 internal data class FinanceTabAction(val route: String, val popToDashboard: Boolean)
 
-internal fun financeTabAction(target: FinanceMenu, dashboardInBackStack: Boolean): FinanceTabAction =
-    FinanceTabAction(route = target.home, popToDashboard = dashboardInBackStack)
+internal fun financeTabAction(target: FinanceMenu, dashboardInBackStack: Boolean, tab: String? = null): FinanceTabAction =
+    FinanceTabAction(
+        route = if (tab == null) target.home else "${target.home}?$FINANCE_TAB_ARG=$tab",
+        popToDashboard = dashboardInBackStack,
+    )

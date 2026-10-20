@@ -60,6 +60,27 @@ fun CushionScreen(
     viewModel: CushionViewModel,
     onBack: () -> Unit,
 ) {
+    Scaffold(
+        topBar = {
+            FinanceTopBar(Screen.Cushion.route) {
+                TopAppBar(
+                    title = { Text("Matelas") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
+        },
+    ) { paddingValues ->
+        CushionContent(viewModel, Modifier.padding(paddingValues))
+    }
+}
+
+/** The body of the screen, without a bar of its own: the Trésorerie page shows it as a tab. */
+@Composable
+fun CushionContent(viewModel: CushionViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -77,56 +98,47 @@ fun CushionScreen(
         onRetry = viewModel::refresh,
     )
 
-    Scaffold(
-        topBar = {
-            FinanceTopBar(Screen.Cushion.route) {
-                TopAppBar(
-                    title = { Text("Matelas") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
+    Box(modifier = modifier.fillMaxSize()) {
+        CushionBody(uiState, viewModel)
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+@Composable
+private fun CushionBody(uiState: CushionUiState, viewModel: CushionViewModel) {
+    val status = uiState.status
+
+    if (status == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (uiState.isLoading) {
+                CircularProgressIndicator()
+            } else {
+                Text(
+                    uiState.error ?: "Matelas indisponible",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { paddingValues ->
-        val status = uiState.status
-
-        if (status == null) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator()
-                } else {
-                    Text(
-                        uiState.error ?: "Matelas indisponible",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            return@Scaffold
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            CushionSummaryCard(status)
-            CushionSettingsCard(
-                status = status,
-                isSaving = uiState.isSaving,
-                onSave = viewModel::configure,
-            )
-        }
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        CushionSummaryCard(status)
+        CushionSettingsCard(
+            status = status,
+            isSaving = uiState.isSaving,
+            onSave = viewModel::configure,
+        )
     }
 }
 

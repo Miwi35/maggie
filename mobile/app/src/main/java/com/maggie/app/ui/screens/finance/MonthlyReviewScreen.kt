@@ -52,17 +52,6 @@ fun MonthlyReviewScreen(
     viewModel: MonthlyReviewViewModel,
     onBack: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val review = uiState.review
-
-    ErrorSnackbar(
-        error = uiState.error,
-        snackbarHostState = snackbarHostState,
-        onDismiss = viewModel::clearError,
-        onRetry = viewModel::refresh,
-    )
-
     Scaffold(
         topBar = {
             FinanceTopBar(Screen.MonthlyReview.route) {
@@ -76,9 +65,27 @@ fun MonthlyReviewScreen(
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+        MonthlyReviewContent(viewModel, Modifier.padding(paddingValues))
+    }
+}
+
+/** The month and its spends to rate, without a bar of its own: the Revue page shows them as its « Revue mensuelle » tab. */
+@Composable
+fun MonthlyReviewContent(viewModel: MonthlyReviewViewModel, modifier: Modifier = Modifier) {
+    val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val review = uiState.review
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -171,6 +178,7 @@ fun MonthlyReviewScreen(
                 }
             }
         }
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 

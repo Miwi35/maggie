@@ -121,15 +121,15 @@ tags:
     element:
       id: "finance_tile_accounts"
     timeout: 30000
-# The savings advances screen: the Trésorerie menu's tab, then its block (MAG-426).
+# The savings advances: the Trésorerie menu, then its tab (MAG-426, MAG-518).
 - tapOn:
     id: "finance_menu_treasury"
 - extendedWaitUntil:
     visible:
-      id: "finance_block_savings_advances"
+      id: "finance_tab_aspect_advances"
     timeout: 20000
 - tapOn:
-    id: "finance_block_savings_advances"
+    id: "finance_tab_aspect_advances"
 
 # The total only exists once the answer came: a failed load draws « Réessayer » instead.
 - extendedWaitUntil:

@@ -1,95 +1,133 @@
 package com.maggie.app.ui.screens.finance
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.Card
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.navigation.FinanceMenu
-import com.maggie.app.ui.navigation.Screen
-
-/** One block of a summary page: what it is called, the figures it carries, and the screen it opens. */
-data class SummaryEntry(val block: SummaryBlock, val title: String, val route: String)
 
 /**
- * The blocks of a menu's summary page, in reading order.
- *
- * One block per aspect that has a screen: a menu never lists what does not exist yet, and an
- * aspect that arrives with its ticket (the merged operations list with MAG-478) is added here
- * and nowhere else. Menus whose home is a screen themselves (Dashboard, Comptes, Budget) have no page.
+ * One tab of a Finance menu page: [id] is what the route argument `?tab=` names, [block] what tells
+ * whether the aspect has anything to show.
  */
-fun summaryEntries(menu: FinanceMenu): List<SummaryEntry> = when (menu) {
+data class FinanceAspect(val id: String, val title: String, val block: SummaryBlock)
+
+/**
+ * The aspects of a menu, in reading order.
+ *
+ * One per aspect that exists: a menu never lists what has no content yet, and an aspect that
+ * arrives with its ticket (the merged operations list with MAG-478) is added here and nowhere
+ * else. Menus whose home is a screen themselves (Dashboard, Comptes, Budget) have no page.
+ */
+fun financeAspects(menu: FinanceMenu): List<FinanceAspect> = when (menu) {
     FinanceMenu.REVIEW -> listOf(
-        SummaryEntry(SummaryBlock.TO_SORT, "À qualifier", Screen.TransactionsToSort.route),
-        SummaryEntry(SummaryBlock.TO_CONTROL, "Reconnues à contrôler", Screen.RecognisedToControl.route),
-        SummaryEntry(SummaryBlock.MONTHLY_REVIEW, "Revue mensuelle", Screen.MonthlyReview.route),
-        SummaryEntry(SummaryBlock.RULES, "Règles", Screen.CategorizationRuleList.route),
-        SummaryEntry(SummaryBlock.RECURRING_OPERATIONS, "Opérations récurrentes", Screen.RecurringOperations.route),
+        FinanceAspect("to-sort", "À qualifier", SummaryBlock.TO_SORT),
+        FinanceAspect("to-control", "Reconnues à contrôler", SummaryBlock.TO_CONTROL),
+        FinanceAspect("monthly-review", "Revue mensuelle", SummaryBlock.MONTHLY_REVIEW),
+        FinanceAspect("rules", "Règles", SummaryBlock.RULES),
+        FinanceAspect("recurring", "Opérations récurrentes", SummaryBlock.RECURRING_OPERATIONS),
     )
     FinanceMenu.TREASURY -> listOf(
-        SummaryEntry(SummaryBlock.OUTLOOK, "Prévision", Screen.Treasury.route),
-        SummaryEntry(SummaryBlock.CUSHION, "Matelas", Screen.Cushion.route),
-        SummaryEntry(SummaryBlock.SAVINGS_ADVANCES, "Avances d'épargne", Screen.SavingsAdvances.route),
+        FinanceAspect("outlook", "Prévision", SummaryBlock.OUTLOOK),
+        FinanceAspect("cushion", "Matelas", SummaryBlock.CUSHION),
+        FinanceAspect("advances", "Avances d'épargne", SummaryBlock.SAVINGS_ADVANCES),
     )
     FinanceMenu.PLANNING -> listOf(
-        SummaryEntry(SummaryBlock.LOANS, "Prêts", Screen.LoanList.route),
-        // The counter has no screen of its own: it lives on the dashboard, which is where the block leads.
-        SummaryEntry(SummaryBlock.INDEPENDENCE, "Indépendance financière", Screen.FinanceDashboard.route),
+        FinanceAspect("loans", "Prêts", SummaryBlock.LOANS),
+        FinanceAspect("independence", "Indépendance", SummaryBlock.INDEPENDENCE),
     )
     FinanceMenu.SETTINGS -> listOf(
-        SummaryEntry(SummaryBlock.BANKS, "Banques", Screen.BankConnectionList.route),
-        SummaryEntry(SummaryBlock.CATEGORIES, "Catégories", Screen.CategoryList.route),
+        FinanceAspect("banks", "Banques", SummaryBlock.BANKS),
+        FinanceAspect("categories", "Catégories", SummaryBlock.CATEGORIES),
     )
     FinanceMenu.DASHBOARD, FinanceMenu.ACCOUNTS, FinanceMenu.BUDGET -> emptyList()
 }
 
 /**
- * The home of Revue, Trésorerie, Planification and Configuration (MAG-426): a block per aspect,
- * each a few figures and a way into the detailed screen — never a list of links.
+ * The tab a menu opens on when nobody asked for one: the first aspect that has data, else the first.
+ * `null` while an aspect before the answer is still loading — the page shows a loading state
+ * rather than opening on a tab it would leave a moment later.
+ */
+fun defaultAspectId(aspects: List<FinanceAspect>, blocks: Map<SummaryBlock, BlockState>): String? {
+    for (aspect in aspects) {
+        when (val state = blocks[aspect.block]) {
+            null, BlockState.Loading -> return null
+            is BlockState.Ready -> if (state.hasData) return aspect.id
+            is BlockState.Unavailable -> Unit
+        }
+    }
+
+    return aspects.firstOrNull()?.id
+}
+
+/**
+ * The home of Revue, Trésorerie, Planification and Configuration (MAG-426, MAG-518): a menu page
+ * is the content of its aspects, one tab each, never a summary of them.
  *
- * A block that cannot load says so in its own place and still opens its screen.
+ * The tab shown is, in order: the one the owner picked, the one the route asked for (`?tab=`),
+ * the first aspect that has data. Pick and request survive a rotation and a process death; the
+ * default, once known, is kept so that a refresh never moves the page under the owner's thumb.
+ * A menu with a single aspect shows no tabs.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FinanceSummaryScreen(
+fun FinanceMenuPage(
     menu: FinanceMenu,
     viewModel: FinanceSummaryViewModel,
+    requestedTab: String?,
     onBack: () -> Unit,
-    onOpen: (String) -> Unit,
+    aspects: List<FinanceAspect> = financeAspects(menu),
+    content: @Composable (aspect: FinanceAspect, selectTab: (String) -> Unit, modifier: Modifier) -> Unit,
 ) {
-    val entries = summaryEntries(menu)
     val blocks by viewModel.blocks.collectAsState()
+    val requested = requestedTab?.takeIf { id -> aspects.any { it.id == id } }
 
-    LaunchedEffect(menu) { viewModel.load(entries.map { it.block }) }
+    var picked by rememberSaveable(menu) { mutableStateOf(requested) }
+    var handledRequest by rememberSaveable(menu) { mutableStateOf(requestedTab) }
+    var resolved by rememberSaveable(menu) { mutableStateOf<String?>(null) }
+
+    // A new request for the same page (a link to another tab) wins over the previous pick, once.
+    if (requestedTab != handledRequest) {
+        handledRequest = requestedTab
+        if (requested != null) picked = requested
+    }
+
+    LaunchedEffect(menu) { viewModel.load(aspects.map { it.block }) }
+    LaunchedEffect(blocks, picked) {
+        if (picked == null && resolved == null) resolved = defaultAspectId(aspects, blocks)
+    }
+
+    val selectedId = picked ?: resolved
+    val selected = aspects.firstOrNull { it.id == selectedId }
 
     Scaffold(
         topBar = {
@@ -105,57 +143,54 @@ fun FinanceSummaryScreen(
             }
         },
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(entries, key = { it.route }) { entry ->
-                SummaryCard(entry, blocks[entry.block] ?: BlockState.Loading, onOpen = { onOpen(entry.route) })
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            if (aspects.size > 1) {
+                AspectTabs(aspects, selected, blocks, onSelect = { picked = it })
+            }
+
+            val body = Modifier.fillMaxSize()
+            if (selected == null) {
+                Box(body.testTag(UiTags.FINANCE_ASPECT_LOADING), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                key(selected.id) { content(selected, { picked = it }, body) }
             }
         }
     }
 }
 
 @Composable
-private fun SummaryCard(entry: SummaryEntry, state: BlockState, onOpen: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpen)
-            .testTag(UiTags.financeBlock(entry.route)),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(entry.title, style = MaterialTheme.typography.titleMedium)
-                when (state) {
-                    BlockState.Loading -> Box(modifier = Modifier.padding(top = 8.dp)) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    }
-                    is BlockState.Ready -> state.lines.forEachIndexed { index, line ->
-                        Text(
-                            text = line,
-                            style = if (index == 0) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
-                            color = if (state.needsAttention) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                    is BlockState.Unavailable -> Text(
-                        text = "Chiffres indisponibles",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+private fun AspectTabs(
+    aspects: List<FinanceAspect>,
+    selected: FinanceAspect?,
+    blocks: Map<SummaryBlock, BlockState>,
+    onSelect: (String) -> Unit,
+) {
+    ScrollableTabRow(
+        selectedTabIndex = aspects.indexOf(selected).coerceAtLeast(0),
+        edgePadding = 8.dp,
+        indicator = { positions ->
+            if (selected != null) {
+                with(TabRowDefaults) {
+                    SecondaryIndicator(Modifier.tabIndicatorOffset(positions[aspects.indexOf(selected)]))
                 }
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null)
+        },
+    ) {
+        aspects.forEach { aspect ->
+            val needsAttention = (blocks[aspect.block] as? BlockState.Ready)?.needsAttention == true
+
+            Tab(
+                selected = aspect == selected,
+                onClick = { onSelect(aspect.id) },
+                text = {
+                    BadgedBox(badge = { if (needsAttention) Badge() }) {
+                        Text(aspect.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
+                modifier = Modifier.testTag(UiTags.financeTab(aspect.id)),
+            )
         }
     }
 }
