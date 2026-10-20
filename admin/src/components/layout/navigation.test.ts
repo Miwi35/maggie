@@ -72,6 +72,7 @@ describe('the seven Finance menus', () => {
         '/finance/import',
         '/finance/monthly-review',
         '/finance/peer-debts',
+        '/finance/projects',
         '/finance/recurring-operations',
         '/finance/savings-advances',
         '/finance/to-control',
@@ -85,6 +86,13 @@ describe('the seven Finance menus', () => {
   test('put Trésorerie › Matelas and Configuration › Banques where the owner expects them', () => {
     expect(labels('/finance/cushion')).toEqual(['Finance', 'Trésorerie', 'Matelas'])
     expect(labels('/finance/banks')).toEqual(['Finance', 'Configuration', 'Banques'])
+  })
+
+  test('open Planification on Projets, before Prêts (MAG-519)', () => {
+    const planning = FINANCE_MENUS.find((menu) => menu.key === 'planning')
+
+    expect(planning?.aspects.map((aspect) => aspect.id)).toEqual(['projects', 'loans', 'independence'])
+    expect(labels('/finance/projects')).toEqual(['Finance', 'Planification', 'Projets'])
   })
 })
 
@@ -143,6 +151,7 @@ describe('financeMenuOf', () => {
     ['/finance/cushion', 'treasury'],
     ['/finance/treasury', 'treasury'],
     ['/loans/abc/show', 'planning'],
+    ['/finance/projects', 'planning'],
     ['/accounts/01ABC/transactions', 'accounts'],
     ['/categories', 'settings'],
   ])('%s highlights %s', (path, key) => {

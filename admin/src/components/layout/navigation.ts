@@ -117,6 +117,7 @@ export const FINANCE_MENUS: NavMenu[] = [
     label: 'Planification',
     path: financeSummaryPath('planning'),
     aspects: [
+      { id: 'projects', label: 'Projets', path: '/finance/projects' },
       { id: 'loans', label: 'Prêts', path: '/loans', resource: 'loans' },
       { id: 'independence', label: 'Indépendance' },
     ],

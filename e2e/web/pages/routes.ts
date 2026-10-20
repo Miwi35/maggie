@@ -50,6 +50,7 @@ export const ROUTES = {
   financeToControl: '/finance/to-control',
   financeCushion: '/finance/cushion',
   financeTreasury: '/finance/treasury',
+  financeProjects: '/finance/projects',
   financeReview: '/finance/monthly-review',
   // The review as a full-screen activity, out of the layout (MAG-456).
   financeReviewActivity: '/finance/review/activity',

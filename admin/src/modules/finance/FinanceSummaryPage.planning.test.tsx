@@ -109,7 +109,7 @@ describe('Finance › Planification, with its real screens', () => {
 
   test('without data, Prêts says what to do: a way to add a loan', async () => {
     stubApi({}, false)
-    renderPlanning(false)
+    renderPlanning(false, '/finance/summary/planning/loans')
 
     expect(await screen.findByText('Aucun prêt enregistré')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Ajouter un prêt/ })).toBeInTheDocument()

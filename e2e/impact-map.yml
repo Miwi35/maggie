@@ -447,6 +447,8 @@ web:
     areas: [finance, realtime]
   e2e/web/tests/finance-category-live.spec.ts:
     areas: [finance, realtime]
+  e2e/web/tests/finance-projects.spec.ts:
+    areas: [finance]
   e2e/web/tests/finance-overview.spec.ts:
     areas: [finance]
   e2e/web/tests/finance-month-balance.spec.ts:

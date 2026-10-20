@@ -39,6 +39,7 @@ const EMPTY: Record<string, Body> = {
   '/api/finance/treasury-outlook': { balanceCents: 0, salary: { isConfigured: false }, overdraft: { isForecast: false }, projection: [] },
   '/api/finance/treasury-settings': { salaryExpectedDay: null, overdraftLimitCents: 0 },
   '/api/finance/bank-connections': { connections: [] },
+  '/api/finance/projects': { member: [] },
 }
 
 /** The API answers each path from `EMPTY` and the overrides; a path in `failing` answers 500. */
@@ -117,7 +118,7 @@ describe('FinanceSummaryPage', () => {
     stubApi()
     renderPage('/finance/summary/planning')
 
-    await opensOn('Prêts', 'loans')
+    await opensOn('Projets', 'projects')
   })
 
   test('opens on the first aspect that has data', async () => {
@@ -149,6 +150,13 @@ describe('FinanceSummaryPage', () => {
     renderPage('/finance/summary/planning', 2)
 
     await opensOn('Prêts', 'loans')
+  })
+
+  test('Planification opens on Projets as soon as a project exists, loans or not (MAG-519)', async () => {
+    stubApi({ '/api/finance/projects': { member: [{ id: 'p1', name: 'Canapé', amountCents: 120000, position: 0, dateMode: 'none' }] } })
+    renderPage('/finance/summary/planning', 2)
+
+    await opensOn('Projets', 'projects')
   })
 
   test('an aspect whose read fails counts as empty and does not hold the menu back', async () => {

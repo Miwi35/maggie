@@ -1,0 +1,158 @@
+import type { APIRequestContext, Locator, Page } from '@playwright/test'
+import { test, expect } from '../fixtures/index.js'
+import { getCollection } from '../helpers/api.js'
+import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
+
+/**
+ * The projects in priority order (MAG-519, extends MAG-102).
+ *
+ * Seeded: « Déménagement » first (a locked date, 1 March 2027), then « Canapé »,
+ * with no date, which waits for it. The journey moves « Canapé » to the top
+ * with the mouse, checks the order outlives a reload, puts it back with the
+ * keyboard, then gives it a deadline before the move — a dependency the page
+ * must flag.
+ *
+ * Only this file reads or writes the projects; `finally` puts the seed back,
+ * so a retry starts where the first attempt did.
+ */
+
+// Both tests write the same two seeded projects: one after the other.
+test.describe.configure({ mode: 'serial' })
+
+const MOVE = 'Déménagement'
+const SOFA = 'Canapé'
+const MERGE_PATCH = { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' }
+
+interface StoredProject {
+  id: string
+  name: string
+  position: number
+  dateMode: string
+  targetOn: string | null
+}
+
+const projects = async (api: APIRequestContext): Promise<StoredProject[]> =>
+  (await getCollection<StoredProject>(api, '/api/finance/projects?itemsPerPage=100')).sort((a, b) => a.position - b.position)
+
+const named = (list: StoredProject[], name: string): StoredProject => {
+  const found = list.find((project) => project.name === name)
+  if (!found) throw new Error(`the seeded project « ${name} » is missing`)
+
+  return found
+}
+
+/** The seed: Déménagement before Canapé, Canapé with no date. */
+async function restoreSeed(api: APIRequestContext): Promise<void> {
+  const list = await projects(api)
+  const move = named(list, MOVE)
+  const sofa = named(list, SOFA)
+  const others = list.filter((project) => project.id !== move.id && project.id !== sofa.id).map((project) => project.id)
+
+  const reordered = await api.post('/api/finance/projects/reorder', { data: { ids: [move.id, sofa.id, ...others] } })
+  expect(reordered.status(), await reordered.text()).toBe(200)
+  const undated = await api.patch(`/api/finance/projects/${sofa.id}`, {
+    headers: MERGE_PATCH,
+    data: { dateMode: 'none', targetOn: null },
+  })
+  expect(undated.status(), await undated.text()).toBe(200)
+
+  await expect
+    .poll(
+      async () => {
+        const now = await projects(api)
+        return [now.map((project) => project.name).filter((name) => name === MOVE || name === SOFA), named(now, SOFA).dateMode]
+      },
+      { message: 'the seed was never indexed back', timeout: 30_000 },
+    )
+    .toEqual([[MOVE, SOFA], 'none'])
+}
+
+/** Drags a handle onto a row with the mouse: dnd-kit starts after a few pixels of movement. */
+async function dragOnto(page: Page, handle: Locator, target: Locator): Promise<void> {
+  const from = await handle.boundingBox()
+  const to = await target.boundingBox()
+  if (!from || !to) throw new Error('the drag handle or the drop target is not on screen')
+
+  const x = from.x + from.width / 2
+  const y = from.y + from.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x, y - 10, { steps: 5 })
+  await page.mouse.move(x, to.y + to.height / 4, { steps: 15 })
+  await page.mouse.up()
+}
+
+const reorderAnswered = (page: Page) =>
+  page.waitForResponse(
+    (response) => response.url().includes('/api/finance/projects/reorder') && response.request().method() === 'POST',
+  )
+
+test('the projects are reordered with the mouse and the keyboard, and the order is kept', async ({ page, api }) => {
+  await restoreSeed(api)
+  const screen = new FinanceProjectsPage(page)
+
+  try {
+    // --- Given: Déménagement first, Canapé after it -------------------------
+    await screen.open()
+    await expect.poll(() => screen.order([MOVE, SOFA])).toEqual([MOVE, SOFA])
+    await expect(screen.row(SOFA)).toContainText('après Déménagement')
+
+    // --- When: Canapé is dragged to the top with the mouse ------------------
+    const sofaId = named(await projects(api), SOFA).id
+    const dropped = reorderAnswered(page)
+    await dragOnto(page, screen.handle(SOFA), screen.row(MOVE))
+    const response = await dropped
+    expect(response.status(), await response.text()).toBe(200)
+    expect((response.request().postDataJSON() as { ids: string[] }).ids[0]).toBe(sofaId)
+
+    // --- Then: the order changes, and outlives a reload ---------------------
+    await expect.poll(() => screen.order([MOVE, SOFA])).toEqual([SOFA, MOVE])
+    await expect
+      .poll(async () => (await projects(api)).map((project) => project.name).filter((name) => name === MOVE || name === SOFA), {
+        message: 'the new order never reached the index',
+        timeout: 30_000,
+      })
+      .toEqual([SOFA, MOVE])
+    await page.reload()
+    await expect.poll(() => screen.order([MOVE, SOFA])).toEqual([SOFA, MOVE])
+
+    // --- When: the keyboard puts it back: Espace, flèche bas, Espace --------
+    const back = reorderAnswered(page)
+    await screen.handle(SOFA).focus()
+    await page.keyboard.press('Space')
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Space')
+    expect((await back).status()).toBe(200)
+    await expect.poll(() => screen.order([MOVE, SOFA])).toEqual([MOVE, SOFA])
+  } finally {
+    await restoreSeed(api)
+  }
+})
+
+test('Canapé, without a date, is given a deadline that comes before the move it waits for', async ({ page, api }) => {
+  await restoreSeed(api)
+  const screen = new FinanceProjectsPage(page)
+
+  try {
+    await screen.open()
+    await expect(screen.row(SOFA)).toContainText('Sans date')
+
+    // --- When: a deadline at the end of January 2027 ------------------------
+    await screen.row(SOFA).getByRole('button', { name: `Modifier ${SOFA}` }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('radio', { name: 'Date limite (au plus tard)' }).check()
+    await dialog.getByLabel(/^Date limite\W*$/).fill('2027-01-31')
+    const saved = page.waitForResponse(
+      (response) => response.url().includes('/api/finance/projects/') && response.request().method() === 'PATCH',
+    )
+    await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+    expect((await saved).status()).toBe(200)
+
+    // --- Then: the list shows it, and flags the move dated after it ---------
+    await expect(dialog).toBeHidden()
+    await expect(screen.row(SOFA)).toContainText('au plus tard le 31 janvier 2027')
+    await expect(screen.row(SOFA).getByRole('alert')).toHaveText('Dépendance non respectée : Déménagement est prévu après.')
+  } finally {
+    await restoreSeed(api)
+  }
+})
