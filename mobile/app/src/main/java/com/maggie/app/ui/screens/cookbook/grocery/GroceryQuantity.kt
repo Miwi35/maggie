@@ -9,35 +9,18 @@ import com.maggie.app.data.model.neededLabel
 import com.maggie.app.data.model.packagingLabel
 import kotlin.math.roundToInt
 
-// Every line has − and + (MAG-536). A packaged product is a whole number of packagings (MAG-299),
-// any other line moves by a step that suits its unit; − never goes below one step —
-// removing a line is the delete gesture.
-fun increasedQuantity(quantity: Float?, step: Float = 1f): Float = (quantity ?: 0f) + step
+// A packaged product's line is a whole number of packagings (MAG-299): − and +
+// move it by one, and − never goes below one — removing a line is the delete gesture.
+fun increasedQuantity(quantity: Float?): Float = (quantity ?: 0f) + 1f
 
-fun decreasedQuantity(quantity: Float?, step: Float = 1f): Float = maxOf(step, (quantity ?: 0f) - step)
+fun decreasedQuantity(quantity: Float?): Float = maxOf(1f, (quantity ?: 0f) - 1f)
 
-fun canDecreaseQuantity(quantity: Float?, step: Float = 1f): Boolean = quantity != null && quantity > step
+fun canDecreaseQuantity(quantity: Float?): Boolean = quantity != null && quantity > 1f
 
-/** How far − and + move a line counted in `unit`: 100 g, 0,5 kg, one piece. */
-fun stepOf(unit: CookbookUnit?): Float = when (unit) {
-    CookbookUnit.G, CookbookUnit.ML -> 100f
-    CookbookUnit.CL -> 10f
-    CookbookUnit.KG, CookbookUnit.L -> 0.5f
-    else -> 1f
-}
-
-/**
- * `null` when the text is no quantity: empty, zero, negative or not a number. A count of
- * packagings is whole; a loose quantity may have decimals (« 1,5 »).
- */
-fun parseQuantity(text: String, whole: Boolean = true): Float? {
-    val trimmed = text.trim()
-    if (whole) {
-        val value = trimmed.toIntOrNull() ?: return null
-        return if (value > 0) value.toFloat() else null
-    }
-    val value = trimmed.replace(',', '.').toFloatOrNull() ?: return null
-    return if (value > 0f && value.isFinite()) value else null
+/** `null` when the text is no number of packagings: empty, not a whole number, zero or negative. */
+fun parseQuantity(text: String): Float? {
+    val value = text.trim().toIntOrNull() ?: return null
+    return if (value > 0) value.toFloat() else null
 }
 
 fun formatQuantity(quantity: Float): String {
@@ -66,17 +49,13 @@ fun unitLabel(unit: CookbookUnit?, quantity: Float): String {
     }
 }
 
-/** A product with a packaging is counted in it, in whole packagings. */
+/** A product with a packaging is counted in it; any other has no quantity to manage on its line. */
 val GroceryItem.isPackaged: Boolean
     get() = product?.packagingUnit != null
 
-/** The unit a line is counted in: its product's packaging, else its own unit. */
+/** The unit a packaged line is counted in: always its product's packaging. */
 val GroceryItem.countedUnit: CookbookUnit?
-    get() = product?.packagingUnit ?: unit
-
-/** How far − and + move this line. */
-val GroceryItem.quantityStep: Float
-    get() = if (isPackaged) 1f else stepOf(unit)
+    get() = product?.packagingUnit
 
 /** « (500 g) »: what one packaging holds, shown after the number of packagings. */
 fun GroceryItem.packagingContent(): String? {
@@ -85,6 +64,17 @@ fun GroceryItem.packagingContent(): String? {
     val size = product.packagingSize ?: return null
     val sizeUnit = product.packagingSizeUnit ?: return null
     return "(${formatSize(size)} ${sizeUnit.frenchLabel(size)})"
+}
+
+/**
+ * « 800 g », « 300 g + 2 pièces »: what the meals need, shown on a line with nothing to adjust
+ * (MAG-380). Falls back to the line's own quantity when the API sent no need.
+ */
+fun GroceryItem.quantityHint(): String? {
+    needed.neededLabel()?.let { return it }
+    val quantity = quantity ?: return null
+    val unitText = unitLabel(unit, quantity)
+    return formatQuantity(quantity) + if (unitText.isNotEmpty()) " $unitText" else ""
 }
 
 /**
@@ -101,7 +91,8 @@ fun PurchasedItem.quantityLabel(): String? {
     return "$amount · ${packagingLabel(packagingUnit, packagingSize, packagingSizeUnit)}"
 }
 
-/** « 800 g pour les repas »: the reminder under a line, never edited (MAG-380). */
+/** « 800 g pour les repas »: the reminder under a packaged line, never edited (MAG-380). */
 fun GroceryItem.neededReminder(): String? {
+    if (!isPackaged) return null
     return needed.neededLabel()?.let { "$it pour les repas" }
 }

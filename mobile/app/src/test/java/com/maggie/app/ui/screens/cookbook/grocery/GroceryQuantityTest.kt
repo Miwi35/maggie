@@ -40,9 +40,8 @@ class GroceryQuantityTest {
     }
 
     @Test
-    fun `a line without packaging is counted in its own unit`() {
+    fun `a product without packaging has no quantity to manage`() {
         assertNull(GroceryItem(label = "Sel").countedUnit)
-        assertEquals(CookbookUnit.G, GroceryItem(label = "Sel", unit = CookbookUnit.G).countedUnit)
         assertFalse(GroceryItem(label = "Sel").isPackaged)
         assertFalse(GroceryItem(label = "Sel", product = Product(id = "p", name = "Sel", category = ProductCategory.CONDIMENT)).isPackaged)
     }
@@ -65,34 +64,6 @@ class GroceryQuantityTest {
     }
 
     @Test
-    fun `a loose line steps by what its unit calls for`() {
-        assertEquals(100f, stepOf(CookbookUnit.G))
-        assertEquals(0.5f, stepOf(CookbookUnit.KG))
-        assertEquals(1f, stepOf(CookbookUnit.PIECE))
-        assertEquals(1f, stepOf(null))
-        assertEquals(1f, GroceryItem(label = "Tomates", quantity = 4f, unit = CookbookUnit.PIECE).quantityStep)
-        assertEquals(100f, GroceryItem(label = "Sel", quantity = 300f, unit = CookbookUnit.G).quantityStep)
-        assertEquals(1f, GroceryItem(label = "Riz", product = rice, unit = CookbookUnit.G).quantityStep)
-    }
-
-    @Test
-    fun `plus and minus move a loose quantity by its step, never below one step`() {
-        assertEquals(400f, increasedQuantity(300f, 100f))
-        assertEquals(200f, decreasedQuantity(300f, 100f))
-        assertEquals(100f, decreasedQuantity(100f, 100f))
-        assertTrue(canDecreaseQuantity(300f, 100f))
-        assertFalse(canDecreaseQuantity(100f, 100f))
-        assertFalse(canDecreaseQuantity(null, 100f))
-    }
-
-    @Test
-    fun `a loose quantity may be typed with decimals`() {
-        assertEquals(1.5f, parseQuantity("1,5", whole = false))
-        assertEquals(2f, parseQuantity("2", whole = false))
-        listOf("", "0", "-3", "abc", "NaN").forEach { assertNull("'$it'", parseQuantity(it, whole = false)) }
-    }
-
-    @Test
     fun `what a pack holds is shown after the count of packagings`() {
         assertEquals("(500 g)", GroceryItem(label = "Riz", product = rice, unit = CookbookUnit.PACK).packagingContent())
         assertEquals("(500 g)", GroceryItem(label = "Riz", product = rice).packagingContent())
@@ -105,13 +76,21 @@ class GroceryQuantityTest {
     }
 
     @Test
-    fun `a line reminds what the meals need`() {
+    fun `the quantity of a recipe is an indication written with its unit`() {
+        assertEquals("300 g", GroceryItem(label = "Sel", quantity = 300f, unit = CookbookUnit.G).quantityHint())
+        assertEquals("2 pièces", GroceryItem(label = "Citron", quantity = 2f, unit = CookbookUnit.PIECE).quantityHint())
+        assertNull(GroceryItem(label = "Sel").quantityHint())
+    }
+
+    @Test
+    fun `a line with nothing to adjust shows what the meals need`() {
         val salt = GroceryItem(label = "Sel", quantity = 300f, unit = CookbookUnit.G, needed = listOf(Need(800.0, "g")))
         val mixed = GroceryItem(label = "Citron", needed = listOf(Need(300.0, "g"), Need(2.0, "piece")))
 
-        assertEquals("800 g pour les repas", salt.neededReminder())
-        assertEquals("300 g + 2 pièces pour les repas", mixed.neededReminder())
-        assertNull(salt.copy(needed = null).neededReminder())
+        assertEquals("800 g", salt.quantityHint())
+        assertEquals("300 g + 2 pièces", mixed.quantityHint())
+        assertEquals("1,5 kg", GroceryItem(label = "Farine", needed = listOf(Need(1500.0, "g"))).quantityHint())
+        assertNull(salt.neededReminder())
     }
 
     @Test

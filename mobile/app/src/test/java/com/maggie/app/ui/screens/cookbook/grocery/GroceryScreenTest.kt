@@ -3,7 +3,6 @@ package com.maggie.app.ui.screens.cookbook.grocery
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
@@ -242,50 +241,16 @@ class GroceryScreenTest {
         assertEquals(3f, quantityOfRice(fake))
     }
 
-    /** MAG-536: a line without packaging changes quantity on the spot too, in steps that suit its unit. */
+    /** MAG-299: a product with no packaging has nothing to adjust on its line, only the quantity a recipe asked for. */
     @Test
-    fun `a product without packaging has plus and minus too`() {
+    fun `a product without packaging shows its quantity as an indication, with no buttons`() {
         val fake = FakeGrocery(list = riceList)
         compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("300 g").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Augmenter la quantité de Sel").performClick()
-        compose.onNodeWithText("400 g").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Diminuer la quantité de Sel").performClick()
-        compose.onNodeWithContentDescription("Diminuer la quantité de Sel").performClick()
-        compose.onNodeWithText("200 g").assertIsDisplayed()
-
-        afterSaveDelay()
-        assertEquals(200f, fake.items.first { it.id == "item-sel" }.quantity)
-    }
-
-    @Test
-    fun `a counted line without packaging, like four tomatoes, has plus and minus`() {
-        val tomatoes = GroceryList(
-            id = "list-tomatoes",
-            items = listOf(GroceryItem(id = "item-tomates", label = "tomates", customLabel = "tomates", quantity = 4f, unit = CookbookUnit.PIECE, position = 0)),
-        )
-        val fake = FakeGrocery(list = tomatoes)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
-
-        compose.onNodeWithText("4 pièces").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Augmenter la quantité de tomates").performClick()
-        compose.onNodeWithText("5 pièces").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Diminuer la quantité de tomates").assertIsEnabled()
-    }
-
-    @Test
-    fun `a line with no quantity and no unit, like bread, has plus and minus`() {
-        val bread = GroceryList(
-            id = "list-bread",
-            items = listOf(GroceryItem(id = "item-pain", label = "pain", customLabel = "pain", position = 0)),
-        )
-        val fake = FakeGrocery(list = bread)
-        compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
-
-        compose.onNodeWithContentDescription("Diminuer la quantité de pain").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Augmenter la quantité de pain").performClick()
-        compose.onNodeWithText("1").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Augmenter la quantité de Sel").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Diminuer la quantité de Sel").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Modifier la quantité de Sel").assertDoesNotExist()
     }
 
     @Test

@@ -684,13 +684,22 @@ private fun GroceryItemRow(
                 )
             }
         }
-        if (item.id != null) {
+        if (item.id != null && item.isPackaged) {
             QuantityStepper(
                 item = item,
                 onIncrement = onIncrement,
                 onDecrement = onDecrement,
                 onSetQuantity = onSetQuantity,
             )
+        } else {
+            item.quantityHint()?.let { hint ->
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.semantics { contentDescription = "Quantité indicative de ${item.label} : $hint" },
+                )
+            }
         }
     }
 }

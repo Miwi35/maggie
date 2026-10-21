@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.LaunchedEffect
 import com.maggie.app.data.model.GroceryItem
 
-/** − quantity + on the line of every item (MAG-291, MAG-299, MAG-536); a tap on the number types it by hand. */
+/** − packagings + on the line of a packaged product (MAG-291, MAG-299); a tap on the number types it by hand. */
 @Composable
 fun QuantityStepper(
     item: GroceryItem,
@@ -53,7 +53,7 @@ fun QuantityStepper(
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         IconButton(
             onClick = onDecrement,
-            enabled = canDecreaseQuantity(quantity, item.quantityStep),
+            enabled = canDecreaseQuantity(quantity),
             modifier = Modifier.size(36.dp),
         ) {
             Icon(
@@ -97,7 +97,7 @@ fun QuantityStepper(
                     textAlign = TextAlign.Center,
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                keyboardOptions = KeyboardOptions(keyboardType = if (item.isPackaged) KeyboardType.Number else KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 modifier = Modifier
                     .widthIn(min = 56.dp)
