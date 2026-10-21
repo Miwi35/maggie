@@ -134,5 +134,12 @@ tags:
       id: "finance_tab_aspect_rules"
     timeout: 20000
 
-- assertVisible:
-    id: "finance_tab_aspect_recurring"
+# One swipe only brings « Règles » in: the last tab can still be past the edge. Selecting a tab
+# scrolls it into view, which brings its neighbour with it.
+- tapOn:
+    id: "finance_tab_aspect_rules"
+
+- extendedWaitUntil:
+    visible:
+      id: "finance_tab_aspect_recurring"
+    timeout: 20000
