@@ -143,7 +143,7 @@ export const ReviewActivityPage = () => {
   const closing = progress.progress?.period ?? null
   const nextPeriod = progress.progress?.nextPeriod ?? null
   const steps = useMemo(() => (closing && nextPeriod ? ALL_STEPS : MONTH_STEPS), [closing, nextPeriod])
-  const review = useReviewQueue(month)
+  const review = useReviewQueue({ month })
   const envelopes = useEnvelopeAdjustments(month)
   const upcoming = useUpcomingProjection()
 

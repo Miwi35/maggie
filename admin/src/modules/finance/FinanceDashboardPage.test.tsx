@@ -27,7 +27,11 @@ const stubApi = (payload: FinanceDashboard | unknown, ok = true) => {
   return fetchMock
 }
 
-const Where = () => <span data-testid="where">{useLocation().pathname}</span>
+const Where = () => {
+  const { pathname, search } = useLocation()
+
+  return <span data-testid="where">{pathname + search}</span>
+}
 
 const renderPage = () =>
   render(
@@ -108,7 +112,7 @@ describe('FinanceDashboardPage', () => {
   })
 
   test.each([
-    ['pill-to-sort', '/finance/to-sort'],
+    ['pill-to-sort', '/finance/review?state=unrecognised&period=all'],
     ['pill-rejections', '/accounts/a1/transactions'],
     ['pill-advance', '/finance/savings-advances'],
   ])('the pill %s opens %s, not the tile', async (testId, path) => {

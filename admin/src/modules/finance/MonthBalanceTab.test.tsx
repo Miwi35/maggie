@@ -36,7 +36,11 @@ const stubApi = (payload: MonthBalance | unknown, ok = true) => {
 const monthRequests = (fetchMock: ReturnType<typeof stubApi>) =>
   fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/api/finance/month-balance'))
 
-const Where = () => <span data-testid="where">{useLocation().pathname}</span>
+const Where = () => {
+  const { pathname, search } = useLocation()
+
+  return <span data-testid="where">{pathname + search}</span>
+}
 
 const renderPage = () =>
   render(
@@ -109,7 +113,7 @@ describe('MonthBalanceTab', () => {
     expect(pill).toHaveTextContent(/À qualifier · 1 · 40,00\s€/)
 
     await userEvent.setup().click(pill)
-    expect(screen.getByTestId('where')).toHaveTextContent('/finance/to-sort')
+    expect(screen.getByTestId('where')).toHaveTextContent('/finance/review?state=unrecognised&period=all')
   })
 
   test('a month with nothing to qualify, no envelope and nothing judged shows an empty state, not zeros', async () => {

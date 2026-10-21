@@ -6,7 +6,7 @@ import { FinanceBanksPage } from '../pages/FinanceBanksPage.js'
 import { FinanceLoansPage } from '../pages/FinanceLoansPage.js'
 import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
 import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
-import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
+import { FinanceReviewPage } from '../pages/FinanceReviewPage.js'
 import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
 
 /**
@@ -383,17 +383,17 @@ test.describe('what is to do', () => {
     await expect(page).toHaveURL(/#\/accounts\/[^/]+\/transactions\?tab=incidents$/)
     await expect(new FinanceTransfersPage(page).incidentsTab(1)).toHaveAttribute('aria-selected', 'true')
 
-    // « 3 à trier » opens the pile as a list, oldest line first; the line opens its fiche (MAG-507).
+    // « 3 à trier » opens Revue on the lines to qualify, oldest first; the line opens its fiche (MAG-539).
     await overview.open()
     await overview.toSortPill.click()
-    await expect(page).toHaveURL(/#\/finance\/to-sort$/)
-    const toSort = new FinanceToSortPage(page)
-    await expect(toSort.pile.getByRole('button').first()).toContainText(sorted[0].label)
-    await toSort.select(sorted[0].label)
+    await expect(page).toHaveURL(/#\/finance\/review\?state=unrecognised&period=all$/)
+    const review = new FinanceReviewPage(page)
+    await expect(review.rows.first()).toContainText(sorted[0].label)
+    await review.select(sorted[0].label)
     for (const line of sorted) {
-      await expect(toSort.pile.getByRole('button', { name: line.label })).toBeVisible()
+      await expect(review.row(line.label)).toBeVisible()
     }
-    await expect(toSort.pile.getByRole('button')).toHaveCount(3)
+    await expect(review.rows).toHaveCount(3)
   })
 })
 

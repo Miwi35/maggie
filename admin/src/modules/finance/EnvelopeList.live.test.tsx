@@ -74,7 +74,7 @@ describe('EnvelopeList — live updates from Mercure', () => {
   test('the budget links to the lines still waiting for a qualification', async () => {
     renderScreen()
 
-    expect(await screen.findByRole('link', { name: /À qualifier · 3 · 57,99/ })).toHaveAttribute('href', '/finance/to-sort')
+    expect(await screen.findByRole('link', { name: /À qualifier · 3 · 57,99/ })).toHaveAttribute('href', '/finance/review?state=unrecognised&period=all')
   })
 
   test('« Ajuster » opens the adjustments of the period on screen, and only then', async () => {

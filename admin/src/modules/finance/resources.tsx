@@ -1,6 +1,6 @@
 import { ResourceGuesser } from '@api-platform/admin'
 import { CustomRoutes } from 'react-admin'
-import { Route } from 'react-router-dom'
+import { Navigate, Route } from 'react-router-dom'
 import { AccountCreate } from './AccountCreate'
 import { AccountEdit } from './AccountEdit'
 import { AccountList } from './AccountList'
@@ -16,7 +16,6 @@ import { CushionPage } from './CushionPage'
 import { FinanceDashboardPage } from './FinanceDashboardPage'
 import { FinanceSummaryPage } from './FinanceSummaryPage'
 import { LoanCreate } from './LoanCreate'
-import { MonthlyReviewPage } from './MonthlyReviewPage'
 import { RecurringOperationsPage } from './RecurringOperationsPage'
 import { SavingsAdvancesPage } from './SavingsAdvancesPage'
 import { StatementImportPage } from './StatementImportPage'
@@ -30,10 +29,10 @@ import { EnvelopeEdit } from './EnvelopeEdit'
 import { EnvelopeList } from './EnvelopeList'
 import { PeerDebtsPage } from './PeerDebtsPage'
 import { ProjectsPage } from './ProjectsPage'
-import { RecognisedToControlPage } from './RecognisedToControlPage'
+import { ReviewPage } from './ReviewPage'
+import { LEGACY_REVIEW_REDIRECTS } from './reviewFilter'
 import { ReviewActivityPage } from './ReviewActivityPage'
 import { REVIEW_ACTIVITY_PATH } from './reviewActivity'
-import { ToSortPage } from './ToSortPage'
 import { TransactionCreate } from './TransactionCreate'
 import { TransactionSheet } from './TransactionSheet'
 import { TransactionList } from './TransactionList'
@@ -47,15 +46,17 @@ export const financeResources = (
       <Route path="/finance/dashboard/current" element={<FinanceDashboardPage initialTab="current" />} />
       <Route path="/finance/summary/:key/:aspect?" element={<FinanceSummaryPage />} />
       <Route path="/finance/banks" element={<BankConnectionsPage />} />
-      <Route path="/finance/to-sort" element={<ToSortPage />} />
+      <Route path="/finance/review" element={<ReviewPage />} />
       <Route path="/finance/peer-debts" element={<PeerDebtsPage />} />
-      <Route path="/finance/to-control" element={<RecognisedToControlPage />} />
       <Route path="/finance/import" element={<StatementImportPage />} />
       <Route path="/finance/treasury" element={<TreasuryPage />} />
       <Route path="/finance/projects" element={<ProjectsPage />} />
       <Route path="/finance/cushion" element={<CushionPage />} />
       <Route path="/finance/savings-advances" element={<SavingsAdvancesPage />} />
-      <Route path="/finance/monthly-review" element={<MonthlyReviewPage />} />
+      {/* The three Revue pages of before are one list (MAG-539): their addresses open it, filtered as they were. */}
+      <Route path="/finance/to-sort" element={<Navigate replace to={LEGACY_REVIEW_REDIRECTS['/finance/to-sort']} />} />
+      <Route path="/finance/to-control" element={<Navigate replace to={LEGACY_REVIEW_REDIRECTS['/finance/to-control']} />} />
+      <Route path="/finance/monthly-review" element={<Navigate replace to={LEGACY_REVIEW_REDIRECTS['/finance/monthly-review']} />} />
       <Route path="/finance/recurring-operations" element={<RecurringOperationsPage />} />
     </CustomRoutes>
     {/* The monthly review as an activity (MAG-456): full screen, out of the menus. */}

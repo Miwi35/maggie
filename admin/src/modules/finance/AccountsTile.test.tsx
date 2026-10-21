@@ -47,7 +47,7 @@ describe('AccountsTile', () => {
   test('shows « N à trier » and « N rejet » as pills that open their screen', () => {
     renderTile()
 
-    expect(screen.getByRole('link', { name: '3 à trier' })).toHaveAttribute('href', '/finance/to-sort')
+    expect(screen.getByRole('link', { name: '3 à trier' })).toHaveAttribute('href', '/finance/review?state=unrecognised&period=all')
     expect(screen.getByRole('link', { name: '1 rejet' })).toHaveAttribute('href', '/accounts/a1/transactions?tab=incidents')
   })
 

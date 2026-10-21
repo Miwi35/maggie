@@ -16,6 +16,7 @@ import { PeriodPicker } from './PeriodPicker'
 import { RhythmCurve } from './RhythmCurve'
 import { SatisfactionRing } from './SatisfactionRing'
 import { ScoreRing } from './ScoreRings'
+import { reviewLink } from './reviewFilter'
 import { useMonthBalance } from './useMonthBalance'
 import type { BalanceSavings } from './useMonthBalance'
 import type { TileCushion } from './useFinanceDashboard'
@@ -133,7 +134,7 @@ export const MonthBalanceTab = () => {
             <Box sx={{ display: 'flex' }}>
               <Chip
                 component={Link}
-                to="/finance/to-sort"
+                to={reviewLink({ state: 'unrecognised', period: 'all' })}
                 clickable
                 color="warning"
                 variant="outlined"

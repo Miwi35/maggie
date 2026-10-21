@@ -2,6 +2,7 @@ import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import { Link } from 'react-admin'
 import { formatCents } from './accountTypes'
+import { reviewLink } from './reviewFilter'
 import { useToQualifySummary } from './useToQualifySummary'
 
 /** « À qualifier · 3 · 57,99 € »: the lines no envelope counts yet, one tap from the page that qualifies them. */
@@ -14,7 +15,7 @@ export const ToQualifyPill = () => {
     <Box sx={{ display: 'flex', mb: 2 }}>
       <Chip
         component={Link}
-        to="/finance/to-sort"
+        to={reviewLink({ state: 'unrecognised', period: 'all' })}
         clickable
         color="warning"
         variant="outlined"

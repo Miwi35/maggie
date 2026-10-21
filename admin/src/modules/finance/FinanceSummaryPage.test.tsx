@@ -25,9 +25,6 @@ type Body = Record<string, unknown>
 /** Nothing anywhere: every aspect is empty. */
 const EMPTY: Record<string, Body> = {
   '/api/finance/dashboard': { independence: { hasPassiveIncomeCategories: false } },
-  '/api/finance/transactions/to-sort': { total: 0, transactions: [] },
-  '/api/finance/review/recognised': { month: '2026-10', total: 0, groups: [] },
-  '/api/finance/monthly-review': { pendingCount: 0 },
   '/api/finance/recurring-operations/overview': {
     operations: [],
     proposals: [],
@@ -121,21 +118,11 @@ describe('FinanceSummaryPage', () => {
     await opensOn('Projets', 'projects')
   })
 
-  test('opens on the first aspect that has data', async () => {
-    stubApi({ '/api/finance/transactions/to-sort': { total: 0, transactions: [] }, '/api/finance/review/recognised': { month: '2026-10', total: 5, groups: [] } })
+  test('Revue opens on the list of the transactions, whether there is something to review or not (MAG-539)', async () => {
+    stubApi()
     renderPage('/finance/summary/review')
 
-    await opensOn('Reconnues à contrôler', 'to-control')
-  })
-
-  test('the first aspect with data wins even when a later one has some too', async () => {
-    stubApi({
-      '/api/finance/transactions/to-sort': { total: 3, transactions: [] },
-      '/api/finance/review/recognised': { month: '2026-10', total: 5, groups: [] },
-    })
-    renderPage('/finance/summary/review')
-
-    await opensOn('À qualifier', 'to-sort')
+    await opensOn('Transactions', 'review')
   })
 
   test('Planification opens on Indépendance when only the rentes are declared', async () => {
@@ -170,10 +157,10 @@ describe('FinanceSummaryPage', () => {
   })
 
   test('the tab named in the URL is the one shown, whatever has data', async () => {
-    const fetch = stubApi({ '/api/finance/transactions/to-sort': { total: 3, transactions: [] } })
-    renderPage('/finance/summary/review/monthly-review')
+    const fetch = stubApi()
+    renderPage('/finance/summary/review/recurring')
 
-    await opensOn('Revue mensuelle', 'monthly-review')
+    await opensOn('Opérations', 'recurring')
     expect(fetch).not.toHaveBeenCalled()
   })
 

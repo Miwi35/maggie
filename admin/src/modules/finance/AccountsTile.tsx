@@ -3,6 +3,7 @@ import Typography from '@mui/material/Typography'
 import { accountLabel } from './accountLabel'
 import { formatCents } from './accountTypes'
 import { DashboardTile } from './DashboardTile'
+import { reviewLink } from './reviewFilter'
 import { TodoPill } from './TodoPill'
 import type { AccountsTile as AccountsTileData, DashboardTodo } from './useFinanceDashboard'
 
@@ -31,7 +32,7 @@ export const AccountsTile = ({ tile, todo }: { tile: AccountsTileData; todo: Das
     <DashboardTile title="Comptes" to="/accounts" testId="tile-accounts">
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mb: 1 }} data-testid="accounts-pills">
         {todo.toSortCount > 0 && (
-          <TodoPill label={`${todo.toSortCount} à trier`} to="/finance/to-sort" testId="pill-to-sort" />
+          <TodoPill label={`${todo.toSortCount} à trier`} to={reviewLink({ state: 'unrecognised', period: 'all' })} testId="pill-to-sort" />
         )}
         {todo.rejectionsToSettleCount > 0 && (
           <TodoPill
