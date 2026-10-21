@@ -28,16 +28,12 @@ class CreateNotificationHandler
 
     public function __invoke(CreateNotificationCommand $command): ?Notification
     {
-        if (null !== $command->userId) {
-            $user = $this->userRepository->find($command->userId);
-        } else {
-            $users = $this->userRepository->findAll();
-            $user = $users[0] ?? null;
+        if (null === $command->userId) {
+            throw new \DomainException('A notification needs an explicit user.');
         }
 
-        if (null === $user) {
-            throw new \DomainException('No user found.');
-        }
+        $user = $this->userRepository->find($command->userId)
+            ?? throw new \DomainException('No user found.');
 
         // On by default: a user who never saved preferences has no row.
         if (false === $this->preferenceRepository->findOneByUser($user)?->isNotificationsEnabled()) {
