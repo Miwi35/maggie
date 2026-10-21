@@ -226,6 +226,8 @@ reorders with the ids the replayed list gave (`91-projects-reorder.yaml`).
 `91-projects-funding.yaml` funds the « Voiture » with 1 000 € of the Livret jeune and a 6 000 € loan through
 `manage_project_funding` set (MAG-524): one round lists the projects and the accounts, `results_matches` captures
 both ids from it.
+`91-projects-planning.yaml` answers « Quand pourrai-je acheter le canapé ? » with `get_project_planning` (MAG-526), a
+pure read that takes no argument.
 
 ## Adding a scenario
 

@@ -1,0 +1,447 @@
+{
+    "startMonth": "2026-10",
+    "horizonMonths": 36,
+    "currency": "EUR",
+    "netCapacityCents": 50000,
+    "isIncomeKnown": true,
+    "cushion": {
+        "state": "complete",
+        "completeMonth": null
+    },
+    "months": [
+        {
+            "month": "2026-10",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 50000,
+            "savingsCents": 30000,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2026-11",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 50000,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2026-12",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 50000,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-01",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 50000,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-02",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 50000,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-03",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 50000,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-04",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 50000,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-05",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 50000,
+            "savingsCents": 50000,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-06",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-07",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-08",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-09",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-10",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-11",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2027-12",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-01",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-02",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-03",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-04",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-05",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-06",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-07",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-08",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-09",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-10",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-11",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2028-12",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2029-01",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2029-02",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2029-03",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2029-04",
+            "capacityCents": 6575,
+            "cushionCents": 0,
+            "salaryCents": 6575,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43425,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2029-05",
+            "capacityCents": 6589,
+            "cushionCents": 0,
+            "salaryCents": 6589,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 43411,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2029-06",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 50000,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2029-07",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 50000,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2029-08",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 32186,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        },
+        {
+            "month": "2029-09",
+            "capacityCents": 50000,
+            "cushionCents": 0,
+            "salaryCents": 0,
+            "savingsCents": 0,
+            "capitalCents": 0,
+            "loanPaymentsCents": 0,
+            "isOverCapacity": false
+        }
+    ],
+    "projects": [
+        {
+            "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Déménagement",
+            "position": 0,
+            "wellbeing": "essential",
+            "amountCents": 240000,
+            "dateMode": "fixed",
+            "targetOn": "2027-03-15",
+            "savingFromMonth": "2026-10",
+            "purchaseMonth": "2027-03",
+            "gatheredCents": 30000,
+            "loan": null,
+            "isBeyondHorizon": false,
+            "isDeadlineMissed": false,
+            "delayMonths": 0,
+            "unmetDependencies": []
+        },
+        {
+            "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Canapé",
+            "position": 1,
+            "wellbeing": "comfort",
+            "amountCents": 30000,
+            "dateMode": "none",
+            "targetOn": null,
+            "savingFromMonth": "2026-10",
+            "purchaseMonth": "2027-03",
+            "gatheredCents": 0,
+            "loan": null,
+            "isBeyondHorizon": false,
+            "isDeadlineMissed": false,
+            "delayMonths": 0,
+            "unmetDependencies": []
+        },
+        {
+            "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Voiture",
+            "position": 2,
+            "wellbeing": "medium",
+            "amountCents": 1200000,
+            "dateMode": "none",
+            "targetOn": null,
+            "savingFromMonth": "2026-12",
+            "purchaseMonth": "2027-05",
+            "gatheredCents": 0,
+            "loan": {
+                "startMonth": "2027-06",
+                "endMonth": "2029-05",
+                "monthlyPaymentCents": 43425
+            },
+            "isBeyondHorizon": false,
+            "isDeadlineMissed": false,
+            "delayMonths": 0,
+            "unmetDependencies": []
+        },
+        {
+            "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Japon",
+            "position": 3,
+            "wellbeing": "comfort",
+            "amountCents": 300000,
+            "dateMode": "deadline",
+            "targetOn": "2027-04-30",
+            "savingFromMonth": "2027-05",
+            "purchaseMonth": "2029-08",
+            "gatheredCents": 0,
+            "loan": null,
+            "isBeyondHorizon": false,
+            "isDeadlineMissed": true,
+            "delayMonths": 28,
+            "unmetDependencies": []
+        }
+    ]
+}

@@ -1,0 +1,93 @@
+# The world of the project planning recording (MAG-526), read on 2026-10-21:
+# a complete cushion, 800 € of savings outside it, a net capacity of 500 €/month,
+# a move with a fixed date, a sofa waiting for it, a car part-paid by a projected
+# loan and a trip whose deadline the queue cannot keep. Its own file: the other
+# recordings must not see these projects.
+Maggie\Core\Entity\User:
+  planning_user:
+    email: recorded-planning@example.com
+    googleId: google-recorded-planning
+    name: Recorded Planning User
+
+Maggie\Finance\Entity\SafetyCushion:
+  planning_cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 50000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: '<(new \DateTimeImmutable("2026-01-10"))>'
+    user: '@planning_user'
+
+Maggie\Finance\Entity\Account:
+  planning_livret:
+    name: Livret jeune
+    bank: Recorded Bank
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 80000
+    isCushion: false
+    user: '@planning_user'
+  planning_cushion_account:
+    name: Livret A
+    bank: Recorded Bank
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 150000
+    isCushion: true
+    user: '@planning_user'
+
+Maggie\Finance\Entity\Loan:
+  planning_car_loan:
+    name: Voiture · emprunt
+    principalRemainingCents: 1000000
+    monthlyPaymentCents: 43425
+    annualRateBasisPoints: 400
+    durationMonths: 24
+    projected: true
+    user: '@planning_user'
+
+Maggie\Finance\Entity\Project:
+  planning_move:
+    name: Déménagement
+    amountCents: 240000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Essential)>'
+    position: 0
+    dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::Fixed)>'
+    targetOn: '<(new \DateTimeImmutable("2027-03-15"))>'
+    user: '@planning_user'
+  planning_sofa:
+    name: Canapé
+    amountCents: 30000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Comfort)>'
+    position: 1
+    dependsOn: ['@planning_move']
+    user: '@planning_user'
+  planning_car:
+    name: Voiture
+    amountCents: 1200000
+    currency: EUR
+    position: 2
+    user: '@planning_user'
+  planning_trip:
+    name: Japon
+    amountCents: 300000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Comfort)>'
+    position: 3
+    dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::Deadline)>'
+    targetOn: '<(new \DateTimeImmutable("2027-04-30"))>'
+    user: '@planning_user'
+
+Maggie\Finance\Entity\ProjectFundingSource:
+  planning_car_savings:
+    kind: '<(Maggie\Finance\Enum\FundingSourceKind::Savings)>'
+    amountCents: 50000
+    account: '@planning_livret'
+    project: '@planning_car'
+  planning_car_borrowed:
+    kind: '<(Maggie\Finance\Enum\FundingSourceKind::Loan)>'
+    amountCents: 1000000
+    loan: '@planning_car_loan'
+    project: '@planning_car'

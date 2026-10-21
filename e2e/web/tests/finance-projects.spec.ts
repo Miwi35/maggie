@@ -1,6 +1,9 @@
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { test, expect } from '../fixtures/index.js'
+import { calledTools, toolResults } from '../helpers/agui.js'
 import { getCollection } from '../helpers/api.js'
+import { ChatPanel } from '../pages/ChatPanel.js'
+import { DashboardPage } from '../pages/DashboardPage.js'
 import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
 
 /**
@@ -12,11 +15,17 @@ import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
  * keyboard, then gives it a deadline before the move — a dependency the page
  * must flag.
  *
+ * The planning over 36 months (MAG-526): Maggie reads it (« Quand pourrai-je acheter
+ * le canapé ? ») and the API gives it. Canapé comes after Déménagement; moving it
+ * first changes the next reading, and it still never comes before the move it
+ * waits for. The seeded saving capacity is not asserted (it follows the seeded
+ * spending): what holds whatever it is, is the order and the dependency.
+ *
  * Only this file reads or writes the projects; `finally` puts the seed back,
  * so a retry starts where the first attempt did.
  */
 
-// Both tests write the same two seeded projects: one after the other.
+// The tests write the same two seeded projects: one after the other.
 test.describe.configure({ mode: 'serial' })
 
 const MOVE = 'Déménagement'
@@ -152,6 +161,82 @@ test('Canapé, without a date, is given a deadline that comes before the move it
     await expect(dialog).toBeHidden()
     await expect(screen.row(SOFA)).toContainText('au plus tard le 31 janvier 2027')
     await expect(screen.row(SOFA).getByRole('alert')).toHaveText('Dépendance non respectée : Déménagement est prévu après.')
+  } finally {
+    await restoreSeed(api)
+  }
+})
+
+interface PlannedProject {
+  name: string
+  position: number
+  purchaseMonth: string | null
+  isBeyondHorizon: boolean
+}
+
+interface ProjectPlanning {
+  startMonth: string
+  horizonMonths: number
+  months: { month: string }[]
+  projects: PlannedProject[]
+}
+
+const planning = async (api: APIRequestContext): Promise<ProjectPlanning> => {
+  const response = await api.get('/api/finance/project-planning')
+  expect(response.status(), await response.text()).toBe(200)
+
+  return (await response.json()) as ProjectPlanning
+}
+
+/** The two seeded projects of the planning, in the planning's order. */
+const seeded = (plan: ProjectPlanning): PlannedProject[] => plan.projects.filter((project) => project.name === MOVE || project.name === SOFA)
+
+/** The sofa is not bought before the move: `YYYY-MM` strings compare as dates, null is beyond the horizon. */
+const sofaNotBeforeMove = (list: PlannedProject[]): boolean => {
+  const move = list.find((project) => project.name === MOVE)
+  const sofa = list.find((project) => project.name === SOFA)
+  if (!move || !sofa || move.purchaseMonth === null) return false
+
+  return sofa.purchaseMonth === null || sofa.purchaseMonth >= move.purchaseMonth
+}
+
+test('the planning puts Canapé after Déménagement, and moving Canapé first changes the next reading', async ({ page, api }) => {
+  await restoreSeed(api)
+
+  try {
+    // --- When: Maggie is asked when the sofa can be bought -------------------
+    await new DashboardPage(page).open()
+    const events = await new ChatPanel(page).send('Quand pourrai-je acheter le canapé ?')
+    expect(calledTools(events)).toContain('get_project_planning')
+    expect(toolResults(events)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ toolName: 'get_project_planning', status: 'success' })]),
+    )
+
+    // --- Then: the planning she read puts Déménagement first, Canapé after it
+    const before = await planning(api)
+    expect(before.horizonMonths).toBe(36)
+    expect(before.months).toHaveLength(36)
+    expect(before.months[0]?.month).toBe(before.startMonth)
+    expect(seeded(before).map((project) => [project.name, project.position])).toEqual([
+      [MOVE, 0],
+      [SOFA, 1],
+    ])
+    expect(sofaNotBeforeMove(seeded(before)), 'the sofa is planned before the move it waits for').toBe(true)
+
+    // --- When: Canapé is moved to the top -----------------------------------
+    const list = await projects(api)
+    const move = named(list, MOVE)
+    const sofa = named(list, SOFA)
+    const others = list.filter((project) => project.id !== move.id && project.id !== sofa.id).map((project) => project.id)
+    const reordered = await api.post('/api/finance/projects/reorder', { data: { ids: [sofa.id, move.id, ...others] } })
+    expect(reordered.status(), await reordered.text()).toBe(200)
+
+    // --- Then: the next reading follows the order, the dependency still holds
+    const after = await planning(api)
+    expect(seeded(after).map((project) => [project.name, project.position])).toEqual([
+      [SOFA, 0],
+      [MOVE, 1],
+    ])
+    expect(sofaNotBeforeMove(seeded(after)), 'moving Canapé first must not buy it before Déménagement').toBe(true)
   } finally {
     await restoreSeed(api)
   }
