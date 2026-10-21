@@ -86,6 +86,11 @@ export const TOKENS = {
   urgency: { low: 'neutral', normal: 'info', high: 'warning', critical: 'danger' },
   contextState: { active: 'success', dormant: 'warning', closed: 'neutral' },
   source: { meals: '#FF6B35', tasks: '#1976D2', done: 'neutral' },
+  /** Where spending stands against its pace (`RhythmStatus`): mint in the rhythm, orange above it. */
+  rhythm: {
+    onTrack: { light: '#1B7352', dark: '#7FD1AE' },
+    above: { light: '#A65500', dark: '#F0A35E' },
+  },
   /** Slots 1 and 2 of the palette validated on the finance dashboard, per mode. */
   chart: {
     categorical: [
@@ -140,3 +145,7 @@ export const SOURCE_COLORS = {
 /** Categorical slot `index` (1-based, as a chart's legend numbers them). */
 export const chartColor = (index: number, mode: ThemeMode): string =>
   TOKENS.chart.categorical[index - 1][mode]
+
+/** The colour of a ring's rhythm status (`on_track` is mint, `above` orange) in a mode. */
+export const rhythmColor = (status: keyof typeof TOKENS.rhythm, mode: ThemeMode): string =>
+  TOKENS.rhythm[status][mode]

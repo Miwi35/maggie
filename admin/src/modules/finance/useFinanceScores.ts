@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { TOKENS } from '../../design/tokens'
 import { formatCents } from './accountTypes'
 
 export type ScoreStatus = 'green' | 'neutral' | 'orange' | 'red'
@@ -49,15 +50,17 @@ export interface FinanceScores {
   global: { status: ScoreStatus; label: string; reasons: ScoreReason[] }
 }
 
+export type RhythmStatus = Rhythm['status']
+
 /**
- * How each status is written: a glyph and a word beside the colour, so the
- * status reads without it. The word is the API's own `label` when it sends one.
+ * How a ring writes where the spending stands against its pace: a glyph and a
+ * word beside the colour, so the status reads without it. The word is the
+ * API's own `rhythm.label` when it sends one. The ring says this — never the
+ * daily score (`PeriodScore.status`), which Maggie reads and the reasons explain.
  */
-export const STATUS_META: Record<ScoreStatus, { word: string; glyph: string; color: string }> = {
-  green: { word: 'Dans le vert', glyph: '✓', color: 'success.main' },
-  neutral: { word: 'Dans les clous', glyph: '●', color: 'text.secondary' },
-  orange: { word: 'Attention', glyph: '▲', color: 'warning.main' },
-  red: { word: 'Dépassement', glyph: '✕', color: 'error.main' },
+export const RHYTHM_META: Record<RhythmStatus, { word: string; glyph: string; color: keyof typeof TOKENS.rhythm }> = {
+  on_track: { word: 'Dans le rythme', glyph: '✓', color: 'onTrack' },
+  above: { word: 'Au-dessus du rythme', glyph: '!', color: 'above' },
 }
 
 /** Turns a reason code into the sentence a person reads. */

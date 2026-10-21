@@ -219,6 +219,11 @@ describe('contrast', () => {
       }
     })
 
+    test.each(Object.entries(grounds))('both rhythm colours read on %s', (_ground, bg) => {
+      expect(contrast(TOKENS.rhythm.onTrack[name], bg)).toBeGreaterThanOrEqual(AA)
+      expect(contrast(TOKENS.rhythm.above[name], bg)).toBeGreaterThanOrEqual(AA)
+    })
+
     test.each(Object.entries(grounds))('every feedback colour reads on %s', (_ground, bg) => {
       for (const colour of ['error', 'warning', 'info', 'success'] as const) {
         expect(contrast(theme.palette[colour].main, bg), colour).toBeGreaterThanOrEqual(AA)

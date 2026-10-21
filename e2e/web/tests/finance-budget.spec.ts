@@ -123,7 +123,7 @@ test('the month score is held back by the safety net, and says so', async ({ pag
   const budget = new FinanceBudgetPage(page)
   await budget.open()
 
-  await expect(budget.scoreRing('month')).toContainText(/Dans le vert|Dans les clous|Attention|Dépassement/)
+  await expect(budget.scoreRing('month')).toContainText(/Dans le rythme|Au-dessus du rythme/)
   const reasons = await budget.scoreReasons('month')
   await expect(reasons).toContainText('Matelas incomplet')
   await expect(

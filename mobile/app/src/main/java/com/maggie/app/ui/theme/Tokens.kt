@@ -130,6 +130,12 @@ object MaggieTokens {
         val neutral = Color(0xFF9E9E9E)
     }
 
+    /** Where spending stands against its pace (`RhythmStatus`), as (light, dark). */
+    object Rhythm {
+        val onTrack = Color(0xFF1B7352) to Color(0xFF7FD1AE)
+        val above = Color(0xFFA65500) to Color(0xFFF0A35E)
+    }
+
     /** Slots 1 and 2 of the palette validated on the finance dashboard, per mode. */
     val chartCategorical = listOf(
         Color(0xFF2A78D6) to Color(0xFF3987E5),

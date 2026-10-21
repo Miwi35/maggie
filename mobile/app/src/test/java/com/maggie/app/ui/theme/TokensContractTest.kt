@@ -202,6 +202,12 @@ class TokensContractTest {
         put("source.meals", MaggieTokens.Source.meals.hex())
         put("source.tasks", MaggieTokens.Source.tasks.hex())
         put("source.done", signalNames.getValue(MaggieTokens.Source.done))
+        with(MaggieTokens.Rhythm) {
+            for ((name, pair) in listOf("onTrack" to onTrack, "above" to above)) {
+                put("rhythm.$name.light", pair.first.hex())
+                put("rhythm.$name.dark", pair.second.hex())
+            }
+        }
         MaggieTokens.chartCategorical.forEachIndexed { index, (light, dark) ->
             put("chart.categorical.$index.light", light.hex())
             put("chart.categorical.$index.dark", dark.hex())
