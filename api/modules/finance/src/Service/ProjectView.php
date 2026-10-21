@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Maggie\Finance\Service;
 
 use Maggie\Finance\Entity\Project;
+use Maggie\Finance\Entity\ProjectFundingSource;
 
 /**
- * A project as the MCP tool and the reorder endpoint answer it: dependencies
- * and unmet ones as bare ids.
+ * A project as the MCP tools and the reorder and funding endpoints answer it:
+ * dependencies and unmet ones as bare ids.
  */
 final class ProjectView
 {
@@ -28,6 +29,8 @@ final class ProjectView
             'dependsOn' => $project->dependencyIds(),
             'note' => $project->getNote(),
             'unmetDependencies' => $project->getUnmetDependencies(),
+            'fundingSources' => array_map(static fn (ProjectFundingSource $source): array => $source->toArray(), $project->getFundingSources()),
+            'salaryCents' => $project->getSalaryCents(),
         ];
     }
 

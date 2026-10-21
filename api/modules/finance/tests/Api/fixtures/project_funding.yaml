@@ -1,0 +1,70 @@
+# MAG-524's scenario: a 10 000 € car, a savings account outside the cushion,
+# the cushion itself, an investment, and a net saving capacity of 500 €/month
+# (income 500 €, no loan, no lifestyle measured). Another user's account and
+# project prove the isolation.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-funding-test@example.com
+    googleId: google-finance-funding-test
+    name: Finance Funding Test User
+  other_user:
+    email: finance-funding-other@example.com
+    googleId: google-finance-funding-other
+    name: Other Funding User
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 50000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: null
+    user: '@test_user'
+
+Maggie\Finance\Entity\Account:
+  livret_jeune:
+    name: Livret jeune
+    bank: Crédit Agricole
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 150000
+    isCushion: false
+    user: '@test_user'
+  livret_a:
+    name: Livret A
+    bank: Crédit Agricole
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 900000
+    isCushion: true
+    user: '@test_user'
+  pea:
+    name: PEA
+    bank: Boursorama
+    type: '<(Maggie\Finance\Enum\AccountType::Investment)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@test_user'
+  other_livret:
+    name: Livret d'un autre
+    bank: Crédit Agricole
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    user: '@other_user'
+
+Maggie\Finance\Entity\Project:
+  car:
+    name: Voiture
+    amountCents: 1000000
+    currency: EUR
+    position: 0
+    user: '@test_user'
+  secret:
+    name: Projet secret
+    amountCents: 99900
+    currency: EUR
+    position: 0
+    user: '@other_user'

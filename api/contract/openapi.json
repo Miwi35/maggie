@@ -21982,6 +21982,13 @@
                             "null"
                         ]
                     },
+                    "fundingSources": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProjectFundingSource_noid"
+                        },
+                        "readOnly": true
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -21999,6 +22006,11 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "salaryCents": {
+                        "readOnly": true,
+                        "description": "What is left to save on the salary: amountCents minus the funding sources, never below 0.",
+                        "type": "integer"
                     }
                 },
                 "required": [
@@ -22081,6 +22093,13 @@
                             "null"
                         ]
                     },
+                    "fundingSources": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProjectFundingSource.html_noid"
+                        },
+                        "readOnly": true
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -22098,6 +22117,11 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "salaryCents": {
+                        "readOnly": true,
+                        "description": "What is left to save on the salary: amountCents minus the funding sources, never below 0.",
+                        "type": "integer"
                     }
                 },
                 "required": [
@@ -22180,6 +22204,13 @@
                             "null"
                         ]
                     },
+                    "fundingSources": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProjectFundingSource_noid"
+                        },
+                        "readOnly": true
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -22197,6 +22228,11 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "salaryCents": {
+                        "readOnly": true,
+                        "description": "What is left to save on the salary: amountCents minus the funding sources, never below 0.",
+                        "type": "integer"
                     }
                 }
             },
@@ -22280,6 +22316,13 @@
                                     "null"
                                 ]
                             },
+                            "fundingSources": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/ProjectFundingSource.jsonld_noid"
+                                },
+                                "readOnly": true
+                            },
                             "user": {
                                 "type": "string",
                                 "format": "iri-reference",
@@ -22297,6 +22340,11 @@
                                 "items": {
                                     "type": "string"
                                 }
+                            },
+                            "salaryCents": {
+                                "readOnly": true,
+                                "description": "What is left to save on the salary: amountCents minus the funding sources, never below 0.",
+                                "type": "integer"
                             }
                         },
                         "required": [
@@ -22305,6 +22353,102 @@
                         ]
                     }
                 ]
+            },
+            "ProjectFundingSource.html_noid": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "default": "savings",
+                        "type": "string",
+                        "enum": [
+                            "savings",
+                            "capital",
+                            "loan"
+                        ]
+                    },
+                    "amountCents": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "accountId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "loanId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "ProjectFundingSource.jsonld_noid": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "default": "savings",
+                        "type": "string",
+                        "enum": [
+                            "savings",
+                            "capital",
+                            "loan"
+                        ]
+                    },
+                    "amountCents": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "accountId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "loanId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "ProjectFundingSource_noid": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "default": "savings",
+                        "type": "string",
+                        "enum": [
+                            "savings",
+                            "capital",
+                            "loan"
+                        ]
+                    },
+                    "amountCents": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "accountId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "loanId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
             },
             "PurchasedItem": {
                 "type": "object",
