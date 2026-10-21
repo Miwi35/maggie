@@ -111,6 +111,30 @@ describe('Dashboard — all-day events are dates (MAG-382)', () => {
     expect(within(digest('Ce mois')).queryByText('Vacances de la Toussaint')).not.toBeInTheDocument()
   })
 
+  test('keeps a timed event that crossed midnight into today, and drops one that ended before (MAG-536)', async () => {
+    const timed = (id: string, summary: string, start: Date, end: Date) => ({
+      id,
+      summary,
+      allDay: false,
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+      startDate: null,
+      endDate: null,
+      agenda: '/api/agendas/01PERSO',
+    })
+    const nuit = timed('01NUIT', 'Soirée d’hier', new Date(2037, 0, 14, 22, 0), new Date(2037, 0, 15, 2, 0))
+    const fini = timed('01FINI', 'Dîner fini', new Date(2037, 0, 14, 19, 0), new Date(2037, 0, 14, 22, 0))
+    mockGetList.mockImplementation((resource: string, params: { filter: Record<string, unknown> }) => {
+      if (resource === 'events' && params.filter['endAt[after]']) return Promise.resolve({ data: [nuit, fini], total: 2 })
+      return Promise.resolve({ data: [], total: 0 })
+    })
+    render(<Dashboard />)
+    await screen.findByText('Soirée d’hier')
+
+    expect(within(dailyColumn("Aujourd'hui")).getByText('Soirée d’hier')).toBeInTheDocument()
+    expect(screen.queryByText('Dîner fini')).not.toBeInTheDocument()
+  })
+
   test('puts this year’s birthday in the week, on its date', async () => {
     render(<Dashboard />)
     await screen.findByText('Anniversaire de Sacha')
