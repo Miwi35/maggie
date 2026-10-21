@@ -662,6 +662,9 @@ mobile:
       reason: >-
         Red on the tablet and the foldable every night since 18 Oct.: `project_save` sits under the
         launcher's taskbar (MAG-531). Lift it once that is fixed.
+  e2e/mobile/flows/24-finance-loans.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/loans-api.js, api/fixtures/e2e/50-finance.yaml]
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]
