@@ -14,8 +14,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerValue
@@ -417,6 +422,20 @@ internal fun chromeFor(layout: AppLayout, route: String?): Chrome {
         showsDetailPane = layout.detailPaneFits && route in DETAIL_PANE_ROUTES,
         detailsAreSheets = !layout.detailPaneFits || route == Screen.Dashboard.route,
     )
+}
+
+/**
+ * The bottom of the route stops where the system's navigation bar starts (MAG-531).
+ *
+ * `ChatBottomBar` pays it when it is there. Without it — a tablet's chat is a panel, and a
+ * route such as a form has none — nothing under the route did, and the launcher's
+ * taskbar covered its last row. Either way it is consumed, so the route's own `Scaffold`s
+ * and `navigationBarsPadding()` do not pay it a second time.
+ */
+@Composable
+private fun Modifier.clearOfNavigationBar(paidByChatBar: Boolean): Modifier {
+    val navigationBar = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
+    return if (paidByChatBar) consumeWindowInsets(navigationBar) else windowInsetsPadding(navigationBar)
 }
 
 /**
@@ -976,7 +995,7 @@ fun NavGraph() {
                 NavHost(
                     navController = navController,
                     startDestination = Screen.Loading.route,
-                    modifier = Modifier.padding(paddingValues),
+                    modifier = Modifier.padding(paddingValues).clearOfNavigationBar(paidByChatBar = chrome.showsChatBar),
                     enterTransition = { fadeIn() },
                     exitTransition = { fadeOut() },
                     popEnterTransition = { fadeIn() },
