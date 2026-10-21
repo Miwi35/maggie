@@ -113,8 +113,7 @@ tags:
 # (`70-budget-question.yaml`, picked because its answer differs from the first
 # one's) gives a signal only a real send can produce.
 #
-# The keyboard is up: the sheet focuses its field on open, and the exchange above
-# typed into it.
+# The keyboard was closed after the exchange above; tapping the field brings it back.
 # ---------------------------------------------------------------------------
 - tapOn:
     id: "chat_input"
