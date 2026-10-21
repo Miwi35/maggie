@@ -2,7 +2,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { TOKENS, chartColor, contextStateColor, criticalityColor, urgencyColor } from './tokens'
+import { TOKENS, chartColor, rhythmColor, contextStateColor, criticalityColor, urgencyColor } from './tokens'
 
 /**
  * `tokens.ts` against `design/tokens.json`, which the mobile theme reads too
@@ -74,6 +74,12 @@ describe('the design tokens', () => {
   it('number the chart slots the way a legend does', () => {
     expect(chartColor(1, 'light')).toBe('#2A78D6')
     expect(chartColor(2, 'dark')).toBe('#D95926')
+  })
+
+  it('draw the rhythm in mint and in orange, per mode (MAG-538)', () => {
+    expect(rhythmColor('onTrack', 'dark')).toBe('#7FD1AE')
+    expect(rhythmColor('above', 'dark')).toBe('#F0A35E')
+    expect(rhythmColor('onTrack', 'light')).not.toBe(rhythmColor('above', 'light'))
   })
 
   it('ask only for font weights admin/index.html loads', () => {

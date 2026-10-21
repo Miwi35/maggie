@@ -4,8 +4,9 @@ import ButtonBase from '@mui/material/ButtonBase'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
+import { rhythmColor } from '../../design/tokens'
 import { formatCents } from './accountTypes'
-import { reasonText, remainingShare, STATUS_META } from './useFinanceScores'
+import { reasonText, remainingShare, RHYTHM_META } from './useFinanceScores'
 import type { FinanceScores, PeriodScore } from './useFinanceScores'
 
 const SIZE = 148
@@ -23,18 +24,11 @@ export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
   const theme = useTheme()
   const [open, setOpen] = useState(false)
   const { rhythm } = score
-  const meta = STATUS_META[score.status]
+  const meta = RHYTHM_META[rhythm.status]
+  const colour = rhythmColor(meta.color, theme.palette.mode)
   const hasBudget = rhythm.budgetCents > 0
-  const overspent = rhythm.remainingCents < 0
   const share = remainingShare(rhythm.remainingCents, rhythm.budgetCents)
   const expectedShare = remainingShare(rhythm.expectedRemainingCents, rhythm.budgetCents)
-
-  const colour = (path: string): string => {
-    const [group, shade] = path.split('.')
-    const palette = theme.palette as unknown as Record<string, Record<string, string>>
-
-    return palette[group]?.[shade] ?? theme.palette.text.secondary
-  }
 
   // The tick sits where the arc would end if the pace had been kept to the day.
   const angle = -Math.PI / 2 + expectedShare * 2 * Math.PI
@@ -46,13 +40,13 @@ export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
     y2: centre + (RADIUS + STROKE / 2 + 3) * Math.sin(angle),
   }
 
-  const word = score.label || meta.word
+  const word = rhythm.label || meta.word
 
   return (
     <Box
       data-testid="score-ring"
       data-period={period}
-      data-status={score.status}
+      data-status={rhythm.status}
       sx={{ flex: '1 1 200px', textAlign: 'center' }}
     >
       <ButtonBase
@@ -75,16 +69,16 @@ export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
               stroke={theme.palette.action.disabledBackground}
               strokeWidth={STROKE}
             />
-            {(share > 0 || overspent) && (
+            {share > 0 && (
               <circle
                 cx={centre}
                 cy={centre}
                 r={RADIUS}
                 fill="none"
-                stroke={colour(overspent ? 'error.main' : meta.color)}
+                stroke={colour}
                 strokeWidth={STROKE}
                 strokeLinecap="round"
-                strokeDasharray={`${overspent ? CIRCUMFERENCE : share * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+                strokeDasharray={`${share * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
                 transform={`rotate(-90 ${centre} ${centre})`}
               />
             )}
@@ -121,8 +115,26 @@ export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
           </Stack>
         </Box>
 
-        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: meta.color }}>
-          <span aria-hidden="true">{meta.glyph}</span>
+        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ color: colour }}>
+          <Box
+            component="span"
+            aria-hidden="true"
+            data-testid="ring-pastille"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 18,
+              height: 18,
+              borderRadius: '50%',
+              fontSize: 11,
+              fontWeight: 700,
+              bgcolor: colour,
+              color: theme.palette.background.default,
+            }}
+          >
+            {meta.glyph}
+          </Box>
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'inherit' }}>
             {word}
           </Typography>

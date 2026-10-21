@@ -237,9 +237,12 @@ test('the rings say what is left and in which state, and the curve marks the ren
   await expect(month.getByTestId('ring-remaining')).toContainText(euros(42000))
   await expect(month.getByTestId('ring-expected')).toContainText('Devrait rester')
   await expect(month.getByTestId('rhythm-tick')).toBeVisible()
-  // Nothing is overspent: red is for a budget gone, and this one is not.
-  expect(['green', 'neutral', 'orange']).toContain(await month.getAttribute('data-status'))
-  await expect(month).toContainText(/Dans le vert|Dans les clous|Attention/)
+  // The ring says where the pace stands, never the daily score (MAG-538). The
+  // month's answer moves with the day the journey runs: 1 000 € spent is
+  // « in the rhythm » early in the month and « above » around the 13th.
+  expect(['on_track', 'above']).toContain(await month.getAttribute('data-status'))
+  await expect(month).toContainText(/Dans le rythme|Au-dessus du rythme/)
+  await expect(month).not.toContainText(/Dans le vert|Dans les clous|Attention|Dépassement/)
 
   // A touch gives the reasons, and another one hides them.
   const reasons = await overview.scoreReasons('month')
@@ -248,7 +251,13 @@ test('the rings say what is left and in which state, and the curve marks the ren
   await month.getByRole('button').click()
   await expect(reasons).toBeHidden()
 
-  await expect(overview.scoreRing('week')).toBeVisible()
+  // Nothing was booked in the pinned day's week (the rent is on the 5th, the
+  // groceries on the 1st): its pace is held.
+  const week = overview.scoreRing('week')
+  await expect(week).toBeVisible()
+  await expect(week).toHaveAttribute('data-status', 'on_track')
+  await expect(week).toContainText('Dans le rythme')
+  await expect(week).not.toContainText(/Dans le vert|Dans les clous|Attention|Dépassement/)
 
   const [year, monthNumber] = seedAnchorDate().split('-')
   const rent = overview.debitMarker('Loyer')
