@@ -324,11 +324,14 @@ class ProjectFundingApiTest extends WebTestCase
         $this->login();
         $this->send('PUT', $this->funding(), $this->carFunding());
         self::assertResponseIsSuccessful();
+        $loanId = (string) $this->projectedLoans()[0]->getId();
+        $this->resetMercure();
 
         $this->send('DELETE', '/api/finance/projects/'.$this->id('car'));
 
         self::assertResponseStatusCodeSame(204);
         self::assertSame([], $this->projectedLoans());
+        $this->assertMercureUpdatePublished('/api/loans/'.$loanId);
         self::assertSame(0, $this->em()->getRepository(ProjectFundingSource::class)->count([]));
     }
 
