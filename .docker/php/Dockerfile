@@ -6,6 +6,12 @@ ARG PHP_VERSION=8.4
 # =============================================================================
 FROM ghcr.io/miwi35/mirror/php:${PHP_VERSION}-fpm-alpine AS base
 
+# Oldest patch release allowed: 8.4.27 fixes the unauthenticated RCEs
+# CVE-2026-109618 / 109619 (MAG-542). A stale mirror fails the build here
+# instead of shipping a vulnerable PHP. Raise it with each security release.
+ARG PHP_MIN_VERSION=8.4.27
+RUN php -r 'if (version_compare(PHP_VERSION, getenv("PHP_MIN_VERSION"), "<")) { fwrite(STDERR, "PHP ".PHP_VERSION." is older than ".getenv("PHP_MIN_VERSION").": build with --pull, or refresh the mirror (mirror-images.yml).\n"); exit(1); }'
+
 # Install system dependencies
 RUN apk add --no-cache \
     acl \
