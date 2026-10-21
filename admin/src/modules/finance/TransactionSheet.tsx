@@ -171,7 +171,7 @@ const ClassementSection = ({ record }: { record: RaRecord }) => {
  * still be given back (MAG-452) and a spend shared (MAG-451). Money sent already
  * shared keeps its « Partage » — unless the share is the 0 a « Nouvelle créance » sets.
  */
-const PartageSection = ({
+export const PartageSection = ({
   transactionId,
   label,
   amountCents,

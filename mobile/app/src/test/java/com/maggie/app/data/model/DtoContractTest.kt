@@ -512,6 +512,23 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the review queue carries the period's counts and what the fiche asks for under the names the API sends (MAG-539)`() {
+        val queue = json.decodeFromJsonElement(serializer<ReviewQueue>(), readRecording("finance_review_queue.read"))
+
+        assertEquals(3, queue.unrecognisedCount)
+        assertEquals(46520, queue.unrecognisedCents)
+        assertEquals(1, queue.recognisedCount)
+        assertEquals(4, queue.total)
+        assertNull(queue.period)
+        assertNull(queue.sinceReviewDate)
+        // The flags are spelt `asksFor…` on the wire: a client DTO that spelt them otherwise would read its default.
+        assertEquals(listOf(true, false, false, false), queue.items.map { it.asksForContact })
+        assertEquals("VIR INST DE RECORDED TOM", queue.items[0].counterpartyLabel)
+        assertEquals(TO_SORT_REASON_CATEGORY, queue.items[0].reason)
+        assertEquals(listOf(false, true, true, true), queue.items.map { it.judgeable })
+    }
+
+    @Test
     fun `the review progress deserialises from the recorded response`() {
         val name = "finance_review_progress.read"
         val body = readRecording(name)
@@ -578,38 +595,6 @@ class DtoContractTest {
         assertEquals("2026-Q2", plan.period.key)
         assertEquals("2026-Q1", plan.sourcePeriod.key)
         assertEquals(categories.size, plan.categories.size)
-    }
-
-    @Test
-    fun `the recognised lines to control deserialise from the recorded response`() {
-        val name = "finance_review_recognised.read"
-        val body = readRecording(name)
-
-        val data = json.decodeFromJsonElement(serializer<RecognisedToControl>(), body)
-
-        assertDeclaredFieldsExist("RecognisedToControl", serializer<RecognisedToControl>(), body.keys, name)
-        val groups = keysOf(body, "groups")
-        assertDeclaredFieldsExist("RecognisedGroup", serializer<RecognisedGroup>(), groups, name)
-        val lines = body["groups"]!!.jsonArray
-            .flatMap { it.jsonObject["transactions"]!!.jsonArray }
-            .flatMap { it.jsonObject.keys }
-            .toSet()
-        assertDeclaredFieldsExist("RecognisedLine", serializer<RecognisedLine>(), lines, name)
-
-        val group = data.groups.single()
-        val line = group.transactions.single()
-        assertEquals("2026-03", data.month)
-        assertEquals(data.total, data.groups.sumOf { it.transactions.size })
-        assertEquals(OPERATION_RULE, group.operationType)
-        assertEquals(group.count, group.transactions.size)
-        assertEquals(-2450, group.totalCents)
-        assertEquals(1, group.unratedCount)
-        assertTrue(line.judgeable)
-        assertEquals(RETROSPECT_UNRATED, line.retrospect)
-        assertEquals("Recorded Food › Recorded Courses", line.categoryPath)
-        assertEquals("rule", line.qualifiedBy)
-        assertNotNull(line.qualifiedByRuleId)
-        assertEquals("2026-03-10", line.bookedAt)
     }
 
     @Test
@@ -933,14 +918,6 @@ class DtoContractTest {
         val meal = json.decodeFromJsonElement(serializer<Meal>(), readRecording("meals.collection")["member"]!!.jsonArray.first())
 
         assertEquals(2, meal.guests)
-    }
-
-    @Test
-    fun `the monthly review carries its reference salary under the names the API sends`() {
-        val review = json.decodeFromJsonElement(serializer<MonthlyReview>(), readRecording("finance_monthly_review.read"))
-
-        assertEquals(ReferenceSalary(monthlyCents = 495000, source = "expected"), review.referenceSalary)
-        assertTrue("consumedVsReference fell back to its default", review.consumedVsReference != ConsumedVsReference())
     }
 
     @Test

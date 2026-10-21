@@ -137,7 +137,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "finance_block_transactions_to_sort"
+      id: "finance_block_finance_review_list"
     timeout: 20000
 
 - assertVisible:

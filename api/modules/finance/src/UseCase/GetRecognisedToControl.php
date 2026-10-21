@@ -57,7 +57,7 @@ class GetRecognisedToControl
             $groups[$key] ??= [
                 'operationType' => $type,
                 'operationId' => null === $operation ? null : (string) $operation->getId(),
-                'label' => null === $operation ? self::DELETED_LABEL : $this->labelOf($operation),
+                'label' => null === $operation ? self::DELETED_LABEL : GetReviewQueue::labelOf($operation),
                 'count' => 0,
                 'totalCents' => 0,
                 'unratedCount' => 0,
@@ -90,10 +90,5 @@ class GetRecognisedToControl
             CategorySource::Series => ['series', $transaction->getQualifiedBySeries()],
             default => ['rule', $transaction->getQualifiedByRule()],
         };
-    }
-
-    private function labelOf(RecurringOperation $operation): string
-    {
-        return $operation->getLabel() ?? $operation->getLabelPattern() ?? $operation->getCategory()->getPath();
     }
 }

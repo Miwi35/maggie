@@ -4,13 +4,10 @@ import { useGetList } from 'react-admin'
 import { useBankConnections } from './useBankConnections'
 import { useCushionStatus } from './useCushionStatus'
 import { useFinanceDashboard } from './useFinanceDashboard'
-import { useMonthlyReview } from './useMonthlyReview'
 import { fetchPeerDebtSummary } from './peerDebtsApi'
 import { fetchProjects } from './projectsApi'
-import { useRecognisedToControl } from './useRecognisedToControl'
 import { useRecurringOverview } from './useRecurringOperations'
 import { useSavingsAdvances } from './useSavingsAdvances'
-import { useTransactionsToSort } from './useTransactionsToSort'
 import { useTreasuryOutlook } from './useTreasuryOutlook'
 
 /** `undefined` while the answer is not known; a failed read counts as « no data », it must not hold the page back. */
@@ -36,24 +33,8 @@ const useRulesProbe: Probe = () => useListHasRows('categorization_rules')
 const useLoansProbe: Probe = () => useListHasRows('loans')
 const useCategoriesProbe: Probe = () => useListHasRows('categories')
 
-const useToSortProbe: Probe = () => {
-  const { pile, loading } = useTransactionsToSort()
-
-  return settled((pile?.total ?? 0) > 0, loading)
-}
-
-const useToControlProbe: Probe = () => {
-  const { review, loading } = useRecognisedToControl()
-
-  return settled((review?.total ?? 0) > 0, loading)
-}
-
-const useMonthlyReviewProbe: Probe = () => {
-  const { year, month } = useThisMonth()
-  const { review, loading } = useMonthlyReview(year, month)
-
-  return settled((review?.pendingCount ?? 0) > 0, loading)
-}
+/** The list of the transactions is always worth opening, empty or not: the menu lands on it first. */
+const useReviewProbe: Probe = () => true
 
 const useRecurringProbe: Probe = () => {
   const { overview, error } = useRecurringOverview()
@@ -123,9 +104,7 @@ const PROBES: Record<string, Probe> = {
   accounts: useAccountsProbe,
   import: useNoDataProbe,
   contacts: useContactsProbe,
-  'to-sort': useToSortProbe,
-  'to-control': useToControlProbe,
-  'monthly-review': useMonthlyReviewProbe,
+  review: useReviewProbe,
   rules: useRulesProbe,
   recurring: useRecurringProbe,
   envelopes: useNoDataProbe,

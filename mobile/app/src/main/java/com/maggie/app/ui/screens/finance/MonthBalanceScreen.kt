@@ -53,7 +53,7 @@ import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.MonthScoreRing
 import com.maggie.app.ui.components.RhythmCurve
 import com.maggie.app.ui.components.statusColor
-import com.maggie.app.ui.navigation.Screen
+import com.maggie.app.ui.navigation.DeepLinks
 
 private const val CLOSE = "close"
 private const val OVER = "over"
@@ -119,7 +119,7 @@ fun MonthBalanceTab(
                     }
                 }
             } else {
-                MonthBalanceContent(balance, onOpenToQualify = { onOpen(Screen.TransactionsToSort.route) })
+                MonthBalanceContent(balance, onOpenToQualify = { onOpen(DeepLinks.REVIEW_TO_SORT_ROUTE) })
             }
         }
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))

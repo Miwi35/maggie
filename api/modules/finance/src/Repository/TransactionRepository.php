@@ -512,29 +512,79 @@ class TransactionRepository extends ServiceEntityRepository
      * The lines of a period an operation recognised — a series or a rule set
      * their qualification, the owner did not — and the owner has not checked
      * yet, oldest first. Transfers are left out: they are neutral, there is
-     * nothing to check on them.
+     * nothing to check on them. Either end of the period may be left open.
      *
      * @return Transaction[]
      */
-    public function findRecognisedBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until, int $limit): array
+    public function findRecognisedBetween(User $user, ?\DateTimeImmutable $from, ?\DateTimeImmutable $until, int $limit): array
     {
-        return $this->createQueryBuilder('t')
-            ->andWhere('t.user = :user')
-            ->andWhere('t.transferKind = :none')
-            ->andWhere('t.categorySource IN (:operations)')
-            ->andWhere('t.controlledAt IS NULL')
-            ->andWhere('t.bookedAt >= :from')
-            ->andWhere('t.bookedAt < :until')
-            ->setParameter('user', $user->getId(), 'ulid')
-            ->setParameter('none', TransferKind::None->value)
-            ->setParameter('operations', [CategorySource::Rule->value, CategorySource::Series->value])
-            ->setParameter('from', $from)
-            ->setParameter('until', $until)
+        return $this->recognisedQuery($user, $from, $until)
             ->orderBy('t.bookedAt', 'ASC')
             ->addOrderBy('t.id', 'ASC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
+    }
+
+    /** How many lines {@see findRecognisedBetween} stands for, without loading them. */
+    public function countRecognisedBetween(User $user, ?\DateTimeImmutable $from, ?\DateTimeImmutable $until): int
+    {
+        return (int) $this->recognisedQuery($user, $from, $until)
+            ->select('COUNT(t.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * The pile restricted to a period (either end may be left open), oldest
+     * first, with its whole size and weight — the review's single list asks
+     * for every line of the period, past the pile's usual page.
+     *
+     * @return array{transactions: Transaction[], total: int, totalCents: int}
+     */
+    public function findToSortBetween(User $user, ?\DateTimeImmutable $from, ?\DateTimeImmutable $until, int $limit): array
+    {
+        /** @var array{count: int|string, cents: int|string|null} $summary */
+        $summary = $this->toSortQuery($user, $from, $until)
+            ->select('COUNT(t.id) AS count', 'COALESCE(SUM(ABS(t.amountCents)), 0) AS cents')
+            ->getQuery()
+            ->getSingleResult();
+
+        /** @var Transaction[] $transactions */
+        $transactions = $this->toSortQuery($user, $from, $until)
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return ['transactions' => $transactions, 'total' => (int) $summary['count'], 'totalCents' => (int) $summary['cents']];
+    }
+
+    private function recognisedQuery(User $user, ?\DateTimeImmutable $from, ?\DateTimeImmutable $until): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->andWhere('t.user = :user')
+            ->andWhere('t.transferKind = :none')
+            ->andWhere('t.categorySource IN (:operations)')
+            ->andWhere('t.controlledAt IS NULL')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('none', TransferKind::None->value)
+            ->setParameter('operations', [CategorySource::Rule->value, CategorySource::Series->value]);
+
+        return $this->boundedByBookedAt($qb, $from, $until);
+    }
+
+    private function boundedByBookedAt(QueryBuilder $qb, ?\DateTimeImmutable $from, ?\DateTimeImmutable $until): QueryBuilder
+    {
+        if (null !== $from) {
+            $qb->andWhere('t.bookedAt >= :from')->setParameter('from', $from);
+        }
+        if (null !== $until) {
+            $qb->andWhere('t.bookedAt < :until')->setParameter('until', $until);
+        }
+
+        return $qb;
     }
 
     /** How many lines {@see findToSortForUser} stands for, without loading them. */
@@ -551,9 +601,9 @@ class TransactionRepository extends ServiceEntityRepository
      * the owner has not told apart yet (income, repayment, new debt…). A
      * shared spend is told apart already: the owner said who owes what.
      */
-    private function toSortQuery(User $user): QueryBuilder
+    private function toSortQuery(User $user, ?\DateTimeImmutable $from = null, ?\DateTimeImmutable $until = null): QueryBuilder
     {
-        return $this->createQueryBuilder('t')
+        return $this->boundedByBookedAt($this->createQueryBuilder('t'), $from, $until)
             ->andWhere('t.user = :user')
             ->andWhere('(t.category IS NULL OR (t.contact IS NOT NULL AND t.peerKind IS NULL AND t.myShareCents IS NULL AND t.amountCents != 0))')
             ->andWhere('t.transferKind = :none')

@@ -38,7 +38,7 @@ const FINANCE_PATHS: Record<string, string> = {
   banks: '/finance/banks',
   cushion: '/finance/cushion',
   loans: '/loans',
-  review: '/finance/monthly-review',
+  review: '/finance/review',
 }
 
 /** The finance screens whose button says more than « Ouvrir les finances » (API `PushMessageFactory`). */

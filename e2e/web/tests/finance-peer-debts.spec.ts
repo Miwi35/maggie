@@ -7,12 +7,12 @@ import { FinanceCushionPage } from '../pages/FinanceCushionPage.js'
 import { FinanceContactPage } from '../pages/FinanceContactPage.js'
 import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
 import { FinancePeerDebtsPage } from '../pages/FinancePeerDebtsPage.js'
-import { FinanceToSortPage } from '../pages/FinanceToSortPage.js'
+import { FinanceReviewPage } from '../pages/FinanceReviewPage.js'
 import { FinanceTransactionSheetPage } from '../pages/FinanceTransactionSheetPage.js'
 
 /**
  * The people behind the transfers (MAG-450), extending the finance journey of
- * MAG-102: a transfer from Tom is associated from « À trier » by creating Tom,
+ * MAG-102: a transfer from Tom is associated from Revue › À qualifier by creating Tom,
  * and the next transfer carrying the same label is Tom's without a gesture.
  *
  * A label belongs to one contact only and linking it claims every transfer
@@ -66,13 +66,13 @@ test('a transfer associated from « À trier » makes its label Tom\'s, and the 
   // Given a transfer « VIR. DE TOM MARTIN » of +400 € that no contact claims
   await transfer()
 
-  // When I associate it from « À trier » by creating Tom
-  const toSort = new FinanceToSortPage(page)
-  await toSort.open()
-  await toSort.select(label)
-  await toSort.associateWithNewContact(name)
-  await expect(toSort.card.getByText(name, { exact: true }), 'the line now shows its contact').toBeVisible()
-  await expect(toSort.associateContact).toHaveCount(0)
+  // When I associate it from Revue › À qualifier by creating Tom
+  const review = new FinanceReviewPage(page)
+  await review.open({ state: 'unrecognised', period: 'all' })
+  await review.select(label)
+  await review.associateWithNewContact(name)
+  await expect(review.sheet.getByText(name, { exact: true }), 'the line now shows its contact').toBeVisible()
+  await expect(review.associateContact).toHaveCount(0)
 
   // Then Tom's page lists the label with its one transfer
   const tom = await waitForIndexed<StoredContact>(api, '/api/contacts?itemsPerPage=100', (c) => c.name === name, {
@@ -300,18 +300,18 @@ test.describe('a shared spend', () => {
     expect(before.status(), await before.text()).toBe(200)
     expect(((await before.json()) as { contact?: { id?: string } }).contact?.id, 'the transfer is Tom\'s').toBe(tomId)
 
-    // When I open it from « À trier » and allocate it to the gîte
-    const toSort = new FinanceToSortPage(page)
-    await toSort.open()
-    await toSort.select(label)
-    await expect(toSort.otherCategory, 'a filed transfer asks no category').toHaveCount(0)
-    await toSort.peerTransfer.cover([gite])
-    await expect(toSort.peerTransfer.amountFor(gite), 'the gîte takes what Tom owes').toHaveValue('200')
-    await expect(toSort.peerTransfer.unallocated).toContainText(`Non affecté : ${euros(20000)}`)
-    await toSort.peerTransfer.save()
+    // When I open it from Revue › À qualifier and allocate it to the gîte
+    const review = new FinanceReviewPage(page)
+    await review.open({ state: 'unrecognised', period: 'all' })
+    await review.select(label)
+    await expect(review.otherCategory, 'a filed transfer asks no category').toHaveCount(0)
+    await review.peerTransfer.cover([gite])
+    await expect(review.peerTransfer.amountFor(gite), 'the gîte takes what Tom owes').toHaveValue('200')
+    await expect(review.peerTransfer.unallocated).toContainText(`Non affecté : ${euros(20000)}`)
+    await review.peerTransfer.save()
 
-    // Then the line leaves the pile
-    await expect(toSort.pile.getByRole('button', { name: label })).toHaveCount(0)
+    // Then the line is Reconnue, and stays on its row until the list is read again
+    await expect(review.rowState(label)).toHaveText('Reconnue')
 
     // And the transfer's sheet keeps the gîte covered, 200 € « Non affecté »
     const sheet = new FinanceTransactionSheetPage(page)

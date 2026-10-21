@@ -54,7 +54,6 @@ import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.UpcomingRepository
 import com.maggie.app.data.repository.MonthBalanceRepository
-import com.maggie.app.data.repository.MonthlyReviewRepository
 import com.maggie.app.data.repository.ReviewRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
@@ -82,9 +81,8 @@ import com.maggie.app.ui.screens.finance.CategorizationRuleViewModel
 import com.maggie.app.ui.screens.finance.RecurringOperationViewModel
 import com.maggie.app.ui.screens.finance.RuleSuggestionViewModel
 import com.maggie.app.ui.screens.finance.EnvelopeAdjustmentsViewModel
-import com.maggie.app.ui.screens.finance.RecognisedToControlViewModel
 import com.maggie.app.ui.screens.finance.ToQualifyViewModel
-import com.maggie.app.ui.screens.finance.ToSortViewModel
+import com.maggie.app.ui.screens.finance.ReviewListViewModel
 import com.maggie.app.ui.screens.finance.ContactViewModel
 import com.maggie.app.ui.screens.finance.CushionViewModel
 import com.maggie.app.ui.screens.finance.PeerDebtsViewModel
@@ -96,7 +94,6 @@ import com.maggie.app.ui.screens.finance.UpcomingViewModel
 import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.TreasuryViewModel
-import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
 import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.CategoryViewModel
@@ -308,7 +305,6 @@ class MaggieApp : Application() {
             single { SavingsAdvancesRepository(get()) }
             single { LoanRepository(get()) }
             single { ProjectRepository(get()) }
-            single { MonthlyReviewRepository(get()) }
             single { ReviewRepository(get()) }
             single { FinanceDashboardRepository(get()) }
             single { UpcomingRepository(get()) }
@@ -376,10 +372,9 @@ class MaggieApp : Application() {
             viewModel { EnvelopeAdjustmentsViewModel(get()) }
             viewModel { CategorizationRuleViewModel(get(), get()) }
             viewModel { RuleSuggestionViewModel(get(), get()) }
-            viewModel { ToSortViewModel(get(), get(), get(), get(), get()) }
+            viewModel { ReviewListViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { ToQualifyViewModel(get(), get(), get()) }
             viewModel { ContactViewModel(get(), get()) }
-            viewModel { RecognisedToControlViewModel(get(), get()) }
             viewModel { RecurringOperationViewModel(get(), get(), get(), get(), get()) }
             viewModel { BankConnectionViewModel(get()) }
             viewModel { CushionViewModel(get()) }
@@ -387,14 +382,13 @@ class MaggieApp : Application() {
             viewModel { PeerDebtsViewModel(get()) }
             viewModel { LoanViewModel(get()) }
             viewModel { ProjectViewModel(get(), get(), get()) }
-            viewModel { MonthlyReviewViewModel(get()) }
             viewModel { ReviewActivityViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { PeriodReviewViewModel(get()) }
             viewModel { FinanceDashboardViewModel(get(), get(), get(), get()) }
             viewModel { UpcomingViewModel(get(), get(), get()) }
             viewModel { MonthBalanceViewModel(get(), get(), get()) }
             viewModel { TreasuryViewModel(get(), get(), get()) }
-            viewModel { FinanceSummaryViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+            viewModel { FinanceSummaryViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
             viewModel { (accountId: String) -> TransactionViewModel(get(), get(), accountId, get(), get(), get(), get(), get(), get()) }
         }
 

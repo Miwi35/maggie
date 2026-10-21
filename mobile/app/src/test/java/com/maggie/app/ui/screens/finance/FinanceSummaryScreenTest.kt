@@ -8,13 +8,20 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.Project
+import com.maggie.app.data.model.ReviewPeriod
+import com.maggie.app.data.model.ReviewPreset
+import com.maggie.app.data.model.ReviewQueue
+import com.maggie.app.data.model.ReviewState
 import com.maggie.app.data.model.SavingsAdvance
 import com.maggie.app.data.model.SavingsAdvances
 import com.maggie.app.data.model.TreasuryOutlook
+import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.LoanRepository
 import com.maggie.app.data.repository.ProjectRepository
+import com.maggie.app.data.repository.RecurringOperationRepository
+import com.maggie.app.data.repository.ReviewRepository
 import com.maggie.app.data.repository.SavingsAdvancesRepository
 import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.screentest.ScreenRule
@@ -68,7 +75,7 @@ class FinanceSummaryScreenTest {
         val dashboard = mockk<FinanceDashboardRepository>()
         coEvery { dashboard.getDashboard(any(), any()) } returns Result.failure(IllegalStateException("hors sujet"))
         return FinanceSummaryViewModel(
-            mockk(), mockk(), mockk(), mockk(), mockk(), mockk(), loans, projectRepository, dashboard, mockk(), mockk(), mockk(),
+            mockk(), mockk(), mockk(), mockk(), mockk(), mockk(), loans, projectRepository, dashboard, mockk(), mockk(),
         )
     }
 
@@ -131,6 +138,32 @@ class FinanceSummaryScreenTest {
     }
 
     @Test
+    fun `the Revue page has one block for the whole review, which opens the list on the summary preset (MAG-539)`() {
+        val reviews = mockk<ReviewRepository>()
+        coEvery { reviews.getList(ReviewPeriod.SINCE_REVIEW, any(), ReviewState.ALL, 1) } returns
+            Result.success(ReviewQueue(unrecognisedCount = 2, recognisedCount = 1))
+        val rules = mockk<CategorizationRuleRepository>()
+        coEvery { rules.getRules() } returns Result.failure(IllegalStateException("hors sujet"))
+        val recurring = mockk<RecurringOperationRepository>()
+        coEvery { recurring.getOverview() } returns Result.failure(IllegalStateException("hors sujet"))
+        val model = FinanceSummaryViewModel(
+            mockk(), mockk(), mockk(), reviews, rules, recurring, mockk(), mockk(), mockk(), mockk(), mockk(),
+        )
+        val opened = mutableListOf<String>()
+        val presets = mutableListOf<ReviewPreset>()
+        compose.setContent {
+            FinanceSummaryScreen(FinanceMenu.REVIEW, model, onBack = {}, onOpen = { opened += it }, onOpenReview = { presets += it })
+        }
+
+        compose.onNodeWithText("2 transactions à qualifier").assertIsDisplayed()
+        compose.onNodeWithText("1 reconnue depuis la dernière revue").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.financeBlock(Screen.ReviewList.route)).performClick()
+
+        assertEquals(listOf(ReviewPreset.SUMMARY), presets)
+        assertTrue(opened.isEmpty())
+    }
+
+    @Test
     fun `a block whose figures failed says so and still opens its screen`() {
         val opened = mutableListOf<String>()
         compose.setContent {
@@ -164,7 +197,7 @@ class FinanceSummaryScreenTest {
     @Test
     fun `each page lists the screens that exist and nothing else`() {
         assertEquals(
-            listOf(Screen.TransactionsToSort.route, Screen.RecognisedToControl.route, Screen.MonthlyReview.route, Screen.CategorizationRuleList.route, Screen.RecurringOperations.route),
+            listOf(Screen.ReviewList.route, Screen.CategorizationRuleList.route, Screen.RecurringOperations.route),
             summaryEntries(FinanceMenu.REVIEW).map { it.route },
         )
         assertEquals(

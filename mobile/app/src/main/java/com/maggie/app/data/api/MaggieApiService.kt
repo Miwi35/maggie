@@ -82,7 +82,6 @@ import com.maggie.app.data.model.SortResult
 import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.ControlRequest
 import com.maggie.app.data.model.ControlResult
-import com.maggie.app.data.model.RecognisedToControl
 import com.maggie.app.data.model.ApplyPlanRequest
 import com.maggie.app.data.model.PeriodBalance
 import com.maggie.app.data.model.PeriodPlan
@@ -108,7 +107,6 @@ import com.maggie.app.data.model.UpcomingProjection
 import com.maggie.app.data.model.MonthBalance
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.Project
-import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
@@ -1778,14 +1776,7 @@ class MaggieApiService(
         }.body()
     }
 
-    // Finance — « Reconnues à contrôler » (MAG-460)
-    /** The lines an operation recognised in [month] (`YYYY-MM`) that the owner has not checked, by operation. */
-    suspend fun getRecognisedToControl(month: String): RecognisedToControl {
-        return client.get("$baseUrl/api/finance/review/recognised") {
-            url.parameters.append("month", month)
-        }.orRefusal().body()
-    }
-
+    // Finance — « Reconnues à contrôler » (MAG-460), now checked from the Revue's fiche (MAG-539)
     /** Checks the lines; a [ControlRequest.satisfaction] of `keep` also judges their unrated spends « À conserver ». */
     suspend fun controlRecognised(request: ControlRequest): ControlResult {
         return client.post("$baseUrl/api/finance/review/controls") {
@@ -1799,6 +1790,19 @@ class MaggieApiService(
     suspend fun getReviewQueue(month: String): ReviewQueue {
         return client.get("$baseUrl/api/finance/review/queue") {
             url.parameters.append("month", month)
+        }.orRefusal().body()
+    }
+
+    /**
+     * The Revue's list (MAG-539): the lines of a [period] (`month`, `since_review`, `all`), the lines to qualify and the
+     * recognised ones together. [month] is `YYYY-MM`, read only by `month`; [state] narrows the items, never the counts.
+     */
+    suspend fun getReviewList(period: String, month: String, state: String, limit: Int): ReviewQueue {
+        return client.get("$baseUrl/api/finance/review/queue") {
+            url.parameters.append("period", period)
+            url.parameters.append("month", month)
+            url.parameters.append("state", state)
+            url.parameters.append("limit", limit.toString())
         }.orRefusal().body()
     }
 
@@ -2148,14 +2152,6 @@ class MaggieApiService(
     suspend fun getMonthBalance(month: String): MonthBalance {
         return client.get("$baseUrl/api/finance/month-balance") {
             url.parameters.append("month", month)
-        }.body()
-    }
-
-    // Finance — Monthly review
-    suspend fun getMonthlyReview(year: Int, month: Int): MonthlyReview {
-        return client.get("$baseUrl/api/finance/monthly-review") {
-            url.parameters.append("year", year.toString())
-            url.parameters.append("month", month.toString())
         }.body()
     }
 

@@ -35,7 +35,7 @@ describe('ToQualifyPill', () => {
 
     const pill = await screen.findByRole('link', { name: /À qualifier · 3 · 57,99/ })
 
-    expect(pill).toHaveAttribute('href', '/finance/to-sort')
+    expect(pill).toHaveAttribute('href', '/finance/review?state=unrecognised&period=all')
     expect(fetchMock.mock.calls[0][0]).toBe('/api/finance/transactions/to-sort?limit=1')
   })
 

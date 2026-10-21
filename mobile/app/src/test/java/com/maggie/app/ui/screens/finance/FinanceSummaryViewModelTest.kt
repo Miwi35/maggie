@@ -4,13 +4,13 @@ import com.maggie.app.data.model.BalanceBeforeSalary
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.Loan
-import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.Project
+import com.maggie.app.data.model.ReviewPeriod
+import com.maggie.app.data.model.ReviewQueue
+import com.maggie.app.data.model.ReviewState
 import com.maggie.app.data.model.SalaryDelay
 import com.maggie.app.data.model.SavingsAdvance
 import com.maggie.app.data.model.SavingsAdvances
-import com.maggie.app.data.model.RecognisedToControl
-import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasuryOverdraft
 import com.maggie.app.data.repository.BankConnectionRepository
@@ -20,10 +20,9 @@ import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.LoanRepository
 import com.maggie.app.data.repository.ProjectRepository
-import com.maggie.app.data.repository.MonthlyReviewRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
+import com.maggie.app.data.repository.ReviewRepository
 import com.maggie.app.data.repository.SavingsAdvancesRepository
-import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.TreasuryRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -51,7 +50,7 @@ class FinanceSummaryViewModelTest {
     private val cushion = mockk<CushionRepository>()
     private val advances = mockk<SavingsAdvancesRepository>()
     private val treasury = mockk<TreasuryRepository>()
-    private val review = mockk<MonthlyReviewRepository>()
+    private val review = mockk<ReviewRepository>()
     private val rules = mockk<CategorizationRuleRepository>()
     private val recurring = mockk<RecurringOperationRepository>()
     private val loans = mockk<LoanRepository>()
@@ -59,7 +58,6 @@ class FinanceSummaryViewModelTest {
     private val dashboard = mockk<FinanceDashboardRepository>()
     private val banks = mockk<BankConnectionRepository>()
     private val categories = mockk<CategoryRepository>()
-    private val transactions = mockk<TransactionRepository>()
 
     @Before
     fun setup() {
@@ -90,7 +88,7 @@ class FinanceSummaryViewModelTest {
     }
 
     private fun buildViewModel() = FinanceSummaryViewModel(
-        cushion, advances, treasury, review, rules, recurring, loans, projects, dashboard, banks, categories, transactions,
+        cushion, advances, treasury, review, rules, recurring, loans, projects, dashboard, banks, categories,
         today = { LocalDate.of(2026, 10, 16) },
     )
 
@@ -187,57 +185,52 @@ class FinanceSummaryViewModelTest {
     }
 
     @Test
-    fun `the to-sort block counts the pile and asks for attention while it is not empty`() = runTest {
-        coEvery { transactions.getToSort() } returns Result.success(ToSortPile(total = 4))
+    fun `the review block reads the period since the last review in one request and asks for attention while lines wait`() = runTest {
+        coEvery {
+            review.getList(ReviewPeriod.SINCE_REVIEW, "2026-10", ReviewState.ALL, limit = 1)
+        } returns Result.success(ReviewQueue(unrecognisedCount = 4, recognisedCount = 6))
         val viewModel = buildViewModel()
 
-        viewModel.load(listOf(SummaryBlock.TO_SORT))
+        viewModel.load(listOf(SummaryBlock.REVIEW))
         advanceUntilIdle()
 
-        val state = viewModel.blocks.value[SummaryBlock.TO_SORT] as BlockState.Ready
-        assertEquals(listOf("4 transactions à qualifier"), state.lines)
+        val state = viewModel.blocks.value[SummaryBlock.REVIEW] as BlockState.Ready
+        assertEquals(listOf("4 transactions à qualifier", "6 reconnues depuis la dernière revue"), state.lines)
         assertTrue(state.needsAttention)
     }
 
     @Test
-    fun `the to-control block counts the recognised lines of the month and asks for attention while any is left`() = runTest {
-        coEvery { transactions.getRecognisedToControl("2026-10") } returns Result.success(RecognisedToControl(month = "2026-10", total = 6))
-        val viewModel = buildViewModel()
+    fun `the review block speaks the singular`() {
+        val state = reviewBlock(ReviewQueue(unrecognisedCount = 1, recognisedCount = 1)) as BlockState.Ready
 
-        viewModel.load(listOf(SummaryBlock.TO_CONTROL))
-        advanceUntilIdle()
+        assertEquals(listOf("1 transaction à qualifier", "1 reconnue depuis la dernière revue"), state.lines)
+    }
 
-        val state = viewModel.blocks.value[SummaryBlock.TO_CONTROL] as BlockState.Ready
-        assertEquals(listOf("6 reconnues à contrôler"), state.lines)
+    @Test
+    fun `only recognised lines left still asks for attention`() {
+        val state = reviewBlock(ReviewQueue(unrecognisedCount = 0, recognisedCount = 3)) as BlockState.Ready
+
+        assertEquals(listOf("Rien à qualifier", "3 reconnues depuis la dernière revue"), state.lines)
         assertTrue(state.needsAttention)
     }
 
     @Test
-    fun `nothing left to control says so without asking for attention`() {
-        val state = toControlBlock(RecognisedToControl(total = 0)) as BlockState.Ready
+    fun `an empty period says so without asking for attention`() {
+        val state = reviewBlock(ReviewQueue()) as BlockState.Ready
 
-        assertEquals(listOf("Rien à contrôler"), state.lines)
+        assertEquals(listOf("Rien à revoir"), state.lines)
         assertFalse(state.needsAttention)
     }
 
     @Test
-    fun `an empty to-sort pile says so without asking for attention`() {
-        val state = toSortBlock(ToSortPile(total = 0)) as BlockState.Ready
-
-        assertEquals(listOf("Rien à qualifier"), state.lines)
-        assertFalse(state.needsAttention)
-    }
-
-    @Test
-    fun `the review block asks for the current month`() = runTest {
-        coEvery { review.getReview(2026, 10) } returns Result.success(MonthlyReview(pendingCount = 3))
+    fun `a review block that cannot load says so and leaves the others`() = runTest {
+        coEvery { review.getList(any(), any(), any(), any()) } returns Result.failure(IllegalStateException("réseau"))
         val viewModel = buildViewModel()
 
-        viewModel.load(listOf(SummaryBlock.MONTHLY_REVIEW))
+        viewModel.load(listOf(SummaryBlock.REVIEW))
         advanceUntilIdle()
 
-        val state = viewModel.blocks.value[SummaryBlock.MONTHLY_REVIEW] as BlockState.Ready
-        assertEquals(listOf("3 dépenses à revoir"), state.lines)
+        assertTrue(viewModel.blocks.value[SummaryBlock.REVIEW] is BlockState.Unavailable)
     }
 
     @Test

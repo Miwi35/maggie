@@ -785,50 +785,56 @@ object UiTags {
     const val RULE_DRAFT_SAVE = "rule_draft_save"
 
     /**
-     * « À qualifier » (MAG-423): the card of the line open, the counter, the three answers, the switch, the full-screen
-     * category search, the transfer choice (« sans contrepartie »), a row of the tablet's list, the empty pile.
+     * La Revue, one list for the lines to qualify and the recognised ones (MAG-539): the three state pills, the three
+     * periods and the month arrows, a row and its state pill, the two group headings, the empty list.
      */
-    const val TO_SORT_CARD = "to_sort_card"
-    const val TO_SORT_REMAINING = "to_sort_remaining"
-    const val TO_SORT_VALIDATE = "to_sort_validate"
-    const val TO_SORT_OTHER = "to_sort_other"
-    const val TO_SORT_SEARCH = "to_sort_search"
-    const val TO_SORT_ALWAYS = "to_sort_always"
-    const val TO_SORT_TRANSFER = "to_sort_transfer"
-    const val TO_SORT_TRANSFER_NONE = "to_sort_transfer_none"
-    const val TO_SORT_ROW = "to_sort_row"
-    const val TO_SORT_EMPTY = "to_sort_empty"
-
-    /** « À qualifier » (MAG-458): the Qualification block, « Créer un filtre », « Voir la fiche », the two satisfactions. */
-    const val TO_SORT_QUALIFICATION = "to_sort_qualification"
-    const val TO_SORT_RULE = "to_sort_rule"
-    const val TO_SORT_OPEN_SHEET = "to_sort_open_sheet"
-    const val TO_SORT_KEEP = "to_sort_keep"
-    const val TO_SORT_AVOIDABLE = "to_sort_avoidable"
+    const val REVIEW_LIST = "review_list"
+    const val REVIEW_LIST_PILL_ALL = "review_list_pill_all"
+    const val REVIEW_LIST_PILL_UNRECOGNISED = "review_list_pill_unrecognised"
+    const val REVIEW_LIST_PILL_RECOGNISED = "review_list_pill_recognised"
+    const val REVIEW_LIST_PERIOD_MONTH = "review_list_period_month"
+    const val REVIEW_LIST_PERIOD_SINCE_REVIEW = "review_list_period_since_review"
+    const val REVIEW_LIST_PERIOD_ALL = "review_list_period_all"
+    const val REVIEW_LIST_MONTH_PREVIOUS = "review_list_month_previous"
+    const val REVIEW_LIST_MONTH_NEXT = "review_list_month_next"
+    const val REVIEW_LIST_SECTION_UNRECOGNISED = "review_list_section_unrecognised"
+    const val REVIEW_LIST_SECTION_RECOGNISED = "review_list_section_recognised"
+    const val REVIEW_LIST_ROW = "review_list_row"
+    const val REVIEW_LIST_ROW_STATE = "review_list_row_state"
+    const val REVIEW_LIST_EMPTY = "review_list_empty"
 
     /**
-     * « Reconnues à contrôler » (MAG-460): the counter, a group and its two gestures, a line and its five, the correction
-     * screen (category, search, save), the empty list. A group or a line repeats: a journey taps the first.
+     * The fiche of a line of the Revue: the line, its state pill, the gestures of a line to qualify (« Valider »,
+     * « Autre catégorie » and its search, « Créer une opération récurrente », the merchant switch, the qualification, the internal
+     * transfer and its « sans contrepartie », the contact), those of a recognised one (« Correct », « Corriger » and its
+     * category, search and save, « Voir l'opération récurrente »), « Voir la fiche » and the two satisfactions.
      */
-    const val TO_CONTROL_REMAINING = "to_control_remaining"
-    const val TO_CONTROL_GROUP = "to_control_group"
-    const val TO_CONTROL_VALIDATE = "to_control_validate"
-    const val TO_CONTROL_KEEP_ALL = "to_control_keep_all"
-    const val TO_CONTROL_ROW = "to_control_row"
-    const val TO_CONTROL_KEEP = "to_control_keep"
-    const val TO_CONTROL_AVOIDABLE = "to_control_avoidable"
-    const val TO_CONTROL_CORRECT = "to_control_correct"
-    const val TO_CONTROL_OPEN_OPERATION = "to_control_open_operation"
-    const val TO_CONTROL_OPEN_SHEET = "to_control_open_sheet"
-    const val TO_CONTROL_CATEGORY = "to_control_category"
-    const val TO_CONTROL_SEARCH = "to_control_search"
-    const val TO_CONTROL_SAVE = "to_control_save"
-    const val TO_CONTROL_EMPTY = "to_control_empty"
-    const val TO_CONTROL_FICHE = "to_control_fiche"
+    const val REVIEW_FICHE = "review_fiche"
+    const val REVIEW_FICHE_STATE = "review_fiche_state"
+    const val REVIEW_FICHE_CHECKED = "review_fiche_checked"
+    const val REVIEW_FICHE_VALIDATE = "review_fiche_validate"
+    const val REVIEW_FICHE_OTHER = "review_fiche_other"
+    const val REVIEW_FICHE_SEARCH = "review_fiche_search"
+    const val REVIEW_FICHE_CREATE_OPERATION = "review_fiche_create_operation"
+    const val REVIEW_FICHE_ALWAYS = "review_fiche_always"
+    const val REVIEW_FICHE_QUALIFICATION = "review_fiche_qualification"
+    const val REVIEW_FICHE_TRANSFER = "review_fiche_transfer"
+    const val REVIEW_FICHE_TRANSFER_NONE = "review_fiche_transfer_none"
+    const val REVIEW_FICHE_CONTACT = "review_fiche_contact"
+    const val REVIEW_FICHE_CONTACT_NAME = "review_fiche_contact_name"
+    const val REVIEW_FICHE_CONTROL = "review_fiche_control"
+    const val REVIEW_FICHE_CORRECT = "review_fiche_correct"
+    const val REVIEW_FICHE_OPEN_OPERATION = "review_fiche_open_operation"
+    const val REVIEW_FICHE_OPEN_SHEET = "review_fiche_open_sheet"
+    const val REVIEW_FICHE_KEEP = "review_fiche_keep"
+    const val REVIEW_FICHE_AVOIDABLE = "review_fiche_avoidable"
+    const val REVIEW_CORRECTION_CATEGORY = "review_correction_category"
+    const val REVIEW_CORRECTION_SEARCH = "review_correction_search"
+    const val REVIEW_CORRECTION_SAVE = "review_correction_save"
 
     /**
      * The review pages' fiche (MAG-507): « Précédent » / « Suivant », the « 3 / 12 » position and the way back to the
-     * list, shared by « À qualifier » and « Reconnues à contrôler ».
+     * list, shared by the Revue's fiche.
      */
     const val REVIEW_PREVIOUS = "review_previous"
     const val REVIEW_NEXT = "review_next"
@@ -837,10 +843,6 @@ object UiTags {
 
     /** The « À qualifier · n · montant » pill of the finance dashboard and the budget screen. */
     const val TO_QUALIFY_PILL = "to_qualify_pill"
-
-    /** The card's « Associer à un contact ? » and the contact a line is attached to (MAG-450). */
-    const val TO_SORT_CONTACT = "to_sort_contact"
-    const val TO_SORT_CONTACT_NAME = "to_sort_contact_name"
 
     /**
      * Contacts (MAG-450), reached from « Comptes »: the accounts' entry, the list's search, « Nouveau contact »

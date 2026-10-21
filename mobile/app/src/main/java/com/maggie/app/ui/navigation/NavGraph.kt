@@ -121,11 +121,13 @@ import com.maggie.app.ui.screens.finance.FinanceSummaryScreen
 import com.maggie.app.ui.screens.finance.BlockState
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.SummaryBlock
-import com.maggie.app.ui.screens.finance.MonthlyReviewScreen
 import com.maggie.app.ui.screens.finance.ReviewActivityRoute
+import com.maggie.app.ui.screens.finance.ReviewListScreen
+import com.maggie.app.ui.screens.finance.ReviewListViewModel
+import com.maggie.app.data.model.ReviewPreset
+import com.maggie.app.data.model.ReviewQueueItem
 import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
-import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.ProjectFormScreen
 import com.maggie.app.ui.screens.finance.ProjectListScreen
@@ -140,12 +142,8 @@ import com.maggie.app.ui.screens.finance.CategoryListScreen
 import com.maggie.app.ui.screens.finance.CategoryViewModel
 import com.maggie.app.ui.screens.finance.ContactScreen
 import com.maggie.app.ui.screens.finance.ContactViewModel
-import com.maggie.app.ui.screens.finance.RecognisedToControlScreen
-import com.maggie.app.ui.screens.finance.RecognisedToControlViewModel
-import com.maggie.app.ui.screens.finance.ToSortScreen
 import com.maggie.app.ui.screens.finance.EnvelopeAdjustmentsViewModel
 import com.maggie.app.ui.screens.finance.ToQualifyViewModel
-import com.maggie.app.ui.screens.finance.ToSortViewModel
 import com.maggie.app.ui.screens.finance.TransactionListScreen
 import com.maggie.app.ui.screens.finance.TransactionViewModel
 import com.maggie.app.ui.screens.grocery.ProductListScreen
@@ -251,8 +249,8 @@ sealed class Screen(val route: String, val label: String) {
     data object BudgetList : Screen("budgets", "Budgets")
     data object CategorizationRuleList : Screen("categorization_rules", "Règles")
     data object RuleSuggestions : Screen("rule_suggestions", "Suggestions")
-    data object TransactionsToSort : Screen("transactions_to_sort", "À qualifier")
-    data object RecognisedToControl : Screen("recognised_to_control", "Reconnues à contrôler")
+    /** La Revue (MAG-539): one list of the lines to qualify and the recognised ones, with its fiche. */
+    data object ReviewList : Screen("finance_review_list", "Revue")
     data object RecurringOperations : Screen("recurring_operations", "Opérations récurrentes")
     data object BankConnectionList : Screen("bank_connections", "Banques")
     data object Cushion : Screen("cushion", "Matelas")
@@ -266,7 +264,6 @@ sealed class Screen(val route: String, val label: String) {
         fun of(projectId: String?): String =
             if (projectId == null) "finance_projects/form" else "finance_projects/form?${DeepLinks.ARG_ID}=$projectId"
     }
-    data object MonthlyReview : Screen("monthly_review", "Revue mensuelle")
     /** Activité Comptes · la revue (MAG-456): full screen, outside the Finance menus, so drawn without chrome. */
     data object FinanceReviewActivity : Screen("finance/review/activity", "Revue du mois")
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
@@ -455,7 +452,7 @@ private fun NavController.backInFinance() {
 }
 
 @Composable
-private fun FinanceSummaryPage(menu: FinanceMenu, navController: NavController) {
+private fun FinanceSummaryPage(menu: FinanceMenu, navController: NavController, onOpenReview: (ReviewPreset) -> Unit = {}) {
     val viewModel: FinanceSummaryViewModel = koinViewModel()
     FinanceSummaryScreen(
         menu = menu,
@@ -468,6 +465,29 @@ private fun FinanceSummaryPage(menu: FinanceMenu, navController: NavController) 
                 if (route == Screen.FinanceDashboard.route) popUpTo(route) { inclusive = false }
             }
         },
+        onOpenReview = onOpenReview,
+    )
+}
+
+/** The Revue's single list and its fiche (MAG-539); out of [NavGraph]'s lambda, which the compiler already finds heavy. */
+@Composable
+private fun ReviewListPage(
+    navController: NavController,
+    preset: ReviewPreset?,
+    onPresetConsumed: () -> Unit,
+    showsDetailPane: Boolean,
+    onOpenTransaction: (ReviewQueueItem) -> Unit,
+    onOpenOperation: (ReviewQueueItem) -> Unit,
+) {
+    val viewModel: ReviewListViewModel = koinViewModel()
+    ReviewListScreen(
+        viewModel = viewModel,
+        onBack = { navController.backInFinance() },
+        preset = preset,
+        onPresetConsumed = onPresetConsumed,
+        showsDetailPane = showsDetailPane,
+        onOpenTransaction = onOpenTransaction,
+        onOpenOperation = onOpenOperation,
     )
 }
 
@@ -625,6 +645,12 @@ fun NavGraph() {
     var incidentsToOpen by rememberSaveable { mutableStateOf(false) }
     // The series « Voir l'opération récurrente » was tapped on in « Reconnues à contrôler »: its editor opens once the list has loaded.
     var seriesToOpen by rememberSaveable { mutableStateOf<String?>(null) }
+    // Where the Revue's list opens (MAG-539): set by the summary block, a deep link or a todo pill, cleared once the list took it.
+    var reviewPreset by rememberSaveable { mutableStateOf<ReviewPreset?>(null) }
+    val openReview: (ReviewPreset) -> Unit = { preset ->
+        reviewPreset = preset
+        navController.navigate(Screen.ReviewList.route) { launchSingleTop = true }
+    }
     var detailRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryItemToOpen by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryPaneItemId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1623,7 +1649,7 @@ fun NavGraph() {
                             canEditSplit = paneShown,
                             showsDetailPane = paneShown,
                             toQualify = toQualify,
-                            onOpenToQualify = { navController.navigate(Screen.TransactionsToSort.route) { launchSingleTop = true } },
+                            onOpenToQualify = { openReview(ReviewPreset.TO_SORT) },
                             adjustments = koinViewModel<EnvelopeAdjustmentsViewModel>(),
                         )
                     }
@@ -1646,11 +1672,11 @@ fun NavGraph() {
                             onBack = { navController.backInFinance() },
                         )
                     }
-                    composable(Screen.TransactionsToSort.route, deepLinks = DeepLinks.forRoute(Screen.TransactionsToSort.route)) {
-                        val toSortViewModel: ToSortViewModel = koinViewModel()
-                        ToSortScreen(
-                            viewModel = toSortViewModel,
-                            onBack = { navController.backInFinance() },
+                    composable(Screen.ReviewList.route, deepLinks = DeepLinks.forRoute(Screen.ReviewList.route)) {
+                        ReviewListPage(
+                            navController = navController,
+                            preset = reviewPreset,
+                            onPresetConsumed = { reviewPreset = null },
                             showsDetailPane = paneShown,
                             onOpenTransaction = { line ->
                                 line.accountId?.let { accountId ->
@@ -1660,31 +1686,32 @@ fun NavGraph() {
                                     navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
                                 }
                             },
-                        )
-                    }
-                    composable(Screen.RecognisedToControl.route, deepLinks = DeepLinks.forRoute(Screen.RecognisedToControl.route)) {
-                        val controlViewModel: RecognisedToControlViewModel = koinViewModel()
-                        RecognisedToControlScreen(
-                            viewModel = controlViewModel,
-                            onBack = { navController.backInFinance() },
-                            showsDetailPane = paneShown,
-                            onOpenOperation = { group ->
+                            onOpenOperation = { line ->
                                 // A series has its editor; a rule has no screen of its own, only the list of the rules.
-                                if (group.operationType == OPERATION_SERIES) {
-                                    seriesToOpen = group.operationId
+                                val seriesId = line.qualifiedBySeriesId
+                                if (line.qualifiedBy == OPERATION_SERIES && seriesId != null) {
+                                    seriesToOpen = seriesId
                                     navController.navigate(Screen.RecurringOperations.route) { launchSingleTop = true }
                                 } else {
                                     navController.navigate(Screen.CategorizationRuleList.route) { launchSingleTop = true }
                                 }
                             },
-                            onOpenTransaction = { line ->
-                                line.accountId?.let { accountId ->
-                                    selectedAccount = accountId to (line.accountName?.takeIf { it.isNotBlank() } ?: DEFAULT_ACCOUNT_NAME)
-                                    transactionToOpen = line.id
-                                    navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
-                                }
-                            },
                         )
+                    }
+                    // The old addresses of the three screens the Revue's list replaced: each opens it, pre-filtered (MAG-539).
+                    listOf(
+                        DeepLinks.REVIEW_TO_SORT_ROUTE to ReviewPreset.TO_SORT,
+                        DeepLinks.REVIEW_TO_CONTROL_ROUTE to ReviewPreset.TO_CONTROL,
+                        DeepLinks.REVIEW_MONTHLY_ROUTE to ReviewPreset.MONTHLY,
+                    ).forEach { (route, preset) ->
+                        composable(route, deepLinks = DeepLinks.forRoute(route)) { entry ->
+                            LoadingScreen()
+                            LaunchedEffect(linkReady) {
+                                if (!linkReady) return@LaunchedEffect
+                                reviewPreset = preset
+                                navController.replaceLink(entry, Screen.ReviewList.route, singleTop = true)
+                            }
+                        }
                     }
                     composable(Screen.RecurringOperations.route, deepLinks = DeepLinks.forRoute(Screen.RecurringOperations.route)) {
                         val recurringViewModel: RecurringOperationViewModel = koinViewModel()
@@ -1753,18 +1780,11 @@ fun NavGraph() {
                     ) { entry ->
                         ProjectFormPage(navController, entry)
                     }
-                    composable(Screen.MonthlyReview.route, deepLinks = DeepLinks.forRoute(Screen.MonthlyReview.route)) {
-                        val reviewViewModel: MonthlyReviewViewModel = koinViewModel()
-                        MonthlyReviewScreen(
-                            viewModel = reviewViewModel,
-                            onBack = { navController.backInFinance() },
-                        )
-                    }
                     composable(Screen.FinanceReviewActivity.route, deepLinks = DeepLinks.forRoute(Screen.FinanceReviewActivity.route)) {
                         ReviewActivityPage(navController, onOpenMaggie = { showChatSheet = true })
                     }
                     composable(Screen.FinanceReview.route) {
-                        FinanceSummaryPage(FinanceMenu.REVIEW, navController)
+                        FinanceSummaryPage(FinanceMenu.REVIEW, navController, onOpenReview = openReview)
                     }
                     composable(Screen.FinanceTreasuryMenu.route) {
                         FinanceSummaryPage(FinanceMenu.TREASURY, navController)

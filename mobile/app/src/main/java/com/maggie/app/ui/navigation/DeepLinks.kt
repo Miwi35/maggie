@@ -29,6 +29,14 @@ object DeepLinks {
     const val ACCOUNT_ROUTE = "link/finance/accounts/{$ARG_ID}?$ARG_NAME={$ARG_NAME}"
     const val CONTACT_ROUTE = "link/finance/contacts/{$ARG_ID}"
 
+    /**
+     * The three links the Revue's pages used to have (MAG-539): each opens the one review list, already filtered
+     * (to-sort: À qualifier · Toutes les dates, to-control: Reconnues · Depuis la dernière revue, review: Toutes · ce mois).
+     */
+    const val REVIEW_TO_SORT_ROUTE = "link/finance/to-sort"
+    const val REVIEW_TO_CONTROL_ROUTE = "link/finance/to-control"
+    const val REVIEW_MONTHLY_ROUTE = "link/finance/review"
+
     private val PATTERNS: Map<String, List<String>> = mapOf(
         EVENT_ROUTE to listOf("$SCHEME://event/{$ARG_ID}"),
         TASK_ROUTE to listOf("$SCHEME://task/{$ARG_ID}"),
@@ -44,8 +52,10 @@ object DeepLinks {
         Screen.CategoryList.route to listOf("$SCHEME://finance/categories"),
         Screen.CategorizationRuleList.route to listOf("$SCHEME://finance/rules"),
         Screen.RuleSuggestions.route to listOf("$SCHEME://finance/rule-suggestions"),
-        Screen.TransactionsToSort.route to listOf("$SCHEME://finance/to-sort"),
-        Screen.RecognisedToControl.route to listOf("$SCHEME://finance/to-control"),
+        REVIEW_TO_SORT_ROUTE to listOf("$SCHEME://finance/to-sort"),
+        REVIEW_TO_CONTROL_ROUTE to listOf("$SCHEME://finance/to-control"),
+        REVIEW_MONTHLY_ROUTE to listOf("$SCHEME://finance/review"),
+        Screen.ReviewList.route to listOf("$SCHEME://finance/review/list"),
         Screen.RecurringOperations.route to listOf("$SCHEME://finance/recurring-operations"),
         Screen.BankConnectionList.route to listOf("$SCHEME://finance/banks"),
         Screen.Cushion.route to listOf("$SCHEME://finance/cushion"),
@@ -54,7 +64,6 @@ object DeepLinks {
         Screen.PeerDebts.route to listOf("$SCHEME://finance/peer-debts"),
         Screen.LoanList.route to listOf("$SCHEME://finance/loans"),
         Screen.ProjectList.route to listOf("$SCHEME://finance/projects"),
-        Screen.MonthlyReview.route to listOf("$SCHEME://finance/review"),
         Screen.FinanceReviewActivity.route to listOf("$SCHEME://finance/review/activity"),
         Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}"),
     )

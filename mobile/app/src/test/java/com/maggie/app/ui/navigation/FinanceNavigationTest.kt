@@ -10,7 +10,7 @@ import org.junit.Test
 class FinanceNavigationTest {
     private val legacyDrawerRoutes = listOf(
         Screen.AccountList, Screen.CategoryList, Screen.BudgetList,
-        Screen.Cushion, Screen.LoanList, Screen.MonthlyReview,
+        Screen.Cushion, Screen.LoanList, Screen.ReviewList,
     ).map { it.route }
 
     private val allRoutes = FinanceMenu.entries.flatMap { it.routes }
@@ -95,24 +95,15 @@ class FinanceNavigationTest {
     }
 
     @Test
-    fun `the recognised lines to control sit in the review menu right after the lines to qualify, with a deep link`() {
-        assertEquals("recognised_to_control", Screen.RecognisedToControl.route)
-        assertEquals("Reconnues à contrôler", Screen.RecognisedToControl.label)
-        assertEquals(FinanceMenu.REVIEW, FinanceMenu.of(Screen.RecognisedToControl.route))
-        assertEquals(
-            listOf("${DeepLinks.SCHEME}://finance/to-control"),
-            DeepLinks.patternsFor(Screen.RecognisedToControl.route),
-        )
+    fun `the Revue's single list sits in the review menu, with a deep link, in place of the three screens it replaced`() {
+        assertEquals("finance_review_list", Screen.ReviewList.route)
+        assertEquals("Revue", Screen.ReviewList.label)
+        assertEquals(FinanceMenu.REVIEW, FinanceMenu.of(Screen.ReviewList.route))
+        assertEquals(listOf("${DeepLinks.SCHEME}://finance/review/list"), DeepLinks.patternsFor(Screen.ReviewList.route))
 
         val routes = FinanceMenu.REVIEW.routes
-        assertEquals(routes.indexOf(Screen.TransactionsToSort.route) + 1, routes.indexOf(Screen.RecognisedToControl.route))
-    }
-
-    @Test
-    fun `the lines to qualify keep their route and deep link under their new name`() {
-        assertEquals("transactions_to_sort", Screen.TransactionsToSort.route)
-        assertEquals("À qualifier", Screen.TransactionsToSort.label)
-        assertTrue(DeepLinks.patternsFor(Screen.TransactionsToSort.route).isNotEmpty())
+        assertEquals(routes.indexOf(Screen.FinanceReview.route) + 1, routes.indexOf(Screen.ReviewList.route))
+        assertTrue(routes.none { it in listOf("transactions_to_sort", "recognised_to_control", "monthly_review") })
     }
 
     @Test

@@ -253,8 +253,8 @@ areas:
     - admin/src/modules/finance/**
     - mobile/app/src/main/java/com/maggie/app/ui/screens/finance/**
     - mobile/app/src/main/java/com/maggie/app/ui/navigation/FinanceNavigation.kt
-    - mobile/app/src/main/java/com/maggie/app/data/repository/{Account,BankConnection,Budget,CategorizationRule,Category,Contact,Cushion,FinanceDashboard,Loan,MonthBalance,MonthlyReview,PeerDebt,Transaction}Repository.kt
-    - mobile/app/src/main/java/com/maggie/app/data/model/{Account,BankConnection,CategorizationRule,Category,Contact,FinanceDashboard,FinanceScores,Envelope,Loan,MonthBalance,MonthlyReview,PeerDebt,RuleSuggestion,SafetyCushion,Transaction}.kt
+    - mobile/app/src/main/java/com/maggie/app/data/repository/{Account,BankConnection,Budget,CategorizationRule,Category,Contact,Cushion,FinanceDashboard,Loan,MonthBalance,PeerDebt,Review,Transaction}Repository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{Account,BankConnection,CategorizationRule,Category,Contact,FinanceDashboard,FinanceScores,Envelope,Loan,MonthBalance,PeerDebt,ReviewActivity,ReviewList,RuleSuggestion,SafetyCushion,Transaction}.kt
     - 'e2e/web/pages/{Finance*,financeLabels}.ts'
     - e2e/web/helpers/money.ts
   notification:
@@ -482,8 +482,6 @@ web:
     areas: [finance]
   e2e/web/tests/finance-peer-debts.spec.ts:
     areas: [finance]
-  e2e/web/tests/finance-to-sort.spec.ts:
-    areas: [finance]
   e2e/web/tests/finance-treasury.spec.ts:
     areas: [finance, chat]
   e2e/web/tests/finance-upcoming.spec.ts:
@@ -614,12 +612,9 @@ mobile:
         (MAG-531). Lift it once that is fixed.
   e2e/mobile/flows/13-finance-category-edit.yaml:
     areas: [finance]
-  e2e/mobile/flows/13-finance-to-sort.yaml:
+  e2e/mobile/flows/13-finance-review-list.yaml:
     areas: [finance]
-    paths: [e2e/mobile/scripts/to-sort-api.js]
-  e2e/mobile/flows/13-finance-to-control.yaml:
-    areas: [finance]
-    paths: [e2e/mobile/scripts/to-control-api.js]
+    paths: [e2e/mobile/scripts/review-list-api.js]
   e2e/mobile/flows/22-finance-review-activity.yaml:
     areas: [finance]
     paths: [api/fixtures/e2e/59-finance-activity.yaml]

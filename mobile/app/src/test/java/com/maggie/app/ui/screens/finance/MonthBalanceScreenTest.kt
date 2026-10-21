@@ -24,6 +24,7 @@ import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.navigation.DeepLinks
 import com.maggie.app.ui.navigation.Screen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -142,7 +143,7 @@ class MonthBalanceScreenTest {
 
         compose.onNodeWithText("À qualifier · 1 · ${formatCents(4000)}").assertIsDisplayed().performClick()
 
-        assertEquals(Screen.TransactionsToSort.route, opened)
+        assertEquals(DeepLinks.REVIEW_TO_SORT_ROUTE, opened)
     }
 
     @Test

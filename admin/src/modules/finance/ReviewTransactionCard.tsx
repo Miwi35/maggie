@@ -21,14 +21,9 @@ import { Qualification } from './Qualification'
 import { NO_QUALIFICATION } from './qualificationKinds'
 import type { QualificationValue } from './qualificationKinds'
 import { formatDay } from './recurringOperations'
-import { AVOIDABLE_LABEL, KEEP_LABEL } from './ToSortPage'
+import { SATISFACTION_CHOICES } from './satisfaction'
+import type { Satisfaction } from './satisfaction'
 import type { ReviewItem } from './useReviewQueue'
-import type { Satisfaction } from './useTransactionsToSort'
-
-const SATISFACTION_CHOICES: { value: Exclude<Satisfaction, 'unrated'>; label: string }[] = [
-  { value: 'keep', label: KEEP_LABEL },
-  { value: 'avoidable', label: AVOIDABLE_LABEL },
-]
 
 /** « Changer » or « Corriger »: a category chosen by hand, and what goes with it. */
 const CategoryDialog = ({

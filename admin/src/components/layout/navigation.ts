@@ -88,9 +88,7 @@ export const FINANCE_MENUS: NavMenu[] = [
     label: 'Revue',
     path: financeSummaryPath('review'),
     aspects: [
-      { id: 'to-sort', label: 'À qualifier', path: '/finance/to-sort' },
-      { id: 'to-control', label: 'Reconnues à contrôler', path: '/finance/to-control' },
-      { id: 'monthly-review', label: 'Revue mensuelle', path: '/finance/monthly-review' },
+      { id: 'review', label: 'Transactions', path: '/finance/review' },
       { id: 'rules', label: 'Règles de catégorisation', path: '/categorization_rules', resource: 'categorization_rules' },
       { id: 'recurring', label: 'Opérations récurrentes', path: '/finance/recurring-operations' },
     ],

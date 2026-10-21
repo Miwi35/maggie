@@ -40,10 +40,23 @@ final class ReviewQueueController
             return new JsonResponse(['error' => 'limit must be a positive integer'], Response::HTTP_BAD_REQUEST);
         }
 
+        // Read raw: `?period[]=all` is an array, refused like any other bad value.
+        $period = $request->query->all()['period'] ?? null;
+        if (null !== $period && !\in_array($period, GetReviewQueue::PERIODS, true)) {
+            return new JsonResponse(['error' => 'period must be one of '.implode(', ', GetReviewQueue::PERIODS)], Response::HTTP_BAD_REQUEST);
+        }
+
+        $state = $request->query->all()['state'] ?? GetReviewQueue::STATE_ALL;
+        if (!\in_array($state, GetReviewQueue::STATES, true)) {
+            return new JsonResponse(['error' => 'state must be one of '.implode(', ', GetReviewQueue::STATES)], Response::HTTP_BAD_REQUEST);
+        }
+
         return new JsonResponse($this->getReviewQueue->execute(
             $user,
             new \DateTimeImmutable($month.'-01'),
             null === $limit ? GetReviewQueue::DEFAULT_LIMIT : (int) $limit,
+            $period,
+            $state,
         ));
     }
 }
