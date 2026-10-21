@@ -6,6 +6,12 @@ ARG PHP_VERSION=8.4
 # =============================================================================
 FROM ghcr.io/miwi35/mirror/php:${PHP_VERSION}-fpm-alpine AS base
 
+# PHP2Shell (CVE-2026-109618, CVE-2026-109619): never build on a base older than
+# the release that fixes them, whatever the mirror still holds (MAG-542).
+ARG PHP_MIN_PATCH=8.4.27
+RUN php -r 'exit(version_compare(PHP_VERSION, getenv("PHP_MIN_PATCH"), ">=") ? 0 : 1);' \
+    || (echo "PHP $(php -r 'echo PHP_VERSION;') is older than ${PHP_MIN_PATCH}: refresh the mirror" >&2; exit 1)
+
 # Install system dependencies
 RUN apk add --no-cache \
     acl \
