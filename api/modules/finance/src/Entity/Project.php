@@ -28,6 +28,7 @@ use Maggie\Core\Mercure\Attribute\MercureCollection;
 use Maggie\Core\Mercure\MercureTopic;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Core\Serializer\StrictDayNormalizer;
+use Maggie\Finance\Enum\FundingSourceKind;
 use Maggie\Finance\Enum\ProjectDateMode;
 use Maggie\Finance\Enum\ProjectWellbeing;
 use Maggie\Finance\Repository\ProjectRepository;
@@ -136,6 +137,20 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
     #[Context(normalizationContext: [AbstractObjectNormalizer::SKIP_NULL_VALUES => false])]
     private ?string $note = null;
 
+    /**
+     * Where the money comes from besides the salary (MAG-524). Read-only:
+     * written by PUT /api/finance/projects/{id}/funding, the whole list.
+     *
+     * @var Collection<int, ProjectFundingSource>
+     */
+    #[ORM\OneToMany(targetEntity: ProjectFundingSource::class, mappedBy: 'project', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['position' => 'ASC'])]
+    // Plain objects in the project, without a generated `@id`.
+    #[ApiProperty(writable: false, genId: false, description: 'Where the money comes from besides the salary: [{kind (savings, capital, loan), amountCents, accountId, loanId}]. Read-only: written by PUT /api/finance/projects/{id}/funding.')]
+    // accountId and loanId are null for the kinds without them: always served.
+    #[Context(normalizationContext: [AbstractObjectNormalizer::SKIP_NULL_VALUES => false])]
+    private Collection $fundingSources;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
@@ -145,6 +160,7 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
     {
         $this->id = new Ulid();
         $this->dependsOn = new ArrayCollection();
+        $this->fundingSources = new ArrayCollection();
     }
 
     #[Assert\Callback]
@@ -415,6 +431,52 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
         return $this;
     }
 
+    /** @return list<ProjectFundingSource> */
+    public function getFundingSources(): array
+    {
+        return array_values($this->fundingSources->toArray());
+    }
+
+    /** For `ProjectFundingSource::setProject` only. */
+    public function attachFundingSource(ProjectFundingSource $source): void
+    {
+        if (!$this->fundingSources->contains($source)) {
+            $this->fundingSources->add($source);
+        }
+    }
+
+    public function removeFundingSource(ProjectFundingSource $source): void
+    {
+        $this->fundingSources->removeElement($source);
+    }
+
+    public function loanSource(): ?ProjectFundingSource
+    {
+        foreach ($this->fundingSources as $source) {
+            if (FundingSourceKind::Loan === $source->getKind()) {
+                return $source;
+            }
+        }
+
+        return null;
+    }
+
+    /** What the sources cover. */
+    public function fundedCents(): int
+    {
+        return array_sum(array_map(static fn (ProjectFundingSource $source): int => $source->getAmountCents(), $this->fundingSources->toArray()));
+    }
+
+    /**
+     * What is left to save on the salary: the amount minus the sources, never
+     * below 0 — a project made cheaper than its sources needs nothing more.
+     */
+    #[ApiProperty(description: 'What is left to save on the salary: amountCents minus the funding sources, never below 0.')]
+    public function getSalaryCents(): int
+    {
+        return max(0, $this->amountCents - $this->fundedCents());
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -454,6 +516,9 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
             if (\in_array('targetOn', $changedProperties, true) || \in_array('dependsOn', $changedProperties, true)) {
                 $changedProperties[] = 'unmetDependencies';
             }
+            if (\in_array('amountCents', $changedProperties, true) || \in_array('fundingSources', $changedProperties, true)) {
+                $changedProperties[] = 'salaryCents';
+            }
         }
 
         return self::filterPayload([
@@ -469,6 +534,8 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'dependsOn' => array_map(static fn (string $id): string => MercureTopic::item(self::COLLECTION, $id), $this->dependencyIds()),
             'note' => $this->note,
             'unmetDependencies' => $this->getUnmetDependencies(),
+            'fundingSources' => array_map(static fn (ProjectFundingSource $source): array => $source->toArray(), $this->getFundingSources()),
+            'salaryCents' => $this->getSalaryCents(),
         ], $changedProperties);
     }
 }

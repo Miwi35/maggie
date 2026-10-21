@@ -17,9 +17,11 @@
             "targetOn": "2027-03-01",
             "dependsOn": [],
             "note": null,
+            "fundingSources": [],
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "wellbeingScore": 4,
-            "unmetDependencies": []
+            "unmetDependencies": [],
+            "salaryCents": 250000
         },
         {
             "@id": "/api/finance/projects/01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -36,11 +38,13 @@
                 "/api/finance/projects/01ARZ3NDEKTSV4RRFFQ69G5FAV"
             ],
             "note": "Recorded note",
+            "fundingSources": [],
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "wellbeingScore": 1,
             "unmetDependencies": [
                 "01ARZ3NDEKTSV4RRFFQ69G5FAV"
-            ]
+            ],
+            "salaryCents": 120000
         }
     ]
 }

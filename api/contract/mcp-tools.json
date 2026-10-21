@@ -2449,6 +2449,64 @@
         },
         "description": "List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with manage_ingredients instead — they are products too, so they show up in the list. To search by name use search_products. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. Season: seasonMonths lists the months (1 = January … 12 = December) a fruit or vegetable is in season in metropolitan France; it is pre-filled from the seasonality calendar on create when the name is known, and inSeason says whether the product is in season this month (null: no season). To empty an optional field on update, list its name in clear (defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths)."
     },
+    "manage_project_funding": {
+        "name": "manage_project_funding",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "projectId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "sources": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "description": "a list of {kind, amountCents, account?, loan?}",
+                    "default": null
+                },
+                "loanRateBasisPoints": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "loanMonths": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "downPaymentCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "yieldBasisPoints": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "Set where a project's money comes from, or price its options. A project is funded by its sources, the rest is saved on the salary (salaryCents = amountCents minus the sources, never below 0). set takes projectId and sources = the WHOLE list, which replaces the current one ([] removes them all): each source is {kind, amountCents (integer cents, > 0), account?, loan?}. kind savings: savings outside the safety cushion, account = the id of a savings or checking account that is not the cushion. kind capital: capital freed from an investment, account = the id of an investment account. kind loan: a projected loan, loan = its conditions: annualRateBasisPoints (BASIS POINTS, 400 = 4 %) and durationMonths are required; optional type (amortizing_fixed by default, amortizing_variable, in_fine, stepped, deferred_partial, deferred_total, bridge, with what each type requires as in manage_loans), insuranceMonthlyCents or insuranceRateBasisPoints, feesCents, aprBasisPoints, deferralMonths, prepaymentPenaltyMode, lender, name. A loan source creates a loan with projected = true of amountCents, kept out of the timeline and the saving capacity; removing the source removes that loan; a loan source sent without loan keeps the conditions it has. At most one loan source; the sources cannot add up to more than the project's amount. options takes projectId and prices three options on the project's amount alone: cash (saved on the net saving capacity), loan (the whole amount borrowed, available now) and partial (downPaymentCents saved first, the rest borrowed). Each gives totalCostCents, netCostCents (interest + insurance + fees minus yieldCents, what the capital kept would earn at yieldBasisPoints compounded monthly over the loan — it can be negative), monthlyPaymentCents (insurance aside), durationMonths, availableInMonths (months of net saving capacity before the money is there; null when the capacity is 0 or less), capitalKeptCents and nImpactMonths (always null for now). The loan's conditions come from the project's loan source; loanRateBasisPoints and loanMonths override them, and are required without one. yieldBasisPoints is required (0 allowed); downPaymentCents is required without a loan source (with one: the amount not borrowed). Report the figures as facts: never say one option is better. Nothing is deduced: a missing value is refused with the list of what is missing — ask the user. A refused request answers error plus current."
+    },
     "manage_projects": {
         "name": "manage_projects",
         "inputSchema": {

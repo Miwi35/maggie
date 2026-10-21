@@ -45,6 +45,18 @@ Maggie\Finance\Entity\Account:
     bankConnection: '@e2e_bank_connection'
     user: '@e2e_user'
 
+  # The funding journey (MAG-524), on the stock account: savings outside the
+  # cushion a project may draw on — the Livret A above is the cushion, refused
+  # as a source. No bank connection: the sync never walks it.
+  e2e_stock_account_livret_jeune:
+    name: Livret jeune
+    bank: Crédit Mutuel
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 150000
+    isCushion: false
+    user: '@e2e_stock_user'
+
 Maggie\Finance\Entity\Category:
   e2e_category_essentials:
     name: Vie courante
@@ -377,3 +389,11 @@ Maggie\Finance\Entity\Project:
     dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::None)>'
     dependsOn: ['@e2e_project_move']
     user: '@e2e_user'
+  # The funding journey (MAG-524), on the stock account like its Livret jeune:
+  # Maggie funds it with 1 000 € of savings and 6 000 € borrowed.
+  e2e_stock_project_car:
+    name: Voiture
+    amountCents: 1000000
+    currency: EUR
+    position: 0
+    user: '@e2e_stock_user'

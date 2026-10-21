@@ -439,6 +439,8 @@ web:
     areas: [finance, chat]
   e2e/web/tests/finance-loans.spec.ts:
     areas: [finance, chat]
+  e2e/web/tests/finance-project-funding.spec.ts:
+    areas: [finance, chat]
   e2e/web/tests/finance-category-icon.spec.ts:
     areas: [finance]
   e2e/web/tests/finance-bank.spec.ts:
