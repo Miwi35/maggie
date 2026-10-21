@@ -40,4 +40,31 @@ export class FinanceLoansPage extends AdminShell {
   row(text: string): Locator {
     return this.content.getByRole('row').filter({ hasText: text })
   }
+
+  /** Opens a loan on its sheet: the row opens it. */
+  async openSheet(loanName: string): Promise<void> {
+    await this.row(loanName).click()
+    await expect(this.content.getByRole('button', { name: 'Enregistrer' })).toBeVisible()
+  }
+
+  /** Picks an option of a select of the sheet, by its label. */
+  async choose(label: string, option: string): Promise<void> {
+    await this.content.getByRole('combobox', { name: label }).click()
+    await this.page.getByRole('option', { name: option, exact: true }).click()
+  }
+
+  /** Saves the sheet, waiting for the PATCH or PUT itself. */
+  async save(): Promise<void> {
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) => /\/api\/loans\//.test(response.url()) && ['PATCH', 'PUT'].includes(response.request().method()),
+      ),
+      this.content.getByRole('button', { name: 'Enregistrer' }).click(),
+    ])
+  }
+
+  /** The early repayment simulation of the sheet (MAG-523). */
+  get simulation(): Locator {
+    return this.content.getByTestId('early-repayment')
+  }
 }

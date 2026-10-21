@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box'
 import { SimpleForm, TextInput, NumberInput, required } from 'react-admin'
 import { FormSection } from '../../components/form/FormSection'
+import { LoanTermsFields } from './LoanTermsFields'
 import { basisPointsInput, centsInput } from './loans'
 
 const formSx = { maxWidth: 680 }
@@ -9,9 +10,11 @@ const halfSx = { flex: '1 1 240px' }
 
 interface LoanFormProps {
   withDefaults?: boolean
+  /** `YYYY-MM` of the last payment, once the API has computed it. */
+  endsOn?: string | null
 }
 
-export const LoanForm = ({ withDefaults = false }: LoanFormProps) => (
+export const LoanForm = ({ withDefaults = false, endsOn }: LoanFormProps) => (
   <SimpleForm sx={formSx}>
     <FormSection
       first
@@ -65,6 +68,8 @@ export const LoanForm = ({ withDefaults = false }: LoanFormProps) => (
         helperText="Code ISO 4217."
       />
     </Box>
+
+    <LoanTermsFields endsOn={endsOn} withDefaults={withDefaults} />
 
     <FormSection
       title="Ordre de libération"

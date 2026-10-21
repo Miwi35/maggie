@@ -4,6 +4,7 @@ import { assistantText, calledTools, toolResults } from '../helpers/agui.js'
 import { getCollection } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { DashboardPage } from '../pages/DashboardPage.js'
+import { FinanceLoansPage } from '../pages/FinanceLoansPage.js'
 
 /**
  * The early repayment penalty of a loan, by conversation (MAG-522, extends MAG-102).
@@ -101,4 +102,34 @@ test('« mon prêt immo a les IRA au plafond légal » sets the mode, and a tota
   const repayment = (await simulation.json()) as Record<string, number | string>
   expect(repayment).toMatchObject({ amountCents: 9800000, penaltyMode: 'legal_cap', penaltyCents: 88200 })
   expect(repayment.realGainCents).toBe(Number(repayment.remainingInterestCents) - 88200)
+})
+
+test('« je règle les IRA sur la fiche du prêt » persists the mode, and a total repayment reads 882 €', async ({
+  stockUser,
+}) => {
+  const { api, page } = stockUser
+
+  // Given « Prêt immo », 98 000 € at 1,80 %, its penalty not set to the legal cap.
+  const { id } = await mortgage(api)
+  expect(await storedMode(api, id)).toBe('exempt')
+
+  // When I set the type and the penalty on its sheet, and save…
+  const loans = new FinanceLoansPage(page)
+  await loans.open()
+  await loans.openSheet(MORTGAGE)
+  await loans.choose('Type de prêt', 'Amortissable taux fixe')
+  await loans.choose('IRA', 'Plafond légal')
+  await loans.save()
+
+  // …and simulate a total repayment (the amount left empty),
+  // Then the penalty reads 882 € and the page gives no advice.
+  await expect(loans.simulation.getByTestId('ira-penalty')).toContainText('882', { timeout: 30_000 })
+  await expect(loans.simulation).not.toContainText(/conseillé|préférable/i)
+
+  // And the mode persists.
+  await expect
+    .poll(() => storedMode(api, id), { message: 'the mode never reached the loan', timeout: 30_000 })
+    .toBe('legal_cap')
+  await page.reload()
+  await expect(loans.content.getByRole('combobox', { name: 'IRA' })).toContainText('Plafond légal')
 })

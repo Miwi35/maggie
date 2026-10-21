@@ -25,6 +25,7 @@ import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.nextDueLabel
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
@@ -33,6 +34,109 @@ import com.maggie.app.data.model.RecurringOperationPreviewRequest
 import com.maggie.app.data.model.RulePreviewRequest
 
 class MaggieApiServiceTest {
+
+    private fun loanService(
+        status: HttpStatusCode = HttpStatusCode.OK,
+        body: String = "{}",
+        onRequest: suspend (io.ktor.client.request.HttpRequestData) -> Unit = {},
+    ) = MaggieApiService(
+        HttpClient(
+            MockEngine { request ->
+                onRequest(request)
+                respond(
+                    content = ByteReadChannel(body),
+                    status = status,
+                    headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                )
+            },
+        ) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
+        },
+    )
+
+    @Test
+    fun `a loan sheet reads the loan, its schedule and its early repayment from their routes`() = runBlocking {
+        val urls = mutableListOf<String>()
+        val bodies = listOf(
+            """{"id":"l1","name":"Prêt immo","type":"stepped"}""",
+            """{"principalRemainingCents":100,"freedOn":"2034-03","months":[{"month":"2026-11","remainingCents":50}]}""",
+            """{"amountCents":100,"penaltyCents":1,"remainingInterestCents":10,"realGainCents":9}""",
+        )
+        var index = 0
+        val service = MaggieApiService(
+            HttpClient(
+                MockEngine { request ->
+                    urls += request.url.toString()
+                    respond(
+                        content = ByteReadChannel(bodies[index++]),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                    )
+                },
+            ) {
+                install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
+            },
+        )
+
+        assertEquals("stepped", service.getLoan("l1").type)
+        assertEquals("2034-03", service.getLoanCurve("l1").freedOn)
+        assertEquals(9, service.getEarlyRepayment("l1", 5000).realGainCents)
+
+        assertTrue(urls[0].endsWith("/api/loans/l1"))
+        assertTrue(urls[1].endsWith("/api/finance/loans/l1/schedule"))
+        assertTrue(urls[2].endsWith("/api/finance/loans/l1/early-repayment?amountCents=5000"))
+    }
+
+    @Test
+    fun `an early repayment without an amount asks for the whole capital`() = runBlocking {
+        var url = ""
+        val service = loanService(body = """{"amountCents":100}""") { url = it.url.toString() }
+
+        service.getEarlyRepayment("l1", null)
+
+        assertFalse(url.contains("amountCents"))
+    }
+
+    @Test
+    fun `updating a loan merge-patches the conditions and spells out the emptied ones`() = runBlocking {
+        var method: HttpMethod? = null
+        var contentType: String? = null
+        var sent = ""
+        val service = loanService(body = """{"id":"l1","name":"Prêt immo"}""") { request ->
+            method = request.method
+            contentType = request.body.contentType?.toString()
+            sent = String(request.body.toByteArray())
+        }
+        val terms = com.maggie.app.ui.screens.finance.LoanTermsDraft(payment = "625", rate = "1,8").toRequest()!!
+
+        service.updateLoan("l1", terms)
+
+        assertEquals(HttpMethod.Patch, method)
+        assertTrue(contentType!!.startsWith("application/merge-patch+json"))
+        val json = Json.parseToJsonElement(sent).jsonObject
+        assertEquals("62500", json.getValue("monthlyPaymentCents").toString())
+        assertEquals("180", json.getValue("annualRateBasisPoints").toString())
+        assertEquals("null", json.getValue("feesCents").toString())
+    }
+
+    @Test
+    fun `a refused simulation raises the server's own sentence`() {
+        val service = loanService(HttpStatusCode.BadRequest, """{"error":"Montant supérieur au capital restant dû"}""")
+
+        val failure = runCatching { runBlocking { service.getEarlyRepayment("l1", 99999999) } }.exceptionOrNull()
+
+        assertEquals("Montant supérieur au capital restant dû", failure?.message)
+    }
+
+    @Test
+    fun `a refused update raises the server's own sentence`() {
+        val service = loanService(HttpStatusCode.BadRequest, """{"error":"Le plafond doit dépasser le plancher"}""")
+        val terms = com.maggie.app.ui.screens.finance.LoanTermsDraft(payment = "625").toRequest()!!
+
+        val failure = runCatching { runBlocking { service.updateLoan("l1", terms) } }.exceptionOrNull()
+
+        assertEquals("Le plafond doit dépasser le plancher", failure?.message)
+    }
 
     /** The value of the multipart `cleanup` field, read off its own part. */
     private fun cleanupPartOf(body: ByteArray): String? =

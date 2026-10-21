@@ -1227,6 +1227,32 @@ object UiTags {
     const val PROJECT_DELETE = "project_delete"
     const val PROJECT_DELETE_CONFIRM = "project_delete_confirm"
 
+    /**
+     * The loans of Planification and their sheet (MAG-523): a row, the sheet, its IRA block and its curve;
+     * on the tablet the conditions form (a type, a mode, the payment, « Enregistrer », what the server
+     * refused) and the simulation of an amount.
+     */
+    const val LOAN_ROW = "loan_row"
+    const val LOAN_PROJECTED = "loan_projected"
+    const val LOAN_SHEET = "loan_sheet"
+    const val LOAN_IRA = "loan_ira"
+    const val LOAN_CURVE = "loan_curve"
+    const val LOAN_END = "loan_end"
+    const val LOAN_TYPE_PREFIX = "loan_type_"
+    const val LOAN_PENALTY_MODE_PREFIX = "loan_penalty_mode_"
+    const val LOAN_PAYMENT_FIELD = "loan_payment"
+    const val LOAN_EARLY_ALLOWED = "loan_early_allowed"
+    const val LOAN_STEP_ADD = "loan_step_add"
+    const val LOAN_SAVE = "loan_save"
+    const val LOAN_SAVE_ERROR = "loan_save_error"
+    const val LOAN_SIMULATION_AMOUNT = "loan_simulation_amount"
+    const val LOAN_SIMULATE = "loan_simulate"
+    const val LOAN_SIMULATION = "loan_simulation"
+    const val LOAN_SIMULATION_ERROR = "loan_simulation_error"
+
+    fun loanType(key: String) = LOAN_TYPE_PREFIX + key
+    fun loanPenaltyMode(key: String) = LOAN_PENALTY_MODE_PREFIX + key
+
     fun projectWellbeing(key: String) = PROJECT_WELLBEING_PREFIX + key
     fun projectDateMode(key: String) = PROJECT_DATE_MODE_PREFIX + key
     fun projectDependency(id: String) = PROJECT_DEPENDENCY_PREFIX + id
