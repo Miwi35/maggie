@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Core;
 
+use Maggie\Core\Mcp\Discovery\CachedMcpDiscoveryPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
@@ -13,6 +14,11 @@ final class MaggieCoreBundle extends AbstractBundle
     public function getPath(): string
     {
         return \dirname(__DIR__);
+    }
+
+    public function build(ContainerBuilder $container): void
+    {
+        $container->addCompilerPass(new CachedMcpDiscoveryPass());
     }
 
     public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void

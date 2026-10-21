@@ -7,6 +7,7 @@ covered in `test_streaming.py`; what is here is the same promises on the path th
 app and the A2A bridge take.
 """
 
+import json
 from contextlib import ExitStack, contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -254,3 +255,21 @@ class TestWhenTheModelRefuses:
 
         assert "not configured" in result["response"]
         route.assert_not_called()
+
+
+class TestTheTimezoneIsReadOnceForATurn:
+    async def test_chat_calls_get_user_timezone_a_single_time(self, monkeypatch):
+        """The history, the web search and the system prompt each need it; the API is asked once (MAG-543)."""
+        from app import user_timezone
+
+        call_tool = AsyncMock(return_value=json.dumps({"timezone": "America/New_York"}))
+        monkeypatch.setattr(user_timezone.mcp_client, "call_tool", call_tool)
+        monkeypatch.setattr("app.llm.gateway.resolve_user_timezone", user_timezone.resolve_user_timezone)
+
+        async def history(_user_id, **_rest):
+            return [{"role": "user", "content": "Quelle heure est-il ?"}]
+
+        with _stubs(_Run(), history):
+            await _gateway().chat("Quelle heure est-il ?", "user-1", exclude_message_id="msg-1")
+
+        call_tool.assert_awaited_once_with("get_user_timezone", {}, user_id="user-1")
