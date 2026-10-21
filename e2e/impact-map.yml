@@ -253,8 +253,8 @@ areas:
     - admin/src/modules/finance/**
     - mobile/app/src/main/java/com/maggie/app/ui/screens/finance/**
     - mobile/app/src/main/java/com/maggie/app/ui/navigation/FinanceNavigation.kt
-    - mobile/app/src/main/java/com/maggie/app/data/repository/{Account,BankConnection,Budget,CategorizationRule,Category,Contact,Cushion,FinanceDashboard,Loan,MonthBalance,MonthlyReview,PeerDebt,Transaction}Repository.kt
-    - mobile/app/src/main/java/com/maggie/app/data/model/{Account,BankConnection,CategorizationRule,Category,Contact,FinanceDashboard,FinanceScores,Envelope,Loan,MonthBalance,MonthlyReview,PeerDebt,RuleSuggestion,SafetyCushion,Transaction}.kt
+    - mobile/app/src/main/java/com/maggie/app/data/repository/{Account,BankConnection,Budget,CategorizationRule,Category,Contact,Cushion,FinanceDashboard,Loan,MonthBalance,PeerDebt,Review,Transaction}Repository.kt
+    - mobile/app/src/main/java/com/maggie/app/data/model/{Account,BankConnection,CategorizationRule,Category,Contact,FinanceDashboard,FinanceScores,Envelope,Loan,MonthBalance,PeerDebt,ReviewActivity,ReviewList,RuleSuggestion,SafetyCushion,Transaction}.kt
     - 'e2e/web/pages/{Finance*,financeLabels}.ts'
     - e2e/web/helpers/money.ts
   notification:
