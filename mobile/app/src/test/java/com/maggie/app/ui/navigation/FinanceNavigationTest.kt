@@ -55,7 +55,7 @@ class FinanceNavigationTest {
     }
 
     @Test
-    fun `the menus without a screen of their own open a page of tabs`() {
+    fun `the menus without a screen of their own open a summary page`() {
         assertEquals(Screen.FinanceReview.route, FinanceMenu.REVIEW.home)
         assertEquals(Screen.FinanceTreasuryMenu.route, FinanceMenu.TREASURY.home)
         assertEquals(Screen.FinancePlanning.route, FinanceMenu.PLANNING.home)
@@ -136,7 +136,7 @@ class FinanceNavigationTest {
     }
 
     @Test
-    fun `back goes to the finance list or menu page a screen belongs to`() {
+    fun `back goes to the finance list or summary page a screen belongs to`() {
         assertEquals(FinanceBack.POP, financeBackAction(Screen.AccountList.route))
         assertEquals(FinanceBack.POP, financeBackAction(Screen.CategoryList.route))
         assertEquals(FinanceBack.POP, financeBackAction(Screen.FinanceTreasuryMenu.route))
@@ -161,34 +161,8 @@ class FinanceNavigationTest {
     }
 
     @Test
-    fun `each menu and each aspect tab has its own tag`() {
+    fun `each menu and each block has its own tag`() {
         assertEquals("finance_menu_treasury", UiTags.financeMenu(FinanceMenu.TREASURY.key))
-        assertEquals("finance_tab_aspect_cushion", UiTags.financeTab("cushion"))
-    }
-
-    @Test
-    fun `a menu page registered with its tab argument is still found under its menu`() {
-        assertEquals("finance_review?tab={tab}", financeMenuPattern(Screen.FinanceReview.route))
-        assertEquals(FinanceMenu.REVIEW, FinanceMenu.of(financeMenuPattern(Screen.FinanceReview.route)))
-        assertEquals(FinanceMenu.SETTINGS, FinanceMenu.of("finance_configuration?tab=banks"))
-        assertNull(FinanceMenu.of("somewhere_else?tab=banks"))
-    }
-
-    @Test
-    fun `back from a screen over a menu page with a tab goes back to it`() {
-        assertEquals(FinanceBack.POP, financeBackAction(financeMenuPattern(Screen.FinanceTreasuryMenu.route)))
-        assertEquals(FinanceBack.REPLACE_WITH_DASHBOARD, financeBackAction("somewhere_else?tab={tab}"))
-    }
-
-    @Test
-    fun `a tap on a menu can ask for one of its tabs`() {
-        assertEquals(
-            FinanceTabAction("finance_review?tab=rules", popToDashboard = true),
-            financeTabAction(FinanceMenu.REVIEW, dashboardInBackStack = true, tab = "rules"),
-        )
-        assertEquals(
-            FinanceTabAction(Screen.FinanceReview.route, popToDashboard = true),
-            financeTabAction(FinanceMenu.REVIEW, dashboardInBackStack = true),
-        )
+        assertEquals("finance_block_cushion", UiTags.financeBlock(Screen.Cushion.route))
     }
 }

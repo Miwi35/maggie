@@ -37,7 +37,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
 
-/** One aspect of a Finance menu, loaded to know whether it has anything to show (MAG-426, MAG-518). */
+/** One aspect of a Finance menu that a summary page draws a block for (MAG-426). */
 enum class SummaryBlock {
     CUSHION,
     SAVINGS_ADVANCES,
@@ -55,26 +55,27 @@ enum class SummaryBlock {
     LAST_SYNC,
 }
 
-/** What a block knows about its aspect. A failed block says so on its own: the others stay. */
+/** What a block shows. A failed block says so on its own: the others, and the way into its screen, stay. */
 sealed interface BlockState {
     data object Loading : BlockState
 
     /**
-     * [needsAttention] marks the aspect's tab: an overspent figure, a consent to renew.
-     * [hasData] is what picks the tab a menu opens on: the first aspect that has something to show.
+     * [needsAttention] colours the block: an overspent figure, a consent to renew. [marks] is the
+     * block's visual when it has one: one mark per item in order (the projects by priority), `true`
+     * for an item that needs attention.
      */
     data class Ready(
         val lines: List<String>,
         val needsAttention: Boolean = false,
-        val hasData: Boolean = false,
+        val marks: List<Boolean> = emptyList(),
     ) : BlockState
 
     data class Unavailable(val message: String) : BlockState
 }
 
 /**
- * What each aspect of Trésorerie, Revue, Planification and Configuration holds — enough for a menu
- * to open on the first aspect that has data — and the last synchronisation line of Comptes.
+ * The figures of the summary pages: Trésorerie, Revue, Planification, Configuration, and the last
+ * synchronisation line of Comptes.
  *
  * A page asks for its own blocks ([load]) so that opening Trésorerie does not fetch the loans.
  * Each block is its own request and its own state: one that fails leaves the others drawn.
@@ -136,10 +137,7 @@ class FinanceSummaryViewModel(
         SummaryBlock.INDEPENDENCE -> {
             val date = today()
             dashboardRepository.getDashboard(date.year, date.monthValue)
-                .toBlock {
-                    val counter = it.tiles.planning.independence
-                    BlockState.Ready(listOf(independenceSummary(counter)), hasData = counter.hasPassiveIncomeCategories)
-                }
+                .toBlock { BlockState.Ready(listOf(independenceSummary(it.tiles.planning.independence))) }
         }
         SummaryBlock.BANKS -> bankRepository.getConnections().toBlock(::banksBlock)
         SummaryBlock.CATEGORIES -> categoryRepository.getCategories()
@@ -161,7 +159,6 @@ internal fun cushionBlock(status: CushionStatus): BlockState {
             "${formatCents(status.currentCents)} / ${formatCents(status.targetCents)}",
             cushionStateLabel(status.state),
         ),
-        hasData = true,
     )
 }
 
@@ -175,16 +172,12 @@ internal fun advancesBlock(advances: SavingsAdvances): BlockState =
                 "${advances.openAdvances.size} avance${if (advances.openAdvances.size > 1) "s" else ""} ouverte${if (advances.openAdvances.size > 1) "s" else ""}",
             ),
             needsAttention = advances.salaryDelay.isLate,
-            hasData = true,
         )
     }
 
 internal fun outlookBlock(outlook: TreasuryOutlook): BlockState {
     val banner = outlook.toBanner()
-        ?: return BlockState.Ready(
-            listOf("Aucun découvert prévu avant le salaire"),
-            hasData = outlook.salary.isConfigured || outlook.projection.isNotEmpty(),
-        )
+        ?: return BlockState.Ready(listOf("Aucun découvert prévu avant le salaire"))
 
     return BlockState.Ready(
         listOf(
@@ -192,7 +185,6 @@ internal fun outlookBlock(outlook: TreasuryOutlook): BlockState {
             "${formatCents(banner.balanceBeforeSalaryCents)} avant le salaire",
         ),
         needsAttention = true,
-        hasData = true,
     )
 }
 
@@ -200,26 +192,17 @@ internal fun toSortBlock(pile: ToSortPile): BlockState =
     if (pile.total == 0) {
         BlockState.Ready(listOf("Rien à qualifier"))
     } else {
-        BlockState.Ready(
-            listOf("${pile.total} transaction${if (pile.total > 1) "s" else ""} à qualifier"),
-            needsAttention = true,
-            hasData = true,
-        )
+        BlockState.Ready(listOf("${pile.total} transaction${if (pile.total > 1) "s" else ""} à qualifier"), needsAttention = true)
     }
 
 internal fun toControlBlock(recognised: RecognisedToControl): BlockState =
-    BlockState.Ready(
-        listOf(toControlCounter(recognised.total)),
-        needsAttention = recognised.total > 0,
-        hasData = recognised.total > 0,
-    )
+    BlockState.Ready(listOf(toControlCounter(recognised.total)), needsAttention = recognised.total > 0)
 
 internal fun monthlyReviewBlock(review: MonthlyReview): BlockState = when {
     review.pendingCount > 0 -> BlockState.Ready(
         listOf("${review.pendingCount} dépense${if (review.pendingCount > 1) "s" else ""} à revoir"),
-        hasData = true,
     )
-    review.ratedCount > 0 -> BlockState.Ready(listOf("Revue du mois terminée"), hasData = true)
+    review.ratedCount > 0 -> BlockState.Ready(listOf("Revue du mois terminée"))
     else -> BlockState.Ready(listOf("Rien à revoir ce mois-ci"))
 }
 
@@ -234,7 +217,7 @@ internal fun projectsBlock(projects: List<Project>): BlockState {
             if (unmet > 0) "$unmet dépendance${if (unmet > 1) "s" else ""} non respectée${if (unmet > 1) "s" else ""}" else null,
         ),
         needsAttention = unmet > 0,
-        hasData = true,
+        marks = projects.map { it.unmetDependencies.isNotEmpty() },
     )
 }
 
@@ -244,7 +227,6 @@ internal fun countBlock(count: Int, one: String, many: String, none: String, ext
             if (count == 0) none else "$count ${if (count > 1) many else one}",
             extra,
         ),
-        hasData = count > 0,
     )
 
 internal fun banksBlock(connections: List<BankConnection>): BlockState {
@@ -257,7 +239,6 @@ internal fun banksBlock(connections: List<BankConnection>): BlockState {
             if (toRenew == 0) "Consentements à jour" else "$toRenew à reconnecter",
         ),
         needsAttention = toRenew > 0,
-        hasData = true,
     )
 }
 

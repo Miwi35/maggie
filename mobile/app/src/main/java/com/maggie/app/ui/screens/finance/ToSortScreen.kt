@@ -85,49 +85,6 @@ fun ToSortScreen(
     onOpenTransaction: (TransactionToSort) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
-    val showsCardOnly = state.ficheOpen && !showsDetailPane
-
-    Scaffold(
-        topBar = {
-            // The rule draft is a full screen with a bar of its own.
-            if (state.ruleDraft == null) {
-                FinanceTopBar(Screen.TransactionsToSort.route) {
-                    TopAppBar(
-                        title = { Text("À qualifier") },
-                        navigationIcon = {
-                            IconButton(
-                                onClick = if (showsCardOnly) viewModel::backToList else onBack,
-                                modifier = if (showsCardOnly) Modifier.testTag(UiTags.REVIEW_BACK_TO_LIST) else Modifier,
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = if (showsCardOnly) "Retour à la liste" else "Retour",
-                                )
-                            }
-                        },
-                    )
-                }
-            }
-        },
-    ) { paddingValues ->
-        ToSortContent(viewModel, Modifier.padding(paddingValues), showsDetailPane, onOpenTransaction)
-    }
-}
-
-/**
- * The pile and its card, without a bar of its own: the Revue page shows them as its « À qualifier » tab.
- * With [showsBackToList] the way back from the card to the list is drawn above it, the bar that
- * carries it on the screen being absent.
- */
-@Composable
-fun ToSortContent(
-    viewModel: ToSortViewModel,
-    modifier: Modifier = Modifier,
-    showsDetailPane: Boolean = false,
-    onOpenTransaction: (TransactionToSort) -> Unit = {},
-    showsBackToList: Boolean = false,
-) {
-    val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val tree = remember(state.categories) { CategoryTree(state.categories) }
     val listState = rememberLazyListState()
@@ -233,48 +190,59 @@ fun ToSortContent(
         return
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (showsBackToList && showsCardOnly) {
-                TextButton(
-                    onClick = viewModel::backToList,
-                    modifier = Modifier.padding(horizontal = 8.dp).testTag(UiTags.REVIEW_BACK_TO_LIST),
-                ) { Text("Retour à la liste") }
+    Scaffold(
+        topBar = {
+            FinanceTopBar(Screen.TransactionsToSort.route) {
+                TopAppBar(
+                    title = { Text("À qualifier") },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = if (showsCardOnly) viewModel::backToList else onBack,
+                            modifier = if (showsCardOnly) Modifier.testTag(UiTags.REVIEW_BACK_TO_LIST) else Modifier,
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = if (showsCardOnly) "Retour à la liste" else "Retour",
+                            )
+                        }
+                    },
+                )
             }
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when {
-                    !state.loaded && state.isLoading -> Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) { CircularProgressIndicator() }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            when {
+                !state.loaded && state.isLoading -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator() }
 
-                    !state.loaded -> EmptyState(
-                        title = "Chargement impossible",
-                        description = "La pile à qualifier n'a pas pu être lue. Vérifiez votre connexion.",
-                        actionLabel = "Réessayer",
-                        onAction = viewModel::refresh,
-                    )
+                !state.loaded -> EmptyState(
+                    title = "Chargement impossible",
+                    description = "La pile à qualifier n'a pas pu être lue. Vérifiez votre connexion.",
+                    actionLabel = "Réessayer",
+                    onAction = viewModel::refresh,
+                )
 
-                    state.isEmpty -> EmptyState(
-                        title = toSortCounter(0),
-                        description = "Toutes les transactions ont une catégorie.",
-                        modifier = Modifier.testTag(UiTags.TO_SORT_EMPTY),
-                    )
+                state.isEmpty -> EmptyState(
+                    title = toSortCounter(0),
+                    description = "Toutes les transactions ont une catégorie.",
+                    modifier = Modifier.testTag(UiTags.TO_SORT_EMPTY),
+                )
 
-                    showsDetailPane -> ListDetailPane(
-                        showsDetailPane = true,
-                        list = { PileList(state, listState, onSelect = viewModel::select) },
-                        detail = if (state.ficheOpen) ({ CardPane(state, viewModel, onOpenTransaction) }) else null,
-                        placeholder = "Touchez une ligne pour la qualifier ici.",
-                    )
+                showsDetailPane -> ListDetailPane(
+                    showsDetailPane = true,
+                    list = { PileList(state, listState, onSelect = viewModel::select) },
+                    detail = if (state.ficheOpen) ({ CardPane(state, viewModel, onOpenTransaction) }) else null,
+                    placeholder = "Touchez une ligne pour la qualifier ici.",
+                )
 
-                    state.ficheOpen -> CardPane(state, viewModel, onOpenTransaction)
+                state.ficheOpen -> CardPane(state, viewModel, onOpenTransaction)
 
-                    else -> PileList(state, listState, onSelect = viewModel::select)
-                }
+                else -> PileList(state, listState, onSelect = viewModel::select)
             }
         }
-        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 

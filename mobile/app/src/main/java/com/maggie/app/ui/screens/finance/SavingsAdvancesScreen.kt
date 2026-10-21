@@ -57,27 +57,6 @@ fun SavingsAdvancesScreen(
     viewModel: SavingsAdvancesViewModel,
     onBack: () -> Unit,
 ) {
-    Scaffold(
-        topBar = {
-            FinanceTopBar(Screen.SavingsAdvances.route) {
-                TopAppBar(
-                    title = { Text("Avances d'épargne") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                )
-            }
-        },
-    ) { paddingValues ->
-        SavingsAdvancesContent(viewModel, Modifier.padding(paddingValues))
-    }
-}
-
-/** The body of the screen, without a bar of its own: the Trésorerie page shows it as a tab. */
-@Composable
-fun SavingsAdvancesContent(viewModel: SavingsAdvancesViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -94,111 +73,120 @@ fun SavingsAdvancesContent(viewModel: SavingsAdvancesViewModel, modifier: Modifi
         }
     }
 
-    Box(modifier = modifier.fillMaxSize().testTag(UiTags.SAVINGS_ADVANCES)) {
-        SavingsAdvancesBody(uiState, viewModel)
-        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
-    }
-}
+    Scaffold(
+        modifier = Modifier.testTag(UiTags.SAVINGS_ADVANCES),
+        topBar = {
+            FinanceTopBar(Screen.SavingsAdvances.route) {
+                TopAppBar(
+                    title = { Text("Avances d'épargne") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { paddingValues ->
+        val advances = uiState.advances
 
-@Composable
-private fun SavingsAdvancesBody(uiState: SavingsAdvancesUiState, viewModel: SavingsAdvancesViewModel) {
-    val advances = uiState.advances
-
-    if (advances == null) {
-        Box(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator()
-            } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        "Chargement impossible. Vérifiez votre connexion.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Button(
-                        onClick = viewModel::refresh,
-                        modifier = Modifier.testTag(UiTags.SAVINGS_ADVANCES_RETRY),
+        if (advances == null) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text("Réessayer")
-                    }
-                }
-            }
-        }
-        return
-    }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item { SalaryDayCard(advances.salaryDelay, uiState.isSavingDay, viewModel::saveSalaryDay) }
-        item { TotalCard(advances) }
-
-        if (advances.openAdvances.isEmpty()) {
-            item {
-                Text(
-                    "Aucune avance en cours",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        if (advances.proposals.isNotEmpty()) {
-            item { SectionTitle("Contre-virements proposés") }
-            item {
-                Text(
-                    "« Je l'ai fait » enregistre la transaction dans Maggie, il ne fait aucun virement " +
-                        "bancaire : faites d'abord le virement à votre banque.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            items(advances.proposals, key = { "proposal-${it.advanceId}" }) { proposal ->
-                ProposalCard(
-                    proposal = proposal,
-                    destination = advances.destinationName(proposal),
-                    isRecording = uiState.recordingAdvanceId == proposal.advanceId,
-                    enabled = uiState.recordingAdvanceId == null,
-                    onDone = { viewModel.recordCounterTransfer(proposal) },
-                )
-            }
-        }
-
-        if (advances.unproposed.isNotEmpty()) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        "Non proposé",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    advances.unproposed.forEach {
                         Text(
-                            "${it.sourceAccountName} : ${formatCents(it.amountCents)} — " +
-                                unproposedReasonLabel(it.reason),
-                            style = MaterialTheme.typography.bodySmall,
+                            "Chargement impossible. Vérifiez votre connexion.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Button(
+                            onClick = viewModel::refresh,
+                            modifier = Modifier.testTag(UiTags.SAVINGS_ADVANCES_RETRY),
+                        ) {
+                            Text("Réessayer")
+                        }
                     }
                 }
             }
+            return@Scaffold
         }
 
-        if (advances.openAdvances.isNotEmpty()) {
-            item { SectionTitle("Avances ouvertes") }
-            items(advances.openAdvances, key = { "open-${it.id}" }) { AdvanceCard(it) }
-        }
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item { SalaryDayCard(advances.salaryDelay, uiState.isSavingDay, viewModel::saveSalaryDay) }
+            item { TotalCard(advances) }
 
-        if (advances.closedAdvances.isNotEmpty()) {
-            item { SectionTitle("Avances soldées") }
-            items(advances.closedAdvances, key = { "closed-${it.id}" }) { AdvanceCard(it) }
+            if (advances.openAdvances.isEmpty()) {
+                item {
+                    Text(
+                        "Aucune avance en cours",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (advances.proposals.isNotEmpty()) {
+                item { SectionTitle("Contre-virements proposés") }
+                item {
+                    Text(
+                        "« Je l'ai fait » enregistre la transaction dans Maggie, il ne fait aucun virement " +
+                            "bancaire : faites d'abord le virement à votre banque.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                items(advances.proposals, key = { "proposal-${it.advanceId}" }) { proposal ->
+                    ProposalCard(
+                        proposal = proposal,
+                        destination = advances.destinationName(proposal),
+                        isRecording = uiState.recordingAdvanceId == proposal.advanceId,
+                        enabled = uiState.recordingAdvanceId == null,
+                        onDone = { viewModel.recordCounterTransfer(proposal) },
+                    )
+                }
+            }
+
+            if (advances.unproposed.isNotEmpty()) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "Non proposé",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        advances.unproposed.forEach {
+                            Text(
+                                "${it.sourceAccountName} : ${formatCents(it.amountCents)} — " +
+                                    unproposedReasonLabel(it.reason),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (advances.openAdvances.isNotEmpty()) {
+                item { SectionTitle("Avances ouvertes") }
+                items(advances.openAdvances, key = { "open-${it.id}" }) { AdvanceCard(it) }
+            }
+
+            if (advances.closedAdvances.isNotEmpty()) {
+                item { SectionTitle("Avances soldées") }
+                items(advances.closedAdvances, key = { "closed-${it.id}" }) { AdvanceCard(it) }
+            }
         }
     }
 }

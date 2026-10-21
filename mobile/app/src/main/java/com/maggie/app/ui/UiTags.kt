@@ -228,22 +228,13 @@ object UiTags {
 
     /**
      * Finance menus (MAG-426) — the tabs row of the phone and the rail of the tablet (one tab or
-     * item per menu, suffixed by its key), and on a menu's page (MAG-518) one tab per aspect,
-     * suffixed by its id (`to-sort`, `cushion`, `loans`…), with the body of the selected one under it.
+     * item per menu, suffixed by its key), and on a menu's summary page one block per aspect,
+     * suffixed by the route it opens.
      */
     const val FINANCE_MENU_TABS = "finance_menu_tabs"
     const val FINANCE_MENU_RAIL = "finance_menu_rail"
     const val FINANCE_MENU_PREFIX = "finance_menu_"
-    const val FINANCE_TAB_ASPECT_PREFIX = "finance_tab_aspect_"
-    const val FINANCE_ASPECT_LOADING = "finance_aspect_loading"
-    /** Independence — the content of its tab, its percentage, the progress bar, the gap line, one rente, and the empty-state actions. */
-    const val INDEPENDENCE = "independence"
-    const val INDEPENDENCE_PERCENT = "independence_percent"
-    const val INDEPENDENCE_PROGRESS = "independence_progress"
-    const val INDEPENDENCE_GAP = "independence_gap"
-    const val INDEPENDENCE_RENTE_PREFIX = "independence_rente_"
-    const val INDEPENDENCE_DECLARE = "independence_declare"
-    const val INDEPENDENCE_RETRY = "independence_retry"
+    const val FINANCE_BLOCK_PREFIX = "finance_block_"
     const val ACCOUNT_LAST_SYNC = "account_last_sync"
     const val REFERENCE_SALARY_LINK = "reference_salary_link"
     const val REFERENCE_SHARE = "reference_share"
@@ -666,9 +657,10 @@ object UiTags {
 
     fun financeMenu(key: String) = FINANCE_MENU_PREFIX + key
 
-    fun financeTab(aspectId: String) = FINANCE_TAB_ASPECT_PREFIX + aspectId
+    fun financeBlock(route: String) = FINANCE_BLOCK_PREFIX + route
 
-    fun independenceRente(categoryId: String) = INDEPENDENCE_RENTE_PREFIX + categoryId
+    /** The visual of a block that lists items in order (the projects, MAG-519). */
+    fun financeBlockMarks(route: String) = FINANCE_BLOCK_PREFIX + route + "_marks"
 
     fun financeScoreRing(period: String) = FINANCE_SCORE_RING_PREFIX + period
 

@@ -62,33 +62,9 @@ fun TreasuryScreen(
     onBack: () -> Unit,
     onPrepareAdvance: (accountId: String, accountName: String, prefill: TransactionPrefill) -> Unit,
 ) {
-    Scaffold(
-        topBar = {
-            FinanceTopBar(Screen.Treasury.route) {
-                TopAppBar(
-                    title = { Text("Trésorerie") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                )
-            }
-        },
-    ) { paddingValues ->
-        TreasuryContent(viewModel, onPrepareAdvance, Modifier.padding(paddingValues))
-    }
-}
-
-/** The body of the screen, without a bar of its own: the Trésorerie page shows it as its « Prévision » tab. */
-@Composable
-fun TreasuryContent(
-    viewModel: TreasuryViewModel,
-    onPrepareAdvance: (accountId: String, accountName: String, prefill: TransactionPrefill) -> Unit,
-    modifier: Modifier = Modifier,
-) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val outlook = uiState.outlook
 
     LaunchedEffect(uiState.savedMessage) {
         uiState.savedMessage?.let {
@@ -111,53 +87,56 @@ fun TreasuryContent(
         message = uiState.error.orEmpty(),
     )
 
-    Box(modifier = modifier.fillMaxSize()) {
-        TreasuryBody(uiState, viewModel, onPrepareAdvance)
-        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
-    }
-}
-
-@Composable
-private fun TreasuryBody(
-    uiState: TreasuryUiState,
-    viewModel: TreasuryViewModel,
-    onPrepareAdvance: (accountId: String, accountName: String, prefill: TransactionPrefill) -> Unit,
-) {
-    val outlook = uiState.outlook
-
-    if (outlook == null) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator()
-            } else {
-                Text("Trésorerie indisponible", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Scaffold(
+        topBar = {
+            FinanceTopBar(Screen.Treasury.route) {
+                TopAppBar(
+                    title = { Text("Trésorerie") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                )
             }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { paddingValues ->
+        if (outlook == null) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(paddingValues),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    Text("Trésorerie indisponible", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            return@Scaffold
         }
 
-        return
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (!outlook.salary.isConfigured) {
-            SalaryDayCard(isSaving = uiState.isSaving, onSave = viewModel::saveSalaryDay)
-        } else {
-            SalaryCard(outlook)
-            ProjectionCard(outlook, uiState.months, viewModel::selectHorizon)
-            AdviceCard(outlook, onPrepareAdvance)
-            OverdraftLimitCard(
-                limitCents = outlook.overdraft.limitCents,
-                isSaving = uiState.isSaving,
-                onSave = viewModel::saveOverdraftLimit,
-            )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (!outlook.salary.isConfigured) {
+                SalaryDayCard(isSaving = uiState.isSaving, onSave = viewModel::saveSalaryDay)
+            } else {
+                SalaryCard(outlook)
+                ProjectionCard(outlook, uiState.months, viewModel::selectHorizon)
+                AdviceCard(outlook, onPrepareAdvance)
+                OverdraftLimitCard(
+                    limitCents = outlook.overdraft.limitCents,
+                    isSaving = uiState.isSaving,
+                    onSave = viewModel::saveOverdraftLimit,
+                )
+            }
         }
     }
 }
