@@ -46,14 +46,13 @@ class DeepLinksTest {
             Screen.CategoryList,
             Screen.CategorizationRuleList,
             Screen.RuleSuggestions,
-            Screen.TransactionsToSort,
+            Screen.ReviewList,
             Screen.BankConnectionList,
             Screen.Cushion,
             Screen.Treasury,
             Screen.SavingsAdvances,
             Screen.LoanList,
             Screen.ProjectList,
-            Screen.MonthlyReview,
             Screen.RecurringOperations,
         ).map { it.route }
 
@@ -61,6 +60,14 @@ class DeepLinksTest {
             assertTrue("$route has no deep link", DeepLinks.patternsFor(route).isNotEmpty())
         }
         assertTrue(DeepLinks.patternsFor(DeepLinks.ACCOUNT_ROUTE).single().startsWith("$scheme://finance/accounts/"))
+    }
+
+    @Test
+    fun `the old addresses of the three review screens open the Revue's list, and the list has its own`() {
+        assertEquals(listOf("$scheme://finance/to-sort"), DeepLinks.patternsFor(DeepLinks.REVIEW_TO_SORT_ROUTE))
+        assertEquals(listOf("$scheme://finance/to-control"), DeepLinks.patternsFor(DeepLinks.REVIEW_TO_CONTROL_ROUTE))
+        assertEquals(listOf("$scheme://finance/review"), DeepLinks.patternsFor(DeepLinks.REVIEW_MONTHLY_ROUTE))
+        assertEquals(listOf("$scheme://finance/review/list"), DeepLinks.patternsFor(Screen.ReviewList.route))
     }
 
     @Test
@@ -105,10 +112,13 @@ class DeepLinksTest {
             DeepLinks.RECIPE_ROUTE,
             DeepLinks.ACCOUNT_ROUTE,
             DeepLinks.CONTACT_ROUTE,
+            DeepLinks.REVIEW_TO_SORT_ROUTE,
+            DeepLinks.REVIEW_TO_CONTROL_ROUTE,
+            DeepLinks.REVIEW_MONTHLY_ROUTE,
         )
         val screens = listOf(
             Screen.EventCreate, Screen.EventEdit, Screen.TaskCreate, Screen.TaskEdit, Screen.TaskFocus, Screen.RecipeDetail,
-            Screen.RecipeCreate, Screen.RecipeEdit, Screen.AccountTransactions, Screen.Grocery, Screen.Contacts,
+            Screen.RecipeCreate, Screen.RecipeEdit, Screen.AccountTransactions, Screen.Grocery, Screen.Contacts, Screen.ReviewList,
         ).map { it.route }
 
         assertTrue(entryRoutes.none { it in screens })

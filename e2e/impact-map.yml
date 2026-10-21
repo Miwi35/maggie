@@ -482,8 +482,6 @@ web:
     areas: [finance]
   e2e/web/tests/finance-peer-debts.spec.ts:
     areas: [finance]
-  e2e/web/tests/finance-to-sort.spec.ts:
-    areas: [finance]
   e2e/web/tests/finance-treasury.spec.ts:
     areas: [finance, chat]
   e2e/web/tests/finance-upcoming.spec.ts:
@@ -614,12 +612,9 @@ mobile:
         (MAG-531). Lift it once that is fixed.
   e2e/mobile/flows/13-finance-category-edit.yaml:
     areas: [finance]
-  e2e/mobile/flows/13-finance-to-sort.yaml:
+  e2e/mobile/flows/13-finance-review-list.yaml:
     areas: [finance]
-    paths: [e2e/mobile/scripts/to-sort-api.js]
-  e2e/mobile/flows/13-finance-to-control.yaml:
-    areas: [finance]
-    paths: [e2e/mobile/scripts/to-control-api.js]
+    paths: [e2e/mobile/scripts/review-list-api.js]
   e2e/mobile/flows/22-finance-review-activity.yaml:
     areas: [finance]
     paths: [api/fixtures/e2e/59-finance-activity.yaml]

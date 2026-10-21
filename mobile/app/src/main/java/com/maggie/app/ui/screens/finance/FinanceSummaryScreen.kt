@@ -35,13 +35,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.ReviewPreset
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.navigation.FinanceMenu
 import com.maggie.app.ui.navigation.Screen
 
 /** One block of a summary page: what it is called, the figures it carries, and the screen it opens. */
-data class SummaryEntry(val block: SummaryBlock, val title: String, val route: String)
+data class SummaryEntry(
+    val block: SummaryBlock,
+    val title: String,
+    val route: String,
+    /** Where the Revue's list opens when the block is a way into it (MAG-539); null for every other block. */
+    val reviewPreset: ReviewPreset? = null,
+)
 
 /**
  * The blocks of a menu's summary page, in reading order.
@@ -52,9 +59,8 @@ data class SummaryEntry(val block: SummaryBlock, val title: String, val route: S
  */
 fun summaryEntries(menu: FinanceMenu): List<SummaryEntry> = when (menu) {
     FinanceMenu.REVIEW -> listOf(
-        SummaryEntry(SummaryBlock.TO_SORT, "À qualifier", Screen.TransactionsToSort.route),
-        SummaryEntry(SummaryBlock.TO_CONTROL, "Reconnues à contrôler", Screen.RecognisedToControl.route),
-        SummaryEntry(SummaryBlock.MONTHLY_REVIEW, "Revue mensuelle", Screen.MonthlyReview.route),
+        // One block for the three screens it replaced: it opens the list on everything since the last review.
+        SummaryEntry(SummaryBlock.REVIEW, "Revue", Screen.ReviewList.route, ReviewPreset.SUMMARY),
         SummaryEntry(SummaryBlock.RULES, "Règles", Screen.CategorizationRuleList.route),
         SummaryEntry(SummaryBlock.RECURRING_OPERATIONS, "Opérations récurrentes", Screen.RecurringOperations.route),
     )
@@ -89,6 +95,7 @@ fun FinanceSummaryScreen(
     viewModel: FinanceSummaryViewModel,
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
+    onOpenReview: (ReviewPreset) -> Unit = {},
 ) {
     val entries = summaryEntries(menu)
     val blocks by viewModel.blocks.collectAsState()
@@ -115,7 +122,7 @@ fun FinanceSummaryScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(entries, key = { it.route }) { entry ->
-                SummaryCard(entry, blocks[entry.block] ?: BlockState.Loading, onOpen = { onOpen(entry.route) })
+                SummaryCard(entry, blocks[entry.block] ?: BlockState.Loading, onOpen = { entry.reviewPreset?.let(onOpenReview) ?: onOpen(entry.route) })
             }
         }
     }

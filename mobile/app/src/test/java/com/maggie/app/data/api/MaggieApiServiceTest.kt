@@ -1654,28 +1654,31 @@ class MaggieApiServiceTest {
     }
 
     @Test
-    fun `the recognised lines are read for a month, by operation`() = runBlocking {
+    fun `the review list asks for a period, a month, a state and a limit, and reads the counts apart from the lines (MAG-539)`() = runBlocking {
         val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
         val client = errandClient(
-            """{"month":"2026-10","total":2,"groups":[{"operationType":"series","operationId":"s1","label":"Loyer",
-               "count":2,"totalCents":-90000,"unratedCount":1,"transactions":[
+            """{"month":"2026-10","period":"since_review","sinceReviewDate":"2026-09-30","unrecognisedCount":3,
+               "unrecognisedCents":9000,"recognisedCount":2,"total":1,"items":[
                {"recognised":true,"id":"t1","label":"LOYER","amountCents":-45000,"judgeable":true,"retrospect":"keep",
-                "categoryId":"c1","categoryPath":"Logement › Loyer","qualifiedBy":"series","qualifiedBySeriesId":"s1"},
-               {"recognised":true,"id":"t2","label":"LOYER","amountCents":-45000,"judgeable":true,"retrospect":"unrated"}]}]}""",
+                "categoryId":"c1","categoryPath":"Logement › Loyer","qualifiedBy":"series","qualifiedBySeriesId":"s1",
+                "operationLabel":"Loyer"}]}""",
             seen,
         )
 
-        val data = MaggieApiService(client).getRecognisedToControl("2026-10")
+        val data = MaggieApiService(client).getReviewList("since_review", "2026-10", "recognised", 1000)
 
         assertEquals(HttpMethod.Get, seen.single().method)
-        assertEquals("/api/finance/review/recognised", seen.single().url.encodedPath)
+        assertEquals("/api/finance/review/queue", seen.single().url.encodedPath)
+        assertEquals("since_review", seen.single().url.parameters["period"])
         assertEquals("2026-10", seen.single().url.parameters["month"])
-        val group = data.groups.single()
-        assertEquals("series", group.operationType)
-        assertEquals("s1", group.operationId)
-        assertEquals(1, group.unratedCount)
-        assertEquals("Logement › Loyer", group.transactions.first().categoryPath)
-        assertEquals("s1", group.transactions.first().qualifiedBySeriesId)
+        assertEquals("recognised", seen.single().url.parameters["state"])
+        assertEquals("1000", seen.single().url.parameters["limit"])
+        assertEquals(3, data.unrecognisedCount)
+        assertEquals(2, data.recognisedCount)
+        assertEquals(1, data.total)
+        assertEquals("2026-09-30", data.sinceReviewDate)
+        assertEquals("s1", data.items.single().qualifiedBySeriesId)
+        assertEquals("Loyer", data.items.single().operationLabel)
     }
 
     @Test

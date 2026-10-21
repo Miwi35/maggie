@@ -82,19 +82,19 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "to_sort_row"
+      id: "review_list_row"
     timeout: 30000
 - tapOn:
-    id: "to_sort_row"
+    id: "review_list_row"
 - extendedWaitUntil:
     visible:
-      id: "to_sort_card"
+      id: "review_fiche"
     timeout: 30000
 - assertVisible: "VIR. DE TOM MARTIN"
 
 # « Associer à un contact ? », then « Tom » created in the full-screen picker.
 - tapOn:
-    id: "to_sort_contact"
+    id: "review_fiche_contact"
 - extendedWaitUntil:
     visible:
       id: "contact_picker_search"
@@ -113,7 +113,7 @@ tags:
 # The line stays to sort — a contact is not a category — and says whose it is.
 - extendedWaitUntil:
     visible:
-      id: "to_sort_contact_name"
+      id: "review_fiche_contact_name"
     timeout: 30000
 - assertVisible: "Contact : Tom"
 
@@ -380,13 +380,13 @@ tags:
 - openLink: "maggie-e2e://finance/to-sort"
 - extendedWaitUntil:
     visible:
-      id: "to_sort_row"
+      id: "review_list_row"
     timeout: 30000
 - tapOn:
-    id: "to_sort_row"
+    id: "review_list_row"
 - extendedWaitUntil:
     visible:
-      id: "to_sort_card"
+      id: "review_fiche"
     timeout: 30000
 
 # « Ce virement est » « Un remboursement », covering the gîte: the other 200 € stay « Non affecté ».

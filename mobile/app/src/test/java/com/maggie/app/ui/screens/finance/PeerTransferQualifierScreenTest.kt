@@ -17,16 +17,17 @@ import com.maggie.app.data.model.PeerAllocationCandidate
 import com.maggie.app.data.model.PeerAllocationRequest
 import com.maggie.app.data.model.PeerAllocationRequestLine
 import com.maggie.app.data.model.PeerKind
+import com.maggie.app.data.model.ReviewQueue
+import com.maggie.app.data.model.ReviewQueueItem
 import com.maggie.app.data.model.TO_SORT_REASON_PEER_TRANSFER
-import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionAllocation
-import com.maggie.app.data.model.TransactionToSort
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
 import com.maggie.app.data.repository.PeerDebtRepository
+import com.maggie.app.data.repository.ReviewRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.screentest.FakeTransactionTransfers
 import com.maggie.app.screentest.ScreenRule
@@ -39,10 +40,11 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import java.time.LocalDate
 
 /**
- * « Ce virement est » as it is drawn (MAG-453), on the sheet — phone and tablet — and on the « À trier » card, with
- * the tags `19-finance-contacts` addresses it by. `TransactionViewModelTest` and `ToSortViewModelTest` say what each
+ * « Ce virement est » as it is drawn (MAG-453), on the sheet — phone and tablet — and on the Revue's fiche, with
+ * the tags `19-finance-contacts` addresses it by. `TransactionViewModelTest` and `ReviewListViewModelTest` say what each
  * gesture does to the state.
  */
 @RunWith(AndroidJUnit4::class)
@@ -126,8 +128,8 @@ class PeerTransferQualifierScreenTest {
     }
 
     @Test
-    fun `the À trier card asks Ce virement est and saves the allocation`() {
-        val line = TransactionToSort(
+    fun `the Revue's fiche asks Ce virement est, saves the allocation and turns the line into Reconnue in place`() {
+        val line = ReviewQueueItem(
             id = "tx-tom",
             label = "VIR. DE TOM MARTIN",
             amountCents = 40000,
@@ -136,30 +138,30 @@ class PeerTransferQualifierScreenTest {
             reason = TO_SORT_REASON_PEER_TRANSFER,
             asksForPeerKind = true,
         )
+        val reviews = mockk<ReviewRepository>()
         val transactions = mockk<TransactionRepository>()
         val categories = mockk<CategoryRepository>()
         val peerDebts = mockk<PeerDebtRepository>()
         coEvery { categories.getCategories() } returns Result.success(listOf(Category(id = "cat-1", name = "Divers")))
-        coEvery { transactions.getToSort(oldestFirst = true) } returnsMany listOf(
-            Result.success(ToSortPile(1, listOf(line))),
-            Result.success(ToSortPile(0, emptyList())),
-        )
+        coEvery { reviews.getList(any(), any(), any(), any()) } returns
+            Result.success(ReviewQueue(month = "2026-10", unrecognisedCount = 1, total = 1, items = listOf(line)))
         coEvery { peerDebts.getAllocation("tx-tom") } returns Result.success(allocation)
         coEvery { peerDebts.setAllocation("tx-tom", any()) } returns Result.success(allocation.copy(peerKind = PeerKind.REPAYMENT))
-        val model = ToSortViewModel(
-            transactions, categories, mockk<CategorizationRuleRepository>(relaxed = true), mockk<ContactRepository>(), peerDebts,
+        val model = ReviewListViewModel(
+            reviews, transactions, categories, mockk<CategorizationRuleRepository>(relaxed = true), mockk<ContactRepository>(), peerDebts,
+            today = LocalDate.of(2026, 10, 16),
         )
-        compose.setContent { ToSortScreen(viewModel = model, onBack = {}) }
-        compose.onAllNodesWithTag(UiTags.TO_SORT_ROW)[0].performClick()
+        compose.setContent { ReviewListScreen(viewModel = model, onBack = {}) }
+        compose.onAllNodesWithTag(UiTags.REVIEW_LIST_ROW)[0].performClick()
 
-        // Filed already: the card asks no category.
-        compose.onAllNodesWithTag(UiTags.TO_SORT_OTHER).assertCountEquals(0)
+        // Filed already: the fiche asks no category.
+        compose.onAllNodesWithTag(UiTags.REVIEW_FICHE_OTHER).assertCountEquals(0)
         allocateToGite()
 
         coVerify {
             peerDebts.setAllocation("tx-tom", PeerAllocationRequest(PeerKind.REPAYMENT, allocations = listOf(PeerAllocationRequestLine("share-gite", 20000))))
         }
-        compose.onNodeWithTag(UiTags.TO_SORT_EMPTY).assertExists()
+        compose.onNodeWithTag(UiTags.REVIEW_FICHE_STATE).assertTextEquals("Reconnue")
     }
 
     private val noShareActions = ShareSheetActions(

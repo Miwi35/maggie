@@ -1,0 +1,161 @@
+appId: com.maggie.app.e2e
+name: 13-finance-review-list
+tags:
+  - finance
+---
+# La Revue, one list for the lines to qualify and the recognised ones, and its fiche (MAG-539, extends MAG-102;
+# it replaces the « À qualifier » and « Reconnues à contrôler » journeys).
+#
+# Étant donné 2 transactions non reconnues et 1 reconnue ce mois-ci (seed)
+# Quand j'ouvre Revue et que je filtre À qualifier
+# Alors la liste compte 2 lignes
+# Quand je valide la première
+# Alors elle devient Reconnue, la fiche reste ouverte, et Suivant ouvre la seconde (2 / 2, À qualifier)
+#
+# Étant donné la ligne reconnue
+# Quand je filtre Reconnues, j'ouvre la ligne et touche « Correct »
+# Alors la fiche la montre contrôlée
+#
+# The data is set by `scripts/review-list-api.js` on the seed's second user, who holds no other finance data: the
+# Revue is these three lines, dated today. The script reads the server back at the end: one Carrefour line is
+# filed under « Courses MAG-539 », the other still waits.
+#
+# The deep link `maggie-e2e://finance/review` opens on « Toutes » and the current month. The lines of one date
+# come in no promised order, so the journey asserts the position and the state, never which Carrefour is first.
+#
+# What is not here: the other gestures of the fiche (« Autre catégorie », « Créer une opération », « Corriger »,
+# the judgement, the contact, the internal transfer: `ReviewListViewModelTest`, `ReviewListScreenTest`), the period
+# filters, the three presets of the deep links (`ReviewListViewModelTest`, `DeepLinksTest`), the tablet's list beside
+# the fiche, and the admin's side of the same API (`finance-review.spec.ts`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-finance-review-list.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/review-list-api.js
+    env:
+      ACTION: create
+
+- openLink: "maggie-e2e://finance/review"
+
+# « Toutes » and this month: the three lines, the two groups.
+- extendedWaitUntil:
+    visible:
+      id: "review_list_row"
+    timeout: 30000
+- assertVisible:
+    id: "review_list_pill_all"
+    text: "Toutes · 3"
+- assertVisible:
+    id: "review_list_pill_unrecognised"
+    text: "À qualifier · 2"
+- assertVisible:
+    id: "review_list_pill_recognised"
+    text: "Reconnues · 1"
+- assertNotVisible:
+    id: "review_fiche"
+
+# Filter « À qualifier »: the two Carrefour lines.
+- tapOn:
+    id: "review_list_pill_unrecognised"
+- extendedWaitUntil:
+    visible: "CARREFOUR MARKET 1234"
+    timeout: 30000
+- assertVisible: "CARREFOUR MARKET 5678"
+- assertNotVisible: "RECONNUE MAG539 111"
+
+# The first line opens its fiche, 1 / 2 of the filtered list; the suggestion and its reason are on it.
+- tapOn:
+    id: "review_list_row"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "review_fiche"
+    timeout: 30000
+- assertVisible:
+    id: "review_position"
+    text: "1 / 2"
+- assertVisible:
+    id: "review_fiche_state"
+    text: "À qualifier"
+- assertVisible: ".*contient CARREFOUR.*"
+- assertVisible: ".*Courses MAG-539.*"
+
+# « Valider »: the line turns Reconnue in place, the fiche stays open, still 1 / 2.
+- tapOn:
+    id: "review_fiche_validate"
+- extendedWaitUntil:
+    visible:
+      id: "review_fiche_state"
+      text: "Reconnue"
+    timeout: 30000
+- assertVisible:
+    id: "review_position"
+    text: "1 / 2"
+
+# « Suivant » goes to the next line of the filter: the second Carrefour, still to qualify.
+- tapOn:
+    id: "review_next"
+- extendedWaitUntil:
+    visible:
+      id: "review_position"
+      text: "2 / 2"
+    timeout: 30000
+- assertVisible:
+    id: "review_fiche_state"
+    text: "À qualifier"
+
+# Back to the list: the counts follow the gesture (1 to qualify, 2 recognised).
+- tapOn:
+    id: "review_back_to_list"
+- extendedWaitUntil:
+    visible:
+      id: "review_list_pill_unrecognised"
+      text: "À qualifier · 1"
+    timeout: 30000
+- assertVisible:
+    id: "review_list_pill_recognised"
+    text: "Reconnues · 2"
+
+# « Reconnues »: the line the rule recognised, controlled with « Correct ».
+- tapOn:
+    id: "review_list_pill_recognised"
+- extendedWaitUntil:
+    visible: "RECONNUE MAG539 111"
+    timeout: 30000
+- tapOn: "RECONNUE MAG539 111"
+- extendedWaitUntil:
+    visible:
+      id: "review_fiche"
+    timeout: 30000
+- assertVisible:
+    id: "review_fiche_state"
+    text: "Reconnue"
+- scrollUntilVisible:
+    element:
+      id: "review_fiche_control"
+- tapOn:
+    id: "review_fiche_control"
+- extendedWaitUntil:
+    visible:
+      id: "review_fiche_checked"
+    timeout: 30000
+
+# The server kept the gesture.
+- runScript:
+    file: ../scripts/review-list-api.js
+    env:
+      ACTION: check
+
+# Left as found.
+- runScript:
+    file: ../scripts/review-list-api.js
+    env:
+      ACTION: remove

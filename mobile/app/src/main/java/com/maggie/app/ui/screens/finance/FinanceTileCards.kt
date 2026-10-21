@@ -52,6 +52,7 @@ import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.referenceSalarySourceLabel
 import com.maggie.app.data.model.treasuryDate
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.navigation.DeepLinks
 import com.maggie.app.ui.navigation.Screen
 
 /** The envelopes drawn as bars; the tile leads to the budget for the rest. */
@@ -142,7 +143,7 @@ internal fun AccountsTileCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (toSort != null) {
-                    TodoPill(toSort, UiTags.FINANCE_PILL_TO_SORT) { onOpen(Screen.TransactionsToSort.route) }
+                    TodoPill(toSort, UiTags.FINANCE_PILL_TO_SORT) { onOpen(DeepLinks.REVIEW_TO_SORT_ROUTE) }
                 }
                 if (rejections != null) {
                     TodoPill(rejections, UiTags.FINANCE_PILL_REJECTIONS) {

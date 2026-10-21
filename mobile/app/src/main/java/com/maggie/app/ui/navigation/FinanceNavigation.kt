@@ -43,9 +43,7 @@ enum class FinanceMenu(
         "review", "Revue", Icons.AutoMirrored.Filled.FactCheck,
         listOf(
             Screen.FinanceReview.route,
-            Screen.TransactionsToSort.route,
-            Screen.RecognisedToControl.route,
-            Screen.MonthlyReview.route,
+            Screen.ReviewList.route,
             Screen.CategorizationRuleList.route,
             Screen.RuleSuggestions.route,
             Screen.RecurringOperations.route,

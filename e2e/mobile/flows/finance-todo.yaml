@@ -15,7 +15,7 @@ onFlowComplete:
 # Alors la tuile Comptes affiche « 3 à trier » et « 1 rejet »
 # Et aucune pastille « On te doit / Tu dois » : ce compte n'a ni créance ni dette (MAG-455)
 # Quand je touche « 3 à trier »
-# Alors l'écran À qualifier s'ouvre, sur la ligne la plus ancienne
+# Alors la Revue s'ouvre filtrée sur À qualifier, sur la ligne la plus ancienne
 #
 # The data is set by `scripts/finance-todo-api.js` on the seed's second user, who holds no other
 # finance data: the pile is these three lines (the rejection pair is not one) and the rejection is
@@ -107,7 +107,7 @@ onFlowComplete:
       id: "finance_pill_rejections"
     timeout: 30000
 
-# « 3 à trier » opens the pile, on its list.
+# « 3 à trier » opens the Revue on its « À qualifier » pill, every date.
 - scrollUntilVisible:
     element:
       id: "finance_pill_to_sort"
@@ -117,13 +117,15 @@ onFlowComplete:
     id: "finance_pill_to_sort"
 - extendedWaitUntil:
     visible:
-      id: "to_sort_row"
+      id: "review_list_row"
     timeout: 30000
-- assertVisible: "3 à qualifier"
+- assertVisible:
+    id: "review_list_pill_unrecognised"
+    text: "À qualifier · 3"
 - assertVisible: "A TRIER MAG-421 A"
 - tapOn: "A TRIER MAG-421 A"
 - extendedWaitUntil:
     visible:
-      id: "to_sort_card"
+      id: "review_fiche"
     timeout: 30000
 - assertVisible: "A TRIER MAG-421 A"

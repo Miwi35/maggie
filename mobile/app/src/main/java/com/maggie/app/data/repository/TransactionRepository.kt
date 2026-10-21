@@ -5,7 +5,6 @@ import com.maggie.app.data.api.TransactionCreateRequest
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.ControlRequest
 import com.maggie.app.data.model.ControlResult
-import com.maggie.app.data.model.RecognisedToControl
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.InternalTransferAnswer
@@ -126,11 +125,6 @@ class TransactionRepository(
     /** Files the line under [categoryId]; [alwaysForMerchant] also writes the rule that files the merchant's other lines. */
     suspend fun sortToCategory(id: String, categoryId: String, alwaysForMerchant: Boolean): Result<SortResult> = runCatching {
         apiService.sortTransaction(id, SortRequest(categoryId = categoryId, alwaysForMerchant = alwaysForMerchant))
-    }.rethrowCancellation()
-
-    /** The lines an operation recognised in [month] (`YYYY-MM`) that nobody has checked yet, by operation. */
-    suspend fun getRecognisedToControl(month: String): Result<RecognisedToControl> = runCatching {
-        apiService.getRecognisedToControl(month)
     }.rethrowCancellation()
 
     /**

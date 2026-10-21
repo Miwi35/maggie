@@ -5,6 +5,9 @@ import com.maggie.app.data.model.ApplyPlanRequest
 import com.maggie.app.data.model.PeriodBalance
 import com.maggie.app.data.model.PeriodPlan
 import com.maggie.app.data.model.PlanItem
+import com.maggie.app.data.model.REVIEW_LIST_LIMIT
+import com.maggie.app.data.model.ReviewPeriod
+import com.maggie.app.data.model.ReviewState
 import com.maggie.app.data.model.ReviewProgress
 import com.maggie.app.data.model.ReviewProgressUpdate
 import com.maggie.app.data.model.ReviewQueue
@@ -17,6 +20,14 @@ class ReviewRepository(
     /** [month] is `YYYY-MM`. */
     suspend fun getQueue(month: String): Result<ReviewQueue> = runCatching {
         apiService.getReviewQueue(month)
+    }.rethrowCancellation()
+
+    /**
+     * The Revue's list (MAG-539): every line of [period], those to qualify then the recognised ones, with the period's counts.
+     * [month] is `YYYY-MM` and counts only for [ReviewPeriod.MONTH].
+     */
+    suspend fun getList(period: ReviewPeriod, month: String, state: ReviewState = ReviewState.ALL, limit: Int = REVIEW_LIST_LIMIT): Result<ReviewQueue> = runCatching {
+        apiService.getReviewList(period.value, month, state.value, limit)
     }.rethrowCancellation()
 
     suspend fun getProgress(month: String): Result<ReviewProgress> = runCatching {

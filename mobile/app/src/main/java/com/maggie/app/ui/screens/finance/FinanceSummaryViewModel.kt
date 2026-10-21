@@ -4,16 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.CushionStatus
-import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.Project
-import com.maggie.app.data.model.RecognisedToControl
+import com.maggie.app.data.model.ReviewPeriod
+import com.maggie.app.data.model.ReviewQueue
+import com.maggie.app.data.model.ReviewState
 import com.maggie.app.data.model.SavingsAdvances
-import com.maggie.app.data.model.ToSortPile
-import com.maggie.app.data.model.toControlCounter
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.bankConnectionNeedsAction
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.reviewMonthOf
 import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.lastSyncLabel
 import com.maggie.app.data.model.toBanner
@@ -25,10 +25,9 @@ import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.LoanRepository
 import com.maggie.app.data.repository.ProjectRepository
-import com.maggie.app.data.repository.MonthlyReviewRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
+import com.maggie.app.data.repository.ReviewRepository
 import com.maggie.app.data.repository.SavingsAdvancesRepository
-import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.TreasuryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,9 +41,7 @@ enum class SummaryBlock {
     CUSHION,
     SAVINGS_ADVANCES,
     OUTLOOK,
-    TO_SORT,
-    TO_CONTROL,
-    MONTHLY_REVIEW,
+    REVIEW,
     RULES,
     RECURRING_OPERATIONS,
     PROJECTS,
@@ -84,7 +81,7 @@ class FinanceSummaryViewModel(
     private val cushionRepository: CushionRepository,
     private val advancesRepository: SavingsAdvancesRepository,
     private val treasuryRepository: TreasuryRepository,
-    private val reviewRepository: MonthlyReviewRepository,
+    private val reviewRepository: ReviewRepository,
     private val ruleRepository: CategorizationRuleRepository,
     private val recurringRepository: RecurringOperationRepository,
     private val loanRepository: LoanRepository,
@@ -92,7 +89,6 @@ class FinanceSummaryViewModel(
     private val dashboardRepository: FinanceDashboardRepository,
     private val bankRepository: BankConnectionRepository,
     private val categoryRepository: CategoryRepository,
-    private val transactionRepository: TransactionRepository,
     private val today: () -> LocalDate = { LocalDate.now() },
 ) : ViewModel() {
 
@@ -114,11 +110,10 @@ class FinanceSummaryViewModel(
         SummaryBlock.CUSHION -> cushionRepository.getStatus().toBlock(::cushionBlock)
         SummaryBlock.SAVINGS_ADVANCES -> advancesRepository.getSavingsAdvances().toBlock(::advancesBlock)
         SummaryBlock.OUTLOOK -> treasuryRepository.getOutlook().toBlock(::outlookBlock)
-        SummaryBlock.TO_SORT -> transactionRepository.getToSort().toBlock(::toSortBlock)
-        SummaryBlock.TO_CONTROL -> transactionRepository.getRecognisedToControl(today().toString().take(7)).toBlock(::toControlBlock)
-        SummaryBlock.MONTHLY_REVIEW -> {
-            val date = today()
-            reviewRepository.getReview(date.year, date.monthValue).toBlock(::monthlyReviewBlock)
+        SummaryBlock.REVIEW -> {
+            // The period the block counts: what happened since the last review, the lines to qualify and the recognised ones.
+            val month = reviewMonthOf(today())
+            reviewRepository.getList(ReviewPeriod.SINCE_REVIEW, month, ReviewState.ALL, limit = 1).toBlock(::reviewBlock)
         }
         SummaryBlock.RULES -> ruleRepository.getRules().toBlock { countBlock(it.size, "règle", "règles", "Aucune règle") }
         SummaryBlock.RECURRING_OPERATIONS -> recurringRepository.getOverview().toBlock {
@@ -188,22 +183,30 @@ internal fun outlookBlock(outlook: TreasuryOutlook): BlockState {
     )
 }
 
-internal fun toSortBlock(pile: ToSortPile): BlockState =
-    if (pile.total == 0) {
-        BlockState.Ready(listOf("Rien à qualifier"))
-    } else {
-        BlockState.Ready(listOf("${pile.total} transaction${if (pile.total > 1) "s" else ""} à qualifier"), needsAttention = true)
-    }
+/**
+ * The Revue block (MAG-539), one for the three it replaces: the lines still to qualify, and the lines
+ * an operation recognised since the last review. It asks for attention while something waits.
+ */
+internal fun reviewBlock(queue: ReviewQueue): BlockState {
+    val toQualify = queue.unrecognisedCount
+    val recognised = queue.recognisedCount
+    if (toQualify == 0 && recognised == 0) return BlockState.Ready(listOf("Rien à revoir"))
 
-internal fun toControlBlock(recognised: RecognisedToControl): BlockState =
-    BlockState.Ready(listOf(toControlCounter(recognised.total)), needsAttention = recognised.total > 0)
-
-internal fun monthlyReviewBlock(review: MonthlyReview): BlockState = when {
-    review.pendingCount > 0 -> BlockState.Ready(
-        listOf("${review.pendingCount} dépense${if (review.pendingCount > 1) "s" else ""} à revoir"),
+    return BlockState.Ready(
+        listOf(
+            when (toQualify) {
+                0 -> "Rien à qualifier"
+                1 -> "1 transaction à qualifier"
+                else -> "$toQualify transactions à qualifier"
+            },
+            when (recognised) {
+                0 -> "Aucune reconnue depuis la dernière revue"
+                1 -> "1 reconnue depuis la dernière revue"
+                else -> "$recognised reconnues depuis la dernière revue"
+            },
+        ),
+        needsAttention = toQualify > 0 || recognised > 0,
     )
-    review.ratedCount > 0 -> BlockState.Ready(listOf("Revue du mois terminée"))
-    else -> BlockState.Ready(listOf("Rien à revoir ce mois-ci"))
 }
 
 /** « 2 projets », the first in priority order, and a warning when one waits for a project placed after it. */

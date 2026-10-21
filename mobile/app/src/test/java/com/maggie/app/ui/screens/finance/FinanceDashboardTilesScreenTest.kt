@@ -28,6 +28,7 @@ import com.maggie.app.screentest.FakeFinanceDashboard
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.navigation.DeepLinks
 import com.maggie.app.ui.navigation.Screen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -269,13 +270,13 @@ class FinanceDashboardTilesScreenTest {
     }
 
     @Test
-    fun `the to-sort pill opens the to-sort screen and not the accounts menu`() {
+    fun `the to-sort pill opens the Revue filtered on what is to qualify, and not the accounts menu`() {
         val opened = mutableListOf<String>()
         open(tilesWithRejection, busy) { opened += it }
 
         compose.onNodeWithTag(UiTags.FINANCE_PILL_TO_SORT).performScrollTo().performClick()
 
-        assertEquals(listOf(Screen.TransactionsToSort.route), opened)
+        assertEquals(listOf(DeepLinks.REVIEW_TO_SORT_ROUTE), opened)
     }
 
     @Test

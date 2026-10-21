@@ -3,7 +3,7 @@
 // The journey settles a rejection on the phone; this script sets the table before: an
 // account « Compte MAG-424 » with two rejected direct debits, each a debit and the REJET
 // credit that gives it back (the API pairs them as the credit lands, as a sync does).
-// Same login as `to-sort-api.js`, as the seed's second user.
+// Same login as `review-list-api.js`, as the seed's second user.
 //
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   ACTION  create | remove

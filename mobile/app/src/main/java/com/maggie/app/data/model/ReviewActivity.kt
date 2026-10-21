@@ -25,15 +25,34 @@ data class ReviewQueueItem(
     val categoryId: String? = null,
     val categoryPath: String? = null,
     val qualifiedBy: String? = null,
+    /** What recognised the line (MAG-539): the series or the rule, to follow to « Voir l'opération », and its label. */
+    val qualifiedBySeriesId: String? = null,
+    val qualifiedByRuleId: String? = null,
+    val operationLabel: String? = null,
+    /** A line to qualify only: the contact it is recognised as, and whether « Associer à un contact ? » is worth asking. */
+    val contact: ContactRef? = null,
+    val asksForContact: Boolean = false,
+    /** Why the line waits: [TO_SORT_REASON_CATEGORY] or [TO_SORT_REASON_PEER_TRANSFER]. */
+    val reason: String = TO_SORT_REASON_CATEGORY,
+    val asksForPeerKind: Boolean = false,
+    /** The label to link when a contact is picked. */
+    val counterpartyLabel: String = "",
 )
 
-/** `GET /api/finance/review/queue?month=YYYY-MM`: the lines to qualify first, then those to control. */
+/**
+ * `GET /api/finance/review/queue?month=YYYY-MM`: the lines to qualify first, then those to control. With a `period`
+ * (MAG-539) the counts are the period's, [total] is what the asked `state` keeps.
+ */
 @Serializable
 data class ReviewQueue(
     val month: String = "",
     val unrecognisedCount: Int = 0,
     val unrecognisedCents: Int = 0,
     val recognisedCount: Int = 0,
+    val period: String? = null,
+    /** The day the last review was completed, null when none was: `since_review` then has no lower bound. */
+    val sinceReviewDate: String? = null,
+    val total: Int = 0,
     val items: List<ReviewQueueItem> = emptyList(),
 )
 

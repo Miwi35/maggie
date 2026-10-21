@@ -4,7 +4,7 @@
 // an account and one transfer « VIR. DE TOM MARTIN » of +400 € without category nor contact,
 // so it waits in « À trier » and asks « Associer à un contact ? » — then writes, once Tom
 // exists, a second transfer with the same label, which the API must attach to Tom by itself.
-// Same login as `to-sort-api.js`, as the seed's second user, who holds no finance data of its
+// Same login as `review-list-api.js`, as the seed's second user, who holds no finance data of its
 // own: the pile is this one line.
 //
 // MAG-451 adds the shared spend: `share` writes, on the same account, a gîte of 800 € filed in
