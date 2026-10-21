@@ -350,10 +350,12 @@ fun TransactionListScreen(
                         val nearEnd by remember {
                             derivedStateOf {
                                 val info = listState.layoutInfo
-                                (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 3
+                                val last = info.visibleItemsInfo.lastOrNull()?.index
+                                last != null && last >= info.totalItemsCount - 3
                             }
                         }
-                        LaunchedEffect(nearEnd, uiState.transactions.size, uiState.canLoadMore) {
+                        // isLoading: a refresh under way refuses the call, so it is made again once it is over.
+                        LaunchedEffect(nearEnd, uiState.transactions.size, uiState.canLoadMore, uiState.isLoading) {
                             if (nearEnd && uiState.canLoadMore) viewModel.loadMore()
                         }
                         LazyColumn(
