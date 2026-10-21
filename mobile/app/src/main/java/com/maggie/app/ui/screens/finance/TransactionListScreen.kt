@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,6 +43,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -342,7 +345,19 @@ fun TransactionListScreen(
                         )
                     }
                     else -> {
+                        val listState = rememberLazyListState()
+                        // The list is paged: the next page is asked for once the end of what is loaded is close.
+                        val nearEnd by remember {
+                            derivedStateOf {
+                                val info = listState.layoutInfo
+                                (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 3
+                            }
+                        }
+                        LaunchedEffect(nearEnd, uiState.transactions.size, uiState.canLoadMore) {
+                            if (nearEnd && uiState.canLoadMore) viewModel.loadMore()
+                        }
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -399,6 +414,19 @@ fun TransactionListScreen(
                                                 tint = MaterialTheme.colorScheme.error,
                                             )
                                         }
+                                    }
+                                }
+                            }
+                            if (uiState.isLoadingMore) {
+                                item(key = "loading-more") {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp).testTag(UiTags.TRANSACTIONS_LOADING_MORE),
+                                            strokeWidth = 2.dp,
+                                        )
                                     }
                                 }
                             }

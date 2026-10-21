@@ -436,6 +436,27 @@ class MaggieApiServiceTest {
         assertEquals(listOf("Riz"), response.restockedProducts.map { it.name })
     }
 
+    /** The account's list is infinite-scrolled (MAG-436): one page of its own lines, newest first, never the whole. */
+    @Test
+    fun `getTransactions asks for one page of the account and reads its total`() = runBlocking {
+        val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
+        val client = errandClient(
+            """{"member":[{"@id":"/api/transactions/t1","id":"t1","label":"Loyer","amountCents":-65000}],"totalItems":45}""",
+            seen,
+        )
+
+        val page = MaggieApiService(client).getTransactions("acc-1", page = 2)
+
+        val request = seen.single()
+        assertEquals("/api/transactions", request.url.encodedPath)
+        assertEquals("2", request.url.parameters["page"])
+        assertEquals("/api/accounts/acc-1", request.url.parameters["account"])
+        assertEquals("desc", request.url.parameters["order[bookedAt]"])
+        assertNull("the list is paged, not read whole", request.url.parameters["pagination"])
+        assertEquals(45, page.totalItems)
+        assertEquals("t1", page.member.single().id)
+    }
+
     private fun errandClient(body: String, seen: MutableList<io.ktor.client.request.HttpRequestData>) = HttpClient(
         MockEngine { request ->
             seen += request

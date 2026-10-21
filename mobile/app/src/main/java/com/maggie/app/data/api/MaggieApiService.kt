@@ -1744,16 +1744,21 @@ class MaggieApiService(
     }
 
     // Finance — Transactions
-    suspend fun getTransactions(accountId: String? = null): List<Transaction> {
+    /**
+     * One page (30 lines, API Platform's default) of the account's lines, newest first. The list
+     * is infinite-scrolled, so it is never read whole: the screen asks for the next [page] on demand.
+     */
+    suspend fun getTransactions(accountId: String? = null, page: Int = 1): ApiCollection<Transaction> {
         return client.get("$baseUrl/api/transactions") {
             accept(ContentType("application", "ld+json"))
             url.parameters.append("order[bookedAt]", "desc")
+            url.parameters.append("page", page.toString())
             // "account", not "accountId": API Platform names a relation
             // filter after the property, and takes the IRI the provider hands
             // out. "accountId" was declared nowhere, so it was dropped and
             // every account showed the full transaction list.
             accountId?.let { url.parameters.append("account", "/api/accounts/$it") }
-        }.body<ApiCollection<Transaction>>().member
+        }.body()
     }
 
     /** One page (100 lines at most) of a category's own lines, newest first: sub-categories are not included. */

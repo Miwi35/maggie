@@ -1,0 +1,68 @@
+appId: com.maggie.app.e2e
+name: 13-finance-transactions-paging
+tags:
+  - finance
+---
+# The account's full transaction list reads the next page as it is scrolled (MAG-436, extends MAG-102).
+#
+# The API serves 30 lines a page; the list read the first and stopped, so the lines past the
+# 30th were in the database and never on the phone.
+#
+# Given an account with 45 lines, one a day, the oldest being « LIGNE MAG-436 45 »,
+# When I open its full list and scroll to the bottom,
+# Then the 45th line is visible.
+#
+# The data is set by `scripts/transactions-api.js` on the seed's second user. The requests
+# asked (one page on opening, one more near the end, none once all are loaded) are counted by
+# `TransactionViewModelTest`.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-finance-transactions-paging.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/transactions-api.js
+    env:
+      ACTION: create
+
+- openLink: "maggie-e2e://finance/accounts"
+
+- extendedWaitUntil:
+    visible: "EUR · Compte MAG-436"
+    timeout: 30000
+- tapOn: "EUR · Compte MAG-436"
+
+# The phone's pager shows the account's days; the full list is one touch further (MAG-422).
+- extendedWaitUntil:
+    visible:
+      id: "account_all_transactions"
+    timeout: 20000
+- tapOn:
+    id: "account_all_transactions"
+
+# The newest lines are there at once; the oldest is beyond the first page.
+- extendedWaitUntil:
+    visible: "LIGNE MAG-436 1"
+    timeout: 30000
+- assertNotVisible: "LIGNE MAG-436 45"
+
+# When I go down to the bottom, the following pages come in and the last line shows.
+- scrollUntilVisible:
+    element: "LIGNE MAG-436 45"
+    direction: DOWN
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "LIGNE MAG-436 45"
+    timeout: 10000
+
+# Left as found.
+- runScript:
+    file: ../scripts/transactions-api.js
+    env:
+      ACTION: remove

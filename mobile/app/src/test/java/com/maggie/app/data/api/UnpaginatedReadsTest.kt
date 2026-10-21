@@ -163,7 +163,8 @@ class UnpaginatedReadsTest {
 
         val result = MaggieApiService(server.client()).getTransactions("acc-1")
 
-        assertEquals(30, result.size)
+        assertEquals(30, result.member.size)
+        assertEquals(370, result.totalItems)
         val url = server.single()
         assertFalse(url.toString(), url.parameters.contains("pagination"))
         assertEquals("/api/accounts/acc-1", url.parameters["account"])

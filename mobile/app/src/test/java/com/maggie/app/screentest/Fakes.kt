@@ -87,6 +87,7 @@ import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.RecurringGroceryRepository
 import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.TransactionPage
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.chat.ChatViewModel
@@ -499,7 +500,10 @@ class FakeTransactionTransfers(
 
         coEvery { categoryRepository.getCategories() } returns Result.success(emptyList())
         // The API leaves the rejected payments out of the list and serves them as incidents (MAG-375).
-        coEvery { repository.getTransactions(any()) } answers { Result.success(lines.filterNot { it.isRejected }) }
+        coEvery { repository.getTransactions(any(), any()) } answers {
+            val page = lines.filterNot { it.isRejected }
+            Result.success(TransactionPage(page, page.size))
+        }
         coEvery { repository.getIncidents(any()) } answers { Result.success(incidents()) }
         coEvery { repository.getSettledIncidents(any()) } returns Result.success(emptyList())
         coEvery { repository.getTransfer(any()) } answers {
