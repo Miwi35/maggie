@@ -91,6 +91,7 @@ tags:
 - inputText: "Qu'est-ce que j'ai de prévu aujourd'hui ?"
 - tapOn:
     id: "chat_send"
+- hideKeyboard
 - extendedWaitUntil:
     visible: ".*déjeuner avec Alex et votre cours de piano.*"
     timeout: 60000
@@ -120,6 +121,7 @@ tags:
 - inputText: "Parlons de mes finances, où en est mon budget ?"
 - tapOn:
     id: "chat_send"
+- hideKeyboard
 - extendedWaitUntil:
     visible: ".*budget tient la route ce mois-ci.*"
     timeout: 60000
@@ -340,6 +342,7 @@ tags:
 - inputText: "Supprime l'événement Test validation ${output.eventId}"
 - tapOn:
     id: "chat_send"
+- hideKeyboard
 - extendedWaitUntil:
     visible: ".*Je te demande ton accord pour supprimer.*"
     timeout: 60000

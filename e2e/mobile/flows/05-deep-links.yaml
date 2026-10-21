@@ -79,12 +79,13 @@ tags:
     timeout: 30000
 
 # The Finance menus (MAG-426, MAG-518): a menu opens a page with one tab per aspect and the content
-# of the selected one under them, and the back arrow lands on the Dashboard — the menus
+# of the selected one under them, and the back arrow lands on the Dashboard (its rings) — the menus
 # are siblings, not a trail. Trésorerie → Matelas and Avances d'épargne.
 - openLink: "maggie-e2e://finance"
 
 - extendedWaitUntil:
-    visible: ".*Solde de tous les comptes.*"
+    visible:
+      id: "finance_score_ring_week"
     timeout: 20000
 
 - tapOn:
@@ -108,7 +109,8 @@ tags:
 - pressKey: back
 
 - extendedWaitUntil:
-    visible: ".*Solde de tous les comptes.*"
+    visible:
+      id: "finance_score_ring_week"
     timeout: 20000
 
 # Revue: « À qualifier », the rules and the recurring operations (the merged operations

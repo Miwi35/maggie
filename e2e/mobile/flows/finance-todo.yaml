@@ -2,6 +2,11 @@ appId: com.maggie.app.e2e
 name: finance-todo
 tags:
   - finance
+onFlowComplete:
+  - runScript:
+      file: ../scripts/finance-todo-api.js
+      env:
+        ACTION: remove
 ---
 # What is to do, in the tiles of the finance home, from the phone (MAG-421, extends MAG-102).
 #
@@ -15,7 +20,8 @@ tags:
 # The data is set by `scripts/finance-todo-api.js` on the seed's second user, who holds no other
 # finance data: the pile is these three lines (the rejection pair is not one) and the rejection is
 # the one. It runs as that user, not as the owner of `finance-overview`, whose pile other flows
-# leave lines in.
+# leave lines in. `onFlowComplete` removes it even when a step failed: left behind, the three lines
+# would head the pile of `19-finance-contacts`, next in the shard.
 #
 # What is not here: « rien à faire, aucune pastille » on a home with no data at all
 # (`FinanceDashboardTilesScreenTest`, and the admin's journey), the Budget tile's advance pill and « Revue ce soir » (their counts
@@ -121,9 +127,3 @@ tags:
       id: "to_sort_card"
     timeout: 30000
 - assertVisible: "A TRIER MAG-421 A"
-
-# Left as found.
-- runScript:
-    file: ../scripts/finance-todo-api.js
-    env:
-      ACTION: remove

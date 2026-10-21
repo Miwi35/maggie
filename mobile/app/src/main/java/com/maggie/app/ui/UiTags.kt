@@ -1028,6 +1028,12 @@ object UiTags {
     const val SETTINGS_INTERRUPTION_SOUND = "settings_interruption_sound"
 
     /**
+     * The row named after the agent (« Maggie »): by id, because on a tablet the launcher's taskbar
+     * also carries an app called « Maggie » and a tap by text lands on it.
+     */
+    const val SETTINGS_AGENT = "settings_agent"
+
+    /**
      * Settings > Tâches (MAG-407): the row of the list, « Heure du matin », the chips of the
      * days before the due day ([settingsTasksChip]), « En retard » ([settingsTasksOverdue]),
      * « Valeurs par défaut » and the « Enregistré » that follows every save — on both screens.

@@ -64,6 +64,7 @@ tags:
 - inputText: "Ael demain"
 - tapOn:
     id: "chat_send"
+- hideKeyboard
 
 - extendedWaitUntil:
     visible: ".*Compris : un événement test à Ael demain.*"

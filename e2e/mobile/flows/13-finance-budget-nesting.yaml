@@ -53,8 +53,14 @@ tags:
     timeout: 30000
 - assertVisible: "40[.,]00 EUR / 300[.,]00 EUR"
 - assertNotVisible: "Bars › Obsydian"
-# The phone only reads the tree: no way to create or delete an envelope.
-- assertNotVisible: "Nouvelle enveloppe"
+# The phone only reads the tree: no way to create or delete an envelope. From 600 dp (rail) it can.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "finance_menu_rail"
+    commands:
+      - assertNotVisible: "Nouvelle enveloppe"
 
 # Unfolded: Obsydian 40 / 100 € nested under Loisirs 40 / 300 €.
 - tapOn: "Déplier Loisirs"
@@ -108,9 +114,20 @@ tags:
     timeout: 20000
 - tapOn: "EUR · Compte MAG-412"
 # The accounts are a pager now (MAG-422): the dot moves to the account, whose page opens on its
-# days; the full list of lines (and its sheet) is one button away.
+# days; the full list of lines (and its sheet) is one button away. With the chat panel there is no
+# pager, the card opens the account in a pane beside the list.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "chat_panel"
+    commands:
+      - extendedWaitUntil:
+          visible: "Compte MAG-412"
+          timeout: 20000
 - extendedWaitUntil:
-    visible: "Compte MAG-412"
+    visible:
+      id: "account_all_transactions"
     timeout: 20000
 - tapOn:
     id: "account_all_transactions"

@@ -268,6 +268,7 @@ private fun SettingsList(
                 title = uiState.agentName,
                 subtitle = "Proactions, comportement",
                 onClick = { onSectionClick(SettingsSection.AGENT) },
+                modifier = Modifier.testTag(UiTags.SETTINGS_AGENT),
             )
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 

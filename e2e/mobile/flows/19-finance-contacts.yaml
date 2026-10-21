@@ -244,8 +244,10 @@ tags:
     id: "contact_picker_result"
 
 # The rest, 600 €, owed 200 € each; « Enregistrer » writes the part and the créance together.
+# The line sits above the three people just added: it is looked for upwards.
 - scrollUntilVisible:
     element: "On te doit 600[.,]00 EUR"
+    direction: UP
     centerElement: true
 - scrollUntilVisible:
     element:

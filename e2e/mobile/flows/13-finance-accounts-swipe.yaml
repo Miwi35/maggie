@@ -5,7 +5,9 @@ tags:
 ---
 # Accounts in a swipe, day by day, with their real statuses (MAG-422, extends MAG-102).
 #
-# The phone shows one account per page of a pager, its dots below. Each page lists the
+# The phone and the foldable show one account per page of a pager, its dots below; the tablet (with the
+# chat panel beside) shows the accounts as a list and the selected one's lines in a pane, so the
+# swipe is a tap on the other account's card there (`chat_panel` tells the two). Each page lists the
 # month grouped by day (« Aujourd'hui »), every line with its status in words, and an
 # internal transfer names the account on its other side: « depuis X » on the credit,
 # « vers X » on the debit.
@@ -40,9 +42,18 @@ tags:
 - openLink: "maggie-e2e://finance/accounts"
 
 - extendedWaitUntil:
-    visible:
-      id: "account_pager"
+    visible: "Nouveau compte"
     timeout: 30000
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "chat_panel"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "account_pager"
+          timeout: 30000
 
 # Given the two accounts.
 - tapOn: "Nouveau compte"
@@ -97,12 +108,28 @@ tags:
 # The status is the word, not a colour.
 - assertVisible: "Dépensée"
 
-# When I swipe to the savings account.
-- swipe:
-    direction: LEFT
-- extendedWaitUntil:
-    visible: "Compte courant MAG-422-${output.n} livret"
-    timeout: 20000
+# When I swipe to the savings account (on the tablet: I open its card).
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "chat_panel"
+    commands:
+      - swipe:
+          direction: LEFT
+      - extendedWaitUntil:
+          visible: "Compte courant MAG-422-${output.n} livret"
+          timeout: 20000
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "chat_panel"
+    commands:
+      - tapOn: "EUR · Compte courant MAG-422-${output.n} livret"
+      - extendedWaitUntil:
+          notVisible: "VIREMENT VERS LIVRET MAG-422"
+          timeout: 20000
 - extendedWaitUntil:
     visible:
       id: "account_add_transaction"
@@ -152,9 +179,24 @@ tags:
 - assertVisible: "Reçue"
 - assertVisible: "Aujourd'hui"
 
-# And back: the debit names the savings account it went to.
-- swipe:
-    direction: RIGHT
+# And back: the debit names the savings account it went to. The swipe starts at 30 %: the default one
+# starts at the screen's edge, on the foldable's navigation rail.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "chat_panel"
+    commands:
+      - swipe:
+          start: 30%, 50%
+          end: 90%, 50%
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "chat_panel"
+    commands:
+      - tapOn: "EUR · Compte courant MAG-422-${output.n}"
 - extendedWaitUntil:
     visible: "VIREMENT VERS LIVRET MAG-422"
     timeout: 30000
