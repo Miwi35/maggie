@@ -4,6 +4,7 @@ namespace Maggie\Finance\Tests\Controller;
 
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use Maggie\Finance\Entity\Loan;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -116,6 +117,24 @@ class IndependenceCounterControllerTest extends WebTestCase
         self::assertSame(20000, $counter['loanPaymentsCents']);
         self::assertSame(30000, $counter['monthlyNeedCents']);
         self::assertSame(26, $counter['coverageWithDebtPercent']);
+    }
+
+    public function testAProjectedLoanAddsNothingToTheMonth(): void
+    {
+        $this->loadFixtures('independence.yaml');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->persist((new Loan())
+            ->setName('Prêt du projet')
+            ->setPrincipalRemainingCents(1000000)
+            ->setMonthlyPaymentCents(50000)
+            ->setProjected(true)
+            ->setUser($this->getFixture('test_user')));
+        $em->flush();
+
+        $counter = $this->counter();
+
+        self::assertSame(20000, $counter['loanPaymentsCents']);
+        self::assertSame(30000, $counter['monthlyNeedCents']);
     }
 
     public function testTheMilestonesSayWhatIsBehindAndWhatTheNextOneTakes(): void

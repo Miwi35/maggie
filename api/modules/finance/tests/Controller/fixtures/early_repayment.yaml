@@ -1,0 +1,41 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-early-repayment@example.com
+    googleId: google-finance-early-repayment
+    name: Finance Early Repayment User
+  other_user:
+    email: finance-early-repayment-other@example.com
+    googleId: google-finance-early-repayment-other
+    name: Finance Early Repayment Other
+
+Maggie\Finance\Entity\Loan:
+  # 98 000 € left at 1,80 %, the penalty at the legal cap.
+  mortgage:
+    name: Prêt immo
+    principalRemainingCents: 9800000
+    monthlyPaymentCents: 62500
+    annualRateBasisPoints: 180
+    user: '@test_user'
+  # An offer that forbids repaying early.
+  locked:
+    name: Prêt verrouillé
+    principalRemainingCents: 500000
+    monthlyPaymentCents: 20000
+    annualRateBasisPoints: 300
+    earlyRepaymentAllowed: false
+    user: '@test_user'
+  # 10 000 € of consumer credit, 1 000 € at least per partial repayment.
+  consumer:
+    name: Crédit conso
+    principalRemainingCents: 1000000
+    monthlyPaymentCents: 45000
+    annualRateBasisPoints: 500
+    prepaymentPenaltyMode: '<(Maggie\Finance\Enum\PrepaymentPenaltyMode::Consumer)>'
+    minPartialRepaymentCents: 100000
+    user: '@test_user'
+  foreign:
+    name: Prêt d'un autre
+    principalRemainingCents: 9800000
+    monthlyPaymentCents: 62500
+    annualRateBasisPoints: 180
+    user: '@other_user'

@@ -10,7 +10,10 @@ final readonly class UpdateLoanCommand
 {
     use ClearsFieldsTrait;
 
-    /** @param list<'lender'> $clearFields */
+    /**
+     * @param list<'lender'>       $clearFields
+     * @param array<string, mixed> $details     the type and conditions provided (MAG-522), a null emptying one — see LoanDetails
+     */
     public function __construct(
         public string $userId,
         public string $loanId,
@@ -22,6 +25,7 @@ final readonly class UpdateLoanCommand
         public ?int $priority = null,
         public ?string $currency = null,
         public array $clearFields = [],
+        public array $details = [],
     ) {
     }
 }

@@ -8,6 +8,9 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Loan;
+use Maggie\Finance\Enum\LoanType;
+use Maggie\Finance\Enum\PartialRepaymentEffect;
+use Maggie\Finance\Enum\PrepaymentPenaltyMode;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -211,5 +214,183 @@ class LoanApiTest extends WebTestCase
 
         $this->assertMercureUpdatePublished('/loans/');
         $this->assertElasticsearchDeleteDispatched('loans');
+    }
+
+    private function login(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+    }
+
+    private function rows(): int
+    {
+        return \count(self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Loan::class)->findAll());
+    }
+
+    public function testCreateADetailedLoanPersistsItsTypeAndConditions(): void
+    {
+        $this->login();
+
+        $this->post([
+            'name' => 'Prêt relais',
+            'principalRemainingCents' => 1000000,
+            'monthlyPaymentCents' => 2500,
+            'annualRateBasisPoints' => 300,
+            'type' => 'bridge',
+            'projected' => true,
+            'initialAmountCents' => 1000000,
+            'aprBasisPoints' => 345,
+            'durationMonths' => 12,
+            'firstPaymentOn' => '2026-11-05',
+            'periodicity' => 'monthly',
+            'insuranceMonthlyCents' => 1200,
+            'feesCents' => 80000,
+            'prepaymentPenaltyMode' => 'exempt',
+            'partialRepaymentEffect' => 'lower_payment',
+            'noticeDays' => 30,
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('bridge', $data['type']);
+        self::assertTrue($data['projected']);
+        self::assertSame('2026-11-05', $data['firstPaymentOn']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $loan = $em->getRepository(Loan::class)->findOneBy(['name' => 'Prêt relais']);
+        self::assertNotNull($loan);
+        self::assertSame(LoanType::Bridge, $loan->getType());
+        self::assertTrue($loan->isProjected());
+        self::assertSame(12, $loan->getDurationMonths());
+        self::assertSame('2026-11-05', $loan->getFirstPaymentOn()?->format('Y-m-d'));
+        self::assertSame(1200, $loan->getInsuranceMonthlyCents());
+        self::assertSame(PrepaymentPenaltyMode::Exempt, $loan->getPrepaymentPenaltyMode());
+        self::assertSame(PartialRepaymentEffect::LowerPayment, $loan->getPartialRepaymentEffect());
+        self::assertTrue($loan->isEarlyRepaymentAllowed());
+
+        $this->assertMercureUpdatePublished('/loans/');
+        $this->assertElasticsearchIndexDispatched(Loan::class);
+    }
+
+    public function testAnExistingLoanReadsAsAFixedSignedOne(): void
+    {
+        $this->login();
+
+        $this->client->request('GET', '/api/loans/'.$this->getFixture('car')->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('amortizing_fixed', $data['type']);
+        self::assertFalse($data['projected']);
+        self::assertSame('legal_cap', $data['prepaymentPenaltyMode']);
+        self::assertTrue($data['earlyRepaymentAllowed']);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, string}> */
+    public static function incompleteTypes(): iterable
+    {
+        yield 'stepped without steps' => [['type' => 'stepped'], 'steps'];
+        yield 'stepped with a step from month 0' => [['type' => 'stepped', 'steps' => [['fromMonth' => 0, 'monthlyPaymentCents' => 50000]]], 'step'];
+        yield 'variable without its index' => [['type' => 'amortizing_variable', 'marginBasisPoints' => 100], 'referenceIndex'];
+        yield 'variable without its margin' => [['type' => 'amortizing_variable', 'referenceIndex' => 'Euribor 3M'], 'marginBasisPoints'];
+        yield 'total deferral without its months' => [['type' => 'deferred_total'], 'deferralMonths'];
+        yield 'partial deferral of 0 months' => [['type' => 'deferred_partial', 'deferralMonths' => 0], 'deferralMonths'];
+        yield 'in fine without its duration' => [['type' => 'in_fine'], 'durationMonths'];
+        yield 'a fixed penalty without its amount' => [['prepaymentPenaltyMode' => 'fixed'], 'prepaymentPenaltyFixedCents'];
+        yield 'a floor above the cap' => [['rateFloorBasisPoints' => 500, 'rateCapBasisPoints' => 400], 'rateFloorBasisPoints'];
+        yield 'an insurance rate without the amount borrowed' => [['insuranceRateBasisPoints' => 30], 'initialAmountCents'];
+    }
+
+    /** @param array<string, mixed> $conditions */
+    #[\PHPUnit\Framework\Attributes\DataProvider('incompleteTypes')]
+    public function testATypeMissingWhatItNeedsIsRefusedWith400(array $conditions, string $named): void
+    {
+        $this->login();
+
+        $this->post([
+            'name' => 'Prêt incomplet',
+            'principalRemainingCents' => 600000,
+            'monthlyPaymentCents' => 50000,
+            'annualRateBasisPoints' => 350,
+        ] + $conditions);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString($named, (string) $this->client->getResponse()->getContent());
+        self::assertSame(2, $this->rows());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testAnUnknownTypeIsRefused(): void
+    {
+        $this->login();
+
+        $this->post(['name' => 'Prêt ballon', 'principalRemainingCents' => 600000, 'monthlyPaymentCents' => 50000, 'type' => 'balloon']);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(2, $this->rows());
+    }
+
+    public function testAnInFineLoanIsNotAskedToAmortise(): void
+    {
+        $this->login();
+
+        // The payment is the interest: an amortized loan would be refused.
+        $this->post([
+            'name' => 'Prêt in fine',
+            'principalRemainingCents' => 1000000,
+            'monthlyPaymentCents' => 2500,
+            'annualRateBasisPoints' => 300,
+            'type' => 'in_fine',
+            'durationMonths' => 12,
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+    }
+
+    public function testPatchToSteppedWithoutStepsIsRefusedAndKeepsTheLoan(): void
+    {
+        $this->login();
+        $id = (string) $this->getFixture('car')->getId();
+
+        $this->patch($id, ['type' => 'stepped']);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('steps', (string) $this->client->getResponse()->getContent());
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame(LoanType::AmortizingFixed, $em->find(Loan::class, $id)->getType());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testPatchSetsThenClearsACondition(): void
+    {
+        $this->login();
+        $id = (string) $this->getFixture('car')->getId();
+
+        $this->patch($id, ['type' => 'stepped', 'steps' => [
+            ['fromMonth' => 7, 'monthlyPaymentCents' => 30000],
+            ['fromMonth' => 1, 'monthlyPaymentCents' => 20000],
+        ], 'feesCents' => 50000]);
+        self::assertResponseIsSuccessful();
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $loan = $em->find(Loan::class, $id);
+        self::assertSame(LoanType::Stepped, $loan->getType());
+        // Kept in the order of the months.
+        self::assertSame([1, 7], array_column($loan->getSteps() ?? [], 'fromMonth'));
+        self::assertSame(50000, $loan->getFeesCents());
+        $this->assertMercureUpdatePublished('/loans/');
+        $this->assertElasticsearchIndexDispatched(Loan::class);
+
+        $this->patch($id, ['feesCents' => null]);
+        self::assertResponseIsSuccessful();
+        $em->clear();
+        self::assertNull($em->find(Loan::class, $id)->getFeesCents());
     }
 }
