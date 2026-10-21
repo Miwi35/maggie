@@ -5,6 +5,7 @@ namespace Maggie\Finance\Tests\Controller;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Finance\Entity\Loan;
+use Maggie\Finance\Enum\PartialRepaymentEffect;
 use Maggie\Finance\Service\LoanSchedule;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -137,5 +138,20 @@ class EarlyRepaymentControllerTest extends WebTestCase
         $this->client->request('GET', '/api/finance/loans/not-a-ulid/early-repayment', [], [], $this->authHeaders());
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testLoweringThePaymentSavesLessInterestThanShorteningTheLoan(): void
+    {
+        $shorten = $this->simulate('mortgage', '?amountCents=2000000');
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->find(Loan::class, $this->getFixture('mortgage')->getId())->setPartialRepaymentEffect(PartialRepaymentEffect::LowerPayment);
+        $em->flush();
+        $lower = $this->simulate('mortgage', '?amountCents=2000000');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($shorten['penaltyCents'], $lower['penaltyCents']);
+        self::assertGreaterThan(0, $lower['remainingInterestCents']);
+        self::assertLessThan($shorten['remainingInterestCents'], $lower['remainingInterestCents']);
     }
 }

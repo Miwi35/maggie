@@ -54,6 +54,8 @@ class SimulateEarlyRepayment
         $from ??= new \DateTimeImmutable('first day of this month');
         $schedule = $this->loanSchedule->rows($loan, $from);
         $interestNow = self::interestOf($schedule);
+        // The months before a loan is drawn are not payments left.
+        $monthsLeft = \count($schedule) - max(0, -LoanSchedule::paymentsMadeBy($loan, $from->modify('first day of this month')));
 
         $interestAfter = 0;
         if ($amount < $owed) {
@@ -61,12 +63,12 @@ class SimulateEarlyRepayment
                 $loan,
                 $from,
                 principalCents: $owed - $amount,
-                monthlyPaymentCents: $this->paymentAfter($loan, $owed - $amount, \count($schedule)),
+                monthlyPaymentCents: $this->paymentAfter($loan, $owed - $amount, $monthsLeft),
             ));
         }
 
         $remainingInterest = $interestNow - $interestAfter;
-        $penalty = $this->prepaymentPenalty->penaltyCents($loan, $amount, \count($schedule));
+        $penalty = $this->prepaymentPenalty->penaltyCents($loan, $amount, $monthsLeft);
 
         return [
             'amountCents' => $amount,

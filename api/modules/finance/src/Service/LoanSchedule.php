@@ -32,7 +32,9 @@ final class LoanSchedule
      * insurance. During a total deferral `interestCents` is added to the
      * capital and nothing but the insurance is paid. The rows stop when the
      * capital is repaid, at the horizon, or at a payment that no longer covers
-     * the interest — such a loan is never repaid, and is refused at the door.
+     * the interest — such a loan is never repaid: refused at the door for the
+     * types that must amortise now, shown as ending beyond the horizon for a
+     * step or a post-deferral payment too low.
      *
      * @return list<array{month: string, paymentCents: int, interestCents: int, capitalCents: int, insuranceCents: int, remainingCents: int}>
      */
