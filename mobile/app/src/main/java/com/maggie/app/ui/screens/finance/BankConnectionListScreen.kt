@@ -70,28 +70,6 @@ fun BankConnectionListScreen(
     viewModel: BankConnectionViewModel,
     onBack: () -> Unit,
 ) {
-    Scaffold(
-        topBar = {
-            FinanceTopBar(Screen.BankConnectionList.route) {
-                TopAppBar(
-                    title = { Text("Banques") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                )
-            }
-        },
-    ) { paddingValues ->
-        BankConnectionListContent(viewModel, Modifier.padding(paddingValues))
-    }
-}
-
-/** The body of the screen, the fetch button included: the Configuration page shows it as its « Banques » tab. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun BankConnectionListContent(viewModel: BankConnectionViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -121,11 +99,36 @@ fun BankConnectionListContent(viewModel: BankConnectionViewModel, modifier: Modi
         onRetry = viewModel::refresh,
     )
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Scaffold(
+        topBar = {
+            FinanceTopBar(Screen.BankConnectionList.route) {
+                TopAppBar(
+                    title = { Text("Banques") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        }
+                    },
+                    actions = {
+                        if (uiState.connections.isNotEmpty()) {
+                            TextButton(
+                                onClick = { viewModel.sync() },
+                                enabled = !uiState.isSyncing,
+                                modifier = Modifier.testTag(UiTags.BANK_SYNC),
+                            ) {
+                                Text(if (uiState.isSyncing) "Récupération…" else "Récupérer les transactions")
+                            }
+                        }
+                    },
+                )
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { paddingValues ->
         PullToRefreshBox(
             isRefreshing = uiState.isLoading,
             onRefresh = { viewModel.refresh() },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
         ) {
             when {
                 uiState.isLoading && uiState.connections.isEmpty() -> {
@@ -145,17 +148,6 @@ fun BankConnectionListContent(viewModel: BankConnectionViewModel, modifier: Modi
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        item {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                TextButton(
-                                    onClick = { viewModel.sync() },
-                                    enabled = !uiState.isSyncing,
-                                    modifier = Modifier.testTag(UiTags.BANK_SYNC),
-                                ) {
-                                    Text(if (uiState.isSyncing) "Récupération…" else "Récupérer les transactions")
-                                }
-                            }
-                        }
                         items(uiState.connections, key = { it.id }) { connection ->
                             ConnectionCard(
                                 connection = connection,
@@ -167,7 +159,6 @@ fun BankConnectionListContent(viewModel: BankConnectionViewModel, modifier: Modi
                 }
             }
         }
-        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 

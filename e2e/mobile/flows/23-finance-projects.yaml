@@ -5,6 +5,9 @@ tags:
 ---
 # Les projets de Planification, from the phone (MAG-519, extends MAG-102).
 #
+# Étant donné l'app sur Finance › Planification
+# Quand je touche la carte « Projets »
+# Alors la liste des projets s'ouvre (MAG-530)
 # Étant donné « Déménagement » (position 0) et « Canapé » (position 1), tels que le seed les écrit
 # Quand je fais glisser « Canapé » en haut de la liste
 # Alors l'ordre change, et il reste après réouverture de l'écran
@@ -39,7 +42,30 @@ tags:
 
 - runFlow: ../subflows/sign-in.yaml
 
-- openLink: "maggie-e2e://finance/projects"
+# Planification › the « Projets » card opens the list (MAG-530).
+- openLink: "maggie-e2e://finance"
+- extendedWaitUntil:
+    visible:
+      id: "finance_menu_dashboard"
+    timeout: 30000
+# The menu row scrolls: Planification is past the edge of a phone until it is swiped.
+- swipe:
+    from:
+      id: "finance_menu_dashboard"
+    direction: LEFT
+- extendedWaitUntil:
+    visible:
+      id: "finance_menu_planning"
+    timeout: 10000
+- tapOn:
+    id: "finance_menu_planning"
+- extendedWaitUntil:
+    visible:
+      id: "finance_block_finance_projects"
+    timeout: 20000
+- assertVisible: ".*2 projets.*"
+- tapOn:
+    id: "finance_block_finance_projects"
 - extendedWaitUntil:
     visible:
       id: "projects"

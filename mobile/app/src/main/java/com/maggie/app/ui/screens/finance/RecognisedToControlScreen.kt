@@ -76,50 +76,6 @@ fun RecognisedToControlScreen(
     onOpenTransaction: (RecognisedLine) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
-    // On a phone the fiche takes the screen; beside the list (tablet) back leaves the page as it always did.
-    val ficheOnly = !showsDetailPane && state.ficheOpen && state.current != null
-
-    Scaffold(
-        topBar = {
-            // The correction is a full screen with a bar of its own.
-            if (state.correction == null) {
-                TopAppBar(
-                    title = { Text("Reconnues à contrôler") },
-                    navigationIcon = {
-                        IconButton(
-                            onClick = if (ficheOnly) viewModel::backToList else onBack,
-                            modifier = if (ficheOnly) Modifier.testTag(UiTags.REVIEW_BACK_TO_LIST) else Modifier,
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = if (ficheOnly) "Retour à la liste" else "Retour",
-                            )
-                        }
-                    },
-                )
-            }
-        },
-    ) { paddingValues ->
-        RecognisedToControlContent(
-            viewModel, Modifier.padding(paddingValues), showsDetailPane, onOpenOperation, onOpenTransaction,
-        )
-    }
-}
-
-/**
- * The groups and their fiche, without a bar of its own: the Revue page shows them as its
- * « Reconnues à contrôler » tab. With [showsBackToList] the way back from the fiche to the list is drawn above it.
- */
-@Composable
-fun RecognisedToControlContent(
-    viewModel: RecognisedToControlViewModel,
-    modifier: Modifier = Modifier,
-    showsDetailPane: Boolean = false,
-    onOpenOperation: (RecognisedGroup) -> Unit = {},
-    onOpenTransaction: (RecognisedLine) -> Unit = {},
-    showsBackToList: Boolean = false,
-) {
-    val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.message) {
@@ -146,52 +102,61 @@ fun RecognisedToControlContent(
     val ficheOnly = !showsDetailPane && state.ficheOpen && state.current != null
     BackHandler(enabled = ficheOnly, onBack = viewModel::backToList)
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (showsBackToList && ficheOnly) {
-                TextButton(
-                    onClick = viewModel::backToList,
-                    modifier = Modifier.padding(horizontal = 8.dp).testTag(UiTags.REVIEW_BACK_TO_LIST),
-                ) { Text("Retour à la liste") }
-            }
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when {
-                    !state.loaded && state.isLoading -> Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) { CircularProgressIndicator() }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Reconnues à contrôler") },
+                navigationIcon = {
+                    IconButton(
+                        onClick = if (ficheOnly) viewModel::backToList else onBack,
+                        modifier = if (ficheOnly) Modifier.testTag(UiTags.REVIEW_BACK_TO_LIST) else Modifier,
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = if (ficheOnly) "Retour à la liste" else "Retour",
+                        )
+                    }
+                },
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            when {
+                !state.loaded && state.isLoading -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator() }
 
-                    !state.loaded -> EmptyState(
-                        title = "Chargement impossible",
-                        description = "Les lignes reconnues n'ont pas pu être lues. Vérifiez votre connexion.",
-                        actionLabel = "Réessayer",
-                        onAction = viewModel::refresh,
-                    )
+                !state.loaded -> EmptyState(
+                    title = "Chargement impossible",
+                    description = "Les lignes reconnues n'ont pas pu être lues. Vérifiez votre connexion.",
+                    actionLabel = "Réessayer",
+                    onAction = viewModel::refresh,
+                )
 
-                    state.isEmpty -> EmptyState(
-                        title = toControlCounter(0),
-                        description = "Toutes les lignes reconnues ce mois ont été contrôlées.",
-                        modifier = Modifier.testTag(UiTags.TO_CONTROL_EMPTY),
-                    )
+                state.isEmpty -> EmptyState(
+                    title = toControlCounter(0),
+                    description = "Toutes les lignes reconnues ce mois ont été contrôlées.",
+                    modifier = Modifier.testTag(UiTags.TO_CONTROL_EMPTY),
+                )
 
-                    showsDetailPane -> ListDetailPane(
-                        showsDetailPane = true,
-                        list = { GroupList(state, viewModel) },
-                        detail = if (state.ficheOpen && state.current != null) {
-                            { Fiche(state, viewModel, onOpenOperation, onOpenTransaction) }
-                        } else {
-                            null
-                        },
-                        placeholder = "Touchez une ligne pour la contrôler ici.",
-                    )
+                showsDetailPane -> ListDetailPane(
+                    showsDetailPane = true,
+                    list = { GroupList(state, viewModel) },
+                    detail = if (state.ficheOpen && state.current != null) {
+                        { Fiche(state, viewModel, onOpenOperation, onOpenTransaction) }
+                    } else {
+                        null
+                    },
+                    placeholder = "Touchez une ligne pour la contrôler ici.",
+                )
 
-                    ficheOnly -> Fiche(state, viewModel, onOpenOperation, onOpenTransaction)
+                ficheOnly -> Fiche(state, viewModel, onOpenOperation, onOpenTransaction)
 
-                    else -> GroupList(state, viewModel)
-                }
+                else -> GroupList(state, viewModel)
             }
         }
-        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 

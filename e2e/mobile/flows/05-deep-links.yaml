@@ -78,8 +78,8 @@ tags:
       id: "calendar_view_week"
     timeout: 30000
 
-# The Finance menus (MAG-426, MAG-518): a menu opens a page with one tab per aspect and the content
-# of the selected one under them, and the back arrow lands on the Dashboard (its rings) — the menus
+# The Finance menus (MAG-426): a menu opens a summary page with one block per aspect,
+# each leading to its screen, and the back arrow lands on the Dashboard — the menus
 # are siblings, not a trail. Trésorerie → Matelas and Avances d'épargne.
 - openLink: "maggie-e2e://finance"
 
@@ -93,19 +93,36 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "finance_tab_aspect_cushion"
+      id: "finance_block_cushion"
     timeout: 20000
 
-# The tab is the aspect: its content is there, no second tap to open a screen.
 - tapOn:
-    id: "finance_tab_aspect_advances"
+    id: "finance_block_cushion"
+
+# The summary's block is gone: the cushion screen is on top of it.
+- extendedWaitUntil:
+    notVisible:
+      id: "finance_block_cushion"
+    timeout: 20000
+
+# Back goes to the Trésorerie page it was opened from.
+- pressKey: back
+
+- extendedWaitUntil:
+    visible:
+      id: "finance_block_savings_advances"
+    timeout: 20000
+
+- tapOn:
+    id: "finance_block_savings_advances"
 
 - extendedWaitUntil:
     visible:
       id: "savings_advances_total"
     timeout: 20000
 
-# One back: the page's tabs are not a trail, the Dashboard it was opened from comes back.
+# Back twice: the block's page, then the Dashboard it was opened from.
+- pressKey: back
 - pressKey: back
 
 - extendedWaitUntil:
@@ -120,26 +137,11 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "finance_tab_aspect_to-sort"
+      id: "finance_block_transactions_to_sort"
     timeout: 20000
 
-# The tab row scrolls: the last tabs are past the edge of a phone until it is swiped.
-- swipe:
-    from:
-      id: "finance_tab_aspect_to-sort"
-    direction: LEFT
+- assertVisible:
+    id: "finance_block_categorization_rules"
 
-- extendedWaitUntil:
-    visible:
-      id: "finance_tab_aspect_rules"
-    timeout: 20000
-
-# One swipe only brings « Règles » in: the last tab can still be past the edge. Selecting a tab
-# scrolls it into view, which brings its neighbour with it.
-- tapOn:
-    id: "finance_tab_aspect_rules"
-
-- extendedWaitUntil:
-    visible:
-      id: "finance_tab_aspect_recurring"
-    timeout: 20000
+- assertVisible:
+    id: "finance_block_recurring_operations"

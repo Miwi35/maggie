@@ -95,7 +95,6 @@ import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.UpcomingViewModel
 import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
-import com.maggie.app.ui.screens.finance.IndependenceViewModel
 import com.maggie.app.ui.screens.finance.TreasuryViewModel
 import com.maggie.app.ui.screens.finance.MonthlyReviewViewModel
 import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
@@ -396,7 +395,6 @@ class MaggieApp : Application() {
             viewModel { MonthBalanceViewModel(get(), get(), get()) }
             viewModel { TreasuryViewModel(get(), get(), get()) }
             viewModel { FinanceSummaryViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-            viewModel { IndependenceViewModel(get()) }
             viewModel { (accountId: String) -> TransactionViewModel(get(), get(), accountId, get(), get(), get(), get(), get(), get()) }
         }
 

@@ -78,8 +78,8 @@ class FinanceHubScreenTest {
             )
         }
 
-        FinanceMenu.entries.flatMap(::financeAspects).forEach {
-            compose.onNodeWithTag(UiTags.financeTab(it.id)).assertDoesNotExist()
+        FinanceMenu.entries.flatMap { it.routes }.forEach {
+            compose.onNodeWithTag(UiTags.financeBlock(it)).assertDoesNotExist()
         }
     }
 

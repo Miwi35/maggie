@@ -3,10 +3,6 @@ package com.maggie.app.ui.screens.finance
 import com.maggie.app.data.model.BalanceBeforeSalary
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.CushionStatus
-import com.maggie.app.data.model.FinanceDashboard
-import com.maggie.app.data.model.FinanceTiles
-import com.maggie.app.data.model.IndependenceCounter
-import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.MonthlyReview
 import com.maggie.app.data.model.Project
@@ -175,6 +171,8 @@ class FinanceSummaryViewModelTest {
         val state = viewModel.blocks.value[SummaryBlock.PROJECTS] as BlockState.Ready
         assertEquals(listOf("2 projets", "En premier : Déménagement", "1 dépendance non respectée"), state.lines)
         assertTrue(state.needsAttention)
+        // The card's visual: one mark per project in priority order, the one waiting flagged (MAG-530).
+        assertEquals(listOf(false, true), state.marks)
     }
 
     @Test
@@ -299,47 +297,5 @@ class FinanceSummaryViewModelTest {
     @Test
     fun `nothing is loaded before a page asks`() {
         assertNull(buildViewModel().blocks.value[SummaryBlock.CUSHION])
-    }
-
-    @Test
-    fun `an aspect has data when there is something behind it to show`() {
-        assertTrue((cushionBlock(CushionStatus(isConfigured = true)) as BlockState.Ready).hasData)
-        assertFalse((cushionBlock(CushionStatus()) as BlockState.Ready).hasData)
-        assertTrue((advancesBlock(SavingsAdvances(advances = listOf(SavingsAdvance(id = "a1", outstandingCents = 100)))) as BlockState.Ready).hasData)
-        assertFalse((advancesBlock(SavingsAdvances()) as BlockState.Ready).hasData)
-        assertTrue((toSortBlock(ToSortPile(total = 2)) as BlockState.Ready).hasData)
-        assertFalse((toSortBlock(ToSortPile(total = 0)) as BlockState.Ready).hasData)
-        assertTrue((toControlBlock(RecognisedToControl(total = 1)) as BlockState.Ready).hasData)
-        assertFalse((toControlBlock(RecognisedToControl(total = 0)) as BlockState.Ready).hasData)
-        assertTrue((monthlyReviewBlock(MonthlyReview(pendingCount = 1)) as BlockState.Ready).hasData)
-        assertFalse((monthlyReviewBlock(MonthlyReview()) as BlockState.Ready).hasData)
-        assertTrue((countBlock(2, "règle", "règles", "Aucune règle") as BlockState.Ready).hasData)
-        assertFalse((countBlock(0, "règle", "règles", "Aucune règle") as BlockState.Ready).hasData)
-        assertTrue((banksBlock(listOf(BankConnection(id = "b1", bankName = "A", status = "active"))) as BlockState.Ready).hasData)
-        assertFalse((banksBlock(emptyList()) as BlockState.Ready).hasData)
-        assertFalse((outlookBlock(TreasuryOutlook()) as BlockState.Ready).hasData)
-    }
-
-    @Test
-    fun `the independence block has data once a rente is declared`() = runTest {
-        coEvery { dashboard.getDashboard(2026, 10) } returns Result.success(
-            FinanceDashboard(
-                year = 2026,
-                month = 10,
-                tiles = FinanceTiles(planning = PlanningTile(independence = IndependenceCounter(hasPassiveIncomeCategories = true))),
-            ),
-        )
-        val viewModel = buildViewModel()
-
-        viewModel.load(listOf(SummaryBlock.INDEPENDENCE))
-        advanceUntilIdle()
-
-        assertTrue((viewModel.blocks.value[SummaryBlock.INDEPENDENCE] as BlockState.Ready).hasData)
-
-        coEvery { dashboard.getDashboard(2026, 10) } returns Result.success(FinanceDashboard(year = 2026, month = 10))
-        viewModel.load(listOf(SummaryBlock.INDEPENDENCE))
-        advanceUntilIdle()
-
-        assertFalse((viewModel.blocks.value[SummaryBlock.INDEPENDENCE] as BlockState.Ready).hasData)
     }
 }
