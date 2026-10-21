@@ -932,20 +932,48 @@ class GroceryViewModelTest {
     }
 
     @Test
-    fun `a product without packaging has no quantity to change from the line`() = runTest {
+    fun `a product without packaging changes by the step of its unit`() = runTest {
         stubQuantities()
         viewModel = createViewModel()
         advanceUntilIdle()
 
         viewModel.incrementQuantity(item("item-farine"))
-        viewModel.incrementQuantity(item("item-sel"))
+        runCurrent()
+        assertEquals(600f, quantityOf("item-farine"))
         viewModel.decrementQuantity(item("item-farine"))
-        viewModel.setQuantity(item("item-farine"), "3")
+        viewModel.decrementQuantity(item("item-farine"))
         advanceUntilIdle()
 
-        assertEquals(500f, quantityOf("item-farine"))
+        assertEquals(400f, quantityOf("item-farine"))
+        assertEquals(listOf<Float?>(400f), sentQuantities("item-farine"))
+    }
+
+    @Test
+    fun `a line without quantity starts at one step and does not go below it`() = runTest {
+        stubQuantities()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.decrementQuantity(item("item-sel"))
         assertNull(quantityOf("item-sel"))
-        coVerify(exactly = 0) { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) }
+        viewModel.incrementQuantity(item("item-sel"))
+        advanceUntilIdle()
+
+        assertEquals(1f, quantityOf("item-sel"))
+        assertEquals(listOf<Float?>(1f), sentQuantities("item-sel"))
+    }
+
+    @Test
+    fun `a loose quantity may be typed with decimals`() = runTest {
+        stubQuantities()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.setQuantity(item("item-farine"), "1,5")
+        advanceUntilIdle()
+
+        assertEquals(1.5f, quantityOf("item-farine"))
+        assertEquals(listOf<Float?>(1.5f), sentQuantities("item-farine"))
     }
 
     @Test

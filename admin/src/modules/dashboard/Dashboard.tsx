@@ -32,6 +32,17 @@ const timingOf = (e: RawEvent): Pick<DashboardEvent, 'startAt' | 'endAt' | 'star
 const beginningOf = (e: Pick<DashboardEvent, 'allDay' | 'startAt' | 'startDate'>): Date =>
   e.allDay && e.startDate ? parseDay(e.startDate) : new Date(e.startAt ?? '')
 
+/** Where an event ends, the end excluded: a timed one at its instant, an all-day one at the local midnight of the day after its last. */
+const endingOf = (e: Pick<DashboardEvent, 'allDay' | 'startAt' | 'endAt' | 'startDate' | 'endDate'>): Date =>
+  e.allDay && e.endDate ? parseDay(e.endDate) : new Date(e.endAt ?? e.startAt ?? '')
+
+/** Whether the event covers some of `[rangeStart, rangeEnd)`, however long it has lasted: a holiday begun last week is still on today (MAG-536). */
+const overlaps = (e: DashboardEvent, rangeStart: string, rangeEnd: string): boolean => {
+  const begin = beginningOf(e).getTime()
+  const start = new Date(rangeStart).getTime()
+  return begin < new Date(rangeEnd).getTime() && (begin >= start || endingOf(e).getTime() > start)
+}
+
 interface RawEvent {
   id: string
   summary: string
@@ -105,6 +116,12 @@ export const Dashboard = () => {
         sort: { field: 'startAt', order: 'ASC' },
         filter: { 'exists[rrule]': true, 'startAt[strictly_before]': month.start },
       }),
+      // A multi-day event that began before today is still on it.
+      dataProvider.getList('events', {
+        pagination: { page: 1, perPage: 200 },
+        sort: { field: 'startAt', order: 'ASC' },
+        filter: { 'endAt[after]': month.start, 'startAt[strictly_before]': month.start },
+      }),
       dataProvider.getList('tasks', {
         pagination: { page: 1, perPage: 50 },
         sort: { field: 'dueDate', order: 'ASC' },
@@ -120,10 +137,10 @@ export const Dashboard = () => {
         },
       ),
     ])
-      .then(([rangeEvents, recurringEvents, rangeTasks, todayTasksResult]) => {
+      .then(([rangeEvents, recurringEvents, overlappingEvents, rangeTasks, todayTasksResult]) => {
         const seen = new Set<string>()
         const merged: RawEvent[] = []
-        for (const e of [...rangeEvents.data, ...recurringEvents.data] as unknown as RawEvent[]) {
+        for (const e of [...rangeEvents.data, ...recurringEvents.data, ...overlappingEvents.data] as unknown as RawEvent[]) {
           if (!seen.has(e.id)) {
             seen.add(e.id)
             merged.push(e)
@@ -229,15 +246,10 @@ export const Dashboard = () => {
             }
           }
         } else {
-          // Non-recurring: include if it begins within range
-          const eventStart = beginningOf({ allDay: e.allDay, startAt: e.startAt, startDate: e.startDate ?? null })
-          if (eventStart >= start && eventStart < end) {
-            result.push({
-              id: e.id,
-              summary: eventTitle(e.summary, e.activity, eventStart),
-              ...timingOf(e),
-              location: e.location,
-            })
+          // Non-recurring: include if it covers some of the range
+          const event: DashboardEvent = { id: e.id, summary: e.summary, ...timingOf(e), location: e.location }
+          if (overlaps(event, rangeStart, rangeEnd)) {
+            result.push({ ...event, summary: eventTitle(e.summary, e.activity, beginningOf(event)) })
           }
         }
       }
@@ -253,12 +265,6 @@ export const Dashboard = () => {
     },
     [rawEvents],
   )
-
-  // Check if a date falls within a range
-  const isInRange = (e: DashboardEvent, rangeStart: string, rangeEnd: string): boolean => {
-    const d = beginningOf(e).getTime()
-    return d >= new Date(rangeStart).getTime() && d < new Date(rangeEnd).getTime()
-  }
 
   // Filter tasks for a date range (excludes done tasks)
   const getTasksForRange = useCallback(
@@ -300,16 +306,16 @@ export const Dashboard = () => {
     const all = expandEventsForRange(ranges.week.start, ranges.week.end)
     return all.filter(
       (e) =>
-        !isInRange(e, ranges.today.start, ranges.today.end) &&
-        !isInRange(e, ranges.tomorrow.start, ranges.tomorrow.end),
+        !overlaps(e, ranges.today.start, ranges.today.end) &&
+        !overlaps(e, ranges.tomorrow.start, ranges.tomorrow.end),
     )
   }, [expandEventsForRange, ranges])
   const monthEvents = useMemo(() => {
     const all = expandEventsForRange(ranges.month.start, ranges.month.end)
     return all.filter(
       (e) =>
-        !isInRange(e, ranges.week.start, ranges.week.end) &&
-        !isInRange(e, ranges.tomorrow.start, ranges.tomorrow.end),
+        !overlaps(e, ranges.week.start, ranges.week.end) &&
+        !overlaps(e, ranges.tomorrow.start, ranges.tomorrow.end),
     )
   }, [expandEventsForRange, ranges])
 

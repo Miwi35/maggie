@@ -86,6 +86,31 @@ describe('Dashboard — all-day events are dates (MAG-382)', () => {
     expect(within(tomorrow).queryByText('Congé posé')).not.toBeInTheDocument()
   })
 
+  test('keeps a multi-day all-day event in « Aujourd’hui » and « Demain » while it lasts (MAG-536)', async () => {
+    // From the 13th to the 17th, the 18th excluded: it began before today and goes on past tomorrow.
+    const vacances = allDay('01VAC', 'Vacances de la Toussaint', '2037-01-13', { endDate: '2037-01-18' })
+    // Ended yesterday: the 14th, the 15th excluded.
+    const passe = allDay('01PASSE', 'Séminaire terminé', '2037-01-12', { endDate: '2037-01-15' })
+    // Begins the day after tomorrow and goes on: the week, not the daily columns.
+    const stage = allDay('01STAGE', 'Stage de voile', '2037-01-17', { endDate: '2037-01-20' })
+    mockGetList.mockImplementation((resource: string, params: { filter: Record<string, unknown> }) => {
+      if (resource !== 'events') return Promise.resolve({ data: [], total: 0 })
+      // The API answers each query with what it matches: a window by the start, the overlap by the end.
+      if (params.filter['endAt[after]']) return Promise.resolve({ data: [vacances, passe], total: 2 })
+      if (params.filter['startAt[after]']) return Promise.resolve({ data: [stage], total: 1 })
+      return Promise.resolve({ data: [], total: 0 })
+    })
+    render(<Dashboard />)
+    await screen.findByText('Stage de voile')
+
+    expect(within(dailyColumn("Aujourd'hui")).getByText('Vacances de la Toussaint')).toBeInTheDocument()
+    expect(within(dailyColumn('Demain')).getByText('Vacances de la Toussaint')).toBeInTheDocument()
+    expect(screen.queryByText('Séminaire terminé')).not.toBeInTheDocument()
+    expect(within(digest('Cette semaine')).getByText('Stage de voile')).toBeInTheDocument()
+    expect(within(digest('Cette semaine')).queryByText('Vacances de la Toussaint')).not.toBeInTheDocument()
+    expect(within(digest('Ce mois')).queryByText('Vacances de la Toussaint')).not.toBeInTheDocument()
+  })
+
   test('puts this year’s birthday in the week, on its date', async () => {
     render(<Dashboard />)
     await screen.findByText('Anniversaire de Sacha')

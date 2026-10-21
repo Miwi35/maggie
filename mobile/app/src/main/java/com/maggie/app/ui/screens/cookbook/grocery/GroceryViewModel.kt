@@ -406,25 +406,26 @@ class GroceryViewModel(
 
     fun incrementQuantity(item: GroceryItem) {
         val itemId = item.id ?: return
-        val current = currentItem(itemId)?.takeIf { it.isPackaged } ?: return
-        requestQuantity(current, increasedQuantity(current.quantity))
+        val current = currentItem(itemId) ?: return
+        requestQuantity(current, increasedQuantity(current.quantity, current.quantityStep))
     }
 
     /** At the minimum, − does nothing: removing a line is the delete gesture. */
     fun decrementQuantity(item: GroceryItem) {
         val itemId = item.id ?: return
-        val current = currentItem(itemId)?.takeIf { it.isPackaged } ?: return
-        if (!canDecreaseQuantity(current.quantity)) return
-        requestQuantity(current, decreasedQuantity(current.quantity))
+        val current = currentItem(itemId) ?: return
+        if (!canDecreaseQuantity(current.quantity, current.quantityStep)) return
+        requestQuantity(current, decreasedQuantity(current.quantity, current.quantityStep))
     }
 
-    /** A number of packagings typed by hand; anything that is not a whole number above zero is refused and nothing is sent. */
+    /** A quantity typed by hand; a count of packagings must be whole, any other above zero — else it is refused and nothing is sent. */
     fun setQuantity(item: GroceryItem, text: String) {
         val itemId = item.id ?: return
-        val current = currentItem(itemId)?.takeIf { it.isPackaged } ?: return
-        val quantity = parseQuantity(text)
+        val current = currentItem(itemId) ?: return
+        val quantity = parseQuantity(text, whole = current.isPackaged)
         if (quantity == null) {
-            _uiState.value = _uiState.value.copy(quantityMessage = "Quantité invalide : saisissez un nombre entier supérieur à 0")
+            val expected = if (current.isPackaged) "un nombre entier supérieur à 0" else "un nombre supérieur à 0"
+            _uiState.value = _uiState.value.copy(quantityMessage = "Quantité invalide : saisissez $expected")
             return
         }
         if (quantity != current.quantity) requestQuantity(current, quantity)
