@@ -1,8 +1,11 @@
 {
     "month": "2026-03",
+    "period": null,
+    "sinceReviewDate": null,
     "unrecognisedCount": 3,
     "unrecognisedCents": 46520,
     "recognisedCount": 1,
+    "total": 4,
     "items": [
         {
             "recognised": false,
@@ -26,7 +29,8 @@
             "categoryPath": null,
             "qualifiedBy": null,
             "qualifiedBySeriesId": null,
-            "qualifiedByRuleId": null
+            "qualifiedByRuleId": null,
+            "operationLabel": null
         },
         {
             "recognised": false,
@@ -50,7 +54,8 @@
             "categoryPath": null,
             "qualifiedBy": null,
             "qualifiedBySeriesId": null,
-            "qualifiedByRuleId": null
+            "qualifiedByRuleId": null,
+            "operationLabel": null
         },
         {
             "recognised": false,
@@ -79,7 +84,8 @@
             "categoryPath": null,
             "qualifiedBy": null,
             "qualifiedBySeriesId": null,
-            "qualifiedByRuleId": null
+            "qualifiedByRuleId": null,
+            "operationLabel": null
         },
         {
             "recognised": true,
@@ -98,7 +104,8 @@
             "categoryPath": "Recorded Food › Recorded Courses",
             "qualifiedBy": "rule",
             "qualifiedBySeriesId": null,
-            "qualifiedByRuleId": null
+            "qualifiedByRuleId": null,
+            "operationLabel": null
         }
     ]
 }
