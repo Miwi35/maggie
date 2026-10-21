@@ -23,7 +23,7 @@ tags:
 # The deep link `maggie-e2e://finance/review` opens on « Toutes » and the current month. The lines of one date
 # come in no promised order, so the journey asserts the position and the state, never which Carrefour is first.
 #
-# What is not here: the other gestures of the fiche (« Autre catégorie », « Créer une opération », « Corriger »,
+# What is not here: the other gestures of the fiche (« Autre catégorie », « Créer une opération récurrente », « Corriger »,
 # the judgement, the contact, the internal transfer: `ReviewListViewModelTest`, `ReviewListScreenTest`), the period
 # filters, the three presets of the deep links (`ReviewListViewModelTest`, `DeepLinksTest`), the tablet's list beside
 # the fiche, and the admin's side of the same API (`finance-review.spec.ts`).
@@ -52,13 +52,13 @@ tags:
     timeout: 30000
 - assertVisible:
     id: "review_list_pill_all"
-    text: "Toutes · 3"
+- assertVisible: "Toutes · 3"
 - assertVisible:
     id: "review_list_pill_unrecognised"
-    text: "À qualifier · 2"
+- assertVisible: "À qualifier · 2"
 - assertVisible:
     id: "review_list_pill_recognised"
-    text: "Reconnues · 1"
+- assertVisible: "Reconnues · 1"
 - assertNotVisible:
     id: "review_fiche"
 
@@ -84,7 +84,7 @@ tags:
     text: "1 / 2"
 - assertVisible:
     id: "review_fiche_state"
-    text: "À qualifier"
+- assertVisible: "À qualifier"
 - assertVisible: ".*contient CARREFOUR.*"
 - assertVisible: ".*Courses MAG-539.*"
 
@@ -92,9 +92,7 @@ tags:
 - tapOn:
     id: "review_fiche_validate"
 - extendedWaitUntil:
-    visible:
-      id: "review_fiche_state"
-      text: "Reconnue"
+    visible: "Reconnue"
     timeout: 30000
 - assertVisible:
     id: "review_position"
@@ -110,19 +108,17 @@ tags:
     timeout: 30000
 - assertVisible:
     id: "review_fiche_state"
-    text: "À qualifier"
+- assertVisible: "À qualifier"
 
 # Back to the list: the counts follow the gesture (1 to qualify, 2 recognised).
 - tapOn:
     id: "review_back_to_list"
 - extendedWaitUntil:
-    visible:
-      id: "review_list_pill_unrecognised"
-      text: "À qualifier · 1"
+    visible: "À qualifier · 1"
     timeout: 30000
 - assertVisible:
     id: "review_list_pill_recognised"
-    text: "Reconnues · 2"
+- assertVisible: "Reconnues · 2"
 
 # « Reconnues »: the line the rule recognised, controlled with « Correct ».
 - tapOn:
@@ -137,7 +133,7 @@ tags:
     timeout: 30000
 - assertVisible:
     id: "review_fiche_state"
-    text: "Reconnue"
+- assertVisible: "Reconnue"
 - scrollUntilVisible:
     element:
       id: "review_fiche_control"

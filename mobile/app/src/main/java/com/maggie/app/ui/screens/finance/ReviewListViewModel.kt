@@ -90,7 +90,7 @@ data class ReviewListUiState(
     /** A contact being created or linked to the open line. */
     val isLinking: Boolean = false,
     val correction: ReviewCorrection? = null,
-    /** The « Créer une opération » screen, opened from the fiche. */
+    /** The « Créer une opération récurrente » screen, opened from the fiche. */
     val ruleDraft: RuleDraftState? = null,
     val choosingCategory: Boolean = false,
     val transfer: TransferChoice? = null,
@@ -151,7 +151,7 @@ data class ReviewListUiState(
  * « Reconnue », the fiche stays on it, and « Suivant » goes to the next line the filter kept when the filter was applied.
  * The filters live here, so they survive a rotation and the way back from the fiche. The gestures are those of the three
  * pages this one replaces: qualify (« Valider », « Autre catégorie », « Toujours pour ce marchand », « Qualification »,
- * « Virement interne », « Créer une opération », the contact, « Ce virement est »), check (« Correct », « Corriger »)
+ * « Virement interne », « Créer une opération récurrente », the contact, « Ce virement est »), check (« Correct », « Corriger »)
  * and judge the spend.
  */
 class ReviewListViewModel(
@@ -183,7 +183,7 @@ class ReviewListViewModel(
         write = { _uiState.value = _uiState.value.copy(ruleDraft = it) },
         applyToExisting = true,
         onSaved = {
-            _uiState.value = _uiState.value.copy(qualification = Qualification.NONE, message = "Opération créée")
+            _uiState.value = _uiState.value.copy(qualification = Qualification.NONE, message = "Opération récurrente créée")
             refreshQuietly()
         },
     )
@@ -758,7 +758,7 @@ class ReviewListViewModel(
         }
     }
 
-    /** « Créer une opération »: the rule draft, filled from the open line and the qualification chosen on the fiche. */
+    /** « Créer une opération récurrente »: the rule draft, filled from the open line and the qualification chosen on the fiche. */
     fun openRuleDraft() {
         val state = _uiState.value
         val line = state.current ?: return

@@ -805,9 +805,9 @@ object UiTags {
 
     /**
      * The fiche of a line of the Revue: the line, its state pill, the gestures of a line to qualify (« Valider »,
-     * « Autre catégorie » and its search, « Créer une opération », the merchant switch, the qualification, the internal
+     * « Autre catégorie » and its search, « Créer une opération récurrente », the merchant switch, the qualification, the internal
      * transfer and its « sans contrepartie », the contact), those of a recognised one (« Correct », « Corriger » and its
-     * category, search and save, « Voir l'opération »), « Voir la fiche » and the two satisfactions.
+     * category, search and save, « Voir l'opération récurrente »), « Voir la fiche » and the two satisfactions.
      */
     const val REVIEW_FICHE = "review_fiche"
     const val REVIEW_FICHE_STATE = "review_fiche_state"

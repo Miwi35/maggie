@@ -121,7 +121,7 @@ onFlowComplete:
     timeout: 30000
 - assertVisible:
     id: "review_list_pill_unrecognised"
-    text: "À qualifier · 3"
+- assertVisible: "À qualifier · 3"
 - assertVisible: "A TRIER MAG-421 A"
 - tapOn: "A TRIER MAG-421 A"
 - extendedWaitUntil:

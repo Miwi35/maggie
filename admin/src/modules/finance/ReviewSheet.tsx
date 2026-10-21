@@ -98,7 +98,7 @@ const ContactLine = ({
 const RESOLVED_TEXT: Record<Exclude<ResolvedKind, 'category'>, string> = {
   transfer: 'Virement interne',
   peer: 'Virement précisé',
-  operation: 'Opération créée',
+  operation: 'Opération récurrente créée',
 }
 
 const ORIGIN_TEXT = {
@@ -303,7 +303,7 @@ export const ReviewSheet = ({
                 Autre catégorie
               </Button>
               <Button disabled={busy} onClick={() => setCreating(true)}>
-                Créer une opération
+                Créer une opération récurrente
               </Button>
               <Button color="inherit" disabled={busy} onClick={onInternalTransfer}>
                 Virement interne
@@ -357,7 +357,7 @@ export const ReviewSheet = ({
             </Button>
             {operationLink && (
               <Button color="inherit" component={Link} to={operationLink}>
-                Voir l&apos;opération
+                Voir l&apos;opération récurrente
               </Button>
             )}
           </Stack>
@@ -420,7 +420,7 @@ export const ReviewSheet = ({
 
         {creating && (
           <CreateFilterDialog
-            title="Créer une opération"
+            title="Créer une opération récurrente"
             record={{
               id: item.id,
               label: item.label,

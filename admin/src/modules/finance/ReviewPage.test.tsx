@@ -395,7 +395,7 @@ describe('ReviewPage', () => {
       expect(sheet().getByText('À qualifier')).toBeInTheDocument()
       expect(sheet().getByRole('button', { name: 'Valider' })).toBeInTheDocument()
       expect(sheet().getByRole('button', { name: 'Autre catégorie' })).toBeInTheDocument()
-      expect(sheet().getByRole('button', { name: 'Créer une opération' })).toBeInTheDocument()
+      expect(sheet().getByRole('button', { name: 'Créer une opération récurrente' })).toBeInTheDocument()
       expect(sheet().queryByRole('button', { name: 'Créer un filtre' })).not.toBeInTheDocument()
       expect(screen.getByText('2 / 4')).toBeInTheDocument()
       expect(screen.queryByRole('region', { name: 'Non reconnues' })).not.toBeInTheDocument()
@@ -424,9 +424,9 @@ describe('ReviewPage', () => {
       renderPage()
       await openLine('CARREFOUR MARKET 1234')
 
-      await userEvent.click(sheet().getByRole('button', { name: 'Créer une opération' }))
+      await userEvent.click(sheet().getByRole('button', { name: 'Créer une opération récurrente' }))
 
-      const dialog = await screen.findByRole('dialog', { name: 'Créer une opération' })
+      const dialog = await screen.findByRole('dialog', { name: 'Créer une opération récurrente' })
       expect(within(dialog).getByLabelText('…ce texte')).toHaveValue('CARREFOUR MARKET')
       expect(within(dialog).getByRole('checkbox', { name: 'Appliquer aux transactions existantes' })).toBeChecked()
     })
@@ -460,7 +460,7 @@ describe('ReviewPage', () => {
       expect(sheet().getByTestId('sheet-operation')).toHaveTextContent('Abonnements')
       expect(sheet().getByRole('button', { name: 'Correct' })).toBeInTheDocument()
       expect(sheet().getByRole('button', { name: 'Corriger' })).toBeInTheDocument()
-      expect(sheet().getByRole('link', { name: "Voir l'opération" })).toBeInTheDocument()
+      expect(sheet().getByRole('link', { name: "Voir l'opération récurrente" })).toBeInTheDocument()
       expect(sheet().queryByRole('button', { name: 'Valider' })).not.toBeInTheDocument()
     })
 
@@ -468,7 +468,7 @@ describe('ReviewPage', () => {
       renderPage()
       await openLine('NETFLIX.COM')
 
-      const href = decodeURIComponent(sheet().getByRole('link', { name: "Voir l'opération" }).getAttribute('href') ?? '')
+      const href = decodeURIComponent(sheet().getByRole('link', { name: "Voir l'opération récurrente" }).getAttribute('href') ?? '')
 
       expect(href).toContain('/categorization_rules/')
       expect(href).toContain('/api/categorization_rules/R1')
@@ -478,7 +478,7 @@ describe('ReviewPage', () => {
       renderPage()
       await openLine('VIREMENT SALAIRE')
 
-      expect(sheet().getByRole('link', { name: "Voir l'opération" })).toHaveAttribute('href', '/finance/recurring-operations')
+      expect(sheet().getByRole('link', { name: "Voir l'opération récurrente" })).toHaveAttribute('href', '/finance/recurring-operations')
     })
 
     test('a deleted operation offers no link to it', async () => {
@@ -486,7 +486,7 @@ describe('ReviewPage', () => {
       renderPage()
       await openLine('NETFLIX.COM')
 
-      expect(sheet().queryByRole('link', { name: "Voir l'opération" })).not.toBeInTheDocument()
+      expect(sheet().queryByRole('link', { name: "Voir l'opération récurrente" })).not.toBeInTheDocument()
       expect(sheet().getByRole('link', { name: 'Voir la fiche complète' })).toBeInTheDocument()
     })
 
@@ -916,7 +916,7 @@ describe('ReviewPage', () => {
 
       expect(await sheet().findByText('Ce virement est')).toBeInTheDocument()
       expect(sheet().queryByRole('button', { name: 'Virement interne' })).not.toBeInTheDocument()
-      expect(sheet().queryByRole('button', { name: 'Créer une opération' })).not.toBeInTheDocument()
+      expect(sheet().queryByRole('button', { name: 'Créer une opération récurrente' })).not.toBeInTheDocument()
     })
 
     test('a transfer still without category asks both', async () => {

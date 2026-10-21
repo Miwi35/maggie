@@ -96,7 +96,7 @@ const ReviewRow = ({
           </Typography>
         </Box>
         {verdict && <Chip size="small" variant="outlined" label={verdict} />}
-        {controlled && <CheckIcon fontSize="small" color="success" titleAccess="Contrôlée" />}
+        {controlled && <CheckIcon fontSize="small" color="success" titleAccess="Contrôlée" data-testid="review-controlled" />}
         <ReviewStatePill recognised={recognised} />
         <Typography
           variant="body2"

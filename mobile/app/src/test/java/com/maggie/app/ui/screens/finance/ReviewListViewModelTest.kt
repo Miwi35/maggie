@@ -1102,10 +1102,10 @@ class ReviewListViewModelTest {
         coVerify(exactly = 0) { contacts.createContact(any()) }
     }
 
-    // Créer une opération
+    // Créer une opération récurrente
 
     @Test
-    fun `Créer une opération opens the rule draft from the fiche, with the suggested heading and the chosen qualification`() = runTest {
+    fun `Créer une opération récurrente opens the rule draft from the fiche, with the suggested heading and the chosen qualification`() = runTest {
         coEvery { rules.previewRule(any()) } returns Result.success(RulePreview())
         val viewModel = loadFiche("tx-1")
 
@@ -1145,7 +1145,7 @@ class ReviewListViewModelTest {
         assertTrue(created.captured.applyToExisting)
         assertEquals("/api/categories/cat-courses", created.captured.category)
         assertNull(state.ruleDraft)
-        assertEquals("Opération créée", state.message)
+        assertEquals("Opération récurrente créée", state.message)
         assertTrue(state.current!!.recognised)
         assertEquals(1, state.counts.unrecognised)
         assertEquals(2, state.counts.recognised)

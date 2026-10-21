@@ -208,7 +208,7 @@ fun ReviewListScreen(
             onQualificationChange = viewModel::changeRuleQualification,
             onSave = viewModel::saveRule,
             onBack = viewModel::closeRuleDraft,
-            title = "Créer une opération",
+            title = "Créer une opération récurrente",
             appliesToExisting = true,
         )
         return
@@ -614,7 +614,7 @@ private fun FicheCard(
                     onClick = viewModel::openRuleDraft,
                     enabled = !state.isSorting,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag(UiTags.REVIEW_FICHE_CREATE_OPERATION),
-                ) { Text("Créer une opération") }
+                ) { Text("Créer une opération récurrente") }
 
                 Row(
                     modifier = Modifier
@@ -691,7 +691,7 @@ private fun FicheCard(
                     TextButton(
                         onClick = { onOpenOperation(line) },
                         modifier = Modifier.heightIn(min = 48.dp).testTag(UiTags.REVIEW_FICHE_OPEN_OPERATION),
-                    ) { Text("Voir l'opération") }
+                    ) { Text("Voir l'opération récurrente") }
                 }
                 TextButton(
                     onClick = { onOpenTransaction(line) },

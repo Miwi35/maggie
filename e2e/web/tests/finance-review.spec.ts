@@ -259,7 +259,7 @@ test('« Correct » checks a line a rule recognised, and « À conserver » judg
   await expect(review.sheet.getByTestId('sheet-operation')).toBeVisible()
   await review.correct.click()
   await expect(review.sheet.getByText('Contrôlée')).toBeVisible()
-  await expect(review.row(labels[1]).getByTitle('Contrôlée')).toBeVisible()
+  await expect(review.row(labels[1]).getByTestId('review-controlled')).toBeVisible()
 
   await review.select(labels[2])
   await review.judge('À conserver')

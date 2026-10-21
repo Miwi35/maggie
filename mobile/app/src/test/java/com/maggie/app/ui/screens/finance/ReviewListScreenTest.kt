@@ -309,7 +309,7 @@ class ReviewListScreenTest {
     }
 
     @Test
-    fun `Voir l'opération is offered only when an operation recognised the line`() {
+    fun `Voir l'opération récurrente is offered only when an operation recognised the line`() {
         showFiche(viewModel(listOf(salary)), row = 0)
 
         compose.onNodeWithTag(UiTags.REVIEW_FICHE_CONTROL).assertIsDisplayed()

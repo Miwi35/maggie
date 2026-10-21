@@ -25,7 +25,7 @@ data class ReviewQueueItem(
     val categoryId: String? = null,
     val categoryPath: String? = null,
     val qualifiedBy: String? = null,
-    /** What recognised the line (MAG-539): the series or the rule, to follow to « Voir l'opération », and its label. */
+    /** What recognised the line (MAG-539): the series or the rule, to follow to « Voir l'opération récurrente », and its label. */
     val qualifiedBySeriesId: String? = null,
     val qualifiedByRuleId: String? = null,
     val operationLabel: String? = null,

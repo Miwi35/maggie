@@ -160,7 +160,7 @@ describe('FinanceSummaryPage', () => {
     const fetch = stubApi()
     renderPage('/finance/summary/review/recurring')
 
-    await opensOn('Opérations', 'recurring')
+    await opensOn('Opérations récurrentes', 'recurring')
     expect(fetch).not.toHaveBeenCalled()
   })
 

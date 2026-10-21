@@ -90,7 +90,7 @@ export const FINANCE_MENUS: NavMenu[] = [
     aspects: [
       { id: 'review', label: 'Transactions', path: '/finance/review' },
       { id: 'rules', label: 'Règles de catégorisation', path: '/categorization_rules', resource: 'categorization_rules' },
-      { id: 'recurring', label: 'Opérations', path: '/finance/recurring-operations' },
+      { id: 'recurring', label: 'Opérations récurrentes', path: '/finance/recurring-operations' },
     ],
   },
   {
