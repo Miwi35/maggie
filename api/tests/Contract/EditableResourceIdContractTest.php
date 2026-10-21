@@ -20,9 +20,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * (envelopes), MAG-353 (categories) and MAG-480 (accounts, loans, ingredients,
  * agendas, events, tasks) each fixed one resource by hand, after a recette.
  *
- * The guard reads the resource metadata, so it also covers an operation
- * declared in a config file or added by a bundle, and a child class that
- * cannot see its parent's private property.
+ * The resources come from the API Platform metadata, so an operation declared
+ * in a config file or added by a bundle is covered too.
  */
 final class EditableResourceIdContractTest extends KernelTestCase
 {
