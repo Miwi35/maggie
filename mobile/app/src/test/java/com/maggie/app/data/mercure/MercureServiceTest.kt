@@ -71,6 +71,57 @@ class MercureServiceTest {
         }
     }
 
+    // A screen that closes cancels its streams, and the next one must still connect: every
+    // journey opens a few dozen over one session, and past the dispatcher's per-host cap a late
+    // subscriber (the open recipe, the chat) never receives anything (MAG-512, 21 Oct.).
+    @Test
+    fun `streams opened and cancelled one after the other never exhaust the client`() = runBlocking {
+        val streams = 80
+        val sockets = mutableListOf<Socket>()
+        val server = ServerSocket(0)
+        val accepting = thread(isDaemon = true) {
+            while (!server.isClosed) {
+                val socket = try { server.accept() } catch (e: Exception) { return@thread }
+                synchronized(sockets) { sockets += socket }
+                thread(isDaemon = true) {
+                    try {
+                        socket.getInputStream().read(ByteArray(4096))
+                        socket.getOutputStream().apply {
+                            write("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n: hello\n\n".toByteArray())
+                            flush()
+                        }
+                    } catch (e: Exception) {
+                        // Closed by the test's cleanup.
+                    }
+                }
+            }
+        }
+        val client = MercureService.defaultClient()
+
+        try {
+            repeat(streams) { index ->
+                val connected = CountDownLatch(1)
+                val job = launch(Dispatchers.IO) {
+                    client.sse("http://127.0.0.1:${server.localPort}/hub") {
+                        connected.countDown()
+                        incoming.collect { }
+                    }
+                }
+                assertTrue(
+                    "stream ${index + 1} of $streams never connected (${synchronized(sockets) { sockets.size }} sockets accepted)",
+                    withContext(Dispatchers.IO) { connected.await(10, TimeUnit.SECONDS) },
+                )
+                job.cancel()
+                job.join()
+            }
+        } finally {
+            client.close()
+            server.close()
+            synchronized(sockets) { sockets.forEach { it.close() } }
+            accepting.join(1000)
+        }
+    }
+
     // A hub heartbeat is a comment line (": ..."), not an update: handing it to a subscriber makes
     // every idle screen reload on each beat (MAG-372).
     // No fixed sleep: the fake hub holds the stream open until the client hangs up, so a slow runner

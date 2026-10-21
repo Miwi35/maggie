@@ -141,19 +141,22 @@ class MercureService(
 
     companion object {
         private const val TAG = "MercureService"
+        private const val MAX_STREAMS = 1024
 
         fun defaultClient(): HttpClient = HttpClient(OkHttp) {
             engine {
                 // Ktor puts a fresh Dispatcher on the builder before this block runs, so the limits
                 // must be set here. Each open stream holds a call for good and OkHttp queues any
                 // beyond 5 per host: a recipe sheet opened over chat, approvals, contexts and the
-                // dashboard would never connect.
+                // dashboard would never connect. A cancelled stream keeps its slot (the engine
+                // does not release it), so the cap counts every stream a session ever opened:
+                // at 32 the journeys' late subscribers (open recipe, chat) stayed queued for good.
                 config {
                     readTimeout(0, TimeUnit.SECONDS)
                     callTimeout(0, TimeUnit.SECONDS)
                     dispatcher(Dispatcher().apply {
-                        maxRequests = 64
-                        maxRequestsPerHost = 32
+                        maxRequests = MAX_STREAMS
+                        maxRequestsPerHost = MAX_STREAMS
                     })
                 }
             }
