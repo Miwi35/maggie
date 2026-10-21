@@ -2,6 +2,7 @@
 
 namespace Maggie\Core\Entity;
 
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\Patch;
@@ -38,8 +39,10 @@ class User implements UserInterface, MercurePublishable, IndexableInterface
     /** Roles the console may grant; ROLE_USER is implicit. */
     public const GRANTABLE_ROLES = [self::ROLE_PROACTION_TRIGGER];
 
+    // The admin sends the record back with its IRI as `id`: never denormalized.
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
+    #[ApiProperty(writable: false)]
     private Ulid $id;
 
     #[ORM\Column(length: 255, unique: true)]
