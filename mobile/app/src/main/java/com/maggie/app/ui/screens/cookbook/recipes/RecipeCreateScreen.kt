@@ -115,56 +115,64 @@ internal fun IngredientRowInput(
         )
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        OutlinedTextField(
-            value = row.ciqualFoodName,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Ingrédient") },
-            modifier = Modifier.weight(1f),
-            singleLine = true,
-            interactionSource = interactionSource,
-        )
-        OutlinedTextField(
-            value = row.quantity,
-            onValueChange = { onUpdate(row.copy(quantity = it)) },
-            label = { Text("Qté") },
-            modifier = Modifier.weight(0.5f),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        )
-        ExposedDropdownMenuBox(
-            expanded = unitExpanded,
-            onExpandedChange = { unitExpanded = it },
-            modifier = Modifier.weight(0.6f),
+    // Two lines: on one, the unit field was left too narrow for « g » beside its arrow (MAG-536).
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             OutlinedTextField(
-                value = row.unit.name.lowercase(),
+                value = row.ciqualFoodName,
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Unité") },
-                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(unitExpanded) },
+                label = { Text("Ingrédient") },
+                modifier = Modifier.weight(1f),
                 singleLine = true,
+                interactionSource = interactionSource,
             )
-            ExposedDropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                CookbookUnit.entries.forEach { unit ->
-                    DropdownMenuItem(
-                        text = { Text(unit.name.lowercase()) },
-                        onClick = {
-                            onUpdate(row.copy(unit = unit))
-                            unitExpanded = false
-                        },
-                    )
-                }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Default.Delete, contentDescription = "Supprimer")
             }
         }
-        IconButton(onClick = onRemove) {
-            Icon(Icons.Default.Delete, contentDescription = "Supprimer")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = row.quantity,
+                onValueChange = { onUpdate(row.copy(quantity = it)) },
+                label = { Text("Qté") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            )
+            ExposedDropdownMenuBox(
+                expanded = unitExpanded,
+                onExpandedChange = { unitExpanded = it },
+                modifier = Modifier.weight(1f),
+            ) {
+                OutlinedTextField(
+                    value = row.unit.name.lowercase(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Unité") },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(unitExpanded) },
+                    singleLine = true,
+                )
+                ExposedDropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                    CookbookUnit.entries.forEach { unit ->
+                        DropdownMenuItem(
+                            text = { Text(unit.name.lowercase()) },
+                            onClick = {
+                                onUpdate(row.copy(unit = unit))
+                                unitExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
         }
     }
 }
