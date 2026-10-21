@@ -48,11 +48,10 @@ tags:
     visible:
       id: "finance_menu_dashboard"
     timeout: 30000
-# The menu row scrolls: Planification is past the edge of a phone until it is swiped.
-- swipe:
-    from:
-      id: "finance_menu_dashboard"
-    direction: LEFT
+# The menu row scrolls: Planification is past the edge of a phone. Selecting Trésorerie, its
+# neighbour, brings the selected tab into view (ScrollableTabRow), and Planification with it.
+- tapOn:
+    id: "finance_menu_treasury"
 - extendedWaitUntil:
     visible:
       id: "finance_menu_planning"

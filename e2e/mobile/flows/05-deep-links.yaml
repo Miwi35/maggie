@@ -79,7 +79,7 @@ tags:
     timeout: 30000
 
 # The Finance menus (MAG-426): a menu opens a summary page with one block per aspect,
-# each leading to its screen, and the back arrow lands on the Dashboard — the menus
+# each leading to its screen, and the back arrow lands on the Dashboard (its rings) — the menus
 # are siblings, not a trail. Trésorerie → Matelas and Avances d'épargne.
 - openLink: "maggie-e2e://finance"
 
