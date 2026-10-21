@@ -69,24 +69,7 @@ tags:
     visible: "Appeler le garage"
     timeout: 20000
 
-- tapOn:
-    id: "tasks_tab_someday"
-- extendedWaitUntil:
-    visible: "Trier les photos de vacances"
-    timeout: 20000
-
-- tapOn:
-    id: "tasks_tab_done"
-- extendedWaitUntil:
-    visible: "Sortir les poubelles"
-    timeout: 20000
-
 # Quick add in « À venir »: the field names tomorrow, the task lands in the tab.
-- tapOn:
-    id: "tasks_tab_upcoming"
-- extendedWaitUntil:
-    visible: "Appeler le garage"
-    timeout: 20000
 - tapOn:
     id: "tasks_add_input"
 - inputText: "Tâche MAG-408"
@@ -106,6 +89,13 @@ tags:
     timeout: 20000
 - assertVisible: "Appeler le garage"
 
+# The tabs scroll in the narrow list pane of a tablet: each is reached from the one before it.
+- tapOn:
+    id: "tasks_tab_someday"
+- extendedWaitUntil:
+    visible: "Trier les photos de vacances"
+    timeout: 20000
+
 - tapOn:
     id: "tasks_tab_done"
 - extendedWaitUntil:
@@ -113,8 +103,20 @@ tags:
     timeout: 20000
 - assertVisible: "Sortir les poubelles"
 
-# Its detail deletes it, which leaves the seeded server as it was.
+# Its detail deletes it, which leaves the seeded server as it was. On a foldable the detail
+# is a sheet taller than the screen: « Supprimer » is at its foot.
 - tapOn: "Tâche MAG-408"
+- extendedWaitUntil:
+    visible: ".*Priorité.*"
+    timeout: 20000
+- runFlow:
+    when:
+      notVisible: "Supprimer"
+    commands:
+      - swipe:
+          from:
+            text: ".*Priorité.*"
+          direction: UP
 - extendedWaitUntil:
     visible:
       text: "Supprimer"

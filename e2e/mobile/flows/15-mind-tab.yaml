@@ -43,6 +43,7 @@ tags:
 - inputText: "Supprime l'événement Test validation ${output.eventId}"
 - tapOn:
     id: "chat_send"
+- hideKeyboard
 - extendedWaitUntil:
     visible: ".*Je te demande ton accord pour supprimer.*"
     timeout: 60000

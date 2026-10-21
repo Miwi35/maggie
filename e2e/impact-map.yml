@@ -513,16 +513,14 @@ mobile:
     quarantine:
       since: 2026-10-08
       reason: >-
-        Red then green on a re-run with no change (7-8 Oct.); hung 17 minutes once
-        on a CI emulator before passing.
+        Red on every night since 18 Oct., all formats, retry included: the second
+        long press on `voice_mic` leaves « Maggie réfléchit… » after a TTS
+        `Prepare failed`, so « Il était une fois » never shows (MAG-534). Before: hung 17 minutes once on a CI emulator.
   e2e/mobile/flows/04-calendar-import.yaml:
     areas: [calendar, google, realtime]
   e2e/mobile/flows/05-deep-links.yaml:
     areas: [calendar, chat, finance, cookbook]
     paths: [mobile/app/src/main/java/com/maggie/app/ui/navigation/DeepLinks.kt]
-    quarantine:
-      since: 2026-10-08
-      reason: Red then green on a re-run with no change (7-8 Oct.).
   e2e/mobile/flows/08-grocery-realtime.yaml:
     areas: [grocery, realtime]
   e2e/mobile/flows/15-recurring-grocery.yaml:
@@ -535,6 +533,12 @@ mobile:
   e2e/mobile/flows/10-finance-recurring.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/recurring-api.js]
+    quarantine:
+      since: 2026-10-21
+      reason: >-
+        Red on the tablet every night since 18 Oct.: `recurring_save` sits under the launcher's taskbar
+        (bottom 60 px) and the tap opens another app (MAG-531).
+        Lift it once that is fixed.
   e2e/mobile/flows/10-meal-ingredient-choice.yaml:
     areas: [cookbook, grocery]
     paths: [e2e/mobile/scripts/meal-api.js]
@@ -542,7 +546,10 @@ mobile:
     areas: [calendar]
     quarantine:
       since: 2026-10-08
-      reason: Red then green on a re-run with no change (7-8 Oct.).
+      reason: >-
+        Its first assertion matched the chip's tag and its title together, which
+        never are on the same node: red on every night, all formats. Repaired on
+        21 Oct. (MAG-521); the steps after it never ran. Lift it after one green night.
   e2e/mobile/flows/15-calendar-more-than-a-page.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/event-api.js]
@@ -571,12 +578,22 @@ mobile:
   e2e/mobile/flows/17b-tasks-day.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/day-plan-api.js]
+    quarantine:
+      since: 2026-10-21
+      reason: >-
+        Red on the tablet every night since 18 Oct.: the reserve row stays under the launcher's taskbar
+        (MAG-531). Lift it once that is fixed.
   e2e/mobile/flows/17c-task-focus.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/focus-api.js]
   e2e/mobile/flows/17c-tasks-evening.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/day-review-api.js]
+    quarantine:
+      since: 2026-10-21
+      reason: >-
+        Red on the tablet every night since 18 Oct.: `tasks_evening_good_night` sits under the launcher's
+        taskbar (MAG-531). Lift it once that is fixed.
   e2e/mobile/flows/17d-task-bravo.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/bravo-api.js]
@@ -586,6 +603,11 @@ mobile:
   e2e/mobile/flows/17f-routines.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/routines-api.js]
+    quarantine:
+      since: 2026-10-21
+      reason: >-
+        Red on the tablet every night since 18 Oct.: `routines_add` sits under the launcher's taskbar
+        (MAG-531). Lift it once that is fixed.
   e2e/mobile/flows/13-finance-category-edit.yaml:
     areas: [finance]
   e2e/mobile/flows/13-finance-to-sort.yaml:
@@ -636,9 +658,19 @@ mobile:
   e2e/mobile/flows/23-finance-projects.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/projects-api.js, api/fixtures/e2e/50-finance.yaml]
+    quarantine:
+      since: 2026-10-21
+      reason: >-
+        Red on the tablet and the foldable every night since 18 Oct.: `project_save` sits under the
+        launcher's taskbar (MAG-531). Lift it once that is fixed.
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]
+    quarantine:
+      since: 2026-10-21
+      reason: >-
+        Red on the tablet every night since 18 Oct.: the « N rejets » pill opens the account on its
+        Transactions tab instead of Incidents, so `incident_row` is absent (MAG-533). Lift it once that is fixed.
   e2e/mobile/flows/14-interruption.yaml:
     areas: [interruptions, notification, realtime]
     paths:

@@ -48,10 +48,12 @@ tags:
 - tapOn:
     id: "calendar_view_month"
 
+# The slot's tag is on the chip, its title on the Text inside it: matched as its child.
 - extendedWaitUntil:
     visible:
-      id: "calendar_month_slot_${output.first}_.*"
       text: ".*Journée du 1er MAG-382.*"
+      childOf:
+        id: "calendar_month_slot_${output.first}_.*"
     timeout: 20000
 
 - tapOn:

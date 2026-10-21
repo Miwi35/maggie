@@ -146,10 +146,14 @@ tags:
     visible:
       id: "grocery"
     timeout: 20000
-- extendedWaitUntil:
-    visible: ".*Légumes pour couscous MAG-297.*"
+# Scrolled to, not waited for: on a tall window the list's own bottom band hides the last
+# group (« Non assigné ») until the list is scrolled; the scroll also covers the refresh.
+- scrollUntilVisible:
+    element: ".*Légumes pour couscous MAG-297.*"
     timeout: 30000
-- assertVisible: ".*2(\\.0)? (jars?|bocal|bocaux).*"
+- extendedWaitUntil:
+    visible: ".*2(\\.0)? (jars?|bocal|bocaux).*"
+    timeout: 10000
 # Waited for: the list follows the choice by a refresh.
 - extendedWaitUntil:
     notVisible: ".*Riz MAG-297.*"
@@ -173,6 +177,7 @@ tags:
 - tapOn:
     id: "meal_detail_title"
 - inputText: "Dimanche en famille"
+- hideKeyboard
 - tapOn:
     id: "meal_detail_save"
 - extendedWaitUntil:

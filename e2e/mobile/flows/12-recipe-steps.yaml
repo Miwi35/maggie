@@ -60,6 +60,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: "recipe_utensil_add"
+    centerElement: true
 - tapOn:
     id: "recipe_utensil_add"
 - extendedWaitUntil:
@@ -82,15 +83,23 @@ tags:
 - scrollUntilVisible:
     element:
       id: "recipe_save"
+    centerElement: true
 - tapOn:
     id: "recipe_save"
 - extendedWaitUntil:
-    visible: "Matériel"
+    notVisible: "Modifier la recette"
     timeout: 30000
+# The sheet comes back where it was scrolled, or reloaded at the top: scroll to the equipment either way.
+- scrollUntilVisible:
+    element: "Mixeur MAG-492"
+    direction: UP
+    timeout: 30000
+- scrollUntilVisible:
+    element: "Matériel"
+    direction: UP
 - extendedWaitUntil:
-    visible: "Mixeur MAG-492"
-    timeout: 30000
-- assertVisible: "Casserole MAG-492"
+    visible: "Casserole MAG-492"
+    timeout: 10000
 
 # Left as found.
 - runScript:

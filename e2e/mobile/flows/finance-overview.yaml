@@ -43,6 +43,18 @@ tags:
     element:
       id: "finance_rhythm_curve"
     timeout: 30000
+# With the chat panel the home has two columns, each its own list: the next project is under the
+# rings and the curve on the left, and a scroll from the screen's centre lands in the right one.
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "chat_panel"
+    commands:
+      - swipe:
+          from:
+            id: "finance_score_ring_week"
+          direction: UP
 - scrollUntilVisible:
     element:
       id: "finance_next_project"
@@ -53,9 +65,11 @@ tags:
       id: "finance_tile_accounts"
     visibilityPercentage: 50
     timeout: 30000
-- extendedWaitUntil:
-    visible: ".*matelas.*"
-    timeout: 10000
+# The foldable's list ends above Maggie's bar: the tile's lines are scrolled to.
+- scrollUntilVisible:
+    element:
+      text: ".*matelas.*"
+    timeout: 30000
 
 # The tile is taller than the screen: scroll to its lines, not to the card (50 % of it in view
 # says nothing about its bottom half).
@@ -77,17 +91,37 @@ tags:
 
 # A tile leads to its menu. Back to the top first, then down to the tile: scrolling down from the
 # bottom of the page leaves the tile as a sliver under the month header, and the tap lands on the header.
-- scrollUntilVisible:
-    element:
-      id: "finance_score_ring_week"
-    direction: UP
-    timeout: 30000
-- scrollUntilVisible:
-    element:
-      id: "finance_tile_accounts"
-    visibilityPercentage: 100
-    centerElement: true
-    timeout: 30000
+# On the two columns the rings are in the other list, scrolled apart: the tile is looked for upwards.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "chat_panel"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "finance_score_ring_week"
+          direction: UP
+          timeout: 30000
+      - scrollUntilVisible:
+          element:
+            id: "finance_tile_accounts"
+          visibilityPercentage: 100
+          centerElement: true
+          timeout: 30000
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "chat_panel"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "finance_tile_accounts"
+          direction: UP
+          visibilityPercentage: 100
+          centerElement: true
+          timeout: 30000
 - tapOn:
     id: "finance_tile_accounts"
 - extendedWaitUntil:
