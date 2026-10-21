@@ -342,6 +342,19 @@ Maggie\Finance\Entity\Loan:
     priority: 1
     currency: EUR
     user: '@e2e_user'
+  # The early repayment journey (MAG-522), on the stock account: no journey of
+  # the owner sums its payments. The penalty is `exempt` until Maggie is told it
+  # sits at the legal cap, so the journey sees the update land.
+  e2e_stock_loan_mortgage:
+    name: Prêt immo
+    lender: Banque Postale
+    principalRemainingCents: 9800000
+    monthlyPaymentCents: 62500
+    annualRateBasisPoints: 180
+    priority: 1
+    currency: EUR
+    prepaymentPenaltyMode: '<(Maggie\Finance\Enum\PrepaymentPenaltyMode::Exempt)>'
+    user: '@e2e_stock_user'
 
 # The projects (MAG-519): a move on a locked date first, then a sofa with no
 # date that waits for it.

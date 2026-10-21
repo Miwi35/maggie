@@ -527,6 +527,42 @@ class TestMatching:
         assert first.content[0].name == "list_routines"
         assert second.content[0].input == {"id": "01JBQF3KQXW8Z7P4M5R6T9VNCE"}
 
+    async def test_the_early_repayment_scenario_acts_on_the_loan_its_list_returned(self):
+        """91-loans-early-repayment.yaml (MAG-522): the update and the simulation carry the id of « Prêt immo »."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        question = "Mon prêt immo a les IRA au plafond légal, combien coûte un remboursement total ?"
+        mortgage = "01JBQF3KQXW8Z7P4M5R6T9VNCE"
+        # As the API answers it: the accent escaped, another loan listed first.
+        listed = json.dumps(
+            {"loans": [{"id": "01JBQF3KQXW8Z7P4M5R6T9VNCD", "name": "Crédit voiture"}, {"id": mortgage, "name": "Prêt immo"}]}
+        )
+
+        async def turn(rounds: list[dict]):
+            return await client.messages.create(
+                model="fake",
+                max_tokens=1024,
+                system="Tu es Maggie.",
+                tools=[{"name": "manage_loans"}],
+                messages=[{"role": "user", "content": question}, *rounds],
+            )
+
+        listing = [
+            {"role": "assistant", "content": [{"type": "tool_use", "id": "t0", "name": "manage_loans", "input": {"action": "list"}}]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t0", "content": listed}]},
+        ]
+        updating = [
+            {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "manage_loans", "input": {}}]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": '{"success":true}'}]},
+        ]
+
+        first = await turn([])
+        second = await turn(listing)
+        third = await turn([*listing, *updating])
+
+        assert first.content[0].input == {"action": "list"}
+        assert second.content[0].input == {"action": "update", "loanId": mortgage, "prepaymentPenaltyMode": "legal_cap"}
+        assert third.content[0].input == {"action": "early_repayment", "loanId": mortgage}
+
     def test_a_typoed_results_pattern_is_refused_at_load_time(self):
         with pytest.raises(ValueError, match="results_matches"):
             parse_scenario({"match": {"user_contains": "x"}, "results_matches": "id(", "turns": [{"text": "ok"}]}, source="x.yaml")

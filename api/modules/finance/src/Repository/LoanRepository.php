@@ -22,4 +22,16 @@ class LoanRepository extends ServiceEntityRepository
     {
         return $this->findBy(['user' => $user], ['priority' => 'DESC', 'id' => 'ASC']);
     }
+
+    /**
+     * The loans actually signed: a projected one (MAG-522) is a project's
+     * option, and enters neither the debt timeline, the saving capacity, the
+     * independence counter nor the dashboard.
+     *
+     * @return Loan[]
+     */
+    public function findSignedByUser(User $user): array
+    {
+        return $this->findBy(['user' => $user, 'projected' => false], ['priority' => 'DESC', 'id' => 'ASC']);
+    }
 }

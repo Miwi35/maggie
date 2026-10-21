@@ -9,6 +9,7 @@ use ApiPlatform\State\ProcessorInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Loan;
 use Maggie\Finance\Message\CreateLoanCommand;
+use Maggie\Finance\Service\LoanDetails;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -16,6 +17,8 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 /** @implements ProcessorInterface<Loan, Loan> */
 class CreateLoanProcessor implements ProcessorInterface
 {
+    use DispatchesProjectCommandTrait;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly Security $security,
@@ -27,7 +30,7 @@ class CreateLoanProcessor implements ProcessorInterface
         /** @var User $user */
         $user = $this->security->getUser();
 
-        $stamped = $this->bus->dispatch(new CreateLoanCommand(
+        $stamped = $this->dispatchProjectCommand($this->bus, new CreateLoanCommand(
             userId: (string) $user->getId(),
             name: $data->getName(),
             principalRemainingCents: $data->getPrincipalRemainingCents(),
@@ -36,6 +39,7 @@ class CreateLoanProcessor implements ProcessorInterface
             lender: $data->getLender(),
             priority: $data->getPriority(),
             currency: $data->getCurrency(),
+            details: LoanDetails::of($data),
         ));
 
         return $stamped->last(HandledStamp::class)->getResult();

@@ -17358,7 +17358,7 @@
             },
             "Loan": {
                 "type": "object",
-                "description": "A loan being repaid. Its end date is never stored: it falls out of the\ncapital, the payment and the rate, and a fourth field would contradict\nthem at the first early repayment.",
+                "description": "A loan being repaid, or one a project would take out (`projected`). Its end\ndate is never stored: it falls out of the capital, the payment, the rate and\nthe type, and a stored one would contradict them at the first early\nrepayment.",
                 "properties": {
                     "id": {
                         "readOnly": true,
@@ -17389,7 +17389,7 @@
                     "annualRateBasisPoints": {
                         "minimum": 0,
                         "maximum": 5000,
-                        "description": "Annual rate in basis points: 350 is 3.50 %. Never a float.",
+                        "description": "Annual nominal rate in basis points: 350 is 3.50 %. Never a float.",
                         "default": 0,
                         "type": "integer"
                     },
@@ -17404,6 +17404,182 @@
                         "pattern": "^([A-Z]{3})$",
                         "default": "EUR",
                         "type": "string"
+                    },
+                    "type": {
+                        "description": "amortizing_fixed (default), amortizing_variable, in_fine, stepped, deferred_partial, deferred_total or bridge: decides the schedule.",
+                        "default": "amortizing_fixed",
+                        "type": "string",
+                        "enum": [
+                            "amortizing_fixed",
+                            "amortizing_variable",
+                            "in_fine",
+                            "stepped",
+                            "deferred_partial",
+                            "deferred_total",
+                            "bridge"
+                        ]
+                    },
+                    "projected": {
+                        "description": "A loan a project would take out, not signed: left out of the debt timeline, the saving capacity, the independence counter and the dashboard.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "initialAmountCents": {
+                        "description": "The amount borrowed, in cents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "aprBasisPoints": {
+                        "description": "The APR (TAEG) in basis points, as the offer states it.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "durationMonths": {
+                        "description": "The whole duration in months, from the first payment. Required by in_fine and bridge.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "firstPaymentOn": {
+                        "description": "The first payment, YYYY-MM-DD: places today within the schedule (deferral, steps, last in fine payment). Empty: the next payment is the first.",
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "example": "2024-02-05"
+                    },
+                    "periodicity": {
+                        "description": "monthly, quarterly, semiannual or annual, as the offer says. The schedule stays monthly: monthlyPaymentCents is the monthly equivalent.",
+                        "default": "monthly",
+                        "type": "string",
+                        "enum": [
+                            "monthly",
+                            "quarterly",
+                            "semiannual",
+                            "annual"
+                        ]
+                    },
+                    "insuranceRateBasisPoints": {
+                        "description": "Borrower insurance as a yearly rate of the amount borrowed, in basis points. Needs initialAmountCents; insuranceMonthlyCents wins over it.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "insuranceMonthlyCents": {
+                        "description": "Borrower insurance per month, in cents, on top of monthlyPaymentCents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "feesCents": {
+                        "description": "Application and guarantee fees, in cents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "referenceIndex": {
+                        "description": "The index a variable rate follows (Euribor 3M…). Required by amortizing_variable; recorded, not followed.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "marginBasisPoints": {
+                        "description": "The margin over the index, in basis points. Required by amortizing_variable.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "rateCapBasisPoints": {
+                        "description": "The highest rate a variable loan can reach, in basis points.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "rateFloorBasisPoints": {
+                        "description": "The lowest rate a variable loan can fall to, in basis points.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "steps": {
+                        "description": "The steps of a stepped loan: [{fromMonth, monthlyPaymentCents}], fromMonth counted from 1 at the first payment. Required by stepped.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "deferralMonths": {
+                        "description": "Months of deferral from the first payment. Required, above 0, by deferred_partial and deferred_total.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "earlyRepaymentAllowed": {
+                        "description": "Whether the offer allows an early repayment at all.",
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "prepaymentPenaltyMode": {
+                        "description": "legal_cap (default): min(6 months of interest on the amount repaid, 3 % of the capital owed); fixed: prepaymentPenaltyFixedCents; exempt: 0; consumer: 1 % of the amount, 0.5 % with 12 months or less left.",
+                        "default": "legal_cap",
+                        "type": "string",
+                        "enum": [
+                            "legal_cap",
+                            "fixed",
+                            "exempt",
+                            "consumer"
+                        ]
+                    },
+                    "prepaymentPenaltyFixedCents": {
+                        "description": "The penalty the offer states, in cents. Required by the fixed mode.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "minPartialRepaymentCents": {
+                        "description": "The smallest partial early repayment the lender takes, in cents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "partialRepaymentEffect": {
+                        "description": "After a partial early repayment: shorten (the default when empty) or lower_payment.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "shorten",
+                            "lower_payment",
+                            null
+                        ]
+                    },
+                    "noticeDays": {
+                        "description": "The notice the lender asks before an early repayment, in days.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "user": {
                         "type": "string",
@@ -17418,7 +17594,7 @@
             },
             "Loan.html": {
                 "type": "object",
-                "description": "A loan being repaid. Its end date is never stored: it falls out of the\ncapital, the payment and the rate, and a fourth field would contradict\nthem at the first early repayment.",
+                "description": "A loan being repaid, or one a project would take out (`projected`). Its end\ndate is never stored: it falls out of the capital, the payment, the rate and\nthe type, and a stored one would contradict them at the first early\nrepayment.",
                 "properties": {
                     "id": {
                         "readOnly": true,
@@ -17449,7 +17625,7 @@
                     "annualRateBasisPoints": {
                         "minimum": 0,
                         "maximum": 5000,
-                        "description": "Annual rate in basis points: 350 is 3.50 %. Never a float.",
+                        "description": "Annual nominal rate in basis points: 350 is 3.50 %. Never a float.",
                         "default": 0,
                         "type": "integer"
                     },
@@ -17464,6 +17640,182 @@
                         "pattern": "^([A-Z]{3})$",
                         "default": "EUR",
                         "type": "string"
+                    },
+                    "type": {
+                        "description": "amortizing_fixed (default), amortizing_variable, in_fine, stepped, deferred_partial, deferred_total or bridge: decides the schedule.",
+                        "default": "amortizing_fixed",
+                        "type": "string",
+                        "enum": [
+                            "amortizing_fixed",
+                            "amortizing_variable",
+                            "in_fine",
+                            "stepped",
+                            "deferred_partial",
+                            "deferred_total",
+                            "bridge"
+                        ]
+                    },
+                    "projected": {
+                        "description": "A loan a project would take out, not signed: left out of the debt timeline, the saving capacity, the independence counter and the dashboard.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "initialAmountCents": {
+                        "description": "The amount borrowed, in cents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "aprBasisPoints": {
+                        "description": "The APR (TAEG) in basis points, as the offer states it.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "durationMonths": {
+                        "description": "The whole duration in months, from the first payment. Required by in_fine and bridge.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "firstPaymentOn": {
+                        "description": "The first payment, YYYY-MM-DD: places today within the schedule (deferral, steps, last in fine payment). Empty: the next payment is the first.",
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "example": "2024-02-05"
+                    },
+                    "periodicity": {
+                        "description": "monthly, quarterly, semiannual or annual, as the offer says. The schedule stays monthly: monthlyPaymentCents is the monthly equivalent.",
+                        "default": "monthly",
+                        "type": "string",
+                        "enum": [
+                            "monthly",
+                            "quarterly",
+                            "semiannual",
+                            "annual"
+                        ]
+                    },
+                    "insuranceRateBasisPoints": {
+                        "description": "Borrower insurance as a yearly rate of the amount borrowed, in basis points. Needs initialAmountCents; insuranceMonthlyCents wins over it.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "insuranceMonthlyCents": {
+                        "description": "Borrower insurance per month, in cents, on top of monthlyPaymentCents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "feesCents": {
+                        "description": "Application and guarantee fees, in cents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "referenceIndex": {
+                        "description": "The index a variable rate follows (Euribor 3M…). Required by amortizing_variable; recorded, not followed.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "marginBasisPoints": {
+                        "description": "The margin over the index, in basis points. Required by amortizing_variable.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "rateCapBasisPoints": {
+                        "description": "The highest rate a variable loan can reach, in basis points.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "rateFloorBasisPoints": {
+                        "description": "The lowest rate a variable loan can fall to, in basis points.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "steps": {
+                        "description": "The steps of a stepped loan: [{fromMonth, monthlyPaymentCents}], fromMonth counted from 1 at the first payment. Required by stepped.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "deferralMonths": {
+                        "description": "Months of deferral from the first payment. Required, above 0, by deferred_partial and deferred_total.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "earlyRepaymentAllowed": {
+                        "description": "Whether the offer allows an early repayment at all.",
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "prepaymentPenaltyMode": {
+                        "description": "legal_cap (default): min(6 months of interest on the amount repaid, 3 % of the capital owed); fixed: prepaymentPenaltyFixedCents; exempt: 0; consumer: 1 % of the amount, 0.5 % with 12 months or less left.",
+                        "default": "legal_cap",
+                        "type": "string",
+                        "enum": [
+                            "legal_cap",
+                            "fixed",
+                            "exempt",
+                            "consumer"
+                        ]
+                    },
+                    "prepaymentPenaltyFixedCents": {
+                        "description": "The penalty the offer states, in cents. Required by the fixed mode.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "minPartialRepaymentCents": {
+                        "description": "The smallest partial early repayment the lender takes, in cents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "partialRepaymentEffect": {
+                        "description": "After a partial early repayment: shorten (the default when empty) or lower_payment.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "shorten",
+                            "lower_payment",
+                            null
+                        ]
+                    },
+                    "noticeDays": {
+                        "description": "The notice the lender asks before an early repayment, in days.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "user": {
                         "type": "string",
@@ -17478,7 +17830,7 @@
             },
             "Loan.jsonMergePatch": {
                 "type": "object",
-                "description": "A loan being repaid. Its end date is never stored: it falls out of the\ncapital, the payment and the rate, and a fourth field would contradict\nthem at the first early repayment.",
+                "description": "A loan being repaid, or one a project would take out (`projected`). Its end\ndate is never stored: it falls out of the capital, the payment, the rate and\nthe type, and a stored one would contradict them at the first early\nrepayment.",
                 "properties": {
                     "id": {
                         "readOnly": true,
@@ -17509,7 +17861,7 @@
                     "annualRateBasisPoints": {
                         "minimum": 0,
                         "maximum": 5000,
-                        "description": "Annual rate in basis points: 350 is 3.50 %. Never a float.",
+                        "description": "Annual nominal rate in basis points: 350 is 3.50 %. Never a float.",
                         "default": 0,
                         "type": "integer"
                     },
@@ -17524,6 +17876,182 @@
                         "pattern": "^([A-Z]{3})$",
                         "default": "EUR",
                         "type": "string"
+                    },
+                    "type": {
+                        "description": "amortizing_fixed (default), amortizing_variable, in_fine, stepped, deferred_partial, deferred_total or bridge: decides the schedule.",
+                        "default": "amortizing_fixed",
+                        "type": "string",
+                        "enum": [
+                            "amortizing_fixed",
+                            "amortizing_variable",
+                            "in_fine",
+                            "stepped",
+                            "deferred_partial",
+                            "deferred_total",
+                            "bridge"
+                        ]
+                    },
+                    "projected": {
+                        "description": "A loan a project would take out, not signed: left out of the debt timeline, the saving capacity, the independence counter and the dashboard.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "initialAmountCents": {
+                        "description": "The amount borrowed, in cents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "aprBasisPoints": {
+                        "description": "The APR (TAEG) in basis points, as the offer states it.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "durationMonths": {
+                        "description": "The whole duration in months, from the first payment. Required by in_fine and bridge.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "firstPaymentOn": {
+                        "description": "The first payment, YYYY-MM-DD: places today within the schedule (deferral, steps, last in fine payment). Empty: the next payment is the first.",
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "example": "2024-02-05"
+                    },
+                    "periodicity": {
+                        "description": "monthly, quarterly, semiannual or annual, as the offer says. The schedule stays monthly: monthlyPaymentCents is the monthly equivalent.",
+                        "default": "monthly",
+                        "type": "string",
+                        "enum": [
+                            "monthly",
+                            "quarterly",
+                            "semiannual",
+                            "annual"
+                        ]
+                    },
+                    "insuranceRateBasisPoints": {
+                        "description": "Borrower insurance as a yearly rate of the amount borrowed, in basis points. Needs initialAmountCents; insuranceMonthlyCents wins over it.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "insuranceMonthlyCents": {
+                        "description": "Borrower insurance per month, in cents, on top of monthlyPaymentCents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "feesCents": {
+                        "description": "Application and guarantee fees, in cents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "referenceIndex": {
+                        "description": "The index a variable rate follows (Euribor 3M…). Required by amortizing_variable; recorded, not followed.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "marginBasisPoints": {
+                        "description": "The margin over the index, in basis points. Required by amortizing_variable.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "rateCapBasisPoints": {
+                        "description": "The highest rate a variable loan can reach, in basis points.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "rateFloorBasisPoints": {
+                        "description": "The lowest rate a variable loan can fall to, in basis points.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "steps": {
+                        "description": "The steps of a stepped loan: [{fromMonth, monthlyPaymentCents}], fromMonth counted from 1 at the first payment. Required by stepped.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "deferralMonths": {
+                        "description": "Months of deferral from the first payment. Required, above 0, by deferred_partial and deferred_total.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "earlyRepaymentAllowed": {
+                        "description": "Whether the offer allows an early repayment at all.",
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "prepaymentPenaltyMode": {
+                        "description": "legal_cap (default): min(6 months of interest on the amount repaid, 3 % of the capital owed); fixed: prepaymentPenaltyFixedCents; exempt: 0; consumer: 1 % of the amount, 0.5 % with 12 months or less left.",
+                        "default": "legal_cap",
+                        "type": "string",
+                        "enum": [
+                            "legal_cap",
+                            "fixed",
+                            "exempt",
+                            "consumer"
+                        ]
+                    },
+                    "prepaymentPenaltyFixedCents": {
+                        "description": "The penalty the offer states, in cents. Required by the fixed mode.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "minPartialRepaymentCents": {
+                        "description": "The smallest partial early repayment the lender takes, in cents.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "partialRepaymentEffect": {
+                        "description": "After a partial early repayment: shorten (the default when empty) or lower_payment.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "shorten",
+                            "lower_payment",
+                            null
+                        ]
+                    },
+                    "noticeDays": {
+                        "description": "The notice the lender asks before an early repayment, in days.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "user": {
                         "type": "string",
@@ -17569,7 +18097,7 @@
                             "annualRateBasisPoints": {
                                 "minimum": 0,
                                 "maximum": 5000,
-                                "description": "Annual rate in basis points: 350 is 3.50 %. Never a float.",
+                                "description": "Annual nominal rate in basis points: 350 is 3.50 %. Never a float.",
                                 "default": 0,
                                 "type": "integer"
                             },
@@ -17585,6 +18113,182 @@
                                 "default": "EUR",
                                 "type": "string"
                             },
+                            "type": {
+                                "description": "amortizing_fixed (default), amortizing_variable, in_fine, stepped, deferred_partial, deferred_total or bridge: decides the schedule.",
+                                "default": "amortizing_fixed",
+                                "type": "string",
+                                "enum": [
+                                    "amortizing_fixed",
+                                    "amortizing_variable",
+                                    "in_fine",
+                                    "stepped",
+                                    "deferred_partial",
+                                    "deferred_total",
+                                    "bridge"
+                                ]
+                            },
+                            "projected": {
+                                "description": "A loan a project would take out, not signed: left out of the debt timeline, the saving capacity, the independence counter and the dashboard.",
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "initialAmountCents": {
+                                "description": "The amount borrowed, in cents.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "aprBasisPoints": {
+                                "description": "The APR (TAEG) in basis points, as the offer states it.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "durationMonths": {
+                                "description": "The whole duration in months, from the first payment. Required by in_fine and bridge.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "firstPaymentOn": {
+                                "description": "The first payment, YYYY-MM-DD: places today within the schedule (deferral, steps, last in fine payment). Empty: the next payment is the first.",
+                                "type": "string",
+                                "format": "date",
+                                "nullable": true,
+                                "example": "2024-02-05"
+                            },
+                            "periodicity": {
+                                "description": "monthly, quarterly, semiannual or annual, as the offer says. The schedule stays monthly: monthlyPaymentCents is the monthly equivalent.",
+                                "default": "monthly",
+                                "type": "string",
+                                "enum": [
+                                    "monthly",
+                                    "quarterly",
+                                    "semiannual",
+                                    "annual"
+                                ]
+                            },
+                            "insuranceRateBasisPoints": {
+                                "description": "Borrower insurance as a yearly rate of the amount borrowed, in basis points. Needs initialAmountCents; insuranceMonthlyCents wins over it.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "insuranceMonthlyCents": {
+                                "description": "Borrower insurance per month, in cents, on top of monthlyPaymentCents.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "feesCents": {
+                                "description": "Application and guarantee fees, in cents.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "referenceIndex": {
+                                "description": "The index a variable rate follows (Euribor 3M…). Required by amortizing_variable; recorded, not followed.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "marginBasisPoints": {
+                                "description": "The margin over the index, in basis points. Required by amortizing_variable.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "rateCapBasisPoints": {
+                                "description": "The highest rate a variable loan can reach, in basis points.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "rateFloorBasisPoints": {
+                                "description": "The lowest rate a variable loan can fall to, in basis points.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "steps": {
+                                "description": "The steps of a stepped loan: [{fromMonth, monthlyPaymentCents}], fromMonth counted from 1 at the first payment. Required by stepped.",
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "integer"
+                                    }
+                                }
+                            },
+                            "deferralMonths": {
+                                "description": "Months of deferral from the first payment. Required, above 0, by deferred_partial and deferred_total.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "earlyRepaymentAllowed": {
+                                "description": "Whether the offer allows an early repayment at all.",
+                                "default": true,
+                                "type": "boolean"
+                            },
+                            "prepaymentPenaltyMode": {
+                                "description": "legal_cap (default): min(6 months of interest on the amount repaid, 3 % of the capital owed); fixed: prepaymentPenaltyFixedCents; exempt: 0; consumer: 1 % of the amount, 0.5 % with 12 months or less left.",
+                                "default": "legal_cap",
+                                "type": "string",
+                                "enum": [
+                                    "legal_cap",
+                                    "fixed",
+                                    "exempt",
+                                    "consumer"
+                                ]
+                            },
+                            "prepaymentPenaltyFixedCents": {
+                                "description": "The penalty the offer states, in cents. Required by the fixed mode.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "minPartialRepaymentCents": {
+                                "description": "The smallest partial early repayment the lender takes, in cents.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "partialRepaymentEffect": {
+                                "description": "After a partial early repayment: shorten (the default when empty) or lower_payment.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "shorten",
+                                    "lower_payment",
+                                    null
+                                ]
+                            },
+                            "noticeDays": {
+                                "description": "The notice the lender asks before an early repayment, in days.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
                             "user": {
                                 "type": "string",
                                 "format": "iri-reference",
@@ -17597,7 +18301,7 @@
                         ]
                     }
                 ],
-                "description": "A loan being repaid. Its end date is never stored: it falls out of the\ncapital, the payment and the rate, and a fourth field would contradict\nthem at the first early repayment."
+                "description": "A loan being repaid, or one a project would take out (`projected`). Its end\ndate is never stored: it falls out of the capital, the payment, the rate and\nthe type, and a stored one would contradict them at the first early\nrepayment."
             },
             "Meal": {
                 "type": "object",
@@ -26379,7 +27083,7 @@
         },
         {
             "name": "Loan",
-            "description": "A loan being repaid. Its end date is never stored: it falls out of the\ncapital, the payment and the rate, and a fourth field would contradict\nthem at the first early repayment."
+            "description": "A loan being repaid, or one a project would take out (`projected`). Its end\ndate is never stored: it falls out of the capital, the payment, the rate and\nthe type, and a stored one would contradict them at the first early\nrepayment."
         },
         {
             "name": "PeerDebt",

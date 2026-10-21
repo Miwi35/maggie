@@ -1557,6 +1557,167 @@
                     ],
                     "default": null
                 },
+                "type": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "projected": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "initialAmountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "aprBasisPoints": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "durationMonths": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "firstPaymentOn": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "periodicity": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "insuranceRateBasisPoints": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "insuranceMonthlyCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "feesCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "referenceIndex": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "marginBasisPoints": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "rateCapBasisPoints": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "rateFloorBasisPoints": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "steps": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                },
+                "deferralMonths": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "earlyRepaymentAllowed": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "prepaymentPenaltyMode": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "prepaymentPenaltyFixedCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "minPartialRepaymentCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "partialRepaymentEffect": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "noticeDays": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "amountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
                 "horizonMonths": {
                     "type": [
                         "null",
@@ -1576,7 +1737,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update or delete loans being repaid, and read the debt timeline. A loan is described by its remaining capital, its monthly payment and its annual rate in BASIS POINTS (350 = 3.50 %); the end date is never given, it is computed from those three. A payment that does not cover the monthly interest is refused, since such a loan would never be repaid. The timeline action amortises every loan month by month over a horizon (60 months by default) and reports when each one frees up, how much monthly payment that releases, and the net saving capacity — reference income minus loan payments minus the lifestyle measured over the last three months. All amounts are integer cents. On update, only provided fields change; to empty the optional lender, list it in clear."
+        "description": "List, create, update or delete loans, read the debt timeline, or simulate an early repayment. A loan has a name, its remaining capital (principalRemainingCents), its monthly payment (monthlyPaymentCents, insurance aside) and its nominal annual rate in BASIS POINTS (annualRateBasisPoints, 350 = 3.50 %); the end date is never given, it is computed. type: amortizing_fixed (default), amortizing_variable (requires referenceIndex and marginBasisPoints; the rate stays annualRateBasisPoints held between rateFloorBasisPoints and rateCapBasisPoints), in_fine (interest only, the capital at the last payment; requires durationMonths), stepped (requires steps = [{fromMonth, monthlyPaymentCents}], fromMonth counted from 1 at the first payment), deferred_partial (interest only during the deferral) or deferred_total (nothing paid, the interest added to the capital) — both require deferralMonths > 0 — and bridge (a short in fine, requires durationMonths). firstPaymentOn (YYYY-MM-DD) places today in the loan's life. Optional conditions: initialAmountCents, aprBasisPoints (TAEG), durationMonths, periodicity (monthly, quarterly, semiannual, annual), insuranceMonthlyCents or insuranceRateBasisPoints (a yearly rate of initialAmountCents), feesCents, earlyRepaymentAllowed (default true), prepaymentPenaltyMode: legal_cap (default: min(6 months of interest on the amount repaid, 3 % of the capital owed)), fixed (requires prepaymentPenaltyFixedCents), exempt, consumer (1 % of the amount repaid, 0.5 % with 12 months or less left); minPartialRepaymentCents, partialRepaymentEffect (shorten or lower_payment), noticeDays. projected = true marks a loan a project would take out, not signed: it stays out of the timeline, the saving capacity, the independence counter and the dashboard. A payment that does not cover the monthly interest is refused for amortizing_fixed, amortizing_variable and deferred_partial. Nothing is deduced: a condition the type needs and the user did not give is refused — ask for it. The timeline action amortises every signed loan month by month over a horizon (60 months by default): when each one frees up, the payment it releases, and the net saving capacity — reference income minus loan payments and insurance minus the lifestyle measured over the last three months. The early_repayment action needs loanId, and amountCents for a partial repayment (absent: the whole capital); it answers penaltyCents, remainingInterestCents (the interest that amount would still have cost) and realGainCents = remainingInterestCents − penaltyCents — facts, not advice. All amounts are integer cents. On update, only provided fields change; to empty an optional field (lender or any optional condition), list it in clear. A refused request answers error plus current."
     },
     "manage_meal_groceries": {
         "name": "manage_meal_groceries",

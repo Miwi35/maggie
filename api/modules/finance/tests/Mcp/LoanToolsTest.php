@@ -6,7 +6,10 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
+use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\Loan;
+use Maggie\Finance\Enum\LoanType;
+use Maggie\Finance\Enum\PrepaymentPenaltyMode;
 use Maggie\Finance\Mcp\Tool\ManageLoansTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -280,5 +283,195 @@ class LoanToolsTest extends KernelTestCase
         $data = json_decode($this->tool()('refinance'), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertArrayHasKey('error', $data);
+    }
+
+    /** @return array<string, mixed> */
+    private function call(string $action, mixed ...$arguments): array
+    {
+        return json_decode($this->tool()($action, ...$arguments), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    private function reloadLoan(string $id): Loan
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->find(Loan::class, $id);
+    }
+
+    public function testEveryActionNeedsAUser(): void
+    {
+        $this->loadFixtures('loan.yaml');
+
+        $data = $this->call('early_repayment', loanId: (string) $this->getFixture('car')->getId());
+
+        self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
+    }
+
+    public function testCreateADetailedLoanPersistsAndPublishes(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->call(
+            'create',
+            name: 'Prêt différé',
+            principalRemainingCents: 1000000,
+            monthlyPaymentCents: 50000,
+            annualRateBasisPoints: 300,
+            type: 'deferred_total',
+            deferralMonths: 6,
+            projected: true,
+            insuranceRateBasisPoints: 30,
+            initialAmountCents: 1000000,
+            firstPaymentOn: '2026-12-05',
+        );
+
+        self::assertTrue($data['success']);
+        self::assertSame('deferred_total', $data['loan']['type']);
+        self::assertTrue($data['loan']['projected']);
+
+        $loan = $this->reloadLoan($data['loan']['id']);
+        self::assertSame(LoanType::DeferredTotal, $loan->getType());
+        self::assertSame(6, $loan->getDeferralMonths());
+        self::assertSame('2026-12-05', $loan->getFirstPaymentOn()?->format('Y-m-d'));
+        $this->assertMercureUpdatePublished('/loans/');
+        $this->assertElasticsearchIndexDispatched(Loan::class);
+    }
+
+    public function testAProjectedLoanIsListedWithItsFlagButLeftOutOfTheTimeline(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+        $before = $this->timeline();
+
+        $this->call('create', name: 'Prêt du projet', principalRemainingCents: 1000000, monthlyPaymentCents: 50000, projected: true);
+
+        $listed = array_column($this->call('list')['loans'], 'projected', 'name');
+        self::assertSame(['Crédit auto' => false, 'Prêt étudiant' => false, 'Prêt du projet' => true], $listed);
+        self::assertSame($before, $this->timeline());
+    }
+
+    public function testACreateMissingWhatTheTypeNeedsAnswersTheErrorAndWhatWasGiven(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->call('create', name: 'Prêt à paliers', principalRemainingCents: 1000000, monthlyPaymentCents: 50000, type: 'stepped');
+
+        self::assertStringContainsString('steps', $data['error']);
+        self::assertSame('stepped', $data['current']['type']);
+        self::assertSame('Prêt à paliers', $data['current']['name']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(2, $em->getRepository(Loan::class)->findAll());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testAnUnknownValueIsRefusedWithTheAllowedOnes(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->call('update', loanId: (string) $this->getFixture('car')->getId(), prepaymentPenaltyMode: 'plafond');
+
+        self::assertStringContainsString('legal_cap, fixed, exempt, consumer', $data['error']);
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testUpdateSetsThePenaltyModeAndPublishes(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('car')->getId();
+
+        $data = $this->call('update', loanId: $id, prepaymentPenaltyMode: 'fixed', prepaymentPenaltyFixedCents: 150000);
+
+        self::assertTrue($data['success']);
+        self::assertSame('fixed', $data['loan']['prepaymentPenaltyMode']);
+        $loan = $this->reloadLoan($id);
+        self::assertSame(PrepaymentPenaltyMode::Fixed, $loan->getPrepaymentPenaltyMode());
+        self::assertSame(150000, $loan->getPrepaymentPenaltyFixedCents());
+        // Unchanged: only the fields given move.
+        self::assertSame('Crédit auto', $loan->getName());
+        $this->assertMercureUpdatePublished('/loans/');
+        $this->assertElasticsearchIndexDispatched(Loan::class);
+    }
+
+    public function testARefusedUpdateAnswersTheLoanAsItStillIs(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('car')->getId();
+
+        $data = $this->call('update', loanId: $id, name: 'Renommé', type: 'deferred_partial');
+
+        self::assertStringContainsString('deferralMonths', $data['error']);
+        self::assertSame('amortizing_fixed', $data['current']['type']);
+        self::assertSame('Crédit auto', $data['current']['name']);
+        self::assertSame(LoanType::AmortizingFixed, $this->reloadLoan($id)->getType());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testClearEmptiesACondition(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('car')->getId();
+        $this->call('update', loanId: $id, feesCents: 50000, noticeDays: 30);
+
+        $data = $this->call('update', loanId: $id, clear: ['feesCents']);
+
+        self::assertTrue($data['success']);
+        self::assertNull($this->reloadLoan($id)->getFeesCents());
+        self::assertSame(30, $this->reloadLoan($id)->getNoticeDays());
+    }
+
+    public function testEarlyRepaymentAtTheLegalCap(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+        $created = $this->call('create', name: 'Prêt immo', principalRemainingCents: 9800000, monthlyPaymentCents: 62500, annualRateBasisPoints: 180);
+
+        $data = $this->call('early_repayment', loanId: $created['loan']['id']);
+
+        self::assertSame(9800000, $data['amountCents']);
+        self::assertSame('legal_cap', $data['penaltyMode']);
+        self::assertSame(88200, $data['penaltyCents']);
+        self::assertSame($data['remainingInterestCents'] - 88200, $data['realGainCents']);
+    }
+
+    public function testEarlyRepaymentOfAPartOfTheCapital(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+
+        // 2 400 € without interest: nothing saved, and the cap is 3 % of 2 400 €.
+        $data = $this->call('early_repayment', loanId: (string) $this->getFixture('car')->getId(), amountCents: 100000);
+
+        self::assertSame(100000, $data['amountCents']);
+        self::assertSame(0, $data['penaltyCents']);
+        self::assertSame(0, $data['remainingInterestCents']);
+    }
+
+    public function testEarlyRepaymentOnALoanThatForbidsItIsRefused(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('car')->getId();
+        $this->call('update', loanId: $id, earlyRepaymentAllowed: false);
+
+        $data = $this->call('early_repayment', loanId: $id);
+
+        self::assertStringContainsString('earlyRepaymentAllowed', $data['error']);
+        self::assertFalse($data['current']['earlyRepaymentAllowed']);
+    }
+
+    public function testEarlyRepaymentNeedsALoan(): void
+    {
+        $this->loadFixtures('loan.yaml');
+        $this->loginFixtureUser();
+
+        self::assertArrayHasKey('error', $this->call('early_repayment'));
+        self::assertStringContainsString('not found', $this->call('early_repayment', loanId: 'nope')['error']);
     }
 }

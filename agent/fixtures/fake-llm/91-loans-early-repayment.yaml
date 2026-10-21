@@ -1,0 +1,32 @@
+# « Mon prêt immo a les IRA au plafond légal, combien coûte un remboursement total ? » (MAG-522):
+# she lists the loans, sets the « Prêt immo » penalty to `legal_cap`, then simulates the total
+# repayment — on the id her own `list` returned, which `results_matches` captures from this run.
+# The API's JSON escapes the accent (« Prêt »); the alternative keeps the pattern holding
+# if the result ever arrives decoded.
+#
+# The fake does not read the simulation: the figure below is the seed's (98 000 € at 1,80 %,
+# min(882 €, 2 940 €)); the journey reads it on GET /api/finance/loans/{id}/early-repayment.
+name: loans-early-repayment
+description: Set a loan's penalty mode to the legal cap, then simulate its total early repayment.
+
+match:
+  user_matches: 'pr[eê]t immo.*plafond l[eé]gal'
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+name\W+Pr(?:\W+u00ea|ê)t immo\W'
+
+turns:
+  - tools:
+      - name: manage_loans
+        input: {action: list}
+  - tools:
+      - name: manage_loans
+        input:
+          action: update
+          loanId: '\1'
+          prepaymentPenaltyMode: legal_cap
+  - tools:
+      - name: manage_loans
+        input:
+          action: early_repayment
+          loanId: '\1'
+  - text: "C'est noté, les IRA de ton prêt immo sont au plafond légal. Un remboursement total te coûterait 882 € d'indemnités, à comparer aux intérêts qu'il te reste à payer."

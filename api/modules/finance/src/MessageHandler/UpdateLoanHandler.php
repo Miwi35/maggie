@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\MessageHandler;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Loan;
 use Maggie\Finance\Message\UpdateLoanCommand;
 use Maggie\Finance\Repository\LoanRepository;
+use Maggie\Finance\Service\LoanDetails;
 use Maggie\Finance\UseCase\UpdateLoan;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -16,6 +18,7 @@ class UpdateLoanHandler
     public function __construct(
         private readonly UpdateLoan $updateLoan,
         private readonly LoanRepository $loanRepository,
+        private readonly EntityManagerInterface $em,
     ) {
     }
 
@@ -24,6 +27,20 @@ class UpdateLoanHandler
         $loan = $this->loanRepository->findOneBy(['id' => $command->loanId, 'user' => $command->userId])
             ?? throw new \DomainException("Loan not found: {$command->loanId}");
 
+        try {
+            $this->apply($loan, $command);
+        } catch (\DomainException $e) {
+            // Refused: the loan keeps the state it had, even in memory.
+            $this->em->refresh($loan);
+
+            throw $e;
+        }
+
+        return $this->updateLoan->execute($loan);
+    }
+
+    private function apply(Loan $loan, UpdateLoanCommand $command): void
+    {
         if (null !== $command->name) {
             $loan->setName($command->name);
         }
@@ -57,10 +74,8 @@ class UpdateLoanHandler
             $loan->setCurrency($command->currency);
         }
 
-        if ($loan->getPrincipalRemainingCents() > 0 && !$loan->amortises()) {
-            throw new \DomainException('The monthly payment does not cover the interest: this loan would never be repaid.');
-        }
+        LoanDetails::apply($loan, $command->details);
 
-        return $this->updateLoan->execute($loan);
+        CreateLoanHandler::assertConditionsHold($loan);
     }
 }

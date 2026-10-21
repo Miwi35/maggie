@@ -62,7 +62,7 @@ class GetIndependenceCounter
 
         $loanPaymentsCents = array_sum(array_map(
             static fn (Loan $loan) => $loan->getMonthlyPaymentCents(),
-            $this->loanRepository->findByUser($user),
+            $this->loanRepository->findSignedByUser($user),
         ));
 
         // Truncated, not rounded, so that 100 % means covered and nothing
