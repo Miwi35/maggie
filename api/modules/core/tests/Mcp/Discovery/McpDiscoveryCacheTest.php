@@ -47,7 +47,7 @@ class McpDiscoveryCacheTest extends TestCase
     {
         $inner = $this->countingDiscoverer(['old_tool']);
         $cached = new CachedDiscoverer($inner, $this->cache, new NullLogger());
-        $this->warmer($inner, $cached)->warmUp('/unused');
+        $this->warmer($cached)->warmUp('/unused');
         self::assertSame(1, $inner->calls);
 
         $first = $cached->discover('/project', ['src'], ['DataFixtures']);
@@ -62,7 +62,7 @@ class McpDiscoveryCacheTest extends TestCase
     {
         $inner = $this->countingDiscoverer(['old_tool']);
         $cached = new CachedDiscoverer($inner, $this->cache, new NullLogger());
-        $warmer = $this->warmer($inner, $cached);
+        $warmer = $this->warmer($cached);
         $warmer->warmUp('/unused');
 
         $inner->tools = ['old_tool', 'new_tool'];
@@ -97,7 +97,7 @@ class McpDiscoveryCacheTest extends TestCase
         self::assertSame([], $container->getDefinition('mcp.server.builder')->getMethodCalls());
     }
 
-    private function warmer(DiscovererInterface $inner, DiscovererInterface $cached): McpDiscoveryCacheWarmer
+    private function warmer(DiscovererInterface $cached): McpDiscoveryCacheWarmer
     {
         return new McpDiscoveryCacheWarmer($cached, $this->cache, '/project', ['src'], ['DataFixtures']);
     }
