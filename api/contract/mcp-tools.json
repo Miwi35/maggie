@@ -2358,6 +2358,70 @@
         },
         "description": "Write one element of the plan of a period, once the owner has decided it (read the plan first with plan_annual_budget, which takes the same period). period is a year (2027), a quarter (2027-Q2) or a semester (2027-S1). One call writes one element; repeat the call for the next one. Actions: set_annual_envelope (categoryId, amountCents; the period must be a year) sets the annual envelope of a category; set_monthly_envelope (categoryId, amountCents) sets the same monthly envelope on every month of the period, and seasonFromMonth + seasonToMonth + seasonAmountCents together (1-12) give those months of the year another amount — one season per call, which replaces the seasons of those envelopes; set_one_off_envelope (name, amountCents) sets the envelope of an event with no category, found by its name; set_event (categoryId, label, amountCents, month as YYYY-MM inside the period, optional accountId) plans an expense, booked on the 15th of that month on the first checking account unless accountId says otherwise. amountCents is positive, in cents; currency defaults to EUR. Replaying a call updates what it wrote and never duplicates; an expense the owner already committed is left alone. The envelopes and planned expenses written are the plan: nothing else is stored, and the calendar is never touched."
     },
+    "manage_placements": {
+        "name": "manage_placements",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "placementId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "initial": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "deposit": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "frequency": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "annualRate": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "years": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update, delete or simulate the user's simulated placements (a PEA, a life insurance, a savings book) — nothing is booked, it is a projection. A placement has a name, initial (paid on day one, integer cents, >= 0), deposit (each deposit, integer cents, >= 0), frequency (monthly, quarterly, yearly: the deposit at the end of each period; once: a single deposit on day one), annualRate (annual return in basis points: 600 = 6 %, 350 = 3.5 %, 0 to 10000) and years (1 to 60). Interest is compounded monthly at (1 + r)^(1/12) - 1 and reinvested. Each placement is read back with final (capital at the end), paid (everything paid in), interest (final - paid), rent (a simulation: final x 4 % / 12, what the capital would give a month withdrawn at 4 % a year — always say it is a simulation) and monthlyDeposit, all integer cents. simulate with placementId answers the saved placement year by year; simulate without it answers a what-if from initial, deposit, frequency, annualRate and years, all required, nothing saved. Nothing is ever deduced: create needs name, initial, deposit, frequency, annualRate and years (initial and deposit cannot both be 0; give 0 explicitly when the user says so); on update only provided fields change. A refused request answers error plus current (what was given, or the placement as it is now): ask the user for what is missing."
+    },
     "manage_products": {
         "name": "manage_products",
         "inputSchema": {

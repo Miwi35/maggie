@@ -223,6 +223,10 @@ task id). The fake cannot compute a date, so any text or argument of a scenario 
 `manage_projects`. Reordering takes every project id, which a run cannot capture from its own results: « Mets
 le canapé en premier » reads the list (`91-projects-reorder-read.yaml`), and « Oui, le canapé d'abord »
 reorders with the ids the replayed list gave (`91-projects-reorder.yaml`).
+
+**Placements** (MAG-555). `91-placements-create.yaml` creates « Livret », 100 € a month at 5 % over 10 years,
+through `manage_placements`; `91-placements-simulate.yaml` answers the same what-if without saving it. The
+figures said are PlacementSimulator's: the fake does not read the tool's result.
 `91-projects-funding.yaml` funds the « Voiture » with 1 000 € of the Livret jeune and a 6 000 € loan through
 `manage_project_funding` set (MAG-524): one round lists the projects and the accounts, `results_matches` captures
 both ids from it.

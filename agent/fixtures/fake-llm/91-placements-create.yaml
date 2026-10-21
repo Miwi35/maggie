@@ -1,0 +1,24 @@
+# « Ajoute un placement Livret de 100 euros par mois à 5 % sur 10 ans, sans versement initial »
+# (MAG-555): one `manage_placements` create carrying everything the user said — the deposit in
+# cents, `monthly`, the rate in basis points (5 % = 500) and `initial: 0` because the user said
+# so; the tool never deduces a missing field. The fake does not read the result: the figures are
+# those PlacementSimulator gives (100 € a month at 5 % over 10 years, 15 436 €), and the rent is
+# said as a simulation.
+name: placements-create
+description: Create a monthly placement through MCP.
+
+match:
+  user_contains: "ajoute un placement livret"
+
+turns:
+  - tools:
+      - name: manage_placements
+        input:
+          action: create
+          name: "Livret"
+          initial: 0
+          deposit: 10000
+          frequency: monthly
+          annualRate: 500
+          years: 10
+  - text: "C'est noté : Livret, 100 € par mois à 5 % sur 10 ans. En simulation, il atteindrait environ 15 436 €, dont 3 436 € d'intérêts composés — de quoi tirer à peu près 51 € par mois à 4 % par an."

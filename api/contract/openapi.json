@@ -6883,6 +6883,435 @@
                 ]
             }
         },
+        "/api/finance/placements": {
+            "get": {
+                "operationId": "api_financeplacements_get_collection",
+                "tags": [
+                    "Placement"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Placement collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "Placement.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Placement.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Placement"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Placement.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of Placement resources.",
+                "description": "Retrieves the collection of Placement resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_financeplacements_post",
+                "tags": [
+                    "Placement"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Placement resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Placement.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Placement"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Placement.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a Placement resource.",
+                "description": "Creates a Placement resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new Placement resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Placement"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Placement"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Placement"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/finance/placements/{id}": {
+            "get": {
+                "operationId": "api_financeplacements_id_get",
+                "tags": [
+                    "Placement"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Placement resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Placement.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Placement"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Placement.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Placement resource.",
+                "description": "Retrieves a Placement resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Placement identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_financeplacements_id_delete",
+                "tags": [
+                    "Placement"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Placement resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the Placement resource.",
+                "description": "Removes the Placement resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Placement identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "api_financeplacements_id_patch",
+                "tags": [
+                    "Placement"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Placement resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Placement.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Placement"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Placement.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the Placement resource.",
+                "description": "Updates the Placement resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Placement identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated Placement resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Placement.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/proactions": {
             "get": {
                 "operationId": "api_proactions_get_collection",
@@ -20490,6 +20919,346 @@
                     }
                 }
             },
+            "Placement": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "initial": {
+                        "minimum": 0,
+                        "description": "What is placed on day one, in integer cents.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "deposit": {
+                        "minimum": 0,
+                        "description": "Each deposit, in integer cents: paid every period, or once on day one when frequency is once.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "frequency": {
+                        "description": "monthly, quarterly, yearly: the deposit at the end of each period; once: a single deposit on day one.",
+                        "default": "monthly",
+                        "type": "string",
+                        "enum": [
+                            "monthly",
+                            "quarterly",
+                            "yearly",
+                            "once"
+                        ]
+                    },
+                    "annualRate": {
+                        "minimum": 0,
+                        "maximum": 10000,
+                        "description": "Annual return in basis points: 600 is 6 %. Compounded monthly at (1 + r)^(1/12) − 1, interest reinvested.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "years": {
+                        "minimum": 1,
+                        "maximum": 60,
+                        "description": "How long the placement runs, in whole years (1 to 60).",
+                        "default": 10,
+                        "type": "integer"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "final": {
+                        "readOnly": true,
+                        "description": "The capital at the end, in integer cents.",
+                        "type": "integer"
+                    },
+                    "paid": {
+                        "readOnly": true,
+                        "description": "Everything paid in over the duration, initial included, in integer cents.",
+                        "type": "integer"
+                    },
+                    "interest": {
+                        "readOnly": true,
+                        "description": "The compound interest earned: final − paid, in integer cents.",
+                        "type": "integer"
+                    },
+                    "rent": {
+                        "readOnly": true,
+                        "description": "A simulation: what the final capital would give a month, withdrawn at 4 % a year (final × 4 % / 12), in integer cents.",
+                        "type": "integer"
+                    },
+                    "monthlyDeposit": {
+                        "readOnly": true,
+                        "description": "What the deposits come to per month on average, in integer cents: 0 for a single one.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "name"
+                ]
+            },
+            "Placement.html": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "initial": {
+                        "minimum": 0,
+                        "description": "What is placed on day one, in integer cents.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "deposit": {
+                        "minimum": 0,
+                        "description": "Each deposit, in integer cents: paid every period, or once on day one when frequency is once.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "frequency": {
+                        "description": "monthly, quarterly, yearly: the deposit at the end of each period; once: a single deposit on day one.",
+                        "default": "monthly",
+                        "type": "string",
+                        "enum": [
+                            "monthly",
+                            "quarterly",
+                            "yearly",
+                            "once"
+                        ]
+                    },
+                    "annualRate": {
+                        "minimum": 0,
+                        "maximum": 10000,
+                        "description": "Annual return in basis points: 600 is 6 %. Compounded monthly at (1 + r)^(1/12) − 1, interest reinvested.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "years": {
+                        "minimum": 1,
+                        "maximum": 60,
+                        "description": "How long the placement runs, in whole years (1 to 60).",
+                        "default": 10,
+                        "type": "integer"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "final": {
+                        "readOnly": true,
+                        "description": "The capital at the end, in integer cents.",
+                        "type": "integer"
+                    },
+                    "paid": {
+                        "readOnly": true,
+                        "description": "Everything paid in over the duration, initial included, in integer cents.",
+                        "type": "integer"
+                    },
+                    "interest": {
+                        "readOnly": true,
+                        "description": "The compound interest earned: final − paid, in integer cents.",
+                        "type": "integer"
+                    },
+                    "rent": {
+                        "readOnly": true,
+                        "description": "A simulation: what the final capital would give a month, withdrawn at 4 % a year (final × 4 % / 12), in integer cents.",
+                        "type": "integer"
+                    },
+                    "monthlyDeposit": {
+                        "readOnly": true,
+                        "description": "What the deposits come to per month on average, in integer cents: 0 for a single one.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "name"
+                ]
+            },
+            "Placement.jsonMergePatch": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "initial": {
+                        "minimum": 0,
+                        "description": "What is placed on day one, in integer cents.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "deposit": {
+                        "minimum": 0,
+                        "description": "Each deposit, in integer cents: paid every period, or once on day one when frequency is once.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "frequency": {
+                        "description": "monthly, quarterly, yearly: the deposit at the end of each period; once: a single deposit on day one.",
+                        "default": "monthly",
+                        "type": "string",
+                        "enum": [
+                            "monthly",
+                            "quarterly",
+                            "yearly",
+                            "once"
+                        ]
+                    },
+                    "annualRate": {
+                        "minimum": 0,
+                        "maximum": 10000,
+                        "description": "Annual return in basis points: 600 is 6 %. Compounded monthly at (1 + r)^(1/12) − 1, interest reinvested.",
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "years": {
+                        "minimum": 1,
+                        "maximum": 60,
+                        "description": "How long the placement runs, in whole years (1 to 60).",
+                        "default": 10,
+                        "type": "integer"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "final": {
+                        "readOnly": true,
+                        "description": "The capital at the end, in integer cents.",
+                        "type": "integer"
+                    },
+                    "paid": {
+                        "readOnly": true,
+                        "description": "Everything paid in over the duration, initial included, in integer cents.",
+                        "type": "integer"
+                    },
+                    "interest": {
+                        "readOnly": true,
+                        "description": "The compound interest earned: final − paid, in integer cents.",
+                        "type": "integer"
+                    },
+                    "rent": {
+                        "readOnly": true,
+                        "description": "A simulation: what the final capital would give a month, withdrawn at 4 % a year (final × 4 % / 12), in integer cents.",
+                        "type": "integer"
+                    },
+                    "monthlyDeposit": {
+                        "readOnly": true,
+                        "description": "What the deposits come to per month on average, in integer cents: 0 for a single one.",
+                        "type": "integer"
+                    }
+                }
+            },
+            "Placement.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "name": {
+                                "maxLength": 255,
+                                "type": "string"
+                            },
+                            "initial": {
+                                "minimum": 0,
+                                "description": "What is placed on day one, in integer cents.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "deposit": {
+                                "minimum": 0,
+                                "description": "Each deposit, in integer cents: paid every period, or once on day one when frequency is once.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "frequency": {
+                                "description": "monthly, quarterly, yearly: the deposit at the end of each period; once: a single deposit on day one.",
+                                "default": "monthly",
+                                "type": "string",
+                                "enum": [
+                                    "monthly",
+                                    "quarterly",
+                                    "yearly",
+                                    "once"
+                                ]
+                            },
+                            "annualRate": {
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "description": "Annual return in basis points: 600 is 6 %. Compounded monthly at (1 + r)^(1/12) − 1, interest reinvested.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "years": {
+                                "minimum": 1,
+                                "maximum": 60,
+                                "description": "How long the placement runs, in whole years (1 to 60).",
+                                "default": 10,
+                                "type": "integer"
+                            },
+                            "user": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "final": {
+                                "readOnly": true,
+                                "description": "The capital at the end, in integer cents.",
+                                "type": "integer"
+                            },
+                            "paid": {
+                                "readOnly": true,
+                                "description": "Everything paid in over the duration, initial included, in integer cents.",
+                                "type": "integer"
+                            },
+                            "interest": {
+                                "readOnly": true,
+                                "description": "The compound interest earned: final − paid, in integer cents.",
+                                "type": "integer"
+                            },
+                            "rent": {
+                                "readOnly": true,
+                                "description": "A simulation: what the final capital would give a month, withdrawn at 4 % a year (final × 4 % / 12), in integer cents.",
+                                "type": "integer"
+                            },
+                            "monthlyDeposit": {
+                                "readOnly": true,
+                                "description": "What the deposits come to per month on average, in integer cents: 0 for a single one.",
+                                "type": "integer"
+                            }
+                        },
+                        "required": [
+                            "name"
+                        ]
+                    }
+                ]
+            },
             "Proaction": {
                 "type": "object",
                 "required": [
@@ -27232,6 +28001,10 @@
         {
             "name": "PeerDebt",
             "description": "Money between the owner and their contacts (MAG-451): a créance when they\nowe the owner — what is left of a shared spend once the owner's part is set —,\na dette the other way round (MAG-452). Split into one share per person.\n\nRead only over REST: it is written through the transaction it comes from\n(`PUT /api/finance/transactions/{id}/my-share`). Served from Doctrine, like\nthe counterparties: what is left to give back moves with every repayment,\na search document would hold it stale. Indexed for the search all the same."
+        },
+        {
+            "name": "Placement",
+            "description": "Resource 'Placement' operations."
         },
         {
             "name": "Project",

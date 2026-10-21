@@ -1,0 +1,20 @@
+# « Combien j'aurais en plaçant 100 euros par mois à 5 % pendant 10 ans ? » (MAG-555): a what-if,
+# nothing saved — `manage_placements` simulate with every parameter, `initial: 0` since the user
+# names none. Same figures as 91-placements-create.yaml.
+name: placements-simulate
+description: Simulate a placement without saving it.
+
+match:
+  user_contains: "combien j'aurais en plaçant"
+
+turns:
+  - tools:
+      - name: manage_placements
+        input:
+          action: simulate
+          initial: 0
+          deposit: 10000
+          frequency: monthly
+          annualRate: 500
+          years: 10
+  - text: "En simulation : environ 15 436 € au bout de 10 ans, pour 12 000 € versés, soit 3 436 € d'intérêts composés."

@@ -193,6 +193,7 @@ class TestTheLabel:
             ("delete_skill", {"name": "courses"}, "Supprimer la compétence"),
             ("manage_loans", {"action": "delete", "loanId": ULID}, "Supprimer le prêt"),
             ("manage_projects", {"action": "delete", "projectId": ULID}, "Supprimer le projet"),
+            ("manage_placements", {"action": "delete", "placementId": ULID}, "Supprimer le placement"),
             (
                 "manage_operations",
                 {"action": "delete", "operationId": ULID},
