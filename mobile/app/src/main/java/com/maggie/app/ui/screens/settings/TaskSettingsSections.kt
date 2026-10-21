@@ -57,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,6 +67,7 @@ import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.GuestsStepper
 import com.maggie.app.ui.components.InFrench
+import com.maggie.app.ui.theme.readableTextOn
 import com.maggie.app.ui.theme.urgencyColor
 import com.maggie.app.ui.uiTagRoot
 import kotlin.math.roundToInt
@@ -420,7 +420,7 @@ private fun UrgencyAlerts(
 
 @Composable
 private fun UrgencyChip(text: String, selected: Boolean, color: Color, tag: String, onClick: () -> Unit) {
-    val onColor = if (color.luminance() > 0.5f) Color.Black else Color.White
+    val onColor = readableTextOn(color)
     FilterChip(
         selected = selected,
         onClick = onClick,

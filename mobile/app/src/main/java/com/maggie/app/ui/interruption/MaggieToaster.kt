@@ -12,7 +12,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +54,7 @@ import com.maggie.app.data.fcm.PushPayload
 import com.maggie.app.data.interruption.key
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
 
 /** Whether the owner asked the system to remove animations (« Supprimer les animations »). */
 @Composable
@@ -82,7 +82,7 @@ fun MaggieToaster(
     onAction: (PushActionKind) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val dark = isSystemInDarkTheme()
+    val dark = isMaggieDark()
     val surface = if (dark) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
     val bubbleColor = if (dark) MaggieTokens.Maggie.bubble.second else MaggieTokens.Maggie.bubble.first
 

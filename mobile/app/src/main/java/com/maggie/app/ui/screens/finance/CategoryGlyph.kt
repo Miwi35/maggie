@@ -14,10 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.maggie.app.ui.theme.readableTextOn
 
 /** The Material icon behind the names a category's `icon` field takes (« shopping-cart »); null when the name is not one we draw. */
 internal fun categoryIcon(name: String?): ImageVector? = name?.trim()?.lowercase()?.let(CategoryIconVectors::find)
@@ -37,11 +37,7 @@ internal fun CategoryGlyph(color: String?, icon: String?, modifier: Modifier = M
     val fill = categoryColorOrNull(color)
     val vector = categoryIcon(icon) ?: if (icon.isNullOrBlank()) null else Icons.AutoMirrored.Filled.Label
     val background = fill ?: MaterialTheme.colorScheme.surfaceVariant
-    val tint = when {
-        fill == null -> MaterialTheme.colorScheme.onSurfaceVariant
-        fill.luminance() > 0.5f -> Color.Black
-        else -> Color.White
-    }
+    val tint = if (fill == null) MaterialTheme.colorScheme.onSurfaceVariant else readableTextOn(fill)
     val description = listOfNotNull(
         fill?.let { "couleur ${CategoryColors.normalize(color.orEmpty())}" },
         icon?.takeIf { it.isNotBlank() }?.let { "icône $it" },

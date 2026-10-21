@@ -69,6 +69,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.maggie.app.ui.theme.readableTextOn
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.maggie.app.data.model.GroceryItem
@@ -594,7 +595,7 @@ private fun SwipeBackground(targetValue: SwipeToDismissBoxValue, isChecked: Bool
         contentAlignment = alignment,
     ) {
         if (targetValue != SwipeToDismissBoxValue.Settled) {
-            Icon(icon, contentDescription = null, tint = Color.White)
+            Icon(icon, contentDescription = null, tint = readableTextOn(color))
         }
     }
 }

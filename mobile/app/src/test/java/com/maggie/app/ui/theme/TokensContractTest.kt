@@ -45,6 +45,9 @@ class TokensContractTest {
         MaggieTokens.Signal.neutral to "neutral",
     )
 
+    /** The charter's values (« Charte UI/UX » § 2), written out: the test fails when a token drifts from them. */
+    private fun hex(value: Long): Color = Color(value or 0xFF000000)
+
     @Test
     fun `the mirror holds every token of design tokens json, and no other`() {
         // `typography.family` and `typography.mono` have no Compose equivalent — a
@@ -109,8 +112,63 @@ class TokensContractTest {
 
     @Test
     fun `the chart slots are numbered the way a legend numbers them`() {
-        assertEquals(Color(0xFF2A78D6), chartColor(1, dark = false))
-        assertEquals(Color(0xFFD95926), chartColor(2, dark = true))
+        assertEquals(Color(0xFF1B7352), chartColor(1, dark = false))
+        assertEquals(Color(0xFFA68BFF), chartColor(2, dark = true))
+    }
+
+    @Test
+    fun `the charts are drawn in the charter's colours - mint, violet, gold, blue, orchid`() {
+        assertEquals(
+            listOf(0x7FD1AE, 0xA68BFF, 0xF2C46D, 0x8FB8FF, 0xE8A9D9).map(::hex),
+            (1..5).map { chartColor(it, dark = true) },
+        )
+    }
+
+    @Test
+    fun `the night is the dark theme's background and first surface`() {
+        // The sign-in, lock and loading screens are drawn on the Veilleuse night, not on a navy of their own.
+        assertEquals(hex(0x0F0E17), MaggieTokens.Night.background)
+        assertEquals(hex(0x1A1824), MaggieTokens.Night.raised)
+        assertEquals(MaggieTokens.surfaceDark.background, MaggieTokens.Night.background)
+        assertEquals(MaggieTokens.surfaceDark.paper, MaggieTokens.Night.raised)
+    }
+
+    @Test
+    fun `the surfaces and inks are the charter's`() {
+        val dark = MaggieTokens.surfaceDark
+        assertEquals(hex(0x0F0E17), dark.background)
+        assertEquals(hex(0x1A1824), dark.paper)
+        assertEquals(hex(0x25222F), dark.raised)
+        assertEquals(hex(0xF3F1F8), dark.text)
+        assertEquals(hex(0xABA6B8), dark.textMuted)
+        assertEquals(hex(0x8E899C), dark.caption)
+        assertEquals(hex(0xA68BFF), MaggieTokens.Brand.primary)
+        assertEquals(hex(0xC7B5FF), MaggieTokens.Brand.primaryHover)
+    }
+
+    @Test
+    fun `each module wears the charter's hue on the dark theme`() {
+        assertEquals(hex(0x7FD1AE), MaggieTokens.Module.finance.second)
+        assertEquals(hex(0x7FD1AE), MaggieTokens.Module.comptes.second)
+        assertEquals(hex(0xE8A9D9), MaggieTokens.Module.taches.second)
+        assertEquals(hex(0x8FB8FF), MaggieTokens.Module.cuisine.second)
+        assertEquals(hex(0xFF8A80), MaggieTokens.Module.sport.second)
+        assertEquals(hex(0xB8DE6F), MaggieTokens.Module.travail.second)
+        assertEquals(hex(0xF2C46D), MaggieTokens.Module.saga.second)
+    }
+
+    @Test
+    fun `the states are the charter's - rhythm, attention, overspend, info, Maggie`() {
+        assertEquals(hex(0x6FCF8E), MaggieTokens.Signal.success)
+        assertEquals(hex(0xF0A35E), MaggieTokens.Signal.warning)
+        assertEquals(hex(0xFF8A80), MaggieTokens.Signal.danger)
+        assertEquals(hex(0x8FB8FF), MaggieTokens.Signal.info)
+        assertEquals(hex(0xA68BFF), MaggieTokens.Signal.critical)
+        // The feedback of the dark mode (error role, alerts) speaks the same attention and overspend.
+        assertEquals(MaggieTokens.Signal.warning, MaggieTokens.feedbackDark.warning)
+        assertEquals(MaggieTokens.Signal.danger, MaggieTokens.feedbackDark.error)
+        assertEquals(MaggieTokens.Signal.info, MaggieTokens.feedbackDark.info)
+        assertEquals(MaggieTokens.Signal.success, MaggieTokens.feedbackDark.success)
     }
 
     // ---------------------------------------------------------------------
@@ -169,7 +227,14 @@ class TokensContractTest {
             put("feedback.$mode.success", feedback.success.hex())
         }
         with(MaggieTokens.Module) {
-            for ((name, pair) in listOf("cuisine" to cuisine, "comptes" to comptes, "sport" to sport, "travail" to travail)) {
+            for ((name, pair) in listOf(
+                "cuisine" to cuisine,
+                "comptes" to comptes,
+                "sport" to sport,
+                "travail" to travail,
+                "taches" to taches,
+                "saga" to saga,
+            )) {
                 put("module.$name.light", pair.first.hex())
                 put("module.$name.dark", pair.second.hex())
             }
@@ -183,12 +248,12 @@ class TokensContractTest {
             }
         }
         with(MaggieTokens.Signal) {
-            put("signal.success", success.hex())
-            put("signal.warning", warning.hex())
-            put("signal.danger", danger.hex())
-            put("signal.info", info.hex())
-            put("signal.critical", critical.hex())
-            put("signal.neutral", neutral.hex())
+            put("phone.signal.success", success.hex())
+            put("phone.signal.warning", warning.hex())
+            put("phone.signal.danger", danger.hex())
+            put("phone.signal.info", info.hex())
+            put("phone.signal.critical", critical.hex())
+            put("phone.signal.neutral", neutral.hex())
         }
         for ((name, color) in MaggieTokens.criticality) {
             put("criticality.$name", signalNames.getValue(color))
@@ -209,8 +274,8 @@ class TokensContractTest {
             }
         }
         MaggieTokens.chartCategorical.forEachIndexed { index, (light, dark) ->
-            put("chart.categorical.$index.light", light.hex())
-            put("chart.categorical.$index.dark", dark.hex())
+            put("phone.chart.categorical.$index.light", light.hex())
+            put("phone.chart.categorical.$index.dark", dark.hex())
         }
         with(MaggieTokens.Typography) {
             put("typography.weight.light", LIGHT.toString())

@@ -23,18 +23,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Stars
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTokens
 
 /** The stars of the month, lavender; the latest, orchid; a palier, gold. */
-internal val StarColor = Color(0xFFC7B5FF)
-internal val LatestStarColor = Color(0xFFE8A9D9)
-internal val PalierColor = Color(0xFFF2C46D)
+internal val StarColor = MaggieTokens.Brand.primaryHover
+internal val LatestStarColor = MaggieTokens.Module.taches.second
+internal val PalierColor = MaggieTokens.Module.saga.second
 
 /**
  * The constellation of a month (MAG-509): one star for every task done, only those earned — never

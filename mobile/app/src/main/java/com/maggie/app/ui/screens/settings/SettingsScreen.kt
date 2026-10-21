@@ -478,7 +478,7 @@ private fun AppearanceSection(
     viewModel: SettingsViewModel,
     onBack: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val themeChoice by viewModel.themeChoice.collectAsState()
 
     Scaffold(
         topBar = {
@@ -499,21 +499,19 @@ private fun AppearanceSection(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            uiState.preferences?.let { prefs ->
-                Text("Thème", style = MaterialTheme.typography.titleMedium)
+            Text("Thème", style = MaterialTheme.typography.titleMedium)
 
-                val themeOptions = listOf("system" to "Système", "light" to "Clair", "dark" to "Sombre")
-                val selectedThemeIndex = themeOptions.indexOfFirst { it.first == prefs.theme }.coerceAtLeast(0)
+            val themeOptions = listOf("system" to "Système", "light" to "Clair", "dark" to "Sombre")
+            val selectedThemeIndex = themeOptions.indexOfFirst { it.first == themeChoice }.coerceAtLeast(0)
 
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    themeOptions.forEachIndexed { index, (value, label) ->
-                        SegmentedButton(
-                            selected = index == selectedThemeIndex,
-                            onClick = { viewModel.updateTheme(value) },
-                            shape = SegmentedButtonDefaults.itemShape(index, themeOptions.size),
-                        ) {
-                            Text(label)
-                        }
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                themeOptions.forEachIndexed { index, (value, label) ->
+                    SegmentedButton(
+                        selected = index == selectedThemeIndex,
+                        onClick = { viewModel.updateTheme(value) },
+                        shape = SegmentedButtonDefaults.itemShape(index, themeOptions.size),
+                    ) {
+                        Text(label)
                     }
                 }
             }

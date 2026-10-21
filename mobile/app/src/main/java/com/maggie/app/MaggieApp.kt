@@ -70,6 +70,7 @@ import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.RoutineRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.ui.screens.shared.SubtasksViewModel
+import com.maggie.app.data.repository.ThemeChoiceRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.cookbook.grocery.GroceryViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsViewModel
@@ -318,6 +319,7 @@ class MaggieApp : Application() {
             single { ContextRepository(get()) }
             single { ProactionRepository(get()) }
             single { UserPreferenceRepository(get()) }
+            single { ThemeChoiceRepository(androidContext()) }
 
             // Other
             single {
@@ -341,7 +343,7 @@ class MaggieApp : Application() {
             viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
-            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get()) }
+            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get(), get()) }
             viewModel {
                 InterruptionViewModel(

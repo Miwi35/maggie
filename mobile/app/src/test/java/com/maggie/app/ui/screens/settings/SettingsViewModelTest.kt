@@ -17,7 +17,9 @@ import com.maggie.app.data.model.TaskSettingsValues
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.repository.AgendaRepository
+import com.maggie.app.data.repository.ThemeChoiceRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
+import com.maggie.app.ui.theme.THEME_DEFAULT
 import com.maggie.app.voice.VoiceManager
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -55,6 +57,8 @@ class SettingsViewModelTest {
     private lateinit var agendaRepository: AgendaRepository
     private lateinit var mercureService: MercureService
     private lateinit var pushTokenRegistrar: PushTokenRegistrar
+    private lateinit var themeChoiceRepository: ThemeChoiceRepository
+    private val themeChoice = MutableStateFlow(THEME_DEFAULT)
 
     private val perso = Agenda(id = "a1", name = "Perso", isDefault = true)
     private val concerts = Agenda(id = "a2", name = "Concerts")
@@ -112,6 +116,9 @@ class SettingsViewModelTest {
         agendaRepository = mockk()
         mercureService = mockk()
         pushTokenRegistrar = mockk(relaxed = true)
+        themeChoiceRepository = mockk()
+        every { themeChoiceRepository.choice } returns themeChoice
+        coEvery { themeChoiceRepository.save(any()) } coAnswers { themeChoice.value = firstArg() }
 
         coEvery { apiService.getMe() } returns User(id = "u1")
         coEvery { apiService.getTtsVoices() } returns emptyList()
@@ -141,7 +148,29 @@ class SettingsViewModelTest {
         mercureService,
         mockk<VoiceManager>(relaxed = true),
         pushTokenRegistrar,
+        themeChoiceRepository,
     )
+
+    @Test
+    fun `a fresh install shows the dark theme as chosen`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertEquals("dark", viewModel.themeChoice.value)
+    }
+
+    @Test
+    fun `picking a theme keeps it on this phone and not in the account`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.updateTheme("light")
+        advanceUntilIdle()
+
+        assertEquals("light", viewModel.themeChoice.value)
+        coVerify { themeChoiceRepository.save("light") }
+        coVerify(exactly = 0) { userPreferenceRepository.update(any()) }
+    }
 
     @Test
     fun `the agent settings carry the name the user gave Maggie`() = runTest {

@@ -21,7 +21,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -32,6 +31,10 @@ import androidx.compose.ui.unit.sp
 import com.maggie.app.R
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.readableTextOn
+
+// Google's sign-in button writes in 54 % black (their branding guidelines).
+private const val GOOGLE_BUTTON_TEXT_ALPHA = 0.54f
 
 @Composable
 fun LoginScreen(viewModel: LoginViewModel) {
@@ -69,15 +72,15 @@ fun LoginScreen(viewModel: LoginViewModel) {
         if (uiState.isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(48.dp),
-                color = Color.White.copy(alpha = 0.7f),
+                color = MaggieTokens.Night.textMuted,
             )
         } else {
             Button(
                 onClick = { viewModel.signIn(context) },
                 modifier = Modifier.testTag(UiTags.LOGIN_SIGN_IN),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color(0x8A000000),
+                    containerColor = MaggieTokens.Night.text,
+                    contentColor = readableTextOn(MaggieTokens.Night.text).copy(alpha = GOOGLE_BUTTON_TEXT_ALPHA),
                 ),
                 shape = RoundedCornerShape(4.dp),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
