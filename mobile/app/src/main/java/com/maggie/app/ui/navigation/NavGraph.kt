@@ -960,12 +960,12 @@ fun NavGraph() {
         ) {
             Scaffold(
                 modifier = Modifier.weight(1f),
-                // Still nothing from here, band or no band: each piece pays its own inset
-                // (`ChatBottomBar`, `ChatPanel`, `ChatScreen`), and the screens that nest a
-                // `Scaffold` of their own — Cuisine, Calendrier — already get `safeDrawing`
-                // from it. Material 3 1.3 does not consume `contentWindowInsets` for the
-                // body, so handing one down here would pay the gesture bar twice on exactly
-                // the screens this ticket is giving height back to.
+                // Nothing from here: each piece pays its own inset (`ChatBottomBar`, `ChatPanel`,
+                // `ChatScreen`), and the route's bottom is `clearOfNavigationBar`'s. A `Scaffold`
+                // nested in a route (Cuisine, Calendrier) keeps its own `safeDrawing` for the rest,
+                // minus the navigation bar that is consumed above it. Material 3 1.3 does not
+                // consume `contentWindowInsets` for the body, so handing one down here would pay
+                // the gesture bar twice.
                 contentWindowInsets = WindowInsets(0),
                 topBar = {
                     if (isMainScreen) {
