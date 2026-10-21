@@ -29,11 +29,11 @@ const authorized = function (extra) {
   return Object.assign({ Authorization: 'Bearer ' + token }, extra || {})
 }
 
-const list = http.get(base + '/api/finance/loans', {
+const list = http.get(base + '/api/loans', {
   headers: authorized({ Accept: 'application/ld+json' }),
 })
 if (!list.ok) {
-  fail('GET /api/finance/loans answered ' + list.status + ': ' + list.body)
+  fail('GET /api/loans answered ' + list.status + ': ' + list.body)
 }
 const loan = JSON.parse(list.body).member.find(function (item) { return item.name === LOAN })
 if (!loan) {
@@ -49,7 +49,7 @@ if (ACTION === 'legal-cap') {
   fail('unknown ACTION')
 }
 
-const patch = http.request(base + '/api/finance/loans/' + loan.id, {
+const patch = http.request(base + '/api/loans/' + loan.id, {
   method: 'PATCH',
   headers: authorized({ 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' }),
   body: JSON.stringify({ prepaymentPenaltyMode: mode }),
