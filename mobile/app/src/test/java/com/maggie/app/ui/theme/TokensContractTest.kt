@@ -53,7 +53,9 @@ class TokensContractTest {
         // `typography.family` and `typography.mono` have no Compose equivalent — a
         // CSS stack is a string, a FontFamily is a resource — so the first has its
         // own test and the second is not mirrored.
-        assertEquals(flatten(source) - "typography.family" - "typography.mono", mirror())
+        // The admin's own `signal` and `chart` are not the phone's: it reads `phone.signal` and `phone.chart`.
+        val adminOnly = flatten(source).keys.filter { it.startsWith("signal.") || it.startsWith("chart.") }
+        assertEquals(flatten(source) - "typography.family" - "typography.mono" - adminOnly.toSet(), mirror())
     }
 
     @Test
@@ -220,11 +222,11 @@ class TokensContractTest {
             put("night.text", text.hex())
             put("night.textMutedAlpha", num(TEXT_MUTED_ALPHA))
         }
-        for ((mode, feedback) in listOf("light" to MaggieTokens.feedbackLight, "dark" to MaggieTokens.feedbackDark)) {
-            put("feedback.$mode.error", feedback.error.hex())
-            put("feedback.$mode.warning", feedback.warning.hex())
-            put("feedback.$mode.info", feedback.info.hex())
-            put("feedback.$mode.success", feedback.success.hex())
+        for ((key, feedback) in listOf("feedback.light" to MaggieTokens.feedbackLight, "phone.feedback.dark" to MaggieTokens.feedbackDark)) {
+            put("$key.error", feedback.error.hex())
+            put("$key.warning", feedback.warning.hex())
+            put("$key.info", feedback.info.hex())
+            put("$key.success", feedback.success.hex())
         }
         with(MaggieTokens.Module) {
             for ((name, pair) in listOf(

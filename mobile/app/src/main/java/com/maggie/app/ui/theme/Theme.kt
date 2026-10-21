@@ -10,6 +10,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 
+/** A state colour as a container: the colour, lightly, over the surface it sits on. */
+private fun stateContainer(state: Color, surface: Color): Color = state.copy(alpha = STATE_CONTAINER_ALPHA).compositeOver(surface)
+
+internal const val STATE_CONTAINER_ALPHA = 0.22f
+
 /**
  * The app's theme, derived from `design/tokens.json` — the same file the admin
  * reads (MAG-39), in the « Veilleuse » identity (MAG-311).
@@ -30,11 +35,6 @@ import androidx.compose.ui.graphics.compositeOver
  * licence, and that is a ticket of its own. Until then the app writes in Roboto
  * at Material's sizes, which `typography.size` already names.
  */
-/** A state colour as a container: the colour, lightly, over the surface it sits on. */
-private fun stateContainer(state: Color, surface: Color): Color = state.copy(alpha = STATE_CONTAINER_ALPHA).compositeOver(surface)
-
-internal const val STATE_CONTAINER_ALPHA = 0.22f
-
 internal val MaggieLightColorScheme = lightColorScheme(
     primary = MaggieTokens.Brand.primaryLight,
     onPrimary = MaggieTokens.Brand.onPrimaryLight,

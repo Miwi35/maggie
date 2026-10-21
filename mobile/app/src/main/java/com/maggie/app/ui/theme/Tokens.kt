@@ -96,6 +96,7 @@ object MaggieTokens {
         success = Color(0xFF1E7A3E),
     )
 
+    /** The charter's dark feedback (`phone.feedback.dark`); the admin keeps its own `feedback.dark`. */
     val feedbackDark = Feedback(
         error = Color(0xFFFF8A80),
         warning = Color(0xFFF0A35E),

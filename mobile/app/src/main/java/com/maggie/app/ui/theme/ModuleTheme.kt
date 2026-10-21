@@ -41,15 +41,15 @@ internal fun ColorScheme.inModule(module: ModuleHue): ColorScheme {
     )
 }
 
-/** Draws [content] in [module]'s hue; no module, no change. */
+/**
+ * Draws [content] in [module]'s hue; no module, no change. The wrapper is always there, so going
+ * from one module to another never moves [content] in the composition and rebuilds what is inside.
+ */
 @Composable
 fun ModuleTheme(module: ModuleHue?, content: @Composable () -> Unit) {
-    if (module == null) {
-        content()
-        return
-    }
+    val scheme = MaterialTheme.colorScheme
     MaterialTheme(
-        colorScheme = MaterialTheme.colorScheme.inModule(module),
+        colorScheme = if (module == null) scheme else scheme.inModule(module),
         shapes = MaterialTheme.shapes,
         typography = MaterialTheme.typography,
         content = content,

@@ -44,10 +44,12 @@ reply). `source` keeps its values: it labels data, not the identity.
 
 The mock-ups' states, modules and charts are applied to the phone:
 
-- **`night`** is `#0F0E17` / `#1A1824` and **`feedback.dark`** the charter's
-  coral, amber, blue and green — both shared with the admin.
+- **`night`** is `#0F0E17` / `#1A1824`; the admin declares it but draws nothing
+  with it (its sign-in pages still write `#1a1a2e`, under the auth guard).
+- **`phone.feedback.dark`** is the charter's coral, amber, blue and green, which
+  the phone's dark `error` role reads; the admin's `feedback.dark` is unchanged.
 - **`module.taches`** (orchid) and **`module.saga`** (gold) join the other hues.
-- **`phone`** holds the `signal` set and the `chart.categorical` palette the
+- **`phone`** also holds the `signal` set and the `chart.categorical` palette the
   phone draws data with (mint, violet, gold, blue, orchid). The admin declares
   the group and does not read it: its own `signal` and `chart` stay until it
   moves (MAG-311).

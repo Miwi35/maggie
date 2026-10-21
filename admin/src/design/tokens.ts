@@ -55,7 +55,7 @@ export const TOKENS = {
   /** Feedback about *this* interaction — MUI's alert roles. */
   feedback: {
     light: { error: '#B3261E', warning: '#8A5F00', info: '#2F62B8', success: '#1E7A3E' },
-    dark: { error: '#FF8A80', warning: '#F0A35E', info: '#8FB8FF', success: '#6FCF8E' },
+    dark: { error: '#F4766E', warning: '#F2C65A', info: '#8FB8FF', success: '#6FCF8E' },
   },
   /** One hue per module, of the same lightness; the menu draws it at 16 % behind the icon. */
   module: {
@@ -106,6 +106,9 @@ export const TOKENS = {
    * remark on one channel does not extend to the other); it declares these and does not read them.
    */
   phone: {
+    feedback: {
+      dark: { error: '#FF8A80', warning: '#F0A35E', info: '#8FB8FF', success: '#6FCF8E' },
+    },
     signal: {
       success: '#6FCF8E',
       warning: '#F0A35E',
