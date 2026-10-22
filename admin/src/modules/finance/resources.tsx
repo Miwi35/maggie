@@ -1,44 +1,42 @@
 import { ResourceGuesser } from '@api-platform/admin'
 import { CustomRoutes } from 'react-admin'
 import { Navigate, Route } from 'react-router-dom'
+import { AccountCreate } from './AccountCreate'
+import { AccountEdit } from './AccountEdit'
+import { AccountList } from './AccountList'
+import { AccountTransactionsView } from './AccountTransactionsView'
+import { CategoryCreate } from './CategoryCreate'
+import { CategoryEdit } from './CategoryEdit'
+import { CategorizationRuleCreate } from './CategorizationRuleCreate'
+import { ContactCreate } from './ContactCreate'
+import { ContactEdit } from './ContactEdit'
+import { ContactList } from './ContactList'
+import { BankConnectionsPage } from './BankConnectionsPage'
+import { CushionPage } from './CushionPage'
+import { FinanceDashboardPage } from './FinanceDashboardPage'
+import { FinanceSummaryPage } from './FinanceSummaryPage'
+import { LoanCreate } from './LoanCreate'
+import { RecurringOperationsPage } from './RecurringOperationsPage'
+import { SavingsAdvancesPage } from './SavingsAdvancesPage'
+import { StatementImportPage } from './StatementImportPage'
+import { LoanEdit } from './LoanEdit'
+import { LoanList } from './LoanList'
+import { CategorizationRuleEdit } from './CategorizationRuleEdit'
+import { CategorizationRuleList } from './CategorizationRuleList'
+import { CategoryList } from './CategoryList'
+import { EnvelopeCreate } from './EnvelopeCreate'
+import { EnvelopeEdit } from './EnvelopeEdit'
+import { EnvelopeList } from './EnvelopeList'
+import { PeerDebtsPage } from './PeerDebtsPage'
+import { ProjectsPage } from './ProjectsPage'
+import { ReviewPage } from './ReviewPage'
 import { LEGACY_REVIEW_REDIRECTS } from './reviewFilter'
+import { ReviewActivityPage } from './ReviewActivityPage'
 import { REVIEW_ACTIVITY_PATH } from './reviewActivity'
-import { lazyPage } from '../../lazyPage'
-
-const AccountCreate = lazyPage(() => import('./AccountCreate'), 'AccountCreate')
-const AccountEdit = lazyPage(() => import('./AccountEdit'), 'AccountEdit')
-const AccountList = lazyPage(() => import('./AccountList'), 'AccountList')
-const AccountTransactionsView = lazyPage(() => import('./AccountTransactionsView'), 'AccountTransactionsView')
-const BankConnectionsPage = lazyPage(() => import('./BankConnectionsPage'), 'BankConnectionsPage')
-const CategorizationRuleCreate = lazyPage(() => import('./CategorizationRuleCreate'), 'CategorizationRuleCreate')
-const CategorizationRuleEdit = lazyPage(() => import('./CategorizationRuleEdit'), 'CategorizationRuleEdit')
-const CategorizationRuleList = lazyPage(() => import('./CategorizationRuleList'), 'CategorizationRuleList')
-const CategoryCreate = lazyPage(() => import('./CategoryCreate'), 'CategoryCreate')
-const CategoryEdit = lazyPage(() => import('./CategoryEdit'), 'CategoryEdit')
-const CategoryList = lazyPage(() => import('./CategoryList'), 'CategoryList')
-const ContactCreate = lazyPage(() => import('./ContactCreate'), 'ContactCreate')
-const ContactEdit = lazyPage(() => import('./ContactEdit'), 'ContactEdit')
-const ContactList = lazyPage(() => import('./ContactList'), 'ContactList')
-const CushionPage = lazyPage(() => import('./CushionPage'), 'CushionPage')
-const EnvelopeCreate = lazyPage(() => import('./EnvelopeCreate'), 'EnvelopeCreate')
-const EnvelopeEdit = lazyPage(() => import('./EnvelopeEdit'), 'EnvelopeEdit')
-const EnvelopeList = lazyPage(() => import('./EnvelopeList'), 'EnvelopeList')
-const FinanceDashboardPage = lazyPage(() => import('./FinanceDashboardPage'), 'FinanceDashboardPage')
-const FinanceSummaryPage = lazyPage(() => import('./FinanceSummaryPage'), 'FinanceSummaryPage')
-const LoanCreate = lazyPage(() => import('./LoanCreate'), 'LoanCreate')
-const LoanEdit = lazyPage(() => import('./LoanEdit'), 'LoanEdit')
-const LoanList = lazyPage(() => import('./LoanList'), 'LoanList')
-const PeerDebtsPage = lazyPage(() => import('./PeerDebtsPage'), 'PeerDebtsPage')
-const ProjectsPage = lazyPage(() => import('./ProjectsPage'), 'ProjectsPage')
-const RecurringOperationsPage = lazyPage(() => import('./RecurringOperationsPage'), 'RecurringOperationsPage')
-const ReviewActivityPage = lazyPage(() => import('./ReviewActivityPage'), 'ReviewActivityPage')
-const ReviewPage = lazyPage(() => import('./ReviewPage'), 'ReviewPage')
-const SavingsAdvancesPage = lazyPage(() => import('./SavingsAdvancesPage'), 'SavingsAdvancesPage')
-const StatementImportPage = lazyPage(() => import('./StatementImportPage'), 'StatementImportPage')
-const TransactionCreate = lazyPage(() => import('./TransactionCreate'), 'TransactionCreate')
-const TransactionList = lazyPage(() => import('./TransactionList'), 'TransactionList')
-const TransactionSheet = lazyPage(() => import('./TransactionSheet'), 'TransactionSheet')
-const TreasuryPage = lazyPage(() => import('./TreasuryPage'), 'TreasuryPage')
+import { TransactionCreate } from './TransactionCreate'
+import { TransactionSheet } from './TransactionSheet'
+import { TransactionList } from './TransactionList'
+import { TreasuryPage } from './TreasuryPage'
 
 export const financeResources = (
   <>

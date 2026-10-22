@@ -1,10 +1,8 @@
 import { ResourceGuesser } from '@api-platform/admin'
 import { CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
-import { lazyPage } from '../../lazyPage'
-
-const CalendarView = lazyPage(() => import('./CalendarView'), 'CalendarView')
-const TaskBoard = lazyPage(() => import('./TaskBoard'), 'TaskBoard')
+import { CalendarView } from './CalendarView'
+import { TaskBoard } from './TaskBoard'
 
 export const calendarResources = (
   <>

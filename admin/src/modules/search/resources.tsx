@@ -1,8 +1,6 @@
 import { CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
-import { lazyPage } from '../../lazyPage'
-
-const SearchPage = lazyPage(() => import('./SearchPage'), 'SearchPage')
+import { SearchPage } from './SearchPage'
 
 export const searchResources = (
   <CustomRoutes>

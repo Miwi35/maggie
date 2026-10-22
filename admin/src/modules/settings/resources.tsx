@@ -1,13 +1,11 @@
 import { CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
-import { lazyPage } from '../../lazyPage'
-
-const AgentSettings = lazyPage(() => import('./AgentSettings'), 'AgentSettings')
-const GoogleCalendarSettings = lazyPage(() => import('./GoogleCalendarSettings'), 'GoogleCalendarSettings')
-const TaskOrderSettings = lazyPage(() => import('./TaskOrderSettings'), 'TaskOrderSettings')
-const MealSettings = lazyPage(() => import('./MealSettings'), 'MealSettings')
-const TaskSettings = lazyPage(() => import('./TaskSettings'), 'TaskSettings')
-const UserPreferenceSettings = lazyPage(() => import('./UserPreferenceSettings'), 'UserPreferenceSettings')
+import { AgentSettings } from './AgentSettings'
+import { GoogleCalendarSettings } from './GoogleCalendarSettings'
+import { TaskOrderSettings } from './TaskOrderSettings'
+import { MealSettings } from './MealSettings'
+import { TaskSettings } from './TaskSettings'
+import { UserPreferenceSettings } from './UserPreferenceSettings'
 
 export const settingsResources = (
   <CustomRoutes>
