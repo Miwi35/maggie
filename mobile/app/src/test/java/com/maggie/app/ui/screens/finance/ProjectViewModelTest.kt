@@ -5,8 +5,10 @@ import com.maggie.app.data.api.ProjectWriteRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.PlannedProject
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectDateMode
+import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.repository.ProjectRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -54,9 +56,20 @@ class ProjectViewModelTest {
         position = 1, dependsOn = listOf("/api/finance/projects/p1"),
     )
 
+    // « Déménagement » then « Canapé » at 500 €/month: the first is bought in month 5, the second in month 8.
+    private val planning = ProjectPlanning(
+        startMonth = "2026-10",
+        isIncomeKnown = true,
+        projects = listOf(
+            PlannedProject(projectId = "p1", name = "Déménagement", position = 0, amountCents = 250000, savingFromMonth = "2026-10", purchaseMonth = "2027-03"),
+            PlannedProject(projectId = "p2", name = "Canapé", position = 1, amountCents = 120000, savingFromMonth = "2027-03", purchaseMonth = "2027-06"),
+        ),
+    )
+
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
+        coEvery { repository.getProjectPlanning() } returns Result.success(planning)
         coEvery { repository.getProjects() } returns Result.success(listOf(move, sofa))
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns pushes
@@ -448,5 +461,130 @@ class ProjectViewModelTest {
 
         assertEquals(listOf("Canapé", "Déménagement"), viewModel.uiState.value.projects.map { it.name })
         coVerify(exactly = 1) { repository.getProjects() }
+    }
+
+    @Test
+    fun `the planning loads with the list, the Gantt waits for its answer`() = runTest {
+        val viewModel = viewModel()
+        assertTrue(viewModel.uiState.value.isPlanningLoading)
+        assertNull(viewModel.uiState.value.planning)
+
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isPlanningLoading)
+        assertFalse(state.planningError)
+        assertEquals(planning, state.planning)
+    }
+
+    @Test
+    fun `a planning that cannot be read says so and leaves the list alone`() = runTest {
+        coEvery { repository.getProjectPlanning() } returns Result.failure(RuntimeException("Unable to resolve host"))
+        val viewModel = viewModel()
+
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.planningError)
+        assertFalse(state.isPlanningLoading)
+        assertNull(state.planning)
+        assertEquals(listOf("Déménagement", "Canapé"), state.projects.map { it.name })
+        assertNull(state.error)
+    }
+
+    @Test
+    fun `retrying the planning reads it again, and only it`() = runTest {
+        coEvery { repository.getProjectPlanning() } returns Result.failure(RuntimeException(""))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        coEvery { repository.getProjectPlanning() } returns Result.success(planning)
+
+        viewModel.refreshPlanning()
+        assertTrue(viewModel.uiState.value.isPlanningLoading)
+        assertFalse(viewModel.uiState.value.planningError)
+        advanceUntilIdle()
+
+        assertEquals(planning, viewModel.uiState.value.planning)
+        coVerify(exactly = 1) { repository.getProjects() }
+    }
+
+    @Test
+    fun `a failed re-read keeps the Gantt already on screen`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        coEvery { repository.getProjectPlanning() } returns Result.failure(RuntimeException(""))
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(planning, viewModel.uiState.value.planning)
+        assertFalse(viewModel.uiState.value.planningError)
+    }
+
+    @Test
+    fun `a reorder reads the planning again, Canapé first`() = runTest {
+        val reordered = planning.copy(
+            projects = listOf(
+                planning.projects[1].copy(position = 0, savingFromMonth = "2026-10", purchaseMonth = "2027-01"),
+                planning.projects[0].copy(position = 1, savingFromMonth = "2027-01", purchaseMonth = "2027-06"),
+            ),
+        )
+        coEvery { repository.reorderProjects(listOf("p2", "p1")) } returns
+            Result.success(listOf(sofa.copy(position = 0), move.copy(position = 1)))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        coEvery { repository.getProjectPlanning() } returns Result.success(reordered)
+
+        viewModel.previewMove(1, 0)
+        viewModel.endMove()
+        advanceUntilIdle()
+
+        assertEquals(listOf("Canapé", "Déménagement"), viewModel.uiState.value.planning!!.projects.map { it.name })
+        coVerify(exactly = 2) { repository.getProjectPlanning() }
+    }
+
+    @Test
+    fun `a saved project and a deleted one read the planning again`() = runTest {
+        coEvery { repository.deleteProject("p2") } returns Result.success(Unit)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.delete("p2")
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { repository.getProjectPlanning() }
+    }
+
+    @Test
+    fun `a loan, the cushion or an account written elsewhere reads the planning, not the list`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val later = planning.copy(projects = planning.projects.map { it.copy(purchaseMonth = "2028-01") })
+        coEvery { repository.getProjectPlanning() } returns Result.success(later)
+
+        pushes.emit(MercureEvent(data = """{"@id":"/api/loans/l1"}"""))
+        advanceUntilIdle()
+
+        assertEquals(later, viewModel.uiState.value.planning)
+        coVerify { mercureService.subscribe("/users/user-1/api/loans/{id}") }
+        coVerify { mercureService.subscribe("/users/user-1/api/safety_cushions/{id}") }
+        coVerify { mercureService.subscribe("/users/user-1/api/accounts/{id}") }
+    }
+
+    @Test
+    fun `an answer to an older read does not replace a newer one`() = runTest {
+        val first = CompletableDeferred<Result<ProjectPlanning>>()
+        coEvery { repository.getProjectPlanning() } coAnswers { first.await() }
+        val viewModel = viewModel()
+        runCurrent()
+        val newer = planning.copy(currency = "USD")
+        coEvery { repository.getProjectPlanning() } returns Result.success(newer)
+
+        viewModel.refreshPlanning()
+        advanceUntilIdle()
+        first.complete(Result.success(planning))
+        advanceUntilIdle()
+
+        assertEquals(newer, viewModel.uiState.value.planning)
     }
 }

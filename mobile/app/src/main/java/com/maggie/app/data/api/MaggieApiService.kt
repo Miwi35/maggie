@@ -110,6 +110,7 @@ import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.LoanCurve
 import com.maggie.app.data.model.LoanStep
 import com.maggie.app.data.model.Project
+import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
@@ -2226,6 +2227,13 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             accept(ContentType.Application.Json)
             setBody(ProjectReorderRequest(ids))
+        }.orRefusal().body()
+    }
+
+    /** The projects over the next 36 months (MAG-526), computed on every read. */
+    suspend fun getProjectPlanning(): ProjectPlanning {
+        return client.get("$baseUrl/api/finance/project-planning") {
+            accept(ContentType.Application.Json)
         }.orRefusal().body()
     }
 

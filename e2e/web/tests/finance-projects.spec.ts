@@ -21,6 +21,9 @@ import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
  * waits for. The seeded saving capacity is not asserted (it follows the seeded
  * spending): what holds whatever it is, is the order and the dependency.
  *
+ * The Gantt under the list (MAG-527) draws that same planning: the sofa's purchase after the
+ * move's, and dragging the sofa to the top makes its bar come first once the planning is read again.
+ *
  * Only this file reads or writes the projects; `finally` puts the seed back,
  * so a retry starts where the first attempt did.
  */
@@ -237,6 +240,47 @@ test('the planning puts Canapé after Déménagement, and moving Canapé first c
       [MOVE, 1],
     ])
     expect(sofaNotBeforeMove(seeded(after)), 'moving Canapé first must not buy it before Déménagement').toBe(true)
+  } finally {
+    await restoreSeed(api)
+  }
+})
+
+test('the Gantt draws the purchase of Canapé after that of Déménagement, and follows a drag to the top', async ({ page, api }) => {
+  await restoreSeed(api)
+  const screen = new FinanceProjectsPage(page)
+
+  try {
+    // --- Given: Déménagement on a fixed date, Canapé after it ----------------
+    await screen.open()
+    await expect(screen.gantt).toBeVisible()
+    await expect(screen.gantt.getByTestId('gantt-axis').locator('[data-month]')).toHaveCount(36)
+    await expect(screen.gantt.getByTestId('gantt-today')).toBeVisible()
+
+    // --- Then: the move has its padlock, the sofa is bought after it ---------
+    await expect.poll(() => screen.ganttOrder([MOVE, SOFA])).toEqual([MOVE, SOFA])
+    await expect(screen.ganttRow(MOVE).getByTestId('gantt-fixed')).toBeVisible()
+    const movePurchase = await screen.purchaseAt(MOVE)
+    expect(movePurchase, 'the fixed date falls inside the 36 months').not.toBeNull()
+    const sofaPurchase = await screen.purchaseAt(SOFA)
+    if (sofaPurchase === null) {
+      await expect(screen.ganttRow(SOFA).getByTestId('gantt-beyond')).toBeVisible()
+    } else {
+      expect(sofaPurchase).toBeGreaterThanOrEqual(movePurchase as number)
+    }
+
+    const savingFrom = async (): Promise<number> =>
+      Number(await screen.ganttRow(SOFA).getByTestId('gantt-saving').getAttribute('data-from'))
+    const sofaSavingBefore = await savingFrom()
+
+    // --- When: Canapé, which has no date, is dragged to the top --------------
+    const dropped = reorderAnswered(page)
+    await dragOnto(page, screen.handle(SOFA), screen.row(MOVE))
+    expect((await dropped).status()).toBe(200)
+
+    // --- Then: the planning is read again and the sofa's bar comes first -----
+    await expect.poll(() => screen.ganttOrder([MOVE, SOFA]), { timeout: 30_000 }).toEqual([SOFA, MOVE])
+    // Déménagement's fixed date is funded first, so the sofa moves up the list without saving later than before.
+    expect(await savingFrom()).toBeLessThanOrEqual(sofaSavingBefore)
   } finally {
     await restoreSeed(api)
   }

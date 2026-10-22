@@ -12,7 +12,9 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.PlannedProject
 import com.maggie.app.data.model.Project
+import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.assertTopToBottom
@@ -50,8 +52,21 @@ class ProjectListScreenTest {
         position = 1, dependsOn = listOf("/api/finance/projects/p1"),
     )
 
-    private fun viewModel(projects: List<Project> = listOf(move, sofa)): ProjectViewModel {
+    private val planning = ProjectPlanning(
+        startMonth = "2026-10",
+        isIncomeKnown = true,
+        projects = listOf(
+            PlannedProject(projectId = "p1", name = "Déménagement", position = 0, amountCents = 250000, gatheredCents = 50000, dateMode = "fixed", targetOn = "2027-03-01", savingFromMonth = "2026-10", purchaseMonth = "2027-03"),
+            PlannedProject(projectId = "p2", name = "Canapé", position = 1, amountCents = 120000, savingFromMonth = "2027-03", purchaseMonth = "2027-06"),
+        ),
+    )
+
+    private fun viewModel(
+        projects: List<Project> = listOf(move, sofa),
+        plan: Result<ProjectPlanning> = Result.success(planning),
+    ): ProjectViewModel {
         coEvery { repository.getProjects() } returns Result.success(projects)
+        coEvery { repository.getProjectPlanning() } returns plan
         val auth = mockk<AuthRepository>()
         coEvery { auth.getUserId() } returns "user-1"
         val mercure = mockk<MercureService>()
@@ -139,5 +154,54 @@ class ProjectListScreenTest {
 
         compose.onNodeWithText("Choisissez la date du projet.").assertIsDisplayed()
         coVerify(exactly = 0) { repository.createProject(any()) }
+    }
+
+    @Test
+    fun `the Gantt draws a line per project, each with its saving bar and its purchase mark`() {
+        compose.setContent { ProjectListScreen(viewModel(), onBack = {}, onOpenForm = {}) }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.GANTT_ROW).fetchSemanticsNodes().size == 2 }
+        compose.onNodeWithTag(UiTags.PROJECT_GANTT).assertIsDisplayed()
+        assertEquals(2, compose.onAllNodesWithTag(UiTags.GANTT_SAVING).fetchSemanticsNodes().size)
+        assertEquals(2, compose.onAllNodesWithTag(UiTags.GANTT_PURCHASE).fetchSemanticsNodes().size)
+        assertEquals(1, compose.onAllNodesWithTag(UiTags.GANTT_FIXED, useUnmergedTree = true).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `a tap on a bar says the month and the amounts`() {
+        compose.setContent { ProjectListScreen(viewModel(), onBack = {}, onOpenForm = {}) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.GANTT_SAVING).fetchSemanticsNodes().size == 2 }
+
+        compose.onAllNodesWithTag(UiTags.GANTT_SAVING)[0].performClick()
+
+        compose.onNodeWithTag(UiTags.GANTT_DETAIL).assertIsDisplayed()
+        compose.onNodeWithText("Déménagement · épargne de oct. 2026 à mars 2027", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `without a known income there is no Gantt and the list stays`() {
+        val unknown = planning.copy(isIncomeKnown = false)
+        compose.setContent { ProjectListScreen(viewModel(plan = Result.success(unknown)), onBack = {}, onOpenForm = {}) }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
+        compose.waitForIdle()
+
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.PROJECT_GANTT).fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.GANTT_ERROR).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `a planning that cannot be read says so beside the list, and retries`() {
+        val viewModel = viewModel(plan = Result.failure(RuntimeException("")))
+        compose.setContent { ProjectListScreen(viewModel, onBack = {}, onOpenForm = {}) }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.GANTT_ERROR).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Le planning n'a pas pu être chargé.").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size.let { assertEquals(2, it) }
+
+        coEvery { repository.getProjectPlanning() } returns Result.success(planning)
+        compose.onNodeWithText("Réessayer").performClick()
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.GANTT_ROW).fetchSemanticsNodes().size == 2 }
     }
 }

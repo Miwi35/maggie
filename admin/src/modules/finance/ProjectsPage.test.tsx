@@ -75,6 +75,44 @@ const BIKE = project('BIKE', {
 
 const SCORES: Record<string, number> = { essential: 4, high: 3, medium: 2, comfort: 1 }
 
+/** The 36-month planning over the stored order: each project saves two months, buys the third. */
+const planningOf = (rows: Stored[], overrides: Record<string, unknown> = {}) => {
+  const month = (offset: number) => {
+    const total = 2026 * 12 + 9 + offset
+    return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`
+  }
+
+  return {
+    startMonth: '2026-10',
+    horizonMonths: 36,
+    currency: 'EUR',
+    netCapacityCents: 50000,
+    isIncomeKnown: true,
+    cushion: { state: 'complete', completeMonth: null },
+    months: [],
+    projects: [...rows]
+      .sort((a, b) => a.position - b.position)
+      .map((row, index) => ({
+        projectId: row.id,
+        name: row.name,
+        position: row.position,
+        wellbeing: row.wellbeing,
+        amountCents: row.amountCents,
+        dateMode: row.dateMode,
+        targetOn: row.targetOn,
+        savingFromMonth: month(index * 3),
+        purchaseMonth: month(index * 3 + 2),
+        gatheredCents: 0,
+        loan: null,
+        isBeyondHorizon: false,
+        isDeadlineMissed: false,
+        delayMonths: 0,
+        unmetDependencies: row.unmetDependencies,
+      })),
+    ...overrides,
+  }
+}
+
 interface Write {
   method: string
   url: string
@@ -82,7 +120,17 @@ interface Write {
 }
 
 /** The projects API over a list in memory; `refuse` answers every write but the reorder with that error. */
-function stubApi(initial: Stored[], options: { failReorder?: boolean; failLoad?: boolean; refuse?: { status: number; body: unknown } } = {}) {
+function stubApi(
+  initial: Stored[],
+  options: {
+    failReorder?: boolean
+    failLoad?: boolean
+    refuse?: { status: number; body: unknown }
+    /** Answers `project-planning` over the stored order; without it the answer is not a planning. */
+    planning?: boolean | Record<string, unknown>
+    failPlanning?: boolean
+  } = {},
+) {
   let stored = initial.map((row) => ({ ...row }))
   const writes: Write[] = []
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
@@ -93,6 +141,10 @@ function stubApi(initial: Stored[], options: { failReorder?: boolean; failLoad?:
     const body = init?.body ? JSON.parse(String(init.body)) : undefined
     if (method !== 'GET') writes.push({ method, url, body })
 
+    if (method === 'GET' && url.includes('/project-planning')) {
+      if (options.failPlanning) return json({}, 500)
+      if (options.planning) return json(planningOf(stored, options.planning === true ? {} : options.planning))
+    }
     if (method === 'GET') {
       if (options.failLoad) return json({}, 500)
       return json({ member: [...stored].sort((a, b) => a.position - b.position) })
@@ -475,5 +527,94 @@ describe('ProjectsPage', () => {
     await emitMercure('/api/finance/projects/{id}', { '@id': iri('ELSEWHERE'), position: 4 })
 
     await waitFor(() => expect(fetchMock.mock.calls.length).toBe(reads + 1))
+  })
+  describe('planning Gantt (MAG-527)', () => {
+    const ganttRows = () => screen.queryAllByTestId('gantt-row').map((node) => node.getAttribute('data-project'))
+    const planningReads = (fetchMock: ReturnType<typeof stubApi>['fetchMock']) =>
+      fetchMock.mock.calls.filter(([input]) => String(input).includes('/project-planning')).length
+
+    test('draws one line per project under the list, in priority order', async () => {
+      stubApi([BIKE, MOVE, SOFA], { planning: true })
+      render(<ProjectsPage />)
+      await loaded(3)
+
+      await waitFor(() => expect(ganttRows()).toEqual(['Déménagement', 'Canapé', 'Vélo']))
+      expect(screen.getByRole('heading', { name: 'Planning' })).toBeInTheDocument()
+    })
+
+    test('reads the planning again after a reorder: the dropped project comes first', async () => {
+      const { fetchMock } = stubApi([MOVE, SOFA, BIKE], { planning: true })
+      render(<ProjectsPage />)
+      await loaded(3)
+      await waitFor(() => expect(ganttRows()).toEqual(['Déménagement', 'Canapé', 'Vélo']))
+      const before = planningReads(fetchMock)
+
+      await drag('BIKE', 'MOVE')
+
+      await waitFor(() => expect(ganttRows()).toEqual(['Vélo', 'Déménagement', 'Canapé']))
+      expect(planningReads(fetchMock)).toBeGreaterThan(before)
+      expect(screen.getByTestId('project-gantt').querySelector('[data-project="Vélo"][data-testid="gantt-saving"]')).toHaveAttribute('data-from', '0')
+    })
+
+    test('reads the planning again after a project is created and after one is deleted', async () => {
+      const user = userEvent.setup()
+      const { fetchMock } = stubApi([MOVE, SOFA], { planning: true })
+      render(<ProjectsPage />)
+      await loaded(2)
+      await waitFor(() => expect(ganttRows()).toEqual(['Déménagement', 'Canapé']))
+
+      await user.click(screen.getByRole('button', { name: 'Nouveau projet' }))
+      const dialog = await screen.findByRole('dialog')
+      await user.type(within(dialog).getByLabelText(/^Nom/), 'Vélo cargo')
+      await user.type(within(dialog).getByLabelText(/^Montant/), '1500')
+      await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+      await waitFor(() => expect(ganttRows()).toEqual(['Déménagement', 'Canapé', 'Vélo cargo']))
+
+      const afterCreate = planningReads(fetchMock)
+      await user.click(screen.getByRole('button', { name: 'Supprimer Canapé' }))
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Supprimer' }))
+      await waitFor(() => expect(ganttRows()).toEqual(['Déménagement', 'Vélo cargo']))
+      expect(planningReads(fetchMock)).toBeGreaterThan(afterCreate)
+    })
+
+    test('reads the planning again when a loan, the cushion or an account is published', async () => {
+      const { fetchMock } = stubApi([MOVE, SOFA], { planning: true })
+      render(<ProjectsPage />)
+      await loaded(2)
+      await waitFor(() => expect(ganttRows()).toHaveLength(2))
+
+      for (const topic of ['/api/loans/{id}', '/api/safety_cushions/{id}', '/api/accounts/{id}']) {
+        const before = planningReads(fetchMock)
+        await emitMercure(topic, { '@id': topic.replace('{id}', 'X') })
+        await waitFor(() => expect(planningReads(fetchMock)).toBeGreaterThan(before))
+      }
+    })
+
+    test('shows no Gantt, and no alert, while the income is unknown', async () => {
+      stubApi([MOVE, SOFA], { planning: { isIncomeKnown: false } })
+      render(<ProjectsPage />)
+      await loaded(2)
+
+      await waitFor(() => expect(screen.queryByTestId('gantt-loading')).toBeNull())
+      expect(screen.queryByTestId('project-gantt')).toBeNull()
+      expect(screen.queryByTestId('project-planning')).toBeNull()
+      expect(screen.queryByText("Le planning n'a pas pu être chargé.")).toBeNull()
+    })
+
+    test('says when the planning could not be read, and reads it again on demand', async () => {
+      const user = userEvent.setup()
+      stubApi([MOVE, SOFA], { failPlanning: true })
+      render(<ProjectsPage />)
+      await loaded(2)
+
+      expect(await screen.findByText("Le planning n'a pas pu être chargé.")).toBeInTheDocument()
+      expect(shown()).toEqual(['Déménagement', 'Canapé'])
+
+      stubApi([MOVE, SOFA], { planning: true })
+      await user.click(within(screen.getByTestId('project-planning')).getByRole('button', { name: 'Réessayer' }))
+
+      await waitFor(() => expect(ganttRows()).toEqual(['Déménagement', 'Canapé']))
+      expect(screen.queryByText("Le planning n'a pas pu être chargé.")).toBeNull()
+    })
   })
 })

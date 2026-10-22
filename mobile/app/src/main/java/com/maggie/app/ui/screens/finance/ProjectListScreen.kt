@@ -32,6 +32,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -141,6 +142,13 @@ fun ProjectListContent(
             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                 ProjectList(
                     projects = uiState.projects,
+                    planning = {
+                        ProjectPlanningSection(
+                            state = uiState,
+                            wide = wide,
+                            onRetry = viewModel::refreshPlanning,
+                        )
+                    },
                     wide = wide,
                     onOpen = { onOpenForm(it) },
                     onPreviewMove = viewModel::previewMove,
@@ -162,6 +170,7 @@ fun ProjectListContent(
 @Composable
 private fun ProjectList(
     projects: List<Project>,
+    planning: @Composable () -> Unit,
     wide: Boolean,
     onOpen: (String) -> Unit,
     onPreviewMove: (Int, Int) -> Unit,
@@ -187,6 +196,8 @@ private fun ProjectList(
         contentPadding = PaddingValues(start = if (wide) 24.dp else 16.dp, top = 16.dp, end = if (wide) 24.dp else 16.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 8.dp),
     ) {
+        // The phone reads the timeline first, then the list; the tablet has the list, then the Gantt under it.
+        if (!wide) item(key = PLANNING_ITEM_KEY) { planning() }
         itemsIndexed(projects, key = { _, project -> project.id }) { index, project ->
             ReorderableItem(reorderState, key = project.id) { isDragging ->
                 val moveActions = buildList {
@@ -231,6 +242,34 @@ private fun ProjectList(
                 }
             }
         }
+        if (wide) item(key = PLANNING_ITEM_KEY) { planning() }
+    }
+}
+
+private const val PLANNING_ITEM_KEY = "project-planning"
+
+/**
+ * The Gantt (MAG-527) or, when the planning could not be read, a line that says so with a retry.
+ * Nothing while it loads for the first time, and nothing without a known income: the list stands alone.
+ */
+@Composable
+private fun ProjectPlanningSection(state: ProjectUiState, wide: Boolean, onRetry: () -> Unit) {
+    val planning = state.planning
+    when {
+        planning != null && ganttRows(planning).isNotEmpty() ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = if (wide) 8.dp else 4.dp)) {
+                Text("Planning", style = MaterialTheme.typography.titleMedium)
+                ProjectGantt(planning)
+            }
+        state.planningError ->
+            Row(
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.GANTT_ERROR),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Le planning n'a pas pu être chargé.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = onRetry) { Text("Réessayer") }
+            }
     }
 }
 
