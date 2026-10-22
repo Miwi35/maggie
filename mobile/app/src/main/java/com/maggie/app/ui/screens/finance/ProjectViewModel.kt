@@ -10,12 +10,14 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectDateMode
+import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.ProjectWellbeing
 import com.maggie.app.data.model.projectIri
 import com.maggie.app.data.repository.ProjectRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.util.Locale
@@ -97,6 +99,11 @@ data class ProjectUiState(
     val error: String? = null,
     val message: String? = null,
     val form: ProjectForm? = null,
+    /** The Gantt's data (MAG-527); null until the first answer, and kept when a later read fails. */
+    val planning: ProjectPlanning? = null,
+    val isPlanningLoading: Boolean = true,
+    /** The planning could not be read and there is none to keep: the Gantt says so and offers a retry. */
+    val planningError: Boolean = false,
 )
 
 /**
@@ -117,6 +124,9 @@ class ProjectViewModel(
     private var orderBeforeDrag: List<Project>? = null
     private var reorderInFlight = false
 
+    /** Numbers the planning reads, so an answer that lands after a newer read was asked for is dropped. */
+    private var planningRead = 0
+
     init {
         refresh()
         subscribeToMercure()
@@ -132,10 +142,41 @@ class ProjectViewModel(
                 .coalesced()
                 .collect { if (orderBeforeDrag == null && !reorderInFlight) load(showLoading = false) }
         }
+        // The planning also moves with a loan, the cushion or an account; the list itself does not.
+        viewModelScope.launch {
+            val userId = authRepository.getUserId() ?: return@launch
+            merge(
+                *listOf(MercureTopics.LOANS, MercureTopics.SAFETY_CUSHIONS, MercureTopics.ACCOUNTS).map { topic ->
+                    mercureService.subscribe(MercureTopics.userScoped(userId, topic)).catch { /* MercureService reconnects by itself */ }
+                }.toTypedArray(),
+            )
+                .coalesced()
+                .collect { if (orderBeforeDrag == null && !reorderInFlight) loadPlanning() }
+        }
     }
 
     fun refresh() {
         viewModelScope.launch { load(showLoading = true) }
+    }
+
+    /** « Réessayer » of the Gantt: only the planning is read again. */
+    fun refreshPlanning() {
+        _uiState.value = _uiState.value.copy(isPlanningLoading = true, planningError = false)
+        viewModelScope.launch { loadPlanning() }
+    }
+
+    // A failed read keeps the Gantt already on screen: the order it shows is still the owner's.
+    private suspend fun loadPlanning() {
+        val mine = ++planningRead
+        repository.getProjectPlanning()
+            .onSuccess { planning ->
+                if (mine != planningRead) return@onSuccess
+                _uiState.value = _uiState.value.copy(planning = planning, isPlanningLoading = false, planningError = false)
+            }
+            .onFailure {
+                if (mine != planningRead) return@onFailure
+                _uiState.value = _uiState.value.copy(isPlanningLoading = false, planningError = _uiState.value.planning == null)
+            }
     }
 
     private suspend fun load(showLoading: Boolean) {
@@ -152,6 +193,8 @@ class ProjectViewModel(
             .onFailure {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = MESSAGE_LOAD)
             }
+        // Whatever moved the list (a save, a delete, a push) moved the planning with it.
+        loadPlanning()
     }
 
     fun openNew() {
@@ -262,6 +305,7 @@ class ProjectViewModel(
                     reorderInFlight = false
                     // A new drag started meanwhile: its own reorder carries the newer order.
                     if (orderBeforeDrag == null) _uiState.value = _uiState.value.copy(projects = stored)
+                    loadPlanning()
                 }
                 .onFailure {
                     reorderInFlight = false

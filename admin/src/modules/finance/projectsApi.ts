@@ -220,3 +220,95 @@ export async function reorderProjects(ids: string[]): Promise<Project[]> {
 
   return byPosition((body.projects ?? []).map(toProject))
 }
+
+export type CushionPlanState = 'building' | 'complete' | 'recharging'
+
+export interface PlannedLoan {
+  /** `YYYY-MM`, the month after the purchase. */
+  startMonth: string
+  /** `YYYY-MM`; null when the loan outlives the 36 months. */
+  endMonth: string | null
+  monthlyPaymentCents: number
+}
+
+/** One project of the planning, in priority order (`GET /api/finance/project-planning`, MAG-526). */
+export interface PlannedProject {
+  projectId: string
+  name: string
+  position: number
+  wellbeing: ProjectWellbeing
+  amountCents: number
+  dateMode: ProjectDateMode
+  /** `YYYY-MM-DD`. */
+  targetOn: string | null
+  /** `YYYY-MM`. */
+  savingFromMonth: string
+  /** `YYYY-MM`; null when the purchase falls past the horizon. */
+  purchaseMonth: string | null
+  gatheredCents: number
+  loan: PlannedLoan | null
+  isBeyondHorizon: boolean
+  isDeadlineMissed: boolean
+  delayMonths: number
+  unmetDependencies: string[]
+}
+
+export interface ProjectPlanning {
+  /** `YYYY-MM`, the current month: month 0. */
+  startMonth: string
+  horizonMonths: number
+  currency: string
+  isIncomeKnown: boolean
+  cushion: { state: CushionPlanState; completeMonth: string | null }
+  projects: PlannedProject[]
+}
+
+export const PLANNING_PATH = '/api/finance/project-planning'
+
+const toPlannedProject = (raw: Raw): PlannedProject => {
+  const loan = raw.loan as Raw | null | undefined
+
+  return {
+    projectId: bareId(String(raw.projectId ?? '')),
+    name: String(raw.name ?? ''),
+    position: Number(raw.position ?? 0),
+    wellbeing: (raw.wellbeing as ProjectWellbeing) ?? 'medium',
+    amountCents: Number(raw.amountCents ?? 0),
+    dateMode: (raw.dateMode as ProjectDateMode) ?? 'none',
+    targetOn: (raw.targetOn as string | null) ?? null,
+    savingFromMonth: String(raw.savingFromMonth ?? ''),
+    purchaseMonth: (raw.purchaseMonth as string | null) ?? null,
+    gatheredCents: Number(raw.gatheredCents ?? 0),
+    loan: loan
+      ? {
+          startMonth: String(loan.startMonth ?? ''),
+          endMonth: (loan.endMonth as string | null) ?? null,
+          monthlyPaymentCents: Number(loan.monthlyPaymentCents ?? 0),
+        }
+      : null,
+    isBeyondHorizon: Boolean(raw.isBeyondHorizon),
+    isDeadlineMissed: Boolean(raw.isDeadlineMissed),
+    delayMonths: Number(raw.delayMonths ?? 0),
+    unmetDependencies: ((raw.unmetDependencies as string[] | undefined) ?? []).map((id) => bareId(id)),
+  }
+}
+
+/** The projects over the next 36 months, first priority first. */
+export async function fetchProjectPlanning(): Promise<ProjectPlanning> {
+  const response = await request(PLANNING_PATH)
+  if (!response.ok) throw new ProjectError(`project-planning: ${response.status}`)
+  const body = (await response.json()) as Raw
+  const cushion = (body.cushion as Raw | undefined) ?? {}
+
+  return {
+    startMonth: String(body.startMonth ?? ''),
+    horizonMonths: Number(body.horizonMonths ?? 36),
+    currency: String(body.currency ?? 'EUR'),
+    isIncomeKnown: body.isIncomeKnown === true,
+    cushion: {
+      state: (cushion.state as CushionPlanState) ?? 'complete',
+      completeMonth: (cushion.completeMonth as string | null) ?? null,
+    },
+    projects: ((body.projects as Raw[] | undefined) ?? []).map(toPlannedProject).sort((a, b) => a.position - b.position),
+  }
+}

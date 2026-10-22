@@ -8,6 +8,7 @@ tags:
 # Étant donné l'app sur Finance › Planification
 # Quand je touche la carte « Projets »
 # Alors la liste des projets s'ouvre (MAG-530)
+# Alors le Gantt du planning (MAG-527) affiche les deux lignes, « Déménagement » et « Canapé »
 # Étant donné « Déménagement » (position 0) et « Canapé » (position 1), tels que le seed les écrit
 # Quand je fais glisser « Canapé » en haut de la liste
 # Alors l'ordre change, et il reste après réouverture de l'écran
@@ -20,6 +21,10 @@ tags:
 # library, same reorder; the long press is the handle's twin on the whole row). The reorder is a
 # custom controller no contract records, so `scripts/projects-api.js` reads the order the API stored.
 # The date picker opens on today: the date itself is not asserted, only « Date limite ».
+#
+# The Gantt sits above the list on a phone (the mockup's frieze first). Its line labels are plain
+# texts, apart from the list rows' « 1. Déménagement … »: two lines, one per project, in the same order.
+# Its bars, the 36 months and the reread after a reorder are the unit tests' and the web journey's.
 #
 # What is not here: the badges, the dependency line and its warning, the empty state, a refused
 # reorder put back, the form's refusals (`ProjectListScreenTest`, `ProjectViewModelTest`,
@@ -78,6 +83,20 @@ tags:
       text: ".*2. Canapé.*"
       below: ".*1. Déménagement.*"
     timeout: 10000
+
+# The Gantt of the planning: one line per project, Déménagement above Canapé.
+- extendedWaitUntil:
+    visible:
+      id: "project_gantt"
+    timeout: 30000
+- assertVisible:
+    text: "Déménagement"
+    childOf:
+      id: "project_gantt"
+- assertVisible:
+    text: "Canapé"
+    childOf:
+      id: "project_gantt"
 
 # ---------------------------------------------------------------------------
 # « Canapé » dragged to the top: the order changes on screen, then on the server.

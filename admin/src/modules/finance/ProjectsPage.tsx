@@ -27,6 +27,7 @@ import { useMercure } from '../../hooks/useMercure'
 import { formatCents } from './accountTypes'
 import { bareId } from './envelopeTree'
 import { ProjectDialog } from './ProjectDialog'
+import { ProjectGantt } from './ProjectGantt'
 import {
   byPosition,
   createProject,
@@ -42,6 +43,7 @@ import {
   wellbeingLabel,
 } from './projectsApi'
 import type { Project, ProjectInput } from './projectsApi'
+import { useProjectPlanning } from './useProjectPlanning'
 
 const PROJECT_TOPICS = [PROJECT_TOPIC]
 
@@ -161,6 +163,7 @@ function ProjectRow({ project, rank, total, names, picked, onHandleKeyDown, onHa
  */
 export const ProjectsPage = () => {
   const notify = useNotify()
+  const { status: planningStatus, planning, reload: reloadPlanning } = useProjectPlanning()
   const [projects, setProjects] = useState<Project[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [editing, setEditing] = useState<Project | 'new' | null>(null)
@@ -244,6 +247,7 @@ export const ProjectsPage = () => {
     setProjects(renumbered(next))
     try {
       await reorderProjects(next.map((project) => project.id))
+      reloadPlanning()
     } catch (error) {
       setProjects(previous)
       setAnnouncement("Le nouvel ordre n'a pas été enregistré : les projets reprennent leur place.")
@@ -337,6 +341,7 @@ export const ProjectsPage = () => {
       setProjects((previous) => previous.map((project) => (project.id === updated.id ? updated : project)))
     }
     setEditing(null)
+    reloadPlanning()
   }
 
   const remove = async (project: Project) => {
@@ -353,6 +358,7 @@ export const ProjectsPage = () => {
     )
     try {
       await deleteProject(project.id)
+      reloadPlanning()
     } catch (error) {
       setProjects(previous)
       notify(failureText(error, `Le projet « ${project.name} » n'a pas été supprimé.`), { type: 'error' })
@@ -425,6 +431,28 @@ export const ProjectsPage = () => {
           </DndContext>
         )}
       </Box>
+
+      {status === 'ready' && projects.length > 0 && (
+        <Box sx={{ mt: 4 }} data-testid="project-planning">
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Planning
+          </Typography>
+          {planningStatus === 'loading' && <Skeleton data-testid="gantt-loading" height={120} />}
+          {planningStatus === 'failed' && (
+            <Alert
+              severity="error"
+              action={
+                <Button color="inherit" size="small" onClick={() => reloadPlanning()}>
+                  Réessayer
+                </Button>
+              }
+            >
+              Le planning n'a pas pu être chargé.
+            </Alert>
+          )}
+          {planningStatus === 'ready' && planning && <ProjectGantt planning={planning} />}
+        </Box>
+      )}
 
       {editing !== null && (
         <ProjectDialog
