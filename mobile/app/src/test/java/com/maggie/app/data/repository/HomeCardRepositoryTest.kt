@@ -46,20 +46,19 @@ class HomeCardRepositoryTest {
     }
 
     @Test
-    fun `the topic of a card is home slash the module, in the user's scope`() {
-        assertEquals("home/tasks", MercureTopics.home("tasks"))
-        assertEquals("/users/01HUSER/api/home/tasks/{id}", MercureTopics.userScoped("01HUSER", MercureTopics.home("tasks")))
+    fun `the topic of a card is the one the API publishes, with no api segment and no id`() {
+        assertEquals("/users/01HUSER/home/tasks", MercureTopics.homeScoped("01HUSER", "tasks"))
     }
 
     @Test
     fun `a change announced on the card's topic wakes the card once, bursts merged`() = runTest {
-        every { mercure.subscribe("/users/01HUSER/api/home/tasks/{id}") } returns
+        every { mercure.subscribe("/users/01HUSER/home/tasks") } returns
             flowOf(MercureEvent(id = "1"), MercureEvent(id = "2"))
 
         val changes = repository.changes("tasks").toList()
 
         assertEquals(1, changes.size)
-        verify(exactly = 1) { mercure.subscribe("/users/01HUSER/api/home/tasks/{id}") }
+        verify(exactly = 1) { mercure.subscribe("/users/01HUSER/home/tasks") }
     }
 
     @Test

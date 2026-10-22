@@ -39,11 +39,12 @@ object MercureTopics {
     fun agentScoped(userId: String, stream: String): String = "/$stream/$userId"
 
     /**
-     * The collection a card of the Accueil refreshes on (MAG-560): `home/{module}`, published by the API
-     * each time what the card reads changes. Not in [SUBSCRIBED]: the module is the card's, so the set
-     * cannot name it; each card's ticket checks its own against `api/contract/mercure-topics.json`.
+     * What a card of the Accueil refreshes on (MAG-560): the API publishes `/users/{userId}/home/{module}`
+     * (`HomeCardPublisher`) each time what the card reads changes. Unlike [userScoped] there is no `/api/`
+     * segment and no `{id}`: a mismatch here subscribes without error and never fires. Not in [SUBSCRIBED]:
+     * the module is the card's, so the set cannot name it.
      */
-    fun home(module: String): String = "home/$module"
+    fun homeScoped(userId: String, module: String): String = "/users/$userId/home/$module"
 
     const val CHAT = "chat"
     const val CONTEXTS = "contexts"

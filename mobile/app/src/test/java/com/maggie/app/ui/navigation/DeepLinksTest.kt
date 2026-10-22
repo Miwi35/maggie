@@ -32,6 +32,11 @@ class DeepLinksTest {
     }
 
     @Test
+    fun `the Accueil opens from home (MAG-560)`() {
+        assertEquals(listOf("$scheme://home"), DeepLinks.patternsFor(Screen.Home.route))
+    }
+
+    @Test
     fun `the treasury screen opens from finance treasury`() {
         assertEquals(listOf("$scheme://finance/treasury"), DeepLinks.patternsFor(Screen.Treasury.route))
     }

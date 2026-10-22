@@ -15,7 +15,7 @@ import kotlinx.serialization.json.JsonObject
 
 /**
  * What a card of the Accueil reads (MAG-560): `GET /api/home/{module}?day=today|tomorrow`, and the
- * `home/{module}` topic that says the answer moved. Generic on purpose: every card ticket decodes its own
+ * `/users/{userId}/home/{module}` topic that says the answer moved. Generic on purpose: every card ticket decodes its own
  * module's [JsonObject], and none of them re-writes the call or the subscription.
  */
 class HomeCardRepository(
@@ -31,7 +31,7 @@ class HomeCardRepository(
     fun changes(module: String): Flow<Unit> = flow {
         val userId = authRepository.getUserId() ?: return@flow
         emitAll(
-            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.home(module)))
+            mercureService.subscribe(MercureTopics.homeScoped(userId, module))
                 .catch { /* SSE reconnects automatically */ }
                 .coalesced()
                 .map { },
