@@ -55,6 +55,7 @@ import com.maggie.app.data.model.ProjectWellbeing
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.projectDateLabel
 import com.maggie.app.data.model.projectDependenciesLabel
+import com.maggie.app.data.model.projectFundingSummary
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -67,7 +68,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
  * « Projets » of Planification (MAG-519): the owner's projects in priority order. A long press on a
- * row — or a drag on its handle — moves it; a tap opens it in the full-screen form, as does « + ».
+ * row — or a drag on its handle — moves it; a tap opens its sheet (MAG-525), « + » the form of a new one.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,6 +76,7 @@ fun ProjectListScreen(
     viewModel: ProjectViewModel,
     onBack: () -> Unit,
     onOpenForm: (projectId: String?) -> Unit,
+    onOpenSheet: (projectId: String) -> Unit = { onOpenForm(it) },
 ) {
     Scaffold(
         topBar = {
@@ -90,7 +92,7 @@ fun ProjectListScreen(
             }
         },
     ) { paddingValues ->
-        ProjectListContent(viewModel, onOpenForm, Modifier.padding(paddingValues))
+        ProjectListContent(viewModel, onOpenForm, Modifier.padding(paddingValues), onOpenSheet)
     }
 }
 
@@ -100,6 +102,7 @@ fun ProjectListContent(
     viewModel: ProjectViewModel,
     onOpenForm: (projectId: String?) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenSheet: (projectId: String) -> Unit = { onOpenForm(it) },
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -150,7 +153,7 @@ fun ProjectListContent(
                         )
                     },
                     wide = wide,
-                    onOpen = { onOpenForm(it) },
+                    onOpen = onOpenSheet,
                     onPreviewMove = viewModel::previewMove,
                     onEndMove = viewModel::endMove,
                     onMoveBy = viewModel::moveBy,
@@ -293,6 +296,14 @@ private fun ProjectRow(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            projectFundingSummary(project)?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(UiTags.PROJECT_FUNDING_SUMMARY),
+                )
+            }
             projectDependenciesLabel(project, all)?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

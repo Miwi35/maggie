@@ -27,6 +27,69 @@ export interface Project {
   note: string | null
   /** Bare ids of the dependencies dated after this project. */
   unmetDependencies: string[]
+  /** Where the money comes from besides the salary (MAG-524). */
+  fundingSources: FundingSource[]
+  /** « Le reste »: what the salary pays, the amount minus the sources. */
+  salaryCents: number
+}
+
+export type FundingKind = 'savings' | 'capital' | 'loan'
+
+export interface FundingSource {
+  kind: FundingKind
+  amountCents: number
+  /** Bare id of the account a savings or capital source draws on. */
+  accountId: string | null
+  /** Bare id of the projected loan of a loan source. */
+  loanId: string | null
+}
+
+/** One source as `PUT …/funding` takes it; the list sent is the whole list. */
+export interface FundingSourceInput {
+  kind: FundingKind
+  amountCents: number
+  account?: string
+  loan?: Record<string, unknown>
+}
+
+/** What one way of paying costs and how long it takes (MAG-524). */
+export interface ProjectOption {
+  totalCostCents: number
+  netCostCents: number
+  monthlyPaymentCents: number
+  durationMonths: number
+  /** Months of saving before the purchase; null when nothing is left to save. */
+  availableInMonths: number | null
+  capitalKeptCents: number
+  /** Null until the independence number is computed (part 9). */
+  nImpactMonths: number | null
+}
+
+export interface ProjectOptions {
+  amountCents: number
+  netCapacityCents: number
+  loanRateBasisPoints: number
+  loanMonths: number
+  downPaymentCents: number
+  yieldBasisPoints: number
+  cash: ProjectOption
+  loan: ProjectOption
+  partial: ProjectOption
+}
+
+/** The simulation's parameters; null while not given. */
+export interface OptionParams {
+  loanRateBasisPoints: number | null
+  loanMonths: number | null
+  downPaymentCents: number | null
+  yieldBasisPoints: number | null
+}
+
+export interface FundingAccount {
+  id: string
+  name: string
+  type: string
+  cushion: boolean
 }
 
 /** What the form writes. */
@@ -90,13 +153,22 @@ export const byPosition = (projects: Project[]): Project[] => [...projects].sort
 type Raw = Record<string, unknown>
 
 /** A member of the collection, an item, a reorder answer or a full Mercure create. */
+const toSource = (raw: Raw): FundingSource => ({
+  kind: raw.kind as FundingKind,
+  amountCents: Number(raw.amountCents ?? 0),
+  accountId: raw.accountId ? bareId(String(raw.accountId)) : null,
+  loanId: raw.loanId ? bareId(String(raw.loanId)) : null,
+})
+
 export const toProject = (raw: Raw): Project => {
   const wellbeing = (raw.wellbeing as ProjectWellbeing) ?? 'medium'
+  const fundingSources = ((raw.fundingSources as Raw[] | undefined) ?? []).map(toSource)
+  const amountCents = Number(raw.amountCents ?? 0)
 
   return {
     id: bareId(String(raw.id ?? raw['@id'] ?? '')),
     name: String(raw.name ?? ''),
-    amountCents: Number(raw.amountCents ?? 0),
+    amountCents,
     currency: String(raw.currency ?? 'EUR'),
     wellbeing,
     wellbeingScore: Number(raw.wellbeingScore ?? SCORES[wellbeing] ?? 0),
@@ -106,6 +178,8 @@ export const toProject = (raw: Raw): Project => {
     dependsOn: ((raw.dependsOn as string[] | undefined) ?? []).map((id) => bareId(id)),
     note: (raw.note as string | null) ?? null,
     unmetDependencies: ((raw.unmetDependencies as string[] | undefined) ?? []).map((id) => bareId(id)),
+    fundingSources,
+    salaryCents: Number(raw.salaryCents ?? Math.max(0, amountCents - fundingSources.reduce((sum, source) => sum + source.amountCents, 0))),
   }
 }
 
@@ -120,6 +194,8 @@ export const patchProject = (project: Project, payload: Raw): Project => {
   if (Array.isArray(payload.unmetDependencies)) {
     patched.unmetDependencies = (payload.unmetDependencies as string[]).map((id) => bareId(id))
   }
+  if (Array.isArray(payload.fundingSources)) patched.fundingSources = (payload.fundingSources as Raw[]).map(toSource)
+  if (typeof payload.salaryCents === 'number') patched.salaryCents = payload.salaryCents
 
   return patched
 }
@@ -311,4 +387,51 @@ export async function fetchProjectPlanning(): Promise<ProjectPlanning> {
     },
     projects: ((body.projects as Raw[] | undefined) ?? []).map(toPlannedProject).sort((a, b) => a.position - b.position),
   }
+}
+
+/**
+ * Replaces the whole list of sources (`PUT /api/finance/projects/{id}/funding`).
+ * A refusal — the sources adding up to more than the project, a missing
+ * condition — is the API's own sentence, kept as rendered.
+ */
+export async function saveFunding(id: string, sources: FundingSourceInput[]): Promise<Project> {
+  const response = await request(`${PROJECTS_PATH}/${bareId(id)}/funding`, 'PUT', { sources })
+  if (!response.ok) throw await refused(response, "Les sources n'ont pas été enregistrées.")
+  const body = (await response.json()) as { project?: Raw }
+
+  return toProject(body.project ?? {})
+}
+
+/** The three options priced; a missing parameter or a refusal is the API's `error`. */
+export async function fetchProjectOptions(id: string, params: OptionParams): Promise<ProjectOptions> {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null) query.set(key, String(value))
+  }
+  const response = await request(`${PROJECTS_PATH}/${bareId(id)}/options?${query.toString()}`)
+  if (!response.ok) throw await refused(response, 'Les options ne peuvent pas être chiffrées.')
+
+  return (await response.json()) as ProjectOptions
+}
+
+/** The accounts a source can draw on: the caller filters by kind. */
+export async function fetchFundingAccounts(): Promise<FundingAccount[]> {
+  const response = await request('/api/accounts?pagination=false')
+  if (!response.ok) throw new ProjectError(`accounts: ${response.status}`)
+  const body = (await response.json()) as { member?: Raw[] }
+
+  return (body.member ?? []).map((raw) => ({
+    id: bareId(String(raw.id ?? raw['@id'] ?? '')),
+    name: String(raw.name ?? ''),
+    type: String(raw.type ?? ''),
+    cushion: raw.cushion === true || raw.isCushion === true,
+  }))
+}
+
+/** A loan source's stored conditions, to edit them. */
+export async function fetchLoanConditions(loanId: string): Promise<Record<string, unknown>> {
+  const response = await request(`/api/loans/${bareId(loanId)}`)
+  if (!response.ok) throw new ProjectError(`loan: ${response.status}`)
+
+  return (await response.json()) as Record<string, unknown>
 }

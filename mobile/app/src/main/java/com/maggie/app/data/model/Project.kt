@@ -28,9 +28,76 @@ data class Project(
     val dependsOn: List<String> = emptyList(),
     val note: String? = null,
     val unmetDependencies: List<String> = emptyList(),
+    /** Where the money comes from besides the salary (MAG-524/525), in the order the API stores them. */
+    val fundingSources: List<ProjectFundingSource> = emptyList(),
+    /** What is left on the salary: the amount minus the sources, never below 0. */
+    val salaryCents: Int = 0,
 ) {
     val dependencyIds: List<String> get() = dependsOn.map { it.substringAfterLast('/') }
+
+    val loanSource: ProjectFundingSource? get() = fundingSources.firstOrNull { it.kind == FundingKind.LOAN.key }
 }
+
+/** One source of a project's money: [accountId] for savings and capital, [loanId] for the projected loan. */
+@Serializable
+data class ProjectFundingSource(
+    val kind: String,
+    val amountCents: Int,
+    val accountId: String? = null,
+    val loanId: String? = null,
+)
+
+/** The three kinds of source, in the order a project names them. */
+enum class FundingKind(val key: String, val label: String, val summary: String) {
+    SAVINGS("savings", "Économies", "économies"),
+    CAPITAL("capital", "Capital", "capital"),
+    LOAN("loan", "Emprunt", "emprunt"),
+    ;
+
+    companion object {
+        fun of(key: String): FundingKind? = entries.firstOrNull { it.key == key }
+    }
+}
+
+/** « économies + emprunt + salaire »: the kinds present, in a fixed order, then the salary when it still pays; null when nothing funds the project. */
+fun projectFundingSummary(project: Project): String? {
+    val kinds = FundingKind.entries.filter { kind -> project.fundingSources.any { it.kind == kind.key } }
+    val parts = kinds.map { it.summary } + if (project.salaryCents > 0) listOf("salaire") else emptyList()
+    return parts.joinToString(" + ").ifEmpty { null }
+}
+
+/** One priced way to pay a project (cash, loan, partial), as `GET /api/finance/projects/{id}/options` sends it. */
+@Serializable
+data class ProjectOption(
+    val principalCents: Int = 0,
+    val downPaymentCents: Int = 0,
+    val interestCents: Int = 0,
+    val insuranceCents: Int = 0,
+    val feesCents: Int = 0,
+    val yieldCents: Int = 0,
+    val totalCostCents: Int = 0,
+    val netCostCents: Int = 0,
+    val monthlyPaymentCents: Int = 0,
+    val durationMonths: Int = 0,
+    val availableInMonths: Int? = null,
+    val capitalKeptCents: Int = 0,
+    val nImpactMonths: Int? = null,
+)
+
+@Serializable
+data class ProjectOptions(
+    val projectId: String,
+    val amountCents: Int = 0,
+    val currency: String = "EUR",
+    val netCapacityCents: Int = 0,
+    val loanRateBasisPoints: Int = 0,
+    val loanMonths: Int = 0,
+    val downPaymentCents: Int = 0,
+    val yieldBasisPoints: Int = 0,
+    val cash: ProjectOption = ProjectOption(),
+    val loan: ProjectOption = ProjectOption(),
+    val partial: ProjectOption = ProjectOption(),
+)
 
 /** How much a project counts for the owner's wellbeing, with the score the API derives from it. */
 enum class ProjectWellbeing(val key: String, val label: String, val score: Int) {

@@ -1244,6 +1244,38 @@ object UiTags {
     const val GANTT_ERROR = "gantt_error"
 
     /**
+     * The sheet of a project (MAG-525): the sources in words on its row, the sheet, « Modifier », the stacked
+     * bar of the sources, a source, what is left on the salary, the three priced options and their figures;
+     * on the tablet the sources editor (add, remove, − / +, save, what the server refused) and the options' parameters.
+     */
+    const val PROJECT_FUNDING_SUMMARY = "project_funding_summary"
+    const val PROJECT_SHEET = "project_sheet"
+    const val PROJECT_SHEET_EDIT = "project_sheet_edit"
+    const val PROJECT_FUNDING_BAR = "project_funding_bar"
+    const val PROJECT_FUNDING_SOURCE = "project_funding_source"
+    const val PROJECT_FUNDING_SALARY = "project_funding_salary"
+    const val PROJECT_OPTIONS = "project_options"
+    const val PROJECT_OPTIONS_ERROR = "project_options_error"
+    const val PROJECT_OPTION_PREFIX = "project_option_"
+    const val PROJECT_OPTION_TOTAL_PREFIX = "project_option_total_"
+    const val PROJECT_OPTION_NET_PREFIX = "project_option_net_"
+    const val PROJECT_OPTION_MONTHLY_PREFIX = "project_option_monthly_"
+    const val PROJECT_OPTION_DELAY_PREFIX = "project_option_delay_"
+    const val PROJECT_FUNDING_ADD_PREFIX = "project_funding_add_"
+    const val PROJECT_FUNDING_AMOUNT = "project_funding_amount"
+    const val PROJECT_FUNDING_MINUS = "project_funding_minus"
+    const val PROJECT_FUNDING_PLUS = "project_funding_plus"
+    const val PROJECT_FUNDING_REMOVE = "project_funding_remove"
+    const val PROJECT_FUNDING_ACCOUNT_PREFIX = "project_funding_account_"
+    const val PROJECT_FUNDING_SAVE = "project_funding_save"
+    const val PROJECT_FUNDING_ERROR = "project_funding_error"
+    const val PROJECT_OPTIONS_RATE = "project_options_rate"
+    const val PROJECT_OPTIONS_MONTHS = "project_options_months"
+    const val PROJECT_OPTIONS_DOWN_PAYMENT = "project_options_down_payment"
+    const val PROJECT_OPTIONS_YIELD = "project_options_yield"
+    const val PROJECT_OPTIONS_APPLY = "project_options_apply"
+
+    /**
      * The loans of Planification and their sheet (MAG-523): a row, the sheet, its IRA block and its curve;
      * on the tablet the conditions form (a type, a mode, the payment, « Enregistrer », what the server
      * refused) and the simulation of an amount.
@@ -1272,6 +1304,13 @@ object UiTags {
     fun projectWellbeing(key: String) = PROJECT_WELLBEING_PREFIX + key
     fun projectDateMode(key: String) = PROJECT_DATE_MODE_PREFIX + key
     fun projectDependency(id: String) = PROJECT_DEPENDENCY_PREFIX + id
+    fun projectOption(key: String) = PROJECT_OPTION_PREFIX + key
+    fun projectOptionTotal(key: String) = PROJECT_OPTION_TOTAL_PREFIX + key
+    fun projectOptionNet(key: String) = PROJECT_OPTION_NET_PREFIX + key
+    fun projectOptionMonthly(key: String) = PROJECT_OPTION_MONTHLY_PREFIX + key
+    fun projectOptionDelay(key: String) = PROJECT_OPTION_DELAY_PREFIX + key
+    fun projectFundingAdd(kind: String) = PROJECT_FUNDING_ADD_PREFIX + kind
+    fun projectFundingAccount(id: String) = PROJECT_FUNDING_ACCOUNT_PREFIX + id
 
     fun reviewSegment(step: String) = REVIEW_ACTIVITY_SEGMENT_PREFIX + step
     fun periodPlanRow(categoryId: String) = PERIOD_PLAN_ROW_PREFIX + categoryId

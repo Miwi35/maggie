@@ -103,4 +103,20 @@ class LoanTermsDraftTest {
         assertEquals("null", json.getValue("feesCents").toString())
         assertEquals("180", json.getValue("annualRateBasisPoints").toString())
     }
+
+    @Test
+    fun `the conditions of a funding source leave out the payment, which the API computes`() {
+        val draft = LoanTermsDraft(rate = "4", duration = "24")
+
+        assertNull(draft.toRequest())
+        val json = draft.toFundingConditions()!!
+        assertEquals("400", json.getValue("annualRateBasisPoints").toString())
+        assertEquals("24", json.getValue("durationMonths").toString())
+        assertNull(json["monthlyPaymentCents"])
+    }
+
+    @Test
+    fun `funding conditions that are not numbers are not sent`() {
+        assertNull(LoanTermsDraft(rate = "abc", duration = "24").toFundingConditions())
+    }
 }

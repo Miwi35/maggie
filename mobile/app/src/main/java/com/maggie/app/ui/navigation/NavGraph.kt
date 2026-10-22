@@ -137,6 +137,7 @@ import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.ProjectFormScreen
 import com.maggie.app.ui.screens.finance.ProjectListScreen
+import com.maggie.app.ui.screens.finance.ProjectSheetScreen
 import com.maggie.app.ui.screens.finance.ProjectViewModel
 import com.maggie.app.ui.screens.finance.CushionViewModel
 import com.maggie.app.ui.screens.finance.TreasuryScreen
@@ -271,6 +272,10 @@ sealed class Screen(val route: String, val label: String) {
     data object ProjectForm : Screen("finance_projects/form?${DeepLinks.ARG_ID}={${DeepLinks.ARG_ID}}", "Projet") {
         fun of(projectId: String?): String =
             if (projectId == null) "finance_projects/form" else "finance_projects/form?${DeepLinks.ARG_ID}=$projectId"
+    }
+    /** The sheet of a project (MAG-525): its funding and its three priced options. Outside the menus, so drawn without chrome. */
+    data object ProjectSheet : Screen("finance_projects/sheet/{${DeepLinks.ARG_ID}}", "Fiche du projet") {
+        fun of(projectId: String): String = "finance_projects/sheet/$projectId"
     }
     /** The sheet of a loan (MAG-523): outside the menus, so drawn without chrome. */
     data object LoanDetail : Screen("finance_loans/{${DeepLinks.ARG_ID}}", "Prêt") {
@@ -525,6 +530,32 @@ private fun ProjectListPage(navController: NavController) {
         viewModel = projectViewModel,
         onBack = { navController.backInFinance() },
         onOpenForm = { id -> navController.navigate(Screen.ProjectForm.of(id)) { launchSingleTop = true } },
+        onOpenSheet = { id -> navController.navigate(Screen.ProjectSheet.of(id)) { launchSingleTop = true } },
+    )
+}
+
+/**
+ * The sheet of a project (MAG-525), on the list's ViewModel: what it saves is what the list shows. Editing the
+ * project leaves the sheet first, so the form's own « previous entry » is the list again.
+ */
+@Composable
+private fun ProjectSheetPage(navController: NavController, entry: NavBackStackEntry) {
+    val listEntry = remember(entry) { navController.previousBackStackEntry }
+    val projectViewModel: ProjectViewModel = koinViewModel(viewModelStoreOwner = listEntry ?: entry)
+    val projectId = entry.arguments?.getString(DeepLinks.ARG_ID)?.takeIf(DeepLinks::isValidId)
+    DisposableEffect(projectViewModel) { onDispose { projectViewModel.closeSheet() } }
+    if (projectId == null) {
+        LaunchedEffect(Unit) { navController.popBackStack() }
+        return
+    }
+    ProjectSheetScreen(
+        viewModel = projectViewModel,
+        projectId = projectId,
+        onBack = { navController.popBackStack() },
+        onEdit = { id ->
+            navController.popBackStack()
+            navController.navigate(Screen.ProjectForm.of(id)) { launchSingleTop = true }
+        },
     )
 }
 
@@ -1822,6 +1853,12 @@ fun NavGraph() {
                     }
                     composable(Screen.ProjectList.route, deepLinks = DeepLinks.forRoute(Screen.ProjectList.route)) {
                         ProjectListPage(navController)
+                    }
+                    composable(
+                        Screen.ProjectSheet.route,
+                        arguments = listOf(navArgument(DeepLinks.ARG_ID) { type = NavType.StringType }),
+                    ) { entry ->
+                        ProjectSheetPage(navController, entry)
                     }
                     composable(
                         Screen.ProjectForm.route,

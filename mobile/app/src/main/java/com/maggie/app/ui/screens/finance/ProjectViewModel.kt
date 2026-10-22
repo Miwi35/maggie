@@ -3,11 +3,14 @@ package com.maggie.app.ui.screens.finance
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.ApiRefusalException
+import com.maggie.app.data.api.ProjectOptionsParams
 import com.maggie.app.data.api.ProjectWriteRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
+import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.FundingKind
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectDateMode
 import com.maggie.app.data.model.ProjectPlanning
@@ -104,12 +107,17 @@ data class ProjectUiState(
     val isPlanningLoading: Boolean = true,
     /** The planning could not be read and there is none to keep: the Gantt says so and offers a retry. */
     val planningError: Boolean = false,
+    /** The project whose sheet is open (MAG-525): its options and, on the tablet, its sources. */
+    val sheet: ProjectSheet? = null,
+    /** The accounts a source may draw on; read when the tablet edits the sources. */
+    val accounts: List<Account> = emptyList(),
 )
 
 /**
  * « Projets » of Planification (MAG-519): the projects in priority order, reordered by dragging,
  * and the full-screen form that creates, edits and deletes one. One ViewModel for the list and the
  * form, which is only what is in front of the list — the navigation scopes it to the list's entry.
+ * The sheet of a project (MAG-525) is the same: its three priced options and its funding sources.
  */
 class ProjectViewModel(
     private val repository: ProjectRepository,
@@ -140,7 +148,13 @@ class ProjectViewModel(
             mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.FINANCE_PROJECTS))
                 .catch { /* MercureService reconnects by itself */ }
                 .coalesced()
-                .collect { if (orderBeforeDrag == null && !reorderInFlight) load(showLoading = false) }
+                .collect {
+                    if (orderBeforeDrag == null && !reorderInFlight) {
+                        load(showLoading = false)
+                        // The sources behind the sheet moved: so did the options priced from them.
+                        if (_uiState.value.sheet != null) requestOptions()
+                    }
+                }
         }
         // The planning also moves with a loan, the cushion or an account; the list itself does not.
         viewModelScope.launch {
@@ -187,7 +201,7 @@ class ProjectViewModel(
                 _uiState.value = if (orderBeforeDrag != null) {
                     _uiState.value.copy(isLoading = false, hasLoaded = true)
                 } else {
-                    _uiState.value.copy(projects = projects, isLoading = false, hasLoaded = true)
+                    _uiState.value.copy(projects = projects, isLoading = false, hasLoaded = true, sheet = refreshed(_uiState.value.sheet, projects))
                 }
             }
             .onFailure {
@@ -195,6 +209,162 @@ class ProjectViewModel(
             }
         // Whatever moved the list (a save, a delete, a push) moved the planning with it.
         loadPlanning()
+    }
+
+    // The sheet follows its project: new sources replace an untouched draft, a deleted project closes it.
+    private fun refreshed(sheet: ProjectSheet?, projects: List<Project>): ProjectSheet? {
+        sheet ?: return null
+        val project = projects.firstOrNull { it.id == sheet.projectId } ?: return null
+        return if (sheet.dirty) sheet else sheet.copy(sources = project.fundingSources.map(FundingSourceDraft::of))
+    }
+
+    fun openSheet(id: String) {
+        val project = _uiState.value.projects.firstOrNull { it.id == id }
+        if (project == null) {
+            _uiState.value = _uiState.value.copy(sheet = null, error = MESSAGE_NOT_FOUND)
+            return
+        }
+        _uiState.value = _uiState.value.copy(
+            sheet = ProjectSheet(projectId = id, sources = project.fundingSources.map(FundingSourceDraft::of)),
+            error = null,
+        )
+        requestOptions()
+    }
+
+    fun closeSheet() {
+        _uiState.value = _uiState.value.copy(sheet = null)
+    }
+
+    private fun updateSheet(transform: (ProjectSheet) -> ProjectSheet) {
+        val sheet = _uiState.value.sheet ?: return
+        _uiState.value = _uiState.value.copy(sheet = transform(sheet))
+    }
+
+    /** Prices the options with what the sheet holds; without a loan source, a rate, a duration and a down payment are needed first. */
+    private fun requestOptions() {
+        val sheet = _uiState.value.sheet ?: return
+        val project = _uiState.value.projects.firstOrNull { it.id == sheet.projectId }
+        val params = sheet.optionsDraft.toParams()
+        when {
+            params == null -> updateSheet { it.copy(options = null, optionsError = MESSAGE_OPTIONS_INVALID) }
+            project != null && project.loanSource == null &&
+                (params.loanRateBasisPoints == null || params.loanMonths == null || params.downPaymentCents == null) ->
+                updateSheet { it.copy(options = null, isLoadingOptions = false, optionsError = MESSAGE_OPTIONS_TERMS) }
+            else -> loadOptions(sheet.projectId, params)
+        }
+    }
+
+    fun loadOptions(projectId: String, params: ProjectOptionsParams) {
+        val sheet = _uiState.value.sheet?.takeIf { it.projectId == projectId } ?: ProjectSheet(projectId)
+        _uiState.value = _uiState.value.copy(sheet = sheet.copy(isLoadingOptions = true, optionsError = null))
+        viewModelScope.launch {
+            repository.getOptions(projectId, params)
+                .onSuccess { options ->
+                    updateSheetOf(projectId) { it.copy(options = options, isLoadingOptions = false, optionsError = null) }
+                }
+                .onFailure { failure ->
+                    updateSheetOf(projectId) {
+                        it.copy(options = null, isLoadingOptions = false, optionsError = optionsRefusal(failure))
+                    }
+                }
+        }
+    }
+
+    // An answer for a sheet that was closed or replaced meanwhile is not for the one on screen.
+    private fun updateSheetOf(projectId: String, transform: (ProjectSheet) -> ProjectSheet) {
+        if (_uiState.value.sheet?.projectId == projectId) updateSheet(transform)
+    }
+
+    /** The tablet types a parameter of the options; nothing is priced until [applyOptions]. */
+    fun editOptions(transform: (ProjectOptionsDraft) -> ProjectOptionsDraft) {
+        updateSheet { it.copy(optionsDraft = transform(it.optionsDraft)) }
+    }
+
+    fun applyOptions() = requestOptions()
+
+    fun loadAccounts() {
+        if (_uiState.value.accounts.isNotEmpty()) return
+        viewModelScope.launch {
+            repository.getAccounts().onSuccess { _uiState.value = _uiState.value.copy(accounts = it) }
+        }
+    }
+
+    fun addSource(kind: FundingKind) {
+        updateSheet {
+            val added = FundingSourceDraft(kind = kind, loanTerms = if (kind == FundingKind.LOAN) LoanTermsDraft() else null)
+            it.copy(sources = it.sources + added, dirty = true, fundingError = null, fundingSaved = false)
+        }
+    }
+
+    fun removeSource(index: Int) {
+        updateSheet {
+            it.copy(sources = it.sources.filterIndexed { i, _ -> i != index }, dirty = true, fundingError = null, fundingSaved = false)
+        }
+    }
+
+    fun editSource(index: Int, transform: (FundingSourceDraft) -> FundingSourceDraft) {
+        updateSheet {
+            it.copy(
+                sources = it.sources.mapIndexed { i, source -> if (i == index) transform(source) else source },
+                dirty = true,
+                fundingError = null,
+                fundingSaved = false,
+            )
+        }
+    }
+
+    /** Opens the conditions of a loan source: those of its loan when it has one, blank for a new one. */
+    fun editLoanTerms(index: Int) {
+        val source = _uiState.value.sheet?.sources?.getOrNull(index) ?: return
+        if (source.loanTerms != null) return
+        val loanId = source.loanId
+        if (loanId == null) {
+            editSource(index) { it.copy(loanTerms = LoanTermsDraft()) }
+            return
+        }
+        viewModelScope.launch {
+            repository.getLoan(loanId)
+                .onSuccess { loan -> editSource(index) { it.copy(loanTerms = LoanTermsDraft.of(loan)) } }
+                .onFailure { updateSheet { it.copy(fundingError = MESSAGE_LOAN_TERMS) } }
+        }
+    }
+
+    /**
+     * Replaces the sources of [projectId] by [sources]. The API's answer is the project: it replaces the one
+     * in the list. A refusal leaves the project's sources as they were and says why, as the API said it.
+     */
+    fun saveFunding(projectId: String, sources: List<FundingSourceDraft>) {
+        val project = _uiState.value.projects.firstOrNull { it.id == projectId } ?: return
+        if (_uiState.value.sheet?.isSavingFunding == true) return
+        FundingDraft.error(project.amountCents, sources)?.let { message ->
+            updateSheetOf(projectId) { it.copy(fundingError = message) }
+            return
+        }
+        val requests = sources.map { it.toRequest() ?: return }
+
+        updateSheetOf(projectId) { it.copy(isSavingFunding = true, fundingError = null, fundingSaved = false) }
+        viewModelScope.launch {
+            repository.setFunding(projectId, requests)
+                .onSuccess { saved ->
+                    _uiState.value = _uiState.value.copy(
+                        projects = _uiState.value.projects.map { if (it.id == projectId) saved else it },
+                    )
+                    updateSheetOf(projectId) {
+                        it.copy(
+                            sources = saved.fundingSources.map(FundingSourceDraft::of),
+                            dirty = false,
+                            isSavingFunding = false,
+                            fundingSaved = true,
+                        )
+                    }
+                    requestOptions()
+                }
+                .onFailure { failure ->
+                    updateSheetOf(projectId) {
+                        it.copy(isSavingFunding = false, fundingError = (failure as? ApiRefusalException)?.message ?: MESSAGE_FUNDING)
+                    }
+                }
+        }
     }
 
     fun openNew() {
@@ -352,6 +522,16 @@ class ProjectViewModel(
             }
         }
 
+        internal fun optionsRefusal(failure: Throwable): String {
+            val message = (failure as? ApiRefusalException)?.message ?: return MESSAGE_OPTIONS
+            return if (message.contains("Missing to price", ignoreCase = true)) MESSAGE_OPTIONS_TERMS else MESSAGE_OPTIONS
+        }
+
+        const val MESSAGE_OPTIONS = "Les options n'ont pas pu être chiffrées."
+        const val MESSAGE_OPTIONS_TERMS = "Indiquez un taux, une durée et un apport pour chiffrer les options."
+        const val MESSAGE_OPTIONS_INVALID = "Un des paramètres n'est pas un nombre."
+        const val MESSAGE_FUNDING = "Les sources n'ont pas été enregistrées."
+        const val MESSAGE_LOAN_TERMS = "Les conditions de l'emprunt n'ont pas pu être lues."
         const val MESSAGE_LOAD = "Les projets n'ont pas pu être chargés."
         const val MESSAGE_NOT_FOUND = "Ce projet n'existe plus. Tirez pour actualiser."
         const val MESSAGE_SAVE = "Le projet n'a pas été enregistré."

@@ -23,11 +23,14 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import { useMercure } from '../../hooks/useMercure'
 import { formatCents } from './accountTypes'
 import { bareId } from './envelopeTree'
 import { ProjectDialog } from './ProjectDialog'
+import { ProjectFundingPanel } from './ProjectFundingPanel'
 import { ProjectGantt } from './ProjectGantt'
+import { ProjectOptions } from './ProjectOptions'
 import {
   byPosition,
   createProject,
@@ -67,6 +70,8 @@ interface RowProps {
   total: number
   names: Map<string, string>
   picked: boolean
+  opened: boolean
+  onOpen: (project: Project) => void
   onHandleKeyDown: (event: KeyboardEvent, project: Project) => void
   onHandleBlur: (project: Project) => void
   registerHandle: (id: string, node: HTMLButtonElement | null) => void
@@ -79,7 +84,7 @@ const renumbered = (projects: Project[]): Project[] => projects.map((project, po
 
 const namesOf = (ids: string[], names: Map<string, string>) => ids.flatMap((id) => (names.has(id) ? [names.get(id) as string] : []))
 
-function ProjectRow({ project, rank, total, names, picked, onHandleKeyDown, onHandleBlur, registerHandle, onEdit, onDelete }: RowProps) {
+function ProjectRow({ project, rank, total, names, picked, opened, onOpen, onHandleKeyDown, onHandleBlur, registerHandle, onEdit, onDelete }: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: project.id,
   })
@@ -99,7 +104,7 @@ function ProjectRow({ project, rank, total, names, picked, onHandleKeyDown, onHa
         alignItems: 'flex-start',
         borderBottom: 1,
         borderColor: 'divider',
-        bgcolor: picked ? 'action.selected' : undefined,
+        bgcolor: picked || opened ? 'action.selected' : undefined,
       }}
     >
       <IconButton
@@ -146,6 +151,9 @@ function ProjectRow({ project, rank, total, names, picked, onHandleKeyDown, onHa
           </Alert>
         )}
       </Box>
+      <IconButton size="small" aria-label={`Financement de ${project.name}`} aria-pressed={opened} onClick={() => onOpen(project)}>
+        <PaymentsOutlinedIcon fontSize="small" />
+      </IconButton>
       <IconButton size="small" aria-label={`Modifier ${project.name}`} onClick={() => onEdit(project)}>
         <EditOutlinedIcon fontSize="small" />
       </IconButton>
@@ -168,6 +176,8 @@ export const ProjectsPage = () => {
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [editing, setEditing] = useState<Project | 'new' | null>(null)
   const [toDelete, setToDelete] = useState<Project | null>(null)
+  // The project whose sources and options are on screen, by id: it follows the list.
+  const [openId, setOpenId] = useState<string | null>(null)
   // The project carried with the keyboard, and the order to go back to on Échap.
   const [picked, setPicked] = useState<{ id: string; original: Project[] } | null>(null)
   const pickedRef = useRef(picked)
@@ -344,8 +354,12 @@ export const ProjectsPage = () => {
     reloadPlanning()
   }
 
+  const saved = (project: Project) =>
+    setProjects((previous) => previous.map((candidate) => (candidate.id === project.id ? { ...candidate, ...project } : candidate)))
+
   const remove = async (project: Project) => {
     setToDelete(null)
+    if (openId === project.id) setOpenId(null)
     const previous = projects
     setProjects((list) =>
       list
@@ -366,11 +380,15 @@ export const ProjectsPage = () => {
   }
 
   const names = new Map(projects.map((project) => [project.id, project.name]))
+  const open = projects.find((project) => project.id === openId) ?? null
+  // Rebuilt when the sources or the amount change from elsewhere (Mercure): the form starts again from them.
+  const detailKey = open ? JSON.stringify([open.id, open.amountCents, open.fundingSources]) : ''
 
   return (
     <>
       <Title title="Finance · Projets" />
-      <Box sx={{ maxWidth: 820 }}>
+      <Box sx={{ display: 'flex', gap: 4, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <Box sx={{ flex: '1 1 420px', maxWidth: open ? 520 : 820, minWidth: 0 }}>
         <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1, gap: 2 }}>
           <Typography variant="h6">Projets</Typography>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditing('new')}>
@@ -419,6 +437,8 @@ export const ProjectsPage = () => {
                     total={projects.length}
                     names={names}
                     picked={picked?.id === project.id}
+                    opened={openId === project.id}
+                    onOpen={(candidate) => setOpenId((previous) => (previous === candidate.id ? null : candidate.id))}
                     onHandleKeyDown={handleKeyDown}
                     onHandleBlur={handleBlur}
                     registerHandle={registerHandle}
@@ -430,6 +450,20 @@ export const ProjectsPage = () => {
             </SortableContext>
           </DndContext>
         )}
+      </Box>
+
+      {open && (
+        <Box component="section" aria-label={`Financement de ${open.name}`} sx={{ flex: '2 1 560px', minWidth: 0 }}>
+          <Stack direction="row" sx={{ alignItems: 'baseline', justifyContent: 'space-between', mb: 2, gap: 2 }}>
+            <Typography variant="h6">{open.name}</Typography>
+            <Typography color="text.secondary">{formatCents(open.amountCents, open.currency)}</Typography>
+          </Stack>
+          <ProjectFundingPanel key={detailKey} project={open} onSaved={saved} />
+          <Box sx={{ mt: 4 }}>
+            <ProjectOptions key={detailKey} project={open} />
+          </Box>
+        </Box>
+      )}
       </Box>
 
       {status === 'ready' && projects.length > 0 && !(planningStatus === 'ready' && planning?.isIncomeKnown === false) && (

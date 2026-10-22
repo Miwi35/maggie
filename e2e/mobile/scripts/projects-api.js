@@ -7,12 +7,16 @@
 // so this is where the phone's request meets the server's answer.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  reset | expect-order | expect-deadline
+//   ACTION  reset | expect-order | expect-deadline | fund-car | reset-car
+//           The last two are the funding journey (MAG-525), on the stock user's « Voiture ».
 //   ORDER   expect-order only: the names expected first, `|`-separated (« Canapé|Déménagement »)
 
 (function () {
 const base = E2E_BASE_URL
-const email = 'e2e@maggie.local'
+const FUNDING = ACTION === 'fund-car' || ACTION === 'reset-car'
+const email = FUNDING ? 'e2e-stock@maggie.local' : 'e2e@maggie.local'
+const CAR = 'Voiture'
+const SAVINGS_ACCOUNT = 'Livret jeune'
 const MOVE = 'Déménagement'
 const SOFA = 'Canapé'
 
@@ -68,7 +72,34 @@ function until(check, what) {
   fail(what + ' — the API holds: ' + last.map(function (p) { return p.position + '. ' + p.name + ' (' + p.dateMode + ')' }).join(', '))
 }
 
-if (ACTION === 'reset') {
+function putFunding(project, sources) {
+  const response = http.request(base + '/api/finance/projects/' + project.id + '/funding', {
+    method: 'PUT',
+    headers: authorized({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+    body: JSON.stringify({ sources: sources }),
+  })
+  if (!response.ok) {
+    fail('PUT funding of « ' + project.name + ' » answered ' + response.status + ': ' + response.body)
+  }
+}
+
+if (ACTION === 'fund-car') {
+  // 1 000 € of savings and 6 000 € borrowed over 24 months at 4 %: 3 000 € are left on the salary.
+  const accounts = http.get(base + '/api/accounts?pagination=false', { headers: authorized({ Accept: 'application/ld+json' }) })
+  if (!accounts.ok) {
+    fail('GET /api/accounts answered ' + accounts.status + ': ' + accounts.body)
+  }
+  const livret = JSON.parse(accounts.body).member.find(function (account) { return account.name === SAVINGS_ACCOUNT })
+  if (!livret) {
+    fail('no account « ' + SAVINGS_ACCOUNT + ' » — is the e2e seed loaded? (task e2e:seed)')
+  }
+  putFunding(named(projects(), CAR), [
+    { kind: 'savings', amountCents: 100000, account: livret.id },
+    { kind: 'loan', amountCents: 600000, loan: { annualRateBasisPoints: 400, durationMonths: 24 } },
+  ])
+} else if (ACTION === 'reset-car') {
+  putFunding(named(projects(), CAR), [])
+} else if (ACTION === 'reset') {
   const list = projects()
   const move = named(list, MOVE)
   const sofa = named(list, SOFA)

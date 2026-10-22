@@ -111,6 +111,7 @@ import com.maggie.app.data.model.LoanCurve
 import com.maggie.app.data.model.LoanStep
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectPlanning
+import com.maggie.app.data.model.ProjectOptions
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
@@ -606,6 +607,47 @@ data class ProjectWriteRequest(
     /** IRIs: `/api/finance/projects/{id}`. */
     val dependsOn: List<String>,
     val note: String?,
+)
+
+/**
+ * One source of `PUT /api/finance/projects/{id}/funding` (MAG-525). [account] is the account id of a
+ * savings or capital source. [loan] holds the conditions of a loan source; absent, the API keeps the
+ * conditions of the project's current loan.
+ */
+data class ProjectFundingSourceRequest(
+    val kind: String,
+    val amountCents: Int,
+    val account: String? = null,
+    val loan: JsonObject? = null,
+) {
+    fun toJson(): JsonObject = buildJsonObject {
+        put("kind", JsonPrimitive(kind))
+        put("amountCents", JsonPrimitive(amountCents))
+        account?.let { put("account", JsonPrimitive(it)) }
+        loan?.let { put("loan", it) }
+    }
+}
+
+/** The whole list of sources: it replaces the current one, `[]` removes them all. */
+fun projectFundingBody(sources: List<ProjectFundingSourceRequest>): JsonObject = buildJsonObject {
+    put("sources", buildJsonArray { sources.forEach { add(it.toJson()) } })
+}
+
+@Serializable
+data class ProjectFundingResult(
+    val success: Boolean = false,
+    val project: Project? = null,
+)
+
+/**
+ * What `GET /api/finance/projects/{id}/options` is priced with; a null parameter is left out and the
+ * API takes the loan source's conditions (rate, duration, down payment) when the project has one.
+ */
+data class ProjectOptionsParams(
+    val loanRateBasisPoints: Int? = null,
+    val loanMonths: Int? = null,
+    val downPaymentCents: Int? = null,
+    val yieldBasisPoints: Int? = null,
 )
 
 /** Every project id, in the new order: the API refuses a partial list. */
@@ -2239,6 +2281,25 @@ class MaggieApiService(
     suspend fun getProjectPlanning(): ProjectPlanning {
         return client.get("$baseUrl/api/finance/project-planning") {
             accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /** The whole list of sources; a refusal is an [ApiRefusalException] carrying the API's sentence (400). */
+    suspend fun setProjectFunding(id: String, sources: List<ProjectFundingSourceRequest>): ProjectFundingResult {
+        return client.put("$baseUrl/api/finance/projects/$id/funding") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(projectFundingBody(sources))
+        }.orRefusal().body()
+    }
+
+    suspend fun getProjectOptions(id: String, params: ProjectOptionsParams): ProjectOptions {
+        return client.get("$baseUrl/api/finance/projects/$id/options") {
+            accept(ContentType.Application.Json)
+            params.loanRateBasisPoints?.let { url.parameters.append("loanRateBasisPoints", it.toString()) }
+            params.loanMonths?.let { url.parameters.append("loanMonths", it.toString()) }
+            params.downPaymentCents?.let { url.parameters.append("downPaymentCents", it.toString()) }
+            params.yieldBasisPoints?.let { url.parameters.append("yieldBasisPoints", it.toString()) }
         }.orRefusal().body()
     }
 

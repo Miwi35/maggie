@@ -61,4 +61,29 @@ export class FinanceProjectsPage extends AdminShell {
 
     return Number(await mark.getAttribute('data-at'))
   }
+
+  /** A project's funding detail (MAG-525): its sources, then the three ways to pay it. */
+  funding(name: string): Locator {
+    return this.content.getByRole('region', { name: `Financement de ${name}` })
+  }
+
+  async openFunding(name: string): Promise<Locator> {
+    await this.row(name).getByRole('button', { name: `Financement de ${name}` }).click()
+    const detail = this.funding(name)
+    await expect(detail.getByRole('button', { name: 'Enregistrer les sources' })).toBeVisible()
+
+    return detail
+  }
+
+  /** « Économies » or « Emprunt » added as a source, its amount typed in euros. */
+  async addSource(name: string, kind: 'Économies' | 'Emprunt', euros: number): Promise<void> {
+    const detail = this.funding(name)
+    await detail.getByRole('button', { name: kind, exact: true }).click()
+    await detail.getByLabel(`Montant ${kind.toLowerCase()} (€)`, { exact: true }).fill(String(euros))
+  }
+
+  /** The three option columns, comptant · emprunt · partiel, as shown. */
+  options(name: string): Locator {
+    return this.funding(name).getByTestId('project-option')
+  }
 }

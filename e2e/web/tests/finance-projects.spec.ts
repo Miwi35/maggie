@@ -285,3 +285,108 @@ test('the Gantt draws the purchase of Canapé after that of Déménagement, and 
     await restoreSeed(api)
   }
 })
+
+/**
+ * The funding of a project, on the page (MAG-525, extends MAG-102).
+ *
+ * On the stock account, which holds « Livret jeune » (outside the cushion): a
+ * project made for the journey, so it never meets the chat journey that sets
+ * « Voiture »'s sources. 1 000 € of savings and a 6 000 € loan over 24 months
+ * at 4 % leave 3 000 € to the salary, and the three options are priced side by
+ * side with nothing recommended. Over-funding is refused with the API's words
+ * and keeps the stored sources. The project and its sources are removed in
+ * `finally`: a projected loan must not stay in the stock account's sums.
+ */
+test.describe('funding', () => {
+  test.describe.configure({ retries: 0 })
+
+  const BIKE = 'Vélo cargo e2e'
+  const JSON_ONLY = { Accept: 'application/json' }
+
+  interface FundedProject {
+    id: string
+    salaryCents: number
+    fundingSources: { kind: string; amountCents: number }[]
+  }
+
+  const storedBike = async (api: APIRequestContext): Promise<FundedProject> => {
+    const list = await getCollection<FundedProject & { name: string }>(api, '/api/finance/projects?itemsPerPage=100')
+    const found = list.find((project) => project.name === BIKE)
+    if (!found) throw new Error(`the project « ${BIKE} » is missing`)
+
+    return found
+  }
+
+  const removeBike = async (api: APIRequestContext): Promise<void> => {
+    const list = await getCollection<FundedProject & { name: string }>(api, '/api/finance/projects?itemsPerPage=100')
+    for (const project of list.filter((candidate) => candidate.name === BIKE)) {
+      await api.put(`/api/finance/projects/${project.id}/funding`, { data: { sources: [] } })
+      await api.delete(`/api/finance/projects/${project.id}`)
+    }
+  }
+
+  test('1 000 € of savings and a 6 000 € loan leave 3 000 € to the salary, the options side by side, an excess is refused', async ({
+    stockUser,
+  }) => {
+    const { api, page } = stockUser
+    await removeBike(api)
+    const screen = new FinanceProjectsPage(page)
+
+    try {
+      // --- Given: a 10 000 € project funded by nothing -------------------------
+      const created = await api.post('/api/finance/projects', {
+        headers: { Accept: 'application/ld+json' },
+        data: { name: BIKE, amountCents: 1000000, currency: 'EUR', wellbeing: 'medium', dateMode: 'none', targetOn: null, dependsOn: [], note: null },
+      })
+      expect(created.status(), await created.text()).toBe(201)
+      await screen.open()
+      const detail = await screen.openFunding(BIKE)
+      await expect(detail.getByTestId('funding-remainder')).toContainText(/10\s000,00\s€ sur salaire/)
+
+      // --- When: 1 000 € from the Livret jeune and a 6 000 € loan, 24 months at 4 %
+      await screen.addSource(BIKE, 'Économies', 1000)
+      await detail.getByLabel('Compte (économies)').click()
+      await page.getByRole('option', { name: 'Livret jeune' }).click()
+      await screen.addSource(BIKE, 'Emprunt', 6000)
+      await detail.getByLabel('Taux annuel (%)', { exact: true }).fill('4')
+      await detail.getByLabel(/^Durée \(mois\)/).fill('24')
+      await expect(detail.getByTestId('funding-remainder')).toContainText(/3\s000,00\s€ sur salaire/)
+      const saved = page.waitForResponse((response) => response.url().endsWith('/funding') && response.request().method() === 'PUT')
+      await detail.getByRole('button', { name: 'Enregistrer les sources' }).click()
+      expect((await saved).status()).toBe(200)
+
+      // --- Then: the sources are stored, and are there after a reload -----------
+      const stored = await storedBike(api)
+      expect(stored.salaryCents).toBe(300000)
+      expect(stored.fundingSources.map((source) => [source.kind, source.amountCents])).toEqual([
+        ['savings', 100000],
+        ['loan', 600000],
+      ])
+      await page.reload()
+      const reloaded = await screen.openFunding(BIKE)
+      await expect(reloaded.getByTestId('funding-source')).toHaveCount(2)
+      await expect(reloaded.getByTestId('funding-remainder')).toContainText(/3\s000,00\s€ sur salaire/)
+
+      // --- And: cash, loan and partial are priced side by side, none singled out
+      await expect(screen.options(BIKE)).toHaveCount(3)
+      await expect(screen.options(BIKE).nth(0)).toContainText(/10\s000,00\s€/)
+      await expect(screen.options(BIKE).nth(1)).toContainText(/10\s422,00\s€/)
+      const classes = await screen.options(BIKE).evaluateAll((columns) => columns.map((column) => column.className))
+      expect(new Set(classes).size).toBe(1)
+      await expect(reloaded).not.toContainText(/recommand|préférable/i)
+
+      // --- When: the savings are raised so the sources exceed the project --------
+      await reloaded.getByLabel('Montant économies (€)', { exact: true }).fill('9000')
+      const refused = page.waitForResponse((response) => response.url().endsWith('/funding') && response.request().method() === 'PUT')
+      await reloaded.getByRole('button', { name: 'Enregistrer les sources' }).click()
+
+      // --- Then: the API's refusal is shown as worded, and nothing changed ------
+      expect((await refused).status()).toBe(400)
+      await expect(reloaded.getByRole('alert')).toBeVisible()
+      const unchanged = await (await api.get(`/api/finance/projects/${stored.id}`, { headers: JSON_ONLY })).json()
+      expect(unchanged.fundingSources.map((source: { amountCents: number }) => source.amountCents)).toEqual([100000, 600000])
+    } finally {
+      await removeBike(api)
+    }
+  })
+})
