@@ -10,7 +10,11 @@ use Doctrine\ORM\Event\PreFlushEventArgs;
 use Doctrine\ORM\Events;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Projection\WorkCollector;
+use Maggie\Finance\Entity\EnvelopeAlert;
 use Maggie\Finance\Entity\FinanceDashboardSnapshot;
+use Maggie\Finance\Entity\PeerDebtAllocation;
+use Maggie\Finance\Entity\PeerDebtShare;
+use Maggie\Finance\Entity\ProjectFundingSource;
 use Maggie\Finance\Event\FinanceFiguresChanged;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -69,11 +73,38 @@ final class FinanceFiguresListener
                 continue;
             }
 
-            $ownerId = WorkCollector::ownerOf($entity);
+            $ownerId = $this->ownerOf($entity);
             if (null !== $ownerId && !isset($removed[$ownerId])) {
                 $this->owners[$ownerId] = true;
             }
         }
+    }
+
+    /**
+     * The owner, through the parent for the rows that declare none: a share of a
+     * peer debt feeds the dashboard (what was repaid) without being owned itself.
+     */
+    private function ownerOf(object $entity): ?string
+    {
+        $ownerId = WorkCollector::ownerOf($entity);
+        if (null !== $ownerId) {
+            return $ownerId;
+        }
+
+        try {
+            $parent = match (true) {
+                $entity instanceof PeerDebtShare => $entity->getPeerDebt(),
+                $entity instanceof PeerDebtAllocation => $entity->getTransaction(),
+                $entity instanceof ProjectFundingSource => $entity->getProject(),
+                $entity instanceof EnvelopeAlert => $entity->getEnvelope(),
+                default => null,
+            };
+        } catch (\Error) {
+            // A relation not initialized yet: no owner to be found.
+            return null;
+        }
+
+        return null === $parent ? null : WorkCollector::ownerOf($parent);
     }
 
     public function postFlush(): void

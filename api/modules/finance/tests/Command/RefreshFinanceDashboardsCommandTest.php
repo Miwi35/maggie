@@ -63,6 +63,33 @@ class RefreshFinanceDashboardsCommandTest extends KernelTestCase
         self::assertNotSame('2020-01-01', $connection->fetchOne('SELECT computed_on FROM finance_dashboard_snapshot'));
     }
 
+    public function testAModelComputedOnAnotherServerDayIsMarkedStaleAndRebuilt(): void
+    {
+        $connection = self::getContainer()->get('doctrine.orm.entity_manager')->getConnection();
+        $connection->executeStatement("UPDATE finance_dashboard_snapshot SET computed_server_on = '2020-01-01'");
+
+        $this->tester->execute([]);
+
+        self::assertStringContainsString('1 dashboard(s)', $this->tester->getDisplay());
+        self::assertTrue($this->stale());
+
+        $this->drainDashboardRefreshes();
+        self::assertFalse($this->stale());
+        self::assertSame(
+            (new \DateTimeImmutable('today'))->format('Y-m-d'),
+            $connection->fetchOne('SELECT computed_server_on FROM finance_dashboard_snapshot'),
+        );
+    }
+
+    public function testAModelStoredWithoutAServerDayIsRebuilt(): void
+    {
+        self::getContainer()->get('doctrine.orm.entity_manager')->getConnection()->executeStatement('UPDATE finance_dashboard_snapshot SET computed_server_on = NULL');
+
+        $this->tester->execute([]);
+
+        self::assertStringContainsString('1 dashboard(s)', $this->tester->getDisplay());
+    }
+
     public function testAUserWhoseModelWasNeverBuiltIsBuilt(): void
     {
         self::getContainer()->get('doctrine.orm.entity_manager')->getConnection()->executeStatement('DELETE FROM finance_dashboard_snapshot');

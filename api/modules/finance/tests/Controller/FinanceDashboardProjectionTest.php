@@ -208,7 +208,33 @@ class FinanceDashboardProjectionTest extends WebTestCase
             (int) $today->format('Y'),
             (int) $today->format('n'),
             $today,
+            new \DateTimeImmutable('today'),
         ));
+    }
+
+    public function testAPayloadComputedOnAnotherServerDayIsNotServedAndTheReadStaysLive(): void
+    {
+        $this->drainDashboardRefreshes();
+        $connection = $this->em()->getConnection();
+        $connection->executeStatement("UPDATE finance_dashboard_snapshot SET computed_server_on = '2020-01-01'");
+        $computedOn = $connection->fetchOne('SELECT computed_on FROM finance_dashboard_snapshot');
+        $before = $connection->fetchAssociative('SELECT version, stale, computed_server_on FROM finance_dashboard_snapshot');
+
+        $today = self::getContainer()->get(GetFinanceScores::class)->resolveDate($this->user(), null);
+        self::assertNull(self::getContainer()->get(FinanceDashboardSnapshotRepository::class)->fetchFreshPayload(
+            $this->user(),
+            (int) $today->format('Y'),
+            (int) $today->format('n'),
+            $today,
+            new \DateTimeImmutable('today'),
+        ), 'the user\'s day is unchanged, the server\'s is not');
+        self::assertSame($today->format('Y-m-d'), $computedOn);
+
+        $read = $this->read();
+
+        self::assertNoWrite($read['queries']);
+        self::assertSame($this->liveBody(), $read['body'], 'computed live');
+        self::assertSame($before, $connection->fetchAssociative('SELECT version, stale, computed_server_on FROM finance_dashboard_snapshot'));
     }
 
     public function testAQualificationIsAnnouncedOnMercureOnceTheModelIsRebuilt(): void

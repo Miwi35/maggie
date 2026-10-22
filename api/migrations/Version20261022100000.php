@@ -20,7 +20,7 @@ final class Version20261022100000 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('CREATE TABLE finance_dashboard_snapshot (id UUID NOT NULL, year SMALLINT DEFAULT 0 NOT NULL, month SMALLINT DEFAULT 0 NOT NULL, computed_on DATE DEFAULT NULL, payload TEXT DEFAULT NULL, stale BOOLEAN DEFAULT true NOT NULL, version INT DEFAULT 1 NOT NULL, user_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE finance_dashboard_snapshot (id UUID NOT NULL, year SMALLINT DEFAULT 0 NOT NULL, month SMALLINT DEFAULT 0 NOT NULL, computed_on DATE DEFAULT NULL, computed_server_on DATE DEFAULT NULL, payload TEXT DEFAULT NULL, stale BOOLEAN DEFAULT true NOT NULL, version INT DEFAULT 1 NOT NULL, user_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE UNIQUE INDEX uniq_finance_dashboard_snapshot_user ON finance_dashboard_snapshot (user_id)');
         $this->addSql('ALTER TABLE finance_dashboard_snapshot ADD CONSTRAINT FK_F9EFD3AFA76ED395 FOREIGN KEY (user_id) REFERENCES "user" (id) ON DELETE CASCADE NOT DEFERRABLE');
     }

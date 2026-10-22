@@ -57,6 +57,8 @@ class RefreshFinanceDashboard
         }
         $this->em->refresh($snapshot);
 
+        // Before computing: a rebuild that straddles midnight keeps the older day and is outdated sooner, never later.
+        $serverToday = new \DateTimeImmutable('today');
         $today = $this->getFinanceScores->resolveDate($user, null);
         $year = (int) $today->format('Y');
         $month = (int) $today->format('n');
@@ -66,10 +68,10 @@ class RefreshFinanceDashboard
             JsonResponse::DEFAULT_ENCODING_OPTIONS | \JSON_THROW_ON_ERROR,
         );
 
-        $stale = $this->em->wrapInTransaction(function () use ($userId, $state, $snapshot, $year, $month, $today, $payload): bool {
+        $stale = $this->em->wrapInTransaction(function () use ($userId, $state, $snapshot, $year, $month, $today, $serverToday, $payload): bool {
             // Locked until stored: a write marking the row stale now waits, and wins.
             $stale = $this->snapshots->lockVersion($userId) !== $state['version'];
-            $snapshot->store($year, $month, $today, $payload, $stale);
+            $snapshot->store($year, $month, $today, $serverToday, $payload, $stale);
 
             return $stale;
         });

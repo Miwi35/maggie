@@ -54,7 +54,14 @@ final class FinanceDashboardController
             return new JsonResponse(['error' => 'year must be between 2000 and 2100'], Response::HTTP_BAD_REQUEST);
         }
 
-        $stored = $this->snapshots->fetchFreshPayload($user, $year, $month, $this->getFinanceScores->resolveDate($user, null));
+        $stored = $this->snapshots->fetchFreshPayload(
+            $user,
+            $year,
+            $month,
+            $this->getFinanceScores->resolveDate($user, null),
+            // The same notion of « today » as the use cases that default to it.
+            new \DateTimeImmutable('today'),
+        );
         if (null !== $stored) {
             return new JsonResponse($stored, Response::HTTP_OK, [], true);
         }

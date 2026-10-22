@@ -157,7 +157,7 @@ class RefreshFinanceDashboardTest extends KernelTestCase
         self::assertInstanceOf(RefreshFinanceDashboardCommand::class, $sent[0]);
         self::assertSame($userId, $sent[0]->userId);
         self::assertNull(
-            $snapshots->fetchFreshPayload($this->user(), $this->snapshot()->getYear(), $this->snapshot()->getMonth(), $this->snapshot()->getComputedOn()),
+            $snapshots->fetchFreshPayload($this->user(), $this->snapshot()->getYear(), $this->snapshot()->getMonth(), $this->snapshot()->getComputedOn(), $this->snapshot()->getComputedServerOn()),
             'and the read does not serve them',
         );
     }

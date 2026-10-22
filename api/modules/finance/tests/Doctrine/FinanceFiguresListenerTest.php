@@ -9,6 +9,9 @@ use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
+use Maggie\Finance\Entity\Contact;
+use Maggie\Finance\Entity\PeerDebt;
+use Maggie\Finance\Entity\PeerDebtShare;
 use Maggie\Finance\Message\RefreshFinanceDashboardCommand;
 use Maggie\Finance\Repository\FinanceDashboardSnapshotRepository;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -89,6 +92,33 @@ class FinanceFiguresListenerTest extends KernelTestCase
 
         self::assertSame($before['version'] + 1, $this->state()['version']);
         self::assertCount(1, $this->queuedRebuilds());
+    }
+
+    public function testAFlushThatOnlyChangesAShareOfAPeerDebtMarksTheOwnerStale(): void
+    {
+        $em = $this->em();
+        $user = $em->find(User::class, $this->getFixture('test_user')->getId());
+        $contact = (new Contact())->setName('Julie')->setUser($user);
+        $debt = (new PeerDebt())->setObject('Gîte')->setUser($user);
+        $share = (new PeerDebtShare())->setContact($contact)->setAmountCents(10000)->setPosition(0);
+        $share->setPeerDebt($debt);
+        $em->persist($contact);
+        $em->persist($debt);
+        $em->flush();
+        $shareId = $share->getId();
+        $this->drainDashboardRefreshes();
+        $this->dashboardTransport()->reset();
+        $em->clear();
+        $before = $this->state();
+        self::assertFalse($before['stale']);
+
+        $em->find(PeerDebtShare::class, $shareId)->setRepaidCents(2500);
+        $em->flush();
+
+        $after = $this->state();
+        self::assertTrue($after['stale'], 'the repaid amount feeds the dashboard');
+        self::assertSame($before['version'] + 1, $after['version']);
+        self::assertSame([$this->userId()], $this->queuedRebuilds());
     }
 
     public function testARowOfAnotherModuleDoesNotMarkAnything(): void

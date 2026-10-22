@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsCommand(
     name: 'app:finance:refresh-dashboards',
-    description: 'Rebuild the Finance Dashboard read model of the users whose computed day is no longer their today',
+    description: 'Rebuild the Finance Dashboard read model of the users whose computed day is no longer their today or the server today',
 )]
 class RefreshFinanceDashboardsCommand extends Command
 {
@@ -34,15 +34,16 @@ class RefreshFinanceDashboardsCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $marked = 0;
+        $serverToday = (new \DateTimeImmutable('today'))->format('Y-m-d');
 
-        foreach ($this->snapshots->computedDaysOfUsersWithAccounts() as $userId => $computedOn) {
+        foreach ($this->snapshots->computedDaysOfUsersWithAccounts() as $userId => $days) {
             $user = $this->users->find($userId);
             if (null === $user) {
                 continue;
             }
 
             $today = $this->getFinanceScores->resolveDate($user, null)->format('Y-m-d');
-            if ($computedOn === $today) {
+            if ($days['computedOn'] === $today && $days['computedServerOn'] === $serverToday) {
                 continue;
             }
 

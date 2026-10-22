@@ -49,6 +49,14 @@ class FinanceDashboardSnapshot implements MercurePublishable, OwnedByUserInterfa
     #[ORM\Column(type: 'date_immutable', nullable: true)]
     private ?\DateTimeImmutable $computedOn = null;
 
+    /**
+     * The server's day it was computed on: some figures (the salary window, the
+     * debt timeline) follow the server's clock, not the user's, so the model is
+     * outdated when either day moves. Null: stored before this was kept.
+     */
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $computedServerOn = null;
+
     /** The response body, as sent: JSON text, byte for byte what the live computation answers. */
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $payload = null;
@@ -98,6 +106,11 @@ class FinanceDashboardSnapshot implements MercurePublishable, OwnedByUserInterfa
         return $this->computedOn;
     }
 
+    public function getComputedServerOn(): ?\DateTimeImmutable
+    {
+        return $this->computedServerOn;
+    }
+
     public function getPayload(): ?string
     {
         return $this->payload;
@@ -113,11 +126,12 @@ class FinanceDashboardSnapshot implements MercurePublishable, OwnedByUserInterfa
         return $this->version;
     }
 
-    public function store(int $year, int $month, \DateTimeImmutable $computedOn, string $payload, bool $stale): void
+    public function store(int $year, int $month, \DateTimeImmutable $computedOn, \DateTimeImmutable $computedServerOn, string $payload, bool $stale): void
     {
         $this->year = $year;
         $this->month = $month;
         $this->computedOn = $computedOn;
+        $this->computedServerOn = $computedServerOn;
         $this->payload = $payload;
         $this->stale = $stale;
     }
