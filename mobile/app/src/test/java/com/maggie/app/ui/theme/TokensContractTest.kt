@@ -121,7 +121,7 @@ class TokensContractTest {
     @Test
     fun `the charts are drawn in the charter's colours - mint, violet, gold, blue, orchid`() {
         assertEquals(
-            listOf(0x7FD1AE, 0xA68BFF, 0xF2C46D, 0x8FB8FF, 0xE8A9D9).map(::hex),
+            listOf(0x7FD1AEL, 0xA68BFFL, 0xF2C46DL, 0x8FB8FFL, 0xE8A9D9L).map(::hex),
             (1..5).map { chartColor(it, dark = true) },
         )
     }
