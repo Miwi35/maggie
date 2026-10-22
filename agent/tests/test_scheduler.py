@@ -25,6 +25,7 @@ from tests.fake_proaction_api import FakeProactionApi
 @pytest.fixture(autouse=True)
 def paris_at_five(monkeypatch):
     user_timezone.known_timezones.clear()
+    user_timezone.read_at.clear()
     monkeypatch.setattr(settings, "planning_timezone", "Europe/Paris")
     monkeypatch.setattr(settings, "daily_planning_hour", 5)
 
@@ -88,6 +89,7 @@ def timezones(monkeypatch, by_user: dict[str, str | Exception]) -> AsyncMock:
 
     mock = AsyncMock(side_effect=call_tool)
     monkeypatch.setattr(user_timezone.mcp_client, "call_tool", mock)
+    user_timezone.read_at.clear()  # a new scenario: nothing read before it counts as fresh
     return mock
 
 

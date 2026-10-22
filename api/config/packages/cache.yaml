@@ -17,3 +17,12 @@ framework:
         # Namespaced pools use the above "app" backend by default
         #pools:
             #my.dedicated.cache: null
+
+when@prod:
+    framework:
+        cache:
+            pools:
+                # MCP tool catalogue, written by McpDiscoveryCacheWarmer. System adapter:
+                # lives in var/cache (not var/share), rebuilt by every warmup.
+                mcp_discovery.cache:
+                    adapter: cache.adapter.system

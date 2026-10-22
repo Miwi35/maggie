@@ -49,6 +49,16 @@ def no_duplicate_lookup(request):
 
 
 @pytest.fixture(autouse=True)
+def no_remembered_timezone_read():
+    """A timezone read stays fresh for a minute (MAG-543): one test's read must not answer the next one's."""
+    from app import user_timezone
+
+    user_timezone.read_at.clear()
+    yield
+    user_timezone.read_at.clear()
+
+
+@pytest.fixture(autouse=True)
 def paris_user_timezone():
     """Keep the user's timezone lookup (MAG-161) off the MCP server in tests that only build a prompt."""
     paris = AsyncMock(return_value=ZoneInfo("Europe/Paris"))

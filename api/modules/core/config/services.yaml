@@ -24,6 +24,8 @@ services:
             # test login structurally absent from prod (MAG-94), not a
             # convention someone has to remember.
             - '../src/E2e/'
+            # Cached MCP discovery: defined for prod only, below (MAG-543).
+            - '../src/Mcp/Discovery/'
 
     Maggie\Core\Weather\OpenMeteoClient:
         arguments:
@@ -51,6 +53,36 @@ services:
     Maggie\Core\EventListener\RefreshMercureTokenListener:
         tags:
             - { name: kernel.event_listener, event: lexik_jwt_authentication.on_authentication_success, method: onAuthenticationSuccess }
+
+# MCP tool discovery without a file scan per request (MAG-543): the catalogue
+# is built by `cache:warmup` (the prod image runs it at build) into the
+# `mcp_discovery.cache` pool of config/packages/cache.yaml, and read from there.
+# CachedMcpDiscoveryPass hands the cached discoverer to the MCP builder.
+# dev/test/e2e keep the dynamic discovery.
+when@prod:
+    services:
+        Mcp\Capability\Discovery\Discoverer:
+            arguments:
+                $logger: '@logger'
+
+        app.mcp.discovery_cache:
+            class: Symfony\Component\Cache\Psr16Cache
+            arguments: ['@mcp_discovery.cache']
+
+        Mcp\Capability\Discovery\CachedDiscoverer:
+            arguments:
+                $discoverer: '@Mcp\Capability\Discovery\Discoverer'
+                $cache: '@app.mcp.discovery_cache'
+                $logger: '@logger'
+
+        Maggie\Core\Mcp\Discovery\McpDiscoveryCacheWarmer:
+            arguments:
+                $discoverer: '@Mcp\Capability\Discovery\CachedDiscoverer'
+                $cache: '@app.mcp.discovery_cache'
+                $projectDir: '%kernel.project_dir%'
+                $scanDirs: '%mcp.discovery.scan_dirs%'
+                $excludeDirs: '%mcp.discovery.exclude_dirs%'
+            tags: ['kernel.cache_warmer']
 
 # The date provider alone, so PHPUnit can load the real e2e fixture files and
 # catch a typo in them before a journey does. Deliberately not the controller
