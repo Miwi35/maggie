@@ -82,7 +82,7 @@ describe('CalendarView', () => {
     })
   })
 
-  test('also asks for events that started before the range and end inside it', async () => {
+  test('asks for what meets the range, a multi-day event that started before it included', async () => {
     render(<CalendarView />)
 
     await waitFor(() => {
@@ -90,32 +90,137 @@ describe('CalendarView', () => {
         'events',
         expect.objectContaining({
           filter: expect.objectContaining({
+            'startAt[before]': expect.any(String),
             'endAt[after]': expect.any(String),
-            'startAt[strictly_before]': expect.any(String),
           }),
         }),
       )
     })
   })
 
-  test('refetches again after a live update, once the worker has indexed the row', { timeout: 15_000 }, async () => {
-    localStorage.setItem('user', JSON.stringify({ id: 'u1' }))
-    try {
-      render(<CalendarView />)
-      const eventCalls = () => mockGetList.mock.calls.filter(([resource]) => resource === 'events').length
+  test('also asks for the series that started before the range', async () => {
+    render(<CalendarView />)
 
-      await waitFor(() => expect(MockEventSource.instances.length).toBeGreaterThan(0))
-      await waitFor(() => expect(eventCalls()).toBeGreaterThan(0))
-      const before = eventCalls()
+    await waitFor(() => {
+      expect(mockGetList).toHaveBeenCalledWith(
+        'events',
+        expect.objectContaining({
+          filter: expect.objectContaining({ 'exists[rrule]': true, 'startAt[strictly_before]': expect.any(String) }),
+        }),
+      )
+    })
+  })
 
-      MockEventSource.instances[0].onmessage?.({ data: '{}' } as MessageEvent)
+  describe('a live update', () => {
+    // The agendas are asked for on every render of this mock, whose data provider is a new object each time.
+    const reads = () => mockGetList.mock.calls.map(([resource]) => resource as string).filter((resource) => 'agendas' !== resource)
+    const range = () => reads().length
+    const send = (data: object | string) =>
+      MockEventSource.instances[0].onmessage?.({ data: 'string' === typeof data ? data : JSON.stringify(data) } as MessageEvent)
 
-      // Three event queries per refetch: the range, the series, the multi-day events.
-      await waitFor(() => expect(eventCalls()).toBeGreaterThanOrEqual(before + 3))
-      await waitFor(() => expect(eventCalls()).toBeGreaterThanOrEqual(before + 6), { timeout: 5_000 })
-    } finally {
+    beforeEach(() => {
+      localStorage.setItem('user', JSON.stringify({ id: 'u1' }))
+    })
+    afterEach(() => {
       localStorage.removeItem('user')
+    })
+
+    async function mountAndSettle() {
+      render(<CalendarView />)
+      await waitFor(() => expect(MockEventSource.instances.length).toBeGreaterThan(0))
+      await waitFor(() => expect(range()).toBeGreaterThan(0))
+      // The initial range read is done once the four kinds were asked for.
+      await waitFor(() => expect(mockGetList.mock.calls.some(([r]) => r === 'proactions')).toBe(true))
+      mockGetList.mockClear()
     }
+
+    test('costs at most two requests, whatever it touches', { timeout: 15_000 }, async () => {
+      // Each read brings something new, so no second read follows.
+      let served = 0
+      mockGetList.mockImplementation((resource: string) =>
+        Promise.resolve({ data: 'agendas' === resource ? [] : [{ id: `/api/x/${served++}` }], total: 1 }),
+      )
+      await mountAndSettle()
+
+      send({ '@id': '/api/events/01A', summary: 'Dentiste' })
+      await waitFor(() => expect(range()).toBeGreaterThan(0), { timeout: 3_000 })
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      // The events only: the range with the multi-day events, and the series.
+      expect(reads()).toEqual(['events', 'events'])
+    })
+
+    test('reads a task, a meal or a run of Maggie with one request', { timeout: 15_000 }, async () => {
+      let served = 0
+      mockGetList.mockImplementation((resource: string) =>
+        Promise.resolve({ data: 'agendas' === resource ? [] : [{ id: `/api/x/${served++}` }], total: 1 }),
+      )
+      await mountAndSettle()
+
+      for (const kind of ['tasks', 'meals', 'proactions']) {
+        mockGetList.mockClear()
+        send({ '@id': `/api/${kind}/01A` })
+        await waitFor(() => expect(range()).toBeGreaterThan(0), { timeout: 3_000 })
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
+        expect(reads()).toEqual([kind])
+      }
+    })
+
+    test('reads a burst of messages once', { timeout: 15_000 }, async () => {
+      let served = 0
+      mockGetList.mockImplementation((resource: string) =>
+        Promise.resolve({ data: 'agendas' === resource ? [] : [{ id: `/api/x/${served++}` }], total: 1 }),
+      )
+      await mountAndSettle()
+
+      for (let i = 0; i < 5; i++) send({ '@id': `/api/tasks/0${i}` })
+      await waitFor(() => expect(range()).toBeGreaterThan(0), { timeout: 3_000 })
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      expect(range()).toBe(1)
+    })
+
+    test('reads again, once, when the first read found nothing new', { timeout: 15_000 }, async () => {
+      // The row is not indexed yet: the answer is the one the screen already holds.
+      await mountAndSettle()
+
+      send({ '@id': '/api/tasks/01A' })
+      await waitFor(() => expect(range()).toBe(1), { timeout: 3_000 })
+      await waitFor(() => expect(range()).toBe(2), { timeout: 6_000 })
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      expect(range()).toBe(2)
+    })
+
+    test('retries an event read with the range alone, not the series again', { timeout: 15_000 }, async () => {
+      await mountAndSettle()
+
+      send({ '@id': '/api/events/01A' })
+      await waitFor(() => expect(range()).toBe(2), { timeout: 3_000 })
+      await waitFor(() => expect(range()).toBe(3), { timeout: 6_000 })
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      expect(reads()).toEqual(['events', 'events', 'events'])
+      const filters = mockGetList.mock.calls.map(([, params]) => Object.keys(params.filter ?? {}))
+      expect(filters.filter((keys) => keys.includes('exists[rrule]'))).toHaveLength(1)
+    })
+
+    test('reads everything when the message does not say what changed', { timeout: 15_000 }, async () => {
+      let served = 0
+      mockGetList.mockImplementation((resource: string) =>
+        Promise.resolve({ data: 'agendas' === resource ? [] : [{ id: `/api/x/${served++}` }], total: 1 }),
+      )
+      await mountAndSettle()
+
+      send('{}')
+      await waitFor(() => expect(range()).toBeGreaterThan(0), { timeout: 3_000 })
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      expect(new Set(reads())).toEqual(
+        new Set(['events', 'tasks', 'meals', 'proactions']),
+      )
+    })
   })
 
   // The sidebar's rows, the toolbar and the dialogs are addressed by role and name in

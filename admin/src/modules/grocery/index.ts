@@ -1,7 +1,1 @@
 export { groceryResources } from './resources'
-export { ProductList } from './ProductList'
-export { ProductCreate } from './ProductCreate'
-export { ProductEdit } from './ProductEdit'
-export { StoreList } from './StoreList'
-export { StoreCreate } from './StoreCreate'
-export { StoreEdit } from './StoreEdit'
