@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.filter
 import androidx.compose.ui.test.hasText
@@ -15,6 +16,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.PlannedProject
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectPlanning
+import com.maggie.app.data.model.ProjectFundingSource
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.assertTopToBottom
@@ -203,5 +205,30 @@ class ProjectListScreenTest {
         compose.onNodeWithText("Réessayer").performClick()
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.GANTT_ROW).fetchSemanticsNodes().size == 2 }
+    }
+
+    @Test
+    fun `a tap on a row opens its sheet, the button a new form, and a funded row names its sources`() {
+        val funded = sofa.copy(
+            fundingSources = listOf(
+                ProjectFundingSource(kind = "savings", amountCents = 10_000, accountId = "a1"),
+                ProjectFundingSource(kind = "loan", amountCents = 50_000, loanId = "l1"),
+            ),
+            salaryCents = 60_000,
+        )
+        val forms = mutableListOf<String?>()
+        val sheets = mutableListOf<String>()
+        compose.setContent {
+            ProjectListScreen(viewModel(listOf(move, funded)), onBack = {}, onOpenForm = { forms += it }, onOpenSheet = { sheets += it })
+        }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
+        compose.onAllNodesWithTag(UiTags.PROJECT_FUNDING_SUMMARY, useUnmergedTree = true).assertCountEquals(1)
+        compose.onNodeWithText("économies + emprunt + salaire").assertIsDisplayed()
+        compose.onNodeWithText("2. Canapé").performClick()
+        compose.onNodeWithTag(UiTags.PROJECT_ADD).performClick()
+
+        assertEquals(listOf("p2"), sheets)
+        assertEquals(listOf<String?>(null), forms)
     }
 }

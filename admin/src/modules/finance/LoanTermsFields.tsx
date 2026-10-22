@@ -28,6 +28,8 @@ interface LoanTermsFieldsProps {
   /** `YYYY-MM` of the last payment, deduced by the API: shown, never typed. */
   endsOn?: string | null
   withDefaults?: boolean
+  /** The amount borrowed is a field of the loan's sheet; a project's source sets it with its own amount. */
+  withAmount?: boolean
 }
 
 /**
@@ -35,7 +37,7 @@ interface LoanTermsFieldsProps {
  * that apply to it. A form inside a react-admin form; the loan's own sheet and
  * a project's borrowing source share it.
  */
-export const LoanTermsFields = ({ prefix = '', endsOn, withDefaults = false }: LoanTermsFieldsProps) => {
+export const LoanTermsFields = ({ prefix = '', endsOn, withDefaults = false, withAmount = true }: LoanTermsFieldsProps) => {
   const type = useWatch({ name: `${prefix}type` }) as string | undefined
   const penaltyMode = useWatch({ name: `${prefix}prepaymentPenaltyMode` }) as string | undefined
   const field = (name: string) => `${prefix}${name}`
@@ -52,7 +54,9 @@ export const LoanTermsFields = ({ prefix = '', endsOn, withDefaults = false }: L
           defaultValue={withDefaults ? 'amortizing_fixed' : undefined}
           sx={halfSx}
         />
-        <NumberInput source={field('initialAmountCents')} label="Montant emprunté (€)" {...centsInput} sx={halfSx} />
+        {withAmount && (
+          <NumberInput source={field('initialAmountCents')} label="Montant emprunté (€)" {...centsInput} sx={halfSx} />
+        )}
       </Box>
 
       <Box sx={rowSx}>

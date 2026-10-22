@@ -1,6 +1,7 @@
 package com.maggie.app.data.model
 
 import com.maggie.app.data.api.ApiCollection
+import com.maggie.app.data.api.ProjectFundingResult
 import com.maggie.app.data.api.ProjectReorderResult
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -91,5 +92,67 @@ class ProjectTest {
         assertEquals(ProjectDateMode.NONE, ProjectDateMode.of("nonsense"))
         assertEquals(listOf(4, 3, 2, 1), ProjectWellbeing.entries.map { it.score })
         assertEquals(listOf("Indispensable", "Élevé", "Moyen", "Confort"), ProjectWellbeing.entries.map { it.label })
+    }
+
+    @Test
+    fun `a project reads its funding sources and the salary that is left`() {
+        val body = """
+            {"id":"p3","name":"Voiture","amountCents":1000000,"currency":"EUR","wellbeing":"medium","wellbeingScore":2,
+             "position":2,"dateMode":"none","targetOn":null,"dependsOn":[],"note":null,"unmetDependencies":[],
+             "salaryCents":300000,
+             "fundingSources":[
+               {"kind":"savings","amountCents":100000,"accountId":"a1","loanId":null},
+               {"kind":"loan","amountCents":600000,"accountId":null,"loanId":"l1"}]}
+        """.trimIndent()
+
+        val project = json.decodeFromString(Project.serializer(), body)
+
+        assertEquals(300000, project.salaryCents)
+        assertEquals(listOf("savings", "loan"), project.fundingSources.map { it.kind })
+        assertEquals("a1", project.fundingSources[0].accountId)
+        assertEquals("l1", project.loanSource?.loanId)
+        assertEquals("économies + emprunt + salaire", projectFundingSummary(project))
+    }
+
+    @Test
+    fun `the summary names the kinds in a fixed order and the salary only when it pays`() {
+        val capital = ProjectFundingSource(kind = "capital", amountCents = 1, accountId = "a")
+        val savings = ProjectFundingSource(kind = "savings", amountCents = 1, accountId = "a")
+
+        assertNull(projectFundingSummary(Project(id = "a", name = "A")))
+        assertEquals("salaire", projectFundingSummary(Project(id = "a", name = "A", salaryCents = 5)))
+        assertEquals("économies + capital", projectFundingSummary(Project(id = "a", name = "A", fundingSources = listOf(capital, savings))))
+    }
+
+    @Test
+    fun `the options answer reads the three options and leaves absent delays null`() {
+        val body = """
+            {"projectId":"p3","amountCents":1000000,"currency":"EUR","netCapacityCents":50000,"loanRateBasisPoints":400,
+             "loanMonths":24,"downPaymentCents":400000,"yieldBasisPoints":300,
+             "cash":{"principalCents":0,"downPaymentCents":1000000,"totalCostCents":1000000,"netCostCents":1000000,
+                     "monthlyPaymentCents":0,"durationMonths":0,"availableInMonths":20,"capitalKeptCents":0},
+             "loan":{"totalCostCents":1100000,"netCostCents":1090000,"monthlyPaymentCents":45000,"durationMonths":24,"availableInMonths":0},
+             "partial":{"totalCostCents":1050000,"netCostCents":1040000,"monthlyPaymentCents":25000,"durationMonths":24,
+                        "availableInMonths":null,"nImpactMonths":2}}
+        """.trimIndent()
+
+        val options = json.decodeFromString(ProjectOptions.serializer(), body)
+
+        assertEquals(1000000, options.cash.totalCostCents)
+        assertEquals(20, options.cash.availableInMonths)
+        assertEquals(45000, options.loan.monthlyPaymentCents)
+        assertNull(options.cash.nImpactMonths)
+        assertNull(options.partial.availableInMonths)
+        assertEquals(2, options.partial.nImpactMonths)
+    }
+
+    @Test
+    fun `the funding answer carries the project`() {
+        val body = """{"success":true,"project":{"id":"p3","name":"Voiture","salaryCents":10,"fundingSources":[]}}"""
+
+        val result = json.decodeFromString(ProjectFundingResult.serializer(), body)
+
+        assertTrue(result.success)
+        assertEquals(10, result.project?.salaryCents)
     }
 }

@@ -26,6 +26,17 @@ tags:
 # texts, apart from the list rows' « 1. Déménagement … »: two lines, one per project, in the same order.
 # Its bars, the 36 months and the reread after a reorder are the unit tests' and the web journey's.
 #
+# Les sources et les options (MAG-525), sur le téléphone :
+# Étant donné « Voiture » (10 000 €) financée par 1 000 € d'économies et 6 000 € d'emprunt (24 mois, 4 %),
+# posés par l'API
+# Quand j'ouvre la fiche « Voiture »
+# Alors la ligne et la fiche lisent « économies + emprunt + salaire », et les trois coûts totaux sont là
+#
+# The row's tap opens the sheet, whose pencil opens the form. The sheet is read-only on a phone: the
+# editing of the sources is the tablet's (`ProjectSheetScreenTest`), and the figures themselves are the
+# API's (`api/contract`). The amounts are matched loosely, as the app formats them in the device's
+# locale (« 10000,00 EUR », « 10000.00 EUR »), and the delays are not asserted.
+#
 # What is not here: the badges, the dependency line and its warning, the empty state, a refused
 # reorder put back, the form's refusals (`ProjectListScreenTest`, `ProjectViewModelTest`,
 # `ProjectDraftTest`), and the admin's side of the same API.
@@ -130,6 +141,12 @@ tags:
 - tapOn: ".*1. Canapé.*"
 - extendedWaitUntil:
     visible:
+      id: "project_sheet"
+    timeout: 20000
+- tapOn:
+    id: "project_sheet_edit"
+- extendedWaitUntil:
+    visible:
       id: "project_form"
     timeout: 10000
 - tapOn:
@@ -161,3 +178,51 @@ tags:
     file: ../scripts/projects-api.js
     env:
       ACTION: reset
+
+# ---------------------------------------------------------------------------
+# « Voiture » funded: the row names its sources, the sheet gives the three options.
+# ---------------------------------------------------------------------------
+- runScript:
+    file: ../scripts/projects-api.js
+    env:
+      ACTION: fund-car
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/23-finance-projects.yaml
+      e2e_email: e2e-stock@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/projects"
+- extendedWaitUntil:
+    visible: ".*1. Voiture.*"
+    timeout: 30000
+- assertVisible: ".*économies \\+ emprunt \\+ salaire.*"
+- tapOn: ".*1. Voiture.*"
+- extendedWaitUntil:
+    visible:
+      id: "project_sheet"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "économies \\+ emprunt \\+ salaire"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "project_options"
+    timeout: 20000
+# The cash and loan total costs, whatever the decimal sign of the locale: 10 000 / 10 421,86.
+# The partial option depends on the seed's saving capacity: the unit tests own it.
+- extendedWaitUntil:
+    visible: "10000[,.]00 EUR"
+    timeout: 20000
+- assertVisible: "10421[,.]86 EUR"
+
+# Left as the seed wrote it: no source.
+- runScript:
+    file: ../scripts/projects-api.js
+    env:
+      ACTION: reset-car

@@ -1,6 +1,8 @@
 package com.maggie.app.ui.screens.finance
 
 import com.maggie.app.data.api.ApiRefusalException
+import com.maggie.app.data.api.ProjectFundingSourceRequest
+import com.maggie.app.data.api.ProjectOptionsParams
 import com.maggie.app.data.api.ProjectWriteRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
@@ -9,6 +11,12 @@ import com.maggie.app.data.model.PlannedProject
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectDateMode
 import com.maggie.app.data.model.ProjectPlanning
+import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.FundingKind
+import com.maggie.app.data.model.ProjectFundingSource
+import com.maggie.app.data.model.ProjectOption
+import com.maggie.app.data.model.ProjectOptions
+import com.maggie.app.data.model.projectFundingSummary
 import com.maggie.app.data.repository.ProjectRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -586,5 +594,259 @@ class ProjectViewModelTest {
         advanceUntilIdle()
 
         assertEquals(newer, viewModel.uiState.value.planning)
+    }
+
+    // --- MAG-525: funding sources and priced options ---------------------------------------------
+
+    private val car = Project(
+        id = "p3", name = "Voiture", amountCents = 1_000_000, position = 2,
+        fundingSources = listOf(
+            ProjectFundingSource(kind = "savings", amountCents = 100_000, accountId = "acc-1"),
+            ProjectFundingSource(kind = "loan", amountCents = 600_000, loanId = "loan-1"),
+        ),
+        salaryCents = 300_000,
+    )
+
+    private fun priced(downPaymentCents: Int = 0) = ProjectOptions(
+        projectId = "p3",
+        amountCents = 1_000_000,
+        loanRateBasisPoints = 400,
+        loanMonths = 24,
+        downPaymentCents = downPaymentCents,
+        yieldBasisPoints = 300,
+        cash = ProjectOption(totalCostCents = 900_000, availableInMonths = 20),
+        loan = ProjectOption(totalCostCents = 950_000, monthlyPaymentCents = 40_000, availableInMonths = 0),
+        partial = ProjectOption(totalCostCents = 920_000, monthlyPaymentCents = 20_000, availableInMonths = 8, nImpactMonths = 3),
+    )
+
+    private suspend fun kotlinx.coroutines.test.TestScope.viewModelWithCar(): ProjectViewModel {
+        coEvery { repository.getProjects() } returns Result.success(listOf(move, sofa, car))
+        coEvery { repository.getOptions("p3", any()) } returns Result.success(priced())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        return viewModel
+    }
+
+    @Test
+    fun `the projects load with their sources and the salary that is left`() = runTest {
+        val viewModel = viewModelWithCar()
+
+        val loaded = viewModel.uiState.value.projects.single { it.id == "p3" }
+        assertEquals(listOf("savings", "loan"), loaded.fundingSources.map { it.kind })
+        assertEquals(300_000, loaded.salaryCents)
+        assertEquals("économies + emprunt + salaire", projectFundingSummary(loaded))
+        assertNull(viewModel.uiState.value.sheet)
+    }
+
+    @Test
+    fun `opening a sheet prices the three options and holds the sources as drafts`() = runTest {
+        val viewModel = viewModelWithCar()
+
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+
+        val sheet = viewModel.uiState.value.sheet!!
+        assertEquals("p3", sheet.projectId)
+        assertEquals(priced(), sheet.options)
+        assertFalse(sheet.isLoadingOptions)
+        assertNull(sheet.optionsError)
+        assertEquals(listOf(FundingKind.SAVINGS, FundingKind.LOAN), sheet.sources.map { it.kind })
+        assertEquals("1000,00", sheet.sources[0].amount.replace(" ", "").replace('.', ','))
+        // The yield is the only parameter the screen supplies by itself.
+        coVerify { repository.getOptions("p3", ProjectOptionsParams(yieldBasisPoints = 300)) }
+    }
+
+    @Test
+    fun `options that fail to price say so and keep no figures`() = runTest {
+        val viewModel = viewModelWithCar()
+        coEvery { repository.getOptions("p3", any()) } returns Result.failure(RuntimeException("boom"))
+
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+
+        val sheet = viewModel.uiState.value.sheet!!
+        assertNull(sheet.options)
+        assertEquals(ProjectViewModel.MESSAGE_OPTIONS, sheet.optionsError)
+    }
+
+    @Test
+    fun `a project with no loan and no typed terms asks for them instead of calling the API`() = runTest {
+        val viewModel = viewModelWithCar()
+
+        viewModel.openSheet("p1")
+        advanceUntilIdle()
+
+        assertEquals(ProjectViewModel.MESSAGE_OPTIONS_TERMS, viewModel.uiState.value.sheet!!.optionsError)
+        coVerify(exactly = 0) { repository.getOptions("p1", any()) }
+    }
+
+    @Test
+    fun `the typed parameters price the options once applied`() = runTest {
+        val viewModel = viewModelWithCar()
+        viewModel.openSheet("p1")
+        advanceUntilIdle()
+        coEvery { repository.getOptions("p1", any()) } returns Result.success(priced(downPaymentCents = 400_000).copy(projectId = "p1"))
+
+        viewModel.editOptions { it.copy(rate = "4", months = "24", downPayment = "4000") }
+        coVerify(exactly = 0) { repository.getOptions("p1", any()) }
+        viewModel.applyOptions()
+        advanceUntilIdle()
+
+        coVerify {
+            repository.getOptions(
+                "p1",
+                ProjectOptionsParams(loanRateBasisPoints = 400, loanMonths = 24, downPaymentCents = 400_000, yieldBasisPoints = 300),
+            )
+        }
+        assertEquals(400_000, viewModel.uiState.value.sheet!!.options!!.downPaymentCents)
+    }
+
+    @Test
+    fun `a parameter that is not a number is said, not sent`() = runTest {
+        val viewModel = viewModelWithCar()
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+
+        viewModel.editOptions { it.copy(rate = "abc") }
+        viewModel.applyOptions()
+        advanceUntilIdle()
+
+        assertEquals(ProjectViewModel.MESSAGE_OPTIONS_INVALID, viewModel.uiState.value.sheet!!.optionsError)
+        coVerify(exactly = 1) { repository.getOptions("p3", any()) }
+    }
+
+    @Test
+    fun `saved sources replace the project's and the options are priced again`() = runTest {
+        val viewModel = viewModelWithCar()
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+        val saved = car.copy(
+            fundingSources = listOf(
+                ProjectFundingSource(kind = "savings", amountCents = 200_000, accountId = "acc-1"),
+                ProjectFundingSource(kind = "loan", amountCents = 600_000, loanId = "loan-1"),
+            ),
+            salaryCents = 200_000,
+        )
+        val requests = slot<List<ProjectFundingSourceRequest>>()
+        coEvery { repository.setFunding("p3", capture(requests)) } returns Result.success(saved)
+
+        viewModel.editSource(0) { it.copy(amount = "2000") }
+        viewModel.saveFunding("p3", viewModel.uiState.value.sheet!!.sources)
+        advanceUntilIdle()
+
+        assertEquals(listOf("savings", "loan"), requests.captured.map { it.kind })
+        assertEquals(200_000, requests.captured.first().amountCents)
+        assertEquals("acc-1", requests.captured.first().account)
+        val state = viewModel.uiState.value
+        assertEquals(200_000, state.projects.single { it.id == "p3" }.salaryCents)
+        assertTrue(state.sheet!!.fundingSaved)
+        assertFalse(state.sheet!!.dirty)
+        assertFalse(state.sheet!!.isSavingFunding)
+        coVerify(exactly = 2) { repository.getOptions("p3", any()) }
+    }
+
+    @Test
+    fun `a refusal keeps the previous sources and shows the API's message as it was written`() = runTest {
+        val viewModel = viewModelWithCar()
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+        coEvery { repository.setFunding("p3", any()) } returns
+            Result.failure(ApiRefusalException(400, "Savings account is the cushion."))
+
+        viewModel.editSource(0) { it.copy(amount = "2000") }
+        viewModel.saveFunding("p3", viewModel.uiState.value.sheet!!.sources)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Savings account is the cushion.", state.sheet!!.fundingError)
+        assertEquals(listOf("savings", "loan"), state.projects.single { it.id == "p3" }.fundingSources.map { it.kind })
+        assertFalse(state.sheet!!.isSavingFunding)
+        assertTrue(state.sheet!!.dirty)
+    }
+
+    @Test
+    fun `sources that overshoot the amount are refused before any request`() = runTest {
+        val viewModel = viewModelWithCar()
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+
+        viewModel.editSource(0) { it.copy(amount = "9999") }
+        viewModel.saveFunding("p3", viewModel.uiState.value.sheet!!.sources)
+        advanceUntilIdle()
+
+        assertEquals("Les sources dépassent le montant du projet : baissez-les.", viewModel.uiState.value.sheet!!.fundingError)
+        coVerify(exactly = 0) { repository.setFunding(any(), any()) }
+    }
+
+    @Test
+    fun `a push refreshes the sources of the open sheet and prices it again`() = runTest {
+        val viewModel = viewModelWithCar()
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+        val elsewhere = car.copy(
+            fundingSources = listOf(
+                ProjectFundingSource(kind = "savings", amountCents = 300_000, accountId = "acc-1"),
+                ProjectFundingSource(kind = "loan", amountCents = 600_000, loanId = "loan-1"),
+            ),
+            salaryCents = 100_000,
+        )
+        coEvery { repository.getProjects() } returns Result.success(listOf(move, sofa, elsewhere))
+
+        pushes.emit(MercureEvent(data = """{"@id":"/api/finance/projects/p3"}"""))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(100_000, state.projects.single { it.id == "p3" }.salaryCents)
+        assertEquals(listOf(FundingKind.SAVINGS, FundingKind.LOAN), state.sheet!!.sources.map { it.kind })
+        coVerify(exactly = 2) { repository.getOptions("p3", any()) }
+    }
+
+    @Test
+    fun `a push does not overwrite sources being edited`() = runTest {
+        val viewModel = viewModelWithCar()
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+        viewModel.editSource(0) { it.copy(amount = "1500") }
+        coEvery { repository.getProjects() } returns Result.success(listOf(move, sofa, car.copy(salaryCents = 1)))
+
+        pushes.emit(MercureEvent(data = """{"@id":"/api/finance/projects/p3"}"""))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.sheet!!.sources[0].amount.startsWith("1500"))
+    }
+
+    @Test
+    fun `closing the sheet forgets it and a late answer does not bring it back`() = runTest {
+        val viewModel = viewModelWithCar()
+        val answer = CompletableDeferred<Result<ProjectOptions>>()
+        coEvery { repository.getOptions("p3", any()) } coAnswers { answer.await() }
+
+        viewModel.openSheet("p3")
+        runCurrent()
+        viewModel.closeSheet()
+        answer.complete(Result.success(priced()))
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.sheet)
+    }
+
+    @Test
+    fun `adding a loan opens blank conditions and the accounts load once`() = runTest {
+        val viewModel = viewModelWithCar()
+        coEvery { repository.getAccounts() } returns Result.success(listOf(Account(id = "acc-1", name = "Livret")))
+        viewModel.openSheet("p1")
+        advanceUntilIdle()
+
+        viewModel.addSource(FundingKind.LOAN)
+        viewModel.loadAccounts()
+        advanceUntilIdle()
+        viewModel.loadAccounts()
+        advanceUntilIdle()
+
+        val sheet = viewModel.uiState.value.sheet!!
+        assertEquals(LoanTermsDraft(), sheet.sources.single().loanTerms)
+        assertTrue(sheet.dirty)
+        assertEquals(listOf("acc-1"), viewModel.uiState.value.accounts.map { it.id })
+        coVerify(exactly = 1) { repository.getAccounts() }
     }
 }

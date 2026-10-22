@@ -30,6 +30,7 @@ import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.LoanLabels
 import com.maggie.app.data.model.LoanStep
 import com.maggie.app.ui.UiTags
+import kotlinx.serialization.json.JsonObject
 import java.util.Locale
 
 data class LoanStepDraft(val fromMonth: String = "", val payment: String = "")
@@ -65,7 +66,18 @@ data class LoanTermsDraft(
      * The request, or null when a typed value is not a number or the payment is missing. A condition that
      * does not apply to the type is sent empty; whether the rest is coherent is the server's to say (400).
      */
-    fun toRequest(): LoanTermsRequest? {
+    fun toRequest(): LoanTermsRequest? = build(requirePayment = true)
+
+    /**
+     * The conditions of a project's loan source (MAG-525): the same as [toRequest] without the payment, which
+     * the API computes from the amount borrowed. Null when a typed value is not a number.
+     */
+    fun toFundingConditions(): JsonObject? {
+        val request = build(requirePayment = false) ?: return null
+        return JsonObject(request.toJson().filterKeys { it != "monthlyPaymentCents" })
+    }
+
+    private fun build(requirePayment: Boolean): LoanTermsRequest? {
         var valid = true
         fun cents(text: String): Int? {
             if (text.isBlank()) return null
@@ -110,7 +122,7 @@ data class LoanTermsDraft(
             noticeDays = integer(noticeDays),
         )
 
-        return if (valid && paymentCents != null) request else null
+        return if (valid && (paymentCents != null || !requirePayment)) request else null
     }
 
     companion object {
@@ -153,6 +165,8 @@ fun LoanTermsForm(
     onChange: (LoanTermsDraft) -> Unit,
     modifier: Modifier = Modifier,
     endLabel: String? = null,
+    /** False for a loan not taken yet: its payment follows from the amount, the rate and the duration. */
+    showPayment: Boolean = true,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         FormSection("Conditions")
@@ -170,7 +184,9 @@ fun LoanTermsForm(
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
         }
         NumberField("Taux annuel", draft.rate, "%", { onChange(draft.copy(rate = it)) })
-        NumberField("Mensualité", draft.payment, "€", { onChange(draft.copy(payment = it)) }, UiTags.LOAN_PAYMENT_FIELD)
+        if (showPayment) {
+            NumberField("Mensualité", draft.payment, "€", { onChange(draft.copy(payment = it)) }, UiTags.LOAN_PAYMENT_FIELD)
+        }
         NumberField("Durée", draft.duration, "mois", { onChange(draft.copy(duration = it)) }, integer = true)
 
         if (draft.isVariable) {
