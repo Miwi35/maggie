@@ -6,6 +6,9 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Finance\Mcp\Tool\GetFinanceDashboardTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\Clock;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Clock\NativeClock;
 
 class FinanceDashboardToolTest extends KernelTestCase
 {
@@ -164,5 +167,34 @@ class FinanceDashboardToolTest extends KernelTestCase
         $tool = self::getContainer()->get(GetFinanceDashboardTool::class);
 
         self::assertArrayHasKey('error', json_decode($tool(2026, 9), true, 512, JSON_THROW_ON_ERROR));
+    }
+
+    public function testNextProjectIsNullWithoutAProject(): void
+    {
+        $this->loadFixtures('dashboard.yaml');
+        $this->loginFixtureUser();
+
+        $dashboard = $this->dashboard();
+
+        self::assertArrayHasKey('nextProject', $dashboard);
+        self::assertNull($dashboard['nextProject']);
+    }
+
+    public function testNextProjectCarriesTheDelayTheOverspendingCauses(): void
+    {
+        Clock::set(new MockClock('2026-10-21 12:00:00 UTC'));
+
+        try {
+            $this->loadFixtures(__DIR__.'/../Api/fixtures/next_project.yaml');
+            $this->loginFixtureUser();
+
+            $next = $this->dashboard(2026, 10)['nextProject'];
+        } finally {
+            Clock::set(new NativeClock());
+        }
+
+        self::assertSame('Vélo', $next['name']);
+        self::assertSame('Voyage au Japon', $next['delay']['name']);
+        self::assertSame(5800, $next['delay']['overspentCents']);
     }
 }

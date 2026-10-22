@@ -114,6 +114,29 @@ export interface PlanningTile {
   savingCapacity: SavingCapacity
 }
 
+/** The project the overspending of the month pushes back (MAG-529). */
+export interface NextProjectDelay {
+  projectId: string
+  name: string
+  months: number
+  overspentCents: number
+  /** The overspent envelopes, by name. */
+  envelopes: string[]
+  /** `YYYY-MM`. */
+  newPurchaseMonth: string
+}
+
+/** The first project of the planning with the two after it; `purchaseMonth` is `YYYY-MM`. */
+export interface NextProject {
+  projectId: string
+  name: string
+  amountCents: number
+  gatheredCents: number
+  purchaseMonth: string
+  following: { projectId: string; name: string; amountCents: number; purchaseMonth: string }[]
+  delay: NextProjectDelay | null
+}
+
 export interface DashboardTiles {
   accounts: AccountsTile
   budget: BudgetTile
@@ -160,6 +183,8 @@ export interface FinanceDashboard {
   /** The rings and the curve of the month shown: same payload as `/api/finance/scores`. */
   scores: FinanceScores
   tiles: DashboardTiles
+  /** Null with no project, or when none lands inside the 36 months: the block is hidden. */
+  nextProject: NextProject | null
   todo: DashboardTodo
 }
 

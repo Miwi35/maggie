@@ -385,6 +385,22 @@
             }
         }
     },
+    "nextProject": {
+        "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "name": "Recorded move",
+        "amountCents": 250000,
+        "gatheredCents": 0,
+        "purchaseMonth": "2027-03",
+        "following": [
+            {
+                "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "name": "Recorded sofa",
+                "amountCents": 120000,
+                "purchaseMonth": "2027-01"
+            }
+        ],
+        "delay": null
+    },
     "todo": {
         "toSortCount": 0,
         "rejectionsToSettleCount": 0,

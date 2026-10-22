@@ -6,6 +6,9 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Clock\Clock;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Clock\NativeClock;
 
 class FinanceDashboardControllerTest extends WebTestCase
 {
@@ -163,5 +166,43 @@ class FinanceDashboardControllerTest extends WebTestCase
         $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame((int) $now->format('Y'), $data['year']);
         self::assertSame((int) $now->format('n'), $data['month']);
+    }
+
+    public function testNextProjectIsNullWithoutAProject(): void
+    {
+        $this->loadFixtures('dashboard.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/finance/dashboard?year=2026&month=9', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('nextProject', $data);
+        self::assertNull($data['nextProject']);
+    }
+
+    public function testNextProjectCarriesTheDelayTheOverspendingCauses(): void
+    {
+        Clock::set(new MockClock('2026-10-21 12:00:00 UTC'));
+
+        try {
+            $this->loadFixtures(__DIR__.'/../Api/fixtures/next_project.yaml');
+            $this->authenticateAsUser($this->getFixture('test_user'));
+
+            $this->client->request('GET', '/api/finance/dashboard?year=2026&month=10', [], [], $this->authHeaders());
+
+            self::assertResponseIsSuccessful();
+            $next = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR)['nextProject'];
+        } finally {
+            Clock::set(new NativeClock());
+        }
+
+        self::assertSame('Vélo', $next['name']);
+        self::assertSame(74000, $next['gatheredCents']);
+        self::assertSame(['Voyage au Japon'], array_column($next['following'], 'name'));
+        self::assertSame('Voyage au Japon', $next['delay']['name']);
+        self::assertSame(1, $next['delay']['months']);
+        self::assertSame(5800, $next['delay']['overspentCents']);
+        self::assertSame(['Restaurants', 'Obsydian'], $next['delay']['envelopes']);
     }
 }

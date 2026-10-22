@@ -180,7 +180,7 @@ private fun OverviewTab(
                     item { ScoreRings(week = scores.week, month = scores.month) }
                     item { RhythmCurvePanel(week = scores.week.rhythm, month = scores.month.rhythm) }
                 }
-                item { NextProjectCard() }
+                dashboard.nextProject?.let { project -> item { NextProjectCard(project) } }
             } else {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -200,7 +200,7 @@ private fun OverviewTab(
             if (dashboard != null) {
                 item { AccountsTileCard(dashboard.tiles.accounts, dashboard.todo, onOpen, onOpenIncidents) }
                 item { BudgetTileCard(dashboard.tiles.budget, dashboard.todo, onOpen) }
-                item { PlanningTileCard(dashboard.tiles.planning, onOpen) }
+                item { PlanningTileCard(dashboard.tiles.planning, uiState.planning, onOpen) }
             }
         }
 

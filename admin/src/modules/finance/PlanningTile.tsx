@@ -3,7 +3,9 @@ import Typography from '@mui/material/Typography'
 import { formatCents } from './accountTypes'
 import { DashboardTile } from './DashboardTile'
 import { IndependenceSummary } from './IndependenceSummary'
+import { ProjectGantt } from './ProjectGantt'
 import type { PlanningTile as PlanningTileData, SavingCapacity } from './useFinanceDashboard'
+import { useProjectPlanning } from './useProjectPlanning'
 
 const CapacitySummary = ({ capacity }: { capacity: SavingCapacity }) => (
   <Box data-testid="saving-capacity">
@@ -36,13 +38,23 @@ const CapacitySummary = ({ capacity }: { capacity: SavingCapacity }) => (
 /**
  * « Planification » → the treasury outlook (`/finance/treasury`), the admin's
  * forward-looking page: how long the rentes take to cover the train de vie,
- * and what is left to save each month.
+ * and what is left to save each month, with the first three projects as a
+ * mini Gantt (MAG-529).
  */
-export const PlanningTile = ({ tile }: { tile: PlanningTileData }) => (
-  <DashboardTile title="Planification" to="/finance/treasury" testId="tile-planning">
-    <CapacitySummary capacity={tile.savingCapacity} />
-    <Box sx={{ mt: 2 }}>
-      <IndependenceSummary counter={tile.independence} />
-    </Box>
-  </DashboardTile>
-)
+export const PlanningTile = ({ tile }: { tile: PlanningTileData }) => {
+  const { planning } = useProjectPlanning()
+
+  return (
+    <DashboardTile title="Planification" to="/finance/treasury" testId="tile-planning">
+      <CapacitySummary capacity={tile.savingCapacity} />
+      {planning && (
+        <Box sx={{ mt: 2 }} data-testid="planning-gantt">
+          <ProjectGantt planning={planning} variant="compact" />
+        </Box>
+      )}
+      <Box sx={{ mt: 2 }}>
+        <IndependenceSummary counter={tile.independence} />
+      </Box>
+    </DashboardTile>
+  )
+}

@@ -56,6 +56,7 @@ import com.maggie.app.data.model.TransactionDebtRequest
 import com.maggie.app.data.model.splitEqually
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
+import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.UpcomingProjection
 import com.maggie.app.data.repository.UpcomingRepository
@@ -82,6 +83,7 @@ import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.ProactionRepository
+import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.RecurringGroceryRepository
@@ -390,8 +392,10 @@ class FakeFinanceDashboard(private val error: String = "Service indisponible") {
             Result.failure(IllegalStateException(error))
         val treasury = mockk<TreasuryRepository>()
         coEvery { treasury.getOutlook() } returns Result.failure(IllegalStateException(error))
+        val projects = mockk<ProjectRepository>()
+        coEvery { projects.getProjectPlanning() } returns Result.failure(IllegalStateException(error))
         val (auth, mercure) = signedIn()
-        FinanceDashboardViewModel(repository, treasury, mercure, auth)
+        FinanceDashboardViewModel(repository, treasury, mercure, auth, projects)
     }
 }
 
@@ -816,14 +820,18 @@ class FakeChat(
 class FakeLoadedFinanceDashboard(
     private val dashboard: FinanceDashboard,
     private val outlook: TreasuryOutlook = TreasuryOutlook(),
+    private val planning: ProjectPlanning? = null,
 ) {
     val viewModel: FinanceDashboardViewModel by lazy {
         val repository = mockk<FinanceDashboardRepository>()
         coEvery { repository.getDashboard(any(), any()) } returns Result.success(dashboard)
         val treasury = mockk<TreasuryRepository>()
         coEvery { treasury.getOutlook() } returns Result.success(outlook)
+        val projects = mockk<ProjectRepository>()
+        coEvery { projects.getProjectPlanning() } returns
+            (planning?.let { Result.success(it) } ?: Result.failure(IllegalStateException("no planning")))
         val (auth, mercure) = signedIn()
-        FinanceDashboardViewModel(repository, treasury, mercure, auth)
+        FinanceDashboardViewModel(repository, treasury, mercure, auth, projects)
     }
 }
 

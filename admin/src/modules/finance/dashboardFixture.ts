@@ -1,5 +1,5 @@
 import { scores } from './scoresFixture'
-import type { FinanceDashboard, IndependenceCounter, SavingCapacity } from './useFinanceDashboard'
+import type { FinanceDashboard, IndependenceCounter, NextProject, SavingCapacity } from './useFinanceDashboard'
 
 const independence: IndependenceCounter = {
   coveragePercent: 60,
@@ -25,6 +25,33 @@ const savingCapacity: SavingCapacity = {
   netCapacityCents: 197334,
   isIncomeKnown: true,
 }
+
+/** Always ahead of the real clock, so « dans N mois » never reads 0 or less. */
+const monthsAhead = (count: number): string => {
+  const date = new Date()
+  date.setDate(1)
+  date.setMonth(date.getMonth() + count)
+
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+export const nextProjectFixture = (overrides: Partial<NextProject> = {}): NextProject => ({
+  projectId: 'p1',
+  name: 'Vélo',
+  amountCents: 120000,
+  gatheredCents: 74000,
+  purchaseMonth: monthsAhead(4),
+  following: [{ projectId: 'p2', name: 'Voyage au Japon', amountCents: 300000, purchaseMonth: monthsAhead(10) }],
+  delay: {
+    projectId: 'p2',
+    name: 'Voyage au Japon',
+    months: 1,
+    overspentCents: 5800,
+    envelopes: ['Restaurants', 'Obsydian'],
+    newPurchaseMonth: monthsAhead(11),
+  },
+  ...overrides,
+})
 
 /** A whole dashboard payload; override the root fields or the tiles you care about. */
 export const dashboardFixture = (overrides: Partial<FinanceDashboard> = {}): FinanceDashboard => ({
@@ -63,6 +90,7 @@ export const dashboardFixture = (overrides: Partial<FinanceDashboard> = {}): Fin
       savingCapacity,
     },
   },
+  nextProject: nextProjectFixture(),
   todo: { toSortCount: 3, rejectionsToSettleCount: 1, reviewReady: false, advanceToRepayCents: 80000, owedToMeCents: 0, iOweCents: 0 },
   ...overrides,
 })

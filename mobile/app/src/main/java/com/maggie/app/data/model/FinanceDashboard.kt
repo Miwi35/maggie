@@ -151,6 +151,38 @@ data class FinanceTiles(
     val planning: PlanningTile = PlanningTile(),
 )
 
+/** A project after the next one: its name, its price and the month it falls. */
+@Serializable
+data class NextProjectFollowing(
+    val projectId: String,
+    val name: String,
+    val amountCents: Int = 0,
+    val purchaseMonth: String = "",
+)
+
+/** What this month's overspending pushes back: [name] is bought [months] later, in [newPurchaseMonth]. */
+@Serializable
+data class NextProjectDelay(
+    val projectId: String,
+    val name: String,
+    val months: Int = 0,
+    val overspentCents: Int = 0,
+    val envelopes: List<String> = emptyList(),
+    val newPurchaseMonth: String = "",
+)
+
+/** The « Prochain projet » block (MAG-529): [purchaseMonth] is `YYYY-MM`, [following] the two after it. */
+@Serializable
+data class NextProject(
+    val projectId: String,
+    val name: String,
+    val amountCents: Int = 0,
+    val gatheredCents: Int = 0,
+    val purchaseMonth: String = "",
+    val following: List<NextProjectFollowing> = emptyList(),
+    val delay: NextProjectDelay? = null,
+)
+
 /**
  * `GET /api/finance/dashboard`: the scores behind the rings and the curve (null from a server that
  * does not send them: the screen then draws neither) and the three tiles (MAG-420).
@@ -162,4 +194,6 @@ data class FinanceDashboard(
     val scores: FinanceScores? = null,
     val tiles: FinanceTiles = FinanceTiles(),
     val todo: FinanceTodo = FinanceTodo(),
+    /** The first project of the planning (MAG-529); null with no project, or none within the 36 months. */
+    val nextProject: NextProject? = null,
 )

@@ -5,7 +5,9 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AdminContext, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { ReviewActivityPage } from './ReviewActivityPage'
+import { dashboardFixture, nextProjectFixture } from './dashboardFixture'
 import { emptyProjection, upcomingFixture } from './upcomingFixture'
+import type { NextProject } from './useFinanceDashboard'
 import type { UpcomingProjection } from './useUpcomingProjection'
 
 vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
@@ -69,6 +71,9 @@ interface Server {
   /** What the API says of the month: a plain one when absent. */
   closing?: { level: string; period: Record<string, unknown>; nextPeriod: Record<string, unknown> }
   progressFails?: boolean
+  /** The dashboard's next project: the fixture's when absent, none when null. */
+  nextProject?: NextProject | null
+  dashboardFails?: boolean
   queueFails?: boolean
   saveFails?: boolean
   writesFail?: boolean
@@ -116,6 +121,9 @@ const handle = (url: string, init?: RequestInit): Promise<Response> => {
   }
   if (url.startsWith('/api/finance/upcoming')) {
     return answer(true, server.upcoming)
+  }
+  if (url.startsWith('/api/finance/dashboard')) {
+    return server.dashboardFails ? answer(false, {}) : answer(true, dashboardFixture({ nextProject: server.nextProject === undefined ? nextProjectFixture() : server.nextProject }))
   }
   if (server.writesFail) return answer(false, { error: 'Transaction introuvable.' })
 
@@ -299,6 +307,25 @@ describe('ReviewActivityPage', () => {
     await userEvent.keyboard('{ArrowLeft}')
     expect(await screen.findByText(`Enveloppes de ${MONTH}`)).toBeInTheDocument()
     expect(progressWrites().map((write) => write.step)).toEqual(['envelopes', 'projects', 'envelopes'])
+  })
+
+  test('the projects step shows the same next project and delay as the home', async () => {
+    server.step = 'projects'
+    renderActivity()
+
+    const projectCard = await screen.findByTestId('next-project-card')
+    expect(projectCard).toHaveTextContent('Vélo')
+    expect(screen.getByTestId('next-project-negative')).toHaveTextContent("repoussent Voyage au Japon d'un mois")
+  })
+
+  test('the projects step hides the block without a project, and when the dashboard fails', async () => {
+    server.step = 'projects'
+    server.nextProject = null
+    renderActivity()
+
+    expect(await screen.findByTestId('review-projects')).toBeInTheDocument()
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/finance/dashboard'))).toBe(true))
+    expect(screen.queryByTestId('next-project-card')).not.toBeInTheDocument()
   })
 
   test('a month that closes no period has the five steps and ends on the projects', async () => {

@@ -3,7 +3,7 @@ import { render, screen, waitFor, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, testDataProvider } from 'react-admin'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { dashboardFixture } from './dashboardFixture'
+import { dashboardFixture, nextProjectFixture } from './dashboardFixture'
 import { FinanceDashboardPage } from './FinanceDashboardPage'
 import { upcomingFixture } from './upcomingFixture'
 import type { FinanceDashboard } from './useFinanceDashboard'
@@ -47,6 +47,31 @@ describe('FinanceDashboardPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     localStorage.setItem('token', 'test-jwt-token')
+  })
+
+  test('reads the next project and the delay from the dashboard, not from an example', async () => {
+    stubApi(dashboardFixture())
+    renderPage()
+
+    const card = await screen.findByTestId('next-project-card')
+    expect(card).toHaveTextContent('Vélo')
+    expect(screen.getByTestId('next-project-negative')).toHaveTextContent("repoussent Voyage au Japon d'un mois")
+  })
+
+  test('hides the next project block without a project', async () => {
+    stubApi(dashboardFixture({ nextProject: null }))
+    renderPage()
+
+    expect(await screen.findByTestId('tile-budget')).toBeInTheDocument()
+    expect(screen.queryByTestId('next-project-card')).not.toBeInTheDocument()
+  })
+
+  test('shows no negative return when nothing moves back', async () => {
+    stubApi(dashboardFixture({ nextProject: nextProjectFixture({ delay: null }) }))
+    renderPage()
+
+    expect(await screen.findByTestId('next-project-card')).toBeInTheDocument()
+    expect(screen.queryByTestId('next-project-negative')).not.toBeInTheDocument()
   })
 
   test('lays out the rings, the curve, the next project and the three tiles', async () => {

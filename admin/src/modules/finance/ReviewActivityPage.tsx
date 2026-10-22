@@ -27,6 +27,7 @@ import { UpcomingRemaining } from './UpcomingRemaining'
 import { UpcomingWindow } from './UpcomingWindow'
 import { monthLabel, windowRange } from './upcomingLabels'
 import { useEnvelopeAdjustments } from './useEnvelopeAdjustments'
+import { useFinanceDashboard } from './useFinanceDashboard'
 import { REVIEW_STEPS } from './useReviewProgress'
 import type { ReviewStep } from './useReviewProgress'
 import { useReviewProgress } from './useReviewProgress'
@@ -111,14 +112,21 @@ const UpcomingStep = ({ projection, error, retry }: { projection: UpcomingProjec
   </Stack>
 )
 
-const ProjectsStep = ({ projection }: { projection: UpcomingProjection | null }) => (
-  <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 2, alignItems: 'flex-start' }} data-testid="review-projects">
-    {projection && <UpcomingRemaining month={projection.month} />}
-    <Box sx={{ flex: '1 1 320px' }}>
-      <NextProjectCard />
-    </Box>
-  </Stack>
-)
+const ProjectsStep = ({ projection }: { projection: UpcomingProjection | null }) => {
+  const now = new Date()
+  const { dashboard } = useFinanceDashboard(now.getFullYear(), now.getMonth() + 1)
+
+  return (
+    <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 2, alignItems: 'flex-start' }} data-testid="review-projects">
+      {projection && <UpcomingRemaining month={projection.month} />}
+      {dashboard?.nextProject && (
+        <Box sx={{ flex: '1 1 320px' }}>
+          <NextProjectCard project={dashboard.nextProject} />
+        </Box>
+      )}
+    </Stack>
+  )
+}
 
 /**
  * Comptes › la revue du mois, as an activity (MAG-456): full screen, out of the menus,

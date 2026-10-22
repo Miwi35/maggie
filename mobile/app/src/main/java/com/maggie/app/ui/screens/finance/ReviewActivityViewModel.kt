@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.finance
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.NextProject
 import com.maggie.app.data.model.PlanningPeriodRef
 import com.maggie.app.data.model.REVIEW_LEVEL_MONTH
 import com.maggie.app.data.model.Qualification
@@ -14,6 +15,7 @@ import com.maggie.app.data.model.UpcomingProjection
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.ReviewRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.UpcomingRepository
@@ -51,6 +53,8 @@ data class ReviewActivityUiState(
     /** The month's review is over: the end screen. */
     val done: Boolean = false,
     val categories: List<Category> = emptyList(),
+    /** The Projets step's « Prochain projet » (MAG-529); null with no project, or when the dashboard could not be read. */
+    val nextProject: NextProject? = null,
     val choosingCategory: Boolean = false,
     /** « Créer un filtre »: the rule draft written from the line on screen. */
     val ruleDraft: RuleDraftState? = null,
@@ -106,6 +110,7 @@ class ReviewActivityViewModel(
     ruleRepository: CategorizationRuleRepository,
     private val budgetRepository: BudgetRepository,
     private val upcomingRepository: UpcomingRepository,
+    private val dashboardRepository: FinanceDashboardRepository,
     today: LocalDate = LocalDate.now(),
 ) : ViewModel() {
 
@@ -140,6 +145,10 @@ class ReviewActivityViewModel(
                 val adjustments = async { budgetRepository.getEnvelopeAdjustments(month) }
                 val upcoming = async { upcomingRepository.getUpcoming() }
                 val categories = async { categoryRepository.getCategories() }
+                val dashboard = async {
+                    val reviewed = YearMonth.parse(month)
+                    dashboardRepository.getDashboard(reviewed.year, reviewed.monthValue)
+                }
 
                 val stored = progress.await().getOrElse { return@coroutineScope failedStart(it) }
                 val items = queue.await().getOrElse { return@coroutineScope failedStart(it) }.items
@@ -170,6 +179,7 @@ class ReviewActivityViewModel(
                     nextPeriod = if (period != null) stored.nextPeriod else null,
                     steps = steps,
                     categories = categories.await().getOrDefault(emptyList()),
+                    nextProject = dashboard.await().getOrNull()?.nextProject,
                     done = done,
                     step = landing ?: ReviewStep.PROJECTS,
                 )

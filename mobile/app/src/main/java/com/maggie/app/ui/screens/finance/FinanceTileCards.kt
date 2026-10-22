@@ -41,6 +41,7 @@ import com.maggie.app.data.model.advancePillText
 import com.maggie.app.data.model.rejectionsPillText
 import com.maggie.app.data.model.toSortPillText
 import com.maggie.app.data.model.PlanningTile
+import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.TileAccount
 import com.maggie.app.data.model.TileEnvelope
 import com.maggie.app.data.model.accountLabel
@@ -296,7 +297,7 @@ private fun CushionLine(tile: BudgetTile) {
  * hidden cannot be checked. No target date — that is Premium, and an empty one would read as a promise.
  */
 @Composable
-internal fun PlanningTileCard(tile: PlanningTile, onOpen: (String) -> Unit) {
+internal fun PlanningTileCard(tile: PlanningTile, planning: ProjectPlanning?, onOpen: (String) -> Unit) {
     val counter = tile.independence
     val capacity = tile.savingCapacity
 
@@ -307,6 +308,9 @@ internal fun PlanningTileCard(tile: PlanningTile, onOpen: (String) -> Unit) {
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(vertical = 4.dp),
         )
+
+        // The first three projects, one line each (MAG-529); nothing while the planning is not read or draws nothing.
+        planning?.let { ProjectGantt(it, modifier = Modifier.padding(vertical = 8.dp), compact = true) }
 
         if (!counter.isMeasurable || !counter.hasPassiveIncomeCategories) {
             // Two different states, two different things to say.

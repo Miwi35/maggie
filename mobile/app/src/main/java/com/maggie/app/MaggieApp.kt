@@ -386,9 +386,9 @@ class MaggieApp : Application() {
             viewModel { LoanViewModel(get()) }
             viewModel { LoanDetailViewModel(get()) }
             viewModel { ProjectViewModel(get(), get(), get()) }
-            viewModel { ReviewActivityViewModel(get(), get(), get(), get(), get(), get()) }
+            viewModel { ReviewActivityViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { PeriodReviewViewModel(get()) }
-            viewModel { FinanceDashboardViewModel(get(), get(), get(), get()) }
+            viewModel { FinanceDashboardViewModel(get(), get(), get(), get(), get()) }
             viewModel { UpcomingViewModel(get(), get(), get()) }
             viewModel { MonthBalanceViewModel(get(), get(), get()) }
             viewModel { TreasuryViewModel(get(), get(), get()) }

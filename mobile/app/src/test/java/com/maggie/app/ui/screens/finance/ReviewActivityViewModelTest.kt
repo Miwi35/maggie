@@ -1,6 +1,8 @@
 package com.maggie.app.ui.screens.finance
 
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.NextProject
+import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.ControlResult
 import com.maggie.app.data.model.EnvelopeAdjustment
 import com.maggie.app.data.model.EnvelopeAdjustments
@@ -31,6 +33,7 @@ import com.maggie.app.data.model.UpcomingWeek
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.ReviewRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.UpcomingRepository
@@ -66,6 +69,7 @@ class ReviewActivityViewModelTest {
     private lateinit var categories: CategoryRepository
     private lateinit var budget: BudgetRepository
     private lateinit var upcoming: UpcomingRepository
+    private lateinit var dashboard: FinanceDashboardRepository
 
     private fun line(id: String, recognised: Boolean = false, suggestion: SortSuggestion? = null) = ReviewQueueItem(
         id = id,
@@ -96,6 +100,8 @@ class ReviewActivityViewModelTest {
         categories = mockk()
         budget = mockk()
         upcoming = mockk()
+        dashboard = mockk()
+        coEvery { dashboard.getDashboard(any(), any()) } returns Result.success(FinanceDashboard())
         coEvery { categories.getCategories() } returns Result.success(listOf(Category(id = "cat-loisirs", name = "Loisirs")))
         coEvery { review.getProgress(month) } returns Result.success(progress())
         coEvery { review.getQueue(month) } returns Result.success(ReviewQueue(month = month, items = five))
@@ -117,10 +123,45 @@ class ReviewActivityViewModelTest {
         mockk<CategorizationRuleRepository>(relaxed = true),
         budget,
         upcoming,
+        dashboard,
         today = LocalDate.of(2026, 10, 25),
     )
 
     // --- start ---
+
+    @Test
+    fun `the next project of the dashboard of the month reviewed reaches the Projets step`() = runTest {
+        val next = NextProject(projectId = "p1", name = "Vélo", amountCents = 100_000, gatheredCents = 74_000, purchaseMonth = "2026-12")
+        coEvery { dashboard.getDashboard(any(), any()) } returns Result.success(FinanceDashboard(nextProject = next))
+
+        val viewModel = launch()
+        advanceUntilIdle()
+
+        assertEquals(next, viewModel.uiState.value.nextProject)
+        coVerify { dashboard.getDashboard(2026, 10) }
+    }
+
+    @Test
+    fun `a dashboard without next project leaves the step without the block`() = runTest {
+        val viewModel = launch()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.nextProject)
+    }
+
+    @Test
+    fun `a dashboard that cannot be read leaves the review whole, without the block`() = runTest {
+        coEvery { dashboard.getDashboard(any(), any()) } returns Result.failure(RuntimeException("boom"))
+
+        val viewModel = launch()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.nextProject)
+        assertFalse(state.isLoading)
+        assertNull(state.loadError)
+        assertEquals("t1", state.current?.id)
+    }
 
     @Test
     fun `the review is loading until the progress and the queue are read, then shows the first line`() = runTest {

@@ -169,6 +169,13 @@ export const PERIOD_USER_EMAIL = 'e2e-period@maggie.local'
  */
 export const REMINDERS_USER_EMAIL = 'e2e-reminders@maggie.local'
 
+/**
+ * The twenty-second seeded account, for the « Prochain projet » block (MAG-529):
+ * two projects, 58 € of overspending this month that push the second one back,
+ * which the owner's account — no overrun, other journeys' projects — cannot carry.
+ */
+export const NEXT_PROJECT_USER_EMAIL = 'e2e-next-project@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {
