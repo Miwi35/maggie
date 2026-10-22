@@ -92,6 +92,13 @@ mapfile -t used < <(sed -n 's/.*\bid:[[:space:]]*"\([^"]*\)".*/\1/p' "${flows[@]
 # `printf` it cut off would fail the test with SIGPIPE — a declared tag reported missing.
 declared_list="$(printf '%s\n' "${declared[@]}")"
 for id in "${used[@]}"; do
+  # A `package:id/name` is another app's view, not a testTag: the keyboard's, which
+  # `subflows/hide-keyboard.yaml` looks for (MAG-572).
+  case "$id" in *:id/*)
+    pass "id \"$id\" (another package's resource id)"
+    continue
+    ;;
+  esac
   if grep -qxF "$id" <<<"$declared_list"; then
     pass "id \"$id\""
     continue

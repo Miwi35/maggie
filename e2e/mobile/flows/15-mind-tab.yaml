@@ -43,7 +43,7 @@ tags:
 - inputText: "Supprime l'événement Test validation ${output.eventId}"
 - tapOn:
     id: "chat_send"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ".*Je te demande ton accord pour supprimer.*"
     timeout: 60000
