@@ -1313,6 +1313,8 @@ object UiTags {
 
     fun loanType(key: String) = LOAN_TYPE_PREFIX + key
     fun loanPenaltyMode(key: String) = LOAN_PENALTY_MODE_PREFIX + key
+
+    /**
      * « Placements » of Planification (MAG-555): the screen, a row, the empty state, « + »; the
      * projection card of the selected placement, its chart, its « Modifier »; the tablet's settings
      * panel, a frequency, the steppers; the full-screen form, its fields, what the server refused,
