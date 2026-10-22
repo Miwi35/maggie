@@ -6,6 +6,8 @@ import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -304,7 +306,7 @@ class FinanceDashboardTilesScreenTest {
             )
         }
 
-        compose.onNodeWithText("Service indisponible").assertIsDisplayed()
+        compose.onAllNodesWithText("Service indisponible").onFirst().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT).assertDoesNotExist()
     }

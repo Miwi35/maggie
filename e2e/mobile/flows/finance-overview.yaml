@@ -14,8 +14,8 @@ tags:
 # Et la tuile Planification
 # Et le bloc « Prochain projet » : le premier projet du planning (MAG-529), plus l'exemple figé, et rien à ouvrir
 # Quand je touche la tuile Comptes
-# Alors la liste des comptes s'ouvre
-# Quand je touche « Comptes ▾ » puis « Revue »
+# Alors la liste des comptes s'ouvre, en écran de détail (flèche retour + titre, pas de fil d'Ariane)
+# Quand je reviens puis touche « Dashboard ▾ » puis « Revue »
 # Alors le titre dit « Finance › Revue » et une seule rangée : Toutes · À qualifier · Reconnues
 # Quand je touche « À qualifier »
 # Alors la liste est filtrée sur ce qui reste à qualifier (MAG-537)
@@ -140,13 +140,20 @@ tags:
 - tapOn:
     id: "finance_tile_accounts"
 - extendedWaitUntil:
-    visible: "Comptes"
+    visible:
+      id: "account_pager"
     timeout: 20000
+# A detail screen: back arrow and title, no section menu.
+- assertNotVisible:
+    id: "breadcrumb_section"
+- tapOn: "Retour"
 
 # The header is « Finance › Section ▾ » (MAG-537): the section button opens the seven sections, the current one
 # is checked, and choosing Revue opens it with its single row of sub-views.
-- assertVisible:
-    id: "breadcrumb_module"
+- extendedWaitUntil:
+    visible:
+      id: "breadcrumb_module"
+    timeout: 20000
 - tapOn:
     id: "breadcrumb_section"
 - extendedWaitUntil:
@@ -154,7 +161,7 @@ tags:
       id: "breadcrumb_menu_planning"
     timeout: 20000
 - assertVisible:
-    id: "breadcrumb_menu_accounts"
+    id: "breadcrumb_menu_dashboard"
     selected: true
 - tapOn:
     id: "breadcrumb_menu_review"

@@ -1,9 +1,9 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
@@ -91,6 +91,6 @@ class FinanceHubScreenTest {
             )
         }
 
-        compose.onNodeWithText("Service indisponible").performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText("Service indisponible").onFirst().assertIsDisplayed()
     }
 }

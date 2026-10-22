@@ -4,6 +4,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -110,10 +112,11 @@ class MonthBalanceScreenTest {
     @Test
     fun `the month ring says its status and what is over, and the curve is drawn`() {
         open()
+        revealBalance()
 
         compose.onNodeWithTag(UiTags.financeScoreRing("month")).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Au-dessus du rythme", substring = true).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText(ringAmount(-15000), substring = true).performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText("Au-dessus du rythme", substring = true).onFirst().performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText(ringAmount(-15000), substring = true).onFirst().performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.FINANCE_RHYTHM_CURVE).performScrollTo().assertIsDisplayed()
     }
 
@@ -195,6 +198,7 @@ class MonthBalanceScreenTest {
     @Test
     fun `the balance sits under État courant, and À venir takes it away`() {
         open()
+        revealBalance()
 
         compose.onNodeWithTag(UiTags.subview("current")).assertIsSelected()
         compose.onNodeWithTag(UiTags.financeScoreRing("month")).performScrollTo().assertIsDisplayed()
