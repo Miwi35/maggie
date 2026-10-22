@@ -3,6 +3,7 @@ import polyglotI18nProvider from 'ra-i18n-polyglot'
 import { messages } from './i18n/messages'
 import { veilleuseLightTheme, veilleuseDarkTheme } from './theme'
 import { Layout } from './components/layout/Layout'
+import { Dashboard } from './modules/dashboard'
 import { calendarResources } from './modules/calendar'
 import { settingsResources } from './modules/settings'
 import { groceryResources } from './modules/grocery'
@@ -17,11 +18,7 @@ import { LoginPage } from './auth/LoginPage'
 import { LoadingPage } from './auth/LoadingPage'
 import { getToken, installAuthRefresh, startSessionKeeper } from './auth/session'
 import { fetchApiDocumentation } from './apiDocumentation'
-import { lazyPage } from './lazyPage'
 import type { HttpClientOptions } from '@api-platform/admin'
-
-// Out of the first chunk: the landing screen pulls the recurrence library and its widgets.
-const Dashboard = lazyPage(() => import('./modules/dashboard/Dashboard'), 'Dashboard')
 
 routeVisitorWithoutSessionToLogin()
 installAuthRefresh()

@@ -1,1 +1,6 @@
+export { AgentSettings } from './AgentSettings'
+export { GoogleCalendarSettings } from './GoogleCalendarSettings'
+export { MealSettings } from './MealSettings'
 export { settingsResources } from './resources'
+export { TaskOrderSettings } from './TaskOrderSettings'
+export { TaskSettings } from './TaskSettings'
