@@ -1108,6 +1108,31 @@ assert_eq 204 "$(status_of -X DELETE "${AUTH[@]}" -H 'Content-Type: application/
 assert_eq 0 "$(device_count)" "the device is gone"
 
 # ---------------------------------------------------------------------------
+step "15. The admin's files are cached, and the API's documentation is compressed"
+# ---------------------------------------------------------------------------
+# MAG-546: a hashed file never changes under its name, index.html does.
+header_of() { curl -sS -D - -o /dev/null "${@:2}" | tr -d '\r' | grep -i "^$1:" | head -1 | cut -d: -f2- | sed 's/^ *//'; }
+
+admin_index="$(curl -sS "$BASE_URL/admin")"
+asset_path="$(printf '%s' "$admin_index" | grep -oE '/admin/assets/[^"]+\.js' | head -1)"
+if [ -z "$asset_path" ]; then
+  fail "index.html names no script under /admin/assets/"
+else
+  assert_eq "public, max-age=31536000, immutable" "$(header_of cache-control "$BASE_URL$asset_path")" \
+    "a hashed file is cached for a year, immutable"
+  assert_contains "$(header_of content-encoding -H 'Accept-Encoding: gzip' "$BASE_URL$asset_path")" "gzip" \
+    "a hashed file is compressed"
+  assert_eq 404 "$(status_of "$BASE_URL/admin/assets/does-not-exist-0000.js")" \
+    "a missing hashed file is a 404, not index.html"
+fi
+assert_eq "no-cache" "$(header_of cache-control "$BASE_URL/admin")" "index.html is revalidated at each load"
+assert_eq "no-cache" "$(header_of cache-control "$BASE_URL/admin/calendar")" "so is a route that falls back to it"
+assert_eq "nosniff" "$(header_of x-content-type-options "$BASE_URL$asset_path")" \
+  "the security headers survive the cache header"
+assert_contains "$(header_of content-encoding -H 'Accept-Encoding: gzip' -H 'Accept: application/ld+json' "$BASE_URL/api/docs.jsonld")" "gzip" \
+  "docs.jsonld is compressed"
+
+# ---------------------------------------------------------------------------
 printf '\n\033[1mSmoke journey: %d passed, %d failed\033[0m\n' "$passed" "$failed"
 
 if [ "$failed" -gt 0 ]; then

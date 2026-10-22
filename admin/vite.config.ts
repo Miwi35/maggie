@@ -2,6 +2,23 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// Vendor chunks whose content changes with a dependency bump, not with a deploy: the
+// browser keeps them from one release to the next (MAG-546). Each lib lives in the
+// chunk of the screens that need it, so the first screen carries none of the others.
+const VENDOR_CHUNKS: [chunk: string, packages: string[]][] = [
+  ['vendor-react', ['react', 'react-dom', 'scheduler']],
+  ['vendor-mui', ['@mui', '@emotion']],
+  ['vendor-fullcalendar', ['@fullcalendar', 'preact']],
+  ['vendor-sentry', ['@sentry', '@sentry-internal']],
+]
+
+function manualChunks(id: string): string | undefined {
+  const path = /node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(id)?.[1]
+  if (!path) return undefined
+
+  return VENDOR_CHUNKS.find(([, packages]) => packages.some((p) => path === p || path.startsWith(`${p}/`)))?.[0]
+}
+
 export default defineConfig({
   plugins: [react()],
   base: '/admin',
@@ -10,6 +27,9 @@ export default defineConfig({
   // through them. Every other build — production included — ships without.
   build: {
     sourcemap: '1' === process.env.E2E_COVERAGE,
+    rollupOptions: {
+      output: { manualChunks },
+    },
   },
   server: {
     allowedHosts: ['maggie.local'],
