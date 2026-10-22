@@ -74,6 +74,8 @@ fun summaryEntries(menu: FinanceMenu): List<SummaryEntry> = when (menu) {
         SummaryEntry(SummaryBlock.LOANS, "Prêts", Screen.LoanList.route),
         // The counter has no screen of its own: it lives on the dashboard, which is where the block leads.
         SummaryEntry(SummaryBlock.INDEPENDENCE, "Indépendance financière", Screen.FinanceDashboard.route),
+        // Where the rents of the independence would come from (MAG-555): the phone has no Indépendance page of its own.
+        SummaryEntry(SummaryBlock.PLACEMENTS, "Placements", Screen.PlacementList.route),
     )
     FinanceMenu.SETTINGS -> listOf(
         SummaryEntry(SummaryBlock.BANKS, "Banques", Screen.BankConnectionList.route),

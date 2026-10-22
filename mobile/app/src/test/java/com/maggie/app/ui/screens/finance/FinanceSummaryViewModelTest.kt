@@ -4,6 +4,7 @@ import com.maggie.app.data.model.BalanceBeforeSalary
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.Loan
+import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ReviewPeriod
 import com.maggie.app.data.model.ReviewQueue
@@ -19,6 +20,7 @@ import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.LoanRepository
+import com.maggie.app.data.repository.PlacementRepository
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.ReviewRepository
@@ -58,6 +60,7 @@ class FinanceSummaryViewModelTest {
     private val dashboard = mockk<FinanceDashboardRepository>()
     private val banks = mockk<BankConnectionRepository>()
     private val categories = mockk<CategoryRepository>()
+    private val placements = mockk<PlacementRepository>()
 
     @Before
     fun setup() {
@@ -88,7 +91,7 @@ class FinanceSummaryViewModelTest {
     }
 
     private fun buildViewModel() = FinanceSummaryViewModel(
-        cushion, advances, treasury, review, rules, recurring, loans, projects, dashboard, banks, categories,
+        cushion, advances, treasury, review, rules, recurring, loans, projects, dashboard, banks, categories, placements,
         today = { LocalDate.of(2026, 10, 16) },
     )
 
@@ -171,6 +174,32 @@ class FinanceSummaryViewModelTest {
         assertTrue(state.needsAttention)
         // The card's visual: one mark per project in priority order, the one waiting flagged (MAG-530).
         assertEquals(listOf(false, true), state.marks)
+    }
+
+    @Test
+    fun `the placements block counts them and adds up the rent they would pay at 4 % (MAG-555)`() = runTest {
+        coEvery { placements.getPlacements() } returns Result.success(
+            listOf(Placement(id = "a", name = "PEA", rent = 24810), Placement(id = "b", name = "Livret", rent = 224)),
+        )
+        val viewModel = buildViewModel()
+
+        viewModel.load(listOf(SummaryBlock.PLACEMENTS))
+        advanceUntilIdle()
+
+        val state = viewModel.blocks.value[SummaryBlock.PLACEMENTS] as BlockState.Ready
+        assertEquals(listOf("2 placements", "≈ 250\u00A0€ / mois à terme"), state.lines)
+        assertFalse(state.needsAttention)
+    }
+
+    @Test
+    fun `no placement is said so`() = runTest {
+        coEvery { placements.getPlacements() } returns Result.success(emptyList())
+        val viewModel = buildViewModel()
+
+        viewModel.load(listOf(SummaryBlock.PLACEMENTS))
+        advanceUntilIdle()
+
+        assertEquals(BlockState.Ready(listOf("Aucun placement")), viewModel.blocks.value[SummaryBlock.PLACEMENTS])
     }
 
     @Test

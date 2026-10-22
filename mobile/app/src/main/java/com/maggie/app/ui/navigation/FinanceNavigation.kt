@@ -64,7 +64,7 @@ enum class FinanceMenu(
     ),
     PLANNING(
         "planning", "Planification", Icons.Default.Timeline,
-        listOf(Screen.FinancePlanning.route, Screen.ProjectList.route, Screen.LoanList.route),
+        listOf(Screen.FinancePlanning.route, Screen.ProjectList.route, Screen.LoanList.route, Screen.PlacementList.route),
     ),
     SETTINGS(
         "settings", "Configuration", Icons.Default.Settings,

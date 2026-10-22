@@ -75,6 +75,8 @@ class FinanceNavigationTest {
         assertNull(FinanceMenu.of(Screen.LoanDetail.route))
         // And the project sheet (MAG-525).
         assertNull(FinanceMenu.of(Screen.ProjectSheet.route))
+        assertEquals(FinanceMenu.PLANNING, FinanceMenu.of(Screen.PlacementList.route))
+        assertNull(FinanceMenu.of(Screen.PlacementForm.route))
         assertEquals(FinanceMenu.SETTINGS, FinanceMenu.of(Screen.CategoryList.route))
         assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.AccountTransactions.route))
         assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.Contacts.route))

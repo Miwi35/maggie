@@ -50,6 +50,7 @@ object MercureTopics {
     const val ENVELOPES = "envelopes"
     const val ERRANDS = "errands"
     const val EVENTS = "events"
+    const val FINANCE_PLACEMENTS = "finance/placements"
     const val FINANCE_PROJECTS = "finance/projects"
     const val GROCERY_LISTS = "grocery_lists"
     const val LOANS = "loans"
@@ -83,6 +84,7 @@ object MercureTopics {
         ENVELOPES,
         ERRANDS,
         EVENTS,
+        FINANCE_PLACEMENTS,
         FINANCE_PROJECTS,
         GROCERY_LISTS,
         LOANS,
