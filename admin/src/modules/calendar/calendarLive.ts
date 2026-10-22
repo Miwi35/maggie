@@ -29,9 +29,10 @@ export function touchedKinds(data?: string): LiveKind[] {
  *
  * The collections are served from Elasticsearch, indexed after the message leaves, so
  * the read waits for the burst to end; if it brings nothing new, it is made once more.
- * `read` resolves `true` when what it fetched differs from what the screen holds.
+ * `read` resolves `true` when what it fetched differs from what the screen holds; the
+ * second read is told it is a `retry`, so it can ask for less than the first.
  */
-export function useLiveRead(read: (kinds: LiveKind[]) => Promise<boolean>): (data?: string) => void {
+export function useLiveRead(read: (kinds: LiveKind[], retry: boolean) => Promise<boolean>): (data?: string) => void {
   const readRef = useRef(read)
   useEffect(() => {
     readRef.current = read
@@ -39,23 +40,28 @@ export function useLiveRead(read: (kinds: LiveKind[]) => Promise<boolean>): (dat
 
   const pending = useRef(new Set<LiveKind>())
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const retries = useRef<ReturnType<typeof setTimeout>[]>([])
-  useEffect(
-    () => () => {
+  const retry = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+
+    return () => {
+      mounted.current = false
       if (debounce.current) clearTimeout(debounce.current)
-      retries.current.forEach(clearTimeout)
-    },
-    [],
-  )
+      if (retry.current) clearTimeout(retry.current)
+    }
+  }, [])
 
   return useCallback((data?: string) => {
     for (const kind of touchedKinds(data)) pending.current.add(kind)
     if (debounce.current) clearTimeout(debounce.current)
+    // The burst's own read supersedes a retry still waiting for the previous one.
+    if (retry.current) clearTimeout(retry.current)
     debounce.current = setTimeout(() => {
       const kinds = [...pending.current]
       pending.current.clear()
-      void readRef.current(kinds).then((changed) => {
-        if (!changed) retries.current.push(setTimeout(() => void readRef.current(kinds), LIVE_RETRY_MS))
+      void readRef.current(kinds, false).then((changed) => {
+        if (!changed && mounted.current) retry.current = setTimeout(() => void readRef.current(kinds, true), LIVE_RETRY_MS)
       })
     }, LIVE_DEBOUNCE_MS)
   }, [])

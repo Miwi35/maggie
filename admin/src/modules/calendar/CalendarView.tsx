@@ -568,6 +568,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null)
   const fetchSeqRef = useRef<Record<LiveKind, number>>({ events: 0, tasks: 0, meals: 0, proactions: 0 })
   const appliedRef = useRef<Partial<Record<LiveKind | 'agendas', string>>>({})
+  const seriesRef = useRef<{ id: string }[]>([])
   const lastMouseYRef = useRef(0)
   const selectFiredRef = useRef(false)
   const lastSelectionRef = useRef<{ start: Date; end: Date } | null>(null)
@@ -808,9 +809,10 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   // `kinds` narrows the read to what a live update touched. Answers come back in any
   // order: only the newest request of a kind may fill it, or a slow reply for a range
   // already left takes the task out from under the pencil. Resolves `true` when a kind
-  // now holds something other than what it held.
+  // now holds something other than what it held. A `retry` of the events asks only for
+  // the range: the series that started before it keep what the first read brought.
   const fetchKinds = useCallback(
-    (kinds: LiveKind[], start: string, end: string): Promise<boolean> => {
+    (kinds: LiveKind[], start: string, end: string, retry = false): Promise<boolean> => {
       const nothing = Promise.resolve({ data: [], total: 0 })
       const day = { after: localDay(new Date(start)), before: localDay(new Date(end)) }
       const list = (resource: string, field: string, filter: Record<string, unknown>) =>
@@ -828,8 +830,11 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             ? nothing.then((r) => r.data)
             : Promise.all([
                 list('events', 'startAt', { 'startAt[before]': end, 'endAt[after]': start }),
-                list('events', 'startAt', { 'exists[rrule]': true, 'startAt[strictly_before]': start }),
+                retry
+                  ? Promise.resolve({ data: seriesRef.current })
+                  : list('events', 'startAt', { 'exists[rrule]': true, 'startAt[strictly_before]': start }),
               ]).then(([range, series]) => {
+                seriesRef.current = series.data
                 const seen = new Set<string>()
 
                 return [...range.data, ...series.data].filter((e) => !seen.has(e.id) && seen.add(e.id))
@@ -861,7 +866,12 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         .then((answers) => {
           let changed = false
           kinds.forEach((kind, index) => {
-            if (seqs[kind] !== fetchSeqRef.current[kind]) return
+            // A newer read of this kind is on its way: it will say what changed, not this one.
+            if (seqs[kind] !== fetchSeqRef.current[kind]) {
+              changed = true
+
+              return
+            }
             const json = JSON.stringify(answers[index])
             if (json !== appliedRef.current[kind]) changed = true
             appliedRef.current[kind] = json
@@ -1653,9 +1663,9 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   // --- Mercure live updates ---
   // One read per burst of messages, of what they touched (see `useLiveRead`).
   const readTouched = useCallback(
-    (kinds: LiveKind[]) =>
+    (kinds: LiveKind[], retry: boolean) =>
       dateRangeRef.current
-        ? fetchKinds(kinds, dateRangeRef.current.start, dateRangeRef.current.end)
+        ? fetchKinds(kinds, dateRangeRef.current.start, dateRangeRef.current.end, retry)
         : Promise.resolve(true),
     [fetchKinds],
   )

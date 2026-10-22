@@ -193,6 +193,19 @@ describe('CalendarView', () => {
       expect(range()).toBe(2)
     })
 
+    test('retries an event read with the range alone, not the series again', { timeout: 15_000 }, async () => {
+      await mountAndSettle()
+
+      send({ '@id': '/api/events/01A' })
+      await waitFor(() => expect(range()).toBe(2), { timeout: 3_000 })
+      await waitFor(() => expect(range()).toBe(3), { timeout: 6_000 })
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      expect(reads()).toEqual(['events', 'events', 'events'])
+      const filters = mockGetList.mock.calls.map(([, params]) => Object.keys(params.filter ?? {}))
+      expect(filters.filter((keys) => keys.includes('exists[rrule]'))).toHaveLength(1)
+    })
+
     test('reads everything when the message does not say what changed', { timeout: 15_000 }, async () => {
       let served = 0
       mockGetList.mockImplementation((resource: string) =>

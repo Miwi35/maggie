@@ -1114,7 +1114,7 @@ step "15. The admin's files are cached, and the API's documentation is compresse
 header_of() { curl -sS -D - -o /dev/null "${@:2}" | tr -d '\r' | grep -i "^$1:" | head -1 | cut -d: -f2- | sed 's/^ *//'; }
 
 admin_index="$(curl -sS "$BASE_URL/admin")"
-asset_path="$(printf '%s' "$admin_index" | grep -oE '/admin/assets/[^"]+\.js' | head -1)"
+asset_path="$(printf '%s' "$admin_index" | grep -oE '/admin/assets/[^"]+\.js' | head -1 || true)"
 if [ -z "$asset_path" ]; then
   fail "index.html names no script under /admin/assets/"
 else
