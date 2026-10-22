@@ -72,8 +72,14 @@ export class ChatPanel {
    * bubbles read before it would miss what the thread already holds.
    */
   async open(): Promise<void> {
+    const toggle = this.page.getByRole('banner').getByRole('button', { name: 'Chat avec Maggie' })
+
+    // `isVisible` does not wait: read before the shell has mounted, it says « closed » for a panel
+    // that opens with the shell, and the click that follows would close it.
+    await expect(this.input.or(toggle).first()).toBeVisible()
+
     if (!(await this.input.isVisible())) {
-      await this.page.getByRole('banner').getByRole('button', { name: 'Chat avec Maggie' }).click()
+      await toggle.click()
       await expect(this.input).toBeVisible()
     }
 

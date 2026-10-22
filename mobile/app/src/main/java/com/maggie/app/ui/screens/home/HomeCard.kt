@@ -48,15 +48,14 @@ private const val ACTION_TINT_ALPHA = 0.12f
 @Composable
 fun homeModuleColor(module: String): Color {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val feedback = if (dark) MaggieTokens.feedbackDark else MaggieTokens.feedbackLight
     fun pick(pair: Pair<Color, Color>) = if (dark) pair.second else pair.first
     return when (module) {
-        HomeModules.AGENDA -> chartColor(1, dark)
+        HomeModules.AGENDA -> chartColor(4, dark)
         HomeModules.GROCERY -> pick(MaggieTokens.Rhythm.above)
         HomeModules.NUTRITION -> pick(MaggieTokens.Module.travail)
         HomeModules.HEALTH -> pick(MaggieTokens.Module.sport)
         HomeModules.FINANCE -> pick(MaggieTokens.Module.comptes)
-        HomeModules.LEISURE -> feedback.warning
+        HomeModules.LEISURE -> pick(MaggieTokens.Module.saga)
         else -> MaterialTheme.colorScheme.primary
     }
 }
