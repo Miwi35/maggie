@@ -836,6 +836,7 @@ class FakeLoadedFinanceDashboard(
     private val dashboard: FinanceDashboard,
     private val outlook: TreasuryOutlook = TreasuryOutlook(),
     private val planning: ProjectPlanning? = null,
+    private val today: LocalDate = LocalDate.now(),
 ) {
     val viewModel: FinanceDashboardViewModel by lazy {
         val repository = mockk<FinanceDashboardRepository>()
@@ -846,7 +847,7 @@ class FakeLoadedFinanceDashboard(
         coEvery { projects.getProjectPlanning() } returns
             (planning?.let { Result.success(it) } ?: Result.failure(IllegalStateException("no planning")))
         val (auth, mercure) = signedIn()
-        FinanceDashboardViewModel(repository, treasury, mercure, auth, projects)
+        FinanceDashboardViewModel(repository, treasury, mercure, auth, projects, today)
     }
 }
 

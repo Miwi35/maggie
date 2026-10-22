@@ -26,6 +26,7 @@ import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ringAmount
 import com.maggie.app.ui.navigation.DeepLinks
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -88,7 +89,7 @@ class MonthBalanceScreenTest {
     ) {
         compose.setContent {
             FinanceDashboardScreen(
-                viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 9)).viewModel,
+                viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 9), today = LocalDate.of(2026, 9, 17)).viewModel,
                 monthBalanceViewModel = fake.viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 onOpen = onOpen,
