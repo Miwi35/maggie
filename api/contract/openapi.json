@@ -20933,12 +20933,14 @@
                     },
                     "initial": {
                         "minimum": 0,
+                        "maximum": 1000000000,
                         "description": "What is placed on day one, in integer cents.",
                         "default": 0,
                         "type": "integer"
                     },
                     "deposit": {
                         "minimum": 0,
+                        "maximum": 1000000000,
                         "description": "Each deposit, in integer cents: paid every period, or once on day one when frequency is once.",
                         "default": 0,
                         "type": "integer"
@@ -21017,12 +21019,14 @@
                     },
                     "initial": {
                         "minimum": 0,
+                        "maximum": 1000000000,
                         "description": "What is placed on day one, in integer cents.",
                         "default": 0,
                         "type": "integer"
                     },
                     "deposit": {
                         "minimum": 0,
+                        "maximum": 1000000000,
                         "description": "Each deposit, in integer cents: paid every period, or once on day one when frequency is once.",
                         "default": 0,
                         "type": "integer"
@@ -21101,12 +21105,14 @@
                     },
                     "initial": {
                         "minimum": 0,
+                        "maximum": 1000000000,
                         "description": "What is placed on day one, in integer cents.",
                         "default": 0,
                         "type": "integer"
                     },
                     "deposit": {
                         "minimum": 0,
+                        "maximum": 1000000000,
                         "description": "Each deposit, in integer cents: paid every period, or once on day one when frequency is once.",
                         "default": 0,
                         "type": "integer"
@@ -21187,12 +21193,14 @@
                             },
                             "initial": {
                                 "minimum": 0,
+                                "maximum": 1000000000,
                                 "description": "What is placed on day one, in integer cents.",
                                 "default": 0,
                                 "type": "integer"
                             },
                             "deposit": {
                                 "minimum": 0,
+                                "maximum": 1000000000,
                                 "description": "Each deposit, in integer cents: paid every period, or once on day one when frequency is once.",
                                 "default": 0,
                                 "type": "integer"
