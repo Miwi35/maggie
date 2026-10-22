@@ -13,14 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -28,12 +24,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,27 +96,17 @@ fun BankConnectionListScreen(
 
     Scaffold(
         topBar = {
-            FinanceTopBar(Screen.BankConnectionList.route) {
-                TopAppBar(
-                    title = { Text("Banques") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                    actions = {
-                        if (uiState.connections.isNotEmpty()) {
-                            TextButton(
-                                onClick = { viewModel.sync() },
-                                enabled = !uiState.isSyncing,
-                                modifier = Modifier.testTag(UiTags.BANK_SYNC),
-                            ) {
-                                Text(if (uiState.isSyncing) "Récupération…" else "Récupérer les transactions")
-                            }
-                        }
-                    },
-                )
-            }
+            FinanceTopBar(Screen.BankConnectionList.route, actions = {
+                if (uiState.connections.isNotEmpty()) {
+                    TextButton(
+                        onClick = { viewModel.sync() },
+                        enabled = !uiState.isSyncing,
+                        modifier = Modifier.testTag(UiTags.BANK_SYNC),
+                    ) {
+                        Text(if (uiState.isSyncing) "Récupération…" else "Récupérer les transactions")
+                    }
+                }
+            })
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->

@@ -31,7 +31,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 /**
- * « À venir » on the finance dashboard (MAG-463): what the two tabs show, and what the tab draws
+ * « À venir » on the finance dashboard (MAG-463): what the two sub-views show, and what the sub-view draws
  * from the projection the API sent. What the figures are is the API's (`GetUpcomingProjectionTest`).
  */
 @RunWith(AndroidJUnit4::class)
@@ -47,7 +47,6 @@ class UpcomingScreenTest {
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 10)).viewModel,
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = upcoming.viewModel,
-                onBack = {},
                 onOpen = {},
             )
         }
@@ -60,26 +59,26 @@ class UpcomingScreenTest {
 
     private fun openUpcoming(upcoming: FakeUpcoming = FakeUpcoming(upcomingFixture())) {
         open(upcoming)
-        compose.onNodeWithTag(UiTags.FINANCE_TAB_UPCOMING).performClick()
+        compose.onNodeWithTag(UiTags.subview("upcoming")).performClick()
     }
 
     @Test
-    fun `the dashboard opens on the overview, the upcoming blocks are not drawn`() {
+    fun `the dashboard opens on the current state, the upcoming blocks are not drawn`() {
         open(FakeUpcoming(upcomingFixture()))
 
-        compose.onNodeWithTag(UiTags.FINANCE_TAB_OVERVIEW).assertIsSelected()
+        compose.onNodeWithTag(UiTags.subview("current")).assertIsSelected()
         compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.UPCOMING_WEEK).assertDoesNotExist()
     }
 
     @Test
-    fun `the tab switches to the upcoming blocks and back to the overview`() {
+    fun `the row switches to the upcoming blocks and back to the current state`() {
         openUpcoming()
 
         compose.onNodeWithTag(UiTags.UPCOMING_WEEK).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).assertDoesNotExist()
 
-        compose.onNodeWithTag(UiTags.FINANCE_TAB_OVERVIEW).performClick()
+        compose.onNodeWithTag(UiTags.subview("current")).performClick()
 
         reveal(hasTestTag(UiTags.FINANCE_TILE_ACCOUNTS))
         compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).assertIsDisplayed()

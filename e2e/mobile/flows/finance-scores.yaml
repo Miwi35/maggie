@@ -36,9 +36,8 @@ tags:
     timeout: 30000
 - assertVisible:
     id: "finance_score_ring_month"
-# The status is a word, never a colour alone; nothing is overspent here, so never « Dépassement ».
-- assertVisible: ".*(Dans le vert|Dans les clous|Attention).*"
-- assertNotVisible: ".*Dépassement.*"
+# The status is a word, never a colour alone: the rhythm's own (MAG-537).
+- assertVisible: ".*(Dans le rythme|Au-dessus du rythme).*"
 
 - tapOn:
     id: "finance_score_ring_month"

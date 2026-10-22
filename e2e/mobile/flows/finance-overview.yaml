@@ -15,6 +15,10 @@ tags:
 # Et le bloc « Prochain projet » : le premier projet du planning (MAG-529), plus l'exemple figé, et rien à ouvrir
 # Quand je touche la tuile Comptes
 # Alors la liste des comptes s'ouvre
+# Quand je touche « Comptes ▾ » puis « Revue »
+# Alors le titre dit « Finance › Revue » et une seule rangée : Toutes · À qualifier · Reconnues
+# Quand je touche « À qualifier »
+# Alors la liste est filtrée sur ce qui reste à qualifier (MAG-537)
 #
 # A tile is one tappable card: Compose merges what is inside it, so its figures are read through
 # the card's own text, not through ids of their own. The amounts are not asserted — they are drawn
@@ -138,3 +142,43 @@ tags:
 - extendedWaitUntil:
     visible: "Comptes"
     timeout: 20000
+
+# The header is « Finance › Section ▾ » (MAG-537): the section button opens the seven sections, the current one
+# is checked, and choosing Revue opens it with its single row of sub-views.
+- assertVisible:
+    id: "breadcrumb_module"
+- tapOn:
+    id: "breadcrumb_section"
+- extendedWaitUntil:
+    visible:
+      id: "breadcrumb_menu_planning"
+    timeout: 20000
+- assertVisible:
+    id: "breadcrumb_menu_accounts"
+    selected: true
+- tapOn:
+    id: "breadcrumb_menu_review"
+- extendedWaitUntil:
+    visible:
+      id: "subview_all"
+    timeout: 20000
+- assertVisible:
+    id: "breadcrumb_section"
+    text: "Revue"
+- assertVisible:
+    id: "subview_all"
+    selected: true
+- assertVisible:
+    id: "subview_to_qualify"
+- assertVisible:
+    id: "subview_recognised"
+# « À qualifier » filters the list; the row follows the tap.
+- tapOn:
+    id: "subview_to_qualify"
+- extendedWaitUntil:
+    visible:
+      id: "subview_to_qualify"
+      selected: true
+    timeout: 20000
+- assertNotVisible:
+    id: "review_list_section_recognised"

@@ -18,7 +18,10 @@ class DeepLinksTest {
         assertEquals(listOf("$scheme://grocery/{id}"), DeepLinks.patternsFor(DeepLinks.GROCERY_ROUTE))
         assertEquals(listOf("$scheme://recipe/{id}"), DeepLinks.patternsFor(DeepLinks.RECIPE_ROUTE))
         assertEquals(listOf("$scheme://chat?message={message}"), DeepLinks.patternsFor(Screen.Chat.route))
-        assertEquals(listOf("$scheme://finance"), DeepLinks.patternsFor(Screen.FinanceDashboard.route))
+        assertEquals(
+            listOf("$scheme://finance", "$scheme://finance/dashboard"),
+            DeepLinks.patternsFor(Screen.FinanceDashboard.route),
+        )
         assertEquals(
             listOf("$scheme://finance/recurring-operations"),
             DeepLinks.patternsFor(Screen.RecurringOperations.route),
@@ -59,6 +62,7 @@ class DeepLinksTest {
             Screen.LoanList,
             Screen.ProjectList,
             Screen.PlacementList,
+            Screen.Independence,
             Screen.RecurringOperations,
         ).map { it.route }
 
@@ -70,10 +74,40 @@ class DeepLinksTest {
 
     @Test
     fun `the old addresses of the three review screens open the Revue's list, and the list has its own`() {
-        assertEquals(listOf("$scheme://finance/to-sort"), DeepLinks.patternsFor(DeepLinks.REVIEW_TO_SORT_ROUTE))
-        assertEquals(listOf("$scheme://finance/to-control"), DeepLinks.patternsFor(DeepLinks.REVIEW_TO_CONTROL_ROUTE))
-        assertEquals(listOf("$scheme://finance/review"), DeepLinks.patternsFor(DeepLinks.REVIEW_MONTHLY_ROUTE))
+        assertEquals(
+            listOf("$scheme://finance/to-sort", "$scheme://finance/review/to-qualify"),
+            DeepLinks.patternsFor(DeepLinks.REVIEW_TO_SORT_ROUTE),
+        )
+        assertEquals(
+            listOf("$scheme://finance/to-control", "$scheme://finance/review/recognised"),
+            DeepLinks.patternsFor(DeepLinks.REVIEW_TO_CONTROL_ROUTE),
+        )
+        assertEquals(
+            listOf("$scheme://finance/review", "$scheme://finance/review/all"),
+            DeepLinks.patternsFor(DeepLinks.REVIEW_MONTHLY_ROUTE),
+        )
         assertEquals(listOf("$scheme://finance/review/list"), DeepLinks.patternsFor(Screen.ReviewList.route))
+    }
+
+    @Test
+    fun `each section opens from maggie finance section, and its sub-view from maggie finance section sub-view (MAG-537)`() {
+        assertEquals(
+            listOf("$scheme://finance/dashboard/{subview}"),
+            DeepLinks.patternsFor(DeepLinks.FINANCE_DASHBOARD_SUBVIEW_ROUTE),
+        )
+        assertEquals(
+            listOf("$scheme://finance/budget/{subview}"),
+            DeepLinks.patternsFor(DeepLinks.FINANCE_BUDGET_SUBVIEW_ROUTE),
+        )
+        assertTrue("$scheme://finance/budget" in DeepLinks.patternsFor(Screen.BudgetList.route))
+        assertTrue("$scheme://finance/planning" in DeepLinks.patternsFor(Screen.ProjectList.route))
+        assertTrue("$scheme://finance/planning/projects" in DeepLinks.patternsFor(Screen.ProjectList.route))
+        assertEquals(listOf("$scheme://finance/planning/loans", "$scheme://finance/loans").sorted(), DeepLinks.patternsFor(Screen.LoanList.route).sorted())
+        assertTrue("$scheme://finance/planning/placements" in DeepLinks.patternsFor(Screen.PlacementList.route))
+        assertEquals(listOf("$scheme://finance/planning/independence"), DeepLinks.patternsFor(Screen.Independence.route))
+        assertTrue("$scheme://finance/configuration" in DeepLinks.patternsFor(Screen.CategoryList.route))
+        assertTrue("$scheme://finance/configuration/categories" in DeepLinks.patternsFor(Screen.CategoryList.route))
+        assertTrue("$scheme://finance/configuration/banks" in DeepLinks.patternsFor(Screen.BankConnectionList.route))
     }
 
     @Test

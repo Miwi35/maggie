@@ -78,9 +78,9 @@ tags:
       id: "calendar_view_week"
     timeout: 30000
 
-# The Finance menus (MAG-426): a menu opens a summary page with one block per aspect,
-# each leading to its screen, and the back arrow lands on the Dashboard (its rings) — the menus
-# are siblings, not a trail. Trésorerie → Matelas and Avances d'épargne.
+# The Finance header (MAG-537): « Finance › Section ▾ » opens the sections, a page may have a row of sub-views, and
+# the back arrow lands on the Dashboard (its rings) — the sections are siblings, not a trail.
+# Trésorerie → Matelas and Avances d'épargne, behind the icons of its header.
 - openLink: "maggie-e2e://finance"
 
 - extendedWaitUntil:
@@ -89,20 +89,23 @@ tags:
     timeout: 20000
 
 - tapOn:
-    id: "finance_menu_treasury"
+    id: "breadcrumb_section"
+
+- tapOn:
+    id: "breadcrumb_menu_treasury"
 
 - extendedWaitUntil:
     visible:
-      id: "finance_block_cushion"
+      id: "treasury_open_cushion"
     timeout: 20000
 
 - tapOn:
-    id: "finance_block_cushion"
+    id: "treasury_open_cushion"
 
-# The summary's block is gone: the cushion screen is on top of it.
+# The Trésorerie page is gone: the cushion screen is on top of it.
 - extendedWaitUntil:
     notVisible:
-      id: "finance_block_cushion"
+      id: "treasury_open_cushion"
     timeout: 20000
 
 # Back goes to the Trésorerie page it was opened from.
@@ -110,18 +113,18 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "finance_block_savings_advances"
+      id: "treasury_open_savings_advances"
     timeout: 20000
 
 - tapOn:
-    id: "finance_block_savings_advances"
+    id: "treasury_open_savings_advances"
 
 - extendedWaitUntil:
     visible:
       id: "savings_advances_total"
     timeout: 20000
 
-# Back twice: the block's page, then the Dashboard it was opened from.
+# Back twice: the Trésorerie page, then the Dashboard it was opened from.
 - pressKey: back
 - pressKey: back
 
@@ -130,18 +133,37 @@ tags:
       id: "finance_score_ring_week"
     timeout: 20000
 
-# Revue: « À qualifier », the rules and the recurring operations (the merged operations
-# list comes with MAG-478).
+# Revue: its row Toutes · À qualifier · Reconnues, and the icons of the rules and of the recurring operations.
 - tapOn:
-    id: "finance_menu_review"
+    id: "breadcrumb_section"
+
+- tapOn:
+    id: "breadcrumb_menu_review"
 
 - extendedWaitUntil:
     visible:
-      id: "finance_block_finance_review_list"
+      id: "subview_all"
     timeout: 20000
 
 - assertVisible:
-    id: "finance_block_categorization_rules"
+    id: "subview_to_qualify"
 
 - assertVisible:
-    id: "finance_block_recurring_operations"
+    id: "subview_recognised"
+
+- assertVisible:
+    id: "review_open_rules"
+
+- assertVisible:
+    id: "review_open_recurring"
+
+# A section and its sub-view open from a link: Planification › Indépendance.
+- openLink: "maggie-e2e://finance/planning/independence"
+
+- extendedWaitUntil:
+    visible:
+      id: "subview_independence"
+    timeout: 20000
+
+- assertVisible:
+    id: "subview_projects"

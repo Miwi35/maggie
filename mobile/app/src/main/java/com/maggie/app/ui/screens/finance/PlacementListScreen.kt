@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Remove
@@ -44,7 +43,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -103,27 +101,17 @@ fun PlacementListScreen(
     val expanded = rememberAppLayout().width == WindowWidth.EXPANDED
     Scaffold(
         topBar = {
-            FinanceTopBar(Screen.PlacementList.route) {
-                TopAppBar(
-                    title = { Text("Placements") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                    actions = {
-                        // The tablet's list has its own « + Placement » under the rows.
-                        if (!expanded) {
-                            FilledIconButton(
-                                onClick = { onOpenForm(null) },
-                                modifier = Modifier.padding(end = 8.dp).testTag(UiTags.PLACEMENT_ADD),
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = "Ajouter un placement")
-                            }
-                        }
-                    },
-                )
-            }
+            FinanceTopBar(Screen.PlacementList.route, actions = {
+                // The tablet's list has its own « + Placement » under the rows.
+                if (!expanded) {
+                    FilledIconButton(
+                        onClick = { onOpenForm(null) },
+                        modifier = Modifier.padding(end = 8.dp).testTag(UiTags.PLACEMENT_ADD),
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Ajouter un placement")
+                    }
+                }
+            })
         },
     ) { paddingValues ->
         PlacementListContent(viewModel, onOpenForm, expanded, Modifier.padding(paddingValues))

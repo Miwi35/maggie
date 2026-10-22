@@ -131,7 +131,6 @@ class FinanceDashboardTilesScreenTest {
                     FinanceDashboard(year = 2026, month = 10, tiles = tiles, todo = todo, nextProject = nextProject),
                     planning = planning,
                 ).viewModel,
-                onBack = {},
                 onOpen = onOpen,
                 onOpenIncidents = onOpenIncidents,
             )
@@ -301,7 +300,6 @@ class FinanceDashboardTilesScreenTest {
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard(error = "Service indisponible").viewModel,
-                onBack = {},
                 onOpen = {},
             )
         }

@@ -17,6 +17,7 @@ import com.maggie.app.data.model.RhythmDebit
 import com.maggie.app.data.model.RhythmPoint
 import com.maggie.app.data.model.ScoreReason
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.ui.components.ringAmount
 import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
@@ -102,10 +103,10 @@ class FinanceScoresScreenTest {
 
         compose.onNodeWithTag(UiTags.financeScoreRing("week")).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.financeScoreRing("month")).assertIsDisplayed()
-        compose.onNodeWithText("Dans le vert", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Attention", substring = true).assertIsDisplayed()
-        compose.onNodeWithText(formatCents(17000), substring = true).assertIsDisplayed()
-        compose.onNodeWithText(formatCents(30000), substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Dans le rythme", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Au-dessus du rythme", substring = true).assertIsDisplayed()
+        compose.onNodeWithText(ringAmount(17000), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(ringAmount(30000), substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -137,8 +138,8 @@ class FinanceScoresScreenTest {
         )
         compose.setContent { ScoreRings(week = week, month = over) }
 
-        compose.onNodeWithText(formatCents(-91349), substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Dépassement", substring = true).assertIsDisplayed()
+        compose.onNodeWithText(ringAmount(-91349), substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Au-dessus du rythme", substring = true).assertIsDisplayed()
         compose.onNodeWithText("dépassé").assertIsDisplayed()
     }
 
@@ -191,7 +192,6 @@ class FinanceScoresScreenTest {
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(dashboardWithScores()).viewModel,
-                onBack = {},
                 onOpen = {},
             )
         }
@@ -208,7 +208,6 @@ class FinanceScoresScreenTest {
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 3)).viewModel,
-                onBack = {},
                 onOpen = {},
             )
         }
@@ -227,7 +226,6 @@ class FinanceScoresScreenTest {
                 viewModel = FakeLoadedFinanceDashboard(
                     dashboardWithScores().copy(nextProject = NextProject("p1", "Vélo", 100_000, 74_000, "2026-12")),
                 ).viewModel,
-                onBack = {},
                 onOpen = {},
             )
         }

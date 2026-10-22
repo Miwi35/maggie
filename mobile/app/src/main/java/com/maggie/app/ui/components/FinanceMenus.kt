@@ -1,115 +1,73 @@
 package com.maggie.app.ui.components
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import com.maggie.app.ui.UiTags
-import com.maggie.app.ui.layout.NavigationKind
-import com.maggie.app.ui.layout.rememberAppLayout
-import com.maggie.app.ui.navigation.FinanceMenu
+import com.maggie.app.ui.navigation.FinanceSection
+import com.maggie.app.ui.navigation.LocalFinanceNav
+import com.maggie.app.ui.navigation.financeSubviewState
+import com.maggie.app.ui.navigation.subviewItems
+
+/** A row of sub-views the screen draws itself, because it knows more than the section does (Revue's counts). */
+class SubviewBar(
+    val items: List<SubviewItem>,
+    val selectedKey: String,
+    val onSelect: (SubviewItem) -> Unit,
+)
 
 /**
- * What a tap on a Finance menu does. Provided once by the `NavGraph`; absent (`null`) wherever
- * a finance screen is drawn without the graph, which is then drawn without its tabs.
- */
-val LocalFinanceMenuSelection = compositionLocalOf<((FinanceMenu) -> Unit)?> { null }
-
-/**
- * A finance screen's top bar and, under it, the seven menus (MAG-426): the bar the screen
- * already had, then the tabs row.
+ * A finance screen's top bar (MAG-537).
  *
- * The tabs sit in the screen's own `topBar` slot rather than above the screens, because the
- * title bar belongs to each screen (its back arrow, its actions) and the row goes *under* it.
- * The bottom of the window stays Maggie's.
+ * A section's page wears the breadcrumb « Finance › Section ▾ » and, under it, one row of the section's sub-views
+ * when it has some; [topBar] is not drawn there. A detail screen (a fiche, a list behind an icon) is not a page of any
+ * section: it draws [topBar], its back arrow and its title, and no sections menu.
+ *
+ * @param actions the icons the page offers at the right of the breadcrumb.
+ * @param subviews the row, when the screen supplies it; otherwise it is the section's own (a route per sub-view, or
+ *   the state the graph holds for the section).
  */
 @Composable
-fun FinanceTopBar(route: String, topBar: @Composable () -> Unit) {
-    Column {
-        topBar()
-        FinanceMenuTabs(route)
-    }
-}
-
-/**
- * The seven menus, in a row that scrolls sideways; the active one is highlighted and brought
- * back on screen whenever it changes — `ScrollableTabRow` scrolls its selected tab into view
- * on first draw and on every selection, which is what opening Configuration from a link needs.
- *
- * Drawn on a window without a rail only: from 600 dp the same seven are [FinanceNavigationRail].
- */
-@Composable
-fun FinanceMenuTabs(route: String) {
-    val onSelect = LocalFinanceMenuSelection.current ?: return
-    val active = FinanceMenu.of(route) ?: return
-    if (rememberAppLayout().navigation == NavigationKind.RAIL) return
-
-    ScrollableTabRow(
-        selectedTabIndex = active.ordinal,
-        edgePadding = 8.dp,
-        modifier = Modifier.testTag(UiTags.FINANCE_MENU_TABS),
-    ) {
-        FinanceMenu.entries.forEach { menu ->
-            Tab(
-                selected = menu == active,
-                onClick = { onSelect(menu) },
-                text = { Text(menu.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                modifier = Modifier.testTag(UiTags.financeMenu(menu.key)),
-            )
-        }
-    }
-}
-
-/**
- * The seven menus as a rail, on the windows that have one (tablet, foldable, phone in landscape).
- *
- * Built like [MaggieNavigationRail], for the same reasons: the destinations scroll inside the
- * rail on a window too short for seven of them, and [chatAction] is the rail header where the
- * window has no band at the bottom for the conversation.
- */
-@Composable
-fun FinanceNavigationRail(
-    currentRoute: String?,
-    onSelect: (FinanceMenu) -> Unit,
-    modifier: Modifier = Modifier,
-    chatAction: (@Composable ColumnScope.() -> Unit)? = null,
+fun FinanceTopBar(
+    route: String,
+    actions: @Composable RowScope.() -> Unit = {},
+    subviews: SubviewBar? = null,
+    topBar: (@Composable () -> Unit)? = null,
 ) {
-    val active = FinanceMenu.of(currentRoute)
+    val section = FinanceSection.pageOf(route)
+    if (section == null) {
+        topBar?.invoke()
+        return
+    }
+    val nav = LocalFinanceNav.current
 
-    NavigationRail(modifier = modifier.fillMaxHeight().testTag(UiTags.FINANCE_MENU_RAIL), header = chatAction) {
-        Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            FinanceMenu.entries.forEach { menu ->
-                NavigationRailItem(
-                    icon = { Icon(menu.icon, contentDescription = null) },
-                    label = { Text(menu.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    selected = menu == active,
-                    onClick = { onSelect(menu) },
-                    modifier = Modifier.testTag(UiTags.financeMenu(menu.key)),
+    Column {
+        ModuleBreadcrumb(
+            module = "Finance",
+            sections = FinanceSection.entries.map { it.breadcrumb },
+            currentKey = section.key,
+            onSelectSection = { picked -> FinanceSection.byKey(picked.key)?.let { nav?.onSelectSection?.invoke(it) } },
+            onOpenDrawer = nav?.onOpenDrawer,
+            actions = actions,
+        )
+        when {
+            subviews != null -> SubviewRow(subviews.items, subviews.selectedKey, subviews.onSelect)
+            section.subviews.isEmpty() -> Unit
+            section.subviews.all { it.route != null } -> {
+                val current = section.subviewOf(route)
+                SubviewRow(
+                    items = section.subviewItems(),
+                    selectedKey = current?.key.orEmpty(),
+                    onSelect = { item -> section.subview(item.key)?.let { nav?.onSelectSubview?.invoke(section, it) } },
                 )
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
+            else -> {
+                val (current, select) = financeSubviewState(section)
+                SubviewRow(
+                    items = section.subviewItems(),
+                    selectedKey = current.key,
+                    onSelect = { item -> section.subview(item.key)?.let(select) },
+                )
+            }
         }
     }
 }

@@ -103,7 +103,7 @@ tags:
 - assertVisible:
     id: "finance_score_ring_month"
 # The status is a word, never a colour alone.
-- assertVisible: ".*(Dans le vert|Dans les clous|Attention|Dépassement|Aucune enveloppe).*"
+- assertVisible: ".*(Dans le rythme|Au-dessus du rythme|Aucune enveloppe).*"
 # A tap on a ring lists the reasons, a second one hides them.
 - tapOn:
     id: "finance_score_ring_month"
@@ -121,15 +121,17 @@ tags:
     element:
       id: "finance_tile_accounts"
     timeout: 30000
-# The savings advances screen: the Trésorerie menu's tab, then its block (MAG-426).
+# The savings advances screen: the Trésorerie section, then the icon of its header (MAG-426, MAG-537).
 - tapOn:
-    id: "finance_menu_treasury"
+    id: "breadcrumb_section"
+- tapOn:
+    id: "breadcrumb_menu_treasury"
 - extendedWaitUntil:
     visible:
-      id: "finance_block_savings_advances"
+      id: "treasury_open_savings_advances"
     timeout: 20000
 - tapOn:
-    id: "finance_block_savings_advances"
+    id: "treasury_open_savings_advances"
 
 # The total only exists once the answer came: a failed load draws « Réessayer » instead.
 - extendedWaitUntil:

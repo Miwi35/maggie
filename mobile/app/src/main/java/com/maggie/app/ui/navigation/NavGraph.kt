@@ -79,8 +79,6 @@ import com.maggie.app.data.fcm.PushIntents
 import com.maggie.app.ui.components.ChatSheet
 import com.maggie.app.ui.interruption.InterruptionHost
 import com.maggie.app.ui.components.ContextListSheet
-import com.maggie.app.ui.components.FinanceNavigationRail
-import com.maggie.app.ui.components.LocalFinanceMenuSelection
 import com.maggie.app.ui.components.MaggieNavigationRail
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.layout.AppLayout
@@ -121,9 +119,9 @@ import com.maggie.app.ui.screens.finance.LoanListScreen
 import com.maggie.app.ui.screens.finance.LoanSheetScreen
 import com.maggie.app.ui.screens.finance.FinanceDashboardScreen
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
+import com.maggie.app.ui.screens.finance.IndependenceScreen
 import com.maggie.app.ui.screens.finance.UpcomingViewModel
 import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
-import com.maggie.app.ui.screens.finance.FinanceSummaryScreen
 import com.maggie.app.ui.screens.finance.BlockState
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.SummaryBlock
@@ -218,8 +216,6 @@ import com.maggie.app.ui.screens.login.LoginScreen
 import com.maggie.app.ui.screens.login.LoginViewModel
 import com.maggie.app.ui.screens.loading.LoadingScreen
 import com.maggie.app.ui.screens.settings.SettingsScreen
-import com.maggie.app.ui.theme.ModuleHue
-import com.maggie.app.ui.theme.ModuleTheme
 import com.maggie.app.util.EventExpander
 import com.maggie.app.util.RruleUtils
 import com.maggie.app.voice.VoiceManager
@@ -294,10 +290,8 @@ sealed class Screen(val route: String, val label: String) {
     /** Activité Comptes · la revue (MAG-456): full screen, outside the Finance menus, so drawn without chrome. */
     data object FinanceReviewActivity : Screen("finance/review/activity", "Revue du mois")
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
-    data object FinanceReview : Screen("finance_review", "Revue")
-    data object FinanceTreasuryMenu : Screen("finance_treasury_menu", "Trésorerie")
-    data object FinancePlanning : Screen("finance_planning", "Planification")
-    data object FinanceConfiguration : Screen("finance_configuration", "Configuration")
+    /** Planification · Indépendance (MAG-537): the independence counter and the net saving capacity, a sub-view of its own. */
+    data object Independence : Screen("finance_independence", "Indépendance")
     data object AccountTransactions : Screen("account_transactions", "Transactions")
     data object RecipeDetail : Screen("recipe/detail", "Recette")
     data object RecipeCreate : Screen("recipe/create", "Nouvelle recette")
@@ -319,15 +313,13 @@ private val MAIN_SCREENS = setOf(
 )
 
 // The full-screen chat has its own input: a second way in would duplicate it
-// The Finance menus keep it too: the bottom of the screen is Maggie's, the menus are the tabs above.
+// The Finance screens keep it too: the bottom of the screen is Maggie's; Finance has no rail to hold her buttons.
 internal fun showsChatBottomBar(route: String?): Boolean =
-    (route in MAIN_SCREENS && route != Screen.Chat.route) || FinanceMenu.of(route) != null
+    (route in MAIN_SCREENS && route != Screen.Chat.route) || FinanceSection.of(route) != null
 
 /** Which parts of the frame this window and this route call for (MAG-35). */
 internal data class Chrome(
     val showsRail: Boolean,
-    /** The seven Finance menus as a rail — the tabs row of the phone, on a window wide enough for a rail. */
-    val showsFinanceRail: Boolean,
     val showsChatPanel: Boolean,
     val showsChatBar: Boolean,
     /** The conversation is reached from the rail's header, the window being too short for a bar. */
@@ -429,17 +421,19 @@ internal fun NavController.foldRouteInto(detail: String, list: String) {
 internal fun chromeFor(layout: AppLayout, route: String?): Chrome {
     // Where this route offers the conversation at all: not on the chat screen, which is it.
     val chatReachable = showsChatBottomBar(route)
+    // The rail serves the drawer's destinations, so it appears where the drawer
+    // did: on the main screens. A detail route keeps the whole width, as today.
+    val showsRail = layout.navigation == NavigationKind.RAIL && route in MAIN_SCREENS
     return Chrome(
-        // The rail serves the drawer's destinations, so it appears where the drawer
-        // did: on the main screens. A detail route keeps the whole width, as today.
-        showsRail = layout.navigation == NavigationKind.RAIL && route in MAIN_SCREENS,
-        showsFinanceRail = layout.navigation == NavigationKind.RAIL && FinanceMenu.of(route) != null,
+        showsRail = showsRail,
         // Exactly one of the three, and the window says which: the panel *is* the
         // conversation, and the rail's header is where a window too short for a band
         // under the content puts the band's three buttons.
         showsChatPanel = chatReachable && layout.chatEntry == ChatEntry.PANEL,
-        showsChatBar = chatReachable && layout.chatEntry == ChatEntry.BOTTOM_BAR,
-        showsChatInRail = chatReachable && layout.chatEntry == ChatEntry.RAIL,
+        // A window too short for a band keeps the rail's header for the main screens; Finance has no rail (MAG-537),
+        // so there the same window gets the compact bar.
+        showsChatBar = chatReachable && (layout.chatEntry == ChatEntry.BOTTOM_BAR || (layout.chatEntry == ChatEntry.RAIL && !showsRail)),
+        showsChatInRail = chatReachable && layout.chatEntry == ChatEntry.RAIL && showsRail,
         denseTopBar = layout.denseTopBar,
         showsDetailPane = layout.detailPaneFits && route in DETAIL_PANE_ROUTES,
         detailsAreSheets = !layout.detailPaneFits || route == Screen.Home.route,
@@ -492,24 +486,6 @@ private fun NavController.backInFinance() {
     }
 }
 
-@Composable
-private fun FinanceSummaryPage(menu: FinanceMenu, navController: NavController, onOpenReview: (ReviewPreset) -> Unit = {}) {
-    val viewModel: FinanceSummaryViewModel = koinViewModel()
-    FinanceSummaryScreen(
-        menu = menu,
-        viewModel = viewModel,
-        onBack = { navController.backInFinance() },
-        onOpen = { route ->
-            navController.navigate(route) {
-                launchSingleTop = true
-                // The dashboard already underneath is returned to, not stacked a second time.
-                if (route == Screen.FinanceDashboard.route) popUpTo(route) { inclusive = false }
-            }
-        },
-        onOpenReview = onOpenReview,
-    )
-}
-
 /** The Revue's single list and its fiche (MAG-539); out of [NavGraph]'s lambda, which the compiler already finds heavy. */
 @Composable
 private fun ReviewListPage(
@@ -529,6 +505,8 @@ private fun ReviewListPage(
         showsDetailPane = showsDetailPane,
         onOpenTransaction = onOpenTransaction,
         onOpenOperation = onOpenOperation,
+        onOpenRules = { navController.navigate(Screen.CategorizationRuleList.route) { launchSingleTop = true } },
+        onOpenRecurring = { navController.navigate(Screen.RecurringOperations.route) { launchSingleTop = true } },
     )
 }
 
@@ -655,6 +633,7 @@ fun NavGraph() {
     val chrome = chromeFor(layout, currentRoute)
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val financeSubviews = rememberFinanceSubviews()
     val scope = rememberCoroutineScope()
 
     val authRepository: AuthRepository = koinInject()
@@ -846,10 +825,10 @@ fun NavGraph() {
         navController.navigate(route) { launchSingleTop = true }
     }
 
-    // The menus are siblings: Dashboard → Trésorerie → Revue goes back to the Dashboard in one step.
-    fun selectFinanceMenu(menu: FinanceMenu) {
+    // The sections are siblings: Dashboard → Trésorerie → Revue goes back to the Dashboard in one step.
+    fun selectFinanceSection(section: FinanceSection) {
         val dashboardInBackStack = runCatching { navController.getBackStackEntry(Screen.FinanceDashboard.route) }.isSuccess
-        val action = financeTabAction(menu, dashboardInBackStack)
+        val action = financeSectionAction(section, dashboardInBackStack)
         val currentId = navController.currentBackStackEntry?.destination?.id
         navController.navigate(action.route) {
             if (action.popToDashboard) {
@@ -857,6 +836,20 @@ fun NavGraph() {
             } else if (currentId != null) {
                 popUpTo(currentId) { inclusive = true }
             }
+            launchSingleTop = true
+        }
+    }
+
+    // A sub-view with a route of its own replaces the page it is on; the others are a state the graph keeps.
+    fun selectFinanceSubview(section: FinanceSection, subview: FinanceSubview) {
+        val route = subview.route
+        if (route == null) {
+            financeSubviews.select(section, subview.key)
+            return
+        }
+        val currentId = navController.currentBackStackEntry?.destination?.id
+        navController.navigate(route) {
+            if (currentId != null) popUpTo(currentId) { inclusive = true }
             launchSingleTop = true
         }
     }
@@ -989,7 +982,13 @@ fun NavGraph() {
         }
     }
 
-    CompositionLocalProvider(LocalFinanceMenuSelection provides { menu -> selectFinanceMenu(menu) }) {
+    val financeNav = FinanceNav(
+        subviews = financeSubviews,
+        onSelectSection = ::selectFinanceSection,
+        onSelectSubview = ::selectFinanceSubview,
+        onOpenDrawer = { scope.launch { drawerState.open() } },
+    )
+    CompositionLocalProvider(LocalFinanceNav provides financeNav) {
         AppShell(
             drawerState = drawerState,
             drawerGesturesEnabled = isMainScreen,
@@ -1016,25 +1015,6 @@ fun NavGraph() {
                             null
                         },
                     )
-                }
-            } else if (chrome.showsFinanceRail) {
-                {
-                    ModuleTheme(ModuleHue.FINANCE) {
-                        FinanceNavigationRail(
-                            currentRoute = currentRoute,
-                            onSelect = ::selectFinanceMenu,
-                            chatAction = if (chrome.showsChatInRail) {
-                                {
-                                    ChatRailActions(
-                                        onOpenChat = { showChatSheet = true },
-                                        onMicClick = ::startVoiceMode,
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                        )
-                    }
                 }
             } else {
                 null
@@ -1819,6 +1799,21 @@ fun NavGraph() {
                             }
                         }
                     }
+                    listOf(
+                        DeepLinks.FINANCE_DASHBOARD_SUBVIEW_ROUTE to FinanceSection.DASHBOARD,
+                        DeepLinks.FINANCE_BUDGET_SUBVIEW_ROUTE to FinanceSection.BUDGET,
+                    ).forEach { (route, section) ->
+                        composable(route, deepLinks = DeepLinks.forRoute(route)) { entry ->
+                            val key = entry.arguments?.getString(DeepLinks.ARG_SUBVIEW)
+                            LoadingScreen()
+                            LaunchedEffect(linkReady) {
+                                if (!linkReady) return@LaunchedEffect
+                                // An unknown sub-view still lands on the section.
+                                section.subview(key)?.takeIf { it.route == null }?.let { financeSubviews.select(section, it.key) }
+                                navController.replaceLink(entry, section.home, singleTop = true)
+                            }
+                        }
+                    }
                     composable(Screen.RecurringOperations.route, deepLinks = DeepLinks.forRoute(Screen.RecurringOperations.route)) {
                         val recurringViewModel: RecurringOperationViewModel = koinViewModel()
                         RecurringOperationListScreen(
@@ -1850,6 +1845,8 @@ fun NavGraph() {
                         TreasuryScreen(
                             viewModel = treasuryViewModel,
                             onBack = { navController.backInFinance() },
+                            onOpenCushion = { navController.navigate(Screen.Cushion.route) { launchSingleTop = true } },
+                            onOpenSavingsAdvances = { navController.navigate(Screen.SavingsAdvances.route) { launchSingleTop = true } },
                             onPrepareAdvance = { accountId, accountName, prefill ->
                                 selectedAccount = accountId to accountName.ifBlank { DEFAULT_ACCOUNT_NAME }
                                 transactionPrefill = prefill
@@ -1917,17 +1914,8 @@ fun NavGraph() {
                     composable(Screen.FinanceReviewActivity.route, deepLinks = DeepLinks.forRoute(Screen.FinanceReviewActivity.route)) {
                         ReviewActivityPage(navController, onOpenMaggie = { showChatSheet = true })
                     }
-                    composable(Screen.FinanceReview.route) {
-                        FinanceSummaryPage(FinanceMenu.REVIEW, navController, onOpenReview = openReview)
-                    }
-                    composable(Screen.FinanceTreasuryMenu.route) {
-                        FinanceSummaryPage(FinanceMenu.TREASURY, navController)
-                    }
-                    composable(Screen.FinancePlanning.route) {
-                        FinanceSummaryPage(FinanceMenu.PLANNING, navController)
-                    }
-                    composable(Screen.FinanceConfiguration.route) {
-                        FinanceSummaryPage(FinanceMenu.SETTINGS, navController)
+                    composable(Screen.Independence.route, deepLinks = DeepLinks.forRoute(Screen.Independence.route)) {
+                        IndependenceScreen(koinViewModel<FinanceDashboardViewModel>())
                     }
                     composable(Screen.FinanceDashboard.route, deepLinks = DeepLinks.forRoute(Screen.FinanceDashboard.route)) {
                         val dashboardViewModel: FinanceDashboardViewModel = koinViewModel()
@@ -1935,7 +1923,6 @@ fun NavGraph() {
                             viewModel = dashboardViewModel,
                             monthBalanceViewModel = koinViewModel<MonthBalanceViewModel>(),
                             upcomingViewModel = koinViewModel<UpcomingViewModel>(),
-                            onBack = { navController.popBackStack() },
                             onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
                             onOpenIncidents = { account ->
                                 selectedAccount = account.id to account.name.ifBlank { DEFAULT_ACCOUNT_NAME }

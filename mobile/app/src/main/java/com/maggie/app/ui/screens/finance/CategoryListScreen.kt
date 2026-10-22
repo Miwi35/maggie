@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Rule
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
@@ -32,10 +31,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -119,24 +117,14 @@ private fun CategoryTreeScreen(
 
     Scaffold(
         topBar = {
-            FinanceTopBar(Screen.CategoryList.route) {
-                TopAppBar(
-                    title = { Text("Catégories") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = onOpenRules) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Rule,
-                                contentDescription = "Règles de catégorisation",
-                            )
-                        }
-                    },
-                )
-            }
+            FinanceTopBar(Screen.CategoryList.route, actions = {
+                IconButton(onClick = onOpenRules) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Rule,
+                        contentDescription = "Règles de catégorisation",
+                    )
+                }
+            })
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {

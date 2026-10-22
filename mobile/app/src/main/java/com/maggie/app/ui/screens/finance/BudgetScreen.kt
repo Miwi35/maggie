@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -45,15 +44,14 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -82,12 +80,18 @@ import com.maggie.app.data.model.splitSharesOf
 import com.maggie.app.data.model.toSortPillLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.navigation.FinanceSection
+import com.maggie.app.ui.navigation.ProvideFinanceNav
+import com.maggie.app.ui.navigation.financeSubviewState
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import kotlin.math.roundToInt
+
+/** The key of Budget's « Hors budget » sub-view; the other one, « Mois », is the section's first. */
+private const val BUDGET_OUTSIDE = "outside"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,7 +108,26 @@ fun BudgetScreen(
     // « Ajuster » (MAG-461): the envelopes against what was really spent, on phone and tablet. Null: no entry.
     adjustments: EnvelopeAdjustmentsViewModel? = null,
 ) {
+    ProvideFinanceNav {
+        BudgetContent(viewModel, onBack, canEditSplit, showsDetailPane, toQualify, onOpenToQualify, adjustments)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BudgetContent(
+    viewModel: BudgetViewModel,
+    onBack: () -> Unit,
+    canEditSplit: Boolean,
+    showsDetailPane: Boolean,
+    toQualify: ToSortPile?,
+    onOpenToQualify: () -> Unit,
+    adjustments: EnvelopeAdjustmentsViewModel?,
+) {
     val uiState by viewModel.uiState.collectAsState()
+    // « Mois » (the envelopes of the month) or « Hors budget » (annual and one-off ones): the sub-view row's state.
+    val (subview, _) = financeSubviewState(FinanceSection.BUDGET)
+    val showsOutside = subview.key == BUDGET_OUTSIDE
     var adjusting by rememberSaveable { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var editingThreshold by remember { mutableStateOf<BudgetLine?>(null) }
@@ -138,33 +161,30 @@ fun BudgetScreen(
 
     val onAdjust = adjustments?.let { { adjusting = true } }
 
+    val topBar: @Composable () -> Unit = {
+        FinanceTopBar(Screen.BudgetList.route, actions = {
+            AdjustAction(onAdjust)
+            IconButton(
+                onClick = { viewModel.rollOverPreviousPeriod() },
+                enabled = !uiState.isRollingOver,
+            ) {
+                Icon(Icons.Default.ContentCopy, contentDescription = "Reconduire le mois précédent")
+            }
+        })
+    }
+
     if (showsDetailPane) {
-        BudgetConfigurationScreen(viewModel, uiState, snackbarHostState, onBack, toQualify, onOpenToQualify, onAdjust)
+        Column(modifier = Modifier.fillMaxSize()) {
+            topBar()
+            Box(modifier = Modifier.weight(1f)) {
+                BudgetConfigurationScreen(viewModel, uiState, snackbarHostState, showsOutside, toQualify, onOpenToQualify)
+            }
+        }
         return
     }
 
     Scaffold(
-        topBar = {
-            FinanceTopBar(Screen.BudgetList.route) {
-                TopAppBar(
-                    title = { Text("Budgets") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                    actions = {
-                        AdjustAction(onAdjust)
-                        IconButton(
-                            onClick = { viewModel.rollOverPreviousPeriod() },
-                            enabled = !uiState.isRollingOver,
-                        ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = "Reconduire le mois précédent")
-                        }
-                    },
-                )
-            }
-        },
+        topBar = topBar,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             if (editsSeasons) {
@@ -184,7 +204,7 @@ fun BudgetScreen(
             ToQualifyRow(toQualify, onOpenToQualify)
 
             uiState.status?.let { status ->
-                if (status.budgets.isNotEmpty()) {
+                if (status.budgets.isNotEmpty() && !showsOutside) {
                     Text(
                         text = "${formatCents(status.totalConsumedCents)} consommés sur " +
                             "${formatCents(status.totalBudgetedCents)} — " +
@@ -216,7 +236,7 @@ fun BudgetScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        if (budgets.isEmpty()) {
+                        if (budgets.isEmpty() && !showsOutside) {
                             item {
                                 Text(
                                     "Aucune enveloppe mensuelle pour cette période.",
@@ -224,7 +244,15 @@ fun BudgetScreen(
                                 )
                             }
                         }
-                        items(visibleBudgets, key = { it.line.id }) { row ->
+                        if (showsOutside && (outside == null || outside.isEmpty)) {
+                            item {
+                                Text(
+                                    "Rien hors du budget mensuel pour cette période.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        items(if (showsOutside) emptyList() else visibleBudgets, key = { it.line.id }) { row ->
                             val label = row.label.ifEmpty { tree.pathOf(row.line.categoryId) ?: row.line.categoryName }
                             BudgetCard(
                                 line = row.line,
@@ -254,7 +282,7 @@ fun BudgetScreen(
                                 },
                             )
                         }
-                        if (outside != null && !outside.isEmpty) {
+                        if (showsOutside && outside != null && !outside.isEmpty) {
                             outsideMonthlyBudget(
                                 outside = outside,
                                 annual = uiState.visibleAnnualBudgets,
@@ -264,7 +292,7 @@ fun BudgetScreen(
                                 onDelete = if (editsSeasons) viewModel::deleteEnvelope else null,
                             )
                         }
-                        if (!editsSeasons) {
+                        if (!editsSeasons && !showsOutside) {
                             item(key = "edit-elsewhere") {
                                 Text(
                                     "Les enveloppes se règlent sur la tablette ou le web.",

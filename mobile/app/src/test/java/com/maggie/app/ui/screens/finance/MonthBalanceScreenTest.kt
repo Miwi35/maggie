@@ -24,8 +24,8 @@ import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.ringAmount
 import com.maggie.app.ui.navigation.DeepLinks
-import com.maggie.app.ui.navigation.Screen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -33,7 +33,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 /**
- * Dashboard › État courant (MAG-457): the ring, the curve, the bars, the satisfaction, the savings and
+ * Dashboard › État courant (MAG-457, MAG-537): the ring, the curve, the bars, the satisfaction, the savings and
  * the cushion are drawn from one balance; an empty month says so instead of showing zeros.
  *
  * What the figures are is the API's (`MonthBalanceControllerTest`); what is checked here is that they
@@ -91,21 +91,19 @@ class MonthBalanceScreenTest {
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 9)).viewModel,
                 monthBalanceViewModel = fake.viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
-                onBack = {},
                 onOpen = onOpen,
             )
         }
-        compose.onNodeWithTag(UiTags.FINANCE_TAB_CURRENT).performClick()
     }
 
     @Test
     fun `the month ring says its status and what is over, and the curve is drawn`() {
         open()
 
-        compose.onNodeWithTag(UiTags.financeScoreRing("month")).assertIsDisplayed()
-        compose.onNodeWithText("Dépassement", substring = true).assertIsDisplayed()
-        compose.onNodeWithText(formatCents(-15000), substring = true).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.FINANCE_RHYTHM_CURVE).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.financeScoreRing("month")).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Au-dessus du rythme", substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(ringAmount(-15000), substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_RHYTHM_CURVE).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -166,6 +164,7 @@ class MonthBalanceScreenTest {
         compose.onNodeWithContentDescription("Mois précédent").performClick()
 
         compose.onNodeWithText("Août 2026").assertIsDisplayed()
+        compose.onNodeWithText("Bilan de août 2026").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -176,13 +175,14 @@ class MonthBalanceScreenTest {
     }
 
     @Test
-    fun `the tab of the balance is selected, and the overview tab goes back to the dashboard`() {
+    fun `the balance sits under État courant, and À venir takes it away`() {
         open()
 
-        compose.onNodeWithTag(UiTags.FINANCE_TAB_CURRENT).assertIsSelected()
-        compose.onNodeWithTag(UiTags.FINANCE_TAB_OVERVIEW).performClick()
+        compose.onNodeWithTag(UiTags.subview("current")).assertIsSelected()
+        compose.onNodeWithTag(UiTags.financeScoreRing("month")).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.subview("upcoming")).performClick()
 
-        compose.onNodeWithTag(UiTags.FINANCE_TAB_OVERVIEW).assertIsSelected()
+        compose.onNodeWithTag(UiTags.subview("upcoming")).assertIsSelected()
         compose.onNodeWithTag(UiTags.MONTH_BALANCE_ENVELOPES).assertDoesNotExist()
     }
 }

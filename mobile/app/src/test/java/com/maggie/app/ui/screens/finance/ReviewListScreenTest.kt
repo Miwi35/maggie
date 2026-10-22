@@ -163,9 +163,9 @@ class ReviewListScreenTest {
     fun `the list opens on the three pills with their counts, the month and the two groups`() {
         show(viewModel())
 
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_PILL_ALL).assertTextEquals("Toutes · 3")
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_PILL_UNRECOGNISED).assertTextEquals("À qualifier · 2")
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_PILL_RECOGNISED).assertTextEquals("Reconnues · 1")
+        compose.onNodeWithTag(UiTags.subview("all")).assertTextEquals("Toutes · 3")
+        compose.onNodeWithTag(UiTags.subview("to_qualify")).assertTextEquals("À qualifier · 2")
+        compose.onNodeWithTag(UiTags.subview("recognised")).assertTextEquals("Reconnues · 1")
         compose.onNodeWithText("Octobre 2026").assertIsDisplayed()
         compose.onNodeWithText("Depuis la dernière revue").assertIsDisplayed()
         compose.onNodeWithText("Toutes les dates").assertIsDisplayed()
@@ -204,15 +204,15 @@ class ReviewListScreenTest {
     fun `a state pill keeps the lines of that state only, the counts stay`() {
         show(viewModel())
 
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_PILL_UNRECOGNISED).performClick()
+        compose.onNodeWithTag(UiTags.subview("to_qualify")).performClick()
         compose.waitForIdle()
 
         compose.onAllNodesWithTag(UiTags.REVIEW_LIST_ROW).assertCountEquals(2)
         compose.onNodeWithTag(UiTags.REVIEW_LIST_SECTION_RECOGNISED).assertDoesNotExist()
         compose.onNodeWithText("NETFLIX.COM").assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_PILL_ALL).assertTextEquals("Toutes · 3")
+        compose.onNodeWithTag(UiTags.subview("all")).assertTextEquals("Toutes · 3")
 
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_PILL_RECOGNISED).performClick()
+        compose.onNodeWithTag(UiTags.subview("recognised")).performClick()
         compose.waitForIdle()
 
         compose.onAllNodesWithTag(UiTags.REVIEW_LIST_ROW).assertCountEquals(1)
@@ -347,8 +347,8 @@ class ReviewListScreenTest {
         compose.waitForIdle()
 
         compose.onNodeWithTag(UiTags.REVIEW_FICHE).assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_PILL_UNRECOGNISED).assertTextEquals("À qualifier · 1")
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_PILL_RECOGNISED).assertTextEquals("Reconnues · 2")
+        compose.onNodeWithTag(UiTags.subview("to_qualify")).assertTextEquals("À qualifier · 1")
+        compose.onNodeWithTag(UiTags.subview("recognised")).assertTextEquals("Reconnues · 2")
         compose.onAllNodesWithTag(UiTags.REVIEW_LIST_ROW).assertCountEquals(3)
     }
 
@@ -375,7 +375,7 @@ class ReviewListScreenTest {
     fun `the position counts the filtered list, not the period`() {
         val model = viewModel()
         show(model)
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_PILL_UNRECOGNISED).performClick()
+        compose.onNodeWithTag(UiTags.subview("to_qualify")).performClick()
         compose.waitForIdle()
 
         compose.onAllNodesWithTag(UiTags.REVIEW_LIST_ROW)[1].performClick()

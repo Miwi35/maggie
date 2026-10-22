@@ -24,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.automirrored.filled.Rule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -73,13 +75,15 @@ import com.maggie.app.data.model.TO_SORT_REASON_PEER_TRANSFER
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.qualificationProvenance
 import com.maggie.app.data.model.reviewMonthLabel
-import com.maggie.app.data.model.reviewPillLabel
 import com.maggie.app.data.model.transferLegSummary
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.CategorySearchDialog
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.ModuleDetailBar
+import com.maggie.app.ui.components.SubviewBar
+import com.maggie.app.ui.components.SubviewItem
 import com.maggie.app.ui.layout.ListDetailPane
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.theme.MaggieTokens
@@ -105,6 +109,8 @@ fun ReviewListScreen(
     showsDetailPane: Boolean = false,
     onOpenTransaction: (ReviewQueueItem) -> Unit = {},
     onOpenOperation: (ReviewQueueItem) -> Unit = {},
+    onOpenRules: () -> Unit = {},
+    onOpenRecurring: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -222,20 +228,29 @@ fun ReviewListScreen(
 
     Scaffold(
         topBar = {
-            FinanceTopBar(Screen.ReviewList.route) {
-                TopAppBar(
-                    title = { Text("Revue") },
-                    navigationIcon = {
-                        IconButton(
-                            onClick = if (ficheOnly) viewModel::backToList else onBack,
-                            modifier = if (ficheOnly) Modifier.testTag(UiTags.REVIEW_BACK_TO_LIST) else Modifier,
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = if (ficheOnly) "Retour à la liste" else "Retour",
-                            )
+            if (ficheOnly) {
+                ModuleDetailBar(
+                    title = "Revue",
+                    onBack = viewModel::backToList,
+                    backDescription = "Retour à la liste",
+                    backModifier = Modifier.testTag(UiTags.REVIEW_BACK_TO_LIST),
+                )
+            } else {
+                FinanceTopBar(
+                    Screen.ReviewList.route,
+                    actions = {
+                        IconButton(onClick = onOpenRules, modifier = Modifier.testTag(UiTags.REVIEW_OPEN_RULES)) {
+                            Icon(Icons.AutoMirrored.Filled.Rule, contentDescription = "Règles")
+                        }
+                        IconButton(onClick = onOpenRecurring, modifier = Modifier.testTag(UiTags.REVIEW_OPEN_RECURRING)) {
+                            Icon(Icons.Default.Repeat, contentDescription = "Opérations récurrentes")
                         }
                     },
+                    subviews = SubviewBar(
+                        items = ReviewState.entries.map { SubviewItem(reviewSubviewKey(it), it.label, state.counts.of(it)) },
+                        selectedKey = reviewSubviewKey(state.state),
+                        onSelect = { item -> ReviewState.entries.firstOrNull { reviewSubviewKey(it) == item.key }?.let(viewModel::setState) },
+                    ),
                 )
             }
         },
@@ -298,20 +313,6 @@ private fun FilterHeader(state: ReviewListUiState, viewModel: ReviewListViewMode
     ) {
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ReviewState.entries.forEach { pill ->
-                FilterChip(
-                    selected = state.state == pill,
-                    onClick = { viewModel.setState(pill) },
-                    label = { Text(reviewPillLabel(pill, state.counts.of(pill))) },
-                    modifier = Modifier.testTag(stateTag(pill)),
-                )
-            }
-        }
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -343,10 +344,11 @@ private fun FilterHeader(state: ReviewListUiState, viewModel: ReviewListViewMode
     }
 }
 
-private fun stateTag(state: ReviewState): String = when (state) {
-    ReviewState.ALL -> UiTags.REVIEW_LIST_PILL_ALL
-    ReviewState.UNRECOGNISED -> UiTags.REVIEW_LIST_PILL_UNRECOGNISED
-    ReviewState.RECOGNISED -> UiTags.REVIEW_LIST_PILL_RECOGNISED
+/** The sub-view key of a state's pill, the one `FinanceSection.REVIEW` declares. */
+private fun reviewSubviewKey(state: ReviewState): String = when (state) {
+    ReviewState.ALL -> "all"
+    ReviewState.UNRECOGNISED -> "to_qualify"
+    ReviewState.RECOGNISED -> "recognised"
 }
 
 // What the list draws: a heading, then the rows of its group.

@@ -37,6 +37,16 @@ object DeepLinks {
     const val REVIEW_TO_CONTROL_ROUTE = "link/finance/to-control"
     const val REVIEW_MONTHLY_ROUTE = "link/finance/review"
 
+    const val ARG_SUBVIEW = "subview"
+
+    /**
+     * `maggie://finance/<section>/<sous-vue>` for the sections whose sub-views are a state of their home screen
+     * (MAG-537): the link sets the state, then swaps itself for the section's page. The other sections' sub-views are
+     * routes of their own, with their own patterns below.
+     */
+    const val FINANCE_DASHBOARD_SUBVIEW_ROUTE = "link/finance/dashboard/{$ARG_SUBVIEW}"
+    const val FINANCE_BUDGET_SUBVIEW_ROUTE = "link/finance/budget/{$ARG_SUBVIEW}"
+
     private val PATTERNS: Map<String, List<String>> = mapOf(
         // The Accueil (MAG-560): where the app opens, and what a link to « the home » of the app lands on.
         Screen.Home.route to listOf("$SCHEME://home"),
@@ -48,27 +58,38 @@ object DeepLinks {
         ACCOUNT_ROUTE to listOf("$SCHEME://finance/accounts/{$ARG_ID}?$ARG_NAME={$ARG_NAME}"),
         // The tasks screen (MAG-512): what a routine reminder's « Voir » opens.
         Screen.Tasks.route to listOf("$SCHEME://tasks"),
-        Screen.FinanceDashboard.route to listOf("$SCHEME://finance"),
+        Screen.FinanceDashboard.route to listOf("$SCHEME://finance", "$SCHEME://finance/dashboard"),
+        FINANCE_DASHBOARD_SUBVIEW_ROUTE to listOf("$SCHEME://finance/dashboard/{$ARG_SUBVIEW}"),
+        FINANCE_BUDGET_SUBVIEW_ROUTE to listOf("$SCHEME://finance/budget/{$ARG_SUBVIEW}"),
         CONTACT_ROUTE to listOf("$SCHEME://finance/contacts/{$ARG_ID}"),
         Screen.AccountList.route to listOf("$SCHEME://finance/accounts"),
         Screen.Contacts.route to listOf("$SCHEME://finance/contacts"),
-        Screen.BudgetList.route to listOf("$SCHEME://finance/budgets"),
-        Screen.CategoryList.route to listOf("$SCHEME://finance/categories"),
+        Screen.BudgetList.route to listOf("$SCHEME://finance/budgets", "$SCHEME://finance/budget"),
+        Screen.CategoryList.route to listOf(
+            "$SCHEME://finance/categories",
+            "$SCHEME://finance/configuration",
+            "$SCHEME://finance/configuration/categories",
+        ),
         Screen.CategorizationRuleList.route to listOf("$SCHEME://finance/rules"),
         Screen.RuleSuggestions.route to listOf("$SCHEME://finance/rule-suggestions"),
-        REVIEW_TO_SORT_ROUTE to listOf("$SCHEME://finance/to-sort"),
-        REVIEW_TO_CONTROL_ROUTE to listOf("$SCHEME://finance/to-control"),
-        REVIEW_MONTHLY_ROUTE to listOf("$SCHEME://finance/review"),
+        REVIEW_TO_SORT_ROUTE to listOf("$SCHEME://finance/to-sort", "$SCHEME://finance/review/to-qualify"),
+        REVIEW_TO_CONTROL_ROUTE to listOf("$SCHEME://finance/to-control", "$SCHEME://finance/review/recognised"),
+        REVIEW_MONTHLY_ROUTE to listOf("$SCHEME://finance/review", "$SCHEME://finance/review/all"),
         Screen.ReviewList.route to listOf("$SCHEME://finance/review/list"),
         Screen.RecurringOperations.route to listOf("$SCHEME://finance/recurring-operations"),
-        Screen.BankConnectionList.route to listOf("$SCHEME://finance/banks"),
+        Screen.BankConnectionList.route to listOf("$SCHEME://finance/banks", "$SCHEME://finance/configuration/banks"),
         Screen.Cushion.route to listOf("$SCHEME://finance/cushion"),
         Screen.Treasury.route to listOf("$SCHEME://finance/treasury"),
         Screen.SavingsAdvances.route to listOf("$SCHEME://finance/savings-advances"),
         Screen.PeerDebts.route to listOf("$SCHEME://finance/peer-debts"),
-        Screen.LoanList.route to listOf("$SCHEME://finance/loans"),
-        Screen.ProjectList.route to listOf("$SCHEME://finance/projects"),
-        Screen.PlacementList.route to listOf("$SCHEME://finance/placements"),
+        Screen.LoanList.route to listOf("$SCHEME://finance/loans", "$SCHEME://finance/planning/loans"),
+        Screen.ProjectList.route to listOf(
+            "$SCHEME://finance/projects",
+            "$SCHEME://finance/planning",
+            "$SCHEME://finance/planning/projects",
+        ),
+        Screen.PlacementList.route to listOf("$SCHEME://finance/placements", "$SCHEME://finance/planning/placements"),
+        Screen.Independence.route to listOf("$SCHEME://finance/planning/independence"),
         Screen.FinanceReviewActivity.route to listOf("$SCHEME://finance/review/activity"),
         Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}"),
     )

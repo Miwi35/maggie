@@ -52,7 +52,6 @@ class IndependenceCardScreenTest {
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(dashboardWith(counter)).viewModel,
-                onBack = {},
                 onOpen = {},
             )
         }
