@@ -2,7 +2,7 @@ import { test, expect } from '../fixtures/index.js'
 import { calledTools, toolResults } from '../helpers/agui.js'
 import { getCollection } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * « Montre-moi mon dernier salaire » (MAG-364, extends MAG-99).
@@ -68,7 +68,7 @@ test('« montre-moi mon dernier salaire » lists the category, not every income'
   }
 
   // When I ask for my last salary.
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
   const chat = new ChatPanel(page)
   const events = await chat.send(`Montre-moi mon dernier salaire, catégorie ${salaryId}`)
 

@@ -1,7 +1,7 @@
 import { test, expect, seedId } from '../fixtures/index.js'
 import { assistantText, calledTools, toolResults } from '../helpers/agui.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * The yearly planning session (MAG-48), extending the finance journeys of
@@ -76,7 +76,7 @@ test('asking Maggie to prepare the year reads what the year behind cost', async 
     expect(response.status(), await response.text()).toBe(201)
   }
 
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)

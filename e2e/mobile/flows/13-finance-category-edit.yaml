@@ -67,10 +67,10 @@ tags:
     arguments:
       e2e_journey: e2e/mobile/flows/13-finance-category-edit.yaml
 # The link waits for the session to be restored: opened on a cold start it is lost to
-# the dashboard (the failed run of 8 Oct. ended there).
+# the Accueil (the failed run of 8 Oct. ended there).
 - extendedWaitUntil:
     visible:
-      id: "dashboard"
+      id: "home_screen"
     timeout: 40000
 - openLink: "maggie-e2e://finance/categories"
 

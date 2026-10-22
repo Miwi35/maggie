@@ -28,7 +28,7 @@ class FoldDetailRouteScreenTest {
         compose.setContent {
             nav = rememberNavController()
             NavHost(nav, startDestination = start) {
-                composable(Screen.Dashboard.route) { Text("dashboard") }
+                composable(Screen.Home.route) { Text("home") }
                 composable(Screen.Cookbook.route) { Text("list") }
                 composable(Screen.RecipeDetail.route) { Text("detail") }
             }
@@ -52,13 +52,13 @@ class FoldDetailRouteScreenTest {
 
     @Test
     fun `a detail reached from elsewhere leaves the list on top of what was there`() {
-        host(Screen.Dashboard.route)
+        host(Screen.Home.route)
         compose.runOnIdle { nav.navigate(Screen.RecipeDetail.route) }
         compose.waitForIdle()
 
         compose.runOnIdle { nav.foldRouteInto(Screen.RecipeDetail.route, Screen.Cookbook.route) }
         compose.waitForIdle()
 
-        assertEquals(listOf(Screen.Dashboard.route, Screen.Cookbook.route), stack())
+        assertEquals(listOf(Screen.Home.route, Screen.Cookbook.route), stack())
     }
 }

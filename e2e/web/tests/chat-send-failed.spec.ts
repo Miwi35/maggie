@@ -3,7 +3,7 @@ import { test, expect } from '../fixtures/index.js'
 import { parseAgUiStream } from '../helpers/agui.js'
 import { withChatLock } from '../helpers/chatLock.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * A message the agent could not be reached for (MAG-363, extends MAG-99).
@@ -34,7 +34,7 @@ test('an unreachable agent leaves a mention under the message, and « Réessayer
   const ANSWER = `Bonjour ! Je suis là, dis-moi ce qu'il te faut. (réf ${ref})`
 
   await withChatLock(async () => {
-    await new DashboardPage(page).open()
+    await new HomePage(page).open()
     const chat = new ChatPanel(page)
     await chat.open()
 

@@ -1,11 +1,11 @@
 import { test, expect, seedAnchorDate } from '../fixtures/index.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import { LoginPage } from '../pages/LoginPage.js'
 import { adminUrl, ROUTES } from '../pages/routes.js'
 
 /**
- * The web smoke journey: the admin loads signed in, the dashboard shows the
- * seeded world, and the menu goes where it says it goes.
+ * The web smoke journey: the admin loads signed in on the Accueil, the seeded
+ * world is behind the menu, and the menu goes where it says it goes.
  *
  * Tagged `@responsive`, so it runs on all three projects. That is the point of
  * having three: the sidebar is folded away below 900px, and everything below
@@ -17,24 +17,24 @@ import { adminUrl, ROUTES } from '../pages/routes.js'
  */
 
 test.describe('Admin smoke @responsive', () => {
-  test('signs in with the test login and lands on the dashboard', async ({ page }) => {
-    const dashboard = new DashboardPage(page)
-    await dashboard.open()
+  test('signs in with the test login and lands on the Accueil', async ({ page }) => {
+    const home = new HomePage(page)
+    await home.open()
 
-    // The seeded event of the anchor day. Its presence proves rather a lot at
-    // once: the JWT reached the data provider, the Hydra documentation was
-    // parsed *with* that JWT (MAG-93 — 3f16b42, where it was not, and every
-    // resource 401'd at schema introspection), and the search index the seed
-    // rebuilt is being read.
-    await expect(dashboard.entry('Déjeuner avec Alex')).toBeVisible()
+    // The seeded events are read on the Agenda below (the cards of the Accueil
+    // bring their own journeys): the JWT reached the data provider, the Hydra
+    // documentation was parsed *with* it (MAG-93 — 3f16b42, where it was not,
+    // and every resource 401'd at schema introspection), and the search index
+    // the seed rebuilt is being read.
+    await expect(home.day("Aujourd'hui")).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('the menu opens and navigates, folded or not', async ({ page }) => {
-    const dashboard = new DashboardPage(page)
+    const dashboard = new HomePage(page)
     await dashboard.open()
 
     await dashboard.openMenu()
-    await expect(dashboard.menuItem('Tableau de bord')).toBeVisible()
+    await expect(dashboard.menuItem('Accueil')).toBeVisible()
     await expect(dashboard.menuItem('Calendrier')).toBeVisible()
 
     // A nested entry, the case the folded sidebar makes interesting: two
@@ -51,7 +51,7 @@ test.describe('Admin smoke @responsive', () => {
       dashboard.content.getByRole('row', { name: /Déjeuner avec Alex/ }),
     ).toContainText(`${day}/${month}/${year}`)
 
-    await dashboard.navigateTo('Tableau de bord')
+    await dashboard.navigateTo('Accueil')
     await dashboard.expectReady()
   })
 })
@@ -60,7 +60,7 @@ test('an anonymous visitor gets the login screen, not a blank page @responsive',
   anonymousPage,
 }) => {
   const login = new LoginPage(anonymousPage)
-  await anonymousPage.goto(adminUrl(ROUTES.dashboard))
+  await anonymousPage.goto(adminUrl(ROUTES.home))
 
   // MAG-140: this used to take 7 to 25 seconds, on a blank page.
   await login.expectShown(3_000)

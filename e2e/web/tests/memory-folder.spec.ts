@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { test, expect } from '../fixtures/index.js'
 import { assistantText, parseAgUiStream } from '../helpers/agui.js'
 import { withChatLock, withLock } from '../helpers/chatLock.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * Maggie's memory folder and its bucket (MAG-195, extends MAG-99).
@@ -78,7 +78,7 @@ test('a file changed in the bucket is taken back, Maggie answers during an outag
     expect(await search('anniversaire')).toContain(GIFT)
 
     // And she still answers the chat, honestly.
-    await new DashboardPage(page).open()
+    await new HomePage(page).open()
     const ask = async (): Promise<string> =>
       withChatLock(async () => {
         const body = await page.evaluate(
@@ -134,7 +134,7 @@ test('a fiche that evokes mothers day comes back on its own in the context sent 
 
     // When the owner speaks of a bouquet for mothers day, Then the fiche is in the context sent to the model:
     // the fake only answers when the recalled carte is in its system prompt.
-    await new DashboardPage(page).open()
+    await new HomePage(page).open()
     const answer = await withChatLock(async () => {
       const body = await page.evaluate(
         async ({ message, token }) => {

@@ -120,6 +120,18 @@ describe('CustomMenu — the meal settings entry', () => {
   })
 })
 
+describe('CustomMenu — Accueil', () => {
+  test('is the first entry and leads to the Accueil', async () => {
+    stubPersonality('Maggie')
+    await renderMenu()
+
+    const [first] = screen.getAllByRole('menuitem')
+    expect(first).toHaveTextContent('Accueil')
+    expect(first).toHaveAttribute('href', '/')
+    expect(screen.queryByText('Tableau de bord')).toBeNull()
+  })
+})
+
 describe('CustomMenu — Finance', () => {
   const renderFinanceMenu = async (path = '/') => {
     stubPersonality('Maggie')

@@ -45,7 +45,7 @@ test('an expired token is refused and its credentials dropped', async ({ pageWit
   const page = await pageWithToken(forgedToken(-60))
   const login = new LoginPage(page)
 
-  await page.goto(adminUrl(ROUTES.dashboard))
+  await page.goto(adminUrl(ROUTES.home))
 
   // e799109: `checkAuth` did not look at `exp`, so an expired session looked
   // alive until the first request failed. What must happen is the login
@@ -59,7 +59,7 @@ test('a session the server refuses sends the user back to the login screen', asy
   const page = await pageWithToken(forgedToken(3600))
   const login = new LoginPage(page)
 
-  await page.goto(adminUrl(ROUTES.dashboard))
+  await page.goto(adminUrl(ROUTES.home))
 
   // The regression (a163dcb) was a blank page: the 401 came back, nothing
   // caught it, and the app rendered nothing at all. What must happen instead
@@ -95,7 +95,7 @@ test('signing out drops the credentials and shows the login screen', async ({ pa
   const shell = new AdminShell(page)
   const login = new LoginPage(page)
 
-  await shell.goto(ROUTES.dashboard)
+  await shell.goto(ROUTES.home)
   await shell.expectLoaded()
 
   await page.getByRole('banner').getByRole('button', { name: 'Profil' }).click()
@@ -116,7 +116,7 @@ test('an expired access token is renewed from the refresh cookie instead of sign
   const login = new LoginPage(page)
 
   const refreshed = page.waitForResponse((response) => response.url().endsWith('/api/token/refresh'))
-  await page.goto(adminUrl(ROUTES.dashboard))
+  await page.goto(adminUrl(ROUTES.home))
   const response = await refreshed
 
   await shell.expectLoaded()
@@ -161,7 +161,7 @@ test('signing out revokes the refresh token', async ({ pageWithOwnSession, playw
   const refreshCookie = session.cookies.find((cookie) => 'refresh_token' === cookie.name)
   expect(refreshCookie, 'the e2e login must hand out the refresh cookie').toBeDefined()
 
-  await shell.goto(ROUTES.dashboard)
+  await shell.goto(ROUTES.home)
   await shell.expectLoaded()
   await page.getByRole('banner').getByRole('button', { name: 'Profil' }).click()
   await page.getByRole('menuitem', { name: 'Déconnexion' }).click()

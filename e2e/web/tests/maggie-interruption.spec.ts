@@ -1,6 +1,6 @@
 import { test, expect, e2eNow } from '../fixtures/index.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { toolResults } from '../helpers/agui.js'
 import { callMcpTool } from '../helpers/mcp.js'
@@ -46,7 +46,7 @@ const proaction = (userId: string, id: string) => ({
 
 test('a proaction that completes interrupts the open admin, and « Plus tard » closes it', async ({ interruptedUser }) => {
   const { page, session } = interruptedUser
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   // An open conversation already shows what Maggie says: nothing to interrupt.
   await new ChatPanel(page).ensureClosed()
@@ -64,7 +64,7 @@ test('a proaction that completes interrupts the open admin, and « Plus tard » 
 
 test('Esc is « Plus tard »', async ({ interruptedUser }) => {
   const { page, session } = interruptedUser
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   // An open conversation already shows what Maggie says: nothing to interrupt.
   await new ChatPanel(page).ensureClosed()
@@ -91,7 +91,7 @@ const notification = (id: string, title: string, overrides: Record<string, unkno
 
 test('an event reminder interrupts the open admin, and « Plus tard » closes it', async ({ interruptedUser }) => {
   const { page, session } = interruptedUser
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   const topic = `/users/${session.user.id}/api/notifications/e2e-reminder-1`
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
 
@@ -155,7 +155,7 @@ test('« C\'est noté » on an event reminder marks it read and closes it, and t
 test('a task alert « Dans 3 j » interrupts, and « Voir la tâche » opens the task', async ({ interruptedUser }) => {
   const { page, api, session } = interruptedUser
   const title = `Dans 3 j : Déclarer les impôts ${test.info().retry}`
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   await new ChatPanel(page).ensureClosed()
 
@@ -211,7 +211,7 @@ test('touching a task alert in the bell opens the task screen, not a missing pag
 
 test('a notification created by a proaction interrupts, even with the chat open', async ({ interruptedUser }) => {
   const { page, session } = interruptedUser
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   // The open chat shows messages, not notifications: it does not spare this one.
   await new ChatPanel(page).open()
@@ -231,7 +231,7 @@ test('a notification created by a proaction interrupts, even with the chat open'
 
 test('three notifications arriving together pass one after the other, never twice', async ({ interruptedUser }) => {
   const { page, session } = interruptedUser
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   await new ChatPanel(page).ensureClosed()
 
@@ -255,7 +255,7 @@ test('three notifications arriving together pass one after the other, never twic
 
 test('an action waiting for the user is asked with Autoriser and Refuser', async ({ interruptedUser }) => {
   const { page, session } = interruptedUser
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await page.route('**/agent/approvals/e2e-approval-1/approve*', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
   )
@@ -308,7 +308,7 @@ test('a proaction asked for in the chat sits in the « Maggie » agenda, runs on
   // The executor claims due proactions once a minute: up to a minute of waiting, then the run.
   test.setTimeout(240_000)
   const { page, api, session } = interruptedUser
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await openSubscribed(page, () => dashboard.open(), `/chat/${session.user.id}`)
 
   // The fake cannot work out « dans 2 minutes »: the sentence names the instant, on the stack's clock.
@@ -370,7 +370,7 @@ test('a bank sync that takes an envelope past 80 % interrupts, once, and « Voir
   envelopeAlertUser,
 }) => {
   const { page, api, session } = envelopeAlertUser
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   await new ChatPanel(page).ensureClosed()
 

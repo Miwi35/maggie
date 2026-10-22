@@ -2,7 +2,6 @@ import { test, expect } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
 import { getCollection } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
 
 /**
  * Nothing of the neighbour's reaches the signed-in user (MAG-114 § 2).
@@ -61,22 +60,6 @@ test("the tasks collection holds the caller's tasks and no one else's", async ({
   const theirs = await titles(otherUser.api)
   expect(theirs).toContain(THEIRS.task)
   expect(theirs).not.toContain(MINE.task)
-})
-
-/**
- * "What do I have today?", asked of the screen that answers it.
- *
- * The dashboard is the one place the owner reads their day whole — events and tasks,
- * today and tomorrow — so it is where a leak would be seen first. It reads four
- * collections, and one of them forgetting its filter is exactly MAG-114.
- */
-test("the dashboard shows the owner's day and nothing of the neighbour's", async ({ page }) => {
-  const dashboard = new DashboardPage(page)
-  await dashboard.open()
-
-  await expect(dashboard.line(MINE.event)).toHaveCount(1)
-  await expect(dashboard.line(THEIRS.event), "the neighbour's lunch is on the dashboard").toHaveCount(0)
-  await expect(dashboard.line(THEIRS.task), "the neighbour's task is on the dashboard").toHaveCount(0)
 })
 
 test("the agenda grid draws the owner's events and nothing of the neighbour's", async ({ page }) => {

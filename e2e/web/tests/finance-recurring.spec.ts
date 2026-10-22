@@ -4,7 +4,7 @@ import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { calledTools, toolResults } from '../helpers/agui.js'
 import { expectRealtimeSync, openMercureProbe, openSubscribed, userTopic } from '../helpers/mercure.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import { FinanceAccountsPage } from '../pages/FinanceAccountsPage.js'
 import { FinanceRecurringPage } from '../pages/FinanceRecurringPage.js'
 
@@ -384,7 +384,7 @@ test('the overview reads a subscription\'s cost and next due date, and Maggie re
   await expect(recurring.row(`Courant MAG-306, essai ${attempt}`)).not.toContainText('Hausse de prix')
 
   // When I ask Maggie what my subscriptions cost.
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
   const events = await new ChatPanel(page).send('Combien me coûtent mes abonnements ?')
 
   // Then she read the recurring operations, and it went through.

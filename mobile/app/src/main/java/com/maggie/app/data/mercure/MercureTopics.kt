@@ -38,6 +38,13 @@ object MercureTopics {
      */
     fun agentScoped(userId: String, stream: String): String = "/$stream/$userId"
 
+    /**
+     * The collection a card of the Accueil refreshes on (MAG-560): `home/{module}`, published by the API
+     * each time what the card reads changes. Not in [SUBSCRIBED]: the module is the card's, so the set
+     * cannot name it; each card's ticket checks its own against `api/contract/mercure-topics.json`.
+     */
+    fun home(module: String): String = "home/$module"
+
     const val CHAT = "chat"
     const val CONTEXTS = "contexts"
     const val APPROVALS = "approvals"

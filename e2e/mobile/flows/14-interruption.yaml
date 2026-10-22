@@ -6,13 +6,13 @@ tags:
 # Maggie interrupts the open app instead of notifying (MAG-314).
 #
 # Maggie creates a notification while the app is in front: the owner sees her toaster over
-# the dashboard — veil, bubble « MAGGIE · maintenant », the message, « C'est noté », the
+# the Accueil — veil, bubble « MAGGIE · maintenant », the message, « C'est noté », the
 # link and « Plus tard » — and no system notification. Queue order, the 30 seconds, the dedupe
 # between FCM and Mercure, reduced animations and what each button does are
 # `InterruptionHostScreenTest`, `InterruptionViewModelTest` and `InterruptionCenterTest`
 # (JVM); this flow proves the live chain: agent → MCP → Mercure → the open app → the window.
 #
-# The notification is raised over HTTP (`scripts/interruption-api.js`) once the dashboard is
+# The notification is raised over HTTP (`scripts/interruption-api.js`) once the Accueil is
 # showing, so it can only arrive from the live feed. Tapping « Plus tard » closes the toaster;
 # the second notification is then answered with its link, which opens what it announces.
 #
@@ -47,7 +47,7 @@ tags:
       id: "interruption"
     timeout: 20000
 - assertVisible:
-    id: "dashboard"
+    id: "home_screen"
 
 # A second one, answered with its link: it opens what it announces.
 - runScript:
@@ -66,7 +66,7 @@ tags:
     visible: "Comptes"
     timeout: 20000
 - assertNotVisible:
-    id: "dashboard"
+    id: "home_screen"
 
 # The morning task alert (MAG-410): the cron files a `task_due` notification titled « Dans 3 j : … »;
 # the open app says it with « Fait » (which completes the task) and « Plus tard »; opening the task

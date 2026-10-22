@@ -1,5 +1,5 @@
 appId: com.maggie.app.e2e
-name: open a main destination from the dashboard
+name: open a main destination from the Accueil
 ---
 # `DEST` is the route of the destination: calendar, cookbook, grocery…
 #

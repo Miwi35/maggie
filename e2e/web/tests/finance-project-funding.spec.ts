@@ -3,7 +3,7 @@ import { test, expect, seedId } from '../fixtures/index.js'
 import { assistantText, calledTools, toolResults } from '../helpers/agui.js'
 import { getCollection } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * A project's funding sources, by conversation (MAG-524, extends MAG-102).
@@ -76,7 +76,7 @@ test('« prends 1 000 € sur le Livret jeune et emprunte 6 000 € » leaves 3 
   expect(await storedCar(api)).toMatchObject({ salaryCents: 1000000, fundingSources: [] })
 
   // When I tell Maggie…
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
   const chat = new ChatPanel(page)
   const events = await chat.send('Pour la voiture, prends 1 000 € sur le Livret jeune et emprunte 6 000 € sur 24 mois à 4 %')
 

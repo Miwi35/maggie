@@ -1,7 +1,7 @@
 import { test, expect } from '../fixtures/index.js'
 import { assistantText, calledTools, countEvents, parseAgUiStream } from '../helpers/agui.js'
 import { withChatLock } from '../helpers/chatLock.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * The same message sent twice while Maggie still answers it (MAG-386, extends MAG-99).
@@ -19,7 +19,7 @@ test('the same message sent twice while Maggie answers makes one turn and one an
   // Unique per run: a retry of this journey inside the minute would otherwise attach to the first run's answer.
   const QUESTION = `Vérifie encore une fois, double envoi ${Date.now()}`
   const { page, api, session } = otherUser
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
 
   await withChatLock(async () => {
     const [first, second] = await page.evaluate(

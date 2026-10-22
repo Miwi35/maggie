@@ -5,7 +5,7 @@ import { dayOfThisWeek } from '../helpers/week.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import { ROUTES, accountTransactionsRoute } from '../pages/routes.js'
 
 /**
@@ -91,7 +91,7 @@ async function sidewaysOverflow(page: Page): Promise<number> {
 }
 
 const PAGES = [
-  ['le tableau de bord', ROUTES.dashboard],
+  ["l'accueil", ROUTES.home],
   ['le calendrier', ROUTES.calendar],
   ['les courses', ROUTES.grocery],
   ['les repas de la semaine', ROUTES.meals],
@@ -116,7 +116,7 @@ test.describe('Responsive @responsive', () => {
 
   test('the conversation is where the window has room for it', async ({ page }) => {
     const shape = shapeOf(page)
-    const dashboard = new DashboardPage(page)
+    const dashboard = new HomePage(page)
     const chat = new ChatPanel(page)
 
     await dashboard.open()
@@ -132,12 +132,12 @@ test.describe('Responsive @responsive', () => {
 
     // And the page is whole again once it is put away.
     await chat.close()
-    await expect(dashboard.heading).toBeVisible()
+    await expect(dashboard.daySelector).toBeVisible()
   })
 
   test('the menu folds away, and comes back over the page', async ({ page }) => {
     const shape = shapeOf(page)
-    const dashboard = new DashboardPage(page)
+    const dashboard = new HomePage(page)
 
     await dashboard.open()
 
@@ -160,7 +160,7 @@ test.describe('Responsive @responsive', () => {
     const shape = shapeOf(page)
     const shell = new AdminShell(page)
 
-    await shell.goto(ROUTES.dashboard)
+    await shell.goto(ROUTES.home)
     await shell.expectLoaded()
 
     // The search field becomes a magnifier below `md`: the bar carries a

@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.ExpandedEvent
-import com.maggie.app.ui.screens.dashboard.parseColor
+import com.maggie.app.ui.screens.shared.parseColor
 import com.maggie.app.ui.theme.readableTextOn
 import com.maggie.app.util.DateRanges
 import java.time.Instant

@@ -46,7 +46,7 @@ tags:
       e2e_journey: e2e/mobile/flows/13-chat-opens-on-latest.yaml
 - extendedWaitUntil:
     visible:
-      id: "dashboard"
+      id: "home_screen"
     timeout: 40000
 
 # The microphone: the voice sheet.
@@ -65,7 +65,7 @@ tags:
 - back
 - extendedWaitUntil:
     visible:
-      id: "dashboard"
+      id: "home_screen"
     timeout: 20000
 - tapOn:
     id: "chat_mic"
@@ -82,7 +82,7 @@ tags:
 - back
 - extendedWaitUntil:
     visible:
-      id: "dashboard"
+      id: "home_screen"
     timeout: 20000
 - runFlow: ../subflows/open-chat.yaml
 - extendedWaitUntil:

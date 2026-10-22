@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { test, expect } from '../fixtures/index.js'
 import { assistantText, parseAgUiStream } from '../helpers/agui.js'
 import { withChatLock, withLock } from '../helpers/chatLock.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * Encoding along the way (MAG-15, extends MAG-99 and MAG-17).
@@ -52,7 +52,7 @@ test('a subject that went quiet gets its carte and its obvious fiche, and the jo
     }
 
     await call(api, 'delete', user)
-    await new DashboardPage(page).open()
+    await new HomePage(page).open()
 
     // Given an exchange where the owner says something obvious in passing, answered without any tool,
     const answer = await withChatLock(async () => {

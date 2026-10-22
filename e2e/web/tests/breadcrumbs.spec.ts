@@ -98,7 +98,7 @@ test('a settings page and the dashboard carry their trail @responsive', async ({
   const trail = page.getByRole('navigation', { name: "Fil d'Ariane" })
   const narrow = (page.viewportSize()?.width ?? NARROW_BELOW) < NARROW_BELOW
 
-  await shell.goto(ROUTES.dashboard)
+  await shell.goto(ROUTES.home)
   await expect(trail.getByText('Accueil')).toHaveAttribute('aria-current', 'page')
 
   // Below `md` only the parent is shown, so the page's own name is not there.
@@ -120,7 +120,7 @@ test('the menu opens a page of tabs, the cushion tab shows the cushion, and the 
   const trail = page.getByRole('navigation', { name: "Fil d'Ariane" })
   const narrow = (page.viewportSize()?.width ?? NARROW_BELOW) < NARROW_BELOW
 
-  await shell.goto(ROUTES.dashboard)
+  await shell.goto(ROUTES.home)
   await shell.expectLoaded()
   await shell.navigateTo('Trésorerie', 'Finance')
 

@@ -38,7 +38,7 @@ import com.maggie.app.data.model.Proaction
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.DateField
 import com.maggie.app.ui.components.TimeField
-import com.maggie.app.ui.screens.dashboard.parseColor
+import com.maggie.app.ui.screens.shared.parseColor
 import com.maggie.app.ui.screens.fullcalendar.PROACTIONS_COLOR
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.util.DateRanges

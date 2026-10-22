@@ -127,7 +127,7 @@ note "the stack answers on $BASE_URL"
 # The time zone *before* the bridge, and that order matters. The seed anchors on
 # midnight in Paris (the test user's zone) while a CI emulator boots on UTC;
 # between 22:00 and midnight UTC the two are on different days, « Déjeuner avec
-# Alex » sits on the device's tomorrow, and the dashboard assertion fails for an
+# Alex » sits on the device's tomorrow, and the agenda assertions fail for an
 # hour a day for no other reason.
 #
 # `-timezone Europe/Paris` in the emulator options is the real fix and CI passes
@@ -146,7 +146,7 @@ fi
 if [ "$current_tz" = "$SEED_TIMEZONE" ]; then
   note "device time zone $current_tz"
 else
-  warn "the device is on '$current_tz', the seed anchors on $SEED_TIMEZONE: a run between 22:00 and 00:00 UTC will read the dashboard a day off."
+  warn "the device is on '$current_tz', the seed anchors on $SEED_TIMEZONE: a run between 22:00 and 00:00 UTC will read the agenda a day off."
 fi
 
 # The device's clock, for the reason above: the bridge comes after anything that

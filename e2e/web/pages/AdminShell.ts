@@ -74,7 +74,7 @@ export class AdminShell {
   /**
    * Makes the menu reachable whatever the width. Idempotent.
    *
-   * Keyed on a collapsible group rather than on "Tableau de bord": a folded
+   * Keyed on a collapsible group rather than on "Accueil": a folded
    * sidebar still renders the top-level links as bare icons, accessible name
    * and all, so testing for one of those reads "already open" while half the
    * menu is missing and the icons sit under the app bar. The groups only exist

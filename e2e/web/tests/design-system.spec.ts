@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/index.js'
 import type { Locator } from '@playwright/test'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import { TOKENS } from '../helpers/tokens.js'
 
 /**
@@ -56,10 +56,10 @@ const backgroundOf = async (locator: Locator, what: string): Promise<string> => 
   return hex
 }
 
-test('the shell is drawn on the light surface, and writes its titles in Geist at a weight it loads', async ({
+test('the shell is drawn on the light surface, and writes its titles in Geist', async ({
   page,
 }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
   await dashboard.expectReady()
 
@@ -74,18 +74,14 @@ test('the shell is drawn on the light surface, and writes its titles in Geist at
       .then((computed) => asColor(computed).hex),
   ).toBe(TOKENS.surface.light.text.toUpperCase())
 
-  const title = await dashboard.heading.evaluate((element) => {
-    const style = getComputedStyle(element)
+  // The Accueil has no title of its own: the trail names it.
+  const family = await dashboard.trail.getByText('Accueil').evaluate((element) => getComputedStyle(element).fontFamily)
 
-    return { family: style.fontFamily, weight: style.fontWeight }
-  })
-
-  expect(title.family.split(',')[0].replace(/["']/g, '')).toBe(TOKENS.typography.family.split(',')[0])
-  expect(Number(title.weight)).toBe(TOKENS.typography.weight.semibold)
+  expect(family.split(',')[0].replace(/["']/g, '')).toBe(TOKENS.typography.family.split(',')[0])
 })
 
 test('no text on the dashboard asks for a weight the page does not load', async ({ page }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
   await dashboard.expectReady()
 

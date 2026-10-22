@@ -1,0 +1,54 @@
+appId: com.maggie.app.e2e
+name: 24-home
+tags:
+  - dashboard
+---
+# The Accueil (MAG-560): the landing screen after sign-in, a title « Accueil » and the
+# « Aujourd'hui · Demain » selector over a stack of cards. The registry of cards is empty
+# until each module's ticket lands its own, so this journey reads the frame only; the
+# cards, the actions and what the selector passes to them are `HomeScreenTest`'s,
+# `HomeCardScreenTest`'s and `HomeViewModelTest`'s.
+#
+# Given the signed-in user opens the app, then « Accueil » and the selector are on screen,
+# on Aujourd'hui. When they tap « Demain », then the selector is on Demain.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/24-home.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home_screen"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "home_day_selector"
+    timeout: 20000
+- assertVisible: "Accueil"
+
+# Aujourd'hui is selected on arrival.
+- extendedWaitUntil:
+    visible:
+      id: "home_day_today"
+      checked: true
+    timeout: 20000
+
+- tapOn:
+    id: "home_day_tomorrow"
+
+# Waited for, not asserted: the selection is a recomposition after the tap.
+- extendedWaitUntil:
+    visible:
+      id: "home_day_tomorrow"
+      checked: true
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "home_day_today"
+      checked: false
+    timeout: 20000

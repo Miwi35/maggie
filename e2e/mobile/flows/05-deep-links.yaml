@@ -29,7 +29,7 @@ tags:
 
 - runFlow: ../subflows/sign-in.yaml
 
-# A screen that stands alone, from the dashboard.
+# A screen that stands alone, from the Accueil.
 - openLink: "maggie-e2e://finance"
 
 - extendedWaitUntil:

@@ -19,9 +19,9 @@ class AuthRedirectTest {
 
     @Test
     fun `a signed-in user leaves the loading and login screens for the dashboard`() {
-        assertEquals(AuthRedirect.DASHBOARD, authRedirect(true, isLocked = false, route = null))
-        assertEquals(AuthRedirect.DASHBOARD, authRedirect(true, isLocked = false, route = Screen.Loading.route))
-        assertEquals(AuthRedirect.DASHBOARD, authRedirect(true, isLocked = false, route = Screen.Login.route))
+        assertEquals(AuthRedirect.HOME, authRedirect(true, isLocked = false, route = null))
+        assertEquals(AuthRedirect.HOME, authRedirect(true, isLocked = false, route = Screen.Loading.route))
+        assertEquals(AuthRedirect.HOME, authRedirect(true, isLocked = false, route = Screen.Login.route))
     }
 
     @Test

@@ -2531,6 +2531,13 @@ class MaggieApiService(
         }.body()
     }
 
+    // Accueil — what a card shows for a day: `{module}` is the card's, the body is the card's to read.
+    suspend fun getHomeCard(module: String, day: String): JsonObject {
+        return client.get("$baseUrl/api/home/$module") {
+            url.parameters.append("day", day)
+        }.body()
+    }
+
     // Finance — Upcoming (the week and the month after)
     suspend fun getUpcomingProjection(): UpcomingProjection {
         return client.get("$baseUrl/api/finance/upcoming").body()

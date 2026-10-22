@@ -10,8 +10,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
@@ -36,7 +36,7 @@ data class DrawerDestination(val route: String, val label: String, val icon: Ima
 
 // One entry per module: the finance dashboard leads to the rest of the module.
 val DRAWER_DESTINATIONS = listOf(
-    DrawerDestination("dashboard", "Tableau de bord", Icons.Default.Dashboard),
+    DrawerDestination("home", "Accueil", Icons.Default.Home),
     DrawerDestination("chat", "Chat", Icons.Default.Chat),
     DrawerDestination("calendar", "Calendrier", Icons.Default.DateRange),
     DrawerDestination("tasks", "Tâches", Icons.Default.TaskAlt),

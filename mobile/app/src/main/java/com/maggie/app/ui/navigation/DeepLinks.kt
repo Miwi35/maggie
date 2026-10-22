@@ -38,6 +38,8 @@ object DeepLinks {
     const val REVIEW_MONTHLY_ROUTE = "link/finance/review"
 
     private val PATTERNS: Map<String, List<String>> = mapOf(
+        // The Accueil (MAG-560): where the app opens, and what a link to « the home » of the app lands on.
+        Screen.Home.route to listOf("$SCHEME://home"),
         EVENT_ROUTE to listOf("$SCHEME://event/{$ARG_ID}"),
         TASK_ROUTE to listOf("$SCHEME://task/{$ARG_ID}"),
         TASK_FOCUS_ROUTE to listOf("$SCHEME://task/{$ARG_ID}/focus"),

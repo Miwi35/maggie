@@ -3,8 +3,8 @@ import { test, expect } from '../fixtures/index.js'
 import { assistantText, calledTools, toolResults } from '../helpers/agui.js'
 import { getCollection } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
 import { FinanceLoansPage } from '../pages/FinanceLoansPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * The early repayment penalty of a loan, by conversation (MAG-522, extends MAG-102).
@@ -78,7 +78,7 @@ test('« mon prêt immo a les IRA au plafond légal » sets the mode, and a tota
   expect(await storedMode(api, id)).toBe('exempt')
 
   // When I tell Maggie…
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
   const chat = new ChatPanel(page)
   const events = await chat.send('Mon prêt immo a les IRA au plafond légal, combien coûte un remboursement total ?')
 

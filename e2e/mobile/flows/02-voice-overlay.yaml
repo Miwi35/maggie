@@ -139,7 +139,7 @@ tags:
       e2e_journey: e2e/mobile/flows/02-voice-overlay.yaml
 - extendedWaitUntil:
     visible:
-      id: "dashboard"
+      id: "home_screen"
     timeout: 40000
 
 # From here on, any synthesis is the overlay's doing. Zeroed *now* rather than at
@@ -188,7 +188,7 @@ tags:
 # above missed it because its history was long loaded when the sheet opened.
 #
 # So: close, restart the app *without* clearing its state (still signed in, history
-# on the server), and tap the mic as soon as the dashboard is there — no HTTP call in
+# on the server), and tap the mic as soon as the Accueil is there — no HTTP call in
 # between, which would give the history time to land first. The counter was zero
 # above and nothing has spoken since, so it is not reset again.
 - tapOn:
@@ -199,7 +199,7 @@ tags:
       e2e_journey: e2e/mobile/flows/02-voice-overlay.yaml
 - extendedWaitUntil:
     visible:
-      id: "dashboard"
+      id: "home_screen"
     timeout: 40000
 - tapOn:
     id: "chat_mic"
@@ -328,7 +328,7 @@ tags:
       e2e_journey: e2e/mobile/flows/02-voice-overlay.yaml
 - extendedWaitUntil:
     visible:
-      id: "dashboard"
+      id: "home_screen"
     timeout: 40000
 - runScript:
     file: ../scripts/event-api.js
@@ -348,7 +348,7 @@ tags:
 - runFlow: ../subflows/close-chat.yaml
 - extendedWaitUntil:
     visible:
-      id: "dashboard"
+      id: "home_screen"
     timeout: 20000
 
 # The card appears with the overlay, and the event is still there: nothing is done

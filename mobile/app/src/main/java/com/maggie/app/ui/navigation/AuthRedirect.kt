@@ -1,6 +1,6 @@
 package com.maggie.app.ui.navigation
 
-enum class AuthRedirect { NONE, LOGIN, DASHBOARD }
+enum class AuthRedirect { NONE, LOGIN, HOME }
 
 /**
  * Where the signed-in state sends the app. [route] is the route the NavController is on
@@ -11,7 +11,7 @@ enum class AuthRedirect { NONE, LOGIN, DASHBOARD }
 internal fun authRedirect(isAuthenticated: Boolean?, isLocked: Boolean, route: String?): AuthRedirect = when (isAuthenticated) {
     false -> if (route != Screen.Login.route) AuthRedirect.LOGIN else AuthRedirect.NONE
     true -> if (!isLocked && (route == null || route == Screen.Login.route || route == Screen.Loading.route)) {
-        AuthRedirect.DASHBOARD
+        AuthRedirect.HOME
     } else {
         AuthRedirect.NONE
     }

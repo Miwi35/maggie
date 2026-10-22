@@ -105,7 +105,7 @@ onFlowComplete:
       e2e_email: e2e-other@maggie.local
 - extendedWaitUntil:
     visible:
-      id: "dashboard"
+      id: "home_screen"
     timeout: 40000
 - runFlow:
     file: ../subflows/open-destination.yaml

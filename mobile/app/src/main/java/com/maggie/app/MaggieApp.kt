@@ -54,6 +54,7 @@ import com.maggie.app.data.repository.PlacementRepository
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.ScenarioRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
+import com.maggie.app.data.repository.HomeCardRepository
 import com.maggie.app.data.repository.UpcomingRepository
 import com.maggie.app.data.repository.MonthBalanceRepository
 import com.maggie.app.data.repository.ReviewRepository
@@ -115,7 +116,7 @@ import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
-import com.maggie.app.ui.screens.dashboard.DashboardViewModel
+import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
@@ -316,6 +317,7 @@ class MaggieApp : Application() {
             single { ReviewRepository(get()) }
             single { FinanceDashboardRepository(get()) }
             single { UpcomingRepository(get()) }
+            single { HomeCardRepository(get(), get(), get()) }
             single { MonthBalanceRepository(get()) }
             single { TransactionRepository(get()) }
             single { ContactRepository(get()) }
@@ -340,7 +342,7 @@ class MaggieApp : Application() {
 
             // ViewModels
             viewModel { LoginViewModel(get()) }
-            viewModel { DashboardViewModel(get(), get(), get(), get(), get(), get()) }
+            viewModel { HomeViewModel() }
             viewModel { SubtasksViewModel(get()) }
             viewModel { TasksViewModel(get(), get(), get(), get(), get()) }
             viewModel { FocusViewModel(get()) }

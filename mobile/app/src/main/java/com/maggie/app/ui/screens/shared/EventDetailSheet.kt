@@ -38,7 +38,6 @@ import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.lastDayOf
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
-import com.maggie.app.ui.screens.dashboard.parseColor
 import com.maggie.app.util.RruleUtils
 import java.time.Instant
 import java.time.ZoneId

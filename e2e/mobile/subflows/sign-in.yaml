@@ -40,7 +40,7 @@ name: sign in as the seeded user
 - tapOn:
     id: "login_sign_in"
 
-# The dashboard is the whole assertion: `NavGraph` only redirects there once the
+# The Accueil is the whole assertion: `NavGraph` only redirects there once the
 # JWT is in the DataStore, so seeing it means the login round trip succeeded.
 #
 # 40–60 s because this is the app's first HTTP call: OkHttp, Ktor and the JSON
@@ -56,5 +56,5 @@ name: sign in as the seeded user
       - evalScript: ${0}
       - extendedWaitUntil:
           visible:
-            id: "dashboard"
+            id: "home_screen"
           timeout: 20000

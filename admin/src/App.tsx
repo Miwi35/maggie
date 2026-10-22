@@ -20,8 +20,8 @@ import { fetchApiDocumentation } from './apiDocumentation'
 import { lazyPage } from './lazyPage'
 import type { HttpClientOptions } from '@api-platform/admin'
 
-// Out of the first chunk: the landing screen pulls the recurrence library and its widgets.
-const Dashboard = lazyPage(() => import('./modules/dashboard/Dashboard'), 'Dashboard')
+// Out of the first chunk: the landing screen pulls the cards and their widgets.
+const Home = lazyPage(() => import('./modules/home/Home'), 'Home')
 
 routeVisitorWithoutSessionToLogin()
 installAuthRefresh()
@@ -45,6 +45,8 @@ const dataProvider = hydraDataProvider({
   apiDocumentationParser: (entrypointUrl: string) => fetchApiDocumentation(entrypointUrl),
 })
 
+const HomePage = () => <Home />
+
 function App() {
   return (
     <HydraAdmin
@@ -55,7 +57,7 @@ function App() {
       loginPage={<LoginPage />}
       loading={LoadingPage}
       layout={Layout}
-      dashboard={Dashboard}
+      dashboard={HomePage}
       i18nProvider={i18nProvider}
       theme={veilleuseLightTheme}
       darkTheme={veilleuseDarkTheme}
