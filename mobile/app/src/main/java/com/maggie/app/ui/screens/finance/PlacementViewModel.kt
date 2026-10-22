@@ -407,7 +407,7 @@ class PlacementViewModel(
         const val MESSAGE_NOT_FOUND = "Ce placement n'existe plus."
         const val MESSAGE_SAVE = "Le placement n'a pas été enregistré."
         const val MESSAGE_DELETE = "Le placement n'a pas été supprimé."
-        const val MESSAGE_NOTHING_PAID = "Un placement a besoin d'un versement initial ou d'un versement."
+        const val MESSAGE_NOTHING_PAID = "Un placement a besoin d'un versement initial ou de versements réguliers."
         const val MESSAGE_SIMULATION = "La projection n'a pas pu être calculée."
     }
 }

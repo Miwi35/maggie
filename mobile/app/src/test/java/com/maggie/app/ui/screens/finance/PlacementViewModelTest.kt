@@ -209,7 +209,7 @@ class PlacementViewModelTest {
 
         val form = viewModel.uiState.value.form!!
         assertFalse(form.done)
-        assertEquals("Un placement a besoin d'un versement initial ou d'un versement.", form.error)
+        assertEquals("Un placement a besoin d'un versement initial ou de versements réguliers.", form.error)
     }
 
     @Test
