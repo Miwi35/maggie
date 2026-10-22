@@ -112,10 +112,21 @@ class BudgetConfigurationScreenTest {
         compose.onNodeWithTag(UiTags.budgetNode("Obsydian")).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.budgetNode("Obsydian")).assertTextContains("Sans enveloppe")
         compose.onNodeWithTag(UiTags.budgetNode("Cinéma")).assertTextContains("Dépassement", substring = true)
-        compose.onNodeWithTag(UiTags.BUDGET_OUTSIDE_MONTHLY).assertIsDisplayed()
-        compose.onNodeWithText("Nouvelle ponctuelle").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.BUDGET_OUTSIDE_MONTHLY).assertDoesNotExist()
         compose.onNodeWithText("Touchez une catégorie pour régler son enveloppe.").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.BUDGET_EDITOR).assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `the tablet draws the outside-budget envelopes under Hors budget, not under the month`() {
+        open(showsDetailPane = true)
+
+        compose.onNodeWithTag(UiTags.subview("outside")).performClick()
+
+        compose.onNodeWithTag(UiTags.BUDGET_OUTSIDE_MONTHLY).assertIsDisplayed()
+        compose.onNodeWithText("Nouvelle ponctuelle").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.budgetNode("Loisirs")).assertDoesNotExist()
     }
 
     @Test

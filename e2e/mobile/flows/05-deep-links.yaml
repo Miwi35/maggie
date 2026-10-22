@@ -41,13 +41,13 @@ tags:
 # routes are wired to their composables in `NavGraph` (MAG-242). `06-finance-hub`
 # used to open Budgets by tapping the dashboard's access; the tap and the access
 # are now `FinanceHubScreenTest`, and the route table is `FinanceNavigationTest`,
-# but neither would notice a route dropped from the `NavHost`. « Budgets » is the
-# whole text of the screen's title bar, so it does not match « Budgets et
-# enveloppes » on the dashboard we are coming from.
+# but neither would notice a route dropped from the `NavHost`. The breadcrumb's
+# section button reads « Finance, section Budget : changer de section » to the
+# accessibility tree, which the dashboard we are coming from does not.
 - openLink: "maggie-e2e://finance/budgets"
 
 - extendedWaitUntil:
-    visible: "Budgets"
+    visible: ".*section Budget .*"
     timeout: 20000
 
 # The chat takes the message as a draft and does not send it: any app can fire a

@@ -9,11 +9,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -39,9 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -51,8 +48,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.theme.MaggieTokens
@@ -89,8 +92,6 @@ fun ModuleBreadcrumb(
 ) {
     val current = sections.firstOrNull { it.key == currentKey } ?: sections.first()
     var expanded by rememberSaveable { mutableStateOf(false) }
-    var anchorBottom by remember { mutableStateOf(0) }
-    var anchorStart by remember { mutableStateOf(0) }
     val accent = MaterialTheme.colorScheme.primary
     val caption = if (MaterialTheme.colorScheme.background.isDark) {
         MaggieTokens.surfaceDark.caption
@@ -99,7 +100,7 @@ fun ModuleBreadcrumb(
     }
 
     Row(
-        modifier = modifier.fillMaxWidth().heightIn(min = BAR_HEIGHT).padding(horizontal = 4.dp),
+        modifier = modifier.statusBarsPadding().fillMaxWidth().heightIn(min = BAR_HEIGHT).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onOpenDrawer != null) {
@@ -125,11 +126,6 @@ fun ModuleBreadcrumb(
         Row(
             modifier = Modifier
                 .sizeIn(minHeight = TOUCH_TARGET)
-                .onGloballyPositioned { coordinates ->
-                    val position = coordinates.positionInWindow()
-                    anchorStart = position.x.toInt()
-                    anchorBottom = (position.y + coordinates.size.height).toInt()
-                }
                 .semantics {
                     role = Role.Button
                     contentDescription = "$module, section ${current.label} : changer de section"
@@ -147,64 +143,83 @@ fun ModuleBreadcrumb(
                 maxLines = 1,
             )
             Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = accent)
+            if (expanded) {
+                SectionsMenu(
+                    sections = sections,
+                    currentKey = current.key,
+                    accent = accent,
+                    onSelect = { section ->
+                        expanded = false
+                        onSelectSection(section)
+                    },
+                    onDismiss = { expanded = false },
+                )
+            }
         }
         Box(modifier = Modifier.weight(1f))
         actions()
     }
-
-    if (expanded) {
-        SectionsMenu(
-            sections = sections,
-            currentKey = current.key,
-            accent = accent,
-            anchorStart = anchorStart,
-            anchorBottom = anchorBottom,
-            onSelect = { section ->
-                expanded = false
-                onSelectSection(section)
-            },
-            onDismiss = { expanded = false },
-        )
-    }
 }
 
-/** The menu under the section button: a dimmed window, the menu in a 20 dp-rounded card, a tap outside closes. */
+private val BelowAnchor = object : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset = IntOffset(anchorBounds.left, anchorBounds.bottom)
+}
+
+private val WholeWindow = object : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset = IntOffset.Zero
+}
+
+/**
+ * The menu under the section button: a dimmed window, the menu in a 20 dp-rounded card, a tap outside closes.
+ * Two popups placed by the framework from the button's bounds, so nothing about the button's position is kept in state.
+ */
 @Composable
 private fun SectionsMenu(
     sections: List<BreadcrumbSection>,
     currentKey: String,
     accent: Color,
-    anchorStart: Int,
-    anchorBottom: Int,
     onSelect: (BreadcrumbSection) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val density = LocalDensity.current
     val container = if (MaterialTheme.colorScheme.background.isDark) {
         MaggieTokens.surfaceDark.raised
     } else {
         MaggieTokens.surfaceLight.raised
     }
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    Popup(
+        popupPositionProvider = WholeWindow,
+        properties = PopupProperties(focusable = false, clippingEnabled = false),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .uiTagRoot()
+                .background(Color.Black.copy(alpha = 0.32f))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss)
                 .testTag(UiTags.BREADCRUMB_SCRIM),
-        ) {
+        )
+    }
+    Popup(
+        popupPositionProvider = BelowAnchor,
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true, clippingEnabled = false),
+    ) {
+        Box(modifier = Modifier.uiTagRoot()) {
             Surface(
                 shape = RoundedCornerShape(MaggieTokens.Radius.xl),
                 color = container,
                 shadowElevation = 8.dp,
                 modifier = Modifier
-                    .padding(
-                        start = with(density) { anchorStart.toDp() },
-                        top = with(density) { anchorBottom.toDp() },
-                    )
                     .widthIn(min = 200.dp)
                     .testTag(UiTags.BREADCRUMB_MENU),
             ) {
@@ -258,7 +273,7 @@ fun ModuleDetailBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().heightIn(min = BAR_HEIGHT).padding(horizontal = 4.dp),
+        modifier = modifier.statusBarsPadding().fillMaxWidth().heightIn(min = BAR_HEIGHT).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack, modifier = backModifier) {

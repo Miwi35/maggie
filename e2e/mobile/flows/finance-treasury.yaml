@@ -57,7 +57,7 @@ tags:
     id: "treasury_banner"
 
 - extendedWaitUntil:
-    visible: "Trésorerie"
+    visible: ".*section Trésorerie .*"
     timeout: 20000
 - extendedWaitUntil:
     visible: ".*Salaire en retard de.*"

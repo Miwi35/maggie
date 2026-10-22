@@ -396,8 +396,9 @@ class FinanceDashboardTilesScreenTest {
         val opened = mutableListOf<String>()
         open(tilesWithRejection, busy) { opened += it }
 
-        compose.onNodeWithTag(UiTags.FINANCE_REVIEW_SHORTCUT).assertIsDisplayed()
-        compose.onNodeWithText("Revue ce soir").performClick()
+        compose.onNodeWithTag(UiTags.FINANCE_REVIEW_CARD).assertIsDisplayed()
+        compose.onNodeWithText("ce soir · 20 h").assertIsDisplayed()
+        compose.onNodeWithText("Lancer").performClick()
 
         assertEquals(listOf(Screen.FinanceReviewActivity.route), opened)
     }

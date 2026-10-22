@@ -160,6 +160,8 @@ tags:
 - extendedWaitUntil:
     visible: "65[.,]00 EUR / 300[.,]00 EUR"
     timeout: 30000
+- tapOn:
+    id: "subview_outside"
 - scrollUntilVisible:
     element:
       id: "budget_outside_monthly"
@@ -168,6 +170,8 @@ tags:
 - extendedWaitUntil:
     visible: "Hellfest 2026"
     timeout: 10000
+- tapOn:
+    id: "subview_month"
 
 # Cinéma 20 € this month, 45 € in a season from next month on: rolled over, next month
 # reads the season's amount and names it.

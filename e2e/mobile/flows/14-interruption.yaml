@@ -124,7 +124,7 @@ tags:
       id: "interruption"
     timeout: 20000
 - extendedWaitUntil:
-    visible: "Budgets"
+    visible: ".*section Budget .*"
     timeout: 20000
 
 # The same month, nothing new crossed: nothing to say.

@@ -3,7 +3,7 @@ package com.maggie.app.ui.screens.finance
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -54,7 +54,7 @@ class UpcomingScreenTest {
 
     // The blocks are lazy: one that is far down is not composed until the list is scrolled to it.
     private fun reveal(matcher: SemanticsMatcher) {
-        compose.onNode(hasScrollAction()).performScrollToNode(matcher)
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(matcher)
     }
 
     private fun openUpcoming(upcoming: FakeUpcoming = FakeUpcoming(upcomingFixture())) {

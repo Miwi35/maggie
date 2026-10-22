@@ -1,12 +1,15 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.BalanceEnvelope
 import com.maggie.app.data.model.BalanceSatisfaction
@@ -97,6 +100,13 @@ class MonthBalanceScreenTest {
         }
     }
 
+    // The balance is the dashboard list's last item: it is not composed until the list is scrolled to it.
+    private fun revealBalance() {
+        val list = compose.onNode(hasScrollToNodeAction())
+        val rows = list.fetchSemanticsNode().config[SemanticsProperties.CollectionInfo].rowCount
+        list.performScrollToIndex(rows - 1)
+    }
+
     @Test
     fun `the month ring says its status and what is over, and the curve is drawn`() {
         open()
@@ -110,6 +120,7 @@ class MonthBalanceScreenTest {
     @Test
     fun `each envelope bar says held, close or over in words`() {
         open()
+        revealBalance()
 
         listOf("e1" to "✓ Tenue", "e2" to "▲ Proche", "e3" to "✕ Dépassée").forEach { (id, word) ->
             compose.onNodeWithTag(UiTags.monthBalanceEnvelope(id)).performScrollTo().assertIsDisplayed()
@@ -121,6 +132,7 @@ class MonthBalanceScreenTest {
     @Test
     fun `the satisfaction shows the kept share and the superfluous amount`() {
         open()
+        revealBalance()
 
         compose.onNodeWithText("71 %").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Superflu : ${formatCents(5000)}").performScrollTo().assertIsDisplayed()
@@ -130,6 +142,7 @@ class MonthBalanceScreenTest {
     @Test
     fun `the savings and the cushion are drawn`() {
         open()
+        revealBalance()
 
         compose.onNodeWithText("${formatCents(30000)} épargnés sur ${formatCents(50000)} prévus").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("${formatCents(420000)} sur ${formatCents(600000)} · 70 %").performScrollTo().assertIsDisplayed()
@@ -139,6 +152,7 @@ class MonthBalanceScreenTest {
     fun `the lines to qualify are reported apart, and the pill opens the page that qualifies them`() {
         var opened: String? = null
         open(onOpen = { opened = it })
+        revealBalance()
 
         compose.onNodeWithText("À qualifier · 1 · ${formatCents(4000)}").assertIsDisplayed().performClick()
 
@@ -148,6 +162,7 @@ class MonthBalanceScreenTest {
     @Test
     fun `an empty month shows no pill and says so instead of showing zeros`() {
         open(FakeMonthBalance(emptyMonth))
+        revealBalance()
 
         compose.onNodeWithTag(UiTags.TO_QUALIFY_PILL).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.MONTH_BALANCE_ENVELOPES_EMPTY).performScrollTo().assertIsDisplayed()
@@ -165,12 +180,14 @@ class MonthBalanceScreenTest {
         compose.onNodeWithContentDescription("Mois précédent").performClick()
 
         compose.onNodeWithText("Août 2026").assertIsDisplayed()
+        revealBalance()
         compose.onNodeWithText("Bilan de août 2026").performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun `a balance that cannot be loaded says so`() {
         open(FakeMonthBalance(balance = null, error = "Service indisponible"))
+        revealBalance()
 
         compose.onNodeWithTag(UiTags.MONTH_BALANCE_EMPTY).assertIsDisplayed()
     }
