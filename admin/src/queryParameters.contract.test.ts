@@ -117,7 +117,7 @@ describe('the admin query parameters', () => {
     // Without this the suite passes by matching nothing, the day the call
     // sites change shape.
     expect(sent.length).toBeGreaterThan(8)
-    expect(sent.map((s) => s.parameter)).toContain('exists[completedAt]')
+    expect(sent.map((s) => s.parameter)).toContain('exists[rrule]')
   })
 
   it('sends nothing the API declares nowhere', () => {
