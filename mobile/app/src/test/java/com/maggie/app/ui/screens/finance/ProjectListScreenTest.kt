@@ -196,7 +196,7 @@ class ProjectListScreenTest {
     )
 
     @Test
-    fun `the funding chart sits under the Gantt: a bar per month, the three first flagged`() {
+    fun `the funding chart sits under the Gantt, a bar per month, the three first flagged`() {
         compose.setContent { ProjectListScreen(viewModel(plan = Result.success(funded)), onBack = {}, onOpenForm = {}) }
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.FUNDING_MONTH).fetchSemanticsNodes().size == 36 }
