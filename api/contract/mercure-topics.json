@@ -11,6 +11,7 @@
     "Envelope": "/users/{userId}/api/envelopes/{id}",
     "Errand": "/users/{userId}/api/errands/{id}",
     "Event": "/users/{userId}/api/events/{id}",
+    "FinanceDashboardSnapshot": "/users/{userId}/api/finance_dashboard_snapshots/{id}",
     "GroceryList": "/users/{userId}/api/grocery_lists/{id}",
     "Ingredient": "/users/{userId}/api/ingredients/{id}",
     "Loan": "/users/{userId}/api/loans/{id}",

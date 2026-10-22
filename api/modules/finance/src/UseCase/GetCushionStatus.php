@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\UseCase;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\PeerDebt;
@@ -25,13 +24,16 @@ use Maggie\Finance\Repository\SafetyCushionRepository;
  * already lowered the account's balance, and a dette never raises the net.
  * The target follows the reference salary — declared on the cushion, or
  * measured from the recurring « Salaire » — not the raw field alone.
+ *
+ * A pure read: it writes nothing, neither the default row of a user who never
+ * configured the cushion nor the first time it was full
+ * ({@see RecordCushionCompletion}, run when the figures are rebuilt).
  */
 class GetCushionStatus
 {
     public function __construct(
         private readonly SafetyCushionRepository $cushionRepository,
         private readonly AccountRepository $accountRepository,
-        private readonly EntityManagerInterface $em,
         private readonly GetReferenceSalary $getReferenceSalary,
         private readonly PeerDebtRepository $peerDebtRepository,
     ) {
@@ -40,7 +42,8 @@ class GetCushionStatus
     /** @return array<string, mixed> */
     public function execute(User $user): array
     {
-        $cushion = $this->cushionRepository->findOneByUser($user) ?? $this->createFor($user);
+        // A user who never configured it reads the defaults; the row is laid down when something writes it.
+        $cushion = $this->cushionRepository->findOneByUser($user) ?? (new SafetyCushion())->setUser($user);
 
         $accounts = array_values(array_filter(
             $this->accountRepository->findByUser($user),
@@ -64,13 +67,6 @@ class GetCushionStatus
         $targetCents = $cushion->getTargetMonths() * $monthlyIncomeCents;
         $deficitCents = max(0, $targetCents - $currentCents);
         $isComplete = $targetCents > 0 && $currentCents >= $targetCents;
-
-        // Remember the first time the target was ever reached: that is what
-        // tells "still building" from "was complete, now recharging".
-        if ($isComplete && null === $cushion->getCompletedAt()) {
-            $cushion->setCompletedAt(new \DateTimeImmutable());
-            $this->em->flush();
-        }
 
         $state = match (true) {
             $isComplete => CushionState::Complete,
@@ -145,14 +141,5 @@ class GetCushionStatus
             'rechargeMonths' => (int) ceil($deficitCents / $monthly),
             'isCapped' => $wanted > $cap,
         ];
-    }
-
-    private function createFor(User $user): SafetyCushion
-    {
-        $cushion = (new SafetyCushion())->setUser($user);
-        $this->em->persist($cushion);
-        $this->em->flush();
-
-        return $cushion;
     }
 }

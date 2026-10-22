@@ -6,6 +6,7 @@ namespace Maggie\Finance\Tests\Controller;
 
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
+use App\Tests\Support\FinanceDashboardRefreshTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,6 +31,7 @@ class FinanceReviewAppointmentTest extends WebTestCase
     use AuthenticatedTestTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
+    use FinanceDashboardRefreshTrait;
 
     private KernelBrowser $client;
 
@@ -79,7 +81,6 @@ class FinanceReviewAppointmentTest extends WebTestCase
     public static function financeReads(): iterable
     {
         yield 'the review progress' => ['/api/finance/review/progress?month=2026-10'];
-        yield 'the dashboard' => ['/api/finance/dashboard?year=2026&month=10'];
         yield 'the month balance' => ['/api/finance/month-balance?month=2026-10'];
     }
 
@@ -119,6 +120,23 @@ class FinanceReviewAppointmentTest extends WebTestCase
         $this->assertMercureUpdateCount(0);
     }
 
+    public function testReadingTheDashboardLaysNothingDown(): void
+    {
+        $this->get('/api/finance/dashboard?year=2026&month=10');
+        self::assertResponseIsSuccessful();
+
+        self::assertSame([], $this->appointments(), 'a GET writes nothing: the agenda waits for the dashboard rebuild');
+    }
+
+    public function testTheDashboardRebuildLaysTheAppointmentDownOnce(): void
+    {
+        $this->drainDashboardRefreshes();
+        self::assertCount(1, $this->appointments());
+
+        $this->drainDashboardRefreshes();
+        self::assertCount(1, $this->appointments(), 'a second rebuild finds it there');
+    }
+
     public function testADeletedAppointmentIsNotLaidDownAgain(): void
     {
         $this->get('/api/finance/review/progress');
@@ -137,7 +155,7 @@ class FinanceReviewAppointmentTest extends WebTestCase
 
     public function testTheAppointmentIsTheUsersAlone(): void
     {
-        $this->get('/api/finance/dashboard?year=2026&month=10');
+        $this->get('/api/finance/review/progress');
 
         $other = $this->em()->find(User::class, $this->getFixture('other_user')->getId());
         self::assertNull($this->em()->getRepository(Agenda::class)->findOneBy(['user' => $other, 'module' => Agenda::MODULE_FINANCE]));

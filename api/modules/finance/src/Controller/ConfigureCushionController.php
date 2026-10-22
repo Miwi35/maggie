@@ -6,7 +6,7 @@ namespace Maggie\Finance\Controller;
 
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Message\UpdateSafetyCushionCommand;
-use Maggie\Finance\Repository\SafetyCushionRepository;
+use Maggie\Finance\UseCase\EnsureSafetyCushion;
 use Maggie\Finance\UseCase\GetCushionStatus;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -27,7 +27,7 @@ final class ConfigureCushionController
 
     public function __construct(
         private readonly Security $security,
-        private readonly SafetyCushionRepository $cushionRepository,
+        private readonly EnsureSafetyCushion $ensureSafetyCushion,
         private readonly GetCushionStatus $getCushionStatus,
         private readonly MessageBusInterface $bus,
     ) {
@@ -61,9 +61,7 @@ final class ConfigureCushionController
             }
         }
 
-        // Reading the status creates the cushion on first use.
-        $this->getCushionStatus->execute($user);
-        $cushion = $this->cushionRepository->findOneByUser($user);
+        $cushion = $this->ensureSafetyCushion->execute($user);
 
         try {
             $this->bus->dispatch(new UpdateSafetyCushionCommand(

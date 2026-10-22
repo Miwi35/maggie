@@ -172,6 +172,9 @@ framework:
             'Maggie\Finance\Message\SetReviewProgressCommand': sync
             'Maggie\Finance\Message\ApplyPeriodPlanCommand': sync
             'Maggie\Finance\Message\EnsureFinanceReviewAppointmentCommand': sync
+            'Maggie\Finance\Event\FinanceFiguresChanged': sync
+            'Maggie\Finance\Message\MarkFinanceDashboardStaleCommand': sync
+            'Maggie\Finance\Message\RefreshFinanceDashboardCommand': async
             'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': sync
             'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': sync
 
@@ -180,7 +183,11 @@ when@test:
         messenger:
             transports:
                 async: 'in-memory://'
+                # The dashboard rebuild queued by every finance write, apart from `async`:
+                # tests that assert what that transport holds do not see it.
+                dashboard: 'in-memory://'
             # Production indexes inside the request; tests assert the dispatch instead.
             routing:
+                'Maggie\Finance\Message\RefreshFinanceDashboardCommand': dashboard
                 'Maggie\Core\Elasticsearch\Message\IndexDocumentCommand': async
                 'Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand': async

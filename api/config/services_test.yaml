@@ -17,3 +17,8 @@ services:
         public: true
         tags:
             - { name: doctrine.middleware }
+
+    # Records the statements of a request, to tell reads from writes (MAG-545).
+    App\Tests\Support\SqlRecorder:
+        tags:
+            - { name: doctrine.middleware }
