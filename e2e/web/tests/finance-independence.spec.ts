@@ -67,7 +67,6 @@ test('what is still missing, and the next step, are named', async ({ page }) => 
   // 75 % of 166,66 € is 125,00 €, so 25,00 € above today's rentes.
   await expect(counter).toContainText('prochain palier 75 %')
   await expect(counter).toContainText(`${euros(2500)} près`)
-
 })
 
 /**

@@ -182,7 +182,7 @@ class GetIndependenceCounter
 
     /**
      * Each step, whether it is behind, and the monthly rente it takes to stand
-     * on it. An amount, not a date: the date is Premium.
+     * on it. An amount, not a date: the dates are the projection's.
      *
      * @return array<int, array{percent: int, isReached: bool, monthlyIncomeNeededCents: int}>
      */
