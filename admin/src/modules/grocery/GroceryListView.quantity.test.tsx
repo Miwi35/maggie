@@ -114,9 +114,14 @@ describe('GroceryListView — quantity on the line', () => {
     }
   })
 
-  test('a packaged line shows what the meals need as a small reminder, never editable (MAG-380)', async () => {
+  test('a packaged line shows what was asked and what the recipes need under its name (MAG-380, MAG-573)', async () => {
     const withNeeds = list([
-      { ...packaged('item-pates', 'Pâtes', 2, 'pack', rice, 0), needed: [{ quantity: 800, unit: 'g' }] },
+      {
+        ...packaged('item-pates', 'Pâtes', 3, 'pack', rice, 0),
+        needed: [{ quantity: 800, unit: 'g' }],
+        desiredQuantity: 1400,
+        desiredUnit: 'g',
+      },
       packaged('item-riz', 'Riz', 1, 'pack', rice, 1),
     ])
     mockGetList.mockResolvedValue({ data: [withNeeds], total: 1 })
@@ -124,8 +129,8 @@ describe('GroceryListView — quantity on the line', () => {
     render(<GroceryListView />)
     await waitFor(() => expect(screen.getByText('Pâtes')).toBeInTheDocument())
 
-    expect(within(row('Pâtes')).getByText('2 paquets')).toBeInTheDocument()
-    expect(within(row('Pâtes')).getByTestId('needed-reminder')).toHaveTextContent('800 g pour les repas')
+    expect(within(row('Pâtes')).getByText('3 paquets')).toBeInTheDocument()
+    expect(within(row('Pâtes')).getByTestId('needed-reminder')).toHaveTextContent('1,4 kg (dont 800 g pour les recettes)')
     expect(within(row('Riz')).queryByTestId('needed-reminder')).not.toBeInTheDocument()
   })
 
@@ -165,7 +170,7 @@ describe('GroceryListView — quantity on the line', () => {
 
     await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
     expect(patches(mockFetch)[0].url).toMatch(/\/api\/grocery\/edit-item\/item-riz$/)
-    expect(patches(mockFetch)[0].body).toEqual({ quantity: 3 })
+    expect(patches(mockFetch)[0].body).toEqual({ packagings: 3 })
     expect(within(row('Riz')).getByText('3 paquets')).toBeInTheDocument()
   })
 
@@ -178,7 +183,7 @@ describe('GroceryListView — quantity on the line', () => {
     await user.click(within(row('Riz')).getByRole('button', { name: 'Diminuer la quantité de Riz' }))
 
     await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
-    expect(patches(mockFetch)[0].body).toEqual({ quantity: 2 })
+    expect(patches(mockFetch)[0].body).toEqual({ packagings: 2 })
   })
 
   test('− at one packaging is disabled: it never removes the line', async () => {
@@ -199,7 +204,7 @@ describe('GroceryListView — quantity on the line', () => {
 
     expect(within(row('Riz')).getByText('7 paquets')).toBeInTheDocument()
     await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
-    expect(patches(mockFetch)[0].body).toEqual({ quantity: 7 })
+    expect(patches(mockFetch)[0].body).toEqual({ packagings: 7 })
   })
 
   test('typing a number of packagings and leaving the field sends it', async () => {
@@ -213,7 +218,7 @@ describe('GroceryListView — quantity on the line', () => {
     await user.tab()
 
     await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
-    expect(patches(mockFetch)[0].body).toEqual({ quantity: 4 })
+    expect(patches(mockFetch)[0].body).toEqual({ packagings: 4 })
   })
 
   test.each([
@@ -336,12 +341,12 @@ describe('GroceryListView — quantity on the line', () => {
 
       expect(within(row('Riz')).getByText('3 paquets')).toBeInTheDocument()
       await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
-      expect(patches(mockFetch)[0].body).toEqual({ quantity: 3 })
+      expect(patches(mockFetch)[0].body).toEqual({ packagings: 3 })
 
       await user.click(within(row('Confiture')).getByRole('button', { name: 'Diminuer la quantité de Confiture' }))
       expect(within(row('Confiture')).getByText('1 bocal')).toBeInTheDocument()
       await waitFor(() => expect(patches(mockFetch)).toHaveLength(2))
-      expect(patches(mockFetch)[1].body).toEqual({ quantity: 1 })
+      expect(patches(mockFetch)[1].body).toEqual({ packagings: 1 })
     })
 
     test('the last pack cannot be taken off with −', async () => {

@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import {
   canDecrease,
+  desiredLabel,
   decreaseQuantity,
   formatQuantity,
   increaseQuantity,
@@ -105,5 +106,18 @@ describe('groceryQuantity', () => {
     expect(neededLabel(null)).toBeNull()
     expect(neededLabel(undefined)).toBeNull()
     expect(neededLabel([])).toBeNull()
+  })
+})
+
+describe('desiredLabel (MAG-573)', () => {
+  test('what was asked, with the share of the recipes', () => {
+    expect(desiredLabel(1400, 'g', [{ quantity: 800, unit: 'g' }])).toBe('1,4 kg (dont 800 g pour les recettes)')
+    expect(desiredLabel(500, 'g', null)).toBe('500 g')
+    expect(desiredLabel(250, 'ml', [])).toBe('250 ml')
+  })
+
+  test('without a wanted quantity, only the need; nothing at all without either', () => {
+    expect(desiredLabel(null, null, [{ quantity: 800, unit: 'g' }])).toBe('800 g pour les recettes')
+    expect(desiredLabel(undefined, undefined, null)).toBeNull()
   })
 })

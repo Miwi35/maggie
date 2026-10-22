@@ -53,11 +53,12 @@ import { usePurchaseSuggestions } from './usePurchaseSuggestions'
 import { SuggestionsBanner } from './SuggestionsBanner'
 import { ERRAND_TOPIC, PRODUCT_TOPIC, isSuggestionOnlyUpdate, suggestionItem } from './purchaseSuggestions'
 import type { PurchaseSuggestion } from './purchaseSuggestions'
-import { isPackaged, lineUnit, neededLabel, packagingContent, quantityHint } from './groceryQuantity'
+import { desiredLabel, isPackaged, lineUnit, packagingContent, quantityHint, neededLabel } from './groceryQuantity'
 import type { NeededEntry } from './groceryQuantity'
 import type { PackagedProduct } from './groceryQuantity'
 import { QuantityEntry } from './QuantityEntry'
-import { draftForLine, draftPayload, initialDraft, isDraftValid } from './quantityEntry'
+import { useRecipeNeed } from './recipeNeed'
+import { draftForLine, draftPayload, initialDraft, isDraftValid, withNeed } from './quantityEntry'
 import type { EntryProduct, QuantityDraft } from './quantityEntry'
 import { NO_AISLE, groupByStoreAndAisle, hasAisles } from './groceryAisles'
 import type { AisleSection, AisleSummary, StoreGroup } from './groceryAisles'
@@ -85,6 +86,9 @@ interface GroceryItem {
   customLabel?: string
   quantity?: number
   unit?: string
+  /** What was asked of a packaged line, in base units: 1400 g in 3 packs (MAG-573). */
+  desiredQuantity?: number | null
+  desiredUnit?: string | null
   needed?: NeededEntry[] | null
   checked: boolean
   source: string
@@ -146,6 +150,14 @@ const requestAddItem = (payload: Record<string, unknown>) =>
     body: JSON.stringify(payload),
   })
 
+// What the API says when it refuses a quantity (400 `{error}`), told in the dialog.
+const refusal = async (response: Response): Promise<string | null> => {
+  if (response.status !== 400) return null
+  const body = await response.json().catch(() => null)
+
+  return typeof body?.error === 'string' ? body.error : null
+}
+
 // The product behind a line, as the bare ULID the recurring items point at (REST sends an `@id`, Mercure an `id`).
 const productIdOf = (item: GroceryItem): string | null => {
   const raw = item.product?.['@id'] ?? item.product?.id
@@ -192,6 +204,9 @@ function SortableGroceryItem({
 
   const label = item.label
   const compact = useCompactScreen()
+  const packagedLine = isPackaged(item.product)
+  // « 1,4 kg (dont 800 g pour les recettes) »: what was asked, under the name.
+  const lineDetail = desiredLabel(item.desiredQuantity, item.desiredUnit, item.needed)
 
   return (
     // `data-testid` and `data-store`: MUI renders a store's ListSubheader as an
@@ -234,6 +249,7 @@ function SortableGroceryItem({
         </ListItemIcon>
         <ListItemText
           primary={label}
+          secondary={packagedLine && lineDetail ? <span data-testid="needed-reminder">{lineDetail}</span> : null}
           primaryTypographyProps={{ noWrap: compact, title: label }}
           sx={{
             textDecoration: item.checked ? 'line-through' : 'none',
@@ -278,11 +294,6 @@ function SortableGroceryItem({
         )}
         {isPackaged(item.product) ? (
           <>
-            {neededLabel(item.needed) && (
-              <Typography variant="caption" color="text.secondary" data-testid="needed-reminder" sx={{ whiteSpace: 'nowrap', mr: 0.5 }}>
-                {neededLabel(item.needed)} pour les repas
-              </Typography>
-            )}
             <QuantityStepper
               label={label}
               quantity={item.quantity}
@@ -339,6 +350,9 @@ export const GroceryListView = () => {
   const [editDraft, setEditDraft] = useState<QuantityDraft>(() => initialDraft(null))
   const [editInitialDraft, setEditInitialDraft] = useState<QuantityDraft>(() => initialDraft(null))
   const [editCategory, setEditCategory] = useState('')
+  // The API's refusal of a quantity, told in the dialog that sent it.
+  const [addError, setAddError] = useState<string | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
   const [editSelectedStore, setEditSelectedStore] = useState<StoreOption | null>(null)
   const [editStoreInput, setEditStoreInput] = useState('')
   // The aisles of the line's store, and the aisle typed or chosen for its product there.
@@ -465,15 +479,26 @@ export const GroceryListView = () => {
   if (draftProductId !== newItemProductId) {
     setDraftProductId(newItemProductId)
     setNewItemDraft(initialDraft(newItemProduct))
+    setAddError(null)
   }
+  // What the week's meals need of the product: shown in the dialog, and fills
+  // the packagings when the product has no restock.
+  const addWeek = useRecipeNeed(isPackaged(newItemProduct) && addDialogOpen ? bareId(newItemProduct?.id ?? '') || null : null)
+  const addNeed = addWeek.recipeNeed
+  useEffect(() => {
+    setNewItemDraft((draft) => withNeed(draft, newItemProduct, addNeed))
+  }, [addNeed, newItemProduct])
+  const editProductId = detailItem && isPackaged(detailItem.product) ? productIdOf(detailItem) : null
+  const editWeek = useRecipeNeed(editProductId)
 
   // Initialize edit state when detail item changes
   useEffect(() => {
     if (!detailItem) return
     setEditLabel(detailItem.label)
-    const lineDraft = draftForLine(detailItem.quantity, detailItem.product)
+    const lineDraft = draftForLine(detailItem.quantity, detailItem.product, { quantity: detailItem.desiredQuantity, unit: detailItem.desiredUnit })
     setEditDraft(lineDraft)
     setEditInitialDraft(lineDraft)
+    setEditError(null)
     setEditCategory('')
     setEditAisleInput(detailItem.aisle?.name ?? '')
     setEditAisles([])
@@ -565,7 +590,7 @@ export const GroceryListView = () => {
         const response = await fetch(`${entrypoint}/grocery/edit-item/${item.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ quantity }),
+          body: JSON.stringify({ packagings: quantity }),
         })
         saved = response.ok
       } catch {
@@ -642,6 +667,7 @@ export const GroceryListView = () => {
 
   const handleEditItem = async () => {
     if (!groceryList || !detailItem || !editLabel) return
+    setEditError(null)
     try {
       const token = localStorage.getItem('token')
       const payload: Record<string, unknown> = {
@@ -670,6 +696,7 @@ export const GroceryListView = () => {
         body: JSON.stringify(payload),
       })
       if (!response.ok) {
+        setEditError(await refusal(response))
         notify("Erreur : l'article n'a pas été modifié", { type: 'error' })
         return
       }
@@ -685,6 +712,7 @@ export const GroceryListView = () => {
 
   const handleAddItem = async () => {
     if (!groceryList || !newItemLabel) return
+    setAddError(null)
     try {
       const payload: Record<string, unknown> = {
         label: newItemLabel,
@@ -700,9 +728,11 @@ export const GroceryListView = () => {
       }
       const response = await requestAddItem(payload)
       if (!response.ok) {
+        setAddError(await refusal(response))
         notify("Erreur : l'article n'a pas été ajouté", { type: 'error' })
         return
       }
+      const added = await response.json().catch(() => ({}))
       setAddDialogOpen(false)
       setNewItemLabel('')
       setNewItemDraft(initialDraft(null))
@@ -711,7 +741,13 @@ export const GroceryListView = () => {
       setStoreInputValue('')
       const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
       setGroceryList(data as GroceryListData)
-      notify('Article ajouté', { type: 'success' })
+      if (added?.coversWeek === false && added.packagingsToCover) {
+        notify(`Article ajouté, mais il ne couvre pas les besoins de la semaine : ${added.packagingsToCover} conditionnements nécessaires`, {
+          type: 'warning',
+        })
+      } else {
+        notify('Article ajouté', { type: 'success' })
+      }
     } catch {
       notify('Erreur', { type: 'error' })
     }
@@ -1182,7 +1218,16 @@ export const GroceryListView = () => {
               filterOptions={(x) => x}
               noOptionsText={newItemLabel.length < 2 ? 'Tapez au moins 2 caractères' : 'Nouveau produit'}
             />
-            <QuantityEntry product={newItemProduct} draft={newItemDraft} onChange={setNewItemDraft} />
+            <QuantityEntry
+              product={newItemProduct}
+              draft={newItemDraft}
+              onChange={(draft) => {
+                setAddError(null)
+                setNewItemDraft(draft)
+              }}
+              week={addWeek}
+              error={addError}
+            />
             <FormControl>
               <InputLabel>Catégorie</InputLabel>
               <Select
@@ -1272,7 +1317,16 @@ export const GroceryListView = () => {
               noOptionsText={editLabel.length < 2 ? 'Tapez au moins 2 caractères' : 'Nouveau produit'}
             />
             {isPackaged(detailItem?.product) && (
-              <QuantityEntry product={detailItem?.product} draft={editDraft} onChange={setEditDraft} />
+              <QuantityEntry
+                product={detailItem?.product}
+                draft={editDraft}
+                onChange={(draft) => {
+                  setEditError(null)
+                  setEditDraft(draft)
+                }}
+                week={editWeek}
+                error={editError}
+              />
             )}
             <FormControl>
               <InputLabel>Catégorie</InputLabel>

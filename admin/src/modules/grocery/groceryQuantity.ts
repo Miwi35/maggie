@@ -79,3 +79,14 @@ const neededEntryLabel = ({ quantity, unit }: NeededEntry): string => {
 
 export const neededLabel = (needed?: NeededEntry[] | null): string | null =>
   needed && needed.length > 0 ? needed.map(neededEntryLabel).join(' + ') : null
+
+// Under a packaged line's name (MAG-573): what was asked, and how much of it is
+// for the week's meals — « 1,4 kg (dont 800 g pour les recettes) ». Without a
+// wanted quantity, only the need: « 800 g pour les recettes ».
+export const desiredLabel = (quantity?: number | null, unit?: string | null, needed?: NeededEntry[] | null): string | null => {
+  const need = neededLabel(needed)
+  if (quantity == null || !unit) return need ? `${need} pour les recettes` : null
+  const asked = neededEntryLabel({ quantity, unit })
+
+  return need ? `${asked} (dont ${need} pour les recettes)` : asked
+}
