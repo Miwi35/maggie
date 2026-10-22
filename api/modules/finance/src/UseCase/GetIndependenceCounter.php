@@ -9,6 +9,7 @@ use Maggie\Finance\Entity\Loan;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\LoanRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\Service\IndependenceProjector;
 
 /**
  * How far the rentes already cover the way the user lives — the one figure
@@ -27,8 +28,11 @@ use Maggie\Finance\Repository\TransactionRepository;
  * owner's confirmed series still expect, never an occurrence already settled
  * by a line. A series of expenses moves neither figure.
  *
- * The target date N and the progression curve are Premium (v1.1): nothing is
- * left here for them, because an empty date reads as a promise.
+ * `projection` (MAG-549) dates N, draws the coverage curve and dates the
+ * milestones from the current planning: what the planning leaves of the
+ * capacity each month is invested at {@see IndependenceProjector::YIELD_BPS}.
+ * Beyond the planning's horizon the last month's rhythm goes on, without the
+ * projects not yet bought. N is null when it is not reached within 20 years.
  */
 class GetIndependenceCounter
 {
@@ -41,6 +45,8 @@ class GetIndependenceCounter
         private readonly CategoryRepository $categoryRepository,
         private readonly LoanRepository $loanRepository,
         private readonly GetRecurringOccurrences $getRecurringOccurrences,
+        private readonly GetProjectPlanning $getProjectPlanning,
+        private readonly IndependenceProjector $projector,
     ) {
     }
 
@@ -106,6 +112,7 @@ class GetIndependenceCounter
             'coverageWithDebtPercent' => $lifestyleCents > 0 && $monthlyNeedCents > 0
                 ? intdiv($passiveIncomeCents * 100, $monthlyNeedCents)
                 : 0,
+            'projection' => $this->projection($user, $passiveIncomeCents, $lifestyleCents),
             'nextMilestonePercent' => $next['percent'],
             'nextMilestoneGapCents' => $next['gapCents'],
             'milestones' => $milestones,
@@ -122,6 +129,27 @@ class GetIndependenceCounter
                 ];
             }, $byCategory),
         ];
+    }
+
+    /** @return array{startMonth: string, nDate: string|null, curve: list<array{month: string, coverage: float}>, milestones: array<int, string|null>} */
+    private function projection(User $user, int $passiveIncomeCents, int $lifestyleCents): array
+    {
+        $plan = $this->getProjectPlanning->execute($user);
+
+        $investable = array_map(
+            static fn (array $month): int => max(0, $month['capacityCents'] - $month['salaryCents']),
+            $plan['months'],
+        );
+        $last = $plan['months'][array_key_last($plan['months'])];
+        $tail = max(0, $plan['netCapacityCents'] - $last['loanPaymentsCents']);
+
+        return ['startMonth' => $plan['startMonth']] + $this->projector->project(
+            new \DateTimeImmutable($plan['startMonth'].'-01'),
+            $passiveIncomeCents,
+            $lifestyleCents,
+            $investable,
+            $tail,
+        );
     }
 
     /**

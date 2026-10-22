@@ -4,13 +4,15 @@ import LinearProgress from '@mui/material/LinearProgress'
 import { Title } from 'react-admin'
 import { Link } from 'react-router-dom'
 import { Placeholder } from '../../components/list/ListEmpty'
+import { IndependenceProjectionBlock } from './IndependenceProjection'
 import { IndependenceSummary } from './IndependenceSummary'
 import { PlacementsSection } from './PlacementsSection'
 import { useFinanceDashboard } from './useFinanceDashboard'
 
 /**
  * The Indépendance aspect of Planification (MAG-518): the counter of the
- * dashboard's Planification tile, as a page of its own. Without a rente
+ * dashboard's Planification tile, as a page of its own, with the date N, the
+ * coverage curve and the dated milestones (MAG-549). Without a rente
  * declared it offers to declare one instead of showing an empty counter.
  * Below it, the simulated placements (MAG-555): what they would give as a rente.
  */
@@ -39,7 +41,10 @@ export const IndependencePanel = () => {
 
       {dashboard &&
         (dashboard.independence.hasPassiveIncomeCategories ? (
-          <IndependenceSummary counter={dashboard.independence} />
+          <>
+            <IndependenceSummary counter={dashboard.independence} withDate={false} />
+            <IndependenceProjectionBlock counter={dashboard.independence} />
+          </>
         ) : (
           <Placeholder
             title="Aucune rente déclarée"

@@ -209,6 +209,41 @@ class IndependenceCounterControllerTest extends WebTestCase
         self::assertNull($counter['nextMilestonePercent']);
     }
 
+    /**
+     * No income is known for this user, so nothing is left to invest: the
+     * rentes stay where they are, N is not reached, and nothing blows up.
+     */
+    public function testItProjectsTheCoverageEvenWhenNIsNotReached(): void
+    {
+        $projection = $this->counterFor('independence.yaml')['projection'];
+
+        self::assertSame(['startMonth', 'nDate', 'curve', 'milestones'], array_keys($projection));
+        self::assertNull($projection['nDate']);
+        self::assertSame(0.8, $projection['curve'][0]['coverage']);
+        self::assertSame($projection['startMonth'], $projection['curve'][0]['month']);
+        self::assertSame(
+            ['25' => $projection['startMonth'], '50' => $projection['startMonth'], '75' => $projection['startMonth'], '100' => null],
+            $projection['milestones'],
+        );
+    }
+
+    public function testNIsNowWhenTheRentesAlreadyCoverTheTrainDeVie(): void
+    {
+        $projection = $this->counterFor('independence_reached.yaml')['projection'];
+
+        self::assertSame($projection['startMonth'], $projection['nDate']);
+        // JsonResponse writes 1.0 as 1: the client reads a number either way.
+        self::assertEquals([['month' => $projection['startMonth'], 'coverage' => 1.0]], $projection['curve']);
+    }
+
+    public function testThereIsNothingToProjectWithoutAMeasuredMonth(): void
+    {
+        $projection = $this->counterFor('independence_bare.yaml')['projection'];
+
+        self::assertNull($projection['nDate']);
+        self::assertSame([], $projection['curve']);
+    }
+
     public function testTheDashboardServesTheCounterInItsSingleRead(): void
     {
         $this->loadFixtures('independence.yaml');

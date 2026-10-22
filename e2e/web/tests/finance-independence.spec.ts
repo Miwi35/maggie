@@ -1,4 +1,6 @@
 import { test, expect } from '../fixtures/index.js'
+import { AdminShell } from '../pages/AdminShell.js'
+import { ROUTES } from '../pages/routes.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { euros } from '../helpers/money.js'
 import { FinanceCategoriesPage } from '../pages/FinanceCategoriesPage.js'
@@ -66,9 +68,35 @@ test('what is still missing, and the next step, are named', async ({ page }) => 
   await expect(counter).toContainText('prochain palier 75 %')
   await expect(counter).toContainText(`${euros(2500)} près`)
 
-  // The target date N is Premium: a date shown here would be a promise the
-  // Free counter does not make.
-  await expect(counter).not.toContainText(/Date|date d'indépendance/)
+})
+
+/**
+ * The date N and the dated milestones (MAG-549), on Finance › Planification ›
+ * Indépendance. The seed declares a rente and measures a train de vie, so the
+ * projection exists; whether N falls within 20 years depends on the planning
+ * the other journeys leave, so both plain statements are valid and the journey
+ * does not pin the month.
+ */
+test('the Indépendance page dates N and the milestones', async ({ page }) => {
+  const shell = new AdminShell(page)
+  await shell.goto(ROUTES.financePlanningIndependence)
+
+  const projection = shell.content.getByTestId('independence-projection')
+  await expect(projection).toBeVisible()
+
+  await expect(shell.content.getByTestId('independence-n-date')).toContainText(
+    /Date N projetée · \p{L}+ \d{4}|N non atteinte d'ici 20 ans|Les rentes couvrent déjà le train de vie/u,
+  )
+
+  const milestones = shell.content.getByTestId('independence-milestones')
+  await expect(milestones).toBeVisible()
+  for (const step of ['25', '50', '75', '100']) {
+    await expect(milestones).toContainText(
+      new RegExp(`${step} % · (atteint|non atteint d'ici 20 ans|\\p{L}+ \\d{4})`, 'u'),
+    )
+  }
+
+  await expect(shell.content.getByTestId('independence-curve')).toBeVisible()
 })
 
 /**

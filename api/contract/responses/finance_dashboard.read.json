@@ -350,6 +350,17 @@
                 "loanPaymentsCents": 0,
                 "monthlyNeedCents": 0,
                 "coverageWithDebtPercent": 0,
+                "projection": {
+                    "startMonth": "2026-04",
+                    "nDate": null,
+                    "curve": [],
+                    "milestones": {
+                        "25": null,
+                        "50": null,
+                        "75": null,
+                        "100": null
+                    }
+                },
                 "nextMilestonePercent": null,
                 "nextMilestoneGapCents": null,
                 "milestones": [
@@ -604,6 +615,17 @@
         "loanPaymentsCents": 0,
         "monthlyNeedCents": 0,
         "coverageWithDebtPercent": 0,
+        "projection": {
+            "startMonth": "2026-04",
+            "nDate": null,
+            "curve": [],
+            "milestones": {
+                "25": null,
+                "50": null,
+                "75": null,
+                "100": null
+            }
+        },
         "nextMilestonePercent": null,
         "nextMilestoneGapCents": null,
         "milestones": [

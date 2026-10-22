@@ -21,6 +21,12 @@ const counter = (overrides: Partial<IndependenceCounter> = {}): IndependenceCoun
     { categoryId: '1', categoryName: 'Loyers perçus', monthlyCents: 6000, sharePercent: 75 },
     { categoryId: '2', categoryName: 'Dividendes', monthlyCents: 2000, sharePercent: 25 },
   ],
+  projection: {
+    startMonth: '2026-10',
+    nDate: '2045-09',
+    curve: [],
+    milestones: { '25': '2026-10', '50': '2026-10', '75': '2033-03', '100': '2045-09' },
+  },
   ...overrides,
 })
 
@@ -106,5 +112,24 @@ describe('IndependenceSummary', () => {
 
     expect(screen.getByText(/Pas encore de train de vie mesuré/)).toBeInTheDocument()
     expect(screen.queryByText('0 %')).not.toBeInTheDocument()
+  })
+
+  test('adds one line with the date N when there is one', () => {
+    render(<IndependenceSummary counter={counter()} />)
+
+    expect(screen.getByTestId('independence-n-line')).toHaveTextContent('Date N projetée · septembre 2045')
+  })
+
+  test('leaves the date line out when the page shows its own block', () => {
+    render(<IndependenceSummary counter={counter()} withDate={false} />)
+
+    expect(screen.queryByTestId('independence-n-line')).not.toBeInTheDocument()
+  })
+
+  test('leaves the date line out when N is not reached', () => {
+    const projection = { ...counter().projection, nDate: null }
+    render(<IndependenceSummary counter={counter({ projection })} />)
+
+    expect(screen.queryByTestId('independence-n-line')).not.toBeInTheDocument()
   })
 })

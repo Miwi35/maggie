@@ -1,12 +1,15 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.FinanceTiles
 import com.maggie.app.data.model.IndependenceCounter
+import com.maggie.app.data.model.CoveragePoint
+import com.maggie.app.data.model.IndependenceProjection
 import com.maggie.app.data.model.IndependenceRente
 import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.formatCents
@@ -14,6 +17,7 @@ import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.ui.UiTags
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -121,5 +125,89 @@ class IndependenceCardScreenTest {
             .assertIsDisplayed()
         compose.onNodeWithText("0 % du train de vie — il manque ${formatCents(0)} par mois")
             .assertDoesNotExist()
+    }
+
+    private fun measurable(projection: IndependenceProjection, isReached: Boolean = false) = IndependenceCounter(
+        coveragePercent = if (isReached) 120 else 40,
+        lifestyleCents = 10000,
+        passiveIncomeCents = if (isReached) 12000 else 4000,
+        isMeasurable = true,
+        hasPassiveIncomeCategories = true,
+        isReached = isReached,
+        projection = projection,
+    )
+
+    @Test
+    fun `the card gives the date N, the curve and the dated milestones`() {
+        open(
+            measurable(
+                IndependenceProjection(
+                    startMonth = "2026-10",
+                    nDate = "2045-09",
+                    curve = listOf(CoveragePoint("2026-10", 0.4), CoveragePoint("2045-09", 1.0)),
+                    milestones = mapOf("25" to "2026-10", "50" to "2028-03", "75" to "2036-06", "100" to "2045-09"),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("Date N · septembre 2045").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.INDEPENDENCE_CURVE).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.INDEPENDENCE_MILESTONES).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("25 % · atteint").assertExists()
+        compose.onNodeWithText("50 % · mars 2028").assertExists()
+        compose.onNodeWithText("75 % · juin 2036").assertExists()
+        compose.onNodeWithText("100 % · septembre 2045").assertExists()
+    }
+
+    @Test
+    fun `when N is not reached within 20 years the card states it without advice`() {
+        open(
+            measurable(
+                IndependenceProjection(
+                    startMonth = "2026-10",
+                    curve = listOf(CoveragePoint("2026-10", 0.4), CoveragePoint("2046-09", 0.7)),
+                    milestones = mapOf("25" to "2026-10", "50" to "2031-02", "75" to null, "100" to null),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("N non atteinte d'ici 20 ans").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("75 % · non atteint d'ici 20 ans").assertExists()
+        compose.onNodeWithText("100 % · non atteint d'ici 20 ans").assertExists()
+        compose.onNodeWithText("50 % · février 2031").assertExists()
+    }
+
+    @Test
+    fun `once the rentes cover the train de vie the card says so and every step is reached`() {
+        open(
+            measurable(
+                IndependenceProjection(
+                    startMonth = "2026-10",
+                    nDate = "2026-10",
+                    curve = listOf(CoveragePoint("2026-10", 1.0)),
+                    milestones = mapOf("25" to "2026-10", "50" to "2026-10", "75" to "2026-10", "100" to "2026-10"),
+                ),
+                isReached = true,
+            ),
+        )
+
+        compose.onNodeWithText("Les rentes couvrent déjà le train de vie").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("100 % · atteint").assertExists()
+        compose.onNodeWithText("Date N", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `without a measured train de vie the card shows no date, curve or milestone`() {
+        open(
+            IndependenceCounter(
+                hasPassiveIncomeCategories = true,
+                projection = IndependenceProjection(startMonth = "2026-10"),
+            ),
+        )
+
+        compose.onNodeWithText("Pas encore de train de vie mesuré").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.INDEPENDENCE_DATE_N).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.INDEPENDENCE_CURVE).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.INDEPENDENCE_MILESTONES).assertDoesNotExist()
     }
 }
