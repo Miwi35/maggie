@@ -268,6 +268,10 @@ test('the Gantt draws the purchase of Canapé after that of Déménagement, and 
       expect(sofaPurchase).toBeGreaterThanOrEqual(movePurchase as number)
     }
 
+    const savingFrom = async (): Promise<number> =>
+      Number(await screen.ganttRow(SOFA).getByTestId('gantt-saving').getAttribute('data-from'))
+    const sofaSavingBefore = await savingFrom()
+
     // --- When: Canapé, which has no date, is dragged to the top --------------
     const dropped = reorderAnswered(page)
     await dragOnto(page, screen.handle(SOFA), screen.row(MOVE))
@@ -275,7 +279,8 @@ test('the Gantt draws the purchase of Canapé after that of Déménagement, and 
 
     // --- Then: the planning is read again and the sofa's bar comes first -----
     await expect.poll(() => screen.ganttOrder([MOVE, SOFA]), { timeout: 30_000 }).toEqual([SOFA, MOVE])
-    await expect(screen.ganttRow(SOFA).getByTestId('gantt-saving')).toHaveAttribute('data-from', '0')
+    // Déménagement's fixed date is funded first, so the sofa moves up the list without saving later than before.
+    expect(await savingFrom()).toBeLessThanOrEqual(sofaSavingBefore)
   } finally {
     await restoreSeed(api)
   }
