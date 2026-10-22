@@ -20,8 +20,7 @@ final class ElasticsearchEntityHydrator
 
     /**
      * What reflection says about each class, read once: a page rebuilds up to
-     * 100 entities of one class, and reading the same attributes again for each
-     * was a tenth of what serving the list cost (MAG-544).
+     * 100 entities of one class (MAG-544).
      *
      * @var array<class-string, array{
      *     class: \ReflectionClass<object>,

@@ -12,6 +12,7 @@ use Maggie\Finance\Entity\Contact;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferSource;
+use Maggie\Finance\Serializer\TransactionListNormalizer;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -39,6 +40,18 @@ final class TransactionListPerformanceTest extends WebTestCase
         $large = $this->queriesFor('/api/transactions?itemsPerPage=100');
 
         self::assertSame($small, $large, 'The page of 100 lines runs more queries than the page of 5: something is loaded line by line.');
+    }
+
+    public function testTheListIsWrittenByTheFastWriter(): void
+    {
+        $this->world(10);
+
+        $body = $this->get('/api/transactions?itemsPerPage=5');
+
+        $writer = self::getContainer()->get(TransactionListNormalizer::class);
+        \assert($writer instanceof TransactionListNormalizer);
+        self::assertCount(5, $body['member']);
+        self::assertSame(5, $writer->written(), 'The list no longer goes through TransactionListNormalizer: its gain is lost.');
     }
 
     public function testAPageIsNeverLargerThanTheCap(): void

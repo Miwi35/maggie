@@ -38,6 +38,8 @@ final class TransactionListNormalizer implements NormalizerInterface, ResetInter
     /** @var array<string, string> IRI by resource class and id: the account, the user and the categories repeat on every line */
     private array $iris = [];
 
+    private int $written = 0;
+
     public function __construct(private readonly IriConverterInterface $iriConverter)
     {
     }
@@ -45,6 +47,7 @@ final class TransactionListNormalizer implements NormalizerInterface, ResetInter
     public function normalize(mixed $data, ?string $format = null, array $context = []): array
     {
         \assert($data instanceof Transaction);
+        ++$this->written;
 
         $qualification = $data->getQualification();
         $kind = $qualification->getKind();
@@ -118,6 +121,12 @@ final class TransactionListNormalizer implements NormalizerInterface, ResetInter
     public function getSupportedTypes(?string $format): array
     {
         return [Transaction::class => false];
+    }
+
+    /** Lines written by this writer since the kernel booted: lets a test prove the list takes this path. */
+    public function written(): int
+    {
+        return $this->written;
     }
 
     public function reset(): void

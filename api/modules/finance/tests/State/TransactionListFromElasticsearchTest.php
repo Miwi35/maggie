@@ -23,6 +23,7 @@ use Maggie\Finance\Entity\Contact;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferSource;
+use Maggie\Finance\Serializer\TransactionListNormalizer;
 use Maggie\Finance\State\TransactionCollectionProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -84,6 +85,7 @@ final class TransactionListFromElasticsearchTest extends KernelTestCase
         $lines = $this->serialize($this->provide([]))['member'];
 
         self::assertCount(2, $lines);
+        self::assertSame(2, self::getContainer()->get(TransactionListNormalizer::class)->written(), 'The list no longer goes through TransactionListNormalizer.');
         self::assertMatchesRegularExpression('#^/api/accounts/#', $lines[0]['account']);
         self::assertMatchesRegularExpression('#^/api/categories/#', $lines[0]['category']);
         self::assertMatchesRegularExpression('#^/api/contacts/#', $lines[0]['contact']);
