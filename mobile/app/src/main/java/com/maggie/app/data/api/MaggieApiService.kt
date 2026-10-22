@@ -803,6 +803,8 @@ data class AddGroceryItemRequest(
     val storeId: String? = null,
     val storeName: String? = null,
     val category: String? = null,
+    // A number of packagings instead of quantity + unit (MAG-573): the API takes one or the other.
+    val packagings: Int? = null,
 )
 
 @Serializable
@@ -819,6 +821,7 @@ data class EditGroceryItemRequest(
     val storeId: String? = null,
     val storeName: String? = null,
     val category: String? = null,
+    val packagings: Int? = null,
 )
 
 @Serializable

@@ -761,6 +761,16 @@ object UiTags {
 
     fun grocerySuggestionSnooze(productId: String) = GROCERY_SUGGESTION_SNOOZE_PREFIX + productId
 
+    /** The quantity of a line being added or edited (MAG-573): its modes, stepper, field and conversion text. */
+    const val GROCERY_QUANTITY_ENTRY = "grocery_quantity_entry"
+    const val GROCERY_QUANTITY_MODE_QUANTITY = "grocery_quantity_mode_quantity"
+    const val GROCERY_QUANTITY_MODE_PACKAGINGS = "grocery_quantity_mode_packagings"
+    const val GROCERY_QUANTITY_FIELD = "grocery_quantity_field"
+    const val GROCERY_PACKAGINGS_FIELD = "grocery_packagings_field"
+    const val GROCERY_PACKAGING_CAPTION = "grocery_packaging_caption"
+    const val GROCERY_QUANTITY_CONVERSION = "grocery_quantity_conversion"
+    const val GROCERY_PREFILLED_CHIP = "grocery_prefilled_chip"
+
     /** A transaction line's « Virement interne » badge, in the list and on the detail screen. */
     const val TRANSFER_BADGE = "transfer_badge"
 

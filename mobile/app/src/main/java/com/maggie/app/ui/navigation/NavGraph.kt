@@ -1581,7 +1581,7 @@ fun NavGraph() {
                                             stores = groceryState.stores,
                                             onSave = { label, quantity, storeId, storeName, category ->
                                                 item.id?.let { id ->
-                                                    groceryViewModel.updateItem(id, label, quantity, null, storeId, storeName, category)
+                                                    groceryViewModel.updateItem(id, label, quantity?.quantity, quantity?.unit, storeId, storeName, category, quantity?.packagings)
                                                 }
                                                 groceryPaneItemId = null
                                             },

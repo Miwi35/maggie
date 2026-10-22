@@ -155,6 +155,89 @@ class GroceryToolsTest extends KernelTestCase
         self::assertSame('pack', $rice[0]->getUnit()?->value);
     }
 
+    public function testPackagingsAddThatManyPackagingsToAPackagedLine(): void
+    {
+        $this->loadFixtures('grocery_packaged.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $data = json_decode($tool('Riz', packagings: 2), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+
+        $this->em()->clear();
+        $rice = array_values(array_filter(
+            $this->em()->getRepository(GroceryItem::class)->findAll(),
+            static fn (GroceryItem $item) => 'Riz' === $item->getLabel(),
+        ));
+        self::assertCount(1, $rice);
+        self::assertSame(4.0, $rice[0]->getQuantity());
+        self::assertSame('pack', $rice[0]->getUnit()?->value);
+
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testGramsOfAPackagedProductStayVisibleAsTheNeed(): void
+    {
+        $this->loadFixtures('grocery_packaged.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $tool('Riz', 300, 'g');
+
+        $this->em()->clear();
+        $rice = array_values(array_filter(
+            $this->em()->getRepository(GroceryItem::class)->findAll(),
+            static fn (GroceryItem $item) => 'Riz' === $item->getLabel(),
+        ));
+        self::assertEquals([['quantity' => 300.0, 'unit' => 'g']], $rice[0]->getNeeded());
+    }
+
+    public function testQuantityAndPackagingsTogetherAreRefused(): void
+    {
+        $this->loadFixtures('grocery_packaged.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $data = json_decode($tool('Riz', 300, 'g', packagings: 2), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('not both', $data['error']);
+
+        $this->em()->clear();
+        $rice = array_values(array_filter(
+            $this->em()->getRepository(GroceryItem::class)->findAll(),
+            static fn (GroceryItem $item) => 'Riz' === $item->getLabel(),
+        ));
+        self::assertSame(2.0, $rice[0]->getQuantity());
+    }
+
+    public function testPackagingsOnAProductWithoutPackagingAreRefused(): void
+    {
+        $this->loadFixtures('grocery_packaged.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $data = json_decode($tool('Bananes', packagings: 2), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertStringContainsString('packaging', $data['error']);
+
+        $this->em()->clear();
+        $bananas = array_values(array_filter(
+            $this->em()->getRepository(GroceryItem::class)->findAll(),
+            static fn (GroceryItem $item) => 'Bananes' === $item->getLabel(),
+        ));
+        self::assertSame(6.0, $bananas[0]->getQuantity());
+    }
+
     public function testAddGroceryItemCaseInsensitiveMatch(): void
     {
         $this->loadFixtures('product.yaml');

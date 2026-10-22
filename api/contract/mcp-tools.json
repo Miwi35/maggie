@@ -41,13 +41,20 @@
                         "string"
                     ],
                     "default": null
+                },
+                "packagings": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "label"
             ]
         },
-        "description": "Add an item to the grocery list by label. Works for any product: food ingredients, household supplies, hygiene items, etc. If a matching product exists, its preferred store is auto-assigned. For unknown products, determine the store from store descriptions (e.g. potatoes → greengrocer, toilet paper → supermarket). Set storeId directly when you can determine it. Only ask the user when you genuinely cannot determine the right store. A product appears once on the list: adding one already there (not yet ticked) accumulates on its line, next to the needs of the planned meals, instead of making a second line — even in another unit (« 300 g + 2 pièces » stays one line). A product bought in a packaging (pack, jar…) is always counted in packagings, whatever the unit given: « Riz » alone is one pack, « Riz 300 g » of a 500 g pack is one pack too (rounded up to whole packagings)."
+        "description": "Add an item to the grocery list by label. Works for any product: food ingredients, household supplies, hygiene items, etc. If a matching product exists, its preferred store is auto-assigned. For unknown products, determine the store from store descriptions (e.g. potatoes → greengrocer, toilet paper → supermarket). Set storeId directly when you can determine it. Only ask the user when you genuinely cannot determine the right store. A product appears once on the list: adding one already there (not yet ticked) accumulates on its line, next to the needs of the planned meals, instead of making a second line — even in another unit (« 300 g + 2 pièces » stays one line). A product bought in a packaging (pack, jar…) is always counted in packagings, whatever the unit given: « Riz » alone is one pack, « Riz 300 g » of a 500 g pack is one pack too (rounded up to whole packagings), and the quantity asked stays visible as the line's `needed`. To add a number of packagings directly (« 2 packs of pasta ») send `packagings` (whole number ≥ 1) instead of `quantity`/`unit`: either `quantity` (with `unit`) or `packagings`, never both, and `packagings` only for a product that has a packaging (`packagingUnit` in manage_products; its `restockQuantity` is the usual number to buy). Nothing is filled in for you: with neither, one packaging for a packaged product, no quantity otherwise."
     },
     "assign_product_store": {
         "name": "assign_product_store",

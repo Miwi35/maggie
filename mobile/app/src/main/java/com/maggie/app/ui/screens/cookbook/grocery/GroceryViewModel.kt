@@ -354,10 +354,18 @@ class GroceryViewModel(
         _uiState.value = _uiState.value.copy(showAddSheet = false)
     }
 
-    fun addItem(label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String? = null, category: String? = null) {
+    fun addItem(
+        label: String,
+        quantity: Float?,
+        unit: String?,
+        storeId: String?,
+        storeName: String? = null,
+        category: String? = null,
+        packagings: Int? = null,
+    ) {
         viewModelScope.launch {
             try {
-                groceryListRepository.addItem(label, quantity, unit, storeId, storeName, category).getOrThrow()
+                groceryListRepository.addItem(label, quantity, unit, storeId, storeName, category, packagings).getOrThrow()
                 _uiState.value = _uiState.value.copy(showAddSheet = false)
                 refresh()
                 // Reload stores if a new store may have been created
@@ -378,10 +386,11 @@ class GroceryViewModel(
         storeId: String?,
         storeName: String?,
         category: String?,
+        packagings: Int? = null,
     ) {
         viewModelScope.launch {
             try {
-                groceryListRepository.editItem(itemId, label, quantity, unit, storeId, storeName, category).getOrThrow()
+                groceryListRepository.editItem(itemId, label, quantity, unit, storeId, storeName, category, packagings).getOrThrow()
                 refresh()
                 // Reload stores/products if store or product may have been created
                 if (storeName != null || label != null) {

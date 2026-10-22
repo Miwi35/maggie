@@ -409,6 +409,8 @@ web:
     areas: [grocery, realtime]
   e2e/web/tests/grocery-stock.spec.ts:
     areas: [grocery, cookbook, realtime]
+  e2e/web/tests/grocery-packagings.spec.ts:
+    areas: [grocery, chat]
   e2e/web/tests/grocery-stock-chat.spec.ts:
     areas: [grocery, cookbook, chat, realtime]
   e2e/web/tests/grocery-season.spec.ts:
@@ -534,6 +536,8 @@ mobile:
     areas: [grocery, realtime]
   e2e/mobile/flows/15-recurring-grocery.yaml:
     areas: [grocery, realtime]
+  e2e/mobile/flows/19-grocery-packagings.yaml:
+    areas: [grocery]
   e2e/mobile/flows/18-grocery-aisles.yaml:
     areas: [grocery]
     paths: ['mobile/app/src/main/java/com/maggie/app/ui/screens/grocery/StoreAisles*.kt']

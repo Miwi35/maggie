@@ -4,10 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
@@ -29,35 +27,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.Store
+import com.maggie.app.ui.uiTagRoot
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddItemSheet(
     products: List<Product>,
     stores: List<Store>,
-    onAddItem: (label: String, quantity: Float?, unit: String?, storeId: String?, storeName: String?, category: String?) -> Unit,
+    onAddItem: (label: String, quantity: QuantityPayload, storeId: String?, storeName: String?, category: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var label by remember { mutableStateOf("") }
-    var quantityText by remember { mutableStateOf("") }
-    var selectedUnit by remember { mutableStateOf<CookbookUnit?>(null) }
+    var selectedProduct by remember { mutableStateOf<Product?>(null) }
+    var draft by remember { mutableStateOf(QuantityDraft()) }
     var selectedCategory by remember { mutableStateOf<ProductCategory?>(null) }
     var selectedStoreId by remember { mutableStateOf<String?>(null) }
     var storeText by remember { mutableStateOf("") }
-    var unitExpanded by remember { mutableStateOf(false) }
     var categoryExpanded by remember { mutableStateOf(false) }
     var showProductPicker by remember { mutableStateOf(false) }
     var showStorePicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
+        modifier = Modifier.uiTagRoot(),
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
@@ -99,49 +96,8 @@ fun AddItemSheet(
                 )
             }
 
-            // Quantity + Unit row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(
-                    value = quantityText,
-                    onValueChange = { quantityText = it },
-                    label = { Text("Quantit\u00e9") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                )
-
-                ExposedDropdownMenuBox(
-                    expanded = unitExpanded,
-                    onExpandedChange = { unitExpanded = it },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    OutlinedTextField(
-                        value = selectedUnit?.name?.lowercase() ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Unit\u00e9") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    )
-                    ExposedDropdownMenu(
-                        expanded = unitExpanded,
-                        onDismissRequest = { unitExpanded = false },
-                    ) {
-                        CookbookUnit.entries.forEach { unit ->
-                            DropdownMenuItem(
-                                text = { Text(unit.name.lowercase()) },
-                                onClick = {
-                                    selectedUnit = unit
-                                    unitExpanded = false
-                                },
-                            )
-                        }
-                    }
-                }
-            }
+            // Quantity, or packagings for a packaged product; prefilled with its automatic restock
+            QuantityEntry(product = selectedProduct, draft = draft, onChange = { draft = it })
 
             // Category picker
             ExposedDropdownMenuBox(
@@ -210,16 +166,14 @@ fun AddItemSheet(
             // Add button
             Button(
                 onClick = {
-                    if (label.isNotBlank()) {
-                        val qty = quantityText.toFloatOrNull()
-                        val unitStr = selectedUnit?.name?.lowercase()
+                    if (label.isNotBlank() && draft.isValid()) {
                         val sName = if (selectedStoreId == null && storeText.isNotBlank()) storeText.trim() else null
                         val catStr = selectedCategory?.name?.lowercase()
-                        onAddItem(label.trim(), qty, unitStr, selectedStoreId, sName, catStr)
+                        onAddItem(label.trim(), draft.payload(), selectedStoreId, sName, catStr)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = label.isNotBlank(),
+                enabled = label.isNotBlank() && draft.isValid(),
             ) {
                 Text("Ajouter")
             }
@@ -233,7 +187,8 @@ fun AddItemSheet(
             initialQuery = label,
             onSelectProduct = { product ->
                 label = product.name
-                product.defaultUnit?.let { selectedUnit = it }
+                selectedProduct = product
+                draft = initialQuantityDraft(product)
                 selectedCategory = product.category
                 resolvePreferredStore(product, stores)?.let { store ->
                     selectedStoreId = store.id
@@ -243,6 +198,8 @@ fun AddItemSheet(
             },
             onSelectCustomLabel = { customLabel ->
                 label = customLabel
+                selectedProduct = null
+                draft = QuantityDraft()
                 showProductPicker = false
             },
             onDismiss = { showProductPicker = false },

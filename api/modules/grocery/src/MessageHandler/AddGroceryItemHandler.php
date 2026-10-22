@@ -13,11 +13,13 @@ use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Exception\InvalidGroceryQuantityException;
 use Maggie\Grocery\Message\AddGroceryItemCommand;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
 use Maggie\Grocery\Service\GroceryLineNeeds;
+use Maggie\Grocery\Service\Needs;
 use Maggie\Grocery\Service\Packaging;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -52,6 +54,15 @@ class AddGroceryItemHandler
             if (mb_strtolower($product->getName()) === mb_strtolower($command->label)) {
                 $matched = $product;
                 break;
+            }
+        }
+
+        if (null !== $command->packagings) {
+            if (null !== $command->quantity || null !== $command->unit) {
+                throw InvalidGroceryQuantityException::exclusive();
+            }
+            if (null === $matched?->getPackagingUnit()) {
+                throw InvalidGroceryQuantityException::noPackaging();
             }
         }
 
@@ -116,17 +127,27 @@ class AddGroceryItemHandler
 
         $unit = null !== $command->unit ? Unit::from($command->unit) : null;
         $quantity = $command->quantity;
+        $need = null;
 
         // A product with a packaging is counted in it, whatever the unit it is
-        // asked in: « Riz » alone, or 300 g of it, is one pack.
-        if (null !== $matched && null !== $matched->getPackagingUnit()) {
-            $quantity = (float) $this->packaging->inPackagings($matched, $quantity, $unit);
-            $unit = $matched->getPackagingUnit();
+        // asked in: « Riz » alone, or 300 g of it, is one pack. What was asked
+        // stays visible as the need of the line: « 1 pack · 300 g ».
+        $packagingUnit = $matched?->getPackagingUnit();
+        if (null !== $matched && null !== $packagingUnit) {
+            if (null !== $command->packagings) {
+                $quantity = (float) $command->packagings;
+            } else {
+                if (null !== $quantity && null !== $unit && $unit !== $packagingUnit) {
+                    $need = Needs::of($quantity, $unit);
+                }
+                $quantity = (float) $this->packaging->inPackagings($matched, $quantity, $unit);
+            }
+            $unit = $packagingUnit;
         }
 
         $mergeable = null !== $matched ? $this->findMergeable($list, $matched) : null;
         if (null !== $mergeable) {
-            $this->merge($mergeable, $quantity, $unit);
+            $this->merge($mergeable, $quantity, $unit, $need);
             $list->setUpdatedAt(new \DateTimeImmutable());
             $this->em->flush();
 
@@ -139,6 +160,7 @@ class AddGroceryItemHandler
         } else {
             $item->setQuantity($quantity);
             $item->setUnit($unit);
+            $item->setNeeded($need);
         }
 
         $maxPosition = 0;
@@ -173,7 +195,8 @@ class AddGroceryItemHandler
         return null;
     }
 
-    private function merge(GroceryItem $existing, ?float $quantity, ?Unit $unit): void
+    /** @param list<array{quantity: float, unit: ?string}>|null $need what was asked, for a packaged product asked in another unit */
+    private function merge(GroceryItem $existing, ?float $quantity, ?Unit $unit, ?array $need): void
     {
         $product = $existing->getProduct();
 
@@ -181,6 +204,9 @@ class AddGroceryItemHandler
             $current = $this->packaging->inPackagings($product, $existing->getQuantity(), $existing->getUnit());
             $existing->setQuantity((float) $current + ($quantity ?? 1.0));
             $existing->setUnit($unit);
+            if (null !== $need) {
+                $existing->setNeeded(Needs::add($this->lineNeeds->of($existing), $need[0]['quantity'], Unit::from($need[0]['unit'])));
+            }
         } elseif (null !== $quantity) {
             // Without a quantity there is nothing to count: the line is already there.
             $this->lineNeeds->apply($existing, $quantity, $unit);

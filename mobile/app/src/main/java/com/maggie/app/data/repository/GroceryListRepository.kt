@@ -33,6 +33,7 @@ class GroceryListRepository(
         storeId: String? = null,
         storeName: String? = null,
         category: String? = null,
+        packagings: Int? = null,
     ): Result<Unit> = runCatching {
         apiService.addGroceryItem(
             AddGroceryItemRequest(
@@ -42,6 +43,7 @@ class GroceryListRepository(
                 storeId = storeId,
                 storeName = storeName,
                 category = category,
+                packagings = packagings,
             ),
         )
     }
@@ -58,6 +60,7 @@ class GroceryListRepository(
         storeId: String? = null,
         storeName: String? = null,
         category: String? = null,
+        packagings: Int? = null,
     ): Result<Unit> = runCatching {
         apiService.editGroceryItem(
             itemId,
@@ -68,6 +71,7 @@ class GroceryListRepository(
                 storeId = storeId,
                 storeName = storeName,
                 category = category,
+                packagings = packagings,
             ),
         )
     }

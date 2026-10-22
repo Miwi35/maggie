@@ -412,8 +412,8 @@ fun GroceryScreen(
         AddItemSheet(
             products = uiState.products,
             stores = uiState.stores,
-            onAddItem = { label, quantity, unit, storeId, storeName, category ->
-                viewModel.addItem(label, quantity, unit, storeId, storeName, category)
+            onAddItem = { label, quantity, storeId, storeName, category ->
+                viewModel.addItem(label, quantity.quantity, quantity.unit, storeId, storeName, category, quantity.packagings)
             },
             onDismiss = { viewModel.hideAddSheet() },
         )
@@ -427,7 +427,7 @@ fun GroceryScreen(
             stores = uiState.stores,
             onSave = { label, quantity, storeId, storeName, category ->
                 item.id?.let { itemId ->
-                    viewModel.updateItem(itemId, label, quantity, null, storeId, storeName, category)
+                    viewModel.updateItem(itemId, label, quantity?.quantity, quantity?.unit, storeId, storeName, category, quantity?.packagings)
                 }
                 detailItem = null
             },

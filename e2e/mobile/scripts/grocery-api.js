@@ -11,7 +11,8 @@
 // the database rather than on the screen.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION  add | check | remove | expect | aisles | assign | drop-aisles
+//   ACTION  add | check | remove | expect | aisles | assign | drop-aisles |
+//           product | drop-product | expect-line
 //   LABEL   the line, as written on the list
 //   EMAIL   the account, default the shopper (e2e-other@maggie.local)
 //   STORE   add: the shop's name, an existing one — left out, no shop;
@@ -22,6 +23,12 @@
 //           (MAG-493); `drop-aisles` deletes those present
 //   AISLE   assign: the aisle the line's product takes in STORE, by name; the
 //           script waits until the list carries it, as the app will read it
+//   product, drop-product: LABEL is the product's name. `product` creates a pasta
+//           in 500 g packs, two packs when it runs low, restocked by itself —
+//           left as found when it exists; `drop-product` deletes it (MAG-573)
+//   expect-line: the line's quantity and unit as stored (QUANTITY, UNIT) and,
+//           when NEEDED_QUANTITY is given, the single need kept beside it
+//           (NEEDED_QUANTITY, NEEDED_UNIT) — the numbers the add sheet sent
 //   WAIT_MS pause before acting, in ms — gives the app time to open its
 //           Mercure subscription, which a write made at once would beat
 //
@@ -134,6 +141,18 @@ function linesWithAisles() {
     fail('GET /api/grocery_lists/' + list.id + ' answered ' + response.status + ': ' + response.body)
   }
   return JSON.parse(response.body).items
+}
+
+function productNamed(name) {
+  const response = http.get(base + '/api/products?itemsPerPage=200', {
+    headers: authorized({ Accept: 'application/ld+json' }),
+  })
+  if (!response.ok) {
+    fail('GET /api/products answered ' + response.status + ': ' + response.body)
+  }
+  return JSON.parse(response.body).member.filter(function (product) {
+    return product.name === name
+  })[0]
 }
 
 function find() {
@@ -284,6 +303,59 @@ if (ACTION === 'add') {
       fail('DELETE /api/aisles/' + aisle.id + ' answered ' + response.status + ': ' + response.body)
     }
   })
+} else if (ACTION === 'product') {
+  const known = productNamed(LABEL)
+  if (!known) {
+    const response = http.post(base + '/api/products', {
+      headers: authorized({ 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }),
+      body: JSON.stringify({
+        name: LABEL,
+        category: 'grain',
+        packagingUnit: 'pack',
+        packagingSize: 500,
+        packagingSizeUnit: 'g',
+        restockQuantity: 2,
+        autoRestock: true,
+      }),
+    })
+    if (!response.ok) {
+      fail('POST /api/products answered ' + response.status + ': ' + response.body)
+    }
+  }
+  // Findable before the script returns: the app loads its products at launch.
+  for (;;) {
+    if (productNamed(LABEL)) {
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('the product never became findable within 30 s')
+    }
+    pause(300)
+  }
+} else if (ACTION === 'drop-product') {
+  const known = productNamed(LABEL)
+  if (known) {
+    const response = http.request(base + '/api/products/' + known.id, {
+      method: 'DELETE',
+      headers: authorized(),
+    })
+    if (!response.ok) {
+      fail('DELETE /api/products/' + known.id + ' answered ' + response.status + ': ' + response.body)
+    }
+  }
+} else if (ACTION === 'expect-line') {
+  const needs = typeof NEEDED_QUANTITY !== 'undefined' && NEEDED_QUANTITY !== ''
+  waitFor(function (line) {
+    if (line === undefined || line.quantity !== Number(QUANTITY) || line.unit !== UNIT) {
+      return false
+    }
+    if (!needs) {
+      return true
+    }
+    return (line.needed || []).length === 1
+      && line.needed[0].quantity === Number(NEEDED_QUANTITY)
+      && line.needed[0].unit === NEEDED_UNIT
+  }, 'the line does not hold ' + QUANTITY + ' ' + UNIT + (needs ? ' with a need of ' + NEEDED_QUANTITY + ' ' + NEEDED_UNIT : ''))
 } else {
   fail('unknown ACTION')
 }

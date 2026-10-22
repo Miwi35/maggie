@@ -15,6 +15,7 @@ final readonly class EditGroceryItemCommand
         public ?string $storeId = null,
         public ?string $storeName = null,
         public ?string $category = null,
+        public ?int $packagings = null,
     ) {
     }
 }

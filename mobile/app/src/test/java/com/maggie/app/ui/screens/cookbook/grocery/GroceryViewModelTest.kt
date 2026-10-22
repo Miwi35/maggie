@@ -175,6 +175,33 @@ class GroceryViewModelTest {
     }
 
     @Test
+    fun `addItem with packagings sends them and no quantity`() = runTest {
+        coEvery { groceryListRepository.addItem(any(), any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.addItem("Pâtes sèches", null, null, null, packagings = 2)
+        advanceUntilIdle()
+
+        coVerify { groceryListRepository.addItem("Pâtes sèches", null, null, null, null, null, 2) }
+        assertFalse(viewModel.uiState.value.showAddSheet)
+    }
+
+    @Test
+    fun `updateItem with packagings sends them and no quantity`() = runTest {
+        coEvery { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.updateItem("item-1", "Pâtes sèches", null, null, null, null, null, packagings = 3)
+        advanceUntilIdle()
+
+        coVerify { groceryListRepository.editItem("item-1", "Pâtes sèches", null, null, null, null, null, 3) }
+    }
+
+    @Test
     fun `toggleItemChecked unchecked to checked`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()

@@ -1,0 +1,14 @@
+# "Add two packs of pasta" — a number of packagings instead of a quantity
+# (MAG-573). The journey asserts on the line the API holds (2 packs of the
+# packaged pasta), not on the sentence below.
+name: grocery-add-packagings
+description: Add two packs of dried pasta through MCP with the packagings parameter.
+
+match:
+  user_contains: "2 paquets de pâtes"
+
+turns:
+  - tools:
+      - name: add_grocery_item
+        input: {label: "Pâtes sèches", packagings: 2}
+  - text: "C'est ajouté : deux paquets de pâtes sèches sur votre liste."

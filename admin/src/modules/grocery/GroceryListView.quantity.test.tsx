@@ -420,7 +420,8 @@ describe('GroceryListView — quantity on the line', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
 
       await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
-      expect(patches(mockFetch)[0].body).toMatchObject({ quantity: 3 })
+      expect(patches(mockFetch)[0].body).toMatchObject({ packagings: 3 })
+      expect(patches(mockFetch)[0].body).not.toHaveProperty('quantity')
       expect(patches(mockFetch)[0].body).not.toHaveProperty('unit')
     })
   })

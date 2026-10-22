@@ -11,6 +11,7 @@ use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Exception\InvalidGroceryQuantityException;
 use Maggie\Grocery\Message\EditGroceryItemCommand;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
@@ -87,17 +88,30 @@ class EditGroceryItemHandler
 
         $packagingUnit = $product?->getPackagingUnit();
 
+        if (null !== $command->packagings) {
+            if (null !== $command->quantity || null !== $command->unit) {
+                throw InvalidGroceryQuantityException::exclusive();
+            }
+            if (null === $packagingUnit) {
+                throw InvalidGroceryQuantityException::noPackaging();
+            }
+        }
+
         if (null !== $packagingUnit) {
             // A packaged product's line is a count of packagings, whatever the
             // unit the quantity is sent in: 600 g of a 500 g pack is 2 packs.
             // A unit alone changes nothing: there is no other unit to count in.
-            if (null !== $command->quantity) {
-                $item->setQuantity((float) $this->packaging->inPackagings(
-                    $product,
-                    $command->quantity,
-                    null !== $command->unit ? Unit::from($command->unit) : $packagingUnit,
-                ));
+            if (null !== $command->packagings) {
+                $item->setQuantity((float) $command->packagings);
                 $item->setUnit($packagingUnit);
+            } elseif (null !== $command->quantity) {
+                $unit = null !== $command->unit ? Unit::from($command->unit) : $packagingUnit;
+                $item->setQuantity((float) $this->packaging->inPackagings($product, $command->quantity, $unit));
+                $item->setUnit($packagingUnit);
+                // What was asked in another unit is now what the line needs: « 1 pack · 300 g ».
+                if ($unit !== $packagingUnit) {
+                    $item->setNeeded(Needs::of($command->quantity, $unit));
+                }
             } elseif ($item->getUnit() !== $packagingUnit) {
                 // A line renamed onto a packaged product ("300 g" becoming "Riz") is counted in its packagings too.
                 $item->setQuantity((float) $this->packaging->inPackagings($product, $item->getQuantity(), $item->getUnit()));

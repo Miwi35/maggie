@@ -1,0 +1,121 @@
+appId: com.maggie.app.e2e
+name: 19-grocery-packagings
+tags:
+  - grocery
+---
+# A line is added in packagings or in quantity, prefilled with the product's automatic
+# restock (MAG-573). « Pâtes sèches MAG-573 » comes in 500 g packs, two packs when it
+# runs low: the add sheet, opened after the full-screen search, offers « 2 paquets »
+# flagged « prérempli · recharge auto »; switching to « Quantité » and typing 300 g says
+# « = 1 paquet de 500 g à acheter », and the line is stored as one pack with 300 g kept
+# as the need.
+#
+# Signed in as the neighbour, like `08`: the seed has no packaged product, so the flow
+# writes its own through `scripts/grocery-api.js` and deletes it at the end. The JVM
+# tests (`QuantityDraftTest`, `QuantityEntryScreenTest`, `GroceryViewModelTest`) own the
+# cases (the steps, the stepper bounds, a product without packaging, the edit sheet);
+# this is the one run against the real API that the sheet's request is right.
+
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: product
+      LABEL: Pâtes sèches MAG-573
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/19-grocery-packagings.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: grocery
+- extendedWaitUntil:
+    visible:
+      id: "grocery"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Timbres du voisin.*"
+      below: "Épicerie du coin"
+    timeout: 30000
+
+# The add sheet, then the full-screen search where the packaged product is picked.
+- tapOn: "Ajouter un article"
+- extendedWaitUntil:
+    visible: "Nom du produit"
+    timeout: 20000
+- tapOn: "Nom du produit"
+- extendedWaitUntil:
+    visible: "Retour"
+    timeout: 20000
+- tapOn:
+    id: "product_search"
+- inputText: "Pâtes sèches MAG"
+- extendedWaitUntil:
+    visible: "Pâtes sèches MAG-573"
+    timeout: 20000
+- tapOn: "Pâtes sèches MAG-573"
+
+# Back on the sheet: the product's restock in packs, flagged, with what it comes to.
+- extendedWaitUntil:
+    visible:
+      id: "grocery_quantity_entry"
+    timeout: 20000
+- assertVisible:
+    id: "grocery_prefilled_chip"
+- assertVisible:
+    id: "grocery_packaging_caption"
+- assertVisible: "paquets de 500 g"
+- assertVisible: "prérempli · recharge auto"
+- assertVisible: "= 1 kg"
+
+# 300 g is one pack to buy.
+- tapOn:
+    id: "grocery_quantity_mode_quantity"
+- tapOn:
+    id: "grocery_quantity_field"
+- inputText: "300"
+- extendedWaitUntil:
+    visible: "= 1 paquet de 500 g à acheter"
+    timeout: 10000
+- runFlow: ../subflows/hide-keyboard.yaml
+- tapOn: "Ajouter"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Pâtes sèches MAG-573.*"
+    timeout: 30000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect-line
+      LABEL: Pâtes sèches MAG-573
+      QUANTITY: "1"
+      UNIT: pack
+      NEEDED_QUANTITY: "300"
+      NEEDED_UNIT: g
+- extendedWaitUntil:
+    visible: "300 g pour les repas"
+    timeout: 30000
+
+# Left as found: the line and the product are deleted.
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: remove
+      LABEL: Pâtes sèches MAG-573
+- extendedWaitUntil:
+    notVisible: ".*Pâtes sèches MAG-573.*"
+    timeout: 30000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: drop-product
+      LABEL: Pâtes sèches MAG-573
