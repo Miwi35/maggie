@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.maggie.app.ui.theme.readableTextOn
 
 private fun colorOf(hex: String): Color {
     val code = checkNotNull(CategoryColors.normalize(hex))
@@ -67,7 +68,7 @@ private fun Swatch(
         if (fill == null) {
             Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         } else if (selected) {
-            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White)
+            Icon(Icons.Default.Check, contentDescription = null, tint = readableTextOn(fill))
         }
     }
 }

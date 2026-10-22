@@ -38,8 +38,29 @@ entry, not a hex: the mapping is the design intent, and each mirror resolves it
 
 `surface.*.raised|track|caption`, `brand.primaryHover|container*`, `module`
 (one hue per module, per mode) and `maggie` (avatar gradient, bubble, panel,
-reply). `night`, `signal`, `source` and `chart` keep their values: they label
-data, not the identity.
+reply). `source` keeps its values: it labels data, not the identity.
+
+## The phone's charter colours (MAG-535)
+
+The mock-ups' states, modules and charts are applied to the phone:
+
+- **`night`** is `#0F0E17` / `#1A1824`; the admin declares it but draws nothing
+  with it (its sign-in pages still write `#1a1a2e`, under the auth guard).
+- **`phone.feedback.dark`** is the charter's coral, amber, blue and green, which
+  the phone's dark `error` role reads; the admin's `feedback.dark` is unchanged.
+- **`module.taches`** (orchid) and **`module.saga`** (gold) join the other hues.
+- **`phone`** also holds the `signal` set and the `chart.categorical` palette the
+  phone draws data with (mint, violet, gold, blue, orchid). The admin declares
+  the group and does not read it: its own `signal` and `chart` stay until it
+  moves (MAG-311).
+- A module's screens wear its hue: `ModuleTheme` (`ui/theme/ModuleTheme.kt`)
+  swaps the primary roles for the module's, `moduleHueOf(route)` decides which
+  (Finance mint, Tâches orchid; the rest keeps Maggie's violet).
+- **The theme defaults to dark.** The choice (« Système » / « Clair » / « Sombre »)
+  lives on the phone (`ThemeChoiceRepository`); an install that never chose is dark.
+- **No screen writes a colour.** `NoHardCodedColorsTest` fails on any `Color(0x…)`
+  or `Color.<Name>` (but `Transparent`) under `ui/screens/`: use a token, the
+  theme's roles, or `readableTextOn(fill)` for the ink on a coloured fill.
 
 ## What is deliberately not a token
 
@@ -56,7 +77,8 @@ data, not the identity.
   link colour, the only one of its kind, out of standard since `ux.md` §4: a
   link is a text button in the theme's primary colour.
 - **Plain black, white and greys** (`#fff`, `#888`) — contrast, not identity.
-  `readableTextOn` / `getEventTextColor` pick between the first two.
+  `readableTextOn` / `getEventTextColor` pick between the first two; on the phone
+  they are written nowhere in a screen.
 - **`admin/src/auth/`** — the sign-in and loading screens are drawn on the night
   surface and still say so in hex. Every change under that path is handed to a
   human by Cyrus's guard (auth), so a background
@@ -66,13 +88,11 @@ data, not the identity.
   it on the next click.
 - **The Material 3 roles the phone's scheme still leaves on Material's
   baseline** — `surfaceContainer`, `surfaceContainerLow/High/Highest`,
-  `surfaceBright`, `surfaceDim`, `outlineVariant`, the `tertiary*` family and
-  `errorContainer`. `Theme.kt` sets seventeen; live screens read some of the
-  rest (`GroceryListsScreen` takes a dragged row from `surfaceContainerHighest`;
-  `BudgetScreen`, `FinanceDashboardScreen`, `CushionScreen` and
-  `VoiceControlBar` use `tertiary` / `errorContainer` as status colours, which is
-  a `signal` wearing a Material role). Naming them means deciding each screen's
-  intent, which is MAG-90's module-by-module audit, not a guess.
+  `surfaceBright`, `surfaceDim` and `outlineVariant` (`GroceryListsScreen` takes a
+  dragged row from `surfaceContainerHighest`). `tertiary*` (attention) and
+  `errorContainer` (overspend) are named since MAG-535. Naming the rest means
+  deciding each screen's intent, which is MAG-90's module-by-module audit, not a
+  guess.
 
 Anything else written as a hex in `admin/src` or `mobile/app/src/main` is a token
 that was not declared yet.

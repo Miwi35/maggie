@@ -14,14 +14,15 @@ import androidx.fragment.app.FragmentActivity
 import com.maggie.app.data.fcm.PushActionHandler
 import com.maggie.app.data.fcm.PushIntents
 import com.maggie.app.data.interruption.InterruptionCenter
-import com.maggie.app.data.repository.UserPreferenceRepository
+import com.maggie.app.data.repository.ThemeChoiceRepository
 import com.maggie.app.ui.navigation.NavGraph
 import com.maggie.app.ui.theme.MaggieTheme
+import com.maggie.app.ui.theme.THEME_DEFAULT
 import com.maggie.app.ui.uiTagRoot
 import org.koin.android.ext.android.inject
 
 class MainActivity : FragmentActivity() {
-    private val userPreferenceRepository: UserPreferenceRepository by inject()
+    private val themeChoiceRepository: ThemeChoiceRepository by inject()
     private val interruptions: InterruptionCenter by inject()
     private val pushActions: PushActionHandler by inject()
 
@@ -32,8 +33,8 @@ class MainActivity : FragmentActivity() {
         if (savedInstanceState == null) openedByPush(intent)
         enableEdgeToEdge()
         setContent {
-            val preference by userPreferenceRepository.preference.collectAsState()
-            MaggieTheme(themePreference = preference?.theme ?: "system") {
+            val theme by themeChoiceRepository.choice.collectAsState(initial = THEME_DEFAULT)
+            MaggieTheme(themePreference = theme) {
                 // This window's tag root (MAG-98). It covers everything the
                 // activity composes; the sheets and dialogs are separate windows
                 // and carry their own — see UiTagRoot.

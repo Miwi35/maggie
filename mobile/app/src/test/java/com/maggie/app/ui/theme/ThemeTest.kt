@@ -125,13 +125,13 @@ class ThemeTest {
     }
 
     @Test
-    fun `the night surface reads on both modes, because it belongs to neither`() {
+    fun `the night is the dark background, so the splash never flashes in the dark mode`() {
         // The sign-in, loading and lock screens are drawn on `night`, not on the
-        // scheme — they are shown before anything knows which mode is on.
-        for ((mode, scheme) in modes) {
-            assert(MaggieTokens.Night.background != scheme.background) {
-                "the night surface is the $mode background; the splash would flash"
-            }
+        // scheme — they are shown before anything knows which mode is on. The
+        // Veilleuse night *is* the dark background; only the light mode differs.
+        assertEquals(MaggieDarkColorScheme.background, MaggieTokens.Night.background)
+        assert(MaggieTokens.Night.background != MaggieLightColorScheme.background) {
+            "the night surface is the light background; the splash would flash"
         }
     }
 }

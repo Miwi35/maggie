@@ -18,11 +18,15 @@ import com.maggie.app.data.model.User
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.voice.VoiceManager
 import com.maggie.app.data.repository.AgendaRepository
+import com.maggie.app.data.repository.ThemeChoiceRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
+import com.maggie.app.ui.theme.THEME_DEFAULT
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -73,12 +77,15 @@ class SettingsViewModel(
     private val mercureService: MercureService,
     private val voiceManager: VoiceManager,
     private val pushTokenRegistrar: PushTokenRegistrar,
+    private val themeChoiceRepository: ThemeChoiceRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState
 
-    val themePreference: StateFlow<UserPreference?> = userPreferenceRepository.preference
+    /** This phone's theme (« dark » until the user picks another), not the account's preference. */
+    val themeChoice: StateFlow<String> =
+        themeChoiceRepository.choice.stateIn(viewModelScope, SharingStarted.Eagerly, THEME_DEFAULT)
 
     init {
         loadProfile()
@@ -403,11 +410,7 @@ class SettingsViewModel(
     }
 
     fun updateTheme(theme: String) {
-        viewModelScope.launch {
-            userPreferenceRepository.update(buildJsonObject { put("theme", theme) })
-                .onSuccess { _uiState.value = _uiState.value.copy(preferences = it) }
-                .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
-        }
+        viewModelScope.launch { themeChoiceRepository.save(theme) }
     }
 
     fun updateTimezone(timezone: String) {

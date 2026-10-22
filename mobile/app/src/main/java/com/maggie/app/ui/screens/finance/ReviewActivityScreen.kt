@@ -42,7 +42,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -57,18 +56,14 @@ import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.theme.MaggieDarkColorScheme
 import com.maggie.app.ui.theme.MaggieShapes
-import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.ModuleHue
+import com.maggie.app.ui.theme.inModule
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** The activity's own direction (« Veilleuse »): the dark surfaces, and the Comptes mint as the one accent. */
-private val ReviewColorScheme = MaggieDarkColorScheme.copy(
-    primary = MaggieTokens.Module.comptes.second,
-    onPrimary = Color(0xFF0B2A1E),
-    secondary = MaggieTokens.Module.comptes.second,
-    onSecondary = Color(0xFF0B2A1E),
-)
+private val ReviewColorScheme = MaggieDarkColorScheme.inModule(ModuleHue.FINANCE)
 
 private val dayFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH)
 

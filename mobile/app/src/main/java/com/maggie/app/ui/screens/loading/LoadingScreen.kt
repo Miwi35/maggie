@@ -13,7 +13,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -45,7 +44,7 @@ fun LoadingScreen() {
         Spacer(modifier = Modifier.height(24.dp))
         CircularProgressIndicator(
             modifier = Modifier.size(28.dp),
-            color = Color.White.copy(alpha = 0.7f),
+            color = MaggieTokens.Night.textMuted,
         )
     }
 }

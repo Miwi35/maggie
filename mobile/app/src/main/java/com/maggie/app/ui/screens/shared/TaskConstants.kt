@@ -20,10 +20,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maggie.app.ui.theme.criticalityColor
+import com.maggie.app.ui.theme.readableTextOn
 
 object TaskConstants {
     val CRITICALITY_LABELS = mapOf(
@@ -106,7 +106,7 @@ fun CriticalityChip(criticality: String) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = criticality,
-                color = Color.White,
+                color = readableTextOn(color),
                 fontSize = 10.sp,
                 modifier = Modifier.padding(horizontal = 6.dp),
             )

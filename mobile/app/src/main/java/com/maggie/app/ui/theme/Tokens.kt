@@ -77,8 +77,8 @@ object MaggieTokens {
 
     /** The sign-in, loading and lock screens, and the splash — mode or no mode. */
     object Night {
-        val background = Color(0xFF1A1A2E)
-        val raised = Color(0xFF16213E)
+        val background = Color(0xFF0F0E17)
+        val raised = Color(0xFF1A1824)
         val text = Color(0xFFFFFFFF)
         const val TEXT_MUTED_ALPHA = 0.6f
 
@@ -96,9 +96,10 @@ object MaggieTokens {
         success = Color(0xFF1E7A3E),
     )
 
+    /** The charter's dark feedback (`phone.feedback.dark`); the admin keeps its own `feedback.dark`. */
     val feedbackDark = Feedback(
-        error = Color(0xFFF4766E),
-        warning = Color(0xFFF2C65A),
+        error = Color(0xFFFF8A80),
+        warning = Color(0xFFF0A35E),
         info = Color(0xFF8FB8FF),
         success = Color(0xFF6FCF8E),
     )
@@ -109,6 +110,13 @@ object MaggieTokens {
         val comptes = Color(0xFF1B7352) to Color(0xFF7FD1AE)
         val sport = Color(0xFFBF372D) to Color(0xFFFF8A80)
         val travail = Color(0xFF4F7011) to Color(0xFFB8DE6F)
+        val taches = Color(0xFF9B3A8A) to Color(0xFFE8A9D9)
+
+        /** The sagas' hue: a palier, a month's gold. */
+        val saga = Color(0xFF8A6100) to Color(0xFFF2C46D)
+
+        /** The Finance screens' hue: Comptes' mint, which the charter names for both. */
+        val finance = comptes
     }
 
     /** Maggie's own surfaces in the conversation; the pairs are (light, dark). */
@@ -120,14 +128,18 @@ object MaggieTokens {
         val reply = Color(0xFFEFEBF6) to Color(0xFF221F2D)
     }
 
-    /** Labels on *data* — a criticality, a thread's state, an item just ticked off. */
+    /**
+     * Labels on *data* — a criticality, a thread's state, an item just ticked off — in the
+     * charter's state colours (MAG-535): in the rhythm, attention, overspend, info, Maggie's
+     * violet. The admin keeps its own `signal` set until the owner moves it.
+     */
     object Signal {
-        val success = Color(0xFF4CAF50)
-        val warning = Color(0xFFFF9800)
-        val danger = Color(0xFFF44336)
-        val info = Color(0xFF2196F3)
-        val critical = Color(0xFF9C27B0)
-        val neutral = Color(0xFF9E9E9E)
+        val success = Color(0xFF6FCF8E)
+        val warning = Color(0xFFF0A35E)
+        val danger = Color(0xFFFF8A80)
+        val info = Color(0xFF8FB8FF)
+        val critical = Color(0xFFA68BFF)
+        val neutral = Color(0xFF8E899C)
     }
 
     /** Where spending stands against its pace (`RhythmStatus`), as (light, dark). */
@@ -136,10 +148,13 @@ object MaggieTokens {
         val above = Color(0xFFA65500) to Color(0xFFF0A35E)
     }
 
-    /** Slots 1 and 2 of the palette validated on the finance dashboard, per mode. */
+    /** The charter's chart palette, per mode: mint, violet, gold, blue, orchid. */
     val chartCategorical = listOf(
-        Color(0xFF2A78D6) to Color(0xFF3987E5),
-        Color(0xFFEB6834) to Color(0xFFD95926),
+        Color(0xFF1B7352) to Color(0xFF7FD1AE),
+        Color(0xFF6B4BD6) to Color(0xFFA68BFF),
+        Color(0xFF8A6100) to Color(0xFFF2C46D),
+        Color(0xFF2F62B8) to Color(0xFF8FB8FF),
+        Color(0xFF9B3A8A) to Color(0xFFE8A9D9),
     )
 
     /**

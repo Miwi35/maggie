@@ -51,7 +51,6 @@ import androidx.core.util.Consumer
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -214,6 +213,8 @@ import com.maggie.app.ui.screens.login.LoginScreen
 import com.maggie.app.ui.screens.login.LoginViewModel
 import com.maggie.app.ui.screens.loading.LoadingScreen
 import com.maggie.app.ui.screens.settings.SettingsScreen
+import com.maggie.app.ui.theme.ModuleHue
+import com.maggie.app.ui.theme.ModuleTheme
 import com.maggie.app.util.EventExpander
 import com.maggie.app.util.RruleUtils
 import com.maggie.app.voice.VoiceManager
@@ -953,20 +954,22 @@ fun NavGraph() {
                 }
             } else if (chrome.showsFinanceRail) {
                 {
-                    FinanceNavigationRail(
-                        currentRoute = currentRoute,
-                        onSelect = ::selectFinanceMenu,
-                        chatAction = if (chrome.showsChatInRail) {
-                            {
-                                ChatRailActions(
-                                    onOpenChat = { showChatSheet = true },
-                                    onMicClick = ::startVoiceMode,
-                                )
-                            }
-                        } else {
-                            null
-                        },
-                    )
+                    ModuleTheme(ModuleHue.FINANCE) {
+                        FinanceNavigationRail(
+                            currentRoute = currentRoute,
+                            onSelect = ::selectFinanceMenu,
+                            chatAction = if (chrome.showsChatInRail) {
+                                {
+                                    ChatRailActions(
+                                        onOpenChat = { showChatSheet = true },
+                                        onMicClick = ::startVoiceMode,
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                        )
+                    }
                 }
             } else {
                 null
@@ -1017,7 +1020,8 @@ fun NavGraph() {
                     }
                 },
             ) { paddingValues ->
-                NavHost(
+                ModuleNavHost(
+                    route = currentRoute,
                     navController = navController,
                     startDestination = Screen.Loading.route,
                     modifier = Modifier.padding(paddingValues).clearOfNavigationBar(paidByChatBar = chrome.showsChatBar),

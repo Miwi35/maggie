@@ -24,7 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -97,7 +96,7 @@ fun LockScreen(lockManager: BiometricLockManager) {
         if (unlocking) {
             CircularProgressIndicator(
                 modifier = Modifier.size(48.dp),
-                color = Color.White.copy(alpha = 0.7f),
+                color = MaggieTokens.Night.textMuted,
             )
         } else if (activity != null && lockManager.canAuthenticate(activity)) {
             IconButton(
@@ -110,7 +109,7 @@ fun LockScreen(lockManager: BiometricLockManager) {
                 },
                 modifier = Modifier.size(64.dp),
                 colors = IconButtonDefaults.iconButtonColors(
-                    contentColor = Color.White,
+                    contentColor = MaggieTokens.Night.text,
                 ),
             ) {
                 Icon(

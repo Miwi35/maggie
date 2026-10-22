@@ -7,6 +7,13 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+
+/** A state colour as a container: the colour, lightly, over the surface it sits on. */
+private fun stateContainer(state: Color, surface: Color): Color = state.copy(alpha = STATE_CONTAINER_ALPHA).compositeOver(surface)
+
+internal const val STATE_CONTAINER_ALPHA = 0.22f
 
 /**
  * The app's theme, derived from `design/tokens.json` — the same file the admin
@@ -16,10 +23,13 @@ import androidx.compose.runtime.Composable
  * The accent is per mode — `primaryLight` on white-ish surfaces, `primary` on
  * the dark ones — and so is `error`, read from the mode's own feedback set.
  *
+ * The charter's two states are named (MAG-535): `tertiary*` is « attention »
+ * (the mode's warning — an envelope overcommitted, a task waiting) and
+ * `errorContainer` the overspend, each a tint of its colour over the surface.
+ *
  * Not covered: the roles left on Material's baseline — `surfaceContainer*`,
- * `surfaceBright`, `surfaceDim`, `outlineVariant`, `tertiary*` and
- * `errorContainer`. Live screens read some of them; naming them is MAG-90's
- * module-by-module audit, not a guess made here.
+ * `surfaceBright`, `surfaceDim` and `outlineVariant`. Live screens read some
+ * of them; naming them is MAG-90's module-by-module audit, not a guess made here.
  *
  * The typeface is not here: Geist has to be bundled in `res/font/`, with its
  * licence, and that is a ticket of its own. Until then the app writes in Roboto
@@ -43,6 +53,12 @@ internal val MaggieLightColorScheme = lightColorScheme(
     outline = MaggieTokens.surfaceLight.textMuted,
     error = MaggieTokens.feedbackLight.error,
     onError = MaggieTokens.Brand.onPrimaryLight,
+    errorContainer = stateContainer(MaggieTokens.feedbackLight.error, MaggieTokens.surfaceLight.paper),
+    onErrorContainer = MaggieTokens.feedbackLight.error,
+    tertiary = MaggieTokens.feedbackLight.warning,
+    onTertiary = MaggieTokens.Brand.onPrimaryLight,
+    tertiaryContainer = stateContainer(MaggieTokens.feedbackLight.warning, MaggieTokens.surfaceLight.paper),
+    onTertiaryContainer = MaggieTokens.feedbackLight.warning,
 )
 
 internal val MaggieDarkColorScheme = darkColorScheme(
@@ -63,6 +79,12 @@ internal val MaggieDarkColorScheme = darkColorScheme(
     outline = MaggieTokens.surfaceDark.textMuted,
     error = MaggieTokens.feedbackDark.error,
     onError = MaggieTokens.Brand.onPrimary,
+    errorContainer = stateContainer(MaggieTokens.feedbackDark.error, MaggieTokens.surfaceDark.paper),
+    onErrorContainer = MaggieTokens.feedbackDark.error,
+    tertiary = MaggieTokens.feedbackDark.warning,
+    onTertiary = MaggieTokens.Brand.onPrimary,
+    tertiaryContainer = stateContainer(MaggieTokens.feedbackDark.warning, MaggieTokens.surfaceDark.paper),
+    onTertiaryContainer = MaggieTokens.feedbackDark.warning,
 )
 
 /** Material's five shape roles over the shared radii. */
@@ -74,16 +96,23 @@ val MaggieShapes = Shapes(
     extraLarge = RoundedCornerShape(MaggieTokens.Radius.xl),
 )
 
+/** The mock-ups are drawn on the dark Veilleuse: it is what an install shows until its owner picks another. */
+const val THEME_DEFAULT = "dark"
+
+/** « Clair » and « Système » are choices; anything else, an unset or unknown value included, is the dark default. */
+internal fun usesDarkTheme(choice: String?, systemIsDark: Boolean): Boolean = when (choice) {
+    "light" -> false
+    "system" -> systemIsDark
+    else -> true
+}
+
 @Composable
 fun MaggieTheme(
-    themePreference: String = "system",
+    themePreference: String = THEME_DEFAULT,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when (themePreference) {
-        "dark" -> MaggieDarkColorScheme
-        "light" -> MaggieLightColorScheme
-        else -> if (isSystemInDarkTheme()) MaggieDarkColorScheme else MaggieLightColorScheme
-    }
+    val colorScheme =
+        if (usesDarkTheme(themePreference, isSystemInDarkTheme())) MaggieDarkColorScheme else MaggieLightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,

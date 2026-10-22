@@ -7,7 +7,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -46,7 +45,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -59,6 +57,8 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.interruption.rememberReducedMotion
 import com.maggie.app.ui.screens.shared.minutesLabel
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.theme.readableTextOn
 import kotlinx.coroutines.delay
 
 /** « Suivante : Appeler le garage · 10 min »; the duration only when the task has one. */
@@ -180,7 +180,7 @@ private val starPlaces = listOf(
 /** The green circle and its check, popping in with a spring, then the small stars around it. */
 @Composable
 private fun DoneCircle(animate: Boolean) {
-    val green = if (isSystemInDarkTheme()) MaggieTokens.feedbackDark.success else MaggieTokens.feedbackLight.success
+    val green = if (isMaggieDark()) MaggieTokens.feedbackDark.success else MaggieTokens.feedbackLight.success
     val scale = remember { Animatable(if (animate) 0f else 1f) }
     val stars = remember { Animatable(if (animate) 0f else 1f) }
     LaunchedEffect(animate) {
@@ -213,7 +213,7 @@ private fun DoneCircle(animate: Boolean) {
                 .semantics { contentDescription = "Faite" },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(64.dp))
+            Icon(Icons.Default.Check, contentDescription = null, tint = readableTextOn(green), modifier = Modifier.size(64.dp))
         }
     }
 }
@@ -319,7 +319,7 @@ internal fun PalierBanner(celebration: Celebration, animate: Boolean, onDismiss:
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = PalierColor,
-        contentColor = Color(0xFF3B2A00),
+        contentColor = readableTextOn(PalierColor),
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)

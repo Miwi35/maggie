@@ -51,7 +51,7 @@ export const TOKENS = {
   /** Alpha of the hairline between rows — white on the dark surfaces, ink on the light ones. */
   divider: { light: 0.08, dark: 0.06 },
   /** The sign-in, loading and lock screens, on both platforms, and the Android splash. */
-  night: { background: '#1A1A2E', raised: '#16213E', text: '#FFFFFF', textMutedAlpha: 0.6 },
+  night: { background: '#0F0E17', raised: '#1A1824', text: '#FFFFFF', textMutedAlpha: 0.6 },
   /** Feedback about *this* interaction — MUI's alert roles. */
   feedback: {
     light: { error: '#B3261E', warning: '#8A5F00', info: '#2F62B8', success: '#1E7A3E' },
@@ -63,6 +63,8 @@ export const TOKENS = {
     comptes: { light: '#1B7352', dark: '#7FD1AE' },
     sport: { light: '#BF372D', dark: '#FF8A80' },
     travail: { light: '#4F7011', dark: '#B8DE6F' },
+    taches: { light: '#9B3A8A', dark: '#E8A9D9' },
+    saga: { light: '#8A6100', dark: '#F2C46D' },
   },
   /** What Maggie's own surfaces — the interruption and the chat — are drawn with. */
   maggie: {
@@ -97,6 +99,33 @@ export const TOKENS = {
       { light: '#2A78D6', dark: '#3987E5' },
       { light: '#EB6834', dark: '#D95926' },
     ],
+  },
+  /**
+   * The charter's state and chart colours, as the phone draws them (MAG-535). The admin
+   * keeps `signal` and `chart` above until the owner agrees to move it (charter § 1: a
+   * remark on one channel does not extend to the other); it declares these and does not read them.
+   */
+  phone: {
+    feedback: {
+      dark: { error: '#FF8A80', warning: '#F0A35E', info: '#8FB8FF', success: '#6FCF8E' },
+    },
+    signal: {
+      success: '#6FCF8E',
+      warning: '#F0A35E',
+      danger: '#FF8A80',
+      info: '#8FB8FF',
+      critical: '#A68BFF',
+      neutral: '#8E899C',
+    },
+    chart: {
+      categorical: [
+        { light: '#1B7352', dark: '#7FD1AE' },
+        { light: '#6B4BD6', dark: '#A68BFF' },
+        { light: '#8A6100', dark: '#F2C46D' },
+        { light: '#2F62B8', dark: '#8FB8FF' },
+        { light: '#9B3A8A', dark: '#E8A9D9' },
+      ],
+    },
   },
   typography: {
     family: 'Geist, system-ui, sans-serif',

@@ -56,12 +56,14 @@ import com.maggie.app.data.model.RoutineDay
 import com.maggie.app.data.model.RoutineGroup
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.interruption.rememberReducedMotion
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.readableTextOn
 
-/** The routines' green (MAG-511): a tick, a day done. Never a red: a day missed is only grey. */
-internal val RoutineGreen = Color(0xFF7FD1AE)
+/** The routines' green (MAG-511): a tick, a day done — the charter's « in the rhythm ». Never a red: a day missed is only grey. */
+internal val RoutineGreen = MaggieTokens.Signal.success
 
 /** What reads on the green. */
-internal val OnRoutineGreen = Color(0xFF0E3B2A)
+internal val OnRoutineGreen = readableTextOn(RoutineGreen)
 
 /**
  * The « Routines » tab (MAG-511): the daily ones by part of the day, then « Chaque semaine » and
