@@ -138,6 +138,7 @@ fun AddItemSheet(
                 ExposedDropdownMenu(
                     expanded = categoryExpanded,
                     onDismissRequest = { categoryExpanded = false },
+                    modifier = Modifier.uiTagRoot(),
                 ) {
                     DropdownMenuItem(
                         text = { Text("Aucune") },

@@ -439,7 +439,7 @@ test('pressing + twice on a packaged line makes it three, in the other window an
   expect(created.status(), `the API refused the product: ${await created.text()}`).toBe(201)
 
   await acting.open()
-  await acting.addItem(label, { quantity: 1, store: SHOPS.market })
+  await acting.addItem(label, { packs: 1, store: SHOPS.market })
   await expect(acting.line(label)).toContainText('1')
 
   await openSubscribed(

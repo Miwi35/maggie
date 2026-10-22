@@ -30,6 +30,7 @@ const LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json
 const PASTA = 'Pâtes sèches'
 const RICE = 'Riz basmati'
 const MEAL_PREFIX = 'MAG-573 web'
+const ANCHOR = 'Pense-bête MAG-573'
 
 interface ProductRow {
   name: string
@@ -115,6 +116,12 @@ test.beforeEach(async ({ stockUser }) => {
 
   await waitForIndexed<ProductRow>(api, '/api/products?itemsPerPage=200', (row) => PASTA === row.name, {
     what: 'The packaged pasta',
+  })
+  // The stock account owns no list until a line reaches it, and the page only draws « Ma liste de courses » once there is one.
+  const anchored = await api.post('/api/grocery/add-item', { headers: { 'Content-Type': 'application/json' }, data: { label: ANCHOR } })
+  expect(anchored.status(), `the list was not started: ${await anchored.text()}`).toBe(200)
+  await waitForIndexed<StoredList>(api, '/api/grocery_lists', (list) => list.items.some((line) => ANCHOR === line.label), {
+    what: 'The list holding its first line',
   })
 })
 

@@ -373,13 +373,13 @@ test('one product is one line in packs, with what the meals need as a reminder, 
         )
       },
       // …then the list shows ONE line, « Pâtes · 2 paquets », without reloading,
-      // with « 800 g pour les repas » as a reminder.
+      // with « 800 g pour les recettes » as a reminder.
       async () => {
         await expect(watching.line(pastaName)).toHaveCount(1)
         await expect(watching.line(pastaName).getByRole('button', { name: `Modifier la quantité de ${pastaName}` })).toContainText(
           '2 paquets',
         )
-        await expect(watching.line(pastaName).getByTestId('needed-reminder')).toHaveText('800 g pour les repas')
+        await expect(watching.line(pastaName).getByTestId('needed-reminder')).toHaveText('800 g pour les recettes')
       },
     )
 
@@ -404,7 +404,7 @@ test('one product is one line in packs, with what the meals need as a reminder, 
         await expect(watching.line(pastaName).getByRole('button', { name: `Modifier la quantité de ${pastaName}` })).toContainText(
           '1 paquet',
         )
-        await expect(watching.line(pastaName).getByTestId('needed-reminder')).toHaveText('300 g pour les repas')
+        await expect(watching.line(pastaName).getByTestId('needed-reminder')).toHaveText('300 g pour les recettes')
       },
     )
   } finally {

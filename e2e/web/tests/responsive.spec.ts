@@ -247,8 +247,8 @@ test.describe('Responsive @responsive', () => {
     }
 
     await grocery.open()
-    await grocery.addItem(label, { quantity: 2 })
-    await grocery.addItem(short, { quantity: 1 })
+    await grocery.addItem(label, { packs: 2 })
+    await grocery.addItem(short, { packs: 1 })
 
     try {
       for (const name of [label, short]) {

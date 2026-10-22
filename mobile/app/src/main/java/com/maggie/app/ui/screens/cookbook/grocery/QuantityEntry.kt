@@ -46,6 +46,7 @@ import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.frenchLabel
 import com.maggie.app.data.model.label
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.theme.MaggieTokens
 
 /**
@@ -144,7 +145,11 @@ fun QuantityEntry(
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded) },
                         modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     )
-                    ExposedDropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                    ExposedDropdownMenu(
+                        expanded = unitExpanded,
+                        onDismissRequest = { unitExpanded = false },
+                        modifier = Modifier.uiTagRoot(),
+                    ) {
                         CookbookUnit.entries.forEach { unit ->
                             DropdownMenuItem(
                                 text = { Text(unit.name.lowercase()) },
