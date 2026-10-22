@@ -53,8 +53,10 @@ class TokensContractTest {
         // `typography.family` and `typography.mono` have no Compose equivalent — a
         // CSS stack is a string, a FontFamily is a resource — so the first has its
         // own test and the second is not mirrored.
-        // The admin's own `signal` and `chart` are not the phone's: it reads `phone.signal` and `phone.chart`.
-        val adminOnly = flatten(source).keys.filter { it.startsWith("signal.") || it.startsWith("chart.") }
+        // The admin's own `signal`, `chart` and dark `feedback` are not the phone's: it reads `phone.*`.
+        val adminOnly = flatten(source).keys.filter {
+            it.startsWith("signal.") || it.startsWith("chart.") || it.startsWith("feedback.dark.")
+        }
         assertEquals(flatten(source) - "typography.family" - "typography.mono" - adminOnly.toSet(), mirror())
     }
 
