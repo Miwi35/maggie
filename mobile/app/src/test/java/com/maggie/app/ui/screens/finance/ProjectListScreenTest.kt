@@ -201,8 +201,8 @@ class ProjectListScreenTest {
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.FUNDING_MONTH).fetchSemanticsNodes().size == 36 }
         compose.onNodeWithTag(UiTags.FUNDING_CHART).assertIsDisplayed()
-        assertEquals(3, compose.onAllNodesWithTag(UiTags.FUNDING_SALARY).fetchSemanticsNodes().size)
-        assertEquals(1, compose.onAllNodesWithTag(UiTags.FUNDING_SAVINGS).fetchSemanticsNodes().size)
+        assertEquals(3, compose.onAllNodesWithTag(UiTags.FUNDING_SALARY, useUnmergedTree = true).fetchSemanticsNodes().size)
+        assertEquals(1, compose.onAllNodesWithTag(UiTags.FUNDING_SAVINGS, useUnmergedTree = true).fetchSemanticsNodes().size)
         assertEquals(3, compose.onAllNodesWithTag(UiTags.FUNDING_OVER, useUnmergedTree = true).fetchSemanticsNodes().size)
         compose.onNodeWithTag(UiTags.FUNDING_LEGEND).assertIsDisplayed()
         compose.onNodeWithText("Capital libéré").assertIsDisplayed()
