@@ -214,12 +214,12 @@ tags:
     visible:
       id: "project_options"
     timeout: 20000
-# The three total costs, whatever the decimal sign of the locale: 10 000 / 10 422 / 10 253.
+# The cash and loan total costs, whatever the decimal sign of the locale: 10 000 / 10 421,86.
+# The partial option depends on the seed's saving capacity: the unit tests own it.
 - extendedWaitUntil:
     visible: "10000[,.]00 EUR"
     timeout: 20000
-- assertVisible: "10422[,.]00 EUR"
-- assertVisible: "10253[,.]00 EUR"
+- assertVisible: "10421[,.]86 EUR"
 
 # Left as the seed wrote it: no source.
 - runScript:

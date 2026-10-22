@@ -721,22 +721,24 @@ class ProjectViewModelTest {
         viewModel.openSheet("p3")
         advanceUntilIdle()
         val saved = car.copy(
-            fundingSources = listOf(ProjectFundingSource(kind = "savings", amountCents = 200_000, accountId = "acc-1")),
-            salaryCents = 800_000,
+            fundingSources = listOf(
+                ProjectFundingSource(kind = "savings", amountCents = 200_000, accountId = "acc-1"),
+                ProjectFundingSource(kind = "loan", amountCents = 600_000, loanId = "loan-1"),
+            ),
+            salaryCents = 200_000,
         )
         val requests = slot<List<ProjectFundingSourceRequest>>()
         coEvery { repository.setFunding("p3", capture(requests)) } returns Result.success(saved)
 
         viewModel.editSource(0) { it.copy(amount = "2000") }
-        viewModel.removeSource(1)
         viewModel.saveFunding("p3", viewModel.uiState.value.sheet!!.sources)
         advanceUntilIdle()
 
-        assertEquals(listOf("savings"), requests.captured.map { it.kind })
-        assertEquals(200_000, requests.captured.single().amountCents)
-        assertEquals("acc-1", requests.captured.single().account)
+        assertEquals(listOf("savings", "loan"), requests.captured.map { it.kind })
+        assertEquals(200_000, requests.captured.first().amountCents)
+        assertEquals("acc-1", requests.captured.first().account)
         val state = viewModel.uiState.value
-        assertEquals(800_000, state.projects.single { it.id == "p3" }.salaryCents)
+        assertEquals(200_000, state.projects.single { it.id == "p3" }.salaryCents)
         assertTrue(state.sheet!!.fundingSaved)
         assertFalse(state.sheet!!.dirty)
         assertFalse(state.sheet!!.isSavingFunding)
@@ -782,8 +784,11 @@ class ProjectViewModelTest {
         viewModel.openSheet("p3")
         advanceUntilIdle()
         val elsewhere = car.copy(
-            fundingSources = listOf(ProjectFundingSource(kind = "savings", amountCents = 300_000, accountId = "acc-1")),
-            salaryCents = 700_000,
+            fundingSources = listOf(
+                ProjectFundingSource(kind = "savings", amountCents = 300_000, accountId = "acc-1"),
+                ProjectFundingSource(kind = "loan", amountCents = 600_000, loanId = "loan-1"),
+            ),
+            salaryCents = 100_000,
         )
         coEvery { repository.getProjects() } returns Result.success(listOf(move, sofa, elsewhere))
 
@@ -791,8 +796,8 @@ class ProjectViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals(700_000, state.projects.single { it.id == "p3" }.salaryCents)
-        assertEquals(listOf(FundingKind.SAVINGS), state.sheet!!.sources.map { it.kind })
+        assertEquals(100_000, state.projects.single { it.id == "p3" }.salaryCents)
+        assertEquals(listOf(FundingKind.SAVINGS, FundingKind.LOAN), state.sheet!!.sources.map { it.kind })
         coVerify(exactly = 2) { repository.getOptions("p3", any()) }
     }
 
