@@ -1242,6 +1242,16 @@ object UiTags {
     const val GANTT_TODAY = "gantt_today"
     const val GANTT_DETAIL = "gantt_detail"
     const val GANTT_ERROR = "gantt_error"
+    const val FUNDING_CHART = "funding_chart"
+    const val FUNDING_LEGEND = "funding_legend"
+    const val FUNDING_MONTH = "funding_month"
+    const val FUNDING_SALARY = "funding_salary"
+    const val FUNDING_SAVINGS = "funding_savings"
+    const val FUNDING_CAPITAL = "funding_capital"
+    const val FUNDING_OVER = "funding_over"
+    const val FUNDING_CAPACITY = "funding_capacity"
+    const val FUNDING_TODAY = "funding_today"
+    const val FUNDING_DETAIL = "funding_detail"
 
     /**
      * The sheet of a project (MAG-525): the sources in words on its row, the sheet, « Modifier », the stacked

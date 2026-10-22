@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -174,7 +175,8 @@ fun ganttRows(planning: ProjectPlanning, compact: Boolean = false): List<GanttRo
     return rows
 }
 
-private val LABEL_WIDTH_FULL = 112.dp
+internal val LABEL_WIDTH_FULL = 112.dp
+internal val COLUMN_MIN_FULL = 18.dp
 private val LABEL_WIDTH_COMPACT = 84.dp
 
 /**
@@ -188,6 +190,8 @@ fun ProjectGantt(
     planning: ProjectPlanning,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    /** Shared with the funding chart below it, so both slide together (MAG-528). */
+    scrollState: ScrollState = rememberScrollState(),
 ) {
     val rows = remember(planning, compact) { ganttRows(planning, compact) }
     if (rows.isEmpty()) return
@@ -195,7 +199,7 @@ fun ProjectGantt(
     var detail by remember { mutableStateOf<String?>(null) }
     val horizon = planning.horizonMonths
     val labelWidth = if (compact) LABEL_WIDTH_COMPACT else LABEL_WIDTH_FULL
-    val minColumn = if (compact) 8.dp else 18.dp
+    val minColumn = if (compact) 8.dp else COLUMN_MIN_FULL
     val rowHeight = if (compact) 22.dp else 32.dp
     val barHeight = if (compact) 8.dp else 14.dp
 
@@ -209,7 +213,7 @@ fun ProjectGantt(
                     if (!compact) Spacer(Modifier.height(AXIS_HEIGHT))
                     rows.forEach { row -> RowLabel(row, rowHeight, compact) }
                 }
-                Column(Modifier.horizontalScroll(rememberScrollState())) {
+                Column(Modifier.horizontalScroll(scrollState)) {
                     if (!compact) Axis(planning, column, trackWidth)
                     rows.forEach { row ->
                         TrackRow(row, column, trackWidth, rowHeight, barHeight, onTap = { detail = it })
@@ -228,7 +232,7 @@ fun ProjectGantt(
     }
 }
 
-private val AXIS_HEIGHT = 32.dp
+internal val AXIS_HEIGHT = 32.dp
 
 @Composable
 private fun RowLabel(row: GanttRow, height: Dp, compact: Boolean) {
@@ -265,7 +269,7 @@ private fun RowLabel(row: GanttRow, height: Dp, compact: Boolean) {
 }
 
 @Composable
-private fun Axis(planning: ProjectPlanning, column: Dp, trackWidth: Dp) {
+internal fun Axis(planning: ProjectPlanning, column: Dp, trackWidth: Dp, todayTag: String = UiTags.GANTT_TODAY) {
     val start = monthNumber(planning.startMonth)
     Row(Modifier.width(trackWidth).height(AXIS_HEIGHT)) {
         repeat(planning.horizonMonths) { index ->
@@ -274,7 +278,7 @@ private fun Axis(planning: ProjectPlanning, column: Dp, trackWidth: Dp) {
             Column(
                 modifier = Modifier
                     .width(column)
-                    .then(if (index == 0) Modifier.background(MaterialTheme.colorScheme.surfaceVariant).testTag(UiTags.GANTT_TODAY) else Modifier)
+                    .then(if (index == 0) Modifier.background(MaterialTheme.colorScheme.surfaceVariant).testTag(todayTag) else Modifier)
                     .semantics { contentDescription = ganttMonthLabel("${total / 12}-${(month + 1).toString().padStart(2, '0')}") },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {

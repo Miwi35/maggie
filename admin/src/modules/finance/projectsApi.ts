@@ -329,6 +329,17 @@ export interface PlannedProject {
   unmetDependencies: string[]
 }
 
+/** One month of the planning: what the salary can give the projects, and what funds them by source. */
+export interface PlanningMonth {
+  /** `YYYY-MM`. */
+  month: string
+  capacityCents: number
+  salaryCents: number
+  savingsCents: number
+  capitalCents: number
+  isOverCapacity: boolean
+}
+
 export interface ProjectPlanning {
   /** `YYYY-MM`, the current month: month 0. */
   startMonth: string
@@ -336,6 +347,7 @@ export interface ProjectPlanning {
   currency: string
   isIncomeKnown: boolean
   cushion: { state: CushionPlanState; completeMonth: string | null }
+  months: PlanningMonth[]
   projects: PlannedProject[]
 }
 
@@ -369,6 +381,15 @@ const toPlannedProject = (raw: Raw): PlannedProject => {
   }
 }
 
+const toPlanningMonth = (raw: Raw): PlanningMonth => ({
+  month: String(raw.month ?? ''),
+  capacityCents: Number(raw.capacityCents ?? 0),
+  salaryCents: Number(raw.salaryCents ?? 0),
+  savingsCents: Number(raw.savingsCents ?? 0),
+  capitalCents: Number(raw.capitalCents ?? 0),
+  isOverCapacity: raw.isOverCapacity === true,
+})
+
 /** The projects over the next 36 months, first priority first. */
 export async function fetchProjectPlanning(): Promise<ProjectPlanning> {
   const response = await request(PLANNING_PATH)
@@ -385,6 +406,7 @@ export async function fetchProjectPlanning(): Promise<ProjectPlanning> {
       state: (cushion.state as CushionPlanState) ?? 'complete',
       completeMonth: (cushion.completeMonth as string | null) ?? null,
     },
+    months: ((body.months as Raw[] | undefined) ?? []).map(toPlanningMonth),
     projects: ((body.projects as Raw[] | undefined) ?? []).map(toPlannedProject).sort((a, b) => a.position - b.position),
   }
 }

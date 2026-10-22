@@ -16,14 +16,14 @@ export type GanttVariant = 'full' | 'compact'
 /** The compact variant (the home tile, MAG-529) shows the first projects only. */
 export const COMPACT_PROJECT_COUNT = 3
 
-const LABEL_WIDTH: Record<GanttVariant, number> = { full: 168, compact: 112 }
-const COLUMN_MIN: Record<GanttVariant, number> = { full: 22, compact: 10 }
+export const LABEL_WIDTH: Record<GanttVariant, number> = { full: 168, compact: 112 }
+export const COLUMN_MIN: Record<GanttVariant, number> = { full: 22, compact: 10 }
 const ROW_HEIGHT: Record<GanttVariant, number> = { full: 34, compact: 24 }
 const BAR_HEIGHT: Record<GanttVariant, number> = { full: 14, compact: 10 }
 const INITIALS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 
 /** `YYYY-MM` as a month count, so two months subtract. */
-const monthNumber = (month: string): number => {
+export const monthNumber = (month: string): number => {
   const [year, number] = month.split('-').map(Number)
 
   return (year ?? 0) * 12 + (number ?? 1) - 1
@@ -233,11 +233,11 @@ function ProjectBars({ project, planning, variant }: { project: PlannedProject; 
   )
 }
 
-function Axis({ planning, variant }: { planning: ProjectPlanning; variant: GanttVariant }) {
+export function Axis({ planning, variant, testPrefix = 'gantt' }: { planning: ProjectPlanning; variant: GanttVariant; testPrefix?: string }) {
   const start = monthNumber(planning.startMonth)
 
   return (
-    <Box data-testid="gantt-axis" sx={{ display: 'grid', gridTemplateColumns: `${LABEL_WIDTH[variant]}px 1fr`, borderBottom: 1, borderColor: 'divider' }}>
+    <Box data-testid={`${testPrefix}-axis`} sx={{ display: 'grid', gridTemplateColumns: `${LABEL_WIDTH[variant]}px 1fr`, borderBottom: 1, borderColor: 'divider' }}>
       <Box sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper' }} />
       <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${planning.horizonMonths}, minmax(0, 1fr))` }}>
         {Array.from({ length: planning.horizonMonths }, (_, index) => {
@@ -249,7 +249,7 @@ function Axis({ planning, variant }: { planning: ProjectPlanning; variant: Gantt
           return (
             <Box
               key={label}
-              data-testid={index === 0 ? 'gantt-today' : 'gantt-month'}
+              data-testid={index === 0 ? `${testPrefix}-today` : `${testPrefix}-month`}
               data-month={label}
               aria-current={index === 0 ? 'date' : undefined}
               aria-label={ganttMonthLabel(label)}
@@ -272,6 +272,8 @@ function Axis({ planning, variant }: { planning: ProjectPlanning; variant: Gantt
 interface ProjectGanttProps {
   planning: ProjectPlanning
   variant?: GanttVariant
+  /** Drawn under the lines, in the same scroll and on the same month columns (the funding chart, MAG-528). */
+  children?: ReactNode
 }
 
 /**
@@ -282,7 +284,7 @@ interface ProjectGanttProps {
  * colours. The compact variant (home tile, MAG-529) keeps the first three
  * projects and drops the axis.
  */
-export function ProjectGantt({ planning, variant = 'full' }: ProjectGanttProps) {
+export function ProjectGantt({ planning, variant = 'full', children }: ProjectGanttProps) {
   const theme = useTheme()
   if (!planning.isIncomeKnown || planning.projects.length === 0) return null
 
@@ -339,6 +341,7 @@ export function ProjectGantt({ planning, variant = 'full' }: ProjectGanttProps) 
             <ProjectBars project={project} planning={planning} variant={variant} />
           </Row>
         ))}
+        {children}
       </Box>
     </Box>
   )

@@ -8,6 +8,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.PlannedProject
+import com.maggie.app.data.model.PlanningMonth
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectDateMode
 import com.maggie.app.data.model.ProjectPlanning
@@ -514,6 +515,29 @@ class ProjectViewModelTest {
 
         assertEquals(planning, viewModel.uiState.value.planning)
         coVerify(exactly = 1) { repository.getProjects() }
+    }
+
+    @Test
+    fun `the months of the funding chart come with the planning and follow its re-reads (MAG-528)`() = runTest {
+        val over = PlanningMonth("2026-10", capacityCents = 50000, salaryCents = 200000, isOverCapacity = true)
+        val within = PlanningMonth("2026-10", capacityCents = 50000, salaryCents = 50000)
+        coEvery { repository.getProjectPlanning() } returns Result.success(planning.copy(months = listOf(over)))
+        val viewModel = viewModel()
+        assertTrue(viewModel.uiState.value.planning?.months.isNullOrEmpty())
+
+        advanceUntilIdle()
+        assertEquals(listOf(over), viewModel.uiState.value.planning!!.months)
+
+        coEvery { repository.getProjectPlanning() } returns Result.success(planning.copy(months = listOf(within)))
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertEquals(listOf(within), viewModel.uiState.value.planning!!.months)
+
+        coEvery { repository.getProjectPlanning() } returns Result.failure(RuntimeException(""))
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertEquals(listOf(within), viewModel.uiState.value.planning!!.months)
+        assertFalse(viewModel.uiState.value.planningError)
     }
 
     @Test

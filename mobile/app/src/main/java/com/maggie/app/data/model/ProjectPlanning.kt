@@ -39,6 +39,21 @@ data class PlannedProject(
     val unmetDependencies: List<String> = emptyList(),
 )
 
+/**
+ * One month of the planning (`YYYY-MM`): [capacityCents] is what the salary can give the projects,
+ * [salaryCents] / [savingsCents] / [capitalCents] what funds them by source; [isOverCapacity] when
+ * the salary goes past that capacity.
+ */
+@Serializable
+data class PlanningMonth(
+    val month: String = "",
+    val capacityCents: Int = 0,
+    val salaryCents: Int = 0,
+    val savingsCents: Int = 0,
+    val capitalCents: Int = 0,
+    val isOverCapacity: Boolean = false,
+)
+
 @Serializable
 data class PlannedCushion(
     val state: String = CushionPlanState.COMPLETE,
@@ -58,5 +73,6 @@ data class ProjectPlanning(
     val currency: String = "EUR",
     val isIncomeKnown: Boolean = false,
     val cushion: PlannedCushion = PlannedCushion(),
+    val months: List<PlanningMonth> = emptyList(),
     val projects: List<PlannedProject> = emptyList(),
 )

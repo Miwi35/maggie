@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { eurosToCents, validateProject } from './projectForm'
-import { createProject, fetchProjects, joinNames, patchProject, projectDateLabel, toProject, updateProject } from './projectsApi'
+import { createProject, fetchProjectPlanning, fetchProjects, joinNames, patchProject, projectDateLabel, toProject, updateProject } from './projectsApi'
 import type { ProjectInput } from './projectsApi'
 
 const INPUT: ProjectInput = {
@@ -100,6 +100,32 @@ describe('projects', () => {
 
       expect(String(fetchMock.mock.calls[0][0])).toBe('/api/finance/projects/JPY')
       expect(sentBody(fetchMock).currency).toBe('JPY')
+    })
+  })
+
+  describe('planning months (MAG-528)', () => {
+    test('reads the funding of each month, by source', async () => {
+      stubFetch({
+        startMonth: '2026-10',
+        months: [
+          { month: '2026-10', capacityCents: 50000, cushionCents: 0, salaryCents: 200000, savingsCents: 0, capitalCents: 0, loanPaymentsCents: 0, isOverCapacity: true },
+          { month: '2026-11', capacityCents: 50000, salaryCents: 10000, savingsCents: 80000, capitalCents: 5000 },
+        ],
+        projects: [],
+      })
+
+      const { months } = await fetchProjectPlanning()
+
+      expect(months).toEqual([
+        { month: '2026-10', capacityCents: 50000, salaryCents: 200000, savingsCents: 0, capitalCents: 0, isOverCapacity: true },
+        { month: '2026-11', capacityCents: 50000, salaryCents: 10000, savingsCents: 80000, capitalCents: 5000, isOverCapacity: false },
+      ])
+    })
+
+    test('has no month when the answer carries none', async () => {
+      stubFetch({ startMonth: '2026-10', projects: [] })
+
+      expect((await fetchProjectPlanning()).months).toEqual([])
     })
   })
 })

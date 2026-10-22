@@ -37,6 +37,10 @@ tags:
 # API's (`api/contract`). The amounts are matched loosely, as the app formats them in the device's
 # locale (« 10000,00 EUR », « 10000.00 EUR »), and the delays are not asserted.
 #
+# Under the Gantt, the funding chart month by month (MAG-528): scrolling the list brings it into
+# view, with its legend of the three sources. Which months are flagged follows the seeded
+# capacity, so the flags, the bars and the tap detail are the unit tests' and the web journey's.
+#
 # What is not here: the badges, the dependency line and its warning, the empty state, a refused
 # reorder put back, the form's refusals (`ProjectListScreenTest`, `ProjectViewModelTest`,
 # `ProjectDraftTest`), and the admin's side of the same API.
@@ -85,16 +89,6 @@ tags:
     visible:
       id: "projects"
     timeout: 30000
-# A row is one node for accessibility: its texts are read together, hence the `.*`.
-- extendedWaitUntil:
-    visible: ".*1. Déménagement.*"
-    timeout: 30000
-- extendedWaitUntil:
-    visible:
-      text: ".*2. Canapé.*"
-      below: ".*1. Déménagement.*"
-    timeout: 10000
-
 # The Gantt of the planning: one line per project, Déménagement above Canapé.
 - extendedWaitUntil:
     visible:
@@ -103,9 +97,42 @@ tags:
 - assertVisible: "Déménagement"
 - assertVisible: "Canapé"
 
+# The funding chart under it, read-only on a phone: scroll down to it, the legend names the sources.
+- scrollUntilVisible:
+    element:
+      id: "funding_chart"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "funding_legend"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ".*Salaire.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ".*Économies.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ".*Capital libéré.*"
+    timeout: 10000
+
+# The chart pushes the list down: the rows are brought back into view before they are read.
+# A row is one node for accessibility: its texts are read together, hence the `.*`.
+- scrollUntilVisible:
+    element: ".*1. Déménagement.*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*2. Canapé.*"
+      below: ".*1. Déménagement.*"
+    timeout: 10000
+
 # ---------------------------------------------------------------------------
 # « Canapé » dragged to the top: the order changes on screen, then on the server.
 # ---------------------------------------------------------------------------
+- scrollUntilVisible:
+    element: "Déplacer Canapé"
+    timeout: 20000
 - swipe:
     from:
       text: "Déplacer Canapé"
@@ -129,6 +156,9 @@ tags:
       id: "finance_score_ring_week"
     timeout: 30000
 - openLink: "maggie-e2e://finance/projects"
+- scrollUntilVisible:
+    element: ".*1. Canapé.*"
+    timeout: 30000
 - extendedWaitUntil:
     visible:
       text: ".*2. Déménagement.*"
@@ -165,8 +195,8 @@ tags:
     visible:
       id: "projects"
     timeout: 20000
-- extendedWaitUntil:
-    visible: ".*Date limite · .*"
+- scrollUntilVisible:
+    element: ".*Date limite · .*"
     timeout: 20000
 - runScript:
     file: ../scripts/projects-api.js

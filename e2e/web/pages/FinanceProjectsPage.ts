@@ -7,16 +7,19 @@ import { ROUTES } from './routes.js'
  * Finance › Planification › Projets (`/finance/projects`, MAG-519): the
  * projects in priority order, each row with a handle that moves it with the
  * mouse (dnd-kit) or the keyboard (Espace, flèches, Espace), then the Gantt of the
- * planning over 36 months under the list (MAG-527).
+ * planning over 36 months under the list (MAG-527) and, under the Gantt, the stacked chart
+ * of the funding month by month (MAG-528).
  */
 export class FinanceProjectsPage extends AdminShell {
   readonly rows: Locator
   readonly gantt: Locator
+  readonly fundingChart: Locator
 
   constructor(page: Page) {
     super(page)
     this.rows = this.content.getByTestId('project-row')
     this.gantt = this.content.getByTestId('project-gantt')
+    this.fundingChart = this.gantt.getByTestId('funding-chart')
   }
 
   async open(): Promise<void> {
@@ -85,5 +88,17 @@ export class FinanceProjectsPage extends AdminShell {
   /** The three option columns, comptant · emprunt · partiel, as shown. */
   options(name: string): Locator {
     return this.funding(name).getByTestId('project-option')
+  }
+
+  /** The column of a month (`YYYY-MM`) in the funding chart. */
+  fundingBar(month: string): Locator {
+    return this.fundingChart.locator(`[data-testid="funding-bar"][data-month="${month}"]`)
+  }
+
+  /** The months (`YYYY-MM`) the funding chart flags as above the capacity, first month first. */
+  async flaggedMonths(): Promise<string[]> {
+    return this.fundingChart
+      .getByTestId('funding-over')
+      .evaluateAll((marks) => marks.map((mark) => mark.getAttribute('data-month') ?? ''))
   }
 }
