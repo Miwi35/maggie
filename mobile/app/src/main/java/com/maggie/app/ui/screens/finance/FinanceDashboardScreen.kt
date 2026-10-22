@@ -226,7 +226,7 @@ private fun CurrentTab(
 /** The month a review covers, in French: « Revue d'octobre », « Revue de mars ». */
 internal fun reviewDueTitle(month: Int): String {
     val name = monthLabel(month).lowercase()
-    val elision = name.firstOrNull() in "aeiouhéèêôû"
+    val elision = name.firstOrNull()?.let { it in "aeiouhéèêôû" } == true
     return if (elision) "Revue d'$name" else "Revue de $name"
 }
 
