@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
@@ -51,6 +52,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 // handlers say so first (422) so this is never what the user meets.
 #[ORM\UniqueConstraint(name: 'uniq_transaction_recurring_occurrence', columns: ['recurring_operation_id', 'recurring_occurrence_on'])]
 #[ApiFilter(OrderFilter::class, properties: ['bookedAt'])]
+#[ApiFilter(DateFilter::class, properties: ['bookedAt'])]
 #[ApiFilter(UlidRelationFilter::class, properties: ['account', 'category', 'recurringOperation', 'qualifiedBySeries', 'qualifiedByRule'])]
 // The list leaves the rejected payments out unless `transferKind` names a kind (TransactionCollectionProvider).
 #[ApiFilter(SearchFilter::class, properties: ['transferKind' => 'exact'])]

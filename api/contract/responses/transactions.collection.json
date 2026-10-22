@@ -256,12 +256,36 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/transactions{?order[bookedAt],account,category,recurringOperation,qualifiedBySeries,qualifiedByRule,transferKind,transferKind[]}",
+        "template": "/api/transactions{?order[bookedAt],bookedAt[before],bookedAt[strictly_before],bookedAt[after],bookedAt[strictly_after],account,category,recurringOperation,qualifiedBySeries,qualifiedByRule,transferKind,transferKind[]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
                 "@type": "IriTemplateMapping",
                 "variable": "order[bookedAt]",
+                "property": "bookedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "bookedAt[before]",
+                "property": "bookedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "bookedAt[strictly_before]",
+                "property": "bookedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "bookedAt[after]",
+                "property": "bookedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "bookedAt[strictly_after]",
                 "property": "bookedAt",
                 "required": false
             },

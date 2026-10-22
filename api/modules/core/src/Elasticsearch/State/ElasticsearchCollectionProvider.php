@@ -22,6 +22,11 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
     /** Elasticsearch's default `index.max_result_window`. */
     private const MAX_RESULT_WINDOW = 10000;
 
+    private const DEFAULT_ITEMS_PER_PAGE = 30;
+
+    /** What `pagination_maximum_items_per_page` says, for an operation that does not carry it. */
+    private const MAX_ITEMS_PER_PAGE = 100;
+
     /**
      * @param ProviderInterface<object> $doctrineProvider
      */
@@ -82,9 +87,15 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
         // in one answer, as API Platform's Doctrine provider gives it.
         $unpaginated = $this->clientAsksForEverything($operation, $filters);
 
-        // Pagination
-        $page = (int) ($filters['page'] ?? 1);
-        $itemsPerPage = (int) ($filters['itemsPerPage'] ?? $operation->getPaginationItemsPerPage() ?? 30);
+        // Pagination: a page and a size below one mean nothing, and a client
+        // never gets more than the operation allows, as with the Doctrine provider.
+        $default = $operation->getPaginationItemsPerPage() ?? self::DEFAULT_ITEMS_PER_PAGE;
+        $page = max(1, (int) ($filters['page'] ?? 1));
+        $itemsPerPage = (int) ($filters['itemsPerPage'] ?? $default);
+        if ($itemsPerPage < 1) {
+            $itemsPerPage = $default;
+        }
+        $itemsPerPage = min($itemsPerPage, $operation->getPaginationMaximumItemsPerPage() ?? self::MAX_ITEMS_PER_PAGE);
         $from = ($page - 1) * $itemsPerPage;
 
         // Build query
