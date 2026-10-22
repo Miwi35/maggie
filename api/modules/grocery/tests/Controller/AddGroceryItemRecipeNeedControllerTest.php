@@ -9,10 +9,13 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Cookbook\Entity\MealGroceryContribution;
 use Maggie\Cookbook\Message\CreateMealCommand;
+use Maggie\Cookbook\Service\MealGrocerySync;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Enum\Unit;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -69,6 +72,25 @@ class AddGroceryItemRecipeNeedControllerTest extends WebTestCase
 
         $this->assertMercureUpdatePublished('/grocery_lists/');
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testTheNewLineHoldsTheWeeksMealsSoALaterSyncDoesNotCountThemTwice(): void
+    {
+        $this->add(['label' => 'Riz']);
+        $item = $this->rice();
+        $contributions = $this->em()->getRepository(MealGroceryContribution::class)->findBy(['groceryItem' => $item]);
+        self::assertCount(2, $contributions, 'one share per meal of the week');
+
+        $curry = $contributions[0]->getMeal();
+        $rice = $this->em()->getRepository(Product::class)->findOneBy(['name' => 'Riz', 'user' => $this->getFixture('test_user')]);
+        self::getContainer()->get(MealGrocerySync::class)->syncChoice($curry, [
+            ['ingredient' => $rice, 'unit' => Unit::Gram, 'quantity' => $contributions[0]->getQuantity()],
+        ]);
+        $this->em()->flush();
+        $this->em()->clear();
+
+        self::assertEquals([['quantity' => 800.0, 'unit' => 'g']], $this->rice()->getNeeded(), 'the meal moved by its own share, not added again');
+        self::assertEquals(2.0, $this->rice()->getQuantity());
     }
 
     public function testAQuantityIsRoundedUpToPackagingsAndStaysWanted(): void

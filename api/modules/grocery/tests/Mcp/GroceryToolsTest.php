@@ -210,6 +210,8 @@ class GroceryToolsTest extends KernelTestCase
 
         self::assertArrayHasKey('error', $data);
         self::assertStringContainsString('not both', $data['error']);
+        self::assertEquals(2.0, $data['item']['quantity'], 'the refusal recalls the line as it stands');
+        self::assertArrayHasKey('desiredQuantity', $data['item']);
 
         $this->em()->clear();
         $rice = array_values(array_filter(
@@ -217,6 +219,34 @@ class GroceryToolsTest extends KernelTestCase
             static fn (GroceryItem $item) => 'Riz' === $item->getLabel(),
         ));
         self::assertSame(2.0, $rice[0]->getQuantity());
+    }
+
+    public function testAZeroQuantityIsRefusedWithTheLineAsItStands(): void
+    {
+        $this->loadFixtures('grocery_packaged.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $data = json_decode($tool('Riz', 0, 'kg'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertEquals(2.0, $data['item']['quantity']);
+    }
+
+    public function testWithoutAQuantityTheAnswerCarriesTheWeekAndCoverage(): void
+    {
+        $this->loadFixtures('grocery_packaged.yaml');
+        $this->loginFixtureUser();
+        $this->em()->clear();
+
+        $tool = self::getContainer()->get(AddGroceryItemTool::class);
+        $data = json_decode($tool('Riz'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertArrayHasKey('recipeNeed', $data);
+        self::assertTrue($data['coversWeek']);
+        self::assertArrayHasKey('packagingsToCover', $data);
     }
 
     public function testPackagingsOnAProductWithoutPackagingAreRefused(): void

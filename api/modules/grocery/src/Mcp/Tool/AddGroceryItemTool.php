@@ -6,6 +6,7 @@ namespace Maggie\Grocery\Mcp\Tool;
 
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
+use Maggie\Grocery\Exception\InvalidGroceryQuantityException;
 use Maggie\Grocery\Message\AddGroceryItemCommand;
 use Maggie\Grocery\Message\AddGroceryItemResult;
 use Mcp\Capability\Attribute\McpTool;
@@ -53,8 +54,12 @@ class AddGroceryItemTool
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+            $error = ['error' => $cause->getMessage()];
+            if ($cause instanceof InvalidGroceryQuantityException) {
+                $error['item'] = $cause->item;
+            }
 
-            return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
+            return json_encode($error, JSON_THROW_ON_ERROR);
         }
     }
 }
