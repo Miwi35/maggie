@@ -119,7 +119,8 @@ describe('Recipe steps in the form', { timeout: 60_000 }, () => {
     vi.unstubAllGlobals()
   })
 
-  test('the reference example is entered in the form and sent as written', async () => {
+  // ~13 s alone, 53 s then 60+ s on a loaded CI runner (MUI comboboxes, ~40 clicks): the shared 60 s was too tight.
+  test('the reference example is entered in the form and sent as written', { timeout: 180_000 }, async () => {
     const user = userEvent.setup({ delay: null })
     const update = vi.fn().mockResolvedValue({ data: recipe })
     renderEdit(update)
