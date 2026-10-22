@@ -668,6 +668,14 @@
         },
         "description": "Read the balance of a month (YYYY-MM, defaults to the current one): `spending` (the month status with its budget, what was spent, the expected rhythm and the daily curve), `envelopes` (each root envelope with consumed against budgeted and its status held, close or over), `satisfaction` (what was judged worth keeping against avoidable, and the kept share in percent, null while nothing is judged), `savings` (what was put aside against the planned saving capacity, null when no income is known), `cushion`, and `toQualify` (the count and weight of the lines of the month nobody qualified yet — they belong to no envelope). All amounts are integer cents."
     },
+    "get_project_planning": {
+        "name": "get_project_planning",
+        "inputSchema": {
+            "type": "object",
+            "properties": []
+        },
+        "description": "Read when the projects can be bought (\"quand pourrai-je acheter le canapé ?\", \"dans quel ordre mes projets passent ?\"): the next 36 months, computed from the net saving capacity, never stored. The safety cushion comes first: while it is being built nothing is bought, and while it recharges the capacity is lower. The capacity is then given to the projects in priority order; a project with a fixed date keeps it and takes its even share first. No arguments. startMonth and every month are YYYY-MM; amounts are integer cents, divide by 100 to speak them. netCapacityCents is the saving capacity per month, isIncomeKnown false when there is no known income (the capacity is then 0: say so, do not guess). cushion is {state building, recharging or complete, completeMonth: the month its deficit is covered, null when already complete or not within 36 months}. projects[] in priority order: {projectId, name, position, wellbeing, amountCents, dateMode none, fixed or deadline, targetOn, savingFromMonth, purchaseMonth (null when beyond the horizon), gatheredCents (the savings outside the cushion set aside for it today), loan {startMonth, endMonth, monthlyPaymentCents} when a loan is projected (it starts the month after the purchase), isBeyondHorizon, isDeadlineMissed, delayMonths (months after the deadline; at least that when beyond the horizon), unmetDependencies}. A project is never bought before the ones it depends on. months[] {month, capacityCents (what the salary can give the projects that month), cushionCents, salaryCents, savingsCents, capitalCents (what funds the projects, by source), loanPaymentsCents (projected loans running), isOverCapacity (salaryCents above capacityCents: a fixed date asks more than the month can give — a fact, not a fault)}. To change the order, dates or funding use manage_projects and manage_project_funding. A pure read."
+    },
     "get_purchase_suggestions": {
         "name": "get_purchase_suggestions",
         "inputSchema": {

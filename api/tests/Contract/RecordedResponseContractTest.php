@@ -384,6 +384,34 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The projects over 36 months (MAG-526), read on 2026-10-21 with a fixed
+     * date, a dependency, a projected loan and a missed deadline all present.
+     */
+    public function testTheProjectPlanningRecordingIsCurrent(): void
+    {
+        Clock::set(new MockClock('2026-10-21 12:00:00 UTC'));
+        $this->loadFixtures('RecordedProjectPlanning.yaml');
+
+        $user = $this->getFixture('planning_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/finance/project-planning', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotEmpty(array_filter($body['projects'], static fn (array $project): bool => null !== $project['loan']), 'The recorded planning holds no projected loan.');
+        self::assertNotEmpty(array_filter($body['projects'], static fn (array $project): bool => $project['isDeadlineMissed']), 'The recorded planning holds no missed deadline.');
+        self::assertNotEmpty(array_filter($body['months'], static fn (array $month): bool => $month['loanPaymentsCents'] > 0), 'The recorded planning holds no loan payment.');
+
+        $this->assertMatchesContract(
+            'responses/finance_project_planning.read.json',
+            self::stabilise($body),
+            'GET /api/finance/project-planning no longer returns what it used to. The mobile DTOs and the admin hook read this response.',
+        );
+    }
+
+    /**
      * « Peut-être aussi Tom » (MAG-450), as the controller sends it: the
      * labels of unclaimed lines that name the contact.
      */
