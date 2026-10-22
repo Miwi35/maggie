@@ -1,5 +1,15 @@
 import { describe, test, expect } from 'vitest'
-import { formatRate, formatMonth, formatRemaining, basisPointsInput } from './loans'
+import {
+  formatRate,
+  formatMonth,
+  formatRemaining,
+  basisPointsInput,
+  loanTypeLabel,
+  penaltyModeLabel,
+  needsVariableTerms,
+  needsSteps,
+  needsDeferral,
+} from './loans'
 
 describe('formatRate', () => {
   test('renders basis points as a percentage', () => {
@@ -39,5 +49,22 @@ describe('formatRemaining', () => {
 
   test('says so when the loan outlives the horizon', () => {
     expect(formatRemaining(null)).toBe("Au-delà de l'horizon")
+  })
+})
+
+describe('loan types', () => {
+  test('names the type and the penalty mode', () => {
+    expect(loanTypeLabel('amortizing_fixed')).toBe('Amortissable taux fixe')
+    expect(penaltyModeLabel('legal_cap')).toBe('Plafond légal')
+  })
+
+  test('says which type needs which fields', () => {
+    expect(needsVariableTerms('amortizing_variable')).toBe(true)
+    expect(needsVariableTerms('amortizing_fixed')).toBe(false)
+    expect(needsSteps('stepped')).toBe(true)
+    expect(needsSteps('in_fine')).toBe(false)
+    expect(needsDeferral('deferred_total')).toBe(true)
+    expect(needsDeferral('deferred_partial')).toBe(true)
+    expect(needsDeferral('stepped')).toBe(false)
   })
 })

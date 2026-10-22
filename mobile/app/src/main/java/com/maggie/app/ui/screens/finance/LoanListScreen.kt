@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,6 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -39,16 +42,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.LoanCreateRequest
 import com.maggie.app.data.model.DebtTimeline
+import com.maggie.app.data.model.Loan
+import com.maggie.app.data.model.LoanLabels
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatLoanMonth
 import com.maggie.app.data.model.formatRate
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.navigation.Screen
 import kotlin.math.roundToInt
 
@@ -56,6 +64,7 @@ import kotlin.math.roundToInt
 @Composable
 fun LoanListScreen(
     viewModel: LoanViewModel,
+    onOpenLoan: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -120,14 +129,34 @@ fun LoanListScreen(
                     items(uiState.loans, key = { it.id }) { loan ->
                         val schedule = uiState.timeline?.loans?.firstOrNull { it.id == loan.id }
 
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        Card(
+                            onClick = { onOpenLoan(loan.id) },
+                            modifier = Modifier.fillMaxWidth().testTag(UiTags.LOAN_ROW),
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(loan.name, style = MaterialTheme.typography.bodyLarge)
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(loan.name, style = MaterialTheme.typography.bodyLarge)
+                                        if (loan.projected) {
+                                            Text(
+                                                "Projeté",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                modifier = Modifier
+                                                    .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp))
+                                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = LoanLabels.type(loan.type),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                     Text(
                                         text = "${formatCents(loan.principalRemainingCents, loan.currency)} " +
                                             "restants · ${formatCents(loan.monthlyPaymentCents, loan.currency)}/mois " +
@@ -135,6 +164,9 @@ fun LoanListScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                    loan.repaidShare()?.let { share ->
+                                        LinearProgressIndicator(progress = { share }, modifier = Modifier.fillMaxWidth())
+                                    }
                                     schedule?.let {
                                         Text(
                                             text = if (it.endsBeyondHorizon) {
@@ -144,6 +176,11 @@ fun LoanListScreen(
                                             },
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            text = "Intérêts restants : ${formatCents(it.totalInterestCents, loan.currency)}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
                                 }
@@ -234,6 +271,7 @@ private fun LoanCreateDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.uiTagRoot(),
         title = { Text("Nouveau prêt") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -299,4 +337,10 @@ private fun LoanCreateDialog(
             }
         },
     )
+}
+
+/** How much of the amount borrowed is repaid, when the loan says what was borrowed. */
+internal fun Loan.repaidShare(): Float? {
+    val initial = initialAmountCents?.takeIf { it > 0 } ?: return null
+    return (1f - principalRemainingCents.toFloat() / initial).coerceIn(0f, 1f)
 }

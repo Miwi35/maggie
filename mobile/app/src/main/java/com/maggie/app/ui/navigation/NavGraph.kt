@@ -117,7 +117,9 @@ import com.maggie.app.ui.screens.finance.PeerDebtsScreen
 import com.maggie.app.ui.screens.finance.PeerDebtsViewModel
 import com.maggie.app.ui.screens.finance.SavingsAdvancesScreen
 import com.maggie.app.ui.screens.finance.SavingsAdvancesViewModel
+import com.maggie.app.ui.screens.finance.LoanDetailViewModel
 import com.maggie.app.ui.screens.finance.LoanListScreen
+import com.maggie.app.ui.screens.finance.LoanSheetScreen
 import com.maggie.app.ui.screens.finance.FinanceDashboardScreen
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
 import com.maggie.app.ui.screens.finance.UpcomingViewModel
@@ -268,6 +270,10 @@ sealed class Screen(val route: String, val label: String) {
     data object ProjectForm : Screen("finance_projects/form?${DeepLinks.ARG_ID}={${DeepLinks.ARG_ID}}", "Projet") {
         fun of(projectId: String?): String =
             if (projectId == null) "finance_projects/form" else "finance_projects/form?${DeepLinks.ARG_ID}=$projectId"
+    }
+    /** The sheet of a loan (MAG-523): outside the menus, so drawn without chrome. */
+    data object LoanDetail : Screen("finance_loans/{${DeepLinks.ARG_ID}}", "Prêt") {
+        fun of(loanId: String): String = "finance_loans/$loanId"
     }
     /** Activité Comptes · la revue (MAG-456): full screen, outside the Finance menus, so drawn without chrome. */
     data object FinanceReviewActivity : Screen("finance/review/activity", "Revue du mois")
@@ -535,6 +541,25 @@ private fun ProjectFormPage(navController: NavController, entry: NavBackStackEnt
         projectId = entry.arguments?.getString(DeepLinks.ARG_ID)?.takeIf(DeepLinks::isValidId),
         onClose = { navController.popBackStack() },
     )
+}
+
+/** The sheet of a loan (MAG-523); leaving it refreshes the list it came from, which a save may have changed. */
+@Composable
+private fun LoanDetailPage(navController: NavController, entry: NavBackStackEntry) {
+    val listEntry = remember(entry) { navController.previousBackStackEntry }
+    val listViewModel: LoanViewModel = koinViewModel(viewModelStoreOwner = listEntry ?: entry)
+    val loanId = entry.arguments?.getString(DeepLinks.ARG_ID)?.takeIf(DeepLinks::isValidId)
+    val leave = {
+        listViewModel.refresh()
+        navController.popBackStack()
+        Unit
+    }
+    BackHandler(onBack = leave)
+    if (loanId == null) {
+        LaunchedEffect(Unit) { navController.popBackStack() }
+        return
+    }
+    LoanSheetScreen(viewModel = koinViewModel<LoanDetailViewModel>(), loanId = loanId, onBack = leave)
 }
 
 // Out of NavGraph's body, like FinanceSummaryPage: that one function is already as large as the compiler takes.
@@ -1781,8 +1806,15 @@ fun NavGraph() {
                         val loanViewModel: LoanViewModel = koinViewModel()
                         LoanListScreen(
                             viewModel = loanViewModel,
+                            onOpenLoan = { id -> navController.navigate(Screen.LoanDetail.of(id)) { launchSingleTop = true } },
                             onBack = { navController.backInFinance() },
                         )
+                    }
+                    composable(
+                        Screen.LoanDetail.route,
+                        arguments = listOf(navArgument(DeepLinks.ARG_ID) { type = NavType.StringType }),
+                    ) { entry ->
+                        LoanDetailPage(navController, entry)
                     }
                     composable(Screen.ProjectList.route, deepLinks = DeepLinks.forRoute(Screen.ProjectList.route)) {
                         ProjectListPage(navController)

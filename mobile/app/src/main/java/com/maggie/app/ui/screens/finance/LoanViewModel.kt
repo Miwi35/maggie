@@ -21,6 +21,11 @@ class LoanViewModel(
     private val loanRepository: LoanRepository,
 ) : ViewModel() {
 
+    private companion object {
+        // The API's cap: a 98 000 € mortgage outlives the default 60 months, and its row must still say when it ends.
+        const val MAX_HORIZON_MONTHS = 480
+    }
+
     private val _uiState = MutableStateFlow(LoanUiState())
     val uiState: StateFlow<LoanUiState> = _uiState
 
@@ -43,7 +48,7 @@ class LoanViewModel(
 
             // The schedule is a bonus on top of the list: losing it must not
             // cost the user their loans.
-            loanRepository.getTimeline()
+            loanRepository.getTimeline(MAX_HORIZON_MONTHS)
                 .onSuccess { timeline -> _uiState.value = _uiState.value.copy(timeline = timeline) }
         }
     }

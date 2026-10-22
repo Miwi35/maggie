@@ -1,0 +1,80 @@
+appId: com.maggie.app.e2e
+name: 24-finance-loans
+tags:
+  - finance
+---
+# Les prêts détaillés, from the phone (MAG-523, extends MAG-102).
+#
+# Étant donné « Prêt immo » (98 000 € à 1,80 %, 625 €/mois) dont l'IRA est au plafond légal
+# Quand j'ouvre les prêts
+# Alors la ligne donne son type, sa mensualité, sa date de fin et ses intérêts restants
+# Quand j'ouvre le prêt
+# Alors la fiche donne le mode d'IRA, l'IRA simulée sur le capital restant et la courbe, avec « Fin en … »
+#
+# The phone reads: the conditions form and the simulation are the tablet's, and what they send is
+# `LoanSheetScreenTest`, `LoanDetailViewModelTest` and `LoanTermsDraftTest`. The amounts are not
+# asserted (they move with the date the stack runs), the labels are.
+#
+# The seed's penalty is `exempt`; `scripts/loans-api.js` sets the legal cap before and puts the seed
+# back after.
+
+- runScript:
+    file: ../scripts/loans-api.js
+    env:
+      ACTION: legal-cap
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/24-finance-loans.yaml
+      e2e_email: e2e-stock@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/loans"
+- extendedWaitUntil:
+    visible:
+      id: "loan_row"
+    timeout: 30000
+# A row is one node for accessibility: its texts are read together, hence the `.*`.
+- extendedWaitUntil:
+    visible: ".*Prêt immo.*"
+    timeout: 10000
+- assertVisible: ".*Amortissable taux fixe.*"
+- assertVisible: ".*Libéré en .*"
+- assertVisible: ".*Intérêts restants.*"
+
+# ---------------------------------------------------------------------------
+# The sheet: the IRA mode, the simulated total repayment, the curve and its end.
+# ---------------------------------------------------------------------------
+- tapOn:
+    id: "loan_row"
+- extendedWaitUntil:
+    visible:
+      id: "loan_sheet"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "loan_end"
+    timeout: 20000
+- assertVisible:
+    id: "loan_curve"
+- assertVisible: "Fin en .*"
+- scrollUntilVisible:
+    element:
+      id: "loan_ira"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Plafond légal"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Gain réel"
+    timeout: 10000
+
+# Left as the seed wrote it.
+- runScript:
+    file: ../scripts/loans-api.js
+    env:
+      ACTION: reset

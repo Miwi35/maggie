@@ -71,6 +71,8 @@ class FinanceNavigationTest {
         assertEquals(FinanceMenu.PLANNING, FinanceMenu.of(Screen.ProjectList.route))
         // The project form is full screen: no menu, so no tabs, rail or chat band around it (MAG-519).
         assertNull(FinanceMenu.of(Screen.ProjectForm.route))
+        // So is the loan sheet (MAG-523).
+        assertNull(FinanceMenu.of(Screen.LoanDetail.route))
         assertEquals(FinanceMenu.SETTINGS, FinanceMenu.of(Screen.CategoryList.route))
         assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.AccountTransactions.route))
         assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.Contacts.route))

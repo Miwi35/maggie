@@ -105,7 +105,10 @@ import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.UpcomingProjection
 import com.maggie.app.data.model.MonthBalance
+import com.maggie.app.data.model.EarlyRepayment
 import com.maggie.app.data.model.Loan
+import com.maggie.app.data.model.LoanCurve
+import com.maggie.app.data.model.LoanStep
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
@@ -521,6 +524,71 @@ data class LoanCreateRequest(
     val priority: Int = 0,
     val currency: String = "EUR",
 )
+
+/**
+ * The conditions of a loan as the tablet's form writes them (MAG-523). The merge-patch spells out every
+ * field, nulls included: a condition that no longer applies must be emptied, and absent would mean « unchanged ».
+ */
+data class LoanTermsRequest(
+    val type: String,
+    val annualRateBasisPoints: Int,
+    val monthlyPaymentCents: Int,
+    val durationMonths: Int?,
+    val insuranceRateBasisPoints: Int?,
+    val insuranceMonthlyCents: Int?,
+    val feesCents: Int?,
+    val referenceIndex: String?,
+    val marginBasisPoints: Int?,
+    val rateCapBasisPoints: Int?,
+    val rateFloorBasisPoints: Int?,
+    val steps: List<LoanStep>?,
+    val deferralMonths: Int?,
+    val earlyRepaymentAllowed: Boolean,
+    val prepaymentPenaltyMode: String,
+    val prepaymentPenaltyFixedCents: Int?,
+    val minPartialRepaymentCents: Int?,
+    val partialRepaymentEffect: String?,
+    val noticeDays: Int?,
+) {
+    fun toJson(): JsonObject = buildJsonObject {
+        fun number(key: String, value: Int?) = put(key, value?.let(::JsonPrimitive) ?: JsonNull)
+        fun text(key: String, value: String?) = put(key, value?.let(::JsonPrimitive) ?: JsonNull)
+
+        text("type", type)
+        number("annualRateBasisPoints", annualRateBasisPoints)
+        number("monthlyPaymentCents", monthlyPaymentCents)
+        number("durationMonths", durationMonths)
+        number("insuranceRateBasisPoints", insuranceRateBasisPoints)
+        number("insuranceMonthlyCents", insuranceMonthlyCents)
+        number("feesCents", feesCents)
+        text("referenceIndex", referenceIndex)
+        number("marginBasisPoints", marginBasisPoints)
+        number("rateCapBasisPoints", rateCapBasisPoints)
+        number("rateFloorBasisPoints", rateFloorBasisPoints)
+        put(
+            "steps",
+            steps?.let { list ->
+                buildJsonArray {
+                    list.forEach { step ->
+                        add(
+                            buildJsonObject {
+                                put("fromMonth", JsonPrimitive(step.fromMonth))
+                                put("monthlyPaymentCents", JsonPrimitive(step.monthlyPaymentCents))
+                            },
+                        )
+                    }
+                }
+            } ?: JsonNull,
+        )
+        number("deferralMonths", deferralMonths)
+        put("earlyRepaymentAllowed", JsonPrimitive(earlyRepaymentAllowed))
+        text("prepaymentPenaltyMode", prepaymentPenaltyMode)
+        number("prepaymentPenaltyFixedCents", prepaymentPenaltyFixedCents)
+        number("minPartialRepaymentCents", minPartialRepaymentCents)
+        text("partialRepaymentEffect", partialRepaymentEffect)
+        number("noticeDays", noticeDays)
+    }
+}
 
 /**
  * A project as the form writes it, for `POST` and the merge-patch `PATCH` alike (MAG-519). No field
@@ -2096,6 +2164,32 @@ class MaggieApiService(
         return client.get("$baseUrl/api/finance/debt-timeline") {
             url.parameters.append("months", months.toString())
         }.body()
+    }
+
+    suspend fun getLoan(id: String): Loan {
+        return client.get("$baseUrl/api/loans/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.orRefusal().body()
+    }
+
+    /** Sets the conditions of a loan; a 400 means nothing was written and says why. */
+    suspend fun updateLoan(id: String, terms: LoanTermsRequest): Loan {
+        return client.patch("$baseUrl/api/loans/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(terms.toJson())
+        }.orRefusal().body()
+    }
+
+    suspend fun getLoanCurve(id: String): LoanCurve {
+        return client.get("$baseUrl/api/finance/loans/$id/schedule").orRefusal().body()
+    }
+
+    /** What repaying [amountCents] early costs; the whole capital when it is null. A 400 carries the reason. */
+    suspend fun getEarlyRepayment(id: String, amountCents: Int?): EarlyRepayment {
+        return client.get("$baseUrl/api/finance/loans/$id/early-repayment") {
+            amountCents?.let { url.parameters.append("amountCents", it.toString()) }
+        }.orRefusal().body()
     }
 
     // Finance — Projects (MAG-519), in the owner's priority order
