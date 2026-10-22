@@ -6,6 +6,7 @@ import Box from '@mui/material/Box'
 import { criticalityColor, SOURCE_COLORS, TOKENS } from '../../design/tokens'
 import { addDays, daysBetween, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
+import { ALL_LIVE_KINDS, useLiveRead, type LiveKind } from './calendarLive'
 import { useUserPreferences } from '../../hooks/useUserPreferences'
 import Button from '@mui/material/Button'
 import ButtonGroup from '@mui/material/ButtonGroup'
@@ -141,7 +142,6 @@ interface GoogleCalendar {
 
 const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}', '/api/meals/{id}', '/api/proactions/{id}']
 const AGENDA_TOPICS = ['/api/agendas/{id}']
-const MERCURE_REFETCH_DELAYS_MS = [1500, 5000]
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
@@ -566,7 +566,9 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const calendarRef = useRef<FullCalendar>(null)
   const calendarBoxRef = useRef<HTMLDivElement>(null)
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null)
-  const fetchSeqRef = useRef(0)
+  const fetchSeqRef = useRef<Record<LiveKind, number>>({ events: 0, tasks: 0, meals: 0, proactions: 0 })
+  const appliedRef = useRef<Partial<Record<LiveKind | 'agendas', string>>>({})
+  const seriesRef = useRef<{ id: string }[]>([])
   const lastMouseYRef = useRef(0)
   const selectFiredRef = useRef(false)
   const lastSelectionRef = useRef<{ start: Date; end: Date } | null>(null)
@@ -617,8 +619,8 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const knownCalendarIds = useRef(new Set<string>())
   const loadCalendars = useCallback(() => {
     // A module view lists no agenda: its items are all the module's own.
-    if (moduleCalendar) return
-    dataProvider
+    if (moduleCalendar) return Promise.resolve(false)
+    return dataProvider
       .getList('agendas', {
         pagination: { page: 1, perPage: 50 },
         sort: { field: 'name', order: 'ASC' },
@@ -627,6 +629,9 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       .then(({ data }) => {
         // The API leaves the module agendas out; this keeps a stale answer from listing one twice.
         const cals = (data as unknown as CalendarData[]).filter((c) => !c.module)
+        const json = JSON.stringify(cals)
+        const changed = json !== appliedRef.current.agendas
+        appliedRef.current.agendas = json
         setCalendars(cals)
         const known = knownCalendarIds.current
         const fresh = cals.filter((c) => !known.has(c.id))
@@ -638,8 +643,14 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           for (const c of fresh) next.add(c.id)
           return next
         })
+
+        return changed
       })
-      .catch(console.error)
+      .catch((error) => {
+        console.error(error)
+
+        return false
+      })
   }, [dataProvider, moduleCalendar])
 
   useEffect(() => { loadCalendars() }, [loadCalendars])
@@ -795,75 +806,94 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   }, [calendars])
 
   // --- Fetch events + tasks ---
-  const fetchEvents = useCallback(
-    (start: string, end: string) => {
-      // Answers come back in any order: only the newest request may fill the grid, or
-      // a slow reply for a range already left takes the task out from under the pencil.
-      const seq = ++fetchSeqRef.current
+  // `kinds` narrows the read to what a live update touched. Answers come back in any
+  // order: only the newest request of a kind may fill it, or a slow reply for a range
+  // already left takes the task out from under the pencil. Resolves `true` when a kind
+  // now holds something other than what it held. A `retry` of the events asks only for
+  // the range: the series that started before it keep what the first read brought.
+  const fetchKinds = useCallback(
+    (kinds: LiveKind[], start: string, end: string, retry = false): Promise<boolean> => {
       const nothing = Promise.resolve({ data: [], total: 0 })
-      const rangeEvents = moduleCalendar ? nothing : dataProvider.getList('events', {
-        pagination: { page: 1, perPage: 200 },
-        sort: { field: 'startAt', order: 'ASC' },
-        filter: { 'startAt[after]': start, 'startAt[before]': end },
-      })
-
-      // Recurring events may have started before the visible range
-      const recurringEvents = moduleCalendar ? nothing : dataProvider.getList('events', {
-        pagination: { page: 1, perPage: 200 },
-        sort: { field: 'startAt', order: 'ASC' },
-        filter: { 'exists[rrule]': true, 'startAt[strictly_before]': start },
-      })
-
-      // A multi-day event that started before the range still covers its first days
-      const overlappingEvents = moduleCalendar ? nothing : dataProvider.getList('events', {
-        pagination: { page: 1, perPage: 200 },
-        sort: { field: 'startAt', order: 'ASC' },
-        filter: { 'endAt[after]': start, 'startAt[strictly_before]': start },
-      })
-
-      // Fetch tasks due in the visible range. By day, like meals: `dueDate` is a
-      // day-typed field since MAG-404.
-      const rangeTasks = moduleCalendar ? nothing : dataProvider.getList('tasks', {
-        pagination: { page: 1, perPage: 200 },
-        sort: { field: 'dueDate', order: 'ASC' },
-        filter: { 'dueDate[after]': localDay(new Date(start)), 'dueDate[before]': localDay(new Date(end)) },
-      })
-
-      // Fetch meals in visible range. By day, not by instant: a meal is a day
-      // and a slot, and `date` is a day-typed field — an instant would not even
-      // parse against it (MAG-251).
-      const rangeMeals = dataProvider.getList('meals', {
-        pagination: { page: 1, perPage: 200 },
-        sort: { field: 'date', order: 'ASC' },
-        filter: { 'date[after]': localDay(new Date(start)), 'date[before]': localDay(new Date(end)) },
-      })
-
-      // Maggie's runs of the range: instants, like events, but their own index.
-      const rangeProactions = moduleCalendar ? nothing : dataProvider.getList('proactions', {
-        pagination: { page: 1, perPage: 200 },
-        sort: { field: 'startAt', order: 'ASC' },
-        filter: { 'startAt[after]': start, 'startAt[before]': end },
-      })
-
-      Promise.all([rangeEvents, recurringEvents, overlappingEvents, rangeTasks, rangeMeals, rangeProactions])
-        .then(([rangeResult, recurringResult, overlappingResult, tasksResult, mealsResult, proactionsResult]) => {
-          if (seq !== fetchSeqRef.current) return
-          const seen = new Set<string>()
-          const merged: CalendarEvent[] = []
-          for (const e of [...rangeResult.data, ...recurringResult.data, ...overlappingResult.data] as unknown as CalendarEvent[]) {
-            if (!seen.has(e.id)) {
-              seen.add(e.id)
-              merged.push(e)
-            }
-          }
-          setRawEvents(merged)
-          setRawTasks(tasksResult.data as unknown as CalendarTask[])
-          setRawMeals(mealsResult.data as unknown as CalendarMeal[])
-          setRawProactions(proactionsResult.data as unknown as CalendarProaction[])
+      const day = { after: localDay(new Date(start)), before: localDay(new Date(end)) }
+      const list = (resource: string, field: string, filter: Record<string, unknown>) =>
+        dataProvider.getList(resource, {
+          pagination: { page: 1, perPage: 200 },
+          sort: { field, order: 'ASC' },
+          filter,
         })
-        .catch(console.error)
+
+      const loaders: Record<LiveKind, () => Promise<unknown[]>> = {
+        // What meets the range, a multi-day event that started before it included, and the
+        // series that started before it (their occurrences are expanded here).
+        events: () =>
+          moduleCalendar
+            ? nothing.then((r) => r.data)
+            : Promise.all([
+                list('events', 'startAt', { 'startAt[before]': end, 'endAt[after]': start }),
+                retry
+                  ? Promise.resolve({ data: seriesRef.current })
+                  : list('events', 'startAt', { 'exists[rrule]': true, 'startAt[strictly_before]': start }),
+              ]).then(([range, series]) => {
+                seriesRef.current = series.data
+                const seen = new Set<string>()
+
+                return [...range.data, ...series.data].filter((e) => !seen.has(e.id) && seen.add(e.id))
+              }),
+        // By day, like meals: `dueDate` is a day-typed field since MAG-404.
+        tasks: () =>
+          moduleCalendar
+            ? nothing.then((r) => r.data)
+            : list('tasks', 'dueDate', { 'dueDate[after]': day.after, 'dueDate[before]': day.before }).then((r) => r.data),
+        // A meal is a day and a slot, and `date` is a day-typed field: an instant would not
+        // even parse against it (MAG-251).
+        meals: () => list('meals', 'date', { 'date[after]': day.after, 'date[before]': day.before }).then((r) => r.data),
+        // Maggie's runs of the range: instants, like events, but their own index.
+        proactions: () =>
+          moduleCalendar
+            ? nothing.then((r) => r.data)
+            : list('proactions', 'startAt', { 'startAt[after]': start, 'startAt[before]': end }).then((r) => r.data),
+      }
+      const setters: Record<LiveKind, (data: unknown[]) => void> = {
+        events: (data) => setRawEvents(data as CalendarEvent[]),
+        tasks: (data) => setRawTasks(data as CalendarTask[]),
+        meals: (data) => setRawMeals(data as CalendarMeal[]),
+        proactions: (data) => setRawProactions(data as CalendarProaction[]),
+      }
+
+      const seqs = Object.fromEntries(kinds.map((kind) => [kind, ++fetchSeqRef.current[kind]]))
+
+      return Promise.all(kinds.map((kind) => loaders[kind]()))
+        .then((answers) => {
+          let changed = false
+          kinds.forEach((kind, index) => {
+            // A newer read of this kind is on its way: it will say what changed, not this one.
+            if (seqs[kind] !== fetchSeqRef.current[kind]) {
+              changed = true
+
+              return
+            }
+            const json = JSON.stringify(answers[index])
+            if (json !== appliedRef.current[kind]) changed = true
+            appliedRef.current[kind] = json
+            setters[kind](answers[index])
+          })
+
+          return changed
+        })
+        .catch((error) => {
+          console.error(error)
+
+          return false
+        })
     },
     [dataProvider, moduleCalendar],
+  )
+
+  const fetchEvents = useCallback(
+    (start: string, end: string) => {
+      void fetchKinds(ALL_LIVE_KINDS, start, end)
+    },
+    [fetchKinds],
   )
 
   const handleDeleteAgenda = useCallback(async (deleteGoogleCalendar: boolean) => {
@@ -1631,39 +1661,19 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   }, [fetchEvents])
 
   // --- Mercure live updates ---
-  // The update is published before the worker has indexed the row, and the list is served
-  // from Elasticsearch: the first refetch can miss the change, so two more follow.
-  const mercureRefetchTimers = useRef<ReturnType<typeof setTimeout>[]>([])
-  const mercureCallback = useCallback(() => {
-    const refetch = () => {
-      if (dateRangeRef.current) fetchEvents(dateRangeRef.current.start, dateRangeRef.current.end)
-    }
-    refetch()
-    mercureRefetchTimers.current.forEach(clearTimeout)
-    mercureRefetchTimers.current = MERCURE_REFETCH_DELAYS_MS.map((delay) => setTimeout(refetch, delay))
-  }, [fetchEvents])
-  useEffect(
-    () => () => {
-      mercureRefetchTimers.current.forEach(clearTimeout)
-    },
-    [],
+  // One read per burst of messages, of what they touched (see `useLiveRead`).
+  const readTouched = useCallback(
+    (kinds: LiveKind[], retry: boolean) =>
+      dateRangeRef.current
+        ? fetchKinds(kinds, dateRangeRef.current.start, dateRangeRef.current.end, retry)
+        : Promise.resolve(true),
+    [fetchKinds],
   )
-  useMercure(CALENDAR_TOPICS, mercureCallback)
+  useMercure(CALENDAR_TOPICS, useLiveRead(readTouched))
 
   // Another window or the mobile app can change which agenda is the default.
-  const agendaRefetchTimers = useRef<ReturnType<typeof setTimeout>[]>([])
-  const agendaMercureCallback = useCallback(() => {
-    loadCalendars()
-    agendaRefetchTimers.current.forEach(clearTimeout)
-    agendaRefetchTimers.current = MERCURE_REFETCH_DELAYS_MS.map((delay) => setTimeout(loadCalendars, delay))
-  }, [loadCalendars])
-  useEffect(
-    () => () => {
-      agendaRefetchTimers.current.forEach(clearTimeout)
-    },
-    [],
-  )
-  useMercure(AGENDA_TOPICS, agendaMercureCallback)
+  const readAgendas = useCallback(() => loadCalendars(), [loadCalendars])
+  useMercure(AGENDA_TOPICS, useLiveRead(readAgendas))
 
   // --- Deep-link: open an event or a meal from search (?eventId=… / ?mealId=…) ---
   const deepLinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)

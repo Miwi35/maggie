@@ -17,9 +17,12 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
 
-    # Gzip compression
+    # Gzip compression. The API answers Hydra as application/ld+json: without it
+    # in the list, docs.jsonld (184 KB) leaves uncompressed at every start (MAG-546).
     gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    gzip_vary on;
+    gzip_comp_level 5;
+    gzip_types text/plain text/css application/json application/ld+json application/hal+json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml application/manifest+json;
     gzip_min_length 1000;
 
     # ==========================================================================
@@ -32,13 +35,38 @@ server {
     # ==========================================================================
     # Admin SPA (React)
     # ==========================================================================
+    # `add_header` in a location replaces every header inherited from the server
+    # block, so each location below repeats the security headers.
+
+    # index.html names the hashed files of the current build: the browser asks
+    # again each time (ETag makes it a 304), so a deploy is seen at once.
     location = /admin {
         root /var/www;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
         try_files /admin/index.html =404;
+    }
+
+    # Vite puts a content hash in every file name here: a file never changes under
+    # its name. A missing one is a 404, never index.html served as JavaScript — and
+    # that 404 carries no cache header (no `always`), or it would be cached for a year.
+    location /admin/assets/ {
+        root /var/www;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        try_files $uri =404;
     }
 
     location /admin/ {
         root /var/www;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
         try_files $uri /admin/index.html;
     }
 
