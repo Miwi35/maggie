@@ -5,8 +5,11 @@ namespace Maggie\Calendar\Tests\Mcp;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Mcp\Tool\CheckConflictsTool;
 use Maggie\Calendar\Mcp\Tool\CreateEventTool;
+use Maggie\Calendar\Mcp\Tool\DeleteEventTool;
+use Maggie\Calendar\Mcp\Tool\DeleteTaskTool;
 use Maggie\Calendar\Mcp\Tool\GetEventsByDateTool;
 use Maggie\Calendar\Mcp\Tool\GetTasksTool;
 use Maggie\Calendar\Mcp\Tool\GetUpcomingEventsTool;
@@ -227,5 +230,87 @@ class UserIsolationToolsTest extends KernelTestCase
         self::assertStringNotContainsString('Other agenda', $data['error']);
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         self::assertNull($em->getRepository(Event::class)->findOneBy(['summary' => 'Dentist']));
+    }
+
+    public function testDeleteEventRemovesTheCallersOwnEvent(): void
+    {
+        $this->loadFixtures('UserIsolationToolsTest.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('own_event')->getId();
+
+        $data = $this->decode((self::getContainer()->get(DeleteEventTool::class))($id));
+
+        self::assertTrue($data['success']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->getRepository(Event::class)->find($id));
+    }
+
+    public function testDeleteEventRefusesAnotherUsersEventLikeAMissingOne(): void
+    {
+        $this->loadFixtures('UserIsolationToolsTest.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('other_event')->getId();
+
+        $data = $this->decode((self::getContainer()->get(DeleteEventTool::class))($id));
+
+        self::assertSame("Event not found: {$id}", $data['error']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNotNull($em->getRepository(Event::class)->find($id));
+    }
+
+    public function testDeleteEventWithoutUserIsRefusedAndDeletesNothing(): void
+    {
+        $this->loadFixtures('UserIsolationToolsTest.yaml');
+        $id = (string) $this->getFixture('own_event')->getId();
+
+        $data = $this->decode((self::getContainer()->get(DeleteEventTool::class))($id));
+
+        self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNotNull($em->getRepository(Event::class)->find($id));
+    }
+
+    public function testDeleteTaskRemovesTheCallersOwnTask(): void
+    {
+        $this->loadFixtures('UserIsolationToolsTest.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('own_task_pending')->getId();
+
+        $data = $this->decode((self::getContainer()->get(DeleteTaskTool::class))($id));
+
+        self::assertTrue($data['success']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNull($em->getRepository(Task::class)->find($id));
+    }
+
+    public function testDeleteTaskRefusesAnotherUsersTaskLikeAMissingOne(): void
+    {
+        $this->loadFixtures('UserIsolationToolsTest.yaml');
+        $this->loginFixtureUser();
+        $id = (string) $this->getFixture('other_task_pending')->getId();
+
+        $data = $this->decode((self::getContainer()->get(DeleteTaskTool::class))($id));
+
+        self::assertSame("Task not found: {$id}", $data['error']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNotNull($em->getRepository(Task::class)->find($id));
+    }
+
+    public function testDeleteTaskWithoutUserIsRefusedAndDeletesNothing(): void
+    {
+        $this->loadFixtures('UserIsolationToolsTest.yaml');
+        $id = (string) $this->getFixture('own_task_pending')->getId();
+
+        $data = $this->decode((self::getContainer()->get(DeleteTaskTool::class))($id));
+
+        self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertNotNull($em->getRepository(Task::class)->find($id));
     }
 }

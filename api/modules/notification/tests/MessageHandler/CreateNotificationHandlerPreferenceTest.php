@@ -12,6 +12,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Message\CreateNotificationCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
@@ -66,6 +67,21 @@ final class CreateNotificationHandlerPreferenceTest extends KernelTestCase
 
         self::assertCount(0, $this->notificationsTitled('Pour le muet'));
         self::assertCount(1, $this->notificationsTitled('Pour l\'actif'));
+    }
+
+    public function testANotificationWithoutAnExplicitUserIsRefusedAndNeverGoesToTheFirstUser(): void
+    {
+        try {
+            self::getContainer()->get(MessageBusInterface::class)->dispatch(new CreateNotificationCommand(
+                type: 'reminder',
+                title: 'Sans destinataire',
+            ));
+            self::fail('A notification without a user must be refused.');
+        } catch (HandlerFailedException $e) {
+            self::assertInstanceOf(\DomainException::class, $e->getPrevious());
+        }
+
+        self::assertCount(0, $this->notificationsTitled('Sans destinataire'));
     }
 
     private function notify(string $email, string $title): void
