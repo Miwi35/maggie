@@ -11,11 +11,15 @@ import com.maggie.app.data.model.BudgetTile
 import com.maggie.app.data.model.ExpectedSalary
 import com.maggie.app.data.model.FinanceTiles
 import com.maggie.app.data.model.FinanceTodo
+import com.maggie.app.data.model.NextProject
+import com.maggie.app.data.model.NextProjectDelay
+import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.owedPillText
 import com.maggie.app.data.model.BalanceBeforeSalary
 import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.TreasuryOverdraft
 import com.maggie.app.data.repository.FinanceDashboardRepository
+import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.TreasuryRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -48,6 +52,7 @@ class FinanceDashboardViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var dashboardRepository: FinanceDashboardRepository
     private lateinit var treasuryRepository: TreasuryRepository
+    private lateinit var projectRepository: ProjectRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private val topics = mutableListOf<String>()
@@ -55,6 +60,24 @@ class FinanceDashboardViewModelTest {
     private lateinit var viewModel: FinanceDashboardViewModel
 
     private val today = LocalDate.of(2026, 9, 17)
+
+    private val planning = ProjectPlanning(startMonth = "2026-09", isIncomeKnown = true)
+
+    private val nextProject = NextProject(
+        projectId = "p1",
+        name = "Vélo",
+        amountCents = 100_000,
+        gatheredCents = 74_000,
+        purchaseMonth = "2026-12",
+        delay = NextProjectDelay(
+            projectId = "p2",
+            name = "Voyage au Japon",
+            months = 1,
+            overspentCents = 5_800,
+            envelopes = listOf("Restaurants", "Obsydian"),
+            newPurchaseMonth = "2027-05",
+        ),
+    )
 
     private val scores = FinanceScores(date = "2026-09-17", week = PeriodScore(status = "green", label = "Dans le vert"))
 
@@ -74,6 +97,8 @@ class FinanceDashboardViewModelTest {
         dashboardRepository = mockk()
         treasuryRepository = mockk()
         coEvery { treasuryRepository.getOutlook() } returns Result.success(TreasuryOutlook())
+        projectRepository = mockk()
+        coEvery { projectRepository.getProjectPlanning() } returns Result.success(planning)
         coEvery { dashboardRepository.getDashboard(any(), any()) } returns Result.success(dashboard)
         mercureService = mockk()
         authRepository = mockk()
@@ -86,7 +111,7 @@ class FinanceDashboardViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildViewModel() = FinanceDashboardViewModel(dashboardRepository, treasuryRepository, mercureService, authRepository, today)
+    private fun buildViewModel() = FinanceDashboardViewModel(dashboardRepository, treasuryRepository, mercureService, authRepository, projectRepository, today)
 
     @Test
     fun `it opens on the current month`() = runTest {
@@ -102,6 +127,57 @@ class FinanceDashboardViewModelTest {
         assertNull(state.error)
 
         coVerify { dashboardRepository.getDashboard(2026, 9) }
+    }
+
+    @Test
+    fun `the next project of the answer reaches the state, with its delay`() = runTest {
+        coEvery { dashboardRepository.getDashboard(any(), any()) } returns Result.success(dashboard.copy(nextProject = nextProject))
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        assertEquals(nextProject, viewModel.uiState.value.dashboard?.nextProject)
+    }
+
+    @Test
+    fun `a dashboard with no next project leaves it null`() = runTest {
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.dashboard?.nextProject)
+    }
+
+    @Test
+    fun `the planning of the Gantt reaches the state`() = runTest {
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        assertEquals(planning, viewModel.uiState.value.planning)
+    }
+
+    @Test
+    fun `a planning that fails to load leaves the dashboard whole, without Gantt`() = runTest {
+        coEvery { projectRepository.getProjectPlanning() } returns Result.failure(RuntimeException("boom"))
+
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.planning)
+        assertNotNull(viewModel.uiState.value.dashboard)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a project pushed by Mercure reads the planning again`() = runTest {
+        viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        val moved = planning.copy(startMonth = "2026-10")
+        coEvery { projectRepository.getProjectPlanning() } returns Result.success(moved)
+        mercureEvents.tryEmit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+
+        assertEquals(moved, viewModel.uiState.value.planning)
     }
 
     @Test
@@ -284,6 +360,7 @@ class FinanceDashboardViewModelTest {
                 "/users/user-1/api/accounts/{id}",
                 "/users/user-1/api/transactions/{id}",
                 "/users/user-1/api/envelopes/{id}",
+                "/users/user-1/api/finance/projects/{id}",
             ),
             topics.toSet(),
         )

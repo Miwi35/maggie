@@ -13,7 +13,7 @@ import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
  * The finance home (MAG-102, rebuilt by MAG-420).
  *
  * Top to bottom: the two rings, the month's curve against its rhythm, the
- * « Prochain projet » example card, then three tiles — Comptes, Budget,
+ * « Prochain projet » card, then three tiles — Comptes, Budget,
  * Planification — each a card that opens its menu.
  *
  * Every figure on this screen is computed on the fly by
@@ -48,6 +48,12 @@ const LIFESTYLE_CENTS = 16666
 const GROCERIES_BUDGET_CENTS = 20000
 
 const [ANCHOR_YEAR, ANCHOR_MONTH] = seedAnchorDate().split('-').map(Number)
+
+/** « oct. 2026 »: the month `offset` months after the anchor's, as the card spells it. */
+const monthLabel = (offset: number): string =>
+  new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(ANCHOR_YEAR, ANCHOR_MONTH - 1 + offset, 1)),
+  )
 
 /**
  * Given two accounts, one of them a matelas, a reference salary and envelopes,
@@ -133,21 +139,37 @@ test('the Planification tile gives the saving capacity as income minus the loans
 })
 
 /**
- * The card keeps its place in the layout with an example (owner decision of
- * 13 Oct); MAG-425 replaces it with the real projects. It is not a link.
+ * Given two projects and 58 € of overspending this month that push the second
+ * one back, When I open the finance home, Then « Prochain projet » shows the
+ * first project of the planning, what is gathered, the one after it, and the
+ * sentence that says what the overspending costs, and the Planification tile
+ * draws the planning as a compact Gantt. An account of its own
+ * (62-finance-next-project.yaml): 740 € gathered on the 1 000 € « Vélo », bought
+ * this month, then the 3 190 € trip six months on, pushed back to the seventh.
+ * The owner's projects are not read here: `finance-projects.spec.ts` reorders them.
  */
-test('the Prochain projet card shows its static example, and is not clickable', async ({
-  page,
+test('the Prochain projet card shows the first project of the planning and what the overspending pushes back', async ({
+  nextProjectUser,
 }) => {
-  const overview = new FinanceOverviewPage(page)
+  const overview = new FinanceOverviewPage(nextProjectUser.page)
   await overview.open()
 
   const card = overview.nextProject
-  await expect(card).toContainText('Vélo électrique')
-  await expect(card).toContainText(`${euros(74000)} sur ${euros(120000)}`)
-  await expect(card).toContainText('dans 4 mois')
-  await expect(card.getByTestId('next-project-negative')).toContainText(euros(-46000))
+  await expect(card).toContainText('Vélo')
+  await expect(card).toContainText(`${euros(74000)} sur ${euros(100000)}`)
+  await expect(card.getByTestId('next-project-date')).toContainText(`ce mois-ci · ${monthLabel(0)}`)
+
+  const following = card.getByTestId('next-project-following')
+  await expect(following).toHaveCount(1)
+  await expect(following).toContainText(`Voyage au Japon · ${euros(319000)} · ${monthLabel(6)}`)
+
+  await expect(card.getByTestId('next-project-negative')).toContainText(
+    `Les dépassements de ce mois (Restaurants et Obsydian, +${euros(5800)}) repoussent Voyage au Japon d'un mois.`,
+  )
   await expect(card.getByRole('link')).toHaveCount(0)
+
+  // The Planification tile draws the same planning as a compact Gantt.
+  await expect(overview.planningTile.getByTestId('planning-gantt')).toBeVisible()
 })
 
 test('each tile opens its menu', async ({ page }) => {

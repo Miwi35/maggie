@@ -7,9 +7,11 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.FinanceDashboard
+import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.TreasuryBannerState
 import com.maggie.app.data.model.toBanner
 import com.maggie.app.data.repository.FinanceDashboardRepository
+import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.TreasuryRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -30,6 +32,8 @@ data class FinanceDashboardUiState(
     val error: String? = null,
     // Null when no overdraft is forecast, or when the outlook could not be loaded: the dashboard goes on without it.
     val treasuryBanner: TreasuryBannerState? = null,
+    // The Gantt of the Planification tile (MAG-529): null until read, or when it could not be — the tile goes on without it.
+    val planning: ProjectPlanning? = null,
 )
 
 class FinanceDashboardViewModel(
@@ -37,6 +41,7 @@ class FinanceDashboardViewModel(
     private val treasuryRepository: TreasuryRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
+    private val projectRepository: ProjectRepository,
     private val today: LocalDate = LocalDate.now(),
 ) : ViewModel() {
 
@@ -46,15 +51,17 @@ class FinanceDashboardViewModel(
     val uiState: StateFlow<FinanceDashboardUiState> = _uiState
 
     private var treasuryJob: Job? = null
+    private var planningJob: Job? = null
     private var dashboardJob: Job? = null
 
     init {
         refresh()
         refreshTreasury()
+        refreshPlanning()
         subscribeToMercure()
     }
 
-    // An account, a transaction or an envelope that changes moves the tiles and what is left to spend.
+    // An account, a transaction, an envelope or a project that changes moves the tiles, what is left to spend and the next project.
     private fun subscribeToMercure() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
@@ -62,10 +69,14 @@ class FinanceDashboardViewModel(
                 mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.ACCOUNTS)),
                 mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TRANSACTIONS)),
                 mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.ENVELOPES)),
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.FINANCE_PROJECTS)),
             )
                 .catch { /* SSE reconnects automatically */ }
                 .coalesced()
-                .collect { refresh() }
+                .collect {
+                    refresh()
+                    refreshPlanning()
+                }
         }
     }
 
@@ -74,6 +85,15 @@ class FinanceDashboardViewModel(
         treasuryJob = viewModelScope.launch {
             val banner = treasuryRepository.getOutlook().getOrNull()?.toBanner()
             _uiState.value = _uiState.value.copy(treasuryBanner = banner)
+        }
+    }
+
+    fun refreshPlanning() {
+        planningJob?.cancel()
+        planningJob = viewModelScope.launch {
+            projectRepository.getProjectPlanning().onSuccess { planning ->
+                _uiState.value = _uiState.value.copy(planning = planning)
+            }
         }
     }
 

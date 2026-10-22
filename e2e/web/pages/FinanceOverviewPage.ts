@@ -8,7 +8,7 @@ import { ROUTES } from './routes.js'
  * Finance → Vue d'ensemble (`/finance/dashboard`), the finance home (MAG-420).
  *
  * One read of `GetFinanceDashboard`, drawn top to bottom as the two rings, the
- * month's curve against its rhythm, the « Prochain projet » example card, then
+ * month's curve against its rhythm, the « Prochain projet » card, then
  * three tiles — Comptes, Budget, Planification — each opening its menu.
  * Nothing here is stored: the total is the sum of the accounts, the saving
  * capacity is income minus loan payments minus a measured lifestyle. So the
@@ -83,7 +83,7 @@ export class FinanceOverviewPage extends AdminShell {
     return this.content.getByTestId('review-shortcut')
   }
 
-  /** The « Prochain projet » card: a static example until MAG-425. */
+  /** The « Prochain projet » card (MAG-529): the first project of the planning, absent with none. */
   get nextProject(): Locator {
     return this.content.getByTestId('next-project-card')
   }

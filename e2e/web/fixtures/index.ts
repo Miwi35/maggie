@@ -18,6 +18,7 @@ import {
   STARS_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   MEALS_USER_EMAIL,
+  NEXT_PROJECT_USER_EMAIL,
   OTHER_USER_EMAIL,
   PERIOD_USER_EMAIL,
   RECURRING_USER_EMAIL,
@@ -58,6 +59,7 @@ export {
   BRAVO_USER_EMAIL,
   STARS_USER_EMAIL,
   REMINDERS_USER_EMAIL,
+  NEXT_PROJECT_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -187,6 +189,8 @@ export interface MaggieFixtures {
   periodUser: OtherUser
   /** The twenty-first seeded account, for the buttons of a task reminder (MAG-510). */
   remindersUser: OtherUser
+  /** The twenty-second seeded account, for the « Prochain projet » block (MAG-529). */
+  nextProjectUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -442,6 +446,10 @@ export const test = base.extend<MaggieFixtures>({
 
   remindersUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(REMINDERS_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  nextProjectUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(NEXT_PROJECT_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

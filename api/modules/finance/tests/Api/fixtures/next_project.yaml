@@ -1,0 +1,110 @@
+# MAG-529's scenario, read on 2026-10-21: a net saving capacity of 500 €/month
+# (income 500 €, complete cushion), 740 € on a savings account outside the
+# cushion, a 1 000 € « Vélo » then a 3 190 € « Voyage au Japon » that closes
+# the 36 months with less than 58 € of margin. October overspends Restaurants
+# by 30 € and Obsydian by 28 €. `lonely_user` has no project at all.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-next-project-test@example.com
+    googleId: google-finance-next-project-test
+    name: Finance Next Project Test User
+  lonely_user:
+    email: finance-next-project-lonely@example.com
+    googleId: google-finance-next-project-lonely
+    name: Finance Next Project Lonely User
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 50000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: null
+    user: '@test_user'
+
+Maggie\Finance\Entity\Account:
+  checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    user: '@test_user'
+  livret_jeune:
+    name: Livret jeune
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 74000
+    isCushion: false
+    user: '@test_user'
+  livret_a:
+    name: Livret A
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 900000
+    isCushion: true
+    user: '@test_user'
+
+Maggie\Finance\Entity\Project:
+  bike:
+    name: Vélo
+    amountCents: 100000
+    currency: EUR
+    position: 0
+    user: '@test_user'
+  japan:
+    name: Voyage au Japon
+    amountCents: 319000
+    currency: EUR
+    position: 1
+    user: '@test_user'
+
+Maggie\Finance\Entity\Category:
+  restaurants:
+    name: Restaurants
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+  obsydian:
+    name: Obsydian
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@test_user'
+
+Maggie\Finance\Entity\Envelope:
+  restaurants_october:
+    category: '@restaurants'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 20000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@test_user'
+  obsydian_october:
+    category: '@obsydian'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 10000
+    currency: EUR
+    year: 2026
+    month: 10
+    user: '@test_user'
+
+Maggie\Finance\Entity\Transaction:
+  restaurants_spend:
+    account: '@checking'
+    category: '@restaurants'
+    amountCents: -23000
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-09"))>'
+    label: Restaurant
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'
+  obsydian_spend:
+    account: '@checking'
+    category: '@obsydian'
+    amountCents: -12800
+    currency: EUR
+    bookedAt: '<(new \DateTimeImmutable("2026-10-12"))>'
+    label: Obsydian
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    isExceptional: false
+    user: '@test_user'

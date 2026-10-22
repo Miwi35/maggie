@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.FinanceScores
+import com.maggie.app.data.model.NextProject
 import com.maggie.app.data.model.PeriodScore
 import com.maggie.app.data.model.Rhythm
 import com.maggie.app.data.model.RhythmDebit
@@ -223,7 +224,9 @@ class FinanceScoresScreenTest {
             FinanceDashboardScreen(
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
-                viewModel = FakeLoadedFinanceDashboard(dashboardWithScores()).viewModel,
+                viewModel = FakeLoadedFinanceDashboard(
+                    dashboardWithScores().copy(nextProject = NextProject("p1", "Vélo", 100_000, 74_000, "2026-12")),
+                ).viewModel,
                 onBack = {},
                 onOpen = {},
             )

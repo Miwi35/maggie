@@ -1,8 +1,31 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { dashboardFixture } from './dashboardFixture'
 import { PlanningTile } from './PlanningTile'
+
+const planningHook = vi.hoisted(() => ({ planning: null as unknown }))
+vi.mock('./useProjectPlanning', () => ({
+  useProjectPlanning: () => ({ status: planningHook.planning ? 'ready' : 'failed', planning: planningHook.planning, reload: () => {} }),
+}))
+
+const project = (name: string, position: number) => ({
+  projectId: name,
+  name,
+  position,
+  wellbeing: 'medium',
+  amountCents: 100000,
+  dateMode: 'none',
+  targetOn: null,
+  savingFromMonth: '2026-10',
+  purchaseMonth: '2026-12',
+  gatheredCents: 0,
+  loan: null,
+  isBeyondHorizon: false,
+  isDeadlineMissed: false,
+  delayMonths: 0,
+  unmetDependencies: [],
+})
 
 const renderTile = (tile = dashboardFixture().tiles.planning) =>
   render(
@@ -42,5 +65,29 @@ describe('PlanningTile', () => {
     renderTile()
 
     expect(screen.getByRole('link', { name: 'Planification' })).toHaveAttribute('href', '/finance/treasury')
+  })
+
+  test('draws the first three projects as a compact Gantt', () => {
+    planningHook.planning = {
+      startMonth: '2026-10',
+      horizonMonths: 36,
+      currency: 'EUR',
+      isIncomeKnown: true,
+      cushion: { state: 'complete', completeMonth: null },
+      projects: ['A', 'B', 'C', 'D'].map((name, index) => project(name, index)),
+    }
+    renderTile()
+
+    expect(screen.getByTestId('project-gantt')).toHaveAttribute('data-variant', 'compact')
+    expect(screen.getAllByTestId('gantt-row')).toHaveLength(3)
+    planningHook.planning = null
+  })
+
+  test('has no Gantt without a planning', () => {
+    planningHook.planning = null
+    renderTile()
+
+    expect(screen.queryByTestId('project-gantt')).not.toBeInTheDocument()
+    expect(screen.getByTestId('saving-capacity')).toBeInTheDocument()
   })
 })

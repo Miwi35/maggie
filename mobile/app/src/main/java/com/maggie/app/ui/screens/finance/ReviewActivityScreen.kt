@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.CategoryTree
+import com.maggie.app.data.model.NextProject
 import com.maggie.app.data.model.OPERATION_SERIES
 import com.maggie.app.data.model.ReviewQueueItem
 import com.maggie.app.data.model.ReviewStep
@@ -103,7 +104,7 @@ fun ReviewActivityRoute(
             }
         },
         upcoming = { UpcomingTab(upcomingViewModel, twoColumns) },
-        projects = { ProjectsStep(upcomingViewModel) },
+        projects = { ProjectsStep(upcomingViewModel, review.nextProject) },
         periodBalance = { PeriodBalanceStep(periodReviewViewModel, review.month) },
         periodPlan = { review.nextPeriod?.let { PeriodPlanStep(periodReviewViewModel, it) } },
     )
@@ -111,7 +112,7 @@ fun ReviewActivityRoute(
 
 /** Projets: what the month after leaves toward the projects, then the next project. */
 @Composable
-private fun ProjectsStep(upcomingViewModel: UpcomingViewModel) {
+private fun ProjectsStep(upcomingViewModel: UpcomingViewModel, nextProject: NextProject?) {
     val upcoming by upcomingViewModel.uiState.collectAsState()
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -129,7 +130,7 @@ private fun ProjectsStep(upcomingViewModel: UpcomingViewModel) {
                 }
             }
         }
-        NextProjectCard()
+        nextProject?.let { NextProjectCard(it) }
     }
 }
 

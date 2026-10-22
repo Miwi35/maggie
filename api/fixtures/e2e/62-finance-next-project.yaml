@@ -1,0 +1,117 @@
+# The « Prochain projet » journeys (MAG-529, extends MAG-102): the finance home
+# and the review's Projets step.
+#
+# A net saving capacity of 500 €/month (income 500 €, complete matelas, no loan,
+# no spending in the three months before), 740 € on a savings account outside
+# the matelas, then two projects in this order:
+#   Vélo            1 000 €  → bought this month, 740 € already gathered
+#   Voyage au Japon 3 190 €  → bought six months on, with less than 58 € to spare
+# This month overspends Restaurants by 30 € and Obsydian by 28 €, booked on the
+# 1st so they are in the past whatever the stack's day is: 58 € that push the
+# trip back one month.
+#
+# No other journey signs in here: the owner's account carries no overrun, and
+# giving it one would move what the other finance journeys compute.
+
+Maggie\Core\Entity\User:
+  e2e_next_project_user:
+    email: 'e2e-next-project@maggie.local'
+    googleId: 'e2e-next-project-google-id'
+    name: 'Camille Projet'
+
+Maggie\Finance\Entity\SafetyCushion:
+  e2e_next_project_cushion:
+    user: '@e2e_next_project_user'
+    targetMonths: 3
+    monthlyNetIncomeCents: 50000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+
+Maggie\Finance\Entity\Account:
+  e2e_next_project_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    user: '@e2e_next_project_user'
+  e2e_next_project_livret_jeune:
+    name: Livret jeune
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 74000
+    isCushion: false
+    user: '@e2e_next_project_user'
+  e2e_next_project_livret_a:
+    name: Livret A
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 900000
+    isCushion: true
+    user: '@e2e_next_project_user'
+
+Maggie\Finance\Entity\Project:
+  e2e_next_project_bike:
+    name: Vélo
+    amountCents: 100000
+    currency: EUR
+    position: 0
+    user: '@e2e_next_project_user'
+  e2e_next_project_japan:
+    name: Voyage au Japon
+    amountCents: 319000
+    currency: EUR
+    position: 1
+    user: '@e2e_next_project_user'
+
+Maggie\Finance\Entity\Category:
+  e2e_next_project_restaurants:
+    name: Restaurants
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@e2e_next_project_user'
+  e2e_next_project_obsydian:
+    name: Obsydian
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@e2e_next_project_user'
+
+Maggie\Finance\Entity\Envelope:
+  e2e_next_project_restaurants_envelope:
+    category: '@e2e_next_project_restaurants'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 20000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_next_project_user'
+  e2e_next_project_obsydian_envelope:
+    category: '@e2e_next_project_obsydian'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 10000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_next_project_user'
+
+Maggie\Finance\Entity\Transaction:
+  e2e_next_project_restaurants_spend:
+    account: '@e2e_next_project_checking'
+    category: '@e2e_next_project_restaurants'
+    amountCents: -23000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'RESTAURANT'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month")>'
+    user: '@e2e_next_project_user'
+  e2e_next_project_obsydian_spend:
+    account: '@e2e_next_project_checking'
+    category: '@e2e_next_project_obsydian'
+    amountCents: -12800
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'OBSYDIAN'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month")>'
+    user: '@e2e_next_project_user'

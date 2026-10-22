@@ -102,7 +102,7 @@ export const FinanceDashboardPage = ({ initialTab = 'overview' }: { initialTab?:
 
               <FinanceScoresCard scores={dashboard.scores} />
 
-              <NextProjectCard />
+              {dashboard.nextProject && <NextProjectCard project={dashboard.nextProject} />}
 
               <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2, alignItems: 'stretch' }}>
                 <AccountsTile tile={dashboard.tiles.accounts} todo={dashboard.todo} />

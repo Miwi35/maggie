@@ -26,6 +26,7 @@ class GetFinanceDashboard
 {
     private const TREND_MONTHS = 12;
     private const TOP_POSTS = 5;
+    private const FOLLOWING_PROJECTS = 2;
 
     public function __construct(
         private readonly GetDailyScore $getDailyScore,
@@ -40,6 +41,7 @@ class GetFinanceDashboard
         private readonly GetSavingsAdvances $getSavingsAdvances,
         private readonly GetMonthlyReview $getMonthlyReview,
         private readonly GetPeerDebtSummary $getPeerDebtSummary,
+        private readonly GetProjectPlanning $getProjectPlanning,
         private readonly AccountRepository $accountRepository,
         private readonly TransactionRepository $transactionRepository,
     ) {
@@ -70,6 +72,7 @@ class GetFinanceDashboard
                     'savingCapacity' => $savingCapacity,
                 ],
             ],
+            'nextProject' => $this->nextProject($user, $year, $month, $budgets),
             'todo' => $this->todo($user, $rejections),
             'score' => $this->getDailyScore->execute($user, $year, $month),
             'balance' => $balance,
@@ -79,6 +82,106 @@ class GetFinanceDashboard
             'savingCapacity' => $savingCapacity,
             'independence' => $independence,
         ];
+    }
+
+    /**
+     * The next project of the planning (MAG-529) with the two after it, and the
+     * negative feedback: the month's overspending pushes one of the three back.
+     * Null with no project, or when none lands inside the 36 months.
+     *
+     * The overspending is the sum, over the envelopes of the month, of what
+     * each one went over its budget. The planning takes it into account for the
+     * month under way only, so a month shown that is not that one carries no delay.
+     *
+     * @param list<array<string, mixed>> $budgets
+     *
+     * @return array<string, mixed>|null
+     */
+    private function nextProject(User $user, int $year, int $month, array $budgets): ?array
+    {
+        $planning = $this->getProjectPlanning->execute($user);
+        $planned = array_values(array_filter(
+            $planning['projects'],
+            static fn (array $project): bool => null !== $project['purchaseMonth'],
+        ));
+        if ([] === $planned) {
+            return null;
+        }
+
+        $next = $planned[0];
+        $following = \array_slice($planned, 1, self::FOLLOWING_PROJECTS);
+
+        return [
+            'projectId' => $next['projectId'],
+            'name' => $next['name'],
+            'amountCents' => $next['amountCents'],
+            'gatheredCents' => $next['gatheredCents'],
+            'purchaseMonth' => $next['purchaseMonth'],
+            'following' => array_map(static fn (array $project): array => [
+                'projectId' => $project['projectId'],
+                'name' => $project['name'],
+                'amountCents' => $project['amountCents'],
+                'purchaseMonth' => $project['purchaseMonth'],
+            ], $following),
+            'delay' => sprintf('%04d-%02d', $year, $month) === $planning['startMonth']
+                ? $this->delay($user, [$next, ...$following], $budgets)
+                : null,
+        ];
+    }
+
+    /**
+     * The first of the projects whose purchase month moves back once the
+     * month's overspending is counted. A project the overspending pushes out of
+     * the horizon has no new month to name: it is left out.
+     *
+     * @param list<array<string, mixed>> $projects
+     * @param list<array<string, mixed>> $budgets
+     *
+     * @return array<string, mixed>|null
+     */
+    private function delay(User $user, array $projects, array $budgets): ?array
+    {
+        $overspent = [];
+        foreach ($budgets as $line) {
+            if (null !== $line['parentEnvelopeId']) {
+                continue;
+            }
+            $over = $line['consumedCents'] - $line['amountCents'];
+            if ($over > 0) {
+                $overspent[$line['categoryName']] = $over;
+            }
+        }
+        if ([] === $overspent) {
+            return null;
+        }
+
+        $overspentCents = array_sum($overspent);
+        $pushed = array_column($this->getProjectPlanning->execute($user, $overspentCents)['projects'], null, 'projectId');
+
+        foreach ($projects as $project) {
+            $newMonth = $pushed[$project['projectId']]['purchaseMonth'] ?? null;
+            if (null === $newMonth) {
+                continue;
+            }
+            $months = $this->monthIndex($newMonth) - $this->monthIndex($project['purchaseMonth']);
+            if ($months > 0) {
+                return [
+                    'projectId' => $project['projectId'],
+                    'name' => $project['name'],
+                    'months' => $months,
+                    'overspentCents' => $overspentCents,
+                    'envelopes' => array_keys($overspent),
+                    'newPurchaseMonth' => $newMonth,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    private function monthIndex(string $month): int
+    {
+        return (int) substr($month, 0, 4) * 12 + (int) substr($month, 5, 2);
     }
 
     /**

@@ -1,9 +1,11 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -16,6 +18,11 @@ import com.maggie.app.data.model.ExpectedSalary
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.FinanceTiles
 import com.maggie.app.data.model.FinanceTodo
+import com.maggie.app.data.model.NextProject
+import com.maggie.app.data.model.NextProjectDelay
+import com.maggie.app.data.model.NextProjectFollowing
+import com.maggie.app.data.model.PlannedProject
+import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.SavingCapacity
 import com.maggie.app.data.model.TileAccount
@@ -86,9 +93,33 @@ class FinanceDashboardTilesScreenTest {
         ),
     )
 
+    private val nextProject = NextProject(
+        projectId = "p1",
+        name = "Vélo",
+        amountCents = 100_000,
+        gatheredCents = 74_000,
+        purchaseMonth = "2099-12",
+        following = listOf(
+            NextProjectFollowing("p2", "Voyage au Japon", 319_000, "2100-05"),
+            NextProjectFollowing("p3", "Garage", 80_000, "2100-09"),
+        ),
+        delay = NextProjectDelay("p2", "Voyage au Japon", 1, 5_800, listOf("Restaurants", "Obsydian"), "2100-06"),
+    )
+
+    private val planning = ProjectPlanning(
+        startMonth = "2026-10",
+        isIncomeKnown = true,
+        projects = listOf(
+            PlannedProject("p1", "Vélo", 0, amountCents = 100_000, savingFromMonth = "2026-10", purchaseMonth = "2026-12"),
+            PlannedProject("p2", "Voyage au Japon", 1, amountCents = 319_000, savingFromMonth = "2026-12", purchaseMonth = "2027-05"),
+        ),
+    )
+
     private fun open(
         tiles: FinanceTiles = this.tiles,
         todo: FinanceTodo = FinanceTodo(),
+        nextProject: NextProject? = null,
+        planning: ProjectPlanning? = null,
         onOpenIncidents: (TileAccount) -> Unit = {},
         onOpen: (String) -> Unit = {},
     ) {
@@ -96,7 +127,10 @@ class FinanceDashboardTilesScreenTest {
             FinanceDashboardScreen(
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
-                viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 10, tiles = tiles, todo = todo)).viewModel,
+                viewModel = FakeLoadedFinanceDashboard(
+                    FinanceDashboard(year = 2026, month = 10, tiles = tiles, todo = todo, nextProject = nextProject),
+                    planning = planning,
+                ).viewModel,
                 onBack = {},
                 onOpen = onOpen,
                 onOpenIncidents = onOpenIncidents,
@@ -207,20 +241,57 @@ class FinanceDashboardTilesScreenTest {
     }
 
     @Test
-    fun `the next project is a fixed example, drawn and not clickable`() {
+    fun `the next project is the first of the planning, with what is gathered, the following ones and the delay, and is not clickable`() {
         val opened = mutableListOf<String>()
-        open { opened += it }
+        open(nextProject = nextProject) { opened += it }
 
         compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Vélo électrique").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("dans 4 mois").assertIsDisplayed()
-        compose.onNodeWithText("${formatCents(NEXT_PROJECT_EXAMPLE.savedCents)} sur ${formatCents(NEXT_PROJECT_EXAMPLE.targetCents)}")
-            .assertIsDisplayed()
-        compose.onNodeWithText(NEXT_PROJECT_EXAMPLE.negativeReturn).assertIsDisplayed()
+        compose.onNodeWithText("Vélo").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT_DATE, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("${formatCents(74_000)} sur ${formatCents(100_000)}").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.FINANCE_NEXT_PROJECT_FOLLOWING, useUnmergedTree = true).assertCountEquals(2)
+        compose.onNodeWithText("Voyage au Japon · ${formatCents(319_000)} · mai 2100", substring = true, useUnmergedTree = true)
+            .assertExists()
+        compose.onNodeWithText(
+            "Les dépassements de ce mois (Restaurants et Obsydian, +${formatCents(5_800)}) repoussent Voyage au Japon d'un mois.",
+        ).assertIsDisplayed()
 
         compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT).performClick()
 
         assertEquals(emptyList<String>(), opened)
+    }
+
+    @Test
+    fun `a next project without delay says nothing of a return`() {
+        open(nextProject = nextProject.copy(delay = null, following = emptyList()))
+
+        compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT_NEGATIVE, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT_FOLLOWING, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `no next project hides the block`() {
+        open(nextProject = null)
+
+        compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the planning tile draws the Gantt of the first projects once the planning is read`() {
+        open(planning = planning)
+
+        compose.onNodeWithTag(UiTags.FINANCE_TILE_PLANNING).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PROJECT_GANTT, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `the planning tile has no Gantt while the planning is not read`() {
+        open(planning = null)
+
+        compose.onNodeWithTag(UiTags.FINANCE_TILE_PLANNING).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PROJECT_GANTT, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

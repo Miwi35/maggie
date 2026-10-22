@@ -118,7 +118,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         // notification its journey reads, and the other journeys count the
         // bell's. A twenty-second would mean somebody added an account without
         // saying why.
-        self::assertSame(22, $this->rowsOf(User::class));
+        self::assertSame(23, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -140,6 +140,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-activity@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-period@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-reminders@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-next-project@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
@@ -171,7 +172,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // MAG-463: the « À venir » account's. Seven since MAG-457: the month
         // balance account's. Eight since MAG-456: the review activity's. Nine since MAG-462: the period review's.
         // Ten since MAG-524: the stock user's « Livret jeune », the car's savings source.
-        self::assertSame(10, $this->rowsOf(Account::class));
+        // Thirteen since MAG-529: the next project account's current account, Livret jeune and Livret A.
+        self::assertSame(13, $this->rowsOf(Account::class));
         // Thirteen and not twelve since MAG-46: the rent received last month is
         // what the independence counter reads as a rente, and the journey
         // asserts the 60 % it makes of the measured train de vie. Sixteen since
@@ -180,12 +182,14 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Twenty since MAG-417: the scores account's rent and groceries.
         // Twenty-two since MAG-457: the month balance account's groceries and train.
         // Twenty-four since MAG-456: the two spends the review activity walks.
-        self::assertSame(24, $this->rowsOf(Transaction::class));
+        // Twenty-six since MAG-529: the next project account's restaurants and Obsydian overruns.
+        self::assertSame(26, $this->rowsOf(Transaction::class));
         // Four since MAG-49: each envelope alert account's « Loisirs ». Six since
         // MAG-417: the scores account's « Logement » and « Alimentation ». Nine
         // since MAG-463: the « À venir » account's current and next month's.
         // Eleven since MAG-457: the month balance account's « Alimentation » and « Transport ».
-        self::assertSame(11, $this->rowsOf(Envelope::class));
+        // Thirteen since MAG-529: the next project account's « Restaurants » and « Obsydian ».
+        self::assertSame(13, $this->rowsOf(Envelope::class));
         // Three since MAG-510: the nudge the reminders journey answers.
         self::assertSame(3, $this->rowsOf(Notification::class));
     }
@@ -432,11 +436,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(23, $this->rowsOf(User::class));
+        self::assertSame(24, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(22, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(23, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

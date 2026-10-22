@@ -14,6 +14,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.EnvelopeAdjustment
 import com.maggie.app.data.model.EnvelopeAdjustments
+import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.PeriodBalance
 import com.maggie.app.data.model.PeriodEnvelope
 import com.maggie.app.data.model.PeriodMonth
@@ -38,6 +39,7 @@ import com.maggie.app.data.model.UpcomingProjection
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
+import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.ReviewRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.UpcomingRepository
@@ -89,6 +91,8 @@ class ReviewActivityScreenTest {
         coEvery { budget.getEnvelopeAdjustments(month) } returns
             Result.success(EnvelopeAdjustments(envelopes = listOf(EnvelopeAdjustment(envelopeId = "e1", categoryId = "c1"))))
         coEvery { upcoming.getUpcoming() } returns Result.success(UpcomingProjection())
+        val dashboard = mockk<FinanceDashboardRepository>()
+        coEvery { dashboard.getDashboard(any(), any()) } returns Result.success(FinanceDashboard())
         coEvery { review.getProgress(month) } returns Result.success(progress)
         coEvery { review.getQueue(month) } returns Result.success(ReviewQueue(month = month, items = items))
         coEvery { review.markHandled(month, any()) } answers { Result.success(ReviewProgress(month = month)) }
@@ -101,6 +105,7 @@ class ReviewActivityScreenTest {
             mockk<CategorizationRuleRepository>(relaxed = true),
             budget,
             upcoming,
+            dashboard,
             today = LocalDate.of(2026, 10, 25),
         )
     }
