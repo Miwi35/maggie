@@ -93,11 +93,12 @@ export const TOKENS = {
     onTrack: { light: '#1B7352', dark: '#7FD1AE' },
     above: { light: '#A65500', dark: '#F0A35E' },
   },
-  /** Slots 1 and 2 of the palette validated on the finance dashboard, per mode. */
+  /** Slots 1 and 2 of the palette validated on the finance dashboard, per mode; slot 3 is the phone's violet (project funding, MAG-528). */
   chart: {
     categorical: [
       { light: '#2A78D6', dark: '#3987E5' },
       { light: '#EB6834', dark: '#D95926' },
+      { light: '#6B4BD6', dark: '#A68BFF' },
     ],
   },
   /**

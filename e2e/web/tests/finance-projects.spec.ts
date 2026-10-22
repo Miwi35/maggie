@@ -24,6 +24,9 @@ import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
  * The Gantt under the list (MAG-527) draws that same planning: the sofa's purchase after the
  * move's, and dragging the sofa to the top makes its bar come first once the planning is read again.
  *
+ * The funding chart under the Gantt (MAG-528): a project on a fixed date that asks more than
+ * the saving capacity can give makes the chart flag the months before it, and hovering one reads the excess.
+ *
  * Only this file reads or writes the projects; `finally` puts the seed back,
  * so a retry starts where the first attempt did.
  */
@@ -179,7 +182,7 @@ interface PlannedProject {
 interface ProjectPlanning {
   startMonth: string
   horizonMonths: number
-  months: { month: string }[]
+  months: { month: string; isOverCapacity: boolean }[]
   projects: PlannedProject[]
 }
 
@@ -389,4 +392,72 @@ test.describe('funding', () => {
       await removeBike(api)
     }
   })
+})
+
+/** `YYYY-MM-01` of the month `ahead` months from now: the date a fixed project is locked on. */
+const firstOfMonth = (ahead: number): string => {
+  const date = new Date()
+  date.setUTCDate(1)
+  date.setUTCMonth(date.getUTCMonth() + ahead)
+
+  return date.toISOString().slice(0, 10)
+}
+
+test('the funding chart flags the months a fixed date asks more than the capacity, and hovering one reads the excess', async ({ page, api }) => {
+  await restoreSeed(api)
+  const screen = new FinanceProjectsPage(page)
+  const { retry } = test.info()
+  const name = `Mariage${0 === retry ? '' : ` essai ${retry}`}`
+  let createdIri: string | null = null
+
+  try {
+    // --- Given: a project of 200 000 € locked two months ahead, far above any capacity
+    const created = await api.post('/api/finance/projects', {
+      headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+      data: {
+        name,
+        amountCents: 20_000_000,
+        currency: 'EUR',
+        wellbeing: 'comfort',
+        dateMode: 'fixed',
+        targetOn: firstOfMonth(2),
+        dependsOn: [],
+      },
+    })
+    expect(created.status(), await created.text()).toBe(201)
+    createdIri = ((await created.json()) as { '@id': string })['@id']
+
+    // --- When: the projects page is opened -----------------------------------
+    await screen.open()
+
+    // --- Then: the chart sits under the Gantt, on the same 36 months ---------
+    await expect(screen.fundingChart).toBeVisible()
+    await expect(screen.fundingChart.getByTestId('funding-bar')).toHaveCount(36)
+    await expect(screen.fundingChart.getByTestId('funding-axis').locator('[data-month]')).toHaveCount(36)
+    await expect(screen.fundingChart.getByTestId('funding-legend')).toContainText('Salaire')
+    await expect(screen.fundingChart.getByTestId('funding-legend')).toContainText('Économies')
+    await expect(screen.fundingChart.getByTestId('funding-legend')).toContainText('Capital libéré')
+    await expect(screen.fundingChart.getByTestId('funding-capacity')).toBeVisible()
+
+    // --- Then: the months before the date are flagged, the later ones are not
+    const plan = await planning(api)
+    const expected = plan.months
+      .slice(0, 3)
+      .filter((month) => month.isOverCapacity)
+      .map((month) => month.month)
+    expect(expected.length, 'the fixed date asks more than the capacity of its first months').toBeGreaterThan(0)
+    await expect.poll(() => screen.flaggedMonths(), { timeout: 30_000 }).toEqual(expect.arrayContaining(expected))
+    await expect(screen.fundingBar(plan.months[35]?.month ?? '')).not.toHaveAttribute('data-over', 'true')
+    await expect(screen.fundingBar(expected[0] as string).getByTestId('funding-segment').first()).toBeVisible()
+
+    // --- When: the cursor rests on a flagged month ---------------------------
+    await screen.fundingBar(expected[0] as string).hover()
+
+    // --- Then: the excess over the capacity is readable ----------------------
+    await expect(page.getByRole('tooltip')).toContainText('Dépassement')
+    await expect(page.getByRole('tooltip')).toContainText('Capacité')
+  } finally {
+    if (createdIri) await api.delete(createdIri)
+    await restoreSeed(api)
+  }
 })

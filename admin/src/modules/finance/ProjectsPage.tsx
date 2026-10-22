@@ -29,6 +29,7 @@ import { formatCents } from './accountTypes'
 import { bareId } from './envelopeTree'
 import { ProjectDialog } from './ProjectDialog'
 import { ProjectFundingPanel } from './ProjectFundingPanel'
+import { ProjectFundingChart } from './ProjectFundingChart'
 import { ProjectGantt } from './ProjectGantt'
 import { ProjectOptions } from './ProjectOptions'
 import {
@@ -484,7 +485,11 @@ export const ProjectsPage = () => {
               Le planning n'a pas pu être chargé.
             </Alert>
           )}
-          {planningStatus === 'ready' && planning && <ProjectGantt planning={planning} />}
+          {planningStatus === 'ready' && planning && (
+            <ProjectGantt planning={planning}>
+              <ProjectFundingChart planning={planning} />
+            </ProjectGantt>
+          )}
         </Box>
       )}
 

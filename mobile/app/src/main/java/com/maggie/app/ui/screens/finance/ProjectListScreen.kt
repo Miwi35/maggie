@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -262,7 +263,10 @@ private fun ProjectPlanningSection(state: ProjectUiState, wide: Boolean, onRetry
         planning != null && ganttRows(planning).isNotEmpty() ->
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = if (wide) 8.dp else 4.dp)) {
                 Text("Planning", style = MaterialTheme.typography.titleMedium)
-                ProjectGantt(planning)
+                // One scroll for both: the funding chart slides with the Gantt it sits under (MAG-528).
+                val scroll = rememberScrollState()
+                ProjectGantt(planning, scrollState = scroll)
+                ProjectFundingChart(planning, scrollState = scroll)
             }
         state.planningError ->
             Row(

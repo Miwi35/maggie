@@ -14,6 +14,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.PlannedProject
+import com.maggie.app.data.model.PlanningMonth
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.ProjectFundingSource
@@ -178,6 +179,55 @@ class ProjectListScreenTest {
 
         compose.onNodeWithTag(UiTags.GANTT_DETAIL).assertIsDisplayed()
         compose.onNodeWithText("Déménagement · épargne de oct. 2026 à mars 2027", substring = true).assertIsDisplayed()
+    }
+
+    // « Mariage 6 000 € à date fixe M2, capacité 500 €/mois »: 2 000 € of salary in months 0 to 2, 800 € of savings in month 4.
+    private val funded = planning.copy(
+        months = List(36) { index ->
+            val total = 2026 * 12 + 9 + index
+            PlanningMonth(
+                month = "${total / 12}-${(total % 12 + 1).toString().padStart(2, '0')}",
+                capacityCents = 50000,
+                salaryCents = if (index <= 2) 200000 else 0,
+                savingsCents = if (index == 4) 80000 else 0,
+                isOverCapacity = index <= 2,
+            )
+        },
+    )
+
+    @Test
+    fun `the funding chart sits under the Gantt, a bar per month, the three first flagged`() {
+        compose.setContent { ProjectListScreen(viewModel(plan = Result.success(funded)), onBack = {}, onOpenForm = {}) }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.FUNDING_MONTH).fetchSemanticsNodes().size == 36 }
+        compose.onNodeWithTag(UiTags.FUNDING_CHART).assertIsDisplayed()
+        assertEquals(3, compose.onAllNodesWithTag(UiTags.FUNDING_SALARY, useUnmergedTree = true).fetchSemanticsNodes().size)
+        assertEquals(1, compose.onAllNodesWithTag(UiTags.FUNDING_SAVINGS, useUnmergedTree = true).fetchSemanticsNodes().size)
+        assertEquals(3, compose.onAllNodesWithTag(UiTags.FUNDING_OVER, useUnmergedTree = true).fetchSemanticsNodes().size)
+        compose.onNodeWithTag(UiTags.FUNDING_LEGEND).assertIsDisplayed()
+        compose.onNodeWithText("Capital libéré").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a tap on a flagged month says the amount by source, the capacity and the excess`() {
+        compose.setContent { ProjectListScreen(viewModel(plan = Result.success(funded)), onBack = {}, onOpenForm = {}) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.FUNDING_MONTH).fetchSemanticsNodes().size == 36 }
+
+        compose.onAllNodesWithTag(UiTags.FUNDING_MONTH)[0].performClick()
+
+        compose.onNodeWithTag(UiTags.FUNDING_DETAIL).assertIsDisplayed()
+        compose.onNodeWithText("oct. 2026", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Dépassement", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `without months in the planning the Gantt stands alone`() {
+        compose.setContent { ProjectListScreen(viewModel(), onBack = {}, onOpenForm = {}) }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.GANTT_ROW).fetchSemanticsNodes().size == 2 }
+        compose.waitForIdle()
+
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.FUNDING_CHART).fetchSemanticsNodes().size)
     }
 
     @Test

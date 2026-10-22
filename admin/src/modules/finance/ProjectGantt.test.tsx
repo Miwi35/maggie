@@ -35,6 +35,7 @@ const planning = (projects: PlannedProject[], overrides: Partial<ProjectPlanning
   currency: 'EUR',
   isIncomeKnown: true,
   cushion: { state: 'complete', completeMonth: null },
+  months: [],
   projects,
   ...overrides,
 })

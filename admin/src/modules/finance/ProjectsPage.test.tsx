@@ -542,6 +542,35 @@ describe('ProjectsPage', () => {
       expect(screen.getByRole('heading', { name: 'Planning' })).toBeInTheDocument()
     })
 
+    test('draws the funding chart under the Gantt from the months of the planning (MAG-528)', async () => {
+      const funded = Array.from({ length: 36 }, (_, index) => ({
+        month: `${2026 + Math.floor((9 + index) / 12)}-${String(((9 + index) % 12) + 1).padStart(2, '0')}`,
+        capacityCents: 50000,
+        cushionCents: 0,
+        salaryCents: index < 3 ? 200000 : 0,
+        savingsCents: 0,
+        capitalCents: 0,
+        loanPaymentsCents: 0,
+        isOverCapacity: index < 3,
+      }))
+      stubApi([BIKE, MOVE], { planning: { months: funded } })
+      render(<ProjectsPage />)
+      await loaded(2)
+
+      const chart = await screen.findByTestId('funding-chart')
+      expect(within(screen.getByTestId('project-gantt')).getByTestId('funding-chart')).toBe(chart)
+      expect(within(chart).getAllByTestId('funding-over')).toHaveLength(3)
+    })
+
+    test('keeps the Gantt without the chart when the planning carries no month', async () => {
+      stubApi([BIKE, MOVE], { planning: true })
+      render(<ProjectsPage />)
+      await loaded(2)
+
+      await waitFor(() => expect(ganttRows()).toHaveLength(2))
+      expect(screen.queryByTestId('funding-chart')).toBeNull()
+    })
+
     test('reads the planning again after a reorder: the dropped project comes first', async () => {
       const { fetchMock } = stubApi([MOVE, SOFA, BIKE], { planning: true })
       render(<ProjectsPage />)
