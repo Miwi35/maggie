@@ -61,7 +61,7 @@ final class EditGroceryItemController
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious();
             if ($cause instanceof InvalidGroceryQuantityException) {
-                return new JsonResponse(['error' => $cause->getMessage()], Response::HTTP_BAD_REQUEST);
+                return new JsonResponse(['error' => $cause->getMessage(), 'item' => $cause->item], Response::HTTP_BAD_REQUEST);
             }
 
             throw $e;

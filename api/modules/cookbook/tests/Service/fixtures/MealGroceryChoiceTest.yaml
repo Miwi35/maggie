@@ -84,6 +84,11 @@ Maggie\Cookbook\Entity\Recipe:
     name: Riz pour la tablée
     servings: 2
     user: '@test_user'
+  # 400 g of rice: with the curry and the big rice, 1,2 kg a week (MAG-573).
+  rice_bowl:
+    name: Bol de riz
+    servings: 2
+    user: '@test_user'
   other_recipe:
     name: Riz cantonais
     servings: 2
@@ -124,6 +129,11 @@ Maggie\Cookbook\Entity\RecipeIngredient:
     recipe: '@big_rice'
     ingredient: '@rice'
     quantity: 500
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  ri_bowl_rice:
+    recipe: '@rice_bowl'
+    ingredient: '@rice'
+    quantity: 400
     unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
   ri_other_rice:
     recipe: '@other_recipe'

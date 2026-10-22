@@ -340,12 +340,13 @@ class EditGroceryItemControllerTest extends WebTestCase
         self::assertSame('pack', $item->getUnit()?->value);
     }
 
-    public function testAQuantityInGramsOnAPackagedLineIsKeptAsItsNeed(): void
+    public function testAQuantityInGramsOnAPackagedLineIsKeptAsWhatIsWanted(): void
     {
         $item = $this->patchRice(['quantity' => 600, 'unit' => 'g']);
 
         self::assertSame(2.0, $item->getQuantity());
-        self::assertEquals([['quantity' => 600.0, 'unit' => 'g']], $item->getNeeded());
+        self::assertEquals(600.0, $item->getDesiredQuantity());
+        self::assertSame('g', $item->getDesiredUnit()?->value);
     }
 
     public function testPackagingsWithAQuantityReturn400AndChangeNothing(): void

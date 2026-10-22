@@ -218,7 +218,7 @@ class MealRepository extends ServiceEntityRepository
             ->orderBy('m.date', 'ASC');
     }
 
-    private function today(): \DateTimeImmutable
+    public function today(): \DateTimeImmutable
     {
         // Today where the owner lives, not where the server runs: between
         // midnight and 02:00 in Paris, UTC is still the day before, and today's

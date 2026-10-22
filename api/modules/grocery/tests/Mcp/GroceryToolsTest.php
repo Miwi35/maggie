@@ -181,7 +181,7 @@ class GroceryToolsTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
 
-    public function testGramsOfAPackagedProductStayVisibleAsTheNeed(): void
+    public function testGramsOfAPackagedProductStayVisibleAsWhatIsWanted(): void
     {
         $this->loadFixtures('grocery_packaged.yaml');
         $this->loginFixtureUser();
@@ -195,7 +195,8 @@ class GroceryToolsTest extends KernelTestCase
             $this->em()->getRepository(GroceryItem::class)->findAll(),
             static fn (GroceryItem $item) => 'Riz' === $item->getLabel(),
         ));
-        self::assertEquals([['quantity' => 300.0, 'unit' => 'g']], $rice[0]->getNeeded());
+        self::assertEquals(1300.0, $rice[0]->getDesiredQuantity(), 'the two packs already on the list, 1 kg, and the 300 g asked');
+        self::assertSame('g', $rice[0]->getDesiredUnit()?->value);
     }
 
     public function testQuantityAndPackagingsTogetherAreRefused(): void

@@ -98,6 +98,25 @@ final class Packaging
         return $convertible ? max(1, $this->roundUp($total)) : 1;
     }
 
+    /**
+     * What one packaging holds, in a base unit (a 0.5 kg pack is 500 g); null
+     * when the product has no packaging or does not say what is in it.
+     *
+     * @return array{0: float, 1: Unit}|null
+     */
+    public function packSize(Product $product): ?array
+    {
+        $size = $product->getPackagingSize();
+        $unit = $product->getPackagingSizeUnit();
+        if (null === $product->getPackagingUnit() || null === $size || null === $unit || $size <= 0) {
+            return null;
+        }
+
+        [$quantity, $base] = Needs::toBase($size, $unit);
+
+        return null === $base ? null : [$quantity, $base];
+    }
+
     /** The quantity as a fraction of packagings, null when its unit cannot be turned into them. */
     private function fraction(Product $product, Unit $packagingUnit, float $quantity, Unit $unit): ?float
     {

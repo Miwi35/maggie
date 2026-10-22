@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Maggie\Grocery\Controller;
 
 use Maggie\Core\Entity\User;
-use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Exception\InvalidGroceryQuantityException;
 use Maggie\Grocery\Message\AddGroceryItemCommand;
+use Maggie\Grocery\Message\AddGroceryItemResult;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -41,8 +41,12 @@ final class AddGroceryItemController
         }
 
         $packagings = $body['packagings'] ?? null;
-        if (null !== $packagings && (!\is_int($packagings) || $packagings < 1)) {
-            return new JsonResponse(['error' => 'packagings must be a whole number of at least 1'], Response::HTTP_BAD_REQUEST);
+        if (null !== $packagings && !\is_int($packagings)) {
+            return new JsonResponse(['error' => 'packagings must be a whole number'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (isset($body['quantity']) && (!is_numeric($body['quantity']) || !is_finite((float) $body['quantity']))) {
+            return new JsonResponse(['error' => 'Quantity must be a number'], Response::HTTP_BAD_REQUEST);
         }
 
         try {
@@ -59,18 +63,15 @@ final class AddGroceryItemController
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious();
             if ($cause instanceof InvalidGroceryQuantityException) {
-                return new JsonResponse(['error' => $cause->getMessage()], Response::HTTP_BAD_REQUEST);
+                return new JsonResponse(['error' => $cause->getMessage(), 'item' => $cause->item], Response::HTTP_BAD_REQUEST);
             }
 
             throw $e;
         }
 
-        $list = $envelope->last(HandledStamp::class)?->getResult();
-        $itemCount = null !== $list ? \count($list->getItems()->filter(fn (GroceryItem $i) => !$i->isChecked())) : 0;
+        /** @var AddGroceryItemResult $result */
+        $result = $envelope->last(HandledStamp::class)->getResult();
 
-        return new JsonResponse([
-            'success' => true,
-            'itemCount' => $itemCount,
-        ]);
+        return new JsonResponse($result->toArray());
     }
 }

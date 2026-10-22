@@ -10,7 +10,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_grocery_list', description: 'Get the grocery list with items grouped by store in visit order, and within a store aisle by aisle in the order of the way through it (`aisle`: {id, name, position}, null for an item without an aisle in that store — those come last), then by position. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead. A product has one line: the needs of every planned meal, of the restock and of manual additions add up on it. `needed` is that total need in base units (g, ml or the counted unit — « 800 g », or « 300 g + 2 pièces » when the units cannot be added); `quantity` and `unit` are what to buy: for a product bought in a packaging a whole number of packagings counted once on the total (800 g of pasta in 500 g packs is 2 paquets, shown with « 800 g pour les repas »); a product without packaging has no quantity to adjust, its quantity is the need itself. `packaging` (what the product is bought in, with its content when known, e.g. a 500 g pack; null when it has none) and `stockState` (in_stock, low or out).')]
+#[McpTool(name: 'get_grocery_list', description: 'Get the grocery list with items grouped by store in visit order, and within a store aisle by aisle in the order of the way through it (`aisle`: {id, name, position}, null for an item without an aisle in that store — those come last), then by position. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead. A product has one line: the needs of every planned meal, of the restock and of manual additions add up on it. `needed` is that total need in base units (g, ml or the counted unit — « 800 g », or « 300 g + 2 pièces » when the units cannot be added); `quantity` and `unit` are what to buy: for a product bought in a packaging a whole number of packagings counted once on the total (800 g of pasta in 500 g packs is 2 paquets, shown with « 800 g pour les repas »; `desiredQuantity`/`desiredUnit` is the quantity asked in base units, e.g. 1400 g in 3 packs, which `quantity` rounds up to whole packagings and may exceed); a product without packaging has no quantity to adjust, its quantity is the need itself. `packaging` (what the product is bought in, with its content when known, e.g. a 500 g pack; null when it has none) and `stockState` (in_stock, low or out).')]
 class GetGroceryListTool
 {
     public function __construct(
@@ -49,6 +49,8 @@ class GetGroceryListTool
                         'quantity' => $item->getQuantity(),
                         'unit' => $item->getUnit()?->value,
                         'needed' => $item->getNeeded(),
+                        'desiredQuantity' => $item->getDesiredQuantity(),
+                        'desiredUnit' => $item->getDesiredUnit()?->value,
                         ...$this->productFacts($item),
                         'buyAfter' => $buyAfter->format('Y-m-d'),
                     ];
@@ -81,6 +83,8 @@ class GetGroceryListTool
                 'quantity' => $item->getQuantity(),
                 'unit' => $item->getUnit()?->value,
                 'needed' => $item->getNeeded(),
+                'desiredQuantity' => $item->getDesiredQuantity(),
+                'desiredUnit' => $item->getDesiredUnit()?->value,
                 ...$this->productFacts($item),
                 'source' => $item->getSource()->value,
                 'checked' => $item->isChecked(),

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Cookbook\Service\RecipeNeeds;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
@@ -15,11 +16,12 @@ use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Exception\InvalidGroceryQuantityException;
 use Maggie\Grocery\Message\AddGroceryItemCommand;
+use Maggie\Grocery\Message\AddGroceryItemResult;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
+use Maggie\Grocery\Service\DesiredQuantity;
 use Maggie\Grocery\Service\GroceryLineNeeds;
-use Maggie\Grocery\Service\Needs;
 use Maggie\Grocery\Service\Packaging;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -34,10 +36,12 @@ class AddGroceryItemHandler
         private readonly UserRepository $userRepository,
         private readonly Packaging $packaging,
         private readonly GroceryLineNeeds $lineNeeds,
+        private readonly DesiredQuantity $desired,
+        private readonly RecipeNeeds $recipeNeeds,
     ) {
     }
 
-    public function __invoke(AddGroceryItemCommand $command): GroceryList
+    public function __invoke(AddGroceryItemCommand $command): AddGroceryItemResult
     {
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
@@ -57,12 +61,17 @@ class AddGroceryItemHandler
             }
         }
 
+        $open = null !== $matched ? $this->findMergeable($list, $matched) : null;
+        if ((null !== $command->quantity && $command->quantity <= 0) || (null !== $command->packagings && $command->packagings < 1)) {
+            throw InvalidGroceryQuantityException::notPositive($open);
+        }
+
         if (null !== $command->packagings) {
             if (null !== $command->quantity || null !== $command->unit) {
-                throw InvalidGroceryQuantityException::exclusive();
+                throw InvalidGroceryQuantityException::exclusive($open);
             }
             if (null === $matched?->getPackagingUnit()) {
-                throw InvalidGroceryQuantityException::noPackaging();
+                throw InvalidGroceryQuantityException::noPackaging($open);
             }
         }
 
@@ -127,40 +136,52 @@ class AddGroceryItemHandler
 
         $unit = null !== $command->unit ? Unit::from($command->unit) : null;
         $quantity = $command->quantity;
-        $need = null;
+        $product = $item->getProduct();
+        $packagingUnit = $matched?->getPackagingUnit();
+
+        // What the week's meals need of the product (a product just created has no meals).
+        $needs = null === $matched ? [] : $this->recipeNeeds->forProduct($user, $matched)['needs'];
+        $recipeNeed = null === $product ? null : $this->desired->headline($product, $needs);
 
         // A product with a packaging is counted in it, whatever the unit it is
-        // asked in: « Riz » alone, or 300 g of it, is one pack. What was asked
-        // stays visible as the need of the line: « 1 pack · 300 g ».
-        $packagingUnit = $matched?->getPackagingUnit();
+        // asked in. Asked a quantity, the packagings are that quantity rounded
+        // up and the quantity stays wanted (« 1,4 kg » is 3 packs of 500 g);
+        // asked nothing, its restock is the default, else what the meals need.
+        $wanted = null;
         if (null !== $matched && null !== $packagingUnit) {
             if (null !== $command->packagings) {
-                $quantity = (float) $command->packagings;
+                [$packs, $wanted] = $this->desired->ofPackagings($matched, $command->packagings);
+            } elseif (null !== $quantity) {
+                [$packs, $wanted] = $this->desired->ofQuantity($matched, $quantity, $unit);
+            } elseif (($matched->getRestockQuantity() ?? 0) > 0) {
+                [$packs, $wanted] = $this->desired->ofPackagings($matched, (int) $matched->getRestockQuantity());
+            } elseif ([] !== $needs) {
+                [$packs, $wanted] = $this->desired->ofPackagings($matched, (int) $this->packaging->packsFor($matched, $needs));
             } else {
-                if (null !== $quantity && null !== $unit && $unit !== $packagingUnit) {
-                    $need = Needs::of($quantity, $unit);
-                }
-                $quantity = (float) $this->packaging->inPackagings($matched, $quantity, $unit);
+                $packs = 1;
             }
+
+            $quantity = (float) $packs;
             $unit = $packagingUnit;
         }
 
         $mergeable = null !== $matched ? $this->findMergeable($list, $matched) : null;
         if (null !== $mergeable) {
-            $this->merge($mergeable, $quantity, $unit, $need);
+            $this->merge($mergeable, $quantity, $unit, $wanted);
             $list->setUpdatedAt(new \DateTimeImmutable());
             $this->em->flush();
 
-            return $list;
+            return $this->result($list, $mergeable, $product, $needs, $recipeNeed);
         }
 
-        if (null !== $quantity && null === $item->getProduct()?->getPackagingUnit()) {
+        if (null !== $quantity && null === $packagingUnit) {
             // The quantity is a need of the product, in a base unit.
             $this->lineNeeds->apply($item, $quantity, $unit);
         } else {
             $item->setQuantity($quantity);
             $item->setUnit($unit);
-            $item->setNeeded($need);
+            $item->setNeeded([] === $needs ? null : $needs);
+            $item->applyDesired($wanted[0] ?? null, $wanted[1] ?? null);
         }
 
         $maxPosition = 0;
@@ -175,7 +196,24 @@ class AddGroceryItemHandler
         $list->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
 
-        return $list;
+        return $this->result($list, $item, $product, $needs, $recipeNeed);
+    }
+
+    /**
+     * @param list<array{quantity: float, unit: ?string}> $needs
+     * @param array{quantity: float, unit: ?string}|null  $recipeNeed
+     */
+    private function result(GroceryList $list, GroceryItem $item, ?Product $product, array $needs, ?array $recipeNeed): AddGroceryItemResult
+    {
+        $covers = null === $product || $this->desired->covers($product, $item->getQuantity(), $item->getUnit(), $needs);
+
+        return new AddGroceryItemResult(
+            $list,
+            $item,
+            $recipeNeed,
+            $covers,
+            $covers || null === $product->getPackagingUnit() ? null : $this->packaging->packsFor($product, $needs),
+        );
     }
 
     /**
@@ -195,18 +233,18 @@ class AddGroceryItemHandler
         return null;
     }
 
-    /** @param list<array{quantity: float, unit: ?string}>|null $need what was asked, for a packaged product asked in another unit */
-    private function merge(GroceryItem $existing, ?float $quantity, ?Unit $unit, ?array $need): void
+    /** @param array{0: float, 1: Unit}|null $wanted what a packaged product's addition wants, in base units */
+    private function merge(GroceryItem $existing, ?float $quantity, ?Unit $unit, ?array $wanted): void
     {
         $product = $existing->getProduct();
 
         if (null !== $product && null !== $product->getPackagingUnit()) {
-            $current = $this->packaging->inPackagings($product, $existing->getQuantity(), $existing->getUnit());
-            $existing->setQuantity((float) $current + ($quantity ?? 1.0));
+            $current = (int) $this->packaging->inPackagings($product, $existing->getQuantity(), $existing->getUnit());
+            $added = (int) ($quantity ?? 1.0);
+            $existing->setQuantity((float) ($current + $added));
             $existing->setUnit($unit);
-            if (null !== $need) {
-                $existing->setNeeded(Needs::add($this->lineNeeds->of($existing), $need[0]['quantity'], Unit::from($need[0]['unit'])));
-            }
+            $this->desired->addDesired($existing, $product, $added, $wanted, $current);
+            $this->desired->enforce($existing);
         } elseif (null !== $quantity) {
             // Without a quantity there is nothing to count: the line is already there.
             $this->lineNeeds->apply($existing, $quantity, $unit);

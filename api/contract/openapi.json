@@ -16404,6 +16404,36 @@
                             }
                         }
                     },
+                    "desiredQuantity": {
+                        "readOnly": true,
+                        "description": "What the owner wants of a packaged product, in base units (« 1,4 kg » is\n1400 g): `quantity` counts the packagings that cover it, rounded up, and\nmay exceed it. Null when nothing was asked in a quantity.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "desiredUnit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
                     "checked": {
                         "default": false,
                         "type": "boolean"
@@ -16545,6 +16575,36 @@
                             }
                         }
                     },
+                    "desiredQuantity": {
+                        "readOnly": true,
+                        "description": "What the owner wants of a packaged product, in base units (« 1,4 kg » is\n1400 g): `quantity` counts the packagings that cover it, rounded up, and\nmay exceed it. Null when nothing was asked in a quantity.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "desiredUnit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
+                    },
                     "checked": {
                         "default": false,
                         "type": "boolean"
@@ -16685,6 +16745,36 @@
                                 ]
                             }
                         }
+                    },
+                    "desiredQuantity": {
+                        "readOnly": true,
+                        "description": "What the owner wants of a packaged product, in base units (« 1,4 kg » is\n1400 g): `quantity` counts the packagings that cover it, rounded up, and\nmay exceed it. Null when nothing was asked in a quantity.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "desiredUnit": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "g",
+                            "kg",
+                            "ml",
+                            "l",
+                            "cl",
+                            "piece",
+                            "bunch",
+                            "can",
+                            "bottle",
+                            "pack",
+                            "sachet",
+                            "jar",
+                            null
+                        ]
                     },
                     "checked": {
                         "default": false,

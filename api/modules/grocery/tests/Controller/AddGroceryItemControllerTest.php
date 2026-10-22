@@ -788,7 +788,7 @@ class AddGroceryItemControllerTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(GroceryList::class);
     }
 
-    public function testAQuantityOnAPackagedProductKeepsTheAskedQuantityAsItsNeed(): void
+    public function testAQuantityOnAPackagedProductStaysWantedAsWhatTheLineHolds(): void
     {
         $this->loadMergeFixtures();
 
@@ -799,13 +799,14 @@ class AddGroceryItemControllerTest extends WebTestCase
         self::assertCount(1, $rice);
         self::assertSame(2.0, $rice[0]->getQuantity(), '300 g of a 500 g pack is one more pack');
         self::assertSame('pack', $rice[0]->getUnit()?->value);
-        self::assertEquals([['quantity' => 300.0, 'unit' => 'g']], $rice[0]->getNeeded());
+        self::assertEquals(800.0, $rice[0]->getDesiredQuantity(), 'the pack already there, 500 g, and the 300 g asked');
+        self::assertSame('g', $rice[0]->getDesiredUnit()?->value);
 
         $this->addItem(['label' => 'Riz', 'quantity' => 0.5, 'unit' => 'kg']);
 
         $rice = $this->itemsOf('Riz');
         self::assertSame(3.0, $rice[0]->getQuantity());
-        self::assertEquals([['quantity' => 800.0, 'unit' => 'g']], $rice[0]->getNeeded());
+        self::assertEquals(1300.0, $rice[0]->getDesiredQuantity());
     }
 
     public function testPackagingsOnANewPackagedLineStartsTheLineWithThem(): void
