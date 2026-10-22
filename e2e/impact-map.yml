@@ -624,6 +624,9 @@ mobile:
   e2e/mobile/flows/13-finance-rejections.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/rejections-api.js]
+  e2e/mobile/flows/13-finance-transactions-paging.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/transactions-api.js]
   e2e/mobile/flows/13-finance-accounts-swipe.yaml:
     areas: [finance]
   e2e/mobile/flows/13-finance-budget-nesting.yaml:

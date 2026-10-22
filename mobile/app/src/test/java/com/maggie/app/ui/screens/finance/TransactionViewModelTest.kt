@@ -43,6 +43,7 @@ import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
 import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
+import com.maggie.app.data.repository.TransactionPage
 import com.maggie.app.data.repository.TransactionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -69,6 +70,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+
+/** A page of lines the account holds [total] of, all of them unless said otherwise. */
+private fun pageOf(lines: List<Transaction>, total: Int? = lines.size) = Result.success(TransactionPage(lines, total))
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionViewModelTest {
@@ -124,7 +128,7 @@ class TransactionViewModelTest {
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { categoryRepository.getCategories() } returns Result.success(sampleCategories)
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(sampleTransactions)
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(sampleTransactions)
         coEvery { transactionRepository.getIncidents(accountId) } returns Result.success(emptyList())
         coEvery { transactionRepository.getSettledIncidents(accountId) } returns Result.success(emptyList())
     }
@@ -149,6 +153,155 @@ class TransactionViewModelTest {
         assertEquals(2, state.transactions.size)
         assertFalse(state.isLoading)
         coVerify { transactionRepository.getTransactions(accountId) }
+    }
+
+    private fun lines(range: IntRange) = range.map { Transaction(id = "line-$it", label = "Ligne $it", amountCents = -it) }
+
+    @Test
+    fun `opening reads the first page only and offers the next when the account holds more`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(lines(1..30), total = 45)
+
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(30, state.transactions.size)
+        assertTrue(state.canLoadMore)
+        assertFalse(state.isLoadingMore)
+        coVerify(exactly = 1) { transactionRepository.getTransactions(accountId, any()) }
+    }
+
+    @Test
+    fun `loadMore appends the next page and shows the spinner while it is read`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(lines(1..30), total = 45)
+        coEvery { transactionRepository.getTransactions(accountId, 2) } returns pageOf(lines(31..45), total = 45)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        assertTrue(viewModel.uiState.value.isLoadingMore)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals((1..45).map { "line-$it" }, state.transactions.map { it.id })
+        assertFalse(state.isLoadingMore)
+        assertNull(state.error)
+    }
+
+    @Test
+    fun `the last page closes the list and nothing more is requested`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(lines(1..30), total = 45)
+        coEvery { transactionRepository.getTransactions(accountId, 2) } returns pageOf(lines(31..45), total = 45)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.canLoadMore)
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { transactionRepository.getTransactions(accountId, any()) }
+        coVerify(exactly = 0) { transactionRepository.getTransactions(accountId, 3) }
+    }
+
+    @Test
+    fun `a first page that holds everything offers no next page`() = runTest {
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.canLoadMore)
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { transactionRepository.getTransactions(accountId, any()) }
+    }
+
+    @Test
+    fun `a failed next page keeps the lines, says why, and can be asked again`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(lines(1..30), total = 45)
+        coEvery { transactionRepository.getTransactions(accountId, 2) } returns Result.failure(RuntimeException("offline"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        var state = viewModel.uiState.value
+        assertEquals(30, state.transactions.size)
+        assertEquals("offline", state.error)
+        assertFalse(state.isLoadingMore)
+        assertTrue(state.canLoadMore)
+
+        coEvery { transactionRepository.getTransactions(accountId, 2) } returns pageOf(lines(31..45), total = 45)
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        state = viewModel.uiState.value
+        assertEquals(45, state.transactions.size)
+        assertFalse(state.canLoadMore)
+    }
+
+    @Test
+    fun `a request already in flight is not doubled`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(lines(1..30), total = 90)
+        coEvery { transactionRepository.getTransactions(accountId, 2) } returns pageOf(lines(31..60), total = 90)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { transactionRepository.getTransactions(accountId, 2) }
+    }
+
+    @Test
+    fun `without a total a full page may be followed by another, a short one ends the list`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(lines(1..30), total = null)
+        coEvery { transactionRepository.getTransactions(accountId, 2) } returns pageOf(lines(31..40), total = null)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.canLoadMore)
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertEquals(40, viewModel.uiState.value.transactions.size)
+        assertFalse(viewModel.uiState.value.canLoadMore)
+    }
+
+    @Test
+    fun `a refresh reads again the pages already loaded so the list keeps its length`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(lines(1..30), total = 45)
+        coEvery { transactionRepository.getTransactions(accountId, 2) } returns pageOf(lines(31..45), total = 45)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(45, viewModel.uiState.value.transactions.size)
+        assertFalse(viewModel.uiState.value.canLoadMore)
+        coVerify(exactly = 2) { transactionRepository.getTransactions(accountId, 2) }
+    }
+
+    @Test
+    fun `a line pushed down by a new one is not listed twice`() = runTest {
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(lines(1..30), total = 31)
+        // A line arrived since: the page now starts with the last line of the first one.
+        coEvery { transactionRepository.getTransactions(accountId, 2) } returns pageOf(lines(30..31), total = 31)
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        val ids = viewModel.uiState.value.transactions.map { it.id }
+        assertEquals(31, ids.size)
+        assertEquals(ids.distinct(), ids)
     }
 
     @Test
@@ -325,7 +478,7 @@ class TransactionViewModelTest {
         viewModel.openDetail("tx-1")
         advanceUntilIdle()
 
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(
             listOf(
                 sampleTransactions[0].copy(transferKind = "internal", transferSource = "manual"),
                 sampleTransactions[1],
@@ -345,7 +498,7 @@ class TransactionViewModelTest {
     @Test
     fun `releasing a transfer frees the line and reloads the list`() = runTest {
         val marked = sampleTransactions[0].copy(transferKind = "internal")
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(marked, sampleTransactions[1]))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(marked, sampleTransactions[1]))
         coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(pairedInfo)
         coEvery { transactionRepository.setTransfer("tx-1", false, null) } returns
             Result.success(TransferInfo(transferKind = "none", transferSource = "manual"))
@@ -353,7 +506,7 @@ class TransactionViewModelTest {
         advanceUntilIdle()
         viewModel.openDetail("tx-1")
         advanceUntilIdle()
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(
             listOf(marked.copy(transferKind = "none", transferSource = "manual"), sampleTransactions[1]),
         )
 
@@ -376,7 +529,7 @@ class TransactionViewModelTest {
     @Test
     fun `opening a rejected credit loads the rejected payment it gave back`() = runTest {
         coEvery { transactionRepository.getTransactions(accountId) } returns
-            Result.success(listOf(rejectedDebit, rejectedCredit))
+            pageOf(listOf(rejectedDebit, rejectedCredit))
         coEvery { transactionRepository.getTransfer("tx-rej") } returns Result.success(rejectionInfo)
         viewModel = newViewModel()
         advanceUntilIdle()
@@ -394,7 +547,7 @@ class TransactionViewModelTest {
     @Test
     fun `releasing a rejection frees both legs and reloads the list`() = runTest {
         coEvery { transactionRepository.getTransactions(accountId) } returns
-            Result.success(listOf(rejectedDebit, rejectedCredit))
+            pageOf(listOf(rejectedDebit, rejectedCredit))
         coEvery { transactionRepository.getTransfer("tx-rej") } returns Result.success(rejectionInfo)
         coEvery { transactionRepository.setTransfer("tx-rej", false, null) } returns
             Result.success(TransferInfo(transferKind = "none", transferSource = "manual"))
@@ -402,7 +555,7 @@ class TransactionViewModelTest {
         advanceUntilIdle()
         viewModel.openDetail("tx-rej")
         advanceUntilIdle()
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(
             listOf(
                 rejectedDebit.copy(transferKind = "none", transferSource = "manual"),
                 rejectedCredit.copy(transferKind = "none", transferSource = "manual"),
@@ -470,7 +623,7 @@ class TransactionViewModelTest {
         viewModel.openDetail("tx-1")
         advanceUntilIdle()
         coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(pairedInfo)
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(
             listOf(sampleTransactions[0].copy(transferKind = "internal"), sampleTransactions[1]),
         )
 
@@ -764,7 +917,7 @@ class TransactionViewModelTest {
             qualifiedBy = "manual",
         )
         var served = sampleTransactions
-        coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
+        coEvery { transactionRepository.getTransactions(accountId) } answers { pageOf(served) }
         coEvery { transactionRepository.setQualification("tx-1", "cat-2", mandatoryRepayment) } answers {
             served = listOf(qualified, sampleTransactions[1])
             Result.success(qualified)
@@ -792,7 +945,7 @@ class TransactionViewModelTest {
         val filed = sampleTransactions[0].copy(category = "/api/categories/cat-1")
         val qualified = filed.copy(qualification = mandatoryRepayment, qualifiedBy = "manual")
         var served = listOf(filed, sampleTransactions[1])
-        coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
+        coEvery { transactionRepository.getTransactions(accountId) } answers { pageOf(served) }
         coEvery { transactionRepository.setQualification("tx-1", "cat-1", mandatoryRepayment) } answers {
             served = listOf(qualified, sampleTransactions[1])
             Result.success(qualified)
@@ -843,7 +996,7 @@ class TransactionViewModelTest {
     @Test
     fun `opening a line set by a rule reads the rule names once, for its provenance`() = runTest {
         val byRule = sampleTransactions[0].copy(qualifiedBy = "rule", qualifiedByRule = "/api/categorization_rules/r1")
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(byRule, sampleTransactions[1]))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(byRule, sampleTransactions[1]))
         coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
         coEvery { ruleRepository.getRules() } returns Result.success(listOf(CategorizationRule(id = "r1", labelPattern = "SNCF")))
         viewModel = newViewModel()
@@ -933,7 +1086,7 @@ class TransactionViewModelTest {
 
     @Test
     fun `erasing a note clears it on the sheet`() = runTest {
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(
             listOf(sampleTransactions[0].copy(note = "Ancienne"), sampleTransactions[1]),
         )
         coEvery { transactionRepository.setNote("tx-1", "") } returns Result.success(sampleTransactions[0])
@@ -968,7 +1121,7 @@ class TransactionViewModelTest {
     @Test
     fun `detaching from the series frees the line and reloads the list`() = runTest {
         var served = listOf(attached, sampleTransactions[1])
-        coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
+        coEvery { transactionRepository.getTransactions(accountId) } answers { pageOf(served) }
         coEvery { recurringRepository.detachTransaction("tx-1") } answers {
             served = sampleTransactions
             Result.success(Unit)
@@ -988,7 +1141,7 @@ class TransactionViewModelTest {
 
     @Test
     fun `a refused detach keeps the line attached and says why`() = runTest {
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(attached, sampleTransactions[1]))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(attached, sampleTransactions[1]))
         coEvery { recurringRepository.detachTransaction("tx-1") } returns Result.failure(RuntimeException("offline"))
         openSheet()
 
@@ -1007,7 +1160,7 @@ class TransactionViewModelTest {
             Result.success(TransferInfo(transferKind = "internal", transferSource = "manual"))
         openSheet()
         assertEquals(6, visibleSheetSections(viewModel.uiState.value.detail!!.transaction.transferKind).size)
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(
             listOf(sampleTransactions[0].copy(transferKind = "internal"), sampleTransactions[1]),
         )
 
@@ -1021,12 +1174,12 @@ class TransactionViewModelTest {
     @Test
     fun `releasing a line brings its sections back`() = runTest {
         val internal = sampleTransactions[0].copy(transferKind = "internal")
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(internal, sampleTransactions[1]))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(internal, sampleTransactions[1]))
         coEvery { transactionRepository.setTransfer("tx-1", false, null) } returns
             Result.success(TransferInfo(transferKind = "none", transferSource = "manual"))
         openSheet()
         assertEquals(2, visibleSheetSections(viewModel.uiState.value.detail!!.transaction.transferKind).size)
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(sampleTransactions)
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(sampleTransactions)
 
         viewModel.releaseTransfer()
         advanceUntilIdle()
@@ -1065,7 +1218,7 @@ class TransactionViewModelTest {
     @Test
     fun `the filter of an income takes the credit direction and the category of the line`() = runTest {
         val salary = sampleTransactions[1].copy(category = "/api/categories/cat-1")
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(sampleTransactions[0], salary))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(sampleTransactions[0], salary))
         coEvery { ruleRepository.previewRule(any()) } returns Result.success(RulePreview())
         openSheet("tx-2")
 
@@ -1222,7 +1375,7 @@ class TransactionViewModelTest {
         coEvery { ruleRepository.previewRule(capture(previews)) } returns Result.success(drawn)
         coEvery { ruleRepository.createRule(capture(created)) } returns Result.success(CategorizationRule(id = "r1"))
         val salary = sampleTransactions[1].copy(amountCents = 465000)
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(sampleTransactions[0], salary))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(sampleTransactions[0], salary))
         openSheet("tx-2")
         viewModel.openRuleDraft()
         viewModel.changeRuleCategory("cat-1")
@@ -1306,7 +1459,7 @@ class TransactionViewModelTest {
     @Test
     fun `a line already attributed names its event once opened`() = runTest {
         val attributed = sampleTransactions[0].copy(oneOffEnvelope = "/api/envelopes/env-hellfest")
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(attributed, sampleTransactions[1]))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(attributed, sampleTransactions[1]))
         coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
         coEvery { transactionRepository.getOneOffEnvelopes() } returns Result.success(listOf(hellfest))
         viewModel = newViewModel()
@@ -1337,7 +1490,7 @@ class TransactionViewModelTest {
         coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
         val attributed = sampleTransactions[0].copy(oneOffEnvelope = "/api/envelopes/env-hellfest")
         var served = sampleTransactions
-        coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
+        coEvery { transactionRepository.getTransactions(accountId) } answers { pageOf(served) }
         coEvery { transactionRepository.setOneOffEnvelope("tx-1", "env-hellfest") } answers {
             served = listOf(attributed, sampleTransactions[1])
             Result.success(attributed)
@@ -1361,7 +1514,7 @@ class TransactionViewModelTest {
     fun `taking the attribution back clears it on the detail`() = runTest {
         val attributed = sampleTransactions[0].copy(oneOffEnvelope = "/api/envelopes/env-hellfest")
         var served = listOf(attributed, sampleTransactions[1])
-        coEvery { transactionRepository.getTransactions(accountId) } answers { Result.success(served) }
+        coEvery { transactionRepository.getTransactions(accountId) } answers { pageOf(served) }
         coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
         coEvery { transactionRepository.getOneOffEnvelopes() } returns Result.success(listOf(hellfest))
         coEvery { transactionRepository.setOneOffEnvelope("tx-1", null) } answers {
@@ -1441,7 +1594,7 @@ class TransactionViewModelTest {
 
     /** The gîte's sheet open, not shared yet: the editor read from the server, switched off. */
     private fun kotlinx.coroutines.test.TestScope.openGite(share: MyShare? = null) {
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(gite.copy(myShareCents = share?.myShareCents)))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(gite.copy(myShareCents = share?.myShareCents)))
         coEvery { transactionRepository.getTransfer("tx-gite") } returns Result.success(TransferInfo())
         coEvery { peerDebtRepository.getMyShare("tx-gite") } returns
             Result.success(share ?: MyShare(transactionId = "tx-gite", amountCents = -80000, canBeShared = true))
@@ -1467,7 +1620,7 @@ class TransactionViewModelTest {
     @Test
     fun `an internal transfer has no share to read`() = runTest {
         coEvery { transactionRepository.getTransactions(accountId) } returns
-            Result.success(listOf(gite.copy(transferKind = "internal")))
+            pageOf(listOf(gite.copy(transferKind = "internal")))
         coEvery { transactionRepository.getTransfer("tx-gite") } returns Result.success(TransferInfo(transferKind = "internal"))
         viewModel = newViewModel()
         advanceUntilIdle()
@@ -1609,7 +1762,7 @@ class TransactionViewModelTest {
         viewModel.changeMyShare(20000)
         listOf(julie, tom, ines).forEach(viewModel::addSharePerson)
         viewModel.changeShareNotes("Week-end d'octobre")
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(gite.copy(myShareCents = 20000)))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(gite.copy(myShareCents = 20000)))
 
         viewModel.saveShare()
         advanceUntilIdle()
@@ -1674,7 +1827,7 @@ class TransactionViewModelTest {
             Result.success(MyShare(transactionId = "tx-gite", amountCents = -80000, canBeShared = true))
         openGite(sharedGite(20000, tom to 60000))
         // The list read again after the removal no longer carries a part.
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(gite))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(gite))
 
         viewModel.setShareEnabled(false)
         advanceUntilIdle()
@@ -1760,7 +1913,7 @@ class TransactionViewModelTest {
     )
 
     private fun kotlinx.coroutines.test.TestScope.openVirement(debt: TransactionDebt = receivedDebt()) {
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(virement))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(virement))
         coEvery { transactionRepository.getTransfer("tx-vir") } returns Result.success(TransferInfo())
         coEvery { peerDebtRepository.getDebt("tx-vir") } returns Result.success(debt)
         coEvery { contactRepository.getContacts() } returns Result.success(listOf(julie, tom))
@@ -1973,7 +2126,7 @@ class TransactionViewModelTest {
     )
 
     private fun kotlinx.coroutines.test.TestScope.openTomTransfer(allocation: TransactionAllocation = tomAllocation()) {
-        coEvery { transactionRepository.getTransactions(accountId) } returns Result.success(listOf(tomTransfer))
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(tomTransfer))
         coEvery { transactionRepository.getTransfer("tx-tom") } returns Result.success(TransferInfo())
         coEvery { peerDebtRepository.getDebt("tx-tom") } returns Result.success(TransactionDebt("tx-tom", 40000, canBeDebt = true))
         coEvery { peerDebtRepository.getAllocation("tx-tom") } returns Result.success(allocation)

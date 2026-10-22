@@ -22,11 +22,15 @@ import com.maggie.app.data.model.envelopeSpends
 import com.maggie.app.data.model.periodStart
 import com.maggie.app.util.rethrowCancellation
 
+/** One page of an account's lines, and how many there are in all (null when the API did not say). */
+data class TransactionPage(val transactions: List<Transaction>, val totalItems: Int? = null)
+
 class TransactionRepository(
     private val apiService: MaggieApiService,
 ) {
-    suspend fun getTransactions(accountId: String? = null): Result<List<Transaction>> = runCatching {
-        apiService.getTransactions(accountId)
+    suspend fun getTransactions(accountId: String? = null, page: Int = 1): Result<TransactionPage> = runCatching {
+        val collection = apiService.getTransactions(accountId, page)
+        TransactionPage(collection.member, collection.totalItems)
     }
 
     /**

@@ -36,6 +36,7 @@ executionOrder:
     - 13-finance-category-edit
     - 13-finance-review-list
     - 13-finance-rejections
+    - 13-finance-transactions-paging
     - 13-finance-budget-nesting
     - 13-finance-accounts-swipe
     - 16-finance-budget-split

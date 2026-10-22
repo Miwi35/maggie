@@ -969,6 +969,9 @@ object UiTags {
     const val TRANSACTIONS_TAB = "transactions_tab"
     const val INCIDENTS_TAB = "incidents_tab"
 
+    /** The spinner at the foot of an account's transaction list while the next page is read (MAG-436). */
+    const val TRANSACTIONS_LOADING_MORE = "transactions_loading_more"
+
     /**
      * The phone's accounts (MAG-422): the pager, its row of dots (one per account, suffixed by the
      * account's position and described by its label), the page of an account and its balance, the

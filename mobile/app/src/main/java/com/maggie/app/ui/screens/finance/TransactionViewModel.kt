@@ -43,6 +43,10 @@ data class TransactionUiState(
     val transactions: List<Transaction> = emptyList(),
     val categories: List<Category> = emptyList(),
     val isLoading: Boolean = false,
+    // The next page is being read; the list shows a discreet spinner at its foot.
+    val isLoadingMore: Boolean = false,
+    // The account holds more lines than the pages read so far.
+    val canLoadMore: Boolean = false,
     val error: String? = null,
     // The account's rejected payments (MAG-375), kept out of [transactions]; they have their own tab.
     val incidents: List<AccountIncident> = emptyList(),
@@ -110,6 +114,10 @@ data class RuleDraftState(
 }
 
 const val DEFAULT_RULE_TOLERANCE = "10"
+
+/** API Platform's default page size, which the API keeps for transactions. */
+private const val PAGE_SIZE = 30
+private const val LOAD_MORE_ERROR = "Impossible de charger la suite des transactions"
 
 /** How long « Annuler » stays on offer after « Régularisé » (MAG-424). */
 const val UNDO_SETTLEMENT_MS = 5_000L
@@ -356,24 +364,77 @@ class TransactionViewModel(
         }
     }
 
+    // Pages read so far, the first included; a refresh reads that many again so a list scrolled down keeps its length.
+    private var pagesLoaded = 0
+    private var totalItems: Int? = null
+
+    // A read started before a refresh must not land on the list the refresh rebuilt.
+    private var listGeneration = 0
+
     fun refresh() {
         refreshIncidents()
+        val generation = ++listGeneration
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, isLoadingMore = false, error = null)
             try {
-                val transactions = transactionRepository.getTransactions(accountId).getOrThrow()
+                val pages = maxOf(1, pagesLoaded)
+                var transactions = emptyList<Transaction>()
+                var lastPageSize = 0
+                var total: Int? = null
+                for (page in 1..pages) {
+                    val read = transactionRepository.getTransactions(accountId, page).getOrThrow()
+                    transactions = (transactions + read.transactions).distinctBy { it.id }
+                    lastPageSize = read.transactions.size
+                    total = read.totalItems
+                    if (read.transactions.isEmpty()) break
+                }
+                if (generation != listGeneration) return@launch
+                pagesLoaded = pages
+                totalItems = total
                 _uiState.value = _uiState.value.copy(
                     transactions = transactions,
                     isLoading = false,
+                    canLoadMore = hasMore(transactions.size, lastPageSize),
                     detail = _uiState.value.detail?.let { open ->
                         open.copy(transaction = transactions.firstOrNull { it.id == open.transaction.id } ?: open.transaction)
                     },
                 )
             } catch (e: Exception) {
+                if (generation != listGeneration) return@launch
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
         }
     }
+
+    /** The next page, appended when the list nears its end; a line already on screen is not listed twice. */
+    fun loadMore() {
+        val state = _uiState.value
+        if (!state.canLoadMore || state.isLoadingMore || state.isLoading) return
+        val generation = listGeneration
+        _uiState.value = state.copy(isLoadingMore = true)
+        viewModelScope.launch {
+            transactionRepository.getTransactions(accountId, pagesLoaded + 1)
+                .onSuccess { page ->
+                    if (generation != listGeneration) return@onSuccess
+                    pagesLoaded++
+                    page.totalItems?.let { totalItems = it }
+                    val transactions = (_uiState.value.transactions + page.transactions).distinctBy { it.id }
+                    _uiState.value = _uiState.value.copy(
+                        transactions = transactions,
+                        isLoadingMore = false,
+                        canLoadMore = page.transactions.isNotEmpty() && hasMore(transactions.size, page.transactions.size),
+                    )
+                }
+                .onFailure { e ->
+                    if (generation != listGeneration) return@onFailure
+                    _uiState.value = _uiState.value.copy(isLoadingMore = false, error = e.message ?: LOAD_MORE_ERROR)
+                }
+        }
+    }
+
+    // Without a total, a full page says there may be another.
+    private fun hasMore(loaded: Int, lastPageSize: Int): Boolean =
+        totalItems?.let { loaded < it } ?: (lastPageSize >= PAGE_SIZE)
 
     // Only the latest read may land: one sent before a settlement must not put the line back.
     private var incidentsRead = 0
@@ -526,6 +587,7 @@ class TransactionViewModel(
         viewModelScope.launch {
             try {
                 transactionRepository.deleteTransaction(id).getOrThrow()
+                if (_uiState.value.transactions.any { it.id == id }) totalItems = totalItems?.minus(1)
                 _uiState.value = _uiState.value.copy(
                     transactions = _uiState.value.transactions.filter { it.id != id },
                 )
