@@ -14,8 +14,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerValue
@@ -417,6 +422,20 @@ internal fun chromeFor(layout: AppLayout, route: String?): Chrome {
         showsDetailPane = layout.detailPaneFits && route in DETAIL_PANE_ROUTES,
         detailsAreSheets = !layout.detailPaneFits || route == Screen.Dashboard.route,
     )
+}
+
+/**
+ * The bottom of the route stops where the system's navigation bar starts (MAG-531).
+ *
+ * `ChatBottomBar` pays it when it is there. Without it — a tablet's chat is a panel, and a
+ * route such as a form has none — nothing under the route did, and the launcher's
+ * taskbar covered its last row. Either way it is consumed, so the route's own `Scaffold`s
+ * and `navigationBarsPadding()` do not pay it a second time.
+ */
+@Composable
+private fun Modifier.clearOfNavigationBar(paidByChatBar: Boolean): Modifier {
+    val navigationBar = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
+    return if (paidByChatBar) consumeWindowInsets(navigationBar) else windowInsetsPadding(navigationBar)
 }
 
 /**
@@ -941,12 +960,12 @@ fun NavGraph() {
         ) {
             Scaffold(
                 modifier = Modifier.weight(1f),
-                // Still nothing from here, band or no band: each piece pays its own inset
-                // (`ChatBottomBar`, `ChatPanel`, `ChatScreen`), and the screens that nest a
-                // `Scaffold` of their own — Cuisine, Calendrier — already get `safeDrawing`
-                // from it. Material 3 1.3 does not consume `contentWindowInsets` for the
-                // body, so handing one down here would pay the gesture bar twice on exactly
-                // the screens this ticket is giving height back to.
+                // Nothing from here: each piece pays its own inset (`ChatBottomBar`, `ChatPanel`,
+                // `ChatScreen`), and the route's bottom is `clearOfNavigationBar`'s. A `Scaffold`
+                // nested in a route (Cuisine, Calendrier) keeps its own `safeDrawing` for the rest,
+                // minus the navigation bar that is consumed above it. Material 3 1.3 does not
+                // consume `contentWindowInsets` for the body, so handing one down here would pay
+                // the gesture bar twice.
                 contentWindowInsets = WindowInsets(0),
                 topBar = {
                     if (isMainScreen) {
@@ -976,7 +995,7 @@ fun NavGraph() {
                 NavHost(
                     navController = navController,
                     startDestination = Screen.Loading.route,
-                    modifier = Modifier.padding(paddingValues),
+                    modifier = Modifier.padding(paddingValues).clearOfNavigationBar(paidByChatBar = chrome.showsChatBar),
                     enterTransition = { fadeIn() },
                     exitTransition = { fadeOut() },
                     popEnterTransition = { fadeIn() },
