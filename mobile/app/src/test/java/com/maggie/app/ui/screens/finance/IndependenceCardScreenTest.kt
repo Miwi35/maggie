@@ -151,8 +151,8 @@ class IndependenceCardScreenTest {
         )
 
         compose.onNodeWithText("Date N · septembre 2045").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.INDEPENDENCE_CURVE).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.INDEPENDENCE_MILESTONES).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.INDEPENDENCE_CURVE, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.INDEPENDENCE_MILESTONES, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("25 % · atteint").assertExists()
         compose.onNodeWithText("50 % · mars 2028").assertExists()
         compose.onNodeWithText("75 % · juin 2036").assertExists()
@@ -207,7 +207,7 @@ class IndependenceCardScreenTest {
 
         compose.onNodeWithText("Pas encore de train de vie mesuré").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.INDEPENDENCE_DATE_N).assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.INDEPENDENCE_CURVE).assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.INDEPENDENCE_MILESTONES).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.INDEPENDENCE_CURVE, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.INDEPENDENCE_MILESTONES, useUnmergedTree = true).assertDoesNotExist()
     }
 }
