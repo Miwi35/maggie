@@ -14,7 +14,7 @@ export class FinancePlacementsPage extends AdminShell {
 
   constructor(page: Page) {
     super(page)
-    this.card = this.content.getByRole('region', { name: 'Placements' })
+    this.card = this.content.getByRole('region', { name: 'Placements', exact: true })
     this.rows = this.card.getByTestId('placement-row')
   }
 

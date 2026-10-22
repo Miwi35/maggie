@@ -183,6 +183,10 @@ class PlacementApiTest extends WebTestCase
         $this->send('POST', '/api/finance/placements', ['name' => 'PEA', 'deposit' => 100, 'annualRate' => 10001]);
         self::assertResponseStatusCodeSame(422);
 
+        // Beyond 10 M€: refused before the INT column overflows.
+        $this->send('POST', '/api/finance/placements', ['name' => 'PEA', 'initial' => Placement::MAX_CENTS + 1]);
+        self::assertResponseStatusCodeSame(422);
+
         self::assertSame(3, $this->rows());
         $this->assertMercureUpdateCount(0);
     }

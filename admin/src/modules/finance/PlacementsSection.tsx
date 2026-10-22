@@ -193,12 +193,12 @@ export const PlacementsSection = () => {
 
   const remove = async (placement: Placement) => {
     setToDelete(null)
-    const previous = placements
     setPlacements((list) => list.filter((candidate) => candidate.id !== placement.id))
     try {
       await deletePlacement(placement.id)
     } catch (error) {
-      setPlacements(previous)
+      // Put back only the one refused: what Mercure brought meanwhile stays.
+      setPlacements((list) => (list.some((candidate) => candidate.id === placement.id) ? list : byName([...list, placement])))
       notify(failureText(error, `Le placement « ${placement.name} » n'a pas été supprimé.`), { type: 'error' })
     }
   }

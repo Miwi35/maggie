@@ -30,8 +30,8 @@ final class PlacementRules
     /** The whole placement, once the fields given are merged with the current ones. */
     public function assert(int $initial, int $deposit, int $annualRate, int $years): void
     {
-        if ($initial < 0 || $deposit < 0) {
-            throw new \DomainException('initial and deposit are integer cents, never negative.');
+        if ($initial < 0 || $deposit < 0 || $initial > Placement::MAX_CENTS || $deposit > Placement::MAX_CENTS) {
+            throw new \DomainException('initial and deposit are integer cents, from 0 to 1000000000 (10 million euros).');
         }
         if (0 === $initial && 0 === $deposit) {
             throw new \DomainException(Placement::NOTHING_PAID);

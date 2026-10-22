@@ -63,6 +63,9 @@ class Placement implements MercurePublishable, OwnedByUserInterface, IndexableIn
     /** 100 %: anything above is a typo, not a placement. */
     public const MAX_RATE_BASIS_POINTS = 10000;
 
+    /** 10 M€: within the INT columns, and far beyond any household placement. */
+    public const MAX_CENTS = 1_000_000_000;
+
     public const NOTHING_PAID = 'A placement needs an initial payment or a deposit.';
 
     // The admin sends the record back with its IRI as `id`: never denormalized.
@@ -78,13 +81,13 @@ class Placement implements MercurePublishable, OwnedByUserInterface, IndexableIn
     private string $name;
 
     #[ORM\Column(type: 'integer')]
-    #[Assert\PositiveOrZero]
+    #[Assert\Range(min: 0, max: self::MAX_CENTS)]
     #[IndexedField(type: 'long')]
     #[ApiProperty(description: 'What is placed on day one, in integer cents.')]
     private int $initial = 0;
 
     #[ORM\Column(type: 'integer')]
-    #[Assert\PositiveOrZero]
+    #[Assert\Range(min: 0, max: self::MAX_CENTS)]
     #[IndexedField(type: 'long')]
     #[ApiProperty(description: 'Each deposit, in integer cents: paid every period, or once on day one when frequency is once.')]
     private int $deposit = 0;
@@ -110,6 +113,11 @@ class Placement implements MercurePublishable, OwnedByUserInterface, IndexableIn
     #[ORM\JoinColumn(nullable: false)]
     #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
     private User $user;
+
+    /** @var array{final: int, paid: int, interest: int, rent: int, curve: list<array{month: int, capital: int, paid: int}>}|null not mapped */
+    private ?array $simulation = null;
+
+    private ?string $simulationKey = null;
 
     public function __construct()
     {
@@ -231,10 +239,21 @@ class Placement implements MercurePublishable, OwnedByUserInterface, IndexableIn
         return $this->frequency->monthlyCents($this->deposit);
     }
 
-    /** @return array{final: int, paid: int, interest: int, rent: int, curve: list<array{month: int, capital: int, paid: int}>} */
+    /**
+     * Computed once per set of figures: the four getters, the Mercure payload
+     * and the MCP view all read it.
+     *
+     * @return array{final: int, paid: int, interest: int, rent: int, curve: list<array{month: int, capital: int, paid: int}>}
+     */
     private function simulation(): array
     {
-        return (new PlacementSimulator())->of($this);
+        $key = implode(':', [$this->initial, $this->deposit, $this->frequency->value, $this->annualRate, $this->years]);
+        if (null === $this->simulation || $this->simulationKey !== $key) {
+            $this->simulation = (new PlacementSimulator())->of($this);
+            $this->simulationKey = $key;
+        }
+
+        return $this->simulation;
     }
 
     public function getUser(): User

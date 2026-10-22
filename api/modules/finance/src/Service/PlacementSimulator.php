@@ -37,17 +37,17 @@ final class PlacementSimulator
             $paid += $deposit;
         }
 
-        $curve = [['month' => 0, 'capital' => (int) round($capital), 'paid' => $paid]];
+        $curve = [['month' => 0, 'capital' => self::cents($capital), 'paid' => $paid]];
         for ($month = 1; $month <= $years * 12; ++$month) {
             $capital *= 1 + $monthlyRate;
             if (0 !== $period && 0 === $month % $period) {
                 $capital += $deposit;
                 $paid += $deposit;
             }
-            $curve[] = ['month' => $month, 'capital' => (int) round($capital), 'paid' => $paid];
+            $curve[] = ['month' => $month, 'capital' => self::cents($capital), 'paid' => $paid];
         }
 
-        $final = (int) round($capital);
+        $final = self::cents($capital);
 
         return [
             'final' => $final,
@@ -68,6 +68,15 @@ final class PlacementSimulator
             $placement->getAnnualRate(),
             $placement->getYears(),
         );
+    }
+
+    /**
+     * A float capital as integer cents, held at PHP_INT_MAX: 100 % over 60
+     * years outgrows an int, and a cast beyond it is garbage.
+     */
+    private static function cents(float $capital): int
+    {
+        return $capital >= (float) \PHP_INT_MAX ? \PHP_INT_MAX : (int) round($capital);
     }
 
     /** What a capital would give a month, withdrawn at 4 % a year. */

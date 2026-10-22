@@ -85,4 +85,11 @@ class PlacementSimulatorTest extends TestCase
         self::assertSame(220000, $result['final']);
         self::assertSame(0, $result['interest']);
     }
+
+    public function testAnOutgrownCapitalIsHeldAtTheLargestInt(): void
+    {
+        $result = $this->simulator->simulate(1000000000, 0, PlacementFrequency::Once, 10000, 60);
+
+        self::assertSame(\PHP_INT_MAX, $result['final']);
+    }
 }
