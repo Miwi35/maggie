@@ -3,7 +3,7 @@ import { test, expect } from '../fixtures/index.js'
 import { calledTools, toolResults } from '../helpers/agui.js'
 import { getCollection } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
 
 /**
@@ -214,7 +214,7 @@ test('the planning puts Canapé after Déménagement, and moving Canapé first c
 
   try {
     // --- When: Maggie is asked when the sofa can be bought -------------------
-    await new DashboardPage(page).open()
+    await new HomePage(page).open()
     const events = await new ChatPanel(page).send('Quand pourrai-je acheter le canapé ?')
     expect(calledTools(events)).toContain('get_project_planning')
     expect(toolResults(events)).toEqual(
