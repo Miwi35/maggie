@@ -5,12 +5,14 @@ import { Title } from 'react-admin'
 import { Link } from 'react-router-dom'
 import { Placeholder } from '../../components/list/ListEmpty'
 import { IndependenceSummary } from './IndependenceSummary'
+import { PlacementsSection } from './PlacementsSection'
 import { useFinanceDashboard } from './useFinanceDashboard'
 
 /**
  * The Indépendance aspect of Planification (MAG-518): the counter of the
  * dashboard's Planification tile, as a page of its own. Without a rente
  * declared it offers to declare one instead of showing an empty counter.
+ * Below it, the simulated placements (MAG-555): what they would give as a rente.
  */
 export const IndependencePanel = () => {
   const now = new Date()
@@ -49,6 +51,8 @@ export const IndependencePanel = () => {
             }
           />
         ))}
+
+      <PlacementsSection />
     </>
   )
 }
