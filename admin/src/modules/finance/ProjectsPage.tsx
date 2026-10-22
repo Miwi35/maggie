@@ -432,7 +432,7 @@ export const ProjectsPage = () => {
         )}
       </Box>
 
-      {status === 'ready' && projects.length > 0 && (
+      {status === 'ready' && projects.length > 0 && !(planningStatus === 'ready' && planning?.isIncomeKnown === false) && (
         <Box sx={{ mt: 4 }} data-testid="project-planning">
           <Typography variant="h6" sx={{ mb: 1 }}>
             Planning

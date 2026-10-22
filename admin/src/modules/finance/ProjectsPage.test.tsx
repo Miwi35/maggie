@@ -597,6 +597,7 @@ describe('ProjectsPage', () => {
 
       await waitFor(() => expect(screen.queryByTestId('gantt-loading')).toBeNull())
       expect(screen.queryByTestId('project-gantt')).toBeNull()
+      expect(screen.queryByTestId('project-planning')).toBeNull()
       expect(screen.queryByText("Le planning n'a pas pu être chargé.")).toBeNull()
     })
 

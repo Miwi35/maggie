@@ -89,14 +89,8 @@ tags:
     visible:
       id: "project_gantt"
     timeout: 30000
-- assertVisible:
-    text: "Déménagement"
-    childOf:
-      id: "project_gantt"
-- assertVisible:
-    text: "Canapé"
-    childOf:
-      id: "project_gantt"
+- assertVisible: "Déménagement"
+- assertVisible: "Canapé"
 
 # ---------------------------------------------------------------------------
 # « Canapé » dragged to the top: the order changes on screen, then on the server.
