@@ -14,6 +14,7 @@ import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.PurchaseSuggestion
+import com.maggie.app.data.model.RecipeNeedResponse
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.ProductRepository
@@ -38,6 +39,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.LocalDate
+import kotlin.math.roundToInt
 import java.time.format.DateTimeFormatter
 
 /** The items of one aisle of a store; [aisle] null is « Sans rayon ». */
@@ -106,6 +108,10 @@ data class GroceryUiState(
     val suggestions: List<PurchaseSuggestion> = emptyList(),
     /** Why adding a suggestion or « Pas besoin » did not go through; shown once, then dismissed. */
     val suggestionMessage: String? = null,
+    /** « Pour les recettes de la semaine » (MAG-573): what the week's meals need of the product being added; null while loading or when there is none. */
+    val recipeNeed: RecipeNeedResponse? = null,
+    /** Why the API refused the line being added; the sheet stays open and shows it. */
+    val addError: String? = null,
 ) {
     // Deferred items count in neither figure: they are not on today's list.
     val checkedCount: Int get() = storeGroups.sumOf { group -> group.items.count { it.checked } }
@@ -148,14 +154,15 @@ class GroceryViewModel(
 
     private var mercureJob: Job? = null
     private var suggestionsJob: Job? = null
+    private var recipeNeedJob: Job? = null
 
     // Quantities shown but not yet confirmed by the API, by item id. They hide the
     // older value a Mercure echo or a refresh would bring back mid-burst.
     private val pendingQuantities = mutableMapOf<String, Float>()
 
-    // The quantity an item had before the current burst of taps (null: none),
-    // put back if the API refuses.
-    private val quantityBaselines = mutableMapOf<String, Float?>()
+    // The item as it was before the current burst of taps, put back if the API refuses:
+    // its count, and the wanted quantity a − may have lowered (MAG-573).
+    private val quantityBaselines = mutableMapOf<String, GroceryItem>()
     private val quantityJobs = mutableMapOf<String, Job>()
     private val quantitySaves = Mutex()
 
@@ -347,11 +354,27 @@ class GroceryViewModel(
     }
 
     fun showAddSheet() {
-        _uiState.value = _uiState.value.copy(showAddSheet = true)
+        _uiState.value = _uiState.value.copy(showAddSheet = true, addError = null)
     }
 
     fun hideAddSheet() {
-        _uiState.value = _uiState.value.copy(showAddSheet = false)
+        recipeNeedJob?.cancel()
+        _uiState.value = _uiState.value.copy(showAddSheet = false, recipeNeed = null, addError = null)
+    }
+
+    /**
+     * Reads what the next seven days of meals need of the product just chosen in the add sheet. [productId]
+     * null (a free label) clears it. A failure leaves none: the sheet works without the box, and the latest call wins.
+     */
+    fun loadRecipeNeed(productId: String?) {
+        recipeNeedJob?.cancel()
+        _uiState.value = _uiState.value.copy(recipeNeed = null, addError = null)
+        if (productId == null) return
+        recipeNeedJob = viewModelScope.launch {
+            groceryListRepository.getRecipeNeed(productId).onSuccess { need ->
+                _uiState.value = _uiState.value.copy(recipeNeed = need.takeIf { it.recipeNeed != null || it.meals.isNotEmpty() })
+            }
+        }
     }
 
     fun addItem(
@@ -366,14 +389,19 @@ class GroceryViewModel(
         viewModelScope.launch {
             try {
                 groceryListRepository.addItem(label, quantity, unit, storeId, storeName, category, packagings).getOrThrow()
-                _uiState.value = _uiState.value.copy(showAddSheet = false)
+                recipeNeedJob?.cancel()
+                _uiState.value = _uiState.value.copy(showAddSheet = false, recipeNeed = null, addError = null)
                 refresh()
                 // Reload stores if a new store may have been created
                 if (storeName != null) {
                     loadProductsAndStores()
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message)
+                // The sheet stays open on what was typed, with the reason the API gave.
+                _uiState.value = _uiState.value.copy(
+                    error = e.message,
+                    addError = e.message ?: "Erreur : « $label » n'a pas été ajouté",
+                )
             }
         }
     }
@@ -406,7 +434,7 @@ class GroceryViewModel(
         if (pendingQuantities.isEmpty()) return items
         return items.map { item ->
             val pending = item.id?.let { pendingQuantities[it] }
-            if (pending != null) item.copy(quantity = pending) else item
+            if (pending != null) item.withPackagings(pending.roundToInt()) else item
         }
     }
 
@@ -445,9 +473,9 @@ class GroceryViewModel(
 
     private fun requestQuantity(item: GroceryItem, quantity: Float) {
         val itemId = item.id ?: return
-        if (!quantityBaselines.containsKey(itemId)) quantityBaselines[itemId] = item.quantity
+        if (!quantityBaselines.containsKey(itemId)) quantityBaselines[itemId] = item
         pendingQuantities[itemId] = quantity
-        applyItemUpdate { if (it.id == itemId) it.copy(quantity = quantity) else it }
+        applyItemUpdate { if (it.id == itemId) it.withPackagings(quantity.roundToInt()) else it }
 
         quantityJobs[itemId]?.cancel()
         quantityJobs[itemId] = viewModelScope.launch {
@@ -459,14 +487,15 @@ class GroceryViewModel(
 
     private suspend fun sendQuantity(itemId: String) {
         val sent = pendingQuantities[itemId] ?: return
-        val result = groceryListRepository.editItem(itemId = itemId, quantity = sent)
+        // A number of packagings: the API keeps the wanted quantity as + leaves it and lowers it when − goes below it.
+        val result = groceryListRepository.editItem(itemId = itemId, packagings = sent.roundToInt())
         val stillCurrent = pendingQuantities[itemId] == sent
         if (result.isSuccess) {
             if (stillCurrent) {
                 pendingQuantities.remove(itemId)
                 quantityBaselines.remove(itemId)
             } else {
-                quantityBaselines[itemId] = sent
+                quantityBaselines[itemId]?.let { quantityBaselines[itemId] = it.withPackagings(sent.roundToInt()) }
             }
             return
         }
@@ -476,7 +505,13 @@ class GroceryViewModel(
             val baseline = quantityBaselines[itemId]
             pendingQuantities.remove(itemId)
             quantityBaselines.remove(itemId)
-            applyItemUpdate { if (it.id == itemId) it.copy(quantity = baseline) else it }
+            applyItemUpdate {
+                if (it.id != itemId || baseline == null) {
+                    it
+                } else {
+                    it.copy(quantity = baseline.quantity, desiredQuantity = baseline.desiredQuantity, desiredUnit = baseline.desiredUnit)
+                }
+            }
         }
         _uiState.value = _uiState.value.copy(quantityMessage = message)
     }

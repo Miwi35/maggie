@@ -768,8 +768,18 @@ object UiTags {
     const val GROCERY_QUANTITY_FIELD = "grocery_quantity_field"
     const val GROCERY_PACKAGINGS_FIELD = "grocery_packagings_field"
     const val GROCERY_PACKAGING_CAPTION = "grocery_packaging_caption"
-    const val GROCERY_QUANTITY_CONVERSION = "grocery_quantity_conversion"
+    const val GROCERY_QUANTITY_SUMMARY = "grocery_quantity_summary"
     const val GROCERY_PREFILLED_CHIP = "grocery_prefilled_chip"
+    const val GROCERY_QUANTITY_SUGGESTION_PREFIX = "grocery_quantity_suggestion_"
+
+    fun groceryQuantitySuggestion(index: Int) = GROCERY_QUANTITY_SUGGESTION_PREFIX + index
+
+    /** « Pour les recettes de la semaine » box of the add sheet, and the alert when the line does not cover it (MAG-573). */
+    const val GROCERY_RECIPE_NEED_BOX = "grocery_recipe_need_box"
+    const val GROCERY_RECIPE_NEED_MEAL = "grocery_recipe_need_meal"
+    const val GROCERY_COVERAGE_ALERT = "grocery_coverage_alert"
+    const val GROCERY_COVERAGE_ADJUST = "grocery_coverage_adjust"
+    const val GROCERY_ADD_ERROR = "grocery_add_error"
 
     /** A transaction line's « Virement interne » badge, in the list and on the detail screen. */
     const val TRANSFER_BADGE = "transfer_badge"

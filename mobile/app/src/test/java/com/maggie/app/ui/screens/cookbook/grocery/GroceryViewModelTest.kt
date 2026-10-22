@@ -10,8 +10,11 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.Need
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.RecipeNeedMeal
+import com.maggie.app.data.model.RecipeNeedResponse
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.ProductRepository
@@ -186,6 +189,126 @@ class GroceryViewModelTest {
 
         coVerify { groceryListRepository.addItem("Pâtes sèches", null, null, null, null, null, 2) }
         assertFalse(viewModel.uiState.value.showAddSheet)
+    }
+
+    private val riceNeed = RecipeNeedResponse(
+        productId = "product-riz",
+        recipeNeed = Need(800.0, "g"),
+        needs = listOf(Need(800.0, "g")),
+        meals = listOf(RecipeNeedMeal(mealId = "m1", name = "Riz au curry", date = "2026-10-24", quantity = 800.0, unit = "g")),
+    )
+
+    @Test
+    fun `choosing a product reads the week's recipe need for it`() = runTest {
+        coEvery { groceryListRepository.getRecipeNeed("product-riz") } returns Result.success(riceNeed)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.loadRecipeNeed("product-riz")
+        advanceUntilIdle()
+
+        assertEquals(riceNeed, viewModel.uiState.value.recipeNeed)
+    }
+
+    @Test
+    fun `a product no meal needs leaves no need to show`() = runTest {
+        coEvery { groceryListRepository.getRecipeNeed("product-riz") } returns Result.success(RecipeNeedResponse(productId = "product-riz"))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.loadRecipeNeed("product-riz")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.recipeNeed)
+    }
+
+    @Test
+    fun `a failed read leaves the sheet without the box`() = runTest {
+        coEvery { groceryListRepository.getRecipeNeed(any()) } returns Result.failure(RuntimeException("500"))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.loadRecipeNeed("product-riz")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.recipeNeed)
+        assertNull(viewModel.uiState.value.addError)
+    }
+
+    @Test
+    fun `choosing another product or a free label drops the need of the previous one`() = runTest {
+        coEvery { groceryListRepository.getRecipeNeed("product-riz") } returns Result.success(riceNeed)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.loadRecipeNeed("product-riz")
+        advanceUntilIdle()
+
+        viewModel.loadRecipeNeed(null)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.recipeNeed)
+    }
+
+    @Test
+    fun `closing the sheet forgets the need and the error`() = runTest {
+        coEvery { groceryListRepository.getRecipeNeed("product-riz") } returns Result.success(riceNeed)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.showAddSheet()
+        viewModel.loadRecipeNeed("product-riz")
+        advanceUntilIdle()
+
+        viewModel.hideAddSheet()
+
+        assertNull(viewModel.uiState.value.recipeNeed)
+        assertNull(viewModel.uiState.value.addError)
+        assertFalse(viewModel.uiState.value.showAddSheet)
+    }
+
+    @Test
+    fun `adding a line closes the sheet and forgets the need`() = runTest {
+        coEvery { groceryListRepository.getRecipeNeed("product-riz") } returns Result.success(riceNeed)
+        coEvery { groceryListRepository.addItem(any(), any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.showAddSheet()
+        viewModel.loadRecipeNeed("product-riz")
+        advanceUntilIdle()
+
+        viewModel.addItem("Riz basmati", null, null, null)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.showAddSheet)
+        assertNull(viewModel.uiState.value.recipeNeed)
+        assertNull(viewModel.uiState.value.addError)
+    }
+
+    @Test
+    fun `a line the API refuses keeps the sheet open with the reason`() = runTest {
+        coEvery { groceryListRepository.addItem(any(), any(), any(), any(), any(), any(), any()) } returns
+            Result.failure(RuntimeException("Quantité et conditionnements ensemble"))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.showAddSheet()
+
+        viewModel.addItem("Riz basmati", 1f, "g", null, packagings = 2)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.showAddSheet)
+        assertEquals("Quantité et conditionnements ensemble", viewModel.uiState.value.addError)
+    }
+
+    @Test
+    fun `opening the sheet again clears the previous refusal`() = runTest {
+        coEvery { groceryListRepository.addItem(any(), any(), any(), any(), any(), any(), any()) } returns Result.failure(RuntimeException("400"))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.addItem("Riz basmati", 1f, "g", null, packagings = 2)
+        advanceUntilIdle()
+
+        viewModel.showAddSheet()
+
+        assertNull(viewModel.uiState.value.addError)
     }
 
     @Test
@@ -872,7 +995,7 @@ class GroceryViewModelTest {
     private fun stubQuantities(editResult: Result<Unit> = Result.success(Unit)) {
         coEvery { groceryListRepository.getGroceryList() } returns
             Result.success(GroceryList(id = "list-1", items = quantityItems))
-        coEvery { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) } returns editResult
+        coEvery { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any(), any()) } returns editResult
     }
 
     private fun quantityOf(id: String): Float? =
@@ -880,10 +1003,11 @@ class GroceryViewModelTest {
 
     private fun item(id: String): GroceryItem = viewModel.uiState.value.groceryList!!.items.first { it.id == id }
 
-    private fun sentQuantities(id: String): List<Float?> {
-        val sent = mutableListOf<Float?>()
+    // The packagings the stepper sent for [id]: it sends a count of packagings, never a quantity.
+    private fun sentQuantities(id: String): List<Int?> {
+        val sent = mutableListOf<Int?>()
         coVerify(atLeast = 0) {
-            groceryListRepository.editItem(eq(id), any(), captureNullable(sent), any(), any(), any(), any())
+            groceryListRepository.editItem(eq(id), any(), isNull(), isNull(), any(), any(), any(), captureNullable(sent))
         }
         return sent
     }
@@ -898,14 +1022,78 @@ class GroceryViewModelTest {
         runCurrent()
 
         assertEquals(2f, quantityOf("item-riz"))
-        assertEquals(emptyList<Float?>(), sentQuantities("item-riz"))
+        assertEquals(emptyList<Int?>(), sentQuantities("item-riz"))
 
         advanceTimeBy(QUANTITY_SAVE_DELAY_MS + 1)
         runCurrent()
 
-        assertEquals(listOf<Float?>(2f), sentQuantities("item-riz"))
+        assertEquals(listOf<Int?>(2), sentQuantities("item-riz"))
         assertEquals(2f, quantityOf("item-riz"))
         assertNull(viewModel.uiState.value.quantityMessage)
+    }
+
+    private val wantedItems = listOf(
+        GroceryItem(
+            id = "item-riz", label = "Riz", product = rice, quantity = 3f, unit = CookbookUnit.PACK, store = store, position = 0,
+            desiredQuantity = 1400.0, desiredUnit = CookbookUnit.G,
+        ),
+    )
+
+    private fun stubWanted(editResult: Result<Unit> = Result.success(Unit)) {
+        coEvery { groceryListRepository.getGroceryList() } returns Result.success(GroceryList(id = "list-1", items = wantedItems))
+        coEvery { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any(), any()) } returns editResult
+    }
+
+    @Test
+    fun `plus on a line with a wanted quantity sends packagings and keeps what was wanted`() = runTest {
+        stubWanted()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.incrementQuantity(item("item-riz"))
+        runCurrent()
+
+        assertEquals(4f, quantityOf("item-riz"))
+        assertEquals(1400.0, item("item-riz").desiredQuantity)
+
+        advanceUntilIdle()
+
+        assertEquals(listOf<Int?>(4), sentQuantities("item-riz"))
+        coVerify { groceryListRepository.editItem("item-riz", null, null, null, null, null, null, 4) }
+    }
+
+    @Test
+    fun `minus below what the wanted quantity needs lowers it at once, as the API does`() = runTest {
+        stubWanted()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.decrementQuantity(item("item-riz"))
+        viewModel.decrementQuantity(item("item-riz"))
+        runCurrent()
+
+        assertEquals(1f, quantityOf("item-riz"))
+        assertEquals(500.0, item("item-riz").desiredQuantity)
+        advanceUntilIdle()
+        assertEquals(listOf<Int?>(1), sentQuantities("item-riz"))
+    }
+
+    @Test
+    fun `an API refusal puts back the count and the wanted quantity`() = runTest {
+        stubWanted(editResult = Result.failure(RuntimeException("400")))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.decrementQuantity(item("item-riz"))
+        viewModel.decrementQuantity(item("item-riz"))
+        runCurrent()
+        assertEquals(500.0, item("item-riz").desiredQuantity)
+
+        advanceUntilIdle()
+
+        assertEquals(3f, quantityOf("item-riz"))
+        assertEquals(1400.0, item("item-riz").desiredQuantity)
+        assertEquals(CookbookUnit.G, item("item-riz").desiredUnit)
     }
 
     @Test
@@ -922,7 +1110,7 @@ class GroceryViewModelTest {
 
         advanceUntilIdle()
 
-        assertEquals(listOf<Float?>(3f), sentQuantities("item-riz"))
+        assertEquals(listOf<Int?>(3), sentQuantities("item-riz"))
     }
 
     @Test
@@ -936,7 +1124,7 @@ class GroceryViewModelTest {
         viewModel.decrementQuantity(item("item-riz"))
         advanceUntilIdle()
 
-        assertEquals(listOf<Float?>(2f), sentQuantities("item-riz"))
+        assertEquals(listOf<Int?>(2), sentQuantities("item-riz"))
     }
 
     @Test
@@ -952,8 +1140,8 @@ class GroceryViewModelTest {
 
         assertEquals(1f, quantityOf("item-riz"))
         assertEquals(1f, quantityOf("item-semoule"))
-        assertEquals(emptyList<Float?>(), sentQuantities("item-riz"))
-        assertEquals(listOf<Float?>(1f), sentQuantities("item-semoule"))
+        assertEquals(emptyList<Int?>(), sentQuantities("item-riz"))
+        assertEquals(listOf<Int?>(1), sentQuantities("item-semoule"))
         assertEquals(4, viewModel.uiState.value.groceryList!!.items.size)
         coVerify(exactly = 0) { groceryListRepository.deleteItem(any()) }
     }
@@ -972,7 +1160,7 @@ class GroceryViewModelTest {
 
         assertEquals(500f, quantityOf("item-farine"))
         assertNull(quantityOf("item-sel"))
-        coVerify(exactly = 0) { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -986,7 +1174,7 @@ class GroceryViewModelTest {
         assertEquals(4f, quantityOf("item-riz"))
         advanceUntilIdle()
 
-        assertEquals(listOf<Float?>(4f), sentQuantities("item-riz"))
+        assertEquals(listOf<Int?>(4), sentQuantities("item-riz"))
     }
 
     @Test
@@ -1003,7 +1191,7 @@ class GroceryViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1f, quantityOf("item-riz"))
-        coVerify(exactly = 0) { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any(), any()) }
     }
 
     @Test

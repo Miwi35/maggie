@@ -4,23 +4,31 @@ tags:
   - grocery
 ---
 # A line is added in packagings or in quantity, prefilled with the product's automatic
-# restock (MAG-573). « Pâtes sèches MAG-573 » comes in 500 g packs, two packs when it
-# runs low: the add sheet, opened after the full-screen search, offers « 2 paquets »
-# flagged « prérempli · recharge auto »; switching to « Quantité » and typing 300 g says
-# « = 1 paquet de 500 g à acheter », and the line is stored as one pack with 300 g kept
-# as the need.
+# restock, and the week's meals are counted in (MAG-573). « Riz basmati MAG-573 » comes in
+# 500 g packs, two packs when it runs low, and two meals of the week need 500 g and 300 g
+# of it: the add sheet, opened after the full-screen search, shows « Pour les recettes de la
+# semaine · 800 g » with the meals, « 2 paquets » flagged « prérempli · réassort » and
+# « 1 kg (dont 800 g pour les recettes) · 2 paquets ». Added with nothing touched, the line
+# is stored as 2 packs with 1 kg kept as the wanted quantity, and the list reads
+# « 1 kg (dont 800 g pour les recettes) » under « 2 paquets ».
 #
-# Signed in as the neighbour, like `08`: the seed has no packaged product, so the flow
-# writes its own through `scripts/grocery-api.js` and deletes it at the end. The JVM
+# Signed in as the neighbour, like `08`: the seed has no packaged product nor meal, so the
+# flow writes its own through `scripts/grocery-api.js` and deletes them at the end. The JVM
 # tests (`QuantityDraftTest`, `QuantityEntryScreenTest`, `GroceryViewModelTest`) own the
-# cases (the steps, the stepper bounds, a product without packaging, the edit sheet);
-# this is the one run against the real API that the sheet's request is right.
+# cases (the adjust button, the suggested quantities, the stepper bounds, a product without
+# packaging, the edit sheet); this is the one run against the real API that the sheet's
+# request is right.
 
 - runScript:
     file: ../scripts/grocery-api.js
     env:
       ACTION: product
-      LABEL: Pâtes sèches MAG-573
+      LABEL: Riz basmati MAG-573
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: meals
+      LABEL: Riz basmati MAG-573
 
 - launchApp:
     clearState: true
@@ -57,65 +65,69 @@ tags:
     timeout: 20000
 - tapOn:
     id: "product_search"
-- inputText: "Pâtes sèches MAG"
+- inputText: "Riz basmati MAG"
 - extendedWaitUntil:
-    visible: "Pâtes sèches MAG-573"
+    visible: "Riz basmati MAG-573"
     timeout: 20000
-- tapOn: "Pâtes sèches MAG-573"
+- tapOn: "Riz basmati MAG-573"
 
-# Back on the sheet: the product's restock in packs, flagged, with what it comes to.
+# Back on the sheet: what the week's meals need of it, the restock in packs flagged, and the sum.
 - extendedWaitUntil:
     visible:
       id: "grocery_quantity_entry"
     timeout: 20000
 - assertVisible:
-    id: "grocery_prefilled_chip"
+    id: "grocery_recipe_need_box"
+- assertVisible: "Pour les recettes de la semaine · 800 g"
+- assertVisible: ".*Riz au curry MAG-573 · .* · 500 g"
+- assertVisible: ".*Riz cantonais MAG-573 · .* · 300 g"
 - assertVisible:
-    id: "grocery_packaging_caption"
+    id: "grocery_prefilled_chip"
 - assertVisible: "paquets de 500 g"
-- assertVisible: "prérempli · recharge auto"
-- assertVisible: "= 1 kg"
+- assertVisible: "prérempli · réassort"
+- assertVisible: "1 kg \\(dont 800 g pour les recettes\\) · 2 paquets"
+- assertNotVisible:
+    id: "grocery_coverage_alert"
 
-# 300 g is one pack to buy.
-- tapOn:
-    id: "grocery_quantity_mode_quantity"
-- tapOn:
-    id: "grocery_quantity_field"
-- inputText: "300"
-- extendedWaitUntil:
-    visible: "= 1 paquet de 500 g à acheter"
-    timeout: 10000
-- runFlow: ../subflows/hide-keyboard.yaml
+# Nothing touched: the restock is what is added.
 - tapOn: "Ajouter"
 
 - extendedWaitUntil:
     visible:
-      text: ".*Pâtes sèches MAG-573.*"
+      text: ".*Riz basmati MAG-573.*"
     timeout: 30000
 - runScript:
     file: ../scripts/grocery-api.js
     env:
       ACTION: expect-line
-      LABEL: Pâtes sèches MAG-573
-      QUANTITY: "1"
+      LABEL: Riz basmati MAG-573
+      QUANTITY: "2"
       UNIT: pack
-      NEEDED_QUANTITY: "300"
+      DESIRED_QUANTITY: "1000"
+      DESIRED_UNIT: g
+      NEEDED_QUANTITY: "800"
       NEEDED_UNIT: g
 - extendedWaitUntil:
-    visible: "300 g pour les repas"
+    visible: "1 kg \\(dont 800 g pour les recettes\\)"
     timeout: 30000
+- assertVisible: "2 paquets"
 
 # Left as found: the line and the product are deleted.
 - runScript:
     file: ../scripts/grocery-api.js
     env:
       ACTION: remove
-      LABEL: Pâtes sèches MAG-573
+      LABEL: Riz basmati MAG-573
 - extendedWaitUntil:
-    notVisible: ".*Pâtes sèches MAG-573.*"
+    notVisible: ".*Riz basmati MAG-573.*"
     timeout: 30000
 - runScript:
     file: ../scripts/grocery-api.js
     env:
+      ACTION: drop-meals
+      LABEL: Riz basmati MAG-573
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
       ACTION: drop-product
-      LABEL: Pâtes sèches MAG-573
+      LABEL: Riz basmati MAG-573

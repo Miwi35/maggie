@@ -13,7 +13,8 @@ data class Need(
     val unit: String? = null,
 )
 
-private fun String.toCookbookUnit(): CookbookUnit? = when (this) {
+/** The unit as the app knows it; null for a unit it does not. */
+fun String.toCookbookUnit(): CookbookUnit? = when (this) {
     "g" -> CookbookUnit.G
     "kg" -> CookbookUnit.KG
     "ml" -> CookbookUnit.ML

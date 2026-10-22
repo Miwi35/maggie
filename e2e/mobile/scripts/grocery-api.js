@@ -12,7 +12,7 @@
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   ACTION  add | check | remove | expect | aisles | assign | drop-aisles |
-//           product | drop-product | expect-line
+//           product | drop-product | meals | drop-meals | expect-line
 //   LABEL   the line, as written on the list
 //   EMAIL   the account, default the shopper (e2e-other@maggie.local)
 //   STORE   add: the shop's name, an existing one — left out, no shop;
@@ -26,8 +26,13 @@
 //   product, drop-product: LABEL is the product's name. `product` creates a pasta
 //           in 500 g packs, two packs when it runs low, restocked by itself —
 //           left as found when it exists; `drop-product` deletes it (MAG-573)
+//   meals, drop-meals: LABEL is the product's name. `meals` plans, in the week to
+//           come, a 500 g meal (tomorrow) and a 300 g meal (in three days) of it,
+//           each from a recipe of its own: the 800 g « pour les recettes » of the add
+//           sheet; `drop-meals` deletes the meals and their recipes (MAG-573)
 //   expect-line: the line's quantity and unit as stored (QUANTITY, UNIT) and,
-//           when NEEDED_QUANTITY is given, the single need kept beside it
+//           when given, the wanted quantity kept beside the packagings
+//           (DESIRED_QUANTITY, DESIRED_UNIT) and the single need
 //           (NEEDED_QUANTITY, NEEDED_UNIT) — the numbers the add sheet sent
 //   WAIT_MS pause before acting, in ms — gives the app time to open its
 //           Mercure subscription, which a write made at once would beat
@@ -153,6 +158,40 @@ function productNamed(name) {
   return JSON.parse(response.body).member.filter(function (product) {
     return product.name === name
   })[0]
+}
+
+function postLd(path, body) {
+  const response = http.post(base + path, {
+    headers: authorized({ 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }),
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    fail('POST ' + path + ' answered ' + response.status + ': ' + response.body)
+  }
+  return JSON.parse(response.body)
+}
+
+const MEAL_RECIPES = ['Riz au curry MAG-573', 'Riz cantonais MAG-573']
+
+// The meals first, then their recipes: what the journey planned and nothing else.
+function removeMeals() {
+  const member = function (path) {
+    const response = http.get(base + path, { headers: authorized({ Accept: 'application/ld+json' }) })
+    if (!response.ok) {
+      fail('GET ' + path + ' answered ' + response.status + ': ' + response.body)
+    }
+    return JSON.parse(response.body).member
+  }
+  member('/api/meals?itemsPerPage=200').filter(function (meal) {
+    return MEAL_RECIPES.some(function (name) { return String(meal.summary).includes(name) })
+  }).forEach(function (meal) {
+    http.request(base + meal['@id'], { method: 'DELETE', headers: authorized() })
+  })
+  member('/api/recipes?itemsPerPage=200').filter(function (recipe) {
+    return MEAL_RECIPES.indexOf(recipe.name) !== -1
+  }).forEach(function (recipe) {
+    http.request(base + recipe['@id'], { method: 'DELETE', headers: authorized() })
+  })
 }
 
 function find() {
@@ -306,7 +345,8 @@ if (ACTION === 'add') {
 } else if (ACTION === 'product') {
   const known = productNamed(LABEL)
   if (!known) {
-    const response = http.post(base + '/api/products', {
+    // An ingredient is a product (the same row): a recipe can name it, the add sheet finds it.
+    const response = http.post(base + '/api/ingredients', {
       headers: authorized({ 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }),
       body: JSON.stringify({
         name: LABEL,
@@ -319,7 +359,7 @@ if (ACTION === 'add') {
       }),
     })
     if (!response.ok) {
-      fail('POST /api/products answered ' + response.status + ': ' + response.body)
+      fail('POST /api/ingredients answered ' + response.status + ': ' + response.body)
     }
   }
   // Findable before the script returns: the app loads its products at launch.
@@ -335,18 +375,59 @@ if (ACTION === 'add') {
 } else if (ACTION === 'drop-product') {
   const known = productNamed(LABEL)
   if (known) {
-    const response = http.request(base + '/api/products/' + known.id, {
+    const response = http.request(base + '/api/ingredients/' + known.id, {
       method: 'DELETE',
       headers: authorized(),
     })
     if (!response.ok) {
-      fail('DELETE /api/products/' + known.id + ' answered ' + response.status + ': ' + response.body)
+      fail('DELETE /api/ingredients/' + known.id + ' answered ' + response.status + ': ' + response.body)
     }
   }
+} else if (ACTION === 'meals') {
+  const product = productNamed(LABEL)
+  if (!product) {
+    fail('no product "' + LABEL + '" — run the `product` action first')
+  }
+  removeMeals() // a retried run starts from nothing
+  const day = function (offset) {
+    return new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10)
+  }
+  const plans = [
+    { name: 'Riz au curry MAG-573', quantity: 500, offset: 1, slot: 'dinner' },
+    { name: 'Riz cantonais MAG-573', quantity: 300, offset: 3, slot: 'lunch' },
+  ]
+  plans.forEach(function (plan) {
+    const recipe = postLd('/api/recipes', {
+      name: plan.name,
+      servings: 2,
+      ingredients: [{ ingredient: '/api/ingredients/' + product.id, quantity: plan.quantity, unit: 'g' }],
+    })
+    postLd('/api/meals', { date: day(plan.offset), slot: plan.slot, recipes: [recipe['@id']] })
+  })
+  // The API reads the week's need from the meals: wait until it adds up.
+  for (;;) {
+    const response = http.get(base + '/api/grocery/recipe-need/' + product.id, { headers: authorized() })
+    if (response.ok) {
+      const need = JSON.parse(response.body).recipeNeed
+      if (need && need.quantity === 800 && need.unit === 'g') {
+        break
+      }
+    }
+    if (Date.now() >= deadline) {
+      fail('the week never needed 800 g of "' + LABEL + '" within 30 s: ' + response.body)
+    }
+    pause(300)
+  }
+} else if (ACTION === 'drop-meals') {
+  removeMeals()
 } else if (ACTION === 'expect-line') {
   const needs = typeof NEEDED_QUANTITY !== 'undefined' && NEEDED_QUANTITY !== ''
+  const wanted = typeof DESIRED_QUANTITY !== 'undefined' && DESIRED_QUANTITY !== ''
   waitFor(function (line) {
     if (line === undefined || line.quantity !== Number(QUANTITY) || line.unit !== UNIT) {
+      return false
+    }
+    if (wanted && (line.desiredQuantity !== Number(DESIRED_QUANTITY) || line.desiredUnit !== DESIRED_UNIT)) {
       return false
     }
     if (!needs) {
@@ -355,7 +436,9 @@ if (ACTION === 'add') {
     return (line.needed || []).length === 1
       && line.needed[0].quantity === Number(NEEDED_QUANTITY)
       && line.needed[0].unit === NEEDED_UNIT
-  }, 'the line does not hold ' + QUANTITY + ' ' + UNIT + (needs ? ' with a need of ' + NEEDED_QUANTITY + ' ' + NEEDED_UNIT : ''))
+  }, 'the line does not hold ' + QUANTITY + ' ' + UNIT
+    + (wanted ? ', wanted ' + DESIRED_QUANTITY + ' ' + DESIRED_UNIT : '')
+    + (needs ? ', with a need of ' + NEEDED_QUANTITY + ' ' + NEEDED_UNIT : ''))
 } else {
   fail('unknown ACTION')
 }

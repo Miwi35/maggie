@@ -9,6 +9,7 @@ import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.api.ReorderGroceryItemsRequest
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.PurchaseSuggestion
+import com.maggie.app.data.model.RecipeNeedResponse
 
 class GroceryListRepository(
     private val apiService: MaggieApiService,
@@ -46,6 +47,11 @@ class GroceryListRepository(
                 packagings = packagings,
             ),
         )
+    }
+
+    /** « Pour les recettes de la semaine »: what the next seven days of meals need of a product (MAG-573). */
+    suspend fun getRecipeNeed(productId: String): Result<RecipeNeedResponse> = runCatching {
+        apiService.getRecipeNeed(productId)
     }
 
     suspend fun reorderItems(items: List<ReorderEntry>): Result<Unit> = runCatching {

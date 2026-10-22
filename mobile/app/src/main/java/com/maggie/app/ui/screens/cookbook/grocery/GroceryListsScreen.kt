@@ -416,6 +416,9 @@ fun GroceryScreen(
                 viewModel.addItem(label, quantity.quantity, quantity.unit, storeId, storeName, category, quantity.packagings)
             },
             onDismiss = { viewModel.hideAddSheet() },
+            recipeNeed = uiState.recipeNeed,
+            onProductChosen = { product -> viewModel.loadRecipeNeed(product?.takeIf { it.packagingUnit != null }?.id) },
+            error = uiState.addError,
         )
     }
 

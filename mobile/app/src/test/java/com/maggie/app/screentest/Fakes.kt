@@ -35,6 +35,7 @@ import com.maggie.app.data.model.MonthBalance
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.PurchaseSuggestion
 import com.maggie.app.data.model.ProductStockState
+import com.maggie.app.data.model.RecipeNeedResponse
 import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.CategorizationRule
@@ -172,6 +173,8 @@ class FakeGrocery(
     val recurring: FakeRecurring = FakeRecurring(),
     /** « Souvent pris » (MAG-495): what the server suggests until it is added or snoozed. */
     suggestions: List<PurchaseSuggestion> = emptyList(),
+    /** « Pour les recettes de la semaine » (MAG-573): the week's need by product id; a product left out has none. */
+    private val recipeNeeds: Map<String, RecipeNeedResponse> = emptyMap(),
 ) {
     private val listId = list?.id
     private val current = list?.items.orEmpty().toMutableList()
@@ -199,6 +202,11 @@ class FakeGrocery(
         coEvery { productRepository.getProducts() } returns Result.success(products)
         coEvery { storeRepository.getStores() } returns Result.success(stores)
         coEvery { storeRepository.getAisles(any()) } returns Result.success(emptyList())
+
+        coEvery { groceryListRepository.getRecipeNeed(any()) } answers {
+            val productId = firstArg<String>()
+            Result.success(recipeNeeds[productId] ?: RecipeNeedResponse(productId = productId))
+        }
 
         // The server's rule: a product already on the list, or snoozed, is not suggested.
         coEvery { groceryListRepository.getSuggestions() } answers {

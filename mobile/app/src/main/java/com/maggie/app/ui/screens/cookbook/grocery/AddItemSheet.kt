@@ -22,15 +22,19 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.RecipeNeedResponse
 import com.maggie.app.data.model.Store
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,6 +44,12 @@ fun AddItemSheet(
     stores: List<Store>,
     onAddItem: (label: String, quantity: QuantityPayload, storeId: String?, storeName: String?, category: String?) -> Unit,
     onDismiss: () -> Unit,
+    // « Pour les recettes de la semaine » (MAG-573): read when a product is chosen; null while loading or when no meal needs it.
+    recipeNeed: RecipeNeedResponse? = null,
+    // A product (or a free label, null) was chosen: the screen reads the week's recipe need for it.
+    onProductChosen: (Product?) -> Unit = {},
+    // Why the API refused the line; the sheet stays open on what was typed.
+    error: String? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -52,6 +62,14 @@ fun AddItemSheet(
     var categoryExpanded by remember { mutableStateOf(false) }
     var showProductPicker by remember { mutableStateOf(false) }
     var showStorePicker by remember { mutableStateOf(false) }
+
+    // The need of the product chosen — never one read for the product before it.
+    val need = recipeNeed?.takeIf { selectedProduct != null && it.productId == selectedProduct?.id }
+    val headline = need?.recipeNeed
+    // The need arrives after the product was chosen: it replaces the one-packaging default, nothing the owner or the restock set.
+    LaunchedEffect(headline, selectedProduct) {
+        draft = draft.withRecipeNeed(selectedProduct, headline)
+    }
 
     ModalBottomSheet(
         modifier = Modifier.uiTagRoot(),
@@ -96,8 +114,11 @@ fun AddItemSheet(
                 )
             }
 
-            // Quantity, or packagings for a packaged product; prefilled with its automatic restock
-            QuantityEntry(product = selectedProduct, draft = draft, onChange = { draft = it })
+            // What the week's meals need of the product, with the meals behind the figure
+            if (selectedProduct?.packagingUnit != null) RecipeNeedBox(need)
+
+            // Quantity, or packagings for a packaged product; prefilled with its restock, else the week's need
+            QuantityEntry(product = selectedProduct, draft = draft, onChange = { draft = it }, need = headline)
 
             // Category picker
             ExposedDropdownMenuBox(
@@ -163,6 +184,15 @@ fun AddItemSheet(
                 )
             }
 
+            if (error != null) {
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag(UiTags.GROCERY_ADD_ERROR),
+                )
+            }
+
             // Add button
             Button(
                 onClick = {
@@ -189,6 +219,7 @@ fun AddItemSheet(
                 label = product.name
                 selectedProduct = product
                 draft = initialQuantityDraft(product)
+                onProductChosen(product)
                 selectedCategory = product.category
                 resolvePreferredStore(product, stores)?.let { store ->
                     selectedStoreId = store.id
@@ -200,6 +231,7 @@ fun AddItemSheet(
                 label = customLabel
                 selectedProduct = null
                 draft = QuantityDraft()
+                onProductChosen(null)
                 showProductPicker = false
             },
             onDismiss = { showProductPicker = false },
