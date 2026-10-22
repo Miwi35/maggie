@@ -1,0 +1,21 @@
+appId: com.maggie.app.e2e
+name: hide the keyboard if it is up
+---
+# Maestro's `hideKeyboard` is a plain « back » on Android: it does not look first.
+# With the keyboard already down, that back closes the chat sheet and the journey
+# waits for an answer on the dashboard (MAG-572). After a chat send the keyboard
+# may be up or down — the chat sometimes drops it by itself before the send — so a
+# journey that wants it out of the way after a send runs this instead.
+#
+# The keyboard is Gboard's window, whose nodes carry its package's resource ids:
+# the very test Maestro's own `isKeyboardVisible` makes on Android.
+#
+# `evalScript` first, for the reason given in `open-destination.yaml`.
+- evalScript: ${0}
+
+- runFlow:
+    when:
+      visible:
+        id: "com.google.android.inputmethod.latin:id/.*"
+    commands:
+      - hideKeyboard
