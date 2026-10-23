@@ -295,6 +295,30 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the 20-year frise deserialises from the recorded response, both lines, the categories and the gap of N (MAG-554)`() {
+        val body = readRecording("finance_timeline.read")
+        val timeline = json.decodeFromJsonElement(serializer<FinanceTimeline>(), body)
+        val source = "finance_timeline.read"
+
+        assertDeclaredFieldsExist("FinanceTimeline", serializer<FinanceTimeline>(), body.keys, source)
+        assertDeclaredFieldsExist("TimelineCategory", serializer<TimelineCategory>(), keysOf(body, "categories"), source)
+        for (line in listOf("current", "compared")) {
+            val sent = body[line]!!.jsonObject
+            assertDeclaredFieldsExist("FinanceTimelineLine", serializer<FinanceTimelineLine>(), sent.keys, source)
+            assertDeclaredFieldsExist("TimelineEvent", serializer<TimelineEvent>(), keysOf(sent, "events"), source)
+        }
+        assertDeclaredFieldsExist("TimelineDifference", serializer<TimelineDifference>(), body["difference"]!!.jsonObject.keys, source)
+
+        assertEquals(240, timeline.horizonMonths)
+        assertTrue("independence_reached" in timeline.current.events.map { it.type })
+        assertTrue("The recording carries no amount: amountEur proves nothing.", timeline.current.events.any { it.amountEur != null })
+        assertTrue("The recording carries no N impact: nImpactMonths proves nothing.", timeline.current.events.any { it.nImpactMonths != null })
+        assertTrue("The recording carries no monthly impact: monthlyImpactEur proves nothing.", timeline.current.events.any { it.monthlyImpactEur != null })
+        assertNotNull(timeline.compared)
+        assertNotNull(timeline.difference)
+    }
+
+    @Test
     fun `recurring grocery items deserialise from the recorded response`() =
         assertCollectionContract("recurring_grocery_items", serializer<RecurringGroceryItem>(), "RecurringGroceryItem")
 

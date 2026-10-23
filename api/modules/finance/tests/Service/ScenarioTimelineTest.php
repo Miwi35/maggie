@@ -99,7 +99,7 @@ class ScenarioTimelineTest extends TestCase
 
         $recharge = array_values(array_filter($events, static fn (array $e): bool => 'cushion_recharging' === $e['type']))[0];
         self::assertSame('matelas', $recharge['category']);
-        self::assertEquals(300, $recharge['amount_eur']);
+        self::assertNull($recharge['amount_eur']);
         self::assertEquals(-150, $recharge['monthly_impact_eur']);
     }
 

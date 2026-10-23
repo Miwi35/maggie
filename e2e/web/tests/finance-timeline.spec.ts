@@ -1,15 +1,18 @@
+import type { APIRequestContext } from '@playwright/test'
 import { test, expect } from '../fixtures/index.js'
 import { FinanceTimelinePage } from '../pages/FinanceTimelinePage.js'
 
 /**
  * The 20-year frise (MAG-554, extends MAG-102 and the Planification journeys).
  *
- * Read-only for the owner. The expected figures come from the same endpoint the
+ * The seed alone does not promise a date N within 20 years (it depends on the
+ * planning the other journeys leave), so each journey first makes a scenario of
+ * its own the current one, with a saving of 10 000 € a month: N is then always
+ * within reach, and the journey asserts unconditionally. The scenario is let go
+ * and deleted at the end. The expected figures come from the endpoint the
  * screen reads (`GET /api/finance/timeline`), which `FinanceTimelineControllerTest`
- * pins on a fixed clock: the date N depends on the planning the other journeys
- * leave behind (see `finance-independence.spec.ts`), so what this journey checks
- * is that the screen puts every event of the answer on its month — the
- * Indépendance one on the N date — and states the hypotheses, whatever N is.
+ * pins on a fixed clock: the journey checks that the screen puts every event of
+ * the answer on its month — Indépendance on the N date — and states the hypotheses.
  */
 
 interface Line {
@@ -26,6 +29,20 @@ interface TimelineBody {
   difference: { months: number | null; sentence: string } | null
 }
 
+/** Makes a scenario that reaches N the current one; the returned function lets it go. */
+async function followAScenarioThatReachesN(api: APIRequestContext): Promise<() => Promise<void>> {
+  const created = await api.post('/api/finance/scenarios', { data: { name: 'Frise e2e', monthlySaving: 1_000_000 } })
+  expect(created.status(), await created.text()).toBe(201)
+  const id = ((await created.json()) as { scenario: { id: string } }).scenario.id
+  const followed = await api.post(`/api/finance/scenarios/${id}/make-current`)
+  expect(followed.ok(), await followed.text()).toBe(true)
+
+  return async () => {
+    await api.delete('/api/finance/current-scenario')
+    await api.delete(`/api/finance/scenarios/${id}`)
+  }
+}
+
 /** « 2041-12 » as the screen spells it: « décembre 2041 ». */
 const spelled = (month: string): string => {
   const [year, number] = month.split('-').map(Number)
@@ -34,66 +51,67 @@ const spelled = (month: string): string => {
 }
 
 test('the frise puts Indépendance on the N date of the current scenario', async ({ page, api }) => {
-  const response = await api.get('/api/finance/timeline')
-  expect(response.ok(), await response.text()).toBe(true)
-  const expected = (await response.json()) as TimelineBody
+  const letGo = await followAScenarioThatReachesN(api)
+  try {
+    const response = await api.get('/api/finance/timeline')
+    expect(response.ok(), await response.text()).toBe(true)
+    const expected = (await response.json()) as TimelineBody
+    const nDate = expected.current.nDate
+    expect(nDate, 'a saving of 10 000 € a month must reach N within 20 years').not.toBeNull()
+    expect(expected.current.name).toBe('Frise e2e')
 
-  const frise = new FinanceTimelinePage(page)
-  await frise.open()
+    const frise = new FinanceTimelinePage(page)
+    await frise.open()
 
-  await expect(frise.currentRow.getByTestId('timeline-name-current')).toHaveText(expected.current.name)
-  await expect(frise.panel.getByTestId('timeline-assumptions')).toHaveText(expected.assumptions)
+    await expect(frise.currentRow.getByTestId('timeline-name-current')).toHaveText('Frise e2e')
+    await expect(frise.panel.getByTestId('timeline-assumptions')).toHaveText(expected.assumptions)
 
-  if (expected.current.nDate === null) {
-    // N out of reach is said, not drawn.
-    await expect(frise.currentRow.getByTestId('timeline-n-date-current')).toContainText("N non atteinte d'ici 20 ans")
-    await expect(frise.event('independence_reached')).toHaveCount(0)
+    const reached = frise.event('independence_reached')
+    await expect(reached).toBeVisible()
+    await expect(reached).toHaveAttribute('data-month', nDate ?? '')
+    await expect(reached).toContainText('Indépendance financière')
+    await expect(reached).toContainText(spelled(nDate ?? ''))
+    await expect(frise.currentRow.getByTestId('timeline-n-date-current')).toContainText(spelled(nDate ?? ''))
 
-    return
-  }
-
-  const reached = frise.event('independence_reached')
-  await expect(reached).toBeVisible()
-  await expect(reached).toHaveAttribute('data-month', expected.current.nDate)
-  await expect(reached).toContainText('Indépendance financière')
-  await expect(reached).toContainText(spelled(expected.current.nDate))
-  await expect(frise.currentRow.getByTestId('timeline-n-date-current')).toContainText(spelled(expected.current.nDate))
-
-  for (const event of expected.current.events) {
-    await expect(frise.event(event.id)).toHaveAttribute('data-month', event.month)
+    for (const event of expected.current.events) {
+      await expect(frise.event(event.id)).toHaveAttribute('data-month', event.month)
+    }
+  } finally {
+    await letGo()
   }
 })
 
 test('a category filter hides its events, and a compared scenario draws a second row', async ({ page, api }) => {
-  const response = await api.get('/api/finance/timeline?compare=auto-rapid')
-  expect(response.ok(), await response.text()).toBe(true)
-  const expected = (await response.json()) as TimelineBody
-  expect(expected.compared?.name).toBe('Rapide')
+  const letGo = await followAScenarioThatReachesN(api)
+  try {
+    const response = await api.get('/api/finance/timeline?compare=auto-rapid')
+    expect(response.ok(), await response.text()).toBe(true)
+    const expected = (await response.json()) as TimelineBody
+    expect(expected.compared?.name).toBe('Rapide')
+    const independence = expected.current.events.find((event) => event.category === 'indépendance')
+    expect(independence, 'the followed scenario reaches N: its Indépendance events are drawn').toBeDefined()
 
-  const frise = new FinanceTimelinePage(page)
-  await frise.open()
-  await expect(frise.comparedRow).toHaveCount(0)
+    const frise = new FinanceTimelinePage(page)
+    await frise.open()
+    await expect(frise.comparedRow).toHaveCount(0)
 
-  await frise.selector.selectOption('auto-rapid')
+    await frise.selector.selectOption('auto-rapid')
 
-  await expect(frise.comparedRow).toBeVisible()
-  await expect(frise.comparedRow.getByTestId('timeline-name-compared')).toHaveText('Rapide')
-  // Facts only: the API's sentence, word for word.
-  await expect(frise.panel.getByTestId('timeline-difference')).toHaveText(expected.difference?.sentence ?? '')
-  if (expected.compared?.nDate) {
-    await expect(frise.comparedEvent('independence_reached')).toHaveAttribute('data-month', expected.compared.nDate)
-  }
+    await expect(frise.comparedRow).toBeVisible()
+    await expect(frise.comparedRow.getByTestId('timeline-name-compared')).toHaveText('Rapide')
+    // Facts only: the API's sentence, word for word.
+    await expect(frise.panel.getByTestId('timeline-difference')).toHaveText(expected.difference?.sentence ?? '')
 
-  const category = expected.current.events.find((event) => event.category === 'indépendance')
-  if (category) {
     await frise.filter('Indépendance').click()
-    await expect(frise.event(category.id)).toHaveCount(0)
+    await expect(frise.event(independence?.id ?? '')).toHaveCount(0)
     await expect(frise.comparedEvent('independence_reached')).toHaveCount(0)
 
     await frise.filter('Indépendance').click()
-    await expect(frise.event(category.id)).toBeVisible()
-  }
+    await expect(frise.event(independence?.id ?? '')).toBeVisible()
 
-  await frise.selector.selectOption('')
-  await expect(frise.comparedRow).toHaveCount(0)
+    await frise.selector.selectOption('')
+    await expect(frise.comparedRow).toHaveCount(0)
+  } finally {
+    await letGo()
+  }
 })

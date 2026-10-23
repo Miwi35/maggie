@@ -5,7 +5,7 @@ tags:
 ---
 # La frise sur 20 ans de la carte Planning, from the phone (MAG-554, extends MAG-102).
 #
-# Étant donné le seed : le scénario suivi atteint l'indépendance dans les 20 ans
+# Étant donné un scénario suivi (créé par le script) qui atteint l'indépendance dans les 20 ans
 # Quand j'ouvre Finance › Planification › Projets et que je passe la carte Planning de « 36 mois » à « 20 ans »
 # Alors la frise remplace le Gantt, l'événement « Indépendance financière » est là
 # Alors il porte la date N du scénario suivi, telle que l'API la calcule

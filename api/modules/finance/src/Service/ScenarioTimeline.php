@@ -194,7 +194,7 @@ final class ScenarioTimeline
                 'cushion_recharging',
                 'Recharge du matelas en cours',
                 null === $plan['cushion']['completeMonth'] ? null : 'Matelas reconstitué en '.$plan['cushion']['completeMonth'],
-                array_sum($months),
+                null,
                 -($months[0] ?? 0),
                 null,
                 [],

@@ -4,6 +4,7 @@ import type { TimelineEvent } from './timelineApi'
 
 /** Markers closer than this many months share a lane's width: the next one is pushed to another lane. */
 const MIN_GAP_MONTHS = 5
+/** Past this, markers share the last lane rather than growing the row without end. */
 export const MAX_LANES = 4
 
 export interface PlacedEvent {
