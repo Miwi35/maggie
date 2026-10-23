@@ -72,21 +72,36 @@ class ScoreRingsTest {
     }
 
     @Test
-    fun `a ring says its word and its amounts in clear`() {
+    fun `a ring with a budget says its pace, and its amounts in euros`() {
         val score = PeriodScore(status = "green", label = "Dans le vert", rhythm = onTrack)
 
         assertEquals(
-            "Mois : Dans le vert, il reste ${formatCents(12000)} sur ${formatCents(20000)}, " +
-                "attendu aujourd'hui ${formatCents(10000)}",
+            "Mois : Dans le rythme, il reste ${ringAmount(12000)} sur ${ringAmount(20000)}, " +
+                "attendu aujourd'hui ${ringAmount(10000)}",
             ringDescription("Mois", score),
         )
+        assertTrue(ringAmount(12000).endsWith("€"))
+    }
+
+    @Test
+    fun `a ring above its pace says so, whatever the API's colour`() {
+        val above = onTrack.copy(status = "above", label = "Au-dessus du rythme")
+        val score = PeriodScore(status = "orange", label = "Attention", rhythm = above)
+
+        assertTrue(ringDescription("Mois", score).startsWith("Mois : Au-dessus du rythme, "))
+    }
+
+    @Test
+    fun `the pace word falls back when the API sent no label`() {
+        assertEquals("Dans le rythme", rhythmWord(onTrack))
+        assertEquals("Au-dessus du rythme", rhythmWord(onTrack.copy(status = "above")))
     }
 
     @Test
     fun `an overspent ring says by how much`() {
         val score = PeriodScore(status = "red", label = "Dépassement", rhythm = onTrack.copy(remainingCents = -9134))
 
-        assertTrue(ringDescription("Mois", score).contains("Dépassement, dépassé de ${formatCents(9134)}"))
+        assertTrue(ringDescription("Mois", score).contains("dépassé de ${ringAmount(9134)}"))
     }
 
     @Test

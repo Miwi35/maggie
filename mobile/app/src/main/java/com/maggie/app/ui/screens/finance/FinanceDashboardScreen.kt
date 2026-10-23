@@ -12,10 +12,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Button
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.navigation.ProvideFinanceNav
+import com.maggie.app.ui.navigation.financeSubviewState
+import com.maggie.app.ui.navigation.FinanceSection
+import androidx.compose.material3.Card
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -24,17 +31,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,15 +59,28 @@ fun FinanceDashboardScreen(
     viewModel: FinanceDashboardViewModel,
     monthBalanceViewModel: MonthBalanceViewModel,
     upcomingViewModel: UpcomingViewModel,
-    onBack: () -> Unit,
     onOpen: (String) -> Unit,
     // The account whose rejections the « N rejets » pill opens, on its Incidents tab.
     onOpenIncidents: (TileAccount) -> Unit = {},
 ) {
+    ProvideFinanceNav {
+        FinanceDashboardContent(viewModel, monthBalanceViewModel, upcomingViewModel, onOpen, onOpenIncidents)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FinanceDashboardContent(
+    viewModel: FinanceDashboardViewModel,
+    monthBalanceViewModel: MonthBalanceViewModel,
+    upcomingViewModel: UpcomingViewModel,
+    onOpen: (String) -> Unit,
+    onOpenIncidents: (TileAccount) -> Unit,
+) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val twoColumns = rememberAppLayout().detailPaneFits
-    var selectedTab by rememberSaveable { mutableIntStateOf(TAB_OVERVIEW) }
+    val (subview, _) = financeSubviewState(FinanceSection.DASHBOARD)
 
     // Back from the treasury screen, the banner follows what was prepared there.
     LaunchedEffect(Unit) { viewModel.refreshTreasury() }
@@ -78,78 +93,54 @@ fun FinanceDashboardScreen(
     )
 
     Scaffold(
-        topBar = {
-            FinanceTopBar(Screen.FinanceDashboard.route) {
-                TopAppBar(
-                    title = { Text("Finance") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                )
-            }
-        },
+        topBar = { FinanceTopBar(Screen.FinanceDashboard.route) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(
-                    selected = selectedTab == TAB_OVERVIEW,
-                    onClick = { selectedTab = TAB_OVERVIEW },
-                    text = { Text("Vue d'ensemble") },
-                    modifier = Modifier.testTag(UiTags.FINANCE_TAB_OVERVIEW),
-                )
-                Tab(
-                    selected = selectedTab == TAB_CURRENT,
-                    onClick = { selectedTab = TAB_CURRENT },
-                    text = { Text("État courant") },
-                    modifier = Modifier.testTag(UiTags.FINANCE_TAB_CURRENT),
-                )
-                Tab(
-                    selected = selectedTab == TAB_UPCOMING,
-                    onClick = { selectedTab = TAB_UPCOMING },
-                    text = { Text("À venir") },
-                    modifier = Modifier.testTag(UiTags.FINANCE_TAB_UPCOMING),
-                )
-            }
-            when (selectedTab) {
-                TAB_OVERVIEW -> OverviewTab(viewModel, uiState, twoColumns, onOpen, onOpenIncidents)
-                TAB_CURRENT -> MonthBalanceTab(monthBalanceViewModel, onOpen)
-                else -> UpcomingTab(upcomingViewModel, twoColumns)
+            when (subview.key) {
+                SUBVIEW_UPCOMING -> UpcomingTab(upcomingViewModel, twoColumns)
+                else -> CurrentTab(viewModel, uiState, monthBalanceViewModel, snackbarHostState, twoColumns, onOpen, onOpenIncidents)
             }
         }
     }
 }
 
-private const val TAB_OVERVIEW = 0
-private const val TAB_CURRENT = 1
-private const val TAB_UPCOMING = 2
+private const val SUBVIEW_UPCOMING = "upcoming"
 
-/** « Vue d'ensemble »: everything the dashboard showed before the tabs, unchanged. */
+/**
+ * « État courant » (MAG-537): what the dashboard showed as its overview — the review card when one is due, the scores, the
+ * tiles — and, below, the month's balance (MAG-457).
+ */
 @Composable
-private fun OverviewTab(
+private fun CurrentTab(
     viewModel: FinanceDashboardViewModel,
     uiState: FinanceDashboardUiState,
+    monthBalanceViewModel: MonthBalanceViewModel,
+    snackbarHostState: SnackbarHostState,
     twoColumns: Boolean,
     onOpen: (String) -> Unit,
     onOpenIncidents: (TileAccount) -> Unit,
 ) {
     val dashboard = uiState.dashboard
+    // One month header for the figures and the balance under them.
+    val shiftMonth = { months: Long ->
+        viewModel.shiftPeriod(months)
+        monthBalanceViewModel.shiftPeriod(months)
+    }
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { viewModel.shiftPeriod(-1) }) {
+            IconButton(onClick = { shiftMonth(-1) }) {
                 Icon(Icons.Default.ChevronLeft, contentDescription = "Mois précédent")
             }
             Text(
                 text = "${monthLabel(uiState.month)} ${uiState.year}",
                 style = MaterialTheme.typography.titleMedium,
             )
-            IconButton(onClick = { viewModel.shiftPeriod(1) }) {
+            IconButton(onClick = { shiftMonth(1) }) {
                 Icon(Icons.Default.ChevronRight, contentDescription = "Mois suivant")
             }
         }
@@ -157,12 +148,10 @@ private fun OverviewTab(
         val head: LazyListScope.() -> Unit = {
             if (dashboard?.todo?.reviewReady == true) {
                 item {
-                    Button(
-                        onClick = { onOpen(Screen.FinanceReviewActivity.route) },
-                        modifier = Modifier.fillMaxWidth().testTag(UiTags.FINANCE_REVIEW_SHORTCUT),
-                    ) {
-                        Text("Revue ce soir")
-                    }
+                    ReviewDueCard(
+                        title = reviewDueTitle(uiState.month),
+                        onLaunch = { onOpen(Screen.FinanceReviewActivity.route) },
+                    )
                 }
             }
             uiState.treasuryBanner?.let { banner ->
@@ -202,6 +191,7 @@ private fun OverviewTab(
                 item { BudgetTileCard(dashboard.tiles.budget, dashboard.todo, onOpen) }
                 item { PlanningTileCard(dashboard.tiles.planning, uiState.planning, onOpen) }
             }
+            item { MonthBalanceSection(monthBalanceViewModel, onOpen, snackbarHostState) }
         }
 
         if (twoColumns) {
@@ -230,6 +220,39 @@ private fun OverviewTab(
                 body()
             }
         }
+    }
+}
 
+/** The month a review covers, in French: « Revue d'octobre », « Revue de mars ». */
+internal fun reviewDueTitle(month: Int): String {
+    val name = monthLabel(month).lowercase()
+    val elision = name.firstOrNull()?.let { it in "aeiouhéèêôû" } == true
+    return if (elision) "Revue d'$name" else "Revue de $name"
+}
+
+/** The review waiting for tonight (owner, 21 Oct.): a 64 dp card with its time and one « Lancer » pill, above the rings. */
+@Composable
+private fun ReviewDueCard(title: String, onLaunch: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag(UiTags.FINANCE_REVIEW_CARD)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall)
+                Text("ce soir · 20 h", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Button(
+                onClick = onLaunch,
+                modifier = Modifier.heightIn(min = 48.dp).testTag(UiTags.FINANCE_REVIEW_SHORTCUT),
+                shape = RoundedCornerShape(MaggieTokens.Radius.pill),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+            ) {
+                Text("Lancer")
+            }
+        }
     }
 }

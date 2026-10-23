@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -133,19 +134,69 @@ internal fun MonthBalanceContent(balance: MonthBalance, onOpenToQualify: () -> U
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        toQualifyLabel(balance.toQualify)?.let { label ->
-            ToQualifyPill(label, onClick = onOpenToQualify)
+        MonthBalanceCards(balance, onOpenToQualify)
+    }
+}
+
+@Composable
+private fun ColumnScope.MonthBalanceCards(balance: MonthBalance, onOpenToQualify: () -> Unit) {
+    toQualifyLabel(balance.toQualify)?.let { label ->
+        ToQualifyPill(label, onClick = onOpenToQualify)
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            MonthScoreRing(balance.spending)
+            RhythmCurve(rhythm = balance.spending.rhythm, title = "Mois")
         }
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                MonthScoreRing(balance.spending)
-                RhythmCurve(rhythm = balance.spending.rhythm, title = "Mois")
+    }
+    EnvelopesCard(balance.envelopes)
+    SatisfactionCard(balance.satisfaction)
+    SavingsCard(balance.savings)
+    CushionCard(balance.cushion)
+}
+
+/**
+ * The month's balance (MAG-457) as the lower part of « État courant » (MAG-537): the same cards as
+ * [MonthBalanceTab], in the dashboard's own scroll instead of a scroll of their own. The dashboard's month header drives the
+ * month; errors go to the dashboard's snackbar.
+ */
+@Composable
+fun MonthBalanceSection(
+    viewModel: MonthBalanceViewModel,
+    onOpen: (String) -> Unit,
+    snackbarHostState: SnackbarHostState,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val balance = uiState.balance
+
+    ErrorSnackbar(
+        error = uiState.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = viewModel::clearError,
+        onRetry = viewModel::refresh,
+    )
+
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Bilan de ${monthLabel(uiState.month).lowercase()} ${uiState.year}",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        if (balance == null) {
+            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    Text(
+                        uiState.error ?: "Bilan indisponible",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag(UiTags.MONTH_BALANCE_EMPTY),
+                    )
+                }
             }
+        } else {
+            MonthBalanceCards(balance, onOpenToQualify = { onOpen(DeepLinks.REVIEW_TO_SORT_ROUTE) })
         }
-        EnvelopesCard(balance.envelopes)
-        SatisfactionCard(balance.satisfaction)
-        SavingsCard(balance.savings)
-        CushionCard(balance.cushion)
     }
 }
 

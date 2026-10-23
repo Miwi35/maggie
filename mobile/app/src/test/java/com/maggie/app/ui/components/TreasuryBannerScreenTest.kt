@@ -73,7 +73,6 @@ class TreasuryBannerScreenTest {
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 10), outlook).viewModel,
-                onBack = {},
                 onOpen = { opened += it },
             )
         }

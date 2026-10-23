@@ -120,7 +120,7 @@ onFlowComplete:
       id: "review_list_row"
     timeout: 30000
 - assertVisible:
-    id: "review_list_pill_unrecognised"
+    id: "subview_to_qualify"
 - assertVisible: "À qualifier · 3"
 - assertVisible: "A TRIER MAG-421 A"
 - tapOn: "A TRIER MAG-421 A"

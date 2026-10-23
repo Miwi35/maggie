@@ -1,11 +1,9 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
@@ -13,7 +11,6 @@ import com.maggie.app.screentest.FakeFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.AppDrawerContent
-import com.maggie.app.ui.navigation.FinanceMenu
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.screentest.tap
 import org.junit.Assert.assertEquals
@@ -23,13 +20,13 @@ import org.junit.runner.RunWith
 
 /**
  * One « Finance » entry in the drawer, and the dashboard as the module's front
- * door (MAG-196, MAG-426) — what `06-finance-hub` walked on an emulator (MAG-242).
+ * door (MAG-196, MAG-426, MAG-537) — what `06-finance-hub` walked on an emulator (MAG-242).
  *
  * `FinanceNavigationTest` beside this one already says what the module's
  * navigation *is*. What it cannot say is that any of it is drawn, and that is the
  * half the journey was paying an emulator for. So this is deliberately thin: the
- * drawer entry is on screen and asks for the dashboard; the menus themselves are
- * `FinanceMenusScreenTest`'s.
+ * drawer entry is on screen and asks for the dashboard; the header and its sections are
+ * `FinanceTopBarScreenTest`'s.
  */
 @RunWith(AndroidJUnit4::class)
 class FinanceHubScreenTest {
@@ -62,25 +59,25 @@ class FinanceHubScreenTest {
     }
 
     /**
-     * The dashboard is no longer a list of accesses: the menus are the tabs above it
-     * (`FinanceMenusScreenTest`), and what is below is the figures. Over a month the API
-     * could not serve, none of the former accesses is drawn — and the screen still answers.
+     * The dashboard is no list of accesses: the sections are the breadcrumb's menu (`FinanceTopBarScreenTest`),
+     * and what is below is the figures. Over a month the API could not serve, the header is still there.
      */
     @Test
-    fun `the dashboard draws no list of accesses of its own`() {
+    fun `the dashboard wears the breadcrumb and its two sub-views, and no list of accesses`() {
         compose.setContent {
             FinanceDashboardScreen(
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
-                onBack = {},
                 onOpen = {},
             )
         }
 
-        FinanceMenu.entries.flatMap { it.routes }.forEach {
-            compose.onNodeWithTag(UiTags.financeBlock(it)).assertDoesNotExist()
-        }
+        compose.onNodeWithTag(UiTags.BREADCRUMB_MODULE).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.subview("current")).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.subview("upcoming")).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.subview("projects")).assertDoesNotExist()
     }
 
     @Test
@@ -90,30 +87,10 @@ class FinanceHubScreenTest {
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard(error = "Service indisponible").viewModel,
-                onBack = {},
                 onOpen = {},
             )
         }
 
-        compose.onNodeWithText("Service indisponible").performScrollTo().assertIsDisplayed()
-    }
-
-    /** The back arrow leaves the module; where it lands is `financeBackAction`'s, next door. */
-    @Test
-    fun `the back arrow asks to leave the dashboard`() {
-        var backs = 0
-        compose.setContent {
-            FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
-                upcomingViewModel = FakeUpcoming().viewModel,
-                viewModel = FakeFinanceDashboard().viewModel,
-                onBack = { backs++ },
-                onOpen = {},
-            )
-        }
-
-        compose.onNodeWithContentDescription("Retour").performClick()
-
-        assertEquals(1, backs)
+        compose.onAllNodesWithText("Service indisponible").onFirst().assertIsDisplayed()
     }
 }

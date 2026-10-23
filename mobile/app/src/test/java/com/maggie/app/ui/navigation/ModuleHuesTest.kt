@@ -8,14 +8,14 @@ import org.junit.Test
 class ModuleHuesTest {
 
     @Test
-    fun `every finance menu route is mint`() {
-        FinanceMenu.entries.flatMap { it.routes }.forEach {
+    fun `every finance section route is mint`() {
+        FinanceSection.entries.flatMap { it.pages + it.details }.forEach {
             assertEquals(it, ModuleHue.FINANCE, moduleHueOf(it))
         }
     }
 
     @Test
-    fun `finance screens outside the menus are mint too`() {
+    fun `finance screens outside the sections are mint too`() {
         listOf(Screen.ProjectForm.route, Screen.FinanceReviewActivity.route, DeepLinks.ACCOUNT_ROUTE, DeepLinks.CONTACT_ROUTE)
             .forEach { assertEquals(it, ModuleHue.FINANCE, moduleHueOf(it)) }
     }

@@ -227,40 +227,38 @@ class AdaptiveNavigationTest {
     }
 
     @Test
-    fun `on a tablet every finance screen swaps the main rail for the seven menus`() {
-        FinanceMenu.entries.flatMap { it.routes }.forEach { route ->
+    fun `on a tablet no finance screen draws a rail, the breadcrumb is its navigation (MAG-537)`() {
+        FinanceSection.entries.flatMap { it.pages + it.details }.forEach { route ->
             val chrome = chromeFor(tabletLandscape, route)
 
-            assertTrue("$route should draw the finance rail", chrome.showsFinanceRail)
-            assertFalse("$route should not draw the main rail as well", chrome.showsRail)
+            assertFalse("$route should not draw the main rail", chrome.showsRail)
             assertTrue("$route keeps the conversation", chrome.showsChatPanel)
+            assertFalse("$route has no chat band at the bottom", chrome.showsChatBar)
         }
     }
 
     @Test
-    fun `on a phone the finance menus are tabs, never a rail, and the bottom stays Maggie's`() {
-        FinanceMenu.entries.flatMap { it.routes }.forEach { route ->
+    fun `on a phone the finance screens keep Maggie's bar at the bottom and no rail`() {
+        FinanceSection.entries.flatMap { it.pages + it.details }.forEach { route ->
             val chrome = chromeFor(phone, route)
 
-            assertFalse("$route should not draw a rail", chrome.showsFinanceRail)
-            assertFalse(chrome.showsRail)
+            assertFalse("$route should not draw a rail", chrome.showsRail)
             assertTrue("$route keeps Maggie's bar at the bottom", chrome.showsChatBar)
         }
     }
 
     @Test
-    fun `a short wide window keeps the conversation in the finance rail header`() {
+    fun `a short wide window keeps the compact bottom bar on finance, no rail and no chat in a rail`() {
         val chrome = chromeFor(phoneLandscape, Screen.FinanceDashboard.route)
 
-        assertTrue(chrome.showsFinanceRail)
-        assertTrue(chrome.showsChatInRail)
-        assertFalse(chrome.showsChatBar)
+        assertFalse(chrome.showsRail)
+        assertFalse(chrome.showsChatInRail)
+        assertTrue(chrome.showsChatBar)
     }
 
     @Test
-    fun `the finance rail is for the finance module only`() {
-        assertFalse(chromeFor(tabletLandscape, Screen.Home.route).showsFinanceRail)
-        assertFalse(chromeFor(tabletLandscape, Screen.Settings.route).showsFinanceRail)
-        assertFalse(chromeFor(tabletLandscape, null).showsFinanceRail)
+    fun `the main rail stays where it was outside the finance module`() {
+        assertTrue(chromeFor(tabletLandscape, Screen.Grocery.route).showsRail)
+        assertTrue(chromeFor(phoneLandscape, Screen.Grocery.route).showsChatInRail)
     }
 }

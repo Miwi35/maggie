@@ -300,77 +300,86 @@ private fun CushionLine(tile: BudgetTile) {
  */
 @Composable
 internal fun PlanningTileCard(tile: PlanningTile, planning: ProjectPlanning?, onOpen: (String) -> Unit) {
+    FinanceTile("Planification", UiTags.FINANCE_TILE_PLANNING, onClick = { onOpen(Screen.Treasury.route) }) {
+        IndependenceBody(tile, planning)
+    }
+}
+
+/**
+ * The independence counter and the net saving capacity: the planning tile's content, and the « Indépendance »
+ * sub-view's. [planning] draws the first three projects (MAG-529) when it is read.
+ */
+@Composable
+internal fun ColumnScope.IndependenceBody(tile: PlanningTile, planning: ProjectPlanning? = null) {
     val counter = tile.independence
     val capacity = tile.savingCapacity
 
-    FinanceTile("Planification", UiTags.FINANCE_TILE_PLANNING, onClick = { onOpen(Screen.Treasury.route) }) {
-        Text("Indépendance financière", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+    Text("Indépendance financière", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+    Text(
+        text = independenceSummary(counter),
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.padding(vertical = 4.dp),
+    )
+
+    // The first three projects, one line each (MAG-529); nothing while the planning is not read or draws nothing.
+    planning?.let { ProjectGantt(it, modifier = Modifier.padding(vertical = 8.dp), compact = true) }
+
+    if (!counter.isMeasurable || !counter.hasPassiveIncomeCategories) {
+        // Two different states, two different things to say.
+        Hint(
+            if (counter.hasPassiveIncomeCategories) {
+                "Le compteur se calcule sur les ${counter.sampleMonths} mois complets précédents."
+            } else {
+                "Une rente se déclare sur une catégorie de recette — loyers perçus, " +
+                    "dividendes — en créant la catégorie dans Finance › Catégories."
+            },
+        )
+        // Placements and investments exist whether or not a train de vie is measured.
+        IndependenceRenteSources(counter.renteSources, modifier = Modifier.padding(top = 10.dp))
+    } else {
+        LinearProgressIndicator(
+            progress = { minOf(1f, counter.coveragePercent / 100f) },
+            color = if (counter.isReached) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.fillMaxWidth().height(6.dp).padding(top = 4.dp),
+        )
+        Hint(
+            "${formatCents(counter.passiveIncomeCents)} de rentes sur " +
+                "${formatCents(counter.lifestyleCents)} de train de vie, mesurés sur " +
+                "${counter.sampleMonths} mois",
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        IndependenceProjectionBlock(counter, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+        counter.byCategory.forEach { rente ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(rente.categoryName, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = "${formatCents(rente.monthlyCents)} / mois · ${rente.sharePercent} %",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+
+    Text(
+        "Capacité d'épargne nette",
+        style = MaterialTheme.typography.labelMedium,
+        modifier = Modifier.padding(top = 12.dp),
+    )
+    if (capacity.isIncomeKnown) {
         Text(
-            text = independenceSummary(counter),
+            text = "${formatCents(capacity.netCapacityCents)} / mois",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(vertical = 4.dp),
         )
-
-        // The first three projects, one line each (MAG-529); nothing while the planning is not read or draws nothing.
-        planning?.let { ProjectGantt(it, modifier = Modifier.padding(vertical = 8.dp), compact = true) }
-
-        if (!counter.isMeasurable || !counter.hasPassiveIncomeCategories) {
-            // Two different states, two different things to say.
-            Hint(
-                if (counter.hasPassiveIncomeCategories) {
-                    "Le compteur se calcule sur les ${counter.sampleMonths} mois complets précédents."
-                } else {
-                    "Une rente se déclare sur une catégorie de recette — loyers perçus, " +
-                        "dividendes — en créant la catégorie dans Finance › Catégories."
-                },
-            )
-            // Placements and investments exist whether or not a train de vie is measured.
-            IndependenceRenteSources(counter.renteSources, modifier = Modifier.padding(top = 10.dp))
-        } else {
-            LinearProgressIndicator(
-                progress = { minOf(1f, counter.coveragePercent / 100f) },
-                color = if (counter.isReached) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.fillMaxWidth().height(6.dp).padding(top = 4.dp),
-            )
-            Hint(
-                "${formatCents(counter.passiveIncomeCents)} de rentes sur " +
-                    "${formatCents(counter.lifestyleCents)} de train de vie, mesurés sur " +
-                    "${counter.sampleMonths} mois",
-                modifier = Modifier.padding(top = 6.dp),
-            )
-            IndependenceProjectionBlock(counter, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
-            counter.byCategory.forEach { rente ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(rente.categoryName, style = MaterialTheme.typography.bodySmall)
-                    Text(
-                        text = "${formatCents(rente.monthlyCents)} / mois · ${rente.sharePercent} %",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
-        }
-
-        Text(
-            "Capacité d'épargne nette",
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(top = 12.dp),
+        Hint(
+            "${formatCents(capacity.monthlyNetIncomeCents)} de revenu − " +
+                "${formatCents(capacity.loanPaymentsCents)} de mensualités − " +
+                "${formatCents(capacity.estimatedLifestyleCents)} de train de vie",
         )
-        if (capacity.isIncomeKnown) {
-            Text(
-                text = "${formatCents(capacity.netCapacityCents)} / mois",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(vertical = 4.dp),
-            )
-            Hint(
-                "${formatCents(capacity.monthlyNetIncomeCents)} de revenu − " +
-                    "${formatCents(capacity.loanPaymentsCents)} de mensualités − " +
-                    "${formatCents(capacity.estimatedLifestyleCents)} de train de vie",
-            )
-        } else {
-            Hint("Renseignez votre revenu dans le matelas pour l'obtenir.", modifier = Modifier.padding(top = 4.dp))
-        }
+    } else {
+        Hint("Renseignez votre revenu dans le matelas pour l'obtenir.", modifier = Modifier.padding(top = 4.dp))
     }
 }

@@ -6,6 +6,8 @@ import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -131,7 +133,6 @@ class FinanceDashboardTilesScreenTest {
                     FinanceDashboard(year = 2026, month = 10, tiles = tiles, todo = todo, nextProject = nextProject),
                     planning = planning,
                 ).viewModel,
-                onBack = {},
                 onOpen = onOpen,
                 onOpenIncidents = onOpenIncidents,
             )
@@ -301,12 +302,11 @@ class FinanceDashboardTilesScreenTest {
                 monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard(error = "Service indisponible").viewModel,
-                onBack = {},
                 onOpen = {},
             )
         }
 
-        compose.onNodeWithText("Service indisponible").assertIsDisplayed()
+        compose.onAllNodesWithText("Service indisponible").onFirst().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT).assertDoesNotExist()
     }
@@ -398,8 +398,9 @@ class FinanceDashboardTilesScreenTest {
         val opened = mutableListOf<String>()
         open(tilesWithRejection, busy) { opened += it }
 
-        compose.onNodeWithTag(UiTags.FINANCE_REVIEW_SHORTCUT).assertIsDisplayed()
-        compose.onNodeWithText("Revue ce soir").performClick()
+        compose.onNodeWithTag(UiTags.FINANCE_REVIEW_CARD).assertIsDisplayed()
+        compose.onNodeWithText("ce soir · 20 h").assertIsDisplayed()
+        compose.onNodeWithText("Lancer").performClick()
 
         assertEquals(listOf(Screen.FinanceReviewActivity.route), opened)
     }

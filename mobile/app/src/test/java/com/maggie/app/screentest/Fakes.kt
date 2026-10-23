@@ -394,8 +394,8 @@ class FakeCalendar(private val events: List<Event>) {
  * The finance dashboard, over a month the server could not serve.
  *
  * Only the failing case, which is not a gap: what `06-finance-hub` asserted is
- * that the dashboard is the one door to the module, and the menus come from the
- * `FinanceMenu` definition, not from the figures. Serving them over a failed load
+ * that the dashboard is the one door to the module, and the sections come from the
+ * `FinanceSection` definition, not from the figures. Serving them over a failed load
  * is the stronger version of the same claim — a month the API cannot compute must
  * not lock the user out of their budgets — and it needs no `FinanceDashboard`
  * fixture. The figures themselves are `FinanceDashboardViewModelTest`'s.
@@ -836,6 +836,7 @@ class FakeLoadedFinanceDashboard(
     private val dashboard: FinanceDashboard,
     private val outlook: TreasuryOutlook = TreasuryOutlook(),
     private val planning: ProjectPlanning? = null,
+    private val today: LocalDate = LocalDate.now(),
 ) {
     val viewModel: FinanceDashboardViewModel by lazy {
         val repository = mockk<FinanceDashboardRepository>()
@@ -846,7 +847,7 @@ class FakeLoadedFinanceDashboard(
         coEvery { projects.getProjectPlanning() } returns
             (planning?.let { Result.success(it) } ?: Result.failure(IllegalStateException("no planning")))
         val (auth, mercure) = signedIn()
-        FinanceDashboardViewModel(repository, treasury, mercure, auth, projects)
+        FinanceDashboardViewModel(repository, treasury, mercure, auth, projects, today)
     }
 }
 

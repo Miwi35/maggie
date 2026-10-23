@@ -7,13 +7,13 @@ tags:
 #
 # Étant donné le seed e2e : « PEA » 2 000 € + 150 € par mois à 6 % sur 20 ans, « Assurance-vie »
 #   1 200 € par an à 3,5 % sur 15 ans, « Livret jeune de Léo » 500 € une fois à 3 % sur 10 ans
-# Quand j'ouvre Finance › Planification et touche la carte « Placements »
+# Quand j'ouvre Finance › Planification et touche la sous-vue « Placements »
 # Alors la liste montre les trois placements, et la projection du premier
 # Quand je touche « Assurance-vie »
 # Alors la projection est la sienne : son capital dans 15 ans
 #
-# Read-only: nothing is written, so the seed needs no reset. The phone has no Indépendance page of
-# its own (its block opens the dashboard): the way into the placements is Planification's card.
+# Read-only: nothing is written, so the seed needs no reset. The way into the placements is
+# Planification's sub-view row (MAG-537).
 #
 # What is not here: the figures to the euro, the chart, the steppers' PATCH and their late
 # answers, the form's refusals, the deletion (`PlacementListScreenTest`, `PlacementViewModelTest`,
@@ -29,35 +29,22 @@ tags:
 
 - runFlow: ../subflows/sign-in.yaml
 
-# Planification › the « Placements » card, the last of the page.
+# Planification › Placements: the section's menu, then its sub-view (MAG-537).
 - openLink: "maggie-e2e://finance"
 - extendedWaitUntil:
     visible:
-      id: "finance_menu_dashboard"
+      id: "breadcrumb_section"
     timeout: 30000
-# The menu row scrolls: Planification is past the edge of a phone. Selecting Trésorerie, its
-# neighbour, brings the selected tab into view (ScrollableTabRow), and Planification with it.
 - tapOn:
-    id: "finance_menu_treasury"
+    id: "breadcrumb_section"
+- tapOn:
+    id: "breadcrumb_menu_planning"
 - extendedWaitUntil:
     visible:
-      id: "finance_menu_planning"
-    timeout: 10000
-- tapOn:
-    id: "finance_menu_planning"
-- extendedWaitUntil:
-    visible:
-      id: "finance_block_finance_projects"
-    timeout: 20000
-- scrollUntilVisible:
-    element:
-      id: "finance_block_finance_placements"
-    timeout: 10000
-- extendedWaitUntil:
-    visible: ".*3 placements.*"
+      id: "subview_placements"
     timeout: 20000
 - tapOn:
-    id: "finance_block_finance_placements"
+    id: "subview_placements"
 - extendedWaitUntil:
     visible:
       id: "placements"

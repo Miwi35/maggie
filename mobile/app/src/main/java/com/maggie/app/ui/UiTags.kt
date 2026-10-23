@@ -240,14 +240,16 @@ object UiTags {
     const val SAVINGS_ADVANCE_DONE_PREFIX = "savings_advance_done_"
 
     /**
-     * Finance menus (MAG-426) — the tabs row of the phone and the rail of the tablet (one tab or
-     * item per menu, suffixed by its key), and on a menu's summary page one block per aspect,
-     * suffixed by the route it opens.
+     * The breadcrumb of a module (MAG-537): its name, the section button, the menu of the sections (one
+     * item per section, suffixed by its key) and the row of sub-views (one pill per sub-view, suffixed by its key).
      */
-    const val FINANCE_MENU_TABS = "finance_menu_tabs"
-    const val FINANCE_MENU_RAIL = "finance_menu_rail"
-    const val FINANCE_MENU_PREFIX = "finance_menu_"
-    const val FINANCE_BLOCK_PREFIX = "finance_block_"
+    const val BREADCRUMB_MODULE = "breadcrumb_module"
+    const val BREADCRUMB_SECTION = "breadcrumb_section"
+    const val BREADCRUMB_MENU = "breadcrumb_menu"
+    const val BREADCRUMB_SCRIM = "breadcrumb_scrim"
+    const val BREADCRUMB_MENU_PREFIX = "breadcrumb_menu_"
+    const val SUBVIEW_ROW = "subview_row"
+    const val SUBVIEW_PREFIX = "subview_"
     const val ACCOUNT_LAST_SYNC = "account_last_sync"
     const val REFERENCE_SALARY_LINK = "reference_salary_link"
     const val REFERENCE_SHARE = "reference_share"
@@ -289,6 +291,7 @@ object UiTags {
     const val FINANCE_PILL_OWED = "finance_pill_owed"
     const val FINANCE_PILL_ADVANCE = "finance_pill_advance"
     const val FINANCE_REVIEW_SHORTCUT = "finance_review_shortcut"
+    const val FINANCE_REVIEW_CARD = "finance_review_card"
     const val FINANCE_TILE_EXPECTED_SALARY = "finance_tile_expected_salary"
     const val FINANCE_TILE_BALANCE_BEFORE_SALARY = "finance_tile_balance_before_salary"
     const val FINANCE_TILE_ENVELOPE_PREFIX = "finance_tile_envelope_"
@@ -296,7 +299,6 @@ object UiTags {
     const val FINANCE_NEXT_PROJECT_DATE = "finance_next_project_date"
     const val FINANCE_NEXT_PROJECT_FOLLOWING = "finance_next_project_following"
     const val FINANCE_NEXT_PROJECT_NEGATIVE = "finance_next_project_negative"
-    const val FINANCE_TAB_OVERVIEW = "finance_tab_overview"
     const val MONTH_BALANCE_EMPTY = "month_balance_empty"
     const val MONTH_BALANCE_ENVELOPES = "month_balance_envelopes"
     const val MONTH_BALANCE_ENVELOPES_EMPTY = "month_balance_envelopes_empty"
@@ -307,13 +309,10 @@ object UiTags {
     const val MONTH_BALANCE_ENVELOPE_PREFIX = "month_balance_envelope_"
 
     /**
-     * Finance dashboard — the three tabs, « Vue d'ensemble », « État courant » (the balance of a
-     * month, MAG-457) and « À venir », and the blocks of the last: the week and the month after, the envelopes of the month after (one bar per category,
+     * Finance dashboard — the blocks of « À venir » (its sub-view is `subview_upcoming`): the week and the month after, the envelopes of the month after (one bar per category,
      * suffixed by its id), what is spent outside them, what is left toward the projects, and the
      * error with its retry (MAG-463).
      */
-    const val FINANCE_TAB_CURRENT = "finance_tab_current"
-    const val FINANCE_TAB_UPCOMING = "finance_tab_upcoming"
     const val UPCOMING_WEEK = "upcoming_week"
     const val UPCOMING_MONTH = "upcoming_month"
     const val UPCOMING_DAYS_PREFIX = "upcoming_days_"
@@ -683,12 +682,9 @@ object UiTags {
 
     fun railItem(route: String) = RAIL_ITEM_PREFIX + route
 
-    fun financeMenu(key: String) = FINANCE_MENU_PREFIX + key
+    fun breadcrumbMenu(key: String) = BREADCRUMB_MENU_PREFIX + key
 
-    fun financeBlock(route: String) = FINANCE_BLOCK_PREFIX + route
-
-    /** The visual of a block that lists items in order (the projects, MAG-519). */
-    fun financeBlockMarks(route: String) = FINANCE_BLOCK_PREFIX + route + "_marks"
+    fun subview(key: String) = SUBVIEW_PREFIX + key
 
     fun financeScoreRing(period: String) = FINANCE_SCORE_RING_PREFIX + period
 
@@ -837,9 +833,6 @@ object UiTags {
      * periods and the month arrows, a row and its state pill, the two group headings, the empty list.
      */
     const val REVIEW_LIST = "review_list"
-    const val REVIEW_LIST_PILL_ALL = "review_list_pill_all"
-    const val REVIEW_LIST_PILL_UNRECOGNISED = "review_list_pill_unrecognised"
-    const val REVIEW_LIST_PILL_RECOGNISED = "review_list_pill_recognised"
     const val REVIEW_LIST_PERIOD_MONTH = "review_list_period_month"
     const val REVIEW_LIST_PERIOD_SINCE_REVIEW = "review_list_period_since_review"
     const val REVIEW_LIST_PERIOD_ALL = "review_list_period_all"
@@ -888,6 +881,10 @@ object UiTags {
     const val REVIEW_NEXT = "review_next"
     const val REVIEW_POSITION = "review_position"
     const val REVIEW_BACK_TO_LIST = "review_back_to_list"
+    const val REVIEW_OPEN_RULES = "review_open_rules"
+    const val REVIEW_OPEN_RECURRING = "review_open_recurring"
+    const val TREASURY_OPEN_CUSHION = "treasury_open_cushion"
+    const val TREASURY_OPEN_SAVINGS_ADVANCES = "treasury_open_savings_advances"
 
     /** The « À qualifier · n · montant » pill of the finance dashboard and the budget screen. */
     const val TO_QUALIFY_PILL = "to_qualify_pill"

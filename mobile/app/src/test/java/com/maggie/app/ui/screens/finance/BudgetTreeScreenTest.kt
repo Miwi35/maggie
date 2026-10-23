@@ -132,6 +132,8 @@ class BudgetTreeScreenTest {
     fun `the one-off Hellfest sits apart from the month`() {
         open()
 
+        compose.onNodeWithTag(UiTags.subview("outside")).performClick()
+
         compose.onNodeWithText("Hors budget mensuel").assertExists()
         compose.onNodeWithText("Hellfest 2026").assertExists()
     }

@@ -51,20 +51,20 @@ tags:
       id: "review_list_row"
     timeout: 30000
 - assertVisible:
-    id: "review_list_pill_all"
+    id: "subview_all"
 - assertVisible: "Toutes · 3"
 - assertVisible:
-    id: "review_list_pill_unrecognised"
+    id: "subview_to_qualify"
 - assertVisible: "À qualifier · 2"
 - assertVisible:
-    id: "review_list_pill_recognised"
+    id: "subview_recognised"
 - assertVisible: "Reconnues · 1"
 - assertNotVisible:
     id: "review_fiche"
 
 # Filter « À qualifier »: the two Carrefour lines.
 - tapOn:
-    id: "review_list_pill_unrecognised"
+    id: "subview_to_qualify"
 - extendedWaitUntil:
     visible: "CARREFOUR MARKET 1234"
     timeout: 30000
@@ -117,12 +117,12 @@ tags:
     visible: "À qualifier · 1"
     timeout: 30000
 - assertVisible:
-    id: "review_list_pill_recognised"
+    id: "subview_recognised"
 - assertVisible: "Reconnues · 2"
 
 # « Reconnues »: the line the rule recognised, controlled with « Correct ».
 - tapOn:
-    id: "review_list_pill_recognised"
+    id: "subview_recognised"
 - extendedWaitUntil:
     visible: "RECONNUE MAG539 111"
     timeout: 30000

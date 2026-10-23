@@ -53,12 +53,12 @@ tags:
     timeout: 30000
 - assertVisible: "40[.,]00 EUR / 300[.,]00 EUR"
 - assertNotVisible: "Bars › Obsydian"
-# The phone only reads the tree: no way to create or delete an envelope. From 600 dp (rail) it can.
+# The phone only reads the tree: no way to create or delete an envelope. From 600 dp (tree pane) it can.
 - evalScript: ${0}
 - runFlow:
     when:
       notVisible:
-        id: "finance_menu_rail"
+        id: "budget_tree"
     commands:
       - assertNotVisible: "Nouvelle enveloppe"
 
@@ -164,6 +164,8 @@ tags:
 - extendedWaitUntil:
     visible: "65[.,]00 EUR / 300[.,]00 EUR"
     timeout: 30000
+- tapOn:
+    id: "subview_outside"
 - scrollUntilVisible:
     element:
       id: "budget_outside_monthly"
@@ -172,6 +174,8 @@ tags:
 - extendedWaitUntil:
     visible: "Hellfest 2026"
     timeout: 10000
+- tapOn:
+    id: "subview_month"
 
 # Cinéma 20 € this month, 45 € in a season from next month on: rolled over, next month
 # reads the season's amount and names it.

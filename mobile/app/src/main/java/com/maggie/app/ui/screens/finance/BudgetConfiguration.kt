@@ -16,9 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -26,7 +24,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -36,7 +33,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,15 +77,14 @@ internal fun BudgetConfigurationScreen(
     viewModel: BudgetViewModel,
     uiState: BudgetUiState,
     snackbarHostState: SnackbarHostState,
-    onBack: () -> Unit,
+    showsOutside: Boolean,
     toQualify: ToSortPile? = null,
     onOpenToQualify: () -> Unit = {},
-    onAdjust: (() -> Unit)? = null,
 ) {
     val editor = uiState.editor
     ListDetailPane(
         showsDetailPane = true,
-        list = { BudgetTreePane(viewModel, uiState, snackbarHostState, onBack, toQualify, onOpenToQualify, onAdjust) },
+        list = { BudgetTreePane(viewModel, uiState, snackbarHostState, showsOutside, toQualify, onOpenToQualify) },
         detail = editor?.let { open -> { EnvelopeEditorPane(viewModel, uiState, open) } },
         placeholder = "Touchez une catégorie pour régler son enveloppe.",
     )
@@ -101,35 +96,15 @@ private fun BudgetTreePane(
     viewModel: BudgetViewModel,
     uiState: BudgetUiState,
     snackbarHostState: SnackbarHostState,
-    onBack: () -> Unit,
+    showsOutside: Boolean,
     toQualify: ToSortPile?,
     onOpenToQualify: () -> Unit,
-    onAdjust: (() -> Unit)?,
 ) {
     val rows = remember(uiState.categories, uiState.status) { uiState.treeRows }
     val outside = uiState.status?.outsideMonthlyBudget
     val annual = remember(outside) { uiState.nestedAnnualBudgets }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Budgets") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-                actions = {
-                    AdjustAction(onAdjust)
-                    IconButton(
-                        onClick = { viewModel.rollOverPreviousPeriod() },
-                        enabled = !uiState.isRollingOver,
-                    ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Reconduire le mois précédent")
-                    }
-                },
-            )
-        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
@@ -140,7 +115,7 @@ private fun BudgetTreePane(
                 onNext = { viewModel.shiftPeriod(1) },
             )
             ToQualifyRow(toQualify, onOpenToQualify)
-            uiState.status?.takeIf { it.budgets.isNotEmpty() }?.let { status ->
+            uiState.status?.takeIf { it.budgets.isNotEmpty() && !showsOutside }?.let { status ->
                 Text(
                     text = "${formatCents(status.totalConsumedCents)} consommés sur " +
                         "${formatCents(status.totalBudgetedCents)} — " +
@@ -155,14 +130,14 @@ private fun BudgetTreePane(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (uiState.isLoading && rows.isEmpty()) {
+                if (uiState.isLoading && rows.isEmpty() && !showsOutside) {
                     item(key = "loading") {
                         Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
                         }
                     }
                 }
-                items(rows, key = { it.row.category.id }) { node ->
+                items(if (showsOutside) emptyList() else rows, key = { it.row.category.id }) { node ->
                     BudgetNodeRow(
                         name = node.row.category.name,
                         indentLevel = node.row.level,
@@ -172,41 +147,43 @@ private fun BudgetTreePane(
                     )
                 }
 
-                item(key = "outside-monthly-budget") {
-                    Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag(UiTags.BUDGET_OUTSIDE_MONTHLY)) {
-                        Text("Hors budget mensuel", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Les enveloppes annuelles et les événements ponctuels ne comptent pas dans le total du mois.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                if (showsOutside) {
+                    item(key = "outside-monthly-budget") {
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag(UiTags.BUDGET_OUTSIDE_MONTHLY)) {
+                            Text("Hors budget mensuel", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Les enveloppes annuelles et les événements ponctuels ne comptent pas dans le total du mois.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    items(annual, key = { it.line.id }) { row ->
+                        val name = row.label.ifEmpty { row.line.categoryName }
+                        BudgetNodeRow(
+                            name = name,
+                            indentLevel = row.depth,
+                            line = row.line,
+                            caption = budgetPeriodLabel(row.line.mode, row.line.year, row.line.month),
+                            selected = uiState.selectedEnvelopeId == row.line.id,
+                            onClick = { viewModel.selectEnvelope(row.line.id) },
                         )
                     }
-                }
-                items(annual, key = { it.line.id }) { row ->
-                    val name = row.label.ifEmpty { row.line.categoryName }
-                    BudgetNodeRow(
-                        name = name,
-                        indentLevel = row.depth,
-                        line = row.line,
-                        caption = budgetPeriodLabel(row.line.mode, row.line.year, row.line.month),
-                        selected = uiState.selectedEnvelopeId == row.line.id,
-                        onClick = { viewModel.selectEnvelope(row.line.id) },
-                    )
-                }
-                items(outside?.oneOff.orEmpty(), key = { it.id }) { line ->
-                    BudgetNodeRow(
-                        name = line.name,
-                        indentLevel = 1,
-                        line = line,
-                        caption = "Ponctuelle",
-                        selected = uiState.selectedEnvelopeId == line.id,
-                        onClick = { viewModel.selectEnvelope(line.id) },
-                    )
-                }
-                item(key = "new-one-off") {
-                    OutlinedButton(onClick = viewModel::startNewOneOff, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                        Text("Nouvelle ponctuelle")
+                    items(outside?.oneOff.orEmpty(), key = { it.id }) { line ->
+                        BudgetNodeRow(
+                            name = line.name,
+                            indentLevel = 1,
+                            line = line,
+                            caption = "Ponctuelle",
+                            selected = uiState.selectedEnvelopeId == line.id,
+                            onClick = { viewModel.selectEnvelope(line.id) },
+                        )
+                    }
+                    item(key = "new-one-off") {
+                        OutlinedButton(onClick = viewModel::startNewOneOff, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                            Text("Nouvelle ponctuelle")
+                        }
                     }
                 }
             }

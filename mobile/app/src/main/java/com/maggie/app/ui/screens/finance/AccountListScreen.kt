@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
@@ -32,13 +31,12 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -82,22 +80,12 @@ fun AccountListScreen(
     Scaffold(
         modifier = Modifier.uiTagRoot(),
         topBar = {
-            FinanceTopBar(Screen.AccountList.route) {
-                TopAppBar(
-                    title = { Text("Comptes") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                    actions = {
-                        // The people behind the transfers live with the accounts (MAG-450).
-                        IconButton(onClick = onOpenContacts, modifier = Modifier.testTag(UiTags.ACCOUNTS_CONTACTS)) {
-                            Icon(Icons.Default.Person, contentDescription = "Contacts")
-                        }
-                    },
-                )
-            }
+            FinanceTopBar(Screen.AccountList.route, actions = {
+                // The people behind the transfers live with the accounts (MAG-450).
+                IconButton(onClick = onOpenContacts, modifier = Modifier.testTag(UiTags.ACCOUNTS_CONTACTS)) {
+                    Icon(Icons.Default.Person, contentDescription = "Contacts")
+                }
+            })
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
