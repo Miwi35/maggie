@@ -235,6 +235,27 @@ Maggie\Calendar\Entity\Event:
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_work'
 
+  # The Accueil's Agenda card (MAG-562): one event done and one still to come around the
+  # lunch, so « maintenant » sits between them whenever the stack is pinned at noon.
+  e2e_event_home_done:
+    summary: Point du matin
+    location: Salon
+    startAt: '<e2eDate("08:00")>'
+    endAt: '<e2eDate("08:30")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_shared'
+
+  e2e_event_home_upcoming:
+    summary: Appel avec le plombier
+    description: Devis de la salle de bain
+    location: Au téléphone
+    startAt: '<e2eDate("18:30")>'
+    endAt: '<e2eDate("19:00")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_shared'
+
   # The neighbour's, at the same hour as the signed-in user's lunch: a journey
   # asking "what do I have today?" has to come back without it.
   e2e_other_event_today:

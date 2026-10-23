@@ -5,7 +5,7 @@ tags:
 ---
 # The Accueil (MAG-560): the landing screen after sign-in, a title « Accueil » and the
 # « Aujourd'hui · Demain » selector over a stack of cards. Each module's ticket adds its
-# card's steps here; what a card holds and what the selector passes to it are
+# card's steps here (the Agenda card's are in `24-home-agenda.yaml`); what a card holds and what the selector passes to it are
 # `HomeScreenTest`'s, `HomeCardScreenTest`'s, `HomeViewModelTest`'s and each card's own.
 #
 # Given the signed-in user opens the app, then « Accueil » and the selector are on screen,

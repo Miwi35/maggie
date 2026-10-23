@@ -1,10 +1,11 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, e2eNow, parisTime, parisDay } from '../fixtures/index.js'
 import { HomePage } from '../pages/HomePage.js'
 
 /**
  * The Accueil (MAG-560): the trail says where we are and a selector picks the
  * day every card shows. The selector lives in the URL, so a reload or a shared
- * link keeps it. The cards come with their own tickets and journeys.
+ * link keeps it. The cards come with their own tickets and journeys: the Agenda
+ * card's (MAG-562) is at the end of this file.
  */
 test('the Accueil shows its trail and a day selector that switches to « Demain » @responsive', async ({ page }) => {
   const home = new HomePage(page)
@@ -72,4 +73,47 @@ test('the Finance card says « Dans le rythme » and opens the Dashboard', async
 
   await card.getByRole('link', { name: 'Finance' }).first().click()
   await expect(homeUser.page).toHaveURL(/\/finance\/dashboard/)
+})
+
+/**
+ * The Agenda card (MAG-562). The seed has « Point du matin » (08:00) done and
+ * « Appel avec le plombier » (18:30) to come around the lunch (12:00): the line sits
+ * between them while the stack is pinned at noon, which CI does. Outside 08:30–18:30
+ * Paris (an unpinned run) the line is elsewhere, so the journey has nothing to say.
+ */
+test('the Agenda card puts « maintenant » between the done and the coming event, and the fiche opens on touch @responsive', async ({ page }) => {
+  const day = parisDay()
+  const now = e2eNow().getTime()
+  test.skip(
+    now < Date.parse(parisTime(day, '08:30:00')) || now >= Date.parse(parisTime(day, '18:30:00')),
+    'the seeded events frame « maintenant » only between 08:30 and 18:30',
+  )
+
+  const home = new HomePage(page)
+  await home.open()
+
+  const done = home.agendaRow('Point du matin')
+  const upcoming = home.agendaRow('Appel avec le plombier')
+  await expect(done).toBeVisible()
+  await expect(home.nowLine).toBeVisible()
+  await expect(done).toContainText('fait')
+
+  const [doneBox, lineBox, upcomingBox] = await Promise.all([
+    done.boundingBox(),
+    home.nowLine.boundingBox(),
+    upcoming.boundingBox(),
+  ])
+  expect(doneBox && lineBox && upcomingBox).toBeTruthy()
+  expect(doneBox!.y).toBeLessThan(lineBox!.y)
+  expect(lineBox!.y).toBeLessThan(upcomingBox!.y)
+
+  await upcoming.click()
+
+  const fiche = home.eventPanel('Appel avec le plombier')
+  await expect(fiche).toBeVisible()
+  await expect(fiche).toContainText('18:30')
+  await expect(fiche).toContainText('Au téléphone')
+  await expect(fiche).toContainText('Famille')
+  await expect(fiche).toContainText('Devis de la salle de bain')
+  await expect(fiche.getByRole('link', { name: "Ouvrir dans l'agenda" })).toBeVisible()
 })

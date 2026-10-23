@@ -53,6 +53,7 @@ object HomeCardRegistry {
         HomeCardEntry(HomeModules.TASKS, HomeZone.MAIN) { day -> TasksHomeCard(day) },
         HomeCardEntry(module = HomeModules.NUTRITION, zone = HomeZone.MAIN) { day -> NutritionHomeCard(day) },
         HomeCardEntry(module = HomeModules.FINANCE, zone = HomeZone.MAIN) { FinanceHomeCard() },
+        HomeCardEntry(HomeModules.AGENDA, HomeZone.MAIN) { day -> AgendaCard(day) },
     )
 }
 

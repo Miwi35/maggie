@@ -31,9 +31,9 @@ class ProactionToolsTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
+        $this->loadFixtures('ProactionToolsTest.yaml');
         $this->resetMercure();
         $this->resetAsyncTransport();
-        $this->loadFixtures('ProactionToolsTest.yaml');
     }
 
     /** @return array<string, mixed> */

@@ -1,0 +1,52 @@
+appId: com.maggie.app.e2e
+name: 24-home-agenda
+tags:
+  - dashboard
+---
+# The Agenda card of the Accueil (MAG-562): the seed's own user holds
+# « Point du matin » (08:00, done) and « Appel avec le plombier » (18:30, to come) in the
+# Famille agenda; with the clock pinned at noon the « maintenant » line sits between them.
+# Given those two events today, when the Accueil opens, then the line is on screen with the
+# done event above it; when the user touches the coming event, then its fiche opens with the
+# place and « Ouvrir dans l'agenda ». The rows, the order and the fiche's fields are
+# `AgendaCardScreenTest`'s and `AgendaHomeViewModelTest`'s.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/24-home-agenda.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home_screen"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "home_day_today"
+      checked: true
+    timeout: 20000
+
+- extendedWaitUntil:
+    visible: "Point du matin"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "home_agenda_now_line"
+    timeout: 20000
+- assertVisible: "Appel avec le plombier"
+
+- tapOn: "Appel avec le plombier"
+- extendedWaitUntil:
+    visible:
+      id: "home_agenda_sheet"
+    timeout: 20000
+- assertVisible:
+    id: "home_agenda_sheet_title"
+    text: "Appel avec le plombier"
+- assertVisible: "Au téléphone"
+- assertVisible:
+    id: "home_agenda_open_event"
