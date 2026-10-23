@@ -137,29 +137,31 @@ const Ring = ({ period, title, ring }: { period: 'week' | 'month'; title: string
           )}
         </Stack>
       </Box>
-      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: colour }} data-testid="home-finance-status">
-        <Box
-          component="span"
-          aria-hidden="true"
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 16,
-            height: 16,
-            borderRadius: '50%',
-            fontSize: 10,
-            fontWeight: 700,
-            bgcolor: colour,
-            color: theme.palette.background.default,
-          }}
-        >
-          {meta.glyph}
-        </Box>
-        <Typography variant="caption" sx={{ fontWeight: 600, color: 'inherit' }}>
-          {word}
-        </Typography>
-      </Stack>
+      {hasBudget && (
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: colour }} data-testid="home-finance-status">
+          <Box
+            component="span"
+            aria-hidden="true"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 16,
+              height: 16,
+              borderRadius: '50%',
+              fontSize: 10,
+              fontWeight: 700,
+              bgcolor: colour,
+              color: theme.palette.background.default,
+            }}
+          >
+            {meta.glyph}
+          </Box>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'inherit' }}>
+            {word}
+          </Typography>
+        </Stack>
+      )}
     </Box>
   )
 }

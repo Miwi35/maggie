@@ -96,6 +96,7 @@ describe('FinanceHomeCard', () => {
     await screen.findAllByTestId('home-finance-ring')
 
     expect(within(ringOf('week')).getByText('Aucune enveloppe')).toBeInTheDocument()
+    expect(within(ringOf('week')).queryByTestId('home-finance-status')).not.toBeInTheDocument()
     expect(within(ringOf('week')).queryByTestId('home-finance-remaining')).toBeNull()
   })
 

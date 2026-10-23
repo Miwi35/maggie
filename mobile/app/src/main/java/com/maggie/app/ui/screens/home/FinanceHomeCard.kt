@@ -147,7 +147,7 @@ private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHome
                 )
             }
         }
-        StatusLabel(status, word, modifier = Modifier.testTag(UiTags.homeFinanceRingStatus(period)))
+        if (hasEnvelope(rhythm)) StatusLabel(status, word)
     }
 }
 

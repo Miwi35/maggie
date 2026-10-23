@@ -80,11 +80,14 @@ tags:
 - assertVisible: "Article 5"
 - assertNotVisible: "Article 6"
 
-# The Finance card: both rings under the pace, whatever the day.
+# The Finance card: both rings under the pace, whatever the day (the ring's description carries the word).
 - scrollUntilVisible:
     element:
-      id: "home_finance_status_month"
+      id: "home_finance_ring_month"
     timeout: 20000
 - assertVisible:
-    id: "home_finance_status_week"
-- assertVisible: "Dans le rythme"
+    id: "home_finance_ring_week"
+    text: ".*Dans le rythme.*"
+- assertVisible:
+    id: "home_finance_ring_month"
+    text: ".*Dans le rythme.*"
