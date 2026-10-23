@@ -3,6 +3,8 @@ package com.maggie.app.ui.screens.finance
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.filter
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -21,6 +23,12 @@ import com.maggie.app.data.model.PlanningMonth
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectInvestment
 import com.maggie.app.data.model.ProjectPlanning
+import com.maggie.app.data.model.ProjectPreview
+import com.maggie.app.data.model.ProjectPreviewDate
+import com.maggie.app.data.model.ProjectPreviewMetrics
+import com.maggie.app.data.model.ProjectPreviewN
+import com.maggie.app.data.model.ProjectPreviewProject
+import com.maggie.app.data.model.ProjectPreviewScenario
 import com.maggie.app.data.model.ProjectResale
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.ProjectFundingSource
@@ -37,6 +45,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 /**
  * « Projets » as drawn (MAG-519): the rows in priority order with their badge, date, dependency and
@@ -163,6 +172,100 @@ class ProjectListScreenTest {
 
         compose.onNodeWithText("Choisissez la date du projet.").assertIsDisplayed()
         coVerify(exactly = 0) { repository.createProject(any()) }
+    }
+
+    private fun preview(editable: Boolean = true) = ProjectPreview(
+        scenario = ProjectPreviewScenario("s1", "Équilibré", editable),
+        project = ProjectPreviewProject(name = "Box à louer", amountCents = 1800000, currency = "EUR"),
+        dates = listOf(
+            ProjectPreviewDate("p1", "Déménagement", before = "2027-03", after = "2027-03"),
+            ProjectPreviewDate("p2", "Canapé", before = "2027-06", after = "2027-07"),
+        ),
+        nDate = ProjectPreviewN(before = "2041-03", after = "2041-05"),
+        metrics = ProjectPreviewMetrics(realCost = 1800000, availableAt = "2028-01", nImpactMonths = 2),
+    )
+
+    private fun fillBoxAndAsk(viewModel: ProjectViewModel) {
+        compose.setContent { ProjectFormScreen(viewModel, projectId = null, onClose = {}) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_NAME).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag(UiTags.PROJECT_NAME).performTextInput("Box à louer")
+        compose.onNodeWithTag(UiTags.PROJECT_AMOUNT).performTextInput("18000")
+        compose.onNodeWithTag(UiTags.PROJECT_SAVE).performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_PREVIEW).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `on the tablet a new project is previewed first, its dates before and after and N`() {
+        coEvery { repository.previewProject(any()) } returns Result.success(preview())
+        fillBoxAndAsk(viewModel())
+
+        compose.onNodeWithText("Ajouter « Box à louer » au scénario courant ?").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.PROJECT_PREVIEW_DATE).assertCountEquals(2)
+        compose.onAllNodesWithTag(UiTags.PROJECT_PREVIEW_N).assertCountEquals(1)
+        compose.onNodeWithText("juin 2027").assertIsDisplayed()
+        compose.onNodeWithText("juillet 2027").assertIsDisplayed()
+        compose.onNodeWithText("Coût réel : ", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Impact sur N : 2 mois plus tard").assertIsDisplayed()
+        coVerify(exactly = 0) { repository.createProject(any()) }
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `cancelling the preview creates nothing`() {
+        coEvery { repository.previewProject(any()) } returns Result.success(preview())
+        fillBoxAndAsk(viewModel())
+
+        compose.onNodeWithTag(UiTags.PROJECT_PREVIEW_CANCEL).performClick()
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_PREVIEW).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(UiTags.PROJECT_SAVE).assertTextEquals("Voir l'aperçu")
+        coVerify(exactly = 0) { repository.createProject(any()) }
+        coVerify(exactly = 0) { repository.addToScenario(any(), any()) }
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `adding from the preview creates the project and puts it in the scenario`() {
+        val created = Project(id = "p3", name = "Box à louer", amountCents = 1800000, position = 2)
+        coEvery { repository.previewProject(any()) } returns Result.success(preview())
+        coEvery { repository.createProject(any()) } returns Result.success(created)
+        coEvery { repository.addToScenario("s1", "p3") } returns Result.success(Unit)
+        fillBoxAndAsk(viewModel())
+
+        compose.onNodeWithTag(UiTags.PROJECT_PREVIEW_CONFIRM).performClick()
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_PREVIEW).fetchSemanticsNodes().isEmpty() }
+        coVerify(exactly = 1) { repository.createProject(any()) }
+        coVerify(exactly = 1) { repository.addToScenario("s1", "p3") }
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `an automatic scenario says the project is created outside it and Ajouter stays available`() {
+        coEvery { repository.previewProject(any()) } returns Result.success(preview(editable = false))
+        fillBoxAndAsk(viewModel())
+
+        compose.onNodeWithText("créé sans y entrer", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PROJECT_PREVIEW_CONFIRM).assertIsEnabled()
+    }
+
+    @Test
+    fun `on the phone a new project is created as before, without a preview`() {
+        val created = Project(id = "p3", name = "Box à louer", amountCents = 1800000, position = 2)
+        coEvery { repository.createProject(any()) } returns Result.success(created)
+        val viewModel = viewModel()
+        compose.setContent { ProjectFormScreen(viewModel, projectId = null, onClose = {}) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_NAME).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag(UiTags.PROJECT_NAME).performTextInput("Box à louer")
+        compose.onNodeWithTag(UiTags.PROJECT_AMOUNT).performTextInput("18000")
+
+        compose.onNodeWithTag(UiTags.PROJECT_SAVE).assertTextEquals("Créer")
+        compose.onNodeWithTag(UiTags.PROJECT_SAVE).performClick()
+
+        compose.waitForIdle()
+        coVerify(timeout = 5_000) { repository.createProject(any()) }
+        coVerify(exactly = 0) { repository.previewProject(any()) }
     }
 
     @Test

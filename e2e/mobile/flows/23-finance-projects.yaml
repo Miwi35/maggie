@@ -189,8 +189,25 @@ tags:
     id: "project_target_on"
 - tapOn:
     id: "picker_confirm"
-- tapOn:
-    id: "project_save"
+# From 600 dp (MAG-553) a new project is previewed first: « Ajouter » of the dialog is the creation.
+- runFlow:
+    when:
+      visible: "Voir l'aperçu"
+    commands:
+      - tapOn:
+          id: "project_save"
+      - extendedWaitUntil:
+          visible:
+            id: "project_preview_confirm"
+          timeout: 20000
+      - tapOn:
+          id: "project_preview_confirm"
+- runFlow:
+    when:
+      notVisible: "Voir l'aperçu"
+    commands:
+      - tapOn:
+          id: "project_save"
 - extendedWaitUntil:
     visible:
       id: "projects"

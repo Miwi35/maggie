@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
@@ -16,8 +16,11 @@ import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
+import { ProjectPreviewCard } from './ProjectPreviewCard'
+import type { ScenarioChoice } from './ProjectPreviewCard'
 import { DATE_MODE_CHOICES, ProjectError, WELLBEING_CHOICES } from './projectsApi'
-import type { Project, ProjectDateMode, ProjectInput, ProjectWellbeing } from './projectsApi'
+import type { Project, ProjectDateMode, ProjectInput, ProjectPreview, ProjectWellbeing } from './projectsApi'
+import { fetchScenarios, isAuto } from './scenariosApi'
 import { emptyValues, toInput, validateProject, valuesOf } from './projectForm'
 import type { ProjectFormErrors, ProjectFormField, ProjectFormValues } from './projectForm'
 
@@ -29,15 +32,28 @@ interface ProjectDialogProps {
   /** Every project, to choose the ones this one waits for. */
   projects: Project[]
   onClose: () => void
-  onSubmit: (input: ProjectInput) => Promise<void>
+  /** Creating: the preview confirmed is given with the input; editing: alone. */
+  onSubmit: (input: ProjectInput, preview?: ProjectPreview) => Promise<void>
+  /** Creating only: what adding the project would change, in the current scenario or in `scenarioId` (MAG-553). */
+  onPreview?: (input: ProjectInput, scenarioId?: string) => Promise<ProjectPreview>
 }
 
-/** Creating or editing a project (MAG-519). */
-export const ProjectDialog = ({ project, projects, onClose, onSubmit }: ProjectDialogProps) => {
+/** The scenarios a project can be added to: the user's own, the automatic ones are duplicated first. */
+const addableScenarios = async (): Promise<ScenarioChoice[]> =>
+  (await fetchScenarios()).filter((scenario) => !isAuto(scenario)).map((scenario) => ({ id: scenario.id, name: scenario.name, current: scenario.current }))
+
+/**
+ * Creating or editing a project (MAG-519). A new project is previewed first (MAG-553): « Aperçu »
+ * shows what it changes in the scenario followed, « Ajouter » creates it, « Annuler » creates nothing.
+ */
+export const ProjectDialog = ({ project, projects, onClose, onSubmit, onPreview }: ProjectDialogProps) => {
   const [values, setValues] = useState<ProjectFormValues>(() => (project ? valuesOf(project) : emptyValues()))
   const [errors, setErrors] = useState<ProjectFormErrors>({})
   const [failure, setFailure] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [preview, setPreview] = useState<{ input: ProjectInput; data: ProjectPreview } | null>(null)
+  const [choices, setChoices] = useState<ScenarioChoice[]>([])
+  const previewing = !project && Boolean(onPreview)
   const others = projects.filter((candidate) => candidate.id !== project?.id)
 
   const set = <K extends keyof ProjectFormValues>(key: K, value: ProjectFormValues[K]) =>
@@ -46,12 +62,48 @@ export const ProjectDialog = ({ project, projects, onClose, onSubmit }: ProjectD
   const toggleDependency = (id: string, checked: boolean) =>
     set('dependsOn', checked ? [...values.dependsOn, id] : values.dependsOn.filter((candidate) => candidate !== id))
 
+  useEffect(() => {
+    if (!preview) return
+    let stale = false
+    addableScenarios()
+      .then((next) => {
+        if (!stale) setChoices(next)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      stale = true
+    }
+    // Read once when the preview opens: the previewed scenario is always offered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview === null])
+
+  const showPreview = async (scenarioId?: string) => {
+    if (!onPreview) return
+    const input = preview?.input ?? toInput(values)
+    setFailure(null)
+    setSaving(true)
+    try {
+      setPreview({ input, data: await onPreview(input, scenarioId) })
+    } catch (error) {
+      setFailure(error instanceof Error && error.message ? error.message : "L'aperçu n'a pas pu être calculé.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const submit = async (event: FormEvent) => {
     event.preventDefault()
+    if (preview) return
     const found = validateProject(values)
     setErrors(found)
     setFailure(null)
     if (Object.keys(found).length > 0) return
+
+    if (previewing) {
+      await showPreview()
+      return
+    }
 
     setSaving(true)
     try {
@@ -66,6 +118,19 @@ export const ProjectDialog = ({ project, projects, onClose, onSubmit }: ProjectD
     }
   }
 
+  const add = async () => {
+    if (!preview) return
+    setFailure(null)
+    setSaving(true)
+    try {
+      await onSubmit(preview.input, preview.data)
+    } catch (error) {
+      setFailure(error instanceof Error && error.message ? error.message : "Le projet n'a pas été enregistré.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const dateLabel = values.dateMode === 'deadline' ? 'Date limite' : 'Date du projet'
 
   return (
@@ -75,6 +140,17 @@ export const ProjectDialog = ({ project, projects, onClose, onSubmit }: ProjectD
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {failure && <Alert severity="error">{failure}</Alert>}
+            {preview ? (
+              <ProjectPreviewCard
+                preview={preview.data}
+                choices={choices}
+                busy={saving}
+                onScenario={(id) => {
+                  void showPreview(id)
+                }}
+              />
+            ) : (
+              <>
             <TextField
               label="Nom"
               required
@@ -161,13 +237,26 @@ export const ProjectDialog = ({ project, projects, onClose, onSubmit }: ProjectD
               value={values.note}
               onChange={(event) => set('note', event.target.value)}
             />
+              </>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>Annuler</Button>
-          <Button type="submit" variant="contained" disabled={saving}>
-            Enregistrer
-          </Button>
+          {preview ? (
+            <>
+              <Button onClick={() => setPreview(null)} disabled={saving}>
+                Modifier
+              </Button>
+              <Button variant="contained" onClick={add} disabled={saving}>
+                Ajouter
+              </Button>
+            </>
+          ) : (
+            <Button type="submit" variant="contained" disabled={saving}>
+              {previewing ? 'Aperçu' : 'Enregistrer'}
+            </Button>
+          )}
         </DialogActions>
       </form>
     </Dialog>

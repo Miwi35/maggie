@@ -113,6 +113,7 @@ import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.PlacementSimulation
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectPlanning
+import com.maggie.app.data.model.ProjectPreview
 import com.maggie.app.data.model.ProjectOptions
 import com.maggie.app.data.model.ScenarioComparison
 import com.maggie.app.data.model.ScenarioList
@@ -617,6 +618,22 @@ data class ProjectWriteRequest(
 )
 
 /**
+ * `POST /api/finance/projects/preview` (MAG-553): a project as at creation, but its dependencies are plain ids,
+ * not IRIs. [scenarioId] null previews in the current scenario. Nothing is created.
+ */
+@Serializable
+data class ProjectPreviewRequest(
+    val name: String,
+    val amountCents: Int,
+    val wellbeing: String,
+    val dateMode: String,
+    val targetOn: String?,
+    val dependsOn: List<String>,
+    val note: String?,
+    val scenarioId: String?,
+)
+
+/**
  * One source of `PUT /api/finance/projects/{id}/funding` (MAG-525). [account] is the account id of a
  * savings or capital source. [loan] holds the conditions of a loan source; absent, the API keeps the
  * conditions of the project's current loan.
@@ -680,6 +697,11 @@ class ScenarioWriteRequest private constructor(val body: JsonObject) {
     companion object {
         /** Only the name: a rename. */
         fun rename(name: String) = ScenarioWriteRequest(buildJsonObject { put("name", JsonPrimitive(name)) })
+
+        /** Only the projects, in their order: how a new project joins a scenario. */
+        fun projects(projectIds: List<String>) = ScenarioWriteRequest(
+            buildJsonObject { put("projectIds", buildJsonArray { projectIds.forEach { add(JsonPrimitive(it)) } }) },
+        )
 
         /** Everything the editor holds. [monthlySavingCents] null clears the saving. */
         fun of(
@@ -2333,6 +2355,15 @@ class MaggieApiService(
         return client.post("$baseUrl/api/finance/projects") {
             contentType(ContentType.Application.Json)
             accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    /** What adding the project would change, in the current scenario or in `scenarioId`; a 400 or 404 carries the reason. */
+    suspend fun previewProject(request: ProjectPreviewRequest): ProjectPreview {
+        return client.post("$baseUrl/api/finance/projects/preview") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
             setBody(request)
         }.orRefusal().body()
     }
