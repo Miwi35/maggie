@@ -22,7 +22,7 @@ function openStorage(): ReloadStorage | null {
 
 // A tab opened before a deploy still points at the previous build's hashed
 // chunks, which the new image no longer ships: the import fails (nginx answers
-// index.html for the missing file). Reloading fetches the current index.html.
+// 404, or index.html outside /admin/assets/). Reloading fetches the current index.html.
 export async function loadWithReload<T>(load: () => Promise<T>, options: Options = {}): Promise<T> {
   const storage = options.storage ?? openStorage()
   const reload = options.reload ?? (() => window.location.reload())
