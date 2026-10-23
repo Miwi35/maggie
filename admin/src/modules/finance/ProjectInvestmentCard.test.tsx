@@ -157,6 +157,39 @@ describe('ProjectInvestmentCard', () => {
     expect(screen.getByTestId('investment-rent-dates')).toHaveTextContent('Loyers perçus dès janv. 2027')
   })
 
+  test('says the rent the projection counts and the points of independence it adds', () => {
+    stubApi(saved(null))
+    render(
+      <ProjectInvestmentCard
+        project={BOX}
+        projects={[BOX, CAR]}
+        planned={planned({})}
+        rente={{ projectId: 'BOX', name: 'Box à louer', monthlyRentCents: 16_000, fromMonth: '2027-03', untilMonth: null, coveragePoints: 1 }}
+        onSaved={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByTestId('investment-rente-counted').textContent).toMatch(/^Rente comptée : 160\s€ \/ mois de loyer · indépendance \+ 1 point$/)
+  })
+
+  test('omits the counted rent with no points, or with no item in the projection', () => {
+    stubApi(saved(null))
+    const { unmount } = render(
+      <ProjectInvestmentCard
+        project={BOX}
+        projects={[BOX, CAR]}
+        planned={planned({})}
+        rente={{ projectId: 'BOX', name: 'Box à louer', monthlyRentCents: 16_000, fromMonth: null, untilMonth: null, coveragePoints: null }}
+        onSaved={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('investment-rente-counted')).toBeNull()
+    unmount()
+
+    renderCard(BOX)
+    expect(screen.queryByTestId('investment-rente-counted')).toBeNull()
+  })
+
   test('offers to define an investment on a plain project', () => {
     stubApi(saved(null))
     renderCard(project())

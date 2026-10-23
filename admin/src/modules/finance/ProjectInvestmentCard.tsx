@@ -14,8 +14,10 @@ import { formatCents } from './accountTypes'
 import { InvestmentChart } from './InvestmentChart'
 import { InvestmentDialog } from './InvestmentDialog'
 import { ganttMonthLabel, monthNumber } from './ProjectGantt'
+import { formatEuros } from './placementsApi'
 import { removeInvestment, saveInvestment } from './projectsApi'
 import type { InvestmentInput, PlannedProject, Project, ProjectInvestment } from './projectsApi'
+import type { RenteSourceInvestment } from './useFinanceDashboard'
 import { useLoanCurve } from './useLoanSimulation'
 
 const numeric = { fontVariantNumeric: 'tabular-nums' } as const
@@ -67,12 +69,21 @@ const heldMonthsOf = (planned: PlannedProject | null): number | null => {
   return Math.max(1, monthNumber(rent.rentUntilMonth) - monthNumber(rent.rentFromMonth) + 1)
 }
 
+/** « Rente comptée : 160 € / mois de loyer · indépendance + 9 points »; null when the projection gives no points. */
+const renteCountedLine = (rente: RenteSourceInvestment | null | undefined): string | null => {
+  if (!rente || rente.coveragePoints === null) return null
+
+  return `Rente comptée : ${formatEuros(rente.monthlyRentCents)} / mois de loyer · indépendance + ${rente.coveragePoints} point${rente.coveragePoints > 1 ? 's' : ''}`
+}
+
 interface ProjectInvestmentCardProps {
   project: Project
   /** Every project, to name the one a resale funds and to choose it. */
   projects: Project[]
   /** The project's line in the planning, for the dates the rent and the resale fall on. */
   planned: PlannedProject | null
+  /** The investment's item of the independence projection (MAG-558), when it has one. */
+  rente?: RenteSourceInvestment | null
   /** The project as the API answered the write. */
   onSaved: (project: Project) => void
 }
@@ -82,7 +93,7 @@ interface ProjectInvestmentCardProps {
  * against the monthly payment, the planned resale and, month by month from the purchase, the capital still owed
  * against the rents received. Created, edited and removed here; the API refuses what does not add up.
  */
-export const ProjectInvestmentCard = ({ project, projects, planned, onSaved }: ProjectInvestmentCardProps) => {
+export const ProjectInvestmentCard = ({ project, projects, planned, rente, onSaved }: ProjectInvestmentCardProps) => {
   const investment = project.investment
   const [editing, setEditing] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -107,6 +118,7 @@ export const ProjectInvestmentCard = ({ project, projects, planned, onSaved }: P
   }
 
   const rent = rentLine(planned)
+  const counted = renteCountedLine(rente)
 
   return (
     <Card variant="outlined" component="section" aria-label={`Investissement de ${project.name}`} data-testid="investment-card">
@@ -167,6 +179,12 @@ export const ProjectInvestmentCard = ({ project, projects, planned, onSaved }: P
             {rent && (
               <Typography variant="body2" color="text.secondary" data-testid="investment-rent-dates">
                 {rent}
+              </Typography>
+            )}
+
+            {counted && (
+              <Typography variant="body2" color="text.secondary" data-testid="investment-rente-counted">
+                {counted}
               </Typography>
             )}
 

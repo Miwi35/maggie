@@ -21,6 +21,11 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.CoveragePoint
 import com.maggie.app.data.model.IndependenceCounter
 import com.maggie.app.data.model.IndependenceProjection
+import com.maggie.app.data.model.IndependenceRenteSourceKind
+import com.maggie.app.data.model.INDEPENDENCE_SOURCES_TITLE
+import com.maggie.app.data.model.RenteSources
+import com.maggie.app.data.model.independenceRenteSourceRows
+import com.maggie.app.data.model.independenceRenteSourcesCaption
 import com.maggie.app.data.model.independenceCurveDescription
 import com.maggie.app.data.model.independenceDateN
 import com.maggie.app.data.model.independenceMilestoneRows
@@ -36,8 +41,13 @@ import com.maggie.app.ui.UiTags
  */
 @Composable
 internal fun IndependenceProjectionBlock(counter: IndependenceCounter, modifier: Modifier = Modifier) {
-    val dateN = independenceDateN(counter) ?: return
+    val dateN = independenceDateN(counter)
     val projection = counter.projection
+
+    if (dateN == null) {
+        IndependenceRenteSources(counter.renteSources, modifier)
+        return
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
@@ -58,6 +68,45 @@ internal fun IndependenceProjectionBlock(counter: IndependenceCounter, modifier:
             IndependenceCurve(projection, modifier = Modifier.padding(top = 8.dp))
         }
         IndependenceMilestones(projection, modifier = Modifier.padding(top = 8.dp))
+        IndependenceRenteSources(counter.renteSources, modifier = Modifier.padding(top = 12.dp))
+    }
+}
+
+/**
+ * « Sources des rentes à venir » (MAG-558): the simulated rents the projection counts — placements
+ * withdrawn at 4 % a year, investments' rents. Always labelled a simulation, no advice. Draws
+ * nothing when there is neither a placement nor an investment.
+ */
+@Composable
+internal fun IndependenceRenteSources(sources: RenteSources, modifier: Modifier = Modifier) {
+    val rows = independenceRenteSourceRows(sources)
+    if (rows.isEmpty()) return
+
+    Column(modifier = modifier.fillMaxWidth().testTag(UiTags.INDEPENDENCE_SOURCES)) {
+        Text(
+            text = INDEPENDENCE_SOURCES_TITLE,
+            style = MaterialTheme.typography.labelMedium,
+        )
+        rows.forEach { row ->
+            Text(
+                text = row.text,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 2.dp).testTag(
+                    when (row.kind) {
+                        IndependenceRenteSourceKind.PLACEMENTS -> UiTags.INDEPENDENCE_SOURCES_PLACEMENTS
+                        IndependenceRenteSourceKind.INVESTMENTS -> UiTags.INDEPENDENCE_SOURCES_INVESTMENTS
+                    },
+                ),
+            )
+        }
+        independenceRenteSourcesCaption(sources)?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp).testTag(UiTags.INDEPENDENCE_SOURCES_CAPTION),
+            )
+        }
     }
 }
 

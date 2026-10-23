@@ -1000,6 +1000,22 @@ class DtoContractTest {
             planning["independence"]!!.jsonObject["projection"]!!.jsonObject.keys,
             source,
         )
+        // The simulated rents the projection counts (MAG-558): the recording carries one placement
+        // and no investment, so InvestmentRenteItem is checked by IndependenceRenteSourcesTest.
+        val renteSources = planning["independence"]!!.jsonObject["renteSources"]!!.jsonObject
+        assertDeclaredFieldsExist("RenteSources", serializer<RenteSources>(), renteSources.keys, source)
+        assertDeclaredFieldsExist(
+            "PlacementRentes", serializer<PlacementRentes>(), renteSources["placements"]!!.jsonObject.keys, source,
+        )
+        assertDeclaredFieldsExist(
+            "InvestmentRentes", serializer<InvestmentRentes>(), renteSources["investments"]!!.jsonObject.keys, source,
+        )
+        assertDeclaredFieldsExist(
+            "PlacementRenteItem",
+            serializer<PlacementRenteItem>(),
+            renteSources["placements"]!!.jsonObject["items"]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet(),
+            source,
+        )
         assertDeclaredFieldsExist(
             "SavingCapacity",
             serializer<SavingCapacity>(),
@@ -1019,6 +1035,13 @@ class DtoContractTest {
         assertTrue(projection.curve.isEmpty())
         assertEquals(setOf("25", "50", "75", "100"), projection.milestones.keys)
         assertTrue(projection.milestones.values.all { it == null })
+        val rentes = dashboard.tiles.planning.independence.renteSources
+        assertEquals(1, rentes.placements.count)
+        assertEquals(24810L, rentes.placements.items.single().monthlyRentCents)
+        assertEquals("2046-04", rentes.placements.items.single().fromMonth)
+        assertNull(rentes.placements.items.single().coveragePoints)
+        assertEquals(400, rentes.withdrawalRateBasisPoints)
+        assertTrue(rentes.investments.items.isEmpty())
         assertTrue(dashboard.tiles.accounts.accounts.single().isCushion)
         assertTrue(dashboard.tiles.budget.envelopes.single().isOverspent)
         assertNotNull(dashboard.scores)

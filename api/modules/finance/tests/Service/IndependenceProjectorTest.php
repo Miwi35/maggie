@@ -114,4 +114,30 @@ class IndependenceProjectorTest extends TestCase
         self::assertNull($projector->nImpactMonths($this->project(), $this->project(tail: 0)));
         self::assertNull($projector->nImpactMonths($this->project(tail: 0), $this->project()));
     }
+
+    public function testARentCountsAsARenteFromItsMonth(): void
+    {
+        $projector = new IndependenceProjector();
+        $base = $this->project();
+        // 160 € of rent from the 4th month on (index 3), kept after the list.
+        $rented = $projector->project(new \DateTimeImmutable(self::START), 34000, 186000, [], 200000, rentCents: [0, 0, 0, 16000], tailRentCents: 16000);
+
+        self::assertSame($base['curve'][2]['coverage'], $rented['curve'][2]['coverage']);
+        self::assertGreaterThan($base['curve'][3]['coverage'], $rented['curve'][3]['coverage']);
+        self::assertSame('2028-05', $base['milestones']['25']);
+        self::assertSame('2027-01', $rented['milestones']['25']);
+        self::assertLessThan(0, $projector->nImpactMonths($base, $rented));
+    }
+
+    public function testAPlacementCountsAsARenteOnceItReachedItsTerm(): void
+    {
+        $projector = new IndependenceProjector();
+        // 238 € a month (71 420 € at 4 %) from the 12th month.
+        $placed = $projector->project(new \DateTimeImmutable(self::START), 34000, 186000, [], 200000, placementRents: [['month' => 12, 'rentCents' => 23800]]);
+        $base = $this->project();
+
+        self::assertSame($base['curve'][11]['coverage'], $placed['curve'][11]['coverage']);
+        self::assertGreaterThan($base['curve'][12]['coverage'], $placed['curve'][12]['coverage']);
+        self::assertLessThan(0, $projector->nImpactMonths($base, $placed));
+    }
 }

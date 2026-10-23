@@ -18,10 +18,11 @@ final class PlanIndependence
 
     /**
      * @param array{startMonth: string, netCapacityCents: int, months: list<array<string, mixed>>} $plan
+     * @param list<array{month: int, rentCents: int}>                                              $placementRents what a placement gives a month, from the month (0 is the current one) it reaches its term (MAG-558)
      *
      * @return array{startMonth: string, nDate: string|null, curve: list<array{month: string, coverage: float}>, milestones: array<int, string|null>}
      */
-    public function project(array $plan, int $passiveIncomeCents, int $lifestyleCents): array
+    public function project(array $plan, int $passiveIncomeCents, int $lifestyleCents, array $placementRents = []): array
     {
         $investable = array_map(
             static fn (array $month): int => max(0, $month['capacityCents'] - $month['salaryCents']),
@@ -36,6 +37,9 @@ final class PlanIndependence
             $lifestyleCents,
             $investable,
             $tail,
+            rentCents: array_column($plan['months'], 'rentCents'),
+            tailRentCents: $last['rentCents'],
+            placementRents: $placementRents,
         );
     }
 

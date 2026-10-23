@@ -18,7 +18,8 @@ data class IndependenceRente(
  * How far the rentes cover the train de vie (MAG-46). Both sides measured over
  * the last complete months. [projection] carries the date N, the curve and
  * the dated milestones (MAG-549); its default keeps a payload cached before it
- * decoding.
+ * decoding. [renteSources] says which simulated rents the projection counts (MAG-558), likewise
+ * defaulted.
  */
 @Serializable
 data class IndependenceCounter(
@@ -34,6 +35,7 @@ data class IndependenceCounter(
     val nextMilestoneGapCents: Int? = null,
     val byCategory: List<IndependenceRente> = emptyList(),
     val projection: IndependenceProjection = IndependenceProjection(),
+    val renteSources: RenteSources = RenteSources(),
 )
 
 /** One month of the curve; [coverage] is 0..1 (the wire may send `1` or `1.0`). */
@@ -58,6 +60,90 @@ data class IndependenceProjection(
     val milestones: Map<String, String?> = emptyMap(),
 ) {
     val isKnown: Boolean get() = startMonth.isNotEmpty()
+}
+
+/** One placement whose final capital, withdrawn at 4 % a year, pays a rent from [fromMonth] (`YYYY-MM`). */
+@Serializable
+data class PlacementRenteItem(
+    val placementId: String,
+    val name: String,
+    val monthlyRentCents: Long = 0,
+    val fromMonth: String? = null,
+    val coveragePoints: Int? = null,
+)
+
+/** One investment project paying a rent from [fromMonth] until [untilMonth] (its resale); null = open. */
+@Serializable
+data class InvestmentRenteItem(
+    val projectId: String,
+    val name: String,
+    val monthlyRentCents: Long = 0,
+    val fromMonth: String? = null,
+    val untilMonth: String? = null,
+    val coveragePoints: Int? = null,
+)
+
+@Serializable
+data class PlacementRentes(
+    val count: Int = 0,
+    val monthlyRentCents: Long = 0,
+    val items: List<PlacementRenteItem> = emptyList(),
+)
+
+@Serializable
+data class InvestmentRentes(
+    val count: Int = 0,
+    val monthlyRentCents: Long = 0,
+    val items: List<InvestmentRenteItem> = emptyList(),
+)
+
+/**
+ * The simulated rents the projection counts on top of the measured ones (MAG-558): placements
+ * withdrawn at [withdrawalRateBasisPoints] a year, and investments' rents. Never part of the
+ * measured coverage; always shown as simulations.
+ */
+@Serializable
+data class RenteSources(
+    val withdrawalRateBasisPoints: Int = 400,
+    val placements: PlacementRentes = PlacementRentes(),
+    val investments: InvestmentRentes = InvestmentRentes(),
+) {
+    val isEmpty: Boolean get() = placements.count <= 0 && investments.count <= 0
+}
+
+enum class IndependenceRenteSourceKind { PLACEMENTS, INVESTMENTS }
+
+/** « Placements · 3 · ≈ 315 € / mois à terme » or « Investissements · 1 · ≈ 160 € / mois de loyer ». */
+data class IndependenceRenteSourceRow(val kind: IndependenceRenteSourceKind, val text: String)
+
+const val INDEPENDENCE_SOURCES_TITLE = "Sources des rentes à venir"
+
+/** The rows of the section, a source with no item omitted; empty when there is nothing to say. */
+fun independenceRenteSourceRows(sources: RenteSources): List<IndependenceRenteSourceRow> = buildList {
+    if (sources.placements.count > 0) {
+        add(
+            IndependenceRenteSourceRow(
+                IndependenceRenteSourceKind.PLACEMENTS,
+                "Placements · ${sources.placements.count} · ≈ ${formatEuros(sources.placements.monthlyRentCents)} / mois à terme",
+            ),
+        )
+    }
+    if (sources.investments.count > 0) {
+        add(
+            IndependenceRenteSourceRow(
+                IndependenceRenteSourceKind.INVESTMENTS,
+                "Investissements · ${sources.investments.count} · ≈ ${formatEuros(sources.investments.monthlyRentCents)} / mois de loyer",
+            ),
+        )
+    }
+}
+
+/** « Simulation · retrait de 4 % par an sur le capital placé », only when placements are counted. */
+fun independenceRenteSourcesCaption(sources: RenteSources): String? {
+    if (sources.placements.count <= 0) return null
+    val rate = java.math.BigDecimal(sources.withdrawalRateBasisPoints).movePointLeft(2)
+        .stripTrailingZeros().toPlainString().replace('.', ',')
+    return "Simulation · retrait de $rate % par an sur le capital placé"
 }
 
 private val INDEPENDENCE_MONTH = DateTimeFormatter.ofPattern("LLLL yyyy", Locale.FRENCH)

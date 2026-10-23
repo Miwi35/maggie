@@ -133,6 +133,8 @@ function stubApi(
     /** Answers `project-planning` over the stored order; without it the answer is not a planning. */
     planning?: boolean | Record<string, unknown>
     failPlanning?: boolean
+    /** Answers `/api/finance/independence` (MAG-558); without it the answer is not a counter. */
+    independence?: unknown
   } = {},
 ) {
   let stored = initial.map((row) => ({ ...row }))
@@ -148,6 +150,9 @@ function stubApi(
     if (method === 'GET' && url.includes('/project-planning')) {
       if (options.failPlanning) return json({}, 500)
       if (options.planning) return json(planningOf(stored, options.planning === true ? {} : options.planning))
+    }
+    if (method === 'GET' && url.includes('/finance/independence') && options.independence !== undefined) {
+      return json(options.independence)
     }
     if (method === 'GET') {
       if (options.failLoad) return json({}, 500)
@@ -706,6 +711,41 @@ describe('ProjectsPage', () => {
       const card = await screen.findByTestId('investment-card')
       expect(within(card).getByRole('heading', { name: 'Investissement · Box à louer' })).toBeInTheDocument()
       expect(within(card).getAllByTestId('investment-figure')).toHaveLength(6)
+    })
+
+    const rente = (coveragePoints: number | null) => ({
+      renteSources: {
+        withdrawalRateBasisPoints: 400,
+        placements: { count: 0, monthlyRentCents: 0, items: [] },
+        investments: {
+          count: 1,
+          monthlyRentCents: 16000,
+          items: [{ projectId: 'FLAT', name: 'Box à louer', monthlyRentCents: 16000, fromMonth: '2027-03', untilMonth: null, coveragePoints }],
+        },
+      },
+    })
+
+    test('says the rent the independence projection counts for the investment, with its points', async () => {
+      const user = userEvent.setup()
+      stubApi([MOVE, FLAT], { independence: rente(9) })
+      renderOpenable()
+      await loaded(2)
+
+      await user.click(screen.getByRole('button', { name: 'Financement de Box à louer' }))
+
+      const line = await screen.findByTestId('investment-rente-counted')
+      expect(line.textContent).toMatch(/^Rente comptée : 160\s€ \/ mois de loyer · indépendance \+ 9 points$/)
+    })
+
+    test('omits the line when the projection gives no points, or when the read fails', async () => {
+      const user = userEvent.setup()
+      stubApi([MOVE, FLAT], { independence: rente(null) })
+      renderOpenable()
+      await loaded(2)
+
+      await user.click(screen.getByRole('button', { name: 'Financement de Box à louer' }))
+      await screen.findByTestId('investment-card')
+      expect(screen.queryByTestId('investment-rente-counted')).toBeNull()
     })
 
     test('turns a project into an investment from its card, then reads the list and the planning again', async () => {

@@ -324,6 +324,8 @@ internal fun PlanningTileCard(tile: PlanningTile, planning: ProjectPlanning?, on
                         "dividendes — en créant la catégorie dans Finance › Catégories."
                 },
             )
+            // Placements and investments exist whether or not a train de vie is measured.
+            IndependenceRenteSources(counter.renteSources, modifier = Modifier.padding(top = 10.dp))
         } else {
             LinearProgressIndicator(
                 progress = { minOf(1f, counter.coveragePercent / 100f) },

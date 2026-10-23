@@ -264,6 +264,12 @@ object UiTags {
     const val INDEPENDENCE_CURVE = "independence_curve"
     const val INDEPENDENCE_MILESTONES = "independence_milestones"
 
+    /** The simulated rents counted by the projection: the section, its two rows and its caption (MAG-558). */
+    const val INDEPENDENCE_SOURCES = "independence_sources"
+    const val INDEPENDENCE_SOURCES_PLACEMENTS = "independence_sources_placements"
+    const val INDEPENDENCE_SOURCES_INVESTMENTS = "independence_sources_investments"
+    const val INDEPENDENCE_SOURCES_CAPTION = "independence_sources_caption"
+
     /** What is to do, as pills of the Comptes and Budget tiles, and the « Revue ce soir » shortcut (MAG-421). */
     const val FINANCE_PILL_TO_SORT = "finance_pill_to_sort"
     const val FINANCE_PILL_REJECTIONS = "finance_pill_rejections"

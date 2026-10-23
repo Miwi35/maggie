@@ -99,6 +99,24 @@ test('the Indépendance page dates N and the milestones', async ({ page }) => {
 })
 
 /**
+ * What the projection counts beyond the measured rentes (MAG-558). The seed holds
+ * three placements (`50-finance.yaml`: PEA, assurance-vie, livret), so the placements
+ * row exists; how many remain depends on what `finance-placements.spec.ts` leaves,
+ * so the count is not pinned. Simulations, said as such.
+ */
+test('the Indépendance page lists the sources of the rentes to come, as a simulation', async ({ page }) => {
+  const shell = new AdminShell(page)
+  await shell.goto(ROUTES.financePlanningIndependence)
+
+  const sources = shell.content.getByTestId('independence-rente-sources')
+  await expect(sources).toContainText('Sources des rentes à venir')
+  await expect(sources.getByTestId('rente-source-placements')).toContainText(/^Placements · \d+ · ≈ .+ \/ mois à terme$/u)
+  await expect(sources.getByTestId('rente-source-caption')).toContainText(
+    'Simulation · retrait de 4 % par an sur le capital placé',
+  )
+})
+
+/**
  * A rente is a declared category, and the breakdown is what says which one.
  *
  * The salary is income too — 2 350,00 € of it, every month — and it is

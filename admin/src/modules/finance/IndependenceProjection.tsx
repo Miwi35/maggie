@@ -2,6 +2,7 @@ import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
+import { formatEuros } from './placementsApi'
 import { formatDuration, formatMonth, hasProjection, monthsBetween, nDateLabel } from './independenceDates'
 import type {
   IndependenceCounter,
@@ -113,6 +114,41 @@ const milestoneLabel = (projection: Projection, key: IndependenceMilestoneKey): 
 }
 
 /**
+ * « Sources des rentes à venir » (MAG-558): what the projection counts beyond the measured rentes, the
+ * rent of the investments and the placements withdrawn at 4 %. Simulations, said as such; nothing here
+ * advises. Drawn only when there is at least one of them.
+ */
+export const RenteSourcesBlock = ({ counter }: { counter: IndependenceCounter }) => {
+  const sources = counter.renteSources
+  if (!sources || (sources.placements.count === 0 && sources.investments.count === 0)) return null
+
+  return (
+    <Box data-testid="independence-rente-sources" sx={{ mt: 3 }}>
+      <Typography variant="subtitle2" component="h3" sx={{ fontWeight: 600 }}>
+        Sources des rentes à venir
+      </Typography>
+      <Stack component="ul" sx={{ listStyle: 'none', p: 0, m: 0, mt: 1, fontVariantNumeric: 'tabular-nums' }} spacing={0.5}>
+        {sources.placements.count > 0 && (
+          <Typography component="li" variant="body2" data-testid="rente-source-placements">
+            Placements · {sources.placements.count} · ≈ {formatEuros(sources.placements.monthlyRentCents)} / mois à terme
+          </Typography>
+        )}
+        {sources.investments.count > 0 && (
+          <Typography component="li" variant="body2" data-testid="rente-source-investments">
+            Investissements · {sources.investments.count} · ≈ {formatEuros(sources.investments.monthlyRentCents)} / mois de loyer
+          </Typography>
+        )}
+      </Stack>
+      {sources.placements.count > 0 && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }} data-testid="rente-source-caption">
+          Simulation · retrait de {String(sources.withdrawalRateBasisPoints / 100).replace('.', ',')} % par an sur le capital placé
+        </Typography>
+      )}
+    </Box>
+  )
+}
+
+/**
  * The date N, the coverage curve and the dated milestones of the Indépendance
  * page (MAG-549). Plain statements: a date that is not reached is said, not
  * blamed, and nothing here advises.
@@ -149,6 +185,8 @@ export const IndependenceProjectionBlock = ({ counter }: { counter: Independence
           </Typography>
         ))}
       </Stack>
+
+      <RenteSourcesBlock counter={counter} />
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
         Projection d'après la planification actuelle des projets : 4 % par an sur ce que la
