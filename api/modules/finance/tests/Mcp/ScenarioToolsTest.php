@@ -314,4 +314,33 @@ class ScenarioToolsTest extends KernelTestCase
         self::assertStringContainsString('scenarioIds is required', $this->call('compare')['error']);
         self::assertStringContainsString('not found', $this->call('compare', scenarioIds: ['auto-rapid', $this->id('theirs')])['error']);
     }
+
+    public function testTimelineDrawsTheCurrentScenarioBesideTheComparedOne(): void
+    {
+        $this->loginFixtureUser();
+
+        $planning = $this->call('timeline');
+        self::assertNull($planning['current']['scenarioId']);
+        self::assertSame('Planning sans scénario', $planning['current']['name']);
+        self::assertNull($planning['compared']);
+        self::assertSame(240, $planning['horizonMonths']);
+
+        $this->call('make_current', scenarioId: $this->id('mine'));
+        $data = $this->call('timeline', scenarioId: 'auto-rapid');
+
+        self::assertSame($this->id('mine'), $data['current']['scenarioId']);
+        self::assertSame('auto-rapid', $data['compared']['scenarioId']);
+        self::assertArrayHasKey('sentence', $data['difference']);
+        self::assertSame('Hypothèses : matelas intact, revenus stables, sans vacance locative ni imprévu', $data['assumptions']);
+        self::assertDoesNotMatchRegularExpression('/recommand|meilleur|"best"/iu', json_encode($data, JSON_THROW_ON_ERROR));
+    }
+
+    public function testTimelineRefusesAnUnknownOrTheCurrentScenario(): void
+    {
+        $this->loginFixtureUser();
+        $this->call('make_current', scenarioId: $this->id('mine'));
+
+        self::assertArrayHasKey('error', $this->call('timeline', scenarioId: $this->id('mine')));
+        self::assertArrayHasKey('error', $this->call('timeline', scenarioId: $this->id('theirs')));
+    }
 }
