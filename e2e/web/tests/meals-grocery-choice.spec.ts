@@ -1,6 +1,6 @@
 import { test, expect, seedDate, seedId } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
-import { waitForIndexed } from '../helpers/api.js'
+import { plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
@@ -220,15 +220,16 @@ async function riceAndVegetables(api: APIRequestContext, what: string) {
   return { riceName, vegetablesName, recipeName, rice, vegetables, recipe }
 }
 
-/** The way the owner plans a meal: click the cell, pick the recipe, « Créer ». */
-async function planRecipe(shell: AdminShell, cell: string, recipeName: string): Promise<void> {
+/** The way the owner plans a meal: click the cell, pick the recipe, « Créer ». Returns the id the API gave the meal. */
+async function planRecipe(shell: AdminShell, cell: string, recipeName: string): Promise<string> {
   const page = shell.page
   await shell.goto(ROUTES.meals)
   await shell.content.getByTestId(cell).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Menu').click()
   await page.getByRole('option', { name: recipeName }).click()
-  await dialog.getByRole('button', { name: 'Créer' }).click()
+
+  return plannedMealId(page, () => dialog.getByRole('button', { name: 'Créer' }).click())
 }
 
 // Saturday lunch is the one cell no other journey plans on (the seed's meals are
@@ -253,7 +254,7 @@ test.describe('Choosing the ingredients of a new meal', () => {
       await openSubscribed(observer, () => watching.open())
 
       // When I plan « Riz au curry » on Saturday lunch…
-      await planRecipe(acting, 'meal-cell-lunch-5', recipeName)
+      const mealId = await planRecipe(acting, 'meal-cell-lunch-5', recipeName)
 
       // …then the choice opens: « Riz » ticked, « 1 paquet », « Rupture »; the
       // vegetables not ticked, « 1 bocal ».
@@ -299,7 +300,7 @@ test.describe('Choosing the ingredients of a new meal', () => {
         },
       )
 
-      const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipeName), {
+      const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => m.id === mealId, {
         what: 'The planned meal',
       })
       cleanup.push(meal['@id'])
@@ -319,7 +320,7 @@ test.describe('Choosing the ingredients of a new meal', () => {
     })
 
     try {
-      await planRecipe(acting, 'meal-cell-lunch-5', recipeName)
+      const mealId = await planRecipe(acting, 'meal-cell-lunch-5', recipeName)
 
       const dialog = page.getByRole('dialog')
       await expect(dialog.getByText('Courses du repas')).toBeVisible()
@@ -329,7 +330,7 @@ test.describe('Choosing the ingredients of a new meal', () => {
 
       // The meal is in the week, and the API never heard of a choice.
       await expect(acting.content.getByTestId('meal-cell-lunch-5')).toContainText(recipeName)
-      const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipeName), {
+      const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => m.id === mealId, {
         what: 'The planned meal',
       })
       cleanup.push(meal['@id'])

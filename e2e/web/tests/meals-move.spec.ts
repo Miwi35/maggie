@@ -19,6 +19,7 @@ import { AdminShell } from '../pages/AdminShell.js'
  */
 
 interface MealRow {
+  id: string
   summary: string
   date: string
   slot: string
@@ -26,7 +27,7 @@ interface MealRow {
 
 const jsonLd = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
 
-async function planMeal(api: APIRequestContext, what: string, day: string, slot: 'lunch' | 'dinner'): Promise<string> {
+async function planMeal(api: APIRequestContext, what: string, day: string, slot: 'lunch' | 'dinner'): Promise<{ name: string; id: string }> {
   const { retry } = test.info()
   const name = `Cassoulet ${what}${0 === retry ? '' : ` essai ${retry}`}`
 
@@ -45,13 +46,14 @@ async function planMeal(api: APIRequestContext, what: string, day: string, slot:
     },
   })
   expect(meal.status(), `POST /api/meals answered ${meal.status()}: ${await meal.text()}`).toBe(201)
+  const id = ((await meal.json()) as { id: string }).id
 
   // The week view reads from Elasticsearch: wait for the meal before opening it.
-  await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(name), {
+  await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => m.id === id, {
     what: 'The meal this journey moves',
   })
 
-  return name
+  return { name, id }
 }
 
 const handleOf = (page: Page, name: string): Locator => page.getByRole('button', { name: new RegExp(`Déplacer le repas .*${name}`) })
@@ -70,7 +72,7 @@ async function dragTo(page: Page, handle: Locator, cell: Locator): Promise<void>
 }
 
 test('dragging Tuesday lunch onto Thursday dinner moves it, and it stays there after a reload — MAG-250', async ({ page, api }) => {
-  const name = await planMeal(api, 'MAG-250 souris', dayOfThisWeek(1), 'lunch')
+  const { name, id } = await planMeal(api, 'MAG-250 souris', dayOfThisWeek(1), 'lunch')
   const shell = new AdminShell(page)
   await shell.goto('/meals')
 
@@ -87,7 +89,7 @@ test('dragging Tuesday lunch onto Thursday dinner moves it, and it stays there a
   const stored = await waitForIndexed<MealRow>(
     api,
     '/api/meals?itemsPerPage=200',
-    (m) => String(m.summary).includes(name) && 'dinner' === m.slot,
+    (m) => m.id === id && 'dinner' === m.slot,
     { what: 'The meal at Thursday dinner' },
   )
   expect(stored.date).toBe(dayOfThisWeek(3))
@@ -98,7 +100,7 @@ test('dragging Tuesday lunch onto Thursday dinner moves it, and it stays there a
 })
 
 test('the keyboard moves a meal: pick it up, an arrow per cell, drop — MAG-250', async ({ page, api }) => {
-  const name = await planMeal(api, 'MAG-250 clavier', dayOfThisWeek(5), 'dinner')
+  const { name, id } = await planMeal(api, 'MAG-250 clavier', dayOfThisWeek(5), 'dinner')
   const shell = new AdminShell(page)
   await shell.goto('/meals')
   await expect(shell.content.getByTestId('meal-cell-dinner-5')).toContainText(name)
@@ -123,7 +125,7 @@ test('the keyboard moves a meal: pick it up, an arrow per cell, drop — MAG-250
   const stored = await waitForIndexed<MealRow>(
     api,
     '/api/meals?itemsPerPage=200',
-    (m) => String(m.summary).includes(name) && 'lunch' === m.slot,
+    (m) => m.id === id && 'lunch' === m.slot,
     { what: 'The meal at Sunday lunch' },
   )
   expect(stored.date).toBe(dayOfThisWeek(6))

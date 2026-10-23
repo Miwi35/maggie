@@ -53,7 +53,7 @@ tags:
 - tapOn:
     id: "review_activity_search"
 - inputText: "Loisir"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Loisirs"
 - extendedWaitUntil:
     visible: "ACTIVITE DEUX 2222"

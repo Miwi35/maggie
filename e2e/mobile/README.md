@@ -94,7 +94,8 @@ A flow takes its dates from `TODAY`, never from a literal.
 | `run.sh` | the whole run: device, bridge, time zone, install, flows |
 | `build-apk.sh` | builds the `e2e` flavor once and leaves `apk/maggie-e2e.apk` (gitignored) |
 | `maestro.sh` | downloads the pinned CLI into `.e2e-cache/` |
-| `lint.sh` | syntax, testTags, tag roots, applicationId, unawaited assertions — seconds, no device |
+| `lint.sh` | syntax, testTags, tag roots, applicationId, unawaited assertions, fragile selectors (data ids, bare `hideKeyboard`, `selected:`) — seconds, no device |
+| `lint-examples/` | one refused example per selector rule: `lint.sh` fails if a rule stops refusing its own (never run as flows) |
 | `report/` | JUnit report, and for a failed run the screenshots, view hierarchy and `maestro.log` of each flow, plus `device-last-frame.png`, `logcat.txt`, `anr.txt` and `device-size.txt` (gitignored) |
 
 A file put in `flows/` is run as a journey. A shared sequence goes in

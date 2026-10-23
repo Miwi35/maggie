@@ -189,7 +189,7 @@ tags:
     id: "share_mine"
 - eraseText
 - inputText: "200"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 
 # Julie, Tom and Inès, each picked in the full-screen picker (« In »: no accent typed on Android).
 - scrollUntilVisible:
@@ -331,7 +331,7 @@ tags:
     id: "peer_amount"
 - eraseText
 - inputText: "280"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - scrollUntilVisible:
     element:
       id: "peer_summary"

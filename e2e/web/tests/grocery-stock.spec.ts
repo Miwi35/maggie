@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test'
 import { test, expect, seedDate, seedId } from '../fixtures/index.js'
-import { waitForIndexed } from '../helpers/api.js'
+import { plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
@@ -350,7 +350,7 @@ test('one product is one line in packs, with what the meals need as a reminder, 
     const dialog = actor.getByRole('dialog')
     await dialog.getByLabel('Menu').click()
     await actor.getByRole('option', { name: bigRecipeName }).click()
-    await dialog.getByRole('button', { name: 'Créer' }).click()
+    const secondMealId = await plannedMealId(actor, () => dialog.getByRole('button', { name: 'Créer' }).click())
 
     // …then the box « Courses du repas » says what the list already holds and
     // what it will hold.
@@ -387,7 +387,7 @@ test('one product is one line in packs, with what the meals need as a reminder, 
     const second = await waitForIndexed<{ '@id': string; id: string; summary: string }>(
       api,
       '/api/meals?itemsPerPage=200',
-      (meal) => String(meal.summary).includes(bigRecipeName),
+      (meal) => meal.id === secondMealId,
       { what: 'The planned 500 g meal' },
     )
     cleanup.unshift(second['@id'])

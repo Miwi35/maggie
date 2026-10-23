@@ -57,13 +57,15 @@ tags:
     timeout: 20000
 - extendedWaitUntil:
     visible:
-      id: "scenario_make_current_auto-rapid"
+      id: "scenario_make_current_.*"
     timeout: 20000
 
 # « Rapide » becomes the current scenario. The API stores the automatic scenario when it is made current:
-# its row then carries the stored id (a ULID), not `auto-rapid`, so the tags are matched by prefix.
+# its row's id is `auto-rapid` before and a ULID after, so no tag names it. The button is the one under
+# the row's title.
 - tapOn:
-    id: "scenario_make_current_auto-rapid"
+    text: "Rendre courant"
+    below: "Rapide"
 - extendedWaitUntil:
     visible:
       id: "scenario_badge_.*"

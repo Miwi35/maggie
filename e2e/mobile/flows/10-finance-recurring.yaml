@@ -208,13 +208,13 @@ tags:
 - tapOn:
     id: "recurring_label"
 - inputText: "Salaire"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn:
     id: "recurring_account"
 - tapOn:
     id: "recurring_pick_search"
 - inputText: "MAG-475"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "EUR · Courant MAG-475"
 - scrollUntilVisible:
     element: "Recette"
@@ -226,7 +226,7 @@ tags:
 - tapOn:
     id: "recurring_pick_search"
 - inputText: "MAG-475"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Revenu MAG-475"
 - scrollUntilVisible:
     element:
@@ -236,7 +236,7 @@ tags:
 - tapOn:
     id: "recurring_amount"
 - inputText: "4750"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - scrollUntilVisible:
     element:
       id: "recurring_tolerance"
@@ -246,7 +246,7 @@ tags:
     id: "recurring_tolerance"
 - eraseText
 - inputText: "10"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 
 # No payee and no label pattern were typed, and none is asked for: the preview already
 # lists the credit, before anything is saved.

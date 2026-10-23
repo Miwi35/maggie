@@ -471,7 +471,7 @@ tasks:
     cmds:
       - task: web:run
         vars:
-          COMMAND: 'npx eslint .'
+          COMMAND: 'npx eslint . && node lint-examples/check.mjs'
 
   web:typecheck:
     desc: Type-check the journeys without running them

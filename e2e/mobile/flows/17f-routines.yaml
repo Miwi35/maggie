@@ -70,7 +70,7 @@ onFlowComplete:
 - tapOn:
     id: "routine_title"
 - inputText: "Sortir les poubelles"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn:
     id: "routine_anchor_afterDinner"
 - tapOn:
@@ -114,7 +114,7 @@ onFlowComplete:
 - tapOn:
     id: "routine_title"
 - inputText: "Prendre mes vitamines"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn:
     id: "routine_anchor_wake"
 - tapOn:

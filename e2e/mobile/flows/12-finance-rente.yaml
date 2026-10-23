@@ -42,7 +42,7 @@ tags:
 
 - tapOn: "Nom"
 - inputText: "Redevances MAG-257"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 
 - scrollUntilVisible:
     element:

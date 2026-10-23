@@ -1,0 +1,9 @@
+appId: com.maggie.app.e2e
+name: refused by lint.sh check 10 — not a journey, never run
+---
+# `scenario_make_current_` is a prefix of UiTags built from a data id. `auto-rapid` is
+# that id until the scenario is made current, then a ULID: the tag changes under the flow.
+- tapOn:
+    id: "scenario_make_current_auto-rapid"
+- assertVisible:
+    id: "scenario_row_01JBX7Q2M4N5P6R7S8T9V0WXYZ"

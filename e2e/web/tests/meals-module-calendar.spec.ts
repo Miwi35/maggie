@@ -42,6 +42,7 @@ async function plan(api: APIRequestContext): Promise<{ recipe: string; event: st
     },
   })
   expect(meal.status(), `POST /api/meals answered ${meal.status()}: ${await meal.text()}`).toBe(201)
+  const mealId = ((await meal.json()) as { id: string }).id
 
   const createdEvent = await api.post('/api/events', {
     headers: jsonLd,
@@ -54,7 +55,7 @@ async function plan(api: APIRequestContext): Promise<{ recipe: string; event: st
   })
   expect(createdEvent.status(), `POST /api/events answered ${createdEvent.status()}`).toBe(201)
 
-  await waitForIndexed<Named>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipe), { what: 'The planned meal' })
+  await waitForIndexed<{ id: string }>(api, '/api/meals?itemsPerPage=200', (m) => m.id === mealId, { what: 'The planned meal' })
   await waitForIndexed<Named>(api, '/api/events?itemsPerPage=200', (e) => e.summary === event, { what: 'The ordinary event' })
 
   return { recipe, event }

@@ -1,0 +1,6 @@
+appId: com.maggie.app.e2e
+name: refused by lint.sh check 11 — not a journey, never run
+---
+# A back on Android: with the keyboard already down it closes the sheet.
+- inputText: "Bonjour"
+- hideKeyboard
