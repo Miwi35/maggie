@@ -22,7 +22,8 @@ use Symfony\Contracts\Service\ResetInterface;
  * stock state changed, which is what « manque » on a meal reads.
  *
  * Collected while Doctrine flushes and published once it has gone through, once
- * per user: a flush that failed rolled back and moved nothing.
+ * per user. Not watched: a recipe's ingredient lines and a recipe's deletion, so
+ * « manque » can wait for the next refetch after those.
  */
 #[AsDoctrineListener(event: Events::onFlush)]
 #[AsDoctrineListener(event: Events::postFlush)]

@@ -107,7 +107,9 @@ class MealToolsTest extends KernelTestCase
         // Mercure: published to both /meals/ and /events/ topics
         $this->assertMercureUpdatePublished('/meals/');
         $this->assertMercureUpdatePublished('/events/');
-        $this->assertMercureUpdateCount(2);
+        // Plus the Accueil's Nutrition card refresh (MAG-564).
+        $this->assertMercureUpdatePublished('/home/nutrition');
+        $this->assertMercureUpdateCount(3);
 
         // Elasticsearch: IndexDocumentCommand dispatched
         $this->assertElasticsearchIndexDispatched(Meal::class);
@@ -152,7 +154,9 @@ class MealToolsTest extends KernelTestCase
         // Mercure: delete published to both /meals/ and /events/ topics
         $this->assertMercureUpdatePublished('/meals/');
         $this->assertMercureUpdatePublished('/events/');
-        $this->assertMercureUpdateCount(2);
+        // Plus the Accueil's Nutrition card refresh (MAG-564).
+        $this->assertMercureUpdatePublished('/home/nutrition');
+        $this->assertMercureUpdateCount(3);
 
         // Elasticsearch: DeleteDocumentCommand dispatched
         $this->assertElasticsearchDeleteDispatched('meals');
