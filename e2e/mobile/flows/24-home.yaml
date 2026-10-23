@@ -80,16 +80,14 @@ tags:
 - assertVisible: "Article 5"
 - assertNotVisible: "Article 6"
 
-# The Finance card: both rings under the pace, whatever the day (the ring's description carries the word).
+# The Finance card: both rings under the pace, whatever the day (the ring's accessibility text carries the word: the id sits on a parent node without text).
 - scrollUntilVisible:
     element:
       id: "home_finance_ring_month"
     timeout: 20000
 - extendedWaitUntil:
     visible:
-      id: "home_finance_ring_week"
-      text: ".*Dans le rythme.*"
+      text: "Semaine : Dans le rythme.*"
     timeout: 20000
 - assertVisible:
-    id: "home_finance_ring_month"
-    text: ".*Dans le rythme.*"
+    text: "Mois : Dans le rythme.*"
