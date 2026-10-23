@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test'
+import { e2eNow } from '../fixtures/clock.js'
 import { test, expect } from '../fixtures/index.js'
 import { getCollection } from '../helpers/api.js'
 import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
@@ -137,12 +138,13 @@ interface RepaymentFigures {
   realGainCents: number
 }
 
-/** Two months from now, as the editor's month field takes it: `YYYY-MM`. */
+/** Two months after the stack's clock (`E2E_NOW`: the API refuses a past month), as the editor's month field takes it: `YYYY-MM`. */
 const repaymentMonth = (): string => {
-  const date = new Date()
-  date.setMonth(date.getMonth() + 2)
+  const date = e2eNow()
+  date.setUTCDate(1)
+  date.setUTCMonth(date.getUTCMonth() + 2)
 
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
 async function removeRepaying(api: APIRequestContext): Promise<void> {
