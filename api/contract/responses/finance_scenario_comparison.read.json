@@ -23,6 +23,10 @@
                 {
                     "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
                     "position": 3
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 4
                 }
             ],
             "repayments": [],
@@ -30,10 +34,10 @@
             "monthlySaving": null,
             "nDate": null,
             "metrics": {
-                "projectsDoneBy": "2029-08",
-                "debtsEndDate": "2029-05",
+                "projectsDoneBy": "2028-06",
+                "debtsEndDate": "2028-05",
                 "interestPaid": 0,
-                "wellbeing": 8
+                "wellbeing": 9
             },
             "curve": [],
             "milestones": {
