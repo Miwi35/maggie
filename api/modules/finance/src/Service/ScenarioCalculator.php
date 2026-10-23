@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Service;
 
+use Maggie\Finance\Entity\Placement;
 use Maggie\Finance\Enum\ProjectWellbeing;
 
 /**
@@ -14,8 +15,9 @@ use Maggie\Finance\Enum\ProjectWellbeing;
  * The scenario's projects replace the user's list (their order is the
  * priority), its `monthlySaving` replaces the measured capacity, its early
  * repayments weigh on and free the capacity ({@see ScenarioRepayments}).
- * Placements are carried with their simulated figures but do not feed the date N
- * yet.
+ * Its placements' deposits take the capacity too, and the capital its projects
+ * free from them leaves them when each project is bought (MAG-556): carried with
+ * their curve with and without those withdrawals. They do not feed the date N yet.
  */
 final class ScenarioCalculator
 {
@@ -24,6 +26,7 @@ final class ScenarioCalculator
         private readonly ScenarioRepayments $repayments,
         private readonly PlanIndependence $independence,
         private readonly ScenarioTimeline $timeline,
+        private readonly PlacementProjection $placementProjection,
     ) {
     }
 
@@ -36,10 +39,7 @@ final class ScenarioCalculator
     {
         $effects = $this->repayments->apply($inputs->loans, $spec->repayments, $inputs->start(), $allLoans, false);
 
-        $byId = [];
-        foreach ($inputs->projects as $project) {
-            $byId[(string) $project->getId()] = $project;
-        }
+        $byId = $inputs->projectsById();
         $projects = [];
         foreach ($spec->projectIds as $id) {
             if (isset($byId[$id])) {
@@ -57,6 +57,7 @@ final class ScenarioCalculator
             $overspentCents,
             $effects['freed'],
             $effects['outlay'],
+            $this->placementProjection->deposits($this->placementsOf($inputs, $spec), ProjectPlanner::HORIZON_MONTHS),
         );
 
         return ['plan' => $plan, 'effects' => $effects];
@@ -102,16 +103,11 @@ final class ScenarioCalculator
         ['plan' => $plan, 'effects' => $effects] = $this->plan($inputs, $spec, 0, true);
         $independence = $this->independenceOf($plan, $base);
 
-        $placements = [];
-        $byId = [];
-        foreach ($inputs->placements as $placement) {
-            $byId[(string) $placement->getId()] = $placement;
-        }
-        foreach ($spec->placementIds as $id) {
-            if (isset($byId[$id])) {
-                $placements[] = PlacementView::of($byId[$id]);
-            }
-        }
+        $projectsById = $inputs->projectsById();
+        $placements = array_map(
+            fn (Placement $placement): array => $this->placementProjection->figures($placement, $plan, $projectsById),
+            $this->placementsOf($inputs, $spec),
+        );
 
         $events = null;
         $repayments = $effects['repayments'];
@@ -137,6 +133,20 @@ final class ScenarioCalculator
             'placements' => $placements,
             'events' => $events,
         ];
+    }
+
+    /** @return list<Placement> the scenario's placements, in its order */
+    private function placementsOf(PlanningInputs $inputs, ScenarioSpec $spec): array
+    {
+        $byId = $inputs->placementsById();
+        $placements = [];
+        foreach ($spec->placementIds as $id) {
+            if (isset($byId[$id])) {
+                $placements[] = $byId[$id];
+            }
+        }
+
+        return $placements;
     }
 
     /**

@@ -9,6 +9,7 @@ import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.PlacementFrequency
 import com.maggie.app.data.model.PlacementPoint
 import com.maggie.app.data.model.PlacementSimulation
+import com.maggie.app.data.model.PlacementWithdrawal
 import com.maggie.app.data.repository.PlacementRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -94,6 +95,32 @@ class PlacementViewModelTest {
         assertEquals(simulation(pea), state.simulation)
         assertEquals(15000L, state.monthlyDeposits)
         assertNull(state.error)
+    }
+
+    @Test
+    fun `a simulation with withdrawals reaches the state whole, and selecting another placement drops it (MAG-556)`() = runTest {
+        val withJapan = simulation(pea).copy(
+            withdrawals = listOf(PlacementWithdrawal("p1", "Voyage au Japon", "2027-04", 150000)),
+            withdrawn = 150000,
+            curveWith = listOf(PlacementPoint(0, 200000, 200000), PlacementPoint(240, 7000000, 3800000)),
+            gapAtEnd = 443007,
+            finalWith = 7000000,
+            rentWith = 23333,
+        )
+        coEvery { repository.getSimulation("pea") } returns Result.success(withJapan)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val shown = viewModel.uiState.value.simulation!!
+        assertTrue(shown.hasWithdrawals)
+        assertEquals(443007L, shown.gapAtEnd)
+        assertEquals(7000000L, shown.finalWith)
+        assertEquals(simulation(pea).curve, shown.curveWithout)
+
+        viewModel.select("book")
+        assertNull(viewModel.uiState.value.simulation)
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.simulation!!.hasWithdrawals)
     }
 
     @Test

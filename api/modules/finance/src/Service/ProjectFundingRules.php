@@ -7,6 +7,7 @@ namespace Maggie\Finance\Service;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Loan;
+use Maggie\Finance\Entity\Placement;
 use Maggie\Finance\Entity\Project;
 use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\FundingSourceKind;
@@ -46,7 +47,7 @@ class ProjectFundingRules
      *
      * @param list<mixed> $sources
      *
-     * @return list<array{kind: FundingSourceKind, amountCents: int, account: ?Account, loan: ?Loan}>
+     * @return list<array{kind: FundingSourceKind, amountCents: int, account: ?Account, placement: ?Placement, loan: ?Loan}>
      */
     public function sources(Project $project, User $user, array $sources, ?int $priceCents = null): array
     {
@@ -59,7 +60,7 @@ class ProjectFundingRules
         }
         foreach ($sources as $index => $source) {
             if (!\is_array($source)) {
-                throw new \DomainException("sources[{$index}] must be an object {kind, amountCents, account?, loan?}.");
+                throw new \DomainException("sources[{$index}] must be an object {kind, amountCents, account?, placement?, loan?}.");
             }
 
             if (FundingSourceKind::Resale->value === ($source['kind'] ?? null)) {
@@ -81,6 +82,7 @@ class ProjectFundingRules
                 'kind' => $kind,
                 'amountCents' => $amount,
                 'account' => $this->account($kind, $user, $index, $source['account'] ?? null),
+                'placement' => $this->placement($kind, $user, $index, $source['placement'] ?? null),
                 'loan' => FundingSourceKind::Loan === $kind ? $this->loan($project, $user, $amount, $source['loan'] ?? null) : null,
             ];
 
@@ -215,6 +217,23 @@ class ProjectFundingRules
         }
 
         return $account;
+    }
+
+    /** The simulated placement a capital source leaves: optional, the user's own. */
+    private function placement(FundingSourceKind $kind, User $user, int $index, mixed $reference): ?Placement
+    {
+        if (null === $reference) {
+            return null;
+        }
+        if (FundingSourceKind::Capital !== $kind) {
+            throw new \DomainException("sources[{$index}].placement is only for a capital source.");
+        }
+        if (!\is_string($reference) || '' === $reference) {
+            throw new \DomainException("sources[{$index}].placement must be the id of a placement.");
+        }
+
+        // An IRI (/api/finance/placements/{id}) or a bare id.
+        return $this->references->placement(basename($reference), $user);
     }
 
     private function loan(Project $project, User $user, int $amountCents, mixed $conditions): Loan

@@ -20,7 +20,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * A project's funding sources (MAG-524): `{"sources": [{kind, amountCents,
- * account?, loan?}]}`, the whole list, replacing the current one. Answers the
+ * account?, placement?, loan?}]}`, the whole list, replacing the current one. Answers the
  * project; a refusal answers `error` and `current`, the project as it is.
  */
 final class ProjectFundingController
@@ -56,7 +56,7 @@ final class ProjectFundingController
         $sources = \is_array($body) ? ($body['sources'] ?? null) : null;
         if (!\is_array($sources) || !array_is_list($sources)) {
             return new JsonResponse([
-                'error' => 'Missing required field: sources, the whole list of {kind, amountCents, account?, loan?} ([] removes them all).',
+                'error' => 'Missing required field: sources, the whole list of {kind, amountCents, account?, placement?, loan?} ([] removes them all).',
                 'current' => $current,
             ], Response::HTTP_BAD_REQUEST);
         }

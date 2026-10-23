@@ -71,14 +71,16 @@ data class ProjectResale(
 )
 
 /**
- * One source of a project's money: [accountId] for savings and capital, [loanId] for the projected loan,
- * [sourceProjectId] for the resale of another project (MAG-557).
+ * One source of a project's money: [accountId] for savings and capital, [placementId] for the simulated
+ * placement a capital source leaves (MAG-556), [loanId] for the projected loan, [sourceProjectId] for the
+ * resale of another project (MAG-557).
  */
 @Serializable
 data class ProjectFundingSource(
     val kind: String,
     val amountCents: Int,
     val accountId: String? = null,
+    val placementId: String? = null,
     val loanId: String? = null,
     val sourceProjectId: String? = null,
 )

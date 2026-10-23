@@ -17,10 +17,10 @@ use Maggie\Finance\Enum\ProjectDateMode;
  *
  * Each month, in this order:
  *  1. the capacity is the net saving capacity less the payments of the
- *     projected loans already running (and, this month only, what was
- *     overspent), plus what a scenario's early repayments free and less what
- *     they cost — a cost the month cannot bear is paid off by the next ones
- *     (MAG-550);
+ *     projected loans already running and the deposits of a scenario's
+ *     placements (MAG-556) (and, this month only, what was overspent), plus
+ *     what a scenario's early repayments free and less what they cost — a cost
+ *     the month cannot bear is paid off by the next ones (MAG-550);
  *  2. the cushion takes its share: all of it while building, the monthly
  *     recharge while recharging, until the deficit is covered;
  *  3. the projects with a fixed date take their even share, whatever is left
@@ -51,6 +51,7 @@ final class ProjectPlanner
      * @param int                                                                $reserveCents savings outside the cushion not already assigned to a source
      * @param array<int, int>                                                    $freedCents   month index → extra capacity (a payment a scenario's early repayment frees)
      * @param array<int, int>                                                    $outlayCents  month index → cash an early repayment takes; what the month cannot pay moves to the next
+     * @param array<int, int>                                                    $depositCents month index → what a scenario's placements take of the capacity (their deposits, per month)
      *
      * @return array{
      *     startMonth: string,
@@ -72,6 +73,7 @@ final class ProjectPlanner
         int $overspentCents = 0,
         array $freedCents = [],
         array $outlayCents = [],
+        array $depositCents = [],
     ): array {
         $horizon = self::HORIZON_MONTHS;
         $start = $today->modify('first day of this month')->setTime(0, 0);
@@ -196,7 +198,7 @@ final class ProjectPlanner
                 }
             }
 
-            $available = max(0, $net + max(0, $freedCents[$m] ?? 0) + $rent[$m] - $loanPayments[$m] - (0 === $m ? max(0, $overspentCents) : 0));
+            $available = max(0, $net + max(0, $freedCents[$m] ?? 0) + $rent[$m] - $loanPayments[$m] - max(0, $depositCents[$m] ?? 0) - (0 === $m ? max(0, $overspentCents) : 0));
             $pendingOutlay += max(0, $outlayCents[$m] ?? 0);
             $repaid = min($pendingOutlay, $available);
             $pendingOutlay -= $repaid;

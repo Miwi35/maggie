@@ -36,7 +36,8 @@ final class ScenarioView
             'milestones' => $result['milestones'],
             'schedule' => $result['schedule'],
             'repaymentEffects' => $result['repayments'],
-            'placementFigures' => $result['placements'],
+            // The two curves have their own route (/placements/{id}/simulation): 480 points a placement do not belong in a scenario read.
+            'placementFigures' => array_map(static fn (array $figures): array => array_diff_key($figures, ['curveWithout' => 1, 'curveWith' => 1]), $result['placements']),
         ] + ($withEvents ? ['events' => $result['events']] : []);
     }
 

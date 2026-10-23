@@ -68,3 +68,22 @@ Maggie\Finance\Entity\Project:
     currency: EUR
     position: 0
     user: '@other_user'
+
+# MAG-556: a simulated placement a capital source can leave, and another user's.
+Maggie\Finance\Entity\Placement:
+  pea_simulated:
+    name: PEA simulé
+    initial: 200000
+    deposit: 15000
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Monthly)>'
+    annualRate: 600
+    years: 20
+    user: '@test_user'
+  other_placement:
+    name: Placement d'un autre
+    initial: 100000
+    deposit: 0
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Once)>'
+    annualRate: 200
+    years: 5
+    user: '@other_user'

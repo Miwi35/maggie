@@ -22,6 +22,8 @@ export interface SourceValues {
   amountCents: number
   /** Bare id of the account; '' for a loan. */
   account: string
+  /** Bare id of the simulated placement a capital source leaves (MAG-556); absent or '' for none. */
+  placement?: string
   /** The conditions of a loan source; absent for the others, or while they could not be read. */
   loan?: Record<string, unknown>
   /** Bare id of the investment a `resale` source comes from (MAG-557): read-only, never sent back. */
@@ -73,6 +75,7 @@ export const valuesOfProject = (project: Project, conditions: Record<string, unk
     kind: source.kind,
     amountCents: source.amountCents,
     account: source.accountId ?? '',
+    ...(source.placementId ? { placement: source.placementId } : {}),
     ...(source.kind === 'loan' && conditions ? { loan: loanConditionsOf(conditions) } : {}),
     ...(source.kind === 'resale' ? { sourceProject: source.sourceProjectId ?? '' } : {}),
   })),
@@ -94,7 +97,12 @@ export const toFundingInputs = (values: FundingValues): FundingSourceInput[] =>
         return { kind: 'loan', amountCents: source.amountCents, ...(conditions ? { loan: conditions } : {}) }
       }
 
-      return { kind: source.kind as FundingSourceInput['kind'], amountCents: source.amountCents, account: source.account }
+      return {
+        kind: source.kind as FundingSourceInput['kind'],
+        amountCents: source.amountCents,
+        account: source.account,
+        ...(source.kind === 'capital' && source.placement ? { placement: source.placement } : {}),
+      }
     })
 
 export const sourcesTotal = (sources: Pick<FundingSource, 'amountCents'>[]): number =>

@@ -8,11 +8,13 @@ use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Envelope;
+use Maggie\Finance\Entity\Placement;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\EnvelopeRepository;
+use Maggie\Finance\Repository\PlacementRepository;
 use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Symfony\Component\Uid\Ulid;
@@ -30,6 +32,7 @@ class OwnedReferenceResolver
         private readonly TransactionRepository $transactionRepository,
         private readonly RecurringOperationRepository $recurringOperationRepository,
         private readonly EnvelopeRepository $envelopeRepository,
+        private readonly PlacementRepository $placementRepository,
     ) {
     }
 
@@ -42,6 +45,17 @@ class OwnedReferenceResolver
         }
 
         return $account;
+    }
+
+    public function placement(string $id, User $owner): Placement
+    {
+        $placement = Ulid::isValid($id) ? $this->placementRepository->findOneOfUser($owner, $id) : null;
+
+        if (null === $placement) {
+            throw new \DomainException("Placement not found: {$id}");
+        }
+
+        return $placement;
     }
 
     public function transaction(string $id, User $owner, string $label = 'Transaction'): Transaction

@@ -27,6 +27,61 @@ final class PlacementSimulator
      */
     public function simulate(int $initial, int $deposit, PlacementFrequency $frequency, int $annualRateBasisPoints, int $years): array
     {
+        $run = $this->run($initial, $deposit, $frequency, $annualRateBasisPoints, $years, []);
+        unset($run['withdrawn'], $run['taken']);
+
+        return $run;
+    }
+
+    /**
+     * The placement with and without the capital a scenario's projects take out
+     * of it (MAG-556): a withdrawal at month index m leaves the capital after
+     * that month's interest and deposit (month 0: the initial state), never more
+     * than the capital there is, and what is taken stops earning.
+     *
+     * Answers `{curveWithout, curveWith, gapAtEnd, finalWith, rentWith,
+     * withdrawn}` in integer cents; the curves are month 0 to years × 12, a
+     * withdrawal beyond the duration is ignored.
+     *
+     * @param array<int, int> $withdrawals month index → cents asked
+     *
+     * `taken` is what each month really gave, month index → cents: the withdrawals
+     * the placement could cover, none beyond its duration
+     *
+     * @return array{curveWithout: list<array{month: int, capital: int, paid: int}>, curveWith: list<array{month: int, capital: int, paid: int}>, gapAtEnd: int, finalWithout: int, finalWith: int, rentWithout: int, rentWith: int, withdrawn: int, taken: array<int, int>}
+     */
+    public function withWithdrawals(Placement $placement, array $withdrawals): array
+    {
+        $without = $this->of($placement);
+        $with = $this->run(
+            $placement->getInitial(),
+            $placement->getDeposit(),
+            $placement->getFrequency(),
+            $placement->getAnnualRate(),
+            $placement->getYears(),
+            $withdrawals,
+        );
+
+        return [
+            'curveWithout' => $without['curve'],
+            'curveWith' => $with['curve'],
+            'gapAtEnd' => $without['final'] - $with['final'],
+            'finalWithout' => $without['final'],
+            'finalWith' => $with['final'],
+            'rentWithout' => $without['rent'],
+            'rentWith' => $with['rent'],
+            'withdrawn' => $with['withdrawn'],
+            'taken' => $with['taken'],
+        ];
+    }
+
+    /**
+     * @param array<int, int> $withdrawals month index → cents asked
+     *
+     * @return array{final: int, paid: int, interest: int, rent: int, withdrawn: int, taken: array<int, int>, curve: list<array{month: int, capital: int, paid: int}>}
+     */
+    private function run(int $initial, int $deposit, PlacementFrequency $frequency, int $annualRateBasisPoints, int $years, array $withdrawals): array
+    {
         $monthlyRate = (1 + $annualRateBasisPoints / 10000) ** (1 / 12) - 1;
         $period = $frequency->periodMonths();
 
@@ -37,6 +92,18 @@ final class PlacementSimulator
             $paid += $deposit;
         }
 
+        $withdrawn = 0;
+        $takenByMonth = [];
+        $take = static function (int $month) use (&$capital, &$withdrawn, &$takenByMonth, $withdrawals): void {
+            $taken = min(max(0, $withdrawals[$month] ?? 0), self::cents(floor(max(0.0, $capital))));
+            if ($taken > 0) {
+                $takenByMonth[$month] = $taken;
+            }
+            $capital -= $taken;
+            $withdrawn += $taken;
+        };
+
+        $take(0);
         $curve = [['month' => 0, 'capital' => self::cents($capital), 'paid' => $paid]];
         for ($month = 1; $month <= $years * 12; ++$month) {
             $capital *= 1 + $monthlyRate;
@@ -44,6 +111,7 @@ final class PlacementSimulator
                 $capital += $deposit;
                 $paid += $deposit;
             }
+            $take($month);
             $curve[] = ['month' => $month, 'capital' => self::cents($capital), 'paid' => $paid];
         }
 
@@ -54,6 +122,8 @@ final class PlacementSimulator
             'paid' => $paid,
             'interest' => $final - $paid,
             'rent' => self::rent($final),
+            'withdrawn' => $withdrawn,
+            'taken' => $takenByMonth,
             'curve' => $curve,
         ];
     }

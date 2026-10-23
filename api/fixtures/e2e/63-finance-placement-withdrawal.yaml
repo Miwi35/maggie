@@ -1,0 +1,64 @@
+# The placement withdrawal journey (MAG-556, extends MAG-102): a PEA that a
+# project leaves capital from, in Finance › Planification › Indépendance.
+#
+# A net saving capacity of 500 €/month (income 500 €, no loan, no spending
+# measured), a matelas with a target of 0 month so that it takes none of it,
+# and a PEA account only (an investment one, outside the reserve): nothing is
+# gathered besides the salary. One project:
+#   Voyage au Japon  5 000 € → 1 500 € come from the PEA, 3 500 € from the
+#                              salary: bought six months on (7 × 500 €)
+# The PEA: 2 000 € then 150 € a month at 6 % over 20 years. Its simulation is
+# drawn with and without the 1 500 € the trip takes out the month it is bought.
+#
+# No other journey signs in here: the placements of the owner's account stay
+# the three `finance-placements.spec.ts` counts.
+
+Maggie\Core\Entity\User:
+  e2e_placement_withdrawal_user:
+    email: 'e2e-placement-withdrawal@maggie.local'
+    googleId: 'e2e-placement-withdrawal-google-id'
+    name: 'Léa Placement'
+
+Maggie\Finance\Entity\SafetyCushion:
+  e2e_placement_withdrawal_cushion:
+    user: '@e2e_placement_withdrawal_user'
+    targetMonths: 0
+    monthlyNetIncomeCents: 50000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+
+Maggie\Finance\Entity\Placement:
+  e2e_placement_withdrawal_pea:
+    name: PEA
+    initial: 200000
+    deposit: 15000
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Monthly)>'
+    annualRate: 600
+    years: 20
+    user: '@e2e_placement_withdrawal_user'
+
+Maggie\Finance\Entity\Account:
+  e2e_placement_withdrawal_pea_account:
+    name: PEA
+    type: '<(Maggie\Finance\Enum\AccountType::Investment)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@e2e_placement_withdrawal_user'
+
+Maggie\Finance\Entity\Project:
+  e2e_placement_withdrawal_japan:
+    name: Voyage au Japon
+    amountCents: 500000
+    currency: EUR
+    position: 0
+    user: '@e2e_placement_withdrawal_user'
+
+Maggie\Finance\Entity\ProjectFundingSource:
+  e2e_placement_withdrawal_japan_pea:
+    kind: '<(Maggie\Finance\Enum\FundingSourceKind::Capital)>'
+    amountCents: 150000
+    account: '@e2e_placement_withdrawal_pea_account'
+    placement: '@e2e_placement_withdrawal_pea'
+    position: 0
+    project: '@e2e_placement_withdrawal_japan'

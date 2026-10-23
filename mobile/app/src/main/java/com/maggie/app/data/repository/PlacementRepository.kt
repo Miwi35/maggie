@@ -21,7 +21,8 @@ class PlacementRepository(
 
     suspend fun deletePlacement(id: String): Result<Unit> = runCatching { apiService.deletePlacement(id) }
 
-    suspend fun getSimulation(id: String): Result<PlacementSimulation> = runCatching {
-        apiService.getPlacementSimulation(id)
+    /** The placement month by month; with the withdrawals of [scenarioId], else of the current scenario (MAG-556). */
+    suspend fun getSimulation(id: String, scenarioId: String? = null): Result<PlacementSimulation> = runCatching {
+        apiService.getPlacementSimulation(id, scenarioId)
     }
 }

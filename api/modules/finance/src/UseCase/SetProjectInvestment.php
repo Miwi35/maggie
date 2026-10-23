@@ -7,6 +7,7 @@ namespace Maggie\Finance\UseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Loan;
+use Maggie\Finance\Entity\Placement;
 use Maggie\Finance\Entity\Project;
 use Maggie\Finance\Entity\ProjectFundingSource;
 use Maggie\Finance\Entity\ProjectInvestment;
@@ -30,8 +31,8 @@ class SetProjectInvestment
     }
 
     /**
-     * @param list<array{kind: FundingSourceKind, amountCents: int, account: ?Account, loan: ?Loan}> $sources checked
-     * @param array{month: string, netCents: int, target: ?Project}|null                             $resale  checked
+     * @param list<array{kind: FundingSourceKind, amountCents: int, account: ?Account, placement: ?Placement, loan: ?Loan}> $sources checked
+     * @param array{month: string, netCents: int, target: ?Project}|null                                                    $resale  checked
      */
     public function execute(Project $project, int $priceCents, array $sources, int $rentCents, ?array $resale): Project
     {

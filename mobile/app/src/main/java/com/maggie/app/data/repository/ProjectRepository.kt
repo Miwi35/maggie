@@ -8,6 +8,7 @@ import com.maggie.app.data.api.ProjectWriteRequest
 import com.maggie.app.data.api.ScenarioWriteRequest
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.Loan
+import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.ProjectPreview
@@ -67,6 +68,9 @@ class ProjectRepository(
 
     /** The accounts a savings or capital source may draw on are picked among these. */
     suspend fun getAccounts(): Result<List<Account>> = runCatching { apiService.getAccounts() }
+
+    /** The placements a capital source may leave (MAG-556), sorted by name. */
+    suspend fun getPlacements(): Result<List<Placement>> = runCatching { apiService.getPlacements() }
 
     /** The projected loan of a loan source, to prefill its conditions. */
     suspend fun getLoan(id: String): Result<Loan> = runCatching { apiService.getLoan(id) }

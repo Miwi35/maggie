@@ -40,7 +40,7 @@ interface Write {
 }
 
 /** The accounts, the stored loan of a loan source, and `PUT …/funding` answered by `answer`. */
-function stubApi(answer: (write: Write) => Response, loan: Record<string, unknown> | null = null) {
+function stubApi(answer: (write: Write) => Response, loan: Record<string, unknown> | null = null, placements: Record<string, unknown>[] = []) {
   const writes: Write[] = []
   vi.stubGlobal(
     'fetch',
@@ -53,6 +53,7 @@ function stubApi(answer: (write: Write) => Response, loan: Record<string, unknow
         return answer(write)
       }
       if (url.startsWith('/api/accounts')) return new Response(JSON.stringify({ member: ACCOUNTS }), { status: 200 })
+      if (url.startsWith('/api/finance/placements')) return new Response(JSON.stringify({ member: placements }), { status: 200 })
       if (url.startsWith('/api/loans/')) return loan ? new Response(JSON.stringify(loan), { status: 200 }) : new Response('{}', { status: 404 })
 
       return new Response('{}', { status: 404 })
@@ -67,6 +68,7 @@ const accepted = (write: Write) => {
     kind: source.kind,
     amountCents: source.amountCents,
     accountId: source.account ?? null,
+    placementId: source.placement ?? null,
     loanId: source.kind === 'loan' ? 'L1' : null,
   }))
   const total = sources.reduce((sum, source) => sum + (source.amountCents as number), 0)
@@ -135,6 +137,44 @@ describe('ProjectFundingPanel', () => {
       { kind: 'loan', amountCents: 600_000, loan: { type: 'amortizing_fixed', annualRateBasisPoints: 400, durationMonths: 24, earlyRepaymentAllowed: false } },
     ])
     expect(onSaved.mock.calls[0][0]).toMatchObject({ salaryCents: 300_000 })
+  })
+
+  test('a capital source can name the placement it leaves: sent with the account, read back, optional', async () => {
+    const user = userEvent.setup()
+    const writes = stubApi(accepted, null, [
+      { '@id': '/api/finance/placements/PEA', id: 'PEA', name: 'PEA' },
+      { '@id': '/api/finance/placements/LIFE', id: 'LIFE', name: 'Assurance-vie' },
+    ])
+    const onSaved = renderPanel()
+    await user.click(await screen.findByRole('button', { name: 'Capital' }))
+    await user.click(screen.getByLabelText(/Compte \(capital\)/))
+    await user.click(await screen.findByRole('option', { name: 'PEA' }))
+    typeAmount(/^Montant capital/, 1500)
+
+    await user.click(screen.getByLabelText('Placement quitté (optionnel)'))
+    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['Aucun', 'Assurance-vie', 'PEA'])
+    await user.click(screen.getByRole('option', { name: 'PEA' }))
+    await user.click(screen.getByRole('button', { name: 'Enregistrer les sources' }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
+    expect(writes[0].body.sources).toEqual([{ kind: 'capital', amountCents: 150_000, account: 'PEA', placement: 'PEA' }])
+    expect(onSaved.mock.calls[0][0].fundingSources[0]).toMatchObject({ kind: 'capital', placementId: 'PEA' })
+  })
+
+  test('no placement leaves the capital source as it was, and the choice is not offered without any', async () => {
+    const user = userEvent.setup()
+    const writes = stubApi(accepted)
+    renderPanel()
+    await user.click(await screen.findByRole('button', { name: 'Capital' }))
+    await user.click(screen.getByLabelText(/Compte \(capital\)/))
+    await user.click(await screen.findByRole('option', { name: 'PEA' }))
+    typeAmount(/^Montant capital/, 1500)
+
+    expect(screen.queryByLabelText('Placement quitté (optionnel)')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Enregistrer les sources' }))
+
+    await waitFor(() => expect(writes).toHaveLength(1))
+    expect(writes[0].body.sources).toEqual([{ kind: 'capital', amountCents: 150_000, account: 'PEA' }])
   })
 
   test('the cushion is never offered as a source', async () => {

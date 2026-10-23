@@ -73,7 +73,13 @@ interface Write {
 
 function stubApi(
   initial: Stored[],
-  options: { failLoad?: boolean; failSimulation?: boolean; refuse?: { status: number; body: unknown } } = {},
+  options: {
+    failLoad?: boolean
+    failSimulation?: boolean
+    /** What the simulation adds when the projects of the scenario take capital out. */
+    withdrawal?: Record<string, unknown>
+    refuse?: { status: number; body: unknown }
+  } = {},
 ) {
   let stored = initial.map((row) => ({ ...row }))
   const writes: Write[] = []
@@ -98,6 +104,7 @@ function stubApi(
           { month: 0, capital: row.initial, paid: row.initial },
           { month: Number(row.years) * 12, capital: row.final, paid: row.paid },
         ],
+        ...options.withdrawal,
       })
     }
     if (method === 'GET') {
@@ -186,6 +193,103 @@ describe('PlacementsSection', () => {
     expect(
       within(simulation()).getByText(/^Retiré à 4 % par an, ce capital donnerait environ 248\s€ par mois de rente \(simulation\)\.$/),
     ).toBeInTheDocument()
+  })
+
+  describe('when a project takes capital out of the placement', () => {
+    const WITHDRAWAL = {
+      withdrawals: [
+        { projectId: 'JAPAN', name: 'Voyage au Japon', month: '2027-04', amountCents: 150000 },
+        { projectId: 'BIKE', name: 'Vélo', month: '2028-01', amountCents: 50000 },
+      ],
+      withdrawn: 200000,
+      curveWithout: [
+        { month: 0, capital: 200000, paid: 200000 },
+        { month: 240, capital: 7443007, paid: 3800000 },
+      ],
+      curveWith: [
+        { month: 0, capital: 200000, paid: 200000 },
+        { month: 240, capital: 6200000, paid: 3800000 },
+      ],
+      gapAtEnd: 1243007,
+      finalWith: 6200000,
+      rentWith: 20667,
+    }
+
+    test('draws the capital with and without the withdrawals, the gap at the end and the rente after them', async () => {
+      stubApi([PEA], { withdrawal: WITHDRAWAL })
+      render(<PlacementsSection />)
+      await loaded(1)
+
+      expect(await within(simulation()).findByTestId('placement-curve-without')).toHaveAttribute('stroke-dasharray')
+      expect(within(simulation()).getByTestId('placement-curve-with')).not.toHaveAttribute('stroke-dasharray')
+      expect(within(simulation()).queryByTestId('placement-curve-paid')).toBeNull()
+      expect(within(simulation()).getByText('capital sans retrait')).toBeInTheDocument()
+      expect(within(simulation()).getByText('capital avec retrait')).toBeInTheDocument()
+      expect(within(simulation()).getByText('PEA · avec et sans retrait pour Voyage au Japon et Vélo')).toBeInTheDocument()
+      expect(
+        within(simulation()).getByRole('img', { name: /^Courbe de PEA sur 20 ans : 74\s430\s€ de capital à la fin sans retrait, 62\s000\s€ avec retrait$/ }),
+      ).toBeInTheDocument()
+
+      expect(within(simulation()).getByTestId('placement-gap')).toHaveTextContent(text('Écart à 20 ans : −12 430 €'))
+      expect(within(simulation()).getByText('Capital dans 20 ans, sans retrait').nextSibling).toHaveTextContent(text('74 430 €'))
+      expect(within(simulation()).getByText('Capital après retrait').nextSibling).toHaveTextContent(text('62 000 €'))
+      expect(within(simulation()).getByTestId('placement-rent-with')).toHaveTextContent(
+        /environ 207\s€ par mois de rente, contre 248\s€ sans retrait \(simulation\)\.$/,
+      )
+    })
+
+    test('lists each withdrawal: the project, the month and the amount', async () => {
+      stubApi([PEA], { withdrawal: WITHDRAWAL })
+      render(<PlacementsSection />)
+      await loaded(1)
+
+      const list = await within(simulation()).findByRole('list', { name: 'Retraits de PEA' })
+      const items = within(list).getAllByTestId('placement-withdrawal')
+      expect(items).toHaveLength(2)
+      expect(items[0]).toHaveTextContent(/Voyage au Japon\s*avril 2027\s*−1\s500\s€/)
+      expect(items[1]).toHaveTextContent(/Vélo\s*janvier 2028\s*−500\s€/)
+    })
+
+    test('speaks of the project by the name the API gives, with no verdict', async () => {
+      stubApi([PEA], { withdrawal: { ...WITHDRAWAL, withdrawals: [WITHDRAWAL.withdrawals[0]] } })
+      render(<PlacementsSection />)
+      await loaded(1)
+
+      await within(simulation()).findByTestId('placement-gap')
+      expect(within(simulation()).getByText('PEA · avec et sans retrait pour Voyage au Japon')).toBeInTheDocument()
+      expect(simulation().textContent).not.toMatch(/recommand/i)
+    })
+
+    test('keeps the table of the placements as it was: the final capital and the rente are those without withdrawal', async () => {
+      stubApi([PEA], { withdrawal: WITHDRAWAL })
+      render(<PlacementsSection />)
+      await loaded(1)
+      await within(simulation()).findByTestId('placement-gap')
+
+      expect(within(row('PEA')).getByTestId('placement-final')).toHaveTextContent(text('74 430 €'))
+      expect(within(row('PEA')).getByTestId('placement-rent')).toHaveTextContent(text('248 €'))
+    })
+
+    test('an answer with no withdrawal leaves the screen as it was: areas, no gap, no list', async () => {
+      stubApi([PEA], { withdrawal: { withdrawals: [], withdrawn: 0, gapAtEnd: 0 } })
+      render(<PlacementsSection />)
+      await loaded(1)
+
+      expect(await within(simulation()).findByTestId('placement-curve-paid')).toBeInTheDocument()
+      expect(within(simulation()).queryByTestId('placement-gap')).toBeNull()
+      expect(within(simulation()).queryByRole('list')).toBeNull()
+      expect(within(simulation()).getByText('PEA · 20 ans')).toBeInTheDocument()
+    })
+
+    test('says when the simulation failed, without a gap or a list', async () => {
+      stubApi([PEA], { failSimulation: true, withdrawal: WITHDRAWAL })
+      render(<PlacementsSection />)
+      await loaded(1)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent("La courbe de ce placement n'a pas pu être calculée.")
+      expect(within(simulation()).queryByTestId('placement-gap')).toBeNull()
+      expect(within(simulation()).queryByTestId('placement-withdrawal')).toBeNull()
+    })
   })
 
   test('the keyboard selects a row too', async () => {

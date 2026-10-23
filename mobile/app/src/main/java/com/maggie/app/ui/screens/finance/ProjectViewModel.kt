@@ -12,6 +12,7 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.FundingKind
+import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectDateMode
 import com.maggie.app.data.model.ProjectPlanning
@@ -131,6 +132,8 @@ data class ProjectUiState(
     val sheet: ProjectSheet? = null,
     /** The accounts a source may draw on; read when the tablet edits the sources. */
     val accounts: List<Account> = emptyList(),
+    /** The placements a capital source may leave (MAG-556); read with the accounts. */
+    val placements: List<Placement> = emptyList(),
 )
 
 /**
@@ -306,6 +309,13 @@ class ProjectViewModel(
         if (_uiState.value.accounts.isNotEmpty()) return
         viewModelScope.launch {
             repository.getAccounts().onSuccess { _uiState.value = _uiState.value.copy(accounts = it) }
+        }
+    }
+
+    fun loadPlacements() {
+        if (_uiState.value.placements.isNotEmpty()) return
+        viewModelScope.launch {
+            repository.getPlacements().onSuccess { _uiState.value = _uiState.value.copy(placements = it) }
         }
     }
 

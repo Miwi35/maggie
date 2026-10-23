@@ -7,6 +7,7 @@ namespace Maggie\Finance\Service;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Loan;
+use Maggie\Finance\Entity\Placement;
 use Maggie\Finance\Entity\Project;
 use Maggie\Finance\Entity\ProjectInvestment;
 use Maggie\Finance\Enum\FundingSourceKind;
@@ -36,7 +37,7 @@ class ProjectInvestmentRules
      *
      * @param array<string, mixed> $data
      *
-     * @return array{priceCents: int, sources: list<array{kind: FundingSourceKind, amountCents: int, account: ?Account, loan: ?Loan}>, rentCents: int, resale: array{month: string, netCents: int, target: ?Project}|null}
+     * @return array{priceCents: int, sources: list<array{kind: FundingSourceKind, amountCents: int, account: ?Account, placement: ?Placement, loan: ?Loan}>, rentCents: int, resale: array{month: string, netCents: int, target: ?Project}|null}
      */
     public function check(Project $project, User $user, array $data): array
     {
@@ -77,7 +78,7 @@ class ProjectInvestmentRules
             }
             $heldByOthers += $source->getAmountCents();
             if (FundingSourceKind::Resale !== $source->getKind()) {
-                $others[] = ['kind' => $source->getKind()->value, 'amountCents' => $source->getAmountCents(), 'account' => $source->getAccountId()];
+                $others[] = ['kind' => $source->getKind()->value, 'amountCents' => $source->getAmountCents(), 'account' => $source->getAccountId(), 'placement' => $source->getPlacementId()];
             }
         }
         if ($heldByOthers > $down) {

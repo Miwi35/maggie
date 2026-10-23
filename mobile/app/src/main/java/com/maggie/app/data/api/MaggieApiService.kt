@@ -637,19 +637,22 @@ data class ProjectPreviewRequest(
 
 /**
  * One source of `PUT /api/finance/projects/{id}/funding` (MAG-525). [account] is the account id of a
- * savings or capital source. [loan] holds the conditions of a loan source; absent, the API keeps the
+ * savings or capital source; [placement] the id of the simulated placement a capital source leaves (MAG-556,
+ * optional, and the whole list replaces the current one: leaving it out unlinks the placement). [loan] holds the conditions of a loan source; absent, the API keeps the
  * conditions of the project's current loan.
  */
 data class ProjectFundingSourceRequest(
     val kind: String,
     val amountCents: Int,
     val account: String? = null,
+    val placement: String? = null,
     val loan: JsonObject? = null,
 ) {
     fun toJson(): JsonObject = buildJsonObject {
         put("kind", JsonPrimitive(kind))
         put("amountCents", JsonPrimitive(amountCents))
         account?.let { put("account", JsonPrimitive(it)) }
+        placement?.let { put("placement", JsonPrimitive(it)) }
         loan?.let { put("loan", it) }
     }
 }
@@ -2516,10 +2519,14 @@ class MaggieApiService(
         client.delete("$baseUrl/api/finance/placements/$id").orRefusal()
     }
 
-    /** The capital month by month, for the chart; the figures are the placement's own. */
-    suspend fun getPlacementSimulation(id: String): PlacementSimulation {
+    /**
+     * The capital month by month, for the chart; the figures are the placement's own. With the
+     * withdrawals of the projects of [scenarioId] (MAG-556), else of the current scenario.
+     */
+    suspend fun getPlacementSimulation(id: String, scenarioId: String? = null): PlacementSimulation {
         return client.get("$baseUrl/api/finance/placements/$id/simulation") {
             accept(ContentType.Application.Json)
+            scenarioId?.let { url.parameters.append("scenarioId", it) }
         }.orRefusal().body()
     }
 

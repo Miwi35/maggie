@@ -70,6 +70,22 @@ describe('what is sent', () => {
     expect(inputs).toEqual([{ kind: 'savings', amountCents: 100_000, account: 'A1' }])
   })
 
+  test('a capital source names the placement it leaves, when it does', () => {
+    const inputs = toFundingInputs({
+      sources: [
+        { kind: 'capital', amountCents: 150_000, account: 'A2', placement: 'PEA' },
+        { kind: 'capital', amountCents: 50_000, account: 'A2', placement: '' },
+        { kind: 'savings', amountCents: 10_000, account: 'A1', placement: 'PEA' },
+      ],
+    })
+
+    expect(inputs).toEqual([
+      { kind: 'capital', amountCents: 150_000, account: 'A2', placement: 'PEA' },
+      { kind: 'capital', amountCents: 50_000, account: 'A2' },
+      { kind: 'savings', amountCents: 10_000, account: 'A1' },
+    ])
+  })
+
   test('a loan source carries its conditions, without the empty ones', () => {
     const inputs = toFundingInputs({
       sources: [{ kind: 'loan', amountCents: 600_000, account: '', loan: { annualRateBasisPoints: 400, durationMonths: 24, feesCents: null, steps: [], name: 'x' } }],
@@ -98,6 +114,14 @@ describe('what is sent', () => {
     expect(values.sources[1]).toEqual({ kind: 'resale', amountCents: 500_000, account: '', sourceProject: 'BOX' })
     expect(toFundingInputs(values)).toEqual([{ kind: 'savings', amountCents: 100_000, account: 'A1' }])
     expect(sourcesSummary(project({ fundingSources: [SAVINGS, RESALE], salaryCents: 400_000 }))).toBe('économies + revente + salaire')
+  })
+
+  test('the form starts from the placement a capital source leaves', () => {
+    const capital = { kind: 'capital' as const, amountCents: 150_000, accountId: 'A2', placementId: 'PEA', loanId: null, sourceProjectId: null }
+
+    expect(valuesOfProject(project({ fundingSources: [capital] }), null).sources).toEqual([
+      { kind: 'capital', amountCents: 150_000, account: 'A2', placement: 'PEA' },
+    ])
   })
 
   test('conditions keep only what the API takes', () => {

@@ -48,6 +48,17 @@ export interface SimulationPoint {
   paid: number
 }
 
+/** The capital a project takes out of a placement the month it is bought (MAG-556). */
+export interface Withdrawal {
+  /** The bare id of the project. */
+  projectId: string
+  /** The project's own name, « Voyage au Japon ». */
+  name: string
+  /** « 2027-04 »: the month of the purchase. */
+  month: string
+  amountCents: number
+}
+
 export interface Simulation {
   final: number
   paid: number
@@ -55,6 +66,19 @@ export interface Simulation {
   rent: number
   /** Month 0 to years × 12. */
   curve: SimulationPoint[]
+  /** What the projects of the scenario take out, by purchase month; empty when none does. */
+  withdrawals: Withdrawal[]
+  /** The cents really taken out. */
+  withdrawn: number
+  /** The capital with no withdrawal, month 0 to years × 12: `curve` itself when nothing leaves. */
+  curveWithout: SimulationPoint[]
+  /** The capital once the withdrawals are made. */
+  curveWith: SimulationPoint[]
+  /** The capital at the end without the withdrawals, less the capital at the end with them. */
+  gapAtEnd: number
+  finalWith: number
+  /** The rente at 4 % of the capital after the withdrawals, per month. */
+  rentWith: number
 }
 
 export const PLACEMENTS_PATH = '/api/finance/placements'
@@ -82,6 +106,18 @@ export const formatEuros = (cents: number): string => EUROS.format(Math.round((c
 
 /** 600 → « 6 % », 350 → « 3,5 % ». */
 export const formatRate = (basisPoints: number): string => PERCENT.format((basisPoints ?? 0) / 10000)
+
+/** « 2027-04 » → « avril 2027 ». */
+export const formatMonth = (month: string): string => {
+  const [year, number] = month.split('-').map(Number)
+  if (!year || !number) return month
+
+  return new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, number - 1, 1)))
+}
+
+/** « Voyage au Japon », « Japon et Vélo », « A, B et C ». */
+export const projectNames = (withdrawals: Pick<Withdrawal, 'name'>[]): string =>
+  new Intl.ListFormat('fr-FR', { style: 'long', type: 'conjunction' }).format([...new Set(withdrawals.map((withdrawal) => withdrawal.name))])
 
 /** « 20 ans », « 1 an ». */
 export const yearsLabel = (years: number): string => `${years} ${years > 1 ? 'ans' : 'an'}`
@@ -226,21 +262,49 @@ export async function deletePlacement(id: string): Promise<void> {
   if (!response.ok && response.status !== 404) throw await refused(response, "Le placement n'a pas été supprimé.")
 }
 
-/** The placement month by month, to draw its curve. */
-export async function fetchSimulation(id: string): Promise<Simulation> {
-  const response = await request(`${PLACEMENTS_PATH}/${bareId(id)}/simulation`)
+const toPoints = (points: unknown): SimulationPoint[] =>
+  (Array.isArray(points) ? (points as Raw[]) : []).map((point) => ({
+    month: Number(point.month),
+    capital: Number(point.capital),
+    paid: Number(point.paid),
+  }))
+
+/**
+ * The placement month by month, to draw its curve — and, when the projects of
+ * the scenario (the current one by default) take capital out of it, with and
+ * without those withdrawals (MAG-556). An answer without the new keys is a
+ * placement nothing leaves: both curves are `curve`.
+ */
+export async function fetchSimulation(id: string, scenarioId?: string): Promise<Simulation> {
+  const query = scenarioId ? `?scenarioId=${encodeURIComponent(bareId(scenarioId))}` : ''
+  const response = await request(`${PLACEMENTS_PATH}/${bareId(id)}/simulation${query}`)
   if (!response.ok) throw new PlacementError(`simulation: ${response.status}`)
-  const body = (await response.json()) as Partial<Simulation>
+  const body = (await response.json()) as Raw
+
+  const final = Number(body.final ?? 0)
+  const rent = Number(body.rent ?? 0)
+  const curve = toPoints(body.curve)
+  const withdrawals = (Array.isArray(body.withdrawals) ? (body.withdrawals as Raw[]) : []).map((withdrawal) => ({
+    projectId: bareId(String(withdrawal.projectId ?? '')),
+    name: String(withdrawal.name ?? ''),
+    month: String(withdrawal.month ?? ''),
+    amountCents: Number(withdrawal.amountCents ?? 0),
+  }))
+  const curveWithout = Array.isArray(body.curveWithout) ? toPoints(body.curveWithout) : curve
+  const curveWith = Array.isArray(body.curveWith) ? toPoints(body.curveWith) : curve
 
   return {
-    final: Number(body.final ?? 0),
+    final,
     paid: Number(body.paid ?? 0),
     interest: Number(body.interest ?? 0),
-    rent: Number(body.rent ?? 0),
-    curve: (body.curve ?? []).map((point) => ({
-      month: Number(point.month),
-      capital: Number(point.capital),
-      paid: Number(point.paid),
-    })),
+    rent,
+    curve,
+    withdrawals,
+    withdrawn: Number(body.withdrawn ?? withdrawals.reduce((sum, withdrawal) => sum + withdrawal.amountCents, 0)),
+    curveWithout,
+    curveWith,
+    gapAtEnd: Number(body.gapAtEnd ?? 0),
+    finalWith: Number(body.finalWith ?? final),
+    rentWith: Number(body.rentWith ?? rent),
   }
 }

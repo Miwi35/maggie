@@ -26,6 +26,8 @@ import {
 import type { FundingValues, Segment, SourceValues } from './fundingForm'
 import { LoanTermsFields } from './LoanTermsFields'
 import { basisPointsInput } from './loans'
+import { fetchPlacements } from './placementsApi'
+import type { Placement } from './placementsApi'
 import { fetchFundingAccounts, fetchLoanConditions, saveFunding } from './projectsApi'
 import type { FundingAccount, FundingKind, Project } from './projectsApi'
 
@@ -111,6 +113,7 @@ interface SourceRowProps {
   accounts: FundingAccount[]
   names: Map<string, string>
   currency: string
+  placements: Placement[]
   conditionsLost: boolean
   onRemove: () => void
 }
@@ -135,7 +138,7 @@ const ResaleRow = ({ index, names, currency }: { index: number; names: Map<strin
   )
 }
 
-const SourceRow = ({ index, accounts, names, currency, conditionsLost, onRemove }: SourceRowProps) => {
+const SourceRow = ({ index, accounts, placements, names, currency, conditionsLost, onRemove }: SourceRowProps) => {
   const kind = useWatch({ name: `sources.${index}.kind` }) as FundingKind
   const choices = accountsFor(kind, accounts)
   const label = KIND_LABELS[kind]
@@ -161,6 +164,28 @@ const SourceRow = ({ index, accounts, names, currency, conditionsLost, onRemove 
                 {choices.map((account) => (
                   <MenuItem key={account.id} value={account.id}>
                     {account.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
+        )}
+        {kind === 'capital' && placements.length > 0 && (
+          <Controller
+            name={`sources.${index}.placement`}
+            render={({ field }) => (
+              <TextField
+                select
+                size="small"
+                label="Placement quitté (optionnel)"
+                value={field.value ?? ''}
+                onChange={(event) => field.onChange(event.target.value)}
+                sx={{ minWidth: 200 }}
+              >
+                <MenuItem value="">Aucun</MenuItem>
+                {placements.map((placement) => (
+                  <MenuItem key={placement.id} value={placement.id}>
+                    {placement.name}
                   </MenuItem>
                 ))}
               </TextField>
@@ -196,12 +221,13 @@ interface FundingFieldsProps {
   project: Project
   accounts: FundingAccount[]
   names: Map<string, string>
+  placements: Placement[]
   conditionsLost: boolean
   failure: string | null
   saving: boolean
 }
 
-const FundingFields = ({ project, accounts, names, conditionsLost, failure, saving }: FundingFieldsProps) => {
+const FundingFields = ({ project, accounts, placements, names, conditionsLost, failure, saving }: FundingFieldsProps) => {
   const { control } = useFormContext<FundingValues>()
   const { fields, append, remove } = useFieldArray({ control, name: 'sources' })
   const sources = (useWatch({ control, name: 'sources' }) ?? []) as SourceValues[]
@@ -224,6 +250,7 @@ const FundingFields = ({ project, accounts, names, conditionsLost, failure, savi
             key={field.id}
             index={index}
             accounts={accounts}
+            placements={placements}
             names={names}
             currency={project.currency}
             conditionsLost={conditionsLost}
@@ -277,6 +304,8 @@ interface ProjectFundingPanelProps {
 export const ProjectFundingPanel = ({ project, names = new Map(), onSaved }: ProjectFundingPanelProps) => {
   const loanId = project.fundingSources.find((source) => source.kind === 'loan')?.loanId ?? null
   const [accounts, setAccounts] = useState<FundingAccount[] | null>(null)
+  // Optional: a refusal to list them only hides the choice of the placement left (MAG-556).
+  const [placements, setPlacements] = useState<Placement[]>([])
   const [conditions, setConditions] = useState<Record<string, unknown> | null | undefined>(loanId ? undefined : null)
   const [failure, setFailure] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -286,6 +315,17 @@ export const ProjectFundingPanel = ({ project, names = new Map(), onSaved }: Pro
     fetchFundingAccounts()
       .then((found) => live && setAccounts(found))
       .catch(() => live && setAccounts([]))
+
+    return () => {
+      live = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let live = true
+    fetchPlacements()
+      .then((found) => live && setPlacements(found))
+      .catch(() => live && setPlacements([]))
 
     return () => {
       live = false
@@ -326,6 +366,7 @@ export const ProjectFundingPanel = ({ project, names = new Map(), onSaved }: Pro
         project={project}
         accounts={accounts}
         names={names}
+        placements={placements}
         conditionsLost={Boolean(loanId) && conditions === null}
         failure={failure}
         saving={saving}
