@@ -62,6 +62,9 @@ internal fun startNavGraphApp() {
     val groceryHome = mockk<com.maggie.app.ui.screens.home.GroceryHomeViewModel>(relaxed = true) {
         every { uiState } returns state(com.maggie.app.ui.screens.home.GroceryHomeUiState(isLoading = false))
     }
+    val tasksCard = mockk<com.maggie.app.ui.screens.home.TasksCardViewModel>(relaxed = true) {
+        every { uiState } returns state(com.maggie.app.ui.screens.home.TasksCardUiState())
+    }
     val tasks = mockk<com.maggie.app.ui.screens.tasks.TasksViewModel>(relaxed = true) {
         every { uiState } returns state(com.maggie.app.ui.screens.tasks.TasksUiState())
     }
@@ -104,6 +107,7 @@ internal fun startNavGraphApp() {
                 viewModel { ctx }
                 viewModel { home }
                 viewModel { groceryHome }
+                viewModel { tasksCard }
                 viewModel { cal }
                 viewModel { notif }
                 viewModel { recipes }

@@ -18,7 +18,7 @@ final class FakeHomeCardProvider implements HomeCardProviderInterface
 
     public function module(): string
     {
-        return 'tasks';
+        return 'leisure';
     }
 
     public function state(User $user, HomeDay $day): array

@@ -64,6 +64,27 @@ object UiTags {
     const val HOME_GROCERY_RETRY = "home_grocery_retry"
 
     /**
+     * Accueil › Tâches (MAG-561) — the ring « x sur n », the « n en retard » line, the « + n autres » link,
+     * the saga line, the bar of routines, the failure message and the retry of a failed read.
+     */
+    const val HOME_TASKS_RING = "home_tasks_ring"
+    const val HOME_TASKS_OVERDUE = "home_tasks_overdue"
+    const val HOME_TASKS_MORE = "home_tasks_more"
+    const val HOME_TASKS_SAGA = "home_tasks_saga"
+    const val HOME_TASKS_ROUTINES = "home_tasks_routines"
+    const val HOME_TASKS_MESSAGE = "home_tasks_message"
+    const val HOME_TASKS_ERROR = "home_tasks_error"
+    const val HOME_TASKS_RETRY = "home_tasks_retry"
+
+    /** Accueil › Tâches — the box of a task (`home_task_check_<id>`) and the chip of a routine (`home_routine_check_<id>`). */
+    const val HOME_TASK_CHECK_PREFIX = "home_task_check_"
+    const val HOME_ROUTINE_CHECK_PREFIX = "home_routine_check_"
+
+    fun homeTaskCheck(id: String) = HOME_TASK_CHECK_PREFIX + id
+
+    fun homeRoutineCheck(id: String) = HOME_ROUTINE_CHECK_PREFIX + id
+
+    /**
      * The way into the conversation, on every main screen: the collapsed bar under the
      * content, or — on a window too short for it (MAG-35) — the button at the top of
      * the rail. Same tag either way, so a journey taps it in both layouts.

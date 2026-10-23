@@ -23,6 +23,7 @@ import {
   OTHER_USER_EMAIL,
   PERIOD_USER_EMAIL,
   PLACEMENT_WITHDRAWAL_USER_EMAIL,
+  HOME_TASKS_USER_EMAIL,
   RECURRING_USER_EMAIL,
   REMINDERS_USER_EMAIL,
   SEASON_USER_EMAIL,
@@ -64,6 +65,7 @@ export {
   NEXT_PROJECT_USER_EMAIL,
   PLACEMENT_WITHDRAWAL_USER_EMAIL,
   HOME_USER_EMAIL,
+  HOME_TASKS_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -199,6 +201,8 @@ export interface MaggieFixtures {
   placementWithdrawalUser: OtherUser
   /** The twenty-fourth seeded account, for the Courses card of the Accueil (MAG-563). */
   homeUser: OtherUser
+  /** The twenty-fifth seeded account, for the Tâches card of the Accueil (MAG-561). */
+  homeTasksUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -466,6 +470,10 @@ export const test = base.extend<MaggieFixtures>({
 
   homeUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(HOME_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  homeTasksUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(HOME_TASKS_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

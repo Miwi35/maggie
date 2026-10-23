@@ -124,6 +124,46 @@ class TaskRepository extends ServiceEntityRepository
     }
 
     /**
+     * The tasks ticked from $from (included) to $until (excluded), the latest
+     * first: the instants of a local day, not a calendar date.
+     *
+     * @return Task[]
+     */
+    public function findCompletedBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.completedAt >= :from')
+            ->andWhere('t.completedAt < :until')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('until', $until, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('t.completedAt', 'DESC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The tasks not done whose due day is exactly $day, in their manual order.
+     *
+     * @return Task[]
+     */
+    public function findOpenDueOn(User $user, \DateTimeImmutable $day): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.completedAt IS NULL')
+            ->andWhere('t.dueDate = :day')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('day', $day, Types::DATE_IMMUTABLE)
+            ->orderBy('t.position', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * The tasks not done due after $day, the closest first (MAG-408).
      *
      * @return Task[]

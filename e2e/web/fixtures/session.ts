@@ -190,6 +190,13 @@ export const PLACEMENT_WITHDRAWAL_USER_EMAIL = 'e2e-placement-withdrawal@maggie.
  */
 export const HOME_USER_EMAIL = 'e2e-home@maggie.local'
 
+/**
+ * The twenty-fifth seeded account, for the Tâches card of the Accueil (MAG-561): no data, the
+ * journey writes its three tasks of the day, so the ring reads « 1 sur 3 » whatever the other
+ * journeys left on the shared account.
+ */
+export const HOME_TASKS_USER_EMAIL = 'e2e-home-tasks@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

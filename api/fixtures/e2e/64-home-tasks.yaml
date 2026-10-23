@@ -1,0 +1,16 @@
+# The Tâches card of the Accueil (MAG-561, extends MAG-99/MAG-100): « 1 sur 3 » once the first task
+# of the day is ticked from the home.
+#
+# Two accounts with no data — the journeys write their three tasks of the day themselves and delete
+# them after: the ring counts the day's tasks exactly, and the shared account holds those of every
+# other journey. One for the web and one for the phone, because the two suites may share a stack.
+
+Maggie\Core\Entity\User:
+  e2e_home_tasks_user:
+    email: 'e2e-home-tasks@maggie.local'
+    googleId: 'e2e-home-tasks-google-id'
+    name: 'Zoé Accueil'
+  e2e_home_tasks_mobile_user:
+    email: 'e2e-home-tasks-mobile@maggie.local'
+    googleId: 'e2e-home-tasks-mobile-google-id'
+    name: 'Tom Accueil'

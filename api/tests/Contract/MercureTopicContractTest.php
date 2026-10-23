@@ -106,6 +106,21 @@ final class MercureTopicContractTest extends WebTestCase
     }
 
     /**
+     * The updates that carry the entity itself. A card of the Accueil is told
+     * to re-read on its own `/home/{module}` topic (MAG-561): another signal,
+     * for another listener, not a second copy of the change.
+     *
+     * @return list<\Symfony\Component\Mercure\Update>
+     */
+    private function entityUpdates(): array
+    {
+        return array_values(array_filter(
+            $this->getMercureHub()->getUpdates(),
+            static fn ($update): bool => !str_contains($update->getTopics()[0], '/home/'),
+        ));
+    }
+
+    /**
      * One update, one topic, relative, scoped to the user — asserted on a real
      * publish rather than on the helper that builds the string.
      */
@@ -120,7 +135,7 @@ final class MercureTopicContractTest extends WebTestCase
             title: 'A task whose update the client is waiting for',
         ));
 
-        $updates = $this->getMercureHub()->getUpdates();
+        $updates = $this->entityUpdates();
 
         // c2d3758: the same change published twice, once scoped and once not,
         // made every client apply it twice.
@@ -175,7 +190,7 @@ final class MercureTopicContractTest extends WebTestCase
             title: 'A task created for somebody else',
         ));
 
-        $updates = $this->getMercureHub()->getUpdates();
+        $updates = $this->entityUpdates();
         self::assertCount(1, $updates);
 
         $topic = $updates[0]->getTopics()[0];

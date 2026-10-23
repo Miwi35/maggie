@@ -1,0 +1,95 @@
+# The Tâches card of the Accueil (MAG-561). The tests pin the clock at Tuesday 2026-10-20 12:00 in Paris (UTC+2).
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    timezone: Europe/Paris
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Task:
+  late:
+    title: En retard
+    dueDate: '<(new \DateTimeImmutable("2026-10-18"))>'
+    user: '@test_user'
+  due_today:
+    title: Du jour
+    dueDate: '<(new \DateTimeImmutable("2026-10-20"))>'
+    user: '@test_user'
+  due_today_second:
+    title: Du jour aussi
+    dueDate: '<(new \DateTimeImmutable("2026-10-20"))>'
+    user: '@test_user'
+  # Ticked at 00:30 Paris on the 20th (22:30 UTC the 19th): today's.
+  done_after_midnight:
+    title: Faite après minuit
+    dueDate: '<(new \DateTimeImmutable("2026-10-20"))>'
+    completedAt: '<(new \DateTimeImmutable("2026-10-19 22:30:00 UTC"))>'
+    user: '@test_user'
+  # Ticked at 23:30 Paris on the 19th (21:30 UTC): yesterday's.
+  done_yesterday:
+    title: Faite hier
+    dueDate: '<(new \DateTimeImmutable("2026-10-19"))>'
+    completedAt: '<(new \DateTimeImmutable("2026-10-19 21:30:00 UTC"))>'
+    user: '@test_user'
+  due_tomorrow:
+    title: Pour demain
+    dueDate: '<(new \DateTimeImmutable("2026-10-21"))>'
+    user: '@test_user'
+  due_tomorrow_done:
+    title: Demain mais déjà faite
+    dueDate: '<(new \DateTimeImmutable("2026-10-21"))>'
+    completedAt: '<(new \DateTimeImmutable("2026-10-18 08:00:00 UTC"))>'
+    user: '@test_user'
+  undated:
+    title: Un jour peut-être
+    user: '@test_user'
+  others_task:
+    title: Tâche d'un autre
+    dueDate: '<(new \DateTimeImmutable("2026-10-20"))>'
+    user: '@other_user'
+
+Maggie\Calendar\Entity\TaskSettings:
+  settings:
+    user: '@test_user'
+    dayMoments: { wake: '06:45', afterBreakfast: '08:30', afterLunch: '13:30', afterDinner: '19:30' }
+
+# At 12:00 the moment is « afterBreakfast » (08:30), the latest started.
+Maggie\Calendar\Entity\Routine:
+  breakfast_daily:
+    user: '@test_user'
+    title: Vitamines
+    anchor: afterBreakfast
+    recurrence: { kind: daily }
+    createdAt: '<(new \DateTimeImmutable("2026-09-15 06:00:00 UTC"))>'
+  breakfast_wednesday:
+    user: '@test_user'
+    title: Arroser les plantes
+    anchor: afterBreakfast
+    recurrence: { kind: weekly, weekday: 3 }
+    createdAt: '<(new \DateTimeImmutable("2026-09-15 06:00:00 UTC"))>'
+  wake_daily:
+    user: '@test_user'
+    title: Grand verre d'eau
+    anchor: wake
+    recurrence: { kind: daily }
+    createdAt: '<(new \DateTimeImmutable("2026-09-15 06:00:00 UTC"))>'
+  dinner_daily:
+    user: '@test_user'
+    title: Lave-vaisselle
+    anchor: afterDinner
+    recurrence: { kind: daily }
+    createdAt: '<(new \DateTimeImmutable("2026-09-15 06:00:00 UTC"))>'
+  others_routine:
+    user: '@other_user'
+    title: Méditer
+    anchor: afterBreakfast
+    recurrence: { kind: daily }
+    createdAt: '<(new \DateTimeImmutable("2026-09-01 06:00:00 UTC"))>'

@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,6 +12,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.unit.dp
@@ -134,5 +136,30 @@ class HomeScreenTest {
         compose.waitForIdle()
 
         assertEquals(gap, top("finance:") - top("tasks:"))
+    }
+
+    @Test
+    fun `the Tâches card is the first of the registry, in the main zone`() {
+        val first = HomeCardRegistry.entries.minByOrNull { it.order }!!
+
+        assertEquals(HomeModules.TASKS, first.module)
+        assertEquals(HomeZone.MAIN, first.zone)
+        assertEquals(1, HomeCardRegistry.entries.count { it.module == HomeModules.TASKS })
+    }
+
+    @Test
+    fun `a card opens its module through the route the Accueil was given`() {
+        val opened = mutableListOf<String>()
+        val registry = listOf(
+            HomeCardEntry(HomeModules.TASKS, HomeZone.MAIN) {
+                val open = LocalHomeNavigation.current
+                Text("ouvrir", modifier = androidx.compose.ui.Modifier.clickable { open(Screen.Tasks.route) })
+            },
+        )
+        compose.setContent { HomeScreen(viewModel = HomeViewModel(), registry = registry, onNavigate = { opened += it }) }
+
+        compose.onNodeWithText("ouvrir").performClick()
+
+        assertEquals(listOf(Screen.Tasks.route), opened)
     }
 }
