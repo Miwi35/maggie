@@ -169,9 +169,11 @@ tags:
     visible:
       id: "subview_all"
     timeout: 20000
+# The section's name is a text inside the button, not the button's own text.
 - assertVisible:
     id: "breadcrumb_section"
-    text: "Revue"
+    containsChild:
+      text: "Revue"
 - assertVisible:
     id: "subview_all"
     selected: true
