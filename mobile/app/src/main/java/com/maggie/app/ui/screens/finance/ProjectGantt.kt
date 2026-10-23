@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -64,6 +66,10 @@ data class GanttRow(
     val saving: GanttBar? = null,
     val purchase: GanttMark? = null,
     val loan: GanttBar? = null,
+    /** The rent an investment brings, from the month after the purchase to the resale (MAG-557). */
+    val rent: GanttBar? = null,
+    /** The month the planned resale of an investment lands. */
+    val resale: GanttMark? = null,
     val deadline: GanttMark? = null,
     val isFixed: Boolean = false,
     val hasUnmetDependency: Boolean = false,
@@ -131,7 +137,17 @@ fun ganttRows(planning: ProjectPlanning, compact: Boolean = false): List<GanttRo
         val savingTo = if (purchase == null) horizon - 1 else clamp(purchase)
         val loan = project.loan
         val loanEnd = loan?.endMonth?.let(::column)
+        val investment = project.investment
+        val rentFrom = investment?.takeIf { it.monthlyRentCents > 0 }?.rentFromMonth?.let(::column)
+        val rentUntil = investment?.rentUntilMonth?.let(::column)
+        val resaleColumn = investment?.resaleMonth?.let(::column)
         val deadline = if (project.dateMode == ProjectDateMode.DEADLINE.key) project.targetOn?.take(7)?.let(::column) else null
+
+        val savingDetail = if (purchaseMonth == null) {
+            "${project.name} · épargne dès ${ganttMonthLabel(project.savingFromMonth)} · achat au-delà de $horizon mois · $amounts"
+        } else {
+            "${project.name} · épargne de ${ganttMonthLabel(project.savingFromMonth)} à ${ganttMonthLabel(purchaseMonth)} · $amounts"
+        }
 
         rows += GanttRow(
             id = project.projectId,
@@ -140,11 +156,7 @@ fun ganttRows(planning: ProjectPlanning, compact: Boolean = false): List<GanttRo
                 from = minOf(savingFrom, savingTo),
                 to = savingTo,
                 runsOn = purchase == null,
-                detail = if (purchaseMonth == null) {
-                    "${project.name} · épargne dès ${ganttMonthLabel(project.savingFromMonth)} · achat au-delà de $horizon mois · $amounts"
-                } else {
-                    "${project.name} · épargne de ${ganttMonthLabel(project.savingFromMonth)} à ${ganttMonthLabel(purchaseMonth)} · $amounts"
-                },
+                detail = savingDetail + (project.resaleFromMonth?.let { " · revente reçue en ${ganttMonthLabel(it)}" } ?: ""),
             ),
             purchase = if (purchaseMonth != null && purchase != null && purchase < horizon) {
                 GanttMark(at = clamp(purchase), detail = "${project.name} · achat en ${ganttMonthLabel(purchaseMonth)} · $amounts")
@@ -159,6 +171,28 @@ fun ganttRows(planning: ProjectPlanning, compact: Boolean = false): List<GanttRo
                     detail = "${project.name} · emprunt dès ${ganttMonthLabel(loan.startMonth)}" +
                         (loan.endMonth?.let { " jusqu'en ${ganttMonthLabel(it)}" } ?: "") +
                         " · ${formatCents(loan.monthlyPaymentCents, planning.currency)} par mois",
+                )
+            } else {
+                null
+            },
+            rent = if (investment != null && rentFrom != null && rentFrom < horizon) {
+                GanttBar(
+                    from = clamp(rentFrom),
+                    to = if (rentUntil == null) horizon - 1 else clamp(rentUntil),
+                    runsOn = rentUntil == null || rentUntil >= horizon,
+                    detail = "${project.name} · loyer ${formatCents(investment.monthlyRentCents, planning.currency)} par mois dès ${ganttMonthLabel(investment.rentFromMonth.orEmpty())}" +
+                        (investment.rentUntilMonth?.let { " jusqu'en ${ganttMonthLabel(it)}" } ?: ""),
+                )
+            } else {
+                null
+            },
+            resale = if (investment != null && resaleColumn != null && resaleColumn in 0 until horizon) {
+                val target = investment.resaleTargetProjectId?.let { id -> planning.projects.firstOrNull { it.projectId == id } }
+                GanttMark(
+                    at = resaleColumn,
+                    detail = "${project.name} · revente en ${ganttMonthLabel(investment.resaleMonth.orEmpty())}" +
+                        (investment.resaleNetCents?.let { " · ${formatCents(it, planning.currency)} net" } ?: "") +
+                        (target?.let { " · pour l'apport de ${it.name}" } ?: " · pour avancer les projets suivants"),
                 )
             } else {
                 null
@@ -182,7 +216,7 @@ private val LABEL_WIDTH_COMPACT = 84.dp
 /**
  * The projects over the next 36 months (MAG-527), read-only: a « Matelas » line while the cushion
  * builds or recharges, then one line per project in priority order — saving bar, purchase mark,
- * loan bar. The names stay on the left while the months scroll sideways on a phone; a tap on a bar
+ * loan bar, and for an investment its rent bar and the point of its resale (MAG-557). The names stay on the left while the months scroll sideways on a phone; a tap on a bar
  * says the month and the amounts under the chart. Nothing when there is nothing to draw.
  */
 @Composable
@@ -361,8 +395,32 @@ private fun TrackRow(
                     .testTag(UiTags.GANTT_PURCHASE),
             )
         }
+        // The loan and the rent run side by side after the purchase: each takes half the bar's height.
+        val stacked = row.loan != null && row.rent != null
+        val thin = barHeight * 0.55f
         row.loan?.let { bar ->
-            Bar(bar = bar, column = column, height = barHeight, color = colors.tertiary, tag = UiTags.GANTT_LOAN, onTap = onTap)
+            Bar(
+                bar = bar, column = column, height = if (stacked) thin else barHeight, color = colors.tertiary, tag = UiTags.GANTT_LOAN,
+                onTap = onTap, yOffset = if (stacked) -(thin / 2 + 0.5.dp) else 0.dp,
+            )
+        }
+        row.rent?.let { bar ->
+            Bar(
+                bar = bar, column = column, height = if (stacked) thin else barHeight, color = colors.secondary, tag = UiTags.GANTT_RENT,
+                onTap = onTap, yOffset = if (stacked) thin / 2 + 0.5.dp else 0.dp,
+            )
+        }
+        row.resale?.let { mark ->
+            Box(
+                Modifier
+                    .offset(x = column * mark.at + (column - barHeight) / 2)
+                    .size(barHeight)
+                    .background(colors.secondary, CircleShape)
+                    .border(2.dp, colors.surface, CircleShape)
+                    .clickable { onTap(mark.detail) }
+                    .semantics { contentDescription = mark.detail }
+                    .testTag(UiTags.GANTT_RESALE),
+            )
         }
     }
 }
@@ -375,10 +433,11 @@ private fun Bar(
     color: Color,
     tag: String,
     onTap: (String) -> Unit,
+    yOffset: Dp = 0.dp,
 ) {
     Box(
         modifier = Modifier
-            .offset(x = column * bar.from)
+            .offset(x = column * bar.from, y = yOffset)
             .width(column * (bar.to - bar.from + 1))
             .height(height)
             .background(color, RoundedCornerShape(height / 2))

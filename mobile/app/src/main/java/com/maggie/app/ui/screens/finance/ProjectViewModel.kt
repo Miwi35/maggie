@@ -215,7 +215,7 @@ class ProjectViewModel(
     private fun refreshed(sheet: ProjectSheet?, projects: List<Project>): ProjectSheet? {
         sheet ?: return null
         val project = projects.firstOrNull { it.id == sheet.projectId } ?: return null
-        return if (sheet.dirty) sheet else sheet.copy(sources = project.fundingSources.map(FundingSourceDraft::of))
+        return if (sheet.dirty) sheet else sheet.copy(sources = FundingDraft.draftsOf(project.fundingSources))
     }
 
     fun openSheet(id: String) {
@@ -225,7 +225,7 @@ class ProjectViewModel(
             return
         }
         _uiState.value = _uiState.value.copy(
-            sheet = ProjectSheet(projectId = id, sources = project.fundingSources.map(FundingSourceDraft::of)),
+            sheet = ProjectSheet(projectId = id, sources = FundingDraft.draftsOf(project.fundingSources)),
             error = null,
         )
         requestOptions()
@@ -336,7 +336,7 @@ class ProjectViewModel(
     fun saveFunding(projectId: String, sources: List<FundingSourceDraft>) {
         val project = _uiState.value.projects.firstOrNull { it.id == projectId } ?: return
         if (_uiState.value.sheet?.isSavingFunding == true) return
-        FundingDraft.error(project.amountCents, sources)?.let { message ->
+        FundingDraft.error(FundingDraft.editableAmountCents(project), sources)?.let { message ->
             updateSheetOf(projectId) { it.copy(fundingError = message) }
             return
         }
@@ -351,7 +351,7 @@ class ProjectViewModel(
                     )
                     updateSheetOf(projectId) {
                         it.copy(
-                            sources = saved.fundingSources.map(FundingSourceDraft::of),
+                            sources = FundingDraft.draftsOf(saved.fundingSources),
                             dirty = false,
                             isSavingFunding = false,
                             fundingSaved = true,

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.filter
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -13,10 +14,15 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.PlannedInvestment
+import com.maggie.app.data.model.PlannedLoan
 import com.maggie.app.data.model.PlannedProject
 import com.maggie.app.data.model.PlanningMonth
 import com.maggie.app.data.model.Project
+import com.maggie.app.data.model.ProjectInvestment
 import com.maggie.app.data.model.ProjectPlanning
+import com.maggie.app.data.model.ProjectResale
+import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.ProjectFundingSource
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.screentest.ScreenRule
@@ -280,5 +286,95 @@ class ProjectListScreenTest {
 
         assertEquals(listOf("p2"), sheets)
         assertEquals(listOf<String?>(null), forms)
+    }
+
+    private val box = Project(
+        id = "p9", name = "Box à louer", amountCents = 1_800_000, wellbeing = "comfort", wellbeingScore = 1, position = 0,
+        investment = ProjectInvestment(
+            projectId = "p9", priceCents = 1_800_000, downPaymentCents = 300_000, loanId = "l1", loanPaymentCents = 14_108,
+            monthlyRentCents = 16_000, monthlyBalanceCents = 1_892,
+            resale = ProjectResale(month = "2028-06", netAmountCents = 1_000_000, targetProjectId = "p2"),
+        ),
+    )
+
+    @Test
+    fun `an investment row shows the rent, the loan payment, the balance and the planned resale (MAG-557)`() {
+        compose.setContent { ProjectListScreen(viewModel(listOf(box, sofa.copy(position = 1))), onBack = {}, onOpenForm = {}) }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
+        compose.onAllNodesWithTag(UiTags.PROJECT_ROW_INVESTMENT, useUnmergedTree = true).assertCountEquals(1)
+        compose.onNodeWithText("Loyer perçu : ${formatCents(16_000)} par mois").assertIsDisplayed()
+        compose.onNodeWithText("Mensualité du prêt : ${formatCents(14_108)} par mois").assertIsDisplayed()
+        compose.onNodeWithText("Solde : +${formatCents(1_892)} par mois").assertIsDisplayed()
+        compose.onNodeWithText("Revendre en juin 2028", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("pour l'apport de Canapé", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a box that costs more than it brings shows a negative balance, and a box with no loan no payment`() {
+        val costly = box.copy(investment = box.investment!!.copy(monthlyBalanceCents = -4_108, resale = null))
+        val cash = box.copy(id = "p8", name = "Garage", position = 1, investment = box.investment!!.copy(loanPaymentCents = 0, monthlyBalanceCents = 16_000, resale = null))
+        compose.setContent { ProjectListScreen(viewModel(listOf(costly, cash)), onBack = {}, onOpenForm = {}) }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
+        compose.onNodeWithText("Solde : −${formatCents(4_108)} par mois").assertIsDisplayed()
+        compose.onAllNodesWithText("Mensualité du prêt", substring = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Revendre", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a plain project shows no investment lines`() {
+        compose.setContent { ProjectListScreen(viewModel(), onBack = {}, onOpenForm = {}) }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
+        compose.onAllNodesWithTag(UiTags.PROJECT_ROW_INVESTMENT, useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `the Gantt draws the rent beside the loan and the resale point of an investment`() {
+        val boxPlan = planning.copy(
+            projects = listOf(
+                PlannedProject(
+                    projectId = "p9", name = "Box à louer", position = 0, amountCents = 1_800_000, savingFromMonth = "2026-10", purchaseMonth = "2026-12",
+                    loan = PlannedLoan("2027-01", "2027-07", 14_108),
+                    investment = PlannedInvestment(
+                        monthlyRentCents = 16_000, monthlyBalanceCents = 1_892, rentFromMonth = "2027-01", rentUntilMonth = "2027-07",
+                        resaleMonth = "2027-08", resaleNetCents = 1_000_000, resaleTargetProjectId = "p2",
+                    ),
+                ),
+                planning.projects[1].copy(resaleFromMonth = "2027-08"),
+            ),
+        )
+        compose.setContent {
+            ProjectListScreen(viewModel(listOf(box, sofa.copy(position = 1)), Result.success(boxPlan)), onBack = {}, onOpenForm = {})
+        }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.GANTT_ROW).fetchSemanticsNodes().size == 2 }
+        assertEquals(1, compose.onAllNodesWithTag(UiTags.GANTT_LOAN).fetchSemanticsNodes().size)
+        assertEquals(1, compose.onAllNodesWithTag(UiTags.GANTT_RENT).fetchSemanticsNodes().size)
+        assertEquals(1, compose.onAllNodesWithTag(UiTags.GANTT_RESALE).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `a tap on the rent bar or the resale point says the month and the amounts`() {
+        val boxPlan = planning.copy(
+            projects = listOf(
+                PlannedProject(
+                    projectId = "p9", name = "Box à louer", position = 0, amountCents = 1_800_000, savingFromMonth = "2026-10", purchaseMonth = "2026-12",
+                    investment = PlannedInvestment(
+                        monthlyRentCents = 16_000, rentFromMonth = "2027-01", rentUntilMonth = "2027-07",
+                        resaleMonth = "2027-08", resaleNetCents = 1_000_000,
+                    ),
+                ),
+            ),
+        )
+        compose.setContent { ProjectListScreen(viewModel(listOf(box), Result.success(boxPlan)), onBack = {}, onOpenForm = {}) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.GANTT_RENT).fetchSemanticsNodes().size == 1 }
+
+        compose.onNodeWithTag(UiTags.GANTT_RENT).performClick()
+        compose.onNodeWithText("Box à louer · loyer", substring = true).assertIsDisplayed()
+
+        compose.onNodeWithTag(UiTags.GANTT_RESALE).performClick()
+        compose.onNodeWithText("Box à louer · revente en août 2027", substring = true).assertIsDisplayed()
     }
 }

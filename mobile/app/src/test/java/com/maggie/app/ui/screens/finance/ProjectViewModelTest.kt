@@ -873,4 +873,98 @@ class ProjectViewModelTest {
         assertEquals(listOf("acc-1"), viewModel.uiState.value.accounts.map { it.id })
         coVerify(exactly = 1) { repository.getAccounts() }
     }
+
+    // A car that receives 1 000 € from the resale of a box: the sheet edits only the 9 000 € left to the others.
+    private val carWithResale = car.copy(
+        fundingSources = car.fundingSources + listOf(
+            ProjectFundingSource(kind = "resale", amountCents = 100_000, sourceProjectId = "p9"),
+            ProjectFundingSource(kind = "somethingNew", amountCents = 5),
+        ),
+    )
+
+    private suspend fun kotlinx.coroutines.test.TestScope.viewModelWithResale(): ProjectViewModel {
+        coEvery { repository.getProjects() } returns Result.success(listOf(move, sofa, carWithResale))
+        coEvery { repository.getOptions("p3", any()) } returns Result.success(priced())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        return viewModel
+    }
+
+    @Test
+    fun `a resale the project receives is read, and kept out of the drafts the tablet edits (MAG-557)`() = runTest {
+        val viewModel = viewModelWithResale()
+
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(100_000, state.projects.single { it.id == "p3" }.resaleCents)
+        assertEquals(listOf(FundingKind.SAVINGS, FundingKind.LOAN), state.sheet!!.sources.map { it.kind })
+    }
+
+    @Test
+    fun `saving does not send the resale back, and counts it in the amount the others share`() = runTest {
+        val viewModel = viewModelWithResale()
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+        val requests = slot<List<ProjectFundingSourceRequest>>()
+        coEvery { repository.setFunding("p3", capture(requests)) } returns Result.success(carWithResale)
+
+        viewModel.editSource(0) { it.copy(amount = "3000") }
+        viewModel.saveFunding("p3", viewModel.uiState.value.sheet!!.sources)
+        advanceUntilIdle()
+
+        assertEquals(listOf("savings", "loan"), requests.captured.map { it.kind })
+        assertEquals(300_000, requests.captured.first().amountCents)
+        val sheet = viewModel.uiState.value.sheet!!
+        assertTrue(sheet.fundingSaved)
+        assertEquals(listOf(FundingKind.SAVINGS, FundingKind.LOAN), sheet.sources.map { it.kind })
+    }
+
+    @Test
+    fun `sources that overshoot what the resale leaves are refused before any request`() = runTest {
+        val viewModel = viewModelWithResale()
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+
+        // 3 001 € + 6 000 € of loan = 9 001 €, one euro over the 9 000 € left once the 1 000 € resale is counted.
+        viewModel.editSource(0) { it.copy(amount = "3001") }
+        viewModel.saveFunding("p3", viewModel.uiState.value.sheet!!.sources)
+        advanceUntilIdle()
+
+        assertEquals("Les sources dépassent le montant du projet : baissez-les.", viewModel.uiState.value.sheet!!.fundingError)
+        coVerify(exactly = 0) { repository.setFunding(any(), any()) }
+    }
+
+    @Test
+    fun `a push that brings a new resale refreshes the open sheet without it becoming an editable source`() = runTest {
+        val viewModel = viewModelWithCar()
+        viewModel.openSheet("p3")
+        advanceUntilIdle()
+        coEvery { repository.getProjects() } returns Result.success(listOf(move, sofa, carWithResale))
+
+        pushes.emit(MercureEvent(data = """{"@id":"/api/finance/projects/p3"}"""))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(100_000, state.projects.single { it.id == "p3" }.resaleCents)
+        assertEquals(listOf(FundingKind.SAVINGS, FundingKind.LOAN), state.sheet!!.sources.map { it.kind })
+    }
+
+    @Test
+    fun `an investment arrives with the project and reaches the list through a push`() = runTest {
+        val box = Project(
+            id = "p9", name = "Box à louer", amountCents = 1_800_000, position = 3,
+            investment = com.maggie.app.data.model.ProjectInvestment(projectId = "p9", monthlyRentCents = 16_000, monthlyBalanceCents = 1_892),
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.projects.firstOrNull { it.id == "p9" })
+        coEvery { repository.getProjects() } returns Result.success(listOf(move, sofa, box))
+
+        pushes.emit(MercureEvent(data = """{"@id":"/api/finance/projects/p9"}"""))
+        advanceUntilIdle()
+
+        assertEquals(16_000, viewModel.uiState.value.projects.single { it.id == "p9" }.investment?.monthlyRentCents)
+    }
 }

@@ -14,6 +14,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.FundingKind
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectFundingSource
+import com.maggie.app.data.model.ProjectInvestment
+import com.maggie.app.data.model.ProjectResale
 import com.maggie.app.data.model.ProjectOption
 import com.maggie.app.data.model.ProjectOptions
 import com.maggie.app.data.model.formatCents
@@ -60,8 +62,9 @@ class ProjectSheetScreenTest {
         editable: Boolean = false,
         actions: ProjectSheetActions = ProjectSheetActions(),
         project: Project? = car,
+        projects: List<Project> = emptyList(),
     ) = compose.setContent {
-        ProjectSheetContent(project = project, sheet = sheet, accounts = emptyList(), hasLoaded = true, editable = editable, actions = actions)
+        ProjectSheetContent(project = project, sheet = sheet, accounts = emptyList(), hasLoaded = true, editable = editable, actions = actions, projects = projects)
     }
 
     private fun cell(tag: String, text: String) {
@@ -176,5 +179,82 @@ class ProjectSheetScreenTest {
         assertEquals(listOf(FundingKind.SAVINGS, FundingKind.CAPITAL), added)
         assertEquals(0, compose.onAllNodesWithTag(UiTags.projectFundingAdd("loan")).fetchSemanticsNodes().size)
         compose.onNodeWithText("Savings account is the cushion.").performScrollTo().assertIsDisplayed()
+    }
+
+    private val japan = Project(id = "p2", name = "Japon", amountCents = 300_000)
+
+    private val box = Project(
+        id = "p9", name = "Box à louer", amountCents = 1_800_000,
+        fundingSources = listOf(
+            ProjectFundingSource(kind = "savings", amountCents = 300_000, accountId = "a1"),
+            ProjectFundingSource(kind = "loan", amountCents = 1_500_000, loanId = "l1"),
+        ),
+        investment = ProjectInvestment(
+            projectId = "p9", priceCents = 1_800_000, downPaymentCents = 300_000, loanId = "l1", loanPaymentCents = 14_108,
+            monthlyRentCents = 16_000, monthlyBalanceCents = 1_892,
+            resale = ProjectResale(month = "2028-06", netAmountCents = 1_000_000, targetProjectId = "p2"),
+        ),
+    )
+
+    @Test
+    fun `an investment shows its price, down payment, rent, loan payment, balance and resale (MAG-557)`() {
+        show(sheet = ProjectSheet("p9", sources = box.fundingSources.map(FundingSourceDraft::of)), project = box, projects = listOf(box, japan))
+
+        compose.onNodeWithTag(UiTags.PROJECT_INVESTMENT).assertIsDisplayed()
+        cell(UiTags.PROJECT_INVESTMENT_PRICE, formatCents(1_800_000))
+        cell(UiTags.PROJECT_INVESTMENT_DOWN_PAYMENT, formatCents(300_000))
+        cell(UiTags.PROJECT_INVESTMENT_RENT, "${formatCents(16_000)} par mois")
+        cell(UiTags.PROJECT_INVESTMENT_LOAN, "${formatCents(14_108)} par mois")
+        cell(UiTags.PROJECT_INVESTMENT_BALANCE, "+${formatCents(1_892)} par mois")
+        compose.onNodeWithTag(UiTags.PROJECT_INVESTMENT_RESALE)
+            .assert(hasText("Revendre en juin 2028 pour ${formatCents(1_000_000)} net, pour l'apport de Japon"))
+    }
+
+    @Test
+    fun `an investment with no loan and no resale says so instead of showing a zero`() {
+        val cash = box.copy(investment = box.investment!!.copy(loanPaymentCents = 0, resale = null))
+        show(sheet = ProjectSheet("p9"), project = cash, projects = listOf(cash))
+
+        cell(UiTags.PROJECT_INVESTMENT_LOAN, "—")
+        compose.onNodeWithTag(UiTags.PROJECT_INVESTMENT_RESALE).assert(hasText("Aucune revente planifiée."))
+    }
+
+    @Test
+    fun `a plain project has no investment card`() {
+        show()
+
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.PROJECT_INVESTMENT).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `the resale a project receives is a segment named after its source, and the summary says so`() {
+        val funded = box.copy(
+            investment = null,
+            fundingSources = box.fundingSources + ProjectFundingSource(kind = "resale", amountCents = 400_000, sourceProjectId = "p9"),
+        )
+        show(
+            sheet = ProjectSheet("p2", sources = FundingDraft.draftsOf(funded.fundingSources)),
+            project = funded.copy(id = "p2", name = "Japon"),
+            projects = listOf(box, japan),
+        )
+
+        compose.onNodeWithTag(UiTags.PROJECT_FUNDING_SUMMARY).assert(hasText("économies + emprunt + revente"))
+        val legend = compose.onAllNodesWithTag(UiTags.PROJECT_FUNDING_SOURCE)
+        assertEquals(3, legend.fetchSemanticsNodes().size)
+        legend[2].assert(hasAnyDescendant(hasText("Revente de Box à louer")))
+        legend[2].assert(hasAnyDescendant(hasText(formatCents(400_000))))
+    }
+
+    @Test
+    fun `the tablet does not offer to add a resale, and its editor lists only the sources it can save`() {
+        val funded = car.copy(
+            fundingSources = car.fundingSources + ProjectFundingSource(kind = "resale", amountCents = 50_000, sourceProjectId = "p9"),
+        )
+        val sources = FundingDraft.draftsOf(funded.fundingSources)
+        show(sheet = ProjectSheet("p3", options = options, sources = sources), editable = true, project = funded, projects = listOf(box, funded))
+
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.projectFundingAdd("resale")).fetchSemanticsNodes().size)
+        compose.onNodeWithTag(UiTags.projectFundingAdd("savings")).performScrollTo().assertIsDisplayed()
+        assertEquals(2, sources.size)
     }
 }

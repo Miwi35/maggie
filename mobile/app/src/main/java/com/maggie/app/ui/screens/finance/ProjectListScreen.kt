@@ -52,8 +52,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Project
+import com.maggie.app.data.model.ProjectInvestment
 import com.maggie.app.data.model.ProjectWellbeing
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.investmentBalanceLabel
+import com.maggie.app.data.model.investmentLoanLabel
+import com.maggie.app.data.model.investmentRentLabel
+import com.maggie.app.data.model.investmentResaleLabel
 import com.maggie.app.data.model.projectDateLabel
 import com.maggie.app.data.model.projectDependenciesLabel
 import com.maggie.app.data.model.projectFundingSummary
@@ -308,6 +313,7 @@ private fun ProjectRow(
                     modifier = Modifier.testTag(UiTags.PROJECT_FUNDING_SUMMARY),
                 )
             }
+            project.investment?.let { InvestmentLines(it, project.currency, all) }
             projectDependenciesLabel(project, all)?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -332,6 +338,26 @@ private fun ProjectRow(
             }
         }
         WellbeingBadge(ProjectWellbeing.of(project.wellbeing), project.wellbeingScore)
+    }
+}
+
+/**
+ * An investment on the list (MAG-557), read-only: the rent received, the loan's payment, the balance of the
+ * two and the planned resale — facts in small lines, edited from the admin or by Maggie.
+ */
+@Composable
+private fun InvestmentLines(investment: ProjectInvestment, currency: String, all: List<Project>) {
+    Column(modifier = Modifier.testTag(UiTags.PROJECT_ROW_INVESTMENT), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        val muted = MaterialTheme.colorScheme.onSurfaceVariant
+        Text(investmentRentLabel(investment, currency), style = MaterialTheme.typography.bodySmall, color = muted)
+        investmentLoanLabel(investment, currency)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = muted) }
+        Text(
+            investmentBalanceLabel(investment, currency),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        investmentResaleLabel(investment, all, currency)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = muted) }
     }
 }
 

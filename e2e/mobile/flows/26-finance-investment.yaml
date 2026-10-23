@@ -1,0 +1,109 @@
+appId: com.maggie.app.e2e
+name: 26-finance-investment
+tags:
+  - finance
+---
+# Un projet d'investissement, lu sur le téléphone et la tablette (MAG-557, extends MAG-102).
+#
+# Étant donné « Box à louer » (18 000 €), un apport de 3 000 €, un prêt sur 20 ans à 3 %, 650 € de loyer
+#   par mois et une revente dans 30 mois pour l'apport de « Studio », posés par l'API
+# Quand j'ouvre Finance › Projets
+# Alors la ligne de « Box à louer » dit le loyer perçu, la mensualité du prêt, le solde du mois et
+#   « Revendre en <mois> <année> … pour l'apport de Studio »
+# Quand j'ouvre sa fiche
+# Alors la carte « Investissement locatif » donne le prix, l'apport, le loyer, la mensualité, le solde
+#   et la même phrase de revente
+# Alors la fiche de « Studio » nomme la revente qu'il reçoit : « Revente de Box à louer »
+#
+# Read-only: the phone and the tablet write no investment (the admin and Maggie do), so the data is
+# posed and taken away by `scripts/investment-api.js`, on the stock user and under names of its own:
+# the owner's two projects and « Voiture » (23-finance-projects) are not touched. The flow runs in
+# the shard of 23, after it: the server is shared between shards, and a resale set aside for « Voiture »
+# would change its sources line.
+#
+# The amounts are matched loosely, as the app formats them in the device's locale (« 650,00 EUR »,
+# « 650.00 EUR »). The loan's payment and the balance depend on the interest the API computes: the
+# unit tests (`ProjectTest`) and the API's own pin the figures, so only their labels are asserted here.
+# The resale month is 30 months from today: any month of any year matches.
+#
+# What is not here: the Gantt's rent bar and resale point — where they fall depends on the saving
+# capacity of the seed — and the negative balance, the loan-free box, the resale with no target and
+# the tolerance to an unknown source (`ProjectGanttRowsTest`, `ProjectListScreenTest`,
+# `ProjectSheetScreenTest`, `ProjectTest`, `ProjectViewModelTest`), and the admin's side of the same API.
+#
+# The data is taken away before and after: a run that failed half-way is taken as it was left.
+
+- runScript:
+    file: ../scripts/investment-api.js
+    env:
+      ACTION: setup
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/26-finance-investment.yaml
+      e2e_email: e2e-stock@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/projects"
+- extendedWaitUntil:
+    visible:
+      id: "projects"
+    timeout: 30000
+
+# The row of the box: one node for accessibility, its texts are read together, hence the `.*`.
+- scrollUntilVisible:
+    element: ".*Box à louer.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*Loyer perçu : 650[,.]00 EUR par mois.*"
+    timeout: 10000
+- assertVisible: ".*Mensualité du prêt : .* EUR par mois.*"
+- assertVisible: ".*Solde : .* EUR par mois.*"
+- assertVisible: ".*Revendre en .* 20[0-9]{2} pour 4000[,.]00 EUR net, pour l'apport de Studio.*"
+
+# Its sheet: the investment card, read-only.
+- tapOn: ".*Box à louer.*"
+- extendedWaitUntil:
+    visible:
+      id: "project_sheet"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "project_investment"
+    timeout: 20000
+- assertVisible: "Investissement locatif"
+- assertVisible: ".*650[,.]00 EUR par mois.*"
+- assertVisible: "Mensualité du prêt"
+- assertVisible: "Solde mensuel"
+- assertVisible: ".*Revendre en .* 20[0-9]{2} pour 4000[,.]00 EUR net, pour l'apport de Studio.*"
+
+# The target of the resale names it among its sources.
+- openLink: "maggie-e2e://finance/projects"
+- extendedWaitUntil:
+    visible:
+      id: "projects"
+    timeout: 30000
+- scrollUntilVisible:
+    element: ".*Studio.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*revente.*"
+    timeout: 10000
+- tapOn: ".*Studio.*"
+- extendedWaitUntil:
+    visible:
+      id: "project_sheet"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Revente de Box à louer"
+    timeout: 20000
+
+# Left as the seed wrote it.
+- runScript:
+    file: ../scripts/investment-api.js
+    env:
+      ACTION: cleanup

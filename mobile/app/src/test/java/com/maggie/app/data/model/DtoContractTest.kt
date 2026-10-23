@@ -602,6 +602,48 @@ class DtoContractTest {
         assertCollectionContract("finance_projects", serializer<Project>(), "Project")
 
     @Test
+    fun `the project planning deserialises from the recorded response, with the investment's rent and resale (MAG-557)`() {
+        val name = "finance_project_planning.read"
+        val body = readRecording(name)
+
+        val planning = json.decodeFromJsonElement(serializer<ProjectPlanning>(), body)
+
+        assertDeclaredFieldsExist("ProjectPlanning", serializer<ProjectPlanning>(), body.keys, name)
+        assertDeclaredFieldsExist("PlanningMonth", serializer<PlanningMonth>(), keysOf(body, "months"), name)
+        assertDeclaredFieldsExist("PlannedProject", serializer<PlannedProject>(), keysOf(body, "projects"), name)
+        assertDeclaredFieldsExist("PlannedCushion", serializer<PlannedCushion>(), body["cushion"]!!.jsonObject.keys, name)
+        val projects = body["projects"]!!.jsonArray.map { it.jsonObject }
+        assertDeclaredFieldsExist(
+            "PlannedLoan",
+            serializer<PlannedLoan>(),
+            projects.mapNotNull { it["loan"] as? JsonObject }.flatMap { it.keys }.toSet(),
+            name,
+        )
+        val investments = projects.mapNotNull { it["investment"] as? JsonObject }
+        assertTrue("The recording \"$name\" has no investment, so it proves nothing.", investments.isNotEmpty())
+        assertDeclaredFieldsExist("PlannedInvestment", serializer<PlannedInvestment>(), investments.flatMap { it.keys }.toSet(), name)
+
+        val box = planning.projects.first { it.investment != null }
+        assertEquals(16000, box.investment?.monthlyRentCents)
+        assertEquals("2027-11", box.investment?.rentFromMonth)
+        assertEquals("2028-06", box.investment?.resaleMonth)
+        assertEquals(36, planning.months.size)
+    }
+
+    @Test
+    fun `the OpenAPI document sends an investment and a resale source under the names the app reads (MAG-557)`() {
+        val schemas = (Json.parseToJsonElement(File(repositoryRoot(), "api/contract/openapi.json").readText()) as JsonObject)["components"]!!
+            .jsonObject["schemas"]!!.jsonObject
+        fun properties(schema: String): Set<String> = schemas[schema]?.jsonObject?.get("properties")?.jsonObject?.keys
+            ?: throw AssertionError("The OpenAPI contract has no schema \"$schema\".")
+
+        val investment = properties("ProjectInvestment_noid")
+        assertDeclaredFieldsExist("ProjectInvestment", serializer<ProjectInvestment>(), investment, "the OpenAPI schema ProjectInvestment")
+        assertDeclaredFieldsExist("ProjectFundingSource", serializer<ProjectFundingSource>(), properties("ProjectFundingSource_noid"), "the OpenAPI schema ProjectFundingSource")
+        assertTrue("investment" in properties("Project"))
+    }
+
+    @Test
     fun `placements deserialise from the recorded response (MAG-555)`() =
         assertCollectionContract("finance_placements", serializer<Placement>(), "Placement")
 

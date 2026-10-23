@@ -58,10 +58,14 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.FundingKind
 import com.maggie.app.data.model.Project
+import com.maggie.app.data.model.ProjectFundingSource
+import com.maggie.app.data.model.ProjectInvestment
 import com.maggie.app.data.model.ProjectOption
 import com.maggie.app.data.model.ProjectOptions
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatRate
+import com.maggie.app.data.model.investmentBalanceLabel
+import com.maggie.app.data.model.investmentResaleLabel
 import com.maggie.app.data.model.label
 import com.maggie.app.data.model.projectDateLabel
 import com.maggie.app.data.model.projectFundingSummary
@@ -93,6 +97,7 @@ fun ProjectSheetScreen(
 
     ProjectSheetContent(
         project = state.projects.firstOrNull { it.id == projectId },
+        projects = state.projects,
         sheet = state.sheet?.takeIf { it.projectId == projectId },
         accounts = state.accounts,
         hasLoaded = state.hasLoaded,
@@ -132,6 +137,8 @@ internal fun ProjectSheetContent(
     hasLoaded: Boolean,
     editable: Boolean,
     actions: ProjectSheetActions,
+    /** All the projects, to name the one a resale funds or comes from (MAG-557). */
+    projects: List<Project> = emptyList(),
 ) {
     Scaffold(
         topBar = {
@@ -169,7 +176,8 @@ internal fun ProjectSheetContent(
                     projectFundingSummary(project)?.let {
                         Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag(UiTags.PROJECT_FUNDING_SUMMARY))
                     }
-                    FundingCard(project)
+                    project.investment?.let { InvestmentCard(project, it, projects) }
+                    FundingCard(project, projects)
                     OptionsCard(sheet)
                     if (editable && sheet != null) {
                         FundingEditorCard(project, sheet, accounts, actions)
@@ -206,13 +214,14 @@ private fun kindColor(kind: FundingKind): Color = when (kind) {
     FundingKind.SAVINGS -> MaterialTheme.colorScheme.primary
     FundingKind.CAPITAL -> MaterialTheme.colorScheme.secondary
     FundingKind.LOAN -> MaterialTheme.colorScheme.tertiary
+    FundingKind.RESALE -> MaterialTheme.colorScheme.inversePrimary
 }
 
 /** The sources over the amount of the project, then what is left on the salary: a stacked bar and its legend. */
 @Composable
-private fun FundingCard(project: Project) {
+private fun FundingCard(project: Project, projects: List<Project>) {
     val sources = project.fundingSources.mapNotNull { source ->
-        FundingKind.of(source.kind)?.let { FundingSegment(it.label, source.amountCents, kindColor(it)) }
+        FundingKind.of(source.kind)?.let { FundingSegment(sourceLabel(it, source, projects), source.amountCents, kindColor(it)) }
     }
     val salary = FundingSegment("Salaire", project.salaryCents, MaterialTheme.colorScheme.outlineVariant)
     val segments = (sources + salary).filter { it.cents > 0 }
@@ -243,6 +252,57 @@ private fun FundingCard(project: Project) {
                 Text(formatCents(segment.cents, project.currency), style = MaterialTheme.typography.bodyMedium)
             }
         }
+    }
+}
+
+/** « Revente de Box à louer » for a resale, the kind's label for the others. */
+internal fun sourceLabel(kind: FundingKind, source: ProjectFundingSource, projects: List<Project>): String {
+    if (kind != FundingKind.RESALE) return kind.label
+    val from = source.sourceProjectId?.let { id -> projects.firstOrNull { it.id == id } }
+    return if (from != null) "${kind.label} de ${from.name}" else kind.label
+}
+
+/**
+ * The investment of a project (MAG-557), read-only: the price and the down payment, the rent, the loan's
+ * payment and what is left each month, then the planned resale in a sentence. It is written from the admin
+ * and by Maggie, which the card says.
+ */
+@Composable
+private fun InvestmentCard(project: Project, investment: ProjectInvestment, projects: List<Project>) {
+    val currency = project.currency
+    SheetCard("Investissement locatif", modifier = Modifier.testTag(UiTags.PROJECT_INVESTMENT)) {
+        InvestmentRow("Prix", formatCents(investment.priceCents, currency), UiTags.PROJECT_INVESTMENT_PRICE)
+        InvestmentRow("Apport", formatCents(investment.downPaymentCents, currency), UiTags.PROJECT_INVESTMENT_DOWN_PAYMENT)
+        InvestmentRow("Loyer perçu", "${formatCents(investment.monthlyRentCents, currency)} par mois", UiTags.PROJECT_INVESTMENT_RENT)
+        InvestmentRow(
+            "Mensualité du prêt",
+            if (investment.loanPaymentCents > 0) "${formatCents(investment.loanPaymentCents, currency)} par mois" else "—",
+            UiTags.PROJECT_INVESTMENT_LOAN,
+        )
+        InvestmentRow(
+            "Solde mensuel",
+            investmentBalanceLabel(investment, currency).removePrefix("Solde : "),
+            UiTags.PROJECT_INVESTMENT_BALANCE,
+            bold = true,
+        )
+        Text(
+            investmentResaleLabel(investment, projects, currency) ?: "Aucune revente planifiée.",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag(UiTags.PROJECT_INVESTMENT_RESALE),
+        )
+        Text(
+            "Se modifie depuis l'administration, ou en le demandant à Maggie.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun InvestmentRow(label: String, value: String, tag: String, bold: Boolean = false) {
+    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth().testTag(tag)) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = if (bold) FontWeight.Bold else FontWeight.SemiBold)
     }
 }
 
@@ -361,13 +421,13 @@ private fun FundingEditorCard(project: Project, sheet: ProjectSheet, accounts: L
         ) {
             Text("Le reste, sur salaire", style = MaterialTheme.typography.bodyLarge)
             Text(
-                formatCents(FundingDraft.salaryCents(project.amountCents, sheet.sources), project.currency),
+                formatCents(FundingDraft.salaryCents(FundingDraft.editableAmountCents(project), sheet.sources), project.currency),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
             )
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FundingKind.entries.forEach { kind ->
+            FundingKind.entries.filter { it.editable }.forEach { kind ->
                 if (kind == FundingKind.LOAN && sheet.sources.any { it.kind == FundingKind.LOAN }) return@forEach
                 AssistChip(
                     onClick = { actions.onAddSource(kind) },
@@ -400,6 +460,7 @@ private fun addLabel(kind: FundingKind): String = when (kind) {
     FundingKind.SAVINGS -> "Ajouter des économies"
     FundingKind.CAPITAL -> "Ajouter du capital"
     FundingKind.LOAN -> "Ajouter un emprunt"
+    FundingKind.RESALE -> "Ajouter une revente"
 }
 
 @OptIn(ExperimentalLayoutApi::class)

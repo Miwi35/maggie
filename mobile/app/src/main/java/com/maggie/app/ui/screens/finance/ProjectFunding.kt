@@ -4,6 +4,7 @@ import com.maggie.app.data.api.ProjectFundingSourceRequest
 import com.maggie.app.data.api.ProjectOptionsParams
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.FundingKind
+import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectFundingSource
 import com.maggie.app.data.model.ProjectOptions
 import java.util.Locale
@@ -57,6 +58,17 @@ data class FundingSourceDraft(
 /** The sources of a project as the tablet holds them while they are edited. */
 object FundingDraft {
 
+    /**
+     * The drafts a project's sources become on the sheet: the editable kinds only. A resale is posed by the
+     * investment it comes from (MAG-557), and a kind this app does not know is left to the API: neither is
+     * sent back, and neither is turned into a savings draft that could never be saved.
+     */
+    fun draftsOf(sources: List<ProjectFundingSource>): List<FundingSourceDraft> =
+        sources.filter { FundingKind.of(it.kind)?.editable == true }.map(FundingSourceDraft::of)
+
+    /** What the editable sources have to share: the project's amount less the resales it receives. */
+    fun editableAmountCents(project: Project): Int = (project.amountCents - project.resaleCents).coerceAtLeast(0)
+
     /** « Le reste », on the salary: the amount minus the sources, never below 0. */
     fun salaryCents(amountCents: Int, sources: List<FundingSourceDraft>): Int =
         (amountCents - sources.sumOf { it.amountCents ?: 0 }).coerceAtLeast(0)
@@ -78,7 +90,7 @@ object FundingDraft {
     fun eligibleAccounts(kind: FundingKind, accounts: List<Account>): List<Account> = when (kind) {
         FundingKind.SAVINGS -> accounts.filter { (it.type == "savings" || it.type == "checking") && !it.isCushion }
         FundingKind.CAPITAL -> accounts.filter { it.type == "investment" }
-        FundingKind.LOAN -> emptyList()
+        FundingKind.LOAN, FundingKind.RESALE -> emptyList()
     }
 }
 
