@@ -71,6 +71,8 @@ const renderSheet = (record: Record<string, unknown> = RECORD, update = vi.fn().
         <ResourceContextProvider value="transactions">
           <Routes>
             <Route path="/transactions/:id" element={<TransactionSheet />} />
+            {/* « Enregistrer » goes back to the list. */}
+            <Route path="/transactions" element={<div data-testid="transaction-list" />} />
           </Routes>
         </ResourceContextProvider>
         <Notification />
@@ -392,7 +394,9 @@ describe('TransactionSheet', () => {
     expect(screen.getByText(/Remboursement : ici, je rembourse/)).toBeInTheDocument()
   })
 
-  test('editing the qualification sends it whole, and the line then reads « à la main »', async () => {
+  // A line the API returns qualified by hand reads « à la main »: tested above. The sheet itself goes
+  // back to the list once saved, so asserting the provenance here raced the redirect under load.
+  test('editing the qualification sends it whole, then goes back to the list', async () => {
     const user = userEvent.setup()
     const qualified = {
       ...RECORD,
@@ -412,7 +416,7 @@ describe('TransactionSheet', () => {
       category: '/api/categories/netflix',
       qualification: { mandatory: true, kind: 'repayment' },
     })
-    expect(await screen.findByTestId('qualification-provenance', {}, { timeout: 5000 })).toHaveTextContent('à la main')
+    expect(await screen.findByTestId('transaction-list', {}, { timeout: 5000 })).toBeInTheDocument()
   })
 
   test('a refused qualification shows the API message', async () => {
