@@ -5,6 +5,7 @@ namespace Maggie\Finance\Tests\Service;
 use Maggie\Finance\Entity\Loan;
 use Maggie\Finance\Entity\Project;
 use Maggie\Finance\Entity\ProjectFundingSource;
+use Maggie\Finance\Entity\ProjectInvestment;
 use Maggie\Finance\Enum\FundingSourceKind;
 use Maggie\Finance\Enum\ProjectDateMode;
 use Maggie\Finance\Service\LoanSchedule;
@@ -85,7 +86,7 @@ class ProjectPlannerTest extends TestCase
         self::assertSame(50000, $plan['netCapacityCents']);
         self::assertTrue($plan['isIncomeKnown']);
         self::assertSame(['state' => 'complete', 'completeMonth' => null], $plan['cushion']);
-        self::assertSame(['month' => '2026-10', 'capacityCents' => 50000, 'cushionCents' => 0, 'salaryCents' => 0, 'savingsCents' => 0, 'capitalCents' => 0, 'loanPaymentsCents' => 0, 'isOverCapacity' => false], $plan['months'][0]);
+        self::assertSame(['month' => '2026-10', 'capacityCents' => 50000, 'cushionCents' => 0, 'salaryCents' => 0, 'savingsCents' => 0, 'capitalCents' => 0, 'loanPaymentsCents' => 0, 'rentCents' => 0, 'resaleCents' => 0, 'isOverCapacity' => false], $plan['months'][0]);
     }
 
     public function testProjectsAreBoughtInPriorityOrderOnTheCapacity(): void
@@ -364,9 +365,152 @@ class ProjectPlannerTest extends TestCase
 
         $row = $plan['projects'][0];
         self::assertSame(
-            ['projectId', 'name', 'position', 'wellbeing', 'amountCents', 'dateMode', 'targetOn', 'savingFromMonth', 'purchaseMonth', 'gatheredCents', 'loan', 'isBeyondHorizon', 'isDeadlineMissed', 'delayMonths', 'unmetDependencies'],
+            ['projectId', 'name', 'position', 'wellbeing', 'amountCents', 'dateMode', 'targetOn', 'savingFromMonth', 'purchaseMonth', 'gatheredCents', 'loan', 'investment', 'resaleFromMonth', 'isBeyondHorizon', 'isDeadlineMissed', 'delayMonths', 'unmetDependencies'],
             array_keys($row),
         );
         self::assertSame(['medium', 'deadline', '2027-04-30', 120000], [$row['wellbeing'], $row['dateMode'], $row['targetOn'], $row['amountCents']]);
+    }
+
+    /** The Box: 18 000 €, 14 000 € borrowed at 3,9 % over 10 years (141,08 € a month), 160 € of rent. */
+    private function box(?string $resaleMonth = null, int $resaleNet = 1000000, ?Project $target = null): Project
+    {
+        $loan = (new Loan())->setName('Box · emprunt')
+            ->setPrincipalRemainingCents(1400000)
+            ->setMonthlyPaymentCents(LoanSchedule::annuity(1400000, 0.039 / 12, 120))
+            ->setAnnualRateBasisPoints(390)
+            ->setDurationMonths(120)
+            ->setProjected(true);
+        $box = $this->project('Box', 1800000);
+        $this->source($box, FundingSourceKind::Loan, 1400000, $loan);
+        $investment = (new ProjectInvestment())->setProject($box)->setMonthlyRentCents(16000);
+        $investment->planResale($resaleMonth, null === $resaleMonth ? null : $resaleNet, $target);
+        $box->setInvestment($investment);
+
+        return $box;
+    }
+
+    private function resaleSource(Project $target, Project $from, int $cents): void
+    {
+        (new ProjectFundingSource())->setProject($target)->setKind(FundingSourceKind::Resale)->setAmountCents($cents)->setSourceProject($from);
+    }
+
+    public function testTheBoxPaymentAndMonthlyBalanceAreFigured(): void
+    {
+        $box = $this->box();
+        $investment = $box->getInvestment();
+
+        self::assertNotNull($investment);
+        self::assertSame(400000, $investment->getDownPaymentCents());
+        self::assertSame(14108, $investment->getLoanPaymentCents());
+        self::assertSame(1892, $investment->getMonthlyBalanceCents());
+    }
+
+    public function testTheRentCoversTheLoanFromTheMonthAfterThePurchase(): void
+    {
+        $plan = $this->plan([$this->box()]);
+
+        // 4 000 € on the salary at 500 € a month: bought in M7, rent and loan from M8.
+        $row = self::row($plan, 'Box');
+        self::assertSame(self::m(7), $row['purchaseMonth']);
+        self::assertSame(['startMonth' => self::m(8), 'endMonth' => null, 'monthlyPaymentCents' => 14108], $row['loan']);
+        self::assertSame(
+            ['monthlyRentCents' => 16000, 'monthlyBalanceCents' => 1892, 'rentFromMonth' => self::m(8), 'rentUntilMonth' => null, 'resaleMonth' => null, 'resaleNetCents' => null, 'resaleTargetProjectId' => null],
+            $row['investment'],
+        );
+        self::assertSame([0, 16000, 16000], [$plan['months'][7]['rentCents'], $plan['months'][8]['rentCents'], $plan['months'][35]['rentCents']]);
+        self::assertSame(14108, $plan['months'][8]['loanPaymentsCents']);
+        // 500 € + 160 € of rent − 141,08 € of payment.
+        self::assertSame(51892, $plan['months'][8]['capacityCents']);
+    }
+
+    public function testTheResaleStopsTheLoanAndTheRentAndFeedsTheTarget(): void
+    {
+        $car = $this->project('Voiture', 1200000);
+        $box = $this->box('2028-06', 1000000, $car);
+        $this->resaleSource($car, $box, 1000000);
+
+        $plan = $this->plan([$box, $car]);
+
+        // 2028-06 is M20: the box is no longer rented nor paid from then on.
+        $row = self::row($plan, 'Box');
+        self::assertSame(self::m(7), $row['purchaseMonth']);
+        self::assertSame(['startMonth' => self::m(8), 'endMonth' => '2028-05', 'monthlyPaymentCents' => 14108], $row['loan']);
+        self::assertSame('2028-06', $row['investment']['resaleMonth']);
+        self::assertSame('2028-05', $row['investment']['rentUntilMonth']);
+        self::assertSame((string) $car->getId(), $row['investment']['resaleTargetProjectId']);
+        self::assertSame([16000, 14108, 0, 0], [$plan['months'][19]['rentCents'], $plan['months'][19]['loanPaymentsCents'], $plan['months'][20]['rentCents'], $plan['months'][20]['loanPaymentsCents']]);
+        self::assertSame(1000000, $plan['months'][20]['resaleCents']);
+
+        // The car's 2 000 € on the salary are gathered long before, but it waits for the money.
+        $carRow = self::row($plan, 'Voiture');
+        self::assertSame(self::m(20), $carRow['purchaseMonth']);
+        self::assertSame('2028-06', $carRow['resaleFromMonth']);
+        self::assertNull($row['resaleFromMonth']);
+    }
+
+    public function testTheResaleBringsForwardTheProjectItFeeds(): void
+    {
+        $withoutCar = $this->project('Voiture', 1200000);
+        $alone = $this->plan([$this->box(), $withoutCar]);
+
+        $this->position = 0;
+        $car = $this->project('Voiture', 1200000);
+        $box = $this->box('2028-06', 1000000, $car);
+        $this->resaleSource($car, $box, 1000000);
+        $funded = $this->plan([$box, $car]);
+
+        self::assertGreaterThan(self::row($funded, 'Voiture')['purchaseMonth'], self::row($alone, 'Voiture')['purchaseMonth'] ?? '9999-99');
+        self::assertSame(self::m(20), self::row($funded, 'Voiture')['purchaseMonth']);
+    }
+
+    public function testAResaleWithNoTargetSpeedsUpTheNextProject(): void
+    {
+        $box = $this->box('2028-06', 1000000);
+        $bike = $this->project('Vélo', 900000);
+
+        $plan = $this->plan([$box, $bike]);
+
+        // Without the resale the bike would wait for 9 000 € at ~519 €; with it, it is bought the month of the resale.
+        self::assertSame(self::m(20), self::row($plan, 'Vélo')['purchaseMonth']);
+        self::assertNull(self::row($plan, 'Vélo')['resaleFromMonth']);
+    }
+
+    public function testWhatTheTargetDoesNotTakeSpeedsUpTheNextProject(): void
+    {
+        $plans = [];
+        foreach ([600000, 1000000] as $net) {
+            $this->position = 0;
+            $car = $this->project('Voiture', 600000);
+            $box = $this->box('2028-06', $net, $car);
+            $this->resaleSource($car, $box, 600000);
+            $bike = $this->project('Vélo', 1300000);
+            $plans[$net] = $this->plan([$box, $car, $bike]);
+        }
+
+        // The car only needed 6 000 €: the 4 000 € left are cash of the resale month.
+        self::assertSame(self::m(20), self::row($plans[1000000], 'Voiture')['purchaseMonth']);
+        self::assertSame(self::m(25), self::row($plans[1000000], 'Vélo')['purchaseMonth']);
+        self::assertGreaterThan(self::row($plans[1000000], 'Vélo')['purchaseMonth'], self::row($plans[600000], 'Vélo')['purchaseMonth']);
+    }
+
+    public function testAResaleBeforeThePurchaseHappensTheMonthAfterIt(): void
+    {
+        $plan = $this->plan([$this->box('2026-10', 1000000)]);
+
+        $row = self::row($plan, 'Box');
+        self::assertSame(self::m(7), $row['purchaseMonth']);
+        self::assertSame(self::m(8), $row['investment']['resaleMonth']);
+        self::assertSame(0, $plan['months'][8]['rentCents']);
+        self::assertSame(1000000, $plan['months'][8]['resaleCents']);
+    }
+
+    public function testNothingIsResoldWhileTheBoxIsNotBought(): void
+    {
+        $plan = $this->plan([$this->box('2027-01', 1000000)], capacity: 0);
+
+        $row = self::row($plan, 'Box');
+        self::assertTrue($row['isBeyondHorizon']);
+        self::assertNull($row['investment']['resaleMonth']);
+        self::assertSame(0, array_sum(array_column($plan['months'], 'resaleCents')));
     }
 }

@@ -31,6 +31,7 @@ final class ProjectView
             'unmetDependencies' => $project->getUnmetDependencies(),
             'fundingSources' => array_map(static fn (ProjectFundingSource $source): array => $source->toArray(), $project->getFundingSources()),
             'salaryCents' => $project->getSalaryCents(),
+            'investment' => $project->getInvestment()?->toArray(),
         ];
     }
 

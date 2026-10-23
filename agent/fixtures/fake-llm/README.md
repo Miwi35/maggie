@@ -233,6 +233,10 @@ both ids from it.
 `91-projects-planning.yaml` answers « Quand pourrai-je acheter le canapé ? » with `get_project_planning` (MAG-526), a
 pure read that takes no argument.
 
+**Investments** (MAG-557). `91-investments-set.yaml` makes the « Box » an investment (5 000 € down payment, a 20-year loan
+at 3,9 %, 160 € rent, resale in 2036-06) through `manage_investments` set: one round lists the projects,
+`results_matches` captures the Box's id from it. The figures said are the scenario's own: the fake does not read the result.
+
 ## Adding a scenario
 
 1. Pick a file name whose prefix puts it where you want in the matching order.

@@ -150,7 +150,7 @@ class ProjectFundingApiTest extends WebTestCase
         $project = $this->response()['project'];
         self::assertSame(300000, $project['salaryCents']);
         self::assertCount(2, $project['fundingSources']);
-        self::assertSame(['kind' => 'savings', 'amountCents' => 100000, 'accountId' => $this->id('livret_jeune'), 'loanId' => null], $project['fundingSources'][0]);
+        self::assertSame(['kind' => 'savings', 'amountCents' => 100000, 'accountId' => $this->id('livret_jeune'), 'loanId' => null, 'sourceProjectId' => null], $project['fundingSources'][0]);
         self::assertSame('loan', $project['fundingSources'][1]['kind']);
         self::assertNull($project['fundingSources'][1]['accountId']);
 
@@ -190,7 +190,7 @@ class ProjectFundingApiTest extends WebTestCase
         $data = $this->response();
         self::assertSame(300000, $data['salaryCents']);
         self::assertCount(2, $data['fundingSources']);
-        self::assertSame(['kind', 'amountCents', 'accountId', 'loanId'], array_keys($data['fundingSources'][0]));
+        self::assertSame(['kind', 'amountCents', 'accountId', 'loanId', 'sourceProjectId'], array_keys($data['fundingSources'][0]));
 
         // The projected loan is in the loans, flagged.
         $this->send('GET', '/api/loans');

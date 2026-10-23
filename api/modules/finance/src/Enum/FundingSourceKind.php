@@ -10,10 +10,13 @@ namespace Maggie\Finance\Enum;
  *
  * `savings`: savings outside the cushion, on a savings or checking account.
  * `capital`: capital freed from an investment account. `loan`: a projected loan.
+ * `resale`: the net proceeds of another project's planned resale (MAG-557),
+ * posed by that investment and never by a client's funding list.
  */
 enum FundingSourceKind: string
 {
     case Savings = 'savings';
     case Capital = 'capital';
     case Loan = 'loan';
+    case Resale = 'resale';
 }

@@ -151,6 +151,15 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
     #[Context(normalizationContext: [AbstractObjectNormalizer::SKIP_NULL_VALUES => false])]
     private Collection $fundingSources;
 
+    /**
+     * What makes the project an investment (MAG-557), null for any other.
+     * Read-only: written by PUT /api/finance/projects/{id}/investment.
+     */
+    #[ORM\OneToOne(targetEntity: ProjectInvestment::class, mappedBy: 'project', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ApiProperty(writable: false, genId: false, description: 'Set when the project is an investment: {projectId, priceCents, downPaymentCents, loanId, loanPaymentCents, monthlyRentCents, monthlyBalanceCents, resale: {month, netAmountCents, targetProjectId} | null}. Null for any other project. Read-only: written by PUT /api/finance/projects/{id}/investment.')]
+    #[Context(normalizationContext: [AbstractObjectNormalizer::SKIP_NULL_VALUES => false])]
+    private ?ProjectInvestment $investment = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     #[IndexedRelation(targetEntity: User::class, sourceField: 'userId')]
@@ -450,6 +459,18 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
         $this->fundingSources->removeElement($source);
     }
 
+    public function getInvestment(): ?ProjectInvestment
+    {
+        return $this->investment;
+    }
+
+    public function setInvestment(?ProjectInvestment $investment): static
+    {
+        $this->investment = $investment;
+
+        return $this;
+    }
+
     public function loanSource(): ?ProjectFundingSource
     {
         foreach ($this->fundingSources as $source) {
@@ -518,6 +539,7 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
             }
             if (\in_array('amountCents', $changedProperties, true) || \in_array('fundingSources', $changedProperties, true)) {
                 $changedProperties[] = 'salaryCents';
+                $changedProperties[] = 'investment';
             }
         }
 
@@ -536,6 +558,7 @@ class Project implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'unmetDependencies' => $this->getUnmetDependencies(),
             'fundingSources' => array_map(static fn (ProjectFundingSource $source): array => $source->toArray(), $this->getFundingSources()),
             'salaryCents' => $this->getSalaryCents(),
+            'investment' => $this->investment?->toArray(),
         ], $changedProperties);
     }
 }
