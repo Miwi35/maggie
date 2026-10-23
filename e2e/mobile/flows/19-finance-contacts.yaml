@@ -63,19 +63,22 @@ tags:
 # `PeerTransferQualifierScreenTest`), « Nouvelle créance » and money sent, the tablet's
 # page beside the list, and the admin's side of the same API.
 
+- runFlow: ../subflows/new-user.yaml
+
 - launchApp:
     clearState: true
     permissions:
       all: allow
     arguments:
       e2e_journey: e2e/mobile/flows/19-finance-contacts.yaml
-      e2e_email: e2e-other@maggie.local
+      e2e_email: ${output.journeyEmail}
 
 - runFlow: ../subflows/sign-in.yaml
 
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: create
 
 - openLink: "maggie-e2e://finance/to-sort"
@@ -141,6 +144,7 @@ tags:
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: second
 # Not `back`: on the tablet Tom's page sits beside the list, so one `back` leaves « Contacts » altogether.
 - openLink: "maggie-e2e://finance/accounts"
@@ -160,6 +164,7 @@ tags:
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: share
 - openLink: "maggie-e2e://finance/accounts"
 - extendedWaitUntil:
@@ -300,6 +305,7 @@ tags:
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: income
       EXPECTED_CENTS: "80000"
 - openLink: "maggie-e2e://finance/accounts"
@@ -353,6 +359,7 @@ tags:
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: income
       EXPECTED_CENTS: "52000"
 
@@ -383,6 +390,7 @@ tags:
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: allocation
 - openLink: "maggie-e2e://finance/to-sort"
 - extendedWaitUntil:
@@ -423,12 +431,14 @@ tags:
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: allocated
 
 # MAG-454: the Livret A of 5 200 € counted in the cushion, the three shares of the gîte des Cimes open.
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: cushion
 - openLink: "maggie-e2e://finance/cushion"
 - extendedWaitUntil:
@@ -445,6 +455,7 @@ tags:
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: repay
 - openLink: "maggie-e2e://finance/cushion"
 - extendedWaitUntil:
@@ -456,4 +467,5 @@ tags:
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: remove

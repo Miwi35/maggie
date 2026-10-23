@@ -6,6 +6,7 @@ namespace Maggie\Core\Tests\E2e;
 
 use App\Kernel;
 use Maggie\Core\E2e\Controller\E2eLoginController;
+use Maggie\Core\E2e\Controller\E2eUserController;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -29,6 +30,7 @@ use Symfony\Component\Routing\RouterInterface;
 final class E2eSurfaceAbsenceTest extends TestCase
 {
     private const ROUTE = 'auth_e2e_login';
+    private const USERS_ROUTE = 'auth_e2e_users';
     private const COMMAND = 'app:e2e:seed';
 
     protected function setUp(): void
@@ -42,9 +44,15 @@ final class E2eSurfaceAbsenceTest extends TestCase
     #[DataProvider('environmentsWithoutTheRoute')]
     public function testRouteDoesNotExistOutsideE2e(string $environment): void
     {
+        $routes = $this->routesFor($environment);
+
         self::assertNull(
-            $this->routesFor($environment)->get(self::ROUTE),
+            $routes->get(self::ROUTE),
             sprintf('The e2e test login must not be routable in the "%s" environment.', $environment),
+        );
+        self::assertNull(
+            $routes->get(self::USERS_ROUTE),
+            sprintf('The e2e user creation must not be routable in the "%s" environment.', $environment),
         );
     }
 
@@ -71,6 +79,12 @@ final class E2eSurfaceAbsenceTest extends TestCase
         self::assertNotNull($route, 'The e2e test login must be routable in the "e2e" environment.');
         self::assertSame('/api/auth/e2e/login', $route->getPath());
         self::assertSame(['POST'], $route->getMethods());
+
+        $users = $this->routesFor('e2e')->get(self::USERS_ROUTE);
+
+        self::assertNotNull($users, 'The e2e user creation must be routable in the "e2e" environment.');
+        self::assertSame('/api/auth/e2e/users', $users->getPath());
+        self::assertSame(['POST'], $users->getMethods());
     }
 
     #[DataProvider('environmentsWithoutTheRoute')]
@@ -107,6 +121,10 @@ final class E2eSurfaceAbsenceTest extends TestCase
             $this->containerFor($environment)->has(E2eLoginController::class),
             sprintf('E2eLoginController must not be a service in the "%s" environment.', $environment),
         );
+        self::assertFalse(
+            $this->containerFor($environment)->has(E2eUserController::class),
+            sprintf('E2eUserController must not be a service in the "%s" environment.', $environment),
+        );
     }
 
     public function testTheLoginControllerIsAServiceInE2e(): void
@@ -118,6 +136,7 @@ final class E2eSurfaceAbsenceTest extends TestCase
         // pass in `e2e` too and prove nothing. That command's absence is
         // covered by the console-application cases instead.
         self::assertTrue($this->containerFor('e2e')->has(E2eLoginController::class));
+        self::assertTrue($this->containerFor('e2e')->has(E2eUserController::class));
     }
 
     /** @return iterable<string, array{string}> */

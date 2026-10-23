@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test'
-import { test, expect, seedId } from '../fixtures/index.js'
+import { test, expect } from '../fixtures/index.js'
 import { assistantText, calledTools, toolResults } from '../helpers/agui.js'
 import { getCollection } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
@@ -17,12 +17,11 @@ import { HomePage } from '../pages/HomePage.js'
  * What the journey asserts is the data: two sources, 3 000 € left to the
  * salary, and a projected loan of 6 000 € among the loans.
  *
- * The stock account because no journey of the owner may see a 6 000 € loan or
- * a new savings account in its sums; `retries: 0` and the sources emptied
- * before and after, because a retry would start on what the first attempt left.
+ * An account of its own (`stock` profile), made for the test: no other journey
+ * sees its 6 000 € loan, and a retry starts on a new « Voiture » with no source.
  */
 
-test.describe.configure({ mode: 'serial', retries: 0 })
+test.use({ journeyAccount: 'stock' })
 
 const JSON_ONLY = { Accept: 'application/json' }
 
@@ -44,36 +43,22 @@ interface StoredLoan {
   principalRemainingCents: number
 }
 
-const carId = (): string => seedId('e2e_stock_project_car')
-
-async function storedCar(api: APIRequestContext): Promise<StoredProject> {
-  const response = await api.get(`/api/finance/projects/${carId()}`, { headers: JSON_ONLY })
+async function storedCar(api: APIRequestContext, carId: string): Promise<StoredProject> {
+  const response = await api.get(`/api/finance/projects/${carId}`, { headers: JSON_ONLY })
   expect(response.status(), await response.text()).toBe(200)
 
   return (await response.json()) as StoredProject
 }
 
-/** The seed: no source, so no projected loan either. */
-async function restoreSeed(api: APIRequestContext): Promise<void> {
-  const response = await api.put(`/api/finance/projects/${carId()}/funding`, { data: { sources: [] } })
-  expect(response.status(), await response.text()).toBe(200)
-}
-
-test.beforeEach(async ({ stockUser }) => {
-  await restoreSeed(stockUser.api)
-})
-
-test.afterEach(async ({ stockUser }) => {
-  await restoreSeed(stockUser.api)
-})
-
 test('« prends 1 000 € sur le Livret jeune et emprunte 6 000 € » leaves 3 000 € to the salary and projects a loan', async ({
-  stockUser,
+  api,
+  page,
+  journeyUser,
 }) => {
-  const { api, page } = stockUser
+  const carId = journeyUser.ref('e2e_stock_project_car')
 
   // Given « Voiture », 10 000 €, funded by nothing yet.
-  expect(await storedCar(api)).toMatchObject({ salaryCents: 1000000, fundingSources: [] })
+  expect(await storedCar(api, carId)).toMatchObject({ salaryCents: 1000000, fundingSources: [] })
 
   // When I tell Maggie…
   await new HomePage(page).open()
@@ -90,10 +75,10 @@ test('« prends 1 000 € sur le Livret jeune et emprunte 6 000 € » leaves 3 
   expect(assistantText(events)).toContain('3 000 €')
 
   // Then the project has both sources and 3 000 € left to the salary…
-  const car = await storedCar(api)
+  const car = await storedCar(api, carId)
   expect(car.salaryCents).toBe(300000)
   expect(car.fundingSources).toEqual([
-    { kind: 'savings', amountCents: 100000, accountId: seedId('e2e_stock_account_livret_jeune'), loanId: null, placementId: null, sourceProjectId: null },
+    { kind: 'savings', amountCents: 100000, accountId: journeyUser.ref('e2e_stock_account_livret_jeune'), loanId: null, placementId: null, sourceProjectId: null },
     { kind: 'loan', amountCents: 600000, accountId: null, loanId: expect.any(String), placementId: null, sourceProjectId: null },
   ])
 

@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test'
-import { test, expect, seedId, parisDay } from '../fixtures/index.js'
+import { test, expect, parisDay } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { calledTools, toolResults } from '../helpers/agui.js'
 import { expectRealtimeSync, openMercureProbe, openSubscribed, userTopic } from '../helpers/mercure.js'
@@ -81,32 +81,10 @@ interface StoredSeries {
   yearlyCostCents?: number
 }
 
-/**
- * Written as the neighbour, on an account of its own made for this attempt:
- * the owner's figures belong to other journeys, and the owner already holds
- * MAG-304's Flixo series — a second one on the same payee would make every
- * Flixo line ambiguous. Deleting the account takes the series and the lines
- * with it.
- */
-const createdAccountIds: string[] = []
-const createdCategoryIds: string[] = []
-
-// One after the other. The catch-up of the recurring operations (and the
-// acceptance of a suggestion) is a pass over the user's whole history: any
-// journey that writes it attaches the lines of every series the same user holds
-// at that moment, so a neighbour's series saved a second earlier loses the
-// lines its own preview was about to show — or finds them attached before its
-// « preview writes nothing » check (MAG-571).
-test.describe.configure({ mode: 'serial' })
-
-test.afterEach(async ({ otherUser }) => {
-  for (const id of createdAccountIds.splice(0)) {
-    await otherUser.api.delete(`/api/accounts/${id}`)
-  }
-  for (const id of createdCategoryIds.splice(0)) {
-    await otherUser.api.delete(`/api/categories/${id}`)
-  }
-})
+// An empty account made for each test (MAG-577): the catch-up of the recurring
+// operations is a pass over the user's whole history, and the history it passes
+// over is the test's own, so the tests need no order and leave nothing to clean.
+test.use({ journeyAccount: 'empty' })
 
 test('a monthly subscription reads back with its monthly and yearly cost', async ({ api }) => {
   // A category of its own: the seeded ones carry other journeys' figures.
@@ -120,20 +98,22 @@ test('a monthly subscription reads back with its monthly and yearly cost', async
   // Anchored on the 12th of the current month, whatever day the run falls on.
   const anchorOn = `${parisDay().slice(0, 7)}-12`
 
-  const created = await api.post('/api/recurring_operations', {
+  const accountId = await created(api, '/api/accounts', { name: 'Courant MAG-304', type: 'checking', currency: 'EUR', balanceCents: 0 })
+
+  const response = await api.post('/api/recurring_operations', {
     headers: { 'Content-Type': 'application/ld+json' },
     data: {
       label: 'Abonnement Flixo',
       counterpartyName: 'Flixo',
-      account: `/api/accounts/${seedId('e2e_account_checking')}`,
+      account: `/api/accounts/${accountId}`,
       category: `/api/categories/${categoryId}`,
       period: 'monthly',
       anchorOn,
       referenceAmountCents: -1349,
     },
   })
-  expect(created.status(), await created.text()).toBe(201)
-  const id = String(((await created.json()) as StoredSeries).id ?? '')
+  expect(response.status(), await response.text()).toBe(201)
+  const id = String(((await response.json()) as StoredSeries).id ?? '')
 
   const listed = await waitForIndexed<StoredSeries>(api, '/api/recurring_operations', (s) => s.id === id, {
     what: 'The new recurring operation',
@@ -213,9 +193,11 @@ async function dryRun(api: APIRequestContext): Promise<CatchUp> {
 }
 
 test('a Flixo debit attaches to its occurrence, a price rise is proposed, and accepting it moves the reference', async ({
-  otherUser,
+  api,
+  page,
+  session,
+  twoWindows,
 }) => {
-  const { api, page, session } = otherUser
   const attempt = test.info().retry
 
   const accountId = await created(api, '/api/accounts', {
@@ -224,12 +206,10 @@ test('a Flixo debit attaches to its occurrence, a price rise is proposed, and ac
     currency: 'EUR',
     balanceCents: 0,
   })
-  createdAccountIds.push(accountId)
   const categoryId = await created(api, '/api/categories', {
     name: `Abonnements MAG-305, essai ${attempt}`,
     obligation: 'optional',
   })
-  createdCategoryIds.push(categoryId)
 
   const anchorOn = `${parisDay().slice(0, 7)}-12`
   const seriesId = await created(api, '/api/recurring_operations', {
@@ -277,7 +257,7 @@ test('a Flixo debit attaches to its occurrence, a price rise is proposed, and ac
 
   // The screen says it: the line, why it was only proposed, and the old reference.
   const recurring = new FinanceRecurringPage(page)
-  const observer = new FinanceRecurringPage(await otherUser.secondWindow())
+  const observer = new FinanceRecurringPage(twoWindows.observer)
   await openSubscribed(observer.page, () => observer.open())
   await expect(observer.row(`Courant MAG-305, essai ${attempt}`)).toContainText('13,49')
 
@@ -333,8 +313,7 @@ interface OverviewOperation {
   priceChange: unknown
 }
 
-test('the overview reads a subscription\'s cost and next due date, and Maggie reads it too', async ({ otherUser }) => {
-  const { api, page } = otherUser
+test('the overview reads a subscription\'s cost and next due date, and Maggie reads it too', async ({ api, page }) => {
   const attempt = test.info().retry
 
   const accountId = await created(api, '/api/accounts', {
@@ -344,12 +323,10 @@ test('the overview reads a subscription\'s cost and next due date, and Maggie re
     currency: 'EUR',
     balanceCents: 0,
   })
-  createdAccountIds.push(accountId)
   const categoryId = await created(api, '/api/categories', {
     name: `Abonnements MAG-306, essai ${attempt}`,
     obligation: 'optional',
   })
-  createdCategoryIds.push(categoryId)
 
   // Given the series, with this month's debit attached to the 12th.
   const anchorOn = `${parisDay().slice(0, 7)}-12`
@@ -411,9 +388,9 @@ function monthBefore(month: string, back: number): string {
 }
 
 test('a debit becomes a recurring operation from the account list, its history is offered and it can be detached', async ({
-  otherUser,
+  api,
+  page,
 }) => {
-  const { api, page } = otherUser
   const attempt = test.info().retry
 
   const accountId = await created(api, '/api/accounts', {
@@ -422,10 +399,8 @@ test('a debit becomes a recurring operation from the account list, its history i
     currency: 'EUR',
     balanceCents: 0,
   })
-  createdAccountIds.push(accountId)
   const categoryName = `Abonnements MAG-308, essai ${attempt}`
-  const categoryId = await created(api, '/api/categories', { name: categoryName, obligation: 'optional' })
-  createdCategoryIds.push(categoryId)
+  await created(api, '/api/categories', { name: categoryName, obligation: 'optional' })
 
   // Given three Netflix debits on the 8th, over the three months already past.
   const thisMonth = parisDay().slice(0, 7)
@@ -481,8 +456,7 @@ test('a debit becomes a recurring operation from the account list, its history i
   await expect(list.content.getByText('Série · Netflix')).toHaveCount(2)
 })
 
-test('a debit without counterparty becomes a recurring operation recognised by its label (MAG-437)', async ({ otherUser }) => {
-  const { api, page } = otherUser
+test('a debit without counterparty becomes a recurring operation recognised by its label (MAG-437)', async ({ api, page }) => {
   const attempt = test.info().retry
 
   const accountId = await created(api, '/api/accounts', {
@@ -491,10 +465,8 @@ test('a debit without counterparty becomes a recurring operation recognised by i
     currency: 'EUR',
     balanceCents: 0,
   })
-  createdAccountIds.push(accountId)
   const categoryName = `Abonnements MAG-437, essai ${attempt}`
-  const categoryId = await created(api, '/api/categories', { name: categoryName, obligation: 'optional' })
-  createdCategoryIds.push(categoryId)
+  await created(api, '/api/categories', { name: categoryName, obligation: 'optional' })
 
   // Given a debit whose label names no merchant: the bank gives it no counterparty.
   const label = 'PAIEMENT PAR CARTE X9633'
@@ -535,9 +507,9 @@ test('a debit without counterparty becomes a recurring operation recognised by i
 })
 
 test('an unrolled series lists the transactions it recognised, newest first, and one can be detached', async ({
-  otherUser,
+  api,
+  page,
 }) => {
-  const { api, page } = otherUser
   const attempt = test.info().retry
 
   const accountId = await created(api, '/api/accounts', {
@@ -546,12 +518,10 @@ test('an unrolled series lists the transactions it recognised, newest first, and
     currency: 'EUR',
     balanceCents: 0,
   })
-  createdAccountIds.push(accountId)
   const categoryId = await created(api, '/api/categories', {
     name: `Abonnements MAG-438, essai ${attempt}`,
     obligation: 'optional',
   })
-  createdCategoryIds.push(categoryId)
 
   // Given a monthly series anchored last month, and its two debits attached.
   const thisMonth = parisDay().slice(0, 7)
@@ -595,17 +565,15 @@ test('an unrolled series lists the transactions it recognised, newest first, and
 })
 
 test('a series without counterparty nor label recognises a credit by its amount alone, previewed before it is saved (MAG-475)', async ({
-  otherUser,
+  api,
+  page,
 }) => {
-  const { api, page } = otherUser
   const attempt = test.info().retry
 
   const accountName = `Courant MAG-475, essai ${attempt}`
   const accountId = await created(api, '/api/accounts', { name: accountName, type: 'checking', currency: 'EUR', balanceCents: 0 })
-  createdAccountIds.push(accountId)
   const categoryName = `Salaire MAG-475, essai ${attempt}`
-  const categoryId = await created(api, '/api/categories', { name: categoryName, obligation: 'income' })
-  createdCategoryIds.push(categoryId)
+  await created(api, '/api/categories', { name: categoryName, obligation: 'income' })
 
   // Given a credit of 4 650 € whose label says nothing of an employer, and lines that are not the salary.
   const thisMonth = parisDay().slice(0, 7)
@@ -680,8 +648,7 @@ test('a series without counterparty nor label recognises a credit by its amount 
  *   Quand je qualifie cette ligne à la main
  *   Alors sa fiche dit « à la main » et un changement de la série n'y touche plus
  */
-test('a series qualifies its transactions, a hand qualification stays put (MAG-479)', async ({ otherUser }) => {
-  const { api, page } = otherUser
+test('a series qualifies its transactions, a hand qualification stays put (MAG-479)', async ({ api, page }) => {
   const attempt = test.info().retry
 
   const accountId = await created(api, '/api/accounts', {
@@ -690,10 +657,8 @@ test('a series qualifies its transactions, a hand qualification stays put (MAG-4
     currency: 'EUR',
     balanceCents: 0,
   })
-  createdAccountIds.push(accountId)
   const categoryName = `Crédits MAG-479, essai ${attempt}`
-  const categoryId = await created(api, '/api/categories', { name: categoryName })
-  createdCategoryIds.push(categoryId)
+  await created(api, '/api/categories', { name: categoryName })
 
   // Given a monthly debit.
   const thisMonth = parisDay().slice(0, 7)
@@ -766,17 +731,15 @@ test('a series qualifies its transactions, a hand qualification stays put (MAG-4
 })
 
 test('two accounts with the same name are told apart by their bank in the account selector (MAG-501)', async ({
-  otherUser,
+  api,
+  page,
 }) => {
-  const { api, page } = otherUser
   const attempt = test.info().retry
 
   // Given two « Courant » accounts, one per bank.
   const accountName = `Courant MAG-501, essai ${attempt}`
   for (const bank of ['Boursorama', 'Crédit Agricole']) {
-    createdAccountIds.push(
-      await created(api, '/api/accounts', { name: accountName, bank, type: 'checking', currency: 'EUR', balanceCents: 0 }),
-    )
+    await created(api, '/api/accounts', { name: accountName, bank, type: 'checking', currency: 'EUR', balanceCents: 0 })
   }
 
   // When I open the account selector of a new recurring operation.

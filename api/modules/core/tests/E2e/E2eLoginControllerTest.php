@@ -8,7 +8,9 @@ use App\Tests\Support\FixtureLoaderTrait;
 use Gesdinet\JWTRefreshTokenBundle\Generator\RefreshTokenGeneratorInterface;
 use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use Maggie\Core\E2e\Controller\E2eAccessGuard;
 use Maggie\Core\E2e\Controller\E2eLoginController;
+use Maggie\Core\E2e\Controller\E2eSessionFactory;
 use Maggie\Core\Entity\RefreshToken;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\MercureAccessToken;
@@ -196,6 +198,16 @@ final class E2eLoginControllerTest extends KernelTestCase
 
         return new E2eLoginController(
             $container->get(UserRepository::class),
+            new E2eAccessGuard($environment, $configuredToken),
+            self::sessionFactory(),
+        );
+    }
+
+    public static function sessionFactory(): E2eSessionFactory
+    {
+        $container = self::getContainer();
+
+        return new E2eSessionFactory(
             $container->get(JWTTokenManagerInterface::class),
             $container->get(RefreshTokenGeneratorInterface::class),
             $container->get(RefreshTokenManagerInterface::class),
@@ -205,8 +217,6 @@ final class E2eLoginControllerTest extends KernelTestCase
                 2592000,
                 'refresh_token',
             ),
-            $environment,
-            $configuredToken,
             2592000,
         );
     }

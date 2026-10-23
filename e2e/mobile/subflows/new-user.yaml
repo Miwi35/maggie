@@ -1,0 +1,23 @@
+appId: com.maggie.app.e2e
+name: a new user for the journey
+---
+# One user per journey (MAG-577): the flow runs this first, then launches the app as
+# that user and signs in.
+#
+#   - runFlow: ../subflows/new-user.yaml
+#   - launchApp:
+#       clearState: true
+#       permissions:
+#         all: allow
+#       arguments:
+#         e2e_journey: e2e/mobile/flows/<the flow>.yaml
+#         e2e_email: ${output.journeyEmail}
+#   - runFlow: ../subflows/sign-in.yaml
+#
+# The app is not launched here: a subflow cannot name the journey (`lint.sh`, check 8), and
+# `e2e_email` is read at launch. The profile is `empty` unless the flow's own top-level `env:`
+# sets `PROFILE` (`standard`, `stock`) — not a `runFlow` `env:`, which would scope the output
+# below to the subflow. A script that talks to the API as this user gets
+# `EMAIL: ${output.journeyEmail}` in its `env:`.
+
+- runScript: ../scripts/new-user.js

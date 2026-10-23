@@ -253,6 +253,66 @@ export async function signIn(baseURL: string, email: string, headers: Record<str
   }
 }
 
+export type JourneyProfile = 'empty' | 'standard' | 'stock'
+
+/** What `POST /api/auth/e2e/users` hands back besides the session (MAG-577). */
+export interface JourneyAccount {
+  session: Session
+  profile: JourneyProfile
+  /** The account's neighbour — the other user the isolation checks look for — in the `standard` profile. */
+  neighbour: { id: string; email: string; name: string } | null
+  /** The seed's Alice references, with the ids this account's rows got. */
+  references: Record<string, { class: string; id: string }>
+  /** The day the data is anchored on, `YYYY-MM-DD` in Paris, like the seed's. */
+  anchor: string
+}
+
+/**
+ * An account of this journey's own (MAG-577): created on the spot, with the
+ * data of a named profile, and signed in. Nothing it reads was written by
+ * another journey, whatever order the batch runs in.
+ *
+ * `headers` file the creation's lines under the journey, as `signIn` does.
+ */
+export async function createJourneyAccount(
+  baseURL: string,
+  profile: JourneyProfile,
+  headers: Record<string, string> = {},
+): Promise<JourneyAccount> {
+  const context = await playwrightRequest.newContext({ baseURL, extraHTTPHeaders: headers })
+
+  try {
+    const response = await context.post('/api/auth/e2e/users', {
+      headers: { 'X-E2E-Token': LOGIN_TOKEN, 'Content-Type': 'application/json' },
+      data: { profile },
+    })
+
+    if (!response.ok()) {
+      throw new Error(
+        `The e2e user creation refused the "${profile}" profile: HTTP ${response.status()} — ${await response.text()}.`,
+      )
+    }
+
+    const body = (await response.json()) as Omit<Session, 'cookies'> & {
+      profile: JourneyProfile
+      neighbour: JourneyAccount['neighbour']
+      manifest: { anchor: string; references: JourneyAccount['references'] }
+    }
+    const { cookies } = await context.storageState()
+    const { profile: created, neighbour, manifest, ...session } = body
+
+    return {
+      session: { ...session, cookies },
+      profile: created,
+      neighbour,
+      references: manifest.references,
+      anchor: manifest.anchor.slice(0, 10),
+    }
+  } finally {
+    await context.dispose()
+  }
+}
+
 /**
  * Turns a session into a browser state: the server's cookies as they came, plus
  * the two localStorage keys `authProvider` reads.

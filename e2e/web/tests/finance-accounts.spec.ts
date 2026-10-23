@@ -1,4 +1,4 @@
-import { test, expect, seedDate, seedId } from '../fixtures/index.js'
+import { test, expect, seedDate } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { euros, signedEuros } from '../helpers/money.js'
 import { FinanceAccountsPage } from '../pages/FinanceAccountsPage.js'
@@ -9,19 +9,14 @@ import { FinanceCategoriesPage } from '../pages/FinanceCategoriesPage.js'
 /**
  * Accounts, and the transactions that hang off them (MAG-102).
  *
- * The first two tests only read the owner's seeded world. Everything that
- * writes does so as the **neighbour**, for the same reason MAG-149's
- * `agenda-default.spec.ts` does: an account's balance is summed into the
- * owner's dashboard total and into their safety net, so an account created
- * here would move the figure `finance-overview.spec.ts` and
- * `finance-cushion.spec.ts` assert, on whichever shard happens to run both.
- *
- * It buys two things the owner's account could not: an identity whose finance
- * module is empty, which is where the one past regression MAG-93 found here
- * (`e05e52f`, period controls and empty states) would show up; and a journey
- * that finds the owner's rows in the neighbour's list failing here rather than
- * in production.
+ * Each test has an account created for it (MAG-577). The first two read the
+ * seeded world of the `standard` profile; everything that writes does so on an
+ * `empty` one, whose finance module has nothing in it — where the one past
+ * regression MAG-93 found here (`e05e52f`, period controls and empty states)
+ * would show up — and which cannot move the figures other journeys assert.
  */
+
+test.use({ journeyAccount: 'empty' })
 
 /**
  * Only the fields the journey reads, and spelled the way the API spells them.
@@ -49,38 +44,42 @@ interface StoredTransaction {
   transferKind?: string
 }
 
-test('the seeded accounts show the balance and the type they were given', async ({ page }) => {
-  const accounts = new FinanceAccountsPage(page)
-  await accounts.open()
+test.describe('the owner\'s seeded world', () => {
+  test.use({ journeyAccount: 'standard' })
 
-  const checking = accounts.row('Compte courant')
-  await expect(checking).toContainText('Crédit Mutuel')
-  await expect(checking).toContainText(euros(184550))
+  test('the seeded accounts show the balance and the type they were given', async ({ page }) => {
+    const accounts = new FinanceAccountsPage(page)
+    await accounts.open()
 
-  const savings = accounts.row('Livret A')
-  await expect(savings).toContainText('Épargne')
-  await expect(savings).toContainText(euros(420000))
-})
+    const checking = accounts.row('Compte courant')
+    await expect(checking).toContainText('Crédit Mutuel')
+    await expect(checking).toContainText(euros(184550))
 
-/**
- * The account-scoped list really is scoped.
- *
- * `AccountTransactionsView` filters on `account` with the IRI, and its own
- * comment records why: it used to filter on `accountId`, which narrowed
- * nothing once the collection fell back to Doctrine — a filter that is
- * declared nowhere still *looked* like it worked while Elasticsearch turned
- * any unrecognised string into a term query. So the assertion is not only
- * "the checking account's transactions are here" but "the savings account's
- * are not".
- */
-test("an account's transactions are its own, and not another account's", async ({ page }) => {
-  const accounts = new FinanceAccountsPage(page)
-  await accounts.openTransactions(seedId('e2e_account_checking'))
+    const savings = accounts.row('Livret A')
+    await expect(savings).toContainText('Épargne')
+    await expect(savings).toContainText(euros(420000))
+  })
 
-  await expect(accounts.row('LECLERC RENNES').first()).toBeVisible()
-  await expect(accounts.row('VIREMENT SALAIRE').first()).toContainText(signedEuros(235000))
-  // Booked on the savings account, so it has no business being on this list.
-  await expect(accounts.row('VIREMENT EPARGNE')).toHaveCount(0)
+  /**
+   * The account-scoped list really is scoped.
+   *
+   * `AccountTransactionsView` filters on `account` with the IRI, and its own
+   * comment records why: it used to filter on `accountId`, which narrowed
+   * nothing once the collection fell back to Doctrine — a filter that is
+   * declared nowhere still *looked* like it worked while Elasticsearch turned
+   * any unrecognised string into a term query. So the assertion is not only
+   * "the checking account's transactions are here" but "the savings account's
+   * are not".
+   */
+  test("an account's transactions are its own, and not another account's", async ({ page, journeyUser }) => {
+    const accounts = new FinanceAccountsPage(page)
+    await accounts.openTransactions(journeyUser.ref('e2e_account_checking'))
+
+    await expect(accounts.row('LECLERC RENNES').first()).toBeVisible()
+    await expect(accounts.row('VIREMENT SALAIRE').first()).toContainText(signedEuros(235000))
+    // Booked on the savings account, so it has no business being on this list.
+    await expect(accounts.row('VIREMENT EPARGNE')).toHaveCount(0)
+  })
 })
 
 /**
@@ -95,8 +94,8 @@ test("an account's transactions are its own, and not another account's", async (
  * Read-only, and deliberately on the three screens no journey writes to for
  * this identity — the account list is written by the two tests below.
  */
-test('a finance module with nothing in it invites rather than breaks', async ({ otherUser }) => {
-  const budget = new FinanceBudgetPage(otherUser.page)
+test('a finance module with nothing in it invites rather than breaks', async ({ page }) => {
+  const budget = new FinanceBudgetPage(page)
   await budget.open()
   await expect(budget.content.getByText("Aucune enveloppe pour l'instant")).toBeVisible()
   await expect(
@@ -108,21 +107,22 @@ test('a finance module with nothing in it invites rather than breaks', async ({ 
     'the score has nothing to compare against, and says so',
   ).toContainText('Aucune enveloppe sur cette période')
 
-  const categories = new FinanceCategoriesPage(otherUser.page)
+  const categories = new FinanceCategoriesPage(page)
   await categories.open()
   await categories.openTab('Règles de catégorisation')
   await expect(categories.content.getByText("Aucune règle pour l'instant")).toBeVisible()
 
-  const banks = new FinanceBanksPage(otherUser.page)
+  const banks = new FinanceBanksPage(page)
   await banks.open()
   await expect(banks.content.getByText('Aucune banque connectée')).toBeVisible()
   await expect(banks.content.getByText('Mock Bank')).toHaveCount(0)
 })
 
 test('a new account and its first transaction are created from the screens that own them', async ({
-  otherUser,
+  page,
+  api,
 }) => {
-  const accounts = new FinanceAccountsPage(otherUser.page)
+  const accounts = new FinanceAccountsPage(page)
   // Suffixed with the attempt, unconditionally: CI retries once and nothing
   // reseeds in between, so a second attempt would find the first one's row and
   // read it as a duplicate.
@@ -149,7 +149,7 @@ test('a new account and its first transaction are created from the screens that 
   })
 
   const stored = await waitForIndexed<StoredAccount>(
-    otherUser.api,
+    api,
     '/api/accounts',
     (account) => account.name === accountName,
     { what: 'The account created from the form' },
@@ -182,7 +182,7 @@ test('a new account and its first transaction are created from the screens that 
   })
 
   const transaction = await waitForIndexed<StoredTransaction>(
-    otherUser.api,
+    api,
     '/api/transactions',
     (candidate) => candidate.label === label,
     { what: 'The transaction created from the empty state' },
@@ -204,9 +204,9 @@ test('a new account and its first transaction are created from the screens that 
   //
   // Phrased as "this attempt's label, and none of the owner's" rather
   // than as an equality over the whole collection: CI retries once without
-  // reseeding, and `otherUser` is one stable seeded identity — a replay sees
+  // reseeding, and a replay sees
   // the first attempt's row as well, and an equality could never hold.
-  const theirs = (await getCollection<StoredTransaction>(otherUser.api, '/api/transactions')).map(
+  const theirs = (await getCollection<StoredTransaction>(api, '/api/transactions')).map(
     (candidate) => candidate.label,
   )
   expect(theirs).toContain(label)
@@ -223,8 +223,8 @@ test('a new account and its first transaction are created from the screens that 
  * Builds its own account rather than reusing the journey's above, so the test
  * does not depend on another one's state.
  */
-test('an account with no transaction offers a way to add one', async ({ otherUser }) => {
-  const created = await otherUser.api.post('/api/accounts', {
+test('an account with no transaction offers a way to add one', async ({ page, api }) => {
+  const created = await api.post('/api/accounts', {
     headers: { 'Content-Type': 'application/ld+json' },
     data: {
       name: `Compte vide MAG-245, essai ${test.info().retry}`,
@@ -236,7 +236,7 @@ test('an account with no transaction offers a way to add one', async ({ otherUse
   expect(created.status(), await created.text()).toBe(201)
   const account = (await created.json()) as StoredAccount
 
-  const accounts = new FinanceAccountsPage(otherUser.page)
+  const accounts = new FinanceAccountsPage(page)
   await accounts.openTransactions(account.id ?? '')
 
   await expect(
@@ -257,7 +257,8 @@ test('an account with no transaction offers a way to add one', async ({ otherUse
  * empty. Suffixed with the attempt like the account of the first journey.
  */
 test('choosing Recette offers every category, and files a positive transaction', async ({
-  otherUser,
+  page,
+  api,
 }) => {
   const attempt = test.info().retry
   const salary = `Salaire MAG-301, essai ${attempt}`
@@ -268,7 +269,7 @@ test('choosing Recette offers every category, and files a positive transaction',
     [salary, 'income'],
     [subscription, 'optional'],
   ]) {
-    const category = await otherUser.api.post('/api/categories', {
+    const category = await api.post('/api/categories', {
       headers: { 'Content-Type': 'application/ld+json' },
       data: { name, obligation },
     })
@@ -277,14 +278,14 @@ test('choosing Recette offers every category, and files a positive transaction',
   // The form reads its categories from the search index, which lags the write.
   for (const name of [salary, subscription]) {
     await waitForIndexed(
-      otherUser.api,
+      api,
       '/api/categories',
       (candidate: { name?: string }) => candidate.name === name,
       { what: `The category ${name}` },
     )
   }
 
-  const account = await otherUser.api.post('/api/accounts', {
+  const account = await api.post('/api/accounts', {
     headers: { 'Content-Type': 'application/ld+json' },
     data: {
       name: `Compte recette MAG-301, essai ${attempt}`,
@@ -296,7 +297,7 @@ test('choosing Recette offers every category, and files a positive transaction',
   expect(account.status(), await account.text()).toBe(201)
   const accountId = String(((await account.json()) as StoredAccount).id ?? '')
 
-  const accounts = new FinanceAccountsPage(otherUser.page)
+  const accounts = new FinanceAccountsPage(page)
   await accounts.openTransactions(accountId)
   await accounts.addTransaction.click()
   await accounts.chooseNature('Recette')
@@ -304,7 +305,7 @@ test('choosing Recette offers every category, and files a positive transaction',
   const offered = await accounts.offeredCategories()
   expect(offered, 'an income category is offered on a recette').toContain(salary)
   expect(offered, 'the nature no longer filters: an optional category is offered too (MAG-479)').toContain(subscription)
-  await otherUser.page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
 
   // The form is already open, so it is filled here rather than through
   // `createTransaction`, which opens it from the list.
@@ -312,7 +313,7 @@ test('choosing Recette offers every category, and files a positive transaction',
   await accounts.content.getByLabel('Montant (€)').fill('1500')
   await accounts.content.getByLabel('Date').fill(seedDate())
   await accounts.content.getByLabel('Catégorie').fill(salary)
-  await otherUser.page.getByRole('option', { name: salary, exact: true }).click()
+  await page.getByRole('option', { name: salary, exact: true }).click()
   await expect(
     accounts.content.getByLabel('Statut'),
     'a recette is received by default',
@@ -320,7 +321,7 @@ test('choosing Recette offers every category, and files a positive transaction',
   await accounts.save()
 
   const stored = await waitForIndexed<StoredTransaction>(
-    otherUser.api,
+    api,
     '/api/transactions',
     (candidate) => candidate.label === label,
     { what: 'The recette created from the form' },
@@ -348,9 +349,9 @@ test('choosing Recette offers every category, and files a positive transaction',
  * with this one's.
  */
 test('changing account shows the other account\'s days, and a transfer names the account it came from', async ({
-  otherUser,
+  api,
+  page,
 }) => {
-  const { api, page } = otherUser
   const attempt = test.info().retry
   const checkingName = `Compte courant MAG-422, essai ${attempt}`
   const savingsName = `Livret MAG-422, essai ${attempt}`

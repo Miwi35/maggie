@@ -21,19 +21,22 @@ tags:
 # (`PeerDebtsScreenTest`, `PeerDebtsViewModelTest`), the history of a contact (`ContactScreenTest`),
 # and the admin's side of the same API.
 
+- runFlow: ../subflows/new-user.yaml
+
 - launchApp:
     clearState: true
     permissions:
       all: allow
     arguments:
       e2e_journey: e2e/mobile/flows/21-finance-peer-debts.yaml
-      e2e_email: e2e-other@maggie.local
+      e2e_email: ${output.journeyEmail}
 
 - runFlow: ../subflows/sign-in.yaml
 
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: peerdebts
 
 - openLink: "maggie-e2e://finance"
@@ -86,4 +89,5 @@ tags:
 - runScript:
     file: ../scripts/contacts-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: remove

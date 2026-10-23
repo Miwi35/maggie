@@ -11,18 +11,22 @@ tags:
 # back on the sheet. The recipe, its ingredients and the utensils are this flow's own and
 # are deleted at the end.
 
+- runFlow: ../subflows/new-user.yaml
+
 - launchApp:
     clearState: true
     permissions:
       all: allow
     arguments:
       e2e_journey: e2e/mobile/flows/12-recipe-steps.yaml
+      e2e_email: ${output.journeyEmail}
 
 - runFlow: ../subflows/sign-in.yaml
 
 - runScript:
     file: ../scripts/recipe-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: create-method
       RECIPE: Pâtes aux légumes MAG-492
 
@@ -110,5 +114,6 @@ tags:
 - runScript:
     file: ../scripts/recipe-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: remove
       RECIPE: Pâtes aux légumes MAG-492

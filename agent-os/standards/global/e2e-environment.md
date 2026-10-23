@@ -144,6 +144,25 @@ the Google callback, so no client takes an e2e-only branch.
 Guarded three times: the service exists only under `when@e2e`, the controller
 throws `NotFoundHttpException` outside `e2e`, and the token must match.
 
+### One user per journey (MAG-577)
+
+```
+POST /api/auth/e2e/users
+X-E2E-Token: <E2E_LOGIN_TOKEN>
+{"profile": "empty"}          # empty (default `standard`) | standard | stock
+```
+
+Creates `journey-<ulid>@e2e.test` with the data of the profile — cut out of the
+seed fixtures, so there is one source of data — indexes it in Elasticsearch
+before answering, and returns the same body as `e2e/login`. Guarded like it, and
+in `E2eSurfaceAbsenceTest`.
+
+**A journey that writes starts from a user of its own**, so it passes alone, in
+any order, after a retry, and no cleanup is owed: web `journeyUser` (with
+`test.use({ journeyAccount: 'empty' })`), mobile `subflows/new-user.yaml`. A
+journey that only reads the seed may keep the shared user. The journeys not
+migrated yet are listed in the ticket that follows MAG-577.
+
 `E2eSurfaceAbsenceTest` boots the `prod`, `dev` and `test` kernels and asserts
 the route is not in the router, the seed command is not in the console
 application, and neither service is in the container. **Anything else you add
@@ -508,7 +527,8 @@ by `task e2e:web:lint`); each has a refused example in `e2e/mobile/lint-examples
    how a working feature gets reported as broken. (The seed is exempt: it
    reindexes synchronously and refreshes, so data is findable the moment
    `task e2e:seed` returns.)
-6. **It addresses rows by a label of its own, and asserts no counts.** The suite
+6. **It writes as a user of its own** (*One user per journey*, above) — or, while it
+   has not been migrated, **addresses rows by a label of its own and asserts no counts.** The suite
    runs `fullyParallel`, so another file is writing to the same user's data at
    the same time. CI retries once *without* reseeding, so the label carries the
    attempt number (`perAttempt()` in several files).

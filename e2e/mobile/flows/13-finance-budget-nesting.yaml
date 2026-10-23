@@ -29,19 +29,22 @@ tags:
 # script removes what it made. Amounts are matched with either decimal separator: the
 # device's locale is not the journey's concern.
 
+- runFlow: ../subflows/new-user.yaml
+
 - launchApp:
     clearState: true
     permissions:
       all: allow
     arguments:
       e2e_journey: e2e/mobile/flows/13-finance-budget-nesting.yaml
-      e2e_email: e2e-other@maggie.local
+      e2e_email: ${output.journeyEmail}
 
 - runFlow: ../subflows/sign-in.yaml
 
 - runScript:
     file: ../scripts/finance-budget-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: create
       TODAY: ${TODAY}
 
@@ -86,6 +89,7 @@ tags:
 - runScript:
     file: ../scripts/finance-budget-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: spend-bars
       TODAY: ${TODAY}
 # One reload at a time: the previous month is empty, then the shown one is read again.
@@ -104,6 +108,7 @@ tags:
 - runScript:
     file: ../scripts/finance-budget-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: hellfest
       TODAY: ${TODAY}
 
@@ -182,6 +187,7 @@ tags:
 - runScript:
     file: ../scripts/finance-budget-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: cinema
       TODAY: ${TODAY}
 - tapOn: "Mois suivant"
@@ -199,5 +205,6 @@ tags:
 - runScript:
     file: ../scripts/finance-budget-api.js
     env:
+      EMAIL: ${output.journeyEmail}
       ACTION: remove
       TODAY: ${TODAY}
