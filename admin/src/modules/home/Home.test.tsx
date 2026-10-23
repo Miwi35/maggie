@@ -13,7 +13,7 @@ const Where = () => {
   return <output data-testid="where">{pathname + search}</output>
 }
 
-const renderHome = (entry = '/', registry?: HomeCardEntry[]) =>
+const renderHome = (entry = '/', registry: HomeCardEntry[] = []) =>
   render(
     <MemoryRouter initialEntries={[entry]}>
       <ThemeProvider theme={veilleuseLightTheme}>

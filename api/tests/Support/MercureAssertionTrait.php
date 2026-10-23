@@ -37,9 +37,34 @@ trait MercureAssertionTrait
         }
     }
 
+    /**
+     * The updates of the data itself: the home cards' « refresh » pings
+     * (`/users/{id}/home/{module}`) follow any change a card reads and are
+     * counted apart, with {@see homeRefreshes()}.
+     */
     protected function assertMercureUpdateCount(int $expected): void
     {
-        self::assertCount($expected, $this->getMercureHub()->getUpdates());
+        $updates = array_filter(
+            $this->getMercureHub()->getUpdates(),
+            static fn ($update): bool => [] === array_filter($update->getTopics(), static fn (string $topic): bool => str_contains($topic, '/home/')),
+        );
+
+        self::assertCount($expected, $updates);
+    }
+
+    /** @return list<string> the topics of the home cards' refresh pings, in publication order */
+    protected function homeRefreshes(): array
+    {
+        $topics = [];
+        foreach ($this->getMercureHub()->getUpdates() as $update) {
+            foreach ($update->getTopics() as $topic) {
+                if (str_contains($topic, '/home/')) {
+                    $topics[] = $topic;
+                }
+            }
+        }
+
+        return $topics;
     }
 
     /**

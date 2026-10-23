@@ -7,11 +7,13 @@ import { ROUTES } from './routes.js'
 export class HomePage extends AdminShell {
   readonly trail: Locator
   readonly daySelector: Locator
+  readonly groceryCard: Locator
 
   constructor(page: Page) {
     super(page)
     this.trail = page.getByRole('navigation', { name: "Fil d'Ariane" })
     this.daySelector = this.content.getByRole('group', { name: 'Jour' })
+    this.groceryCard = this.content.getByTestId('home-card-grocery')
   }
 
   async open(day?: 'today' | 'tomorrow'): Promise<void> {

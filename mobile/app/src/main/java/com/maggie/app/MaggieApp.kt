@@ -116,6 +116,7 @@ import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
+import com.maggie.app.ui.screens.home.GroceryHomeViewModel
 import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.contexts.ContextViewModel
@@ -343,6 +344,7 @@ class MaggieApp : Application() {
             // ViewModels
             viewModel { LoginViewModel(get()) }
             viewModel { HomeViewModel() }
+            viewModel { GroceryHomeViewModel(get()) }
             viewModel { SubtasksViewModel(get()) }
             viewModel { TasksViewModel(get(), get(), get(), get(), get()) }
             viewModel { FocusViewModel(get()) }

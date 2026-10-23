@@ -13,6 +13,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -30,16 +31,19 @@ private val DAYS = listOf(
 
 /**
  * The Accueil (MAG-560): the selector « Aujourd'hui · Demain », the action cards in head, then the cards
- * of [registry] stacked in the spec's order. The title is the top bar's, drawn by the navigation. A card
+ * of [registry] stacked in the spec's order; [onNavigate] is how a card opens its module. The title is the top bar's, drawn by the navigation. A card
  * that has nothing to say draws nothing, so an empty registry leaves the selector alone.
  */
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = koinViewModel(),
     registry: List<HomeCardEntry> = HomeCardRegistry.entries,
+    onNavigate: (String) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    HomeContent(day = uiState.day, onSelectDay = viewModel::selectDay, registry = registry)
+    CompositionLocalProvider(LocalHomeNavigation provides onNavigate) {
+        HomeContent(day = uiState.day, onSelectDay = viewModel::selectDay, registry = registry)
+    }
 }
 
 @Composable

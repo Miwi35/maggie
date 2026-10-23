@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.home
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.maggie.app.data.model.HomeDay
 
 /** Where a card goes on the Accueil: [ACTION] cards head the screen, [MAIN] cards are stacked under them. */
@@ -36,11 +37,19 @@ class HomeCardEntry(
 )
 
 /**
- * The cards of the Accueil. Empty until the module tickets add theirs (one line each, here): the screen
- * is then the top bar and the selector, and nothing else.
+ * How a card opens a route of the app: the Accueil provides it, since it alone holds the navigation.
+ * A card reads it where it draws, so [HomeCardEntry.content] stays `(day)`.
+ */
+val LocalHomeNavigation = staticCompositionLocalOf<(String) -> Unit> { {} }
+
+/**
+ * The cards of the Accueil, one line per module ticket. With none, the screen is the top bar and the
+ * selector, and nothing else.
  */
 object HomeCardRegistry {
-    val entries: List<HomeCardEntry> = emptyList()
+    val entries: List<HomeCardEntry> = listOf(
+        HomeCardEntry(module = HomeModules.GROCERY, zone = HomeZone.MAIN) { GroceryHomeCard() },
+    )
 }
 
 /** [entries] as the screen stacks them: the action cards first, then the others, each zone by [HomeCardEntry.order]. */

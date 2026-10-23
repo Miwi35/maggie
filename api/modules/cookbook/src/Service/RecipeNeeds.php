@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Service;
 
+use Maggie\Cookbook\Enum\MealSlot;
 use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Core\Entity\User;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Service\Needs;
 
@@ -68,5 +70,41 @@ class RecipeNeeds
         }
 
         return ['needs' => $needs, 'meals' => $meals];
+    }
+
+    /**
+     * The ingredients the meals of `$days` days from `$from` need and the
+     * owner is low on or out of (MAG-563): one entry per product, at the
+     * first meal that asks for it, in the order the meals come.
+     *
+     * @return list<array{productId: string, name: string, date: string, slot: string}>
+     */
+    public function runningOut(User $user, \DateTimeImmutable $from, int $days = 2): array
+    {
+        $to = $from->modify('+'.(max(1, $days) - 1).' days');
+        $meals = $this->mealRepository->findByDateRangeForUser($user, $from, $to);
+        usort($meals, static fn ($a, $b) => [$a->getDate(), MealSlot::Lunch === $a->getSlot() ? 0 : 1] <=> [$b->getDate(), MealSlot::Lunch === $b->getSlot() ? 0 : 1]);
+
+        $out = [];
+        foreach ($meals as $meal) {
+            foreach ($meal->getRecipes() as $recipe) {
+                foreach ($recipe->getIngredients() as $line) {
+                    $ingredient = $line->getIngredient();
+                    $id = (string) $ingredient->getId();
+                    if (isset($out[$id]) || ProductStockState::InStock === $ingredient->getStockState()) {
+                        continue;
+                    }
+
+                    $out[$id] = [
+                        'productId' => $id,
+                        'name' => $ingredient->getName(),
+                        'date' => $meal->getDate()?->format('Y-m-d') ?? '',
+                        'slot' => $meal->getSlot()->value,
+                    ];
+                }
+            }
+        }
+
+        return array_values($out);
     }
 }

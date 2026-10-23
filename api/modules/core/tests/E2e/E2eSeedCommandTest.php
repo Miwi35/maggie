@@ -120,9 +120,10 @@ final class E2eSeedCommandTest extends KernelTestCase
         // notification its journey reads, and the other journeys count the
         // bell's. The twenty-second is the « Prochain projet »'s (MAG-529), the
         // twenty-third the placement withdrawal's (MAG-556): a PEA and a trip that
-        // takes capital out of it. A twenty-fourth would mean somebody added an
+        // takes capital out of it. The twenty-fourth is the Courses card's (MAG-563): six
+        // open lines at one shop. A twenty-fifth would mean somebody added an
         // account without saying why.
-        self::assertSame(24, $this->rowsOf(User::class));
+        self::assertSame(25, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -146,6 +147,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-reminders@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-next-project@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-placement-withdrawal@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-home@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
@@ -165,11 +167,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         // MAG-510: the reminders account's « Appeler le garagiste ».
         self::assertSame(12, $this->rowsOf(Task::class));
         self::assertSame(3, $this->rowsOf(Recipe::class));
-        // Five on the owner's list, three on the shopper's.
-        self::assertSame(8, $this->rowsOf(GroceryItem::class));
-        // One list each, and pinned here rather than only per user: a third
+        // Five on the owner's list, three on the shopper's, six on the Courses card's (MAG-563).
+        self::assertSame(14, $this->rowsOf(GroceryItem::class));
+        // One list each, and pinned here rather than only per user: a fourth
         // appearing in the fixtures would otherwise go unnoticed.
-        self::assertSame(2, $this->rowsOf(GroceryList::class));
+        self::assertSame(3, $this->rowsOf(GroceryList::class));
         // Three since MAG-495: the owner's coffee, bought every 14 days.
         self::assertSame(3, $this->rowsOf(Errand::class));
         // Two more since MAG-49: each envelope alert account syncs a bank account of its own.
@@ -273,6 +275,20 @@ final class E2eSeedCommandTest extends KernelTestCase
         foreach ([Account::class, Transaction::class, Notification::class, Errand::class] as $entity) {
             self::assertSame(0, $this->rowsOf($entity, ['user' => $neighbour]), $entity);
         }
+    }
+
+    public function testTheCoursesCardAccountHasSixOpenLinesAtOneShop(): void
+    {
+        // MAG-563: the card shows five lines and « + 1 » — one more or one fewer and the journey says why.
+        $this->seed();
+
+        $home = $this->repository(User::class)->findOneBy(['email' => 'e2e-home@maggie.local']);
+        self::assertNotNull($home);
+        self::assertSame(1, $this->rowsOf(Store::class, ['user' => $home]));
+
+        $list = $this->repository(GroceryList::class)->findOneBy(['user' => $home]);
+        self::assertNotNull($list);
+        self::assertSame(6, $this->rowsOf(GroceryItem::class, ['groceryList' => $list, 'checked' => false]));
     }
 
     public function testTheAgendaDeductionReadsTheSeedTheWayTheJourneysExpect(): void
@@ -452,11 +468,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(25, $this->rowsOf(User::class));
+        self::assertSame(26, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(24, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(25, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

@@ -209,6 +209,9 @@ areas:
     - e2e/web/helpers/mercure.ts
   dashboard:
     - admin/src/modules/home/**
+    - admin/src/modules/grocery/{GroceryHomeCard,homeRecipeNeeds}.{ts,tsx}
+    - api/modules/grocery/src/Home/**
+    - api/fixtures/e2e/64-grocery-home.yaml
     - mobile/app/src/main/java/com/maggie/app/ui/screens/home/**
     - e2e/web/pages/HomePage.ts
   calendar:
@@ -693,6 +696,7 @@ mobile:
     paths: [api/fixtures/e2e/50-finance.yaml]
   e2e/mobile/flows/24-home.yaml:
     areas: [dashboard]
+    paths: [api/fixtures/e2e/64-grocery-home.yaml]
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]
