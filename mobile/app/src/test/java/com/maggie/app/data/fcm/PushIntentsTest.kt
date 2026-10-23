@@ -132,4 +132,22 @@ class PushIntentsTest {
         assertEquals(PushActionKind.OPEN, PushIntents.answerOf(open)?.first)
         assertNull(PushIntents.openReminder(context, PushPayload.from(mapOf("notificationId" to "n-1", "link" to "https://evil.example"))!!))
     }
+
+    @Test
+    fun `a shortage alert survives the trip through an intent, the button reaching the handler (MAG-570)`() {
+        val payload = PushPayload.from(
+            mapOf(
+                "notificationId" to "n-1",
+                "type" to "grocery",
+                "title" to "Il manque : parmesan",
+                "shortageId" to "01HZX3K9P2M7Q4R8S5T6V0W1AB",
+                "actions" to "add",
+            ),
+        )!!
+
+        val back = PushIntents.payloadOf(Intent().also { PushIntents.put(it, payload) })
+
+        assertEquals(payload, back)
+        assertEquals("01HZX3K9P2M7Q4R8S5T6V0W1AB", back?.shortageId)
+    }
 }

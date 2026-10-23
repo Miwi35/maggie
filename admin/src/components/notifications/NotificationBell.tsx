@@ -20,7 +20,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { useMercure } from '../../hooks/useMercure'
 import { getToken } from '../../auth/session'
-import { notificationLink } from '../maggie/interruptions'
+import { notificationLink, shortageAlertId } from '../maggie/interruptions'
 
 const NOTIFICATION_TOPICS = ['/api/notifications/{id}']
 
@@ -45,11 +45,12 @@ const ACTION_LABELS: Record<string, string> = {
   done: 'Fait',
   tomorrow: 'Demain',
   open: 'Voir',
+  add: 'Ajouter à la liste',
 }
 
 const ANSWER_ERROR = 'Impossible de répondre au rappel.'
 
-/** `POST /api/task-reminders/{id}/action`: the notification as it stands after the answer, if it stays. */
+/** `POST /api/task-reminders/{id}/action` or `/api/shortage-alerts/{id}/action`: the notification as it stands after the answer, if it stays. */
 interface ActionResult {
   notification: { title: string; body: string | null; actions: string[] } | null
 }
@@ -58,6 +59,13 @@ interface ActionResult {
 type Overlay = Record<string, Notification | null>
 
 const PER_PAGE = 20
+
+/** Where a notification's buttons answer: its task reminder, or the missing product it announces (MAG-570). */
+function actionUrl(notification: Notification): string | null {
+  if (notification.reminderId) return `/api/task-reminders/${encodeURIComponent(notification.reminderId)}/action`
+  const shortageId = shortageAlertId(notification.relatedEntityIri)
+  return shortageId ? `/api/shortage-alerts/${shortageId}/action` : null
+}
 
 /** The IRI: the `id` react-admin's Hydra provider gives a record, and the `@id` of a Mercure payload. */
 function iriOf(payload: Record<string, unknown>): string | null {
@@ -226,16 +234,18 @@ export const NotificationBell = () => {
     }
   }, [apply, notifications])
 
-  // « Dans 10 min » and « Ce soir » delete the notification (a new one comes back
-  // later); the other answers keep it, read, with the words the API gives it.
+  // « Dans 10 min », « Ce soir » and « Ajouter à la liste » delete the notification (a new
+  // one comes back later, or the shortage is settled); the other answers keep it, read,
+  // with the words the API gives it.
   const handleAction = useCallback(
     async (notification: Notification, action: string) => {
-      if (!notification.reminderId) return
+      const url = actionUrl(notification)
+      if (!url) return
       setAnswering(notification.id)
       setError(null)
       try {
         const token = getToken()
-        const response = await fetch(`/api/task-reminders/${encodeURIComponent(notification.reminderId)}/action`, {
+        const response = await fetch(url, {
           method: 'POST',
           headers: {
             Accept: 'application/json',
@@ -379,7 +389,7 @@ export const NotificationBell = () => {
                       secondaryTypographyProps={{ fontSize: 12 }}
                     />
                   </ListItemButton>
-                  {n.reminderId && n.actions && n.actions.length > 0 && (
+                  {n.actions && n.actions.length > 0 && actionUrl(n) && (
                     <Box
                       sx={{
                         display: 'flex',
@@ -397,7 +407,7 @@ export const NotificationBell = () => {
                         <Button
                           key={action}
                           size="small"
-                          variant={action === 'start' ? 'contained' : 'outlined'}
+                          variant={action === 'start' || action === 'add' ? 'contained' : 'outlined'}
                           disabled={answering === n.id}
                           onClick={(e) => {
                             e.stopPropagation()

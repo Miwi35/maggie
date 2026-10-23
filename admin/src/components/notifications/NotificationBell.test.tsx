@@ -481,3 +481,69 @@ describe('NotificationBell — a routine reminder (MAG-512)', () => {
     expect(redirect).not.toHaveBeenCalled()
   })
 })
+
+describe('NotificationBell — a missing product (MAG-570)', () => {
+  const fetchMock = vi.fn()
+  const shortage = {
+    ...dentist,
+    id: iri('01K0SHORT'),
+    type: 'grocery',
+    title: 'Il manque : parmesan',
+    body: 'Pour Pâtes carbonara, ce soir.',
+    relatedEntityIri: '/api/shortage-alerts/01K0SHORTAGE0000000000000A',
+    reminderId: null,
+    actions: ['add'],
+  }
+  const url = '/api/shortage-alerts/01K0SHORTAGE0000000000000A/action'
+
+  beforeEach(() => {
+    refetch.mockReset()
+    update.mockReset()
+    redirect.mockReset()
+    fetchMock.mockReset()
+    vi.stubGlobal('fetch', fetchMock)
+    listed = [shortage, film]
+  })
+
+  test('shows « Ajouter à la liste » under the notification; a plain one has none', async () => {
+    render(<NotificationBell />)
+    await openBell()
+
+    expect(screen.getAllByRole('button', { name: 'Ajouter à la liste' })).toHaveLength(1)
+  })
+
+  test('posts { action: add } to the alert and takes the notification out of the bell', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ alert: { resolved: true }, notification: null }) })
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la liste' }))
+
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(url, expect.objectContaining({ method: 'POST', body: JSON.stringify({ action: 'add' }) }))
+    expect(screen.queryByText(shortage.title)).toBeNull()
+    expect(screen.getByText('Votre film commence')).toBeInTheDocument()
+    expect(update).not.toHaveBeenCalled()
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
+  test('an alert already settled (409) says why and keeps the notification', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: 'Déjà ajouté à la liste.' }) })
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la liste' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Déjà ajouté à la liste.')
+    expect(screen.getByText(shortage.title)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ajouter à la liste' })).toBeEnabled()
+  })
+
+  test('disappears when Mercure says the shortage is settled', async () => {
+    render(<NotificationBell />)
+    await openBell()
+
+    emit({ '@id': shortage.id, deleted: true })
+
+    expect(screen.queryByText(shortage.title)).toBeNull()
+  })
+})

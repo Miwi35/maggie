@@ -292,4 +292,91 @@ describe('MaggieInterruptionHost', () => {
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.getByRole('button', { name: 'Autoriser' })).toBeEnabled()
   })
+
+  describe('a missing product (MAG-570)', () => {
+    const shortage = {
+      '@id': '/api/notifications/n9',
+      id: 'n9',
+      type: 'grocery',
+      title: 'Il manque : parmesan',
+      body: 'Pour Pâtes carbonara, ce soir.',
+      relatedEntityIri: '/api/shortage-alerts/01K0SHORTAGE0000000000000A',
+      actions: ['add'],
+      readAt: null,
+    }
+    const url = '/api/shortage-alerts/01K0SHORTAGE0000000000000A/action'
+
+    test('says what is missing, with « Ajouter à la liste » and « Plus tard »', async () => {
+      setup()
+      feed().emit(shortage)
+
+      const dialog = await screen.findByRole('alertdialog')
+      expect(dialog).toHaveTextContent('Il manque : parmesan')
+      expect(dialog).toHaveTextContent('Pour Pâtes carbonara, ce soir.')
+      expect(screen.getByRole('button', { name: 'Ajouter à la liste' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Plus tard' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Compris' })).toBeNull()
+    })
+
+    test('« Ajouter à la liste » posts the answer, closes, and leaves the read to the server', async () => {
+      setup()
+      feed().emit(shortage)
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Ajouter à la liste' }))
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        url,
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ Authorization: 'Bearer jwt' }),
+          body: JSON.stringify({ action: 'add' }),
+        }),
+      )
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+      expect(update).not.toHaveBeenCalled()
+    })
+
+    test.each([404, 409])('an alert already settled (%i) is closed', async (status) => {
+      setup()
+      feed().emit(shortage)
+      fetchMock.mockResolvedValueOnce({ ok: false, status, json: async () => ({}) })
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Ajouter à la liste' }))
+
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    })
+
+    test('an answer that did not go keeps the question and says so', async () => {
+      setup()
+      feed().emit(shortage)
+      fetchMock.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) })
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Ajouter à la liste' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent("Ta réponse n'est pas partie")
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Ajouter à la liste' })).toBeEnabled()
+    })
+
+    test('« Plus tard » posts nothing and keeps it unread', async () => {
+      setup()
+      feed().emit(shortage)
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Plus tard' }))
+
+      expect(fetchMock.mock.calls.filter(([u]) => u === url)).toHaveLength(0)
+      expect(update).not.toHaveBeenCalled()
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+    })
+
+    test('is withdrawn when the notification is deleted elsewhere', async () => {
+      setup()
+      feed().emit(shortage)
+      await screen.findByRole('alertdialog')
+
+      feed().emit({ '@id': shortage['@id'], deleted: true })
+
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    })
+  })
 })

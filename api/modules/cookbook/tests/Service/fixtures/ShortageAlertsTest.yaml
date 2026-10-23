@@ -1,0 +1,160 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: shortage@example.com
+    googleId: google-shortage
+    name: Shortage User
+  other_user:
+    email: shortage-other@example.com
+    googleId: google-shortage-other
+    name: Shortage Other
+
+Maggie\Cookbook\Entity\Ingredient:
+  parmesan:
+    name: Parmesan
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+    user: '@test_user'
+  cream:
+    name: Crème fraîche
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Low)>'
+    user: '@test_user'
+  flour:
+    name: Farine
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+  eggs:
+    name: Oeufs
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    user: '@test_user'
+  butter:
+    name: Beurre
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+    user: '@test_user'
+  milk:
+    name: Lait
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+    user: '@test_user'
+  pasta:
+    name: Pâtes
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_butter:
+    groceryList: '@grocery_list'
+    product: '@butter'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 1
+  item_milk_checked:
+    groceryList: '@grocery_list'
+    product: '@milk'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    position: 2
+
+Maggie\Calendar\Entity\Agenda:
+  meals_agenda:
+    name: Repas
+    module: cookbook
+    color: '#FF6B35'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  gratin:
+    name: Gratin
+    servings: 4
+    tags: ['plat']
+    user: '@test_user'
+  omelette:
+    name: Omelette
+    servings: 2
+    tags: ['plat']
+    user: '@test_user'
+  tart:
+    name: Tarte
+    servings: 4
+    tags: ['plat']
+    user: '@test_user'
+  carbonara:
+    name: Pâtes à la crème
+    servings: 4
+    tags: ['plat']
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  gratin_parmesan:
+    recipe: '@gratin'
+    ingredient: '@parmesan'
+    quantity: 100
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  gratin_flour:
+    recipe: '@gratin'
+    ingredient: '@flour'
+    quantity: 50
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  omelette_eggs:
+    recipe: '@omelette'
+    ingredient: '@eggs'
+    quantity: 4
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  omelette_butter:
+    recipe: '@omelette'
+    ingredient: '@butter'
+    quantity: 20
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  tart_cream:
+    recipe: '@tart'
+    ingredient: '@cream'
+    quantity: 20
+    unit: '<(Maggie\Grocery\Enum\Unit::Centiliter)>'
+  tart_milk:
+    recipe: '@tart'
+    ingredient: '@milk'
+    quantity: 10
+    unit: '<(Maggie\Grocery\Enum\Unit::Centiliter)>'
+  carbonara_pasta:
+    recipe: '@carbonara'
+    ingredient: '@pasta'
+    quantity: 400
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+Maggie\Cookbook\Entity\Meal:
+  lunch_today:
+    summary: 'Déjeuner : Omelette'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
+    date: '<(new \DateTimeImmutable("2026-10-14"))>'
+    agenda: '@meals_agenda'
+    recipes: ['@omelette']
+  dinner_today:
+    summary: 'Dîner : Gratin'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    date: '<(new \DateTimeImmutable("2026-10-14"))>'
+    agenda: '@meals_agenda'
+    recipes: ['@gratin']
+  lunch_tomorrow:
+    summary: 'Déjeuner : Tarte'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
+    date: '<(new \DateTimeImmutable("2026-10-15"))>'
+    agenda: '@meals_agenda'
+    recipes: ['@tart']
+  dinner_tomorrow:
+    summary: 'Dîner : Gratin'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    date: '<(new \DateTimeImmutable("2026-10-15"))>'
+    agenda: '@meals_agenda'
+    recipes: ['@gratin']
+  dinner_in_two_days:
+    summary: 'Dîner : Pâtes à la crème'
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    date: '<(new \DateTimeImmutable("2026-10-16"))>'
+    agenda: '@meals_agenda'
+    recipes: ['@carbonara']

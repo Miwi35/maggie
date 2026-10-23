@@ -1,5 +1,7 @@
 package com.maggie.app.ui.interruption
 
+import com.maggie.app.data.fcm.PushActionKind
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -137,5 +139,22 @@ class InterruptionHostScreenTest {
         compose.waitForIdle()
 
         compose.onNodeWithTag(UiTags.INTERRUPTION).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a shortage alert shows Ajouter à la liste and Plus tard, and the first answers it (MAG-570)`() {
+        coEvery { handler.handle(any(), any(), any(), any()) } returns PushOutcome.Closed
+        host()
+        center.offer(message("a", type = "grocery").copy(shortageId = "01HZX3K9P2M7Q4R8S5T6V0W1AB", reminderActions = listOf("add")))
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Ajouter à la liste").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.INTERRUPTION_LATER).assertIsDisplayed()
+
+        compose.onNodeWithTag(UiTags.INTERRUPTION_ACTION).performClick()
+        compose.waitForIdle()
+
+        coVerify { handler.handle(PushActionKind.ADD_TO_LIST, match { it.shortageId == "01HZX3K9P2M7Q4R8S5T6V0W1AB" }, any(), any()) }
+        compose.onNodeWithTag(UiTags.INTERRUPTION).assertDoesNotExist()
     }
 }

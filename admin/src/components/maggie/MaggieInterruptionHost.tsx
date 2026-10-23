@@ -21,6 +21,20 @@ async function answerApproval(id: string, decision: 'approve' | 'deny'): Promise
   return response.ok || GONE.includes(response.status)
 }
 
+async function addShortageToList(shortageId: string): Promise<boolean> {
+  const token = localStorage.getItem('token')
+  const response = await fetch(`/api/shortage-alerts/${encodeURIComponent(shortageId)}/action`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ action: 'add' }),
+  })
+  return response.ok || [404, 409].includes(response.status)
+}
+
 export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterruptionHostProps) => {
   const { current, dismiss, openChat } = useMaggieInterruption({ chatOpen, onOpenChat })
   const dataProvider = useDataProvider()
@@ -41,9 +55,9 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
     setError(null)
   }
 
-  const answer = useCallback(
-    async (decision: 'approve' | 'deny') => {
-      if (current?.source !== 'approval') return
+  const send = useCallback(
+    async (post: () => Promise<boolean>) => {
+      if (!current) return
       setBusy(true)
       setError(null)
       const failed = () => {
@@ -53,7 +67,7 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
         setBusy(false)
       }
       try {
-        if (await answerApproval(current.ref, decision)) dismiss(false)
+        if (await post()) dismiss(false)
         else failed()
       } catch {
         failed()
@@ -61,6 +75,19 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
     },
     [current, dismiss],
   )
+
+  const answer = useCallback(
+    (decision: 'approve' | 'deny') => {
+      if (current?.source === 'approval') return send(() => answerApproval(current.ref, decision))
+    },
+    [current, send],
+  )
+
+  // The server deletes the notification when the product is added: it is not marked read.
+  const addToList = useCallback(() => {
+    const shortageId = current?.source === 'notification' ? current.shortageId : undefined
+    if (shortageId) return send(() => addShortageToList(shortageId))
+  }, [current, send])
 
   // As from the bell: read, so it leaves the bell and the other devices. Leaving it for later keeps it unread.
   const markRead = useCallback(() => {
@@ -81,8 +108,9 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
     if (!current) return
     if (current.source === 'proaction') return openChat()
     if (current.source === 'approval') return void answer('approve')
+    if (current.source === 'notification' && current.shortageId) return void addToList()
     markRead()
-  }, [answer, current, markRead, openChat])
+  }, [addToList, answer, current, markRead, openChat])
 
   const openLink = useCallback(() => {
     if (current?.source === 'approval') return void answer('deny')
@@ -96,9 +124,11 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
     current?.source === 'approval'
       ? 'Autoriser'
       : current?.source === 'notification'
-        ? link
-          ? "C'est noté"
-          : 'Compris'
+        ? current.shortageId
+          ? 'Ajouter à la liste'
+          : link
+            ? "C'est noté"
+            : 'Compris'
         : 'Ouvrir le chat'
   const secondaryLabel = current?.source === 'approval' ? 'Refuser' : link?.label
 

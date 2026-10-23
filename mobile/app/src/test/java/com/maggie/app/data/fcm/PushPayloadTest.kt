@@ -244,4 +244,35 @@ class PushPayloadTest {
         assertEquals(PushActionKind.OPEN, PushActionKind.ofReminderKey("open"))
         assertEquals("open", PushActionKind.OPEN.reminderKey)
     }
+
+    // MAG-570: a shortage alert asks « Ajouter à la liste » or « Plus tard ».
+
+    private fun shortage(vararg extra: Pair<String, String>) = payload(
+        "grocery",
+        "shortageId" to "01HZX3K9P2M7Q4R8S5T6V0W1AB",
+        "actions" to "add",
+        *extra,
+    )
+
+    @Test
+    fun `a shortage alert reads its id and carries Ajouter à la liste and Plus tard`() {
+        val p = shortage()
+
+        assertEquals("01HZX3K9P2M7Q4R8S5T6V0W1AB", p.shortageId)
+        assertEquals(listOf(PushActionKind.ADD_TO_LIST, PushActionKind.LATER), p.actions())
+        assertEquals(listOf("Ajouter à la liste", "Plus tard"), p.actions().map { it.label })
+    }
+
+    @Test
+    fun `a shortage alert keeps its two buttons whatever link or interaction it carries`() {
+        val p = shortage("link" to "maggie://grocery/x", "interaction" to """{"kind":"action"}""")
+
+        assertEquals(listOf(PushActionKind.ADD_TO_LIST, PushActionKind.LATER), p.actions())
+    }
+
+    @Test
+    fun `a grocery message without a shortage id keeps the default button, and a blank id is none`() {
+        assertEquals(listOf(PushActionKind.OK), payload("grocery").actions())
+        assertNull(payload("grocery", "shortageId" to "").shortageId)
+    }
 }

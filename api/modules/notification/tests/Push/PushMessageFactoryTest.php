@@ -90,6 +90,30 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('Suivante : « Appeler le garagiste ».', $message['data']['title']);
     }
 
+    public function testAShortageAlertCarriesItsIdAndItsButtonInOrder(): void
+    {
+        $notification = $this->notification(NotificationType::Grocery, 'Il manque : Parmesan', 'Pour Gratin, ce soir.', '/api/shortage-alerts/01JSHORTAGE0123456789ABCD')
+            ->setActions(['add']);
+
+        $message = (new PushMessageFactory())->build($notification, 't');
+
+        self::assertSame('01JSHORTAGE0123456789ABCD', $message['data']['shortageId']);
+        self::assertSame('add', $message['data']['actions']);
+        self::assertSame('grocery', $message['data']['type']);
+        self::assertArrayNotHasKey('reminderId', $message['data']);
+        self::assertArrayNotHasKey('taskId', $message['data']);
+        // Data alone, like the reminders: a `notification` block would hide the buttons.
+        self::assertArrayNotHasKey('notification', $message);
+        self::assertContainsOnlyString($message['data']);
+    }
+
+    public function testAShortageIdIsReadFromTheAlertIriOnly(): void
+    {
+        $message = (new PushMessageFactory())->build($this->notification(NotificationType::Grocery, 'Stock bas', null, '/api/grocery_items/01JITEM'), 't');
+
+        self::assertArrayNotHasKey('shortageId', $message['data']);
+    }
+
     public function testARoutineReminderCarriesItsButtonsAndOpensTheTasksScreen(): void
     {
         $notification = $this->notification(NotificationType::Routine, 'Routines · soir', 'Brosser les dents, c\'est le moment.', '/tasks')

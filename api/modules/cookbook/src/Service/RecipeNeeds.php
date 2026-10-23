@@ -77,9 +77,25 @@ class RecipeNeeds
      * owner is low on or out of (MAG-563): one entry per product, at the
      * first meal that asks for it, in the order the meals come.
      *
-     * @return list<array{productId: string, name: string, date: string, slot: string}>
+     * @return list<array{productId: string, name: string, date: string, slot: string, mealId: string, mealName: string}>
      */
     public function runningOut(User $user, \DateTimeImmutable $from, int $days = 2): array
+    {
+        $out = [];
+        foreach ($this->runningOutPerMeal($user, $from, $days) as $entry) {
+            $out[$entry['productId']] ??= $entry;
+        }
+
+        return array_values($out);
+    }
+
+    /**
+     * Same ingredients, one entry per meal that asks for one (MAG-570): the
+     * interruption speaks of a product for each meal, not only the first.
+     *
+     * @return list<array{productId: string, name: string, date: string, slot: string, mealId: string, mealName: string}>
+     */
+    public function runningOutPerMeal(User $user, \DateTimeImmutable $from, int $days = 2): array
     {
         $to = $from->modify('+'.(max(1, $days) - 1).' days');
         $meals = $this->mealRepository->findByDateRangeForUser($user, $from, $to);
@@ -91,15 +107,18 @@ class RecipeNeeds
                 foreach ($recipe->getIngredients() as $line) {
                     $ingredient = $line->getIngredient();
                     $id = (string) $ingredient->getId();
-                    if (isset($out[$id]) || ProductStockState::InStock === $ingredient->getStockState()) {
+                    $key = $meal->getId().':'.$id;
+                    if (isset($out[$key]) || ProductStockState::InStock === $ingredient->getStockState()) {
                         continue;
                     }
 
-                    $out[$id] = [
+                    $out[$key] = [
                         'productId' => $id,
                         'name' => $ingredient->getName(),
                         'date' => $meal->getDate()?->format('Y-m-d') ?? '',
                         'slot' => $meal->getSlot()->value,
+                        'mealId' => (string) $meal->getId(),
+                        'mealName' => MealTitle::of($meal),
                     ];
                 }
             }

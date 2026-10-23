@@ -23,14 +23,18 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.fcm.PushActionKind
+import com.maggie.app.data.interruption.Interruptions
 import com.maggie.app.data.model.Notification
 import org.koin.androidx.compose.koinViewModel
 import java.time.Instant
@@ -85,6 +89,7 @@ fun NotificationScreen(
                             notification = notification,
                             onTap = { viewModel.open(notification) },
                             onDelete = { viewModel.delete(notification.id) },
+                            onAddToList = { viewModel.addToList(notification) },
                         )
                     }
                 }
@@ -107,6 +112,7 @@ private fun NotificationCard(
     notification: Notification,
     onTap: () -> Unit,
     onDelete: () -> Unit,
+    onAddToList: () -> Unit,
 ) {
     Card(
         onClick = onTap,
@@ -150,6 +156,11 @@ private fun NotificationCard(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                }
+                if (Interruptions.shortageIdOf(notification) != null && !notification.isRead) {
+                    TextButton(onClick = onAddToList, modifier = Modifier.testTag(UiTags.NOTIFICATION_ADD_TO_LIST)) {
+                        Text(PushActionKind.ADD_TO_LIST.label)
+                    }
                 }
                 notification.createdAt?.let { createdAt ->
                     Text(

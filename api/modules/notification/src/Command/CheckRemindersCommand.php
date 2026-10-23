@@ -8,6 +8,7 @@ use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Service\RecurrenceService;
 use Maggie\Calendar\Service\TaskReminders;
+use Maggie\Cookbook\Service\ShortageAlerts;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Notification\Message\CreateNotificationCommand;
 use Maggie\Notification\Repository\NotificationRepository;
@@ -33,6 +34,7 @@ class CheckRemindersCommand extends Command
         private readonly MessageBusInterface $messageBus,
         private readonly UserRepository $userRepository,
         private readonly TaskReminders $taskReminders,
+        private readonly ShortageAlerts $shortageAlerts,
         private readonly ClockInterface $clock,
         private readonly LoggerInterface $logger,
     ) {
@@ -102,6 +104,7 @@ class CheckRemindersCommand extends Command
         }
 
         $created += $this->remindTasks($io);
+        $created += $this->remindShortages($io);
 
         if (0 === $created) {
             $io->info('No due reminders found.');
@@ -171,6 +174,32 @@ class CheckRemindersCommand extends Command
             }
             if ($sent > 0) {
                 $io->writeln(sprintf('  Sent %d task reminder(s) to %s', $sent, $user->getEmail()));
+            }
+            $created += $sent;
+        }
+
+        return $created;
+    }
+
+    /**
+     * The ingredients missing for the meals of today and tomorrow (MAG-570):
+     * one interruption per product and meal, settled when covered
+     * ({@see ShortageAlerts}).
+     */
+    private function remindShortages(SymfonyStyle $io): int
+    {
+        $created = 0;
+
+        foreach ($this->userRepository->findAll() as $user) {
+            try {
+                $sent = $this->shortageAlerts->run($user);
+            } catch (\Throwable $e) {
+                $this->logger->error('Shortage alerts failed for {user}: {error}', ['user' => (string) $user->getId(), 'error' => $e->getMessage(), 'exception' => $e]);
+                $io->warning(sprintf('Shortage alerts failed for %s: %s', $user->getEmail(), $e->getMessage()));
+                continue;
+            }
+            if ($sent > 0) {
+                $io->writeln(sprintf('  Sent %d shortage alert(s) to %s', $sent, $user->getEmail()));
             }
             $created += $sent;
         }

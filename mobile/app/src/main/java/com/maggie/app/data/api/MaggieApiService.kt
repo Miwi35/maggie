@@ -47,6 +47,7 @@ import com.maggie.app.data.model.Reward
 import com.maggie.app.data.model.Routine
 import com.maggie.app.data.model.RoutineDayView
 import com.maggie.app.data.model.Stars
+import com.maggie.app.data.model.ShortageAlertAnswer
 import com.maggie.app.data.model.TaskReminderAnswer
 import com.maggie.app.data.model.Utensil
 import com.maggie.app.data.model.Account
@@ -1107,6 +1108,18 @@ class MaggieApiService(
      */
     suspend fun answerTaskReminder(reminderId: String, action: String): TaskReminderAnswer {
         return client.post("$baseUrl/api/task-reminders/$reminderId/action") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(buildJsonObject { put("action", action) })
+        }.orRefusal().body()
+    }
+
+    /**
+     * « Ajouter à la liste » (MAG-570): [action] `add` puts the missing product of a shortage alert on the
+     * shopping list. A refusal (400 unknown action, 404 gone, 409 already resolved) is an [ApiRefusalException].
+     */
+    suspend fun answerShortageAlert(shortageId: String, action: String): ShortageAlertAnswer {
+        return client.post("$baseUrl/api/shortage-alerts/$shortageId/action") {
             contentType(ContentType.Application.Json)
             accept(ContentType.Application.Json)
             setBody(buildJsonObject { put("action", action) })

@@ -1101,6 +1101,9 @@ object UiTags {
     const val INTERRUPTION_SECOND = "interruption_second"
     const val INTERRUPTION_LATER = "interruption_later"
 
+    /** The notifications list's « Ajouter à la liste » on a shortage alert (MAG-570). */
+    const val NOTIFICATION_ADD_TO_LIST = "notification_add_to_list"
+
     /** Settings > Notifications — the switch of the chime and the vibration that announce her. */
     const val SETTINGS_INTERRUPTION_SOUND = "settings_interruption_sound"
 

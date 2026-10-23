@@ -297,4 +297,62 @@ class InterruptionViewModelTest {
         assertEquals(listOf("a"), dismissed)
         verify(exactly = 1) { handler.answerInBackground(PushActionKind.OPEN, payload) }
     }
+
+    // MAG-570: « Ajouter à la liste » goes through the handler like any answer that waits for the server.
+
+    private fun shortage() = message("a", type = "grocery").copy(shortageId = "01HZX3K9P2M7Q4R8S5T6V0W1AB", reminderActions = listOf("add"))
+
+    @Test
+    fun `Ajouter à la liste is busy while it goes, then closes the alert and takes down the tray notification`() {
+        val gate = CompletableDeferred<PushOutcome>()
+        coEvery { handler.handle(PushActionKind.ADD_TO_LIST, any(), any(), any()) } coAnswers { gate.await() }
+        center.offer(shortage())
+
+        viewModel.answer(PushActionKind.ADD_TO_LIST)
+        assertTrue(viewModel.uiState.value.busy)
+        viewModel.answer(PushActionKind.ADD_TO_LIST)
+        gate.complete(PushOutcome.Closed)
+
+        coVerify(exactly = 1) { handler.handle(PushActionKind.ADD_TO_LIST, any(), any(), any()) }
+        assertFalse(viewModel.uiState.value.busy)
+        assertNull(shown())
+        assertEquals(listOf("a"), dismissed)
+    }
+
+    @Test
+    fun `Ajouter à la liste that fails keeps the alert with the reason, and can be pressed again`() {
+        coEvery { handler.handle(PushActionKind.ADD_TO_LIST, any(), any(), any()) } returns PushOutcome.Retry("Maggie est injoignable. Réessayez.")
+        center.offer(shortage())
+
+        viewModel.answer(PushActionKind.ADD_TO_LIST)
+
+        assertEquals("a", shown())
+        assertEquals("Maggie est injoignable. Réessayez.", viewModel.uiState.value.note)
+        assertFalse(viewModel.uiState.value.busy)
+
+        coEvery { handler.handle(PushActionKind.ADD_TO_LIST, any(), any(), any()) } returns PushOutcome.Closed
+        viewModel.answer(PushActionKind.ADD_TO_LIST)
+        assertNull(shown())
+    }
+
+    @Test
+    fun `a shortage resolved elsewhere is closed`() {
+        coEvery { handler.handle(PushActionKind.ADD_TO_LIST, any(), any(), any()) } returns PushOutcome.Settled("Ce manquant n'est plus à signaler.")
+        center.offer(shortage())
+
+        viewModel.answer(PushActionKind.ADD_TO_LIST)
+
+        assertNull(shown())
+    }
+
+    @Test
+    fun `Plus tard on a shortage alert postpones it and answers nothing`() {
+        center.offer(shortage())
+
+        viewModel.answer(PushActionKind.LATER)
+
+        assertEquals(listOf("a"), postponed.map { it.notificationId })
+        assertNull(shown())
+        coVerify(exactly = 0) { handler.handle(any(), any(), any(), any()) }
+    }
 }

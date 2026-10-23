@@ -152,4 +152,42 @@ class InterruptionsTest {
             (Interruptions.readApproval("""{"id":"ap-1","toolName":"t","status":"pending"}""", now) as FeedEvent.Offer).payload.key,
         )
     }
+
+    // MAG-570: a shortage alert announced by Mercure offers « Ajouter à la liste » and « Plus tard ».
+
+    private val shortageIri = "/api/shortage-alerts/01HZX3K9P2M7Q4R8S5T6V0W1AB"
+
+    @Test
+    fun `a grocery notification about a shortage alert offers Ajouter à la liste and Plus tard`() {
+        val payload = Interruptions.of(
+            Notification(id = "n-1", type = "grocery", title = "Il manque : parmesan", body = "Pour Pâtes carbonara, ce soir.", relatedEntityIri = shortageIri),
+        )!!
+
+        assertEquals("01HZX3K9P2M7Q4R8S5T6V0W1AB", payload.shortageId)
+        assertEquals(listOf(PushActionKind.ADD_TO_LIST, PushActionKind.LATER), payload.actions())
+        assertEquals(PushChannels.forType("grocery"), payload.channel)
+        assertNull(payload.link)
+    }
+
+    @Test
+    fun `only a grocery notification with a well-formed shortage IRI is a shortage alert`() {
+        fun shortageOf(type: String, iri: String?) =
+            Interruptions.of(Notification(id = "n-1", type = type, title = "Il manque", relatedEntityIri = iri))?.shortageId
+
+        assertNull(shortageOf("reminder", shortageIri))
+        assertNull(shortageOf("grocery", null))
+        assertNull(shortageOf("grocery", "/api/shortage-alerts/short"))
+        assertNull(shortageOf("grocery", "/api/shortage-alerts/01HZX3K9P2M7Q4R8S5T6V0W1AB/action"))
+        assertNull(shortageOf("grocery", "/api/grocery_items/01HZX3K9P2M7Q4R8S5T6V0W1AB"))
+    }
+
+    @Test
+    fun `a shortage alert created is offered and deleted is withdrawn`() {
+        val created = Interruptions.readNotification(
+            """{"@id":"/api/notifications/n-7","id":"n-7","type":"grocery","title":"Il manque : parmesan","relatedEntityIri":"$shortageIri"}""",
+        )
+        assertEquals("01HZX3K9P2M7Q4R8S5T6V0W1AB", (created as FeedEvent.Offer).payload.shortageId)
+
+        assertEquals(FeedEvent.Withdraw("n-7"), Interruptions.readNotification("""{"@id":"/api/notifications/n-7","deleted":true}"""))
+    }
 }

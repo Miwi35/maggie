@@ -19,7 +19,7 @@ interface Common {
 
 export type Interruption =
   | (Common & { source: 'proaction' })
-  | (Common & { source: 'notification'; link: NotificationLink | null })
+  | (Common & { source: 'notification'; link: NotificationLink | null; shortageId?: string })
   | (Common & { source: 'approval' })
 
 /** What one message of the shared feed means for the interruption queue. */
@@ -52,6 +52,11 @@ const ENTITY_LABELS: Record<string, string> = {
   tasks: 'Voir la tâche',
   grocery_items: 'Voir la liste de courses',
   recipes: 'Voir la recette',
+}
+
+/** The ULID of the shortage alert (MAG-570) a notification's `relatedEntityIri` points at: its answer is « Ajouter à la liste », not a link. */
+export function shortageAlertId(iri: string | null | undefined): string | null {
+  return (iri && /^\/api\/shortage-alerts\/([0-9A-Za-z]{26})$/.exec(iri)?.[1]) || null
 }
 
 /**
@@ -125,6 +130,8 @@ export function readFeedMessage(raw: string): FeedEvent | null {
     if (data.deleted || data.readAt) return { kind: 'withdraw', id: `notification:${notificationRef}` }
     if (data.type === 'approval' || !isText(data.title)) return null
     const type = typeof data.type === 'string' ? data.type : ''
+    const iri = typeof data.relatedEntityIri === 'string' ? data.relatedEntityIri : null
+    const shortageId = Array.isArray(data.actions) && data.actions.includes('add') ? shortageAlertId(iri) : null
     return {
       kind: 'interrupt',
       interruption: {
@@ -133,7 +140,8 @@ export function readFeedMessage(raw: string): FeedEvent | null {
         ref: notificationRef,
         title: data.title,
         message: notificationMessage(type, data.body),
-        link: notificationLink(typeof data.relatedEntityIri === 'string' ? data.relatedEntityIri : null),
+        link: notificationLink(iri),
+        ...(shortageId && { shortageId }),
       },
     }
   }
