@@ -3329,6 +3329,71 @@
         },
         "description": "Propose the user's day for the morning, writing nothing: up to 5 tasks chosen by a simple rule — slots already written for the day are kept, then the tasks put off (« reportée »), due that day, urgent, due the next day, the others by score — filled while their estimated minutes (15 when unknown) fit the free time of the agenda between the morning time and 21:00 (or now, when later), at least one, shortest first. date is YYYY-MM-DD, today (the user's timezone) when left out. Returns slots [{position, type, reason, minutes, task}], reserveRanked (the other open tasks, best first, to swap in: [{reason, minutes, task}]), totalMinutes and freeMinutes. reason is postponed, dueToday, urgent, dueTomorrow, quick or whenever. To settle the proposal call set_day_plan with the taskIds of the slots; nothing is written until then."
     },
+    "preview_project": {
+        "name": "preview_project",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "amountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "currency": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "wellbeing": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "dateMode": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "targetOn": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "dependsOn": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                },
+                "scenarioId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Show what adding a project would change BEFORE adding it (\"et si j'ajoutais une box à louer ?\"): nothing is created or changed, the planning is only computed twice. It is computed in the current scenario (the one the user chose to follow; with none, the user's projects in their priority order) or in the scenario named by scenarioId (a stored scenario's id, or auto-rapid, auto-balanced, auto-quality); the new project comes last in that scenario's order. Takes the same fields as manage_projects create: name and amountCents (integer cents, > 0) required; currency (EUR by default), wellbeing (essential, high, medium by default, comfort), dateMode none (default), fixed or deadline with targetOn (YYYY-MM-DD), dependsOn (ids of the user's projects it waits for). Answers {scenario: {id, name, editable} or null when none is current (editable false for an automatic scenario: duplicate it to add to it), project: {name, amountCents, currency}, dates: [{projectId, name, before, after}] — the month (YYYY-MM) each existing project is bought, null when beyond the 36-month planning, without and with the new project, nDate: {before, after} — the independence date N (YYYY-MM, null when not reached within 20 years), metrics: {realCost (integer cents: what the project costs, here its amount since it has no funding source yet), availableAt (the month the new project is bought, null when beyond the planning), nImpactMonths (months N moves, positive = later, negative = earlier, null when N is not reached before or after)}}. Report the dates and the gaps as facts, never advise to add or not: the user decides. To add it for real, call manage_projects create, then manage_scenarios update (projectIds) when a scenario is current. A refused request answers error plus current (what was given): ask the user for what is missing."
+    },
     "propose_advance_repayments": {
         "name": "propose_advance_repayments",
         "inputSchema": {

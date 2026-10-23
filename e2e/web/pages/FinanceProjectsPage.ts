@@ -153,4 +153,22 @@ export class FinanceProjectsPage extends AdminShell {
   get currentBanner(): Locator {
     return this.content.getByTestId('scenario-current')
   }
+
+  /** The dialog of a new project, filled and sent to « Aperçu » (MAG-553): nothing is created yet. */
+  async previewNewProject(values: { name: string; euros: string; fixedOn: string }): Promise<Locator> {
+    await this.content.getByRole('button', { name: 'Nouveau projet' }).click()
+    const dialog = this.page.getByRole('dialog')
+    await dialog.getByLabel(/^Nom/).fill(values.name)
+    await dialog.getByLabel(/^Montant/).fill(values.euros)
+    await dialog.getByRole('radio', { name: 'Date fixe (verrouillée)' }).check()
+    await dialog.getByLabel(/^Date du projet/).fill(values.fixedOn)
+    await dialog.getByRole('button', { name: 'Aperçu' }).click()
+
+    return dialog.getByRole('region', { name: `Aperçu · ${values.name}` })
+  }
+
+  /** A project's line of the preview table. */
+  previewDate(preview: Locator, name: string): Locator {
+    return preview.locator(`[data-testid="preview-date"][data-project="${name}"]`)
+  }
 }

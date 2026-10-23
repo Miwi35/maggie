@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.ProjectOptionsParams
+import com.maggie.app.data.api.ProjectPreviewRequest
 import com.maggie.app.data.api.ProjectWriteRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
@@ -14,6 +15,7 @@ import com.maggie.app.data.model.FundingKind
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectDateMode
 import com.maggie.app.data.model.ProjectPlanning
+import com.maggie.app.data.model.ProjectPreview
 import com.maggie.app.data.model.ProjectWellbeing
 import com.maggie.app.data.model.projectIri
 import com.maggie.app.data.repository.ProjectRepository
@@ -66,6 +68,21 @@ data class ProjectDraft(
         )
     }
 
+    /** The same project as [toRequest], for the preview: nothing is created, dependencies are plain ids. */
+    fun toPreviewRequest(): ProjectPreviewRequest? {
+        val request = toRequest() ?: return null
+        return ProjectPreviewRequest(
+            name = request.name,
+            amountCents = request.amountCents,
+            wellbeing = request.wellbeing,
+            dateMode = request.dateMode,
+            targetOn = request.targetOn,
+            dependsOn = dependsOn,
+            note = request.note,
+            scenarioId = null,
+        )
+    }
+
     companion object {
         fun of(project: Project): ProjectDraft = ProjectDraft(
             name = project.name,
@@ -86,6 +103,9 @@ data class ProjectForm(
     /** Set by the first save: an empty field is not an error while the form is still being filled. */
     val showErrors: Boolean = false,
     val isSaving: Boolean = false,
+    /** What adding the project would change (MAG-553), on the tablet; null until asked, and again once cancelled or edited. */
+    val preview: ProjectPreview? = null,
+    val isPreviewing: Boolean = false,
     /** What the server refused, said in French (a cycle, a dependency on itself). */
     val error: String? = null,
     val done: Boolean = false,
@@ -382,7 +402,7 @@ class ProjectViewModel(
 
     fun editDraft(transform: (ProjectDraft) -> ProjectDraft) {
         val form = _uiState.value.form ?: return
-        _uiState.value = _uiState.value.copy(form = form.copy(draft = transform(form.draft), error = null))
+        _uiState.value = _uiState.value.copy(form = form.copy(draft = transform(form.draft), error = null, preview = null))
     }
 
     fun closeForm() {
@@ -420,6 +440,75 @@ class ProjectViewModel(
                     )
                 }
         }
+    }
+
+    /**
+     * The tablet's « Créer » (MAG-553): asks what adding the project would change in the current scenario,
+     * without creating anything. The answer opens « Ajouter au scénario courant ? »; [confirmPreview] adds,
+     * [dismissPreview] goes back to the form.
+     */
+    fun previewNew() {
+        val form = _uiState.value.form ?: return
+        if (!form.isNew || form.isSaving || form.isPreviewing) return
+        val request = form.draft.toPreviewRequest()
+        if (request == null) {
+            _uiState.value = _uiState.value.copy(form = form.copy(showErrors = true))
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(form = form.copy(showErrors = true, isPreviewing = true, preview = null, error = null))
+        viewModelScope.launch {
+            repository.previewProject(request)
+                .onSuccess { preview ->
+                    updateForm { it.copy(isPreviewing = false, preview = preview) }
+                }
+                .onFailure { failure ->
+                    updateForm { it.copy(isPreviewing = false, error = previewRefusal(failure)) }
+                }
+        }
+    }
+
+    /** « Annuler »: the dialog closes, nothing was created, the form keeps what was typed. */
+    fun dismissPreview() {
+        updateForm { it.copy(preview = null) }
+    }
+
+    /**
+     * « Ajouter »: the normal creation, then the project joins the scenario it was previewed in. A scenario that
+     * does not take it leaves the project created and says so: the project is never lost.
+     */
+    fun confirmPreview() {
+        val form = _uiState.value.form ?: return
+        val preview = form.preview ?: return
+        if (!preview.canAdd || form.isSaving) return
+        val request = form.draft.toRequest() ?: return
+
+        _uiState.value = _uiState.value.copy(form = form.copy(isSaving = true, preview = null, error = null))
+        viewModelScope.launch {
+            repository.createProject(request)
+                .onSuccess { created ->
+                    val scenario = preview.scenario?.takeIf { it.editable }
+                    val joined = scenario?.let { repository.addToScenario(it.id, created.id) }
+                    val scenarioName = scenario?.name.orEmpty()
+                    _uiState.value = _uiState.value.copy(
+                        form = _uiState.value.form?.copy(isSaving = false, done = true),
+                        message = when {
+                            joined == null -> "Projet créé"
+                            joined.isSuccess -> "Projet ajouté au scénario « $scenarioName »"
+                            else -> "« ${created.name} » est créé, mais n'a pas rejoint le scénario « $scenarioName »."
+                        },
+                    )
+                    load(showLoading = false)
+                }
+                .onFailure { failure ->
+                    updateForm { it.copy(isSaving = false, error = refusal(failure, MESSAGE_SAVE)) }
+                }
+        }
+    }
+
+    private fun updateForm(transform: (ProjectForm) -> ProjectForm) {
+        val form = _uiState.value.form ?: return
+        _uiState.value = _uiState.value.copy(form = transform(form))
     }
 
     /** Takes the project out of the list at once; it comes back with the reason if the API refuses. */
@@ -522,6 +611,9 @@ class ProjectViewModel(
             }
         }
 
+        /** A cycle or a self-dependency is said as the form does; any other failure is the preview's own sentence. */
+        internal fun previewRefusal(failure: Throwable): String = refusal(failure, MESSAGE_PREVIEW)
+
         internal fun optionsRefusal(failure: Throwable): String {
             val message = (failure as? ApiRefusalException)?.message ?: return MESSAGE_OPTIONS
             return if (message.contains("Missing to price", ignoreCase = true)) MESSAGE_OPTIONS_TERMS else MESSAGE_OPTIONS
@@ -535,6 +627,7 @@ class ProjectViewModel(
         const val MESSAGE_LOAD = "Les projets n'ont pas pu être chargés."
         const val MESSAGE_NOT_FOUND = "Ce projet n'existe plus. Tirez pour actualiser."
         const val MESSAGE_SAVE = "Le projet n'a pas été enregistré."
+        const val MESSAGE_PREVIEW = "L'aperçu n'a pas pu être calculé."
         const val MESSAGE_DELETE = "Le projet n'a pas été supprimé."
         const val MESSAGE_REORDER = "L'ordre n'a pas pu être enregistré."
         const val MESSAGE_CYCLE = "Ces dépendances formeraient un cycle : un projet finirait par attendre lui-même."

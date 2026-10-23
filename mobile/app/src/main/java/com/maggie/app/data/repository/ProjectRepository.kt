@@ -3,11 +3,14 @@ package com.maggie.app.data.repository
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.ProjectFundingSourceRequest
 import com.maggie.app.data.api.ProjectOptionsParams
+import com.maggie.app.data.api.ProjectPreviewRequest
 import com.maggie.app.data.api.ProjectWriteRequest
+import com.maggie.app.data.api.ScenarioWriteRequest
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectPlanning
+import com.maggie.app.data.model.ProjectPreview
 import com.maggie.app.data.model.ProjectOptions
 
 /** The owner's projects (MAG-519): the list in priority order, its writes, and its order. */
@@ -20,6 +23,19 @@ class ProjectRepository(
 
     suspend fun createProject(request: ProjectWriteRequest): Result<Project> = runCatching {
         apiService.createProject(request)
+    }
+
+    /** What adding the project would change in the current scenario (or [scenarioId]); nothing is written. */
+    suspend fun previewProject(request: ProjectPreviewRequest): Result<ProjectPreview> = runCatching {
+        apiService.previewProject(request)
+    }
+
+    /** Appends [projectId] to the end of the scenario's projects: the second call of a confirmed add. */
+    suspend fun addToScenario(scenarioId: String, projectId: String): Result<Unit> = runCatching {
+        val scenario = apiService.getScenarios().scenarios.firstOrNull { it.id == scenarioId }
+            ?: error("The scenario no longer exists.")
+        apiService.updateScenario(scenarioId, ScenarioWriteRequest.projects(scenario.projectIds + projectId))
+        Unit
     }
 
     suspend fun updateProject(id: String, request: ProjectWriteRequest): Result<Project> = runCatching {

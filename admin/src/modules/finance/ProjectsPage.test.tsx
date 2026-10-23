@@ -135,17 +135,39 @@ function stubApi(
     failPlanning?: boolean
     /** Answers `/api/finance/independence` (MAG-558); without it the answer is not a counter. */
     independence?: unknown
+    /** Answers `POST …/projects/preview` (MAG-553); without it a preview with no current scenario. */
+    preview?: Record<string, unknown> | ((body: Record<string, unknown>) => Record<string, unknown>)
+    failPreview?: { status: number; body: unknown }
+    /** Answers `GET /api/finance/scenarios`. */
+    scenarios?: Record<string, unknown>[]
   } = {},
 ) {
   let stored = initial.map((row) => ({ ...row }))
   const writes: Write[] = []
+  const previews: Record<string, unknown>[] = []
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     const method = init?.method ?? 'GET'
     const body = init?.body ? JSON.parse(String(init.body)) : undefined
+    if (method === 'POST' && url.endsWith('/projects/preview')) {
+      previews.push(body)
+      if (options.failPreview) return json(options.failPreview.body, options.failPreview.status)
+      const answer = typeof options.preview === 'function' ? options.preview(body) : options.preview
+      return json(
+        answer ?? {
+          scenario: null,
+          project: { name: body.name, amountCents: body.amountCents, currency: 'EUR' },
+          dates: stored.map((row) => ({ projectId: row.id, name: row.name, before: '2027-03', after: '2027-03' })),
+          nDate: { before: '2041-03', after: '2041-03' },
+          metrics: { realCost: body.amountCents, availableAt: '2027-09', nImpactMonths: 0 },
+        },
+      )
+    }
+    if (method === 'GET' && url.endsWith('/api/finance/scenarios')) return json({ scenarios: options.scenarios ?? [] })
     if (method !== 'GET') writes.push({ method, url, body })
+    if (method === 'PATCH' && url.includes('/api/finance/scenarios/')) return json({ scenario: { id: url.split('/').pop() } })
 
     if (method === 'GET' && url.includes('/project-planning')) {
       if (options.failPlanning) return json({}, 500)
@@ -192,7 +214,7 @@ function stubApi(
   })
   vi.stubGlobal('fetch', fetchMock)
 
-  return { writes, fetchMock }
+  return { writes, previews, fetchMock }
 }
 
 const shown = () => screen.queryAllByTestId('project-row').map((row) => row.getAttribute('data-project'))
@@ -278,7 +300,8 @@ describe('ProjectsPage', () => {
     fireEvent.change(within(dialog).getByLabelText(/^Date limite\W*$/), { target: { value: '2027-08-31' } })
     await user.click(within(dialog).getByRole('checkbox', { name: 'Déménagement' }))
     await user.type(within(dialog).getByLabelText('Note'), 'Pour les courses')
-    await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Aperçu' }))
+    await user.click(await within(dialog).findByRole('button', { name: 'Ajouter' }))
 
     await waitFor(() => expect(shown()).toEqual(['Déménagement', 'Canapé', 'Vélo cargo']))
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -311,7 +334,7 @@ describe('ProjectsPage', () => {
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText(/^Montant/), '0')
     await user.click(within(dialog).getByRole('radio', { name: 'Date fixe (verrouillée)' }))
-    await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Aperçu' }))
 
     expect(within(dialog).getByText('Le nom est obligatoire.')).toBeInTheDocument()
     expect(within(dialog).getByText('Indiquez un montant supérieur à 0.')).toBeInTheDocument()
@@ -614,7 +637,8 @@ describe('ProjectsPage', () => {
       const dialog = await screen.findByRole('dialog')
       await user.type(within(dialog).getByLabelText(/^Nom/), 'Vélo cargo')
       await user.type(within(dialog).getByLabelText(/^Montant/), '1500')
-      await user.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+      await user.click(within(dialog).getByRole('button', { name: 'Aperçu' }))
+      await user.click(await within(dialog).findByRole('button', { name: 'Ajouter' }))
       await waitFor(() => expect(ganttRows()).toEqual(['Déménagement', 'Canapé', 'Vélo cargo']))
 
       const afterCreate = planningReads(fetchMock)
@@ -784,6 +808,172 @@ describe('ProjectsPage', () => {
 
       expect(await within(form).findByRole('alert')).toBeInTheDocument()
       expect(within(row('Canapé')).queryByTestId('project-investment-chip')).toBeNull()
+    })
+  })
+
+  describe('preview before adding (MAG-553)', () => {
+    const CURRENT = { scenario: { id: 'MINE', name: 'Mon plan', editable: true } }
+    const previewOf = (extra: Record<string, unknown> = {}) => (body: Record<string, unknown>) => ({
+      scenario: null,
+      project: { name: body.name, amountCents: body.amountCents, currency: 'EUR' },
+      dates: [
+        { projectId: 'MOVE', name: 'Déménagement', before: '2027-03', after: '2027-03' },
+        { projectId: 'SOFA', name: 'Canapé', before: '2027-05', after: '2027-09' },
+        { projectId: 'BIKE', name: 'Vélo', before: null, after: null },
+      ],
+      nDate: { before: '2041-03', after: '2041-06' },
+      metrics: { realCost: body.amountCents, availableAt: '2028-01', nImpactMonths: 3 },
+      ...extra,
+    })
+
+    const fillBox = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByRole('button', { name: 'Nouveau projet' }))
+      const dialog = await screen.findByRole('dialog')
+      await user.type(within(dialog).getByLabelText(/^Nom/), 'Box à louer')
+      await user.type(within(dialog).getByLabelText(/^Montant/), '18000')
+      await user.click(within(dialog).getByRole('button', { name: 'Aperçu' }))
+
+      return dialog
+    }
+
+    test('shows the dates before and after, the real cost, when it is available and the impact on N, and writes nothing', async () => {
+      const user = userEvent.setup()
+      const { writes, previews } = stubApi([MOVE, SOFA, BIKE], { preview: previewOf() })
+      render(<ProjectsPage />)
+      await loaded(3)
+
+      const dialog = await fillBox(user)
+
+      const card = await within(dialog).findByRole('region', { name: 'Aperçu · Box à louer' })
+      expect(previews).toEqual([
+        { name: 'Box à louer', amountCents: 1800000, wellbeing: 'medium', dateMode: 'none', targetOn: null, dependsOn: [] },
+      ])
+      const sofa = within(card).getAllByTestId('preview-date').find((line) => line.getAttribute('data-project') === 'Canapé') as HTMLElement
+      expect(sofa).toHaveAttribute('data-moved', 'true')
+      expect(sofa).toHaveTextContent(/mai 2027.*septembre 2027/)
+      const move = within(card).getAllByTestId('preview-date').find((line) => line.getAttribute('data-project') === 'Déménagement') as HTMLElement
+      expect(move).toHaveAttribute('data-moved', 'false')
+      expect(within(card).getAllByTestId('preview-date').find((line) => line.getAttribute('data-project') === 'Vélo')).toHaveTextContent(/au-delà de 36 mois/)
+      expect(within(card).getByTestId('preview-n')).toHaveTextContent(/mars 2041.*juin 2041/)
+      expect(within(card).getByTestId('preview-real-cost')).toHaveTextContent(/18\s000,00\s€/)
+      expect(within(card).getByTestId('preview-available')).toHaveTextContent('janvier 2028')
+      expect(within(card).getByTestId('preview-impact')).toHaveTextContent('3 mois plus tard')
+      expect(card).not.toHaveTextContent(/recommand|conseill|préférable/i)
+      expect(writes).toEqual([])
+    })
+
+    test('cancelling creates nothing and leaves the list as it was', async () => {
+      const user = userEvent.setup()
+      const { writes } = stubApi([MOVE, SOFA], { preview: previewOf() })
+      render(<ProjectsPage />)
+      await loaded(2)
+
+      const dialog = await fillBox(user)
+      await within(dialog).findByRole('region', { name: 'Aperçu · Box à louer' })
+      await user.click(within(dialog).getByRole('button', { name: 'Annuler' }))
+
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(shown()).toEqual(['Déménagement', 'Canapé'])
+      expect(writes).toEqual([])
+    })
+
+    test('adding creates the project, then puts it last in the current scenario', async () => {
+      const user = userEvent.setup()
+      const { writes } = stubApi([MOVE, SOFA], {
+        preview: previewOf(CURRENT),
+        scenarios: [{ id: 'MINE', name: 'Mon plan', kind: 'user', status: 'saved', current: true, projects: [{ projectId: 'MOVE', position: 0 }, { projectId: 'SOFA', position: 1 }] }],
+      })
+      render(<ProjectsPage />)
+      await loaded(2)
+
+      const dialog = await fillBox(user)
+      await user.click(await within(dialog).findByRole('button', { name: 'Ajouter' }))
+
+      await waitFor(() => expect(shown()).toEqual(['Déménagement', 'Canapé', 'Box à louer']))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(writes.map((write) => [write.method, write.url])).toEqual([
+        ['POST', '/api/finance/projects'],
+        ['PATCH', '/api/finance/scenarios/MINE'],
+      ])
+      expect(writes[1]?.body).toEqual({ projectIds: ['MOVE', 'SOFA', 'NEW'] })
+    })
+
+    test("previews in another scenario than the current one when it is chosen", async () => {
+      const user = userEvent.setup()
+      const { previews } = stubApi([MOVE, SOFA], {
+        preview: (body) => previewOf({ scenario: { id: body.scenarioId ?? 'MINE', name: body.scenarioId ? 'Plan B' : 'Mon plan', editable: true } })(body),
+        scenarios: [
+          { id: 'MINE', name: 'Mon plan', kind: 'user', status: 'saved', current: true, projects: [] },
+          { id: 'OTHER', name: 'Plan B', kind: 'user', status: 'saved', current: false, projects: [] },
+          { id: 'auto-rapid', name: 'Rapide', kind: 'auto', status: 'draft', current: false, projects: [] },
+        ],
+      })
+      render(<ProjectsPage />)
+      await loaded(2)
+
+      const dialog = await fillBox(user)
+      const select = await within(dialog).findByRole('combobox', { name: 'Scénario' })
+      await waitFor(() => expect(select).toHaveTextContent('Mon plan (courant)'))
+      await user.click(select)
+      expect(screen.queryByRole('option', { name: 'Rapide' })).toBeNull()
+      await user.click(await screen.findByRole('option', { name: 'Plan B' }))
+
+      await waitFor(() => expect(previews).toHaveLength(2))
+      expect(previews[1]).toMatchObject({ scenarioId: 'OTHER' })
+      await waitFor(() => expect(within(dialog).getByRole('combobox', { name: 'Scénario' })).toHaveTextContent('Plan B'))
+    })
+
+    test('blocks adding to an automatic scenario and says to duplicate it', async () => {
+      const user = userEvent.setup()
+      const { writes } = stubApi([MOVE], { preview: previewOf({ scenario: { id: 'auto-rapid', name: 'Rapide', editable: false } }) })
+      render(<ProjectsPage />)
+      await loaded(1)
+
+      const dialog = await fillBox(user)
+
+      expect(await within(dialog).findByText(/proposition de Maggie : dupliquez-la/)).toBeInTheDocument()
+      expect(within(dialog).getByRole('button', { name: 'Ajouter' })).toBeDisabled()
+      expect(writes).toEqual([])
+    })
+
+    test('says why the preview failed and keeps the form', async () => {
+      const user = userEvent.setup()
+      const { writes } = stubApi([MOVE], { failPreview: { status: 400, body: { error: 'Project not found: GONE' } } })
+      render(<ProjectsPage />)
+      await loaded(1)
+
+      const dialog = await fillBox(user)
+
+      expect(await within(dialog).findByText('Project not found: GONE')).toBeInTheDocument()
+      expect(within(dialog).getByLabelText(/^Nom/)).toHaveValue('Box à louer')
+      expect(within(dialog).queryByRole('region', { name: /^Aperçu/ })).toBeNull()
+      expect(writes).toEqual([])
+    })
+
+    test('"Modifier" goes back to the form with what was typed', async () => {
+      const user = userEvent.setup()
+      stubApi([MOVE], { preview: previewOf() })
+      render(<ProjectsPage />)
+      await loaded(1)
+
+      const dialog = await fillBox(user)
+      await user.click(await within(dialog).findByRole('button', { name: 'Modifier' }))
+
+      expect(within(dialog).getByLabelText(/^Nom/)).toHaveValue('Box à louer')
+      expect(within(dialog).getByLabelText(/^Montant/)).toHaveValue('18000')
+    })
+
+    test('editing a project has no preview: it is saved at once', async () => {
+      const user = userEvent.setup()
+      const { previews, writes } = stubApi([MOVE])
+      render(<ProjectsPage />)
+      await loaded(1)
+
+      await user.click(screen.getByRole('button', { name: 'Modifier Déménagement' }))
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(writes).toHaveLength(1))
+      expect(previews).toEqual([])
     })
   })
 })

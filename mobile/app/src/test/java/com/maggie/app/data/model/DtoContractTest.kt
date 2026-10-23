@@ -684,6 +684,35 @@ class DtoContractTest {
     }
 
     @Test
+    fun `a project preview deserialises from the recorded response (MAG-553)`() {
+        val body = readRecording("finance_project_preview.read")
+
+        val preview = json.decodeFromJsonElement(ProjectPreview.serializer(), body)
+
+        assertTrue("The recorded preview proves nothing: it has no dates.", preview.dates.isNotEmpty())
+        assertTrue(preview.scenario!!.editable)
+        assertEquals("Box à louer", preview.project.name)
+        assertNotNull(preview.metrics.availableAt)
+        assertDeclaredFieldsExist("ProjectPreview", serializer<ProjectPreview>(), body.keys, "finance_project_preview")
+        assertDeclaredFieldsExist(
+            "ProjectPreviewScenario", serializer<ProjectPreviewScenario>(), body["scenario"]!!.jsonObject.keys, "finance_project_preview.scenario",
+        )
+        assertDeclaredFieldsExist(
+            "ProjectPreviewProject", serializer<ProjectPreviewProject>(), body["project"]!!.jsonObject.keys, "finance_project_preview.project",
+        )
+        assertDeclaredFieldsExist(
+            "ProjectPreviewDate",
+            serializer<ProjectPreviewDate>(),
+            body["dates"]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet(),
+            "finance_project_preview.dates",
+        )
+        assertDeclaredFieldsExist("ProjectPreviewN", serializer<ProjectPreviewN>(), body["nDate"]!!.jsonObject.keys, "finance_project_preview.nDate")
+        assertDeclaredFieldsExist(
+            "ProjectPreviewMetrics", serializer<ProjectPreviewMetrics>(), body["metrics"]!!.jsonObject.keys, "finance_project_preview.metrics",
+        )
+    }
+
+    @Test
     fun `placements deserialise from the recorded response (MAG-555)`() =
         assertCollectionContract("finance_placements", serializer<Placement>(), "Placement")
 

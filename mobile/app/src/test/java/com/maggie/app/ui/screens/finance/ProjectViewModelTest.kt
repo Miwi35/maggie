@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.finance
 import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.ProjectFundingSourceRequest
 import com.maggie.app.data.api.ProjectOptionsParams
+import com.maggie.app.data.api.ProjectPreviewRequest
 import com.maggie.app.data.api.ProjectWriteRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
@@ -12,6 +13,12 @@ import com.maggie.app.data.model.PlanningMonth
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectDateMode
 import com.maggie.app.data.model.ProjectPlanning
+import com.maggie.app.data.model.ProjectPreview
+import com.maggie.app.data.model.ProjectPreviewDate
+import com.maggie.app.data.model.ProjectPreviewMetrics
+import com.maggie.app.data.model.ProjectPreviewN
+import com.maggie.app.data.model.ProjectPreviewProject
+import com.maggie.app.data.model.ProjectPreviewScenario
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.FundingKind
 import com.maggie.app.data.model.ProjectFundingSource
@@ -179,6 +186,181 @@ class ProjectViewModelTest {
         assertEquals("none", request.captured.dateMode)
         assertNull(request.captured.targetOn)
         assertEquals(listOf("/api/finance/projects/p1"), request.captured.dependsOn)
+    }
+
+    // « Box à louer » 18 000 € in the current scenario « Équilibré »: « Canapé » is pushed back a month, N two months.
+    private fun preview(editable: Boolean = true, scenario: ProjectPreviewScenario? = ProjectPreviewScenario("s1", "Équilibré", editable)) = ProjectPreview(
+        scenario = scenario,
+        project = ProjectPreviewProject(name = "Box à louer", amountCents = 1800000, currency = "EUR"),
+        dates = listOf(
+            ProjectPreviewDate("p1", "Déménagement", before = "2027-03", after = "2027-03"),
+            ProjectPreviewDate("p2", "Canapé", before = "2027-06", after = "2027-07"),
+        ),
+        nDate = ProjectPreviewN(before = "2041-03", after = "2041-05"),
+        metrics = ProjectPreviewMetrics(realCost = 1800000, availableAt = "2028-01", nImpactMonths = 2),
+    )
+
+    private suspend fun kotlinx.coroutines.test.TestScope.openPreviewed(preview: ProjectPreview = preview()): ProjectViewModel {
+        coEvery { repository.previewProject(any()) } returns Result.success(preview)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.openNew()
+        viewModel.editDraft { it.copy(name = "Box à louer", amount = "18000", dependsOn = listOf("p1")) }
+        viewModel.previewNew()
+        advanceUntilIdle()
+        return viewModel
+    }
+
+    @Test
+    fun `the preview asks the API without creating anything and keeps the form open`() = runTest {
+        val request = slot<ProjectPreviewRequest>()
+        coEvery { repository.previewProject(capture(request)) } returns Result.success(preview())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.openNew()
+        viewModel.editDraft { it.copy(name = "Box à louer", amount = "18000", dependsOn = listOf("p1")) }
+        viewModel.previewNew()
+        advanceUntilIdle()
+
+        val form = viewModel.uiState.value.form!!
+        assertEquals("Box à louer", form.preview!!.project.name)
+        assertFalse(form.isPreviewing)
+        assertFalse(form.done)
+        assertEquals(1800000, request.captured.amountCents)
+        assertEquals(listOf("p1"), request.captured.dependsOn)
+        assertNull(request.captured.scenarioId)
+        coVerify(exactly = 0) { repository.createProject(any()) }
+        coVerify(exactly = 0) { repository.addToScenario(any(), any()) }
+    }
+
+    @Test
+    fun `a preview of an incomplete form is not asked, the form says what is missing`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.openNew()
+        viewModel.previewNew()
+        advanceUntilIdle()
+
+        val form = viewModel.uiState.value.form!!
+        assertNull(form.preview)
+        assertEquals("Donnez un nom au projet.", form.errors[ProjectField.NAME])
+        coVerify(exactly = 0) { repository.previewProject(any()) }
+    }
+
+    @Test
+    fun `a failed preview says so and creates nothing`() = runTest {
+        coEvery { repository.previewProject(any()) } returns Result.failure(RuntimeException("Unable to resolve host"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.openNew()
+        viewModel.editDraft { it.copy(name = "Box à louer", amount = "18000") }
+        viewModel.previewNew()
+        advanceUntilIdle()
+
+        val form = viewModel.uiState.value.form!!
+        assertNull(form.preview)
+        assertFalse(form.isPreviewing)
+        assertEquals(ProjectViewModel.MESSAGE_PREVIEW, form.error)
+    }
+
+    @Test
+    fun `cancelling the preview creates nothing and keeps what was typed`() = runTest {
+        val viewModel = openPreviewed()
+
+        viewModel.dismissPreview()
+        advanceUntilIdle()
+
+        val form = viewModel.uiState.value.form!!
+        assertNull(form.preview)
+        assertFalse(form.done)
+        assertEquals("Box à louer", form.draft.name)
+        coVerify(exactly = 0) { repository.createProject(any()) }
+        coVerify(exactly = 0) { repository.addToScenario(any(), any()) }
+    }
+
+    @Test
+    fun `editing the form drops a preview that no longer matches it`() = runTest {
+        val viewModel = openPreviewed()
+
+        viewModel.editDraft { it.copy(amount = "20000") }
+
+        assertNull(viewModel.uiState.value.form!!.preview)
+    }
+
+    @Test
+    fun `adding creates the project, then it joins the previewed scenario`() = runTest {
+        val request = slot<ProjectWriteRequest>()
+        val created = Project(id = "p3", name = "Box à louer", amountCents = 1800000, position = 2)
+        coEvery { repository.createProject(capture(request)) } returns Result.success(created)
+        coEvery { repository.addToScenario("s1", "p3") } returns Result.success(Unit)
+        val viewModel = openPreviewed()
+
+        viewModel.confirmPreview()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.form!!.done)
+        assertEquals("Projet ajouté au scénario « Équilibré »", state.message)
+        assertEquals(1800000, request.captured.amountCents)
+        coVerify(exactly = 1) { repository.createProject(any()) }
+        coVerify(exactly = 1) { repository.addToScenario("s1", "p3") }
+    }
+
+    @Test
+    fun `a project created but refused by the scenario is kept and the message says so`() = runTest {
+        val created = Project(id = "p3", name = "Box à louer", amountCents = 1800000, position = 2)
+        coEvery { repository.createProject(any()) } returns Result.success(created)
+        coEvery { repository.addToScenario(any(), any()) } returns Result.failure(RuntimeException("gone"))
+        val viewModel = openPreviewed()
+
+        viewModel.confirmPreview()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.form!!.done)
+        assertEquals("« Box à louer » est créé, mais n'a pas rejoint le scénario « Équilibré ».", state.message)
+    }
+
+    @Test
+    fun `without a current scenario adding is the plain creation`() = runTest {
+        val created = Project(id = "p3", name = "Box à louer", amountCents = 1800000, position = 2)
+        coEvery { repository.createProject(any()) } returns Result.success(created)
+        val viewModel = openPreviewed(preview(scenario = null))
+
+        viewModel.confirmPreview()
+        advanceUntilIdle()
+
+        assertEquals("Projet créé", viewModel.uiState.value.message)
+        coVerify(exactly = 0) { repository.addToScenario(any(), any()) }
+    }
+
+    @Test
+    fun `an automatic scenario cannot be added to, nothing is created`() = runTest {
+        val viewModel = openPreviewed(preview(editable = false))
+
+        viewModel.confirmPreview()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.form!!.done)
+        coVerify(exactly = 0) { repository.createProject(any()) }
+    }
+
+    @Test
+    fun `a refused creation after the preview says why and keeps the form`() = runTest {
+        coEvery { repository.createProject(any()) } returns Result.failure(ApiRefusalException(400, "A dependency cycle"))
+        val viewModel = openPreviewed()
+
+        viewModel.confirmPreview()
+        advanceUntilIdle()
+
+        val form = viewModel.uiState.value.form!!
+        assertFalse(form.done)
+        assertFalse(form.isSaving)
+        assertEquals(ProjectViewModel.MESSAGE_CYCLE, form.error)
+        coVerify(exactly = 0) { repository.addToScenario(any(), any()) }
     }
 
     @Test

@@ -49,6 +49,8 @@ import com.maggie.app.data.model.ProjectDateMode
 import com.maggie.app.data.model.ProjectWellbeing
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.DateField
+import com.maggie.app.ui.layout.WindowWidth
+import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.uiTagRoot
 
 /**
@@ -86,11 +88,19 @@ fun ProjectFormScreen(
     }
     BackHandler(onBack = close)
 
+    // From the medium width (tablet, foldable) a new project is previewed before it is created (MAG-553).
+    val previewFirst = form.isNew && rememberAppLayout().width != WindowWidth.COMPACT
+
+    form.preview?.let { preview ->
+        ProjectPreviewDialog(preview = preview, onAdd = viewModel::confirmPreview, onCancel = viewModel::dismissPreview)
+    }
+
     ProjectFormContent(
         form = form,
         others = uiState.projects.filter { it.id != form.projectId },
         onEdit = viewModel::editDraft,
-        onSave = viewModel::save,
+        onSave = if (previewFirst) viewModel::previewNew else viewModel::save,
+        previewFirst = previewFirst,
         onDelete = { form.projectId?.let(viewModel::delete) },
         onBack = close,
     )
@@ -105,6 +115,8 @@ internal fun ProjectFormContent(
     onSave: () -> Unit,
     onDelete: () -> Unit,
     onBack: () -> Unit,
+    /** The tablet's new project: the button asks for the preview instead of creating. */
+    previewFirst: Boolean = false,
 ) {
     val draft = form.draft
     val errors = form.errors
@@ -145,10 +157,16 @@ internal fun ProjectFormContent(
                 Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                     Button(
                         onClick = onSave,
-                        enabled = !form.isSaving,
+                        enabled = !form.isSaving && !form.isPreviewing,
                         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth().testTag(UiTags.PROJECT_SAVE),
                     ) {
-                        Text(if (form.isNew) "Créer" else "Enregistrer")
+                        Text(
+                            when {
+                                !form.isNew -> "Enregistrer"
+                                previewFirst -> "Voir l'aperçu"
+                                else -> "Créer"
+                            },
+                        )
                     }
                 }
             }

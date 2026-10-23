@@ -1,0 +1,41 @@
+{
+    "scenario": {
+        "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "name": "Sans le Japon",
+        "editable": true
+    },
+    "project": {
+        "name": "Box à louer",
+        "amountCents": 150000,
+        "currency": "EUR"
+    },
+    "dates": [
+        {
+            "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Déménagement",
+            "before": "2027-03",
+            "after": "2027-03"
+        },
+        {
+            "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Canapé",
+            "before": "2027-03",
+            "after": "2027-03"
+        },
+        {
+            "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Voiture",
+            "before": "2027-04",
+            "after": "2027-04"
+        }
+    ],
+    "nDate": {
+        "before": null,
+        "after": null
+    },
+    "metrics": {
+        "realCost": 150000,
+        "availableAt": "2027-12",
+        "nImpactMonths": null
+    }
+}

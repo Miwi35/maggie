@@ -44,14 +44,16 @@ import {
   patchProject,
   PROJECT_TOPIC,
   projectDateLabel,
+  previewProject,
   reorderProjects,
   toProject,
   updateProject,
   wellbeingLabel,
 } from './projectsApi'
-import type { Project, ProjectInput } from './projectsApi'
+import type { Project, ProjectInput, ProjectPreview } from './projectsApi'
 import { renteOfInvestment, useRenteSources } from './useRenteSources'
 import { ScenariosPanel } from './ScenariosPanel'
+import { fetchScenarios, updateScenario } from './scenariosApi'
 import { useProjectPlanning } from './useProjectPlanning'
 
 const PROJECT_TOPICS = [PROJECT_TOPIC]
@@ -346,7 +348,21 @@ const ProjectsView = () => {
     }, 0)
   }
 
-  const save = async (input: ProjectInput) => {
+  // Confirming a preview is a normal creation, then the project joins the scenario it was previewed in (MAG-553).
+  const joinScenario = async (created: Project, scenario: { id: string; name: string }) => {
+    try {
+      const target = (await fetchScenarios()).find((candidate) => candidate.id === scenario.id)
+      if (!target) throw new Error('introuvable')
+      await updateScenario(target.id, { projectIds: [...target.projectIds, created.id] })
+    } catch (error) {
+      notify(
+        `« ${created.name} » est créé, mais n'a pas rejoint le scénario « ${scenario.name} » : ${failureText(error, 'le scénario est inchangé')}.`,
+        { type: 'error' },
+      )
+    }
+  }
+
+  const save = async (input: ProjectInput, preview?: ProjectPreview) => {
     if (editing === 'new') {
       const created = await createProject(input)
       setProjects((previous) =>
@@ -354,6 +370,7 @@ const ProjectsView = () => {
           ? previous.map((project) => (project.id === created.id ? created : project))
           : byPosition([...previous, created]),
       )
+      if (preview?.scenario?.editable) await joinScenario(created, preview.scenario)
     } else if (editing) {
       const updated = await updateProject(editing, input)
       setProjects((previous) => previous.map((project) => (project.id === updated.id ? updated : project)))
@@ -523,6 +540,7 @@ const ProjectsView = () => {
           projects={projects}
           onClose={() => setEditing(null)}
           onSubmit={save}
+          onPreview={editing === 'new' ? previewProject : undefined}
         />
       )}
 

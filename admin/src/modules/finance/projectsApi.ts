@@ -577,3 +577,82 @@ export async function fetchLoanConditions(loanId: string): Promise<Record<string
 
   return (await response.json()) as Record<string, unknown>
 }
+
+export interface ProjectPreviewScenario {
+  /** A stored scenario's ULID, or `auto-*` for an offer of Maggie's. */
+  id: string
+  name: string
+  /** False for an automatic scenario: it is duplicated, not added to. */
+  editable: boolean
+}
+
+export interface ProjectPreviewDate {
+  projectId: string
+  name: string
+  /** `YYYY-MM`; null when the project falls past the 36 months. */
+  before: string | null
+  after: string | null
+}
+
+/** What adding a project would change (MAG-553): facts, computed without writing anything. */
+export interface ProjectPreview {
+  /** The scenario the preview is computed in; null when none is current (the projects in their order). */
+  scenario: ProjectPreviewScenario | null
+  project: { name: string; amountCents: number; currency: string }
+  dates: ProjectPreviewDate[]
+  /** `YYYY-MM`; null when N is not reached within 20 years. */
+  nDate: { before: string | null; after: string | null }
+  metrics: {
+    realCost: number
+    /** The month the new project is bought, null past the planning. */
+    availableAt: string | null
+    /** Months N moves: positive later, negative earlier, null when not reached before or after. */
+    nImpactMonths: number | null
+  }
+}
+
+const PREVIEW_PATH = `${PROJECTS_PATH}/preview`
+
+const toPreview = (raw: Raw): ProjectPreview => {
+  const scenario = raw.scenario as Raw | null | undefined
+  const project = (raw.project as Raw | undefined) ?? {}
+  const nDate = (raw.nDate as Raw | undefined) ?? {}
+  const metrics = (raw.metrics as Raw | undefined) ?? {}
+
+  return {
+    scenario: scenario ? { id: String(scenario.id ?? ''), name: String(scenario.name ?? ''), editable: scenario.editable === true } : null,
+    project: { name: String(project.name ?? ''), amountCents: Number(project.amountCents ?? 0), currency: String(project.currency ?? 'EUR') },
+    dates: ((raw.dates as Raw[] | undefined) ?? []).map((row) => ({
+      projectId: bareId(String(row.projectId ?? '')),
+      name: String(row.name ?? ''),
+      before: (row.before as string | null | undefined) ?? null,
+      after: (row.after as string | null | undefined) ?? null,
+    })),
+    nDate: { before: (nDate.before as string | null | undefined) ?? null, after: (nDate.after as string | null | undefined) ?? null },
+    metrics: {
+      realCost: Number(metrics.realCost ?? 0),
+      availableAt: (metrics.availableAt as string | null | undefined) ?? null,
+      nImpactMonths: metrics.nImpactMonths === null || metrics.nImpactMonths === undefined ? null : Number(metrics.nImpactMonths),
+    },
+  }
+}
+
+/**
+ * What adding this project would change, in the current scenario or in `scenarioId`
+ * (`POST /api/finance/projects/preview`). Nothing is created.
+ */
+export async function previewProject(input: ProjectInput, scenarioId?: string): Promise<ProjectPreview> {
+  const body = {
+    name: input.name,
+    amountCents: input.amountCents,
+    wellbeing: input.wellbeing,
+    dateMode: input.dateMode,
+    targetOn: input.dateMode === 'none' ? null : input.targetOn,
+    dependsOn: input.dependsOn.map(bareId),
+    ...(scenarioId ? { scenarioId } : {}),
+  }
+  const response = await request(PREVIEW_PATH, 'POST', body)
+  if (!response.ok) throw await refused(response, "L'aperçu n'a pas pu être calculé.")
+
+  return toPreview((await response.json()) as Raw)
+}

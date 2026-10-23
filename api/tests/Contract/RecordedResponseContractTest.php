@@ -463,6 +463,19 @@ final class RecordedResponseContractTest extends WebTestCase
             self::stabilise($comparison),
             'GET /api/finance/scenario-comparison no longer returns what it used to. The mobile DTOs and the admin client read this response.',
         );
+
+        $this->client->request('POST', '/api/finance/projects/preview', [], [], $this->authHeaders() + ['CONTENT_TYPE' => 'application/json'], json_encode(['name' => 'Box à louer', 'amountCents' => 150000, 'wellbeing' => 'high'], \JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+        $preview = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($preview);
+        self::assertNotEmpty($preview['dates'], 'The recorded preview lists no project.');
+        self::assertNotNull($preview['metrics']['availableAt'], 'The recorded preview never buys the new project.');
+        self::assertSame($id, $preview['scenario']['id'], 'The recorded preview is not computed in the current scenario.');
+        $this->assertMatchesContract(
+            'responses/finance_project_preview.read.json',
+            self::stabilise($preview),
+            'POST /api/finance/projects/preview no longer returns what it used to. The mobile DTOs and the admin client read this response.',
+        );
     }
 
     /**

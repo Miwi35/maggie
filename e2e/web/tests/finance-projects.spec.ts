@@ -27,6 +27,10 @@ import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
  * The funding chart under the Gantt (MAG-528): a project on a fixed date that asks more than
  * the saving capacity can give makes the chart flag the months before it, and hovering one reads the excess.
  *
+ * The preview before adding (MAG-553): a new 18 000 € project, locked two months ahead, is previewed in
+ * the dialog — the seeded projects' dates before and after, N before and after — and nothing is created
+ * until « Ajouter »; « Annuler » leaves the projects as they were.
+ *
  * Only this file reads or writes the projects; `finally` puts the seed back,
  * so a retry starts where the first attempt did.
  */
@@ -544,3 +548,78 @@ test('defining an investment with a resale puts the loan, the rent and the resal
   }
 })
 
+/** `2027-03` as the page words it: « mars 2027 ». */
+const monthWords = (month: string | null): string =>
+  month === null
+    ? 'au-delà de 36 mois'
+    : new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01T00:00:00Z`))
+
+/**
+ * The preview before adding (MAG-553, extends MAG-102): an 18 000 € project locked two months ahead is
+ * entered in « Nouveau projet ». « Aperçu » gives the other projects' dates before (the planning the API
+ * gives now) and after, and the date N, without creating anything; « Annuler » creates nothing; entering it
+ * again and « Ajouter » creates it, and the planning then read says what the preview said.
+ */
+test('the preview of an 18 000 € project shows the others\' dates before and after, cancelling creates nothing, adding gives what was shown', async ({
+  page,
+  api,
+}) => {
+  await restoreSeed(api)
+  const screen = new FinanceProjectsPage(page)
+  const name = `Box 18 000 e2e${0 === test.info().retry ? '' : ` essai ${test.info().retry}`}`
+  const values = { name, euros: '18000', fixedOn: firstOfMonth(2) }
+  const stored = async () => (await projects(api)).filter((project) => project.name === name)
+
+  try {
+    // --- Given: the seed, and the planning as it is now ----------------------
+    const now = await planning(api)
+    await screen.open()
+
+    // --- When: the new project is entered and previewed ----------------------
+    const preview = await screen.previewNewProject(values)
+
+    // --- Then: the card shows each project's date before — the planning's own — and after
+    await expect(preview).toBeVisible()
+    for (const project of seeded(now)) {
+      const line = screen.previewDate(preview, project.name)
+      await expect(line).toContainText(monthWords(project.purchaseMonth))
+      await expect(line).toHaveAttribute('data-moved', /true|false/)
+    }
+    await expect(preview.getByTestId('preview-n')).toBeVisible()
+    await expect(preview.getByTestId('preview-real-cost')).toContainText(/18\s000,00\s€/)
+    await expect(preview.getByTestId('preview-available')).toBeVisible()
+    await expect(preview.getByTestId('preview-impact')).toBeVisible()
+    await expect(preview).not.toContainText(/recommand|conseill|préférable/i)
+    const after = await Promise.all(
+      seeded(now).map(async (project) => [project.name, (await screen.previewDate(preview, project.name).locator('td').nth(1).innerText()).trim()] as const),
+    )
+    expect(await stored(), 'a preview creates nothing').toHaveLength(0)
+
+    // --- When: it is cancelled -----------------------------------------------
+    await page.getByRole('dialog').getByRole('button', { name: 'Annuler' }).click()
+
+    // --- Then: nothing was created, the list is as it was --------------------
+    await expect(page.getByRole('dialog')).toBeHidden()
+    expect(await stored()).toHaveLength(0)
+    await expect(screen.row(name)).toHaveCount(0)
+
+    // --- When: it is entered again and added ---------------------------------
+    const again = await screen.previewNewProject(values)
+    await expect(again).toBeVisible()
+    const created = page.waitForResponse((response) => response.url().endsWith('/api/finance/projects') && response.request().method() === 'POST')
+    await page.getByRole('dialog').getByRole('button', { name: 'Ajouter' }).click()
+    expect((await created).status()).toBe(201)
+
+    // --- Then: the project exists, and the planning now read is the preview's
+    await expect(screen.row(name)).toBeVisible()
+    expect(await stored()).toHaveLength(1)
+    const planned = seeded(await planning(api))
+    for (const [project, label] of after) {
+      const purchase = planned.find((candidate) => candidate.name === project)?.purchaseMonth ?? null
+      expect(label, `the preview of ${project} is not what the planning gives after the add`).toContain(monthWords(purchase))
+    }
+  } finally {
+    for (const project of await stored()) await api.delete(`/api/finance/projects/${project.id}`)
+    await restoreSeed(api)
+  }
+})
