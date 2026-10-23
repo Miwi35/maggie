@@ -259,6 +259,11 @@ object UiTags {
     const val FINANCE_TILE_BUDGET = "finance_tile_budget"
     const val FINANCE_TILE_PLANNING = "finance_tile_planning"
 
+    /** The independence counter's date N, coverage curve and dated milestones (MAG-549). */
+    const val INDEPENDENCE_DATE_N = "independence_date_n"
+    const val INDEPENDENCE_CURVE = "independence_curve"
+    const val INDEPENDENCE_MILESTONES = "independence_milestones"
+
     /** What is to do, as pills of the Comptes and Budget tiles, and the « Revue ce soir » shortcut (MAG-421). */
     const val FINANCE_PILL_TO_SORT = "finance_pill_to_sort"
     const val FINANCE_PILL_REJECTIONS = "finance_pill_rejections"

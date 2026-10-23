@@ -950,6 +950,14 @@ class DtoContractTest {
             planning["independence"]!!.jsonObject.keys,
             source,
         )
+        // The recording's curve is empty (no train de vie measured), so CoveragePoint's own fields
+        // are checked by IndependenceProjectionTest against a payload that carries points.
+        assertDeclaredFieldsExist(
+            "IndependenceProjection",
+            serializer<IndependenceProjection>(),
+            planning["independence"]!!.jsonObject["projection"]!!.jsonObject.keys,
+            source,
+        )
         assertDeclaredFieldsExist(
             "SavingCapacity",
             serializer<SavingCapacity>(),
@@ -962,6 +970,13 @@ class DtoContractTest {
         assertEquals(ExpectedSalary(monthlyCents = 495000, source = "expected"), dashboard.tiles.budget.expectedSalary)
         // Null on the wire means « unknown », and stays null: never a 0 € balance.
         assertNull(dashboard.tiles.budget.balanceBeforeSalary)
+        // The projection is read as sent: a start month, no N, no curve, four steps not reached.
+        val projection = dashboard.tiles.planning.independence.projection
+        assertTrue(projection.isKnown)
+        assertNull(projection.nDate)
+        assertTrue(projection.curve.isEmpty())
+        assertEquals(setOf("25", "50", "75", "100"), projection.milestones.keys)
+        assertTrue(projection.milestones.values.all { it == null })
         assertTrue(dashboard.tiles.accounts.accounts.single().isCushion)
         assertTrue(dashboard.tiles.budget.envelopes.single().isOverspent)
         assertNotNull(dashboard.scores)

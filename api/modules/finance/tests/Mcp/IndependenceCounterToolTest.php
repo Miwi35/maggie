@@ -76,6 +76,18 @@ class IndependenceCounterToolTest extends KernelTestCase
         self::assertSame(0, $data['passiveIncomeCents']);
     }
 
+    public function testItProjectsNForTheLoggedUserOnly(): void
+    {
+        $this->loadFixtures('independence.yaml');
+        $this->loginFixtureUser();
+
+        $projection = $this->counter()['projection'];
+
+        self::assertSame(0.8, $projection['curve'][0]['coverage']);
+        self::assertNull($projection['nDate']);
+        self::assertSame(['25', '50', '75', '100'], array_map('strval', array_keys($projection['milestones'])));
+    }
+
     /** @return array<string, mixed> */
     private function counter(): array
     {

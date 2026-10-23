@@ -16,6 +16,16 @@ const independence: IndependenceCounter = {
   nextMilestonePercent: 75,
   nextMilestoneGapCents: 1500,
   byCategory: [{ categoryId: 'c1', categoryName: 'Loyers perçus', monthlyCents: 6000, sharePercent: 100 }],
+  projection: {
+    startMonth: '2026-10',
+    nDate: '2045-09',
+    curve: [
+      { month: '2026-10', coverage: 0.6 },
+      { month: '2036-10', coverage: 0.8 },
+      { month: '2045-09', coverage: 1 },
+    ],
+    milestones: { '25': '2026-10', '50': '2026-10', '75': '2033-03', '100': '2045-09' },
+  },
 }
 
 const savingCapacity: SavingCapacity = {

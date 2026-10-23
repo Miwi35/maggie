@@ -55,9 +55,11 @@ tags:
           from:
             id: "finance_score_ring_week"
           direction: UP
+# Scroll to the date, not to the card: a sliver of the card's top can peek above Maggie's bar and
+# count as visible while the date row is still under it.
 - scrollUntilVisible:
     element:
-      id: "finance_next_project"
+      id: "finance_next_project_date"
     timeout: 30000
 # The block reads the planning: a purchase month under the name, and never the old frozen example.
 # Which project is first is not asserted: `23-finance-projects.yaml` reorders the owner's two, and

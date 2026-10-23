@@ -4,6 +4,7 @@ import LinearProgress from '@mui/material/LinearProgress'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { formatCents } from './accountTypes'
+import { nDateLabel } from './independenceDates'
 import type { IndependenceCounter } from './useFinanceDashboard'
 
 const Hint = ({ children }: { children: ReactNode }) => (
@@ -19,11 +20,18 @@ const Hint = ({ children }: { children: ReactNode }) => (
  * what it compares rather than showing a bare percentage: a ratio whose terms
  * are hidden cannot be checked, and this one is the module's headline number.
  *
- * No target date and no curve: they are Premium (v1.1), and an empty date
- * would read as a promise. No percentage either when there is nothing to
- * measure — 0 % would be a verdict on somebody who has simply not started.
+ * The date N shows as one line when there is one (MAG-549); the page of
+ * Indépendance, which has a block of its own for it, turns the line off. No
+ * percentage when there is nothing to measure — 0 % would be a verdict on
+ * somebody who has simply not started.
  */
-export const IndependenceSummary = ({ counter }: { counter: IndependenceCounter }) => (
+export const IndependenceSummary = ({
+  counter,
+  withDate = true,
+}: {
+  counter: IndependenceCounter
+  withDate?: boolean
+}) => (
   <Box data-testid="independence-card">
     <Box>
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -77,6 +85,12 @@ export const IndependenceSummary = ({ counter }: { counter: IndependenceCounter 
                   {formatCents(counter.nextMilestoneGapCents ?? 0)} près
                 </>
               )}
+            </Typography>
+          )}
+
+          {withDate && null !== nDateLabel(counter.projection) && (
+            <Typography variant="body2" sx={{ mt: 0.5 }} data-testid="independence-n-line">
+              {nDateLabel(counter.projection)}
             </Typography>
           )}
 

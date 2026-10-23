@@ -294,7 +294,9 @@ private fun CushionLine(tile: BudgetTile) {
  * Planification: how far the rentes cover the way the owner lives (MAG-46), then the saving capacity.
  *
  * The independence line says what it compares, never a bare percentage: a ratio whose terms are
- * hidden cannot be checked. No target date — that is Premium, and an empty one would read as a promise.
+ * hidden cannot be checked. The date N, the curve and the dated milestones (MAG-549) sit under it,
+ * stated plainly: « non atteinte d'ici 20 ans » is a fact of the projection, not a verdict. The same
+ * card fills the right pane on a tablet.
  */
 @Composable
 internal fun PlanningTileCard(tile: PlanningTile, planning: ProjectPlanning?, onOpen: (String) -> Unit) {
@@ -334,6 +336,7 @@ internal fun PlanningTileCard(tile: PlanningTile, planning: ProjectPlanning?, on
                     "${counter.sampleMonths} mois",
                 modifier = Modifier.padding(top = 6.dp),
             )
+            IndependenceProjectionBlock(counter, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
             counter.byCategory.forEach { rente ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp),

@@ -18,6 +18,19 @@ export interface TopPost {
   changeCents: number
 }
 
+/** The month, `YYYY-MM`, each step of the coverage is reached; null = not within 20 years. */
+export type IndependenceMilestoneKey = '25' | '50' | '75' | '100'
+
+export interface IndependenceProjection {
+  /** The current month: the first point of the curve. */
+  startMonth: string
+  /** The month the rentes cover 100 % of the train de vie; null = not reached within 20 years. */
+  nDate: string | null
+  /** Monthly, from `startMonth` to `nDate` (240 points when not reached; empty when nothing is measured). */
+  curve: { month: string; coverage: number }[]
+  milestones: Record<IndependenceMilestoneKey, string | null>
+}
+
 export interface IndependenceRente {
   categoryId: string
   categoryName: string
@@ -27,8 +40,7 @@ export interface IndependenceRente {
 
 /**
  * How far the rentes cover the train de vie (MAG-46). Both sides measured,
- * never declared; the target date and the curve are Premium, so there is no
- * field for them.
+ * never declared. `projection` is the date N and the curve towards it (MAG-549).
  */
 export interface IndependenceCounter {
   coveragePercent: number
@@ -45,6 +57,7 @@ export interface IndependenceCounter {
   nextMilestonePercent: number | null
   nextMilestoneGapCents: number | null
   byCategory: IndependenceRente[]
+  projection: IndependenceProjection
 }
 
 export interface TileAccount {

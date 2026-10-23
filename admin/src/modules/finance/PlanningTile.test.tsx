@@ -61,6 +61,12 @@ describe('PlanningTile', () => {
     expect(rente).toHaveAttribute('data-category', 'Loyers perçus')
   })
 
+  test('shows the date N in one line', () => {
+    renderTile()
+
+    expect(screen.getByTestId('independence-n-line')).toHaveTextContent('Date N projetée · septembre 2045')
+  })
+
   test('links to the treasury outlook', () => {
     renderTile()
 

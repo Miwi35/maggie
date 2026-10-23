@@ -44,6 +44,7 @@ const counter = (overrides: Record<string, unknown>) => ({
   nextMilestonePercent: null,
   nextMilestoneGapCents: null,
   byCategory: [],
+  projection: { startMonth: '2026-10', nDate: null, curve: [], milestones: { '25': null, '50': null, '75': null, '100': null } },
   ...overrides,
 })
 
@@ -125,6 +126,40 @@ describe('Finance › Planification, with its real screens', () => {
     expect(await screen.findByText(/12 %/)).toBeInTheDocument()
     expect(screen.getByText(/de rentes sur/)).toBeInTheDocument()
     expect(screen.queryByText('Prêt immobilier')).toBeNull()
+  })
+
+  test('the Indépendance tab shows the date N, the curve and the dated milestones', async () => {
+    stubApi(
+      {
+        hasPassiveIncomeCategories: true,
+        isMeasurable: true,
+        coveragePercent: 12,
+        projection: {
+          startMonth: '2026-10',
+          nDate: '2045-09',
+          curve: [
+            { month: '2026-10', coverage: 0.12 },
+            { month: '2045-09', coverage: 1 },
+          ],
+          milestones: { '25': '2028-03', '50': '2033-01', '75': '2039-06', '100': '2045-09' },
+        },
+      },
+      false,
+    )
+    renderPlanning(false, '/finance/summary/planning/independence')
+
+    expect(await screen.findByText('Date N projetée · septembre 2045')).toBeInTheDocument()
+    expect(screen.getByTestId('independence-curve')).toBeInTheDocument()
+    expect(screen.getByTestId('independence-milestones')).toHaveTextContent('25 % · mars 2028')
+  })
+
+  test('the Indépendance page says so when the dashboard cannot be read', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('down', { status: 500 })))
+    renderPlanning(false, '/finance/summary/planning/independence')
+
+    const alert = (await screen.findByText(/compteur d'indépendance n'a pas pu être chargé/)).closest('[role="alert"]')
+    expect(alert).not.toBeNull()
+    expect(within(alert as HTMLElement).getByRole('button', { name: 'Réessayer' })).toBeInTheDocument()
   })
 
   test('without data, Prêts says what to do: a way to add a loan', async () => {
