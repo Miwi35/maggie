@@ -46,7 +46,8 @@ class FinanceNavigationTest {
         assertEquals(listOf("Toutes", "À qualifier", "Reconnues"), labels(FinanceSection.REVIEW))
         assertEquals(listOf("Mois", "Hors budget"), labels(FinanceSection.BUDGET))
         assertEquals(emptyList<String>(), labels(FinanceSection.TREASURY))
-        assertEquals(listOf("Projets", "Prêts", "Indépendance"), labels(FinanceSection.PLANNING))
+        // « Placements » (MAG-555) came after the mock-ups: its summary card is gone, so it is a sub-view.
+        assertEquals(listOf("Projets", "Prêts", "Placements", "Indépendance"), labels(FinanceSection.PLANNING))
         assertEquals(listOf("Catégories", "Banques"), labels(FinanceSection.SETTINGS))
     }
 
