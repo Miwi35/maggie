@@ -257,6 +257,8 @@ class ScenarioCalculatorTest extends KernelTestCase
         // 98 000 € at 1.8 %: the legal IRA are the 882 € of six months of interest, under 3 % of the capital.
         self::assertSame(88200, $result['penaltyCents']);
         self::assertSame($result['remainingInterestCents'] - 88200, $result['realGainCents']);
+        // The spec's figures: 6 200 € of remaining interest − 882 € of IRA = 5 318 €.
+        self::assertSame(531800, SimulateEarlyRepayment::realGainCents(620000, 88200));
     }
 
     public function testAPartialRepaymentFollowsTheChosenEffect(): void

@@ -15,7 +15,8 @@ const gainLabel = (cents: number): string => `${cents < 0 ? '−' : ''}${formatC
 export const ScenarioRepaymentFigures = ({ scenario }: { scenario: Scenario }) => {
   const [figures, setFigures] = useState<Record<string, RepaymentFigures>>({})
   const [error, setError] = useState<string | null>(null)
-  const version = JSON.stringify(scenario.repayments)
+  // N impact is recomputed from the projects, placements and saving too, not only from the repayments.
+  const version = JSON.stringify([scenario.repayments, scenario.projectIds, scenario.placementIds, scenario.monthlySaving])
 
   useEffect(() => {
     let live = true
