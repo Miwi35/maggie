@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -13,6 +14,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.PlacementPoint
 import com.maggie.app.data.model.PlacementSimulation
+import com.maggie.app.data.model.PlacementWithdrawal
 import com.maggie.app.data.repository.PlacementRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.assertTopToBottom
@@ -59,9 +61,26 @@ class PlacementListScreenTest {
         curve = listOf(PlacementPoint(0, of.initial.toLong(), of.initial.toLong()), PlacementPoint(of.years * 12, of.finalCents, of.paid)),
     )
 
-    private fun viewModel(placements: List<Placement> = listOf(pea, life, book)): PlacementViewModel {
+    /** The PEA once the Japan trip takes 1 500 € out of it in April 2027 (MAG-556). */
+    private fun curveWithJapan(): PlacementSimulation {
+        val base = curve(pea)
+        return base.copy(
+            withdrawals = listOf(PlacementWithdrawal("japan", "Voyage au Japon", "2027-04", 150000)),
+            withdrawn = 150000,
+            curveWith = listOf(PlacementPoint(0, 200000, 200000), PlacementPoint(240, 7000000, 3800000)),
+            gapAtEnd = 443007,
+            finalWith = 7000000,
+            rentWith = 23333,
+        )
+    }
+
+    private fun viewModel(
+        placements: List<Placement> = listOf(pea, life, book),
+        simulationOfPea: PlacementSimulation? = null,
+    ): PlacementViewModel {
         coEvery { repository.getPlacements() } returns Result.success(placements)
         placements.forEach { coEvery { repository.getSimulation(it.id) } returns Result.success(curve(it)) }
+        simulationOfPea?.let { coEvery { repository.getSimulation("pea") } returns Result.success(it) }
         val auth = mockk<AuthRepository>()
         coEvery { auth.getUserId() } returns "user-1"
         val mercure = mockk<MercureService>()
@@ -149,5 +168,62 @@ class PlacementListScreenTest {
         compose.onNodeWithTag(UiTags.placementFrequency("once")).assertIsDisplayed()
         // Paid once, no deposit: the deposit cannot go lower.
         compose.onNodeWithTag(UiTags.placementStep("deposit", plus = false)).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `without withdrawal the phone card says nothing of them (MAG-556)`() {
+        compose.setContent { PlacementListScreen(viewModel(), onBack = {}, onOpenForm = {}) }
+
+        waitForRows(3)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PLACEMENT_CHART).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.PLACEMENT_WITHDRAWALS).fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.PLACEMENT_AFTER_WITHDRAWAL).fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.PLACEMENT_GAP).fetchSemanticsNodes().size)
+        compose.onNodeWithText("PEA · capital dans 20 ans").assertIsDisplayed()
+    }
+
+    @Test
+    fun `with withdrawals the phone adds the rent and capital after them and lists each one (MAG-556)`() {
+        compose.setContent { PlacementListScreen(viewModel(simulationOfPea = curveWithJapan()), onBack = {}, onOpenForm = {}) }
+
+        waitForRows(3)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PLACEMENT_AFTER_WITHDRAWAL).fetchSemanticsNodes().isNotEmpty() }
+        // What was there before stays, word for word.
+        compose.onNodeWithText("PEA · capital dans 20 ans").assertIsDisplayed()
+        compose.onNodeWithText("≈ 248\u00A0€ / mois de rente à 4 %").assertIsDisplayed()
+        compose.onNodeWithText("Après retrait pour Voyage au Japon").assertExists()
+        compose.onNodeWithText("70\u00A0000\u00A0€ après retrait").assertExists()
+        compose.onNodeWithText("≈ 233\u00A0€ / mois de rente à 4 % après retrait").assertExists()
+        compose.onNodeWithText("Voyage au Japon · avril 2027").assertExists()
+        compose.onNodeWithText("− 1\u00A0500\u00A0€").assertExists()
+        compose.onNodeWithText("Écart à la fin de la durée : 4\u00A0430\u00A0€").assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `with withdrawals the tablet titles the two curves and says the gap at the end (MAG-556)`() {
+        compose.setContent { PlacementListScreen(viewModel(simulationOfPea = curveWithJapan()), onBack = {}, onOpenForm = {}) }
+
+        waitForRows(3)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PLACEMENT_CHART_TITLE).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag(UiTags.PLACEMENT_CHART_TITLE).assertIsDisplayed()
+        compose.onNodeWithText("PEA · avec et sans retrait pour Voyage au Japon").assertIsDisplayed()
+        compose.onNodeWithText("capital sans retrait (pointillés)").assertIsDisplayed()
+        compose.onNodeWithText("Écart à la fin de la durée : 4\u00A0430\u00A0€").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PLACEMENT_CHART).assertIsDisplayed()
+        // The tablet's figures are unchanged.
+        compose.onNodeWithText("Capital dans 20 ans").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `without withdrawal the tablet keeps its chart as it was (MAG-556)`() {
+        compose.setContent { PlacementListScreen(viewModel(), onBack = {}, onOpenForm = {}) }
+
+        waitForRows(3)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PLACEMENT_CHART).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.PLACEMENT_CHART_TITLE).fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.PLACEMENT_GAP).fetchSemanticsNodes().size)
+        compose.onNodeWithText("intérêts composés").assertIsDisplayed()
     }
 }

@@ -57,6 +57,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.FundingKind
+import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectFundingSource
 import com.maggie.app.data.model.ProjectInvestment
@@ -93,13 +94,19 @@ fun ProjectSheetScreen(
     LaunchedEffect(projectId, state.hasLoaded) {
         if (state.hasLoaded && viewModel.uiState.value.sheet?.projectId != projectId) viewModel.openSheet(projectId)
     }
-    LaunchedEffect(editable) { if (editable) viewModel.loadAccounts() }
+    LaunchedEffect(editable) {
+        if (editable) {
+            viewModel.loadAccounts()
+            viewModel.loadPlacements()
+        }
+    }
 
     ProjectSheetContent(
         project = state.projects.firstOrNull { it.id == projectId },
         projects = state.projects,
         sheet = state.sheet?.takeIf { it.projectId == projectId },
         accounts = state.accounts,
+        placements = state.placements,
         hasLoaded = state.hasLoaded,
         editable = editable,
         actions = ProjectSheetActions(
@@ -139,6 +146,7 @@ internal fun ProjectSheetContent(
     actions: ProjectSheetActions,
     /** All the projects, to name the one a resale funds or comes from (MAG-557). */
     projects: List<Project> = emptyList(),
+    placements: List<Placement> = emptyList(),
 ) {
     Scaffold(
         topBar = {
@@ -180,7 +188,7 @@ internal fun ProjectSheetContent(
                     FundingCard(project, projects)
                     OptionsCard(sheet)
                     if (editable && sheet != null) {
-                        FundingEditorCard(project, sheet, accounts, actions)
+                        FundingEditorCard(project, sheet, accounts, placements, actions)
                         OptionsParametersCard(sheet, actions)
                     }
                 }
@@ -410,10 +418,16 @@ private fun Metric(label: String, value: String, fraction: Float?, tag: String?)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FundingEditorCard(project: Project, sheet: ProjectSheet, accounts: List<Account>, actions: ProjectSheetActions) {
+private fun FundingEditorCard(
+    project: Project,
+    sheet: ProjectSheet,
+    accounts: List<Account>,
+    placements: List<Placement>,
+    actions: ProjectSheetActions,
+) {
     SheetCard("Sources de financement") {
         sheet.sources.forEachIndexed { index, source ->
-            FundingSourceEditor(index, source, accounts, actions)
+            FundingSourceEditor(index, source, accounts, placements, actions)
         }
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -465,7 +479,13 @@ private fun addLabel(kind: FundingKind): String = when (kind) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FundingSourceEditor(index: Int, source: FundingSourceDraft, accounts: List<Account>, actions: ProjectSheetActions) {
+private fun FundingSourceEditor(
+    index: Int,
+    source: FundingSourceDraft,
+    accounts: List<Account>,
+    placements: List<Placement>,
+    actions: ProjectSheetActions,
+) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -516,6 +536,30 @@ private fun FundingSourceEditor(index: Int, source: FundingSourceDraft, accounts
                                 onClick = { actions.onEditSource(index) { it.copy(accountId = account.id) } },
                                 label = { Text(account.label()) },
                                 modifier = Modifier.testTag(UiTags.projectFundingAccount(account.id)),
+                            )
+                        }
+                    }
+                }
+                // Optional (MAG-556): the simulated placement this capital leaves, taken out the month the project is bought.
+                if (source.kind == FundingKind.CAPITAL && placements.isNotEmpty()) {
+                    Text(
+                        "Placement quitté (facultatif)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = source.placementId == null,
+                            onClick = { actions.onEditSource(index) { it.copy(placementId = null) } },
+                            label = { Text("Aucun") },
+                            modifier = Modifier.testTag(UiTags.PROJECT_FUNDING_PLACEMENT_NONE),
+                        )
+                        placements.forEach { placement ->
+                            FilterChip(
+                                selected = source.placementId == placement.id,
+                                onClick = { actions.onEditSource(index) { it.copy(placementId = placement.id) } },
+                                label = { Text(placement.name) },
+                                modifier = Modifier.testTag(UiTags.projectFundingPlacement(placement.id)),
                             )
                         }
                     }

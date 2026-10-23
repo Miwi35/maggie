@@ -87,6 +87,36 @@ class ProjectFundingTest {
     }
 
     @Test
+    fun `a capital source keeps the placement it leaves through edits and sends it, a savings source never does (MAG-556)`() {
+        val read = FundingSourceDraft.of(
+            ProjectFundingSource(kind = "capital", amountCents = 150_000, accountId = "pea-account", placementId = "pea"),
+        )
+
+        val edited = read.stepped(FUNDING_STEP_CENTS)
+
+        assertEquals("pea", edited.placementId)
+        assertEquals("pea", edited.toRequest()!!.placement)
+        assertEquals("pea-account", edited.toRequest()!!.account)
+        assertNull(edited.copy(placementId = null).toRequest()!!.placement)
+        assertNull(savings.copy(placementId = "pea").toRequest()!!.placement)
+    }
+
+    @Test
+    fun `the placement is in the body only when the capital names one`() {
+        val withPlacement = FundingSourceDraft(FundingKind.CAPITAL, amount = "1500", accountId = "a2", placementId = "pea")
+        val without = withPlacement.copy(placementId = null)
+
+        assertEquals(
+            """{"sources":[{"kind":"capital","amountCents":150000,"account":"a2","placement":"pea"}]}""",
+            projectFundingBody(listOf(withPlacement.toRequest()!!)).toString(),
+        )
+        assertEquals(
+            """{"sources":[{"kind":"capital","amountCents":150000,"account":"a2"}]}""",
+            projectFundingBody(listOf(without.toRequest()!!)).toString(),
+        )
+    }
+
+    @Test
     fun `the body is the whole list, empty to remove every source`() {
         assertEquals("""{"sources":[]}""", projectFundingBody(emptyList()).toString())
         assertEquals(

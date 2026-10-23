@@ -9,6 +9,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.PlannedProject
+import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.PlanningMonth
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectDateMode
@@ -1037,6 +1038,27 @@ class ProjectViewModelTest {
         advanceUntilIdle()
 
         assertNull(viewModel.uiState.value.sheet)
+    }
+
+    @Test
+    fun `the placements a capital source may leave load once, and a failure leaves none (MAG-556)`() = runTest {
+        val viewModel = viewModelWithCar()
+        coEvery { repository.getPlacements() } returnsMany listOf(
+            Result.failure(RuntimeException("timeout")),
+            Result.success(listOf(Placement(id = "pea", name = "PEA"))),
+        )
+
+        viewModel.loadPlacements()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.placements.isEmpty())
+
+        viewModel.loadPlacements()
+        advanceUntilIdle()
+        viewModel.loadPlacements()
+        advanceUntilIdle()
+
+        assertEquals(listOf("pea"), viewModel.uiState.value.placements.map { it.id })
+        coVerify(exactly = 2) { repository.getPlacements() }
     }
 
     @Test

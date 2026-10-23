@@ -3,6 +3,8 @@ package com.maggie.app.data.model
 import com.maggie.app.data.api.ApiCollection
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
@@ -51,6 +53,63 @@ class PlacementTest {
         assertEquals(listOf(0, 12), simulation.curve.map { it.month })
         assertEquals(51500L, simulation.curve[1].capital)
         assertEquals(50000L, simulation.curve[1].paid)
+    }
+
+    @Test
+    fun `an answer without withdrawal keeps the historical figures for both curves (MAG-556)`() {
+        val body = """
+            {"final":51000,"paid":50000,"interest":1000,"rent":170,
+             "curve":[{"month":0,"capital":50000,"paid":50000},{"month":12,"capital":51500,"paid":50000}]}
+        """.trimIndent()
+
+        val simulation = json.decodeFromString(PlacementSimulation.serializer(), body)
+
+        assertFalse(simulation.hasWithdrawals)
+        assertEquals(emptyList<PlacementWithdrawal>(), simulation.withdrawals)
+        assertEquals(simulation.curve, simulation.curveWithout)
+        assertEquals(simulation.curve, simulation.curveWith)
+        assertEquals(0L, simulation.gapAtEnd)
+        assertEquals(0L, simulation.withdrawn)
+        assertEquals(51000L, simulation.finalWith)
+        assertEquals(170L, simulation.rentWith)
+    }
+
+    @Test
+    fun `the simulation reads the withdrawals, both curves, the gap and the figures after them (MAG-556)`() {
+        val body = """
+            {"final":51000,"paid":50000,"interest":1000,"rent":170,
+             "curve":[{"month":0,"capital":50000,"paid":50000},{"month":12,"capital":51500,"paid":50000}],
+             "withdrawals":[{"projectId":"p1","name":"Voyage au Japon","month":"2027-04","amountCents":150000}],
+             "withdrawn":150000,
+             "curveWithout":[{"month":0,"capital":50000,"paid":50000},{"month":12,"capital":51500,"paid":50000}],
+             "curveWith":[{"month":0,"capital":50000,"paid":50000},{"month":12,"capital":49000,"paid":50000}],
+             "gapAtEnd":2500,"finalWith":48500,"rentWith":161,"name":"PEA","years":1}
+        """.trimIndent()
+
+        val simulation = json.decodeFromString(PlacementSimulation.serializer(), body)
+
+        assertTrue(simulation.hasWithdrawals)
+        assertEquals(PlacementWithdrawal("p1", "Voyage au Japon", "2027-04", 150000), simulation.withdrawals.single())
+        assertEquals("Voyage au Japon", simulation.withdrawalProjects)
+        assertEquals(150000L, simulation.withdrawn)
+        assertEquals(51500L, simulation.curveWithout[1].capital)
+        assertEquals(49000L, simulation.curveWith[1].capital)
+        assertEquals(2500L, simulation.gapAtEnd)
+        assertEquals(48500L, simulation.finalWith)
+        assertEquals(161L, simulation.rentWith)
+    }
+
+    @Test
+    fun `projects that leave several withdrawals are named once each, in the order bought`() {
+        val simulation = PlacementSimulation(
+            withdrawals = listOf(
+                PlacementWithdrawal("p1", "Voyage au Japon", "2027-04", 100),
+                PlacementWithdrawal("p2", "Voiture", "2028-01", 100),
+                PlacementWithdrawal("p1", "Voyage au Japon", "2029-01", 100),
+            ),
+        )
+
+        assertEquals("Voyage au Japon, Voiture", simulation.withdrawalProjects)
     }
 
     @Test

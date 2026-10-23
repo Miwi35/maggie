@@ -20,6 +20,8 @@ data class FundingSourceDraft(
     val kind: FundingKind,
     val amount: String = "",
     val accountId: String? = null,
+    /** The simulated placement a capital source leaves (MAG-556); optional, kept as read so a save does not unlink it. */
+    val placementId: String? = null,
     val loanTerms: LoanTermsDraft? = null,
     /** The source already owns a projected loan, whose conditions the API keeps when none are sent. */
     val loanId: String? = null,
@@ -39,6 +41,8 @@ data class FundingSourceDraft(
                 if (conditions == null && loanId == null) return null
                 ProjectFundingSourceRequest(kind.key, cents, loan = conditions)
             }
+            FundingKind.CAPITAL ->
+                ProjectFundingSourceRequest(kind.key, cents, account = accountId ?: return null, placement = placementId)
             else -> ProjectFundingSourceRequest(kind.key, cents, account = accountId ?: return null)
         }
     }
@@ -48,6 +52,7 @@ data class FundingSourceDraft(
             kind = FundingKind.of(source.kind) ?: FundingKind.SAVINGS,
             amount = euros(source.amountCents),
             accountId = source.accountId,
+            placementId = source.placementId,
             loanId = source.loanId,
         )
 

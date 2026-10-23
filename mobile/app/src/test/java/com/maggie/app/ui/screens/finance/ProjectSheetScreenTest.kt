@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.FundingKind
+import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectFundingSource
 import com.maggie.app.data.model.ProjectInvestment
@@ -58,13 +59,14 @@ class ProjectSheetScreenTest {
     )
 
     private fun show(
+        placements: List<Placement> = emptyList(),
         sheet: ProjectSheet? = ProjectSheet("p3", options = options, sources = car.fundingSources.map(FundingSourceDraft::of)),
         editable: Boolean = false,
         actions: ProjectSheetActions = ProjectSheetActions(),
         project: Project? = car,
         projects: List<Project> = emptyList(),
     ) = compose.setContent {
-        ProjectSheetContent(project = project, sheet = sheet, accounts = emptyList(), hasLoaded = true, editable = editable, actions = actions, projects = projects)
+        ProjectSheetContent(project = project, sheet = sheet, accounts = emptyList(), hasLoaded = true, editable = editable, actions = actions, projects = projects, placements = placements)
     }
 
     private fun cell(tag: String, text: String) {
@@ -256,5 +258,34 @@ class ProjectSheetScreenTest {
         assertEquals(0, compose.onAllNodesWithTag(UiTags.projectFundingAdd("resale")).fetchSemanticsNodes().size)
         compose.onNodeWithTag(UiTags.projectFundingAdd("savings")).performScrollTo().assertIsDisplayed()
         assertEquals(2, sources.size)
+    }
+
+    @Test
+    fun `a capital source offers the placement it leaves, optional, and the choice is edited (MAG-556)`() {
+        val sources = listOf(FundingSourceDraft(FundingKind.CAPITAL, amount = "1500", accountId = "a2", placementId = "pea"))
+        val edited = mutableListOf<String?>()
+        show(
+            placements = listOf(Placement(id = "pea", name = "PEA"), Placement(id = "life", name = "Assurance-vie")),
+            sheet = ProjectSheet("p3", options = options, sources = sources),
+            editable = true,
+            actions = ProjectSheetActions(onEditSource = { index, transform -> edited += transform(sources[index]).placementId }),
+        )
+
+        compose.onNodeWithText("Placement quitté (facultatif)").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.projectFundingPlacement("life")).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.PROJECT_FUNDING_PLACEMENT_NONE).performScrollTo().performClick()
+
+        assertEquals(listOf<String?>("life", null), edited)
+    }
+
+    @Test
+    fun `a savings source does not offer a placement to leave`() {
+        val savings = listOf(FundingSourceDraft(FundingKind.SAVINGS, amount = "1000", accountId = "a1"))
+        show(
+            placements = listOf(Placement(id = "pea", name = "PEA")),
+            sheet = ProjectSheet("p3", options = options, sources = savings),
+            editable = true,
+        )
+        assertEquals(0, compose.onAllNodesWithText("Placement quitté (facultatif)").fetchSemanticsNodes().size)
     }
 }

@@ -1334,6 +1334,8 @@ object UiTags {
     const val PROJECT_FUNDING_PLUS = "project_funding_plus"
     const val PROJECT_FUNDING_REMOVE = "project_funding_remove"
     const val PROJECT_FUNDING_ACCOUNT_PREFIX = "project_funding_account_"
+    const val PROJECT_FUNDING_PLACEMENT_PREFIX = "project_funding_placement_"
+    const val PROJECT_FUNDING_PLACEMENT_NONE = "project_funding_placement_none"
     const val PROJECT_FUNDING_SAVE = "project_funding_save"
     const val PROJECT_FUNDING_ERROR = "project_funding_error"
     const val PROJECT_OPTIONS_RATE = "project_options_rate"
@@ -1428,6 +1430,10 @@ object UiTags {
     const val PLACEMENT_CARD = "placement_card"
     const val PLACEMENT_CHART = "placement_chart"
     const val PLACEMENT_EDIT = "placement_edit"
+    const val PLACEMENT_CHART_TITLE = "placement_chart_title"
+    const val PLACEMENT_GAP = "placement_gap"
+    const val PLACEMENT_AFTER_WITHDRAWAL = "placement_after_withdrawal"
+    const val PLACEMENT_WITHDRAWALS = "placement_withdrawals"
     const val PLACEMENT_SETTINGS = "placement_settings"
     const val PLACEMENT_FREQUENCY_PREFIX = "placement_frequency_"
     const val PLACEMENT_STEP_PREFIX = "placement_step_"
@@ -1457,6 +1463,7 @@ object UiTags {
     fun projectOptionDelay(key: String) = PROJECT_OPTION_DELAY_PREFIX + key
     fun projectFundingAdd(kind: String) = PROJECT_FUNDING_ADD_PREFIX + kind
     fun projectFundingAccount(id: String) = PROJECT_FUNDING_ACCOUNT_PREFIX + id
+    fun projectFundingPlacement(id: String) = PROJECT_FUNDING_PLACEMENT_PREFIX + id
 
     fun scenarioRow(id: String) = SCENARIO_ROW_PREFIX + id
     fun scenarioBadge(id: String) = SCENARIO_BADGE_PREFIX + id

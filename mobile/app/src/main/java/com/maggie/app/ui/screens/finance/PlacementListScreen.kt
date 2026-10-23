@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
@@ -68,7 +69,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.PlacementFrequency
+import com.maggie.app.data.model.PlacementPoint
 import com.maggie.app.data.model.PlacementSimulation
+import com.maggie.app.data.model.independenceMonthLabel
 import com.maggie.app.data.model.formatEuros
 import com.maggie.app.data.model.formatPlacementRate
 import com.maggie.app.data.model.placementTerms
@@ -242,8 +245,60 @@ private fun ProjectionCard(placement: Placement, state: PlacementUiState, onEdit
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            state.simulation?.takeIf { it.hasWithdrawals }?.let { WithdrawalSummary(it, showGap = true) }
         }
     }
+}
+
+/**
+ * What the projects of the scenario take out of the placement (MAG-556): the capital and the 4 % rent
+ * that remain, then each withdrawal — project, month, amount. A simulation, said as figures: no verdict.
+ */
+@Composable
+private fun WithdrawalSummary(simulation: PlacementSimulation, showGap: Boolean) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        HorizontalDivider()
+        Text(
+            "Après retrait pour ${simulation.withdrawalProjects}",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Column(modifier = Modifier.testTag(UiTags.PLACEMENT_AFTER_WITHDRAWAL), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                "${formatEuros(simulation.finalWith)} après retrait",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Light,
+            )
+            Text(
+                "≈ ${formatEuros(simulation.rentWith)} / mois de rente à 4 % après retrait",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (showGap) GapText(simulation)
+        Column(modifier = Modifier.testTag(UiTags.PLACEMENT_WITHDRAWALS), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            simulation.withdrawals.forEach { withdrawal ->
+                Row {
+                    Text(
+                        "${withdrawal.name} · ${independenceMonthLabel(withdrawal.month)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text("− ${formatEuros(withdrawal.amountCents)}", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+    }
+}
+
+/** « Écart à la fin de la durée : 2 300 € »: the capital that is missing at the end with the withdrawals. */
+@Composable
+private fun GapText(simulation: PlacementSimulation) {
+    Text(
+        "Écart à la fin de la durée : ${formatEuros(simulation.gapAtEnd)}",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.testTag(UiTags.PLACEMENT_GAP),
+    )
 }
 
 /** The chart once the curve is there; a spinner while it comes, a sentence when it failed. */
@@ -473,13 +528,27 @@ private fun ProjectionPanel(placement: Placement, state: PlacementUiState, modif
             FigureTile("Dont versements", formatEuros(placement.paid), Modifier.weight(1f))
             FigureTile("Dont intérêts composés", formatEuros(placement.interest), Modifier.weight(1f))
         }
+        val withdrawals = state.simulation?.takeIf { it.hasWithdrawals }
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (withdrawals != null) {
+                    Text(
+                        "${placement.name} · avec et sans retrait pour ${withdrawals.withdrawalProjects}",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.testTag(UiTags.PLACEMENT_CHART_TITLE),
+                    )
+                }
                 ChartSlot(state, placement, height = 240.dp, axes = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     LegendItem(colors.paid, "versements cumulés")
-                    LegendItem(colors.capital, "intérêts composés")
+                    if (withdrawals != null) {
+                        LegendItem(colors.capital, "capital avec retrait")
+                        LegendItem(colors.capital.copy(alpha = 0.5f), "capital sans retrait (pointillés)")
+                    } else {
+                        LegendItem(colors.capital, "intérêts composés")
+                    }
                 }
+                if (withdrawals != null) GapText(withdrawals)
             }
         }
         Text(
@@ -487,6 +556,7 @@ private fun ProjectionPanel(placement: Placement, state: PlacementUiState, modif
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (withdrawals != null) WithdrawalSummary(withdrawals, showGap = false)
     }
 }
 
@@ -523,7 +593,13 @@ internal fun placementChartColors(): PlacementChartColors {
 /** What a screen reader says of the chart. */
 internal fun placementChartDescription(simulation: PlacementSimulation, years: Int): String =
     "Capital projeté : ${formatEuros(simulation.finalCents)} dans ${yearsLabel(years)}, " +
-        "dont ${formatEuros(simulation.paid)} de versements et ${formatEuros(simulation.interest)} d'intérêts composés."
+        "dont ${formatEuros(simulation.paid)} de versements et ${formatEuros(simulation.interest)} d'intérêts composés." +
+        if (simulation.hasWithdrawals) {
+            " Avec retrait pour ${simulation.withdrawalProjects} : ${formatEuros(simulation.finalWith)}, " +
+                "soit un écart de ${formatEuros(simulation.gapAtEnd)}."
+        } else {
+            ""
+        }
 
 /**
  * Two filled areas over the months: the whole capital, and under it what was paid in — the gap
@@ -533,9 +609,12 @@ internal fun placementChartDescription(simulation: PlacementSimulation, years: I
 private fun PlacementChart(simulation: PlacementSimulation, years: Int, height: Dp, axes: Boolean) {
     val colors = placementChartColors()
     val baseline = MaterialTheme.colorScheme.outlineVariant
-    val curve = simulation.curve
+    // With withdrawals (the tablet): the capital without them is the curve, drawn dashed, and the one with them, solid.
+    val withWithdrawals = axes && simulation.hasWithdrawals && simulation.curveWith.isNotEmpty()
+    val curve = if (withWithdrawals) simulation.curveWithout.ifEmpty { simulation.curve } else simulation.curve
+    val curveWith = if (withWithdrawals) simulation.curveWith else curve
     val lastMonth = curve.maxOf { it.month }.coerceAtLeast(1)
-    val top = (curve.maxOf { it.capital }.coerceAtLeast(1) * 1.05).toLong()
+    val top = (maxOf(curve.maxOf { it.capital }, curveWith.maxOf { it.capital }).coerceAtLeast(1) * 1.05).toLong()
     val description = placementChartDescription(simulation, years)
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -566,19 +645,26 @@ private fun PlacementChart(simulation: PlacementSimulation, years: Int, height: 
                     lineTo(x(curve.last().month), size.height)
                     close()
                 }
+                fun line(points: List<PlacementPoint>): Path = Path().apply {
+                    points.forEachIndexed { index, point ->
+                        if (index == 0) moveTo(x(point.month), y(point.capital)) else lineTo(x(point.month), y(point.capital))
+                    }
+                }
                 if (axes) {
                     drawLine(baseline.copy(alpha = 0.4f), Offset(0f, 0f), Offset(size.width, 0f))
                     drawLine(baseline.copy(alpha = 0.4f), Offset(0f, size.height / 2), Offset(size.width, size.height / 2))
                 }
                 drawPath(area { curve[it].capital }, colors.capital.copy(alpha = 0.22f))
                 drawPath(area { curve[it].paid }, colors.paid.copy(alpha = 0.30f))
-                if (axes) {
-                    val line = Path().apply {
-                        curve.forEachIndexed { index, point ->
-                            if (index == 0) moveTo(x(point.month), y(point.capital)) else lineTo(x(point.month), y(point.capital))
-                        }
-                    }
-                    drawPath(line, colors.capital, style = Stroke(width = 2.5.dp.toPx()))
+                if (withWithdrawals) {
+                    drawPath(
+                        line(curve),
+                        colors.capital.copy(alpha = 0.5f),
+                        style = Stroke(width = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f))),
+                    )
+                    drawPath(line(curveWith), colors.capital, style = Stroke(width = 2.5.dp.toPx()))
+                } else if (axes) {
+                    drawPath(line(curve), colors.capital, style = Stroke(width = 2.5.dp.toPx()))
                 }
                 drawLine(baseline, Offset(0f, size.height), Offset(size.width, size.height))
             }

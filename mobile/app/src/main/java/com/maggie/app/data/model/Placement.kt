@@ -48,7 +48,15 @@ enum class PlacementFrequency(val key: String, val label: String, val per: Strin
     }
 }
 
-/** `GET /api/finance/placements/{id}/simulation`: the figures and the capital month by month, month 0 to years × 12. */
+/**
+ * `GET /api/finance/placements/{id}/simulation`: the figures and the capital month by month, month 0 to years × 12.
+ *
+ * Since MAG-556 the projects of a scenario may take capital out of the placement the month they are
+ * bought ([withdrawals]): [curveWithout] and [curveWith] draw it without and with those withdrawals,
+ * [gapAtEnd] is what is missing at the end of the duration, [finalWith] and [rentWith] the capital and
+ * the 4 % rent after them. Without withdrawal the defaults say the same thing as the historical keys,
+ * so an older answer reads as before.
+ */
 @Serializable
 data class PlacementSimulation(
     @SerialName("final") val finalCents: Long = 0,
@@ -56,14 +64,29 @@ data class PlacementSimulation(
     val interest: Long = 0,
     val rent: Long = 0,
     val curve: List<PlacementPoint> = emptyList(),
-)
+    val withdrawals: List<PlacementWithdrawal> = emptyList(),
+    /** What was really taken out, in cents. */
+    val withdrawn: Long = 0,
+    val curveWithout: List<PlacementPoint> = curve,
+    val curveWith: List<PlacementPoint> = curve,
+    val gapAtEnd: Long = 0,
+    val finalWith: Long = finalCents,
+    val rentWith: Long = rent,
+) {
+    /** True when a project of the scenario takes capital out of the placement. */
+    val hasWithdrawals: Boolean get() = withdrawals.isNotEmpty()
 
-/** The capital at the end of [month], and what was paid in by then. */
+    /** « Voyage au Japon », « Voyage au Japon, Voiture »: the projects that take capital out, each once, in the order bought. */
+    val withdrawalProjects: String get() = withdrawals.map { it.name }.distinct().joinToString(", ")
+}
+
+/** Capital leaving a placement for a project: its [name], the [month] it is bought (« 2027-04 »), the [amountCents]. */
 @Serializable
-data class PlacementPoint(
-    val month: Int,
-    val capital: Long = 0,
-    val paid: Long = 0,
+data class PlacementWithdrawal(
+    val projectId: String = "",
+    val name: String = "",
+    val month: String = "",
+    val amountCents: Long = 0,
 )
 
 /** The bounds the API checks (`Placement::MAX_YEARS`, `MAX_RATE_BASIS_POINTS`). */
