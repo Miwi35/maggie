@@ -483,6 +483,9 @@ web:
   e2e/web/tests/finance-scenarios.spec.ts:
     areas: [finance]
     paths: [api/fixtures/e2e/50-finance.yaml]
+  e2e/web/tests/finance-timeline.spec.ts:
+    areas: [finance]
+    paths: [api/fixtures/e2e/50-finance.yaml]
   e2e/web/tests/finance-placements.spec.ts:
     areas: [finance]
     paths: [api/fixtures/e2e/50-finance.yaml]

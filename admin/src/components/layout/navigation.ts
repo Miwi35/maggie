@@ -118,6 +118,7 @@ export const FINANCE_MENUS: NavMenu[] = [
       { id: 'projects', label: 'Projets', path: '/finance/projects' },
       { id: 'loans', label: 'Prêts', path: '/loans', resource: 'loans' },
       { id: 'independence', label: 'Indépendance' },
+      { id: 'timeline', label: 'Frise 20 ans' },
     ],
   },
   {
