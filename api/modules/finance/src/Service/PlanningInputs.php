@@ -32,6 +32,28 @@ final readonly class PlanningInputs
     ) {
     }
 
+    /** @return array<string, Project> */
+    public function projectsById(): array
+    {
+        $byId = [];
+        foreach ($this->projects as $project) {
+            $byId[(string) $project->getId()] = $project;
+        }
+
+        return $byId;
+    }
+
+    /** @return array<string, Placement> */
+    public function placementsById(): array
+    {
+        $byId = [];
+        foreach ($this->placements as $placement) {
+            $byId[(string) $placement->getId()] = $placement;
+        }
+
+        return $byId;
+    }
+
     /** The first day of the current month, M0. */
     public function start(): \DateTimeImmutable
     {

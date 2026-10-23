@@ -7,6 +7,7 @@ namespace Maggie\Finance\UseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Loan;
+use Maggie\Finance\Entity\Placement;
 use Maggie\Finance\Entity\Project;
 use Maggie\Finance\Entity\ProjectFundingSource;
 use Maggie\Finance\Enum\FundingSourceKind;
@@ -25,7 +26,7 @@ class SetProjectFunding
     }
 
     /**
-     * @param list<array{kind: FundingSourceKind, amountCents: int, account: ?Account, loan: ?Loan}> $sources checked
+     * @param list<array{kind: FundingSourceKind, amountCents: int, account: ?Account, placement: ?Placement, loan: ?Loan}> $sources checked
      */
     public function execute(Project $project, array $sources): Project
     {
@@ -58,6 +59,7 @@ class SetProjectFunding
                     ->setKind($wanted['kind'])
                     ->setAmountCents($wanted['amountCents'])
                     ->setAccount($wanted['account'])
+                    ->setPlacement($wanted['placement'])
                     ->setPosition($position)
                     ->setProject($project);
             }

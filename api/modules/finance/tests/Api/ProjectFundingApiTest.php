@@ -150,7 +150,7 @@ class ProjectFundingApiTest extends WebTestCase
         $project = $this->response()['project'];
         self::assertSame(300000, $project['salaryCents']);
         self::assertCount(2, $project['fundingSources']);
-        self::assertSame(['kind' => 'savings', 'amountCents' => 100000, 'accountId' => $this->id('livret_jeune'), 'loanId' => null, 'sourceProjectId' => null], $project['fundingSources'][0]);
+        self::assertSame(['kind' => 'savings', 'amountCents' => 100000, 'accountId' => $this->id('livret_jeune'), 'placementId' => null, 'loanId' => null, 'sourceProjectId' => null], $project['fundingSources'][0]);
         self::assertSame('loan', $project['fundingSources'][1]['kind']);
         self::assertNull($project['fundingSources'][1]['accountId']);
 
@@ -190,7 +190,7 @@ class ProjectFundingApiTest extends WebTestCase
         $data = $this->response();
         self::assertSame(300000, $data['salaryCents']);
         self::assertCount(2, $data['fundingSources']);
-        self::assertSame(['kind', 'amountCents', 'accountId', 'loanId', 'sourceProjectId'], array_keys($data['fundingSources'][0]));
+        self::assertSame(['kind', 'amountCents', 'accountId', 'placementId', 'loanId', 'sourceProjectId'], array_keys($data['fundingSources'][0]));
 
         // The projected loan is in the loans, flagged.
         $this->send('GET', '/api/loans');
@@ -277,6 +277,32 @@ class ProjectFundingApiTest extends WebTestCase
         self::assertSame($this->id('pea'), $source->getAccountId());
     }
 
+    public function testACapitalSourceNamesThePlacementItLeaves(): void
+    {
+        $this->login();
+
+        $this->send('PUT', $this->funding(), ['sources' => [
+            ['kind' => 'capital', 'amountCents' => 150000, 'account' => '/api/accounts/'.$this->id('pea'), 'placement' => '/api/finance/placements/'.$this->id('pea_simulated')],
+        ]]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($this->id('pea_simulated'), $this->response()['project']['fundingSources'][0]['placementId']);
+        self::assertSame($this->id('pea_simulated'), $this->reload()->getFundingSources()[0]->getPlacementId());
+        $this->assertMercureUpdatePublished('/api/finance/projects/'.$this->id('car'));
+    }
+
+    public function testASourceWithoutPlacementServesANullOne(): void
+    {
+        $this->login();
+
+        $this->send('PUT', $this->funding(), ['sources' => [
+            ['kind' => 'capital', 'amountCents' => 150000, 'account' => '/api/accounts/'.$this->id('pea')],
+        ]]);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->response()['project']['fundingSources'][0]['placementId']);
+    }
+
     /** @return iterable<string, array{0: \Closure(self): array<string, mixed>, 1: string}> */
     public static function refusedSources(): iterable
     {
@@ -285,6 +311,9 @@ class ProjectFundingApiTest extends WebTestCase
         yield 'savings without an account' => [fn (self $t) => ['kind' => 'savings', 'amountCents' => 1000], 'account is required'];
         yield 'savings from an investment' => [fn (self $t) => ['kind' => 'savings', 'amountCents' => 1000, 'account' => $t->id('pea')], 'savings or checking'];
         yield 'capital from a savings account' => [fn (self $t) => ['kind' => 'capital', 'amountCents' => 1000, 'account' => $t->id('livret_jeune')], 'investment'];
+        yield 'another user\'s placement' => [fn (self $t) => ['kind' => 'capital', 'amountCents' => 1000, 'account' => $t->id('pea'), 'placement' => $t->id('other_placement')], 'Placement not found'];
+        yield 'a placement that does not exist' => [fn (self $t) => ['kind' => 'capital', 'amountCents' => 1000, 'account' => $t->id('pea'), 'placement' => 'nope'], 'Placement not found'];
+        yield 'a placement on a savings source' => [fn (self $t) => ['kind' => 'savings', 'amountCents' => 1000, 'account' => $t->id('livret_jeune'), 'placement' => $t->id('pea_simulated')], 'only for a capital source'];
         yield 'a loan without its conditions' => [fn (self $t) => ['kind' => 'loan', 'amountCents' => 1000], 'annualRateBasisPoints, durationMonths'];
         yield 'a loan with half its conditions' => [fn (self $t) => ['kind' => 'loan', 'amountCents' => 1000, 'loan' => ['annualRateBasisPoints' => 400]], 'durationMonths'];
         yield 'an unknown kind' => [fn (self $t) => ['kind' => 'gift', 'amountCents' => 1000], 'kind'];

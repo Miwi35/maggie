@@ -3,8 +3,12 @@
 namespace Maggie\Finance\Tests\Service;
 
 use Maggie\Finance\Entity\Loan;
+use Maggie\Finance\Entity\Placement;
 use Maggie\Finance\Entity\Project;
 use Maggie\Finance\Enum\PartialRepaymentEffect;
+use Maggie\Finance\Entity\ProjectFundingSource;
+use Maggie\Finance\Enum\FundingSourceKind;
+use Maggie\Finance\Enum\PlacementFrequency;
 use Maggie\Finance\Enum\PrepaymentPenaltyMode;
 use Maggie\Finance\Enum\ProjectWellbeing;
 use Maggie\Finance\Service\IndependenceBase;
@@ -42,10 +46,11 @@ class ScenarioCalculatorTest extends KernelTestCase
     }
 
     /**
-     * @param list<Project> $projects
-     * @param list<Loan>    $loans
+     * @param list<Project>   $projects
+     * @param list<Loan>      $loans
+     * @param list<Placement> $placements
      */
-    private function inputs(array $projects, array $loans = []): PlanningInputs
+    private function inputs(array $projects, array $loans = [], array $placements = []): PlanningInputs
     {
         return new PlanningInputs(
             new \DateTimeImmutable('2026-10-21 12:00:00'),
@@ -55,7 +60,25 @@ class ScenarioCalculatorTest extends KernelTestCase
             0,
             $projects,
             $loans,
+            $placements,
         );
+    }
+
+    private function placement(string $name, int $initial, int $deposit, PlacementFrequency $frequency, int $years = 20): Placement
+    {
+        return (new Placement())->setName($name)->setInitial($initial)->setDeposit($deposit)
+            ->setFrequency($frequency)->setAnnualRate(600)->setYears($years);
+    }
+
+    private function frees(Project $project, Placement $placement, int $cents): void
+    {
+        (new ProjectFundingSource())->setKind(FundingSourceKind::Capital)->setAmountCents($cents)->setPlacement($placement)->setProject($project);
+    }
+
+    /** @return list<int> the capacity left each month */
+    private function capacities(PlanningInputs $inputs, ScenarioSpec $spec): array
+    {
+        return array_column($this->calculator->plan($inputs, $spec)['plan']['months'], 'capacityCents');
     }
 
     private function loan(): Loan
@@ -346,5 +369,108 @@ class ScenarioCalculatorTest extends KernelTestCase
         $result = $this->calculator->evaluate($this->inputs([$car]), $this->base, new ScenarioSpec($this->ids($car)));
 
         self::assertNull($result['events']);
+    }
+
+    public function testThePlacementsDepositsTakeTheCapacityMonthByMonth(): void
+    {
+        $car = $this->project('Voiture', 900000, ProjectWellbeing::High, 0);
+        $pea = $this->placement('PEA', 200000, 15000, PlacementFrequency::Monthly);
+        $life = $this->placement('Assurance-vie', 0, 30000, PlacementFrequency::Quarterly, 1);
+        $inputs = $this->inputs([$car], [], [$pea, $life]);
+
+        $without = $this->capacities($inputs, new ScenarioSpec($this->ids($car)));
+        $with = $this->capacities($inputs, new ScenarioSpec($this->ids($car), null, [], [(string) $pea->getId(), (string) $life->getId()]));
+
+        self::assertSame(100000, $without[0]);
+        // 150 € a month plus 300 € a quarter = 100 € a month.
+        self::assertSame(100000 - 15000 - 10000, $with[0]);
+        self::assertSame(100000 - 15000 - 10000, $with[11]);
+        // The one-year placement has run its course: only the PEA is left.
+        self::assertSame(100000 - 15000, $with[12]);
+        self::assertSame(100000 - 15000, $with[35]);
+    }
+
+    public function testAPlacementOutsideTheScenarioDoesNotTakeTheCapacity(): void
+    {
+        $car = $this->project('Voiture', 900000, ProjectWellbeing::High, 0);
+        $pea = $this->placement('PEA', 200000, 15000, PlacementFrequency::Monthly);
+
+        $capacities = $this->capacities($this->inputs([$car], [], [$pea]), new ScenarioSpec($this->ids($car)));
+
+        self::assertSame(100000, $capacities[0]);
+    }
+
+    public function testASinglePaymentTakesNothingOfTheMonthlyCapacity(): void
+    {
+        $car = $this->project('Voiture', 900000, ProjectWellbeing::High, 0);
+        $once = $this->placement('Versement unique', 0, 500000, PlacementFrequency::Once);
+
+        $capacities = $this->capacities($this->inputs([$car], [], [$once]), new ScenarioSpec($this->ids($car), null, [], [(string) $once->getId()]));
+
+        self::assertSame(100000, $capacities[0]);
+    }
+
+    public function testDepositsDelayTheProjectsOfTheScenario(): void
+    {
+        $car = $this->project('Voiture', 900000, ProjectWellbeing::High, 0);
+        $pea = $this->placement('PEA', 200000, 25000, PlacementFrequency::Monthly);
+        $inputs = $this->inputs([$car], [], [$pea]);
+
+        $alone = $this->calculator->evaluate($inputs, $this->base, new ScenarioSpec($this->ids($car)));
+        $investing = $this->calculator->evaluate($inputs, $this->base, new ScenarioSpec($this->ids($car), null, [], [(string) $pea->getId()]));
+
+        // 9 000 € at 1 000 € a month, then at 750 €.
+        self::assertSame('2027-06', $alone['metrics']['projectsDoneBy']);
+        self::assertSame('2027-09', $investing['metrics']['projectsDoneBy']);
+    }
+
+    public function testCapitalFreedForAProjectLeavesThePlacementTheMonthItIsBought(): void
+    {
+        $japan = $this->project('Japon', 500000, ProjectWellbeing::Comfort, 0);
+        $pea = $this->placement('PEA', 200000, 15000, PlacementFrequency::Monthly);
+        $this->frees($japan, $pea, 150000);
+        $inputs = $this->inputs([$japan], [], [$pea]);
+
+        $result = $this->calculator->evaluate($inputs, $this->base, new ScenarioSpec($this->ids($japan), null, [], [(string) $pea->getId()]));
+
+        // 3 500 € to save at 850 € a month: bought in the fifth month, M0 = 2026-10.
+        self::assertSame('2027-02', $result['schedule'][0]['purchaseMonth']);
+        [$figures] = $result['placements'];
+        self::assertSame([['projectId' => (string) $japan->getId(), 'name' => 'Japon', 'month' => '2027-02', 'amountCents' => 150000]], $figures['withdrawals']);
+        self::assertSame(150000, $figures['withdrawn']);
+        self::assertSame($figures['curveWithout'][3], $figures['curveWith'][3]);
+        self::assertSame($figures['curveWithout'][4]['capital'] - 150000, $figures['curveWith'][4]['capital']);
+        self::assertEqualsWithDelta(150000 * 1.06 ** (236 / 12), $figures['gapAtEnd'], 5);
+        self::assertSame($figures['final'] - $figures['gapAtEnd'], $figures['finalWith']);
+        self::assertLessThan($figures['rent'], $figures['rentWith']);
+    }
+
+    public function testAProjectNotBoughtWithinTheHorizonTakesNothingOutOfThePlacement(): void
+    {
+        $house = $this->project('Maison', 5000000, ProjectWellbeing::Essential, 0);
+        $pea = $this->placement('PEA', 200000, 15000, PlacementFrequency::Monthly);
+        $this->frees($house, $pea, 150000);
+        $inputs = $this->inputs([$house], [], [$pea]);
+
+        $result = $this->calculator->evaluate($inputs, $this->base, new ScenarioSpec($this->ids($house), null, [], [(string) $pea->getId()]));
+
+        [$figures] = $result['placements'];
+        self::assertSame([], $figures['withdrawals']);
+        self::assertSame(0, $figures['gapAtEnd']);
+        self::assertSame($figures['curveWithout'], $figures['curveWith']);
+    }
+
+    public function testCapitalFreedFromAnotherPlacementDoesNotTouchThisOne(): void
+    {
+        $japan = $this->project('Japon', 500000, ProjectWellbeing::Comfort, 0);
+        $pea = $this->placement('PEA', 200000, 15000, PlacementFrequency::Monthly);
+        $life = $this->placement('Assurance-vie', 500000, 120000, PlacementFrequency::Yearly, 15);
+        $this->frees($japan, $life, 150000);
+        $inputs = $this->inputs([$japan], [], [$pea, $life]);
+
+        $result = $this->calculator->evaluate($inputs, $this->base, new ScenarioSpec($this->ids($japan), null, [], [(string) $pea->getId(), (string) $life->getId()]));
+
+        self::assertSame(0, $result['placements'][0]['gapAtEnd']);
+        self::assertGreaterThan(0, $result['placements'][1]['gapAtEnd']);
     }
 }

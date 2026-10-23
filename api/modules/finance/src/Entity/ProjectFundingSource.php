@@ -12,7 +12,7 @@ use Symfony\Component\Uid\Ulid;
 
 /**
  * One source of a project's money (MAG-524): 1 000 € from a savings account,
- * capital freed from an investment, or a projected loan. Only ever shown inside
+ * capital freed from an investment (optionally the simulated placement it leaves), or a projected loan. Only ever shown inside
  * its project, published and indexed as a change to it.
  *
  * A `loan` source owns its projected loan: removing the source removes the loan.
@@ -44,6 +44,12 @@ class ProjectFundingSource
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     #[Ignore]
     private ?Account $account = null;
+
+    /** The simulated placement a `capital` source takes its money from (MAG-556). Served as `placementId`. */
+    #[ORM\ManyToOne(targetEntity: Placement::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[Ignore]
+    private ?Placement $placement = null;
 
     /** The projected loan of a `loan` source. Served as `loanId`. */
     #[ORM\OneToOne(targetEntity: Loan::class, cascade: ['persist', 'remove'])]
@@ -126,6 +132,23 @@ class ProjectFundingSource
         return null === $this->account ? null : (string) $this->account->getId();
     }
 
+    public function getPlacement(): ?Placement
+    {
+        return $this->placement;
+    }
+
+    public function setPlacement(?Placement $placement): static
+    {
+        $this->placement = $placement;
+
+        return $this;
+    }
+
+    public function getPlacementId(): ?string
+    {
+        return null === $this->placement ? null : (string) $this->placement->getId();
+    }
+
     public function getLoan(): ?Loan
     {
         return $this->loan;
@@ -167,13 +190,14 @@ class ProjectFundingSource
         return $this;
     }
 
-    /** @return array{kind: string, amountCents: int, accountId: string|null, loanId: string|null, sourceProjectId: string|null} */
+    /** @return array{kind: string, amountCents: int, accountId: string|null, placementId: string|null, loanId: string|null, sourceProjectId: string|null} */
     public function toArray(): array
     {
         return [
             'kind' => $this->kind->value,
             'amountCents' => $this->amountCents,
             'accountId' => $this->getAccountId(),
+            'placementId' => $this->getPlacementId(),
             'loanId' => $this->getLoanId(),
             'sourceProjectId' => $this->getSourceProjectId(),
         ];

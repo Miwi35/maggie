@@ -23341,6 +23341,13 @@
                             "null"
                         ]
                     },
+                    "placementId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "loanId": {
                         "readOnly": true,
                         "type": [
@@ -23381,6 +23388,13 @@
                             "null"
                         ]
                     },
+                    "placementId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "loanId": {
                         "readOnly": true,
                         "type": [
@@ -23415,6 +23429,13 @@
                         "type": "integer"
                     },
                     "accountId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "placementId": {
                         "readOnly": true,
                         "type": [
                             "string",

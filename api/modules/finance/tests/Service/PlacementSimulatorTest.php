@@ -2,6 +2,7 @@
 
 namespace Maggie\Finance\Tests\Service;
 
+use Maggie\Finance\Entity\Placement;
 use Maggie\Finance\Enum\PlacementFrequency;
 use Maggie\Finance\Service\PlacementSimulator;
 use PHPUnit\Framework\TestCase;
@@ -91,5 +92,69 @@ class PlacementSimulatorTest extends TestCase
         $result = $this->simulator->simulate(1000000000, 0, PlacementFrequency::Once, 10000, 60);
 
         self::assertSame(\PHP_INT_MAX, $result['final']);
+    }
+
+    private function pea(): Placement
+    {
+        return (new Placement())->setName('PEA')->setInitial(200000)->setDeposit(15000)
+            ->setFrequency(PlacementFrequency::Monthly)->setAnnualRate(600)->setYears(20);
+    }
+
+    public function testAWithdrawalOf1500EurosInAprilTwentySevenLowersTheCapitalAt20Years(): void
+    {
+        // M0 = October 2026: April 2027 is month 6, after that month's interest and deposit.
+        $result = $this->simulator->withWithdrawals($this->pea(), [6 => 150000]);
+
+        $alone = $this->simulator->of($this->pea());
+        self::assertSame($alone['curve'], $result['curveWithout']);
+        self::assertSame($alone['final'], $result['finalWithout']);
+        self::assertSame(150000, $result['withdrawn']);
+
+        // What is taken stops earning: 1 500 € × 1,06^(234 / 12) at the end.
+        $expectedGap = 150000 * 1.06 ** (234 / 12);
+        self::assertEqualsWithDelta($expectedGap, $result['gapAtEnd'], 5);
+        self::assertSame($alone['final'] - $result['gapAtEnd'], $result['finalWith']);
+        self::assertSame($result['finalWith'], $result['curveWith'][240]['capital']);
+        self::assertSame(PlacementSimulator::rent($result['finalWith']), $result['rentWith']);
+        self::assertLessThan($result['rentWithout'], $result['rentWith']);
+    }
+
+    public function testTheCurvesAgreeUntilTheWithdrawal(): void
+    {
+        $result = $this->simulator->withWithdrawals($this->pea(), [6 => 150000]);
+
+        self::assertSame($result['curveWithout'][5], $result['curveWith'][5]);
+        self::assertSame($result['curveWithout'][6]['capital'] - 150000, $result['curveWith'][6]['capital']);
+        self::assertSame($result['curveWithout'][6]['paid'], $result['curveWith'][6]['paid']);
+    }
+
+    public function testNoWithdrawalLeavesTheTwoCurvesEqual(): void
+    {
+        $result = $this->simulator->withWithdrawals($this->pea(), []);
+
+        self::assertSame($result['curveWithout'], $result['curveWith']);
+        self::assertSame(0, $result['gapAtEnd']);
+        self::assertSame(0, $result['withdrawn']);
+    }
+
+    public function testAWithdrawalNeverTakesMoreThanTheCapital(): void
+    {
+        $placement = (new Placement())->setName('Petit')->setInitial(100000)->setDeposit(0)
+            ->setFrequency(PlacementFrequency::Once)->setAnnualRate(0)->setYears(2);
+
+        $result = $this->simulator->withWithdrawals($placement, [0 => 150000, 12 => 1000]);
+
+        self::assertSame(100000, $result['withdrawn']);
+        self::assertSame(0, $result['curveWith'][0]['capital']);
+        self::assertSame(0, $result['finalWith']);
+        self::assertSame(100000, $result['gapAtEnd']);
+    }
+
+    public function testAWithdrawalBeyondTheDurationIsIgnored(): void
+    {
+        $result = $this->simulator->withWithdrawals($this->pea(), [300 => 150000]);
+
+        self::assertSame(0, $result['gapAtEnd']);
+        self::assertSame(0, $result['withdrawn']);
     }
 }
