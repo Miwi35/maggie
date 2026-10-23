@@ -49,6 +49,11 @@ object UiTags {
 
     fun homeCardHeader(module: String) = HOME_CARD_HEADER_PREFIX + module
 
+    /** Accueil — the « ▶ Lancer » of an activity, suffixed by its module (MAG-568). */
+    const val HOME_LAUNCH_PREFIX = "home_launch_"
+
+    fun homeLaunch(module: String) = HOME_LAUNCH_PREFIX + module
+
     /**
      * The way into the conversation, on every main screen: the collapsed bar under the
      * content, or — on a window too short for it (MAG-35) — the button at the top of
