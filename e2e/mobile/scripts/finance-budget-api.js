@@ -22,7 +22,8 @@
 
 (function () {
 const base = E2E_BASE_URL
-const email = 'e2e-other@maggie.local'
+// MAG-577: a flow with a user of its own passes it as EMAIL; the seed's user is the fallback.
+const email = typeof EMAIL !== 'undefined' && EMAIL ? EMAIL : 'e2e-other@maggie.local'
 const accountName = 'Compte MAG-412'
 const hellfestName = 'Hellfest 2026'
 const year = parseInt(TODAY.substring(0, 4), 10)

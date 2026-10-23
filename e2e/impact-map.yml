@@ -580,6 +580,7 @@ mobile:
     areas: [cookbook, realtime]
   e2e/mobile/flows/12-recipe-steps.yaml:
     areas: [cookbook, realtime]
+    paths: [e2e/mobile/scripts/recipe-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/13-chat-opens-on-latest.yaml:
     areas: [chat, voice]
     paths: [e2e/mobile/scripts/chat-api.js]
@@ -637,7 +638,7 @@ mobile:
     paths: [api/fixtures/e2e/59-finance-activity.yaml]
   e2e/mobile/flows/19-finance-contacts.yaml:
     areas: [finance]
-    paths: [e2e/mobile/scripts/contacts-api.js]
+    paths: [e2e/mobile/scripts/contacts-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/13-finance-rejections.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/rejections-api.js]
@@ -648,7 +649,7 @@ mobile:
     areas: [finance]
   e2e/mobile/flows/13-finance-budget-nesting.yaml:
     areas: [finance]
-    paths: [e2e/mobile/scripts/finance-budget-api.js]
+    paths: [e2e/mobile/scripts/finance-budget-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/16-finance-budget-split.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-budget-api.js]
@@ -673,7 +674,7 @@ mobile:
     paths: [api/fixtures/e2e/58-finance-upcoming.yaml]
   e2e/mobile/flows/21-finance-peer-debts.yaml:
     areas: [finance]
-    paths: [e2e/mobile/scripts/contacts-api.js]
+    paths: [e2e/mobile/scripts/contacts-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/23-finance-projects.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/projects-api.js, api/fixtures/e2e/50-finance.yaml]

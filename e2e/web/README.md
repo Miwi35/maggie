@@ -73,7 +73,10 @@ suite whose slowest steps have nothing to do with layout. Tag a test when its
 
 1. **Sign in through the fixture, never through the UI.** Google's consent
    screen cannot be driven. `test({ page })` is already signed in as
-   `e2e@maggie.local`. Open other windows and API clients through the fixtures
+   `e2e@maggie.local`. A journey that writes starts from a user of its own:
+   `test.use({ journeyAccount: 'empty' })` (or `'standard'`, `'stock'`) makes `page`, `api`
+   and `session` that user's, created by `POST /api/auth/e2e/users` (MAG-577); the
+   `journeyUser` fixture gives its email, the neighbour and `ref()` into the profile's data. Open other windows and API clients through the fixtures
    too (`otherUser`, `twoWindows`, `pageWithToken`, `api`…): they send the
    spec's `X-E2E-Journey` and, under `E2E_COVERAGE=1`, record the admin's
    coverage (`scripts/e2e/coverage/README.md`). A bare `browser.newContext()`

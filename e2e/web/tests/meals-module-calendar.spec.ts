@@ -1,4 +1,4 @@
-import { test, expect, seedDate, seedId } from '../fixtures/index.js'
+import { test, expect, seedDate } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
 import { waitForIndexed } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
@@ -16,12 +16,15 @@ import { CalendarPage } from '../pages/CalendarPage.js'
 const jsonLd = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
 const DAY = seedDate()
 
+// The account of this journey alone: the planning it reads is the one it wrote.
+test.use({ journeyAccount: 'standard' })
+
 interface Named {
   summary?: string
   name?: string
 }
 
-async function plan(api: APIRequestContext): Promise<{ recipe: string; event: string }> {
+async function plan(api: APIRequestContext, agendaId: string): Promise<{ recipe: string; event: string }> {
   const { retry } = test.info()
   const suffix = 0 === retry ? '' : ` essai ${retry}`
   const recipe = `Gratin MAG-354${suffix}`
@@ -37,7 +40,7 @@ async function plan(api: APIRequestContext): Promise<{ recipe: string; event: st
       summary: 'Dîner',
       date: DAY,
       slot: 'dinner',
-      agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+      agenda: `/api/agendas/${agendaId}`,
       recipes: [recipeIri],
     },
   })
@@ -50,7 +53,7 @@ async function plan(api: APIRequestContext): Promise<{ recipe: string; event: st
       summary: event,
       startAt: `${DAY}T15:00:00+00:00`,
       endAt: `${DAY}T16:00:00+00:00`,
-      agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+      agenda: `/api/agendas/${agendaId}`,
     },
   })
   expect(createdEvent.status(), `POST /api/events answered ${createdEvent.status()}`).toBe(201)
@@ -61,8 +64,8 @@ async function plan(api: APIRequestContext): Promise<{ recipe: string; event: st
   return { recipe, event }
 }
 
-test('the general agenda shows the meal and the event with « Repas » once, the meals planning only the meal — MAG-354', async ({ page, api }) => {
-  const { recipe, event } = await plan(api)
+test('the general agenda shows the meal and the event with « Repas » once, the meals planning only the meal — MAG-354', async ({ page, api, journeyUser }) => {
+  const { recipe, event } = await plan(api, journeyUser.ref('e2e_agenda_personal'))
   // The list carries the recipe's name as the meal's summary; anchored at the
   // end so a retry does not also match the first attempt's meal.
   const mealChip = new RegExp(`${recipe}$`)

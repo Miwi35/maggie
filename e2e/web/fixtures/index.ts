@@ -32,10 +32,11 @@ import {
   TRANSFERS_USER_EMAIL,
   TREASURY_USER_EMAIL,
   UPCOMING_USER_EMAIL,
+  createJourneyAccount,
   signIn,
   storageStateOf,
 } from './session.js'
-import type { Session } from './session.js'
+import type { JourneyAccount, JourneyProfile, Session } from './session.js'
 import { pinClock } from './clock.js'
 import { AdminCoverage } from './coverage.js'
 import { JOURNEY_HEADER, journeyId } from './journey.js'
@@ -67,7 +68,7 @@ export {
   HOME_USER_EMAIL,
   HOME_TASKS_USER_EMAIL,
 } from './session.js'
-export type { Session, SeededUser } from './session.js'
+export type { Session, SeededUser, JourneyProfile } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
 export { seedId, seedAnchorDate, seedDate, seedManifest } from './manifest.js'
 export { JOURNEY_HEADER, journeyHeaders } from './journey.js'
@@ -94,6 +95,15 @@ function sessionFor(baseURL: string, email: string): Promise<Session> {
   return session
 }
 
+/**
+ * The account this test created for itself (MAG-577): the session, the
+ * neighbour, and the ids the account's rows got under the seed's references.
+ */
+export interface JourneyUser extends Omit<JourneyAccount, 'references'> {
+  /** The id this account's row got under an Alice reference of the seed, e.g. `ref('e2e_recipe_gratin')`. */
+  ref: (reference: string) => string
+}
+
 /** A second signed-in user, with their own browser context, page and API client. */
 export interface OtherUser {
   session: Session
@@ -118,6 +128,24 @@ export interface OtherUser {
 }
 
 export interface MaggieFixtures {
+  /**
+   * Which account the test signs in as. `'shared'` (the default) is the seeded
+   * `e2e@maggie.local`, which every journey of the batch shares; `'standard'`
+   * and `'empty'` create a new account for each test, with that data profile,
+   * and `session`, `api`, `page` and `storageState` all follow it. Set it for a
+   * file with `test.use({ journeyAccount: 'standard' })`.
+   */
+  journeyAccount: 'shared' | JourneyProfile
+  /** The created account, or null while `journeyAccount` is `'shared'`. */
+  account: JourneyAccount | null
+  /**
+   * The account created for this test (see `journeyAccount`): the one rule of
+   * the journeys is that a journey creates its user and reads only its data.
+   * `page`, `api` and `session` are already this account's; this is what is
+   * left to read of it — the ids of its rows, its neighbour. Throws when the
+   * file did not ask for one.
+   */
+  journeyUser: JourneyUser
   /**
    * This spec's journey id, its path in the repository (`e2e/web/tests/chat.spec.ts`).
    * Every context and API client of the fixtures sends it as `X-E2E-Journey`.
@@ -348,10 +376,35 @@ export const test = base.extend<MaggieFixtures>({
     await coverage.write(testInfo)
   },
 
+  journeyAccount: ['shared', { option: true }],
+
+  account: async ({ baseURL, journey, journeyAccount }, use) => {
+    await use('shared' === journeyAccount ? null : await createJourneyAccount(requireBaseURL(baseURL), journeyAccount, { [JOURNEY_HEADER]: journey }))
+  },
+
+  journeyUser: async ({ account }, use) => {
+    if (!account) {
+      throw new Error("This test has no journey user: add `test.use({ journeyAccount: 'standard' })` to the file.")
+    }
+
+    const { references, ...rest } = account
+    await use({
+      ...rest,
+      ref: (reference: string): string => {
+        const entry = references[reference]
+        if (!entry) {
+          throw new Error(`The "${account.profile}" profile has no reference '${reference}'. Check api/fixtures/e2e/.`)
+        }
+
+        return entry.id
+      },
+    })
+  },
+
   // Overrides Playwright's own option: every test starts signed in. A test that
   // wants the login page uses the `anonymousPage` fixture instead.
-  storageState: async ({ baseURL }, use) => {
-    const session = await sessionFor(requireBaseURL(baseURL), SEED_USER_EMAIL)
+  storageState: async ({ baseURL, account }, use) => {
+    const session = account?.session ?? (await sessionFor(requireBaseURL(baseURL), SEED_USER_EMAIL))
     await use(storageStateOf(requireBaseURL(baseURL), session))
   },
 
@@ -368,8 +421,8 @@ export const test = base.extend<MaggieFixtures>({
     await adminCoverage.collect(page)
   },
 
-  session: async ({ baseURL }, use) => {
-    await use(await sessionFor(requireBaseURL(baseURL), SEED_USER_EMAIL))
+  session: async ({ baseURL, account }, use) => {
+    await use(account?.session ?? (await sessionFor(requireBaseURL(baseURL), SEED_USER_EMAIL)))
   },
 
   api: async ({ playwright, baseURL, session, journey }, use) => {
@@ -529,12 +582,12 @@ export const test = base.extend<MaggieFixtures>({
     await Promise.all(contexts.map((context) => adminCoverage.closeContext(context)))
   },
 
-  pageWithOwnSession: async ({ browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+  pageWithOwnSession: async ({ browser, baseURL, account, contextOptions, journey, adminCoverage }, use) => {
     const url = requireBaseURL(baseURL)
     const contexts: BrowserContext[] = []
 
     await use(async (accessToken?: string) => {
-      const own = await signIn(url, SEED_USER_EMAIL, { [JOURNEY_HEADER]: journey })
+      const own = await signIn(url, account?.session.user.email ?? SEED_USER_EMAIL, { [JOURNEY_HEADER]: journey })
       const state = storageStateOf(url, own)
       if (accessToken) {
         state.origins[0].localStorage = state.origins[0].localStorage.map((entry) =>

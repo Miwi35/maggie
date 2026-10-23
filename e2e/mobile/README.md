@@ -153,7 +153,11 @@ against an app nobody launched.
    `*_PREFIX` const in `UiTags.kt` and the lint accepts any id that starts with it.
    A date a flow would have to *derive* — « the day the train arrives » — is a sign
    the verification belongs on the JVM, where it can be written down (MAG-242).
-7. **Assert on seeded data, never on counts.** `api/fixtures/e2e/` is shared with
+7. **A flow that writes has a user of its own** (MAG-577): `- runFlow: ../subflows/new-user.yaml`
+   before `launchApp`, then `e2e_email: ${output.journeyEmail}` and, for a script,
+   `EMAIL: ${output.journeyEmail}` in its `env:`. `scripts/new-user.js` posts to
+   `/api/auth/e2e/users`; the profile is `empty` unless the flow's top-level `env:` sets
+   `PROFILE`. Otherwise **assert on seeded data, never on counts.** `api/fixtures/e2e/` is shared with
    the browser suite, which writes to the same user at the same time. A flow that
    writes labels its lines with its ticket (`… MAG-178`) and removes them.
 8. **A scenario before the step that needs it.** Maggie answers from

@@ -1,4 +1,4 @@
-import { test, expect, seedDate, seedId } from '../fixtures/index.js'
+import { test, expect, seedDate } from '../fixtures/index.js'
 import type { APIRequestContext, Page } from '@playwright/test'
 import { getCollection, plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed, userTopic } from '../helpers/mercure.js'
@@ -54,6 +54,10 @@ async function chooseIngredients(api: APIRequestContext, mealId: string, ingredi
   })
   expect(chosen.ok(), `POST grocery_items answered ${chosen.status()}: ${await chosen.text()}`).toBeTruthy()
 }
+
+// One account per test, with the seed's recipes, ingredients and agendas, and no journey beside it:
+// the grocery list and the planning each test reads were written by that test or by the profile.
+test.use({ journeyAccount: 'standard' })
 
 test.describe('Recipes and meals', () => {
   test('a recipe created with comma-separated tags stores them as a list and shows in the list at once', async ({ page, api }) => {
@@ -267,12 +271,12 @@ test.describe('Recipes and meals', () => {
     await expect(shell.content.getByTestId('meal-cell-lunch-2')).not.toContainText(name)
   })
 
-  test('cancelling a meal takes its ingredients back off the grocery list', async ({ page, api }) => {
+  test('cancelling a meal takes its ingredients back off the grocery list', async ({ page, api, journeyUser }) => {
     // MAG-116: planning a meal put its ingredients on the list and nothing
     // ever took them off again, so a dinner cancelled on Tuesday was still
     // shopping to do on Saturday. Since MAG-300 the owner chooses what goes on
     // the list; the lines they chose still leave with the meal.
-    const parmesan = seedId('e2e_ingredient_parmesan')
+    const parmesan = journeyUser.ref('e2e_ingredient_parmesan')
     const thursday = dayOfThisWeek(3)
 
     // A previous attempt that failed half-way leaves its gratin in the cell,
@@ -342,8 +346,8 @@ test.describe('Recipes and meals', () => {
     // on a count: the suite runs fully parallel over one shared list, and the
     // chat journey adds to it from the other worker.
     const remaining = JSON.stringify(after.items)
-    expect(remaining).toContain(seedId('e2e_ingredient_tomato'))
-    expect(remaining).toContain(seedId('e2e_ingredient_pasta'))
+    expect(remaining).toContain(journeyUser.ref('e2e_ingredient_tomato'))
+    expect(remaining).toContain(journeyUser.ref('e2e_ingredient_pasta'))
     expect(remaining).toContain('Pile LR03')
   })
 
@@ -360,6 +364,7 @@ test.describe('Recipes and meals', () => {
   test('deleting a recipe deletes its planned meals and takes their ingredients off the list — MAG-289', async ({
     page,
     api,
+    journeyUser,
   }) => {
     const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
     const suffix = `${Date.now()}`
@@ -383,7 +388,7 @@ test.describe('Recipes and meals', () => {
         data: {
           date,
           slot: 'lunch',
-          agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+          agenda: `/api/agendas/${journeyUser.ref('e2e_agenda_personal')}`,
           recipes: [recipeIri],
         },
       })
@@ -426,7 +431,7 @@ test.describe('Recipes and meals', () => {
     await expect(shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: name })).toHaveCount(0)
   })
 
-  test('editing a recipe leaves the grocery line of the meals already planned with it alone — MAG-300', async ({ api }) => {
+  test('editing a recipe leaves the grocery line of the meals already planned with it alone — MAG-300', async ({ api, journeyUser }) => {
     // MAG-167 made the list follow the recipes behind the meals: 400 g became
     // 600 g in the recipe and the list went with it. MAG-300 reverses it: once
     // the owner has chosen what to buy, the recipe no longer touches the list.
@@ -455,7 +460,7 @@ test.describe('Recipes and meals', () => {
         // A day and a slot, no instant (MAG-251).
         date: tomorrow,
         slot: 'dinner',
-        agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
+        agenda: `/api/agendas/${journeyUser.ref('e2e_agenda_personal')}`,
         recipes: [recipeBody['@id']],
       },
     })

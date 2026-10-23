@@ -634,6 +634,7 @@ final class E2eSeedCommandTest extends KernelTestCase
             $loader,
             $container->get(\Maggie\Finance\Doctrine\TransactionListener::class),
             $container->get(\Elastic\Elasticsearch\Client::class),
+            new \Maggie\Core\E2e\Fixture\E2eFixtureCatalog($container->getParameter('kernel.project_dir')),
             $container->getParameter('kernel.project_dir'),
         );
     }

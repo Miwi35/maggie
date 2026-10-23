@@ -10,6 +10,7 @@ use Elastic\Elasticsearch\Client as ElasticsearchClient;
 use Fidry\AliceDataFixtures\LoaderInterface;
 use Fidry\AliceDataFixtures\Persistence\PurgeMode;
 use Maggie\Core\E2e\Fixture\E2eDateProvider;
+use Maggie\Core\E2e\Fixture\E2eFixtureCatalog;
 use Maggie\Finance\Doctrine\TransactionListener;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -47,6 +48,7 @@ final class E2eSeedCommand extends Command
         private readonly LoaderInterface $fixtureLoader,
         private readonly TransactionListener $transactionEffects,
         private readonly ElasticsearchClient $elasticsearch,
+        private readonly E2eFixtureCatalog $catalog,
         private readonly string $projectDir,
     ) {
         parent::__construct();
@@ -101,7 +103,7 @@ final class E2eSeedCommand extends Command
         // The fixtures are history, exactly as written: a journey starts from an
         // operation nothing has filed, which the categorisation would file at load.
         $objects = $this->transactionEffects->withoutEffects(fn () => $this->fixtureLoader->load(
-            $this->fixtureFiles(),
+            $this->catalog->files(),
             [],
             [],
             PurgeMode::createNoPurgeMode(),
@@ -188,23 +190,6 @@ final class E2eSeedCommand extends Command
         return array_values(array_diff($tables, self::PRESERVED_TABLES));
     }
 
-    /** @return list<string> */
-    private function fixtureFiles(): array
-    {
-        $dir = $this->projectDir.'/fixtures/e2e';
-        $files = glob($dir.'/*.yaml');
-
-        if (false === $files || [] === $files) {
-            throw new \RuntimeException(sprintf('No e2e fixture file found in %s.', $dir));
-        }
-
-        // Alphabetical, so the load order is the file names: 10-core.yaml
-        // before 20-calendar.yaml, because a calendar belongs to a user.
-        sort($files);
-
-        return $files;
-    }
-
     /**
      * @param array<string, object> $objects
      *
@@ -213,19 +198,6 @@ final class E2eSeedCommand extends Command
     private function writeManifest(array $objects, \DateTimeImmutable $anchor, string $path): string
     {
         $absolute = str_starts_with($path, '/') ? $path : $this->projectDir.'/'.$path;
-
-        $entries = [];
-        foreach ($objects as $reference => $object) {
-            if (!method_exists($object, 'getId')) {
-                continue;
-            }
-
-            $entries[$reference] = [
-                'class' => $object::class,
-                'id' => (string) $object->getId(),
-            ];
-        }
-        ksort($entries);
 
         $directory = \dirname($absolute);
         if (!is_dir($directory) && !mkdir($directory, 0o775, true) && !is_dir($directory)) {
@@ -238,7 +210,7 @@ final class E2eSeedCommand extends Command
             // rather than through hard-coded ids — which would mean opening a
             // setId() on every entity purely for the tests.
             'anchor' => $anchor->format(\DATE_ATOM),
-            'references' => $entries,
+            'references' => $this->catalog->referencesOf($objects),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
 
         return $absolute;

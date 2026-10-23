@@ -9,12 +9,9 @@ import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
  * Internal transfers and rejected payments: seen, paired and corrected from
  * the admin (MAG-272 and MAG-350, on MAG-102's journey).
  *
- * Written as an account of its own (`transfersUser`), not the owner's nor the
- * neighbour's: the owner's balances and train de vie are asserted by other
- * files, and two accounts with 3 000,00 € moving between them would move both;
- * the neighbour's train de vie is moved by the debits other files book on it
- * while this one runs on another worker (a rent of 900,00 € read here as
- * 600,00 € a month).
+ * Written on an empty account created for each journey (MAG-577), not the
+ * owner's nor the neighbour's: the train de vie it reads is moved by the lines
+ * of its own account alone, whatever runs beside it or before it.
  *
  * The train de vie is read from the dashboard's own endpoint rather than from
  * its card: the card only shows it once an income is known, and the figure is
@@ -118,27 +115,13 @@ function frenchDate(isoDay: string): string {
   return `${day}/${month}/${year}`
 }
 
-/**
- * The account's finance module is left as it was found, so a retry starts from
- * the figure the first attempt started from. Deleting an account takes its
- * transactions with it.
- */
-const createdAccountIds: string[] = []
-
-// One after the other: the journeys read this account's train de vie, and
-// each one's lines would move the figure the other compares with itself.
-test.describe.configure({ mode: 'serial' })
-
-test.afterEach(async ({ transfersUser }) => {
-  for (const id of createdAccountIds.splice(0)) {
-    await transfersUser.api.delete(`/api/accounts/${id}`)
-  }
-})
+test.use({ journeyAccount: 'empty' })
 
 test('a detected transfer wears its badge and its counterpart, and the owner can take it off', async ({
-  transfersUser,
+  api,
+  page: actor,
+  twoWindows,
 }) => {
-  const { api, page: actor } = transfersUser
   const attempt = test.info().retry
   // Unique per attempt, amount included: CI retries once without reseeding, and
   // a first attempt that stopped before the detection leaves a 3 000,00 € leg
@@ -153,7 +136,6 @@ test('a detected transfer wears its badge and its counterpart, and the owner can
 
   const checkingId = await createAccount(api, checkingName, 'checking')
   const savingsId = await createAccount(api, savingsName, 'savings')
-  createdAccountIds.push(checkingId, savingsId)
   const debitId = await createTransaction(api, savingsId, debit, -transferCents, lastMonthDay(12), 'planned')
   const creditId = await createTransaction(api, checkingId, credit, transferCents, lastMonthDay(13), 'planned')
   await createTransaction(api, checkingId, ordinary, -ordinaryCents, lastMonthDay(14))
@@ -173,7 +155,7 @@ test('a detected transfer wears its badge and its counterpart, and the owner can
   const before = await lifestyleCents(api)
 
   const transfers = new FinanceTransfersPage(actor)
-  const checking = new FinanceTransfersPage(await transfersUser.secondWindow())
+  const checking = new FinanceTransfersPage(twoWindows.observer)
 
   await checking.openTransactions(checkingId, { back: 1 })
   await expect(checking.row(credit)).toBeVisible()
@@ -261,8 +243,7 @@ test('a detected transfer wears its badge and its counterpart, and the owner can
  * or a sync reaches the same detection through the same event
  * (`TransactionEffectsTest`, `ImportStatementTest`).
  */
-test('a rejected direct debit and its REJET credit read as such and leave the spending', async ({ transfersUser }) => {
-  const { api, page } = transfersUser
+test('a rejected direct debit and its REJET credit read as such and leave the spending', async ({ api, page }) => {
   const attempt = test.info().retry
   const accountName = `Courant MAG-350, essai ${attempt}`
   const debit = `PRELEVEMENT ELECTRICITE DE FRANCE MAG-350 ESSAI ${attempt}`
@@ -271,7 +252,6 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
   const before = await lifestyleCents(api)
 
   const accountId = await createAccount(api, accountName, 'checking')
-  createdAccountIds.push(accountId)
   // Created spent, the credit is paired as it lands: what a sync does.
   await createTransaction(api, accountId, debit, -20_600, lastMonthDay(5))
   await createTransaction(api, accountId, credit, 20_600, lastMonthDay(6))
@@ -334,12 +314,11 @@ test('a rejected direct debit and its REJET credit read as such and leave the sp
  * Created the way the MAG-350 journey creates them, through the API.
  */
 test('a settled rejection leaves the pile for « Régularisés », and « Annuler » brings it back', async ({
-  transfersUser,
+  api,
+  page,
 }) => {
-  const { api, page } = transfersUser
   const attempt = test.info().retry
   const accountId = await createAccount(api, `Courant MAG-424, essai ${attempt}`, 'checking')
-  createdAccountIds.push(accountId)
   const rejections = [
     { payee: 'EDF', debit: `PRELEVEMENT EDF MAG-424 ESSAI ${attempt}`, credit: `REJET PRLV EDF MAG-424 ESSAI ${attempt}`, cents: 20_600, day: 5 },
     { payee: 'ORANGE', debit: `PRELEVEMENT ORANGE MAG-424 ESSAI ${attempt}`, credit: `REJET PRLV ORANGE MAG-424 ESSAI ${attempt}`, cents: 3_999, day: 8 },
@@ -386,15 +365,14 @@ test('a settled rejection leaves the pile for « Régularisés », and « Annule
  * off brings the others back.
  */
 test('an ordinary line opens on six sections, and marking it internal keeps only Nature and Note', async ({
-  transfersUser,
+  api,
+  page,
 }) => {
-  const { api, page } = transfersUser
   const attempt = test.info().retry
   const label = `ACHAT FICHE MAG-464, essai ${attempt}`
   const sections = ['nature', 'classement', 'recurrence', 'partage', 'jugement', 'note']
 
   const accountId = await createAccount(api, `Courant MAG-464, essai ${attempt}`, 'checking')
-  createdAccountIds.push(accountId)
   await createTransaction(api, accountId, label, -4_200, lastMonthDay(14))
   await waitForIndexed<StoredTransaction>(
     api,
@@ -423,9 +401,9 @@ test('an ordinary line opens on six sections, and marking it internal keeps only
  * run — the detection follows the recording of the second leg by itself.
  */
 test('the two legs of a transfer imported from statements are both marked, and leave the income', async ({
-  transfersUser,
+  api,
+  page,
 }) => {
-  const { api, page } = transfersUser
   const attempt = test.info().retry
   // Unique per attempt, amount included, for the reason the first journey gives.
   const transferCents = 120_000 + attempt * 100
@@ -440,7 +418,6 @@ test('the two legs of a transfer imported from statements are both marked, and l
 
   const checkingId = await createAccount(api, checkingName, 'checking')
   const savingsId = await createAccount(api, savingsName, 'savings')
-  createdAccountIds.push(checkingId, savingsId)
   const incomeBefore = await monthIncomeCents(api, month)
 
   const importLeg = async (accountName: string, day: string, label: string, signedCents: number) => {

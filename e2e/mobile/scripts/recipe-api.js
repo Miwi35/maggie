@@ -22,7 +22,8 @@
 
 (function () {
 const base = E2E_BASE_URL
-const email = 'e2e@maggie.local'
+// MAG-577: a flow with a user of its own passes it as EMAIL; the seed's user is the fallback.
+const email = typeof EMAIL !== 'undefined' && EMAIL ? EMAIL : 'e2e@maggie.local'
 const ingredientName = 'Orge MAG-330'
 const methodIngredients = ['Pâtes MAG-492', 'Légumes MAG-492']
 const methodUtensils = ['Casserole MAG-492', 'Poêle MAG-492', 'Mixeur MAG-492']
