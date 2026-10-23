@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useMemo } from 'react'
-import { Layout as RALayout, LayoutProps } from 'react-admin'
+import { Suspense, useState, useCallback, useRef, useMemo } from 'react'
+import { Layout as RALayout, Loading, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
 import { MaggieInterruptionHost } from '../maggie/MaggieInterruptionHost'
@@ -138,7 +138,10 @@ export const Layout = (props: LayoutProps) => {
                 [theme.breakpoints.down('md')]: { overflowX: 'auto' },
               })}
             >
-              {props.children}
+              {/* The page's own boundary: react-admin's wraps this whole box, chat panel included,
+                  so a lazy page still loading would otherwise take the conversation down with it
+                  (and a click on the app bar's chat button in that window would close it). */}
+              <Suspense fallback={<Loading />}>{props.children}</Suspense>
             </Box>
           </Box>
           <ChatWidget
