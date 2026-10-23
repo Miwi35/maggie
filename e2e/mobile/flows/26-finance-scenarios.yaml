@@ -60,22 +60,23 @@ tags:
       id: "scenario_make_current_auto-rapid"
     timeout: 20000
 
-# « Rapide » becomes the current scenario.
+# « Rapide » becomes the current scenario. The API stores the automatic scenario when it is made current:
+# its row then carries the stored id (a ULID), not `auto-rapid`, so the tags are matched by prefix.
 - tapOn:
     id: "scenario_make_current_auto-rapid"
 - extendedWaitUntil:
     visible:
-      id: "scenario_badge_auto-rapid"
+      id: "scenario_badge_.*"
     timeout: 20000
 - extendedWaitUntil:
     visible: "Scénario courant · Rapide"
     timeout: 10000
 - extendedWaitUntil:
     visible:
-      id: "scenario_n_auto-rapid"
+      id: "scenario_n_.*"
     timeout: 10000
 - assertVisible:
-    id: "scenario_n_auto-rapid"
+    id: "scenario_n_.*"
     text: "N (:|non atteinte).*"
 - runScript:
     file: ../scripts/scenarios-api.js
