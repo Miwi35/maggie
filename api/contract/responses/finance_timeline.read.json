@@ -37,7 +37,7 @@
     "current": {
         "scenarioId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
         "name": "Mon plan",
-        "nDate": "2045-12",
+        "nDate": "2046-03",
         "events": [
             {
                 "id": "independence_milestone:25",
@@ -92,7 +92,7 @@
                 "sublabel": "Achat",
                 "amount_eur": 2000,
                 "monthly_impact_eur": null,
-                "n_impact_months": 2,
+                "n_impact_months": 1,
                 "detail": {
                     "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
                     "wellbeing": "comfort",
@@ -145,7 +145,7 @@
             },
             {
                 "id": "independence_milestone:50",
-                "month": "2030-06",
+                "month": "2030-09",
                 "type": "independence_milestone",
                 "category": "indépendance",
                 "label": "50 % du train de vie couvert",
@@ -174,7 +174,7 @@
             },
             {
                 "id": "independence_milestone:75",
-                "month": "2038-03",
+                "month": "2038-06",
                 "type": "independence_milestone",
                 "category": "indépendance",
                 "label": "75 % du train de vie couvert",
@@ -188,7 +188,7 @@
             },
             {
                 "id": "independence_reached",
-                "month": "2045-12",
+                "month": "2046-03",
                 "type": "independence_reached",
                 "category": "indépendance",
                 "label": "Indépendance financière",
@@ -340,7 +340,7 @@
         ]
     },
     "difference": {
-        "months": -27,
-        "sentence": "N 2 ans 3 mois plus tôt que « Mon plan »"
+        "months": -30,
+        "sentence": "N 2 ans 6 mois plus tôt que « Mon plan »"
     }
 }

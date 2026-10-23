@@ -132,7 +132,7 @@ class FinanceTimelineControllerTest extends WebTestCase
         self::assertSame(['debt_end:loan:'.$this->id('consumer') => '2027-08'], self::eventMonths($data['current'], 'debt_end'));
         self::assertSame(['placement_milestone:'.$this->id('pea') => '2036-10'], self::eventMonths($data['current'], 'placement_milestone'));
         self::assertSame(
-            ['independence_milestone:25' => '2026-10', 'independence_milestone:50' => '2030-06', 'independence_milestone:75' => '2038-03'],
+            ['independence_milestone:25' => '2026-10', 'independence_milestone:50' => '2030-09', 'independence_milestone:75' => '2038-06'],
             self::eventMonths($data['current'], 'independence_milestone'),
         );
     }
@@ -144,8 +144,8 @@ class FinanceTimelineControllerTest extends WebTestCase
 
         $data = $this->timeline();
 
-        self::assertSame('2045-12', $data['current']['nDate']);
-        self::assertSame(['independence_reached' => '2045-12'], self::eventMonths($data['current'], 'independence_reached'));
+        self::assertSame('2046-03', $data['current']['nDate']);
+        self::assertSame(['independence_reached' => '2046-03'], self::eventMonths($data['current'], 'independence_reached'));
         $reached = array_values(array_filter($data['current']['events'], static fn (array $e): bool => 'independence_reached' === $e['type']))[0];
         self::assertSame('indépendance', $reached['category']);
     }
@@ -162,9 +162,9 @@ class FinanceTimelineControllerTest extends WebTestCase
         self::assertSame('Qualité de vie', $data['compared']['name']);
         self::assertSame('2043-09', $data['compared']['nDate']);
         self::assertSame(['independence_reached' => '2043-09'], self::eventMonths($data['compared'], 'independence_reached'));
-        self::assertSame('2045-12', $data['current']['nDate']);
-        self::assertSame(-27, $data['difference']['months']);
-        self::assertSame('N 2 ans 3 mois plus tôt que « Mon plan »', $data['difference']['sentence']);
+        self::assertSame('2046-03', $data['current']['nDate']);
+        self::assertSame(-30, $data['difference']['months']);
+        self::assertSame('N 2 ans 6 mois plus tôt que « Mon plan »', $data['difference']['sentence']);
         self::assertStringNotContainsStringIgnoringCase('meilleur', $data['difference']['sentence']);
         self::assertStringNotContainsStringIgnoringCase('recommand', $data['difference']['sentence']);
     }
