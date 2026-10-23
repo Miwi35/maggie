@@ -342,9 +342,7 @@ test.describe('Recipes and meals', () => {
       (list) => !JSON.stringify(list.items).includes(parmesan),
       { what: 'A grocery list without the cancelled meal’s parmesan' },
     )
-    // Only the meal's own line goes. Asserted on the seeded lines rather than
-    // on a count: the suite runs fully parallel over one shared list, and the
-    // chat journey adds to it from the other worker.
+    // Only the meal's own line goes: the other seeded lines stay.
     const remaining = JSON.stringify(after.items)
     expect(remaining).toContain(journeyUser.ref('e2e_ingredient_tomato'))
     expect(remaining).toContain(journeyUser.ref('e2e_ingredient_pasta'))
@@ -436,7 +434,7 @@ test.describe('Recipes and meals', () => {
     // 600 g in the recipe and the list went with it. MAG-300 reverses it: once
     // the owner has chosen what to buy, the recipe no longer touches the list.
     // Driven through the API with an ingredient of its own, so the line is
-    // this journey's and nobody else's on the shared list.
+    // this journey's own.
     const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
     const name = `Boulgour MAG-167 ${Date.now()}`
 
