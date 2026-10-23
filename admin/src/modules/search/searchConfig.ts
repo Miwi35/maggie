@@ -45,7 +45,7 @@ export const SEARCH_INDEX_CONFIG: Record<string, SearchIndexConfig> = {
     basePath: '/grocery',
     getPath: () => '/grocery',
   },
-  // No admin page lists or shows these two: the dashboard and the preferences are the closest.
+  // No admin page lists or shows these two: the Accueil and the preferences are the closest.
   notifications: {
     label: 'Notifications',
     icon: 'Notifications',

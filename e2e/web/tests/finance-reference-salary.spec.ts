@@ -3,7 +3,7 @@ import { test, expect } from '../fixtures/index.js'
 import { calledTools, toolResults } from '../helpers/agui.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
 
 /**
@@ -121,7 +121,7 @@ test('« sur quel salaire tu juges mon mois ? » reads the expected salary', asy
   await givenAnExpectedSalaryOf4950(api)
 
   // When I ask Maggie what salary she judges my month on.
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
   const events = await new ChatPanel(page).send('Sur quel salaire tu juges mon mois ?')
 
   // Then she read the reference salary, and it went through.
@@ -147,7 +147,7 @@ test('the cushion and the month follow the reference salary, declared nothing', 
   await givenAnExpectedSalaryOf4950(api)
 
   // When I open the finance dashboard.
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
   const cushionResponse = await api.get('/api/finance/cushion-status')
   expect(cushionResponse.status(), await cushionResponse.text()).toBe(200)
   const cushion = (await cushionResponse.json()) as CushionStatus

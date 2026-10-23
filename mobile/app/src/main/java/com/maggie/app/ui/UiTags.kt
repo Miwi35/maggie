@@ -33,8 +33,21 @@ object UiTags {
     /** Login — the single button the screen offers, whatever door is behind it. */
     const val LOGIN_SIGN_IN = "login_sign_in"
 
-    /** Dashboard — the root, so a journey can wait for the screen itself. */
-    const val DASHBOARD = "dashboard"
+    /** Accueil — the root, so a journey can wait for the screen itself (MAG-560). */
+    const val HOME = "home_screen"
+
+    /** Accueil — the « Aujourd'hui · Demain » selector, and its two segments. */
+    const val HOME_DAY_SELECTOR = "home_day_selector"
+    const val HOME_DAY_TODAY = "home_day_today"
+    const val HOME_DAY_TOMORROW = "home_day_tomorrow"
+
+    /** Accueil — a card (suffixed by its module: `tasks`, `agenda`…) and the header that opens its module. */
+    const val HOME_CARD_PREFIX = "home_card_"
+    const val HOME_CARD_HEADER_PREFIX = "home_header_"
+
+    fun homeCard(module: String) = HOME_CARD_PREFIX + module
+
+    fun homeCardHeader(module: String) = HOME_CARD_HEADER_PREFIX + module
 
     /**
      * The way into the conversation, on every main screen: the collapsed bar under the
@@ -445,11 +458,6 @@ object UiTags {
     /** Cuisine › Repas — one cell of the week: `meal_slot_<lunch|dinner>_<0 = Monday … 6 = Sunday>`. */
     const val MEAL_SLOT_PREFIX = "meal_slot_"
 
-    /** Dashboard — the box that ticks a task, suffixed by the task's id (MAG-405). */
-    const val DASHBOARD_TASK_CHECK_PREFIX = "dashboard_task_check_"
-
-    fun dashboardTaskCheck(id: String) = DASHBOARD_TASK_CHECK_PREFIX + id
-
     /**
      * Tasks screen (MAG-408) — the root, one tab per view suffixed by the view's key (`today`,
      * `upcoming`, `someday`, `done`), the quick-add field and its button, the empty line, and the
@@ -641,21 +649,11 @@ object UiTags {
 
     fun routineMonthDay(day: Int) = ROUTINE_MONTH_DAY_PREFIX + day
 
-    /**
-     * Routines in « Aujourd'hui » and on the home (MAG-512): the band above the ring, one pill per
-     * routine suffixed by its id; the home's widget, its title (opens the tab), its summary line and
-     * one tick per routine suffixed by its id.
-     */
+    /** Routines in « Aujourd'hui » (MAG-512): the band above the ring, one pill per routine suffixed by its id. */
     const val ROUTINES_BAND = "routines_band"
     const val ROUTINE_PILL_PREFIX = "routine_pill_"
-    const val DASHBOARD_ROUTINES = "dashboard_routines"
-    const val DASHBOARD_ROUTINES_TITLE = "dashboard_routines_title"
-    const val DASHBOARD_ROUTINES_SUMMARY = "dashboard_routines_summary"
-    const val DASHBOARD_ROUTINE_CHECK_PREFIX = "dashboard_routine_check_"
 
     fun routinePill(id: String) = ROUTINE_PILL_PREFIX + id
-
-    fun dashboardRoutineCheck(id: String) = DASHBOARD_ROUTINE_CHECK_PREFIX + id
 
     /** A task's urgency, its icon and its word (MAG-406): on the dashboard's rows and in the detail. */
     const val TASK_URGENCY = "task_urgency"

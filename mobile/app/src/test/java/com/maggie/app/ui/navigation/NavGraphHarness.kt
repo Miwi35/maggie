@@ -26,8 +26,8 @@ import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailUiState
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListUiState
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
-import com.maggie.app.ui.screens.dashboard.DashboardUiState
-import com.maggie.app.ui.screens.dashboard.DashboardViewModel
+import com.maggie.app.ui.screens.home.HomeUiState
+import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarUiState
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.login.LoginUiState
@@ -58,7 +58,7 @@ internal fun startNavGraphApp() {
         every { uiState } returns state(ContextUiState())
         every { threadEvents } returns MutableSharedFlow()
     }
-    val dash = mockk<DashboardViewModel>(relaxed = true) { every { uiState } returns state(DashboardUiState()) }
+    val home = mockk<HomeViewModel>(relaxed = true) { every { uiState } returns state(HomeUiState()) }
     val tasks = mockk<com.maggie.app.ui.screens.tasks.TasksViewModel>(relaxed = true) {
         every { uiState } returns state(com.maggie.app.ui.screens.tasks.TasksUiState())
     }
@@ -99,7 +99,7 @@ internal fun startNavGraphApp() {
                 viewModel { login }
                 viewModel { chat }
                 viewModel { ctx }
-                viewModel { dash }
+                viewModel { home }
                 viewModel { cal }
                 viewModel { notif }
                 viewModel { recipes }

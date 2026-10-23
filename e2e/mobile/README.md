@@ -104,7 +104,7 @@ against an app nobody launched.
 ## Writing a flow
 
 1. **Sign in through the subflow**, not by retyping its steps:
-   `- runFlow: ../subflows/sign-in.yaml`. It ends on the dashboard, so a flow
+   `- runFlow: ../subflows/sign-in.yaml`. It ends on the Accueil, so a flow
    starts from a signed-in app.
    **Navigate and open the chat through subflows too**: `runFlow: file:
    ../subflows/open-destination.yaml` with `env: DEST: <route>`, and

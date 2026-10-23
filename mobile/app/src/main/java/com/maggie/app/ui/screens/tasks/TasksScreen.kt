@@ -45,7 +45,6 @@ import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.interruption.rememberReducedMotion
-import com.maggie.app.ui.screens.dashboard.DashboardTaskItem
 
 /** What a tab says when it holds nothing. */
 internal fun emptyTextOf(view: TaskView): String = when (view) {
@@ -292,7 +291,7 @@ private fun TaskList(state: TasksUiState, viewModel: TasksViewModel, onTaskClick
 
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
         items(state.tasks, key = { it.id }) { task ->
-            DashboardTaskItem(
+            TaskItem(
                 task = task,
                 onToggleDone = { viewModel.toggleDone(task) },
                 onClick = { onTaskClick(task) },

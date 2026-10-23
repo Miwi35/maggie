@@ -208,9 +208,9 @@ areas:
     - mobile/app/src/main/java/com/maggie/app/data/mercure/**
     - e2e/web/helpers/mercure.ts
   dashboard:
-    - admin/src/modules/dashboard/**
-    - mobile/app/src/main/java/com/maggie/app/ui/screens/dashboard/**
-    - e2e/web/pages/DashboardPage.ts
+    - admin/src/modules/home/**
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/home/**
+    - e2e/web/pages/HomePage.ts
   calendar:
     - api/modules/calendar/**
     - api/fixtures/e2e/20-calendar.yaml
@@ -349,6 +349,8 @@ web:
     areas: [realtime, grocery, calendar, settings]
   e2e/web/tests/live-lists.spec.ts:
     areas: [realtime, grocery, cookbook, finance]
+  e2e/web/tests/home.spec.ts:
+    areas: [dashboard]
   e2e/web/tests/design-system.spec.ts:
     areas: [design, dashboard]
   e2e/web/tests/theme-preference.spec.ts:
@@ -385,8 +387,6 @@ web:
   e2e/web/tests/agenda-google.spec.ts:
     areas: [calendar, google]
   e2e/web/tests/agenda-isolation.spec.ts:
-    areas: [calendar, dashboard]
-  e2e/web/tests/dashboard-multiday.spec.ts:
     areas: [calendar, dashboard]
   e2e/web/tests/agenda-recurrence.spec.ts:
     areas: [calendar]
@@ -498,7 +498,7 @@ web:
     paths: [api/fixtures/e2e/58-finance-upcoming.yaml]
 
 mobile:
-  # The critical core: sign in, read the dashboard, get an answer from Maggie.
+  # The critical core: sign in, land on the Accueil, get an answer from Maggie.
   e2e/mobile/flows/01-login-chat.yaml:
     critical: true
     areas: [chat, dashboard]
@@ -691,6 +691,8 @@ mobile:
   e2e/mobile/flows/27-finance-independence-sources.yaml:
     areas: [finance]
     paths: [api/fixtures/e2e/50-finance.yaml]
+  e2e/mobile/flows/24-home.yaml:
+    areas: [dashboard]
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]

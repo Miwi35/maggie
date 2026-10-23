@@ -25,7 +25,7 @@ class AdaptiveNavigationTest {
 
     @Test
     fun `a phone keeps the burger and the collapsed bar`() {
-        val chrome = chromeFor(phone, Screen.Dashboard.route)
+        val chrome = chromeFor(phone, Screen.Home.route)
 
         assertFalse(chrome.showsRail)
         assertFalse(chrome.showsChatPanel)
@@ -162,8 +162,8 @@ class AdaptiveNavigationTest {
     }
 
     @Test
-    fun `the dashboard has no pane, its events stay sheets on a tablet too`() {
-        val chrome = chromeFor(tabletLandscape, Screen.Dashboard.route)
+    fun `the Accueil has no pane, its events stay sheets on a tablet too`() {
+        val chrome = chromeFor(tabletLandscape, Screen.Home.route)
 
         assertFalse(chrome.showsDetailPane)
         assertTrue(chrome.detailsAreSheets)
@@ -197,9 +197,9 @@ class AdaptiveNavigationTest {
     }
 
     @Test
-    fun `entering the dashboard on a wide window drops what a pane held`() {
-        assertTrue(dropsPaneSelection(Screen.Dashboard.route, true))
-        assertFalse("the phone's sheet is the dashboard's own", dropsPaneSelection(Screen.Dashboard.route, false))
+    fun `entering the Accueil on a wide window drops what a pane held`() {
+        assertTrue(dropsPaneSelection(Screen.Home.route, true))
+        assertFalse("the phone's sheet is the Accueil's own", dropsPaneSelection(Screen.Home.route, false))
         assertFalse(dropsPaneSelection(Screen.Calendar.route, true))
         assertFalse(dropsPaneSelection(null, true))
     }
@@ -251,7 +251,7 @@ class AdaptiveNavigationTest {
 
     @Test
     fun `the finance rail is for the finance module only`() {
-        assertFalse(chromeFor(tabletLandscape, Screen.Dashboard.route).showsFinanceRail)
+        assertFalse(chromeFor(tabletLandscape, Screen.Home.route).showsFinanceRail)
         assertFalse(chromeFor(tabletLandscape, Screen.Settings.route).showsFinanceRail)
         assertFalse(chromeFor(tabletLandscape, null).showsFinanceRail)
     }

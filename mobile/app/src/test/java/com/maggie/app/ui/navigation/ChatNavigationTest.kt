@@ -28,7 +28,7 @@ class ChatNavigationTest {
 
     @Test
     fun `the chat bottom bar stays on the other main screens`() {
-        assertTrue(showsChatBottomBar(Screen.Dashboard.route))
+        assertTrue(showsChatBottomBar(Screen.Home.route))
         assertTrue(showsChatBottomBar(Screen.Calendar.route))
         assertFalse(showsChatBottomBar(Screen.EventEdit.route))
         assertTrue("the bottom of Finance is Maggie's", showsChatBottomBar(Screen.FinanceDashboard.route))

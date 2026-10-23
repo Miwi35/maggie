@@ -1,0 +1,9 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: home-test@example.com
+    googleId: google-home-test
+    name: Home Test User
+  other_user:
+    email: home-other@example.com
+    googleId: google-home-other
+    name: Home Other User

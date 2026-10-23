@@ -173,7 +173,7 @@ tags:
       e2e_journey: e2e/mobile/flows/17-task-settings.yaml
 - extendedWaitUntil:
     visible:
-      id: "dashboard"
+      id: "home_screen"
     timeout: 40000
 - runFlow:
     file: ../subflows/open-destination.yaml

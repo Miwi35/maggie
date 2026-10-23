@@ -4,7 +4,7 @@ tags:
   - socle
 ---
 # The first journey of the emulator harness (MAG-98): sign in, read the seeded
-# dashboard, open the chat and get an answer out of Maggie.
+# Accueil, open the chat and get an answer out of Maggie.
 #
 # Deliberately the widest shallow path rather than a deep one. Everything under
 # it has to work for these few commands to pass — the Gradle flavor, `adb
@@ -34,12 +34,12 @@ tags:
 
 - runFlow: ../subflows/sign-in.yaml
 
-# The dashboard really read the API, and read it as this user. « Déjeuner avec
-# Alex » is seeded for the anchor day at 12:00 Paris and the « Aujourd'hui » tab
-# lists the whole day, so this holds at any hour — `run.sh` puts the emulator on
-# Europe/Paris, which is what makes the device's "today" the seed's today.
+# The Accueil is the landing screen (MAG-560): its title and its day selector are
+# the proof that the sign-in reached the app. The cards read the API on their own
+# journeys; the chat below reads the seeded agenda through the real MCP.
 - extendedWaitUntil:
-    visible: ".*Déjeuner avec Alex.*"
+    visible:
+      id: "home_screen"
     timeout: 20000
 
 # The chat, from the bar every main screen carries. By id and not by its

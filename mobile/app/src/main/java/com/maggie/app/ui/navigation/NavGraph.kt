@@ -178,8 +178,8 @@ import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
-import com.maggie.app.ui.screens.dashboard.DashboardScreen
-import com.maggie.app.ui.screens.dashboard.DashboardViewModel
+import com.maggie.app.ui.screens.home.HomeScreen
+import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarScreen
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.fullcalendar.MEALS_FILTER_ID
@@ -236,7 +236,7 @@ import java.time.Instant
 sealed class Screen(val route: String, val label: String) {
     data object Loading : Screen("loading", "Chargement")
     data object Login : Screen("login", "Connexion")
-    data object Dashboard : Screen("dashboard", "Tableau de bord")
+    data object Home : Screen("home", "Accueil")
     data object Calendar : Screen("calendar", "Calendrier")
     data object Tasks : Screen("tasks", "Tâches")
     data object EventCreate : Screen("event/create", "Nouvel événement")
@@ -310,7 +310,7 @@ private const val LINK_NOT_FOUND = "Cet élément n'existe plus."
 private const val DEFAULT_ACCOUNT_NAME = "Compte"
 
 private val MAIN_SCREENS = setOf(
-    Screen.Dashboard.route,
+    Screen.Home.route,
     Screen.Calendar.route,
     Screen.Tasks.route,
     Screen.Chat.route,
@@ -336,11 +336,11 @@ internal data class Chrome(
     val denseTopBar: Boolean,
     /** This screen draws its list and the detail of the selected item side by side (MAG-263). */
     val showsDetailPane: Boolean,
-    /** Details open as a sheet over the screen: the window has no pane for them, or the screen is the dashboard's. */
+    /** Details open as a sheet over the screen: the window has no pane for them, or the screen is the Accueil's. */
     val detailsAreSheets: Boolean,
 )
 
-// The screens whose list has a detail beside it. The dashboard lists events too, but it has no pane: its events stay sheets.
+// The screens whose list has a detail beside it. The Accueil's cards list events too, but it has no pane: their events stay sheets.
 private val DETAIL_PANE_ROUTES = setOf(
     Screen.Calendar.route,
     Screen.Tasks.route,
@@ -368,9 +368,9 @@ private val DETAIL_ROUTE_LISTS = mapOf(
 internal fun foldsDetailRouteIntoPane(route: String?, showsDetailPane: Boolean): String? =
     if (showsDetailPane) DETAIL_ROUTE_LISTS[route] else null
 
-/** The dashboard keeps its own sheets: what a pane held while the window was wide must not open over it. */
+/** The Accueil keeps its own sheets: what a pane held while the window was wide must not open over it. */
 internal fun dropsPaneSelection(route: String?, detailPaneFits: Boolean): Boolean =
-    detailPaneFits && route == Screen.Dashboard.route
+    detailPaneFits && route == Screen.Home.route
 
 /**
  * The detail route to open again once the window has lost its detail pane (MAG-263).
@@ -442,7 +442,7 @@ internal fun chromeFor(layout: AppLayout, route: String?): Chrome {
         showsChatInRail = chatReachable && layout.chatEntry == ChatEntry.RAIL,
         denseTopBar = layout.denseTopBar,
         showsDetailPane = layout.detailPaneFits && route in DETAIL_PANE_ROUTES,
-        detailsAreSheets = !layout.detailPaneFits || route == Screen.Dashboard.route,
+        detailsAreSheets = !layout.detailPaneFits || route == Screen.Home.route,
     )
 }
 
@@ -666,7 +666,7 @@ fun NavGraph() {
 
     val chatViewModel: ChatViewModel = koinViewModel()
     val contextViewModel: ContextViewModel = koinViewModel()
-    val dashboardViewModel: DashboardViewModel = koinViewModel()
+    val homeViewModel: HomeViewModel = koinViewModel()
     val calendarViewModel: FullCalendarViewModel = koinViewModel()
     val tasksViewModel: TasksViewModel = koinViewModel()
     val focusViewModel: FocusViewModel = koinViewModel()
@@ -794,16 +794,16 @@ fun NavGraph() {
     }
 
     // Auth redirect — wait until lock screen is dismissed so we don't
-    // overwrite the restored navigation state with a fresh Dashboard route.
+    // overwrite the restored navigation state with a fresh Accueil route.
     // Keyed on the route too: a deep link opened from a cold start sits on top of Loading,
-    // and going back to it must land on the dashboard, not on a spinner.
+    // and going back to it must land on the Accueil, not on a spinner.
     LaunchedEffect(isAuthenticated, isLocked, currentRoute) {
         val liveRoute = navController.currentBackStackEntry?.destination?.route
         when (authRedirect(isAuthenticated, isLocked, liveRoute)) {
             AuthRedirect.LOGIN -> navController.navigate(Screen.Login.route) {
                 popUpTo(0) { inclusive = true }
             }
-            AuthRedirect.DASHBOARD -> navController.navigate(Screen.Dashboard.route) {
+            AuthRedirect.HOME -> navController.navigate(Screen.Home.route) {
                 popUpTo(0) { inclusive = true }
             }
             AuthRedirect.NONE -> {}
@@ -827,7 +827,7 @@ fun NavGraph() {
     val isMainScreen = currentRoute in MAIN_SCREENS
 
     val title = when (currentRoute) {
-        Screen.Dashboard.route -> Screen.Dashboard.label
+        Screen.Home.route -> Screen.Home.label
         Screen.Calendar.route -> Screen.Calendar.label
         Screen.Tasks.route -> Screen.Tasks.label
         Screen.Chat.route -> Screen.Chat.label
@@ -837,7 +837,6 @@ fun NavGraph() {
     }
 
     fun refreshAll() {
-        dashboardViewModel.refresh()
         calendarViewModel.refresh()
         // The tasks screen reads a view that a tick, an edit or a deletion moves tasks out of.
         if (currentRoute == Screen.Tasks.route) tasksViewModel.refresh()
@@ -928,7 +927,7 @@ fun NavGraph() {
         }
     }
 
-    // The pane's selection is not the dashboard's sheet: entering the dashboard on a wide window starts clean.
+    // The pane's selection is not the Accueil's sheet: entering the Accueil on a wide window starts clean.
     LaunchedEffect(currentRoute) {
         if (dropsPaneSelection(currentRoute, layout.detailPaneFits)) {
             selectedEvent = null
@@ -1209,19 +1208,8 @@ fun NavGraph() {
                             navController.replaceLink(entry, Screen.Contacts.route, singleTop = true)
                         }
                     }
-                    composable(Screen.Dashboard.route) {
-                        DashboardScreen(
-                            viewModel = dashboardViewModel,
-                            onEventClick = { selectedEvent = it },
-                            onTaskClick = {
-                                selectedEvent = null
-                                selectedTask = it
-                            },
-                            onOpenRoutines = {
-                                tasksViewModel.requestRoutinesTab()
-                                navigateTo(Screen.Tasks.route)
-                            },
-                        )
+                    composable(Screen.Home.route, deepLinks = DeepLinks.forRoute(Screen.Home.route)) {
+                        HomeScreen(viewModel = homeViewModel)
                     }
                     composable(
                         Screen.Chat.route,

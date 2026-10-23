@@ -2,11 +2,10 @@ import { test, expect, e2eNow, parisDay, parisTime, seedDate, seedId } from '../
 import type { APIRequestContext } from '@playwright/test'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
 import { TasksPage } from '../pages/TasksPage.js'
 
 /**
- * Tasks, from the agenda and from the dashboard (MAG-100).
+ * Tasks, from the agenda (MAG-100).
  *
  * The regression this file is built around is `33f0506`: the `ExistsFilter` on
  * `Task` only declared `doneDate`, so `exists[dueDate]=false` was accepted and
@@ -103,56 +102,19 @@ test('a task created from the agenda lands in the database and on the grid', asy
   await expect(calendar.chip(title)).toHaveCount(1)
 })
 
-test('ticking a task off on the dashboard completes it and takes it out of the day', async ({ page, api }) => {
-  const title = perAttempt('Rappeler le plombier')
-  const calendar = new CalendarPage(page)
-  await calendar.open()
-  await calendar.createTask({ title, dueDate: DAY })
-
-  const stored = await waitForIndexed<StoredTask>(api, '/api/tasks?itemsPerPage=100', (task) => task.title === title, {
-    what: `The task "${title}"`,
-  })
-
-  const dashboard = new DashboardPage(page)
-  await dashboard.open()
-  // Due today, so it belongs to "Aujourd'hui" — the one bucket that also gathers
-  // what is overdue (MAG-405).
-  await expect(dashboard.line(title)).toHaveCount(1)
-
-  await dashboard.taskCheckbox(title).click()
-
-  // The data first: the widget redraws from Elasticsearch, so a line that is still
-  // there a moment later says nothing until the write is known to have landed.
-  await expect
-    .poll(async () => (await tasks(api)).find((task) => task.id === stored.id)?.completedAt != null, {
-      timeout: 30_000,
-      message: 'the task should be stored as completed',
-    })
-    .toBe(true)
-
-  await dashboard.open()
-  await expect(dashboard.line(title), 'a completed task is still in the day').toHaveCount(0)
-})
-
 /**
  * A task due and not done stays in « Aujourd'hui », marked late — MAG-405.
  *
- * The seed has one task due today and one due two days ago: on the dashboard the
- * late one goes before it — by score since MAG-406 — with its lateness in words
- * and its original day, and ticking it takes it out of the day. The lateness comes
+ * The seed has one task due today and one due two days ago. The lateness comes
  * from the API (`overdueDays`), counted in the user's timezone: the page only draws it.
  *
  * On the « Tâches » page the day holds five tasks the owner chose (MAG-497): the
  * late one waits in the reserve, « reportée depuis … » since its due day, never a
  * reproach in red.
  */
-test('a late task stays in « Aujourd\'hui » before the day\'s own, says how late it is, and leaves when ticked', async ({ page, api }) => {
+test('a late task is put off, not reproached: the API counts its lateness and the reserve says « reportée depuis »', async ({ page, api }) => {
   const title = 'Renvoyer le formulaire de la mutuelle'
   const taskId = seedId('e2e_task_late')
-
-  // Reopen first: CI retries once without reseeding, and a retry would otherwise
-  // start on the tick the first attempt left.
-  await reopenTask(api, taskId)
 
   const item = await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/ld+json' } })
   expect(item.ok(), `GET /api/tasks/${taskId} answered ${item.status()}`).toBe(true)
@@ -167,41 +129,6 @@ test('a late task stays in « Aujourd\'hui » before the day\'s own, says how la
   await expect(board.reserveRow(title)).toHaveCount(1)
   await expect(board.reserveRow(title)).toContainText(/reportée depuis \S+/)
   await expect(board.reserveRow(title)).not.toContainText(/retard/i)
-
-  const dashboard = new DashboardPage(page)
-  await dashboard.open()
-
-  // The column lists the day's events before its tasks: only a task line has a checkbox.
-  const rows = dashboard.content
-    .getByRole('heading', { name: "Aujourd'hui" })
-    .locator('..')
-    .getByRole('listitem')
-    .filter({ has: page.getByRole('checkbox') })
-  await expect(dashboard.line(title)).toHaveCount(1)
-  // By score since MAG-406: two days late (65 + 4 + 3 = 72) passes the task due today (55 + 10 + 3 = 68).
-  const titles = await rows.allTextContents()
-  expect(
-    titles.findIndex((row) => row.includes(title)),
-    'the late task should come before the one due today',
-  ).toBeLessThan(titles.findIndex((row) => row.includes('Préparer le déménagement')))
-  const late = rows.filter({ hasText: title })
-  // Not critical: put off, never a reproach (MAG-497).
-  await expect(late).toContainText(/reportée depuis /)
-  await expect(late).not.toContainText('En retard')
-  await expect(late).toContainText('prévue le')
-  await expect(rows.filter({ hasText: 'Préparer le déménagement' })).not.toContainText('En retard')
-
-  await dashboard.taskCheckbox(title).click()
-
-  await expect
-    .poll(async () => (await tasks(api)).find((task) => task.id === taskId)?.completedAt != null, {
-      timeout: 30_000,
-      message: 'the task should be stored as completed',
-    })
-    .toBe(true)
-
-  await dashboard.open()
-  await expect(dashboard.line(title), 'a completed task is still in the day').toHaveCount(0)
 })
 
 /**
@@ -210,9 +137,8 @@ test('a late task stays in « Aujourd\'hui » before the day\'s own, says how la
  * The seed's three witnesses, with the default weights: « Payer la cantine »
  * (high criticality, medium priority, due today) 78, « Rendre le livre » (low,
  * low, a day late) 67, « Arroser » (low, low, due today) 55 — urgencies haute,
- * haute, normale. The API computes both; the dashboard draws the urgency as a word
- * with an icon and keeps the API's order, and so does the reserve of the « Tâches »
- * page (MAG-497), where « Rendre le livre » reads « reportée depuis hier ». Other
+ * haute, normale. The API computes both; the reserve of the « Tâches » page
+ * (MAG-497) keeps its order, and there « Rendre le livre » reads « reportée depuis hier ». Other
  * journeys add tasks to the day, so the three are compared with each other, not
  * with the row numbers.
  */
@@ -225,29 +151,6 @@ test('« Aujourd\'hui » goes by score, each task with its urgency in words', as
   const scored = witnesses.map((title) => view.find((task) => task.title === title))
   expect(scored.map((task) => task?.orderScore)).toEqual([78, 67, 55])
   expect(scored.map((task) => task?.urgency)).toEqual(['high', 'high', 'normal'])
-
-  const dashboard = new DashboardPage(page)
-  await dashboard.open()
-  const rows = dashboard.content
-    .getByRole('heading', { name: "Aujourd'hui" })
-    .locator('..')
-    .getByRole('listitem')
-    .filter({ has: page.getByRole('checkbox') })
-  for (const title of witnesses) await expect(dashboard.line(title)).toHaveCount(1)
-
-  const titles = await rows.allTextContents()
-  const positions = witnesses.map((title) => titles.findIndex((row) => row.includes(title)))
-  expect(positions, `the order of the day: ${titles.join(' | ')}`).toEqual([...positions].sort((a, b) => a - b))
-
-  for (const [title, word] of [
-    ['Payer la cantine', 'haute'],
-    ['Rendre le livre', 'haute'],
-    ['Arroser', 'normale'],
-  ] as const) {
-    const badge = rows.filter({ hasText: title }).getByTestId('urgency-badge')
-    await expect(badge, `the urgency of « ${title} »`).toHaveText(word)
-    await expect(badge.locator('svg'), 'the urgency has its icon, not only a colour').toHaveCount(1)
-  }
 
   // The reserve of the day, by the same score.
   const day = await dayPlan(api)

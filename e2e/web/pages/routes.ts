@@ -16,7 +16,7 @@ export function adminUrl(route = '/'): string {
 }
 
 export const ROUTES = {
-  dashboard: '/',
+  home: '/',
   login: '/login',
   calendar: '/calendar',
   tasks: '/tasks',

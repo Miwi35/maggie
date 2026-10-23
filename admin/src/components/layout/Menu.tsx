@@ -10,7 +10,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Collapse from '@mui/material/Collapse'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import ChecklistIcon from '@mui/icons-material/Checklist'
-import DashboardIcon from '@mui/icons-material/Dashboard'
+import HomeIcon from '@mui/icons-material/Home'
 import StorageIcon from '@mui/icons-material/Storage'
 import EventIcon from '@mui/icons-material/Event'
 import DateRangeIcon from '@mui/icons-material/DateRange'
@@ -73,8 +73,8 @@ export const CustomMenu = () => {
     <Box sx={{ mt: 1 }}>
       <MenuItemLink
         to="/"
-        primaryText="Tableau de bord"
-        leftIcon={<DashboardIcon />}
+        primaryText="Accueil"
+        leftIcon={<HomeIcon />}
       />
       <MenuItemLink
         to="/calendar"

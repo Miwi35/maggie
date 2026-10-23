@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/index.js'
 import { withChatLock } from '../helpers/chatLock.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * A client that leaves before the answer (MAG-344, extends MAG-99).
@@ -19,7 +19,7 @@ test('the answer is there when the chat is opened again, after the client droppe
   otherUser,
 }) => {
   const { page, api, session } = otherUser
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
 
   await withChatLock(async () => {
     // Send the message, read the first event, then cut the connection like a closed app.

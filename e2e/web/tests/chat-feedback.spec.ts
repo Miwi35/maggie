@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { test, expect } from '../fixtures/index.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import { adminUrl, ROUTES } from '../pages/routes.js'
 
 /**
@@ -38,7 +38,7 @@ test('a thumb down with a comment becomes a proposed directive, applied only onc
   const QUESTION = `Bonjour Maggie (réf ${ref})`
   const ANSWER = `Bonjour ! Je suis là, dis-moi ce qu'il te faut. (réf ${ref})`
 
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
   const chat = new ChatPanel(page)
   await chat.send(QUESTION)
   await expect(chat.bubbles(ANSWER)).toHaveCount(1)

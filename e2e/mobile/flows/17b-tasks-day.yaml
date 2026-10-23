@@ -77,7 +77,7 @@ onFlowComplete:
 - tapOn:
     id: "tasks_day_add_submit"
 # No `hideKeyboard`: the keyboard is already down once the row recomposes, and on
-# Android it then sends « back », which leaves the tasks screen for the dashboard.
+# Android it then sends « back », which leaves the tasks screen for the Accueil.
 - runScript:
     file: ../scripts/day-plan-api.js
     env:

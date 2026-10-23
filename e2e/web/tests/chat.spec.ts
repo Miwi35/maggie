@@ -15,7 +15,7 @@ import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { TasksPage } from '../pages/TasksPage.js'
 import { adminUrl, ROUTES } from '../pages/routes.js'
@@ -211,7 +211,7 @@ const BEHAVIOR = {
 test('a scripted question runs its tool and streams the answer back', async ({ page }) => {
   agendaRef = randomUUID().slice(0, 8)
   const agenda = agendaExchange(agendaRef)
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -248,7 +248,7 @@ test('a scripted question runs its tool and streams the answer back', async ({ p
 })
 
 test('an unscripted message says so rather than improvising', async ({ page }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -269,7 +269,7 @@ test('what Maggie books shows up in the Mind panel, in the database and in the a
   page,
   api,
 }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   // Nothing lives in 2099 until Maggie puts it there, which is what makes the
@@ -307,7 +307,7 @@ test('what Maggie books shows up in the Mind panel, in the database and in the a
 })
 
 test('an event asked for in a named agenda lands in that agenda in one tool call', async ({ page, api }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   expect(await getCollection<SeededEvent>(api, APPOINTMENTS_URL)).not.toContainEqual(
@@ -337,7 +337,7 @@ test('a call for someone in another timezone is converted by the date_time tool,
   page,
   api,
 }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -363,7 +363,7 @@ test('a call for someone in another timezone is converted by the date_time tool,
 })
 
 test('a stretch of days asked for is one whole-day event, not a series', async ({ page, api }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   expect(await getCollection<SeededEvent>(api, APPOINTMENTS_URL)).not.toContainEqual(
@@ -418,7 +418,7 @@ test('the days booked in holidays come from the weekdays the agenda gives, not f
   })
   expect(created.status()).toBe(201)
 
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -456,7 +456,7 @@ test('the days booked in holidays come from the weekdays the agenda gives, not f
 })
 
 test('changing the subject opens a second context', async ({ page }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -487,7 +487,7 @@ test('changing the subject opens a second context', async ({ page }) => {
 })
 
 test('a thread is still there after a reload, and only once', async ({ page }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   // A fresh tab: what is on screen now came from `GET /agent/messages`, not
@@ -512,7 +512,7 @@ test('a thread is still there after a reload, and only once', async ({ page }) =
 })
 
 test('a proaction reaches an open chat without anyone reloading', async ({ page, api, session }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   const chat = new ChatPanel(page)
 
   // Subscribed to the chat's own topic before anything is published: the panel
@@ -593,7 +593,7 @@ const PURCHASE_SUGGESTIONS = {
 test('« il me manque quelque chose ? » reads the products due again through get_purchase_suggestions', async ({
   page,
 }) => {
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
 
   const chat = new ChatPanel(page)
   const events = await chat.send(PURCHASE_SUGGESTIONS.question)
@@ -620,7 +620,7 @@ const WEATHER = {
 }
 
 test('asking for the weather runs get_weather against the simulated Open-Meteo', async ({ page }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -649,7 +649,7 @@ const FINANCE_SCORES = {
 }
 
 test('« où j\'en suis ce mois-ci ? » reads the week and month scores through get_finance_scores', async ({ page, api }) => {
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
 
   const chat = new ChatPanel(page)
   const events = await chat.send(FINANCE_SCORES.question)
@@ -676,7 +676,7 @@ const WEB_SEARCH = {
 }
 
 test('a question about the web runs the web search and the answer shows its source as a link', async ({ page }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -727,7 +727,7 @@ test('a dictated sentence reaches the input cleaned, and sending it writes to th
   page,
   api,
 }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const secure = await page.evaluate(() => ({
@@ -858,7 +858,7 @@ test('a long thread is summarized, and the summary reaches Maggie and the Mind p
 
   // A fresh tab: what the panel shows now came from `GET /agent/contexts`, which
   // is the path an owner opening the app takes.
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -905,7 +905,7 @@ test('a preference about how Maggie answers is stored, then applied to the next 
   page,
   api,
 }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1043,7 +1043,7 @@ const THREAD_RECALL = {
  * the line would exist on a first message too, which the unit tests pin.
  */
 test('Maggie is told when the last conversation happened', async ({ page }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1078,7 +1078,7 @@ test('Maggie is told when the last conversation happened', async ({ page }) => {
 test('picking an older thread back up sends that thread, not the last messages of everything', async ({
   page,
 }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1122,7 +1122,7 @@ test('picking an older thread back up sends that thread, not the last messages o
 test('a tool result read last turn is still there on the next one, without calling the tool again', async ({
   page,
 }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1158,7 +1158,7 @@ test('a tool result read last turn is still there on the next one, without calli
  * action, and compared with the event the first turn really booked.
  */
 test('an event created last turn is deleted by its real id, with no search first', async ({ page, api }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1254,7 +1254,7 @@ test('the day is read late task first, one undated task is offered, and it gets 
     return String(dueDate ?? '').slice(0, 10) || null
   }
 
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
   const chat = new ChatPanel(page)
 
@@ -1303,7 +1303,7 @@ test('the day is read late task first, one undated task is offered, and it gets 
  * so is every test below it.
  */
 test('a run whose first tool call fails answers with its last step alone', async ({ page, api }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1348,8 +1348,8 @@ test('an exchange streamed in one window shows up in the other, once, without a 
   const actorChat = new ChatPanel(actor)
   const observerChat = new ChatPanel(observer)
 
-  await new DashboardPage(actor).open()
-  await openSubscribed(observer, () => new DashboardPage(observer).open(), `/chat/${session.user.id}`)
+  await new HomePage(actor).open()
+  await openSubscribed(observer, () => new HomePage(observer).open(), `/chat/${session.user.id}`)
   await observerChat.open()
 
   await expectRealtimeSync(
@@ -1392,7 +1392,7 @@ test('an exchange streamed in one window shows up in the other, once, without a 
  * agenda the event is in is not.
  */
 test('an event nobody placed lands in the agenda its own words point at', async ({ page, api }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1420,7 +1420,7 @@ test('an event nobody placed lands in the agenda its own words point at', async 
 })
 
 test('an appointment nobody placed lands where the past ones went', async ({ page, api }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1446,7 +1446,7 @@ test('an appointment nobody placed lands where the past ones went', async ({ pag
 })
 
 test('an event two agendas fit is not created until the owner says which one', async ({ page, api }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1507,7 +1507,7 @@ test('"décale la soirée à jeudi" moves the evening to Thursday 19:00–00:00 
   expect(created.status()).toBe(201)
   const eventId = ((await created.json()) as { id: string }).id
 
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1548,7 +1548,7 @@ test('"ajoute un déjeuner provisoire jeudi" creates a tentative event, "confirm
   const title = 'Déjeuner provisoire (MAG-246)'
   const url = '/api/events?startAt%5Bafter%5D=2098-01-01&startAt%5Bbefore%5D=2098-12-31'
 
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1592,7 +1592,7 @@ test('a rule announced as learned without a tool is stored as a skill, and shown
   page,
   api,
 }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1643,7 +1643,7 @@ test('"quand est-ce que je vois Julie ?" is answered from the agenda, not from m
   })
   expect(created.status()).toBe(201)
 
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1678,7 +1678,7 @@ const ONE_DISCUSSION = {
  * Last in the file: it opens a thread, and the tests above count them.
  */
 test('three linked messages stay in one thread, and the third is answered from the first', async ({ page }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)
@@ -1713,7 +1713,7 @@ test('three linked messages stay in one thread, and the third is answered from t
  * reload does not bring them back.
  */
 test('a thread is deleted from the icon next to the search, with its messages', async ({ page, api }) => {
-  const dashboard = new DashboardPage(page)
+  const dashboard = new HomePage(page)
   await dashboard.open()
 
   const chat = new ChatPanel(page)

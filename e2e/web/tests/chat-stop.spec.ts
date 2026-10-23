@@ -1,7 +1,7 @@
 import { test, expect } from '../fixtures/index.js'
 import { withChatLock } from '../helpers/chatLock.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * Stopping Maggie and correcting the message, as on Claude (MAG-320, extends MAG-99).
@@ -24,7 +24,7 @@ test('Arrêter stops the answer and gives the message back; the corrected one re
   const { page, api } = otherUser
 
   await withChatLock(async () => {
-    await new DashboardPage(page).open()
+    await new HomePage(page).open()
     const chat = new ChatPanel(page)
     await chat.open()
     // The thread is shared with earlier runs, which leave their corrected exchange behind.

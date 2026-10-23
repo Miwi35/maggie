@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { test, expect } from '../fixtures/index.js'
 import { assistantText, calledTools, parseAgUiStream } from '../helpers/agui.js'
 import { withChatLock, withLock } from '../helpers/chatLock.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * Maggie's two memory layers (MAG-17, extends MAG-99 and MAG-195).
@@ -51,7 +51,7 @@ test('an anecdote is kept whole without any tool, and a fiche cites it and comes
     }
 
     await call(api, 'delete', user)
-    await new DashboardPage(page).open()
+    await new HomePage(page).open()
 
     const ask = async (message: string): Promise<{ text: string; tools: string[] }> =>
       withChatLock(async () => {

@@ -4,7 +4,7 @@ import { calledTools, toolResults } from '../helpers/agui.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { euros } from '../helpers/money.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import { FinanceTreasuryPage } from '../pages/FinanceTreasuryPage.js'
 import { ROUTES, adminUrl } from '../pages/routes.js'
 
@@ -198,7 +198,7 @@ test('« combien je dois remettre sur mon livret ? » reads the advance taken du
   const { checkingId, livretId } = await givenAdvanceTaken(api, today)
 
   // When I ask Maggie how much to put back on my Livret.
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
   const events = await new ChatPanel(page).send('Combien je dois remettre sur mon livret ?')
 
   // Then she read the savings advances and asked what to transfer, and both went through.

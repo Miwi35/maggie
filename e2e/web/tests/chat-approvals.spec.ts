@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { test, expect, seedId } from '../fixtures/index.js'
 import { assistantText, toolResults } from '../helpers/agui.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 import type { APIRequestContext } from '@playwright/test'
 
 /**
@@ -56,7 +56,7 @@ test('Autoriser runs the held deletion and Maggie announces it', async ({ approv
   const title = uniqueTitle('Recette validation MAG-6 autorisée')
   const id = await createEvent(api, title)
 
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
   const chat = new ChatPanel(page)
   await chat.open()
   const events = await chat.send(`Supprime l'événement ${id}`)
@@ -108,7 +108,7 @@ test('Refuser leaves the event in place', async ({ approvalsUser }) => {
   const title = uniqueTitle('Recette validation MAG-6 refusée')
   const id = await createEvent(api, title)
 
-  await new DashboardPage(page).open()
+  await new HomePage(page).open()
   const chat = new ChatPanel(page)
   await chat.open()
   await chat.send(`Supprime l'événement ${id}`)

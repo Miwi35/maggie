@@ -81,7 +81,7 @@ class FinanceNavigationTest {
         assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.AccountTransactions.route))
         assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.Contacts.route))
         assertEquals(FinanceMenu.ACCOUNTS, FinanceMenu.of(Screen.PeerDebts.route))
-        assertNull(FinanceMenu.of(Screen.Dashboard.route))
+        assertNull(FinanceMenu.of(Screen.Home.route))
         assertNull(FinanceMenu.of(null))
     }
 
@@ -152,7 +152,7 @@ class FinanceNavigationTest {
 
     @Test
     fun `a screen opened by a link is swapped for the dashboard on back`() {
-        assertEquals(FinanceBack.REPLACE_WITH_DASHBOARD, financeBackAction(Screen.Dashboard.route))
+        assertEquals(FinanceBack.REPLACE_WITH_DASHBOARD, financeBackAction(Screen.Home.route))
         assertEquals(FinanceBack.REPLACE_WITH_DASHBOARD, financeBackAction(Screen.Loading.route))
         assertEquals(FinanceBack.REPLACE_WITH_DASHBOARD, financeBackAction(null))
     }

@@ -23,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Agenda
-import com.maggie.app.ui.screens.dashboard.parseColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
