@@ -62,7 +62,7 @@ tags:
     timeout: 10000
 - tapOn: "Nom"
 - inputText: "Compte courant MAG-422-${output.n}"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Créer"
 - extendedWaitUntil:
     visible: "EUR · Compte courant MAG-422-${output.n}"
@@ -74,7 +74,7 @@ tags:
     timeout: 10000
 - tapOn: "Nom"
 - inputText: "Compte courant MAG-422-${output.n} livret"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Épargne"
 - tapOn: "Créer"
 - extendedWaitUntil:
@@ -96,7 +96,7 @@ tags:
 - inputText: "VIREMENT VERS LIVRET MAG-422"
 - tapOn: "Montant (€)"
 - inputText: "451.37"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Créer"
 
 - extendedWaitUntil:
@@ -148,7 +148,7 @@ tags:
 - inputText: "VIREMENT DEPUIS COURANT MAG-422"
 - tapOn: "Montant (€)"
 - inputText: "451.37"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Créer"
 - extendedWaitUntil:
     visible: "VIREMENT DEPUIS COURANT MAG-422"
@@ -164,7 +164,7 @@ tags:
 - inputText: "INTERETS LIVRET MAG-422"
 - tapOn: "Montant (€)"
 - inputText: "12.50"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Créer"
 - extendedWaitUntil:
     visible: "INTERETS LIVRET MAG-422"

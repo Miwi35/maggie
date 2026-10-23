@@ -433,6 +433,65 @@ relationship to it, not of Maestro:
   follow the dictation to the chat. What the overlay must *not* do (MAG-93's four
   voice regressions) is still asserted on the server, not on screen.
 
+## Sélecteurs (MAG-578)
+
+Most journey failures of 22-23 Oct. were a selector that only looked right. Five
+rules; the first four are refused by `task e2e:mobile:lint` / `task e2e:web:lint`
+(each has a refused example in `e2e/mobile/lint-examples/` and
+`e2e/web/lint-examples/`, checked on every run), the fifth is on you.
+
+1. **A stable id, never a piece of data.** An id built from a generated value
+   (`auto-…`, a ULID, a counter) changes between runs and under the flow. Match the
+   prefix, or the text shown in the row. On the web, keep the id the request that
+   created the object returned — never find it by part of its name.
+   ```yaml
+   # ✗ "auto-rapid" is a ULID once the scenario is made current
+   - tapOn: { id: "scenario_make_current_auto-rapid" }
+   # ✓
+   - tapOn: { text: "Rendre courant", below: "Rapide" }
+   ```
+   ```ts
+   // ✗ « Gratin » also matches the seed's row and the last run's
+   await waitForIndexed(api, '/api/meals', (m) => String(m.summary).includes('Gratin'))
+   // ✓ the id POST /api/meals answered (or `plannedMealId(page, click)` for a click)
+   await waitForIndexed(api, '/api/meals', (m) => m.id === mealId)
+   ```
+2. **The text of a button is in a child.** A tag sits on the container, its label
+   on the `Text` inside: `id:` and `text:` on one selector match nothing.
+   ```yaml
+   # ✗ - assertVisible: { id: "breadcrumb_section", text: "Revue" }
+   - assertVisible:
+       id: "breadcrumb_section"
+       containsDescendants:
+         - text: "Revue"
+   ```
+3. **A ticked state is `checked`.** Compose exposes `Role.RadioButton`, checkboxes
+   and switches as `checked`; `selected` only exists on a `Role.Tab` (the
+   `subview_` pills). `lint.sh` allows `selected:` on the prefixes of
+   `SELECTED_OK_PREFIXES` and nothing else.
+   ```yaml
+   # ✗ - assertVisible: { id: "breadcrumb_menu_dashboard", selected: true }
+   - assertVisible:
+       id: "breadcrumb_menu_dashboard"
+       checked: true
+   ```
+4. **Never a bare `hideKeyboard`.** It is a *back* on Android: with the keyboard
+   already down it closes the sheet (MAG-572).
+   ```yaml
+   # ✗ - hideKeyboard
+   - runFlow: ../subflows/hide-keyboard.yaml
+   ```
+5. **Scroll before waiting for an element of a list.** `extendedWaitUntil` does not
+   scroll: an element under the bottom of the screen is never visible, and the wait
+   runs its whole timeout (MAG-554).
+   ```yaml
+   # ✗ - extendedWaitUntil: { visible: { id: "tasks_slot_1" }, timeout: 20000 }
+   - scrollUntilVisible:
+       element:
+         id: "tasks_slot_1"
+       timeout: 20000
+   ```
+
 ## What a new journey owes
 
 1. It runs against a stack started by `task e2e:up` and seeded by

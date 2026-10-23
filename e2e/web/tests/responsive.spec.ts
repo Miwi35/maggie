@@ -212,7 +212,7 @@ test.describe('Responsive @responsive', () => {
     const meal = (await created.json()) as { id: string }
 
     try {
-      await waitForIndexed<{ summary: string }>(api, '/api/meals', (m) => String(m.summary).includes(name), {
+      await waitForIndexed<{ id: string }>(api, '/api/meals', (m) => m.id === meal.id, {
         what: 'The meal with the long name',
       })
 

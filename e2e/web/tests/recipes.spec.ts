@@ -1,6 +1,6 @@
 import { test, expect, seedDate, seedId } from '../fixtures/index.js'
 import type { APIRequestContext, Page } from '@playwright/test'
-import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { getCollection, plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed, userTopic } from '../helpers/mercure.js'
 import { dayOfThisWeek } from '../helpers/week.js'
 import { AdminShell } from '../pages/AdminShell.js'
@@ -21,6 +21,7 @@ interface RecipeRow {
 }
 
 interface MealRow {
+  id: string
   summary: string
   agenda: unknown
   /** The day, `YYYY-MM-DD` — a meal has no time (MAG-251). */
@@ -250,10 +251,10 @@ test.describe('Recipes and meals', () => {
     await expect(dialog.getByLabel('Date')).toHaveValue(tuesday)
     await dialog.getByLabel('Menu').fill('Blanquette')
     await page.getByRole('option', { name }).click()
-    await dialog.getByRole('button', { name: 'Créer' }).click()
+    const mealId = await plannedMealId(page, () => dialog.getByRole('button', { name: 'Créer' }).click())
 
     // The day the API stored, as a day.
-    const stored = await waitForIndexed<MealRow>(api, '/api/meals', (m) => String(m.summary).includes(name), {
+    const stored = await waitForIndexed<MealRow>(api, '/api/meals', (m) => m.id === mealId, {
       what: 'The lunch planned on Tuesday',
     })
     expect(stored.date).toBe(tuesday)
@@ -469,7 +470,7 @@ test.describe('Recipes and meals', () => {
 
     // Planned, the meal has put nothing on the list.
     const mealId = ((await meal.json()) as { id: string }).id
-    await waitForIndexed<MealRow>(api, '/api/meals', (m) => String(m.summary).includes('Taboulé MAG-167'), { what: 'The planned meal' })
+    await waitForIndexed<MealRow>(api, '/api/meals', (m) => m.id === mealId, { what: 'The planned meal' })
     const beforeChoice = (await getCollection<GroceryListRow>(api, '/api/grocery_lists'))[0]
     expect(linesOf(beforeChoice ?? { items: [] }), 'planning the meal put its ingredient on the list').toHaveLength(0)
 

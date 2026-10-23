@@ -1,7 +1,7 @@
 import { test, expect, seedDate } from '../fixtures/index.js'
 import type { APIRequestContext, Page } from '@playwright/test'
 import { assistantText, calledTools, toolResults } from '../helpers/agui.js'
-import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { getCollection, plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
@@ -261,7 +261,7 @@ test('a planned meal adds nothing, Maggie prepares the week with the recurring i
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel('Menu').click()
     await page.getByRole('option', { name: recipeName }).click()
-    await dialog.getByRole('button', { name: 'Créer' }).click()
+    const mealId = await plannedMealId(page, () => dialog.getByRole('button', { name: 'Créer' }).click())
     await expect(dialog.getByRole('checkbox', { name: riceName })).toBeVisible()
     await dialog.getByRole('button', { name: 'Plus tard' }).click()
     await expect(dialog).toBeHidden()
@@ -269,7 +269,7 @@ test('a planned meal adds nothing, Maggie prepares the week with the recurring i
     const meal = await waitForIndexed<{ '@id': string; id: string; summary: string }>(
       api,
       '/api/meals?itemsPerPage=200',
-      (m) => String(m.summary).includes(recipeName),
+      (m) => m.id === mealId,
       { what: 'The planned meal' },
     )
     cleanup.unshift(meal['@id'])

@@ -42,6 +42,13 @@
 #      phone and red on the foldable and the tablet (MAG-391). They go through
 #      `subflows/open-destination.yaml` and `subflows/open-chat.yaml`, the only
 #      files allowed to (`close-chat.yaml` does the same for the sheet's close).
+#  10. no `id:` spells a data id (`auto-…`, a ULID, a number) after a prefix that
+#      `UiTags.kt` builds from one: it changes under the flow (MAG-578).
+#  11. no bare `hideKeyboard`: only `subflows/hide-keyboard.yaml` calls it (MAG-572).
+#  12. `selected:` only on the `Role.Tab` tags of `SELECTED_OK_PREFIXES`; a radio or a
+#      checkbox reads `checked:` (MAG-537).
+#  13. each of the three rules above refuses its example in `lint-examples/`, so a rule
+#      that stopped matching fails here instead of passing everything.
 
 set -euo pipefail
 
@@ -389,6 +396,154 @@ for file in "${flows[@]}"; do
     fail "$rel taps nav_menu or chat_open at line(s) ${offenders}— absent on some formats: run subflows/open-destination.yaml (DEST: <route>) or subflows/open-chat.yaml"
   fi
 done
+
+# ---------------------------------------------------------------------------
+# Selectors that break (MAG-578). Each rule is a function over one file that prints
+# its offenders, so the same code runs on the flows (checks 10-12) and on the refused
+# examples of `lint-examples/` (check 13), which proves the rules can still fail.
+# ---------------------------------------------------------------------------
+EXAMPLE_DIR="$FLOW_DIR/lint-examples"
+
+# The prefixes of the ids a screen builds from a *data* id: `fun xxx(id…) = PREFIX + id`
+# in UiTags.kt, where the parameter is `id` or `…Id`. A prefix whose function takes a
+# position, a name or a key (`tasksSlot(position)`, `subview(key)`) is not listed: what
+# follows it is a constant of the app.
+mapfile -t data_prefixes < <(awk '
+  /const val [A-Z_]+_PREFIX = "/ {
+    match($0, /const val [A-Z_]+_PREFIX/)
+    name = substr($0, RSTART + 10, RLENGTH - 10)
+    match($0, /"[^"]*"/)
+    value[name] = substr($0, RSTART + 1, RLENGTH - 2)
+  }
+  /^[[:space:]]*fun [a-zA-Z]+\(/ {
+    sig = $0; sub(/^[^(]*\(/, "", sig); sub(/\).*/, "", sig)
+    if (sig !~ /(^|, *)([a-zA-Z]*Id|id):/) next
+    body = $0; sub(/^[^=]*=/, "", body)
+    while (match(body, /[A-Z_]+_PREFIX/)) {
+      wanted[++n] = substr(body, RSTART, RLENGTH)
+      body = substr(body, RSTART + RLENGTH)
+    }
+  }
+  END { for (i = 1; i <= n; i++) if (wanted[i] in value) print value[wanted[i]] }
+' "$TAGS_FILE" | sort -u)
+[ "${#data_prefixes[@]}" -gt 0 ] || { echo "No data-id prefix read out of $TAGS_FILE — has UiTags.kt changed shape?" >&2; exit 1; }
+
+# `id:` that spells a data id after one of those prefixes: `auto-…`, a ULID, a number.
+# The row of a computed scenario is `auto-rapid` until it is made current, then its
+# stored ULID: the id is the data's, not the screen's, and changes under the flow.
+data_id_offenders() {
+  local entry n line id prefix suffix
+  while IFS= read -r entry; do
+    n="${entry%%:*}"
+    line="${entry#*:}"
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" =~ id:[[:space:]]*\"([^\"]*)\" ]] || continue
+    id="${BASH_REMATCH[1]}"
+    for prefix in "${data_prefixes[@]}"; do
+      case "$id" in "$prefix"?*) ;; *) continue ;; esac
+      suffix="${id#"$prefix"}"
+      if [[ "$suffix" =~ auto-|[[:alnum:]]{26}|^[0-9]+$ ]]; then
+        echo "$n: $id"
+      fi
+    done
+  done < <(grep -nE 'id:[[:space:]]*"' "$1" || true)
+}
+
+# `hideKeyboard` as a command: a back on Android, whatever the keyboard is doing.
+bare_hide_keyboard_offenders() {
+  grep -nE '^[[:space:]]*(-[[:space:]]+)?hideKeyboard([[:space:]]*(#.*)?|:.*)$' "$1" | cut -d: -f1 || true
+}
+
+# `selected:` is the accessibility `selected` flag, which only some nodes set: a
+# `Role.Tab` does, a `Role.RadioButton` or a Checkbox reads `checked` (MAG-537 asserted
+# `selected: true` on a breadcrumb menu item and waited for 20 s on a node that never
+# had it). The simplest rule that would have caught it: `selected:` only on the tags of
+# this list, each one a `Role.Tab` in the app — anything else uses `checked:`.
+SELECTED_OK_PREFIXES="subview_"
+selected_offenders() {
+  awk -v ok="$SELECTED_OK_PREFIXES" '
+    function indent(s) { match(s, /^ */); return RLENGTH }
+    function sibling_id(i,    n, j, v) {
+      n = indent(lines[i])
+      for (j = i - 1; j >= 1 && lines[j] !~ /^[[:space:]]*$/ && indent(lines[j]) >= n; j--) if (id_of(j, n) != "") return id_of(j, n)
+      for (j = i + 1; j <= NR && lines[j] !~ /^[[:space:]]*$/ && indent(lines[j]) >= n; j++) if (id_of(j, n) != "") return id_of(j, n)
+      return ""
+    }
+    function id_of(j, n) {
+      if (indent(lines[j]) != n || lines[j] !~ /^[[:space:]]*id:/) return ""
+      v = lines[j]; sub(/^[[:space:]]*id:[[:space:]]*/, "", v); gsub(/["'"'"']/, "", v); sub(/[[:space:]]*#.*$/, "", v)
+      return v
+    }
+    { lines[NR] = $0 }
+    END {
+      count = split(ok, allowed, " ")
+      for (i = 1; i <= NR; i++) {
+        if (lines[i] !~ /^[[:space:]]*(-[[:space:]]+)?selected:/) continue
+        tag = sibling_id(i)
+        good = 0
+        for (k = 1; k <= count; k++) if (tag != "" && index(tag, allowed[k]) == 1) good = 1
+        if (!good) print i ": selected on " (tag == "" ? "no tag" : "\"" tag "\"")
+      }
+    }
+  ' "$1"
+}
+
+# ---------------------------------------------------------------------------
+printf '\n\033[1m10. No id spelled from a data id\033[0m\n'
+# ---------------------------------------------------------------------------
+for file in "${flows[@]}"; do
+  rel="${file#"$REPO_ROOT"/}"
+  offenders="$(data_id_offenders "$file" | tr '\n' ';')"
+  if [ -z "$offenders" ]; then
+    pass "$rel"
+  else
+    fail "$rel spells a data id in a tag (line: id) ${offenders} — the id is generated (auto-…, ULID) and changes under the flow: match the prefix (\"scenario_make_current_.*\"), or select by the text it shows inside the row, \`childOf\` a stable tag"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+printf '\n\033[1m11. No bare hideKeyboard\033[0m\n'
+# ---------------------------------------------------------------------------
+for file in "${flows[@]}"; do
+  rel="${file#"$REPO_ROOT"/}"
+  [ "$rel" = "e2e/mobile/subflows/hide-keyboard.yaml" ] && { pass "$rel (the one that looks first)"; continue; }
+  offenders="$(bare_hide_keyboard_offenders "$file" | tr '\n' ' ')"
+  if [ -z "$offenders" ]; then
+    pass "$rel"
+  else
+    fail "$rel runs hideKeyboard at line(s) ${offenders}— it is a back on Android and closes the sheet when the keyboard is already down (MAG-572): run \`- runFlow: ../subflows/hide-keyboard.yaml\`"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+printf '\n\033[1m12. selected only where the app sets it\033[0m\n'
+# ---------------------------------------------------------------------------
+for file in "${flows[@]}"; do
+  rel="${file#"$REPO_ROOT"/}"
+  offenders="$(selected_offenders "$file" | tr '\n' ';')"
+  if [ -z "$offenders" ]; then
+    pass "$rel"
+  else
+    fail "$rel asserts \`selected:\` (line: tag) ${offenders} — only the tags starting with \"${SELECTED_OK_PREFIXES}\" (Role.Tab) set it; a radio, a checkbox or a switch reads \`checked:\`. A new Role.Tab: add its prefix to SELECTED_OK_PREFIXES in lint.sh"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+printf '\n\033[1m13. The rules above can still fail\033[0m\n'
+# ---------------------------------------------------------------------------
+# A rule nobody has seen refuse anything may have stopped matching (a renamed key, a
+# prefix list read out empty). Each rule must refuse its example.
+self_test() {
+  local rule="$1" example="$2"
+  if [ -n "$("$rule" "$EXAMPLE_DIR/$example")" ]; then
+    pass "$rule refuses lint-examples/$example"
+  else
+    fail "$rule accepts lint-examples/$example: the rule no longer matches what it was written for"
+  fi
+}
+self_test data_id_offenders data-id.yaml
+self_test bare_hide_keyboard_offenders bare-hide-keyboard.yaml
+self_test selected_offenders selected-radio.yaml
 
 printf '\n'
 if [ "$failed" -gt 0 ]; then

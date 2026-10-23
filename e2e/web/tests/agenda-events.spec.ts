@@ -433,9 +433,10 @@ test('a day with four events and a meal fits its month cell, the meal drawn once
     },
   })
   expect(meal.status(), `POST /api/meals answered ${meal.status()}: ${await meal.text()}`).toBe(201)
+  const mealId = ((await meal.json()) as { id: string }).id
 
   await waitForIndexed<StoredEvent>(api, '/api/events?itemsPerPage=200', (event) => event.summary === titles[3], { what: 'The last event' })
-  await waitForIndexed<StoredEvent>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipe), { what: 'The planned meal' })
+  await waitForIndexed<{ id: string }>(api, '/api/meals?itemsPerPage=200', (m) => m.id === mealId, { what: 'The planned meal' })
 
   // The meal is the meals' collection's, not the events'.
   const events = await getCollection<StoredEvent>(api, '/api/events?itemsPerPage=200')

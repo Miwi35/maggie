@@ -49,7 +49,7 @@ tags:
     id: "category_name"
 - eraseText
 - inputText: "Courses alimentaires"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Enregistrer"
 
 # The editor closes once the server has answered: « Catégories » is the list again, and
@@ -89,7 +89,7 @@ tags:
     id: "category_name"
 - eraseText
 - inputText: "Courses"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Enregistrer"
 
 - extendedWaitUntil:
@@ -118,7 +118,7 @@ tags:
 - tapOn:
     id: "category_name"
 - inputText: "Bars"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 
 # The icon is chosen from a grid, not typed (MAG-474, MAG-502): no icon yet, « chien » finds
 # the pets icon among all the Material ones, and the choice comes back to the form.
@@ -133,7 +133,7 @@ tags:
 - tapOn:
     id: "category_icon_search"
 - inputText: "chien"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: "category_icon_tile_pets"
@@ -169,13 +169,13 @@ tags:
 - tapOn:
     id: "category_name"
 - inputText: "Obsydian"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn:
     id: "category_parent"
 - tapOn:
     id: "category_parent_search"
 - inputText: "Bars"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Loisirs › Bars"
 - extendedWaitUntil:
     visible: "Rattacher à une catégorie, Loisirs › Bars"
@@ -247,7 +247,7 @@ tags:
 - tapOn:
     id: "transaction_category_search"
 - inputText: "Obsydian"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn: "Loisirs › Bars › Obsydian"
 
 # The line answers with the path the server now holds it under.

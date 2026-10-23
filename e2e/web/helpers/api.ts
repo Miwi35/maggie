@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test'
+import { expect, type APIRequestContext, type Page } from '@playwright/test'
 
 /**
  * Talking to the API from a journey — to set a test up, or to assert on the
@@ -66,4 +66,20 @@ export async function waitForIndexed<T = Record<string, unknown>>(
 
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
+}
+
+/**
+ * Runs a click that plans a meal and returns the id the API gave it — the id to wait
+ * for with `waitForIndexed(… m.id === id)`. Finding the meal by a piece of its
+ * summary also finds the seed's and the previous run's (MAG-575).
+ */
+export async function plannedMealId(page: Page, click: () => Promise<void>): Promise<string> {
+  const posted = page.waitForResponse(
+    (response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/meals',
+  )
+  await click()
+  const response = await posted
+  expect(response.status(), `POST /api/meals answered ${response.status()}: ${await response.text()}`).toBe(201)
+
+  return ((await response.json()) as { id: string }).id
 }

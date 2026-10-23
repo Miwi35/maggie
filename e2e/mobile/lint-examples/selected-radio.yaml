@@ -1,0 +1,7 @@
+appId: com.maggie.app.e2e
+name: refused by lint.sh check 12 — not a journey, never run
+---
+# `breadcrumb_menu_*` is a Role.RadioButton: Compose exposes it as `checked`, never `selected`.
+- assertVisible:
+    id: "breadcrumb_menu_review"
+    selected: true

@@ -44,7 +44,7 @@ tags:
 
 - inputText: "Rendez-vous MAG-322"
 
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 
 - tapOn:
     id: "event_start_date"

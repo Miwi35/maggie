@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
-import { waitForIndexed } from '../helpers/api.js'
+import { plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { MealSettingsPage } from '../pages/MealSettingsPage.js'
@@ -94,7 +94,7 @@ test.describe('The guests of a meal', () => {
         await field.getByRole('button', { name: shown < 6 ? /Un convive de plus/ : /Un convive de moins/ }).click()
       }
       await expect(field.getByText('par défaut')).toHaveCount(0)
-      await dialog.getByRole('button', { name: 'Créer' }).click()
+      const mealId = await plannedMealId(page, () => dialog.getByRole('button', { name: 'Créer' }).click())
 
       // Then the choice says the quantities are for 6 guests, and reads 600 g.
       const choice = page.getByRole('dialog')
@@ -104,7 +104,7 @@ test.describe('The guests of a meal', () => {
       await choice.getByRole('button', { name: 'Ajouter aux courses' }).click()
       await expect(choice).toBeHidden()
 
-      const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => String(m.summary).includes(recipeName), {
+      const meal = await waitForIndexed<MealRow>(api, '/api/meals?itemsPerPage=200', (m) => m.id === mealId, {
         what: 'The planned meal',
       })
       cleanup.unshift(meal['@id'])

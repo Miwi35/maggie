@@ -177,7 +177,7 @@ tags:
 - tapOn:
     id: "meal_detail_title"
 - inputText: "Dimanche en famille"
-- hideKeyboard
+- runFlow: ../subflows/hide-keyboard.yaml
 - tapOn:
     id: "meal_detail_save"
 - extendedWaitUntil:

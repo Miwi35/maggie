@@ -9,7 +9,7 @@ import tseslint from 'typescript-eslint'
 // a conditional assertion, a `test.only` left behind, a `waitForTimeout` where
 // a locator should have been waited on.
 export default tseslint.config(
-  { ignores: ['node_modules', 'playwright-report', 'test-results'] },
+  { ignores: ['node_modules', 'playwright-report', 'test-results', 'lint-examples'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.ts'],
@@ -57,6 +57,26 @@ export default tseslint.config(
             'waitForCount',
             'waitForIndexed',
           ],
+        },
+      ],
+    },
+  },
+  // Refused: finding the row a journey just made by a *piece of its name*. « Gratin »
+  // also matches the seed's and the last run's rows, and the journey then waits on the
+  // wrong meal (MAG-575). The request that created the object returned its id; match
+  // `member.id === created.id`. A matcher on a plain collection (`ids.includes(m.id)`)
+  // is not caught: only a method called on a member's field (`m.summary.includes(…)`,
+  // `String(m.summary).includes(…)`) is.
+  {
+    files: ['**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.name='waitForIndexed'] CallExpression[callee.property.name=/^(includes|startsWith|endsWith|indexOf|match|test)$/]:matches([callee.object.type='MemberExpression'], [callee.object.callee.name='String'])",
+          message:
+            'waitForIndexed must not find a row by a piece of its text: keep the id the creating request returned and match `member.id === created.id` (e2e-environment.md, « Sélecteurs »).',
         },
       ],
     },
