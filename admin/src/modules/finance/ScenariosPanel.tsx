@@ -30,7 +30,7 @@ import {
   updateScenario,
 } from './scenariosApi'
 import type { LoanChoice, Scenario, ScenarioInput } from './scenariosApi'
-import { useScenarioComparison, useScenarios } from './useScenarios'
+import { useGapsAgainstCurrent, useScenarioComparison, useScenarios } from './useScenarios'
 
 interface EditorState {
   /** Absent for a new scenario. */
@@ -66,6 +66,11 @@ export const ScenariosPanel = () => {
   const defaults = [...(current ? [current] : []), ...scenarios.filter((scenario) => !scenario.current)].map((scenario) => scenario.id).slice(0, DEFAULT_COMPARED)
   const comparedIds = (chosen ?? defaults).filter((id) => known.has(id))
   const comparison = useScenarioComparison(comparedIds, version)
+  const gaps = useGapsAgainstCurrent(
+    current?.id ?? null,
+    scenarios.filter((scenario) => !scenario.current).map((scenario) => scenario.id),
+    version,
+  )
 
   const act = async (work: () => Promise<unknown>) => {
     setBusy(true)
@@ -113,7 +118,7 @@ export const ScenariosPanel = () => {
     <ScenarioCard
       key={scenario.id}
       scenario={scenario}
-      current={current}
+      gap={current ? gaps[scenario.id] : undefined}
       compared={comparedIds.includes(scenario.id)}
       comparable={comparedIds.length < MAX_COMPARED}
       busy={busy}

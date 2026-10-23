@@ -6,7 +6,6 @@ import {
   deleteScenario,
   eurosToCents,
   fetchComparison,
-  gapAgainst,
   makeCurrent,
   monthLabel,
   nLabel,
@@ -68,13 +67,6 @@ describe('scenariosApi', () => {
     expect(nLabel({ nDate: '2041-03' })).toBe('mars 2041')
     expect(nLabel({ nDate: null })).toBe('non atteinte avant 20 ans')
     expect(currentLabel({ name: 'Rapide', nDate: '2041-03' })).toBe('Scénario courant · Rapide · N : mars 2041')
-  })
-
-  test('reads the gap of N against the current scenario as a fact, never as a verdict', () => {
-    expect(gapAgainst({ nDate: '2040-06' }, { nDate: '2041-03' })).toBe('N 9 mois plus tôt que le courant')
-    expect(gapAgainst({ nDate: '2042-03' }, { nDate: '2041-03' })).toBe('N 1 an plus tard que le courant')
-    expect(gapAgainst({ nDate: '2041-03' }, { nDate: '2041-03' })).toBe('N à la même date que le courant')
-    expect(gapAgainst({ nDate: null }, { nDate: '2041-03' })).toBeNull()
   })
 
   test('turns euros typed into cents, and refuses what is not a positive amount', () => {

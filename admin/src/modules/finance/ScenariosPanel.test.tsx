@@ -193,7 +193,33 @@ describe('ScenariosPanel', () => {
     expect(screen.getAllByText('Courant')).toHaveLength(1)
     expect(within(card('Mon plan')).getByText('Courant')).toBeInTheDocument()
     expect(within(card('Mon plan')).queryByRole('button', { name: 'Rendre courant' })).not.toBeInTheDocument()
-    expect(within(card('Rapide')).getByTestId('scenario-gap')).toHaveTextContent('N 1 an et 6 mois plus tôt que le courant')
+    // The sentence is the API's, word for word: the page words nothing itself.
+    await waitFor(() => expect(within(card('Rapide')).getByTestId('scenario-gap')).toHaveTextContent(/^N 9 mois plus tôt que « Mon plan »$/))
+    expect(within(card('Mon plan')).queryByTestId('scenario-gap')).not.toBeInTheDocument()
+  })
+
+  test('shows no gap on any card when no scenario is current, and asks no silent comparison', async () => {
+    const api = stubApi([...offers(), mine()])
+    render(<ScenariosPanel />)
+    await screen.findByTestId('scenario-comparison')
+
+    expect(screen.queryByTestId('scenario-gap')).not.toBeInTheDocument()
+    const asked = api.calls.filter((call) => call.url.startsWith('/api/finance/scenario-comparison'))
+    expect(asked).toHaveLength(1)
+  })
+
+  test('reads the gaps of more than five scenarios in batches, each led by the current one', async () => {
+    const many = Array.from({ length: 7 }, (_, index) => scenario(`01S${index}`, `Plan ${index}`, '2041-01', { kind: 'user', status: 'saved' }))
+    const api = stubApi([{ ...mine(), current: true }, ...many])
+    render(<ScenariosPanel />)
+
+    await waitFor(() => expect(screen.getAllByTestId('scenario-gap')).toHaveLength(7))
+    const batches = api.calls
+      .filter((call) => call.url.startsWith('/api/finance/scenario-comparison'))
+      .map((call) => new URL(call.url, 'http://x').searchParams.get('ids')?.split(',') ?? [])
+      .filter((ids) => ids.length > 0 && ids.length <= 6)
+    expect(batches.every((ids) => ids[0] === '01MINE' && ids.length <= 6)).toBe(true)
+    expect(batches.some((ids) => ids.includes('01S6'))).toBe(true)
   })
 
   test('makes an offered scenario current: POST make-current, then the list is read again', async () => {

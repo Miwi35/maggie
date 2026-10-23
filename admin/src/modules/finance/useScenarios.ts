@@ -92,3 +92,46 @@ export function useScenarioComparison(ids: string[], version: number) {
 
   return { status, comparison, error }
 }
+
+/** The reference plus five others: the API compares six scenarios at most. */
+const OTHERS_PER_BATCH = 5
+
+/**
+ * What the API says of each scenario's N against the current one (its own sentence, untouched), by scenario id.
+ * Empty when no scenario is current. More than five others are read in batches, each led by the current scenario.
+ * A failed read leaves the cards without a gap: this comparison is silent, the visible one reports its own errors.
+ */
+export function useGapsAgainstCurrent(currentId: string | null, otherIds: string[], version: number) {
+  const [gaps, setGaps] = useState<Record<string, string>>({})
+  const key = otherIds.join(',')
+
+  useEffect(() => {
+    if (!currentId || otherIds.length === 0) {
+      setGaps({})
+      return
+    }
+    let stale = false
+    const batches: string[][] = []
+    for (let start = 0; start < otherIds.length; start += OTHERS_PER_BATCH) {
+      batches.push([currentId, ...otherIds.slice(start, start + OTHERS_PER_BATCH)])
+    }
+    Promise.all(batches.map((ids) => fetchComparison(ids).catch(() => null))).then((answers) => {
+      if (stale) return
+      const next: Record<string, string> = {}
+      for (const answer of answers) {
+        for (const difference of answer?.differences ?? []) {
+          if (difference.sentence) next[difference.scenarioId] = difference.sentence
+        }
+      }
+      setGaps(next)
+    })
+
+    return () => {
+      stale = true
+    }
+    // `otherIds` is read through its key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentId, key, version])
+
+  return gaps
+}

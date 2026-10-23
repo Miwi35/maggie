@@ -7,13 +7,13 @@ import Chip from '@mui/material/Chip'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import { gapAgainst, isAdvisor, isAuto, monthLabel, nLabel } from './scenariosApi'
+import { isAdvisor, isAuto, monthLabel, nLabel } from './scenariosApi'
 import type { Scenario } from './scenariosApi'
 
 interface Props {
   scenario: Scenario
-  /** The current scenario, to read N against; null when none is. */
-  current: Scenario | null
+  /** The API's sentence for N against the current scenario; absent when none is current or N cannot be compared. */
+  gap?: string
   compared: boolean
   comparable: boolean
   busy: boolean
@@ -24,11 +24,10 @@ interface Props {
   onDelete: (scenario: Scenario) => void
 }
 
-/** One scenario: its date N, the gap to the current one, its wellbeing and when its projects are done. Facts only. */
-export const ScenarioCard = ({ scenario, current, compared, comparable, busy, onToggleCompare, onMakeCurrent, onDuplicate, onEdit, onDelete }: Props) => {
+/** One scenario: its date N, the API's sentence on the gap to the current one, its wellbeing and when its projects are done. Facts only. */
+export const ScenarioCard = ({ scenario, gap, compared, comparable, busy, onToggleCompare, onMakeCurrent, onDuplicate, onEdit, onDelete }: Props) => {
   const advisor = isAdvisor(scenario)
   const auto = isAuto(scenario)
-  const gap = current && current.id !== scenario.id ? gapAgainst(scenario, current) : null
 
   return (
     <Card variant="outlined" data-testid="scenario-card" data-scenario={scenario.name} sx={{ borderColor: scenario.current ? 'primary.main' : undefined }}>
@@ -46,7 +45,7 @@ export const ScenarioCard = ({ scenario, current, compared, comparable, busy, on
           {!advisor && scenario.status === 'draft' && <Chip size="small" variant="outlined" label="Brouillon" />}
         </Stack>
         <Typography data-testid="scenario-n">N : {nLabel(scenario)}</Typography>
-        {gap && (
+        {gap && !scenario.current && (
           <Typography variant="body2" color="text.secondary" data-testid="scenario-gap">
             {gap}
           </Typography>

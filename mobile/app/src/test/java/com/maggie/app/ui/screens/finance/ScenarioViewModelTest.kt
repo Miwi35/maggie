@@ -306,13 +306,63 @@ class ScenarioViewModelTest {
         assertNull(viewModel.uiState.value.comparison)
 
         viewModel.toggleCompared("auto-balanced")
-        assertTrue(viewModel.uiState.value.isComparing || viewModel.uiState.value.comparison != null)
+        assertTrue(viewModel.uiState.value.isComparing)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertEquals(listOf("auto-rapid", "auto-balanced"), state.selected)
         assertEquals(read, state.comparison)
         assertFalse(state.isComparing)
+    }
+
+    @Test
+    fun `the message of an action goes away at the next action`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        coEvery { repository.makeCurrent("auto-rapid") } returns Result.success(Unit)
+        viewModel.makeCurrent("auto-rapid")
+        advanceUntilIdle()
+        assertEquals("« Rapide » est le scénario courant", viewModel.uiState.value.message)
+
+        viewModel.toggleCompared("auto-rapid")
+
+        assertNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `the refusal of six scenarios goes away at the next tick and when the sheet closes`() = runTest {
+        val many = (1..7).map { Scenario(id = "s$it", name = "S$it") }
+        coEvery { repository.getScenarios() } returns Result.success(many)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        coEvery { repository.compare(any()) } returns Result.success(comparison("s1"))
+        many.forEach { viewModel.toggleCompared(it.id) }
+        advanceUntilIdle()
+        assertEquals(ScenarioViewModel.MESSAGE_TOO_MANY, viewModel.uiState.value.error)
+
+        viewModel.toggleCompared("s6")
+        assertNull(viewModel.uiState.value.error)
+
+        many.forEach { viewModel.toggleCompared(it.id) }
+        advanceUntilIdle()
+        viewModel.clearFeedback()
+
+        assertNull(viewModel.uiState.value.error)
+        assertNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `closing the sheet clears the message`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        coEvery { repository.makeCurrent("auto-rapid") } returns Result.success(Unit)
+        viewModel.makeCurrent("auto-rapid")
+        advanceUntilIdle()
+
+        viewModel.clearFeedback()
+
+        assertNull(viewModel.uiState.value.message)
+        assertNull(viewModel.uiState.value.error)
     }
 
     @Test

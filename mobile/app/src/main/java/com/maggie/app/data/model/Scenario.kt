@@ -116,9 +116,9 @@ private val SCENARIO_MONTH = DateTimeFormatter.ofPattern("LLLL yyyy", Locale.FRE
 fun scenarioMonthLabel(month: String): String =
     runCatching { YearMonth.parse(month).format(SCENARIO_MONTH) }.getOrDefault(month)
 
-private const val WITHIN_20_YEARS = "d'ici 20 ans"
+private const val WITHIN_20_YEARS = "avant 20 ans"
 
-/** « N : mars 2041 » or « N non atteinte d'ici 20 ans ». */
+/** « N : mars 2041 » or « N non atteinte avant 20 ans ». */
 fun scenarioNLabel(nDate: String?): String =
     if (nDate == null) "N non atteinte $WITHIN_20_YEARS" else "N : ${scenarioMonthLabel(nDate)}"
 

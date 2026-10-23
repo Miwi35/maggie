@@ -14,7 +14,7 @@ tags:
 #
 # The three automatic scenarios exist for every owner (Rapide, Équilibré, Qualité de vie): they are
 # computed, not seeded. The date N depends on the seeded rentes and on the projects: only its form is
-# asserted (« N : mars 2041 » or « N non atteinte d'ici 20 ans »), the figures are the API's and the unit
+# asserted (« N : mars 2041 » or « N non atteinte avant 20 ans »), the figures are the API's and the unit
 # tests'. Comparison, editor and deletion are the unit tests' (`ScenarioViewModelTest`, `ScenarioDraftTest`)
 # and the web journey's: the phone's editor is the same ViewModel.
 #

@@ -201,7 +201,14 @@ fun ProjectListContent(
         val editor = scenarioState.editor
         // The phone's sheet gives way to the editor and comes back when it closes.
         if (!wide && scenarioSheetOpen && editor == null) {
-            ScenarioSheet(state = scenarioState, actions = actions, onDismiss = { scenarioSheetOpen = false })
+            ScenarioSheet(
+                state = scenarioState,
+                actions = actions,
+                onDismiss = {
+                    scenarioSheetOpen = false
+                    scenarios.clearFeedback()
+                },
+            )
         }
         if (editor != null) {
             ScenarioEditorSheet(editor = editor, options = scenarioState.options, full = wide, viewModel = scenarios)

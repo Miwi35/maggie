@@ -1,5 +1,4 @@
 import { bareId } from './envelopeTree'
-import { formatDuration } from './independenceDates'
 
 /**
  * The project scenarios (MAG-550, MAG-551): a selection and an order of the
@@ -172,21 +171,6 @@ export const nLabel = (scenario: Pick<Scenario, 'nDate'>): string => (scenario.n
 /** « Scénario courant · Rapide · N : mars 2041 ». */
 export const currentLabel = (scenario: Pick<Scenario, 'name' | 'nDate'>): string =>
   `Scénario courant · ${scenario.name} · N : ${nLabel(scenario)}`
-
-const monthNumber = (month: string): number => {
-  const [year, number] = month.split('-').map(Number)
-
-  return (year ?? 0) * 12 + (number ?? 1) - 1
-}
-
-/** N against the current scenario's, in facts: « 9 mois plus tôt que le courant »; null when either N is out of reach. */
-export const gapAgainst = (scenario: Pick<Scenario, 'nDate'>, current: Pick<Scenario, 'nDate'>): string | null => {
-  if (!scenario.nDate || !current.nDate) return null
-  const months = monthNumber(scenario.nDate) - monthNumber(current.nDate)
-  if (months === 0) return 'N à la même date que le courant'
-
-  return `N ${formatDuration(Math.abs(months))} ${months < 0 ? 'plus tôt' : 'plus tard'} que le courant`
-}
 
 /** « 150 » or « 150,5 » typed in euros → cents; null when empty, NaN when not a positive amount. */
 export const eurosToCents = (text: string): number | null => {

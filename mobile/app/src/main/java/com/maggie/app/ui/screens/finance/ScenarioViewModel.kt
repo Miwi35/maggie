@@ -153,7 +153,7 @@ class ScenarioViewModel(
         val scenario = _uiState.value.scenarios.firstOrNull { it.id == id } ?: return
         if (scenario.isAuto) return
         if (name.isBlank()) {
-            _uiState.value = _uiState.value.copy(error = MESSAGE_NAME)
+            _uiState.value = _uiState.value.copy(error = MESSAGE_NAME, message = null)
             return
         }
         write(id, MESSAGE_RENAME, success = { "Scénario renommé" }) { repository.update(id, ScenarioWriteRequest.rename(name.trim())) }
@@ -163,7 +163,7 @@ class ScenarioViewModel(
     private fun write(id: String?, fallback: String, success: (String) -> String, call: suspend () -> Result<*>) {
         if (_uiState.value.busyId != null) return
         val name = _uiState.value.scenarios.firstOrNull { it.id == id }?.name.orEmpty()
-        _uiState.value = _uiState.value.copy(busyId = id ?: NO_SCENARIO, error = null)
+        _uiState.value = _uiState.value.copy(busyId = id ?: NO_SCENARIO, error = null, message = null)
         viewModelScope.launch {
             call()
                 .onSuccess {
@@ -185,13 +185,22 @@ class ScenarioViewModel(
         val selected = when {
             id in state.selected -> state.selected - id
             state.selected.size >= MAX_COMPARED -> {
-                _uiState.value = state.copy(error = MESSAGE_TOO_MANY)
+                _uiState.value = state.copy(error = MESSAGE_TOO_MANY, message = null)
                 return
             }
             else -> state.selected + id
         }
-        _uiState.value = state.copy(selected = selected, comparison = if (selected.size >= 2) state.comparison else null, comparisonError = null)
-        if (selected.size >= 2) viewModelScope.launch { readComparison() }
+        val comparing = selected.size >= 2
+        if (!comparing) comparisonRead++
+        _uiState.value = state.copy(
+            selected = selected,
+            comparison = if (comparing) state.comparison else null,
+            comparisonError = null,
+            isComparing = comparing,
+            error = null,
+            message = null,
+        )
+        if (comparing) viewModelScope.launch { readComparison() }
     }
 
     fun clearComparison() {
@@ -222,7 +231,7 @@ class ScenarioViewModel(
     fun openEditor(id: String?) {
         val state = _uiState.value
         if (id == null) {
-            _uiState.value = state.copy(editor = ScenarioEditor(draft = ScenarioDraft.starting(state.options?.projects.orEmpty())), error = null)
+            _uiState.value = state.copy(editor = ScenarioEditor(draft = ScenarioDraft.starting(state.options?.projects.orEmpty())), error = null, message = null)
         } else {
             val scenario = state.scenarios.firstOrNull { it.id == id }
             if (scenario == null) {
@@ -304,6 +313,11 @@ class ScenarioViewModel(
                     )
                 }
         }
+    }
+
+    /** The sheet is closed: what the last action said is not news any more. */
+    fun clearFeedback() {
+        _uiState.value = _uiState.value.copy(error = null, message = null)
     }
 
     fun clearError() {

@@ -24,7 +24,7 @@ class ScenarioTest {
     @Test
     fun `N is the month, or not reached`() {
         assertEquals("N : mars 2041", scenarioNLabel("2041-03"))
-        assertEquals("N non atteinte d'ici 20 ans", scenarioNLabel(null))
+        assertEquals("N non atteinte avant 20 ans", scenarioNLabel(null))
     }
 
     @Test
@@ -111,7 +111,7 @@ class ScenarioTest {
 
         assertEquals("Rapide : 20 % en octobre 2026, 100 % en mai 2039. 100 % atteint en mai 2039.", described)
         assertEquals("Mon plan : aucune courbe", scenarioCurveDescription(mine))
-        assertTrue(scenarioCurveDescription(mine.copy(curve = listOf(CoveragePoint("2026-10", 0.2)))).endsWith("100 % non atteint d'ici 20 ans."))
+        assertTrue(scenarioCurveDescription(mine.copy(curve = listOf(CoveragePoint("2026-10", 0.2)))).endsWith("100 % non atteint avant 20 ans."))
     }
 
     @Test
