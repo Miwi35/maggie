@@ -79,7 +79,7 @@ export const ScenariosPanel = () => {
       await work()
       await reload()
     } catch (error) {
-      setFailure(messageOf(error, "L'opération n'a pas abouti."))
+      setFailure(messageOf(error, "Le scénario n'a pas pu être modifié."))
     } finally {
       setBusy(false)
     }

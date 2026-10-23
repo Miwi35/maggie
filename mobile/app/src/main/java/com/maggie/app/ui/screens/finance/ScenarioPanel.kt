@@ -47,6 +47,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -64,6 +65,7 @@ import com.maggie.app.data.model.scenarioMonthLabel
 import com.maggie.app.data.model.scenarioNLabel
 import com.maggie.app.data.model.scenarioTableRows
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.chartColor
 import com.maggie.app.ui.uiTagRoot
 
 /** What the panels do with a scenario; [ScenarioActions.of] wires them to the ViewModel. */
@@ -325,9 +327,9 @@ internal fun ComparisonContent(comparison: ScenarioComparison) {
 }
 
 @Composable
-private fun scenarioCurveColors(): List<Color> = with(MaterialTheme.colorScheme) {
-    // Six distinct hues, none of them red or green: a colour must not read as a verdict.
-    listOf(primary, tertiary, secondary, Color(0xFF8E6C00), Color(0xFF00796B), Color(0xFF7B1FA2))
+private fun scenarioCurveColors(): List<Color> {
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    return List(6) { chartColor(it % 5 + 1, dark) }
 }
 
 /** The coverage of the train de vie of each scenario, superimposed on a fixed 0–100 % axis. */

@@ -552,7 +552,7 @@ export const ProjectsPage = () => {
   return (
     <>
       <Tabs value={tab} onChange={(_, next) => setTab(next)} aria-label="Projets et scénarios" sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
-        <Tab value="projects" label="Projets" id="projects-tab" aria-controls="projects-panel" />
+        <Tab value="projects" label="Planning" id="projects-tab" aria-controls="projects-panel" />
         <Tab value="scenarios" label="Scénarios" id="scenarios-tab" aria-controls="scenarios-panel" />
       </Tabs>
       <Box role="tabpanel" id={`${tab}-panel`} aria-labelledby={`${tab}-tab`}>
