@@ -43,13 +43,16 @@ tags:
 - extendedWaitUntil:
     visible: "12 min · en fond"
     timeout: 10000
+# Top to bottom, each one scrolled to: on a tablet the sheet is short, so an
+# element read without scrolling to it is below the screen and absent from the hierarchy.
+- scrollUntilVisible:
+    element: "Faire revenir les légumes"
+- scrollUntilVisible:
+    element: "8 min"
 - scrollUntilVisible:
     element: "Égoutter, mélanger"
-- extendedWaitUntil:
-    visible: "attend 3, 4"
-    timeout: 10000
-- assertVisible: "Faire revenir les légumes"
-- assertVisible: "8 min"
+- scrollUntilVisible:
+    element: "attend 3, 4"
 
 # A utensil from the phone: the full-screen search, a name the catalogue lacks, created on the spot.
 - scrollUntilVisible:
@@ -80,10 +83,12 @@ tags:
 # Back on the form, the new utensil is among the recipe's; saved, it is on the sheet.
 - scrollUntilVisible:
     element: "Mixeur MAG-492"
+# No centering: « Enregistrer » ends the form, so on a tall screen (foldable) the scroll
+# cannot bring it to the middle and Maestro swipes until the timeout (MAG-571).
 - scrollUntilVisible:
     element:
       id: "recipe_save"
-    centerElement: true
+    timeout: 40000
 - tapOn:
     id: "recipe_save"
 - extendedWaitUntil:

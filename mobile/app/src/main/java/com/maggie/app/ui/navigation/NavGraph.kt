@@ -368,6 +368,16 @@ private val DETAIL_ROUTE_LISTS = mapOf(
 internal fun foldsDetailRouteIntoPane(route: String?, showsDetailPane: Boolean): String? =
     if (showsDetailPane) DETAIL_ROUTE_LISTS[route] else null
 
+/**
+ * The route that opens an account from a link of the dashboard (the « N rejets » pill).
+ *
+ * With a detail pane the account opens in the list's pane: going through the detail route would let
+ * it consume its one-shot request (the Incidents tab), then be folded into the list, which would
+ * open the account afresh on Transactions.
+ */
+internal fun accountRouteFor(detailPaneFits: Boolean): String =
+    if (detailPaneFits) Screen.AccountList.route else Screen.AccountTransactions.route
+
 /** The Accueil keeps its own sheets: what a pane held while the window was wide must not open over it. */
 internal fun dropsPaneSelection(route: String?, detailPaneFits: Boolean): Boolean =
     detailPaneFits && route == Screen.Home.route
@@ -1941,7 +1951,7 @@ fun NavGraph() {
                                 selectedAccount = account.id to account.name.ifBlank { DEFAULT_ACCOUNT_NAME }
                                 incidentsToOpen = true
                                 accountDrillDown = true
-                                navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+                                navController.navigate(accountRouteFor(paneFits)) { launchSingleTop = true }
                             },
                         )
                     }

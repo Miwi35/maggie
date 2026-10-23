@@ -135,10 +135,12 @@ tags:
     visible: "BILLET HELLFEST MAG-414"
     timeout: 30000
 - tapOn: "BILLET HELLFEST MAG-414"
+# The field sits far down the sheet: on the tablet and the foldable the detail pane is short and
+# the field is below the fold, so wait for the sheet itself, then scroll (never wait for the field).
 - extendedWaitUntil:
     visible:
-      id: "transaction_one_off_envelope"
-    timeout: 10000
+      id: "sheet_section_classement"
+    timeout: 20000
 # Maggie's bar takes the bottom of the page (MAG-426): bring the field to the middle first.
 - scrollUntilVisible:
     element:
@@ -150,7 +152,9 @@ tags:
     visible: "Hellfest 2026"
     timeout: 20000
 - tapOn: "Hellfest 2026"
-# The sheet answers with the event the server now holds it under.
+# The sheet answers with the event the server now holds it under (the pane may be back at the top).
+- scrollUntilVisible:
+    element: "Enveloppe ponctuelle, Hellfest 2026"
 - extendedWaitUntil:
     visible: "Enveloppe ponctuelle, Hellfest 2026"
     timeout: 30000

@@ -86,20 +86,20 @@ onFlowComplete:
       TITLE: Ajout MAG-497
       EMAIL: e2e-other@maggie.local
 
-# The reserve is folded until its header is tapped.
-- scrollUntilVisible:
-    element:
-      id: "tasks_reserve_toggle"
-    timeout: 20000
+# The reserve is folded until its header is tapped. The list is scrolled by hand, in its own
+# pane: `scrollUntilVisible` swipes from the screen's centre, the tablet's detail pane
+# (MAG-571, `subflows/scroll-list-end.yaml`).
+- runFlow: ../subflows/scroll-list-end.yaml
 - tapOn:
     id: "tasks_reserve_toggle"
-- scrollUntilVisible:
-    element: ".*Ajout MAG-497.*"
+- runFlow: ../subflows/scroll-list-end.yaml
+- extendedWaitUntil:
+    visible: ".*Ajout MAG-497.*"
     timeout: 20000
 
 # Due three days ago and never done: « reportée », in words, under its title.
-- scrollUntilVisible:
-    element: ".*Passée MAG-497.*"
+- extendedWaitUntil:
+    visible: ".*Passée MAG-497.*"
     timeout: 20000
 - extendedWaitUntil:
     visible:
@@ -109,11 +109,7 @@ onFlowComplete:
 - assertNotVisible: ".*En retard.*"
 
 # « Changer »: the morning's proposal, on demand.
-- scrollUntilVisible:
-    element:
-      id: "tasks_change"
-    direction: UP
-    timeout: 20000
+- runFlow: ../subflows/scroll-list-top.yaml
 - tapOn:
     id: "tasks_change"
 - extendedWaitUntil:
@@ -134,6 +130,8 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: ".*reportée.*"
     timeout: 20000
+# The button is at the foot of the list, under the tablet's taskbar until it is scrolled up.
+- runFlow: ../subflows/scroll-list-end.yaml
 - tapOn:
     id: "tasks_morning_go"
 - extendedWaitUntil:
