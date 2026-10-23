@@ -13,6 +13,7 @@ use Maggie\Cookbook\Entity\Meal;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Service\RecetteAccount;
+use Maggie\Finance\Entity\FinanceDashboardSnapshot;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\Product;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -220,10 +221,12 @@ final class RecetteResetCommandTest extends KernelTestCase
             if ($meta->isMappedSuperclass || $meta->rootEntityName !== $meta->getName() || User::class === $meta->getName()) {
                 continue;
             }
-            $ids = array_map(
-                static fn (object $entity) => (string) $entity->getId(),
-                $this->em()->getRepository($meta->getName())->findAll(),
-            );
+            $entities = $this->em()->getRepository($meta->getName())->findAll();
+            if (FinanceDashboardSnapshot::class === $meta->getName()) {
+                // A derived placeholder: wiping the Recette finances lays a new stale row down for the account that stays.
+                $entities = array_filter($entities, static fn (FinanceDashboardSnapshot $s) => RecetteAccount::EMAIL !== $s->getUser()->getEmail());
+            }
+            $ids = array_map(static fn (object $entity) => (string) $entity->getId(), $entities);
             sort($ids);
             $snapshot[$meta->getName()] = $ids;
         }
