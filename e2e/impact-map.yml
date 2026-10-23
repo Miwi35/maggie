@@ -722,6 +722,9 @@ mobile:
   e2e/mobile/flows/24-home-nutrition.yaml:
     areas: [dashboard]
     paths: [api/fixtures/e2e/65-nutrition-home.yaml]
+  e2e/mobile/flows/26-finance-timeline.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/timeline-api.js]
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]
