@@ -26,6 +26,21 @@ const independence: IndependenceCounter = {
     ],
     milestones: { '25': '2026-10', '50': '2026-10', '75': '2033-03', '100': '2045-09' },
   },
+  renteSources: {
+    withdrawalRateBasisPoints: 400,
+    placements: {
+      count: 1,
+      monthlyRentCents: 23807,
+      items: [{ placementId: 'p1', name: 'PEA', monthlyRentCents: 23807, fromMonth: '2036-10', coveragePoints: 12 }],
+    },
+    investments: {
+      count: 1,
+      monthlyRentCents: 16000,
+      items: [
+        { projectId: 'BOX', name: 'Box à louer', monthlyRentCents: 16000, fromMonth: '2027-03', untilMonth: null, coveragePoints: 8 },
+      ],
+    },
+  },
 }
 
 const savingCapacity: SavingCapacity = {

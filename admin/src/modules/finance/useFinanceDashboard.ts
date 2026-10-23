@@ -38,6 +38,36 @@ export interface IndependenceRente {
   sharePercent: number
 }
 
+/** A placement counted in the projection: its capital withdrawn at 4 % a year from `fromMonth` (`YYYY-MM`). */
+export interface RenteSourcePlacement {
+  placementId: string
+  name: string
+  monthlyRentCents: number
+  fromMonth: string
+  /** Points of coverage it adds; null when no lifestyle is measured. */
+  coveragePoints: number | null
+}
+
+/** An investment counted in the projection: its rent from `fromMonth` until its resale (`YYYY-MM`). */
+export interface RenteSourceInvestment {
+  projectId: string
+  name: string
+  monthlyRentCents: number
+  fromMonth: string | null
+  untilMonth: string | null
+  coveragePoints: number | null
+}
+
+/**
+ * What the projection counts beyond the measured rentes (MAG-558): simulations, never part of the
+ * measured coverage.
+ */
+export interface RenteSources {
+  withdrawalRateBasisPoints: number
+  placements: { count: number; monthlyRentCents: number; items: RenteSourcePlacement[] }
+  investments: { count: number; monthlyRentCents: number; items: RenteSourceInvestment[] }
+}
+
 /**
  * How far the rentes cover the train de vie (MAG-46). Both sides measured,
  * never declared. `projection` is the date N and the curve towards it (MAG-549).
@@ -58,6 +88,8 @@ export interface IndependenceCounter {
   nextMilestoneGapCents: number | null
   byCategory: IndependenceRente[]
   projection: IndependenceProjection
+  /** Absent from an older payload. */
+  renteSources?: RenteSources
 }
 
 export interface TileAccount {

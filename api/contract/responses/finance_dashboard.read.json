@@ -361,6 +361,27 @@
                         "100": null
                     }
                 },
+                "renteSources": {
+                    "withdrawalRateBasisPoints": 400,
+                    "placements": {
+                        "count": 1,
+                        "monthlyRentCents": 24810,
+                        "items": [
+                            {
+                                "placementId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                                "name": "Recorded PEA",
+                                "monthlyRentCents": 24810,
+                                "fromMonth": "2046-04",
+                                "coveragePoints": null
+                            }
+                        ]
+                    },
+                    "investments": {
+                        "count": 0,
+                        "monthlyRentCents": 0,
+                        "items": []
+                    }
+                },
                 "nextMilestonePercent": null,
                 "nextMilestoneGapCents": null,
                 "milestones": [
@@ -624,6 +645,27 @@
                 "50": null,
                 "75": null,
                 "100": null
+            }
+        },
+        "renteSources": {
+            "withdrawalRateBasisPoints": 400,
+            "placements": {
+                "count": 1,
+                "monthlyRentCents": 24810,
+                "items": [
+                    {
+                        "placementId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                        "name": "Recorded PEA",
+                        "monthlyRentCents": 24810,
+                        "fromMonth": "2046-04",
+                        "coveragePoints": null
+                    }
+                ]
+            },
+            "investments": {
+                "count": 0,
+                "monthlyRentCents": 0,
+                "items": []
             }
         },
         "nextMilestonePercent": null,

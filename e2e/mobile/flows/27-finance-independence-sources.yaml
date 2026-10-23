@@ -1,0 +1,52 @@
+appId: com.maggie.app.e2e
+name: 27-finance-independence-sources
+tags:
+  - finance
+---
+# The simulated rents behind the independence counter, from the phone and the tablet (MAG-558,
+# extends MAG-102).
+#
+# Étant donné le seed e2e : trois placements (PEA, Assurance-vie, Livret jeune de Léo), voir
+#   `25-finance-placements.yaml`
+# Quand j'ouvre les finances et fais défiler jusqu'à la tuile Planification
+# Alors la section « Sources des rentes à venir » montre la ligne « Placements · N · ≈ … / mois à terme »
+# Et la mention « Simulation · retrait de 4 % par an sur le capital placé »
+#
+# Read-only: nothing is written. The counter has no page of its own (the Planification menu's
+# block leads to the dashboard), so the section is read on the dashboard's Planification tile. A
+# tile is one tappable card whose texts are merged: the rows are read through their text, with
+# `.*`, and the amounts are not asserted (the phone's locale draws them; `IndependenceCardScreenTest`
+# and `IndependenceRenteSourcesTest` read them).
+#
+# What is not here: the amounts to the euro, the investments row (it needs an investment the seed
+# does not carry: `26-finance-investment.yaml` creates one), and the API's figures
+# (`GetIndependenceRentesTest`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/27-finance-independence-sources.yaml
+      e2e_email: e2e@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance"
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_ring_week"
+    timeout: 30000
+
+# With the chat panel the home has two columns, each its own list: the tile is looked for in the
+# one that holds it (see finance-overview.yaml).
+- scrollUntilVisible:
+    element:
+      text: ".*Sources des rentes à venir.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*Placements · [0-9]+ · ≈.*mois à terme.*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*Simulation · retrait de 4 % par an sur le capital placé.*"
+    timeout: 10000

@@ -48,6 +48,7 @@ import {
   wellbeingLabel,
 } from './projectsApi'
 import type { Project, ProjectInput } from './projectsApi'
+import { renteOfInvestment, useRenteSources } from './useRenteSources'
 import { useProjectPlanning } from './useProjectPlanning'
 
 const PROJECT_TOPICS = [PROJECT_TOPIC]
@@ -175,6 +176,7 @@ function ProjectRow({ project, rank, total, names, picked, opened, onOpen, onHan
 export const ProjectsPage = () => {
   const notify = useNotify()
   const { status: planningStatus, planning, reload: reloadPlanning } = useProjectPlanning()
+  const { sources: renteSources, reload: reloadRenteSources } = useRenteSources()
   const [projects, setProjects] = useState<Project[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [editing, setEditing] = useState<Project | 'new' | null>(null)
@@ -365,6 +367,7 @@ export const ProjectsPage = () => {
     saved(project)
     reload()
     reloadPlanning()
+    reloadRenteSources()
   }
 
   const remove = async (project: Project) => {
@@ -473,6 +476,7 @@ export const ProjectsPage = () => {
               project={open}
               projects={projects}
               planned={planning?.projects.find((candidate) => candidate.projectId === open.id) ?? null}
+              rente={renteOfInvestment(renteSources, open.id)}
               onSaved={investmentSaved}
             />
           </Box>

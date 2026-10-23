@@ -8,7 +8,9 @@ use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Loan;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\LoanRepository;
+use Maggie\Finance\Repository\PlacementRepository;
 use Maggie\Finance\Repository\TransactionRepository;
+use Maggie\Finance\Service\PlacementSimulator;
 use Maggie\Finance\Service\PlanIndependence;
 
 /**
@@ -33,6 +35,12 @@ use Maggie\Finance\Service\PlanIndependence;
  * capacity each month is invested at {@see \Maggie\Finance\Service\IndependenceProjector::YIELD_BPS}.
  * Beyond the planning's horizon the last month's rhythm goes on, without the
  * projects not yet bought. N is null when it is not reached within 20 years.
+ *
+ * Placements and investments count as rentes in the projection only (MAG-558),
+ * never in the measured coverage: the rent of an investment from the month after
+ * its purchase until its resale, and a placement's final capital withdrawn at
+ * 4 % a year (a simulation) from the month it reaches its term. `renteSources`
+ * lists them with what each adds to the coverage, in points.
  */
 class GetIndependenceCounter
 {
@@ -47,6 +55,7 @@ class GetIndependenceCounter
         private readonly GetRecurringOccurrences $getRecurringOccurrences,
         private readonly GetProjectPlanning $getProjectPlanning,
         private readonly PlanIndependence $planIndependence,
+        private readonly PlacementRepository $placementRepository,
     ) {
     }
 
@@ -78,6 +87,9 @@ class GetIndependenceCounter
             ? intdiv($projectedPassiveIncomeCents * 100, $lifestyleCents)
             : 0;
 
+        $plan = $this->getProjectPlanning->execute($user);
+        $placementRents = $this->placementRents($user);
+
         $monthlyNeedCents = $lifestyleCents + $loanPaymentsCents;
         $milestones = $this->milestones($lifestyleCents, $passiveIncomeCents);
         $next = $lifestyleCents > 0
@@ -106,7 +118,8 @@ class GetIndependenceCounter
             'coverageWithDebtPercent' => $lifestyleCents > 0 && $monthlyNeedCents > 0
                 ? intdiv($passiveIncomeCents * 100, $monthlyNeedCents)
                 : 0,
-            'projection' => $this->projection($user, $passiveIncomeCents, $lifestyleCents),
+            'projection' => $this->projection($plan, $passiveIncomeCents, $lifestyleCents, $placementRents),
+            'renteSources' => $this->renteSources($plan, $placementRents, $lifestyleCents),
             'nextMilestonePercent' => $next['percent'],
             'nextMilestoneGapCents' => $next['gapCents'],
             'milestones' => $milestones,
@@ -125,10 +138,101 @@ class GetIndependenceCounter
         ];
     }
 
-    /** @return array{startMonth: string, nDate: string|null, curve: list<array{month: string, coverage: float}>, milestones: array<int, string|null>} */
-    private function projection(User $user, int $passiveIncomeCents, int $lifestyleCents): array
+    /**
+     * @param array<string, mixed>                                              $plan
+     * @param list<array{id: string, name: string, month: int, rentCents: int}> $placementRents
+     *
+     * @return array{startMonth: string, nDate: string|null, curve: list<array{month: string, coverage: float}>, milestones: array<int, string|null>}
+     */
+    private function projection(array $plan, int $passiveIncomeCents, int $lifestyleCents, array $placementRents): array
     {
-        return $this->planIndependence->project($this->getProjectPlanning->execute($user), $passiveIncomeCents, $lifestyleCents);
+        return $this->planIndependence->project(
+            $plan,
+            $passiveIncomeCents,
+            $lifestyleCents,
+            array_map(
+                static fn (array $placement): array => ['month' => $placement['month'], 'rentCents' => $placement['rentCents']],
+                $placementRents,
+            ),
+        );
+    }
+
+    /**
+     * The user's placements with the month (0 is the current one) their capital
+     * is complete and the rent it gives from then on, 4 % a year withdrawn.
+     *
+     * @return list<array{id: string, name: string, month: int, rentCents: int}>
+     */
+    private function placementRents(User $user): array
+    {
+        return array_map(static fn ($placement): array => [
+            'id' => (string) $placement->getId(),
+            'name' => $placement->getName(),
+            'month' => $placement->getYears() * 12,
+            'rentCents' => $placement->getRent(),
+        ], $this->placementRepository->findByUser($user));
+    }
+
+    /**
+     * What counts as a rente beyond the measured ones: the investments' rent and
+     * the placements' rent at term, each with what it adds to the coverage once
+     * counted (null while there is no measured lifestyle to compare it with).
+     *
+     * @param array<string, mixed>                                              $plan
+     * @param list<array{id: string, name: string, month: int, rentCents: int}> $placementRents
+     *
+     * @return array{
+     *     withdrawalRateBasisPoints: int,
+     *     placements: array{count: int, monthlyRentCents: int, items: list<array{placementId: string, name: string, monthlyRentCents: int, fromMonth: string, coveragePoints: int|null}>},
+     *     investments: array{count: int, monthlyRentCents: int, items: list<array{projectId: string, name: string, monthlyRentCents: int, fromMonth: string|null, untilMonth: string|null, coveragePoints: int|null}>}
+     * }
+     */
+    private function renteSources(array $plan, array $placementRents, int $lifestyleCents): array
+    {
+        $points = static fn (int $cents): ?int => $lifestyleCents > 0 ? intdiv($cents * 100, $lifestyleCents) : null;
+        $start = new \DateTimeImmutable($plan['startMonth'].'-01');
+
+        $placements = array_map(static fn (array $placement): array => [
+            'placementId' => $placement['id'],
+            'name' => $placement['name'],
+            'monthlyRentCents' => $placement['rentCents'],
+            'fromMonth' => $start->modify(\sprintf('+%d months', $placement['month']))->format('Y-m'),
+            'coveragePoints' => $points($placement['rentCents']),
+        ], $placementRents);
+
+        $investments = [];
+        foreach ($plan['projects'] as $project) {
+            $investment = $project['investment'];
+            if (null === $investment) {
+                continue;
+            }
+            $investments[] = [
+                'projectId' => $project['projectId'],
+                'name' => $project['name'],
+                'monthlyRentCents' => $investment['monthlyRentCents'],
+                'fromMonth' => $investment['rentFromMonth'],
+                'untilMonth' => $investment['rentUntilMonth'],
+                'coveragePoints' => $points($investment['monthlyRentCents']),
+            ];
+        }
+
+        return [
+            'withdrawalRateBasisPoints' => PlacementSimulator::WITHDRAWAL_RATE_BASIS_POINTS,
+            'placements' => [
+                'count' => \count($placements),
+                'monthlyRentCents' => array_sum(array_column($placements, 'monthlyRentCents')),
+                'items' => $placements,
+            ],
+            'investments' => [
+                'count' => \count($investments),
+                // Only those that really bring rent within the planning, and not sold by its end.
+                'monthlyRentCents' => array_sum(array_map(
+                    static fn (array $item): int => null !== $item['fromMonth'] && null === $item['untilMonth'] ? $item['monthlyRentCents'] : 0,
+                    $investments,
+                )),
+                'items' => $investments,
+            ],
+        ];
     }
 
     /**

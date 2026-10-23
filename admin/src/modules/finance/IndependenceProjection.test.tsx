@@ -1,8 +1,8 @@
 import { describe, test, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { dashboardFixture } from './dashboardFixture'
-import { IndependenceProjectionBlock } from './IndependenceProjection'
-import type { IndependenceCounter, IndependenceProjection } from './useFinanceDashboard'
+import { IndependenceProjectionBlock, RenteSourcesBlock } from './IndependenceProjection'
+import type { IndependenceCounter, IndependenceProjection, RenteSources } from './useFinanceDashboard'
 
 const counter = (
   projection: Partial<IndependenceProjection> = {},
@@ -86,5 +86,57 @@ describe('IndependenceProjectionBlock', () => {
     const block = screen.getByTestId('independence-projection')
     expect(block).toHaveTextContent(/4 % par an/)
     expect(block).not.toHaveTextContent(/recommand|devriez/)
+  })
+})
+
+const NO_SOURCES: RenteSources = {
+  withdrawalRateBasisPoints: 400,
+  placements: { count: 0, monthlyRentCents: 0, items: [] },
+  investments: { count: 0, monthlyRentCents: 0, items: [] },
+}
+
+const withSources = (sources: Partial<RenteSources>): IndependenceCounter => ({
+  ...counter(),
+  renteSources: { ...dashboardFixture().independence.renteSources!, ...sources },
+})
+
+describe('RenteSourcesBlock', () => {
+  test('lists the placements and the investments, with the simulation caption, under the milestones', () => {
+    render(<IndependenceProjectionBlock counter={counter()} />)
+
+    const block = screen.getByTestId('independence-rente-sources')
+    expect(block).toHaveTextContent('Sources des rentes à venir')
+    expect(screen.getByTestId('rente-source-placements').textContent).toMatch(/^Placements · 1 · ≈ 238\s€ \/ mois à terme$/)
+    expect(screen.getByTestId('rente-source-investments').textContent).toMatch(/^Investissements · 1 · ≈ 160\s€ \/ mois de loyer$/)
+    expect(screen.getByTestId('rente-source-caption')).toHaveTextContent('Simulation · retrait de 4 % par an sur le capital placé')
+    expect(block).not.toHaveTextContent(/recommand|devriez|conseil/)
+    // Under the milestones, in the document order.
+    const milestones = screen.getByTestId('independence-milestones')
+    expect(milestones.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  test('omits the row with no item, and the caption with no placement', () => {
+    render(<RenteSourcesBlock counter={withSources({ placements: NO_SOURCES.placements })} />)
+
+    expect(screen.queryByTestId('rente-source-placements')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('rente-source-caption')).not.toBeInTheDocument()
+    expect(screen.getByTestId('rente-source-investments')).toBeInTheDocument()
+  })
+
+  test('keeps the caption for placements alone', () => {
+    render(<RenteSourcesBlock counter={withSources({ investments: NO_SOURCES.investments })} />)
+
+    expect(screen.queryByTestId('rente-source-investments')).not.toBeInTheDocument()
+    expect(screen.getByTestId('rente-source-caption')).toBeInTheDocument()
+  })
+
+  test('is not drawn with nothing to count, nor with an older payload', () => {
+    const empty = render(<RenteSourcesBlock counter={withSources(NO_SOURCES)} />)
+    expect(empty.container).toBeEmptyDOMElement()
+    empty.unmount()
+
+    const older: IndependenceCounter = { ...counter(), renteSources: undefined }
+    const { container } = render(<RenteSourcesBlock counter={older} />)
+    expect(container).toBeEmptyDOMElement()
   })
 })

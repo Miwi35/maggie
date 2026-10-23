@@ -11,6 +11,9 @@ import com.maggie.app.data.model.IndependenceCounter
 import com.maggie.app.data.model.CoveragePoint
 import com.maggie.app.data.model.IndependenceProjection
 import com.maggie.app.data.model.IndependenceRente
+import com.maggie.app.data.model.InvestmentRentes
+import com.maggie.app.data.model.PlacementRentes
+import com.maggie.app.data.model.RenteSources
 import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.screentest.FakeMonthBalance
@@ -209,5 +212,61 @@ class IndependenceCardScreenTest {
         compose.onNodeWithTag(UiTags.INDEPENDENCE_DATE_N).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.INDEPENDENCE_CURVE, useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.INDEPENDENCE_MILESTONES, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the card lists the simulated rents behind the projection, labelled as a simulation`() {
+        open(
+            measurable(
+                IndependenceProjection(startMonth = "2026-10", nDate = "2045-09"),
+            ).copy(
+                renteSources = RenteSources(
+                    placements = PlacementRentes(count = 3, monthlyRentCents = 31500),
+                    investments = InvestmentRentes(count = 1, monthlyRentCents = 16000),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("Sources des rentes à venir").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Placements · 3 · ≈ 315\u00A0€ / mois à terme").assertExists()
+        compose.onNodeWithText("Investissements · 1 · ≈ 160\u00A0€ / mois de loyer").assertExists()
+        compose.onNodeWithText("Simulation · retrait de 4 % par an sur le capital placé").assertExists()
+    }
+
+    @Test
+    fun `with investments only the caption of the 4 percent withdrawal is not drawn`() {
+        open(
+            measurable(IndependenceProjection(startMonth = "2026-10", nDate = "2045-09")).copy(
+                renteSources = RenteSources(investments = InvestmentRentes(count = 1, monthlyRentCents = 16000)),
+            ),
+        )
+
+        compose.onNodeWithText("Investissements · 1 · ≈ 160\u00A0€ / mois de loyer").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Placements · ", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Simulation", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the sources are drawn even when no train de vie is measured yet`() {
+        open(
+            IndependenceCounter(
+                hasPassiveIncomeCategories = true,
+                renteSources = RenteSources(placements = PlacementRentes(count = 1, monthlyRentCents = 23807)),
+            ),
+        )
+
+        compose.onNodeWithText("Pas encore de train de vie mesuré").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Sources des rentes à venir").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Placements · 1 · ≈ 238\u00A0€ / mois à terme").assertExists()
+    }
+
+    @Test
+    fun `without a placement or an investment the section is not drawn`() {
+        open(measurable(IndependenceProjection(startMonth = "2026-10", nDate = "2045-09")))
+
+        compose.onNodeWithText("Date N · septembre 2045").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.INDEPENDENCE_SOURCES, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Sources des rentes à venir").assertDoesNotExist()
+        compose.onNodeWithText("Simulation", substring = true).assertDoesNotExist()
     }
 }

@@ -8,8 +8,11 @@ namespace Maggie\Finance\Service;
  * The date N, the coverage curve and the dated milestones (MAG-549, rules 9 and
  * 11). Pure: the same figures always give the same projection.
  *
- * Each month the rentes are the ones measured today plus the yield of what has
- * been invested so far; the train de vie stays what it is measured today. What
+ * Each month the rentes are the ones measured today, plus the rent of the
+ * investments held that month (MAG-558, from the planning), plus the placements
+ * that have reached their term — their final capital withdrawn at 4 % a year —
+ * plus the yield of what has been invested so far; the train de vie stays what
+ * it is measured today. What
  * is invested in a month is what the planning leaves of the capacity once the
  * cushion and the projects have taken their share, and it starts yielding the
  * month after. The yield is paid out as rente, not reinvested, and nothing is
@@ -27,8 +30,11 @@ final class IndependenceProjector
     public const MILESTONES = [25, 50, 75, 100];
 
     /**
-     * @param list<int> $investableCents     what is invested each month from the current one, then…
-     * @param int       $tailInvestableCents … each month after the list
+     * @param list<int>                               $investableCents     what is invested each month from the current one, then…
+     * @param int                                     $tailInvestableCents … each month after the list
+     * @param list<int>                               $rentCents           the rent of the investments held, from the current month, then…
+     * @param int                                     $tailRentCents       … each month after the list
+     * @param list<array{month: int, rentCents: int}> $placementRents      what a placement gives a month, from the month (0 is the current one) it reaches its term
      *
      * @return array{
      *     nDate: string|null,
@@ -43,6 +49,9 @@ final class IndependenceProjector
         array $investableCents,
         int $tailInvestableCents,
         int $yieldBps = self::YIELD_BPS,
+        array $rentCents = [],
+        int $tailRentCents = 0,
+        array $placementRents = [],
     ): array {
         $milestones = array_fill_keys(self::MILESTONES, null);
         if ($lifestyleCents <= 0) {
@@ -56,7 +65,16 @@ final class IndependenceProjector
 
         for ($m = 0; $m < self::HORIZON_MONTHS; ++$m) {
             $month = $start->modify(\sprintf('+%d months', $m))->format('Y-m');
-            $rente = $passiveIncomeCents + intdiv($capital * $yieldBps, 120000);
+            $atTerm = 0;
+            foreach ($placementRents as $placement) {
+                if ($placement['month'] <= $m) {
+                    $atTerm += $placement['rentCents'];
+                }
+            }
+            $rente = $passiveIncomeCents
+                + max(0, $rentCents[$m] ?? $tailRentCents)
+                + $atTerm
+                + intdiv($capital * $yieldBps, 120000);
 
             // Truncated, so that 1.0 means covered and nothing else.
             $curve[] = ['month' => $month, 'coverage' => min(10000, intdiv($rente * 10000, $lifestyleCents)) / 10000.0];
