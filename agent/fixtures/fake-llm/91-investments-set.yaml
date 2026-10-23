@@ -1,0 +1,37 @@
+# « Ajoute un investissement Box à louer : 30 000 €, 5 000 € d'apport, un prêt sur 20 ans à 3,9 %,
+# loyer 160 € par mois, revente en juin 2036 pour 15 000 € net » (MAG-557): she reads the projects
+# to find the Box, then sets the WHOLE investment with `manage_investments` set — the down payment
+# and the rent in cents (0 never deduced), the rate in basis points (3,9 % = 390) and the resale
+# month as YYYY-MM. The Box id comes from this run's results, which `results_matches` captures
+# (`id` then `name` in the tool's JSON).
+#
+# The fake does not read the answer: the figures below are the scenario's own (25 000 € borrowed
+# over 240 months at 3,9 %: about 148,9 € a month, so the 160 € rent covers the loan and leaves
+# about 11 € a month). Facts only: never whether the investment is a good one.
+name: investments-set
+description: Make a project an investment with a loan, a rent and a planned resale through MCP.
+
+match:
+  user_contains: "investissement box à louer"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+name\W+Box\W'
+
+turns:
+  - tools:
+      - name: manage_projects
+        input: {action: list}
+  - tools:
+      - name: manage_investments
+        input:
+          action: set
+          projectId: '\1'
+          priceCents: 3000000
+          downPaymentCents: 500000
+          monthlyRentCents: 16000
+          loan:
+            annualRateBasisPoints: 390
+            durationMonths: 240
+          resale:
+            month: "2036-06"
+            netAmountCents: 1500000
+  - text: "C'est noté pour la Box : 30 000 €, dont 5 000 € d'apport et 25 000 € empruntés sur 20 ans à 3,9 %, soit environ 148,9 € par mois. Le loyer de 160 € couvre le prêt et laisse environ 11 € par mois. Revente prévue en juin 2036 pour 15 000 € net."

@@ -7,6 +7,7 @@ namespace Maggie\Core\Elasticsearch\Hydrator;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\OneToMany;
+use Doctrine\ORM\Mapping\OneToOne;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
 use Maggie\Core\Elasticsearch\SearchDocumentValue;
 use Symfony\Component\Uid\Ulid;
@@ -26,6 +27,7 @@ final class ElasticsearchEntityHydrator
      *     class: \ReflectionClass<object>,
      *     properties: array<string, array{property: \ReflectionProperty, type: ?string}>,
      *     collections: list<string>,
+     *     inverseOneToOnes: array<string, string>,
      *     relations: array<string, array{property: string, targetEntity: class-string}>,
      * }>
      */
@@ -53,9 +55,16 @@ final class ElasticsearchEntityHydrator
             }
         }
 
+        // The inverse side of a one-to-one is not in the document either.
+        if (isset($source['id'])) {
+            foreach ($plan['inverseOneToOnes'] as $propName => $owningSide) {
+                $plan['properties'][$propName]['property']->setValue($entity, $this->inverseOneToOne($entity, $entityClass, $propName, $owningSide, Ulid::fromString($source['id'])));
+            }
+        }
+
         // Set all other fields from source
         foreach ($source as $key => $value) {
-            if ('id' === $key || \in_array($key, $plan['collections'], true)) {
+            if ('id' === $key || \in_array($key, $plan['collections'], true) || isset($plan['inverseOneToOnes'][$key])) {
                 continue;
             }
 
@@ -85,6 +94,7 @@ final class ElasticsearchEntityHydrator
      *     class: \ReflectionClass<object>,
      *     properties: array<string, array{property: \ReflectionProperty, type: ?string}>,
      *     collections: list<string>,
+     *     inverseOneToOnes: array<string, string>,
      *     relations: array<string, array{property: string, targetEntity: class-string}>,
      * }
      */
@@ -93,6 +103,7 @@ final class ElasticsearchEntityHydrator
         $class = new \ReflectionClass($entityClass);
         $properties = [];
         $collections = [];
+        $inverseOneToOnes = [];
         $relations = [];
 
         // The class first, then its parents: a property redeclared below wins, as it does for the engine.
@@ -103,6 +114,13 @@ final class ElasticsearchEntityHydrator
 
                 if ($isCollection) {
                     $collections[] = $name;
+                }
+
+                foreach ($property->getAttributes(OneToOne::class) as $attribute) {
+                    $mappedBy = $attribute->newInstance()->mappedBy;
+                    if (null !== $mappedBy) {
+                        $inverseOneToOnes[$name] = $mappedBy;
+                    }
                 }
 
                 foreach ($property->getAttributes(IndexedRelation::class) as $attribute) {
@@ -120,7 +138,31 @@ final class ElasticsearchEntityHydrator
             }
         }
 
-        return ['class' => $class, 'properties' => $properties, 'collections' => $collections, 'relations' => $relations];
+        return ['class' => $class, 'properties' => $properties, 'collections' => $collections, 'inverseOneToOnes' => $inverseOneToOnes, 'relations' => $relations];
+    }
+
+    /**
+     * The row owning a one-to-one with the rebuilt entity (an investment of a project), read from the
+     * database; its own side points back at the rebuilt entity, not at the managed twin, as for the lines
+     * of a collection.
+     *
+     * @param class-string $entityClass
+     */
+    private function inverseOneToOne(object $entity, string $entityClass, string $property, string $owningSide, Ulid $id): ?object
+    {
+        $targetClass = $this->em->getClassMetadata($entityClass)->getAssociationTargetClass($property);
+
+        $row = $this->em->createQuery(\sprintf('SELECT target FROM %1$s target WHERE target.%2$s = :id', $targetClass, $owningSide))
+            ->setParameter('id', $id, 'ulid')
+            ->getOneOrNullResult();
+        if (null === $row) {
+            return null;
+        }
+
+        $this->em->detach($row);
+        $this->em->getClassMetadata($targetClass)->reflFields[$owningSide]?->setValue($row, $entity);
+
+        return $row;
     }
 
     private function castValue(mixed $value, ?string $typeName): mixed

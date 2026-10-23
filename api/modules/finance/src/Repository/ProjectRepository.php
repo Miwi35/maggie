@@ -8,6 +8,9 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Project;
+use Maggie\Finance\Entity\ProjectFundingSource;
+use Maggie\Finance\Entity\ProjectInvestment;
+use Maggie\Finance\Enum\FundingSourceKind;
 use Symfony\Component\Uid\Ulid;
 
 /** @extends ServiceEntityRepository<Project> */
@@ -56,5 +59,20 @@ class ProjectRepository extends ServiceEntityRepository
             ->setParameter('id', $project->getId(), 'ulid')
             ->getQuery()
             ->getResult());
+    }
+
+    /** @return list<ProjectFundingSource> what this project's resale poses on the projects it funds (MAG-557) */
+    public function findResaleSourcesOf(Project $source): array
+    {
+        return $this->getEntityManager()->getRepository(ProjectFundingSource::class)->findBy([
+            'sourceProject' => $source,
+            'kind' => FundingSourceKind::Resale,
+        ]);
+    }
+
+    /** @return list<ProjectInvestment> the investments whose resale is set aside for this project */
+    public function findInvestmentsTargeting(Project $target): array
+    {
+        return $this->getEntityManager()->getRepository(ProjectInvestment::class)->findBy(['resaleTarget' => $target]);
     }
 }

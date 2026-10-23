@@ -31,9 +31,44 @@ export interface Project {
   fundingSources: FundingSource[]
   /** « Le reste »: what the salary pays, the amount minus the sources. */
   salaryCents: number
+  /** Set when the project is an investment (MAG-557): rent, loan, planned resale. Null for any other project. */
+  investment: ProjectInvestment | null
 }
 
-export type FundingKind = 'savings' | 'capital' | 'loan'
+/** The planned resale of an investment: the net amount, once the loan is repaid and the fees paid. */
+export interface ProjectResale {
+  /** `YYYY-MM`. */
+  month: string
+  netAmountCents: number
+  /** Bare id of the project the proceeds are set aside for; null: they speed up the projects waiting. */
+  targetProjectId: string | null
+}
+
+/** A project that is bought to be rented, then resold (MAG-557). */
+export interface ProjectInvestment {
+  priceCents: number
+  downPaymentCents: number
+  /** Bare id of the projected loan; null when the down payment is the whole price. */
+  loanId: string | null
+  loanPaymentCents: number
+  monthlyRentCents: number
+  /** The rent minus the loan payment: negative when the owner tops it up. */
+  monthlyBalanceCents: number
+  resale: ProjectResale | null
+}
+
+/** What `PUT …/investment` takes; the investment is replaced whole. */
+export interface InvestmentInput {
+  /** The project's amount; left out, it stays. */
+  priceCents?: number
+  downPaymentCents: number
+  /** The conditions of the loan; left out, the project's current loan keeps its own. */
+  loan?: { type: 'amortizing_fixed'; annualRateBasisPoints: number; durationMonths: number }
+  monthlyRentCents: number
+  resale?: { month: string; netAmountCents: number; targetProjectId?: string }
+}
+
+export type FundingKind = 'savings' | 'capital' | 'loan' | 'resale'
 
 export interface FundingSource {
   kind: FundingKind
@@ -42,11 +77,13 @@ export interface FundingSource {
   accountId: string | null
   /** Bare id of the projected loan of a loan source. */
   loanId: string | null
+  /** Bare id of the investment whose resale a `resale` source stands for (MAG-557); read-only. */
+  sourceProjectId: string | null
 }
 
 /** One source as `PUT …/funding` takes it; the list sent is the whole list. */
 export interface FundingSourceInput {
-  kind: FundingKind
+  kind: Exclude<FundingKind, 'resale'>
   amountCents: number
   account?: string
   loan?: Record<string, unknown>
@@ -158,7 +195,29 @@ const toSource = (raw: Raw): FundingSource => ({
   amountCents: Number(raw.amountCents ?? 0),
   accountId: raw.accountId ? bareId(String(raw.accountId)) : null,
   loanId: raw.loanId ? bareId(String(raw.loanId)) : null,
+  sourceProjectId: raw.sourceProjectId ? bareId(String(raw.sourceProjectId)) : null,
 })
+
+export const toInvestment = (raw: Raw | null | undefined): ProjectInvestment | null => {
+  if (!raw) return null
+  const resale = raw.resale as Raw | null | undefined
+
+  return {
+    priceCents: Number(raw.priceCents ?? 0),
+    downPaymentCents: Number(raw.downPaymentCents ?? 0),
+    loanId: raw.loanId ? bareId(String(raw.loanId)) : null,
+    loanPaymentCents: Number(raw.loanPaymentCents ?? 0),
+    monthlyRentCents: Number(raw.monthlyRentCents ?? 0),
+    monthlyBalanceCents: Number(raw.monthlyBalanceCents ?? 0),
+    resale: resale
+      ? {
+          month: String(resale.month ?? ''),
+          netAmountCents: Number(resale.netAmountCents ?? 0),
+          targetProjectId: resale.targetProjectId ? bareId(String(resale.targetProjectId)) : null,
+        }
+      : null,
+  }
+}
 
 export const toProject = (raw: Raw): Project => {
   const wellbeing = (raw.wellbeing as ProjectWellbeing) ?? 'medium'
@@ -180,6 +239,7 @@ export const toProject = (raw: Raw): Project => {
     unmetDependencies: ((raw.unmetDependencies as string[] | undefined) ?? []).map((id) => bareId(id)),
     fundingSources,
     salaryCents: Number(raw.salaryCents ?? Math.max(0, amountCents - fundingSources.reduce((sum, source) => sum + source.amountCents, 0))),
+    investment: toInvestment(raw.investment as Raw | null | undefined),
   }
 }
 
@@ -196,6 +256,7 @@ export const patchProject = (project: Project, payload: Raw): Project => {
   }
   if (Array.isArray(payload.fundingSources)) patched.fundingSources = (payload.fundingSources as Raw[]).map(toSource)
   if (typeof payload.salaryCents === 'number') patched.salaryCents = payload.salaryCents
+  if ('investment' in payload) patched.investment = toInvestment(payload.investment as Raw | null)
 
   return patched
 }
@@ -323,10 +384,27 @@ export interface PlannedProject {
   purchaseMonth: string | null
   gatheredCents: number
   loan: PlannedLoan | null
+  /** `YYYY-MM` the last resale funding this project lands; null when it has none or one is beyond the planning. */
+  resaleFromMonth: string | null
+  /** What the project brings when it is an investment (MAG-557); null otherwise. */
+  investment: PlannedInvestment | null
   isBeyondHorizon: boolean
   isDeadlineMissed: boolean
   delayMonths: number
   unmetDependencies: string[]
+}
+
+export interface PlannedInvestment {
+  monthlyRentCents: number
+  monthlyBalanceCents: number
+  /** `YYYY-MM`, the month after the purchase; null while the purchase is beyond the planning. */
+  rentFromMonth: string | null
+  /** `YYYY-MM`, the last month rented; null: still rented at the end of the planning. */
+  rentUntilMonth: string | null
+  /** `YYYY-MM`; null without a resale, or when it falls beyond the planning. */
+  resaleMonth: string | null
+  resaleNetCents: number | null
+  resaleTargetProjectId: string | null
 }
 
 /** One month of the planning: what the salary can give the projects, and what funds them by source. */
@@ -337,6 +415,10 @@ export interface PlanningMonth {
   salaryCents: number
   savingsCents: number
   capitalCents: number
+  /** The rent received this month (MAG-557). */
+  rentCents: number
+  /** The net proceeds of the resale landing this month (MAG-557). */
+  resaleCents: number
   isOverCapacity: boolean
 }
 
@@ -352,6 +434,19 @@ export interface ProjectPlanning {
 }
 
 export const PLANNING_PATH = '/api/finance/project-planning'
+
+const toPlannedInvestment = (raw: Raw | null | undefined): PlannedInvestment | null =>
+  raw
+    ? {
+        monthlyRentCents: Number(raw.monthlyRentCents ?? 0),
+        monthlyBalanceCents: Number(raw.monthlyBalanceCents ?? 0),
+        rentFromMonth: (raw.rentFromMonth as string | null) ?? null,
+        rentUntilMonth: (raw.rentUntilMonth as string | null) ?? null,
+        resaleMonth: (raw.resaleMonth as string | null) ?? null,
+        resaleNetCents: raw.resaleNetCents === null || raw.resaleNetCents === undefined ? null : Number(raw.resaleNetCents),
+        resaleTargetProjectId: raw.resaleTargetProjectId ? bareId(String(raw.resaleTargetProjectId)) : null,
+      }
+    : null
 
 const toPlannedProject = (raw: Raw): PlannedProject => {
   const loan = raw.loan as Raw | null | undefined
@@ -374,6 +469,8 @@ const toPlannedProject = (raw: Raw): PlannedProject => {
           monthlyPaymentCents: Number(loan.monthlyPaymentCents ?? 0),
         }
       : null,
+    resaleFromMonth: (raw.resaleFromMonth as string | null) ?? null,
+    investment: toPlannedInvestment(raw.investment as Raw | null | undefined),
     isBeyondHorizon: Boolean(raw.isBeyondHorizon),
     isDeadlineMissed: Boolean(raw.isDeadlineMissed),
     delayMonths: Number(raw.delayMonths ?? 0),
@@ -387,6 +484,8 @@ const toPlanningMonth = (raw: Raw): PlanningMonth => ({
   salaryCents: Number(raw.salaryCents ?? 0),
   savingsCents: Number(raw.savingsCents ?? 0),
   capitalCents: Number(raw.capitalCents ?? 0),
+  rentCents: Number(raw.rentCents ?? 0),
+  resaleCents: Number(raw.resaleCents ?? 0),
   isOverCapacity: raw.isOverCapacity === true,
 })
 
@@ -419,6 +518,27 @@ export async function fetchProjectPlanning(): Promise<ProjectPlanning> {
 export async function saveFunding(id: string, sources: FundingSourceInput[]): Promise<Project> {
   const response = await request(`${PROJECTS_PATH}/${bareId(id)}/funding`, 'PUT', { sources })
   if (!response.ok) throw await refused(response, "Les sources n'ont pas été enregistrées.")
+  const body = (await response.json()) as { project?: Raw }
+
+  return toProject(body.project ?? {})
+}
+
+/**
+ * Replaces the project's investment (`PUT /api/finance/projects/{id}/investment`): the price, the down
+ * payment, the loan for the rest, the rent and the planned resale. A refusal is the API's own sentence.
+ */
+export async function saveInvestment(id: string, input: InvestmentInput): Promise<Project> {
+  const response = await request(`${PROJECTS_PATH}/${bareId(id)}/investment`, 'PUT', input)
+  if (!response.ok) throw await refused(response, "L'investissement n'a pas été enregistré.")
+  const body = (await response.json()) as { project?: Raw }
+
+  return toProject(body.project ?? {})
+}
+
+/** Makes the project a plain one again: its loan and rent go, the resale funding of its target too. */
+export async function removeInvestment(id: string): Promise<Project> {
+  const response = await request(`${PROJECTS_PATH}/${bareId(id)}/investment`, 'DELETE')
+  if (!response.ok) throw await refused(response, "L'investissement n'a pas été supprimé.")
   const body = (await response.json()) as { project?: Raw }
 
   return toProject(body.project ?? {})

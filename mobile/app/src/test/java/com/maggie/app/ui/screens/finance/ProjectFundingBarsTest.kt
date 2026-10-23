@@ -73,4 +73,17 @@ class ProjectFundingBarsTest {
     fun `the three sources take three different category slots`() {
         assertEquals(listOf(1, 2, 3), FundingSource.entries.map { it.slot })
     }
+
+    @Test
+    fun `a month names the rent and the resale it receives only when there are some (MAG-557)`() {
+        val rented = PlanningMonth(month = "2026-10", capacityCents = 66000, rentCents = 16000, resaleCents = 1000000)
+        val plain = PlanningMonth(month = "2026-11", capacityCents = 50000)
+
+        val bars = fundingBars(planning(rented, plain))
+
+        assertTrue(bars[0].detail.contains("Loyers"))
+        assertTrue(bars[0].detail.contains("Revente"))
+        assertFalse(bars[1].detail.contains("Loyers"))
+        assertFalse(bars[1].detail.contains("Revente"))
+    }
 }

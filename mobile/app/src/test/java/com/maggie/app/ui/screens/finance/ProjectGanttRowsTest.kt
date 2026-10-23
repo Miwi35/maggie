@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.finance
 
 import com.maggie.app.data.model.CushionPlanState
 import com.maggie.app.data.model.PlannedCushion
+import com.maggie.app.data.model.PlannedInvestment
 import com.maggie.app.data.model.PlannedLoan
 import com.maggie.app.data.model.PlannedProject
 import com.maggie.app.data.model.ProjectPlanning
@@ -169,5 +170,86 @@ class ProjectGanttRowsTest {
         assertEquals("oct. 2026", ganttMonthLabel("2026-10"))
         assertEquals("juin 2027", ganttMonthLabel("2027-06"))
         assertEquals("janv. 2028", ganttMonthLabel("2028-01"))
+    }
+
+    private val box = project("Box", 0, "2026-10", "2026-12") {
+        copy(
+            loan = PlannedLoan("2027-01", "2027-07", 14108),
+            investment = PlannedInvestment(
+                monthlyRentCents = 16000,
+                monthlyBalanceCents = 1892,
+                rentFromMonth = "2027-01",
+                rentUntilMonth = "2027-07",
+                resaleMonth = "2027-08",
+                resaleNetCents = 1000000,
+                resaleTargetProjectId = "japon",
+            ),
+        )
+    }
+
+    @Test
+    fun `an investment draws its rent beside the loan, and its resale as a point (MAG-557)`() {
+        val row = ganttRows(planning(box, japan)).first()
+
+        assertEquals(3 to 9, row.loan!!.let { it.from to it.to })
+        assertEquals(3 to 9, row.rent!!.let { it.from to it.to })
+        assertFalse(row.rent!!.runsOn)
+        assertTrue(row.rent!!.detail.contains("Box · loyer"))
+        assertTrue(row.rent!!.detail.contains("par mois dès janv. 2027 jusqu'en juil. 2027"))
+        assertEquals(10, row.resale!!.at)
+        assertTrue(row.resale!!.detail.contains("Box · revente en août 2027"))
+        assertTrue(row.resale!!.detail.endsWith("pour l'apport de Japon"))
+    }
+
+    @Test
+    fun `a resale that goes to no project says it speeds up the next ones`() {
+        val loose = box.copy(investment = box.investment!!.copy(resaleTargetProjectId = null))
+
+        val row = ganttRows(planning(loose)).single()
+
+        assertTrue(row.resale!!.detail.endsWith("pour avancer les projets suivants"))
+    }
+
+    @Test
+    fun `a box still rented at the end of the planning runs on to the edge`() {
+        val open = box.copy(investment = box.investment!!.copy(rentUntilMonth = null, resaleMonth = null, resaleNetCents = null))
+
+        val row = ganttRows(planning(open)).single()
+
+        assertEquals(35, row.rent!!.to)
+        assertTrue(row.rent!!.runsOn)
+        assertNull(row.resale)
+    }
+
+    @Test
+    fun `a resale past the planning draws no point, and a rent that starts past it no bar`() {
+        val late = box.copy(
+            investment = box.investment!!.copy(rentFromMonth = "2030-01", rentUntilMonth = null, resaleMonth = "2031-01"),
+        )
+
+        val row = ganttRows(planning(late)).single()
+
+        assertNull(row.rent)
+        assertNull(row.resale)
+    }
+
+    @Test
+    fun `an investment with no rent draws no rent bar, and a plain project none of the three`() {
+        val unrented = box.copy(investment = box.investment!!.copy(monthlyRentCents = 0))
+
+        assertNull(ganttRows(planning(unrented)).single().rent)
+        val plain = ganttRows(planning(bike)).single()
+        assertNull(plain.rent)
+        assertNull(plain.resale)
+    }
+
+    @Test
+    fun `a project funded by a resale says when the money comes in`() {
+        val funded = japan.copy(resaleFromMonth = "2027-08")
+
+        val bar = ganttRows(planning(funded)).single().saving!!
+
+        assertTrue(bar.detail.endsWith("revente reçue en août 2027"))
+        assertFalse(ganttRows(planning(japan)).single().saving!!.detail.contains("revente"))
     }
 }

@@ -1,0 +1,47 @@
+# MAG-557's scenario: a rented box (18 000 €), a car (12 000 €) its resale could
+# pay the down payment of, a bike, and a net saving capacity of 500 €/month.
+# Another user's project proves the isolation.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-investment-test@example.com
+    googleId: google-finance-investment-test
+    name: Finance Investment Test User
+  other_user:
+    email: finance-investment-other@example.com
+    googleId: google-finance-investment-other
+    name: Other Investment User
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 50000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: null
+    user: '@test_user'
+
+Maggie\Finance\Entity\Project:
+  box:
+    name: Box à louer
+    amountCents: 1800000
+    currency: EUR
+    position: 0
+    user: '@test_user'
+  car:
+    name: Voiture
+    amountCents: 1200000
+    currency: EUR
+    position: 1
+    user: '@test_user'
+  bike:
+    name: Vélo
+    amountCents: 120000
+    currency: EUR
+    position: 2
+    user: '@test_user'
+  secret:
+    name: Projet secret
+    amountCents: 99900
+    currency: EUR
+    position: 0
+    user: '@other_user'

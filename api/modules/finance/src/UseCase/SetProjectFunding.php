@@ -33,7 +33,8 @@ class SetProjectFunding
             $loanSource = $project->loanSource();
 
             foreach ($project->getFundingSources() as $current) {
-                if ($current !== $loanSource) {
+                // A resale source belongs to the investment that poses it.
+                if ($current !== $loanSource && FundingSourceKind::Resale !== $current->getKind()) {
                     $project->removeFundingSource($current);
                 }
             }

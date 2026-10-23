@@ -461,3 +461,86 @@ test('the funding chart flags the months a fixed date asks more than the capacit
     await restoreSeed(api)
   }
 })
+
+/**
+ * An investment, on the page (MAG-557, extends MAG-102).
+ *
+ * « Box à louer » is made for the journey, locked two months ahead so its purchase always falls inside the
+ * 36 months whatever the seeded capacity. Defined as an investment from its card — 1 000 € down, a loan of
+ * 800 € over 12 months at 3 %, 50 € of rent, resold a year on for 600 € net to fund « Canapé » — the Gantt draws
+ * the loan, the rent and the resale point, and Canapé is shown as funded by that resale. The investment, the
+ * project and the seed are put back in `finally`: the resale funding on Canapé goes with the investment.
+ */
+test('defining an investment with a resale puts the loan, the rent and the resale point on the Gantt', async ({ page, api }) => {
+  await restoreSeed(api)
+  const screen = new FinanceProjectsPage(page)
+  const { retry } = test.info()
+  const name = `Box à louer${0 === retry ? '' : ` essai ${retry}`}`
+  const resaleMonth = firstOfMonth(14).slice(0, 7)
+  let createdIri: string | null = null
+
+  try {
+    // --- Given: the seed, and a Box locked two months ahead -------------------
+    const created = await api.post('/api/finance/projects', {
+      headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+      data: {
+        name,
+        amountCents: 180_000,
+        currency: 'EUR',
+        wellbeing: 'comfort',
+        dateMode: 'fixed',
+        targetOn: firstOfMonth(2),
+        dependsOn: [],
+      },
+    })
+    expect(created.status(), await created.text()).toBe(201)
+    createdIri = ((await created.json()) as { '@id': string })['@id']
+    await screen.open()
+    await expect(screen.row(name)).toBeVisible()
+    await screen.openFunding(name)
+
+    // --- When: the owner defines the investment with a resale for Canapé -----
+    const saved = page.waitForResponse((response) => response.url().endsWith('/investment') && response.request().method() === 'PUT')
+    await screen.defineInvestment(name, {
+      downPayment: '1000',
+      rent: '50',
+      rate: '3',
+      months: '12',
+      resaleMonth,
+      resaleNet: '600',
+      target: SOFA,
+    })
+    expect((await saved).status()).toBe(200)
+
+    // --- Then: the card says what it costs and what it brings ----------------
+    await expect(screen.investmentFigure(name, 'price')).toContainText(/1\s800,00\s€/)
+    await expect(screen.investmentFigure(name, 'down-payment')).toContainText(/1\s000,00\s€/)
+    await expect(screen.investmentFigure(name, 'loan')).toContainText(/800,00\s€/)
+    await expect(screen.investmentFigure(name, 'rent')).toContainText(/50,00\s€ \/ mois/)
+    await expect(screen.investmentCard(name).getByTestId('investment-resale')).toContainText(/net 600,00\s€ · finance Canapé/)
+
+    // --- And: the Gantt shows the loan, the rent and the resale point --------
+    await expect(screen.ganttRow(name).getByTestId('gantt-loan')).toBeVisible()
+    await expect(screen.ganttRow(name).getByTestId('gantt-rent')).toBeVisible()
+    await expect(screen.ganttRow(name).getByTestId('gantt-resale')).toBeVisible()
+    await expect(screen.ganttRow(SOFA).getByTestId('gantt-resale-in')).toBeVisible()
+
+    // --- And: the API kept it, with Canapé as the target ---------------------
+    const stored = (await (await api.get(createdIri, { headers: { Accept: 'application/ld+json' } })).json()) as {
+      investment: { monthlyRentCents: number; resale: { month: string; netAmountCents: number } | null }
+    }
+    expect(stored.investment.monthlyRentCents).toBe(5_000)
+    expect(stored.investment.resale).toMatchObject({ month: resaleMonth, netAmountCents: 60_000 })
+
+    // --- And: Canapé is funded by that resale, read-only ---------------------
+    await screen.row(SOFA).getByRole('button', { name: `Financement de ${SOFA}` }).click()
+    await expect(screen.funding(SOFA).getByTestId('funding-source').filter({ hasText: `Revente de ${name}` })).toBeVisible()
+  } finally {
+    if (createdIri) {
+      await api.delete(`${createdIri}/investment`)
+      await api.delete(createdIri)
+    }
+    await restoreSeed(api)
+  }
+})
+

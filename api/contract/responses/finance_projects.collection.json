@@ -18,6 +18,7 @@
             "dependsOn": [],
             "note": null,
             "fundingSources": [],
+            "investment": null,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "wellbeingScore": 4,
             "unmetDependencies": [],
@@ -39,6 +40,7 @@
             ],
             "note": "Recorded note",
             "fundingSources": [],
+            "investment": null,
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "wellbeingScore": 1,
             "unmetDependencies": [

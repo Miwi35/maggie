@@ -404,6 +404,9 @@ final class RecordedResponseContractTest extends WebTestCase
         self::assertNotEmpty(array_filter($body['projects'], static fn (array $project): bool => null !== $project['loan']), 'The recorded planning holds no projected loan.');
         self::assertNotEmpty(array_filter($body['projects'], static fn (array $project): bool => $project['isDeadlineMissed']), 'The recorded planning holds no missed deadline.');
         self::assertNotEmpty(array_filter($body['months'], static fn (array $month): bool => $month['loanPaymentsCents'] > 0), 'The recorded planning holds no loan payment.');
+        self::assertNotEmpty(array_filter($body['projects'], static fn (array $project): bool => null !== $project['investment']), 'The recorded planning holds no investment.');
+        self::assertNotEmpty(array_filter($body['months'], static fn (array $month): bool => $month['rentCents'] > 0 && 0 === $month['resaleCents']), 'The recorded planning holds no rent.');
+        self::assertNotEmpty(array_filter($body['months'], static fn (array $month): bool => $month['resaleCents'] > 0), 'The recorded planning holds no resale.');
 
         $this->assertMatchesContract(
             'responses/finance_project_planning.read.json',

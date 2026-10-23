@@ -674,6 +674,9 @@ mobile:
   e2e/mobile/flows/25-finance-placements.yaml:
     areas: [finance]
     paths: [api/fixtures/e2e/50-finance.yaml]
+  e2e/mobile/flows/26-finance-investment.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/investment-api.js, api/fixtures/e2e/50-finance.yaml]
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]

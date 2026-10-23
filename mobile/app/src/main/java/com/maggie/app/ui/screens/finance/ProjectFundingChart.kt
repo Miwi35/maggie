@@ -83,6 +83,8 @@ private fun detailOf(month: PlanningMonth, currency: String): String = buildList
         }
         add("${source.label} ${formatCents(cents, currency)}")
     }
+    if (month.rentCents > 0) add("Loyers ${formatCents(month.rentCents, currency)}")
+    if (month.resaleCents > 0) add("Revente ${formatCents(month.resaleCents, currency)}")
     add("Capacité ${formatCents(month.capacityCents, currency)}")
     if (month.isOverCapacity) add("Dépassement ${formatCents(month.salaryCents - month.capacityCents, currency)}")
 }.joinToString(" · ")

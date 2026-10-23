@@ -4,7 +4,9 @@ import com.maggie.app.data.api.ProjectOptionsParams
 import com.maggie.app.data.api.projectFundingBody
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.FundingKind
+import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectFundingSource
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -117,5 +119,39 @@ class ProjectFundingTest {
         )
         assertNull(ProjectOptionsDraft(months = "deux ans").toParams())
         assertNull(ProjectOptionsDraft(downPayment = "-5").toParams())
+    }
+
+    @Test
+    fun `a resale source is neither edited nor sent back, and nor is a kind the app does not know (MAG-557)`() {
+        val sources = listOf(
+            ProjectFundingSource(kind = "savings", amountCents = 100_000, accountId = "a1"),
+            ProjectFundingSource(kind = "resale", amountCents = 400_000, sourceProjectId = "p7"),
+            ProjectFundingSource(kind = "somethingNew", amountCents = 5),
+            ProjectFundingSource(kind = "loan", amountCents = 600_000, loanId = "l1"),
+        )
+
+        val drafts = FundingDraft.draftsOf(sources)
+
+        assertEquals(listOf(FundingKind.SAVINGS, FundingKind.LOAN), drafts.map { it.kind })
+        assertFalse(drafts.any { it.accountId == null && it.kind == FundingKind.SAVINGS })
+    }
+
+    @Test
+    fun `the editable sources share the amount less the resales the project receives`() {
+        val project = Project(
+            id = "p9",
+            name = "Box",
+            amountCents = 1_800_000,
+            fundingSources = listOf(ProjectFundingSource(kind = "resale", amountCents = 400_000, sourceProjectId = "p7")),
+        )
+
+        assertEquals(1_400_000, FundingDraft.editableAmountCents(project))
+        assertEquals(1_800_000, FundingDraft.editableAmountCents(project.copy(fundingSources = emptyList())))
+        assertEquals(0, FundingDraft.editableAmountCents(project.copy(amountCents = 100_000)))
+    }
+
+    @Test
+    fun `no account can be chosen for a resale`() {
+        assertEquals(emptyList<Account>(), FundingDraft.eligibleAccounts(FundingKind.RESALE, listOf(Account(id = "chk", name = "Courant", type = "checking"))))
     }
 }

@@ -2,6 +2,7 @@ package com.maggie.app.data.model
 
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -32,26 +33,65 @@ data class Project(
     val fundingSources: List<ProjectFundingSource> = emptyList(),
     /** What is left on the salary: the amount minus the sources, never below 0. */
     val salaryCents: Int = 0,
+    /** Set when the project is a rented purchase (MAG-557): its rent, its loan and its planned resale. Null for a plain project. */
+    val investment: ProjectInvestment? = null,
 ) {
     val dependencyIds: List<String> get() = dependsOn.map { it.substringAfterLast('/') }
 
     val loanSource: ProjectFundingSource? get() = fundingSources.firstOrNull { it.kind == FundingKind.LOAN.key }
+
+    /** What the resales of other projects bring to this one: they are posed by those investments, never edited here. */
+    val resaleCents: Int get() = fundingSources.filter { it.kind == FundingKind.RESALE.key }.sumOf { it.amountCents }
 }
 
-/** One source of a project's money: [accountId] for savings and capital, [loanId] for the projected loan. */
+/**
+ * What makes a project an investment (MAG-557), as `investment` on the project. The price is the project's
+ * amount; [downPaymentCents] is what the loan leaves to pay; [monthlyBalanceCents] is the rent less the
+ * loan's payment, negative when the box costs more than it brings. Written from the admin and by Maggie,
+ * read here.
+ */
+@Serializable
+data class ProjectInvestment(
+    val projectId: String = "",
+    val priceCents: Int = 0,
+    val downPaymentCents: Int = 0,
+    val loanId: String? = null,
+    val loanPaymentCents: Int = 0,
+    val monthlyRentCents: Int = 0,
+    val monthlyBalanceCents: Int = 0,
+    val resale: ProjectResale? = null,
+)
+
+/** The planned resale: the month (`YYYY-MM`), what is left once the loan is repaid, and the project it is set aside for (none: it speeds up the next ones). */
+@Serializable
+data class ProjectResale(
+    val month: String = "",
+    val netAmountCents: Int = 0,
+    val targetProjectId: String? = null,
+)
+
+/**
+ * One source of a project's money: [accountId] for savings and capital, [loanId] for the projected loan,
+ * [sourceProjectId] for the resale of another project (MAG-557).
+ */
 @Serializable
 data class ProjectFundingSource(
     val kind: String,
     val amountCents: Int,
     val accountId: String? = null,
     val loanId: String? = null,
+    val sourceProjectId: String? = null,
 )
 
-/** The three kinds of source, in the order a project names them. */
-enum class FundingKind(val key: String, val label: String, val summary: String) {
+/**
+ * The kinds of source, in the order a project names them. A [RESALE] is posed by the investment it comes
+ * from: the phone and the tablet show it and never edit it ([editable]).
+ */
+enum class FundingKind(val key: String, val label: String, val summary: String, val editable: Boolean = true) {
     SAVINGS("savings", "Économies", "économies"),
     CAPITAL("capital", "Capital", "capital"),
     LOAN("loan", "Emprunt", "emprunt"),
+    RESALE("resale", "Revente", "revente", editable = false),
     ;
 
     companion object {
@@ -142,4 +182,37 @@ fun projectDateLabel(project: Project): String {
 fun projectDependenciesLabel(project: Project, all: List<Project>): String? {
     val names = project.dependencyIds.mapNotNull { id -> all.firstOrNull { it.id == id }?.name }
     return if (names.isEmpty()) null else "après ${names.joinToString(", ")}"
+}
+
+private val RESALE_MONTH = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANCE)
+
+/** « juin 2028 » from `2028-06`; the month as it came when it does not parse. */
+fun investmentMonthLabel(month: String): String =
+    runCatching { YearMonth.parse(month.take(7)).format(RESALE_MONTH) }.getOrDefault(month)
+
+/** « Loyer perçu : 160,00 EUR par mois ». */
+fun investmentRentLabel(investment: ProjectInvestment, currency: String = "EUR"): String =
+    "Loyer perçu : ${formatCents(investment.monthlyRentCents, currency)} par mois"
+
+/** « Mensualité du prêt : 141,08 EUR par mois »; null without a loan. */
+fun investmentLoanLabel(investment: ProjectInvestment, currency: String = "EUR"): String? =
+    if (investment.loanPaymentCents > 0) "Mensualité du prêt : ${formatCents(investment.loanPaymentCents, currency)} par mois" else null
+
+/** « Solde : +18,92 EUR par mois » — the rent less the loan's payment; « −… » when the box costs more than it brings. */
+fun investmentBalanceLabel(investment: ProjectInvestment, currency: String = "EUR"): String {
+    val balance = investment.monthlyBalanceCents
+    val sign = if (balance > 0) "+" else if (balance < 0) "−" else ""
+    return "Solde : $sign${formatCents(kotlin.math.abs(balance), currency)} par mois"
+}
+
+/**
+ * « Revendre en juin 2028 pour 10000,00 EUR net, pour l'apport de Japon » — or, with no target, « …, pour
+ * avancer les projets suivants ». Null while no resale is planned. A target that is no longer in [all]
+ * reads as no target.
+ */
+fun investmentResaleLabel(investment: ProjectInvestment, all: List<Project>, currency: String = "EUR"): String? {
+    val resale = investment.resale ?: return null
+    val target = resale.targetProjectId?.let { id -> all.firstOrNull { it.id == id } }
+    val destination = if (target != null) "pour l'apport de ${target.name}" else "pour avancer les projets suivants"
+    return "Revendre en ${investmentMonthLabel(resale.month)} pour ${formatCents(resale.netAmountCents, currency)} net, $destination"
 }

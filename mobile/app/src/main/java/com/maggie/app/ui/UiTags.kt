@@ -1243,6 +1243,8 @@ object UiTags {
     const val GANTT_SAVING = "gantt_saving"
     const val GANTT_PURCHASE = "gantt_purchase"
     const val GANTT_LOAN = "gantt_loan"
+    const val GANTT_RENT = "gantt_rent"
+    const val GANTT_RESALE = "gantt_resale"
     const val GANTT_DEADLINE = "gantt_deadline"
     const val GANTT_FIXED = "gantt_fixed"
     const val GANTT_UNMET = "gantt_unmet"
@@ -1292,6 +1294,14 @@ object UiTags {
     const val PROJECT_OPTIONS_DOWN_PAYMENT = "project_options_down_payment"
     const val PROJECT_OPTIONS_YIELD = "project_options_yield"
     const val PROJECT_OPTIONS_APPLY = "project_options_apply"
+    const val PROJECT_INVESTMENT = "project_investment"
+    const val PROJECT_INVESTMENT_PRICE = "project_investment_price"
+    const val PROJECT_INVESTMENT_DOWN_PAYMENT = "project_investment_down_payment"
+    const val PROJECT_INVESTMENT_RENT = "project_investment_rent"
+    const val PROJECT_INVESTMENT_LOAN = "project_investment_loan"
+    const val PROJECT_INVESTMENT_BALANCE = "project_investment_balance"
+    const val PROJECT_INVESTMENT_RESALE = "project_investment_resale"
+    const val PROJECT_ROW_INVESTMENT = "project_row_investment"
 
     /**
      * The loans of Planification and their sheet (MAG-523): a row, the sheet, its IRA block and its curve;

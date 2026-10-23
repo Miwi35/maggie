@@ -22814,6 +22814,17 @@
                         },
                         "readOnly": true
                     },
+                    "investment": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ProjectInvestment_noid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "readOnly": true
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -22925,6 +22936,17 @@
                         },
                         "readOnly": true
                     },
+                    "investment": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ProjectInvestment.html_noid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "readOnly": true
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -23034,6 +23056,17 @@
                         "items": {
                             "$ref": "#/components/schemas/ProjectFundingSource_noid"
                         },
+                        "readOnly": true
+                    },
+                    "investment": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ProjectInvestment_noid"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
                         "readOnly": true
                     },
                     "user": {
@@ -23148,6 +23181,17 @@
                                 },
                                 "readOnly": true
                             },
+                            "investment": {
+                                "anyOf": [
+                                    {
+                                        "$ref": "#/components/schemas/ProjectInvestment.jsonld_noid"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ],
+                                "readOnly": true
+                            },
                             "user": {
                                 "type": "string",
                                 "format": "iri-reference",
@@ -23188,7 +23232,8 @@
                         "enum": [
                             "savings",
                             "capital",
-                            "loan"
+                            "loan",
+                            "resale"
                         ]
                     },
                     "amountCents": {
@@ -23203,6 +23248,13 @@
                         ]
                     },
                     "loanId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "sourceProjectId": {
                         "readOnly": true,
                         "type": [
                             "string",
@@ -23220,7 +23272,8 @@
                         "enum": [
                             "savings",
                             "capital",
-                            "loan"
+                            "loan",
+                            "resale"
                         ]
                     },
                     "amountCents": {
@@ -23235,6 +23288,13 @@
                         ]
                     },
                     "loanId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "sourceProjectId": {
                         "readOnly": true,
                         "type": [
                             "string",
@@ -23252,7 +23312,8 @@
                         "enum": [
                             "savings",
                             "capital",
-                            "loan"
+                            "loan",
+                            "resale"
                         ]
                     },
                     "amountCents": {
@@ -23272,6 +23333,193 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "sourceProjectId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "ProjectInvestment.html_noid": {
+                "type": "object",
+                "properties": {
+                    "monthlyRentCents": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "projectId": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "priceCents": {
+                        "readOnly": true,
+                        "description": "The project's amount: what the investment costs.",
+                        "type": "integer"
+                    },
+                    "downPaymentCents": {
+                        "readOnly": true,
+                        "description": "What the loan leaves to pay out of one's own pocket: the price less the amount borrowed.",
+                        "type": "integer"
+                    },
+                    "loanId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "loanPaymentCents": {
+                        "readOnly": true,
+                        "description": "The monthly payment the loan costs, insurance included; 0 without a loan.",
+                        "type": "integer"
+                    },
+                    "monthlyBalanceCents": {
+                        "readOnly": true,
+                        "description": "The rent less the loan's payment: what the box brings, or costs, each month.",
+                        "type": "integer"
+                    },
+                    "resale": {
+                        "readOnly": true,
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "anyOf": [
+                                {
+                                    "type": "integer"
+                                },
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "ProjectInvestment.jsonld_noid": {
+                "type": "object",
+                "properties": {
+                    "monthlyRentCents": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "projectId": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "priceCents": {
+                        "readOnly": true,
+                        "description": "The project's amount: what the investment costs.",
+                        "type": "integer"
+                    },
+                    "downPaymentCents": {
+                        "readOnly": true,
+                        "description": "What the loan leaves to pay out of one's own pocket: the price less the amount borrowed.",
+                        "type": "integer"
+                    },
+                    "loanId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "loanPaymentCents": {
+                        "readOnly": true,
+                        "description": "The monthly payment the loan costs, insurance included; 0 without a loan.",
+                        "type": "integer"
+                    },
+                    "monthlyBalanceCents": {
+                        "readOnly": true,
+                        "description": "The rent less the loan's payment: what the box brings, or costs, each month.",
+                        "type": "integer"
+                    },
+                    "resale": {
+                        "readOnly": true,
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "anyOf": [
+                                {
+                                    "type": "integer"
+                                },
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "ProjectInvestment_noid": {
+                "type": "object",
+                "properties": {
+                    "monthlyRentCents": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "projectId": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "priceCents": {
+                        "readOnly": true,
+                        "description": "The project's amount: what the investment costs.",
+                        "type": "integer"
+                    },
+                    "downPaymentCents": {
+                        "readOnly": true,
+                        "description": "What the loan leaves to pay out of one's own pocket: the price less the amount borrowed.",
+                        "type": "integer"
+                    },
+                    "loanId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "loanPaymentCents": {
+                        "readOnly": true,
+                        "description": "The monthly payment the loan costs, insurance included; 0 without a loan.",
+                        "type": "integer"
+                    },
+                    "monthlyBalanceCents": {
+                        "readOnly": true,
+                        "description": "The rent less the loan's payment: what the box brings, or costs, each month.",
+                        "type": "integer"
+                    },
+                    "resale": {
+                        "readOnly": true,
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "anyOf": [
+                                {
+                                    "type": "integer"
+                                },
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
                     }
                 }
             },

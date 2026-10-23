@@ -16,6 +16,8 @@ use Symfony\Component\Uid\Ulid;
  * its project, published and indexed as a change to it.
  *
  * A `loan` source owns its projected loan: removing the source removes the loan.
+ * A `resale` source stands for the planned resale of another project (its
+ * investment, MAG-557): it is posed and removed with that investment.
  */
 #[ORM\Entity]
 #[AggregateRoot('project')]
@@ -48,6 +50,12 @@ class ProjectFundingSource
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     #[Ignore]
     private ?Loan $loan = null;
+
+    /** The project whose resale a `resale` source stands for. Served as `sourceProjectId`. */
+    #[ORM\ManyToOne(targetEntity: Project::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    #[Ignore]
+    private ?Project $sourceProject = null;
 
     #[ORM\Column(options: ['default' => 0])]
     #[Ignore]
@@ -135,6 +143,23 @@ class ProjectFundingSource
         return null === $this->loan ? null : (string) $this->loan->getId();
     }
 
+    public function getSourceProject(): ?Project
+    {
+        return $this->sourceProject;
+    }
+
+    public function setSourceProject(?Project $sourceProject): static
+    {
+        $this->sourceProject = $sourceProject;
+
+        return $this;
+    }
+
+    public function getSourceProjectId(): ?string
+    {
+        return null === $this->sourceProject ? null : (string) $this->sourceProject->getId();
+    }
+
     public function setPosition(int $position): static
     {
         $this->position = $position;
@@ -142,7 +167,7 @@ class ProjectFundingSource
         return $this;
     }
 
-    /** @return array{kind: string, amountCents: int, accountId: string|null, loanId: string|null} */
+    /** @return array{kind: string, amountCents: int, accountId: string|null, loanId: string|null, sourceProjectId: string|null} */
     public function toArray(): array
     {
         return [
@@ -150,6 +175,7 @@ class ProjectFundingSource
             'amountCents' => $this->amountCents,
             'accountId' => $this->getAccountId(),
             'loanId' => $this->getLoanId(),
+            'sourceProjectId' => $this->getSourceProjectId(),
         ];
     }
 }

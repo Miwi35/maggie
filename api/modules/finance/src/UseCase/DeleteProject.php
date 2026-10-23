@@ -31,6 +31,15 @@ class DeleteProject
                 $dependent->removeDependency($project);
             }
 
+            // The resale it would have funded is gone with it; what was set aside for it is sold to nobody.
+            foreach ($this->projectRepository->findResaleSourcesOf($project) as $source) {
+                $source->getProject()->removeFundingSource($source);
+            }
+            foreach ($this->projectRepository->findInvestmentsTargeting($project) as $investment) {
+                $resale = $investment->getResale();
+                $investment->planResale($resale['month'] ?? null, $resale['netAmountCents'] ?? null, null);
+            }
+
             $this->em->remove($project);
             $this->em->flush();
 

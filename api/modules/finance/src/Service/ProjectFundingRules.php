@@ -39,17 +39,31 @@ class ProjectFundingRules
      * current loan source: a client changing only the amount sends them back
      * as it read them.
      *
+     * A `resale` source is posed by another project's investment, never by a
+     * list: one sent back as it was read is ignored, and the ones the project
+     * has count in the total. `$priceCents` is the amount the project is about
+     * to have, when the caller changes it.
+     *
      * @param list<mixed> $sources
      *
      * @return list<array{kind: FundingSourceKind, amountCents: int, account: ?Account, loan: ?Loan}>
      */
-    public function sources(Project $project, User $user, array $sources): array
+    public function sources(Project $project, User $user, array $sources, ?int $priceCents = null): array
     {
         $parsed = [];
         $total = 0;
+        foreach ($project->getFundingSources() as $held) {
+            if (FundingSourceKind::Resale === $held->getKind()) {
+                $total += $held->getAmountCents();
+            }
+        }
         foreach ($sources as $index => $source) {
             if (!\is_array($source)) {
                 throw new \DomainException("sources[{$index}] must be an object {kind, amountCents, account?, loan?}.");
+            }
+
+            if (FundingSourceKind::Resale->value === ($source['kind'] ?? null)) {
+                continue;
             }
 
             $kind = \is_string($source['kind'] ?? null) ? FundingSourceKind::tryFrom($source['kind']) : null;
@@ -79,8 +93,9 @@ class ProjectFundingRules
             throw new \DomainException('A project has at most one loan source: put the whole amount borrowed in one.');
         }
 
-        if ($total > $project->getAmountCents()) {
-            throw new \DomainException(\sprintf('The sources add up to %d cents, more than the project\'s %d: lower them.', $total, $project->getAmountCents()));
+        $price = $priceCents ?? $project->getAmountCents();
+        if ($total > $price) {
+            throw new \DomainException(\sprintf('The sources add up to %d cents, more than the project\'s %d: lower them.', $total, $price));
         }
 
         return $parsed;

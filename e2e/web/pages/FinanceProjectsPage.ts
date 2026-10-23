@@ -101,4 +101,36 @@ export class FinanceProjectsPage extends AdminShell {
       .getByTestId('funding-over')
       .evaluateAll((marks) => marks.map((mark) => mark.getAttribute('data-month') ?? ''))
   }
+
+  /** The investment card of the project opened in the detail panel (MAG-557). */
+  investmentCard(name: string): Locator {
+    return this.funding(name).getByTestId('investment-card')
+  }
+
+  /**
+   * Defines the investment of a project from its card: the dialog filled with a down payment, a rent,
+   * the loan's rate and duration and a resale in `resaleMonth` (`YYYY-MM`) that funds `target`, then saved.
+   */
+  async defineInvestment(
+    name: string,
+    values: { downPayment: string; rent: string; rate: string; months: string; resaleMonth: string; resaleNet: string; target: string },
+  ): Promise<void> {
+    await this.investmentCard(name).getByRole('button', { name: 'Définir un investissement' }).click()
+    const form = this.page.getByRole('form', { name: `Investissement · ${name}` })
+    await form.getByLabel(/^Apport/).fill(values.downPayment)
+    await form.getByLabel(/^Loyer mensuel/).fill(values.rent)
+    await form.getByLabel(/^Taux annuel du prêt/).fill(values.rate)
+    await form.getByLabel(/^Durée du prêt/).fill(values.months)
+    await form.getByRole('checkbox', { name: 'Revente planifiée' }).check()
+    await form.getByLabel(/^Mois de la revente/).fill(values.resaleMonth)
+    await form.getByLabel(/^Net de la revente/).fill(values.resaleNet)
+    await form.getByRole('combobox', { name: 'Projet financé par la revente' }).click()
+    await this.page.getByRole('option', { name: values.target, exact: true }).click()
+    await form.getByRole('button', { name: 'Enregistrer' }).click()
+  }
+
+  /** One figure of the investment card (`price`, `down-payment`, `loan`, `rent`, `payment`, `balance`). */
+  investmentFigure(name: string, figure: string): Locator {
+    return this.investmentCard(name).locator(`[data-testid="investment-figure"][data-figure="${figure}"]`)
+  }
 }

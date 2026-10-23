@@ -1,7 +1,8 @@
 # The world of the project planning recording (MAG-526), read on 2026-10-21:
 # a complete cushion, 800 € of savings outside it, a net capacity of 500 €/month,
 # a move with a fixed date, a sofa waiting for it, a car part-paid by a projected
-# loan and a trip whose deadline the queue cannot keep. Its own file: the other
+# loan, a trip whose deadline the queue cannot keep and a rented box (MAG-557), first in line,
+# whose resale pays 1 000 € of the trip. Its own file: the other
 # recordings must not see these projects.
 Maggie\Core\Entity\User:
   planning_user:
@@ -46,13 +47,22 @@ Maggie\Finance\Entity\Loan:
     projected: true
     user: '@planning_user'
 
+  planning_box_loan:
+    name: Box · emprunt
+    principalRemainingCents: 1400000
+    monthlyPaymentCents: 14108
+    annualRateBasisPoints: 390
+    durationMonths: 120
+    projected: true
+    user: '@planning_user'
+
 Maggie\Finance\Entity\Project:
   planning_move:
     name: Déménagement
     amountCents: 240000
     currency: EUR
     wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Essential)>'
-    position: 0
+    position: 1
     dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::Fixed)>'
     targetOn: '<(new \DateTimeImmutable("2027-03-15"))>'
     user: '@planning_user'
@@ -61,23 +71,30 @@ Maggie\Finance\Entity\Project:
     amountCents: 30000
     currency: EUR
     wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Comfort)>'
-    position: 1
+    position: 2
     dependsOn: ['@planning_move']
     user: '@planning_user'
   planning_car:
     name: Voiture
     amountCents: 1200000
     currency: EUR
-    position: 2
+    position: 3
     user: '@planning_user'
   planning_trip:
     name: Japon
     amountCents: 300000
     currency: EUR
     wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Comfort)>'
-    position: 3
+    position: 4
     dateMode: '<(Maggie\Finance\Enum\ProjectDateMode::Deadline)>'
     targetOn: '<(new \DateTimeImmutable("2027-04-30"))>'
+    user: '@planning_user'
+  planning_box:
+    name: Box à louer
+    amountCents: 1800000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Comfort)>'
+    position: 0
     user: '@planning_user'
 
 Maggie\Finance\Entity\ProjectFundingSource:
@@ -91,3 +108,20 @@ Maggie\Finance\Entity\ProjectFundingSource:
     amountCents: 1000000
     loan: '@planning_car_loan'
     project: '@planning_car'
+  planning_box_borrowed:
+    kind: '<(Maggie\Finance\Enum\FundingSourceKind::Loan)>'
+    amountCents: 1400000
+    loan: '@planning_box_loan'
+    project: '@planning_box'
+  planning_trip_resale:
+    kind: '<(Maggie\Finance\Enum\FundingSourceKind::Resale)>'
+    amountCents: 100000
+    sourceProject: '@planning_box'
+    project: '@planning_trip'
+
+Maggie\Finance\Entity\ProjectInvestment:
+  planning_box_investment:
+    project: '@planning_box'
+    monthlyRentCents: 16000
+    __calls:
+      - planResale: ['2028-06', 1000000, '@planning_trip']

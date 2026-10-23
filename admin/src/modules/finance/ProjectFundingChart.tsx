@@ -28,6 +28,9 @@ export const fundingMonthDetail = (month: PlanningMonth, currency: string): stri
     ...SOURCES.map((source) => `${source.label} ${formatCents(month[source.field], currency)}`),
     `Capacité ${formatCents(month.capacityCents, currency)}`,
   ]
+  // MAG-557: the rent already counts in the capacity; the resale is cash that landed this month.
+  if (month.rentCents > 0) parts.push(`Loyers ${formatCents(month.rentCents, currency)}`)
+  if (month.resaleCents > 0) parts.push(`Revente ${formatCents(month.resaleCents, currency)}`)
   if (month.isOverCapacity) parts.push(`Dépassement ${formatCents(month.salaryCents - month.capacityCents, currency)}`)
 
   return parts.join(' · ')
