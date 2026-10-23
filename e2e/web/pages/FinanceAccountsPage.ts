@@ -137,9 +137,12 @@ export class FinanceAccountsPage extends AdminShell {
     options: { bank?: string; type?: string; balanceEuros?: number; cushion?: boolean } = {},
   ): Promise<void> {
     await this.createAccount.click()
-    await expect(this.content.getByLabel('Nom')).toBeVisible()
+    // A text field: until the form replaces the list, a label containing
+    // « Nom » is also the list's « Trier par nom croissant » header.
+    const nameField = this.content.getByRole('textbox', { name: 'Nom' })
+    await expect(nameField).toBeVisible()
 
-    await this.content.getByLabel('Nom').fill(name)
+    await nameField.fill(name)
 
     if (options.bank !== undefined) {
       await this.content.getByLabel('Banque').fill(options.bank)

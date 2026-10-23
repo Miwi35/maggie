@@ -69,6 +69,43 @@ final class IndexManagerTest extends TestCase
         self::assertSame(['type' => 'keyword'], $this->lastRequestBody()['mappings']['properties']['id']);
     }
 
+    /**
+     * MAG-575: the seed checked the index was missing, a worker indexing a
+     * document created it meanwhile, and the creation failed with
+     * `resource_already_exists_exception`. The index is there: it gets its
+     * mapping like any existing one.
+     */
+    public function testAnIndexCreatedMeanwhileGetsItsMappingInstead(): void
+    {
+        $manager = $this->manager(static fn (string $method, string $path): array => match (true) {
+            'HEAD' === $method => [404, []],
+            'PUT' === $method && '/events' === $path => [400, ['error' => [
+                'type' => 'resource_already_exists_exception',
+                'reason' => 'index [events/abc] already exists',
+            ], 'status' => 400]],
+            default => [200, ['acknowledged' => true]],
+        });
+
+        $manager->createOrUpdateIndex(Event::class);
+
+        self::assertSame(
+            ['HEAD /events', 'PUT /events', 'PUT /events/_mapping'],
+            array_map(static fn (array $r): string => $r['method'].' '.$r['path'], $this->requests),
+        );
+        self::assertSame(['type' => 'keyword'], $this->lastRequestBody()['properties']['id']);
+    }
+
+    public function testAnotherCreationFailureIsNotSwallowed(): void
+    {
+        $manager = $this->manager(static fn (string $method): array => 'HEAD' === $method
+            ? [404, []]
+            : [400, ['error' => ['type' => 'illegal_argument_exception', 'reason' => 'bad settings'], 'status' => 400]]);
+
+        $this->expectException(ClientResponseException::class);
+
+        $manager->createOrUpdateIndex(Event::class);
+    }
+
     public function testAnotherMappingFailureIsNotSwallowed(): void
     {
         $manager = $this->manager(static fn (string $method): array => 'HEAD' === $method

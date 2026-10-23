@@ -272,6 +272,19 @@ test.describe('Recipes and meals', () => {
     // shopping to do on Saturday. Since MAG-300 the owner chooses what goes on
     // the list; the lines they chose still leave with the meal.
     const parmesan = seedId('e2e_ingredient_parmesan')
+    const thursday = dayOfThisWeek(3)
+
+    // A previous attempt that failed half-way leaves its gratin in the cell,
+    // maybe with the parmesan it chose: the list would never lose it (MAG-575).
+    const leftovers = await getCollection<MealRow & { '@id': string }>(
+      api,
+      `/api/meals?date[after]=${thursday}&date[before]=${thursday}`,
+    )
+    for (const leftover of leftovers.filter((m) => 'lunch' === m.slot && String(m.summary).includes('Gratin de courgettes'))) {
+      const removed = await api.delete(leftover['@id'])
+      expect(removed.ok() || 404 === removed.status(), `DELETE ${leftover['@id']} answered ${removed.status()}`).toBeTruthy()
+    }
+
     const shell = new AdminShell(page)
     await shell.goto('/meals')
 
@@ -283,13 +296,19 @@ test.describe('Recipes and meals', () => {
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel('Menu').fill('Gratin')
     await page.getByRole('option', { name: 'Gratin de courgettes' }).click()
+    // The meal is the one this form creates, read off its answer: since MAG-378
+    // a meal is named after its recipe, and the user is shared with journeys
+    // planning gratins of their own (`meals-module-calendar.spec.ts`).
+    const posted = page.waitForResponse(
+      (response) => new URL(response.url()).pathname.endsWith('/api/meals') && 'POST' === response.request().method(),
+    )
     await dialog.getByRole('button', { name: 'Créer' }).click()
+    const answer = await posted
+    expect(answer.status(), `POST /api/meals answered ${answer.status()}`).toBe(201)
+    const gratin = (await answer.json()) as { '@id': string }
     await dialog.getByRole('button', { name: 'Plus tard' }).click()
 
-    const gratin = await waitForIndexed<MealRow & { id: string }>(api, '/api/meals', (m) => String(m.summary).includes('Gratin'), {
-      what: 'The planned gratin',
-    })
-    await chooseIngredients(api, gratin.id, [parmesan])
+    await chooseIngredients(api, gratin['@id'].split('/').pop() ?? '', [parmesan])
     await waitForIndexed<GroceryListRow>(
       api,
       '/api/grocery_lists',
@@ -308,7 +327,7 @@ test.describe('Recipes and meals', () => {
     // on the day its `startAt` string began with, and a meal stored at midnight
     // in Paris comes back from Elasticsearch in UTC and was drawn a day early
     // (MAG-166). The day is a day now (MAG-251), so the cell is addressable.
-    const planned = cell.filter({ hasText: 'Gratin de courgettes' })
+    const planned = cell.getByTestId(`meal-${gratin['@id']}`)
     await expect(planned).toBeVisible()
     await planned.getByRole('button', { name: /^Supprimer le repas / }).click()
 

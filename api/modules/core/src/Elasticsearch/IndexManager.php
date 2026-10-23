@@ -37,6 +37,14 @@ final class IndexManager
             return;
         }
 
+        $this->updateMapping($indexName, $meta);
+    }
+
+    /**
+     * @param array{index: string, module: ?string, fields: array<string, array<string, mixed>>, relations: array<string, array{targetEntity: string, sourceField: string}>} $meta
+     */
+    private function updateMapping(string $indexName, array $meta): void
+    {
         try {
             $this->client->indices()->putMapping([
                 'index' => $indexName,
@@ -69,15 +77,26 @@ final class IndexManager
      */
     private function createIndex(string $indexName, array $meta): void
     {
-        $this->client->indices()->create([
-            'index' => $indexName,
-            'body' => [
-                'settings' => $this->getDefaultSettings(),
-                'mappings' => [
-                    'properties' => $this->buildProperties($meta),
+        try {
+            $this->client->indices()->create([
+                'index' => $indexName,
+                'body' => [
+                    'settings' => $this->getDefaultSettings(),
+                    'mappings' => [
+                        'properties' => $this->buildProperties($meta),
+                    ],
                 ],
-            ],
-        ]);
+            ]);
+        } catch (ClientResponseException $e) {
+            // The index appeared between the existence check and the creation:
+            // a worker indexing a document creates it on the fly. It is there,
+            // which is what was asked: give it the mapping like any existing one.
+            if (!str_contains($e->getMessage(), 'resource_already_exists_exception')) {
+                throw $e;
+            }
+
+            $this->updateMapping($indexName, $meta);
+        }
     }
 
     public function deleteIndex(string $indexName): void
