@@ -84,13 +84,14 @@ fun ProjectListScreen(
     onOpenForm: (projectId: String?) -> Unit,
     onOpenSheet: (projectId: String) -> Unit = { onOpenForm(it) },
     scenarios: ScenarioViewModel? = null,
+    timelineViewModel: FinanceTimelineViewModel? = null,
 ) {
     Scaffold(
         topBar = {
             FinanceTopBar(Screen.ProjectList.route)
         },
     ) { paddingValues ->
-        ProjectListContent(viewModel, onOpenForm, Modifier.padding(paddingValues), onOpenSheet, scenarios)
+        ProjectListContent(viewModel, onOpenForm, Modifier.padding(paddingValues), onOpenSheet, scenarios, timelineViewModel)
     }
 }
 
@@ -103,6 +104,8 @@ fun ProjectListContent(
     onOpenSheet: (projectId: String) -> Unit = { onOpenForm(it) },
     /** The scenarios of the projects (MAG-551): a card and a sheet on a phone, a panel on a tablet. Absent: no scenarios. */
     scenarios: ScenarioViewModel? = null,
+    /** The 20-year frise behind the planning card's « 36 mois · 20 ans » switch (MAG-554); without it the card stays on 36 months. */
+    timelineViewModel: FinanceTimelineViewModel? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -163,6 +166,7 @@ fun ProjectListContent(
                             state = uiState,
                             wide = wide,
                             onRetry = viewModel::refreshPlanning,
+                            timelineViewModel = timelineViewModel,
                         )
                     },
                     scenarios = scenarioSection,
@@ -293,16 +297,36 @@ private const val SCENARIOS_ITEM_KEY = "project-scenarios"
  * Nothing while it loads for the first time, and nothing without a known income: the list stands alone.
  */
 @Composable
-private fun ProjectPlanningSection(state: ProjectUiState, wide: Boolean, onRetry: () -> Unit) {
+private fun ProjectPlanningSection(
+    state: ProjectUiState,
+    wide: Boolean,
+    onRetry: () -> Unit,
+    timelineViewModel: FinanceTimelineViewModel?,
+) {
     val planning = state.planning
+    val timelineState = timelineViewModel?.uiState?.collectAsState()?.value
+    val onFrise = timelineViewModel != null && timelineState?.horizon == PlanningHorizon.YEARS_20
+    val hasGantt = planning != null && ganttRows(planning).isNotEmpty()
     when {
-        planning != null && ganttRows(planning).isNotEmpty() ->
+        hasGantt || onFrise ->
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = if (wide) 8.dp else 4.dp)) {
                 Text("Planning", style = MaterialTheme.typography.titleMedium)
-                // One scroll for both: the funding chart slides with the Gantt it sits under (MAG-528).
-                val scroll = rememberScrollState()
-                ProjectGantt(planning, scrollState = scroll)
-                ProjectFundingChart(planning, scrollState = scroll)
+                if (timelineViewModel != null && timelineState != null) {
+                    PlanningHorizonToggle(timelineState.horizon, timelineViewModel::selectHorizon)
+                }
+                if (onFrise && timelineViewModel != null && timelineState != null) {
+                    // From the tablet width this is the « frise du bas », under the list.
+                    TimelineFrise(
+                        state = timelineState,
+                        onCompare = timelineViewModel::selectComparison,
+                        onRetry = timelineViewModel::retry,
+                    )
+                } else if (planning != null) {
+                    // One scroll for both: the funding chart slides with the Gantt it sits under (MAG-528).
+                    val scroll = rememberScrollState()
+                    ProjectGantt(planning, scrollState = scroll)
+                    ProjectFundingChart(planning, scrollState = scroll)
+                }
             }
         state.planningError ->
             Row(

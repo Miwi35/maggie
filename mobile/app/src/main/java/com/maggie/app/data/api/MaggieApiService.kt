@@ -105,6 +105,7 @@ import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DayReviewUpdateRequest
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
+import com.maggie.app.data.model.FinanceTimeline
 import com.maggie.app.data.model.UpcomingProjection
 import com.maggie.app.data.model.MonthBalance
 import com.maggie.app.data.model.EarlyRepayment
@@ -2421,6 +2422,17 @@ class MaggieApiService(
     suspend fun getProjectPlanning(): ProjectPlanning {
         return client.get("$baseUrl/api/finance/project-planning") {
             accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /**
+     * The 20-year frise (MAG-554). [compare] is a scenario id (`auto-rapid`, `auto-balanced`, `auto-quality`
+     * or a stored one); 400 (the current scenario itself) and 404 (unknown) are an [ApiRefusalException].
+     */
+    suspend fun getFinanceTimeline(compare: String? = null): FinanceTimeline {
+        return client.get("$baseUrl/api/finance/timeline") {
+            accept(ContentType.Application.Json)
+            compare?.let { url.parameters.append("compare", it) }
         }.orRefusal().body()
     }
 

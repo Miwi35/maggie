@@ -1,0 +1,75 @@
+appId: com.maggie.app.e2e
+name: 26-finance-timeline
+tags:
+  - finance
+---
+# La frise sur 20 ans de la carte Planning, from the phone (MAG-554, extends MAG-102).
+#
+# Étant donné le seed : le scénario suivi atteint l'indépendance dans les 20 ans
+# Quand j'ouvre Finance › Planification › Projets et que je passe la carte Planning de « 36 mois » à « 20 ans »
+# Alors la frise remplace le Gantt, l'événement « Indépendance financière » est là
+# Alors il porte la date N du scénario suivi, telle que l'API la calcule
+# Alors les hypothèses (« matelas intact, revenus stables… ») sont dites sous la frise
+# Quand je choisis le scénario « Qualité de vie » à comparer
+# Alors une seconde ligne apparaît, avec la phrase de l'écart de N (celle de l'API, sans verdict)
+#
+# The date N is read by `scripts/timeline-api.js` from the same request the phone sends: the flow does
+# not write a date down. The 36-month default, the events' order, their colours, the refused comparison
+# and the retry are the screen tests' (`TimelineFriseScreenTest`, `FinanceTimelineViewModelTest`); the
+# API's figures are `FinanceTimelineControllerTest`'s. What only a device shows is that the phone's own
+# request (`GET /api/finance/timeline`, no contract records it yet) meets the server's answer.
+#
+# The tablet draws the same frise under the project list (« frise du bas »): its layout is a foldable
+# or tablet question for the tablet shard, not asserted here.
+
+- runScript:
+    file: ../scripts/timeline-api.js
+    # `output.nLabel` is « décembre 2045 »: the month the independence event must carry.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/26-finance-timeline.yaml
+      e2e_email: e2e@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/projects"
+- extendedWaitUntil:
+    visible:
+      id: "project_gantt"
+    timeout: 30000
+
+# The card opens on 36 months; « 20 ans » draws the frise in its place.
+- tapOn:
+    id: "timeline_horizon_240"
+- extendedWaitUntil:
+    visible:
+      id: "timeline_frise"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "timeline_event_independence_reached"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*Indépendance financière.*${output.nLabel}.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "timeline_assumptions"
+    timeout: 10000
+- assertVisible: ".*matelas intact, revenus stables.*"
+
+# A second scenario beside the followed one: its own line, and the API's sentence on the gap of N.
+- tapOn:
+    id: "timeline_compare_auto-quality"
+- extendedWaitUntil:
+    visible:
+      id: "timeline_compared_track"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "timeline_difference"
+    timeout: 10000

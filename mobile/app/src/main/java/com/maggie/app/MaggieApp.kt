@@ -94,6 +94,7 @@ import com.maggie.app.ui.screens.finance.SavingsAdvancesViewModel
 import com.maggie.app.ui.screens.finance.LoanDetailViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.PlacementViewModel
+import com.maggie.app.ui.screens.finance.FinanceTimelineViewModel
 import com.maggie.app.ui.screens.finance.ProjectViewModel
 import com.maggie.app.ui.screens.finance.ScenarioViewModel
 import com.maggie.app.ui.screens.finance.FinanceDashboardViewModel
@@ -401,6 +402,7 @@ class MaggieApp : Application() {
             viewModel { LoanDetailViewModel(get()) }
             viewModel { ProjectViewModel(get(), get(), get()) }
             viewModel { ScenarioViewModel(get(), get(), get()) }
+            viewModel { FinanceTimelineViewModel(get()) }
             viewModel { PlacementViewModel(get(), get(), get()) }
             viewModel { ReviewActivityViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { PeriodReviewViewModel(get()) }

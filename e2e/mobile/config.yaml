@@ -72,6 +72,7 @@ executionOrder:
     - 25-finance-placements
     - 26-finance-investment
     - 26-finance-scenarios
+    - 26-finance-timeline
     - 27-finance-independence-sources
     - 24-home
     - 28-home-tasks

@@ -1339,6 +1339,26 @@ object UiTags {
     const val GANTT_TODAY = "gantt_today"
     const val GANTT_DETAIL = "gantt_detail"
     const val GANTT_ERROR = "gantt_error"
+
+    /**
+     * The 20-year frise of the planning card (MAG-554): the « 36 mois · 20 ans » switch, the frise, the
+     * assumptions it rests on, the sentence on the gap of N, the scenario to compare with, one row per
+     * event (`timeline_event_<type>` for the followed scenario, `timeline_compared_event_<type>` for the
+     * other one), the marker of the date N on each track, what could not be read and its retry.
+     */
+    const val TIMELINE_HORIZON_PREFIX = "timeline_horizon_"
+    const val TIMELINE_FRISE = "timeline_frise"
+    const val TIMELINE_ASSUMPTIONS = "timeline_assumptions"
+    const val TIMELINE_DIFFERENCE = "timeline_difference"
+    const val TIMELINE_NOTICE = "timeline_notice"
+    const val TIMELINE_COMPARE_PREFIX = "timeline_compare_"
+    const val TIMELINE_EVENT_PREFIX = "timeline_event_"
+    const val TIMELINE_COMPARED_EVENT_PREFIX = "timeline_compared_event_"
+    const val TIMELINE_TRACK = "timeline_track"
+    const val TIMELINE_COMPARED_TRACK = "timeline_compared_track"
+    const val TIMELINE_N_MARKER = "timeline_n_marker"
+    const val TIMELINE_LOADING = "timeline_loading"
+    const val TIMELINE_ERROR = "timeline_error"
     const val FUNDING_CHART = "funding_chart"
     const val FUNDING_LEGEND = "funding_legend"
     const val FUNDING_MONTH = "funding_month"
@@ -1522,6 +1542,14 @@ object UiTags {
     fun scenarioRepaymentRow(id: String) = SCENARIO_REPAYMENT_ROW_PREFIX + id
     fun scenarioRepaymentFigures(id: String) = SCENARIO_REPAYMENT_FIGURES_PREFIX + id
     fun scenarioRepayment(key: Int, field: String) = "${SCENARIO_REPAYMENT_PREFIX}${key}_$field"
+    /** `36` or `240`: the horizon in months. */
+    fun timelineHorizon(months: Int) = TIMELINE_HORIZON_PREFIX + months
+
+    /** A scenario id (`auto-rapid`…) or `none`. */
+    fun timelineCompare(id: String?) = TIMELINE_COMPARE_PREFIX + (id ?: "none")
+
+    fun timelineEvent(type: String, compared: Boolean = false) =
+        (if (compared) TIMELINE_COMPARED_EVENT_PREFIX else TIMELINE_EVENT_PREFIX) + type
 
     fun reviewSegment(step: String) = REVIEW_ACTIVITY_SEGMENT_PREFIX + step
     fun periodPlanRow(categoryId: String) = PERIOD_PLAN_ROW_PREFIX + categoryId

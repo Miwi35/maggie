@@ -7,6 +7,7 @@ import com.maggie.app.data.api.ProjectPreviewRequest
 import com.maggie.app.data.api.ProjectWriteRequest
 import com.maggie.app.data.api.ScenarioWriteRequest
 import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.FinanceTimeline
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.Project
@@ -55,6 +56,11 @@ class ProjectRepository(
     /** The Gantt's data (MAG-527): projects in priority order, the cushion, the loans. */
     suspend fun getProjectPlanning(): Result<ProjectPlanning> = runCatching {
         apiService.getProjectPlanning().let { planning -> planning.copy(projects = planning.projects.sortedBy { it.position }) }
+    }
+
+    /** The 20-year frise (MAG-554), with a second scenario beside the followed one when [compare] is a scenario id. */
+    suspend fun getTimeline(compare: String? = null): Result<FinanceTimeline> = runCatching {
+        apiService.getFinanceTimeline(compare)
     }
 
     /** Replaces the project's sources by [sources]; a refusal is an `ApiRefusalException` with the API's sentence. */
