@@ -119,16 +119,22 @@ describe('Home', () => {
 
     test('the Nutrition card asks for the day the selector is on', async () => {
       const user = userEvent.setup()
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            slots: [
-              { slot: 'lunch', meals: [] },
-              { slot: 'dinner', meals: [] },
-            ],
-          }),
-      })
+      const fetchMock = vi.fn((url: string) =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve(
+              url.startsWith('/api/home/nutrition')
+                ? {
+                    slots: [
+                      { slot: 'lunch', meals: [] },
+                      { slot: 'dinner', meals: [] },
+                    ],
+                  }
+                : { count: 0, forRecipes: [], stores: [] },
+            ),
+        }),
+      )
       vi.stubGlobal('fetch', fetchMock)
       renderHome('/', cardRegistry)
       await screen.findByTestId('home-nutrition-lunch')
