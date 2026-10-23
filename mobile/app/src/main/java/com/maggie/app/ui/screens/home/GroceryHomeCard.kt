@@ -1,6 +1,6 @@
 package com.maggie.app.ui.screens.home
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -54,7 +55,7 @@ internal fun GroceryHomeCardContent(ui: GroceryHomeUiState, onOpen: () -> Unit, 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onOpen),
+                .pointerInput(onOpen) { detectTapGestures { onOpen() } },
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when {

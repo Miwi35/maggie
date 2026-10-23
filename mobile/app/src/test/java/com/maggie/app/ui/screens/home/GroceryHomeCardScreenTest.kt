@@ -1,7 +1,8 @@
 package com.maggie.app.ui.screens.home
 
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -122,6 +123,7 @@ class GroceryHomeCardScreenTest {
     fun `the card has no tick box, no button and no suggestion`() {
         draw(GroceryHomeUiState(GroceryHomeState(count = 2, stores = listOf(store("Supermarché", 2))), isLoading = false))
 
+        compose.onAllNodes(isToggleable()).assertCountEquals(0)
         compose.onAllNodesWithTag(UiTags.HOME_GROCERY_RETRY).assertCountEquals(0)
         compose.onAllNodesWithText("tu en prends souvent", substring = true, ignoreCase = true).assertCountEquals(0)
     }
