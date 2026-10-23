@@ -472,11 +472,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(27, $this->rowsOf(User::class));
+        self::assertSame(28, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(26, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(27, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

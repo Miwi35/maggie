@@ -185,7 +185,8 @@ class TasksCardViewModelTest {
 
     @Test
     fun `a done task is unticked with done false`() = runTest {
-        ticksWork()
+        val answer = CompletableDeferred<Result<Task>>()
+        coEvery { fakes.taskRepository.toggleDone(any(), any()) } coAnswers { answer.await() }
         val viewModel = fakes.viewModel()
         viewModel.show(HomeDay.TODAY)
         advanceUntilIdle()
@@ -195,6 +196,8 @@ class TasksCardViewModelTest {
 
         assertFalse(viewModel.uiState.value.card!!.tasks.first { it.id == "t3" }.done)
         assertEquals(0, viewModel.uiState.value.card!!.done)
+        fakes.answers(HomeDay.TODAY, TODAY_CARD.withTaskDone("t3", false))
+        answer.complete(Result.success(doneTask))
         advanceUntilIdle()
         coVerify(exactly = 1) { fakes.taskRepository.toggleDone("t3", false) }
     }
@@ -239,7 +242,8 @@ class TasksCardViewModelTest {
 
     @Test
     fun `ticking a routine shows it checked at once and puts today's date to the API`() = runTest {
-        ticksWork()
+        val answer = CompletableDeferred<Result<Routine>>()
+        coEvery { fakes.routineRepository.setChecked(any(), any(), any()) } coAnswers { answer.await() }
         val viewModel = fakes.viewModel()
         viewModel.show(HomeDay.TODAY)
         advanceUntilIdle()
@@ -249,6 +253,8 @@ class TasksCardViewModelTest {
 
         assertTrue(viewModel.uiState.value.card!!.routines.first { it.id == "r1" }.checked)
         assertEquals(setOf("r1"), viewModel.uiState.value.pendingRoutines)
+        fakes.answers(HomeDay.TODAY, TODAY_CARD.withRoutineChecked("r1", true))
+        answer.complete(Result.success(mockk<Routine>(relaxed = true)))
         advanceUntilIdle()
         coVerify(exactly = 1) { fakes.routineRepository.setChecked("r1", LocalDate.of(2026, 10, 23), true) }
         assertTrue(viewModel.uiState.value.pendingRoutines.isEmpty())
