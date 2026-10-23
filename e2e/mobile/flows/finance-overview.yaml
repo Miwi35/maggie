@@ -162,7 +162,7 @@ tags:
     timeout: 20000
 - assertVisible:
     id: "breadcrumb_menu_dashboard"
-    selected: true
+    checked: true
 - tapOn:
     id: "breadcrumb_menu_review"
 - extendedWaitUntil:
