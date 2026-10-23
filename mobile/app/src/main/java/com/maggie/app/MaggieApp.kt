@@ -119,6 +119,7 @@ import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.home.GroceryHomeViewModel
 import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.screens.home.TasksCardViewModel
+import com.maggie.app.ui.screens.home.NutritionHomeViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
@@ -347,6 +348,7 @@ class MaggieApp : Application() {
             viewModel { HomeViewModel() }
             viewModel { GroceryHomeViewModel(get()) }
             viewModel { TasksCardViewModel(get(), get(), get()) }
+            viewModel { NutritionHomeViewModel(get()) }
             viewModel { SubtasksViewModel(get()) }
             viewModel { TasksViewModel(get(), get(), get(), get(), get()) }
             viewModel { FocusViewModel(get()) }

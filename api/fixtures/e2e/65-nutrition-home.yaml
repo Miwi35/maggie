@@ -1,0 +1,79 @@
+# The Accueil's Nutrition card journeys (MAG-564, extends MAG-99).
+#
+# Tonight's dinner has two recipes; tomorrow's lunch has one that asks for a
+# parmesan the user is out of, and tomorrow's dinner is left empty, so the card
+# shows « — » there. Nothing else is planned on this account.
+#
+# No other journey signs in here: planning a meal for the owner would move what
+# the calendar journeys count, and the card reads one day only.
+
+Maggie\Core\Entity\User:
+  e2e_nutrition_user:
+    email: 'e2e-nutrition@maggie.local'
+    googleId: 'e2e-nutrition-google-id'
+    name: 'Zoé Menu'
+
+Maggie\Calendar\Entity\Agenda:
+  e2e_nutrition_agenda:
+    name: Repas
+    isDefault: true
+    color: '#43a047'
+    timeZone: 'Europe/Paris'
+    user: '@e2e_nutrition_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  e2e_nutrition_ingredient_pasta:
+    name: Spaghetti
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@e2e_nutrition_user'
+  e2e_nutrition_ingredient_parmesan:
+    name: Parmesan
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+    user: '@e2e_nutrition_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  e2e_nutrition_recipe_pasta:
+    name: Pâtes au pesto
+    servings: 2
+    user: '@e2e_nutrition_user'
+  e2e_nutrition_recipe_salad:
+    name: Salade de saison
+    servings: 2
+    user: '@e2e_nutrition_user'
+  e2e_nutrition_recipe_soup:
+    name: Soupe de potiron
+    servings: 2
+    user: '@e2e_nutrition_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  e2e_nutrition_line_pasta:
+    recipe: '@e2e_nutrition_recipe_pasta'
+    ingredient: '@e2e_nutrition_ingredient_pasta'
+    quantity: 200
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  e2e_nutrition_line_soup_parmesan:
+    recipe: '@e2e_nutrition_recipe_soup'
+    ingredient: '@e2e_nutrition_ingredient_parmesan'
+    quantity: 40
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+Maggie\Cookbook\Entity\Meal:
+  e2e_nutrition_meal_dinner_today:
+    summary: Repas
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    date: '<e2eDate()>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_nutrition_agenda'
+    recipes: ['@e2e_nutrition_recipe_pasta', '@e2e_nutrition_recipe_salad']
+  e2e_nutrition_meal_lunch_tomorrow:
+    summary: Repas
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
+    date: '<e2eDate("+1 day")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_nutrition_agenda'
+    recipes: ['@e2e_nutrition_recipe_soup']

@@ -1,11 +1,14 @@
-import { describe, test, expect } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, test, expect, vi } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { veilleuseLightTheme } from '../../theme'
 import { Home } from './Home'
+import { cardRegistry } from './cardRegistry'
 import type { HomeCardEntry } from './cardRegistry'
+
+vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
 
 const Where = () => {
   const { pathname, search } = useLocation()
@@ -108,5 +111,32 @@ describe('Home', () => {
     ])
     // The selector and the one zone with cards: no action strip, no left column.
     expect(container.firstElementChild?.children).toHaveLength(2)
+  })
+
+  describe('with the registered cards', () => {
+    beforeEach(() => localStorage.setItem('token', 'test-jwt'))
+    afterEach(() => vi.unstubAllGlobals())
+
+    test('the Nutrition card asks for the day the selector is on', async () => {
+      const user = userEvent.setup()
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            slots: [
+              { slot: 'lunch', meals: [] },
+              { slot: 'dinner', meals: [] },
+            ],
+          }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      renderHome('/', cardRegistry)
+      await screen.findByTestId('home-nutrition-lunch')
+      expect(fetchMock).toHaveBeenCalledWith('/api/home/nutrition?day=today', expect.anything())
+
+      await user.click(screen.getByRole('button', { name: 'Demain' }))
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/home/nutrition?day=tomorrow', expect.anything()))
+    })
   })
 })

@@ -26,6 +26,7 @@ import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import kotlinx.coroutines.launch
 
 private val TABS = listOf("Recettes", "Repas", "Planning")
+private const val MEALS_TAB = 1
 
 @Composable
 fun CookbookScreen(
@@ -36,8 +37,9 @@ fun CookbookScreen(
     onCreateRecipe: () -> Unit,
     onCreateMeal: (day: String, slot: String) -> Unit,
     onOpenMeal: (Meal) -> Unit,
+    startOnMeals: Boolean = false,
 ) {
-    val pagerState = rememberPagerState(pageCount = { TABS.size })
+    val pagerState = rememberPagerState(initialPage = if (startOnMeals) MEALS_TAB else 0, pageCount = { TABS.size })
     val scope = rememberCoroutineScope()
 
     Scaffold(

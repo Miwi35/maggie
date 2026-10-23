@@ -1,0 +1,49 @@
+appId: com.maggie.app.e2e
+name: 24-home-nutrition
+tags:
+  - dashboard
+---
+# The Nutrition card of the Accueil (MAG-564, extends MAG-99). It signs in as the seed's
+# nutrition account (`65-nutrition-home.yaml`), alone in having meals planned: tonight's
+# dinner has two recipes, tomorrow's lunch one that asks for a parmesan the user is out of,
+# tomorrow's dinner is empty. What the card holds in each state is `NutritionHomeCardScreenTest`'s.
+#
+# Given tonight's meal has two recipes, when the user opens the Accueil, then the card shows
+# both on one line. When they tap « Demain », then it shows tomorrow's lunch with
+# « manque : parmesan » and « — » for the dinner.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/24-home-nutrition.yaml
+      e2e_email: e2e-nutrition@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home_screen"
+    timeout: 20000
+
+# Aujourd'hui: tonight's dinner, its two recipes on one line, nothing missing.
+- scrollUntilVisible:
+    element:
+      id: "home_nutrition_meal"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Pâtes au pesto · Salade de saison"
+    timeout: 20000
+- assertNotVisible: "manque.*"
+
+# Demain: the lunch with what its recipe lacks.
+- tapOn:
+    id: "home_day_tomorrow"
+- extendedWaitUntil:
+    visible: "Soupe de potiron"
+    timeout: 20000
+- assertVisible: "manque : parmesan"
+- assertNotVisible: "Pâtes au pesto · Salade de saison"
+- assertVisible:
+    id: "home_nutrition_empty"

@@ -205,6 +205,13 @@ export const HOME_TASKS_USER_EMAIL = 'e2e-home-tasks@maggie.local'
  */
 export const SHORTAGE_USER_EMAIL = 'e2e-shortage@maggie.local'
 
+/**
+ * The twenty-eighth seeded account, for the Nutrition card of the Accueil
+ * (MAG-564): a dinner tonight, a lunch tomorrow, and nothing else planned, which
+ * the card would show and the meals journeys would move.
+ */
+export const NUTRITION_USER_EMAIL = 'e2e-nutrition@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {
