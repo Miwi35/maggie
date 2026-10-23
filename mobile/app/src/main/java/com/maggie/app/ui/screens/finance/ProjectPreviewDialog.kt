@@ -28,7 +28,7 @@ import com.maggie.app.ui.uiTagRoot
  * « Ajouter « Box à louer » au scénario courant ? » (MAG-553), the tablet's step before a project is created:
  * the date of each project of the scenario before and after, the date N, the real cost, when the project can
  * be bought and what it does to N. Facts, no verdict. « Annuler » creates nothing; « Ajouter » is the normal
- * creation. An automatic scenario cannot be added to: the dialog says so and « Ajouter » waits.
+ * creation. An automatic scenario cannot be added to: the dialog says the project is created outside it.
  */
 @Composable
 fun ProjectPreviewDialog(
@@ -46,7 +46,7 @@ fun ProjectPreviewDialog(
             ) {
                 preview.scenario?.takeIf { !it.editable }?.let {
                     Text(
-                        "« ${it.name} » est une proposition de Maggie : dupliquez-la pour y ajouter un projet, ou rendez un autre scénario courant.",
+                        "« ${it.name} » est une proposition de Maggie : le projet sera créé sans y entrer. Dupliquez-la pour l'y ajouter.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -76,7 +76,7 @@ fun ProjectPreviewDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onAdd, enabled = preview.canAdd, modifier = Modifier.testTag(UiTags.PROJECT_PREVIEW_CONFIRM)) {
+            TextButton(onClick = onAdd, modifier = Modifier.testTag(UiTags.PROJECT_PREVIEW_CONFIRM)) {
                 Text("Ajouter")
             }
         },

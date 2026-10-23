@@ -64,6 +64,9 @@ class PreviewProject
         ?string $scenarioId = null,
     ): array {
         $this->rules->assertName($name);
+        if (mb_strlen($name) > 255) {
+            throw new \DomainException('name must not exceed 255 characters.');
+        }
         $this->rules->assertAmount($amountCents);
         $this->rules->assertCurrency($currency);
         $mode = $this->rules->dateMode($dateMode);

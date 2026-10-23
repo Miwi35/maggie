@@ -480,7 +480,7 @@ class ProjectViewModel(
     fun confirmPreview() {
         val form = _uiState.value.form ?: return
         val preview = form.preview ?: return
-        if (!preview.canAdd || form.isSaving) return
+        if (form.isSaving) return
         val request = form.draft.toRequest() ?: return
 
         _uiState.value = _uiState.value.copy(form = form.copy(isSaving = true, preview = null, error = null))
@@ -490,9 +490,11 @@ class ProjectViewModel(
                     val scenario = preview.scenario?.takeIf { it.editable }
                     val joined = scenario?.let { repository.addToScenario(it.id, created.id) }
                     val scenarioName = scenario?.name.orEmpty()
+                    val outside = preview.scenario?.takeIf { !it.editable }
                     _uiState.value = _uiState.value.copy(
                         form = _uiState.value.form?.copy(isSaving = false, done = true),
                         message = when {
+                            outside != null -> "Projet créé, hors du scénario « ${outside.name} » (proposition de Maggie)"
                             joined == null -> "Projet créé"
                             joined.isSuccess -> "Projet ajouté au scénario « $scenarioName »"
                             else -> "« ${created.name} » est créé, mais n'a pas rejoint le scénario « $scenarioName »."

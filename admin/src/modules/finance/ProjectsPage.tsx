@@ -371,6 +371,7 @@ const ProjectsView = () => {
           : byPosition([...previous, created]),
       )
       if (preview?.scenario?.editable) await joinScenario(created, preview.scenario)
+      else if (preview?.scenario) notify(`« ${created.name} » est créé, hors du scénario « ${preview.scenario.name} » (proposition de Maggie).`, { type: 'info' })
     } else if (editing) {
       const updated = await updateProject(editing, input)
       setProjects((previous) => previous.map((project) => (project.id === updated.id ? updated : project)))

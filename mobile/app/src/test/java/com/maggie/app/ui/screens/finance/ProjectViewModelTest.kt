@@ -338,14 +338,17 @@ class ProjectViewModelTest {
     }
 
     @Test
-    fun `an automatic scenario cannot be added to, nothing is created`() = runTest {
+    fun `an automatic scenario does not take the project, which is created outside it and says so`() = runTest {
+        coEvery { repository.createProject(any()) } returns Result.success(Project(id = "p3", name = "Box à louer", amountCents = 1800000, position = 2))
         val viewModel = openPreviewed(preview(editable = false))
 
         viewModel.confirmPreview()
         advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.form!!.done)
-        coVerify(exactly = 0) { repository.createProject(any()) }
+        assertTrue(viewModel.uiState.value.form!!.done)
+        assertEquals("Projet créé, hors du scénario « Équilibré » (proposition de Maggie)", viewModel.uiState.value.message)
+        coVerify(exactly = 1) { repository.createProject(any()) }
+        coVerify(exactly = 0) { repository.addToScenario(any(), any()) }
     }
 
     @Test

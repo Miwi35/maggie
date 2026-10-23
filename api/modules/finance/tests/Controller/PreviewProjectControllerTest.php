@@ -124,6 +124,7 @@ class PreviewProjectControllerTest extends WebTestCase
         yield 'amount as a string' => [['name' => 'Box', 'amountCents' => '1800000'], 'amountCents'];
         yield 'zero amount' => [['name' => 'Box', 'amountCents' => 0], 'amountCents'];
         yield 'blank name' => [['name' => ' ', 'amountCents' => 100], 'name'];
+        yield 'name too long' => [['name' => str_repeat('a', 256), 'amountCents' => 100], 'name'];
         yield 'unknown field' => [['name' => 'Box', 'amountCents' => 100, 'color' => 'red'], 'Unknown field'];
         yield 'unknown wellbeing' => [['name' => 'Box', 'amountCents' => 100, 'wellbeing' => 'huge'], 'wellbeing'];
         yield 'fixed without a date' => [['name' => 'Box', 'amountCents' => 100, 'dateMode' => 'fixed'], 'targetOn'];

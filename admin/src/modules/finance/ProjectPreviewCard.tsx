@@ -65,7 +65,7 @@ export const ProjectPreviewCard = ({ preview, choices, onScenario, busy = false 
         </TextField>
         {scenario && !scenario.editable && (
           <Alert severity="info">
-            « {scenario.name} » est une proposition de Maggie : dupliquez-la pour y ajouter un projet, ou choisissez un autre scénario.
+            « {scenario.name} » est une proposition de Maggie : le projet sera créé sans y entrer. Dupliquez-la pour l’y ajouter, ou choisissez un autre scénario.
           </Alert>
         )}
         <Table size="small" aria-label="Dates avant et après">

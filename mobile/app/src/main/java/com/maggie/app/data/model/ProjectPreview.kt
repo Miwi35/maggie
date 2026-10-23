@@ -60,8 +60,8 @@ data class ProjectPreview(
     val nDate: ProjectPreviewN = ProjectPreviewN(),
     val metrics: ProjectPreviewMetrics = ProjectPreviewMetrics(),
 ) {
-    /** False for an automatic scenario: the add is refused until the owner duplicates it. */
-    val canAdd: Boolean get() = scenario?.editable != false
+    /** True when the project joins the scenario; false for an automatic one, which the project is created outside of. */
+    val joinsScenario: Boolean get() = scenario?.editable == true
 }
 
 /** « Ajouter « Box à louer » au scénario courant ? », or to the projects when none is current. */

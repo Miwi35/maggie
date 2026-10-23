@@ -923,7 +923,7 @@ describe('ProjectsPage', () => {
       await waitFor(() => expect(within(dialog).getByRole('combobox', { name: 'Scénario' })).toHaveTextContent('Plan B'))
     })
 
-    test('blocks adding to an automatic scenario and says to duplicate it', async () => {
+    test('adding in an automatic scenario creates the project outside it and says so', async () => {
       const user = userEvent.setup()
       const { writes } = stubApi([MOVE], { preview: previewOf({ scenario: { id: 'auto-rapid', name: 'Rapide', editable: false } }) })
       render(<ProjectsPage />)
@@ -931,9 +931,12 @@ describe('ProjectsPage', () => {
 
       const dialog = await fillBox(user)
 
-      expect(await within(dialog).findByText(/proposition de Maggie : dupliquez-la/)).toBeInTheDocument()
-      expect(within(dialog).getByRole('button', { name: 'Ajouter' })).toBeDisabled()
+      expect(await within(dialog).findByText(/proposition de Maggie : le projet sera créé sans y entrer/)).toBeInTheDocument()
       expect(writes).toEqual([])
+      await user.click(within(dialog).getByRole('button', { name: 'Ajouter' }))
+
+      await waitFor(() => expect(writes.some((w) => w.method === 'POST')).toBe(true))
+      expect(writes.filter((w) => w.method === 'PUT')).toEqual([])
     })
 
     test('says why the preview failed and keeps the form', async () => {

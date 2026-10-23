@@ -18,10 +18,10 @@ class ProjectPreviewTest {
     }
 
     @Test
-    fun `only an automatic scenario refuses the add`() {
-        assertTrue(ProjectPreview(scenario, project).canAdd)
-        assertTrue(ProjectPreview(null, project).canAdd)
-        assertFalse(ProjectPreview(scenario.copy(editable = false), project).canAdd)
+    fun `only an editable scenario takes the project`() {
+        assertTrue(ProjectPreview(scenario, project).joinsScenario)
+        assertFalse(ProjectPreview(null, project).joinsScenario)
+        assertFalse(ProjectPreview(scenario.copy(editable = false), project).joinsScenario)
     }
 
     @Test

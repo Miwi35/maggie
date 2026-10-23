@@ -248,7 +248,7 @@ export const ProjectDialog = ({ project, projects, onClose, onSubmit, onPreview 
               <Button onClick={() => setPreview(null)} disabled={saving}>
                 Modifier
               </Button>
-              <Button variant="contained" onClick={add} disabled={saving || preview.data.scenario?.editable === false}>
+              <Button variant="contained" onClick={add} disabled={saving}>
                 Ajouter
               </Button>
             </>

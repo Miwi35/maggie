@@ -3,7 +3,7 @@ package com.maggie.app.ui.screens.finance
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.filter
 import androidx.compose.ui.test.hasText
@@ -242,12 +242,12 @@ class ProjectListScreenTest {
 
     @Test
     @Config(qualifiers = "w1280dp-h800dp-xhdpi")
-    fun `an automatic scenario shows why the add waits`() {
+    fun `an automatic scenario says the project is created outside it and Ajouter stays available`() {
         coEvery { repository.previewProject(any()) } returns Result.success(preview(editable = false))
         fillBoxAndAsk(viewModel())
 
-        compose.onNodeWithText("dupliquez-la", substring = true).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.PROJECT_PREVIEW_CONFIRM).assertIsNotEnabled()
+        compose.onNodeWithText("créé sans y entrer", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PROJECT_PREVIEW_CONFIRM).assertIsEnabled()
     }
 
     @Test
