@@ -77,7 +77,7 @@ class ProjectInvestmentRules
             }
             $heldByOthers += $source->getAmountCents();
             if (FundingSourceKind::Resale !== $source->getKind()) {
-                $others[] = ['kind' => $source->getKind()->value, 'amountCents' => $source->getAmountCents(), 'account' => $source->getAccountId()];
+                $others[] = ['kind' => $source->getKind()->value, 'amountCents' => $source->getAmountCents(), 'account' => $source->getAccountId(), 'placement' => $source->getPlacementId()];
             }
         }
         if ($heldByOthers > $down) {

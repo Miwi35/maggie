@@ -93,8 +93,8 @@ test('« prends 1 000 € sur le Livret jeune et emprunte 6 000 € » leaves 3 
   const car = await storedCar(api)
   expect(car.salaryCents).toBe(300000)
   expect(car.fundingSources).toEqual([
-    { kind: 'savings', amountCents: 100000, accountId: seedId('e2e_stock_account_livret_jeune'), loanId: null, sourceProjectId: null },
-    { kind: 'loan', amountCents: 600000, accountId: null, loanId: expect.any(String), sourceProjectId: null },
+    { kind: 'savings', amountCents: 100000, accountId: seedId('e2e_stock_account_livret_jeune'), loanId: null, placementId: null, sourceProjectId: null },
+    { kind: 'loan', amountCents: 600000, accountId: null, loanId: expect.any(String), placementId: null, sourceProjectId: null },
   ])
 
   // …and the loans hold a projected one of 6 000 €, the one the source names.
