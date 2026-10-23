@@ -23,6 +23,7 @@ import com.maggie.app.data.model.Task
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.home.HomeTasksFakes.Companion.EMPTY_CARD
+import com.maggie.app.ui.screens.home.HomeTasksFakes.Companion.TODAY_CARD
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -106,6 +107,7 @@ class TasksCardScreenTest {
     @Test
     fun `ticking a task strikes it in place, moves the ring, and asks the API`() {
         show()
+        fakes.answers(HomeDay.TODAY, TODAY_CARD.withTaskDone("t2", true))
 
         compose.onNodeWithTag(UiTags.homeTaskCheck("t2")).performClick()
         compose.waitForIdle()
@@ -118,6 +120,7 @@ class TasksCardScreenTest {
     @Test
     fun `ticking a routine checks the chip and puts today's date to the API`() {
         show()
+        fakes.answers(HomeDay.TODAY, TODAY_CARD.withRoutineChecked("r1", true))
 
         compose.onNodeWithTag(UiTags.homeRoutineCheck("r1")).performClick()
         compose.waitForIdle()
