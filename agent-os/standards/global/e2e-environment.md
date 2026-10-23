@@ -436,9 +436,9 @@ relationship to it, not of Maestro:
 ## Sélecteurs (MAG-578)
 
 Most journey failures of 22-23 Oct. were a selector that only looked right. Five
-rules; the first four are refused by `task e2e:mobile:lint` / `task e2e:web:lint`
-(each has a refused example in `e2e/mobile/lint-examples/` and
-`e2e/web/lint-examples/`, checked on every run), the fifth is on you.
+rules. Rules 1, 3 and 4 are refused by `task e2e:mobile:lint` (and rule 1's web half
+by `task e2e:web:lint`); each has a refused example in `e2e/mobile/lint-examples/` or
+`e2e/web/lint-examples/`, checked on every run. Rules 2 and 5 are on you.
 
 1. **A stable id, never a piece of data.** An id built from a generated value
    (`auto-…`, a ULID, a counter) changes between runs and under the flow. Match the
@@ -457,7 +457,7 @@ rules; the first four are refused by `task e2e:mobile:lint` / `task e2e:web:lint
    await waitForIndexed(api, '/api/meals', (m) => m.id === mealId)
    ```
 2. **The text of a button is in a child.** A tag sits on the container, its label
-   on the `Text` inside: `id:` and `text:` on one selector match nothing.
+   on the `Text` inside: in this app, `id:` and `text:` on one selector match nothing.
    ```yaml
    # ✗ - assertVisible: { id: "breadcrumb_section", text: "Revue" }
    - assertVisible:
