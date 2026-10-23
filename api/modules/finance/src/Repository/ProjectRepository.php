@@ -64,15 +64,15 @@ class ProjectRepository extends ServiceEntityRepository
     /** @return list<ProjectFundingSource> what this project's resale poses on the projects it funds (MAG-557) */
     public function findResaleSourcesOf(Project $source): array
     {
-        return array_values($this->getEntityManager()->getRepository(ProjectFundingSource::class)->findBy([
+        return $this->getEntityManager()->getRepository(ProjectFundingSource::class)->findBy([
             'sourceProject' => $source,
             'kind' => FundingSourceKind::Resale,
-        ]));
+        ]);
     }
 
     /** @return list<ProjectInvestment> the investments whose resale is set aside for this project */
     public function findInvestmentsTargeting(Project $target): array
     {
-        return array_values($this->getEntityManager()->getRepository(ProjectInvestment::class)->findBy(['resaleTarget' => $target]));
+        return $this->getEntityManager()->getRepository(ProjectInvestment::class)->findBy(['resaleTarget' => $target]);
     }
 }

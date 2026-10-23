@@ -58,7 +58,7 @@ class ProjectInvestmentRules
         $this->assertCents('monthlyRentCents', $rent, 0);
         /** @var int $price */
         /** @var int $down */
-        /** @var int $rent */
+        /* @var int $rent */
         if ($down > $price) {
             throw new \DomainException(\sprintf('downPaymentCents (%d) is more than the price (%d).', $down, $price));
         }
@@ -124,7 +124,6 @@ class ProjectInvestmentRules
         $net = $resale['netAmountCents'] ?? null;
         $this->assertCents('resale.netAmountCents', $net, 1);
         /** @var int $net */
-
         $target = null;
         if (null !== ($resale['targetProjectId'] ?? null)) {
             $id = \is_string($resale['targetProjectId']) ? basename($resale['targetProjectId']) : '';

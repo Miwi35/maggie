@@ -31,7 +31,7 @@ class SetProjectInvestment
 
     /**
      * @param list<array{kind: FundingSourceKind, amountCents: int, account: ?Account, loan: ?Loan}> $sources checked
-     * @param array{month: string, netCents: int, target: ?Project}|null                               $resale  checked
+     * @param array{month: string, netCents: int, target: ?Project}|null                             $resale  checked
      */
     public function execute(Project $project, int $priceCents, array $sources, int $rentCents, ?array $resale): Project
     {

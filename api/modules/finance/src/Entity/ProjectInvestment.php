@@ -126,7 +126,7 @@ class ProjectInvestment
         }
 
         $first = new \DateTimeImmutable($month.'-01', new \DateTimeZone('UTC'));
-        if ($first->format('Y-m-d') !== ($this->resaleOn?->format('Y-m-d'))) {
+        if ($first->format('Y-m-d') !== $this->resaleOn?->format('Y-m-d')) {
             $this->resaleOn = $first;
         }
         $this->resaleNetCents = $netCents;
