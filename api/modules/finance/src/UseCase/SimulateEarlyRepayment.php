@@ -90,7 +90,7 @@ class SimulateEarlyRepayment
      * sooner) unless the offer lowers it over the months left — which only
      * means something for an amortized loan.
      */
-    private function paymentAfter(Loan $loan, int $principalAfter, int $monthsLeft): ?int
+    public function paymentAfter(Loan $loan, int $principalAfter, int $monthsLeft): ?int
     {
         if (PartialRepaymentEffect::LowerPayment !== $loan->getPartialRepaymentEffect()
             || !\in_array($loan->getType(), [LoanType::AmortizingFixed, LoanType::AmortizingVariable], true)) {
