@@ -49,27 +49,36 @@ tags:
     visible:
       id: "timeline_frise"
     timeout: 30000
-- extendedWaitUntil:
-    visible:
+# The independence event sits below the fold: extendedWaitUntil does not scroll, scrollUntilVisible does.
+- scrollUntilVisible:
+    element:
       id: "timeline_event_independence_reached"
     timeout: 30000
-- extendedWaitUntil:
-    visible: ".*Indépendance financière.*${output.nLabel}.*"
+- scrollUntilVisible:
+    element:
+      text: ".*Indépendance financière.*${output.nLabel}.*"
     timeout: 10000
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: "timeline_assumptions"
     timeout: 10000
-- assertVisible: ".*matelas intact, revenus stables.*"
+- scrollUntilVisible:
+    element:
+      text: ".*matelas intact, revenus stables.*"
+    timeout: 10000
 
 # A second scenario beside the followed one: its own line, and the API's sentence on the gap of N.
+- scrollUntilVisible:
+    element:
+      id: "timeline_compare_auto-quality"
+    timeout: 20000
 - tapOn:
     id: "timeline_compare_auto-quality"
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: "timeline_compared_track"
     timeout: 30000
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: "timeline_difference"
     timeout: 10000
