@@ -22,6 +22,8 @@ const months = (overrides: Record<number, Partial<PlanningMonth>> = {}): Plannin
     salaryCents: 0,
     savingsCents: 0,
     capitalCents: 0,
+    rentCents: 0,
+    resaleCents: 0,
     isOverCapacity: false,
     ...overrides[index],
   }))
@@ -111,6 +113,19 @@ describe('ProjectFundingChart', () => {
     expect(tip).toHaveTextContent(/Dépassement 1\s500,00\s€/)
   })
 
+  test('a month with a rent or a resale (MAG-557) says so, and one without says nothing', async () => {
+    const user = userEvent.setup()
+    renderWithTheme(<ProjectFundingChart planning={planning(months({ 4: { rentCents: 12000, resaleCents: 1_000_000 } }))} />)
+
+    await user.hover(monthOf('2027-02'))
+    const tip = await screen.findByRole('tooltip')
+    expect(tip).toHaveTextContent(/Loyers 120,00\s€/)
+    expect(tip).toHaveTextContent(/Revente 10\s000,00\s€/)
+    await user.unhover(monthOf('2027-02'))
+    await user.hover(monthOf('2027-03'))
+    expect(await screen.findByRole('tooltip')).not.toHaveTextContent('Loyers')
+  })
+
   test('a month under its capacity says nothing about an excess', async () => {
     const user = userEvent.setup()
     renderWithTheme(<ProjectFundingChart planning={planning(months({ 4: { savingsCents: 80000 } }))} />)
@@ -187,6 +202,8 @@ describe('ProjectFundingChart', () => {
       isDeadlineMissed: false,
       delayMonths: 0,
       unmetDependencies: [],
+      resaleFromMonth: null,
+      investment: null,
     }
     renderWithTheme(
       <ProjectGantt planning={planning(WEDDING, { projects: [project] })}>

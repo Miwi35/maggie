@@ -33,6 +33,7 @@ const SEGMENT_COLORS: Record<Segment['kind'], string> = {
   savings: 'primary.main',
   capital: 'secondary.main',
   loan: 'info.main',
+  resale: 'success.main',
   salary: 'grey.500',
 }
 
@@ -108,14 +109,38 @@ const AmountStepper = ({ name, label }: { name: string; label: string }) => (
 interface SourceRowProps {
   index: number
   accounts: FundingAccount[]
+  names: Map<string, string>
+  currency: string
   conditionsLost: boolean
   onRemove: () => void
 }
 
-const SourceRow = ({ index, accounts, conditionsLost, onRemove }: SourceRowProps) => {
+/** The resale of an investment (MAG-557) funds the project but is not set here: it follows the investment. */
+const ResaleRow = ({ index, names, currency }: { index: number; names: Map<string, string>; currency: string }) => {
+  const sourceProject = useWatch({ name: `sources.${index}.sourceProject` }) as string | undefined
+  const cents = Number(useWatch({ name: `sources.${index}.amountCents` })) || 0
+  const from = sourceProject ? names.get(sourceProject) : undefined
+
+  return (
+    <Box data-testid="funding-source" data-kind="resale" sx={{ py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+      <Stack direction="row" sx={{ alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        <Typography sx={{ fontWeight: 600, minWidth: 90 }}>{KIND_LABELS.resale}</Typography>
+        <Typography>{from ? `Revente de ${from}` : "Revente d'un investissement"}</Typography>
+        <Typography sx={{ ml: 'auto' }}>{formatCents(cents, currency)}</Typography>
+      </Stack>
+      <Typography variant="body2" color="text.secondary">
+        Elle suit l'investissement : modifiez-la depuis sa carte.
+      </Typography>
+    </Box>
+  )
+}
+
+const SourceRow = ({ index, accounts, names, currency, conditionsLost, onRemove }: SourceRowProps) => {
   const kind = useWatch({ name: `sources.${index}.kind` }) as FundingKind
   const choices = accountsFor(kind, accounts)
   const label = KIND_LABELS[kind]
+
+  if (kind === 'resale') return <ResaleRow index={index} names={names} currency={currency} />
 
   return (
     <Box data-testid="funding-source" data-kind={kind} sx={{ py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
@@ -170,12 +195,13 @@ const SourceRow = ({ index, accounts, conditionsLost, onRemove }: SourceRowProps
 interface FundingFieldsProps {
   project: Project
   accounts: FundingAccount[]
+  names: Map<string, string>
   conditionsLost: boolean
   failure: string | null
   saving: boolean
 }
 
-const FundingFields = ({ project, accounts, conditionsLost, failure, saving }: FundingFieldsProps) => {
+const FundingFields = ({ project, accounts, names, conditionsLost, failure, saving }: FundingFieldsProps) => {
   const { control } = useFormContext<FundingValues>()
   const { fields, append, remove } = useFieldArray({ control, name: 'sources' })
   const sources = (useWatch({ control, name: 'sources' }) ?? []) as SourceValues[]
@@ -194,7 +220,15 @@ const FundingFields = ({ project, accounts, conditionsLost, failure, saving }: F
 
       <Box>
         {fields.map((field, index) => (
-          <SourceRow key={field.id} index={index} accounts={accounts} conditionsLost={conditionsLost} onRemove={() => remove(index)} />
+          <SourceRow
+            key={field.id}
+            index={index}
+            accounts={accounts}
+            names={names}
+            currency={project.currency}
+            conditionsLost={conditionsLost}
+            onRemove={() => remove(index)}
+          />
         ))}
         <Stack
           direction="row"
@@ -228,6 +262,8 @@ const FundingFields = ({ project, accounts, conditionsLost, failure, saving }: F
 
 interface ProjectFundingPanelProps {
   project: Project
+  /** Project names by bare id, to name the investment a resale source comes from. */
+  names?: Map<string, string>
   /** The project as the API answered the write. */
   onSaved: (project: Project) => void
 }
@@ -238,7 +274,7 @@ interface ProjectFundingPanelProps {
  * sources stacked over the amount. Saving sends the whole list; a refusal is
  * shown as the API words it and nothing is kept.
  */
-export const ProjectFundingPanel = ({ project, onSaved }: ProjectFundingPanelProps) => {
+export const ProjectFundingPanel = ({ project, names = new Map(), onSaved }: ProjectFundingPanelProps) => {
   const loanId = project.fundingSources.find((source) => source.kind === 'loan')?.loanId ?? null
   const [accounts, setAccounts] = useState<FundingAccount[] | null>(null)
   const [conditions, setConditions] = useState<Record<string, unknown> | null | undefined>(loanId ? undefined : null)
@@ -289,6 +325,7 @@ export const ProjectFundingPanel = ({ project, onSaved }: ProjectFundingPanelPro
       <FundingFields
         project={project}
         accounts={accounts}
+        names={names}
         conditionsLost={Boolean(loanId) && conditions === null}
         failure={failure}
         saving={saving}

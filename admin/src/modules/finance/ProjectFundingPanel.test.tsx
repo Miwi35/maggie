@@ -25,6 +25,7 @@ const CAR: Project = {
   unmetDependencies: [],
   fundingSources: [],
   salaryCents: 1_000_000,
+  investment: null,
 }
 
 const ACCOUNTS = [
@@ -166,7 +167,7 @@ describe('ProjectFundingPanel', () => {
   test('removes a source', async () => {
     const user = userEvent.setup()
     stubApi(accepted)
-    renderPanel({ ...CAR, fundingSources: [{ kind: 'savings', amountCents: 100_000, accountId: 'LIVRET', loanId: null }], salaryCents: 900_000 })
+    renderPanel({ ...CAR, fundingSources: [{ kind: 'savings', amountCents: 100_000, accountId: 'LIVRET', loanId: null, sourceProjectId: null }], salaryCents: 900_000 })
     await screen.findByTestId('funding-source')
 
     await user.click(screen.getByRole('button', { name: 'Retirer économies' }))
@@ -180,8 +181,8 @@ describe('ProjectFundingPanel', () => {
     renderPanel({
       ...CAR,
       fundingSources: [
-        { kind: 'savings', amountCents: 100_000, accountId: 'LIVRET', loanId: null },
-        { kind: 'loan', amountCents: 600_000, accountId: null, loanId: 'L1' },
+        { kind: 'savings', amountCents: 100_000, accountId: 'LIVRET', loanId: null, sourceProjectId: null },
+        { kind: 'loan', amountCents: 600_000, accountId: null, loanId: 'L1', sourceProjectId: null },
       ],
       salaryCents: 300_000,
     })
@@ -215,7 +216,7 @@ describe('ProjectFundingPanel', () => {
     const writes = stubApi(accepted, null)
     renderPanel({
       ...CAR,
-      fundingSources: [{ kind: 'loan', amountCents: 600_000, accountId: null, loanId: 'L1' }],
+      fundingSources: [{ kind: 'loan', amountCents: 600_000, accountId: null, loanId: 'L1', sourceProjectId: null }],
       salaryCents: 400_000,
     })
 
@@ -224,5 +225,56 @@ describe('ProjectFundingPanel', () => {
 
     await waitFor(() => expect(writes).toHaveLength(1))
     expect(writes[0].body.sources).toEqual([{ kind: 'loan', amountCents: 600_000 }])
+  })
+
+  test('shows the resale of an investment as read-only, named after it, and never sends it back', async () => {
+    const user = userEvent.setup()
+    const writes = stubApi(accepted)
+    const onSaved = vi.fn()
+    render(
+      <MemoryRouter>
+        <AdminContext dataProvider={testDataProvider()} i18nProvider={i18nProvider}>
+          <ResourceContextProvider value="projects">
+            <ProjectFundingPanel
+              project={{
+                ...CAR,
+                fundingSources: [
+                  { kind: 'savings', amountCents: 100_000, accountId: 'LIVRET', loanId: null, sourceProjectId: null },
+                  { kind: 'resale', amountCents: 500_000, accountId: null, loanId: null, sourceProjectId: 'BOX' },
+                ],
+                salaryCents: 400_000,
+              }}
+              names={new Map([['BOX', 'Box à louer']])}
+              onSaved={onSaved}
+            />
+          </ResourceContextProvider>
+        </AdminContext>
+      </MemoryRouter>,
+    )
+
+    const rows = await screen.findAllByTestId('funding-source')
+    const resale = rows.find((node) => node.getAttribute('data-kind') === 'resale') as HTMLElement
+    expect(resale).toHaveTextContent('Revente de Box à louer')
+    expect(resale).toHaveTextContent(/5\s000,00\s€/)
+    expect(resale).toHaveTextContent("Elle suit l'investissement")
+    expect(screen.queryByRole('button', { name: 'Retirer revente' })).toBeNull()
+    expect(screen.getAllByTestId('funding-segment').map((segment) => segment.getAttribute('data-kind'))).toContain('resale')
+    expect(remainder()).toHaveTextContent(/4\s000,00\s€ sur salaire/)
+
+    await user.click(screen.getByRole('button', { name: 'Enregistrer les sources' }))
+
+    await waitFor(() => expect(writes).toHaveLength(1))
+    expect(writes[0].body.sources.map((source) => source.kind)).toEqual(['savings'])
+  })
+
+  test('names a resale whose investment is not known', async () => {
+    stubApi(accepted)
+    renderPanel({
+      ...CAR,
+      fundingSources: [{ kind: 'resale', amountCents: 500_000, accountId: null, loanId: null, sourceProjectId: 'GONE' }],
+      salaryCents: 500_000,
+    })
+
+    expect(await screen.findByText("Revente d'un investissement")).toBeInTheDocument()
   })
 })

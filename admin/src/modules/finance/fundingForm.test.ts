@@ -17,11 +17,12 @@ const project = (overrides: Partial<Project> = {}): Project => ({
   unmetDependencies: [],
   fundingSources: [],
   salaryCents: 1_000_000,
+  investment: null,
   ...overrides,
 })
 
-const SAVINGS = { kind: 'savings' as const, amountCents: 100_000, accountId: 'A1', loanId: null }
-const LOAN = { kind: 'loan' as const, amountCents: 600_000, accountId: null, loanId: 'L1' }
+const SAVINGS = { kind: 'savings' as const, amountCents: 100_000, accountId: 'A1', loanId: null, sourceProjectId: null }
+const LOAN = { kind: 'loan' as const, amountCents: 600_000, accountId: null, loanId: 'L1', sourceProjectId: null }
 
 describe('sourcesSummary', () => {
   test('lists the kinds in a fixed order, then the salary', () => {
@@ -88,6 +89,15 @@ describe('what is sent', () => {
       { kind: 'savings', amountCents: 100_000, account: 'A1' },
       { kind: 'loan', amountCents: 600_000, account: '', loan: { annualRateBasisPoints: 400, durationMonths: 24 } },
     ])
+  })
+
+  test('a resale source keeps the investment it comes from, and is never sent back', () => {
+    const RESALE = { kind: 'resale' as const, amountCents: 500_000, accountId: null, loanId: null, sourceProjectId: 'BOX' }
+    const values = valuesOfProject(project({ fundingSources: [SAVINGS, RESALE] }), null)
+
+    expect(values.sources[1]).toEqual({ kind: 'resale', amountCents: 500_000, account: '', sourceProject: 'BOX' })
+    expect(toFundingInputs(values)).toEqual([{ kind: 'savings', amountCents: 100_000, account: 'A1' }])
+    expect(sourcesSummary(project({ fundingSources: [SAVINGS, RESALE], salaryCents: 400_000 }))).toBe('économies + revente + salaire')
   })
 
   test('conditions keep only what the API takes', () => {

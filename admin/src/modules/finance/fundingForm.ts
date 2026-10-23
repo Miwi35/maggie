@@ -9,12 +9,13 @@ export const KIND_LABELS: Record<FundingKind, string> = {
   savings: 'Économies',
   capital: 'Capital',
   loan: 'Emprunt',
+  resale: 'Revente',
 }
 
 /** Words used in a row's summary: « économies + emprunt + salaire ». */
-const SUMMARY_WORDS: Record<FundingKind, string> = { savings: 'économies', capital: 'capital', loan: 'emprunt' }
+const SUMMARY_WORDS: Record<FundingKind, string> = { savings: 'économies', capital: 'capital', loan: 'emprunt', resale: 'revente' }
 
-const KIND_ORDER: FundingKind[] = ['savings', 'capital', 'loan']
+const KIND_ORDER: FundingKind[] = ['savings', 'capital', 'loan', 'resale']
 
 export interface SourceValues {
   kind: FundingKind
@@ -23,6 +24,8 @@ export interface SourceValues {
   account: string
   /** The conditions of a loan source; absent for the others, or while they could not be read. */
   loan?: Record<string, unknown>
+  /** Bare id of the investment a `resale` source comes from (MAG-557): read-only, never sent back. */
+  sourceProject?: string
 }
 
 export interface FundingValues {
@@ -71,17 +74,19 @@ export const valuesOfProject = (project: Project, conditions: Record<string, unk
     amountCents: source.amountCents,
     account: source.accountId ?? '',
     ...(source.kind === 'loan' && conditions ? { loan: loanConditionsOf(conditions) } : {}),
+    ...(source.kind === 'resale' ? { sourceProject: source.sourceProjectId ?? '' } : {}),
   })),
 })
 
 /**
  * The whole list `PUT …/funding` takes. A source brought to 0 is a source taken
- * off; a loan whose conditions could not be read is sent without them, the API
+ * off; the resale of an investment is not the owner's to set here (it follows the
+ * investment) and stays out; a loan whose conditions could not be read is sent without them, the API
  * then keeps the ones it has.
  */
 export const toFundingInputs = (values: FundingValues): FundingSourceInput[] =>
   values.sources
-    .filter((source) => source.amountCents > 0)
+    .filter((source) => source.amountCents > 0 && source.kind !== 'resale')
     .map((source): FundingSourceInput => {
       if (source.kind === 'loan') {
         const conditions = source.loan ? loanConditionsOf(source.loan) : undefined
@@ -89,7 +94,7 @@ export const toFundingInputs = (values: FundingValues): FundingSourceInput[] =>
         return { kind: 'loan', amountCents: source.amountCents, ...(conditions ? { loan: conditions } : {}) }
       }
 
-      return { kind: source.kind, amountCents: source.amountCents, account: source.account }
+      return { kind: source.kind as FundingSourceInput['kind'], amountCents: source.amountCents, account: source.account }
     })
 
 export const sourcesTotal = (sources: Pick<FundingSource, 'amountCents'>[]): number =>

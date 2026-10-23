@@ -31,6 +31,7 @@ import { ProjectDialog } from './ProjectDialog'
 import { ProjectFundingPanel } from './ProjectFundingPanel'
 import { ProjectFundingChart } from './ProjectFundingChart'
 import { ProjectGantt } from './ProjectGantt'
+import { ProjectInvestmentCard } from './ProjectInvestmentCard'
 import { ProjectOptions } from './ProjectOptions'
 import {
   byPosition,
@@ -136,6 +137,7 @@ function ProjectRow({ project, rank, total, names, picked, opened, onOpen, onHan
             label={`${wellbeingLabel(project.wellbeing)} · ${project.wellbeingScore}`}
             title="Bien-être"
           />
+          {project.investment && <Chip size="small" variant="outlined" label="Investissement" data-testid="project-investment-chip" />}
         </Stack>
         <Typography variant="body2" color="text.secondary">
           {formatCents(project.amountCents, project.currency)} · {projectDateLabel(project)}
@@ -358,6 +360,13 @@ export const ProjectsPage = () => {
   const saved = (project: Project) =>
     setProjects((previous) => previous.map((candidate) => (candidate.id === project.id ? { ...candidate, ...project } : candidate)))
 
+  // An investment also changes the project its resale funds, and the planning: both are read again.
+  const investmentSaved = (project: Project) => {
+    saved(project)
+    reload()
+    reloadPlanning()
+  }
+
   const remove = async (project: Project) => {
     setToDelete(null)
     if (openId === project.id) setOpenId(null)
@@ -383,7 +392,7 @@ export const ProjectsPage = () => {
   const names = new Map(projects.map((project) => [project.id, project.name]))
   const open = projects.find((project) => project.id === openId) ?? null
   // Rebuilt when the sources or the amount change from elsewhere (Mercure): the form starts again from them.
-  const detailKey = open ? JSON.stringify([open.id, open.amountCents, open.fundingSources]) : ''
+  const detailKey = open ? JSON.stringify([open.id, open.amountCents, open.fundingSources, open.investment]) : ''
 
   return (
     <>
@@ -459,7 +468,15 @@ export const ProjectsPage = () => {
             <Typography variant="h6">{open.name}</Typography>
             <Typography color="text.secondary">{formatCents(open.amountCents, open.currency)}</Typography>
           </Stack>
-          <ProjectFundingPanel key={detailKey} project={open} onSaved={saved} />
+          <Box sx={{ mb: 3 }}>
+            <ProjectInvestmentCard
+              project={open}
+              projects={projects}
+              planned={planning?.projects.find((candidate) => candidate.projectId === open.id) ?? null}
+              onSaved={investmentSaved}
+            />
+          </Box>
+          <ProjectFundingPanel key={detailKey} project={open} names={names} onSaved={saved} />
           <Box sx={{ mt: 4 }}>
             <ProjectOptions key={detailKey} project={open} />
           </Box>

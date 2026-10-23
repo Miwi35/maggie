@@ -3,6 +3,10 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import type { DndContextProps } from '@dnd-kit/core'
 import { emitMercure } from '../../test/mercure'
+import { MemoryRouter } from 'react-router-dom'
+import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
+import polyglotI18nProvider from 'ra-i18n-polyglot'
+import { messages } from '../../i18n/messages'
 import { ProjectsPage } from './ProjectsPage'
 
 const mockNotify = vi.fn()
@@ -156,6 +160,15 @@ function stubApi(
       return json({ success: true, projects: stored })
     }
     if (options.refuse) return json(options.refuse.body, options.refuse.status)
+    if (url.endsWith('/investment')) {
+      const id = url.split('/').slice(-2)[0]
+      const investment =
+        method === 'PUT'
+          ? { priceCents: 120000, downPaymentCents: 20000, loanId: 'L1', loanPaymentCents: 1000, monthlyRentCents: 5000, monthlyBalanceCents: 4000, resale: null }
+          : null
+      stored = stored.map((row) => (row.id === id ? { ...row, investment } : row))
+      return json({ success: true, project: stored.find((row) => row.id === id) })
+    }
     if (method === 'POST') {
       const fields = body as Record<string, unknown>
       const created = project('NEW', { ...fields, wellbeingScore: SCORES[String(fields.wellbeing)], position: stored.length })
@@ -644,6 +657,93 @@ describe('ProjectsPage', () => {
 
       await waitFor(() => expect(ganttRows()).toEqual(['Déménagement', 'Canapé']))
       expect(screen.queryByText("Le planning n'a pas pu être chargé.")).toBeNull()
+    })
+  })
+
+  describe('investments (MAG-557)', () => {
+    // The detail panel is made of react-admin forms: it needs a router and an admin context.
+    const renderOpenable = () =>
+      render(
+        <MemoryRouter>
+          <AdminContext dataProvider={testDataProvider()} i18nProvider={polyglotI18nProvider(() => messages, 'fr')}>
+            <ResourceContextProvider value="projects">
+              <ProjectsPage />
+            </ResourceContextProvider>
+          </AdminContext>
+        </MemoryRouter>,
+      )
+
+    const FLAT = project('FLAT', {
+      name: 'Box à louer',
+      amountCents: 1800000,
+      wellbeing: 'medium',
+      wellbeingScore: 2,
+      position: 3,
+      dateMode: 'none',
+      targetOn: null,
+      investment: {
+        priceCents: 1800000,
+        downPaymentCents: 300000,
+        loanId: 'L1',
+        loanPaymentCents: 14000,
+        monthlyRentCents: 12000,
+        monthlyBalanceCents: -2000,
+        resale: null,
+      },
+    })
+
+    test('flags an investment in the list and opens its card with the funding', async () => {
+      const user = userEvent.setup()
+      stubApi([MOVE, FLAT])
+      renderOpenable()
+      await loaded(2)
+
+      expect(within(row('Box à louer')).getByTestId('project-investment-chip')).toHaveTextContent('Investissement')
+      expect(within(row('Déménagement')).queryByTestId('project-investment-chip')).toBeNull()
+
+      await user.click(screen.getByRole('button', { name: 'Financement de Box à louer' }))
+
+      const card = await screen.findByTestId('investment-card')
+      expect(within(card).getByRole('heading', { name: 'Investissement · Box à louer' })).toBeInTheDocument()
+      expect(within(card).getAllByTestId('investment-figure')).toHaveLength(6)
+    })
+
+    test('turns a project into an investment from its card, then reads the list and the planning again', async () => {
+      const user = userEvent.setup()
+      const { writes, fetchMock } = stubApi([MOVE, SOFA], { planning: true })
+      renderOpenable()
+      await loaded(2)
+
+      await user.click(screen.getByRole('button', { name: 'Financement de Canapé' }))
+      await user.click(await screen.findByRole('button', { name: 'Définir un investissement' }))
+      const form = await screen.findByRole('form', { name: 'Investissement · Canapé' })
+      const reads = fetchMock.mock.calls.length
+      fireEvent.change(within(form).getByLabelText(/^Apport/), { target: { value: '1200' } })
+      fireEvent.change(within(form).getByLabelText(/^Loyer mensuel/), { target: { value: '50' } })
+      await user.click(within(form).getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(within(row('Canapé')).getByTestId('project-investment-chip')).toBeInTheDocument())
+      expect(writes).toEqual([
+        { method: 'PUT', url: '/api/finance/projects/SOFA/investment', body: { priceCents: 120000, downPaymentCents: 120000, monthlyRentCents: 5000 } },
+      ])
+      await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(reads + 2))
+    })
+
+    test('says nothing was saved when the API refuses', async () => {
+      const user = userEvent.setup()
+      stubApi([MOVE, SOFA], { refuse: { status: 400, body: { error: 'The investment is missing: monthlyRentCents.' } } })
+      renderOpenable()
+      await loaded(2)
+
+      await user.click(screen.getByRole('button', { name: 'Financement de Canapé' }))
+      await user.click(await screen.findByRole('button', { name: 'Définir un investissement' }))
+      const form = await screen.findByRole('form', { name: 'Investissement · Canapé' })
+      fireEvent.change(within(form).getByLabelText(/^Apport/), { target: { value: '1200' } })
+      fireEvent.change(within(form).getByLabelText(/^Loyer mensuel/), { target: { value: '0' } })
+      await user.click(within(form).getByRole('button', { name: 'Enregistrer' }))
+
+      expect(await within(form).findByRole('alert')).toBeInTheDocument()
+      expect(within(row('Canapé')).queryByTestId('project-investment-chip')).toBeNull()
     })
   })
 })

@@ -8,7 +8,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { chartColor } from '../../design/tokens'
 import { formatCents } from './accountTypes'
-import { projectDateLabel } from './projectsApi'
+import { joinNames, projectDateLabel } from './projectsApi'
 import type { PlannedProject, ProjectPlanning } from './projectsApi'
 
 export type GanttVariant = 'full' | 'compact'
@@ -43,9 +43,11 @@ interface BarProps {
   height: number
   /** The bar goes on past the right edge. */
   runsOn?: boolean
+  /** A thin lane under the main bars, for what happens at the same time (the rent received, MAG-557). */
+  lane?: boolean
 }
 
-function Bar({ from, to, color, tip, testId, project, height, runsOn = false }: BarProps) {
+function Bar({ from, to, color, tip, testId, project, height, runsOn = false, lane = false }: BarProps) {
   const theme = useTheme()
 
   return (
@@ -59,7 +61,8 @@ function Bar({ from, to, color, tip, testId, project, height, runsOn = false }: 
         sx={{
           gridColumn: `${from + 1} / ${to + 2}`,
           gridRow: 1,
-          alignSelf: 'center',
+          alignSelf: lane ? 'end' : 'center',
+          mb: lane ? '2px' : undefined,
           height,
           borderRadius: `${height / 2}px`,
           bgcolor: color,
@@ -76,14 +79,24 @@ function Bar({ from, to, color, tip, testId, project, height, runsOn = false }: 
   )
 }
 
-function Mark({ at, tip, project, size }: { at: number; tip: string; project: string; size: number }) {
+interface MarkProps {
+  at: number
+  tip: string
+  project: string
+  size: number
+  testId?: string
+  /** A diamond marks a purchase; a disc, a resale (MAG-557); a ring, the resale of another project landing here. */
+  shape?: 'diamond' | 'disc' | 'ring'
+}
+
+function Mark({ at, tip, project, size, testId = 'gantt-purchase', shape = 'diamond' }: MarkProps) {
   const theme = useTheme()
 
   return (
     <Tooltip title={tip} enterTouchDelay={0} leaveTouchDelay={4000} placement="top" arrow>
       <Box
         tabIndex={0}
-        data-testid="gantt-purchase"
+        data-testid={testId}
         data-project={project}
         data-at={at}
         sx={{
@@ -93,9 +106,10 @@ function Mark({ at, tip, project, size }: { at: number; tip: string; project: st
           justifySelf: 'center',
           width: size,
           height: size,
-          transform: 'rotate(45deg)',
-          bgcolor: theme.palette.text.primary,
-          border: `2px solid ${theme.palette.background.paper}`,
+          transform: shape === 'diamond' ? 'rotate(45deg)' : undefined,
+          borderRadius: shape === 'diamond' ? undefined : '50%',
+          bgcolor: shape === 'ring' ? theme.palette.background.paper : theme.palette.text.primary,
+          border: shape === 'ring' ? `2px solid ${theme.palette.text.primary}` : `2px solid ${theme.palette.background.paper}`,
           zIndex: 1,
           '&:focus-visible': { outline: `2px solid ${theme.palette.text.primary}`, outlineOffset: 2 },
         }}
@@ -179,6 +193,18 @@ function ProjectBars({ project, planning, variant }: { project: PlannedProject; 
 
   const deadline = project.dateMode === 'deadline' && project.targetOn ? column(project.targetOn.slice(0, 7)) : null
 
+  // An investment (MAG-557): the rent comes in until the resale, which lands on the project it funds.
+  const investment = project.investment
+  const rentFrom = investment?.rentFromMonth ? column(investment.rentFromMonth) : null
+  const rentTo = investment?.rentUntilMonth ? column(investment.rentUntilMonth) : null
+  const rentRunsOn = rentFrom !== null && (rentTo === null || rentTo >= horizon)
+  const resaleAt = investment?.resaleMonth ? column(investment.resaleMonth) : null
+  const resaleTarget = investment?.resaleTargetProjectId
+    ? planning.projects.find((candidate) => candidate.projectId === investment.resaleTargetProjectId)?.name
+    : undefined
+  const resaleSources = planning.projects.filter((candidate) => candidate.investment?.resaleTargetProjectId === project.projectId)
+  const resaleLanding = project.resaleFromMonth ? column(project.resaleFromMonth) : null
+
   return (
     <>
       {deadline !== null && deadline >= 0 && deadline < horizon && (
@@ -227,6 +253,48 @@ function ProjectBars({ project, planning, variant }: { project: PlannedProject; 
           } · ${formatCents(loan.monthlyPaymentCents, planning.currency)} par mois`}
           height={height}
           runsOn={loanRunsOn}
+        />
+      )}
+      {investment !== null && rentFrom !== null && rentFrom < horizon && (
+        <Bar
+          testId="gantt-rent"
+          project={project.name}
+          from={clamp(rentFrom)}
+          to={rentTo === null ? horizon - 1 : clamp(rentTo)}
+          color={chartColor(3, mode)}
+          tip={`${project.name} · loyer ${formatCents(investment.monthlyRentCents, planning.currency)} par mois dès ${ganttMonthLabel(
+            investment.rentFromMonth as string,
+          )}${investment.rentUntilMonth === null ? '' : ` jusqu'en ${ganttMonthLabel(investment.rentUntilMonth)}`} · reste ${formatCents(
+            investment.monthlyBalanceCents,
+            planning.currency,
+          )} par mois après la mensualité`}
+          height={Math.max(4, Math.round(height / 3))}
+          runsOn={rentRunsOn}
+          lane
+        />
+      )}
+      {investment !== null && resaleAt !== null && resaleAt >= 0 && resaleAt < horizon && (
+        <Mark
+          at={resaleAt}
+          project={project.name}
+          size={height}
+          testId="gantt-resale"
+          shape="disc"
+          tip={`${project.name} · revente en ${ganttMonthLabel(investment.resaleMonth as string)}${
+            investment.resaleNetCents === null ? '' : ` · net ${formatCents(investment.resaleNetCents, planning.currency)}`
+          }${resaleTarget ? ` · finance ${resaleTarget}` : ' · accélère les projets en attente'}`}
+        />
+      )}
+      {resaleLanding !== null && resaleLanding >= 0 && resaleLanding < horizon && (
+        <Mark
+          at={resaleLanding}
+          project={project.name}
+          size={height}
+          testId="gantt-resale-in"
+          shape="ring"
+          tip={`${project.name} · financé par la revente de ${joinNames(resaleSources.map((source) => source.name))} dès ${ganttMonthLabel(
+            project.resaleFromMonth as string,
+          )}`}
         />
       )}
     </>
@@ -279,7 +347,9 @@ interface ProjectGanttProps {
 /**
  * The projects over the next 36 months (MAG-527), the order of the planning
  * (MAG-526): a « Matelas » line while the safety cushion builds or recharges,
- * then one line per project — saving bar, purchase mark, loan bar. A project
+ * then one line per project — saving bar, purchase mark, loan bar; an investment
+ * (MAG-557) adds a thin rent lane under the loan and a disc at its resale, and the
+ * project that resale funds a ring where the money lands. A project
  * moved later is a fact drawn, not an alert: its bar runs on, in the same
  * colours. The compact variant (home tile, MAG-529) keeps the first three
  * projects and drops the axis.

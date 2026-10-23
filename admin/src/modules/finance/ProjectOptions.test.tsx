@@ -17,8 +17,9 @@ const CAR: Project = {
   dependsOn: [],
   note: null,
   unmetDependencies: [],
-  fundingSources: [{ kind: 'loan', amountCents: 600_000, accountId: null, loanId: 'L1' }],
+  fundingSources: [{ kind: 'loan', amountCents: 600_000, accountId: null, loanId: 'L1', sourceProjectId: null }],
   salaryCents: 400_000,
+  investment: null,
 }
 
 const option = (overrides: Partial<ProjectOption>): ProjectOption => ({

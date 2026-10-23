@@ -22,6 +22,8 @@ const planned = (name: string, fields: Partial<PlannedProject>): PlannedProject 
   isDeadlineMissed: false,
   delayMonths: 0,
   unmetDependencies: [],
+  resaleFromMonth: null,
+  investment: null,
   ...fields,
 })
 
@@ -205,5 +207,69 @@ describe('ProjectGantt', () => {
         expect(red > 170 && green < 90 && blue < 90, `${node.tagName} is red: ${value}`).toBe(false)
       }
     }
+  })
+
+  describe('investments (MAG-557)', () => {
+    const BOX = planned('Box', {
+      purchaseMonth: '2026-12',
+      loan: { startMonth: '2027-01', endMonth: '2028-06', monthlyPaymentCents: 14000 },
+      investment: {
+        monthlyRentCents: 12000,
+        monthlyBalanceCents: -2000,
+        rentFromMonth: '2027-01',
+        rentUntilMonth: '2028-06',
+        resaleMonth: '2028-06',
+        resaleNetCents: 1000000,
+        resaleTargetProjectId: 'CAR',
+      },
+    })
+    const CAR = planned('Voiture', { projectId: 'CAR', position: 1, savingFromMonth: '2028-06', purchaseMonth: '2028-08', resaleFromMonth: '2028-07' })
+
+    test('draws the rent under the loan and the resale point at its month', () => {
+      renderWithTheme(<ProjectGantt planning={planning([BOX, CAR])} />)
+
+      const row = within(rowOf('Box'))
+      expect(row.getByTestId('gantt-loan')).toHaveAttribute('data-from', '3')
+      const rent = row.getByTestId('gantt-rent')
+      expect([rent.getAttribute('data-from'), rent.getAttribute('data-to')]).toEqual(['3', '20'])
+      expect(row.getByTestId('gantt-resale')).toHaveAttribute('data-at', '20')
+    })
+
+    test('says in the tooltips what the rent and the resale are, and which project the resale funds', async () => {
+      const user = userEvent.setup()
+      renderWithTheme(<ProjectGantt planning={planning([BOX, CAR])} />)
+
+      await user.hover(within(rowOf('Box')).getByTestId('gantt-resale'))
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(/revente en juin 2028 · net 10\s000,00\s€ · finance Voiture/)
+    })
+
+    test('marks on the project the resale funds where the money lands', () => {
+      renderWithTheme(<ProjectGantt planning={planning([BOX, CAR])} />)
+
+      expect(within(rowOf('Voiture')).getByTestId('gantt-resale-in')).toHaveAttribute('data-at', '21')
+      expect(within(rowOf('Box')).queryByTestId('gantt-resale-in')).toBeNull()
+    })
+
+    test('runs the rent on to the edge while the project is still rented, with no resale point', () => {
+      const kept = planned('Box', {
+        purchaseMonth: '2026-12',
+        investment: { monthlyRentCents: 12000, monthlyBalanceCents: 0, rentFromMonth: '2027-01', rentUntilMonth: null, resaleMonth: null, resaleNetCents: null, resaleTargetProjectId: null },
+      })
+      renderWithTheme(<ProjectGantt planning={planning([kept])} />)
+
+      const row = within(rowOf('Box'))
+      expect(row.getByTestId('gantt-rent')).toHaveAttribute('data-to', '35')
+      expect(row.getByTestId('gantt-beyond')).toBeInTheDocument()
+      expect(row.queryByTestId('gantt-resale')).toBeNull()
+    })
+
+    test('draws nothing for a plain project', () => {
+      renderWithTheme(<ProjectGantt planning={planning([BIKE])} />)
+
+      const row = within(rowOf('Vélo'))
+      expect(row.queryByTestId('gantt-rent')).toBeNull()
+      expect(row.queryByTestId('gantt-resale')).toBeNull()
+      expect(row.queryByTestId('gantt-resale-in')).toBeNull()
+    })
   })
 })
