@@ -27,9 +27,9 @@ final class ScenarioView
     }
 
     /** @return array<string, mixed> */
-    public function detail(ScenarioItem $item, PlanningInputs $inputs, IndependenceBase $base): array
+    public function detail(ScenarioItem $item, PlanningInputs $inputs, IndependenceBase $base, bool $withEvents = true): array
     {
-        $result = $this->calculator->evaluate($inputs, $base, $item->spec(), true);
+        $result = $this->calculator->evaluate($inputs, $base, $item->spec(), $withEvents);
 
         return $this->describe($item, $result) + [
             'curve' => $result['curve'],
@@ -37,8 +37,7 @@ final class ScenarioView
             'schedule' => $result['schedule'],
             'repaymentEffects' => $result['repayments'],
             'placementFigures' => $result['placements'],
-            'events' => $result['events'],
-        ];
+        ] + ($withEvents ? ['events' => $result['events']] : []);
     }
 
     /**

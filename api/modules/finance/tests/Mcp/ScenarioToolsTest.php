@@ -226,6 +226,21 @@ class ScenarioToolsTest extends KernelTestCase
         self::assertStringContainsString('duplicate', $this->call('update', scenarioId: 'auto-rapid', name: 'Mien')['error']);
     }
 
+    public function testContradictoryOrOversizedRequestsAreRefused(): void
+    {
+        $this->loginFixtureUser();
+
+        $both = $this->call('update', scenarioId: $this->id('mine'), monthlySaving: 100, resetMonthlySaving: true);
+        self::assertStringContainsString('contradict', $both['error']);
+        self::assertNull($this->stored()[0]->getMonthlySaving());
+
+        $nested = $this->call('compare', scenarioIds: ['auto-rapid', ['auto-quality']]);
+        self::assertStringContainsString('list of scenario ids', $nested['error']);
+
+        $many = $this->call('compare', scenarioIds: ['auto-rapid', 'auto-balanced', 'auto-quality', $this->id('mine'), 'a', 'b', 'c']);
+        self::assertStringContainsString('at most', $many['error']);
+    }
+
     public function testMakeCurrentKeepsASingleOneAndClearCurrentLeavesNone(): void
     {
         $this->loginFixtureUser();

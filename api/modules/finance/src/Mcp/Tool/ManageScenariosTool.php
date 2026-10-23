@@ -50,6 +50,9 @@ class ManageScenariosTool
     ): string {
         $fields = self::given(compact('name', 'projectIds', 'repayments', 'placementIds', 'monthlySaving'));
         if (true === $resetMonthlySaving) {
+            if (null !== $monthlySaving) {
+                return self::json(['error' => 'monthlySaving and resetMonthlySaving contradict each other: give one.', 'current' => $fields]);
+            }
             $fields['monthlySaving'] = null;
         }
 
@@ -69,7 +72,9 @@ class ManageScenariosTool
         } catch (MissingMcpUserException $e) {
             return self::json(['error' => $e->getMessage()]);
         } catch (HandlerFailedException $e) {
-            return self::json(['error' => ($e->getPrevious() ?? $e)->getMessage()]);
+            $cause = $e->getPrevious() ?? $e;
+
+            return $cause instanceof \DomainException ? self::json(['error' => $cause->getMessage()]) : throw $e;
         }
     }
 
@@ -124,7 +129,10 @@ class ManageScenariosTool
         }
 
         try {
-            $comparison = $this->getScenarios->compare($user, array_map(strval(...), array_values($scenarioIds)));
+            if (!array_is_list($scenarioIds) || [] !== array_filter($scenarioIds, static fn (mixed $id): bool => !\is_string($id))) {
+                throw new \DomainException('scenarioIds is a list of scenario ids.');
+            }
+            $comparison = $this->getScenarios->compare($user, $scenarioIds);
         } catch (\DomainException $e) {
             return self::json(['error' => $e->getMessage(), 'current' => ['scenarioIds' => $scenarioIds]]);
         }
@@ -154,6 +162,10 @@ class ManageScenariosTool
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
 
+            if (!$cause instanceof \DomainException) {
+                throw $e;
+            }
+
             return self::json(['error' => $cause->getMessage()] + ($cause instanceof ScenarioNotFound ? [] : ['current' => $current]));
         }
 
@@ -168,11 +180,11 @@ class ManageScenariosTool
     /** @return array<string, mixed>|null */
     private function light(string $scenarioId): ?array
     {
-        $scenario = $this->getScenarios->one($this->userContext->requireUser(), $scenarioId);
+        $scenario = $this->getScenarios->one($this->userContext->requireUser(), $scenarioId, false);
         if (null === $scenario) {
             return null;
         }
-        unset($scenario['curve'], $scenario['milestones'], $scenario['schedule'], $scenario['repaymentEffects'], $scenario['placementFigures'], $scenario['events']);
+        unset($scenario['curve'], $scenario['milestones'], $scenario['schedule'], $scenario['repaymentEffects'], $scenario['placementFigures']);
 
         return $scenario;
     }

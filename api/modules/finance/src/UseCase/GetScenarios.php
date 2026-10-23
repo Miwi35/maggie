@@ -18,6 +18,8 @@ use Maggie\Finance\Service\ScenarioView;
  */
 class GetScenarios
 {
+    public const MAX_COMPARED = 6;
+
     public function __construct(
         private readonly ReadPlanningInputs $readPlanningInputs,
         private readonly MeasureIndependenceBaseline $measureIndependenceBaseline,
@@ -39,14 +41,14 @@ class GetScenarios
     }
 
     /** @return array<string, mixed>|null */
-    public function one(User $user, string $id): ?array
+    public function one(User $user, string $id, bool $withEvents = true): ?array
     {
         $inputs = $this->readPlanningInputs->execute($user);
         $base = $this->measureIndependenceBaseline->execute($user, $inputs->start())['base'];
 
         $item = $this->catalog->find($user, $id, $inputs, $base);
 
-        return null === $item ? null : $this->view->detail($item, $inputs, $base);
+        return null === $item ? null : $this->view->detail($item, $inputs, $base, $withEvents);
     }
 
     /**
@@ -68,6 +70,9 @@ class GetScenarios
         if (\count(array_unique($ids)) !== \count($ids)) {
             throw new \DomainException('A scenario is named more than once.');
         }
+        if (\count($ids) > self::MAX_COMPARED) {
+            throw new \DomainException(\sprintf('Compare %d scenarios at most.', self::MAX_COMPARED));
+        }
 
         $inputs = $this->readPlanningInputs->execute($user);
         $base = $this->measureIndependenceBaseline->execute($user, $inputs->start())['base'];
@@ -75,8 +80,8 @@ class GetScenarios
         $scenarios = [];
         foreach ($ids as $id) {
             $item = $this->catalog->find($user, $id, $inputs, $base) ?? throw new ScenarioNotFound($id);
-            $detail = $this->view->detail($item, $inputs, $base);
-            unset($detail['events'], $detail['schedule'], $detail['repaymentEffects'], $detail['placementFigures']);
+            $detail = $this->view->detail($item, $inputs, $base, false);
+            unset($detail['schedule'], $detail['repaymentEffects'], $detail['placementFigures']);
             $scenarios[] = $detail;
         }
 

@@ -23,6 +23,9 @@ use Symfony\Component\Uid\Ulid;
  */
 final class ScenarioRepayments
 {
+    public const MAX_REPAYMENTS = 50;
+    public const MAX_ID_LENGTH = 64;
+
     public function __construct(
         private readonly LoanSchedule $loanSchedule,
         private readonly PrepaymentPenalty $prepaymentPenalty,
@@ -55,8 +58,8 @@ final class ScenarioRepayments
         }
 
         $id = $raw['id'] ?? null;
-        if (null !== $id && (!\is_string($id) || '' === $id)) {
-            throw new \DomainException('A repayment id must be a non-empty string.');
+        if (null !== $id && (!\is_string($id) || '' === $id || \strlen($id) > self::MAX_ID_LENGTH)) {
+            throw new \DomainException(\sprintf('A repayment id must be a non-empty string of %d characters at most.', self::MAX_ID_LENGTH));
         }
 
         return ['id' => $id ?? (string) new Ulid(), 'loanId' => $loanId, 'month' => $month, 'amountCents' => $amount];
@@ -113,8 +116,13 @@ final class ScenarioRepayments
             $mine = $byLoan[$loanId] ?? [];
             usort($mine, static fn (array $a, array $b): int => $a['month'] <=> $b['month']);
 
+            $months = [];
             foreach ($mine as $repayment) {
                 try {
+                    if (isset($months[$repayment['month']])) {
+                        throw new \DomainException("The loan {$loan->getName()} already has a repayment in {$repayment['month']}: give one, with the total amount.");
+                    }
+                    $months[$repayment['month']] = true;
                     $result = $this->repay($loan, $repayment, $start, $current);
                 } catch (\DomainException $e) {
                     if ($strict) {

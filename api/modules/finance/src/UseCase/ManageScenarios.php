@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\UseCase;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Scenario;
@@ -78,9 +79,6 @@ class ManageScenarios
         if (ScenarioKind::Auto === $scenario->getKind()) {
             throw new \DomainException('An automatic scenario is not edited: duplicate it, then edit the copy.');
         }
-        if (array_key_exists('name', $fields)) {
-            $scenario->setName($this->name($fields['name']));
-        }
         $this->fill($scenario, $user, $fields);
         $this->em->flush();
 
@@ -123,20 +121,15 @@ class ManageScenarios
 
     /**
      * The one the Dashboard, the treasury, the home and the date N follow. The
-     * previous one is let go first, in its own flush: the database allows a
-     * single current scenario per user.
+     * previous one is let go first, in its own flush but the same transaction:
+     * the database allows a single current scenario per user, and a lost race
+     * leaves the previous one current.
      */
     public function makeCurrent(User $user, string $id): Scenario
     {
         $item = $this->item($user, $id);
         if (null !== $item->stored && $item->current) {
             return $item->stored;
-        }
-
-        $previous = $this->scenarioRepository->findCurrent($user);
-        if (null !== $previous) {
-            $previous->setCurrent(false);
-            $this->em->flush();
         }
 
         $scenario = $item->stored;
@@ -149,8 +142,20 @@ class ManageScenarios
                 ->setProjects(self::projectRows($item->projectIds));
             $this->em->persist($scenario);
         }
-        $scenario->setStatus(ScenarioStatus::Saved)->setCurrent(true);
-        $this->em->flush();
+        $previous = $this->scenarioRepository->findCurrent($user);
+
+        try {
+            $this->em->wrapInTransaction(function () use ($previous, $scenario): void {
+                if (null !== $previous) {
+                    $previous->setCurrent(false);
+                    $this->em->flush();
+                }
+                $scenario->setStatus(ScenarioStatus::Saved)->setCurrent(true);
+                $this->em->flush();
+            });
+        } catch (UniqueConstraintViolationException) {
+            throw new \DomainException('Another scenario has just been made current: read the scenarios again before choosing.');
+        }
 
         return $scenario;
     }
@@ -199,20 +204,28 @@ class ManageScenarios
      */
     private function fill(Scenario $scenario, User $user, array $fields): void
     {
-        if (array_key_exists('projectIds', $fields)) {
-            $scenario->setProjects(self::projectRows($this->projectIds($user, $fields['projectIds'])));
+        $name = array_key_exists('name', $fields) ? $this->name($fields['name']) : null;
+        $projects = array_key_exists('projectIds', $fields) ? self::projectRows($this->projectIds($user, $fields['projectIds'])) : null;
+        $placements = array_key_exists('placementIds', $fields) ? self::placementRows($this->placementIds($user, $fields['placementIds'])) : null;
+        $repayments = array_key_exists('repayments', $fields) ? $this->repayments($user, $fields['repayments']) : null;
+        $saving = $fields['monthlySaving'] ?? null;
+        if (null !== $saving && (!\is_int($saving) || $saving < 0)) {
+            throw new \DomainException('monthlySaving must be a positive integer of cents, or null to keep the measured capacity.');
         }
-        if (array_key_exists('placementIds', $fields)) {
-            $scenario->setPlacements(self::placementRows($this->placementIds($user, $fields['placementIds'])));
+
+        if (null !== $name) {
+            $scenario->setName($name);
         }
-        if (array_key_exists('repayments', $fields)) {
-            $scenario->setRepayments($this->repayments($user, $fields['repayments']));
+        if (null !== $projects) {
+            $scenario->setProjects($projects);
+        }
+        if (null !== $placements) {
+            $scenario->setPlacements($placements);
+        }
+        if (null !== $repayments) {
+            $scenario->setRepayments($repayments);
         }
         if (array_key_exists('monthlySaving', $fields)) {
-            $saving = $fields['monthlySaving'];
-            if (null !== $saving && (!\is_int($saving) || $saving < 0)) {
-                throw new \DomainException('monthlySaving must be a positive integer of cents, or null to keep the measured capacity.');
-            }
             $scenario->setMonthlySaving($saving);
         }
     }
@@ -280,6 +293,10 @@ class ManageScenarios
     {
         if (!\is_array($raw) || !array_is_list($raw)) {
             throw new \DomainException('repayments must be a list of {loanId, month, amountCents|null}.');
+        }
+
+        if (\count($raw) > ScenarioRepayments::MAX_REPAYMENTS) {
+            throw new \DomainException(\sprintf('A scenario holds %d repayments at most.', ScenarioRepayments::MAX_REPAYMENTS));
         }
 
         $repayments = [];

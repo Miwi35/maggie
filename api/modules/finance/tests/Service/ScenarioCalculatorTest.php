@@ -10,6 +10,7 @@ use Maggie\Finance\Service\IndependenceBase;
 use Maggie\Finance\Service\LoanSchedule;
 use Maggie\Finance\Service\PlanningInputs;
 use Maggie\Finance\Service\ScenarioCalculator;
+use Maggie\Finance\Service\ScenarioRepayments;
 use Maggie\Finance\Service\ScenarioSpec;
 use Maggie\Finance\Service\ScenarioTimeline;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -152,6 +153,23 @@ class ScenarioCalculatorTest extends KernelTestCase
         // The loan, rescheduled, still ends: a date and interest that follow from the repayment.
         self::assertNotNull($with['metrics']['debtsEndDate']);
         self::assertGreaterThan(0, $with['metrics']['interestPaid']);
+    }
+
+    public function testTwoRepaymentsOfTheSameLoanTheSameMonthAreRefusedInStrictModeAndSkippedOtherwise(): void
+    {
+        $loan = $this->loan();
+        $trip = $this->project('Japon', 300000, ProjectWellbeing::Comfort, 0);
+        $inputs = $this->inputs([$trip], [$loan]);
+        $first = ['id' => 'rep-1', 'loanId' => (string) $loan->getId(), 'month' => '2026-12', 'amountCents' => 100000];
+        $second = ['id' => 'rep-2', 'loanId' => (string) $loan->getId(), 'month' => '2026-12', 'amountCents' => 200000];
+
+        $result = $this->calculator->evaluate($inputs, $this->base, new ScenarioSpec($this->ids($trip), null, [$first, $second]));
+
+        self::assertSame(['rep-1'], array_column($result['repayments'], 'id'));
+
+        $repayments = self::getContainer()->get(ScenarioRepayments::class);
+        $this->expectException(\DomainException::class);
+        $repayments->apply([$loan], [$first, $second], $inputs->start(), false, true);
     }
 
     public function testARepaymentOnAnUnknownLoanIsSkippedNotFatalInThePlanning(): void

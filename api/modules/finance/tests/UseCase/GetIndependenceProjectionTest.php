@@ -4,6 +4,9 @@ namespace Maggie\Finance\Tests\UseCase;
 
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Finance\Entity\Scenario;
+use Maggie\Finance\Enum\ScenarioKind;
+use Maggie\Finance\Enum\ScenarioStatus;
 use Maggie\Finance\Service\IndependenceProjector;
 use Maggie\Finance\UseCase\GetIndependenceCounter;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -74,6 +77,32 @@ class GetIndependenceProjectionTest extends KernelTestCase
 
         self::assertSame(5, self::getContainer()->get(IndependenceProjector::class)->nImpactMonths($without, $withCar));
         self::assertSame(self::inMonths(233), $withCar['nDate']);
+    }
+
+    public function testNFollowsTheCurrentScenarioAndComesBackWhenNoneIsCurrent(): void
+    {
+        $noCurrent = $this->projection();
+        self::assertSame(self::inMonths(233), $noCurrent['nDate']);
+
+        // A scenario that buys no project: the five months of the car are saved.
+        $scenario = (new Scenario())
+            ->setUser($this->getFixture('test_user'))
+            ->setName('Sans voiture')
+            ->setKind(ScenarioKind::User)
+            ->setStatus(ScenarioStatus::Saved)
+            ->setProjects([])
+            ->setCurrent(true);
+        $this->em->persist($scenario);
+        $this->em->flush();
+
+        $followed = $this->projection();
+        self::assertSame(self::inMonths(228), $followed['nDate']);
+        self::assertSame(5, self::getContainer()->get(IndependenceProjector::class)->nImpactMonths($followed, $noCurrent));
+
+        $scenario->setCurrent(false);
+        $this->em->flush();
+
+        self::assertSame($noCurrent, $this->projection());
     }
 
     public function testWithoutAnyIncomeNIsNotReachedAndThereIsNoError(): void

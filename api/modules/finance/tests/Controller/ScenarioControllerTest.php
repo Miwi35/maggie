@@ -303,6 +303,10 @@ class ScenarioControllerTest extends WebTestCase
         yield 'repayment on an unknown loan' => [['name' => 'X', 'repayments' => [['loanId' => '01ARZ3NDEKTSV4RRFFQ69G5FAV', 'month' => '2027-01', 'amountCents' => 100000]]]];
         yield 'repayment on another user\'s loan' => [['name' => 'X', 'repayments' => [['loanId' => '@foreign', 'month' => '2027-01', 'amountCents' => 100000]]]];
         yield 'repayment above the capital' => [['name' => 'X', 'repayments' => [['loanId' => '@consumer', 'month' => '2027-01', 'amountCents' => 99999999]]]];
+        yield 'two repayments of a loan the same month' => [['name' => 'X', 'repayments' => [
+            ['loanId' => '@consumer', 'month' => '2027-01', 'amountCents' => 100000],
+            ['loanId' => '@consumer', 'month' => '2027-01', 'amountCents' => 100000],
+        ]]];
         yield 'not JSON' => ['{nope'];
         yield 'not an object' => ['[1, 2]'];
     }
@@ -540,6 +544,24 @@ class ScenarioControllerTest extends WebTestCase
         self::assertSame([], $this->stored());
         $this->assertMercureDeletePublished('/api/finance/scenarios/'.$this->id('mine'));
         self::assertTrue($this->scenario('theirs')->isCurrent());
+    }
+
+    public function testTheDatabaseRefusesASecondCurrentScenarioForAUser(): void
+    {
+        $em = $this->em();
+        $this->scenario('mine')->setCurrent(true);
+        $em->flush();
+
+        $second = (new Scenario())
+            ->setUser($this->getFixture('test_user'))
+            ->setName('Deuxième')
+            ->setKind(ScenarioKind::User)
+            ->setStatus(ScenarioStatus::Saved)
+            ->setCurrent(true);
+        $em->persist($second);
+
+        $this->expectException(\Doctrine\DBAL\Exception\UniqueConstraintViolationException::class);
+        $em->flush();
     }
 
     public function testThePlanningFollowsTheCurrentScenarioAndOnlyIt(): void
