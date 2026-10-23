@@ -90,6 +90,19 @@ class PushNotifier(private val context: Context) {
             }
         }
 
+        // « Voir » (MAG-512) opens the tasks the same way, answering the reminder once the app is open.
+        if (kind == PushActionKind.OPEN) {
+            PushIntents.openReminder(context, payload)?.let { intent ->
+                val pending = PendingIntent.getActivity(
+                    context,
+                    requestCode(payload, kind.name),
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                return NotificationCompat.Action.Builder(0, kind.label, pending).build()
+            }
+        }
+
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             if (kind == PushActionKind.REPLY) mutableFlag() else PendingIntent.FLAG_IMMUTABLE
         val pending = PendingIntent.getBroadcast(
@@ -207,12 +220,27 @@ object PushIntents {
         }
     }
 
+    /**
+     * « Voir » (MAG-512): the app opened on the payload's own link (the tasks), told to answer the
+     * reminder. Null without a link of the app's scheme: the button is then a plain answer.
+     */
+    fun openReminder(context: Context, payload: PushPayload): Intent? {
+        val link = linkOf(payload.link) ?: return null
+        return Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = Intent.ACTION_VIEW
+            data = link
+            put(this, payload)
+            putExtra(EXTRA_ANSWER, PushActionKind.OPEN.reminderKey)
+        }
+    }
+
     /** The reminder's button an intent asks the app to answer, with its push; null for any other intent. */
     fun answerOf(intent: Intent): Pair<PushActionKind, PushPayload>? {
-        // « Je m'y mets » only, the one answer the app puts there: the activity is exported, and
+        // The buttons that open the app only, the answers it puts there: the activity is exported, and
         // another app's intent must not tick a task or move it to tomorrow.
         val kind = intent.getStringExtra(EXTRA_ANSWER)?.let(PushActionKind::ofReminderKey)
-            ?.takeIf { it == PushActionKind.START } ?: return null
+            ?.takeIf { it == PushActionKind.START || it == PushActionKind.OPEN } ?: return null
         val payload = payloadOf(intent)?.takeIf { it.reminderId != null } ?: return null
         return kind to payload
     }

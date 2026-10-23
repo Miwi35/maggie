@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import { EventListWidget } from './EventListWidget'
+import { RoutinesWidget } from './RoutinesWidget'
 import { TaskListWidget } from './TaskListWidget'
 import type { DashboardEvent } from './EventListWidget'
 import type { DashboardTask } from './TaskListWidget'
@@ -41,6 +42,7 @@ export const DailyDigestRow = ({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <EventListWidget events={todayEvents} loading={loading} />
           <TaskListWidget tasks={todayTasks} loading={loading} onToggleDone={onToggleDone} ordered error={todayTasksFailed} />
+          <RoutinesWidget />
         </Box>
       </Box>
 

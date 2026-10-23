@@ -5,10 +5,14 @@ import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Agenda
+import com.maggie.app.data.model.DayRoutine
 import com.maggie.app.data.model.Event
+import com.maggie.app.data.model.RoutineDayView
+import com.maggie.app.data.model.RoutineMoment
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
+import com.maggie.app.data.repository.RoutineRepository
 import com.maggie.app.data.repository.TaskRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -31,6 +35,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -40,6 +45,7 @@ class DashboardViewModelTest {
     private lateinit var eventRepository: EventRepository
     private lateinit var taskRepository: TaskRepository
     private lateinit var agendaRepository: AgendaRepository
+    private lateinit var routineRepository: RoutineRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private val cachedEvents = MutableStateFlow<List<Event>>(emptyList())
@@ -52,6 +58,8 @@ class DashboardViewModelTest {
         eventRepository = mockk()
         taskRepository = mockk()
         agendaRepository = mockk()
+        routineRepository = mockk()
+        coEvery { routineRepository.getDay(any()) } returns Result.success(RoutineDayView(date = "${com.maggie.app.util.DateRanges.todayDate()}"))
         mercureService = mockk()
         authRepository = mockk(relaxed = true)
         every { authRepository.token } returns flowOf("test-jwt")
@@ -62,7 +70,7 @@ class DashboardViewModelTest {
         every { eventRepository.observeEvents() } returns cachedEvents
         coEvery { taskRepository.getUndoneTasks(any()) } returns emptyList()
         coEvery { taskRepository.getTodayTasks() } returns emptyList()
-        topics = listOf(MercureTopics.TASKS).associateWith { collection ->
+        topics = listOf(MercureTopics.TASKS, MercureTopics.ROUTINES, MercureTopics.ROUTINE_CHECKS).associateWith { collection ->
             MutableSharedFlow<MercureEvent>().also {
                 every { mercureService.subscribe(MercureTopics.userScoped("u1", collection)) } returns it
             }
@@ -78,6 +86,7 @@ class DashboardViewModelTest {
         eventRepository,
         taskRepository,
         agendaRepository,
+        routineRepository,
         mercureService,
         authRepository,
     )
@@ -326,5 +335,93 @@ class DashboardViewModelTest {
 
         coVerify(exactly = 2) { taskRepository.getUndoneTasks(any()) }
         coVerify(exactly = 0) { eventRepository.loadPeriod(any(), true) }
+    }
+
+    private fun routinesToday(vararg checked: Boolean) = RoutineDayView(
+        date = "${com.maggie.app.util.DateRanges.todayDate()}",
+        moments = listOf(
+            RoutineMoment(
+                anchor = "wake",
+                time = "07:30",
+                routines = checked.mapIndexed { i, done -> DayRoutine("r$i", "Routine $i", "wake", time = "07:30", checked = done) },
+            ),
+        ),
+    )
+
+    @Test
+    fun `the routines due today are loaded for the widget (MAG-512)`() = runTest {
+        coEvery { routineRepository.getDay(any()) } returns Result.success(routinesToday(true, false, false))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals("1 sur 3 aujourd'hui", viewModel.uiState.value.routines?.summary)
+    }
+
+    @Test
+    fun `unreadable routines leave the dashboard loaded without a widget (MAG-512)`() = runTest {
+        coEvery { routineRepository.getDay(any()) } returns Result.failure(RuntimeException("offline"))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.routines)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `ticking a routine of the widget ticks it at once and sends the tick (MAG-512)`() = runTest {
+        coEvery { routineRepository.getDay(any()) } returns Result.success(routinesToday(false, false))
+        coEvery { routineRepository.setChecked(any(), any(), any()) } returns Result.success(mockk(relaxed = true))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleRoutine(viewModel.uiState.value.routines!!.routines.first())
+        runCurrent()
+        assertEquals("1 sur 2 aujourd'hui", viewModel.uiState.value.routines?.summary)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { routineRepository.setChecked("r0", com.maggie.app.util.DateRanges.todayDate(), true) }
+    }
+
+    @Test
+    fun `a refused tick of the widget is taken back (MAG-512)`() = runTest {
+        coEvery { routineRepository.getDay(any()) } returns Result.success(routinesToday(false))
+        coEvery { routineRepository.setChecked(any(), any(), any()) } returns Result.failure(RuntimeException("refused"))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleRoutine(viewModel.uiState.value.routines!!.routines.first())
+        advanceUntilIdle()
+
+        assertEquals("0 sur 1 aujourd'hui", viewModel.uiState.value.routines?.summary)
+    }
+
+    @Test
+    fun `a routine ticked elsewhere refreshes the widget without reading the tasks again (MAG-512)`() = runTest {
+        coEvery { routineRepository.getDay(any()) } returns Result.success(routinesToday(false, false))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        coEvery { routineRepository.getDay(any()) } returns Result.success(routinesToday(true, true))
+        topics.getValue(MercureTopics.ROUTINE_CHECKS).emit(MercureEvent())
+        advanceUntilIdle()
+
+        assertEquals("2 sur 2 aujourd'hui", viewModel.uiState.value.routines?.summary)
+        assertTrue(viewModel.uiState.value.routines!!.routines.all { it.checked })
+        coVerify(exactly = 1) { taskRepository.getUndoneTasks(any()) }
+    }
+
+    @Test
+    fun `a routine created or changed refreshes the widget (MAG-512)`() = runTest {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        assertEquals(0, viewModel.uiState.value.routines?.dueCount)
+
+        coEvery { routineRepository.getDay(any()) } returns Result.success(routinesToday(false))
+        topics.getValue(MercureTopics.ROUTINES).emit(MercureEvent())
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.routines?.dueCount)
     }
 }

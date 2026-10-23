@@ -41,6 +41,9 @@ enum class PushActionKind(val label: String, val reminderKey: String? = null) {
 
     /** « Demain »: the task goes into tomorrow's five. */
     TOMORROW("Demain", "tomorrow"),
+
+    /** « Voir » of a routine reminder (MAG-512): the app opens on the tasks, the reminder is answered. */
+    OPEN("Voir", "open"),
     ;
 
     companion object {

@@ -141,7 +141,7 @@ class PushMessageFactory
     private function channel(NotificationType $type): string
     {
         return match ($type) {
-            NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge => self::CHANNEL_REMINDERS,
+            NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge, NotificationType::Routine => self::CHANNEL_REMINDERS,
             NotificationType::Approval => self::CHANNEL_APPROVALS,
             NotificationType::ConsentExpiring, NotificationType::Finance => self::CHANNEL_FINANCE,
             NotificationType::Proaction, NotificationType::Grocery => self::CHANNEL_CHAT,
@@ -168,6 +168,11 @@ class PushMessageFactory
             [$host, $label] = self::ENTITY_LINKS[$m[1]];
 
             return ['link' => sprintf('%s://%s/%s', $this->deepLinkScheme, $host, $m[2]), 'label' => $label];
+        }
+
+        // The routines of the day (MAG-512): « Aujourd'hui » of the tasks.
+        if (1 === preg_match('#^/tasks/?$#', $path)) {
+            return ['link' => sprintf('%s://tasks', $this->deepLinkScheme), 'label' => 'Voir les routines'];
         }
 
         if (1 === preg_match('#^/finance(?:/([a-z-]+))?/?$#', $path, $m) && \in_array($m[1] ?? '', self::FINANCE_PATHS, true)) {

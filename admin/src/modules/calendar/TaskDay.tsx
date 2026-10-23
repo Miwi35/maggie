@@ -41,6 +41,7 @@ import StarIcon from '@mui/icons-material/Star'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined'
 import UpdateIcon from '@mui/icons-material/Update'
+import { RoutinesBand } from './RoutinesBand'
 import { UrgencyBadge } from './UrgencyBadge'
 import { TaskBravo } from './TaskBravo'
 import { TaskFocus } from './TaskFocus'
@@ -564,6 +565,7 @@ export const TaskDay = ({
   return (
     <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd}>
       {overlay}
+      <RoutinesBand />
       {card}
 
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>

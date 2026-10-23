@@ -2,6 +2,7 @@ package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.model.Routine
+import com.maggie.app.data.model.RoutineDayView
 import com.maggie.app.util.rethrowCancellation
 import kotlinx.serialization.json.JsonObject
 import java.time.LocalDate
@@ -11,6 +12,11 @@ class RoutineRepository(private val apiService: MaggieApiService) {
 
     suspend fun getRoutines(): Result<List<Routine>> = runCatching {
         apiService.getRoutines()
+    }.rethrowCancellation()
+
+    /** The routines due on [date], by moment (MAG-512). */
+    suspend fun getDay(date: LocalDate): Result<RoutineDayView> = runCatching {
+        apiService.getRoutinesDay(date.toString())
     }.rethrowCancellation()
 
     suspend fun createRoutine(data: JsonObject): Result<Routine> = runCatching {

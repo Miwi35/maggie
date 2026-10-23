@@ -392,3 +392,92 @@ describe('NotificationBell — answering a task reminder (MAG-510)', () => {
     expect(screen.getByRole('button', { name: 'Ce soir' })).toBeEnabled()
   })
 })
+
+describe('NotificationBell — a routine reminder (MAG-512)', () => {
+  const fetchMock = vi.fn()
+  const routine = {
+    ...dentist,
+    id: iri('01K0ROUTINE'),
+    type: 'routine',
+    title: 'Routines · soir',
+    body: 'Lire dix pages',
+    relatedEntityIri: '/tasks',
+    reminderId: '01K0REMIND',
+    actions: ['done', 'in10', 'open'],
+  }
+  const answer = (notification: unknown) => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ reminder: {}, next: null, reward: null, notification }),
+  })
+  const posted = () => fetchMock.mock.calls.map(([url, init]) => [url, init?.method, JSON.parse(String(init?.body))])
+
+  beforeEach(() => {
+    redirect.mockReset()
+    update.mockReset()
+    update.mockResolvedValue({ data: {} })
+    fetchMock.mockReset()
+    vi.stubGlobal('fetch', fetchMock)
+    listed = [routine]
+  })
+
+  test('offers « Fait », « Dans 10 min » and « Voir », in that order, for one routine', async () => {
+    render(<NotificationBell />)
+    await openBell()
+
+    const names = ['Fait', 'Dans 10 min', 'Voir']
+    expect(screen.getAllByRole('button').map((b) => b.textContent ?? '').filter((t) => names.includes(t))).toEqual(names)
+  })
+
+  test('offers « Voir » and « Dans 10 min », no « Fait », for several routines', async () => {
+    listed = [{ ...routine, actions: ['open', 'in10'] }]
+    render(<NotificationBell />)
+    await openBell()
+
+    const names = ['Voir', 'Dans 10 min']
+    expect(screen.getAllByRole('button').map((b) => b.textContent ?? '').filter((t) => [...names, 'Fait'].includes(t))).toEqual(names)
+  })
+
+  test('« Voir » posts { action: open } and opens the tasks', async () => {
+    fetchMock.mockResolvedValue(answer({ id: '01K0ROUTINE', title: routine.title, body: routine.body, actions: [] }))
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Voir' }))
+
+    expect(posted()).toEqual([['/api/task-reminders/01K0REMIND/action', 'POST', { action: 'open' }]])
+    expect(redirect).toHaveBeenCalledExactlyOnceWith('/tasks')
+  })
+
+  test('« Fait » ticks in place and stays on the bell', async () => {
+    fetchMock.mockResolvedValue(answer({ id: '01K0ROUTINE', title: 'Routines · soir', body: 'Tout est fait', actions: [] }))
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Fait' }))
+
+    expect(posted()).toEqual([['/api/task-reminders/01K0REMIND/action', 'POST', { action: 'done' }]])
+    expect(await screen.findByText('Tout est fait')).toBeInTheDocument()
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
+  test('clicking the notification itself opens the tasks', async () => {
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: /Routines · soir/ }))
+
+    expect(redirect).toHaveBeenCalledExactlyOnceWith('/tasks')
+  })
+
+  test('a failed « Voir » says so and does not navigate', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) })
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Voir' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de répondre au rappel.')
+    expect(redirect).not.toHaveBeenCalled()
+  })
+})

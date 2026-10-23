@@ -641,6 +641,22 @@ object UiTags {
 
     fun routineMonthDay(day: Int) = ROUTINE_MONTH_DAY_PREFIX + day
 
+    /**
+     * Routines in « Aujourd'hui » and on the home (MAG-512): the band above the ring, one pill per
+     * routine suffixed by its id; the home's widget, its title (opens the tab), its summary line and
+     * one tick per routine suffixed by its id.
+     */
+    const val ROUTINES_BAND = "routines_band"
+    const val ROUTINE_PILL_PREFIX = "routine_pill_"
+    const val DASHBOARD_ROUTINES = "dashboard_routines"
+    const val DASHBOARD_ROUTINES_TITLE = "dashboard_routines_title"
+    const val DASHBOARD_ROUTINES_SUMMARY = "dashboard_routines_summary"
+    const val DASHBOARD_ROUTINE_CHECK_PREFIX = "dashboard_routine_check_"
+
+    fun routinePill(id: String) = ROUTINE_PILL_PREFIX + id
+
+    fun dashboardRoutineCheck(id: String) = DASHBOARD_ROUTINE_CHECK_PREFIX + id
+
     /** A task's urgency, its icon and its word (MAG-406): on the dashboard's rows and in the detail. */
     const val TASK_URGENCY = "task_urgency"
 

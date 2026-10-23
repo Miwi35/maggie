@@ -325,4 +325,14 @@ class PushActionHandlerTest {
 
         coVerify(timeout = 3_000) { api.answerTaskReminder("r-1", "start") }
     }
+
+    @Test
+    fun `Voir answers the routine reminder and closes the notification, the app opening the tasks (MAG-512)`() = runBlocking {
+        val routine = payload("routine").copy(reminderId = "r-9", reminderActions = listOf("open", "in10"))
+        coEvery { api.answerTaskReminder("r-9", "open") } returns answer()
+
+        assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.OPEN, routine))
+
+        coVerify(exactly = 1) { api.answerTaskReminder("r-9", "open") }
+    }
 }

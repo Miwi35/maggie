@@ -143,10 +143,10 @@ class RewardMessagesTest extends TestCase
     public function testNoReminderOfAnyBankIsAReproach(): void
     {
         $all = ReminderMessages::all();
-        self::assertCount(57, $all, '30 nudges, 27 morning alerts');
+        self::assertCount(75, $all, '30 nudges, 27 morning alerts, 18 routine reminders');
 
         foreach ($all as $message) {
-            self::assertStringContainsString('« {titre} »', $message, 'every reminder names its task');
+            self::assertMatchesRegularExpression('/« \{titre\} »|\{liste\}/', $message, 'every reminder names its task or its routines');
             foreach (self::FORBIDDEN as $word) {
                 self::assertStringNotContainsStringIgnoringCase($word, $message, \sprintf('« %s » in « %s »', $word, $message));
             }

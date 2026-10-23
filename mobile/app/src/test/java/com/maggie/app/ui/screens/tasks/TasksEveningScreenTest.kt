@@ -86,7 +86,7 @@ class TasksEveningScreenTest {
         coEvery { auth.getUserId() } returns "u1"
         val mercure = mockk<MercureService>()
         every { mercure.subscribe(any()) } returns emptyFlow()
-        val viewModel = TasksViewModel(repository, mercure, auth, TaskRewards(repository, mockk(relaxed = true)), today = { today }, now = { LocalTime.of(21, 5) })
+        val viewModel = TasksViewModel(repository, mercure, auth, TaskRewards(repository, mockk(relaxed = true)), offlineRoutines(), today = { today }, now = { LocalTime.of(21, 5) })
         compose.setContent { TasksScreen(viewModel = viewModel, onTaskClick = {}) }
         compose.waitForIdle()
     }

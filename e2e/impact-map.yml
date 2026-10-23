@@ -358,7 +358,7 @@ web:
   e2e/web/tests/task-settings.spec.ts:
     areas: [settings, calendar]
   e2e/web/tests/task-routines.spec.ts:
-    areas: [calendar]
+    areas: [calendar, dashboard]
   e2e/web/tests/routines-chat.spec.ts:
     areas: [calendar, chat]
   e2e/web/tests/search.spec.ts:

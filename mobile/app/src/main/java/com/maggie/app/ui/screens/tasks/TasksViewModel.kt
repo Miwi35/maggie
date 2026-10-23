@@ -10,12 +10,16 @@ import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayProposal
 import com.maggie.app.data.model.DayReview
+import com.maggie.app.data.model.DayRoutine
 import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Reward
+import com.maggie.app.data.model.RoutineDayView
+import com.maggie.app.data.model.RoutinesBand
 import com.maggie.app.data.model.Stars
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
+import com.maggie.app.data.repository.RoutineRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.reward.Celebration
 import com.maggie.app.data.reward.TaskRewards
@@ -75,6 +79,14 @@ data class TasksUiState(
     val reward: Celebration? = null,
     /** A palier reached (MAG-509), pushed by the server: gold banner over the screen, until dismissed. */
     val palier: Celebration? = null,
+    /** The routines due today (MAG-512), shown as [routinesBand] above the ring; `null` until read. */
+    val routines: RoutineDayView? = null,
+    /** The band of « Aujourd'hui », absent when no routine is to tick. */
+    val routinesBand: RoutinesBand? = null,
+    /** Routines whose tick is in flight: a second tap waits for the first. */
+    val routinesPending: Set<String> = emptySet(),
+    /** « Routines » of the home widget asked for: the screen opens that tab and clears it. */
+    val routinesTabRequested: Boolean = false,
 ) {
     /** What the open tab draws has arrived: the day in « Aujourd'hui », the list elsewhere. */
     val hasContent: Boolean get() = if (view == TaskView.TODAY) day != null else tasks.isNotEmpty()
@@ -165,6 +177,7 @@ class TasksViewModel(
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
     private val rewards: TaskRewards,
+    private val routineRepository: RoutineRepository,
     private val today: () -> LocalDate = { DateRanges.todayDate() },
     private val now: () -> LocalTime = { LocalTime.now() },
 ) : ViewModel() {
@@ -173,6 +186,7 @@ class TasksViewModel(
     val uiState: StateFlow<TasksUiState> = _uiState
 
     private var loadJob: Job? = null
+    private var routinesJob: Job? = null
     private var moreJob: Job? = null
     private var listenJob: Job? = null
     private var proposalJob: Job? = null
@@ -219,6 +233,17 @@ class TasksViewModel(
                                 .catch { /* SSE reconnects automatically */ }
                                 .collect { event -> Reward.fromPush(event.data)?.takeIf { it.isPalier }?.let { onPalier(it) } }
                         }
+                        // A routine ticked elsewhere moves no task: only its band is read again.
+                        launch {
+                            merge(
+                                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.ROUTINES))
+                                    .catch { /* SSE reconnects automatically */ },
+                                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.ROUTINE_CHECKS))
+                                    .catch { /* SSE reconnects automatically */ },
+                            )
+                                .coalescedAndRechecked()
+                                .collect { reloadRoutines() }
+                        }
                         // The day publishes apart from its tasks: a slot changed elsewhere moves no task.
                         merge(
                             mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TASKS))
@@ -235,6 +260,61 @@ class TasksViewModel(
 
     /** Pull-to-refresh. */
     fun refresh() = reload()
+
+    /** The home widget's title: the screen opens on its « Routines » tab. */
+    fun requestRoutinesTab() {
+        _uiState.update { it.copy(routinesTabRequested = true) }
+    }
+
+    fun onRoutinesTabShown() {
+        _uiState.update { it.copy(routinesTabRequested = false) }
+    }
+
+    /**
+     * Ticks a routine of the band, or unticks it. Shown at once, kept when the API took it, taken back
+     * when it refused. A routine never counts in the day, earns no star and opens no Bravo.
+     */
+    fun toggleRoutine(routine: DayRoutine) {
+        val state = _uiState.value
+        val day = state.routines ?: return
+        if (routine.id in state.routinesPending) return
+        val checked = !(day.routines.firstOrNull { it.id == routine.id }?.checked ?: routine.checked)
+        _uiState.update { it.copy(routinesPending = it.routinesPending + routine.id, message = null) }
+        updateRoutines { it.withChecked(routine.id, checked) }
+        viewModelScope.launch {
+            routineRepository.setChecked(routine.id, LocalDate.parse(day.date), checked)
+                .onSuccess { _uiState.update { it.copy(routinesPending = it.routinesPending - routine.id) } }
+                .onFailure { e ->
+                    updateRoutines { it.withChecked(routine.id, !checked) }
+                    _uiState.update {
+                        it.copy(
+                            routinesPending = it.routinesPending - routine.id,
+                            message = e.message ?: "La coche n'a pas été enregistrée.",
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun updateRoutines(change: (RoutineDayView) -> RoutineDayView) {
+        _uiState.update { s ->
+            val day = s.routines?.let(change)
+            s.copy(routines = day, routinesBand = RoutinesBand.of(day, now()))
+        }
+    }
+
+    private fun reloadRoutines() {
+        if (_uiState.value.view != TaskView.TODAY) return
+        routinesJob?.cancel()
+        routinesJob = viewModelScope.launch { loadRoutines() }
+    }
+
+    // A band that cannot be read leaves the one shown: the day does not depend on it.
+    private suspend fun loadRoutines() {
+        routineRepository.getDay(today()).onSuccess { day ->
+            _uiState.update { it.copy(routines = day, routinesBand = RoutinesBand.of(day, now())) }
+        }
+    }
 
     fun selectView(view: TaskView) {
         if (view == _uiState.value.view) return
@@ -657,6 +737,7 @@ class TasksViewModel(
     /** The day, and beside it « Aujourd'hui »'s view for the counts the other tabs show. */
     private suspend fun loadDay(): Unit = coroutineScope {
         val counts = async { taskRepository.getTaskView(TaskView.TODAY) }
+        val routines = async { loadRoutines() }
         taskRepository.getDayPlan(today())
             .onSuccess { day ->
                 // The evening first: past it, a day never confirmed is reviewed, not prepared.
@@ -667,6 +748,7 @@ class TasksViewModel(
             }
             .onFailure { e -> failed(e, "Impossible de charger la journée.") }
         counts.await().onSuccess { response -> _uiState.update { it.copy(counts = response.counts) } }
+        routines.await()
     }
 
     private suspend fun loadView(view: TaskView) {

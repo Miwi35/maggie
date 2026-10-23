@@ -74,6 +74,9 @@ export function notificationLink(iri: string | null | undefined): NotificationLi
     }
   }
 
+  // The routines of the day (MAG-512) wait in « Aujourd'hui » of the tasks.
+  if (/^\/tasks\/?$/.test(path)) return { path: '/tasks', label: 'Voir les routines' }
+
   const finance = /^\/finance(?:\/([a-z-]+))?\/?$/.exec(path)
   if (finance) {
     const screen = finance[1] ?? ''

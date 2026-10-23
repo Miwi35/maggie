@@ -17,14 +17,11 @@ import { localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { RoutineDialog } from './RoutineDialog'
 import { motion } from './motion'
-import { checkRoutine, countLabel, fetchRoutines, GROUPS, groupOf, whenLabel } from './routinesApi'
+import { checkRoutine, countLabel, fetchRoutines, GROUPS, groupOf, ROUTINE_TOPICS, whenLabel } from './routinesApi'
 import type { RecentDay, Routine } from './routinesApi'
 
 /** The green of the routines (MAG-511). */
 export const ROUTINE_COLOR = '#7FD1AE'
-
-// A tick is published on its own topic, apart from the routine it counts for.
-const ROUTINE_TOPICS = ['/api/routines/{id}', '/api/routine_checks/{id}']
 
 const pop = keyframes`
   0% { transform: scale(0.6); }

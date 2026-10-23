@@ -31,7 +31,7 @@ class TaskReminder implements OwnedByUserInterface
     public const KIND_DUE = 'due';
     /** A nudge on the task « now » of the day, at a moment. */
     public const KIND_NUDGE = 'nudge';
-    /** Declared for the Routines lot. */
+    /** The routines of a moment, grouped in one reminder (MAG-512): its subject is `{date}:{moment}`. */
     public const KIND_ROUTINE = 'routine';
     public const KINDS = [self::KIND_DUE, self::KIND_NUDGE, self::KIND_ROUTINE];
 
@@ -40,13 +40,15 @@ class TaskReminder implements OwnedByUserInterface
     public const ACTION_TONIGHT = 'tonight';
     public const ACTION_DONE = 'done';
     public const ACTION_TOMORROW = 'tomorrow';
-    public const ACTIONS = [self::ACTION_START, self::ACTION_IN10, self::ACTION_TONIGHT, self::ACTION_DONE, self::ACTION_TOMORROW];
+    /** « Voir »: opens « Aujourd'hui » on the routines (MAG-512). */
+    public const ACTION_OPEN = 'open';
+    public const ACTIONS = [self::ACTION_START, self::ACTION_IN10, self::ACTION_TONIGHT, self::ACTION_DONE, self::ACTION_TOMORROW, self::ACTION_OPEN];
 
     /** What each kind can be answered with: a morning alert is not put off, a nudge is not ticked. */
     public const ACTIONS_BY_KIND = [
         self::KIND_DUE => [self::ACTION_START, self::ACTION_DONE, self::ACTION_TOMORROW],
         self::KIND_NUDGE => [self::ACTION_START, self::ACTION_IN10, self::ACTION_TONIGHT, self::ACTION_TOMORROW],
-        self::KIND_ROUTINE => [],
+        self::KIND_ROUTINE => [self::ACTION_DONE, self::ACTION_IN10, self::ACTION_OPEN],
     ];
 
     #[ORM\Id]
@@ -60,7 +62,7 @@ class TaskReminder implements OwnedByUserInterface
     #[ORM\Column(length: 20)]
     private string $kind;
 
-    /** The task — for `routine`, what the Routines lot sets. No foreign key: a deleted task drops its reminder. */
+    /** The task — for `routine`, `{date}:{moment}` (`wake`, `time@13:45`…). No foreign key: a deleted task drops its reminder. */
     #[ORM\Column(length: 36)]
     private string $subjectId;
 

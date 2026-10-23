@@ -96,6 +96,59 @@ export function checkRoutine(id: string, date: string, checked: boolean): Promis
   })
 }
 
+/** A routine due on a day, as `GET /api/routines/day/{date}` sends it (MAG-512). */
+export type DayRoutine = Pick<Routine, 'id' | 'title' | 'anchor' | 'anchorTime' | 'time' | 'remind' | 'recurrence'> & {
+  checked: boolean
+}
+
+/** The routines due at one hour of the day; moments come in the order of the day. */
+export interface DayMoment {
+  anchor: Anchor
+  time: string
+  routines: DayRoutine[]
+}
+
+export interface RoutinesDay {
+  date: string
+  moments: DayMoment[]
+}
+
+/** The routines due on `date` (`YYYY-MM-DD`), grouped by moment. */
+export async function fetchRoutinesDay(date: string): Promise<RoutinesDay> {
+  const response = await fetch(`${apiUrl}/routines/day/${date}`, { headers: headers({ Accept: 'application/json' }) })
+  if (!response.ok) throw await routineError(response)
+  const body = (await response.json()) as Partial<RoutinesDay>
+
+  return { date: body.date ?? date, moments: body.moments ?? [] }
+}
+
+// A tick is published on its own topic, apart from the routine it counts for.
+export const ROUTINE_TOPICS = ['/api/routines/{id}', '/api/routine_checks/{id}']
+
+/** The part of the day an hour falls in, as the reminders say it: « matin », « après-midi », « soir ». */
+export function dayPartOf(time: string): 'matin' | 'après-midi' | 'soir' {
+  if (time < '12:00') return 'matin'
+  if (time < '18:00') return 'après-midi'
+
+  return 'soir'
+}
+
+/**
+ * What the « Aujourd'hui » band shows at `now` (`HH:MM`): the routines of the current moment — the last whose
+ * hour has passed, the first before the day starts — and those still to tick of the earlier ones. Null when
+ * there is nothing to show.
+ */
+export function bandAt(day: RoutinesDay, now: string): { part: string; routines: DayRoutine[] } | null {
+  const passed = day.moments.filter((moment) => moment.time <= now).length
+  const index = Math.max(passed - 1, 0)
+  const current = day.moments[index]
+  if (!current) return null
+
+  const routines = day.moments.flatMap((moment, i) => (i < index ? moment.routines.filter((r) => !r.checked) : i === index ? moment.routines : []))
+
+  return routines.length > 0 ? { part: dayPartOf(current.time), routines } : null
+}
+
 export type RoutineGroup = 'morning' | 'afternoon' | 'evening' | 'weekly' | 'monthly'
 
 export const GROUPS: { key: RoutineGroup; label: string }[] = [
@@ -123,6 +176,14 @@ const MOMENTS: Record<Exclude<Anchor, 'time'>, string> = {
   afterBreakfast: 'après le petit-déjeuner',
   afterLunch: 'après le déjeuner',
   afterDinner: 'après le dîner',
+}
+
+/** « Au réveil · 7 h », « 22 h 30 » for a moment of its own hour. */
+export function momentLabel(moment: Pick<DayMoment, 'anchor' | 'time'>): string {
+  if (moment.anchor === 'time') return hourLabel(moment.time)
+  const name = MOMENTS[moment.anchor]
+
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} · ${hourLabel(moment.time)}`
 }
 
 /** « 22 h 30 », « 7 h ». */

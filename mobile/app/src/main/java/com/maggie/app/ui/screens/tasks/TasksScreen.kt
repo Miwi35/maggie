@@ -118,6 +118,14 @@ fun TasksScreen(
         }
     }
 
+    // The home's « Routines » widget lands on its tab.
+    LaunchedEffect(state.routinesTabRequested) {
+        if (state.routinesTabRequested) {
+            showRoutines = true
+            viewModel.onRoutinesTabShown()
+        }
+    }
+
     LaunchedEffect(state.bravo) {
         state.bravo?.let {
             onBravo(it)

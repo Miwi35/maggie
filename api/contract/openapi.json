@@ -19666,6 +19666,7 @@
                             "proaction",
                             "task_due",
                             "task_nudge",
+                            "routine",
                             "grocery",
                             "approval",
                             "finance"
@@ -19738,6 +19739,7 @@
                             "proaction",
                             "task_due",
                             "task_nudge",
+                            "routine",
                             "grocery",
                             "approval",
                             "finance"
@@ -19810,6 +19812,7 @@
                             "proaction",
                             "task_due",
                             "task_nudge",
+                            "routine",
                             "grocery",
                             "approval",
                             "finance"
@@ -19887,6 +19890,7 @@
                                     "proaction",
                                     "task_due",
                                     "task_nudge",
+                                    "routine",
                                     "grocery",
                                     "approval",
                                     "finance"

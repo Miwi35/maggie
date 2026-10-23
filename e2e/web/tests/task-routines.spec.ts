@@ -1,10 +1,11 @@
-import { test, expect, parisDay } from '../fixtures/index.js'
+import { test, expect, parisDay, parisTime } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
+import { DashboardPage } from '../pages/DashboardPage.js'
 import { TasksPage } from '../pages/TasksPage.js'
 
 /**
- * Routines (MAG-511, extends MAG-100): a small thing that comes back — a moment,
- * a rhythm, a tick for today.
+ * Routines (MAG-511, MAG-512, extends MAG-100): a small thing that comes back — a moment,
+ * a rhythm, a tick for today — and the ones of the moment above the day and on the home.
  *
  * The stack runs at `E2E_NOW` (CI: a Wednesday at noon in the middle of a month,
  * `e2e/clock.sh`), so « ce mois » holds the tick of the day. The API reads "today"
@@ -95,6 +96,76 @@ test('a routine created « au réveil, chaque jour » and ticked is done in « M
     expect(check.ok(), `GET /api/routines/day/${parisDay()} answered ${check.status()}`).toBe(true)
     const day = (await check.json()) as { moments: { routines: { title: string; checked: boolean }[] }[] }
     expect(day.moments.flatMap((m) => m.routines).find((r) => r.title === title)).toMatchObject({ checked: false })
+  } finally {
+    await removeRoutines(api, title)
+  }
+})
+
+interface DayOfRoutines {
+  moments: { routines: { title: string; checked: boolean }[] }[]
+}
+
+/** What is due today, and what of it is ticked: the home widget's « 1 sur 3 aujourd'hui ». */
+async function dayCounts(api: APIRequestContext): Promise<{ done: number; due: number }> {
+  const response = await api.get(`/api/routines/day/${parisDay()}`, { headers: { Accept: 'application/json' } })
+  expect(response.ok(), `GET /api/routines/day/${parisDay()} answered ${response.status()}`).toBe(true)
+  const due = ((await response.json()) as DayOfRoutines).moments.flatMap((moment) => moment.routines)
+
+  return { done: due.filter((routine) => routine.checked).length, due: due.length }
+}
+
+test('the routines of the morning ride above the day and on the home; a tick there is ticked everywhere, and the day is untouched', async ({ page, api }) => {
+  const title = perAttempt("Grand verre d'eau du matin")
+  await removeRoutines(api, title)
+
+  try {
+    // Given a routine at waking, every day, and the clock at 07:45…
+    const created = await api.post('/api/routines', {
+      headers: { Accept: 'application/json' },
+      data: { title, anchor: 'wake', recurrence: { kind: 'daily' } },
+    })
+    expect(created.status(), `POST /api/routines answered ${created.status()}`).toBe(201)
+    await page.context().clock.setFixedTime(new Date(parisTime(parisDay(), '07:45:00')))
+    const before = await dayCounts(api)
+
+    // When I open « Aujourd'hui »…
+    const board = new TasksPage(page)
+    await board.open()
+
+    // …then the band « Routines · matin » holds it, not ticked.
+    const band = board.content.getByRole('region', { name: 'Routines · matin' })
+    const pill = band.getByRole('button', { name: title, exact: true })
+    await expect(pill).toHaveAttribute('aria-pressed', 'false')
+    // (the ring is absent while the day holds no task)
+    const ring = (await board.ring.count()) > 0 ? await board.ring.getAttribute('aria-label') : null
+    const hadNow = await board.now.count()
+
+    // When I tick it…
+    await pill.click()
+
+    // …then the pill is checked — and the ring and « Maintenant » have not moved.
+    await expect(pill).toHaveAttribute('aria-pressed', 'true')
+    if (null === ring) await expect(board.ring).toHaveCount(0)
+    else await expect(board.ring).toHaveAttribute('aria-label', ring)
+    await expect(board.now).toHaveCount(hadNow)
+    await expect.poll(() => dayCounts(api)).toEqual({ done: before.done + 1, due: before.due })
+
+    // When I go to the home, the widget counts it, ticked.
+    const home = new DashboardPage(page)
+    await home.open()
+    await expect(home.content.getByText(`${before.done + 1} sur ${before.due} aujourd'hui`, { exact: true })).toBeVisible()
+    const check = home.content.getByRole('checkbox', { name: `${title} : fait aujourd'hui`, exact: true })
+    await expect(check).toBeChecked()
+
+    // When I take the tick back there, it is back to not done on the day too.
+    await check.click()
+    await expect(home.content.getByText(`${before.done} sur ${before.due} aujourd'hui`, { exact: true })).toBeVisible()
+    await expect.poll(() => dayCounts(api)).toEqual(before)
+
+    // When I open the title of the widget, I land on the « Routines » tab.
+    await home.content.getByRole('link', { name: 'Routines', exact: true }).click()
+    await expect(board.tab('Routines')).toHaveAttribute('aria-selected', 'true')
+    await expect(board.routineCheck(title)).not.toBeChecked()
   } finally {
     await removeRoutines(api, title)
   }

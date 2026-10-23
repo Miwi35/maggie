@@ -69,4 +69,9 @@ class PushChannelsTest {
         assertEquals(PushChannels.CHAT, PushChannels.forType("proaction"))
         assertEquals(PushChannels.CHAT, PushChannels.forType(null))
     }
+
+    @Test
+    fun `a routine reminder lands on the reminders channel (MAG-512)`() {
+        assertEquals(PushChannels.REMINDERS, PushChannels.forType("routine"))
+    }
 }

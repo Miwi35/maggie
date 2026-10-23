@@ -90,6 +90,23 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('Suivante : « Appeler le garagiste ».', $message['data']['title']);
     }
 
+    public function testARoutineReminderCarriesItsButtonsAndOpensTheTasksScreen(): void
+    {
+        $notification = $this->notification(NotificationType::Routine, 'Routines · soir', 'Brosser les dents, c\'est le moment.', '/tasks')
+            ->setReminderId('01JREMINDER0123456789ABCDE')
+            ->setActions(['done', 'in10', 'open']);
+
+        $message = (new PushMessageFactory())->build($notification, 't');
+
+        self::assertSame('routine', $message['data']['type']);
+        self::assertSame('done,in10,open', $message['data']['actions']);
+        self::assertSame('01JREMINDER0123456789ABCDE', $message['data']['reminderId']);
+        self::assertSame('maggie://tasks', $message['data']['link']);
+        self::assertArrayNotHasKey('taskId', $message['data']);
+        self::assertArrayNotHasKey('notification', $message);
+        self::assertContainsOnlyString($message['data']);
+    }
+
     public function testANotificationWithoutButtonsCarriesNoReminderKeys(): void
     {
         $message = (new PushMessageFactory())->build($this->notification(NotificationType::TaskDue, 'Aujourd\'hui : « Payer »', null, '/api/tasks/01JABCDEF0123456789ABCDEFG'), 't');
@@ -124,6 +141,7 @@ final class PushMessageFactoryTest extends TestCase
         yield 'recipe' => ['/api/recipes/01JRECIPE', 'maggie://recipe/01JRECIPE', 'Voir la recette'];
         yield 'bank consent' => ['/finance/banks?connection=01JCONN', 'maggie://finance/banks', 'Reconnecter la banque'];
         yield 'envelope alert' => ['/finance/budgets', 'maggie://finance/budgets', 'Voir les enveloppes'];
+        yield 'routines' => ['/tasks', 'maggie://tasks', 'Voir les routines'];
         yield 'finance home' => ['/finance', 'maggie://finance', 'Ouvrir les finances'];
         yield 'a screen the app does not have' => ['/finance/secrets', null, null];
         yield 'an entity the app cannot open' => ['/api/stores/01JSTORE', null, null];

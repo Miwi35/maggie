@@ -1,0 +1,128 @@
+{
+    "date": "2026-04-22",
+    "moments": [
+        {
+            "anchor": "afterDinner",
+            "time": "20:00",
+            "routines": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "title": "Sortir les poubelles",
+                    "anchor": "afterDinner",
+                    "anchorTime": null,
+                    "time": "20:00",
+                    "recurrence": {
+                        "kind": "weekly",
+                        "weekday": 3
+                    },
+                    "active": true,
+                    "remind": true,
+                    "createdAt": "2026-01-01T00:00:00+00:00",
+                    "checkedToday": false,
+                    "dueToday": true,
+                    "monthCount": 0,
+                    "totalCount": 0,
+                    "recentDays": [
+                        {
+                            "date": "2026-04-16",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-17",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-18",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-19",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-20",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-21",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-22",
+                            "due": true,
+                            "checked": false
+                        }
+                    ],
+                    "checked": false
+                }
+            ]
+        },
+        {
+            "anchor": "time",
+            "time": "22:30",
+            "routines": [
+                {
+                    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "title": "Lire",
+                    "anchor": "time",
+                    "anchorTime": "22:30",
+                    "time": "22:30",
+                    "recurrence": {
+                        "kind": "daily"
+                    },
+                    "active": true,
+                    "remind": false,
+                    "createdAt": "2026-01-01T00:00:00+00:00",
+                    "checkedToday": true,
+                    "dueToday": true,
+                    "monthCount": 1,
+                    "totalCount": 1,
+                    "recentDays": [
+                        {
+                            "date": "2026-04-16",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-17",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-18",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-19",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-20",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-21",
+                            "due": false,
+                            "checked": false
+                        },
+                        {
+                            "date": "2026-04-22",
+                            "due": true,
+                            "checked": true
+                        }
+                    ],
+                    "checked": true
+                }
+            ]
+        }
+    ]
+}

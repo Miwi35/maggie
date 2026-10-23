@@ -15,6 +15,13 @@ onFlowComplete:
 # after dinner, then it shows in « Chaque semaine »; when it is ticked, then its total reads
 # « 1 fois » and the API counts it ticked today, once.
 #
+# Then « Routines · matin » (MAG-512, extends MAG-100): a daily routine « au réveil » is a pill above
+# the day of « Aujourd'hui », ticked in one tap, and the home widget counts it, « 1 sur 2
+# aujourd'hui » (it and the routine above, due today), the title of the widget landing back on the
+# « Routines » tab. The stack's clock is pinned at noon in CI (`e2e/clock.sh ci`): the moment reached
+# is the wake one, whose hour is before noon. The ring and « Maintenant » never count it, and no star
+# comes of it: `TasksViewModelTest`'s.
+#
 # The spec says « chaque mardi ». The stack's clock is not frozen on a weekday (`TODAY` is the
 # seed's anchor day), and the round only shows on a routine due today, so the journey keeps the
 # weekday the sheet starts on — today's — rather than tapping Tuesday: « Chaque {today} ».
@@ -96,6 +103,95 @@ onFlowComplete:
     visible:
       id: "routine_total_${output.routineId}"
       text: ".*: 0 fois"
+    timeout: 20000
+
+# Given a daily routine « au réveil ».
+- tapOn:
+    id: "routines_add"
+- extendedWaitUntil:
+    visible:
+      id: "routine_title"
+    timeout: 20000
+- tapOn:
+    id: "routine_title"
+- inputText: "Prendre mes vitamines"
+- hideKeyboard
+- tapOn:
+    id: "routine_anchor_wake"
+- tapOn:
+    id: "routine_repeat_daily"
+- tapOn:
+    id: "routine_save"
+- extendedWaitUntil:
+    notVisible:
+      id: "routine_sheet"
+    timeout: 20000
+- runScript:
+    file: ../scripts/routines-api.js
+    env:
+      ACTION: find-wake
+      TODAY: ${TODAY}
+
+# When « Aujourd'hui » is opened, then the pill is in « Routines · matin ».
+- tapOn:
+    id: "tasks_tab_today"
+# The seed's day is not confirmed: « Ta journée » may open first, « Plus tard » leaves it.
+- tapOn:
+    id: "tasks_morning_later"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "routines_band"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Routines · matin"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "routine_pill_${output.wakeId}"
+      checked: false
+    timeout: 20000
+
+# When it is ticked, then it is checked, and the API has the tick.
+- tapOn:
+    id: "routine_pill_${output.wakeId}"
+- extendedWaitUntil:
+    visible:
+      id: "routine_pill_${output.wakeId}"
+      checked: true
+    timeout: 20000
+- runScript:
+    file: ../scripts/routines-api.js
+    env:
+      ACTION: expect-wake-checked
+      TODAY: ${TODAY}
+
+# When Home is opened, then the widget counts it.
+- stopApp
+- launchApp:
+    arguments:
+      e2e_journey: e2e/mobile/flows/17f-routines.yaml
+- extendedWaitUntil:
+    visible:
+      id: "dashboard"
+    timeout: 40000
+- extendedWaitUntil:
+    visible:
+      id: "dashboard_routines"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "dashboard_routines_summary"
+      text: "1 sur 2 aujourd'hui"
+    timeout: 20000
+- assertVisible: ".*Prendre mes vitamines.*"
+
+# The title of the widget opens the « Routines » tab, where the first routine is ticked.
+- tapOn:
+    id: "dashboard_routines_title"
+- extendedWaitUntil:
+    visible:
+      id: "routines_add"
     timeout: 20000
 
 # When it is ticked, its total reads once.

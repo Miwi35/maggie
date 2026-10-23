@@ -215,4 +215,33 @@ class PushPayloadTest {
         assertNull(payload("task_nudge", "reminderId" to "r-1").focusLink())
         assertNull(payload("task_nudge", "reminderId" to "r-1", "taskId" to "../users").focusLink())
     }
+
+    // MAG-512: a routine reminder is a nudge of its own, « Voir » opening the tasks.
+
+    @Test
+    fun `a routine reminder rings on the reminders channel`() {
+        assertEquals(PushChannels.REMINDERS, payload("routine").channel)
+    }
+
+    @Test
+    fun `one routine is Fait, Dans 10 min or Voir`() {
+        val p = reminder("routine", "done,in10,open")
+
+        assertEquals(listOf(PushActionKind.TICK, PushActionKind.IN_TEN, PushActionKind.OPEN), p.actions())
+        assertEquals(listOf("Fait", "Dans 10 min", "Voir"), p.actions().map { it.label })
+    }
+
+    @Test
+    fun `several routines are Voir or Dans 10 min`() {
+        val p = reminder("routine", "open,in10")
+
+        assertEquals(listOf(PushActionKind.OPEN, PushActionKind.IN_TEN), p.actions())
+        assertEquals(listOf("Voir", "Dans 10 min"), p.actions().map { it.label })
+    }
+
+    @Test
+    fun `Voir is answered with the key open`() {
+        assertEquals(PushActionKind.OPEN, PushActionKind.ofReminderKey("open"))
+        assertEquals("open", PushActionKind.OPEN.reminderKey)
+    }
 }

@@ -61,7 +61,7 @@ import java.time.LocalDate
 internal fun ringLabelOf(done: Int, total: Int): String = "$done sur $total"
 
 /**
- * « Aujourd'hui » as the day (MAG-497): « Maintenant », the ring, « Mes 5 » tickable in one gesture,
+ * « Aujourd'hui » as the day (MAG-497): the routines band (MAG-512) when some are to tick, « Maintenant », the ring, « Mes 5 » tickable in one gesture,
  * the add field, and the reserve folded under its count. A row opens its task through [onOpen],
  * which reads it whole first ([TasksViewModel.openTask]).
  */
@@ -74,6 +74,11 @@ internal fun DayContent(
 ) {
     val onOpen: (String) -> Unit = viewModel::openTask
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+        state.routinesBand?.let { band ->
+            item(key = "routines") {
+                RoutinesBandRow(band = band, pending = state.routinesPending, onToggle = viewModel::toggleRoutine)
+            }
+        }
         if (day.total > 0) {
             item(key = "ring") { DayRing(done = day.done, total = day.total) }
         }

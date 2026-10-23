@@ -45,6 +45,7 @@ import com.maggie.app.data.model.qualificationPatch
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.Reward
 import com.maggie.app.data.model.Routine
+import com.maggie.app.data.model.RoutineDayView
 import com.maggie.app.data.model.Stars
 import com.maggie.app.data.model.TaskReminderAnswer
 import com.maggie.app.data.model.Utensil
@@ -1128,6 +1129,13 @@ class MaggieApiService(
         return client.get("$baseUrl/api/routines") {
             accept(ContentType.Application.Json)
         }.orRefusal().body<ApiCollection<Routine>>().member
+    }
+
+    /** The routines due on [date] (`YYYY-MM-DD`), by moment, each with that day's tick (MAG-512). */
+    suspend fun getRoutinesDay(date: String): RoutineDayView {
+        return client.get("$baseUrl/api/routines/day/$date") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
     }
 
     /** A new routine: `title`, `anchor`, `anchorTime`, `recurrence`, `active`, `remind`. */

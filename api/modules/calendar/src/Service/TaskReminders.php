@@ -7,10 +7,12 @@ namespace Maggie\Calendar\Service;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\DayPlan;
 use Maggie\Calendar\Entity\Reward;
+use Maggie\Calendar\Entity\Routine;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Entity\TaskReminder;
 use Maggie\Calendar\Entity\TaskSettings;
 use Maggie\Calendar\Enum\DayMoment;
+use Maggie\Calendar\Message\CheckRoutineCommand;
 use Maggie\Calendar\Message\SetDayPlanCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\MessageHandler\AnswerTaskReminderHandler;
@@ -38,7 +40,10 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * - `due`: the morning alerts of {@see TaskAlertSchedule}, at the morning or,
  *   when it falls in the quiet hours, at their end;
  * - `nudge`: at `afterBreakfast` and `afterLunch`, the task « now » of a
- *   confirmed day, once per moment and per day.
+ *   confirmed day, once per moment and per day;
+ * - `routine` (MAG-512): at each moment and each hour of the routines that ask
+ *   to be reminded, one reminder for those due and not ticked
+ *   ({@see RoutineReminders}), once per moment and per day.
  *
  * The rules hold for every kind: nothing in the quiet hours — a reminder that
  * falls in them is dropped, never piled up for the morning —, at most
@@ -46,7 +51,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * message of the previous reminder of the same kind. A new kind plugs in at
  * {@see self::compose()}.
  *
- * @phpstan-type Composed array{type: NotificationType, key: string, title: string, body: string|null, actions: list<string>}
+ * @phpstan-type Composed array{type: NotificationType, key: string, title: string, body: string|null, actions: list<string>, iri: string}
  */
 final class TaskReminders
 {
@@ -66,6 +71,7 @@ final class TaskReminders
         private readonly DayPlanRepository $dayPlanRepository,
         private readonly DayPlans $dayPlans,
         private readonly TaskRepository $tasks,
+        private readonly RoutineReminders $routineReminders,
         private readonly RewardRepository $rewards,
         private readonly ReminderMessages $messages,
         private readonly UpdateNotification $updateNotification,
@@ -84,6 +90,7 @@ final class TaskReminders
 
         $this->planDue($user, $settings, $local);
         $this->planNudges($user, $settings, $local);
+        $this->planRoutines($user, $local);
         $this->em->flush();
 
         return $this->sendPending($user, $settings, $local);
@@ -117,8 +124,9 @@ final class TaskReminders
         }
 
         $user = $reminder->getUser();
-        $task = $this->task($user, $reminder->getSubjectId())
-            ?? throw new \DomainException('The task of this reminder no longer exists.');
+        $isRoutine = TaskReminder::KIND_ROUTINE === $reminder->getKind();
+        $task = $isRoutine ? null : ($this->task($user, $reminder->getSubjectId())
+            ?? throw new \DomainException('The task of this reminder no longer exists.'));
         $settings = $this->settingsOf($user);
         $local = $this->local($user);
         $notification = $reminder->getNotification();
@@ -130,15 +138,23 @@ final class TaskReminders
                 $next = $this->plan($user, $reminder->getKind(), $reminder->getSubjectId(), $reminder->getMoment(), $local->modify(self::SNOOZE), true);
                 break;
             case TaskReminder::ACTION_TONIGHT:
+                \assert(null !== $task);
                 if (!$this->tonightAhead($settings, $local)) {
                     throw new \DomainException('Tonight has passed: put it in tomorrow instead.');
                 }
                 $next = $this->plan($user, $reminder->getKind(), $reminder->getSubjectId(), DayMoment::AfterDinner, self::at($local, $settings->getDayMoment(DayMoment::AfterDinner)), true);
                 break;
             case TaskReminder::ACTION_TOMORROW:
+                \assert(null !== $task);
                 $this->putInTomorrow($user, $task);
                 break;
             case TaskReminder::ACTION_DONE:
+                if ($isRoutine) {
+                    // A tick, nothing more: no star, no bravo for a routine.
+                    $this->tickRoutine($reminder);
+                    break;
+                }
+                \assert(null !== $task);
                 if (!$task->isDone()) {
                     $this->bus->dispatch(new UpdateTaskCommand(taskId: (string) $task->getId(), completedAt: $this->clock->now()));
                 }
@@ -213,6 +229,40 @@ final class TaskReminders
         }
     }
 
+    /** One reminder per moment (and per hour) with routines to tick, once a day. */
+    private function planRoutines(User $user, \DateTimeImmutable $local): void
+    {
+        $today = $this->overdue->today($user);
+        [$from, $to] = self::dayOf($local);
+
+        foreach ($this->routineReminders->groups($user, $today) as $group) {
+            $at = self::at($local, $group['time']);
+            $subject = RoutineReminders::subject($today, $group['key']);
+            if (self::within($local, $at) && !$this->reminders->isPlanned($user, TaskReminder::KIND_ROUTINE, $from, $to, subjectId: $subject)) {
+                $this->plan($user, TaskReminder::KIND_ROUTINE, $subject, $group['moment'], $at);
+            }
+        }
+    }
+
+    /**
+     * « Fait » of a routine reminder, offered when one routine is left: it
+     * ticks that one, on the day of the reminder. Several now (one was added
+     * since) is not for one gesture.
+     */
+    private function tickRoutine(TaskReminder $reminder): void
+    {
+        $user = $reminder->getUser();
+        [$day, $key] = RoutineReminders::parse($reminder->getSubjectId());
+        $routines = $this->routineReminders->group($user, $day, $key)['routines'] ?? [];
+
+        if (\count($routines) > 1) {
+            throw new \DomainException('Several routines wait for this moment: open them to tick each one.');
+        }
+        foreach ($routines as $routine) {
+            $this->bus->dispatch(new CheckRoutineCommand((string) $user->getId(), (string) $routine->getId(), $day));
+        }
+    }
+
     /** The task « now » of today, when the day is confirmed. */
     private function nowTaskId(User $user): ?string
     {
@@ -268,11 +318,15 @@ final class TaskReminders
     private function compose(TaskReminder $reminder, TaskSettings $settings, \DateTimeImmutable $local): ?array
     {
         $user = $reminder->getUser();
+        $previous = $this->reminders->findLastMessageKey($user, $reminder->getKind());
+        if (TaskReminder::KIND_ROUTINE === $reminder->getKind()) {
+            return $this->composeRoutine($reminder, $settings, $previous);
+        }
+
         $task = $this->task($user, $reminder->getSubjectId());
         if (null === $task || $task->isDone()) {
             return null;
         }
-        $previous = $this->reminders->findLastMessageKey($user, $reminder->getKind());
 
         switch ($reminder->getKind()) {
             case TaskReminder::KIND_DUE:
@@ -288,6 +342,7 @@ final class TaskReminders
                     'title' => $drawn['message'],
                     'body' => null,
                     'actions' => [TaskReminder::ACTION_START, TaskReminder::ACTION_DONE, TaskReminder::ACTION_TOMORROW],
+                    'iri' => '/api/tasks/'.$reminder->getSubjectId(),
                 ];
             case TaskReminder::KIND_NUDGE:
                 $drawn = $this->messages->nudge($settings->getTone(), $task->getTitle(), $previous);
@@ -303,11 +358,39 @@ final class TaskReminders
                         TaskReminder::ACTION_IN10,
                         $this->tonightAhead($settings, $local) ? TaskReminder::ACTION_TONIGHT : TaskReminder::ACTION_TOMORROW,
                     ],
+                    'iri' => '/api/tasks/'.$reminder->getSubjectId(),
                 ];
             default:
-                // `routine` is the Routines lot's.
                 return null;
         }
+    }
+
+    /**
+     * The routines of a moment still to tick, in one notification; null when
+     * all are ticked meanwhile, or none asks to be reminded anymore.
+     *
+     * @return Composed|null
+     */
+    private function composeRoutine(TaskReminder $reminder, TaskSettings $settings, ?string $previous): ?array
+    {
+        [$day, $key] = RoutineReminders::parse($reminder->getSubjectId());
+        $group = $this->routineReminders->group($reminder->getUser(), $day, $key);
+        if (null === $group) {
+            return null;
+        }
+        $titles = array_map(static fn (Routine $routine): string => $routine->getTitle(), $group['routines']);
+        $drawn = $this->messages->routine($settings->getTone(), $titles, $previous);
+
+        return [
+            'type' => NotificationType::Routine,
+            'key' => $drawn['key'],
+            'title' => 'Routines · '.RoutineReminders::dayPart($group['time']),
+            'body' => $drawn['message'],
+            'actions' => 1 === \count($titles)
+                ? [TaskReminder::ACTION_DONE, TaskReminder::ACTION_IN10, TaskReminder::ACTION_OPEN]
+                : [TaskReminder::ACTION_OPEN, TaskReminder::ACTION_IN10],
+            'iri' => '/tasks',
+        ];
     }
 
     /** @param Composed $composed */
@@ -318,7 +401,7 @@ final class TaskReminders
             type: $composed['type']->value,
             title: $composed['title'],
             body: $composed['body'],
-            relatedEntityIri: '/api/tasks/'.$reminder->getSubjectId(),
+            relatedEntityIri: $composed['iri'],
             userId: (string) $user->getId(),
             reminderId: (string) $reminder->getId(),
             actions: $composed['actions'],
