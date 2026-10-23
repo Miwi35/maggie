@@ -176,6 +176,13 @@ export const REMINDERS_USER_EMAIL = 'e2e-reminders@maggie.local'
  */
 export const NEXT_PROJECT_USER_EMAIL = 'e2e-next-project@maggie.local'
 
+/**
+ * The twenty-third seeded account, for the placement withdrawal (MAG-556): a PEA
+ * and a trip that takes 1 500 € out of it, which the owner's placements — counted
+ * and rewritten by `finance-placements.spec.ts` — cannot carry.
+ */
+export const PLACEMENT_WITHDRAWAL_USER_EMAIL = 'e2e-placement-withdrawal@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

@@ -5,6 +5,8 @@ import {
   depositsLabel,
   fetchPlacements,
   fetchSimulation,
+  formatMonth,
+  projectNames,
   formatEuros,
   formatRate,
   isWholePlacement,
@@ -177,6 +179,74 @@ describe('placements, as the API sends them', () => {
       { month: 12, capital: 1000, paid: 900 },
     ])
     expect(simulation.final).toBe(1000)
+  })
+
+  test('a simulation without withdrawal keeps both curves as the one curve, no gap and the same rente', async () => {
+    stubFetch({
+      final: 1000,
+      paid: 900,
+      interest: 100,
+      rent: 3,
+      curve: [{ month: 0, capital: 0, paid: 0 }],
+    })
+
+    const simulation = await fetchSimulation('A')
+
+    expect(simulation.withdrawals).toEqual([])
+    expect(simulation.withdrawn).toBe(0)
+    expect(simulation.curveWithout).toEqual(simulation.curve)
+    expect(simulation.curveWith).toEqual(simulation.curve)
+    expect(simulation.gapAtEnd).toBe(0)
+    expect(simulation.finalWith).toBe(1000)
+    expect(simulation.rentWith).toBe(3)
+  })
+
+  test('reads the withdrawals, the two curves and the gap, for a scenario when one is asked', async () => {
+    const fetchMock = stubFetch({
+      final: 1000,
+      paid: 900,
+      interest: 100,
+      rent: 3,
+      curve: [{ month: 0, capital: 500, paid: 500 }],
+      withdrawals: [{ projectId: '/api/finance/projects/JAPAN', name: 'Voyage au Japon', month: '2027-04', amountCents: 150000 }],
+      withdrawn: 150000,
+      curveWithout: [{ month: 0, capital: 500, paid: 500 }, { month: 6, capital: 900, paid: 800 }],
+      curveWith: [{ month: 0, capital: 500, paid: 500 }, { month: 6, capital: 750, paid: 800 }],
+      gapAtEnd: 400,
+      finalWith: 600,
+      rentWith: 2,
+    })
+
+    const simulation = await fetchSimulation('/api/finance/placements/A', '/api/finance/scenarios/S1')
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe('/api/finance/placements/A/simulation?scenarioId=S1')
+    expect(simulation.withdrawals).toEqual([{ projectId: 'JAPAN', name: 'Voyage au Japon', month: '2027-04', amountCents: 150000 }])
+    expect(simulation.withdrawn).toBe(150000)
+    expect(simulation.curveWithout[1]).toEqual({ month: 6, capital: 900, paid: 800 })
+    expect(simulation.curveWith[1]).toEqual({ month: 6, capital: 750, paid: 800 })
+    expect(simulation.gapAtEnd).toBe(400)
+    expect(simulation.finalWith).toBe(600)
+    expect(simulation.rentWith).toBe(2)
+  })
+
+  test('a failed simulation throws', async () => {
+    stubFetch({}, 500)
+
+    await expect(fetchSimulation('A')).rejects.toThrow('simulation: 500')
+  })
+})
+
+describe('withdrawal wording', () => {
+  test('a month is spelled in French', () => {
+    expect(formatMonth('2027-04')).toBe('avril 2027')
+    expect(formatMonth('2026-12')).toBe('décembre 2026')
+    expect(formatMonth('')).toBe('')
+  })
+
+  test('the projects are named as the API gives them, once each', () => {
+    expect(projectNames([{ name: 'Voyage au Japon' }])).toBe('Voyage au Japon')
+    expect(projectNames([{ name: 'Voyage au Japon' }, { name: 'Vélo' }, { name: 'Voyage au Japon' }])).toBe('Voyage au Japon et Vélo')
+    expect(projectNames([{ name: 'A' }, { name: 'B' }, { name: 'C' }])).toBe('A, B et C')
   })
 })
 

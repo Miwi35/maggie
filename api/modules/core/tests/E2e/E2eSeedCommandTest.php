@@ -24,6 +24,8 @@ use Maggie\Core\E2e\Fixture\E2eDateProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Envelope;
+use Maggie\Finance\Entity\Placement;
+use Maggie\Finance\Entity\ProjectFundingSource;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\UseCase\SuggestCategorizationRules;
 use Maggie\Grocery\Entity\Errand;
@@ -116,9 +118,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         // an account and « Loisirs », the quarter's spend is the journey's own. The
         // twenty-first is the reminders' (MAG-510): « Dans 10 min » deletes the
         // notification its journey reads, and the other journeys count the
-        // bell's. A twenty-second would mean somebody added an account without
-        // saying why.
-        self::assertSame(23, $this->rowsOf(User::class));
+        // bell's. The twenty-second is the « Prochain projet »'s (MAG-529), the
+        // twenty-third the placement withdrawal's (MAG-556): a PEA and a trip that
+        // takes capital out of it. A twenty-fourth would mean somebody added an
+        // account without saying why.
+        self::assertSame(24, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -141,6 +145,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-period@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-reminders@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-next-project@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-placement-withdrawal@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
@@ -192,6 +197,16 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(13, $this->rowsOf(Envelope::class));
         // Three since MAG-510: the nudge the reminders journey answers.
         self::assertSame(3, $this->rowsOf(Notification::class));
+
+        // MAG-556: the PEA of the placement withdrawal journey, and the 1 500 € the
+        // trip takes out of it the month it is bought.
+        $lea = $this->repository(User::class)->findOneBy(['email' => 'e2e-placement-withdrawal@maggie.local']);
+        self::assertSame(1, $this->rowsOf(Placement::class, ['user' => $lea]));
+        $sources = $this->repository(ProjectFundingSource::class)->findAll();
+        self::assertCount(1, $sources);
+        self::assertSame(150000, $sources[0]->getAmountCents());
+        self::assertSame('PEA', $sources[0]->getPlacement()?->getName());
+        self::assertSame('Voyage au Japon', $sources[0]->getProject()->getName());
     }
 
     public function testEveryRowBelongsToTheSeededUser(): void
@@ -436,11 +451,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(24, $this->rowsOf(User::class));
+        self::assertSame(25, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(23, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(24, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

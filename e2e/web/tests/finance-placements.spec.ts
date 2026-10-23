@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test'
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, seedAnchorDate } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { FinancePlacementsPage } from '../pages/FinancePlacementsPage.js'
 
@@ -15,6 +15,11 @@ import { FinancePlacementsPage } from '../pages/FinancePlacementsPage.js'
  *
  * Only this file writes the placements, and only the one it creates:
  * `finally` deletes it, so a retry starts where the first attempt did.
+ *
+ * The last journey (MAG-556) reads, as an account of its own, a PEA that a
+ * trip leaves capital from (`63-finance-placement-withdrawal.yaml`): « Voyage
+ * au Japon » costs 5 000 €, 1 500 € of it from the PEA, and a net saving
+ * capacity of 500 € a month buys it six months on. It only reads.
  */
 
 const NAME = 'Épargne de Léa'
@@ -80,4 +85,81 @@ test('a placement of 100 € a month at 5 % over 10 years would reach 15 436 €
   } finally {
     await removeCreated(api)
   }
+})
+
+const [ANCHOR_YEAR, ANCHOR_MONTH] = seedAnchorDate().split('-').map(Number)
+
+/** « avril 2027 »: the month `offset` months after the anchor's, as the list spells it. */
+const monthLabel = (offset: number): string =>
+  new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(ANCHOR_YEAR, ANCHOR_MONTH - 1 + offset, 1)),
+  )
+
+/** « 2027-04 »: the same month, as the API names it. */
+const monthLabelKey = (offset: number): string => {
+  const month = new Date(Date.UTC(ANCHOR_YEAR, ANCHOR_MONTH - 1 + offset, 1))
+
+  return `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+/** « 4 672 € », rounded to the euro as the placements screen rounds. */
+const wholeEuros = (cents: number): string =>
+  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    .format(Math.round(cents / 100))
+    .replace(/\s/gu, ' ')
+
+interface SimulationAnswer {
+  withdrawals: { name: string; month: string; amountCents: number }[]
+  withdrawn: number
+  gapAtEnd: number
+  finalWith: number
+}
+
+/**
+ * Given a trip of 5 000 € paid 1 500 € from the PEA and 3 500 € from the salary,
+ * When I open the PEA in Finance › Planification › Indépendance,
+ * Then the capital is drawn with and without the withdrawal, the gap at the end
+ * of the 20 years is told, and the trip is listed as the 1 500 € taken out the
+ * month it is bought.
+ */
+test('a trip paid in part by the PEA is drawn with and without the 1 500 € it takes out', async ({ placementWithdrawalUser }) => {
+  const { page, api } = placementWithdrawalUser
+  const screen = new FinancePlacementsPage(page)
+
+  // --- Given: the PEA, and the trip that leaves it ---------------------------
+  await screen.open()
+  await expect(screen.row('PEA')).toContainText('150 € / mois · 2 000 € initial')
+  await expect(screen.row('PEA')).toHaveAttribute('aria-selected', 'true')
+
+  // --- Then: the two curves, one dashed, one solid, and what they say --------
+  const simulation = screen.simulation()
+  await expect(simulation).toContainText('PEA · avec et sans retrait pour Voyage au Japon')
+  await expect(screen.curveWithout()).toBeVisible()
+  await expect(screen.curveWithout()).toHaveAttribute('stroke-dasharray', /\d/)
+  await expect(screen.curveWith()).toBeVisible()
+  await expect(simulation.getByText('capital sans retrait')).toBeVisible()
+  await expect(simulation.getByText('capital avec retrait')).toBeVisible()
+  await expect(simulation.getByRole('img', { name: /^Courbe de PEA sur 20 ans.* sans retrait, .* avec retrait$/ })).toBeVisible()
+
+  // --- And: the trip, the month it is bought and the amount it takes ---------
+  await expect(screen.withdrawals()).toHaveCount(1)
+  await expect(screen.withdrawals().first()).toContainText('Voyage au Japon')
+  await expect(screen.withdrawals().first()).toContainText(monthLabel(6))
+  await expect(screen.withdrawals().first()).toContainText('−1 500 €')
+
+  // --- And: the gap at the end is the API's own, in whole euros --------------
+  const [pea] = await getCollection<{ id: string; name: string }>(api, '/api/finance/placements?pagination=false')
+  expect(pea.name).toBe('PEA')
+  const read = await api.get(`/api/finance/placements/${pea.id}/simulation`)
+  expect(read.ok(), await read.text()).toBe(true)
+  const answer = (await read.json()) as SimulationAnswer
+  expect(answer.withdrawals).toHaveLength(1)
+  expect(answer.withdrawals[0]).toMatchObject({ name: 'Voyage au Japon', amountCents: 150000 })
+  expect(answer.withdrawals[0].month).toBe(monthLabelKey(6))
+  expect(answer.withdrawn).toBe(150000)
+  expect(answer.gapAtEnd).toBeGreaterThan(150000)
+
+  await expect(screen.gap()).toHaveText(`Écart à 20 ans : −${wholeEuros(answer.gapAtEnd)}`)
+  await expect(simulation.getByText('Capital après retrait').locator('xpath=following-sibling::*[1]')).toHaveText(wholeEuros(answer.finalWith))
+  await expect(simulation).toContainText('Après ces retraits, retiré à 4 % par an')
 })

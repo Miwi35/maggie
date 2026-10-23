@@ -6,7 +6,9 @@ import { ROUTES } from './routes.js'
 /**
  * Finance › Planification › Indépendance › Placements (MAG-555): the simulated
  * placements, under the independence counter of the Indépendance tab — a
- * table of what each one would be worth, and the curve of the one selected.
+ * table of what each one would be worth, and the curve of the one selected —
+ * with and without the capital the projects of the plan take out of it
+ * (MAG-556).
  */
 export class FinancePlacementsPage extends AdminShell {
   readonly card: Locator
@@ -35,6 +37,25 @@ export class FinancePlacementsPage extends AdminShell {
   /** The curve and the figures of the selected placement. */
   simulation(): Locator {
     return this.card.getByRole('region', { name: /^Simulation de / })
+  }
+
+  /** « Écart à 20 ans : −X € », only when a project leaves capital in the placement. */
+  gap(): Locator {
+    return this.simulation().getByTestId('placement-gap')
+  }
+
+  /** The capital without the withdrawals (dashed) and with them (solid). */
+  curveWithout(): Locator {
+    return this.simulation().getByTestId('placement-curve-without')
+  }
+
+  curveWith(): Locator {
+    return this.simulation().getByTestId('placement-curve-with')
+  }
+
+  /** One line per withdrawal: the project, the month and the amount. */
+  withdrawals(): Locator {
+    return this.simulation().getByTestId('placement-withdrawal')
   }
 
   async create(fields: { name: string; deposit: string; rate: string; years: string; initial?: string }): Promise<void> {

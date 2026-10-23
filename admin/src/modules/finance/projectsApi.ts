@@ -75,6 +75,8 @@ export interface FundingSource {
   amountCents: number
   /** Bare id of the account a savings or capital source draws on. */
   accountId: string | null
+  /** Bare id of the simulated placement a capital source leaves, when it names one (MAG-556). */
+  placementId?: string | null
   /** Bare id of the projected loan of a loan source. */
   loanId: string | null
   /** Bare id of the investment whose resale a `resale` source stands for (MAG-557); read-only. */
@@ -86,6 +88,8 @@ export interface FundingSourceInput {
   kind: Exclude<FundingKind, 'resale'>
   amountCents: number
   account?: string
+  /** Bare id of the placement a capital source leaves (MAG-556). */
+  placement?: string
   loan?: Record<string, unknown>
 }
 
@@ -194,6 +198,7 @@ const toSource = (raw: Raw): FundingSource => ({
   kind: raw.kind as FundingKind,
   amountCents: Number(raw.amountCents ?? 0),
   accountId: raw.accountId ? bareId(String(raw.accountId)) : null,
+  placementId: raw.placementId ? bareId(String(raw.placementId)) : null,
   loanId: raw.loanId ? bareId(String(raw.loanId)) : null,
   sourceProjectId: raw.sourceProjectId ? bareId(String(raw.sourceProjectId)) : null,
 })

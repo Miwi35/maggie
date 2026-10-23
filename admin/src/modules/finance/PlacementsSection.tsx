@@ -34,10 +34,12 @@ import {
   fetchPlacements,
   fetchSimulation,
   formatEuros,
+  formatMonth,
   formatRate,
   isWholePlacement,
   patchPlacement,
   PLACEMENT_TOPIC,
+  projectNames,
   toPlacement,
   updatePlacement,
   yearsLabel,
@@ -86,22 +88,66 @@ const SelectedPlacement = ({ placement }: { placement: Placement }) => {
     }
   }, [id, key])
 
+  // The projects of the current scenario that leave capital here (MAG-556).
+  const withdrawals = simulation?.withdrawals ?? []
+  const withdrawing = !failed && simulation !== null && withdrawals.length > 0
+  const duration = yearsLabel(placement.years)
+
   return (
     <Stack spacing={1.5} sx={{ mt: 2 }} aria-label={`Simulation de ${placement.name}`} component="section">
       <Typography variant="overline" color="text.secondary">
-        {placement.name} · {yearsLabel(placement.years)}
+        {withdrawing ? `${placement.name} · avec et sans retrait pour ${projectNames(withdrawals)}` : `${placement.name} · ${duration}`}
       </Typography>
       {failed && <Alert severity="warning">La courbe de ce placement n'a pas pu être calculée.</Alert>}
       {!failed && !simulation && <Skeleton variant="rectangular" height={160} data-testid="placement-curve-loading" />}
-      {!failed && simulation && <PlacementCurve name={placement.name} curve={simulation.curve} years={placement.years} />}
+      {!failed && simulation && (
+        <PlacementCurve
+          name={placement.name}
+          curve={simulation.curve}
+          years={placement.years}
+          withdrawal={withdrawing ? { curveWithout: simulation.curveWithout, curveWith: simulation.curveWith } : undefined}
+        />
+      )}
+      {withdrawing && simulation && (
+        <>
+          <Typography variant="body1" sx={numeric} data-testid="placement-gap">
+            Écart à {duration} : {simulation.gapAtEnd > 0 ? `−${formatEuros(simulation.gapAtEnd)}` : formatEuros(0)}
+          </Typography>
+          <Box component="ul" aria-label={`Retraits de ${placement.name}`} sx={{ m: 0, p: 0, listStyle: 'none' }}>
+            {withdrawals.map((withdrawal) => (
+              <Stack
+                component="li"
+                key={`${withdrawal.projectId}:${withdrawal.month}`}
+                data-testid="placement-withdrawal"
+                direction="row"
+                sx={{ gap: 2, justifyContent: 'space-between', py: 0.5, borderBottom: 1, borderColor: 'divider', ...numeric }}
+              >
+                <Typography variant="body2">{withdrawal.name}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {formatMonth(withdrawal.month)}
+                </Typography>
+                <Typography variant="body2">−{formatEuros(withdrawal.amountCents)}</Typography>
+              </Stack>
+            ))}
+          </Box>
+        </>
+      )}
       <Stack direction="row" spacing={3} sx={{ flexWrap: 'wrap' }}>
-        <Figure label={`Capital dans ${yearsLabel(placement.years)}`} cents={placement.final} />
+        <Figure label={withdrawing ? `Capital dans ${duration}, sans retrait` : `Capital dans ${duration}`} cents={placement.final} />
+        {withdrawing && simulation && <Figure label="Capital après retrait" cents={simulation.finalWith} />}
         <Figure label="Dont versements" cents={placement.paid} />
         <Figure label="Dont intérêts composés" cents={placement.interest} />
       </Stack>
-      <Typography variant="body2" color="text.secondary">
-        Retiré à 4 % par an, ce capital donnerait environ {formatEuros(placement.rent)} par mois de rente (simulation).
-      </Typography>
+      {withdrawing && simulation ? (
+        <Typography variant="body2" color="text.secondary" data-testid="placement-rent-with">
+          Après ces retraits, retiré à 4 % par an, le capital donnerait environ {formatEuros(simulation.rentWith)} par mois de rente, contre{' '}
+          {formatEuros(placement.rent)} sans retrait (simulation).
+        </Typography>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Retiré à 4 % par an, ce capital donnerait environ {formatEuros(placement.rent)} par mois de rente (simulation).
+        </Typography>
+      )}
     </Stack>
   )
 }
