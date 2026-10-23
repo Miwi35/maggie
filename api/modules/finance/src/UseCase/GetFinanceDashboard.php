@@ -18,9 +18,10 @@ use Maggie\Finance\Repository\TransactionRepository;
  * spending posts against last month, and what is left to save.
  *
  * It composes the use cases that already exist rather than recomputing
- * anything: one answer, one set of rules. A pure read: it publishes nothing
- * and indexes nothing (the one write is the default safety cushion row
- * GetCushionStatus creates for a user who has none).
+ * anything: one answer, one set of rules. A pure read: it writes, publishes
+ * and indexes nothing. It is computed by {@see RefreshFinanceDashboard} into
+ * the read model the endpoint answers from (MAG-545), and live only when that
+ * model does not hold the month asked for or a write has outdated it.
  */
 class GetFinanceDashboard
 {

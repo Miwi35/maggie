@@ -3,6 +3,7 @@
 namespace Maggie\Finance\Tests\Mcp;
 
 use App\Tests\Support\ElasticsearchAssertionTrait;
+use App\Tests\Support\FinanceDashboardRefreshTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
@@ -16,6 +17,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 class SafetyCushionToolsTest extends KernelTestCase
 {
     use ElasticsearchAssertionTrait;
+    use FinanceDashboardRefreshTrait;
     use FixtureLoaderTrait;
     use MercureAssertionTrait;
     use SecurityTokenTrait;
@@ -106,6 +108,8 @@ class SafetyCushionToolsTest extends KernelTestCase
         $this->loadFixtures('safety_cushion.yaml');
         $this->loginFixtureUser();
         $this->setBalance('livret', 600000);
+        // Reading never records the completion: the rebuild the balance change queued does.
+        $this->drainDashboardRefreshes();
 
         $status = $this->cushionStatus();
 
@@ -129,6 +133,7 @@ class SafetyCushionToolsTest extends KernelTestCase
 
         // Fill it up first, so it remembers having been complete...
         $this->setBalance('livret', 600000);
+        $this->drainDashboardRefreshes();
         self::assertSame('complete', $this->cushionStatus()['state']);
 
         // ...then dip into it.

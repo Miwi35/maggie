@@ -6,9 +6,8 @@ namespace Maggie\Finance\Mcp\Tool;
 
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
-use Maggie\Finance\Entity\SafetyCushion;
 use Maggie\Finance\Message\UpdateSafetyCushionCommand;
-use Maggie\Finance\Repository\SafetyCushionRepository;
+use Maggie\Finance\UseCase\EnsureSafetyCushion;
 use Maggie\Finance\UseCase\GetCushionStatus;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -20,7 +19,7 @@ class ManageSafetyCushionTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
-        private readonly SafetyCushionRepository $cushionRepository,
+        private readonly EnsureSafetyCushion $ensureSafetyCushion,
         private readonly GetCushionStatus $getCushionStatus,
         private readonly McpUserContext $userContext,
     ) {
@@ -66,15 +65,8 @@ class ManageSafetyCushionTool
         }
 
         $user = $this->userContext->requireUser();
-        $cushion = $this->cushionRepository->findOneByUser($user);
+        $cushion = $this->ensureSafetyCushion->execute($user);
 
-        if (null === $cushion) {
-            // Reading the status creates the cushion on first use.
-            $this->getCushionStatus->execute($user);
-            $cushion = $this->cushionRepository->findOneByUser($user);
-        }
-
-        /** @var SafetyCushion $cushion */
         $stamped = $this->bus->dispatch(new UpdateSafetyCushionCommand(
             userId: (string) $user->getId(),
             safetyCushionId: (string) $cushion->getId(),

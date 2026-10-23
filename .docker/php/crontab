@@ -6,7 +6,7 @@
 # One job start per minute: each console command takes ~58 MiB, and five of
 # them started together got the pod OOMKilled (MAG-186). Minutes used:
 # sync 0,5,… · sync --tasks 1,6,… · check-sync 3,18,33,48 · renew-watch 7,37 ·
-# finance jobs on minute 4 or 34 · recurring groceries 8 · past-meal groceries 9.
+# finance jobs on minute 4 or 34 · dashboard day turn 14 · recurring groceries 8 · past-meal groceries 9.
 # The one exception is check-reminders: a reminder is minute-precise, so it runs
 # every minute and shares a minute with at most one other job (MAG-27); the
 # pod's memory limit holds it.
@@ -25,3 +25,5 @@
 8 4 * * * cd /var/www/api && php bin/console maggie:grocery:add-due-recurring-items
 # Past meals' groceries: once a day, 04:09 UTC (06:09 Paris in summer, 05:09 in winter), after the Paris day has turned. Takes the unbought ingredients of meals whose day has gone off the lists; idempotent, and a meal planned or moved onto a past day is released on the spot.
 9 4 * * * cd /var/www/api && php bin/console maggie:cookbook:release-past-meal-groceries
+# Finance Dashboard read model (MAG-545): hourly, marks stale the dashboards computed on a day that is no longer the user's today (the rings move with the date); the async worker rebuilds them. Idempotent.
+14 * * * * cd /var/www/api && php bin/console app:finance:refresh-dashboards
