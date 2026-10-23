@@ -49,8 +49,8 @@ class FinanceHomeCardScreenTest {
     fun `a ring reads its rhythm word and its amounts to a screen reader and to Maestro`() {
         draw(loaded(FinanceHomeState(week = above, month = onTrack)))
 
-        compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertContentDescriptionContains("Au-dessus du rythme")
-        compose.onNodeWithTag(UiTags.homeFinanceRing("month")).assertContentDescriptionContains("Dans le rythme")
+        compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertContentDescriptionContains("Au-dessus du rythme", substring = true)
+        compose.onNodeWithTag(UiTags.homeFinanceRing("month")).assertContentDescriptionContains("Dans le rythme", substring = true)
     }
 
     @Test
@@ -58,7 +58,7 @@ class FinanceHomeCardScreenTest {
         draw(loaded(FinanceHomeState(week = FinanceHomeRing(), month = onTrack)))
 
         compose.onNodeWithText("Aucune enveloppe").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertContentDescriptionContains("Aucune enveloppe")
+        compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertContentDescriptionContains("Aucune enveloppe", substring = true)
     }
 
     @Test

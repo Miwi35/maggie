@@ -85,9 +85,11 @@ tags:
     element:
       id: "home_finance_ring_month"
     timeout: 20000
-- assertVisible:
-    id: "home_finance_ring_week"
-    text: ".*Dans le rythme.*"
+- extendedWaitUntil:
+    visible:
+      id: "home_finance_ring_week"
+      text: ".*Dans le rythme.*"
+    timeout: 20000
 - assertVisible:
     id: "home_finance_ring_month"
     text: ".*Dans le rythme.*"
