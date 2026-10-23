@@ -839,7 +839,15 @@ describe('TaskBoard', () => {
       render(<TaskBoard />)
       await screen.findByRole('list', { name: 'Mes 5' })
 
-      mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      // Aimed at the « À venir » view: a one-shot rejection is eaten by whichever background read (routines, stars…) comes first.
+      let failed = false
+      mockFetch.mockImplementation((url, init) => {
+        if (!failed && /\/tasks\/view\/upcoming/.test(String(url))) {
+          failed = true
+          return Promise.reject(new TypeError('Failed to fetch'))
+        }
+        return Promise.resolve(respond(String(url), init))
+      })
       await user.click(screen.getByRole('tab', { name: 'À venir (2)' }))
       expect(await screen.findByRole('alert')).toHaveTextContent('Tâches indisponibles')
 
