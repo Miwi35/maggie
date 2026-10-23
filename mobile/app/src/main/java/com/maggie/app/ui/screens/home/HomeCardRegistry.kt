@@ -52,6 +52,7 @@ object HomeCardRegistry {
         // MAG-561: today's tasks and the routines of the moment.
         HomeCardEntry(HomeModules.TASKS, HomeZone.MAIN) { day -> TasksHomeCard(day) },
         HomeCardEntry(module = HomeModules.NUTRITION, zone = HomeZone.MAIN) { day -> NutritionHomeCard(day) },
+        HomeCardEntry(module = HomeModules.FINANCE, zone = HomeZone.MAIN) { FinanceHomeCard() },
     )
 }
 

@@ -212,6 +212,9 @@ areas:
     - admin/src/modules/grocery/{GroceryHomeCard,homeRecipeNeeds}.{ts,tsx}
     - api/modules/grocery/src/Home/**
     - api/fixtures/e2e/64-grocery-home.yaml
+    - admin/src/modules/finance/FinanceHomeCard.tsx
+    - api/modules/finance/src/Home/**
+    - api/fixtures/e2e/65-finance-home.yaml
     - mobile/app/src/main/java/com/maggie/app/ui/screens/home/**
     - e2e/web/pages/HomePage.ts
   calendar:
@@ -715,7 +718,7 @@ mobile:
     paths: [api/fixtures/e2e/50-finance.yaml]
   e2e/mobile/flows/24-home.yaml:
     areas: [dashboard]
-    paths: [api/fixtures/e2e/64-grocery-home.yaml]
+    paths: [api/fixtures/e2e/64-grocery-home.yaml, api/fixtures/e2e/65-finance-home.yaml]
   e2e/mobile/flows/28-home-tasks.yaml:
     areas: [dashboard, calendar]
     paths: [e2e/mobile/scripts/home-tasks-api.js, api/fixtures/e2e/64-home-tasks.yaml]

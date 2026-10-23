@@ -1,0 +1,44 @@
+# The Finance card of the Accueil (MAG-565, extends MAG-102): the week and month
+# rings, « Dans le rythme ».
+#
+# On the Accueil's own account (`64-grocery-home.yaml`), nobody else signs in
+# there: one 1 000 € envelope and 10 € spent on the 1st, so the spending is
+# under the pace whatever the stack's day is.
+
+Maggie\Finance\Entity\Account:
+  e2e_home_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 200000
+    isCushion: false
+    user: '@e2e_home_user'
+
+Maggie\Finance\Entity\Category:
+  e2e_home_food:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@e2e_home_user'
+
+Maggie\Finance\Entity\Envelope:
+  e2e_home_food_envelope:
+    category: '@e2e_home_food'
+    mode: '<(Maggie\Finance\Enum\BudgetMode::Monthly)>'
+    amountCents: 100000
+    currency: EUR
+    year: '<e2eYear()>'
+    month: '<e2eMonth()>'
+    user: '@e2e_home_user'
+
+Maggie\Finance\Entity\Transaction:
+  e2e_home_groceries:
+    account: '@e2e_home_checking'
+    category: '@e2e_home_food'
+    amountCents: -1000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'BOULANGERIE'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month")>'
+    user: '@e2e_home_user'

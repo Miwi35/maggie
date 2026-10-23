@@ -1,5 +1,6 @@
 import { createElement } from 'react'
 import type { ReactNode } from 'react'
+import { FinanceHomeCard } from '../finance/FinanceHomeCard'
 import { GroceryHomeCard } from '../grocery/GroceryHomeCard'
 import { TasksCard } from './cards/TasksCard'
 import { NutritionHomeCard } from '../cookbook/NutritionHomeCard'
@@ -38,5 +39,11 @@ export const cardRegistry: HomeCardEntry[] = [
     zone: 'grid',
     order: homeOrder('nutrition'),
     render: ({ day }) => createElement(NutritionHomeCard, { day }),
+  },
+  {
+    module: 'finance',
+    zone: 'grid',
+    order: homeOrder('finance'),
+    render: ({ day }) => createElement(FinanceHomeCard, { day }),
   },
 ]

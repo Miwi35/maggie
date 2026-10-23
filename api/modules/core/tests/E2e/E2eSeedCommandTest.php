@@ -192,8 +192,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // balance account's. Eight since MAG-456: the review activity's. Nine since MAG-462: the period review's.
         // Ten since MAG-524: the stock user's « Livret jeune », the car's savings source.
         // Thirteen since MAG-529: the next project account's current account, Livret jeune and Livret A.
-        // Fourteen since MAG-556: the placement withdrawal account's PEA.
-        self::assertSame(14, $this->rowsOf(Account::class));
+        // Fourteen since MAG-556: the placement withdrawal account's PEA. Fifteen since MAG-565: the Accueil account's current account.
+        self::assertSame(15, $this->rowsOf(Account::class));
         // Thirteen and not twelve since MAG-46: the rent received last month is
         // what the independence counter reads as a rente, and the journey
         // asserts the 60 % it makes of the measured train de vie. Sixteen since
@@ -202,14 +202,14 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Twenty since MAG-417: the scores account's rent and groceries.
         // Twenty-two since MAG-457: the month balance account's groceries and train.
         // Twenty-four since MAG-456: the two spends the review activity walks.
-        // Twenty-six since MAG-529: the next project account's restaurants and Obsydian overruns.
-        self::assertSame(26, $this->rowsOf(Transaction::class));
+        // Twenty-six since MAG-529: the next project account's restaurants and Obsydian overruns. Twenty-seven since MAG-565: the Accueil account's bakery.
+        self::assertSame(27, $this->rowsOf(Transaction::class));
         // Four since MAG-49: each envelope alert account's « Loisirs ». Six since
         // MAG-417: the scores account's « Logement » and « Alimentation ». Nine
         // since MAG-463: the « À venir » account's current and next month's.
         // Eleven since MAG-457: the month balance account's « Alimentation » and « Transport ».
-        // Thirteen since MAG-529: the next project account's « Restaurants » and « Obsydian ».
-        self::assertSame(13, $this->rowsOf(Envelope::class));
+        // Thirteen since MAG-529: the next project account's « Restaurants » and « Obsydian ». Fourteen since MAG-565: the Accueil account's « Alimentation ».
+        self::assertSame(14, $this->rowsOf(Envelope::class));
         // Three since MAG-510: the nudge the reminders journey answers. Four since
         // MAG-570: the « Il manque : Parmesan » the shortage journey answers.
         self::assertSame(4, $this->rowsOf(Notification::class));
@@ -321,6 +321,18 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($notification);
         self::assertSame('/api/shortage-alerts/'.$alert->getId(), $notification->getRelatedEntityIri());
         self::assertSame(['add'], $notification->getActions());
+    }
+
+    public function testTheFinanceCardAccountSpendsLessThanItsEnvelope(): void
+    {
+        // MAG-565: the card says « Dans le rythme » — a 1 000 € envelope and 10 € spent, never the other way round.
+        $this->seed();
+
+        $home = $this->repository(User::class)->findOneBy(['email' => 'e2e-home@maggie.local']);
+        self::assertNotNull($home);
+        self::assertSame(1, $this->rowsOf(Envelope::class, ['user' => $home]));
+        self::assertSame(1, $this->rowsOf(Transaction::class, ['user' => $home]));
+        self::assertSame(100000, $this->repository(Envelope::class)->findOneBy(['user' => $home])?->getAmountCents());
     }
 
     public function testTheAgendaDeductionReadsTheSeedTheWayTheJourneysExpect(): void

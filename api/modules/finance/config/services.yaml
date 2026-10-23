@@ -10,6 +10,9 @@ services:
             - '../src/Enum/'
             - '../src/MaggieFinanceBundle.php'
 
+    Maggie\Finance\Home\FinanceHomeCard:
+        tags: ['maggie.home_card']
+
     Maggie\Finance\Bank\EnableBanking\EnableBankingClient:
         arguments:
             $applicationId: '%env(ENABLE_BANKING_APPLICATION_ID)%'
