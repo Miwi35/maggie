@@ -54,6 +54,15 @@ object UiTags {
 
     fun homeLaunch(module: String) = HOME_LAUNCH_PREFIX + module
 
+    /** Accueil › Courses card (MAG-563): the « Pour les recettes » line, a shop, a line, a shop's « + n », the empty and error states. */
+    const val HOME_GROCERY_RECIPES = "home_grocery_recipes"
+    const val HOME_GROCERY_STORE = "home_grocery_store"
+    const val HOME_GROCERY_ITEM = "home_grocery_item"
+    const val HOME_GROCERY_MORE = "home_grocery_more"
+    const val HOME_GROCERY_EMPTY = "home_grocery_empty"
+    const val HOME_GROCERY_ERROR = "home_grocery_error"
+    const val HOME_GROCERY_RETRY = "home_grocery_retry"
+
     /**
      * The way into the conversation, on every main screen: the collapsed bar under the
      * content, or — on a window too short for it (MAG-35) — the button at the top of

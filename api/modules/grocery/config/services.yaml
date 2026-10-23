@@ -9,3 +9,6 @@ services:
             - '../src/Entity/'
             - '../src/Enum/'
             - '../src/MaggieGroceryBundle.php'
+
+    Maggie\Grocery\Home\GroceryHomeCard:
+        tags: ['maggie.home_card']

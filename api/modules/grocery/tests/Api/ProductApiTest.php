@@ -230,8 +230,8 @@ class ProductApiTest extends WebTestCase
         self::assertSame('g', $reloaded->getPackagingSizeUnit()?->value);
         self::assertSame('Riz', $reloaded->getName());
         $this->assertMercureUpdatePublished('/products/');
-        $updates = $this->getMercureHub()->getUpdates();
-        $data = json_decode(end($updates)->getData(), true);
+        $payloads = $this->mercurePayloadsOn('/api/products/'.$product->getId());
+        $data = end($payloads);
         self::assertEquals(
             ['pack', 500, 'g'],
             [$data['packagingUnit'] ?? null, $data['packagingSize'] ?? null, $data['packagingSizeUnit'] ?? null],

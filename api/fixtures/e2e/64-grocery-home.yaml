@@ -1,0 +1,34 @@
+# The Courses card of the Accueil (MAG-563, extends MAG-99): six open lines at
+# one shop, so the card shows five of them and « + 1 ».
+#
+# An account of its own: the owner's list is ticked, deferred and counted by the
+# grocery journeys, and the shopper's is rewritten by the errand one. Nobody else
+# signs in here.
+
+Maggie\Core\Entity\User:
+  e2e_home_user:
+    email: 'e2e-home@maggie.local'
+    googleId: 'e2e-home-google-id'
+    name: 'Hugo Accueil'
+
+Maggie\Grocery\Entity\Store:
+  e2e_home_store:
+    name: Biocoop de l'Accueil
+    description: Magasin de la carte Courses
+    visitOrder: 1
+    user: '@e2e_home_user'
+
+Maggie\Grocery\Entity\GroceryList:
+  e2e_home_grocery_list:
+    user: '@e2e_home_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  e2e_home_item_{1..6}:
+    groceryList: '@e2e_home_grocery_list'
+    customLabel: 'Article <current()>'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@e2e_home_store'
+    position: '<current()>'

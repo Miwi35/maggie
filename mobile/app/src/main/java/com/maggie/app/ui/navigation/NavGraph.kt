@@ -1199,7 +1199,10 @@ fun NavGraph() {
                         }
                     }
                     composable(Screen.Home.route, deepLinks = DeepLinks.forRoute(Screen.Home.route)) {
-                        HomeScreen(viewModel = homeViewModel)
+                        HomeScreen(
+                            viewModel = homeViewModel,
+                            onNavigate = { route -> navController.navigate(route) { launchSingleTop = true } },
+                        )
                     }
                     composable(
                         Screen.Chat.route,

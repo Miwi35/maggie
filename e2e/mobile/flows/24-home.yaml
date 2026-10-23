@@ -4,13 +4,16 @@ tags:
   - dashboard
 ---
 # The Accueil (MAG-560): the landing screen after sign-in, a title « Accueil » and the
-# « Aujourd'hui · Demain » selector over a stack of cards. The registry of cards is empty
-# until each module's ticket lands its own, so this journey reads the frame only; the
-# cards, the actions and what the selector passes to them are `HomeScreenTest`'s,
-# `HomeCardScreenTest`'s and `HomeViewModelTest`'s.
+# « Aujourd'hui · Demain » selector over a stack of cards. Each module's ticket adds its
+# card's steps here; what a card holds and what the selector passes to it are
+# `HomeScreenTest`'s, `HomeCardScreenTest`'s, `HomeViewModelTest`'s and each card's own.
 #
 # Given the signed-in user opens the app, then « Accueil » and the selector are on screen,
 # on Aujourd'hui. When they tap « Demain », then the selector is on Demain.
+#
+# The Courses card (MAG-563, extends MAG-99): it signs in as the seed's home account, who has
+# six open lines at one shop (`64-grocery-home.yaml`). Then the card shows five of them and
+# « + 1 », and « Demain » leaves it as it was.
 
 - launchApp:
     clearState: true
@@ -18,6 +21,7 @@ tags:
       all: allow
     arguments:
       e2e_journey: e2e/mobile/flows/24-home.yaml
+      e2e_email: e2e-home@maggie.local
 
 - runFlow: ../subflows/sign-in.yaml
 
@@ -52,3 +56,23 @@ tags:
       id: "home_day_today"
       checked: false
     timeout: 20000
+
+# The Courses card: the shop, five lines in the order of the list, and the rest as « + 1 ».
+- scrollUntilVisible:
+    element:
+      id: "home_grocery_more"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Biocoop de l'Accueil"
+    timeout: 20000
+- assertVisible: "Article 1"
+- assertVisible: "Article 5"
+- assertNotVisible: "Article 6"
+- assertVisible: "+ 1"
+
+# It does not follow the selector: still on Demain, the same five lines.
+- assertVisible:
+    id: "home_day_tomorrow"
+    checked: true
+- assertVisible: "Article 5"
+- assertNotVisible: "Article 6"

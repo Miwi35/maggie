@@ -1,4 +1,6 @@
+import { createElement } from 'react'
 import type { ReactNode } from 'react'
+import { GroceryHomeCard } from '../grocery/GroceryHomeCard'
 import type { HomeDay } from './homeDay'
 
 /** Where a card sits: the full-width strip of actions, the left column, or the grid of the other modules. */
@@ -20,5 +22,12 @@ export const HOME_MODULES = ['tasks', 'agenda', 'grocery', 'nutrition', 'health'
 
 export const homeOrder = (module: (typeof HOME_MODULES)[number]): number => HOME_MODULES.indexOf(module)
 
-/** Each card ticket adds its entry here; none yet. */
-export const cardRegistry: HomeCardEntry[] = []
+/** Each card ticket adds its entry here. */
+export const cardRegistry: HomeCardEntry[] = [
+  {
+    module: 'grocery',
+    zone: 'grid',
+    order: homeOrder('grocery'),
+    render: ({ day }) => createElement(GroceryHomeCard, { day }),
+  },
+]

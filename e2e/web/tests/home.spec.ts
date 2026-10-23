@@ -30,3 +30,24 @@ test('a link to « Demain » opens the Accueil on it', async ({ page }) => {
 
   await expect(home.day('Demain')).toHaveAttribute('aria-pressed', 'true')
 })
+
+/**
+ * The Courses card (MAG-563, extends MAG-99): the open list by shop, five lines
+ * of it and « + n » for the rest. Nothing on it is ticked from here — touching it
+ * opens Courses.
+ */
+test('the Courses card shows five lines of a six-line list and « + 1 »', async ({ homeUser }) => {
+  const home = new HomePage(homeUser.page)
+  await home.open()
+
+  const card = home.groceryCard
+  await expect(card.getByTestId('home-grocery-store')).toHaveCount(1)
+  await expect(card.getByTestId('home-grocery-store')).toContainText("Biocoop de l'Accueil")
+  await expect(card.getByTestId('home-grocery-item')).toHaveCount(5)
+  await expect(card.getByTestId('home-grocery-more')).toHaveText('+ 1')
+
+  // The card does not follow the selector, and it is read-only.
+  await home.day('Demain').click()
+  await expect(card.getByTestId('home-grocery-item')).toHaveCount(5)
+  await expect(card.getByRole('checkbox')).toHaveCount(0)
+})

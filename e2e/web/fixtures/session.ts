@@ -183,6 +183,13 @@ export const NEXT_PROJECT_USER_EMAIL = 'e2e-next-project@maggie.local'
  */
 export const PLACEMENT_WITHDRAWAL_USER_EMAIL = 'e2e-placement-withdrawal@maggie.local'
 
+/**
+ * The twenty-fourth seeded account, for the Courses card of the Accueil (MAG-563):
+ * six open lines at one shop, so the card shows five and « + 1 ». The owner's
+ * list is ticked and counted by the grocery journeys, and the shopper's is rewritten.
+ */
+export const HOME_USER_EMAIL = 'e2e-home@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {
