@@ -117,6 +117,7 @@ import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.ProjectPreview
 import com.maggie.app.data.model.ProjectOptions
 import com.maggie.app.data.model.ScenarioComparison
+import com.maggie.app.data.model.ScenarioDetail
 import com.maggie.app.data.model.ScenarioList
 import com.maggie.app.data.model.ScenarioWriteResult
 import com.maggie.app.data.model.Category
@@ -729,12 +730,15 @@ data class ScenarioRepaymentRequest(
     val month: String,
     val amountCents: Int?,
     val id: String? = null,
+    /** `duration` or `payment` for a partial repayment; null follows the loan's offer. */
+    val effect: String? = null,
 ) {
     fun toJson(): JsonObject = buildJsonObject {
         id?.let { put("id", JsonPrimitive(it)) }
         put("loanId", JsonPrimitive(loanId))
         put("month", JsonPrimitive(month))
         put("amountCents", amountCents?.let { JsonPrimitive(it) } ?: JsonNull)
+        put("effect", effect?.let { JsonPrimitive(it) } ?: JsonNull)
     }
 }
 
@@ -2426,6 +2430,13 @@ class MaggieApiService(
     // Finance — Scenarios of the projects (MAG-551). A refusal is an ApiRefusalException with the API's `error`.
     suspend fun getScenarios(): ScenarioList {
         return client.get("$baseUrl/api/finance/scenarios") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /** The detail of one scenario: the figures of each of its repayments. */
+    suspend fun getScenarioDetail(id: String): ScenarioDetail {
+        return client.get("$baseUrl/api/finance/scenarios/$id") {
             accept(ContentType.Application.Json)
         }.orRefusal().body()
     }

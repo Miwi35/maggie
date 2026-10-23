@@ -87,17 +87,22 @@ class SimulateEarlyRepayment
 
     /**
      * The payment after a partial repayment: the same one (the loan ends
-     * sooner) unless the offer lowers it over the months left — which only
+     * sooner) unless the offer (or `$effect`, the user's choice) lowers it over the months left — which only
      * means something for an amortized loan.
      */
-    public function paymentAfter(Loan $loan, int $principalAfter, int $monthsLeft): ?int
+    public function paymentAfter(Loan $loan, int $principalAfter, int $monthsLeft, ?PartialRepaymentEffect $effect = null): ?int
     {
-        if (PartialRepaymentEffect::LowerPayment !== $loan->getPartialRepaymentEffect()
-            || !\in_array($loan->getType(), [LoanType::AmortizingFixed, LoanType::AmortizingVariable], true)) {
+        if (PartialRepaymentEffect::LowerPayment !== ($effect ?? $loan->getPartialRepaymentEffect())
+            || !self::isAmortizing($loan)) {
             return null;
         }
 
         return LoanSchedule::annuity($principalAfter, $loan->currentRateBasisPoints() / (10000 * 12), $monthsLeft);
+    }
+
+    public static function isAmortizing(Loan $loan): bool
+    {
+        return \in_array($loan->getType(), [LoanType::AmortizingFixed, LoanType::AmortizingVariable], true);
     }
 
     /** @param list<array{interestCents: int}> $rows */

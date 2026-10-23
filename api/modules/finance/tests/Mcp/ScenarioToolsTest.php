@@ -169,6 +169,24 @@ class ScenarioToolsTest extends KernelTestCase
         self::assertCount(1, $this->stored());
     }
 
+    public function testAGetGivesEachRepaymentItsRealGainAndItsEffect(): void
+    {
+        $this->loginFixtureUser();
+        $loanId = $this->id('consumer');
+
+        $created = $this->call('create', name: 'Je rembourse', projectIds: [$this->id('car')], repayments: [['loanId' => $loanId, 'month' => '2027-04', 'amountCents' => 300000, 'effect' => 'duration']]);
+        self::assertTrue($created['success']);
+
+        $effect = $this->call('get', scenarioId: $created['scenario']['id'])['scenario']['repaymentEffects'][0];
+
+        self::assertSame(['duration', 300000], [$effect['effect'], $effect['immobilizedCents']]);
+        self::assertSame($effect['interestSavedCents'] - $effect['penaltyCents'], $effect['realGainCents']);
+        self::assertArrayHasKey('nImpactMonths', $effect);
+
+        $refused = $this->call('update', scenarioId: $created['scenario']['id'], repayments: [['loanId' => $loanId, 'month' => '2027-04', 'amountCents' => 300000, 'effect' => 'faster']]);
+        self::assertStringContainsString('effect', $refused['error']);
+    }
+
     public function testSuggestFilesAnAdvisorDraftThatIsNeverCurrent(): void
     {
         $this->loginFixtureUser();

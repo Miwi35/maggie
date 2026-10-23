@@ -18,6 +18,8 @@ data class RepaymentDraft(
     val month: String = "",
     val total: Boolean = false,
     val euros: String = "",
+    /** `duration`, `payment`, or null: follow the loan's offer. Partial repayments only. */
+    val effect: String? = null,
 ) {
     private val cents: Int? get() = parseCents(euros)?.takeIf { it > 0 }
 
@@ -26,7 +28,7 @@ data class RepaymentDraft(
 
     fun toRequest(): ScenarioRepaymentRequest? {
         if (!isComplete) return null
-        return ScenarioRepaymentRequest(loanId = loanId, month = month.trim(), amountCents = if (total) null else cents, id = id)
+        return ScenarioRepaymentRequest(loanId = loanId, month = month.trim(), amountCents = if (total) null else cents, id = id, effect = if (total) null else effect)
     }
 
     companion object {
@@ -100,6 +102,7 @@ data class ScenarioDraft(
                     month = repayment.month,
                     total = repayment.amountCents == null,
                     euros = repayment.amountCents?.let { String.format(Locale.FRANCE, "%.2f", it / 100.0) }.orEmpty(),
+                    effect = repayment.effect,
                 )
             },
             placementIds = scenario.placements.map { it.placementId },

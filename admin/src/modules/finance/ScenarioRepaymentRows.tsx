@@ -10,7 +10,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { newRepaymentRow } from './scenarioForm'
 import type { RepaymentRow } from './scenarioForm'
-import type { LoanChoice } from './scenariosApi'
+import type { LoanChoice, RepaymentEffect } from './scenariosApi'
 
 interface Props {
   rows: RepaymentRow[]
@@ -63,6 +63,19 @@ export const ScenarioRepaymentRows = ({ rows, loans, onChange }: Props) => {
             control={<Checkbox size="small" checked={row.total} onChange={(event) => patch(row.key, { total: event.target.checked })} />}
             label="Tout le capital"
           />
+          <TextField
+            select
+            size="small"
+            label={`Effet ${index + 1}`}
+            value={row.total ? '' : (row.effect ?? '')}
+            disabled={row.total}
+            onChange={(event) => patch(row.key, { effect: event.target.value === '' ? null : (event.target.value as RepaymentEffect) })}
+            sx={{ minWidth: 190 }}
+          >
+            <MenuItem value="">Selon l'offre du prêt</MenuItem>
+            <MenuItem value="duration">Réduire la durée</MenuItem>
+            <MenuItem value="payment">Réduire la mensualité</MenuItem>
+          </TextField>
           <IconButton size="small" aria-label={`Retirer le remboursement ${index + 1}`} onClick={() => onChange(rows.filter((candidate) => candidate.key !== row.key))}>
             <DeleteOutlineIcon fontSize="small" />
           </IconButton>

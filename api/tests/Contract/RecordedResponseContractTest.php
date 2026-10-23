@@ -479,6 +479,41 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The detail of a scenario that repays a loan early (MAG-552): the figures
+     * of each repayment, read by the mobile and the admin to list it.
+     */
+    public function testTheScenarioDetailRecordingIsCurrent(): void
+    {
+        Clock::set(new MockClock('2026-10-21 12:00:00 UTC'));
+        $this->loadFixtures('RecordedProjectPlanning.yaml', 'RecordedScenarioLoan.yaml');
+
+        $user = $this->getFixture('planning_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('POST', '/api/finance/scenarios', [], [], $this->authHeaders() + ['CONTENT_TYPE' => 'application/json'], json_encode([
+            'name' => 'Je rembourse la voiture',
+            'projectIds' => [(string) $this->getFixture('planning_move')->getId()],
+            'repayments' => [
+                ['loanId' => (string) $this->getFixture('scenario_car_loan')->getId(), 'month' => '2027-02', 'amountCents' => 300000, 'effect' => 'payment'],
+            ],
+        ], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
+        $created = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+
+        $this->client->request('GET', '/api/finance/scenarios/'.$created['scenario']['id'], [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $detail = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($detail);
+        self::assertNotEmpty($detail['repaymentEffects'], 'The recorded detail holds no repayment figures.');
+        $this->assertMatchesContract(
+            'responses/finance_scenario.read.json',
+            self::stabilise($detail),
+            'GET /api/finance/scenarios/{id} no longer returns what it used to. The mobile DTOs and the admin client read the figures of each repayment from it.',
+        );
+    }
+
+    /**
      * « Peut-être aussi Tom » (MAG-450), as the controller sends it: the
      * labels of unclaimed lines that name the contact.
      */

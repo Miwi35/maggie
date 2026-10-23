@@ -8,6 +8,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
+import com.maggie.app.data.model.RepaymentFigures
 import com.maggie.app.data.model.Scenario
 import com.maggie.app.data.model.ScenarioComparison
 import com.maggie.app.data.model.scenarioCopyName
@@ -33,6 +34,8 @@ data class ScenarioUiState(
     val comparison: ScenarioComparison? = null,
     val isComparing: Boolean = false,
     val comparisonError: String? = null,
+    /** What each repayment of a listed scenario comes to, by repayment id; absent while unread or when the read failed. */
+    val repaymentFigures: Map<String, RepaymentFigures> = emptyMap(),
     val editor: ScenarioEditor? = null,
     val options: ScenarioOptions? = null,
 ) {
@@ -97,7 +100,18 @@ class ScenarioViewModel(
                 return
             }
         loadGaps()
+        loadRepaymentFigures()
         if (_uiState.value.selected.size >= 2) readComparison()
+    }
+
+    // The list is the summary: the figures of a repayment (real gain, effect on N…) come with the detail of its
+    // scenario. A failed read leaves the repayment listed without its figures.
+    private suspend fun loadRepaymentFigures() {
+        val withRepayments = _uiState.value.scenarios.filter { scenario -> scenario.repayments.any { it.id != null } }
+        val figures = buildMap {
+            withRepayments.forEach { scenario -> repository.getRepaymentFigures(scenario.id).onSuccess { putAll(it) } }
+        }
+        _uiState.value = _uiState.value.copy(repaymentFigures = figures)
     }
 
     // « N 9 mois plus tôt que « Équilibré » »: the API words it, from a comparison against the current scenario.

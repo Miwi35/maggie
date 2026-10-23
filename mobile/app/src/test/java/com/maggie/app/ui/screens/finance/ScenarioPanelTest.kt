@@ -8,9 +8,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.CoveragePoint
+import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.RepaymentFigures
 import com.maggie.app.data.model.Scenario
 import com.maggie.app.data.model.ScenarioComparison
 import com.maggie.app.data.model.ScenarioDifference
+import com.maggie.app.data.model.ScenarioRepayment
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
@@ -181,4 +184,33 @@ class ScenarioPanelTest {
 
     private fun androidx.compose.ui.test.junit4.ComposeTestRule.onAllNodesWithTextCount(text: String): Int =
         onAllNodesWithText(text, substring = true, ignoreCase = true).fetchSemanticsNodes().size
+
+    @Test
+    fun `a repayment is a blue element of the list with the figures the API gives it`() {
+        val repaying = mine.copy(repayments = listOf(ScenarioRepayment(id = "r1", loanId = "l1", month = "2027-04", amountCents = null)))
+        val figures = RepaymentFigures(
+            id = "r1", loanName = "Prêt auto", month = "2027-04", immobilizedCents = 9800000, penaltyCents = 88200,
+            realGainCents = 531800, freedMonthlyCents = 41000, nImpactMonths = -3,
+        )
+        compose.setContent {
+            ScenarioPanel(state(rapid, repaying).copy(repaymentFigures = mapOf("r1" to figures)), actions, manage = false)
+        }
+
+        compose.onNodeWithTag(UiTags.scenarioRepaymentRow("r1")).assertIsDisplayed()
+        compose.onNodeWithText("Prêt auto · remboursement anticipé").assertIsDisplayed()
+        compose.onNodeWithText("avril 2027 · Total").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.scenarioRepaymentFigures("r1")).assertIsDisplayed()
+        compose.onNodeWithText("Gain réel ${formatCents(531800)}", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("N − 3 mois", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a repayment without figures is still listed`() {
+        val repaying = mine.copy(repayments = listOf(ScenarioRepayment(id = "r1", loanId = "l1", month = "2027-04", amountCents = 300000, effect = "duration")))
+        compose.setContent { ScenarioPanel(state(repaying), actions, manage = false) }
+
+        compose.onNodeWithText("Remboursement anticipé").assertIsDisplayed()
+        compose.onNodeWithText("Partiel", substring = true).assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesCount(UiTags.scenarioRepaymentFigures("r1")))
+    }
 }

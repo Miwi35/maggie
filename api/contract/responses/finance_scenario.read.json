@@ -1,0 +1,127 @@
+{
+    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "name": "Je rembourse la voiture",
+    "kind": "user",
+    "status": "saved",
+    "current": false,
+    "projects": [
+        {
+            "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "position": 0
+        }
+    ],
+    "repayments": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "loanId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "month": "2027-02",
+            "amountCents": 300000,
+            "effect": "payment"
+        }
+    ],
+    "placements": [],
+    "monthlySaving": null,
+    "nDate": null,
+    "metrics": {
+        "projectsDoneBy": "2027-03",
+        "debtsEndDate": "2028-10",
+        "interestPaid": 37577,
+        "wellbeing": 4
+    },
+    "curve": [],
+    "milestones": {
+        "25": null,
+        "50": null,
+        "75": null,
+        "100": null
+    },
+    "schedule": [
+        {
+            "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Déménagement",
+            "savingFromMonth": "2026-10",
+            "purchaseMonth": "2027-03",
+            "isBeyondHorizon": false
+        }
+    ],
+    "repaymentEffects": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "loanId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "loanName": "Prêt auto",
+            "month": "2027-02",
+            "amountCents": 300000,
+            "immobilizedCents": 300000,
+            "effect": "payment",
+            "penaltyCents": 6000,
+            "interestSavedCents": 10609,
+            "realGainCents": 4609,
+            "freedMonthlyCents": 15531,
+            "nImpactMonths": null
+        }
+    ],
+    "placementFigures": [],
+    "events": [
+        {
+            "id": "project_start:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "month": "2026-10",
+            "type": "project_start",
+            "category": "projet",
+            "label": "Déménagement",
+            "sublabel": "Début de l'épargne",
+            "amount_eur": 2400,
+            "monthly_impact_eur": null,
+            "n_impact_months": null,
+            "detail": {
+                "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            }
+        },
+        {
+            "id": "early_repayment:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "month": "2027-02",
+            "type": "early_repayment",
+            "category": "dette",
+            "label": "Remboursement anticipé : Prêt auto",
+            "sublabel": "Indemnité : 60,00 €",
+            "amount_eur": 3000,
+            "monthly_impact_eur": 155.31,
+            "n_impact_months": null,
+            "detail": {
+                "loanId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "repaymentId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "penaltyCents": 6000,
+                "interestSavedCents": 10609
+            }
+        },
+        {
+            "id": "project_purchase:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "month": "2027-03",
+            "type": "project_purchase",
+            "category": "projet",
+            "label": "Déménagement",
+            "sublabel": "Achat",
+            "amount_eur": 2400,
+            "monthly_impact_eur": null,
+            "n_impact_months": null,
+            "detail": {
+                "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "wellbeing": "essential",
+                "loanStartMonth": null
+            }
+        },
+        {
+            "id": "debt_end:loan:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "month": "2028-10",
+            "type": "debt_end",
+            "category": "dette",
+            "label": "Fin du prêt : Prêt auto",
+            "sublabel": null,
+            "amount_eur": null,
+            "monthly_impact_eur": null,
+            "n_impact_months": null,
+            "detail": {
+                "loanId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            }
+        }
+    ]
+}

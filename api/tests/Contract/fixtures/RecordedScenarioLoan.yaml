@@ -1,0 +1,13 @@
+# A signed loan of the planning world's user (MAG-552): the projected loans of
+# RecordedProjectPlanning.yaml are not loans a scenario can repay early, so the
+# scenario detail recording takes this one, a car loan with a legal-cap penalty.
+Maggie\Finance\Entity\Loan:
+  scenario_car_loan:
+    name: Prêt auto
+    principalRemainingCents: 1000000
+    monthlyPaymentCents: 43425
+    annualRateBasisPoints: 400
+    durationMonths: 24
+    earlyRepaymentAllowed: true
+    prepaymentPenaltyMode: '<(Maggie\Finance\Enum\PrepaymentPenaltyMode::LegalCap)>'
+    user: '@planning_user'

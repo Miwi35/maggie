@@ -23,7 +23,7 @@ const raw = {
     { projectId: 'B', position: 1 },
     { projectId: '/api/finance/projects/A', position: 0 },
   ],
-  repayments: [{ id: 'r1', loanId: 'L1', month: '2027-04', amountCents: null }],
+  repayments: [{ id: 'r1', loanId: 'L1', month: '2027-04', amountCents: null, effect: 'payment' }],
   placements: [{ placementId: 'P1' }],
   monthlySaving: 30000,
   nDate: '2041-03',
@@ -38,7 +38,7 @@ describe('scenariosApi', () => {
 
     expect(scenario.projectIds).toEqual(['A', 'B'])
     expect(scenario.placementIds).toEqual(['P1'])
-    expect(scenario.repayments).toEqual([{ id: 'r1', loanId: 'L1', month: '2027-04', amountCents: null }])
+    expect(scenario.repayments).toEqual([{ id: 'r1', loanId: 'L1', month: '2027-04', amountCents: null, effect: 'payment' }])
     expect(scenario).toMatchObject({ kind: 'user', status: 'saved', current: true, monthlySaving: 30000, nDate: '2041-03' })
     expect(scenario.metrics).toEqual({ projectsDoneBy: '2029-01', debtsEndDate: null, interestPaid: 1234, wellbeing: 7 })
   })

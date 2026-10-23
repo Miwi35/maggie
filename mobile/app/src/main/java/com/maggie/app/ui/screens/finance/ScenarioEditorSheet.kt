@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Loan
+import com.maggie.app.data.model.ScenarioRepayment
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
@@ -212,6 +213,22 @@ private fun RepaymentsEditor(editor: ScenarioEditor, options: ScenarioOptions?, 
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.fillMaxWidth().testTag(UiTags.scenarioRepayment(repayment.key, "euros")),
                         )
+                    }
+                    if (!repayment.total) {
+                        // Reduce the duration or the payment; neither chosen follows the loan's offer.
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                ScenarioRepayment.EFFECT_DURATION to "Réduire la durée",
+                                ScenarioRepayment.EFFECT_PAYMENT to "Réduire la mensualité",
+                            ).forEach { (effect, label) ->
+                                FilterChip(
+                                    selected = repayment.effect == effect,
+                                    onClick = { viewModel.editRepayment(repayment.key) { it.copy(effect = if (it.effect == effect) null else effect) } },
+                                    label = { Text(label) },
+                                    modifier = Modifier.testTag(UiTags.scenarioRepayment(repayment.key, "effect_$effect")),
+                                )
+                            }
+                        }
                     }
                     IconButton(
                         onClick = { viewModel.removeRepayment(repayment.key) },
