@@ -31,6 +31,7 @@
     "Routine": "/users/{userId}/api/routines/{id}",
     "RoutineCheck": "/users/{userId}/api/routine_checks/{id}",
     "SafetyCushion": "/users/{userId}/api/safety_cushions/{id}",
+    "Scenario": "/users/{userId}/api/finance/scenarios/{id}",
     "Store": "/users/{userId}/api/stores/{id}",
     "Task": "/users/{userId}/api/tasks/{id}",
     "TaskSettings": "/users/{userId}/api/task_settings/{id}",

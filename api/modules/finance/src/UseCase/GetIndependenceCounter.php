@@ -9,7 +9,7 @@ use Maggie\Finance\Entity\Loan;
 use Maggie\Finance\Repository\CategoryRepository;
 use Maggie\Finance\Repository\LoanRepository;
 use Maggie\Finance\Repository\TransactionRepository;
-use Maggie\Finance\Service\IndependenceProjector;
+use Maggie\Finance\Service\PlanIndependence;
 
 /**
  * How far the rentes already cover the way the user lives — the one figure
@@ -30,7 +30,7 @@ use Maggie\Finance\Service\IndependenceProjector;
  *
  * `projection` (MAG-549) dates N, draws the coverage curve and dates the
  * milestones from the current planning: what the planning leaves of the
- * capacity each month is invested at {@see IndependenceProjector::YIELD_BPS}.
+ * capacity each month is invested at {@see \Maggie\Finance\Service\IndependenceProjector::YIELD_BPS}.
  * Beyond the planning's horizon the last month's rhythm goes on, without the
  * projects not yet bought. N is null when it is not reached within 20 years.
  */
@@ -40,13 +40,13 @@ class GetIndependenceCounter
     private const MILESTONES = [25, 50, 75, 100];
 
     public function __construct(
-        private readonly MeasureMonthlyLifestyle $measureMonthlyLifestyle,
+        private readonly MeasureIndependenceBaseline $measureIndependenceBaseline,
         private readonly TransactionRepository $transactionRepository,
         private readonly CategoryRepository $categoryRepository,
         private readonly LoanRepository $loanRepository,
         private readonly GetRecurringOccurrences $getRecurringOccurrences,
         private readonly GetProjectPlanning $getProjectPlanning,
-        private readonly IndependenceProjector $projector,
+        private readonly PlanIndependence $planIndependence,
     ) {
     }
 
@@ -56,15 +56,9 @@ class GetIndependenceCounter
         // Midnight: `bookedAt` is a date, and the current time of day would
         // slide the window by a day at both ends (see `sampleWindow`).
         $thisMonth ??= new \DateTimeImmutable('midnight first day of this month');
-        [$from, $until] = MeasureMonthlyLifestyle::sampleWindow($thisMonth);
-
-        $lifestyleCents = $this->measureMonthlyLifestyle->execute($user, $thisMonth);
-        $byCategory = $this->transactionRepository->sumPassiveIncomeByCategoryBetween($user, $from, $until);
-
-        $passiveIncomeCents = intdiv(
-            array_sum(array_column($byCategory, 'incomeCents')),
-            MeasureMonthlyLifestyle::SAMPLE_MONTHS,
-        );
+        ['base' => $base, 'byCategory' => $byCategory] = $this->measureIndependenceBaseline->execute($user, $thisMonth);
+        $lifestyleCents = $base->lifestyleCents;
+        $passiveIncomeCents = $base->passiveIncomeCents;
 
         $loanPaymentsCents = array_sum(array_map(
             static fn (Loan $loan) => $loan->getMonthlyPaymentCents(),
@@ -134,22 +128,7 @@ class GetIndependenceCounter
     /** @return array{startMonth: string, nDate: string|null, curve: list<array{month: string, coverage: float}>, milestones: array<int, string|null>} */
     private function projection(User $user, int $passiveIncomeCents, int $lifestyleCents): array
     {
-        $plan = $this->getProjectPlanning->execute($user);
-
-        $investable = array_map(
-            static fn (array $month): int => max(0, $month['capacityCents'] - $month['salaryCents']),
-            $plan['months'],
-        );
-        $last = $plan['months'][array_key_last($plan['months'])];
-        $tail = max(0, $plan['netCapacityCents'] - $last['loanPaymentsCents']);
-
-        return ['startMonth' => $plan['startMonth']] + $this->projector->project(
-            new \DateTimeImmutable($plan['startMonth'].'-01'),
-            $passiveIncomeCents,
-            $lifestyleCents,
-            $investable,
-            $tail,
-        );
+        return $this->planIndependence->project($this->getProjectPlanning->execute($user), $passiveIncomeCents, $lifestyleCents);
     }
 
     /**

@@ -18,7 +18,9 @@ use Maggie\Finance\Enum\ProjectDateMode;
  * Each month, in this order:
  *  1. the capacity is the net saving capacity less the payments of the
  *     projected loans already running (and, this month only, what was
- *     overspent);
+ *     overspent), plus what a scenario's early repayments free and less what
+ *     they cost — a cost the month cannot bear is paid off by the next ones
+ *     (MAG-550);
  *  2. the cushion takes its share: all of it while building, the monthly
  *     recharge while recharging, until the deficit is covered;
  *  3. the projects with a fixed date take their even share, whatever is left
@@ -41,6 +43,8 @@ final class ProjectPlanner
      * @param list<Project>                                                      $projects     in priority order
      * @param array{state: string, deficitCents: int, monthlyRechargeCents: int} $cushion
      * @param int                                                                $reserveCents savings outside the cushion not already assigned to a source
+     * @param array<int, int>                                                    $freedCents   month index → extra capacity (a payment a scenario's early repayment frees)
+     * @param array<int, int>                                                    $outlayCents  month index → cash an early repayment takes; what the month cannot pay moves to the next
      *
      * @return array{
      *     startMonth: string,
@@ -60,6 +64,8 @@ final class ProjectPlanner
         int $reserveCents,
         array $projects,
         int $overspentCents = 0,
+        array $freedCents = [],
+        array $outlayCents = [],
     ): array {
         $horizon = self::HORIZON_MONTHS;
         $start = $today->modify('first day of this month')->setTime(0, 0);
@@ -102,6 +108,7 @@ final class ProjectPlanner
         $state = $cushion['state'];
         $waitsForCushion = CushionState::Building->value === $state && $deficit > 0;
         $completeAt = null;
+        $pendingOutlay = 0;
 
         $buy = function (int $i, int $m) use ($projects, $start, $horizon, &$purchase, &$loans, &$loanPayments, &$savings, &$capital): void {
             $purchase[$i] = $m;
@@ -139,7 +146,11 @@ final class ProjectPlanner
                 }
             }
 
-            $available = max(0, $net - $loanPayments[$m] - (0 === $m ? max(0, $overspentCents) : 0));
+            $available = max(0, $net + max(0, $freedCents[$m] ?? 0) - $loanPayments[$m] - (0 === $m ? max(0, $overspentCents) : 0));
+            $pendingOutlay += max(0, $outlayCents[$m] ?? 0);
+            $repaid = min($pendingOutlay, $available);
+            $pendingOutlay -= $repaid;
+            $available -= $repaid;
             if ($deficit > 0) {
                 $toCushion[$m] = match ($state) {
                     CushionState::Building->value => min($available, $deficit),

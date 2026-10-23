@@ -1,0 +1,32 @@
+{
+    "fields": {
+        "id": "string",
+        "month": "string (YYYY-MM)",
+        "type": "string",
+        "category": "string",
+        "label": "string",
+        "sublabel": "string|null",
+        "amount_eur": "number|null",
+        "monthly_impact_eur": "number|null",
+        "n_impact_months": "integer|null",
+        "detail": "object"
+    },
+    "categories": [
+        "projet",
+        "dette",
+        "investissement",
+        "indépendance",
+        "fiscal",
+        "matelas"
+    ],
+    "types": {
+        "project_start": "projet",
+        "project_purchase": "projet",
+        "debt_end": "dette",
+        "early_repayment": "dette",
+        "placement_start": "investissement",
+        "independence_milestone": "indépendance",
+        "independence_reached": "indépendance",
+        "cushion_complete": "matelas"
+    }
+}

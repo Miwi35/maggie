@@ -1,0 +1,106 @@
+# MAG-550's scenario: four projects (one per wellbeing level), a net saving
+# capacity of 500 €/month (income 500 €, no lifestyle measured), a signed
+# consumer credit that allows early repayment and a simulated placement. The
+# other user's project, loan, placement and scenario prove the isolation. The
+# scenarios' project lists are filled by the tests (their ids are not known here).
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-scenario-test@example.com
+    googleId: google-finance-scenario-test
+    name: Finance Scenario Test User
+  other_user:
+    email: finance-scenario-other@example.com
+    googleId: google-finance-scenario-other
+    name: Other Scenario User
+
+Maggie\Finance\Entity\SafetyCushion:
+  cushion:
+    targetMonths: 3
+    monthlyNetIncomeCents: 50000
+    rechargeCapCents: 15000
+    rechargeTargetMonths: 6
+    completedAt: null
+    user: '@test_user'
+
+Maggie\Finance\Entity\Project:
+  dentist:
+    name: Dentiste
+    amountCents: 200000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Essential)>'
+    position: 0
+    user: '@test_user'
+  car:
+    name: Voiture
+    amountCents: 900000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::High)>'
+    position: 1
+    user: '@test_user'
+  kitchen:
+    name: Cuisine
+    amountCents: 400000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Medium)>'
+    position: 2
+    user: '@test_user'
+  japan:
+    name: Voyage au Japon
+    amountCents: 500000
+    currency: EUR
+    wellbeing: '<(Maggie\Finance\Enum\ProjectWellbeing::Comfort)>'
+    position: 3
+    user: '@test_user'
+  secret:
+    name: Projet secret
+    amountCents: 99900
+    currency: EUR
+    position: 0
+    user: '@other_user'
+
+Maggie\Finance\Entity\Loan:
+  consumer:
+    name: Crédit conso
+    principalRemainingCents: 1000000
+    monthlyPaymentCents: 45000
+    annualRateBasisPoints: 500
+    prepaymentPenaltyMode: '<(Maggie\Finance\Enum\PrepaymentPenaltyMode::Consumer)>'
+    user: '@test_user'
+  foreign:
+    name: Prêt d'un autre
+    principalRemainingCents: 9800000
+    monthlyPaymentCents: 62500
+    annualRateBasisPoints: 180
+    user: '@other_user'
+
+Maggie\Finance\Entity\Placement:
+  pea:
+    name: PEA
+    initial: 200000
+    deposit: 15000
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Monthly)>'
+    annualRate: 600
+    years: 20
+    user: '@test_user'
+  secret_placement:
+    name: Placement secret
+    initial: 100000
+    deposit: 0
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Once)>'
+    annualRate: 200
+    years: 5
+    user: '@other_user'
+
+Maggie\Finance\Entity\Scenario:
+  mine:
+    name: Mon plan
+    kind: '<(Maggie\Finance\Enum\ScenarioKind::User)>'
+    status: '<(Maggie\Finance\Enum\ScenarioStatus::Saved)>'
+    current: false
+    user: '@test_user'
+  theirs:
+    name: Plan de l'autre
+    kind: '<(Maggie\Finance\Enum\ScenarioKind::User)>'
+    status: '<(Maggie\Finance\Enum\ScenarioStatus::Saved)>'
+    current: true
+    user: '@other_user'
