@@ -276,7 +276,7 @@ class ProjectInvestmentApiTest extends WebTestCase
 
         $this->send('GET', '/api/finance/projects/'.$this->id('car'));
         $sources = $this->response()['fundingSources'];
-        self::assertSame(['kind' => 'resale', 'amountCents' => 1000000, 'accountId' => null, 'loanId' => null, 'sourceProjectId' => $this->id('box')], $sources[0]);
+        self::assertSame(['kind' => 'resale', 'amountCents' => 1000000, 'accountId' => null, 'placementId' => null, 'loanId' => null, 'sourceProjectId' => $this->id('box')], $sources[0]);
 
         // The client echoes what it read, then adds nothing: the resale stays.
         $this->send('PUT', '/api/finance/projects/'.$this->id('car').'/funding', ['sources' => $sources]);

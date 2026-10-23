@@ -117,7 +117,7 @@ describe('what is sent', () => {
   })
 
   test('the form starts from the placement a capital source leaves', () => {
-    const capital = { kind: 'capital' as const, amountCents: 150_000, accountId: 'A2', placementId: 'PEA', loanId: null }
+    const capital = { kind: 'capital' as const, amountCents: 150_000, accountId: 'A2', placementId: 'PEA', loanId: null, sourceProjectId: null }
 
     expect(valuesOfProject(project({ fundingSources: [capital] }), null).sources).toEqual([
       { kind: 'capital', amountCents: 150_000, account: 'A2', placement: 'PEA' },
