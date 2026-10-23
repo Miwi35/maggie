@@ -354,6 +354,9 @@ web:
     areas: [realtime, grocery, cookbook, finance]
   e2e/web/tests/home.spec.ts:
     areas: [dashboard]
+  e2e/web/tests/home-tasks.spec.ts:
+    areas: [dashboard, calendar]
+    paths: [api/fixtures/e2e/64-home-tasks.yaml]
   e2e/web/tests/design-system.spec.ts:
     areas: [design, dashboard]
   e2e/web/tests/theme-preference.spec.ts:
@@ -697,6 +700,9 @@ mobile:
   e2e/mobile/flows/24-home.yaml:
     areas: [dashboard]
     paths: [api/fixtures/e2e/64-grocery-home.yaml]
+  e2e/mobile/flows/28-home-tasks.yaml:
+    areas: [dashboard, calendar]
+    paths: [e2e/mobile/scripts/home-tasks-api.js, api/fixtures/e2e/64-home-tasks.yaml]
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]

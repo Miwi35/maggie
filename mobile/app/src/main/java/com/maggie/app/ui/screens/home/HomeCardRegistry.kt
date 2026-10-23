@@ -49,6 +49,8 @@ val LocalHomeNavigation = staticCompositionLocalOf<(String) -> Unit> { {} }
 object HomeCardRegistry {
     val entries: List<HomeCardEntry> = listOf(
         HomeCardEntry(module = HomeModules.GROCERY, zone = HomeZone.MAIN) { GroceryHomeCard() },
+        // MAG-561: today's tasks and the routines of the moment.
+        HomeCardEntry(HomeModules.TASKS, HomeZone.MAIN) { day -> TasksHomeCard(day) },
     )
 }
 

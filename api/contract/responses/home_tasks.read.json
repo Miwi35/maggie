@@ -1,0 +1,28 @@
+{
+    "module": "tasks",
+    "day": "today",
+    "editable": true,
+    "tasks": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Recorded open task",
+            "done": true,
+            "overdueDays": null,
+            "parentId": null
+        }
+    ],
+    "done": 1,
+    "total": 1,
+    "more": 0,
+    "overdue": 0,
+    "routines": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "title": "Prendre l'air",
+            "anchor": "afterBreakfast",
+            "time": "08:30",
+            "checked": true
+        }
+    ],
+    "saga": null
+}

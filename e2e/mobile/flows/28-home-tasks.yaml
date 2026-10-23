@@ -1,0 +1,66 @@
+appId: com.maggie.app.e2e
+name: 28-home-tasks
+tags:
+  - dashboard
+  - calendar
+onFlowComplete:
+  - runScript:
+      file: ../scripts/home-tasks-api.js
+      env:
+        ACTION: cleanup
+        TODAY: ${TODAY}
+        EMAIL: e2e-home-tasks-mobile@maggie.local
+---
+# The Tâches card of the Accueil (MAG-561, extends MAG-99 and MAG-100): a tick from the home.
+#
+# Given three tasks of the day, none done (`scripts/home-tasks-api.js`), when the first one is
+# ticked from the home, then the ring reads « 1 sur 3 » without a reload and the API holds the
+# task done. The rows, the routines, Demain's disabled boxes and the error paths are
+# `TasksCardScreenTest`'s and `TasksCardViewModelTest`'s.
+#
+# It signs in as its own account, `e2e-home-tasks-mobile`: the ring counts the day's tasks
+# exactly, so no other journey may write tasks to it.
+
+- runScript:
+    file: ../scripts/home-tasks-api.js
+    env:
+      ACTION: setup
+      TODAY: ${TODAY}
+      EMAIL: e2e-home-tasks-mobile@maggie.local
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/28-home-tasks.yaml
+      e2e_email: e2e-home-tasks-mobile@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home_screen"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "home_tasks_ring"
+      text: "0 sur 3"
+    timeout: 20000
+
+- tapOn:
+    id: "home_task_check_.*"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      id: "home_tasks_ring"
+      text: "1 sur 3"
+    timeout: 20000
+
+- runScript:
+    file: ../scripts/home-tasks-api.js
+    env:
+      ACTION: expect-done
+      TODAY: ${TODAY}
+      EMAIL: e2e-home-tasks-mobile@maggie.local

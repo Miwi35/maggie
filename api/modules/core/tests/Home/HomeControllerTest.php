@@ -12,7 +12,7 @@ use Symfony\Component\Clock\Clock;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Clock\NativeClock;
 
-/** GET /api/home/{module} (MAG-560), against the fake `tasks` card of the test kernel. */
+/** GET /api/home/{module} (MAG-560), against the fake `leisure` card of the test kernel. */
 class HomeControllerTest extends WebTestCase
 {
     use FixtureLoaderTrait;
@@ -42,7 +42,7 @@ class HomeControllerTest extends WebTestCase
 
     public function testUnauthenticatedIs401(): void
     {
-        $this->client->request('GET', '/api/home/tasks');
+        $this->client->request('GET', '/api/home/leisure');
 
         self::assertResponseStatusCodeSame(401);
     }
@@ -51,7 +51,7 @@ class HomeControllerTest extends WebTestCase
     {
         $this->authenticateAsUser($this->getFixture('test_user'));
 
-        $this->client->request('GET', '/api/home/tasks?day=yesterday', [], [], $this->authHeaders());
+        $this->client->request('GET', '/api/home/leisure?day=yesterday', [], [], $this->authHeaders());
 
         self::assertResponseStatusCodeSame(400);
         self::assertResponseHeaderSame('Content-Type', 'application/problem+json');
@@ -73,11 +73,11 @@ class HomeControllerTest extends WebTestCase
         $user = $this->getFixture('test_user');
         $this->authenticateAsUser($user);
 
-        $this->client->request('GET', '/api/home/tasks', [], [], $this->authHeaders());
+        $this->client->request('GET', '/api/home/leisure', [], [], $this->authHeaders());
 
         self::assertResponseIsSuccessful();
         self::assertSame(
-            ['module' => 'tasks', 'day' => 'today', 'userId' => (string) $user->getId(), 'date' => '2026-10-14'],
+            ['module' => 'leisure', 'day' => 'today', 'userId' => (string) $user->getId(), 'date' => '2026-10-14'],
             $this->body(),
         );
     }
@@ -87,11 +87,11 @@ class HomeControllerTest extends WebTestCase
         $user = $this->getFixture('test_user');
         $this->authenticateAsUser($user);
 
-        $this->client->request('GET', '/api/home/tasks?day=tomorrow', [], [], $this->authHeaders());
+        $this->client->request('GET', '/api/home/leisure?day=tomorrow', [], [], $this->authHeaders());
 
         self::assertResponseIsSuccessful();
         self::assertSame(
-            ['module' => 'tasks', 'day' => 'tomorrow', 'userId' => (string) $user->getId(), 'date' => '2026-10-15'],
+            ['module' => 'leisure', 'day' => 'tomorrow', 'userId' => (string) $user->getId(), 'date' => '2026-10-15'],
             $this->body(),
         );
     }
@@ -101,7 +101,7 @@ class HomeControllerTest extends WebTestCase
         $other = $this->getFixture('other_user');
         $this->authenticateAsUser($other);
 
-        $this->client->request('GET', '/api/home/tasks', [], [], $this->authHeaders());
+        $this->client->request('GET', '/api/home/leisure', [], [], $this->authHeaders());
 
         self::assertSame((string) $other->getId(), $this->body()['userId']);
         self::assertNotSame((string) $this->getFixture('test_user')->getId(), $this->body()['userId']);

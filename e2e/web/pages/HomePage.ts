@@ -8,12 +8,15 @@ export class HomePage extends AdminShell {
   readonly trail: Locator
   readonly daySelector: Locator
   readonly groceryCard: Locator
+  /** The ring of the Tâches card, named by what it reads: « 1 sur 3 ». */
+  readonly tasksRing: Locator
 
   constructor(page: Page) {
     super(page)
     this.trail = page.getByRole('navigation', { name: "Fil d'Ariane" })
     this.daySelector = this.content.getByRole('group', { name: 'Jour' })
     this.groceryCard = this.content.getByTestId('home-card-grocery')
+    this.tasksRing = this.content.getByTestId('home-tasks-ring')
   }
 
   async open(day?: 'today' | 'tomorrow'): Promise<void> {
@@ -30,5 +33,10 @@ export class HomePage extends AdminShell {
   /** « Aujourd'hui » or « Demain ». */
   day(label: "Aujourd'hui" | 'Demain'): Locator {
     return this.daySelector.getByRole('button', { name: label, exact: true })
+  }
+
+  /** The tick of a task (or of a routine) in the Tâches card, named « {title} : fait ». */
+  tick(title: string): Locator {
+    return this.content.getByRole('checkbox', { name: `${title} : fait`, exact: true })
   }
 }

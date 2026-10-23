@@ -882,6 +882,45 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The Tâches card of the Accueil (MAG-561), as `/api/home/tasks` sends it:
+     * a task ticked today next to open ones, and a routine of the moment, ticked.
+     */
+    public function testTheHomeTasksRecordingIsCurrent(): void
+    {
+        // Between breakfast (08:30) and lunch (13:30), in UTC as in Paris.
+        Clock::set(new MockClock('2026-04-22 10:00:00 UTC'));
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+        $taskId = (string) $this->getFixture('recorded_open_task')->getId();
+
+        $headers = array_merge(['CONTENT_TYPE' => 'application/json'], $this->authHeaders());
+        $this->client->request('PATCH', '/api/tasks/'.$taskId, [], [], array_merge(['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()), json_encode(['completedAt' => '2026-04-22T10:00:00+00:00'], \JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
+        $this->client->request('POST', '/api/routines', [], [], $headers, json_encode(['title' => 'Prendre l\'air', 'anchor' => 'afterBreakfast'], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
+        $created = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        $this->client->request('PUT', '/api/routines/'.$created['id'].'/checks/2026-04-22', [], [], $headers);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/api/home/tasks', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertContains(true, array_column($body['tasks'], 'done'), 'No task ticked today, or the recording proves nothing about `done`.');
+        self::assertNotEmpty($body['routines'], 'No routine of the moment, or the recording proves nothing about them.');
+        self::assertTrue($body['routines'][0]['checked']);
+
+        $this->assertMatchesContract(
+            'responses/home_tasks.read.json',
+            self::stabilise($body),
+            'GET /api/home/tasks no longer returns what it used to. The mobile DTOs (HomeTasks.kt) and the admin (TasksCard.tsx) are written against this response.',
+        );
+    }
+
+    /**
      * The bravo of a task done (MAG-508), as `/api/rewards/task/{id}` sends it
      * once the task is ticked: a shooting star, the task having waited a month.
      * The message is drawn by chance among three: the recording keeps the first.

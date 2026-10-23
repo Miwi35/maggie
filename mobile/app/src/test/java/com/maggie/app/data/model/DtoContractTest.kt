@@ -1043,6 +1043,23 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the Tâches card of the Accueil deserialises from the recorded response under the names the API sends (MAG-561)`() {
+        val body = readRecording("home_tasks.read")
+        assertDeclaredFieldsExist("HomeTasks", serializer<HomeTasks>(), body.keys, "home_tasks.read")
+        assertDeclaredFieldsExist("HomeTask", serializer<HomeTask>(), keysOf(body, "tasks"), "home_tasks.read")
+        assertDeclaredFieldsExist("HomeRoutine", serializer<HomeRoutine>(), keysOf(body, "routines"), "home_tasks.read")
+        (body["saga"] as? JsonObject)?.let {
+            assertDeclaredFieldsExist("HomeSaga", serializer<HomeSaga>(), it.keys, "home_tasks.read")
+        }
+
+        val card = json.decodeFromJsonElement(serializer<HomeTasks>(), body)
+        assertTrue("The recording home_tasks.read has no task, so it proves nothing.", card.tasks.isNotEmpty())
+        assertTrue("The recording home_tasks.read has no routine, so it proves nothing.", card.routines.isNotEmpty())
+        assertTrue(card.total <= 5)
+        assertTrue(card.done <= card.total)
+    }
+
+    @Test
     fun `the task order preview deserialises from the recorded response`() {
         val body = readRecording("task_settings.preview")
         val members = body["member"]!!.jsonArray
