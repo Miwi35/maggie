@@ -39,7 +39,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -83,6 +86,7 @@ fun ProjectListScreen(
     onBack: () -> Unit,
     onOpenForm: (projectId: String?) -> Unit,
     onOpenSheet: (projectId: String) -> Unit = { onOpenForm(it) },
+    scenarios: ScenarioViewModel? = null,
 ) {
     Scaffold(
         topBar = {
@@ -98,7 +102,7 @@ fun ProjectListScreen(
             }
         },
     ) { paddingValues ->
-        ProjectListContent(viewModel, onOpenForm, Modifier.padding(paddingValues), onOpenSheet)
+        ProjectListContent(viewModel, onOpenForm, Modifier.padding(paddingValues), onOpenSheet, scenarios)
     }
 }
 
@@ -109,6 +113,8 @@ fun ProjectListContent(
     onOpenForm: (projectId: String?) -> Unit,
     modifier: Modifier = Modifier,
     onOpenSheet: (projectId: String) -> Unit = { onOpenForm(it) },
+    /** The scenarios of the projects (MAG-551): a card and a sheet on a phone, a panel on a tablet. Absent: no scenarios. */
+    scenarios: ScenarioViewModel? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -126,6 +132,19 @@ fun ProjectListContent(
         val message = uiState.message ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(message)
         viewModel.clearMessage()
+    }
+
+    var scenarioSheetOpen by rememberSaveable { mutableStateOf(false) }
+    val scenarioSection: (@Composable () -> Unit)? = scenarios?.let { scenarioViewModel ->
+        {
+            val scenarioState by scenarioViewModel.uiState.collectAsState()
+            val actions = remember(scenarioViewModel) { ScenarioActions.of(scenarioViewModel) }
+            if (wide) {
+                ScenarioPanel(state = scenarioState, actions = actions, manage = true, modifier = Modifier.testTag(UiTags.SCENARIO_PANEL))
+            } else {
+                ScenarioCurrentCard(state = scenarioState, onClick = { scenarioSheetOpen = true })
+            }
+        }
     }
 
     Box(modifier = modifier.fillMaxSize().testTag(UiTags.PROJECTS)) {
@@ -158,6 +177,7 @@ fun ProjectListContent(
                             onRetry = viewModel::refreshPlanning,
                         )
                     },
+                    scenarios = scenarioSection,
                     wide = wide,
                     onOpen = onOpenSheet,
                     onPreviewMove = viewModel::previewMove,
@@ -174,12 +194,33 @@ fun ProjectListContent(
         }
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
+
+    if (scenarios != null) {
+        val scenarioState by scenarios.uiState.collectAsState()
+        val actions = remember(scenarios) { ScenarioActions.of(scenarios) }
+        val editor = scenarioState.editor
+        // The phone's sheet gives way to the editor and comes back when it closes.
+        if (!wide && scenarioSheetOpen && editor == null) {
+            ScenarioSheet(
+                state = scenarioState,
+                actions = actions,
+                onDismiss = {
+                    scenarioSheetOpen = false
+                    scenarios.clearFeedback()
+                },
+            )
+        }
+        if (editor != null) {
+            ScenarioEditorSheet(editor = editor, options = scenarioState.options, full = wide, viewModel = scenarios)
+        }
+    }
 }
 
 @Composable
 private fun ProjectList(
     projects: List<Project>,
     planning: @Composable () -> Unit,
+    scenarios: (@Composable () -> Unit)?,
     wide: Boolean,
     onOpen: (String) -> Unit,
     onPreviewMove: (Int, Int) -> Unit,
@@ -205,6 +246,7 @@ private fun ProjectList(
         contentPadding = PaddingValues(start = if (wide) 24.dp else 16.dp, top = 16.dp, end = if (wide) 24.dp else 16.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 8.dp),
     ) {
+        if (scenarios != null) item(key = SCENARIOS_ITEM_KEY) { scenarios() }
         // The phone reads the timeline first, then the list; the tablet has the list, then the Gantt under it.
         if (!wide) item(key = PLANNING_ITEM_KEY) { planning() }
         itemsIndexed(projects, key = { _, project -> project.id }) { index, project ->
@@ -256,6 +298,7 @@ private fun ProjectList(
 }
 
 private const val PLANNING_ITEM_KEY = "project-planning"
+private const val SCENARIOS_ITEM_KEY = "project-scenarios"
 
 /**
  * The Gantt (MAG-527) or, when the planning could not be read, a line that says so with a retry.

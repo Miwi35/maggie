@@ -644,6 +644,46 @@ class DtoContractTest {
     }
 
     @Test
+    fun `scenarios deserialise from the recorded list and comparison (MAG-551)`() {
+        val list = readRecording("finance_scenarios.collection")
+        val comparison = readRecording("finance_scenario_comparison.read")
+
+        val listed = json.decodeFromJsonElement(ScenarioList.serializer(), list)
+        val compared = json.decodeFromJsonElement(ScenarioComparison.serializer(), comparison)
+        assertTrue("The recorded list proves nothing: it is empty.", listed.scenarios.isNotEmpty())
+        // Nothing is current by default; the recording has the owner's own scenario current.
+        assertEquals(1, listed.scenarios.count { it.current })
+        // N is null on the wire when it is not reached within 20 years, and stays null.
+        assertNull(listed.scenarios.first().nDate)
+        assertEquals("auto-rapid", compared.referenceId)
+        assertTrue(compared.differences.single().sentence.isNotBlank())
+
+        // The list is the summary: `curve` and `milestones` come with the comparison only.
+        val scenarioKeys = list["scenarios"]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet() +
+            comparison["scenarios"]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet()
+        assertDeclaredFieldsExist("Scenario", serializer<Scenario>(), scenarioKeys, "finance_scenarios + finance_scenario_comparison")
+        assertDeclaredFieldsExist(
+            "ScenarioProject",
+            serializer<ScenarioProject>(),
+            list["scenarios"]!!.jsonArray.flatMap { it.jsonObject["projects"]!!.jsonArray }.flatMap { it.jsonObject.keys }.toSet(),
+            "finance_scenarios.projects",
+        )
+        assertDeclaredFieldsExist(
+            "ScenarioMetrics",
+            serializer<ScenarioMetrics>(),
+            list["scenarios"]!!.jsonArray.flatMap { it.jsonObject["metrics"]!!.jsonObject.keys }.toSet(),
+            "finance_scenarios.metrics",
+        )
+        assertDeclaredFieldsExist("ScenarioComparison", serializer<ScenarioComparison>(), comparison.keys, "finance_scenario_comparison")
+        assertDeclaredFieldsExist(
+            "ScenarioDifference",
+            serializer<ScenarioDifference>(),
+            comparison["differences"]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet(),
+            "finance_scenario_comparison.differences",
+        )
+    }
+
+    @Test
     fun `placements deserialise from the recorded response (MAG-555)`() =
         assertCollectionContract("finance_placements", serializer<Placement>(), "Placement")
 

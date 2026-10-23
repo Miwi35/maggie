@@ -160,7 +160,7 @@ class ProjectViewModel(
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
             merge(
-                *listOf(MercureTopics.LOANS, MercureTopics.SAFETY_CUSHIONS, MercureTopics.ACCOUNTS).map { topic ->
+                *listOf(MercureTopics.LOANS, MercureTopics.SAFETY_CUSHIONS, MercureTopics.ACCOUNTS, MercureTopics.FINANCE_SCENARIOS).map { topic ->
                     mercureService.subscribe(MercureTopics.userScoped(userId, topic)).catch { /* MercureService reconnects by itself */ }
                 }.toTypedArray(),
             )

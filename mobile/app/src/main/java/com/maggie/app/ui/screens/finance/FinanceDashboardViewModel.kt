@@ -61,7 +61,7 @@ class FinanceDashboardViewModel(
         subscribeToMercure()
     }
 
-    // An account, a transaction, an envelope or a project that changes moves the tiles, what is left to spend and the next project.
+    // An account, a transaction, an envelope, a project or a scenario that changes moves the tiles, what is left to spend and the next project.
     private fun subscribeToMercure() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
@@ -70,6 +70,8 @@ class FinanceDashboardViewModel(
                 mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TRANSACTIONS)),
                 mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.ENVELOPES)),
                 mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.FINANCE_PROJECTS)),
+                // The current scenario decides the next project of the home card (MAG-551).
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.FINANCE_SCENARIOS)),
             )
                 .catch { /* SSE reconnects automatically */ }
                 .coalesced()

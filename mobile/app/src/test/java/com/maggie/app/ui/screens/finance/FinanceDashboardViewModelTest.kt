@@ -361,6 +361,7 @@ class FinanceDashboardViewModelTest {
                 "/users/user-1/api/transactions/{id}",
                 "/users/user-1/api/envelopes/{id}",
                 "/users/user-1/api/finance/projects/{id}",
+                "/users/user-1/api/finance/scenarios/{id}",
             ),
             topics.toSet(),
         )

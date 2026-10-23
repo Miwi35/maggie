@@ -142,6 +142,7 @@ import com.maggie.app.ui.screens.finance.ProjectFormScreen
 import com.maggie.app.ui.screens.finance.ProjectListScreen
 import com.maggie.app.ui.screens.finance.ProjectSheetScreen
 import com.maggie.app.ui.screens.finance.ProjectViewModel
+import com.maggie.app.ui.screens.finance.ScenarioViewModel
 import com.maggie.app.ui.screens.finance.CushionViewModel
 import com.maggie.app.ui.screens.finance.TreasuryScreen
 import com.maggie.app.ui.screens.finance.TreasuryViewModel
@@ -535,8 +536,10 @@ private fun ReviewListPage(
 @Composable
 private fun ProjectListPage(navController: NavController) {
     val projectViewModel: ProjectViewModel = koinViewModel()
+    val scenarioViewModel: ScenarioViewModel = koinViewModel()
     ProjectListScreen(
         viewModel = projectViewModel,
+        scenarios = scenarioViewModel,
         onBack = { navController.backInFinance() },
         onOpenForm = { id -> navController.navigate(Screen.ProjectForm.of(id)) { launchSingleTop = true } },
         onOpenSheet = { id -> navController.navigate(Screen.ProjectSheet.of(id)) { launchSingleTop = true } },

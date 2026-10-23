@@ -1,0 +1,97 @@
+appId: com.maggie.app.e2e
+name: 26-finance-scenarios
+tags:
+  - finance
+---
+# Les scénarios des projets, from the phone (MAG-551, extends MAG-102).
+#
+# Étant donné les projets du seed et aucun scénario courant
+# Quand j'ouvre Finance › Planification › Projets
+# Alors la carte dit « Aucun scénario courant »
+# Quand j'ouvre la feuille « Scénarios » et que je rends « Rapide » courant
+# Alors la feuille lit « Scénario courant · Rapide » et sa date N, et l'API tient « Rapide » pour courant
+# Alors la carte, à la fermeture de la feuille, lit « Scénario courant · Rapide »
+#
+# The three automatic scenarios exist for every owner (Rapide, Équilibré, Qualité de vie): they are
+# computed, not seeded. The date N depends on the seeded rentes and on the projects: only its form is
+# asserted (« N : mars 2041 » or « N non atteinte avant 20 ans »), the figures are the API's and the unit
+# tests'. Comparison, editor and deletion are the unit tests' (`ScenarioViewModelTest`, `ScenarioDraftTest`)
+# and the web journey's: the phone's editor is the same ViewModel.
+#
+# The seed is put back before and after: no scenario is current (otherwise the home card of the other
+# journeys would follow it).
+
+- runScript:
+    file: ../scripts/scenarios-api.js
+    env:
+      ACTION: reset
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/26-finance-scenarios.yaml
+      e2e_email: e2e@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/projects"
+- extendedWaitUntil:
+    visible:
+      id: "scenario_current_card"
+    timeout: 30000
+# No scenario is current by default: the card says so and invites to pick one.
+- assertVisible: ".*Aucun scénario courant.*"
+
+# The card opens the sheet « Scénarios ».
+- tapOn:
+    id: "scenario_current_card"
+- extendedWaitUntil:
+    visible:
+      id: "scenario_sheet"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "scenario_none"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "scenario_make_current_auto-rapid"
+    timeout: 20000
+
+# « Rapide » becomes the current scenario. The API stores the automatic scenario when it is made current:
+# its row then carries the stored id (a ULID), not `auto-rapid`, so the tags are matched by prefix.
+- tapOn:
+    id: "scenario_make_current_auto-rapid"
+- extendedWaitUntil:
+    visible:
+      id: "scenario_badge_.*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Scénario courant · Rapide"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "scenario_n_.*"
+    timeout: 10000
+- assertVisible:
+    id: "scenario_n_.*"
+    text: "N (:|non atteinte).*"
+- runScript:
+    file: ../scripts/scenarios-api.js
+    env:
+      ACTION: expect-current
+      NAME: Rapide
+
+# Closing the sheet: the card behind it follows.
+- back
+- extendedWaitUntil:
+    visible: ".*Scénario courant · Rapide.*"
+    timeout: 20000
+
+# Left as the seed wrote it: no current scenario.
+- runScript:
+    file: ../scripts/scenarios-api.js
+    env:
+      ACTION: reset
