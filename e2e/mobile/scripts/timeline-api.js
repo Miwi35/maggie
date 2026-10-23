@@ -40,7 +40,11 @@ if (!created.ok) {
   fail('POST /api/finance/scenarios answered ' + created.status + ': ' + created.body)
 }
 const scenarioId = JSON.parse(created.body).scenario.id
-const followed = http.post(base + '/api/finance/scenarios/' + scenarioId + '/make-current', { headers: JSON_HEADERS })
+// Maestro's http.post refuses a POST without a body, even for an action that reads none.
+const followed = http.post(base + '/api/finance/scenarios/' + scenarioId + '/make-current', {
+  headers: JSON_HEADERS,
+  body: '{}',
+})
 if (!followed.ok) {
   fail('make-current answered ' + followed.status + ': ' + followed.body)
 }
