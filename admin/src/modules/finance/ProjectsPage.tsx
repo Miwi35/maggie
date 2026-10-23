@@ -18,6 +18,8 @@ import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
@@ -49,6 +51,7 @@ import {
 } from './projectsApi'
 import type { Project, ProjectInput } from './projectsApi'
 import { renteOfInvestment, useRenteSources } from './useRenteSources'
+import { ScenariosPanel } from './ScenariosPanel'
 import { useProjectPlanning } from './useProjectPlanning'
 
 const PROJECT_TOPICS = [PROJECT_TOPIC]
@@ -169,11 +172,11 @@ function ProjectRow({ project, rank, total, names, picked, opened, onOpen, onHan
 }
 
 /**
- * Finance › Planification › Projets (MAG-519): the user's projects in their
- * priority order, moved with the mouse (dnd-kit) or the keyboard (the handle:
- * Espace, flèches, Espace), created, changed and deleted here.
+ * The user's projects in their priority order, moved with the mouse (dnd-kit)
+ * or the keyboard (the handle: Espace, flèches, Espace), created, changed and
+ * deleted here (MAG-519).
  */
-export const ProjectsPage = () => {
+const ProjectsView = () => {
   const notify = useNotify()
   const { status: planningStatus, planning, reload: reloadPlanning } = useProjectPlanning()
   const { sources: renteSources, reload: reloadRenteSources } = useRenteSources()
@@ -535,6 +538,26 @@ export const ProjectsPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+    </>
+  )
+}
+
+/**
+ * Finance › Planification › Projets: the projects and their Gantt (MAG-519),
+ * and the scenarios built on them (MAG-551), in a tab of their own.
+ */
+export const ProjectsPage = () => {
+  const [tab, setTab] = useState<'projects' | 'scenarios'>('projects')
+
+  return (
+    <>
+      <Tabs value={tab} onChange={(_, next) => setTab(next)} aria-label="Projets et scénarios" sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
+        <Tab value="projects" label="Projets" id="projects-tab" aria-controls="projects-panel" />
+        <Tab value="scenarios" label="Scénarios" id="scenarios-tab" aria-controls="scenarios-panel" />
+      </Tabs>
+      <Box role="tabpanel" id={`${tab}-panel`} aria-labelledby={`${tab}-tab`}>
+        {tab === 'projects' ? <ProjectsView /> : <ScenariosPanel />}
+      </Box>
     </>
   )
 }

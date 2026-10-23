@@ -1,0 +1,140 @@
+{
+    "scenarios": [
+        {
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Sans le Japon",
+            "kind": "user",
+            "status": "saved",
+            "current": true,
+            "projects": [
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 0
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 1
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 2
+                }
+            ],
+            "repayments": [],
+            "placements": [],
+            "monthlySaving": 60000,
+            "nDate": null,
+            "metrics": {
+                "projectsDoneBy": "2027-04",
+                "debtsEndDate": "2029-04",
+                "interestPaid": 0,
+                "wellbeing": 7
+            }
+        },
+        {
+            "id": "auto-rapid",
+            "name": "Rapide",
+            "kind": "auto",
+            "status": "draft",
+            "current": false,
+            "projects": [
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 0
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 1
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 2
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 3
+                }
+            ],
+            "repayments": [],
+            "placements": [],
+            "monthlySaving": null,
+            "nDate": null,
+            "metrics": {
+                "projectsDoneBy": "2029-08",
+                "debtsEndDate": "2029-05",
+                "interestPaid": 0,
+                "wellbeing": 8
+            }
+        },
+        {
+            "id": "auto-balanced",
+            "name": "Équilibré",
+            "kind": "auto",
+            "status": "draft",
+            "current": false,
+            "projects": [
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 0
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 1
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 2
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 3
+                }
+            ],
+            "repayments": [],
+            "placements": [],
+            "monthlySaving": null,
+            "nDate": null,
+            "metrics": {
+                "projectsDoneBy": "2029-08",
+                "debtsEndDate": "2029-05",
+                "interestPaid": 0,
+                "wellbeing": 8
+            }
+        },
+        {
+            "id": "auto-quality",
+            "name": "Qualité de vie",
+            "kind": "auto",
+            "status": "draft",
+            "current": false,
+            "projects": [
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 0
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 1
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 2
+                },
+                {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "position": 3
+                }
+            ],
+            "repayments": [],
+            "placements": [],
+            "monthlySaving": null,
+            "nDate": null,
+            "metrics": {
+                "projectsDoneBy": "2029-08",
+                "debtsEndDate": "2029-05",
+                "interestPaid": 0,
+                "wellbeing": 8
+            }
+        }
+    ]
+}

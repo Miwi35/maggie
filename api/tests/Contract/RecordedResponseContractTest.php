@@ -416,6 +416,56 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The scenarios and their comparison (MAG-550, read by MAG-551), on the
+     * planning world: the three automatic drafts, one of the user's made
+     * current, and a comparison against the automatic « Rapide ».
+     */
+    public function testTheScenarioRecordingsAreCurrent(): void
+    {
+        Clock::set(new MockClock('2026-10-21 12:00:00 UTC'));
+        $this->loadFixtures('RecordedProjectPlanning.yaml');
+
+        $user = $this->getFixture('planning_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('POST', '/api/finance/scenarios', [], [], $this->authHeaders() + ['CONTENT_TYPE' => 'application/json'], json_encode(['name' => 'Sans le Japon', 'projectIds' => [
+            (string) $this->getFixture('planning_move')->getId(),
+            (string) $this->getFixture('planning_sofa')->getId(),
+            (string) $this->getFixture('planning_car')->getId(),
+        ], 'monthlySaving' => 60000], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
+        $created = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        $id = $created['scenario']['id'];
+
+        $this->client->request('POST', '/api/finance/scenarios/'.$id.'/make-current', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/api/finance/scenarios', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $list = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($list);
+        self::assertCount(1, array_filter($list['scenarios'], static fn (array $scenario): bool => $scenario['current']), 'The recorded list holds no current scenario.');
+        self::assertNotEmpty(array_filter($list['scenarios'], static fn (array $scenario): bool => 'auto' === $scenario['kind']), 'The recorded list holds no automatic scenario.');
+        $this->assertMatchesContract(
+            'responses/finance_scenarios.collection.json',
+            self::stabilise($list),
+            'GET /api/finance/scenarios no longer returns what it used to. The mobile DTOs and the admin client read this response.',
+        );
+
+        $this->client->request('GET', '/api/finance/scenario-comparison?ids=auto-rapid,'.$id, [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $comparison = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($comparison);
+        self::assertNotEmpty($comparison['differences'][0]['sentence'], 'The recorded comparison says nothing of the gap.');
+        $this->assertMatchesContract(
+            'responses/finance_scenario_comparison.read.json',
+            self::stabilise($comparison),
+            'GET /api/finance/scenario-comparison no longer returns what it used to. The mobile DTOs and the admin client read this response.',
+        );
+    }
+
+    /**
      * « Peut-être aussi Tom » (MAG-450), as the controller sends it: the
      * labels of unclaimed lines that name the contact.
      */

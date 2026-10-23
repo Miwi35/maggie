@@ -8,7 +8,8 @@ import { ROUTES } from './routes.js'
  * projects in priority order, each row with a handle that moves it with the
  * mouse (dnd-kit) or the keyboard (Espace, flèches, Espace), then the Gantt of the
  * planning over 36 months under the list (MAG-527) and, under the Gantt, the stacked chart
- * of the funding month by month (MAG-528).
+ * of the funding month by month (MAG-528). The « Scénarios » tab (MAG-551) holds
+ * the scenario cards, the current-scenario banner and the comparison.
  */
 export class FinanceProjectsPage extends AdminShell {
   readonly rows: Locator
@@ -132,5 +133,24 @@ export class FinanceProjectsPage extends AdminShell {
   /** One figure of the investment card (`price`, `down-payment`, `loan`, `rent`, `payment`, `balance`). */
   investmentFigure(name: string, figure: string): Locator {
     return this.investmentCard(name).locator(`[data-testid="investment-figure"][data-figure="${figure}"]`)
+  }
+
+  /** Switches to the « Scénarios » tab (MAG-551). */
+  async openScenarios(): Promise<Locator> {
+    await this.content.getByRole('tab', { name: 'Scénarios' }).click()
+    const panel = this.content.getByTestId('scenarios-panel')
+    await expect(panel.getByTestId('scenario-card').first()).toBeVisible()
+
+    return panel
+  }
+
+  /** A scenario card of the « Scénarios » tab, by its name. */
+  scenarioCard(name: string): Locator {
+    return this.content.locator(`[data-testid="scenario-card"][data-scenario="${name}"]`)
+  }
+
+  /** The « Scénario courant · … » banner. */
+  get currentBanner(): Locator {
+    return this.content.getByTestId('scenario-current')
   }
 }
