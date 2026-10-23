@@ -157,8 +157,9 @@ describe('Finance › Planification, with its real screens', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('down', { status: 500 })))
     renderPlanning(false, '/finance/summary/planning/independence')
 
-    expect(await screen.findByText(/compteur d'indépendance n'a pas pu être chargé/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument()
+    const alert = (await screen.findByText(/compteur d'indépendance n'a pas pu être chargé/)).closest('[role="alert"]')
+    expect(alert).not.toBeNull()
+    expect(within(alert as HTMLElement).getByRole('button', { name: 'Réessayer' })).toBeInTheDocument()
   })
 
   test('without data, Prêts says what to do: a way to add a loan', async () => {
