@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, e2eNow, parisDay } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
 import { calledTools, toolResults } from '../helpers/agui.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
@@ -61,7 +61,8 @@ async function created(api: APIRequestContext, path: string, data: Record<string
   return (await response.json()) as { '@id': string; id: string }
 }
 
-const day = (offset: number): string => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10)
+// The stack's clock is pinned (E2E_NOW), not the runner's: the API reads « the week » from its own.
+const day = (offset: number): string => parisDay(new Date(e2eNow().getTime() + offset * 86_400_000))
 
 /** A meal in `offset` days that needs `grams` of the rice: a recipe of its own, and the meal that plans it. */
 async function planRice(
@@ -135,6 +136,7 @@ test('the add dialog offers the restock in packs, and a quantity in grams become
   try {
     await grocery.addButton.click()
     await grocery.addDialog.getByLabel('Article').fill(PASTA)
+    await page.getByRole('option', { name: /^Pâtes sèches/ }).click()
 
     // The product's restock, in packs, flagged as such.
     const entry = grocery.addDialog.getByTestId('quantity-entry')
@@ -218,6 +220,7 @@ test('the dialog reads the recipes of the week, adds the restock, and warns once
     await grocery.open()
     await grocery.addButton.click()
     await grocery.addDialog.getByLabel('Article').fill(RICE)
+    await page.getByRole('option', { name: /^Riz basmati/ }).click()
 
     // …the dialog tells the week's need and the meals behind it, starts at the restock, and covers it.
     const entry = grocery.addDialog.getByTestId('quantity-entry')
@@ -247,6 +250,7 @@ test('the dialog reads the recipes of the week, adds the restock, and warns once
     await grocery.open()
     await grocery.addButton.click()
     await grocery.addDialog.getByLabel('Article').fill(RICE)
+    await page.getByRole('option', { name: /^Riz basmati/ }).click()
 
     // …the restock no longer covers it: the dialog warns and offers 3 packs.
     const alert = entry.getByTestId('need-shortfall')

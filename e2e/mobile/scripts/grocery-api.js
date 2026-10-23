@@ -10,7 +10,7 @@
 // It also reads the list back through the API, which is how a flow asserts on
 // the database rather than on the screen.
 //
-// Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
+// Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   ACTION  add | check | remove | expect | aisles | assign | drop-aisles |
 //           product | drop-product | meals | drop-meals | expect-line
 //   LABEL   the line, as written on the list
@@ -389,8 +389,10 @@ if (ACTION === 'add') {
     fail('no product "' + LABEL + '" — run the `product` action first')
   }
   removeMeals() // a retried run starts from nothing
+  // TODAY is the day the stack runs at (pinned in CI), not the runner's.
   const day = function (offset) {
-    return new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10)
+    const start = Date.UTC(Number(TODAY.substring(0, 4)), Number(TODAY.substring(5, 7)) - 1, Number(TODAY.substring(8, 10)))
+    return new Date(start + offset * 86400000).toISOString().slice(0, 10)
   }
   const plans = [
     { name: 'Riz au curry MAG-573', quantity: 500, offset: 1, slot: 'dinner' },

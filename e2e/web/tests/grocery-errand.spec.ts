@@ -501,7 +501,7 @@ test('a packaged product is counted in packs, and adding it again raises the lin
   const watching = new GroceryListPage(observerPage)
 
   await acting.open()
-  await acting.addItem(label, { quantity: 1, store: SHOPS.market })
+  await acting.addItem(label, { packs: 1, store: SHOPS.market })
   await expectLine(api, label, (line) => 1 === line?.quantity, 'one pack of rice on the list')
   await acting.expectItemEventually(label)
   await expect(acting.line(label)).toContainText('1 paquet')
@@ -532,7 +532,7 @@ test('a packaged product is counted in packs, and adding it again raises the lin
   await expect(acting.line(label)).toContainText('3 paquets')
 
   // And adding the same product again raises the line instead of making a second one.
-  await acting.addItem(label, { quantity: 1 })
+  await acting.addItem(label, { packs: 1 })
   await expectLine(api, label, (line) => 4 === line?.quantity, 'the quantity is raised to 4 packs')
   const lines = (await storedList(api)).items.filter((item) => item.label === label)
   expect(lines, 'the product is on the list once').toHaveLength(1)
