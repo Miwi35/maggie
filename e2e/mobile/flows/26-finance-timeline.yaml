@@ -54,9 +54,13 @@ tags:
     element:
       id: "timeline_event_independence_reached"
     timeout: 30000
+# The event's title and its month are separate text nodes: the month is matched inside the event.
 - scrollUntilVisible:
     element:
-      text: ".*Indépendance financière.*${output.nLabel}.*"
+      id: "timeline_event_independence_reached"
+      containsDescendants:
+        - text: "Indépendance financière"
+        - text: "${output.nLabel} · Indépendance"
     timeout: 10000
 - scrollUntilVisible:
     element:

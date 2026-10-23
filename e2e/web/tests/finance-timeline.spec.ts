@@ -84,7 +84,16 @@ test('the frise puts Indépendance on the N date of the current scenario', async
 test('a category filter hides its events, and a compared scenario draws a second row', async ({ page, api }) => {
   const letGo = await followAScenarioThatReachesN(api)
   try {
-    const response = await api.get('/api/finance/timeline?compare=auto-rapid')
+    // « Rapide » is `auto-rapid` until a journey stores it, then a ULID: the
+    // select's options carry whichever id the list gives.
+    const listed = await api.get('/api/finance/scenarios')
+    expect(listed.ok(), await listed.text()).toBe(true)
+    const rapid = ((await listed.json()) as { scenarios: { id: string; name: string; kind: string }[] }).scenarios
+      .find((scenario) => scenario.kind === 'auto' && scenario.name === 'Rapide')
+    expect(rapid, 'the automatic « Rapide » scenario is always offered').toBeDefined()
+    const rapidId = rapid?.id ?? ''
+
+    const response = await api.get(`/api/finance/timeline?compare=${encodeURIComponent(rapidId)}`)
     expect(response.ok(), await response.text()).toBe(true)
     const expected = (await response.json()) as TimelineBody
     expect(expected.compared?.name).toBe('Rapide')
@@ -95,7 +104,7 @@ test('a category filter hides its events, and a compared scenario draws a second
     await frise.open()
     await expect(frise.comparedRow).toHaveCount(0)
 
-    await frise.selector.selectOption('auto-rapid')
+    await frise.selector.selectOption(rapidId)
 
     await expect(frise.comparedRow).toBeVisible()
     await expect(frise.comparedRow.getByTestId('timeline-name-compared')).toHaveText('Rapide')
