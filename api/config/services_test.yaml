@@ -11,3 +11,9 @@ services:
         tags:
             - { name: messenger.message_handler, bus: event.bus, handles: Maggie\Calendar\Event\TaskCompleted }
             - { name: messenger.message_handler, bus: event.bus, handles: Maggie\Calendar\Event\TaskReopened }
+
+    # Counts the SQL statements of a request (MAG-544).
+    App\Tests\Support\SqlQueryCounter:
+        public: true
+        tags:
+            - { name: doctrine.middleware }

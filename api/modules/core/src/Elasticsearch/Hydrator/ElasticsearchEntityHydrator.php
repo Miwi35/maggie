@@ -19,56 +19,59 @@ final class ElasticsearchEntityHydrator
     }
 
     /**
+     * What reflection says about each class, read once: a page rebuilds up to
+     * 100 entities of one class (MAG-544).
+     *
+     * @var array<class-string, array{
+     *     class: \ReflectionClass<object>,
+     *     properties: array<string, array{property: \ReflectionProperty, type: ?string}>,
+     *     collections: list<string>,
+     *     relations: array<string, array{property: string, targetEntity: class-string}>,
+     * }>
+     */
+    private array $plans = [];
+
+    /**
      * @param array<string, mixed> $source      ES _source document
      * @param class-string         $entityClass
      */
     public function hydrate(array $source, string $entityClass): object
     {
-        /** @var \ReflectionClass<object> $ref */
-        $ref = new \ReflectionClass($entityClass);
-        $entity = $ref->newInstanceWithoutConstructor();
+        $plan = $this->plans[$entityClass] ??= $this->plan($entityClass);
+        $entity = $plan['class']->newInstanceWithoutConstructor();
 
         // Set the ID
-        if (isset($source['id'])) {
-            $this->setProperty($ref, $entity, 'id', Ulid::fromString($source['id']));
+        if (isset($source['id'], $plan['properties']['id'])) {
+            $plan['properties']['id']['property']->setValue($entity, Ulid::fromString($source['id']));
         }
 
         // The to-many sides are not in the document (or only as a summary of
         // the lines): they are read from the database when something looks.
-        $collections = $this->getCollectionProperties($ref);
         if (isset($source['id'])) {
-            foreach ($collections as $propName) {
-                $this->setProperty($ref, $entity, $propName, new LazyAssociationCollection($this->em, $entity, Ulid::fromString($source['id']), $propName));
+            foreach ($plan['collections'] as $propName) {
+                $plan['properties'][$propName]['property']->setValue($entity, new LazyAssociationCollection($this->em, $entity, Ulid::fromString($source['id']), $propName));
             }
         }
 
-        // Collect relation metadata
-        $relations = $this->getRelationMap($ref);
-
         // Set all other fields from source
         foreach ($source as $key => $value) {
-            if ('id' === $key || \in_array($key, $collections, true)) {
+            if ('id' === $key || \in_array($key, $plan['collections'], true)) {
                 continue;
             }
 
-            // Check if this is a relation source field (e.g. 'agendaId' → 'agenda')
-            $relProp = $this->findRelationBySourceField($relations, $key);
-            if (null !== $relProp) {
-                [$propName, $relMeta] = $relProp;
+            // A relation source field (e.g. 'agendaId' → 'agenda')
+            if (isset($plan['relations'][$key])) {
                 if (null !== $value) {
-                    /** @var class-string $targetEntity */
-                    $targetEntity = $relMeta['targetEntity'];
-                    $reference = $this->em->getReference($targetEntity, Ulid::fromString($value));
-                    $this->setProperty($ref, $entity, $propName, $reference);
+                    $relation = $plan['relations'][$key];
+                    $reference = $this->em->getReference($relation['targetEntity'], Ulid::fromString($value));
+                    $plan['properties'][$relation['property']]['property']->setValue($entity, $reference);
                 }
                 continue;
             }
 
             // Try to set scalar property
-            if ($this->hasProperty($ref, $key)) {
-                $propRef = $this->getPropertyRef($ref, $key);
-                $typedValue = $this->castValue($value, $propRef);
-                $this->setProperty($ref, $entity, $key, $typedValue);
+            if (isset($plan['properties'][$key])) {
+                $plan['properties'][$key]['property']->setValue($entity, $this->castValue($value, $plan['properties'][$key]['type']));
             }
         }
 
@@ -76,123 +79,53 @@ final class ElasticsearchEntityHydrator
     }
 
     /**
-     * @param \ReflectionClass<object> $ref
+     * @param class-string $entityClass
      *
-     * @return list<string>
+     * @return array{
+     *     class: \ReflectionClass<object>,
+     *     properties: array<string, array{property: \ReflectionProperty, type: ?string}>,
+     *     collections: list<string>,
+     *     relations: array<string, array{property: string, targetEntity: class-string}>,
+     * }
      */
-    private function getCollectionProperties(\ReflectionClass $ref): array
+    private function plan(string $entityClass): array
     {
-        $names = [];
-        $current = $ref;
-
-        do {
-            foreach ($current->getProperties() as $prop) {
-                if ([] !== $prop->getAttributes(OneToMany::class) || [] !== $prop->getAttributes(ManyToMany::class)) {
-                    $names[] = $prop->getName();
-                }
-            }
-            $current = $current->getParentClass();
-        } while (false !== $current);
-
-        return $names;
-    }
-
-    /**
-     * @param \ReflectionClass<object> $ref
-     *
-     * @return array<string, array{targetEntity: string, sourceField: string}>
-     */
-    private function getRelationMap(\ReflectionClass $ref): array
-    {
+        $class = new \ReflectionClass($entityClass);
+        $properties = [];
+        $collections = [];
         $relations = [];
-        $current = $ref;
 
-        do {
-            foreach ($current->getProperties() as $prop) {
-                foreach ($prop->getAttributes(IndexedRelation::class) as $attr) {
-                    $rel = $attr->newInstance();
-                    $relations[$prop->getName()] = [
-                        'targetEntity' => $rel->targetEntity,
-                        'sourceField' => $rel->sourceField,
+        // The class first, then its parents: a property redeclared below wins, as it does for the engine.
+        for ($current = $class; false !== $current; $current = $current->getParentClass()) {
+            foreach ($current->getProperties() as $property) {
+                $name = $property->getName();
+                $isCollection = [] !== $property->getAttributes(OneToMany::class) || [] !== $property->getAttributes(ManyToMany::class);
+
+                if ($isCollection) {
+                    $collections[] = $name;
+                }
+
+                foreach ($property->getAttributes(IndexedRelation::class) as $attribute) {
+                    $relation = $attribute->newInstance();
+                    $relations[$relation->sourceField] ??= ['property' => $name, 'targetEntity' => $relation->targetEntity];
+                }
+
+                if (!isset($properties[$name])) {
+                    $type = $property->getType();
+                    $properties[$name] = [
+                        'property' => $property,
+                        'type' => $type instanceof \ReflectionNamedType ? $type->getName() : null,
                     ];
                 }
             }
-            $current = $current->getParentClass();
-        } while (false !== $current);
-
-        return $relations;
-    }
-
-    /**
-     * @param array<string, array{targetEntity: string, sourceField: string}> $relations
-     *
-     * @return array{string, array{targetEntity: string, sourceField: string}}|null
-     */
-    private function findRelationBySourceField(array $relations, string $sourceField): ?array
-    {
-        foreach ($relations as $propName => $relMeta) {
-            if ($relMeta['sourceField'] === $sourceField) {
-                return [$propName, $relMeta];
-            }
         }
 
-        return null;
+        return ['class' => $class, 'properties' => $properties, 'collections' => $collections, 'relations' => $relations];
     }
 
-    /** @param \ReflectionClass<object> $ref */
-    private function hasProperty(\ReflectionClass $ref, string $name): bool
+    private function castValue(mixed $value, ?string $typeName): mixed
     {
-        $current = $ref;
-        do {
-            if ($current->hasProperty($name)) {
-                return true;
-            }
-            $current = $current->getParentClass();
-        } while (false !== $current);
-
-        return false;
-    }
-
-    /** @param \ReflectionClass<object> $ref */
-    private function getPropertyRef(\ReflectionClass $ref, string $name): \ReflectionProperty
-    {
-        $current = $ref;
-        do {
-            if ($current->hasProperty($name)) {
-                return $current->getProperty($name);
-            }
-            $current = $current->getParentClass();
-        } while (false !== $current);
-
-        throw new \RuntimeException("Property {$name} not found on {$ref->getName()}");
-    }
-
-    /** @param \ReflectionClass<object> $ref */
-    private function setProperty(\ReflectionClass $ref, object $entity, string $name, mixed $value): void
-    {
-        $current = $ref;
-        do {
-            if ($current->hasProperty($name)) {
-                $prop = $current->getProperty($name);
-                $prop->setValue($entity, $value);
-
-                return;
-            }
-            $current = $current->getParentClass();
-        } while (false !== $current);
-    }
-
-    private function castValue(mixed $value, \ReflectionProperty $prop): mixed
-    {
-        $type = $prop->getType();
-
-        if (null === $type || null === $value) {
-            return $value;
-        }
-
-        $typeName = $type instanceof \ReflectionNamedType ? $type->getName() : null;
-
-        if (null === $typeName) {
+        if (null === $typeName || null === $value) {
             return $value;
         }
 
