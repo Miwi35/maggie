@@ -114,6 +114,9 @@ import com.maggie.app.data.model.PlacementSimulation
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.ProjectOptions
+import com.maggie.app.data.model.ScenarioComparison
+import com.maggie.app.data.model.ScenarioList
+import com.maggie.app.data.model.ScenarioWriteResult
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.Envelope
@@ -666,6 +669,53 @@ data class PlacementWriteRequest(
     val annualRate: Int,
     val years: Int,
 )
+
+/**
+ * The body of `POST /api/finance/scenarios` and `PATCH /api/finance/scenarios/{id}` (MAG-551): only the fields
+ * the caller names are in it, so a rename sends `{name}` and leaves the rest as it was.
+ */
+class ScenarioWriteRequest private constructor(val body: JsonObject) {
+    companion object {
+        /** Only the name: a rename. */
+        fun rename(name: String) = ScenarioWriteRequest(buildJsonObject { put("name", JsonPrimitive(name)) })
+
+        /** Everything the editor holds. [monthlySavingCents] null clears the saving. */
+        fun of(
+            name: String,
+            projectIds: List<String>,
+            repayments: List<ScenarioRepaymentRequest>,
+            placementIds: List<String>,
+            monthlySavingCents: Int?,
+        ) = ScenarioWriteRequest(
+            buildJsonObject {
+                put("name", JsonPrimitive(name))
+                put("projectIds", buildJsonArray { projectIds.forEach { add(JsonPrimitive(it)) } })
+                put("repayments", buildJsonArray { repayments.forEach { add(it.toJson()) } })
+                put("placementIds", buildJsonArray { placementIds.forEach { add(JsonPrimitive(it)) } })
+                put("monthlySaving", monthlySavingCents?.let { JsonPrimitive(it) } ?: JsonNull)
+            },
+        )
+    }
+}
+
+/** An early repayment of a scenario; a null [amountCents] repays the whole capital. */
+data class ScenarioRepaymentRequest(
+    val loanId: String,
+    val month: String,
+    val amountCents: Int?,
+    val id: String? = null,
+) {
+    fun toJson(): JsonObject = buildJsonObject {
+        id?.let { put("id", JsonPrimitive(it)) }
+        put("loanId", JsonPrimitive(loanId))
+        put("month", JsonPrimitive(month))
+        put("amountCents", amountCents?.let { JsonPrimitive(it) } ?: JsonNull)
+    }
+}
+
+/** The name of the copy: `POST /api/finance/scenarios/{id}/duplicate` takes nothing else. */
+@Serializable
+data class ScenarioDuplicateRequest(val name: String)
 
 /** Every project id, in the new order: the API refuses a partial list. */
 @Serializable
@@ -2318,6 +2368,60 @@ class MaggieApiService(
             params.downPaymentCents?.let { url.parameters.append("downPaymentCents", it.toString()) }
             params.yieldBasisPoints?.let { url.parameters.append("yieldBasisPoints", it.toString()) }
         }.orRefusal().body()
+    }
+
+    // Finance — Scenarios of the projects (MAG-551). A refusal is an ApiRefusalException with the API's `error`.
+    suspend fun getScenarios(): ScenarioList {
+        return client.get("$baseUrl/api/finance/scenarios") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /** 2 to 6 ids, the first being the reference; the answer carries each scenario's detail and the gaps of N. */
+    suspend fun getScenarioComparison(ids: List<String>): ScenarioComparison {
+        return client.get("$baseUrl/api/finance/scenario-comparison") {
+            accept(ContentType.Application.Json)
+            url.parameters.append("ids", ids.joinToString(","))
+        }.orRefusal().body()
+    }
+
+    suspend fun createScenario(request: ScenarioWriteRequest): ScenarioWriteResult {
+        return client.post("$baseUrl/api/finance/scenarios") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(request.body)
+        }.orRefusal().body()
+    }
+
+    suspend fun updateScenario(id: String, request: ScenarioWriteRequest): ScenarioWriteResult {
+        return client.patch("$baseUrl/api/finance/scenarios/$id") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(request.body)
+        }.orRefusal().body()
+    }
+
+    suspend fun duplicateScenario(id: String, name: String): ScenarioWriteResult {
+        return client.post("$baseUrl/api/finance/scenarios/$id/duplicate") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(ScenarioDuplicateRequest(name))
+        }.orRefusal().body()
+    }
+
+    suspend fun makeScenarioCurrent(id: String): ScenarioWriteResult {
+        return client.post("$baseUrl/api/finance/scenarios/$id/make-current") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    suspend fun deleteScenario(id: String) {
+        client.delete("$baseUrl/api/finance/scenarios/$id").orRefusal()
+    }
+
+    /** No scenario is current any more. */
+    suspend fun clearCurrentScenario() {
+        client.delete("$baseUrl/api/finance/current-scenario").orRefusal()
     }
 
     // Finance — Placements (MAG-555), simulated: sorted by name

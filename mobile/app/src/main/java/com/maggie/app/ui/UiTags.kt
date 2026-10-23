@@ -1309,6 +1309,43 @@ object UiTags {
     const val PROJECT_INVESTMENT_RESALE = "project_investment_resale"
     const val PROJECT_ROW_INVESTMENT = "project_row_investment"
 
+    // Scenarios of the projects (MAG-551). The `_PREFIX` ones are followed by the scenario's id (`auto-rapid`, a ULID…).
+    const val SCENARIO_CURRENT_CARD = "scenario_current_card"
+    const val SCENARIO_CURRENT_TITLE = "scenario_current_title"
+    const val SCENARIO_CURRENT_N = "scenario_current_n"
+    const val SCENARIO_SHEET = "scenario_sheet"
+    const val SCENARIO_PANEL = "scenario_panel"
+    const val SCENARIO_NONE = "scenario_none"
+    const val SCENARIO_ADD = "scenario_add"
+    const val SCENARIO_CLEAR_CURRENT = "scenario_clear_current"
+    const val SCENARIO_CURVES = "scenario_curves"
+    const val SCENARIO_TABLE = "scenario_table"
+    const val SCENARIO_COMPARE_CLEAR = "scenario_compare_clear"
+    const val SCENARIO_COMPARE_ERROR = "scenario_compare_error"
+    const val SCENARIO_ERROR = "scenario_error"
+    const val SCENARIO_DELETE_CONFIRM = "scenario_delete_confirm"
+    const val SCENARIO_ROW_PREFIX = "scenario_row_"
+    const val SCENARIO_BADGE_PREFIX = "scenario_badge_"
+    const val SCENARIO_N_PREFIX = "scenario_n_"
+    const val SCENARIO_GAP_PREFIX = "scenario_gap_"
+    const val SCENARIO_MAKE_CURRENT_PREFIX = "scenario_make_current_"
+    const val SCENARIO_DUPLICATE_PREFIX = "scenario_duplicate_"
+    const val SCENARIO_COMPARE_PREFIX = "scenario_compare_"
+    const val SCENARIO_EDIT_PREFIX = "scenario_edit_"
+    const val SCENARIO_DELETE_PREFIX = "scenario_delete_"
+    const val SCENARIO_DISMISS_PREFIX = "scenario_dismiss_"
+    const val SCENARIO_EDITOR = "scenario_editor"
+    const val SCENARIO_NAME = "scenario_name"
+    const val SCENARIO_SAVING = "scenario_saving"
+    const val SCENARIO_SAVE = "scenario_save"
+    const val SCENARIO_EDITOR_ERROR = "scenario_editor_error"
+    const val SCENARIO_PROJECT_PREFIX = "scenario_project_"
+    const val SCENARIO_PROJECT_UP_PREFIX = "scenario_project_up_"
+    const val SCENARIO_PROJECT_DOWN_PREFIX = "scenario_project_down_"
+    const val SCENARIO_PLACEMENT_PREFIX = "scenario_placement_"
+    const val SCENARIO_REPAYMENT_ADD = "scenario_repayment_add"
+    const val SCENARIO_REPAYMENT_PREFIX = "scenario_repayment_"
+
     /**
      * The loans of Planification and their sheet (MAG-523): a row, the sheet, its IRA block and its curve;
      * on the tablet the conditions form (a type, a mode, the payment, « Enregistrer », what the server
@@ -1377,6 +1414,22 @@ object UiTags {
     fun projectOptionDelay(key: String) = PROJECT_OPTION_DELAY_PREFIX + key
     fun projectFundingAdd(kind: String) = PROJECT_FUNDING_ADD_PREFIX + kind
     fun projectFundingAccount(id: String) = PROJECT_FUNDING_ACCOUNT_PREFIX + id
+
+    fun scenarioRow(id: String) = SCENARIO_ROW_PREFIX + id
+    fun scenarioBadge(id: String) = SCENARIO_BADGE_PREFIX + id
+    fun scenarioN(id: String) = SCENARIO_N_PREFIX + id
+    fun scenarioGap(id: String) = SCENARIO_GAP_PREFIX + id
+    fun scenarioMakeCurrent(id: String) = SCENARIO_MAKE_CURRENT_PREFIX + id
+    fun scenarioDuplicate(id: String) = SCENARIO_DUPLICATE_PREFIX + id
+    fun scenarioCompare(id: String) = SCENARIO_COMPARE_PREFIX + id
+    fun scenarioEdit(id: String) = SCENARIO_EDIT_PREFIX + id
+    fun scenarioDelete(id: String) = SCENARIO_DELETE_PREFIX + id
+    fun scenarioDismiss(id: String) = SCENARIO_DISMISS_PREFIX + id
+    fun scenarioProject(id: String) = SCENARIO_PROJECT_PREFIX + id
+    fun scenarioProjectUp(id: String) = SCENARIO_PROJECT_UP_PREFIX + id
+    fun scenarioProjectDown(id: String) = SCENARIO_PROJECT_DOWN_PREFIX + id
+    fun scenarioPlacement(id: String) = SCENARIO_PLACEMENT_PREFIX + id
+    fun scenarioRepayment(key: Int, field: String) = "${SCENARIO_REPAYMENT_PREFIX}${key}_$field"
 
     fun reviewSegment(step: String) = REVIEW_ACTIVITY_SEGMENT_PREFIX + step
     fun periodPlanRow(categoryId: String) = PERIOD_PLAN_ROW_PREFIX + categoryId
