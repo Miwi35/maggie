@@ -13,6 +13,7 @@ import com.maggie.app.data.model.EventReminder
 import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.HomeDay
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.screentest.tap
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -220,7 +221,8 @@ class AgendaCardScreenTest {
         compose.onNodeWithText("30 minutes avant", substring = true).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.HOME_AGENDA_LAUNCH).assertDoesNotExist()
 
-        compose.onNodeWithTag(UiTags.HOME_AGENDA_OPEN_EVENT).performClick()
+        // Inside a ModalBottomSheet the touch is swallowed here, see ScreenInteractions.tap.
+        compose.onNodeWithTag(UiTags.HOME_AGENDA_OPEN_EVENT).tap()
         assertEquals(1, inAgenda)
     }
 
@@ -231,7 +233,7 @@ class AgendaCardScreenTest {
             AgendaEventSheet(event = review, onDismiss = {}, onOpenInAgenda = {}, onLaunch = { launched++ })
         }
 
-        compose.onNodeWithTag(UiTags.HOME_AGENDA_LAUNCH).performClick()
+        compose.onNodeWithTag(UiTags.HOME_AGENDA_LAUNCH).tap()
         assertEquals(1, launched)
     }
 

@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -185,6 +186,7 @@ private fun NowLine(now: Instant) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
+            .semantics(mergeDescendants = true) {}
             .testTag(UiTags.HOME_AGENDA_NOW_LINE),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

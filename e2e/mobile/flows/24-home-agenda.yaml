@@ -10,6 +10,8 @@ tags:
 # done event above it; when the user touches the coming event, then its fiche opens with the
 # place and « Ouvrir dans l'agenda ». The rows, the order and the fiche's fields are
 # `AgendaCardScreenTest`'s and `AgendaHomeViewModelTest`'s.
+# A row is one touch target that merges its texts (« Point du matin · fait », the hour, the place):
+# the flow matches the title inside it.
 
 - launchApp:
     clearState: true
@@ -31,15 +33,15 @@ tags:
     timeout: 20000
 
 - extendedWaitUntil:
-    visible: "Point du matin"
+    visible: ".*Point du matin.*"
     timeout: 20000
 - extendedWaitUntil:
     visible:
       id: "home_agenda_now_line"
     timeout: 20000
-- assertVisible: "Appel avec le plombier"
+- assertVisible: ".*Appel avec le plombier.*"
 
-- tapOn: "Appel avec le plombier"
+- tapOn: ".*Appel avec le plombier.*"
 - extendedWaitUntil:
     visible:
       id: "home_agenda_sheet"
