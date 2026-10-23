@@ -459,6 +459,9 @@ web:
     areas: [finance, realtime]
   e2e/web/tests/finance-projects.spec.ts:
     areas: [finance]
+  e2e/web/tests/finance-placements.spec.ts:
+    areas: [finance]
+    paths: [api/fixtures/e2e/50-finance.yaml]
   e2e/web/tests/finance-overview.spec.ts:
     areas: [finance]
   e2e/web/tests/finance-month-balance.spec.ts:
@@ -668,6 +671,9 @@ mobile:
   e2e/mobile/flows/24-finance-loans.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/loans-api.js, api/fixtures/e2e/50-finance.yaml]
+  e2e/mobile/flows/25-finance-placements.yaml:
+    areas: [finance]
+    paths: [api/fixtures/e2e/50-finance.yaml]
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]

@@ -1,0 +1,51 @@
+import { expect } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
+import { AdminShell } from './AdminShell.js'
+import { ROUTES } from './routes.js'
+
+/**
+ * Finance › Planification › Indépendance › Placements (MAG-555): the simulated
+ * placements, under the independence counter of the Indépendance tab — a
+ * table of what each one would be worth, and the curve of the one selected.
+ */
+export class FinancePlacementsPage extends AdminShell {
+  readonly card: Locator
+  readonly rows: Locator
+
+  constructor(page: Page) {
+    super(page)
+    this.card = this.content.getByRole('region', { name: 'Placements', exact: true })
+    this.rows = this.card.getByTestId('placement-row')
+  }
+
+  async open(): Promise<void> {
+    await this.goto(ROUTES.financePlanningIndependence)
+    await expect(this.card.getByRole('heading', { name: 'Placements' })).toBeVisible()
+  }
+
+  row(name: string): Locator {
+    return this.card.locator(`[data-testid="placement-row"][data-placement="${name}"]`)
+  }
+
+  /** The capital a placement would reach at its end, as its row says it. */
+  finalCapital(name: string): Locator {
+    return this.row(name).getByTestId('placement-final')
+  }
+
+  /** The curve and the figures of the selected placement. */
+  simulation(): Locator {
+    return this.card.getByRole('region', { name: /^Simulation de / })
+  }
+
+  async create(fields: { name: string; deposit: string; rate: string; years: string; initial?: string }): Promise<void> {
+    await this.card.getByRole('button', { name: 'Placement', exact: true }).click()
+    const dialog = this.page.getByRole('dialog')
+    await dialog.getByLabel(/^Nom/).fill(fields.name)
+    if (fields.initial) await dialog.getByLabel('Versement initial (€)').fill(fields.initial)
+    await dialog.getByLabel('Versement (€)').fill(fields.deposit)
+    await dialog.getByLabel(/^Rendement annuel/).fill(fields.rate)
+    await dialog.getByLabel(/^Durée/).fill(fields.years)
+    await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(dialog).toBeHidden()
+  }
+}

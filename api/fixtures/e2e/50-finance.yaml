@@ -57,6 +57,34 @@ Maggie\Finance\Entity\Account:
     isCushion: false
     user: '@e2e_stock_user'
 
+# The placements (MAG-555), as the mock-ups show them: a PEA with a monthly
+# deposit, a life insurance paid yearly and a savings book paid once.
+Maggie\Finance\Entity\Placement:
+  e2e_placement_pea:
+    name: PEA
+    initial: 200000
+    deposit: 15000
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Monthly)>'
+    annualRate: 600
+    years: 20
+    user: '@e2e_user'
+  e2e_placement_life:
+    name: Assurance-vie
+    initial: 0
+    deposit: 120000
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Yearly)>'
+    annualRate: 350
+    years: 15
+    user: '@e2e_user'
+  e2e_placement_book:
+    name: Livret jeune de Léo
+    initial: 50000
+    deposit: 0
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Once)>'
+    annualRate: 300
+    years: 10
+    user: '@e2e_user'
+
 Maggie\Finance\Entity\Category:
   e2e_category_essentials:
     name: Vie courante

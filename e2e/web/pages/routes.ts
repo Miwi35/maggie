@@ -49,6 +49,8 @@ export const ROUTES = {
   financeCushion: '/finance/cushion',
   financeTreasury: '/finance/treasury',
   financeProjects: '/finance/projects',
+  // The Indépendance tab of Planification, where the placements sit (MAG-555).
+  financePlanningIndependence: '/finance/summary/planning/independence',
   financeReview: '/finance/review',
   // The review as a full-screen activity, out of the layout (MAG-456).
   financeReviewActivity: '/finance/review/activity',

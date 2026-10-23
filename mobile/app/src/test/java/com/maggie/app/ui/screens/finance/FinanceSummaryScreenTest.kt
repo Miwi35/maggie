@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.CushionStatus
+import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ReviewPeriod
 import com.maggie.app.data.model.ReviewPreset
@@ -19,6 +20,7 @@ import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.LoanRepository
+import com.maggie.app.data.repository.PlacementRepository
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.ReviewRepository
@@ -67,15 +69,17 @@ class FinanceSummaryScreenTest {
         )
     }
 
-    private fun planningViewModel(projects: List<Project>): FinanceSummaryViewModel {
+    private fun planningViewModel(projects: List<Project>, placements: List<Placement> = emptyList()): FinanceSummaryViewModel {
         val projectRepository = mockk<ProjectRepository>()
         coEvery { projectRepository.getProjects() } returns Result.success(projects)
         val loans = mockk<LoanRepository>()
         coEvery { loans.getLoans() } returns Result.success(emptyList())
         val dashboard = mockk<FinanceDashboardRepository>()
         coEvery { dashboard.getDashboard(any(), any()) } returns Result.failure(IllegalStateException("hors sujet"))
+        val placementRepository = mockk<PlacementRepository>()
+        coEvery { placementRepository.getPlacements() } returns Result.success(placements)
         return FinanceSummaryViewModel(
-            mockk(), mockk(), mockk(), mockk(), mockk(), mockk(), loans, projectRepository, dashboard, mockk(), mockk(),
+            mockk(), mockk(), mockk(), mockk(), mockk(), mockk(), loans, projectRepository, dashboard, mockk(), mockk(), placementRepository,
         )
     }
 
@@ -98,6 +102,24 @@ class FinanceSummaryScreenTest {
         compose.onNodeWithTag(UiTags.financeBlock(Screen.ProjectList.route)).performClick()
 
         assertEquals(listOf(Screen.ProjectList.route), opened)
+    }
+
+    @Test
+    fun `planning has a Placements card with the rent they would pay, and a tap opens them (MAG-555)`() {
+        val opened = mutableListOf<String>()
+        val placements = listOf(
+            Placement(id = "a", name = "PEA", rent = 24810),
+            Placement(id = "b", name = "Assurance-vie", rent = 6690),
+        )
+        compose.setContent {
+            FinanceSummaryScreen(FinanceMenu.PLANNING, planningViewModel(emptyList(), placements), onBack = {}, onOpen = { opened += it })
+        }
+
+        compose.onNodeWithText("2 placements").assertIsDisplayed()
+        compose.onNodeWithText("≈ 315\u00A0€ / mois à terme").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.financeBlock(Screen.PlacementList.route)).performClick()
+
+        assertEquals(listOf(Screen.PlacementList.route), opened)
     }
 
     @Test
@@ -147,7 +169,7 @@ class FinanceSummaryScreenTest {
         val recurring = mockk<RecurringOperationRepository>()
         coEvery { recurring.getOverview() } returns Result.failure(IllegalStateException("hors sujet"))
         val model = FinanceSummaryViewModel(
-            mockk(), mockk(), mockk(), reviews, rules, recurring, mockk(), mockk(), mockk(), mockk(), mockk(),
+            mockk(), mockk(), mockk(), reviews, rules, recurring, mockk(), mockk(), mockk(), mockk(), mockk(), mockk(),
         )
         val opened = mutableListOf<String>()
         val presets = mutableListOf<ReviewPreset>()
@@ -205,7 +227,7 @@ class FinanceSummaryScreenTest {
             summaryEntries(FinanceMenu.TREASURY).map { it.route },
         )
         assertEquals(
-            listOf(Screen.ProjectList.route, Screen.LoanList.route, Screen.FinanceDashboard.route),
+            listOf(Screen.ProjectList.route, Screen.LoanList.route, Screen.FinanceDashboard.route, Screen.PlacementList.route),
             summaryEntries(FinanceMenu.PLANNING).map { it.route },
         )
         assertEquals(

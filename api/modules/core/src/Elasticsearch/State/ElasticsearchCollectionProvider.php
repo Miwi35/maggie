@@ -109,10 +109,7 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
         if ([] !== $translated['sort']) {
             $body['sort'] = $translated['sort'];
         } elseif (null !== $operation->getOrder()) {
-            $body['sort'] = [];
-            foreach ($operation->getOrder() as $field => $direction) {
-                $body['sort'][] = [$field => strtolower($direction)];
-            }
+            $body['sort'] = $this->filterTranslator->defaultSort($operation->getOrder(), $meta['fields']);
         }
 
         $response = $this->client->search([

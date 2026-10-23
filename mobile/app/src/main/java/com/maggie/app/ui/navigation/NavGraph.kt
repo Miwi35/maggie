@@ -135,6 +135,9 @@ import com.maggie.app.data.model.ReviewQueueItem
 import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
+import com.maggie.app.ui.screens.finance.PlacementFormScreen
+import com.maggie.app.ui.screens.finance.PlacementListScreen
+import com.maggie.app.ui.screens.finance.PlacementViewModel
 import com.maggie.app.ui.screens.finance.ProjectFormScreen
 import com.maggie.app.ui.screens.finance.ProjectListScreen
 import com.maggie.app.ui.screens.finance.ProjectSheetScreen
@@ -280,6 +283,12 @@ sealed class Screen(val route: String, val label: String) {
     /** The sheet of a loan (MAG-523): outside the menus, so drawn without chrome. */
     data object LoanDetail : Screen("finance_loans/{${DeepLinks.ARG_ID}}", "Prêt") {
         fun of(loanId: String): String = "finance_loans/$loanId"
+    }
+    data object PlacementList : Screen("finance_placements", "Placements")
+    /** The full-screen form of a placement (MAG-555): `id` absent for a new one. Outside the menus, so drawn without chrome. */
+    data object PlacementForm : Screen("finance_placements/form?${DeepLinks.ARG_ID}={${DeepLinks.ARG_ID}}", "Placement") {
+        fun of(placementId: String?): String =
+            if (placementId == null) "finance_placements/form" else "finance_placements/form?${DeepLinks.ARG_ID}=$placementId"
     }
     /** Activité Comptes · la revue (MAG-456): full screen, outside the Finance menus, so drawn without chrome. */
     data object FinanceReviewActivity : Screen("finance/review/activity", "Revue du mois")
@@ -592,6 +601,29 @@ private fun LoanDetailPage(navController: NavController, entry: NavBackStackEntr
         return
     }
     LoanSheetScreen(viewModel = koinViewModel<LoanDetailViewModel>(), loanId = loanId, onBack = leave)
+}
+
+/** « Placements » of Planification (MAG-555), out of [NavGraph]'s lambda like the projects. */
+@Composable
+private fun PlacementListPage(navController: NavController) {
+    val placementViewModel: PlacementViewModel = koinViewModel()
+    PlacementListScreen(
+        viewModel = placementViewModel,
+        onBack = { navController.backInFinance() },
+        onOpenForm = { id -> navController.navigate(Screen.PlacementForm.of(id)) { launchSingleTop = true } },
+    )
+}
+
+/** The full-screen form of a placement, on the list's ViewModel: the list shows what it saved without a request of its own. */
+@Composable
+private fun PlacementFormPage(navController: NavController, entry: NavBackStackEntry) {
+    val listEntry = remember(entry) { navController.previousBackStackEntry }
+    val placementViewModel: PlacementViewModel = koinViewModel(viewModelStoreOwner = listEntry ?: entry)
+    PlacementFormScreen(
+        viewModel = placementViewModel,
+        placementId = entry.arguments?.getString(DeepLinks.ARG_ID)?.takeIf(DeepLinks::isValidId),
+        onClose = { navController.popBackStack() },
+    )
 }
 
 // Out of NavGraph's body, like FinanceSummaryPage: that one function is already as large as the compiler takes.
@@ -1871,6 +1903,21 @@ fun NavGraph() {
                         ),
                     ) { entry ->
                         ProjectFormPage(navController, entry)
+                    }
+                    composable(Screen.PlacementList.route, deepLinks = DeepLinks.forRoute(Screen.PlacementList.route)) {
+                        PlacementListPage(navController)
+                    }
+                    composable(
+                        Screen.PlacementForm.route,
+                        arguments = listOf(
+                            navArgument(DeepLinks.ARG_ID) {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            },
+                        ),
+                    ) { entry ->
+                        PlacementFormPage(navController, entry)
                     }
                     composable(Screen.FinanceReviewActivity.route, deepLinks = DeepLinks.forRoute(Screen.FinanceReviewActivity.route)) {
                         ReviewActivityPage(navController, onOpenMaggie = { showChatSheet = true })

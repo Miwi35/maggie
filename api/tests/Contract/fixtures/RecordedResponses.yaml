@@ -554,3 +554,14 @@ Maggie\Finance\Entity\Project:
     dependsOn: ['@recorded_project_move']
     note: Recorded note
     user: '@recorded_user'
+
+# The placements (MAG-555): a monthly deposit on top of an initial payment.
+Maggie\Finance\Entity\Placement:
+  recorded_placement:
+    name: Recorded PEA
+    initial: 200000
+    deposit: 15000
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Monthly)>'
+    annualRate: 600
+    years: 20
+    user: '@recorded_user'

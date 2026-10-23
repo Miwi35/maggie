@@ -109,6 +109,8 @@ import com.maggie.app.data.model.EarlyRepayment
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.LoanCurve
 import com.maggie.app.data.model.LoanStep
+import com.maggie.app.data.model.Placement
+import com.maggie.app.data.model.PlacementSimulation
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.ProjectOptions
@@ -648,6 +650,21 @@ data class ProjectOptionsParams(
     val loanMonths: Int? = null,
     val downPaymentCents: Int? = null,
     val yieldBasisPoints: Int? = null,
+)
+
+/**
+ * A placement as the form and the steppers write it, for `POST` and the merge-patch `PATCH` alike
+ * (MAG-555): every field is sent, so a PATCH carries the whole placement as the screen shows it and
+ * the last one to land is the placement on screen. Amounts in cents, [annualRate] in basis points.
+ */
+@Serializable
+data class PlacementWriteRequest(
+    val name: String,
+    val initial: Int,
+    val deposit: Int,
+    val frequency: String,
+    val annualRate: Int,
+    val years: Int,
 )
 
 /** Every project id, in the new order: the API refuses a partial list. */
@@ -2300,6 +2317,41 @@ class MaggieApiService(
             params.loanMonths?.let { url.parameters.append("loanMonths", it.toString()) }
             params.downPaymentCents?.let { url.parameters.append("downPaymentCents", it.toString()) }
             params.yieldBasisPoints?.let { url.parameters.append("yieldBasisPoints", it.toString()) }
+        }.orRefusal().body()
+    }
+
+    // Finance — Placements (MAG-555), simulated: sorted by name
+    suspend fun getPlacements(): List<Placement> {
+        return client.get("$baseUrl/api/finance/placements") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.orRefusal().body<ApiCollection<Placement>>().member
+    }
+
+    suspend fun createPlacement(request: PlacementWriteRequest): Placement {
+        return client.post("$baseUrl/api/finance/placements") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun updatePlacement(id: String, request: PlacementWriteRequest): Placement {
+        return client.patch("$baseUrl/api/finance/placements/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun deletePlacement(id: String) {
+        client.delete("$baseUrl/api/finance/placements/$id").orRefusal()
+    }
+
+    /** The capital month by month, for the chart; the figures are the placement's own. */
+    suspend fun getPlacementSimulation(id: String): PlacementSimulation {
+        return client.get("$baseUrl/api/finance/placements/$id/simulation") {
+            accept(ContentType.Application.Json)
         }.orRefusal().body()
     }
 

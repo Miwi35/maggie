@@ -170,6 +170,26 @@ final class ElasticsearchFilterTranslator
     }
 
     /**
+     * An operation's default order as an Elasticsearch sort: its fields go
+     * through sortField() as a client's `order[...]` does, so a text field is
+     * sorted on its keyword (MAG-555).
+     *
+     * @param array<string, string>               $order  field => direction
+     * @param array<string, array<string, mixed>> $fields
+     *
+     * @return array<int, array<string, string>>
+     */
+    public function defaultSort(array $order, array $fields): array
+    {
+        $sort = [];
+        foreach ($order as $field => $direction) {
+            $sort[] = [self::sortField($field, $fields) => strtolower($direction)];
+        }
+
+        return $sort;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function buildDateFilter(string $field, string $operator, string $value): array

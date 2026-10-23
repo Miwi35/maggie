@@ -1314,6 +1314,38 @@ object UiTags {
     fun loanType(key: String) = LOAN_TYPE_PREFIX + key
     fun loanPenaltyMode(key: String) = LOAN_PENALTY_MODE_PREFIX + key
 
+    /**
+     * « Placements » of Planification (MAG-555): the screen, a row, the empty state, « + »; the
+     * projection card of the selected placement, its chart, its « Modifier »; the tablet's settings
+     * panel, a frequency, the steppers; the full-screen form, its fields, what the server refused,
+     * « Enregistrer » and « Supprimer ».
+     */
+    const val PLACEMENTS = "placements"
+    const val PLACEMENT_ROW = "placement_row"
+    const val PLACEMENT_EMPTY = "placement_empty"
+    const val PLACEMENT_ADD = "placement_add"
+    const val PLACEMENT_CARD = "placement_card"
+    const val PLACEMENT_CHART = "placement_chart"
+    const val PLACEMENT_EDIT = "placement_edit"
+    const val PLACEMENT_SETTINGS = "placement_settings"
+    const val PLACEMENT_FREQUENCY_PREFIX = "placement_frequency_"
+    const val PLACEMENT_STEP_PREFIX = "placement_step_"
+    const val PLACEMENT_FORM = "placement_form"
+    const val PLACEMENT_NAME = "placement_name"
+    const val PLACEMENT_INITIAL = "placement_initial"
+    const val PLACEMENT_DEPOSIT = "placement_deposit"
+    const val PLACEMENT_RATE = "placement_rate"
+    const val PLACEMENT_YEARS = "placement_years"
+    const val PLACEMENT_FORM_ERROR = "placement_form_error"
+    const val PLACEMENT_SAVE = "placement_save"
+    const val PLACEMENT_DELETE = "placement_delete"
+    const val PLACEMENT_DELETE_CONFIRM = "placement_delete_confirm"
+
+    fun placementFrequency(key: String) = PLACEMENT_FREQUENCY_PREFIX + key
+
+    /** A stepper button of the tablet: `deposit_plus`, `rate_minus`, `years_plus`… */
+    fun placementStep(field: String, plus: Boolean) = PLACEMENT_STEP_PREFIX + field + if (plus) "_plus" else "_minus"
+
     fun projectWellbeing(key: String) = PROJECT_WELLBEING_PREFIX + key
     fun projectDateMode(key: String) = PROJECT_DATE_MODE_PREFIX + key
     fun projectDependency(id: String) = PROJECT_DEPENDENCY_PREFIX + id

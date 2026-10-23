@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.CushionStatus
+import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ReviewPeriod
 import com.maggie.app.data.model.ReviewQueue
@@ -13,6 +14,7 @@ import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.bankConnectionNeedsAction
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatEuros
 import com.maggie.app.data.model.reviewMonthOf
 import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.lastSyncLabel
@@ -24,6 +26,7 @@ import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.LoanRepository
+import com.maggie.app.data.repository.PlacementRepository
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.RecurringOperationRepository
 import com.maggie.app.data.repository.ReviewRepository
@@ -47,6 +50,7 @@ enum class SummaryBlock {
     PROJECTS,
     LOANS,
     INDEPENDENCE,
+    PLACEMENTS,
     BANKS,
     CATEGORIES,
     LAST_SYNC,
@@ -89,6 +93,7 @@ class FinanceSummaryViewModel(
     private val dashboardRepository: FinanceDashboardRepository,
     private val bankRepository: BankConnectionRepository,
     private val categoryRepository: CategoryRepository,
+    private val placementRepository: PlacementRepository,
     private val today: () -> LocalDate = { LocalDate.now() },
 ) : ViewModel() {
 
@@ -134,6 +139,7 @@ class FinanceSummaryViewModel(
             dashboardRepository.getDashboard(date.year, date.monthValue)
                 .toBlock { BlockState.Ready(listOf(independenceSummary(it.tiles.planning.independence))) }
         }
+        SummaryBlock.PLACEMENTS -> placementRepository.getPlacements().toBlock(::placementsBlock)
         SummaryBlock.BANKS -> bankRepository.getConnections().toBlock(::banksBlock)
         SummaryBlock.CATEGORIES -> categoryRepository.getCategories()
             .toBlock { countBlock(it.size, "catégorie", "catégories", "Aucune catégorie") }
@@ -221,6 +227,20 @@ internal fun projectsBlock(projects: List<Project>): BlockState {
         ),
         needsAttention = unmet > 0,
         marks = projects.map { it.unmetDependencies.isNotEmpty() },
+    )
+}
+
+/**
+ * « 3 placements » and « ≈ 315 € / mois à terme » (MAG-555): the rent the placements would pay,
+ * withdrawn at 4 % a year once they have run — a simulation, said with its « ≈ ».
+ */
+internal fun placementsBlock(placements: List<Placement>): BlockState {
+    if (placements.isEmpty()) return BlockState.Ready(listOf("Aucun placement"))
+    return BlockState.Ready(
+        listOf(
+            "${placements.size} placement${if (placements.size > 1) "s" else ""}",
+            "≈ ${formatEuros(placements.sumOf { it.rent })} / mois à terme",
+        ),
     )
 }
 

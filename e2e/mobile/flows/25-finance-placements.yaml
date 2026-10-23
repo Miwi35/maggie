@@ -1,0 +1,87 @@
+appId: com.maggie.app.e2e
+name: 25-finance-placements
+tags:
+  - finance
+---
+# Les placements simulés, from the phone and the tablet (MAG-555, extends MAG-102).
+#
+# Étant donné le seed e2e : « PEA » 2 000 € + 150 € par mois à 6 % sur 20 ans, « Assurance-vie »
+#   1 200 € par an à 3,5 % sur 15 ans, « Livret jeune de Léo » 500 € une fois à 3 % sur 10 ans
+# Quand j'ouvre Finance › Planification et touche la carte « Placements »
+# Alors la liste montre les trois placements, et la projection du premier
+# Quand je touche « Assurance-vie »
+# Alors la projection est la sienne : son capital dans 15 ans
+#
+# Read-only: nothing is written, so the seed needs no reset. The phone has no Indépendance page of
+# its own (its block opens the dashboard): the way into the placements is Planification's card.
+#
+# What is not here: the figures to the euro, the chart, the steppers' PATCH and their late
+# answers, the form's refusals, the deletion (`PlacementListScreenTest`, `PlacementViewModelTest`,
+# `PlacementDraftTest`), and the admin's side of the same API.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/25-finance-placements.yaml
+      e2e_email: e2e@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+# Planification › the « Placements » card, the last of the page.
+- openLink: "maggie-e2e://finance"
+- extendedWaitUntil:
+    visible:
+      id: "finance_menu_dashboard"
+    timeout: 30000
+# The menu row scrolls: Planification is past the edge of a phone. Selecting Trésorerie, its
+# neighbour, brings the selected tab into view (ScrollableTabRow), and Planification with it.
+- tapOn:
+    id: "finance_menu_treasury"
+- extendedWaitUntil:
+    visible:
+      id: "finance_menu_planning"
+    timeout: 10000
+- tapOn:
+    id: "finance_menu_planning"
+- extendedWaitUntil:
+    visible:
+      id: "finance_block_finance_projects"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "finance_block_finance_placements"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ".*3 placements.*"
+    timeout: 20000
+- tapOn:
+    id: "finance_block_finance_placements"
+- extendedWaitUntil:
+    visible:
+      id: "placements"
+    timeout: 30000
+
+# The three placements of the seed, sorted by name. A row is one node for accessibility: its
+# texts are read together, hence the `.*`.
+- extendedWaitUntil:
+    visible: ".*Assurance-vie.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*Livret jeune de Léo.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ".*PEA.*"
+    timeout: 10000
+# The first is selected: the projection says its horizon (« capital dans » on the phone,
+# « Capital dans » on the tablet's tile).
+- extendedWaitUntil:
+    visible: "(?i).*capital dans 15 ans.*"
+    timeout: 10000
+
+# Another placement selected: the projection follows it.
+- tapOn: ".*Livret jeune de Léo.*"
+- extendedWaitUntil:
+    visible: "(?i).*capital dans 10 ans.*"
+    timeout: 10000

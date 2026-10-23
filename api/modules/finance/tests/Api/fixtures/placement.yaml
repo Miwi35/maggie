@@ -1,0 +1,37 @@
+# MAG-555's scenario: the mock-ups' PEA and life insurance. Another user's
+# placement proves the isolation.
+Maggie\Core\Entity\User:
+  test_user:
+    email: finance-api-test@example.com
+    googleId: google-finance-api-test
+    name: Finance Api Test User
+  other_user:
+    email: finance-placements-other@example.com
+    googleId: google-finance-placements-other
+    name: Other Placements User
+
+Maggie\Finance\Entity\Placement:
+  pea:
+    name: PEA
+    initial: 200000
+    deposit: 15000
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Monthly)>'
+    annualRate: 600
+    years: 20
+    user: '@test_user'
+  life:
+    name: Assurance-vie
+    initial: 0
+    deposit: 120000
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Yearly)>'
+    annualRate: 350
+    years: 15
+    user: '@test_user'
+  secret:
+    name: Placement secret
+    initial: 100000
+    deposit: 0
+    frequency: '<(Maggie\Finance\Enum\PlacementFrequency::Once)>'
+    annualRate: 200
+    years: 5
+    user: '@other_user'

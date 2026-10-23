@@ -12,6 +12,7 @@ use Maggie\Core\Elasticsearch\Pagination\ElasticsearchPaginator;
 use Maggie\Core\Elasticsearch\Query\ElasticsearchFilterTranslator;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Entity\User;
+use Maggie\Finance\Entity\Placement;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -145,6 +146,16 @@ class ElasticsearchCollectionProviderTest extends TestCase
         self::assertCount(2, $result['sort']);
         self::assertSame(['startAt' => 'asc'], $result['sort'][0]);
         self::assertSame(['endAt' => 'desc'], $result['sort'][1]);
+    }
+
+    /** A default order on a text field sorts on its keyword, as a client's order does (MAG-555). */
+    public function testTheDefaultOrderSortsATextFieldOnItsKeyword(): void
+    {
+        $fields = (new IndexMetadataReader())->read(Placement::class)['fields'] ?? [];
+
+        $sort = (new ElasticsearchFilterTranslator())->defaultSort(['name' => 'ASC', 'years' => 'DESC'], $fields);
+
+        self::assertSame([['name.keyword' => 'asc'], ['years' => 'desc']], $sort);
     }
 
     public function testFilterTranslatorHandlesTermFilter(): void

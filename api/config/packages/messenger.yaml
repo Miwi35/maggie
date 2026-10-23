@@ -140,6 +140,9 @@ framework:
             'Maggie\Finance\Message\DeleteProjectCommand': sync
             'Maggie\Finance\Message\ReorderProjectsCommand': sync
             'Maggie\Finance\Message\SetProjectFundingCommand': sync
+            'Maggie\Finance\Message\CreatePlacementCommand': sync
+            'Maggie\Finance\Message\UpdatePlacementCommand': sync
+            'Maggie\Finance\Message\DeletePlacementCommand': sync
             'Maggie\Finance\Message\CreateOperationCommand': sync
             'Maggie\Finance\Message\UpdateOperationCommand': sync
             'Maggie\Finance\Message\DeleteOperationCommand': sync

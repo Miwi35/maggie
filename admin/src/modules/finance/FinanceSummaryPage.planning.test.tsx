@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, memoryStore, testDataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -47,6 +47,22 @@ const counter = (overrides: Record<string, unknown>) => ({
   ...overrides,
 })
 
+const PEA = {
+  '@id': '/api/finance/placements/01PEA',
+  id: '01PEA',
+  name: 'PEA',
+  initial: 200000,
+  deposit: 15000,
+  frequency: 'monthly',
+  annualRate: 600,
+  years: 20,
+  final: 7443007,
+  paid: 3800000,
+  interest: 3643007,
+  rent: 24810,
+  monthlyDeposit: 15000,
+}
+
 const stubApi = (independence: Record<string, unknown>, loans: boolean) =>
   vi.stubGlobal(
     'fetch',
@@ -55,6 +71,10 @@ const stubApi = (independence: Record<string, unknown>, loans: boolean) =>
       if (path === '/api/finance/dashboard') return new Response(JSON.stringify({ independence: counter(independence) }))
       if (path === '/api/finance/debt-timeline') {
         return new Response(JSON.stringify(loans ? TIMELINE : { ...TIMELINE, loans: [], totalMonthlyPaymentCents: 0 }))
+      }
+      if (path === '/api/finance/placements') return new Response(JSON.stringify({ member: [PEA] }))
+      if (path === '/api/finance/placements/01PEA/simulation') {
+        return new Response(JSON.stringify({ final: 7443007, paid: 3800000, interest: 3643007, rent: 24810, curve: [] }))
       }
 
       return new Response('down', { status: 500 })
@@ -121,6 +141,16 @@ describe('Finance › Planification, with its real screens', () => {
 
     expect(await screen.findByText('Aucune rente déclarée')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Déclarer une rente' })).toHaveAttribute('href', '/categories')
+  })
+
+  test('the Indépendance tab shows the placements under the counter, a rente declared or not (MAG-555)', async () => {
+    stubApi({}, false)
+    renderPlanning(false, '/finance/summary/planning/independence')
+
+    expect(await screen.findByText('Aucune rente déclarée')).toBeInTheDocument()
+    const placements = await screen.findByRole('region', { name: 'Placements' })
+    expect(await within(placements).findByText('PEA')).toBeInTheDocument()
+    expect(within(placements).getByText(/^Retiré à 4 % par an/)).toBeInTheDocument()
   })
 
   test('with rentes declared but no loan, the menu opens on Indépendance', async () => {
