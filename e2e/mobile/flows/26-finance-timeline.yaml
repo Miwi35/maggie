@@ -72,12 +72,16 @@ tags:
     timeout: 10000
 
 # A second scenario beside the followed one: its own line, and the API's sentence on the gap of N.
+# « Qualité de vie » is `auto-quality` until a journey stores it, then a ULID:
+# reach its chip by the scenario's name, inside a compare chip.
 - scrollUntilVisible:
     element:
-      id: "timeline_compare_auto-quality"
+      id: "timeline_compare_.*"
+      text: "Qualité de vie"
     timeout: 20000
 - tapOn:
-    id: "timeline_compare_auto-quality"
+    id: "timeline_compare_.*"
+    text: "Qualité de vie"
 - scrollUntilVisible:
     element:
       id: "timeline_compared_track"
