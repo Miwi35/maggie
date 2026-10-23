@@ -4,6 +4,7 @@ namespace Maggie\Finance\Tests\Service;
 
 use Maggie\Finance\Entity\Loan;
 use Maggie\Finance\Entity\Project;
+use Maggie\Finance\Enum\PartialRepaymentEffect;
 use Maggie\Finance\Enum\PrepaymentPenaltyMode;
 use Maggie\Finance\Enum\ProjectWellbeing;
 use Maggie\Finance\Service\IndependenceBase;
@@ -13,6 +14,7 @@ use Maggie\Finance\Service\ScenarioCalculator;
 use Maggie\Finance\Service\ScenarioRepayments;
 use Maggie\Finance\Service\ScenarioSpec;
 use Maggie\Finance\Service\ScenarioTimeline;
+use Maggie\Finance\UseCase\SimulateEarlyRepayment;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -220,6 +222,119 @@ class ScenarioCalculatorTest extends KernelTestCase
         $repaid = array_values(array_filter($events, static fn (array $e): bool => 'early_repayment' === $e['type']))[0];
         self::assertSame('2027-01', $repaid['month']);
         self::assertSame(4000.0, (float) $repaid['amount_eur']);
+    }
+
+    public function testARepaymentGivesItsRealGainItsImmobilizedCapitalAndItsLoanName(): void
+    {
+        $loan = $this->loan()->setPrepaymentPenaltyMode(PrepaymentPenaltyMode::LegalCap);
+        $trip = $this->project('Japon', 300000, ProjectWellbeing::Comfort, 0);
+        $repayment = ['id' => 'rep-1', 'loanId' => (string) $loan->getId(), 'month' => '2026-12', 'amountCents' => null, 'effect' => null];
+
+        $row = $this->calculator->evaluate($this->inputs([$trip], [$loan]), $this->base, new ScenarioSpec($this->ids($trip), null, [$repayment]))['repayments'][0];
+
+        self::assertSame('Travaux', $row['loanName']);
+        self::assertGreaterThan(0, $row['penaltyCents']);
+        // The whole capital owed in December, not the capital of today: it is what leaves the account.
+        self::assertSame($row['amountCents'], $row['immobilizedCents']);
+        // Real gain = remaining interest − IRA (spec rule 8: 6 200 € − 882 € = 5 318 €, see PrepaymentPenaltyTest).
+        self::assertSame($row['interestSavedCents'] - $row['penaltyCents'], $row['realGainCents']);
+        self::assertSame(SimulateEarlyRepayment::realGainCents($row['interestSavedCents'], $row['penaltyCents']), $row['realGainCents']);
+        self::assertNull($row['effect'], 'A total repayment has no effect to choose.');
+    }
+
+    public function testTheSpecExampleMakesARealGainOf5318Euros(): void
+    {
+        $loan = (new Loan())->setName('Maison')
+            ->setPrincipalRemainingCents(9800000)
+            ->setAnnualRateBasisPoints(180)
+            ->setDurationMonths(120)
+            ->setMonthlyPaymentCents(LoanSchedule::annuity(9800000, 0.018 / 12, 120))
+            ->setEarlyRepaymentAllowed(true)
+            ->setPrepaymentPenaltyMode(PrepaymentPenaltyMode::LegalCap);
+
+        $result = self::getContainer()->get(SimulateEarlyRepayment::class)->execute($loan, null, new \DateTimeImmutable('2026-10-01'));
+
+        // 98 000 € at 1.8 %: the legal IRA are the 882 € of six months of interest, under 3 % of the capital.
+        self::assertSame(88200, $result['penaltyCents']);
+        self::assertSame($result['remainingInterestCents'] - 88200, $result['realGainCents']);
+    }
+
+    public function testAPartialRepaymentFollowsTheChosenEffect(): void
+    {
+        $loan = $this->loan();
+        $trip = $this->project('Japon', 300000, ProjectWellbeing::Comfort, 0);
+        $inputs = $this->inputs([$trip], [$loan]);
+        $base = ['loanId' => (string) $loan->getId(), 'month' => '2026-12', 'amountCents' => 500000];
+
+        $shorter = $this->calculator->evaluate($inputs, $this->base, new ScenarioSpec($this->ids($trip), null, [$base + ['id' => 'a', 'effect' => 'duration']]));
+        $lower = $this->calculator->evaluate($inputs, $this->base, new ScenarioSpec($this->ids($trip), null, [$base + ['id' => 'b', 'effect' => 'payment']]));
+
+        self::assertSame('duration', $shorter['repayments'][0]['effect']);
+        self::assertSame('payment', $lower['repayments'][0]['effect']);
+        // The loan keeps its payment and ends sooner, or ends on time with a lower payment.
+        self::assertLessThan($lower['metrics']['debtsEndDate'], $shorter['metrics']['debtsEndDate']);
+        self::assertGreaterThan(0, $lower['repayments'][0]['freedMonthlyCents']);
+    }
+
+    public function testAnEffectLeftOutFollowsTheOfferOfTheLoan(): void
+    {
+        $loan = $this->loan()->setPartialRepaymentEffect(PartialRepaymentEffect::LowerPayment);
+        $trip = $this->project('Japon', 300000, ProjectWellbeing::Comfort, 0);
+        $repayment = ['id' => 'a', 'loanId' => (string) $loan->getId(), 'month' => '2026-12', 'amountCents' => 500000];
+
+        $row = $this->calculator->evaluate($this->inputs([$trip], [$loan]), $this->base, new ScenarioSpec($this->ids($trip), null, [$repayment]))['repayments'][0];
+
+        self::assertSame('payment', $row['effect']);
+    }
+
+    public function testALowerPaymentIsRefusedOnALoanThatDoesNotAmortize(): void
+    {
+        $loan = $this->loan()->setType(\Maggie\Finance\Enum\LoanType::InFine);
+        $trip = $this->project('Japon', 300000, ProjectWellbeing::Comfort, 0);
+        $inputs = $this->inputs([$trip], [$loan]);
+        $repayment = ['id' => 'a', 'loanId' => (string) $loan->getId(), 'month' => '2026-12', 'amountCents' => 500000, 'effect' => 'payment'];
+
+        self::assertSame([], $this->calculator->evaluate($inputs, $this->base, new ScenarioSpec($this->ids($trip), null, [$repayment]))['repayments']);
+
+        $this->expectException(\DomainException::class);
+        self::getContainer()->get(ScenarioRepayments::class)->apply([$loan], [$repayment], $inputs->start(), false, true);
+    }
+
+    public function testTheCapacityOfThePlanningGrowsByTheFreedPaymentAfterTheRepaymentMonth(): void
+    {
+        $loan = $this->loan();
+        $trip = $this->project('Japon', 300000, ProjectWellbeing::Comfort, 0);
+        $inputs = $this->inputs([$trip], [$loan]);
+        // 500 € in December, within that month's 1 000 € of capacity, and the payment is lowered from January.
+        $repayment = ['id' => 'a', 'loanId' => (string) $loan->getId(), 'month' => '2026-12', 'amountCents' => 50000, 'effect' => 'payment'];
+
+        $without = $this->calculator->plan($inputs, new ScenarioSpec($this->ids($trip)));
+        $with = $this->calculator->plan($inputs, new ScenarioSpec($this->ids($trip), null, [$repayment]));
+        $freed = $with['effects']['repayments'][0]['freedMonthlyCents'];
+
+        self::assertGreaterThan(0, $freed);
+        $before = array_column($without['plan']['months'], 'capacityCents');
+        $after = array_column($with['plan']['months'], 'capacityCents');
+        // M2 is the month of the repayment: its outlay is paid from the capacity; from M3 the freed payment adds to it.
+        self::assertSame($before[3] + $freed, $after[3]);
+        self::assertSame($before[4] + $freed, $after[4]);
+    }
+
+    public function testADetailedEvaluationGivesTheMonthsEachRepaymentMovesN(): void
+    {
+        $loan = $this->loan();
+        $car = $this->project('Voiture', 900000, ProjectWellbeing::High, 0);
+        $inputs = $this->inputs([$car], [$loan]);
+        $repayment = ['id' => 'a', 'loanId' => (string) $loan->getId(), 'month' => '2027-01', 'amountCents' => null, 'effect' => null];
+        $spec = new ScenarioSpec($this->ids($car), null, [$repayment]);
+
+        $summary = $this->calculator->evaluate($inputs, $this->base, $spec);
+        $detail = $this->calculator->evaluate($inputs, $this->base, $spec, true);
+
+        self::assertArrayNotHasKey('nImpactMonths', $summary['repayments'][0]);
+        $impact = $detail['repayments'][0]['nImpactMonths'];
+        self::assertIsInt($impact);
+        self::assertSame($impact, array_values(array_filter($detail['events'], static fn (array $e): bool => 'early_repayment' === $e['type']))[0]['n_impact_months']);
     }
 
     public function testEventsAreOnlyBuiltOnRequest(): void

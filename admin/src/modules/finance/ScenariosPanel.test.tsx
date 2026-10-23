@@ -60,7 +60,7 @@ interface Call {
 }
 
 /** The scenarios API over a list in memory. */
-function stubApi(initial: Scenario[], options: { failList?: boolean; refuse?: { status: number; error: string }; failComparison?: boolean } = {}) {
+function stubApi(initial: Scenario[], options: { failList?: boolean; failDetail?: boolean; effects?: Record<string, unknown>[]; refuse?: { status: number; error: string }; failComparison?: boolean } = {}) {
   let stored = initial.map((row) => ({ ...row }))
   const calls: Call[] = []
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
@@ -123,6 +123,9 @@ function stubApi(initial: Scenario[], options: { failList?: boolean; refuse?: { 
       const target = stored.find((row) => row.id === id)
       if (!target) return json({ error: `Scenario not found: ${id}` }, 404)
 
+      if (method === 'GET') {
+        return options.failDetail ? json({ error: 'boom' }, 500) : json({ ...target, repaymentEffects: options.effects ?? [] })
+      }
       if (method === 'POST' && path.endsWith('/make-current')) {
         // An offer made current is stored under an id of its own, and its offer goes.
         const kept = target.id.startsWith('auto-') ? { ...target, id: `01${target.id.toUpperCase()}`, status: 'saved' } : target
@@ -479,9 +482,87 @@ describe('ScenariosPanel', () => {
 
     await waitFor(() => expect(cards()).toContain('Je rembourse'))
     expect((api.writes()[0]?.body as { repayments: unknown[] }).repayments).toEqual([
-      { loanId: 'LOAN', month: '2027-04', amountCents: 300000 },
-      { loanId: 'LOAN', month: '2028-01', amountCents: null },
+      { loanId: 'LOAN', month: '2027-04', amountCents: 300000, effect: null },
+      { loanId: 'LOAN', month: '2028-01', amountCents: null, effect: null },
     ])
+  })
+
+  test('sends the effect chosen for a partial repayment, and none for a total one', async () => {
+    const api = stubApi(offers())
+    const user = userEvent.setup()
+    render(<ScenariosPanel />)
+    await loaded()
+
+    await user.click(screen.getByRole('button', { name: 'Scénario' }))
+    const form = await screen.findByRole('form', { name: 'Nouveau scénario' })
+    await user.type(within(form).getByLabelText(/^Nom/), 'Mensualité plus basse')
+    await user.click(within(form).getByRole('button', { name: 'Ajouter un remboursement' }))
+    await user.click(within(form).getByLabelText('Prêt 1'))
+    await user.click(await screen.findByRole('option', { name: 'Crédit voiture' }))
+    await user.type(within(form).getByLabelText('Mois 1'), '2027-04')
+    await user.type(within(form).getByLabelText('Montant 1 (€)'), '3000')
+    await user.click(within(form).getByLabelText('Effet 1'))
+    await user.click(await screen.findByRole('option', { name: 'Réduire la mensualité' }))
+    await user.click(within(form).getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(cards()).toContain('Mensualité plus basse'))
+    expect((api.writes()[0]?.body as { repayments: unknown[] }).repayments).toEqual([
+      { loanId: 'LOAN', month: '2027-04', amountCents: 300000, effect: 'payment' },
+    ])
+  })
+
+  test('lists a repayment as an element of the scenario with the figures the API gives it', async () => {
+    const withRepayment = scenario('01MINE', 'Mon plan', '2041-12', {
+      kind: 'user',
+      status: 'saved',
+      repayments: [{ id: '01REPAY', loanId: 'LOAN', month: '2027-04', amountCents: null, effect: null }],
+    })
+    stubApi([...offers(), withRepayment], {
+      effects: [
+        {
+          id: '01REPAY',
+          loanId: 'LOAN',
+          loanName: 'Prêt auto',
+          month: '2027-04',
+          immobilizedCents: 9800000,
+          effect: null,
+          penaltyCents: 88200,
+          interestSavedCents: 620000,
+          realGainCents: 531800,
+          freedMonthlyCents: 41000,
+          nImpactMonths: -3,
+        },
+      ],
+    })
+    render(<ScenariosPanel />)
+    await loaded()
+
+    const item = await within(card('Mon plan')).findByTestId('scenario-repayment-item')
+    expect(item).toHaveTextContent('Remboursement anticipé')
+    expect(item).toHaveTextContent('Prêt auto')
+    expect(item).toHaveTextContent('Total')
+    const figures = await within(item).findByTestId('scenario-repayment-figures')
+    expect(figures).toHaveTextContent(/Capital immobilisé 98\s000,00\s€/)
+    expect(figures).toHaveTextContent(/Gain réel 5\s318,00\s€/)
+    expect(figures).toHaveTextContent('N − 3 mois')
+    expect(figures).toHaveTextContent(/Mensualité libérée 410,00\s€/)
+    expect(within(card('Rapide')).queryByTestId('scenario-repayment-item')).toBeNull()
+  })
+
+  test('says so when the figures of a repayment cannot be read, and keeps the repayment listed', async () => {
+    const withRepayment = scenario('01MINE', 'Mon plan', '2041-12', {
+      kind: 'user',
+      status: 'saved',
+      repayments: [{ id: '01REPAY', loanId: 'LOAN', month: '2027-04', amountCents: 500000, effect: 'payment' }],
+    })
+    stubApi([...offers(), withRepayment], { failDetail: true })
+    render(<ScenariosPanel />)
+    await loaded()
+
+    const item = await within(card('Mon plan')).findByTestId('scenario-repayment-item')
+    expect(item).toHaveTextContent('Partiel')
+    expect(await within(card('Mon plan')).findByRole('alert')).toHaveTextContent('boom')
+    expect(within(item).queryByTestId('scenario-repayment-figures')).toBeNull()
   })
 
   test('refuses a scenario without a name, an incomplete repayment or a wrong saving, and writes nothing', async () => {

@@ -12,6 +12,9 @@ import { bareId } from './envelopeTree'
 export type ScenarioKind = 'user' | 'auto' | 'advisor'
 export type ScenarioStatus = 'draft' | 'saved'
 
+/** What a partial repayment shortens: the loan (`duration`) or its payment (`payment`); null follows the loan's offer. */
+export type RepaymentEffect = 'duration' | 'payment'
+
 export interface ScenarioRepayment {
   id?: string
   loanId: string
@@ -19,6 +22,29 @@ export interface ScenarioRepayment {
   month: string
   /** Null repays the whole capital. */
   amountCents: number | null
+  effect: RepaymentEffect | null
+}
+
+/** What a stored repayment comes to, read from the scenario's detail (never computed here). */
+export interface RepaymentFigures {
+  id: string
+  loanId: string
+  loanName: string
+  month: string
+  /** The capital repaid: what leaves the savings. */
+  immobilizedCents: number
+  /** Null for a total repayment: nothing left to shorten. */
+  effect: RepaymentEffect | null
+  /** The IRA. */
+  penaltyCents: number
+  /** The remaining interest it spares. */
+  interestSavedCents: number
+  /** Remaining interest − IRA; negative when it costs more than it saves. */
+  realGainCents: number
+  /** The payment freed from the next month, added to the capacity. */
+  freedMonthlyCents: number
+  /** Months it moves the date N; negative: sooner. Null when N is not reached either way. */
+  nImpactMonths: number | null
 }
 
 export interface ScenarioMetrics {
@@ -102,6 +128,21 @@ const toRepayment = (raw: Raw): ScenarioRepayment => ({
   loanId: bareId(String(raw.loanId ?? '')),
   month: String(raw.month ?? ''),
   amountCents: raw.amountCents === null || raw.amountCents === undefined ? null : Number(raw.amountCents),
+  effect: raw.effect === 'duration' || raw.effect === 'payment' ? raw.effect : null,
+})
+
+export const toFigures = (raw: Raw): RepaymentFigures => ({
+  id: String(raw.id ?? ''),
+  loanId: bareId(String(raw.loanId ?? '')),
+  loanName: String(raw.loanName ?? ''),
+  month: String(raw.month ?? ''),
+  immobilizedCents: Number(raw.immobilizedCents ?? 0),
+  effect: raw.effect === 'duration' || raw.effect === 'payment' ? raw.effect : null,
+  penaltyCents: Number(raw.penaltyCents ?? 0),
+  interestSavedCents: Number(raw.interestSavedCents ?? 0),
+  realGainCents: Number(raw.realGainCents ?? 0),
+  freedMonthlyCents: Number(raw.freedMonthlyCents ?? 0),
+  nImpactMonths: raw.nImpactMonths === null || raw.nImpactMonths === undefined ? null : Number(raw.nImpactMonths),
 })
 
 /** A scenario of the list, of the detail or of a write's answer. */
@@ -205,6 +246,28 @@ const refused = async (response: Response, fallback: string): Promise<ScenarioEr
   const body = (await response.json().catch(() => ({}))) as { error?: unknown }
 
   return new ScenarioError(typeof body.error === 'string' && body.error ? body.error : fallback)
+}
+
+/** The figures of each repayment of a scenario (its detail), by repayment id. */
+export async function fetchRepaymentFigures(id: string): Promise<Record<string, RepaymentFigures>> {
+  const response = await request(`${SCENARIOS_PATH}/${encodeURIComponent(id)}`)
+  if (!response.ok) throw await refused(response, 'Les remboursements ne peuvent pas être chiffrés.')
+  const body = (await response.json()) as { repaymentEffects?: Raw[] }
+  const figures: Record<string, RepaymentFigures> = {}
+  for (const raw of body.repaymentEffects ?? []) {
+    const row = toFigures(raw)
+    figures[row.id] = row
+  }
+
+  return figures
+}
+
+/** « N − 1 mois », « N + 2 mois », « N inchangée », or the fact that N is out of reach. */
+export const nImpactLabel = (months: number | null): string => {
+  if (months === null) return 'N non atteinte avant 20 ans'
+  if (months === 0) return 'N inchangée'
+
+  return `N ${months < 0 ? '−' : '+'} ${Math.abs(months)} mois`
 }
 
 export async function fetchScenarios(): Promise<Scenario[]> {

@@ -82,7 +82,9 @@ final class ScenarioCalculator
      * Everything a scenario comes to.
      *
      * `events` (the frise) costs one more computation per project and per
-     * repayment to weigh each on N: asked only when it is drawn.
+     * repayment to weigh each on N: asked only when it is drawn. It also gives
+     * each repayment its `nImpactMonths` (negative: N comes sooner; null when N
+     * is not reached with or without it).
      *
      * @return array{
      *     nDate: string|null,
@@ -112,8 +114,11 @@ final class ScenarioCalculator
         }
 
         $events = null;
+        $repayments = $effects['repayments'];
         if ($withEvents) {
-            $events = $this->events($inputs, $base, $spec, $plan, $effects, $independence, $placements);
+            $impacts = $this->repaymentImpacts($inputs, $base, $spec, $effects, $independence);
+            $repayments = array_map(static fn (array $row): array => $row + ['nImpactMonths' => $impacts[$row['id']] ?? null], $repayments);
+            $events = $this->events($inputs, $base, $spec, $plan, $effects, $independence, $placements, $impacts);
         }
 
         return [
@@ -128,7 +133,7 @@ final class ScenarioCalculator
                 'purchaseMonth' => $row['purchaseMonth'],
                 'isBeyondHorizon' => $row['isBeyondHorizon'],
             ], $plan['projects']),
-            'repayments' => $effects['repayments'],
+            'repayments' => $repayments,
             'placements' => $placements,
             'events' => $events,
         ];
@@ -189,10 +194,11 @@ final class ScenarioCalculator
      * @param array<string, mixed>       $effects
      * @param array<string, mixed>       $independence
      * @param list<array<string, mixed>> $placements
+     * @param array<string, int|null>    $repaymentImpacts
      *
      * @return list<array<string, mixed>>
      */
-    private function events(PlanningInputs $inputs, IndependenceBase $base, ScenarioSpec $spec, array $plan, array $effects, array $independence, array $placements): array
+    private function events(PlanningInputs $inputs, IndependenceBase $base, ScenarioSpec $spec, array $plan, array $effects, array $independence, array $placements, array $repaymentImpacts): array
     {
         $own = PlanIndependence::monthsToN($independence);
         $nullIfUnreached = static fn (int $without) => IndependenceProjector::HORIZON_MONTHS === $own && IndependenceProjector::HORIZON_MONTHS === $without ? null : $own - $without;
@@ -203,16 +209,29 @@ final class ScenarioCalculator
                 $projectImpacts[$row['projectId']] = $nullIfUnreached($this->monthsToN($inputs, $base, $spec->withoutProject($row['projectId'])));
             }
         }
-        $repaymentImpacts = [];
-        foreach ($effects['repayments'] as $repayment) {
-            $repaymentImpacts[$repayment['id']] = $nullIfUnreached($this->monthsToN($inputs, $base, $spec->withoutRepayment($repayment['id'])));
-        }
-
         $loanNames = [];
         foreach ($inputs->loans as $loan) {
             $loanNames[(string) $loan->getId()] = $loan->getName();
         }
 
         return $this->timeline->build($plan, $effects, $independence, $projectImpacts, $repaymentImpacts, $loanNames, $placements);
+    }
+
+    /**
+     * @param array<string, mixed> $effects
+     * @param array<string, mixed> $independence
+     *
+     * @return array<string, int|null> repayment id → months N moves because of it
+     */
+    private function repaymentImpacts(PlanningInputs $inputs, IndependenceBase $base, ScenarioSpec $spec, array $effects, array $independence): array
+    {
+        $own = PlanIndependence::monthsToN($independence);
+        $impacts = [];
+        foreach ($effects['repayments'] as $repayment) {
+            $without = $this->monthsToN($inputs, $base, $spec->withoutRepayment($repayment['id']));
+            $impacts[$repayment['id']] = IndependenceProjector::HORIZON_MONTHS === $own && IndependenceProjector::HORIZON_MONTHS === $without ? null : $own - $without;
+        }
+
+        return $impacts;
     }
 }

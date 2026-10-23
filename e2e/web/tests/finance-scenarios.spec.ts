@@ -13,6 +13,10 @@ import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
  * its own current instead, and the badge and the banner follow. A stored copy
  * of an offered scenario cannot be deleted through the API: it stays, with no
  * current scenario, which every other journey tolerates.
+ *
+ * The second journey (MAG-552) adds the total early repayment of the seeded
+ * « Prêt immo » to a scenario of its own: the repayment shows in the list with
+ * the real gain the API figures (remaining interest − IRA) and its effect on N.
  */
 
 test.describe.configure({ mode: 'serial' })
@@ -21,6 +25,8 @@ const LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json
 const JSON_ONLY = { Accept: 'application/json' }
 const EXTRAS = ['Scénarios e2e : vélo', 'Scénarios e2e : piano']
 const OWN = 'Plan e2e'
+const REPAYING = 'Solde e2e'
+const MORTGAGE = 'Prêt immo'
 
 interface StoredScenario {
   id: string
@@ -119,5 +125,72 @@ test('the three offered scenarios are compared, one is made current, then one of
     await expect(screen.currentBanner).toHaveText(/Aucun scénario courant/)
   } finally {
     await cleanUp(api)
+  }
+})
+
+interface RepaymentFigures {
+  loanName: string
+  immobilizedCents: number
+  penaltyCents: number
+  interestSavedCents: number
+  realGainCents: number
+}
+
+/** Two months from now, as the editor's month field takes it: `YYYY-MM`. */
+const repaymentMonth = (): string => {
+  const date = new Date()
+  date.setMonth(date.getMonth() + 2)
+
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+async function removeRepaying(api: APIRequestContext): Promise<void> {
+  for (const scenario of (await scenarios(api)).filter((candidate) => candidate.name === REPAYING)) {
+    await api.delete(`/api/finance/scenarios/${scenario.id}`, { headers: JSON_ONLY })
+  }
+}
+
+test('a total early repayment is an element of the scenario, with its real gain and its effect on N', async ({ page, api }) => {
+  await removeRepaying(api)
+  const screen = new FinanceProjectsPage(page)
+
+  try {
+    // --- Given: the seeded loan « Prêt immo » and the Scénarios tab -----------
+    await screen.open()
+    await screen.openScenarios()
+
+    // --- When: a scenario repays all of that loan's capital --------------------
+    await page.getByRole('button', { name: 'Scénario', exact: true }).click()
+    const form = page.getByRole('form', { name: 'Nouveau scénario' })
+    await form.getByLabel(/^Nom/).fill(REPAYING)
+    await form.getByRole('button', { name: 'Ajouter un remboursement' }).click()
+    await form.getByLabel('Prêt 1').click()
+    await page.getByRole('option', { name: MORTGAGE }).click()
+    await form.getByLabel('Mois 1').fill(repaymentMonth())
+    await form.getByRole('checkbox', { name: 'Tout le capital' }).check()
+    const saved = page.waitForResponse((response) => response.url().endsWith('/api/finance/scenarios') && response.request().method() === 'POST')
+    await form.getByRole('button', { name: 'Enregistrer' }).click()
+    expect((await saved).status()).toBe(201)
+
+    // --- Then: the repayment is listed in the scenario, with its figures --------
+    const item = screen.scenarioCard(REPAYING).getByTestId('scenario-repayment-item')
+    await expect(item).toContainText('Remboursement anticipé')
+    await expect(item).toContainText(MORTGAGE)
+    await expect(item).toContainText('Total')
+    const figures = item.getByTestId('scenario-repayment-figures')
+    await expect(figures).toContainText(/Gain réel/)
+    await expect(figures).toContainText(/N (−|\+) \d+ mois|N inchangée|N non atteinte/)
+
+    // --- And: the API figured the real gain as the remaining interest minus the IRA
+    const stored = (await scenarios(api)).find((scenario) => scenario.name === REPAYING)
+    const detail = await api.get(`/api/finance/scenarios/${stored?.id}`, { headers: JSON_ONLY })
+    expect(detail.status(), await detail.text()).toBe(200)
+    const [effect] = ((await detail.json()) as { repaymentEffects: RepaymentFigures[] }).repaymentEffects
+    expect(effect?.loanName).toBe(MORTGAGE)
+    expect(effect?.immobilizedCents).toBeGreaterThan(0)
+    expect(effect?.interestSavedCents).toBeGreaterThan(0)
+    expect(effect?.realGainCents).toBe((effect?.interestSavedCents ?? 0) - (effect?.penaltyCents ?? 0))
+  } finally {
+    await removeRepaying(api)
   }
 })

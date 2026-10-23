@@ -5,9 +5,11 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.Project
+import com.maggie.app.data.model.RepaymentFigures
 import com.maggie.app.data.model.Scenario
 import com.maggie.app.data.model.ScenarioComparison
 import com.maggie.app.data.model.ScenarioDifference
+import com.maggie.app.data.model.ScenarioRepayment
 import com.maggie.app.data.repository.ScenarioRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -21,6 +23,9 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -536,5 +541,49 @@ class ScenarioViewModelTest {
 
         viewModel.removeRepayment(key)
         assertTrue(viewModel.uiState.value.editor!!.draft.repayments.isEmpty())
+    }
+
+    private val repaying = mine.copy(repayments = listOf(ScenarioRepayment(id = "r1", loanId = "l1", month = "2027-04", amountCents = null)))
+    private val figures = RepaymentFigures(id = "r1", loanName = "Prêt auto", realGainCents = 531800, nImpactMonths = -3)
+
+    @Test
+    fun `the figures of a repayment are read with the detail of its scenario`() = runTest {
+        coEvery { repository.getScenarios() } returns Result.success(listOf(rapid, repaying))
+        coEvery { repository.getRepaymentFigures("s1") } returns Result.success(mapOf("r1" to figures))
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(figures, viewModel.uiState.value.repaymentFigures["r1"])
+        coVerify(exactly = 0) { repository.getRepaymentFigures("auto-rapid") }
+    }
+
+    @Test
+    fun `a failed read of the figures keeps the repayment listed without them`() = runTest {
+        coEvery { repository.getScenarios() } returns Result.success(listOf(repaying))
+        coEvery { repository.getRepaymentFigures("s1") } returns Result.failure(RuntimeException("offline"))
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.repaymentFigures.isEmpty())
+        assertEquals(1, viewModel.uiState.value.scenarios.single().repayments.size)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `the effect chosen for a repayment is saved with the scenario`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.openEditor(null)
+        advanceUntilIdle()
+        viewModel.editDraft { it.copy(name = "Je rembourse") }
+        viewModel.addRepayment()
+        val key = viewModel.uiState.value.editor!!.draft.repayments.single().key
+        viewModel.editRepayment(key) { it.copy(loanId = "l1", month = "2027-06", euros = "3000", effect = "payment") }
+
+        val request = viewModel.uiState.value.editor!!.draft.toRequest()!!
+
+        assertEquals("payment", request.body["repayments"]!!.jsonArray.single().jsonObject["effect"]!!.jsonPrimitive.content)
     }
 }

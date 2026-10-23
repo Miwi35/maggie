@@ -1,5 +1,5 @@
 import { centsToEuros, eurosToCents } from './scenariosApi'
-import type { Scenario, ScenarioInput } from './scenariosApi'
+import type { RepaymentEffect, Scenario, ScenarioInput } from './scenariosApi'
 
 /** One early repayment as the editor shows it: a loan, a month, an amount in euros or the whole capital. */
 export interface RepaymentRow {
@@ -12,6 +12,8 @@ export interface RepaymentRow {
   month: string
   total: boolean
   euros: string
+  /** Null follows the loan's offer. */
+  effect: RepaymentEffect | null
 }
 
 export interface ScenarioFormValues {
@@ -28,7 +30,7 @@ export type ScenarioFormErrors = Partial<Record<'name' | 'repayments' | 'saving'
 
 let rows = 0
 
-export const newRepaymentRow = (): RepaymentRow => ({ key: `new-${++rows}`, loanId: '', month: '', total: false, euros: '' })
+export const newRepaymentRow = (): RepaymentRow => ({ key: `new-${++rows}`, loanId: '', month: '', total: false, euros: '', effect: null })
 
 /** A new scenario starts from every project, in the user's order. */
 export const emptyValues = (projectIds: string[]): ScenarioFormValues => ({
@@ -49,6 +51,7 @@ export const valuesOf = (scenario: Scenario, knownProjectIds: string[]): Scenari
     month: repayment.month,
     total: repayment.amountCents === null,
     euros: centsToEuros(repayment.amountCents),
+    effect: repayment.effect,
   })),
   placementIds: scenario.placementIds,
   saving: centsToEuros(scenario.monthlySaving),
@@ -74,6 +77,7 @@ export const toInput = (values: ScenarioFormValues): ScenarioInput => ({
     loanId: row.loanId,
     month: row.month,
     amountCents: row.total ? null : eurosToCents(row.euros),
+    effect: row.total ? null : row.effect,
   })),
   placementIds: values.placementIds,
   monthlySaving: eurosToCents(values.saving),

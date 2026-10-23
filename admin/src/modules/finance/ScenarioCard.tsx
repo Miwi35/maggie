@@ -8,6 +8,7 @@ import FormControlLabel from '@mui/material/FormControlLabel'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { isAdvisor, isAuto, monthLabel, nLabel } from './scenariosApi'
+import { ScenarioRepaymentFigures } from './ScenarioRepaymentFigures'
 import type { Scenario } from './scenariosApi'
 
 interface Props {
@@ -54,6 +55,7 @@ export const ScenarioCard = ({ scenario, gap, compared, comparable, busy, onTogg
           Bien-être {scenario.metrics.wellbeing} · Projets bouclés{' '}
           {scenario.metrics.projectsDoneBy ? `en ${monthLabel(scenario.metrics.projectsDoneBy)}` : "au-delà de l'horizon"}
         </Typography>
+        {scenario.repayments.length > 0 && <ScenarioRepaymentFigures scenario={scenario} />}
       </CardContent>
       <CardActions sx={{ flexWrap: 'wrap', px: 2, pb: 2, gap: 0.5 }}>
         <FormControlLabel

@@ -303,6 +303,7 @@ class ScenarioControllerTest extends WebTestCase
         yield 'repayment on an unknown loan' => [['name' => 'X', 'repayments' => [['loanId' => '01ARZ3NDEKTSV4RRFFQ69G5FAV', 'month' => '2027-01', 'amountCents' => 100000]]]];
         yield 'repayment on another user\'s loan' => [['name' => 'X', 'repayments' => [['loanId' => '@foreign', 'month' => '2027-01', 'amountCents' => 100000]]]];
         yield 'repayment above the capital' => [['name' => 'X', 'repayments' => [['loanId' => '@consumer', 'month' => '2027-01', 'amountCents' => 99999999]]]];
+        yield 'repayment with an unknown effect' => [['name' => 'X', 'repayments' => [['loanId' => '@consumer', 'month' => '2027-01', 'amountCents' => 100000, 'effect' => 'faster']]]];
         yield 'two repayments of a loan the same month' => [['name' => 'X', 'repayments' => [
             ['loanId' => '@consumer', 'month' => '2027-01', 'amountCents' => 100000],
             ['loanId' => '@consumer', 'month' => '2027-01', 'amountCents' => 100000],
@@ -362,6 +363,27 @@ class ScenarioControllerTest extends WebTestCase
         self::assertCount(1, $detail['repaymentEffects']);
         self::assertSame(300000, $detail['repaymentEffects'][0]['amountCents']);
         self::assertGreaterThan(0, $detail['repaymentEffects'][0]['interestSavedCents']);
+    }
+
+    public function testARepaymentGivesItsRealGainItsEffectAndWhatItDoesToN(): void
+    {
+        $this->login();
+
+        $data = $this->call('POST', '/api/finance/scenarios', [
+            'name' => 'Je rembourse',
+            'repayments' => [['loanId' => $this->id('consumer'), 'month' => '2027-04', 'amountCents' => 300000, 'effect' => 'payment']],
+        ]);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('payment', $data['scenario']['repayments'][0]['effect']);
+        $saved = array_values(array_filter($this->stored(), static fn (Scenario $scenario): bool => 'Je rembourse' === $scenario->getName()));
+        self::assertSame('payment', $saved[0]->getRepayments()[0]['effect'] ?? null);
+
+        $effect = $this->call('GET', '/api/finance/scenarios/'.$data['scenario']['id'])['repaymentEffects'][0];
+
+        self::assertSame(['payment', 300000], [$effect['effect'], $effect['immobilizedCents']]);
+        self::assertSame($effect['interestSavedCents'] - $effect['penaltyCents'], $effect['realGainCents']);
+        self::assertArrayHasKey('nImpactMonths', $effect);
+        self::assertNotEmpty($effect['loanName']);
     }
 
     public function testUpdateChangesOnlyTheFieldsGiven(): void

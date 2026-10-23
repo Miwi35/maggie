@@ -5,6 +5,7 @@ import com.maggie.app.data.api.ScenarioWriteRequest
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.Project
+import com.maggie.app.data.model.RepaymentFigures
 import com.maggie.app.data.model.Scenario
 import com.maggie.app.data.model.ScenarioComparison
 
@@ -16,6 +17,10 @@ class ScenarioRepository(
     private val apiService: MaggieApiService,
 ) {
     suspend fun getScenarios(): Result<List<Scenario>> = runCatching { apiService.getScenarios().scenarios }
+
+    /** The figures of each repayment of a scenario, by repayment id. */
+    suspend fun getRepaymentFigures(id: String): Result<Map<String, RepaymentFigures>> =
+        runCatching { apiService.getScenarioDetail(id).repaymentEffects.associateBy { it.id } }
 
     /** [ids] is 2 to 6 scenarios, the first one being the reference. */
     suspend fun compare(ids: List<String>): Result<ScenarioComparison> = runCatching { apiService.getScenarioComparison(ids) }

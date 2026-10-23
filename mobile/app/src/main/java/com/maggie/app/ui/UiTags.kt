@@ -1386,6 +1386,8 @@ object UiTags {
     const val SCENARIO_PLACEMENT_PREFIX = "scenario_placement_"
     const val SCENARIO_REPAYMENT_ADD = "scenario_repayment_add"
     const val SCENARIO_REPAYMENT_PREFIX = "scenario_repayment_"
+    const val SCENARIO_REPAYMENT_ROW_PREFIX = "scenario_repayment_row_"
+    const val SCENARIO_REPAYMENT_FIGURES_PREFIX = "scenario_repayment_figures_"
 
     /**
      * The loans of Planification and their sheet (MAG-523): a row, the sheet, its IRA block and its curve;
@@ -1470,6 +1472,8 @@ object UiTags {
     fun scenarioProjectUp(id: String) = SCENARIO_PROJECT_UP_PREFIX + id
     fun scenarioProjectDown(id: String) = SCENARIO_PROJECT_DOWN_PREFIX + id
     fun scenarioPlacement(id: String) = SCENARIO_PLACEMENT_PREFIX + id
+    fun scenarioRepaymentRow(id: String) = SCENARIO_REPAYMENT_ROW_PREFIX + id
+    fun scenarioRepaymentFigures(id: String) = SCENARIO_REPAYMENT_FIGURES_PREFIX + id
     fun scenarioRepayment(key: Int, field: String) = "${SCENARIO_REPAYMENT_PREFIX}${key}_$field"
 
     fun reviewSegment(step: String) = REVIEW_ACTIVITY_SEGMENT_PREFIX + step

@@ -56,13 +56,52 @@ data class ScenarioProject(
     val position: Int = 0,
 )
 
-/** An early repayment simulated in [month] (`YYYY-MM`); a null [amountCents] repays the whole capital. */
+/**
+ * An early repayment simulated in [month] (`YYYY-MM`); a null [amountCents] repays the whole capital. [effect]
+ * (partial only) is `duration` or `payment`; null follows the loan's offer.
+ */
 @Serializable
 data class ScenarioRepayment(
     val id: String? = null,
     val loanId: String,
     val month: String,
     val amountCents: Int? = null,
+    val effect: String? = null,
+) {
+    val isTotal: Boolean get() = amountCents == null
+
+    companion object {
+        const val EFFECT_DURATION = "duration"
+        const val EFFECT_PAYMENT = "payment"
+    }
+}
+
+/**
+ * What a repayment of a scenario comes to, as `GET /api/finance/scenarios/{id}` figures it (`repaymentEffects`):
+ * the capital [immobilizedCents], the IRA ([penaltyCents]), the remaining interest it spares, the [realGainCents]
+ * (that interest minus the IRA, negative when it costs more than it saves), the payment freed from the next month
+ * ([freedMonthlyCents], added to the planning capacity) and the move of N in months ([nImpactMonths], negative:
+ * sooner; null when N is not reached either way). Never computed on the phone.
+ */
+@Serializable
+data class RepaymentFigures(
+    val id: String,
+    val loanId: String = "",
+    val loanName: String = "",
+    val month: String = "",
+    val immobilizedCents: Int = 0,
+    val effect: String? = null,
+    val penaltyCents: Int = 0,
+    val interestSavedCents: Int = 0,
+    val realGainCents: Int = 0,
+    val freedMonthlyCents: Int = 0,
+    val nImpactMonths: Int? = null,
+)
+
+/** The detail of a scenario: only the figures of its repayments are read from it. */
+@Serializable
+data class ScenarioDetail(
+    val repaymentEffects: List<RepaymentFigures> = emptyList(),
 )
 
 @Serializable
@@ -109,6 +148,38 @@ data class ScenarioWriteResult(
     val success: Boolean = false,
     val scenario: Scenario? = null,
 )
+
+/** « Prêt auto · remboursement anticipé », or the generic title while the loan's name is not known. */
+fun repaymentTitle(figures: RepaymentFigures?): String =
+    if (figures == null || figures.loanName.isBlank()) "Remboursement anticipé" else "${figures.loanName} · remboursement anticipé"
+
+/** « Total » or « Partiel 3000,00 EUR », with what a partial one shortens. */
+fun repaymentKindLabel(repayment: ScenarioRepayment, figures: RepaymentFigures?): String {
+    if (repayment.isTotal) return "Total"
+    val effect = when (figures?.effect ?: repayment.effect) {
+        ScenarioRepayment.EFFECT_DURATION -> " · réduire la durée"
+        ScenarioRepayment.EFFECT_PAYMENT -> " · réduire la mensualité"
+        else -> ""
+    }
+    return "Partiel ${formatCents(repayment.amountCents ?: 0)}$effect"
+}
+
+/** « N − 3 mois », « N + 2 mois », « N inchangée », or that N is out of reach. */
+fun nImpactLabel(months: Int?): String = when {
+    months == null -> "N non atteinte avant 20 ans"
+    months == 0 -> "N inchangée"
+    months < 0 -> "N − ${-months} mois"
+    else -> "N + $months mois"
+}
+
+/** « −120,00 EUR » for a gain that is a loss. */
+fun signedCents(cents: Int): String = if (cents < 0) "−${formatCents(-cents)}" else formatCents(cents)
+
+/** The figures of a repayment on one line: immobilized capital, IRA, real gain, effect on N, freed payment. */
+fun repaymentFiguresLine(figures: RepaymentFigures): String =
+    "Capital immobilisé ${formatCents(figures.immobilizedCents)} · IRA ${formatCents(figures.penaltyCents)} · " +
+        "Gain réel ${signedCents(figures.realGainCents)} · ${nImpactLabel(figures.nImpactMonths)} · " +
+        "Mensualité libérée ${formatCents(figures.freedMonthlyCents)}"
 
 private val SCENARIO_MONTH = DateTimeFormatter.ofPattern("LLLL yyyy", Locale.FRENCH)
 

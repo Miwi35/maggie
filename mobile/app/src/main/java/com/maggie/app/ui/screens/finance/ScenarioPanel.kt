@@ -53,9 +53,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.RepaymentFigures
 import com.maggie.app.data.model.Scenario
 import com.maggie.app.data.model.ScenarioComparison
+import com.maggie.app.data.model.ScenarioRepayment
 import com.maggie.app.data.model.orderedScenarios
+import com.maggie.app.data.model.repaymentFiguresLine
+import com.maggie.app.data.model.repaymentKindLabel
+import com.maggie.app.data.model.repaymentTitle
 import com.maggie.app.data.model.scenarioCurrentSubtitle
 import com.maggie.app.data.model.scenarioCurrentTitle
 import com.maggie.app.data.model.scenarioCurveDescription
@@ -65,6 +70,7 @@ import com.maggie.app.data.model.scenarioMonthLabel
 import com.maggie.app.data.model.scenarioNLabel
 import com.maggie.app.data.model.scenarioTableRows
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.chartColor
 import com.maggie.app.ui.uiTagRoot
 
@@ -170,6 +176,7 @@ fun ScenarioPanel(state: ScenarioUiState, actions: ScenarioActions, manage: Bool
                 orderedScenarios(state.scenarios).forEach { scenario ->
                     ScenarioRow(
                         scenario = scenario,
+                        figures = state.repaymentFigures,
                         gap = state.gaps[scenario.id].takeIf { !scenario.current },
                         busy = state.busyId != null,
                         compared = scenario.id in state.selected,
@@ -227,6 +234,7 @@ private fun CurrentBlock(current: Scenario?, manage: Boolean, actions: ScenarioA
 @Composable
 private fun ScenarioRow(
     scenario: Scenario,
+    figures: Map<String, RepaymentFigures>,
     gap: String?,
     busy: Boolean,
     compared: Boolean,
@@ -257,6 +265,9 @@ private fun ScenarioRow(
             gap?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag(UiTags.scenarioGap(scenario.id)))
             }
+            scenario.repayments.forEach { repayment ->
+                RepaymentItem(repayment, repayment.id?.let { figures[it] })
+            }
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -281,6 +292,36 @@ private fun ScenarioRow(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * An early repayment as an element of the scenario's list, tinted blue: « Prêt auto · remboursement anticipé »,
+ * Total or Partiel, and the figures the API gives it (immobilized capital, IRA, real gain, effect on N, freed
+ * payment). Without figures (not read yet, or the read failed) the repayment is still listed.
+ */
+@Composable
+private fun RepaymentItem(repayment: ScenarioRepayment, figures: RepaymentFigures?) {
+    val blue = MaggieTokens.Signal.info
+    Surface(
+        color = blue.copy(alpha = 0.16f),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag(UiTags.scenarioRepaymentRow(repayment.id ?: "${repayment.loanId}_${repayment.month}")),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(repaymentTitle(figures), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                "${scenarioMonthLabel(repayment.month)} · ${repaymentKindLabel(repayment, figures)}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            figures?.let {
+                Text(
+                    repaymentFiguresLine(it),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag(UiTags.scenarioRepaymentFigures(it.id)),
+                )
             }
         }
     }

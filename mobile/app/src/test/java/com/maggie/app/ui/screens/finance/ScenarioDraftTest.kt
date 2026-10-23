@@ -91,4 +91,27 @@ class ScenarioDraftTest {
         assertTrue(draft.repayments.single().total)
         assertTrue(draft.errors().isEmpty())
     }
+
+    @Test
+    fun `a partial repayment sends the effect chosen, a total one sends none`() {
+        val partial = RepaymentDraft(key = 1, loanId = "l1", month = "2027-06", euros = "3000", effect = "payment")
+
+        assertEquals("payment", partial.toRequest()!!.effect)
+        assertNull(partial.copy(effect = null).toRequest()!!.effect)
+        assertNull(partial.copy(total = true).toRequest()!!.effect)
+    }
+
+    @Test
+    fun `editing a scenario reads the effect of its repayments back`() {
+        val scenario = Scenario(
+            id = "s1",
+            name = "Mon plan",
+            repayments = listOf(ScenarioRepayment(id = "r1", loanId = "l1", month = "2027-06", amountCents = 300000, effect = "duration")),
+        )
+
+        val draft = ScenarioDraft.of(scenario, knownProjectIds = null)
+
+        assertEquals("duration", draft.repayments.single().effect)
+        assertEquals("duration", draft.repayments.single().toRequest()!!.effect)
+    }
 }

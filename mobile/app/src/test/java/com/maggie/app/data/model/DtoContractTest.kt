@@ -713,6 +713,27 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the repayment figures deserialise from the recorded scenario detail (MAG-552)`() {
+        val detail = readRecording("finance_scenario.read")
+
+        val read = json.decodeFromJsonElement(ScenarioDetail.serializer(), detail)
+        assertTrue("The recorded detail proves nothing: it has no repayment.", read.repaymentEffects.isNotEmpty())
+        assertTrue(read.repaymentEffects.first().loanName.isNotBlank())
+        assertDeclaredFieldsExist(
+            "RepaymentFigures",
+            serializer<RepaymentFigures>(),
+            detail["repaymentEffects"]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet(),
+            "finance_scenario.repaymentEffects",
+        )
+        assertDeclaredFieldsExist(
+            "ScenarioRepayment",
+            serializer<ScenarioRepayment>(),
+            detail["repayments"]!!.jsonArray.flatMap { it.jsonObject.keys }.toSet(),
+            "finance_scenario.repayments",
+        )
+    }
+
+    @Test
     fun `placements deserialise from the recorded response (MAG-555)`() =
         assertCollectionContract("finance_placements", serializer<Placement>(), "Placement")
 

@@ -131,4 +131,40 @@ class ScenarioTest {
 
         assertEquals(listOf("a", "b"), scenario.projectIds)
     }
+
+    @Test
+    fun `a repayment is titled by its loan and worded by what it repays`() {
+        val figures = RepaymentFigures(id = "r1", loanName = "Prêt auto", effect = "payment", realGainCents = 531800)
+        val partial = ScenarioRepayment(id = "r1", loanId = "l1", month = "2027-04", amountCents = 300000, effect = "payment")
+
+        assertEquals("Prêt auto · remboursement anticipé", repaymentTitle(figures))
+        assertEquals("Remboursement anticipé", repaymentTitle(null))
+        assertEquals("Total", repaymentKindLabel(partial.copy(amountCents = null), figures))
+        assertEquals("Partiel ${formatCents(300000)} · réduire la mensualité", repaymentKindLabel(partial, figures))
+        assertEquals("Partiel ${formatCents(300000)} · réduire la durée", repaymentKindLabel(partial.copy(effect = "duration"), null))
+        assertEquals("Partiel ${formatCents(300000)}", repaymentKindLabel(partial.copy(effect = null), null))
+    }
+
+    @Test
+    fun `the move of N is worded in months, sooner or later`() {
+        assertEquals("N − 3 mois", nImpactLabel(-3))
+        assertEquals("N + 2 mois", nImpactLabel(2))
+        assertEquals("N inchangée", nImpactLabel(0))
+        assertEquals("N non atteinte avant 20 ans", nImpactLabel(null))
+    }
+
+    @Test
+    fun `the figures line gives the real gain, the effect on N and the freed payment`() {
+        val figures = RepaymentFigures(
+            id = "r1", immobilizedCents = 9800000, penaltyCents = 88200, realGainCents = 531800, freedMonthlyCents = 41000, nImpactMonths = -3,
+        )
+        val line = repaymentFiguresLine(figures)
+
+        assertTrue(line.contains("Capital immobilisé ${formatCents(9800000)}"))
+        assertTrue(line.contains("IRA ${formatCents(88200)}"))
+        assertTrue(line.contains("Gain réel ${formatCents(531800)}"))
+        assertTrue(line.contains("N − 3 mois"))
+        assertTrue(line.contains("Mensualité libérée ${formatCents(41000)}"))
+        assertEquals("−${formatCents(12000)}", signedCents(-12000))
+    }
 }
