@@ -131,7 +131,9 @@ describe('Home', () => {
                       { slot: 'dinner', meals: [] },
                     ],
                   }
-                : { count: 0, forRecipes: [], stores: [] },
+                : url.startsWith('/api/home/tasks')
+                  ? { tasks: [], routines: [] }
+                  : { count: 0, forRecipes: [], stores: [] },
             ),
         }),
       )
