@@ -24,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -214,6 +215,26 @@ internal fun centsText(cents: Int): String =
     if (cents % 100 == 0) (cents / 100).toString() else "%d,%02d".format(cents / 100, kotlin.math.abs(cents % 100))
 
 /**
+ * The amounts a [CentsField] sent up and has not yet seen come back. The amount returns a frame
+ * later, so while the owner types faster than that, « 2 » comes back when the field already
+ * reads « 28 »: a stale echo, not a change from elsewhere, and it must not rewrite the text.
+ */
+internal class PendingCents {
+    private val sent = ArrayDeque<Int>()
+
+    fun sent(cents: Int) {
+        sent.addLast(cents)
+    }
+
+    /** The field reads [typed] (null: no amount) and the amount is now [cents]: should the text follow? */
+    fun shouldShow(cents: Int, typed: Int?): Boolean {
+        val index = sent.indexOf(cents)
+        if (index >= 0) repeat(index + 1) { sent.removeFirst() } else sent.clear()
+        return sent.isEmpty() && typed != cents
+    }
+}
+
+/**
  * An amount typed in euros. The text is the owner's while it reads as [cents]; when the amount
  * changes from elsewhere (a step, a new split, a bound) the field shows the new one.
  */
@@ -226,14 +247,19 @@ internal fun CentsField(
     modifier: Modifier = Modifier,
 ) {
     var text by remember { mutableStateOf(centsText(cents)) }
+    val pending = remember { PendingCents() }
+    val latestCents by rememberUpdatedState(cents)
     LaunchedEffect(cents) {
-        if (parseCents(text) != cents) text = centsText(cents)
+        if (pending.shouldShow(cents, parseCents(text))) text = centsText(cents)
     }
     OutlinedTextField(
         value = text,
         onValueChange = { typed ->
             text = typed
-            parseCents(typed)?.let(onChange)
+            parseCents(typed)?.let {
+                if (it != latestCents) pending.sent(it)
+                onChange(it)
+            }
         },
         label = { Text(label) },
         suffix = { Text("€") },

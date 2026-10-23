@@ -189,6 +189,14 @@ class AdaptiveNavigationTest {
     }
 
     @Test
+    fun `an account opened from the dashboard goes straight to the list when a pane has room`() {
+        assertEquals(Screen.AccountList.route, accountRouteFor(true))
+        assertEquals(Screen.AccountTransactions.route, accountRouteFor(false))
+        // The detail route it avoids would be folded into this very list, losing its one-shot request.
+        assertEquals(accountRouteFor(true), foldsDetailRouteIntoPane(Screen.AccountTransactions.route, true))
+    }
+
+    @Test
     fun `a route that is not a detail route is never replaced`() {
         listOf(Screen.Cookbook, Screen.Calendar, Screen.RecipeEdit, Screen.Loading).forEach {
             assertNull(it.route, foldsDetailRouteIntoPane(it.route, true))

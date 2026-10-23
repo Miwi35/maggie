@@ -1,0 +1,31 @@
+appId: com.maggie.app.e2e
+name: scroll the list under the finger to its end
+---
+# Maestro's `scrollUntilVisible` fails the tablet twice (MAG-571):
+#   - it swipes from the centre of the screen, which on a tablet is the detail pane (and
+#     on a foldable may be the chat panel), not the list: nothing scrolls, the element
+#     is never reached (`17b-tasks-day`: `tasks_reserve_toggle`);
+#   - it takes an element as visible while its bounds are on screen, and the launcher's
+#     taskbar (the bottom 60 px of the tablet) is on screen: a button the list clips at the
+#     window's foot is « visible » and the tap lands on the taskbar (`17c-tasks-evening`:
+#     `tasks_evening_good_night`, centre at y = 741 for a window ending at 740).
+#
+# So the journey scrolls the list itself: three flings from the left quarter of the screen,
+# which is inside the list on all three formats (a phone's single column, a foldable's
+# list pane, a tablet's 360 dp list pane right of the rail), and end at the foot of the
+# content, where the window's own bottom padding keeps the last row above the taskbar.
+# Starting at 55 % keeps the touch above a soft keyboard that is still up (a tablet's 800 px minus its keyboard).
+# Nothing happens when the content already fits.
+#
+# The caller then taps or waits for what it wanted: a `tapOn` or an `extendedWaitUntil`,
+# never an `assertVisible` (`task e2e:mobile:lint`, check 5).
+- evalScript: ${0}
+- swipe:
+    start: 25%, 55%
+    end: 25%, 15%
+- swipe:
+    start: 25%, 55%
+    end: 25%, 15%
+- swipe:
+    start: 25%, 55%
+    end: 25%, 15%

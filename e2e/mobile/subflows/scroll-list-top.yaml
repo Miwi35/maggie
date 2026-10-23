@@ -1,0 +1,13 @@
+appId: com.maggie.app.e2e
+name: scroll the list under the finger to its top
+---
+# The way back of `scroll-list-end.yaml` (read its header, MAG-571): two flings down, from the
+# left quarter of the screen, which is inside the list on every format. Replaces a
+# `scrollUntilVisible` with `direction: UP`, which swipes from the centre of the screen.
+- evalScript: ${0}
+- swipe:
+    start: 25%, 25%
+    end: 25%, 70%
+- swipe:
+    start: 25%, 25%
+    end: 25%, 70%

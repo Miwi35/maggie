@@ -62,6 +62,14 @@ tags:
 - tapOn:
     id: "chat_send"
 
+# Keyboard out of the way before reading the thread (MAG-571). On the tablet the chat
+# is a panel of the activity's own window, which the keyboard pans up instead of
+# shrinking: with it open, the header and the whole conversation sit above the top of
+# the screen (negative bounds, so Maestro skips them) and only the input row shows.
+# The sheet of the phone is a dialog and does not have the problem. Same step as the
+# other chat journeys; it looks first, a bare `hideKeyboard` would close the sheet.
+- runFlow: ../subflows/hide-keyboard.yaml
+
 # `agent/fixtures/fake-llm/30-upcoming-events.yaml` scripts the model's side and
 # nothing else: the `get_upcoming_events` call it asks for really runs, against
 # the real MCP server and the seeded agenda, before this sentence streams back.
@@ -87,6 +95,8 @@ tags:
 
 - tapOn:
     id: "chat_send"
+
+- runFlow: ../subflows/hide-keyboard.yaml
 
 - extendedWaitUntil:
     visible: ".*17 octobre au dimanche 1er novembre 2026.*"

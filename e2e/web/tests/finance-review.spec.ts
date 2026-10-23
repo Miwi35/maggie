@@ -104,9 +104,15 @@ test('filter À qualifier, validate the first line: it becomes Reconnue, Suivant
   const review = new FinanceReviewPage(page)
   await review.open()
   await review.search.fill(tag)
+  // Wait for the search to have narrowed the list before the next gesture: the pills write the
+  // URL from the filter the page last rendered, so a click that beats the render of the search
+  // writes the old one back and drops it (MAG-571: the list was left on all the month's lines).
+  await expect(review.rows.first()).toBeVisible()
+  await expect(review.rows.filter({ hasNotText: tag })).toHaveCount(0)
 
   // Reconnues: the line the rule filed.
   await review.statePill('Reconnues').click()
+  await expect(page).toHaveURL(/state=recognised/)
   await expect(review.rows).toHaveCount(1)
   await expect(review.row(ruled[1])).toBeVisible()
   await expect(review.rowState(ruled[1])).toHaveText('Reconnue')

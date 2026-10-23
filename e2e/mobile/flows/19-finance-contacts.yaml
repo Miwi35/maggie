@@ -142,7 +142,14 @@ tags:
     file: ../scripts/contacts-api.js
     env:
       ACTION: second
-- back
+# Not `back`: on the tablet Tom's page sits beside the list, so one `back` leaves « Contacts » altogether.
+- openLink: "maggie-e2e://finance/accounts"
+- tapOn:
+    id: "accounts_contacts"
+- extendedWaitUntil:
+    visible:
+      id: "contact_row"
+    timeout: 30000
 - tapOn:
     id: "contact_row"
 - extendedWaitUntil:

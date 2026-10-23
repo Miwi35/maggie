@@ -25,11 +25,26 @@ export class FinanceTransfersPage extends FinanceAccountsPage {
     this.release = this.content.getByRole('button', { name: 'Ce n’est pas un virement interne' })
   }
 
-  /** The detection button, wherever the rules tab shows it (a list with or without rules). */
+  /**
+   * The detection button, wherever the rules tab shows it (a list with or
+   * without rules).
+   *
+   * Once the list has answered. While it loads, the toolbar carries the button;
+   * when it answers empty, react-admin swaps the whole view for `ListEmpty`,
+   * which carries another one. A click that lands between the two runs on the
+   * button about to be unmounted: the request goes out, its answer sets the
+   * preview on a component that no longer exists, and the dialog never opens
+   * (MAG-571, 33 ms between the list's answer and the click).
+   */
   async openDetection(): Promise<void> {
     const categories = new FinanceCategoriesPage(this.page)
     await categories.open()
     await categories.openTab('Règles de catégorisation')
+    await expect(
+      this.content
+        .getByRole('heading', { name: "Aucune règle pour l'instant" })
+        .or(this.content.getByRole('link', { name: 'Modifier' }).first()),
+    ).toBeVisible()
     await expect(this.detect).toBeVisible()
   }
 

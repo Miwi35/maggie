@@ -116,6 +116,14 @@ async function suggestions(api: APIRequestContext): Promise<Suggestion[]> {
 const createdAccountIds: string[] = []
 const createdCategoryIds: string[] = []
 
+// One after the other. The catch-up of the recurring operations (and the
+// acceptance of a suggestion) is a pass over the user's whole history: any
+// journey that writes it attaches the lines of every series the same user holds
+// at that moment, so a neighbour's series saved a second earlier loses the
+// lines its own preview was about to show — or finds them attached before its
+// « preview writes nothing » check (MAG-571).
+test.describe.configure({ mode: 'serial' })
+
 test.afterEach(async ({ recurringUser }) => {
   for (const id of createdAccountIds.splice(0)) {
     await recurringUser.api.delete(`/api/accounts/${id}`)

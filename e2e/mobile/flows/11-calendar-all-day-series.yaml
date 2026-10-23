@@ -19,7 +19,7 @@ tags:
 # endDate the 2nd, exclusive as in Google.
 # Stored as midnight UTC, Paris's offset pushed its end to 01:00 on the 2nd and the
 # app drew it on both days; it is now a pair of dates, read with no zone. The flow
-# finds it in the month, opens the 1st by its number, then steps to the 2nd and
+# finds it in the month, opens the 1st by its cell, then steps to the 2nd and
 # waits for that day to be drawn before asking that the event is not there. Which
 # days a longer event covers is the JVM's business (`AllDayEventDaysTest`).
 
@@ -56,8 +56,14 @@ tags:
         id: "calendar_month_slot_${output.first}_.*"
     timeout: 20000
 
+# The cell, at its foot, not its number: a day with a chip has the number's touch target
+# (48 dp, centred on the 11 sp digit) cut by the chip that overlaps it, and what is left is
+# centred above the cell, on the weekday header (the tablet reads [235..253] for a cell
+# starting at 248): the tap opened nothing (MAG-571). The foot is under the chips on all three
+# formats, and the cell opens its day as the number does.
 - tapOn:
-    id: "calendar_month_date_${output.first}"
+    id: "calendar_month_day_${output.first}"
+    point: "50%,90%"
 
 - extendedWaitUntil:
     visible:
