@@ -80,6 +80,14 @@ data class PlacementSimulation(
     val withdrawalProjects: String get() = withdrawals.map { it.name }.distinct().joinToString(", ")
 }
 
+/** The capital at the end of [month], and what was paid in by then. */
+@Serializable
+data class PlacementPoint(
+    val month: Int,
+    val capital: Long = 0,
+    val paid: Long = 0,
+)
+
 /** Capital leaving a placement for a project: its [name], the [month] it is bought (« 2027-04 »), the [amountCents]. */
 @Serializable
 data class PlacementWithdrawal(

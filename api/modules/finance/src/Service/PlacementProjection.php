@@ -50,7 +50,7 @@ final class PlacementProjection
     }
 
     /**
-     * The placement with the withdrawals the plan implies.
+     * The placement with the withdrawals the plan implies: `withdrawals` lists what the curve really lost, so they add up to `withdrawn`.
      *
      * @param array<string, mixed>   $plan     {@see ProjectPlanner::plan()}
      * @param array<string, Project> $projects by id
@@ -59,7 +59,7 @@ final class PlacementProjection
      */
     public function figures(Placement $placement, array $plan, array $projects): array
     {
-        $withdrawals = [];
+        $asked = [];
         $byMonth = [];
         foreach ($plan['projects'] as $row) {
             $project = $projects[$row['projectId']] ?? null;
@@ -79,7 +79,8 @@ final class PlacementProjection
 
             $index = self::monthIndex($plan['startMonth'], $row['purchaseMonth']);
             $byMonth[$index] = ($byMonth[$index] ?? 0) + $amount;
-            $withdrawals[] = [
+            $asked[] = [
+                'index' => $index,
                 'projectId' => $row['projectId'],
                 'name' => $row['name'],
                 'month' => $row['purchaseMonth'],
@@ -88,6 +89,18 @@ final class PlacementProjection
         }
 
         $drawn = $this->simulator->withWithdrawals($placement, $byMonth);
+
+        // What the curve really lost: a month gives at most the capital there is, and nothing past the duration.
+        $left = $drawn['taken'];
+        $withdrawals = [];
+        foreach ($asked as $withdrawal) {
+            $amount = min($withdrawal['amountCents'], $left[$withdrawal['index']] ?? 0);
+            if ($amount <= 0) {
+                continue;
+            }
+            $left[$withdrawal['index']] -= $amount;
+            $withdrawals[] = ['projectId' => $withdrawal['projectId'], 'name' => $withdrawal['name'], 'month' => $withdrawal['month'], 'amountCents' => $amount];
+        }
 
         return PlacementView::of($placement) + [
             'withdrawals' => $withdrawals,

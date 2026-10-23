@@ -3,7 +3,8 @@
 #
 # A net saving capacity of 500 €/month (income 500 €, no loan, no spending
 # measured), a matelas with a target of 0 month so that it takes none of it,
-# and no account: nothing is gathered besides the salary. One project:
+# and a PEA account only (an investment one, outside the reserve): nothing is
+# gathered besides the salary. One project:
 #   Voyage au Japon  5 000 € → 1 500 € come from the PEA, 3 500 € from the
 #                              salary: bought six months on (7 × 500 €)
 # The PEA: 2 000 € then 150 € a month at 6 % over 20 years. Its simulation is
@@ -36,6 +37,15 @@ Maggie\Finance\Entity\Placement:
     years: 20
     user: '@e2e_placement_withdrawal_user'
 
+Maggie\Finance\Entity\Account:
+  e2e_placement_withdrawal_pea_account:
+    name: PEA
+    type: '<(Maggie\Finance\Enum\AccountType::Investment)>'
+    currency: EUR
+    balanceCents: 500000
+    isCushion: false
+    user: '@e2e_placement_withdrawal_user'
+
 Maggie\Finance\Entity\Project:
   e2e_placement_withdrawal_japan:
     name: Voyage au Japon
@@ -48,6 +58,7 @@ Maggie\Finance\Entity\ProjectFundingSource:
   e2e_placement_withdrawal_japan_pea:
     kind: '<(Maggie\Finance\Enum\FundingSourceKind::Capital)>'
     amountCents: 150000
+    account: '@e2e_placement_withdrawal_pea_account'
     placement: '@e2e_placement_withdrawal_pea'
     position: 0
     project: '@e2e_placement_withdrawal_japan'

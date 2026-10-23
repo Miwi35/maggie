@@ -148,6 +148,7 @@ class PlacementSimulatorTest extends TestCase
         self::assertSame(0, $result['curveWith'][0]['capital']);
         self::assertSame(0, $result['finalWith']);
         self::assertSame(100000, $result['gapAtEnd']);
+        self::assertSame([0 => 100000], $result['taken'], 'what the month really gave, not what was asked');
     }
 
     public function testAWithdrawalBeyondTheDurationIsIgnored(): void
@@ -156,5 +157,6 @@ class PlacementSimulatorTest extends TestCase
 
         self::assertSame(0, $result['gapAtEnd']);
         self::assertSame(0, $result['withdrawn']);
+        self::assertSame([], $result['taken']);
     }
 }

@@ -28,7 +28,7 @@ final class PlacementSimulator
     public function simulate(int $initial, int $deposit, PlacementFrequency $frequency, int $annualRateBasisPoints, int $years): array
     {
         $run = $this->run($initial, $deposit, $frequency, $annualRateBasisPoints, $years, []);
-        unset($run['withdrawn']);
+        unset($run['withdrawn'], $run['taken']);
 
         return $run;
     }
@@ -45,7 +45,10 @@ final class PlacementSimulator
      *
      * @param array<int, int> $withdrawals month index → cents asked
      *
-     * @return array{curveWithout: list<array{month: int, capital: int, paid: int}>, curveWith: list<array{month: int, capital: int, paid: int}>, gapAtEnd: int, finalWithout: int, finalWith: int, rentWithout: int, rentWith: int, withdrawn: int}
+     * `taken` is what each month really gave, month index → cents: the withdrawals
+     * the placement could cover, none beyond its duration
+     *
+     * @return array{curveWithout: list<array{month: int, capital: int, paid: int}>, curveWith: list<array{month: int, capital: int, paid: int}>, gapAtEnd: int, finalWithout: int, finalWith: int, rentWithout: int, rentWith: int, withdrawn: int, taken: array<int, int>}
      */
     public function withWithdrawals(Placement $placement, array $withdrawals): array
     {
@@ -68,13 +71,14 @@ final class PlacementSimulator
             'rentWithout' => $without['rent'],
             'rentWith' => $with['rent'],
             'withdrawn' => $with['withdrawn'],
+            'taken' => $with['taken'],
         ];
     }
 
     /**
      * @param array<int, int> $withdrawals month index → cents asked
      *
-     * @return array{final: int, paid: int, interest: int, rent: int, withdrawn: int, curve: list<array{month: int, capital: int, paid: int}>}
+     * @return array{final: int, paid: int, interest: int, rent: int, withdrawn: int, taken: array<int, int>, curve: list<array{month: int, capital: int, paid: int}>}
      */
     private function run(int $initial, int $deposit, PlacementFrequency $frequency, int $annualRateBasisPoints, int $years, array $withdrawals): array
     {
@@ -89,8 +93,12 @@ final class PlacementSimulator
         }
 
         $withdrawn = 0;
-        $take = static function (int $month) use (&$capital, &$withdrawn, $withdrawals): void {
-            $taken = min(max(0, $withdrawals[$month] ?? 0), (int) floor(max(0.0, $capital)));
+        $takenByMonth = [];
+        $take = static function (int $month) use (&$capital, &$withdrawn, &$takenByMonth, $withdrawals): void {
+            $taken = min(max(0, $withdrawals[$month] ?? 0), self::cents(floor(max(0.0, $capital))));
+            if ($taken > 0) {
+                $takenByMonth[$month] = $taken;
+            }
             $capital -= $taken;
             $withdrawn += $taken;
         };
@@ -115,6 +123,7 @@ final class PlacementSimulator
             'interest' => $final - $paid,
             'rent' => self::rent($final),
             'withdrawn' => $withdrawn,
+            'taken' => $takenByMonth,
             'curve' => $curve,
         ];
     }

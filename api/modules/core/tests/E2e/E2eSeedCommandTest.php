@@ -178,7 +178,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // balance account's. Eight since MAG-456: the review activity's. Nine since MAG-462: the period review's.
         // Ten since MAG-524: the stock user's « Livret jeune », the car's savings source.
         // Thirteen since MAG-529: the next project account's current account, Livret jeune and Livret A.
-        self::assertSame(13, $this->rowsOf(Account::class));
+        // Fourteen since MAG-556: the placement withdrawal account's PEA.
+        self::assertSame(14, $this->rowsOf(Account::class));
         // Thirteen and not twelve since MAG-46: the rent received last month is
         // what the independence counter reads as a rente, and the journey
         // asserts the 60 % it makes of the measured train de vie. Sixteen since

@@ -108,6 +108,21 @@ class PlacementSimulationControllerTest extends WebTestCase
         self::assertGreaterThan(150000, $data['gapAtEnd'], 'what is taken out also stops earning interest');
     }
 
+    public function testTheWithdrawalsListedAreWhatTheCurveReallyLost(): void
+    {
+        // 4 000 € asked of a PEA that holds less when the trip is bought.
+        $this->fundJapanByThePea(400000);
+
+        $data = $this->simulate((string) $this->getFixture('pea')->getId());
+
+        self::assertCount(1, $data['withdrawals']);
+        self::assertLessThan(400000, $data['withdrawals'][0]['amountCents']);
+        self::assertSame($data['withdrawn'], $data['withdrawals'][0]['amountCents']);
+        self::assertSame($data['withdrawn'], array_sum(array_column($data['withdrawals'], 'amountCents')));
+        $month = (int) substr($data['withdrawals'][0]['month'], 5, 2) - 10 + 12 * ((int) substr($data['withdrawals'][0]['month'], 0, 4) - 2026);
+        self::assertLessThanOrEqual(1, $data['curveWith'][$month]['capital'], 'the PEA is emptied the month the trip is bought');
+    }
+
     public function testTheScenarioDecidesWhichProjectsTakeCapital(): void
     {
         $this->fundJapanByThePea(150000);
