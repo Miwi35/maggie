@@ -105,6 +105,56 @@ class GroceryQuantityTest {
     }
 
     @Test
+    fun `a packaged line with a wanted quantity reads it with what the meals need of it`() {
+        val line = GroceryItem(
+            label = "Riz", product = rice, quantity = 3f, unit = CookbookUnit.PACK, needed = listOf(Need(800.0, "g")),
+            desiredQuantity = 1400.0, desiredUnit = CookbookUnit.G,
+        )
+
+        assertEquals(Need(1400.0, "g"), line.desiredNeed())
+        assertEquals("1,4 kg (dont 800 g pour les recettes)", line.neededReminder())
+        assertEquals("1,4 kg", line.copy(needed = null).neededReminder())
+        assertEquals("300 g · 800 g pour les recettes", line.copy(desiredQuantity = 300.0).neededReminder())
+        assertNull(line.copy(desiredQuantity = null, desiredUnit = null).desiredNeed())
+    }
+
+    @Test
+    fun `the plus of the stepper adds a packaging and keeps what was wanted`() {
+        val line = GroceryItem(
+            label = "Riz", product = rice, quantity = 3f, unit = CookbookUnit.PACK, desiredQuantity = 1400.0, desiredUnit = CookbookUnit.G,
+        )
+
+        val more = line.withPackagings(4)
+
+        assertEquals(4f, more.quantity)
+        assertEquals(1400.0, more.desiredQuantity)
+    }
+
+    @Test
+    fun `the minus keeps what was wanted while the packagings hold it, then lowers it to what they hold`() {
+        val line = GroceryItem(
+            label = "Riz", product = rice, quantity = 4f, unit = CookbookUnit.PACK, desiredQuantity = 1400.0, desiredUnit = CookbookUnit.G,
+        )
+
+        assertEquals(1400.0, line.withPackagings(3).desiredQuantity)
+        val fewer = line.withPackagings(2)
+        assertEquals(2f, fewer.quantity)
+        assertEquals(1000.0, fewer.desiredQuantity)
+        assertEquals(CookbookUnit.G, fewer.desiredUnit)
+    }
+
+    @Test
+    fun `a line with nothing wanted just changes its packagings, and a wanted quantity in another family is dropped`() {
+        val plain = GroceryItem(label = "Riz", product = rice, quantity = 2f, unit = CookbookUnit.PACK)
+        val litres = plain.copy(desiredQuantity = 500.0, desiredUnit = CookbookUnit.ML)
+
+        assertEquals(3f, plain.withPackagings(3).quantity)
+        assertNull(plain.withPackagings(3).desiredQuantity)
+        assertNull(litres.withPackagings(3).desiredQuantity)
+        assertNull(litres.withPackagings(3).desiredUnit)
+    }
+
+    @Test
     fun `a past errand's packaged line reads in packagings, with what one holds`() {
         val rice = PurchasedItem(
             label = "Riz",

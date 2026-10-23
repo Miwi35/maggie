@@ -9,6 +9,7 @@ import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.api.ReorderGroceryItemsRequest
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.PurchaseSuggestion
+import com.maggie.app.data.model.RecipeNeedResponse
 
 class GroceryListRepository(
     private val apiService: MaggieApiService,
@@ -33,6 +34,7 @@ class GroceryListRepository(
         storeId: String? = null,
         storeName: String? = null,
         category: String? = null,
+        packagings: Int? = null,
     ): Result<Unit> = runCatching {
         apiService.addGroceryItem(
             AddGroceryItemRequest(
@@ -42,8 +44,14 @@ class GroceryListRepository(
                 storeId = storeId,
                 storeName = storeName,
                 category = category,
+                packagings = packagings,
             ),
         )
+    }
+
+    /** « Pour les recettes de la semaine »: what the next seven days of meals need of a product (MAG-573). */
+    suspend fun getRecipeNeed(productId: String): Result<RecipeNeedResponse> = runCatching {
+        apiService.getRecipeNeed(productId)
     }
 
     suspend fun reorderItems(items: List<ReorderEntry>): Result<Unit> = runCatching {
@@ -58,6 +66,7 @@ class GroceryListRepository(
         storeId: String? = null,
         storeName: String? = null,
         category: String? = null,
+        packagings: Int? = null,
     ): Result<Unit> = runCatching {
         apiService.editGroceryItem(
             itemId,
@@ -68,6 +77,7 @@ class GroceryListRepository(
                 storeId = storeId,
                 storeName = storeName,
                 category = category,
+                packagings = packagings,
             ),
         )
     }

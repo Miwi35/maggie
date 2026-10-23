@@ -331,4 +331,63 @@ class EditGroceryItemControllerTest extends WebTestCase
         self::assertSame(1.0, $item->getQuantity(), '300 g of a 500 g pack is one pack');
         self::assertSame('pack', $item->getUnit()?->value);
     }
+
+    public function testPackagingsSetTheCountOfAPackagedLine(): void
+    {
+        $item = $this->patchRice(['packagings' => 4]);
+
+        self::assertSame(4.0, $item->getQuantity());
+        self::assertSame('pack', $item->getUnit()?->value);
+    }
+
+    public function testAQuantityInGramsOnAPackagedLineIsKeptAsWhatIsWanted(): void
+    {
+        $item = $this->patchRice(['quantity' => 600, 'unit' => 'g']);
+
+        self::assertSame(2.0, $item->getQuantity());
+        self::assertEquals(600.0, $item->getDesiredQuantity());
+        self::assertSame('g', $item->getDesiredUnit()?->value);
+    }
+
+    public function testPackagingsWithAQuantityReturn400AndChangeNothing(): void
+    {
+        $item = $this->patchRiceRefused(['quantity' => 300, 'unit' => 'g', 'packagings' => 2]);
+
+        self::assertSame(1.0, $item->getQuantity());
+    }
+
+    public function testPackagingsOnALineWithoutPackagingReturn400(): void
+    {
+        $item = $this->patchRiceRefused(['packagings' => 2], 'item_custom_grams');
+
+        self::assertSame(300.0, $item->getQuantity());
+        self::assertSame('g', $item->getUnit()?->value);
+    }
+
+    public function testAnInvalidPackagingsCountReturns400(): void
+    {
+        $item = $this->patchRiceRefused(['packagings' => 0]);
+
+        self::assertSame(1.0, $item->getQuantity());
+    }
+
+    /** @param array<string, mixed> $body */
+    private function patchRiceRefused(array $body, string $fixture = 'item_riz_packs'): GroceryItem
+    {
+        $this->loadFixtures('edit_packaged.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $itemId = (string) $this->getFixture($fixture)->getId();
+
+        $this->client->request('PATCH', "/api/grocery/edit-item/$itemId", [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode($body, JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(400);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->getRepository(GroceryItem::class)->find($itemId);
+    }
 }

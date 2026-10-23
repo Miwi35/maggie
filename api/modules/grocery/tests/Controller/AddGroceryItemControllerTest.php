@@ -770,4 +770,114 @@ class AddGroceryItemControllerTest extends WebTestCase
         self::assertCount(1, $this->itemsOf('Riz'));
         $this->assertElasticsearchIndexDispatched(Store::class);
     }
+
+    public function testPackagingsAddThatManyPackagingsToAPackagedLine(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Riz', 'packagings' => 2]);
+
+        self::assertResponseIsSuccessful();
+        $rice = $this->itemsOf('Riz');
+        self::assertCount(1, $rice);
+        self::assertSame(3.0, $rice[0]->getQuantity());
+        self::assertSame('pack', $rice[0]->getUnit()?->value);
+        self::assertNull($rice[0]->getNeeded(), 'a count of packagings is not a need in grams');
+
+        $this->assertMercureUpdatePublished('/grocery_lists/');
+        $this->assertElasticsearchIndexDispatched(GroceryList::class);
+    }
+
+    public function testAQuantityOnAPackagedProductStaysWantedAsWhatTheLineHolds(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Riz', 'quantity' => 300, 'unit' => 'g']);
+
+        self::assertResponseIsSuccessful();
+        $rice = $this->itemsOf('Riz');
+        self::assertCount(1, $rice);
+        self::assertSame(2.0, $rice[0]->getQuantity(), '300 g of a 500 g pack is one more pack');
+        self::assertSame('pack', $rice[0]->getUnit()?->value);
+        self::assertEquals(800.0, $rice[0]->getDesiredQuantity(), 'the pack already there, 500 g, and the 300 g asked');
+        self::assertSame('g', $rice[0]->getDesiredUnit()?->value);
+
+        $this->addItem(['label' => 'Riz', 'quantity' => 0.5, 'unit' => 'kg']);
+
+        $rice = $this->itemsOf('Riz');
+        self::assertSame(3.0, $rice[0]->getQuantity());
+        self::assertEquals(1300.0, $rice[0]->getDesiredQuantity());
+    }
+
+    public function testPackagingsOnANewPackagedLineStartsTheLineWithThem(): void
+    {
+        $this->loadMergeFixtures();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->remove($em->getRepository(GroceryItem::class)->findOneBy(['product' => $this->getFixture('product_riz')]));
+        $em->flush();
+        $em->clear();
+
+        $this->addItem(['label' => 'Riz', 'packagings' => 2]);
+
+        self::assertResponseIsSuccessful();
+        $rice = $this->itemsOf('Riz');
+        self::assertCount(1, $rice);
+        self::assertSame(2.0, $rice[0]->getQuantity());
+        self::assertSame('pack', $rice[0]->getUnit()?->value);
+    }
+
+    public function testQuantityAndPackagingsTogetherReturn400AndChangeNothing(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Riz', 'quantity' => 300, 'unit' => 'g', 'packagings' => 2]);
+
+        self::assertResponseStatusCodeSame(400);
+        $rice = $this->itemsOf('Riz');
+        self::assertCount(1, $rice);
+        self::assertSame(1.0, $rice[0]->getQuantity());
+    }
+
+    public function testPackagingsOnAProductWithoutPackagingReturn400(): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Farine', 'packagings' => 2]);
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('packaging', $data['error']);
+        self::assertSame(500.0, $this->itemsOf('Farine')[0]->getQuantity());
+    }
+
+    public function testPackagingsOnAFreeLabelReturn400AndCreateNoProduct(): void
+    {
+        $this->loadMergeFixtures();
+        $productCount = \count(self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Product::class)->findAll());
+
+        $this->addItem(['label' => 'Truc inconnu', 'packagings' => 1]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertCount($productCount, self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Product::class)->findAll());
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidPackagings(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'negative' => [-1];
+        yield 'fraction' => [1.5];
+        yield 'text' => ['deux'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidPackagings')]
+    public function testAnInvalidPackagingsCountReturns400(mixed $packagings): void
+    {
+        $this->loadMergeFixtures();
+
+        $this->addItem(['label' => 'Riz', 'packagings' => $packagings]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(1.0, $this->itemsOf('Riz')[0]->getQuantity());
+    }
 }

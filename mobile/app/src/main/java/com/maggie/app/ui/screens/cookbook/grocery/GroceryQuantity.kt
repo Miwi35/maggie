@@ -2,6 +2,8 @@ package com.maggie.app.ui.screens.cookbook.grocery
 
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
+import com.maggie.app.data.model.Need
+import com.maggie.app.data.model.label
 import com.maggie.app.data.model.formatQuantity as formatSize
 import com.maggie.app.data.model.frenchLabel
 import com.maggie.app.data.model.PurchasedItem
@@ -91,8 +93,41 @@ fun PurchasedItem.quantityLabel(): String? {
     return "$amount · ${packagingLabel(packagingUnit, packagingSize, packagingSizeUnit)}"
 }
 
-/** « 800 g pour les repas »: the reminder under a packaged line, never edited (MAG-380). */
+/** What was asked of a packaged line, in base units: « 1,4 kg » is 1400 g (MAG-573). Null when nothing was asked in a quantity. */
+fun GroceryItem.desiredNeed(): Need? {
+    val quantity = desiredQuantity ?: return null
+    val unit = desiredUnit ?: return null
+    return Need(quantity, unit.name.lowercase())
+}
+
+/**
+ * The reminder under a packaged line, never edited (MAG-380, MAG-573). With a wanted quantity:
+ * « 1,4 kg (dont 800 g pour les recettes) », the part in brackets being what the meals need of it;
+ * a need above what is wanted reads « 300 g · 800 g pour les recettes ». Without one, « 800 g pour les repas ».
+ */
 fun GroceryItem.neededReminder(): String? {
     if (!isPackaged) return null
-    return needed.neededLabel()?.let { "$it pour les repas" }
+    val wanted = desiredNeed() ?: return needed.neededLabel()?.let { "$it pour les repas" }
+    val need = needed?.firstOrNull { it.unit == wanted.unit } ?: return wanted.label()
+    return if (need.quantity <= wanted.quantity + 1e-6) {
+        "${wanted.label()} (dont ${need.label()} pour les recettes)"
+    } else {
+        "${wanted.label()} · ${need.label()} pour les recettes"
+    }
+}
+
+/**
+ * The line with [count] packagings, as the API leaves it (`DesiredQuantity::enforce`): + adds a packaging
+ * without changing what is wanted; − below what the wanted quantity needs lowers it to what the packagings
+ * hold. A wanted quantity that cannot be compared to the packagings is dropped.
+ */
+fun GroceryItem.withPackagings(count: Int): GroceryItem {
+    val held = copy(quantity = count.toFloat())
+    val wanted = desiredQuantity ?: return held
+    val size = product?.packSizeBase()
+    if (size == null || desiredUnit != size.second) {
+        return held.copy(desiredQuantity = null, desiredUnit = null)
+    }
+    val content = count * size.first
+    return if (wanted > content + 1e-6) held.copy(desiredQuantity = content) else held
 }

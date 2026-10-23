@@ -1,0 +1,14 @@
+# "Add rice" with no quantity (MAG-573): the product's restock (2 packs of 500 g)
+# is the default and covers the 800 g the week's meals need. The journey asserts
+# on the line the API holds (2 packs, 1 kg wanted, 800 g for the recipes).
+name: grocery-add-rice-restock
+description: Add rice through MCP without a quantity; the restock is the default.
+
+match:
+  user_contains: "ajoute du riz basmati"
+
+turns:
+  - tools:
+      - name: add_grocery_item
+        input: {label: "Riz basmati"}
+  - text: "C'est ajouté : 2 paquets de riz basmati, soit votre réassort. Cela couvre les repas de la semaine."

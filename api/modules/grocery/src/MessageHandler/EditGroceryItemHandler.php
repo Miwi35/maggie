@@ -11,9 +11,11 @@ use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Exception\InvalidGroceryQuantityException;
 use Maggie\Grocery\Message\EditGroceryItemCommand;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
+use Maggie\Grocery\Service\DesiredQuantity;
 use Maggie\Grocery\Service\Needs;
 use Maggie\Grocery\Service\Packaging;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -26,6 +28,7 @@ class EditGroceryItemHandler
         private readonly ProductRepository $productRepository,
         private readonly StoreRepository $storeRepository,
         private readonly Packaging $packaging,
+        private readonly DesiredQuantity $desired,
     ) {
     }
 
@@ -87,21 +90,34 @@ class EditGroceryItemHandler
 
         $packagingUnit = $product?->getPackagingUnit();
 
+        if (null !== $command->packagings) {
+            if (null !== $command->quantity || null !== $command->unit) {
+                throw InvalidGroceryQuantityException::exclusive($item);
+            }
+            if (null === $packagingUnit) {
+                throw InvalidGroceryQuantityException::noPackaging($item);
+            }
+        }
+
         if (null !== $packagingUnit) {
-            // A packaged product's line is a count of packagings, whatever the
-            // unit the quantity is sent in: 600 g of a 500 g pack is 2 packs.
-            // A unit alone changes nothing: there is no other unit to count in.
-            if (null !== $command->quantity) {
-                $item->setQuantity((float) $this->packaging->inPackagings(
-                    $product,
-                    $command->quantity,
-                    null !== $command->unit ? Unit::from($command->unit) : $packagingUnit,
-                ));
+            // A packaged product's line counts packagings, rounded up from any
+            // quantity: 1,4 kg of a 500 g pack is 3 packs and stays 1,4 kg wanted
+            // (MAG-573). A number of packagings keeps the wanted quantity while
+            // they still cover it (« + »), else brings it down to what they hold
+            // (« − »). A unit alone changes nothing: there is no other unit to count in.
+            if (null !== $command->packagings) {
+                $this->desired->setPackagings($item, $product, $command->packagings);
+            } elseif (null !== $command->quantity) {
+                $unit = null !== $command->unit ? Unit::from($command->unit) : $packagingUnit;
+                [$packs, $wanted] = $this->desired->ofQuantity($product, $command->quantity, $unit);
+                $item->setQuantity((float) $packs);
                 $item->setUnit($packagingUnit);
+                $item->applyDesired($wanted[0] ?? null, $wanted[1] ?? null);
             } elseif ($item->getUnit() !== $packagingUnit) {
                 // A line renamed onto a packaged product ("300 g" becoming "Riz") is counted in its packagings too.
                 $item->setQuantity((float) $this->packaging->inPackagings($product, $item->getQuantity(), $item->getUnit()));
                 $item->setUnit($packagingUnit);
+                $item->applyDesired(null, null);
             }
         } else {
             // Quantity change

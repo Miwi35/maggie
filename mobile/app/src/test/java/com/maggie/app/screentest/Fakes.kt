@@ -35,6 +35,7 @@ import com.maggie.app.data.model.MonthBalance
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.PurchaseSuggestion
 import com.maggie.app.data.model.ProductStockState
+import com.maggie.app.data.model.RecipeNeedResponse
 import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.CategorizationRule
@@ -172,6 +173,8 @@ class FakeGrocery(
     val recurring: FakeRecurring = FakeRecurring(),
     /** « Souvent pris » (MAG-495): what the server suggests until it is added or snoozed. */
     suggestions: List<PurchaseSuggestion> = emptyList(),
+    /** « Pour les recettes de la semaine » (MAG-573): the week's need by product id; a product left out has none. */
+    private val recipeNeeds: Map<String, RecipeNeedResponse> = emptyMap(),
 ) {
     private val listId = list?.id
     private val current = list?.items.orEmpty().toMutableList()
@@ -182,6 +185,9 @@ class FakeGrocery(
 
     /** The list as the fake server now holds it — the database half of an assertion. */
     val items: List<GroceryItem> get() = current.toList()
+
+    /** What each add and edit asked for: (quantity, unit, packagings) as sent, whatever the server made of it (MAG-573). */
+    val quantitiesSent = mutableListOf<Triple<Float?, String?, Int?>>()
 
     val viewModel: GroceryViewModel by lazy {
         val (auth, mercure) = signedIn()
@@ -197,6 +203,11 @@ class FakeGrocery(
         coEvery { storeRepository.getStores() } returns Result.success(stores)
         coEvery { storeRepository.getAisles(any()) } returns Result.success(emptyList())
 
+        coEvery { groceryListRepository.getRecipeNeed(any()) } answers {
+            val productId = firstArg<String>()
+            Result.success(recipeNeeds[productId] ?: RecipeNeedResponse(productId = productId))
+        }
+
         // The server's rule: a product already on the list, or snoozed, is not suggested.
         coEvery { groceryListRepository.getSuggestions() } answers {
             Result.success(
@@ -210,13 +221,15 @@ class FakeGrocery(
             Result.success(Unit)
         }
         coEvery {
-            groceryListRepository.addItem(any(), any(), any(), any(), any(), any())
+            groceryListRepository.addItem(any(), any(), any(), any(), any(), any(), any())
         } answers {
+            val packagings = arg<Int?>(6)
+            quantitiesSent += Triple(secondArg<Float?>(), arg<String?>(2), packagings)
             current += GroceryItem(
                 id = "added-${current.size + 1}",
                 label = firstArg(),
                 customLabel = firstArg(),
-                quantity = secondArg(),
+                quantity = packagings?.toFloat() ?: secondArg(),
             )
             Result.success(Unit)
         }
@@ -232,10 +245,12 @@ class FakeGrocery(
             Result.success(Unit)
         }
         coEvery {
-            groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any())
+            groceryListRepository.editItem(any(), any(), any(), any(), any(), any(), any(), any())
         } answers {
             val itemId = firstArg<String>()
-            val quantity = arg<Float?>(2)
+            val packagings = arg<Int?>(7)
+            quantitiesSent += Triple(arg<Float?>(2), arg<String?>(3), packagings)
+            val quantity = packagings?.toFloat() ?: arg<Float?>(2)
             val storeId = arg<String?>(4)
             replace(itemId) { item ->
                 item.copy(

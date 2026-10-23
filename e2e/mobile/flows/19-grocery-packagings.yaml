@@ -1,0 +1,133 @@
+appId: com.maggie.app.e2e
+name: 19-grocery-packagings
+tags:
+  - grocery
+---
+# A line is added in packagings or in quantity, prefilled with the product's automatic
+# restock, and the week's meals are counted in (MAG-573). « Riz basmati MAG-573 » comes in
+# 500 g packs, two packs when it runs low, and two meals of the week need 500 g and 300 g
+# of it: the add sheet, opened after the full-screen search, shows « Pour les recettes de la
+# semaine · 800 g » with the meals, « 2 paquets » flagged « prérempli · réassort » and
+# « 1 kg (dont 800 g pour les recettes) · 2 paquets ». Added with nothing touched, the line
+# is stored as 2 packs with 1 kg kept as the wanted quantity, and the list reads
+# « 1 kg (dont 800 g pour les recettes) » under « 2 paquets ».
+#
+# Signed in as the neighbour, like `08`: the seed has no packaged product nor meal, so the
+# flow writes its own through `scripts/grocery-api.js` and deletes them at the end. The JVM
+# tests (`QuantityDraftTest`, `QuantityEntryScreenTest`, `GroceryViewModelTest`) own the
+# cases (the adjust button, the suggested quantities, the stepper bounds, a product without
+# packaging, the edit sheet); this is the one run against the real API that the sheet's
+# request is right.
+
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: product
+      LABEL: Riz basmati MAG-573
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: meals
+      LABEL: Riz basmati MAG-573
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/19-grocery-packagings.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: grocery
+- extendedWaitUntil:
+    visible:
+      id: "grocery"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*Timbres du voisin.*"
+      below: "Épicerie du coin"
+    timeout: 30000
+
+# The add sheet, then the full-screen search where the packaged product is picked.
+- tapOn: "Ajouter un article"
+- extendedWaitUntil:
+    visible: "Nom du produit"
+    timeout: 20000
+- tapOn: "Nom du produit"
+- extendedWaitUntil:
+    visible: "Retour"
+    timeout: 20000
+- tapOn:
+    id: "product_search"
+- inputText: "Riz basmati MAG"
+- extendedWaitUntil:
+    visible: "Riz basmati MAG-573"
+    timeout: 20000
+- tapOn: "Riz basmati MAG-573"
+
+# Back on the sheet: what the week's meals need of it, the restock in packs flagged, and the sum.
+- extendedWaitUntil:
+    visible:
+      id: "grocery_quantity_entry"
+    timeout: 20000
+- assertVisible:
+    id: "grocery_recipe_need_box"
+- assertVisible: "Pour les recettes de la semaine · 800 g"
+- assertVisible: ".*Riz au curry MAG-573 · .* · 500 g"
+- assertVisible: ".*Riz cantonais MAG-573 · .* · 300 g"
+- assertVisible:
+    id: "grocery_prefilled_chip"
+- assertVisible: "paquets de 500 g"
+- assertVisible: "prérempli · réassort"
+- assertVisible: "1 kg \\(dont 800 g pour les recettes\\) · 2 paquets"
+- assertNotVisible:
+    id: "grocery_coverage_alert"
+
+# Nothing touched: the restock is what is added.
+- tapOn: "Ajouter"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Riz basmati MAG-573.*"
+    timeout: 30000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect-line
+      LABEL: Riz basmati MAG-573
+      QUANTITY: "2"
+      UNIT: pack
+      DESIRED_QUANTITY: "1000"
+      DESIRED_UNIT: g
+      NEEDED_QUANTITY: "800"
+      NEEDED_UNIT: g
+- extendedWaitUntil:
+    visible: "1 kg \\(dont 800 g pour les recettes\\)"
+    timeout: 30000
+- assertVisible: "2 paquets"
+
+# Left as found: the line and the product are deleted.
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: remove
+      LABEL: Riz basmati MAG-573
+- extendedWaitUntil:
+    notVisible: ".*Riz basmati MAG-573.*"
+    timeout: 30000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: drop-meals
+      LABEL: Riz basmati MAG-573
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: drop-product
+      LABEL: Riz basmati MAG-573

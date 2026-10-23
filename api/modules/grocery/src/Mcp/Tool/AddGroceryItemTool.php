@@ -6,14 +6,15 @@ namespace Maggie\Grocery\Mcp\Tool;
 
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
-use Maggie\Grocery\Entity\GroceryList;
+use Maggie\Grocery\Exception\InvalidGroceryQuantityException;
 use Maggie\Grocery\Message\AddGroceryItemCommand;
+use Maggie\Grocery\Message\AddGroceryItemResult;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'add_grocery_item', description: 'Add an item to the grocery list by label. Works for any product: food ingredients, household supplies, hygiene items, etc. If a matching product exists, its preferred store is auto-assigned. For unknown products, determine the store from store descriptions (e.g. potatoes → greengrocer, toilet paper → supermarket). Set storeId directly when you can determine it. Only ask the user when you genuinely cannot determine the right store. A product appears once on the list: adding one already there (not yet ticked) accumulates on its line, next to the needs of the planned meals, instead of making a second line — even in another unit (« 300 g + 2 pièces » stays one line). A product bought in a packaging (pack, jar…) is always counted in packagings, whatever the unit given: « Riz » alone is one pack, « Riz 300 g » of a 500 g pack is one pack too (rounded up to whole packagings).')]
+#[McpTool(name: 'add_grocery_item', description: 'Add an item to the grocery list by label. Works for any product: food ingredients, household supplies, hygiene items, etc. If a matching product exists, its preferred store is auto-assigned. For unknown products, determine the store from store descriptions (e.g. potatoes → greengrocer, toilet paper → supermarket). Set storeId directly when you can determine it. Only ask the user when you genuinely cannot determine the right store. A product appears once on the list: adding one already there (not yet ticked) accumulates on its line, next to the needs of the planned meals, instead of making a second line — even in another unit (« 300 g + 2 pièces » stays one line). A product bought in a packaging (pack, jar…) is always counted in packagings, rounded up, and keeps the quantity asked apart (`desiredQuantity`: « 1,4 kg » of a 500 g pack is 3 packs, still 1,4 kg). Give either `quantity` (with `unit`) or `packagings` (whole number ≥ 1), never both; `packagings` only for a product that has a packaging (`packagingUnit` in manage_products). With neither, a packaged product gets its default restock (`restockQuantity` packagings), else what the week\'s planned meals need rounded up to whole packagings, else one packaging. The result always carries `recipeNeed` (what the meals planned over the next 7 days need of the product, in base units, e.g. 1200 g, null when none) and `coversWeek`: when it is false the line was added but does not cover that need — say so to the user and offer to cover it: `packagingsToCover` is the packagings the line needs in total, so adding `packagingsToCover` − `quantity` more (a new addition with `packagings`) brings it there.')]
 class AddGroceryItemTool
 {
     public function __construct(
@@ -29,6 +30,7 @@ class AddGroceryItemTool
         ?string $storeId = null,
         ?string $storeName = null,
         ?string $category = null,
+        ?int $packagings = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -41,21 +43,23 @@ class AddGroceryItemTool
                 storeId: $storeId,
                 storeName: $storeName,
                 category: $category,
+                packagings: $packagings,
             ));
 
-            /** @var GroceryList $list */
-            $list = $envelope->last(HandledStamp::class)->getResult();
+            /** @var AddGroceryItemResult $result */
+            $result = $envelope->last(HandledStamp::class)->getResult();
 
-            return json_encode([
-                'success' => true,
-                'itemCount' => $list->getItems()->count(),
-            ], JSON_THROW_ON_ERROR);
+            return json_encode([...$result->toArray(), 'itemCount' => $result->list->getItems()->count()], JSON_THROW_ON_ERROR);
         } catch (MissingMcpUserException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
+            $error = ['error' => $cause->getMessage()];
+            if ($cause instanceof InvalidGroceryQuantityException) {
+                $error['item'] = $cause->item;
+            }
 
-            return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
+            return json_encode($error, JSON_THROW_ON_ERROR);
         }
     }
 }

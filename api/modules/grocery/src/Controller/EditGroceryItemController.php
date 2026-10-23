@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Maggie\Grocery\Controller;
 
 use Maggie\Core\Entity\User;
+use Maggie\Grocery\Exception\InvalidGroceryQuantityException;
 use Maggie\Grocery\Message\EditGroceryItemCommand;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -39,16 +41,31 @@ final class EditGroceryItemController
             return new JsonResponse(['error' => 'Quantity must be a positive number'], Response::HTTP_BAD_REQUEST);
         }
 
-        $this->messageBus->dispatch(new EditGroceryItemCommand(
-            groceryItemId: $id,
-            userId: (string) $user->getId(),
-            label: $body['label'] ?? null,
-            quantity: isset($body['quantity']) ? (float) $body['quantity'] : null,
-            unit: $body['unit'] ?? null,
-            storeId: $body['storeId'] ?? null,
-            storeName: $body['storeName'] ?? null,
-            category: $body['category'] ?? null,
-        ));
+        $packagings = $body['packagings'] ?? null;
+        if (null !== $packagings && (!\is_int($packagings) || $packagings < 1)) {
+            return new JsonResponse(['error' => 'packagings must be a whole number of at least 1'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $this->messageBus->dispatch(new EditGroceryItemCommand(
+                groceryItemId: $id,
+                userId: (string) $user->getId(),
+                label: $body['label'] ?? null,
+                quantity: isset($body['quantity']) ? (float) $body['quantity'] : null,
+                unit: $body['unit'] ?? null,
+                storeId: $body['storeId'] ?? null,
+                storeName: $body['storeName'] ?? null,
+                category: $body['category'] ?? null,
+                packagings: $packagings,
+            ));
+        } catch (HandlerFailedException $e) {
+            $cause = $e->getPrevious();
+            if ($cause instanceof InvalidGroceryQuantityException) {
+                return new JsonResponse(['error' => $cause->getMessage(), 'item' => $cause->item], Response::HTTP_BAD_REQUEST);
+            }
+
+            throw $e;
+        }
 
         return new JsonResponse(['success' => true]);
     }

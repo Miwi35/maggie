@@ -130,6 +130,8 @@ import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.RecurringGroceryItem
 import com.maggie.app.data.model.PurchaseSuggestion
+import com.maggie.app.data.model.Need
+import com.maggie.app.data.model.RecipeNeedResponse
 import com.maggie.app.data.model.apiValue
 import com.maggie.app.data.model.SearchResponse
 import com.maggie.app.data.model.Task
@@ -803,12 +805,23 @@ data class AddGroceryItemRequest(
     val storeId: String? = null,
     val storeName: String? = null,
     val category: String? = null,
+    // A number of packagings instead of quantity + unit (MAG-573): the API takes one or the other.
+    val packagings: Int? = null,
 )
 
 @Serializable
 data class AddGroceryItemResponse(
     val success: Boolean,
     val itemCount: Int,
+    // What the line holds and whether it covers the week's meals (MAG-573).
+    val itemId: String? = null,
+    val quantity: Float? = null,
+    val unit: String? = null,
+    val desiredQuantity: Double? = null,
+    val desiredUnit: String? = null,
+    val recipeNeed: Need? = null,
+    val coversWeek: Boolean = true,
+    val packagingsToCover: Int? = null,
 )
 
 @Serializable
@@ -819,6 +832,7 @@ data class EditGroceryItemRequest(
     val storeId: String? = null,
     val storeName: String? = null,
     val category: String? = null,
+    val packagings: Int? = null,
 )
 
 @Serializable
@@ -2715,10 +2729,18 @@ class MaggieApiService(
 
     // Grocery Add Item
     suspend fun addGroceryItem(request: AddGroceryItemRequest): AddGroceryItemResponse {
+        // A 400 (« packagings » on a product without packaging, a quantity of zero…) is a refusal, not a response.
         return client.post("$baseUrl/api/grocery/add-item") {
             contentType(ContentType.Application.Json)
             setBody(request)
-        }.body()
+        }.orRefusal().body()
+    }
+
+    /** What the meals planned over the next seven days need of a product, read before it is added (MAG-573). */
+    suspend fun getRecipeNeed(productId: String): RecipeNeedResponse {
+        return client.get("$baseUrl/api/grocery/recipe-need/$productId") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
     }
 
     /** The products due again by their purchase rhythm (MAG-495): a plain JSON array. */
@@ -2750,7 +2772,7 @@ class MaggieApiService(
         client.patch("$baseUrl/api/grocery/edit-item/$itemId") {
             contentType(ContentType.Application.Json)
             setBody(request)
-        }
+        }.orRefusal()
     }
 
     suspend fun endErrand(request: EndErrandRequest): EndErrandResponse {

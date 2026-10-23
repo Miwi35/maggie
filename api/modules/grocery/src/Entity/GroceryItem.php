@@ -46,6 +46,17 @@ class GroceryItem implements SeasonalLine
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $needed = null;
 
+    /**
+     * What the owner wants of a packaged product, in base units (« 1,4 kg » is
+     * 1400 g): `quantity` counts the packagings that cover it, rounded up, and
+     * may exceed it. Null when nothing was asked in a quantity.
+     */
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $desiredQuantity = null;
+
+    #[ORM\Column(length: 20, nullable: true, enumType: Unit::class)]
+    private ?Unit $desiredUnit = null;
+
     #[ORM\Column(options: ['default' => false])]
     private bool $checked = false;
 
@@ -160,6 +171,42 @@ class GroceryItem implements SeasonalLine
         $this->needed = [] === $needed ? null : $needed;
 
         return $this;
+    }
+
+    public function getDesiredQuantity(): ?float
+    {
+        return $this->desiredQuantity;
+    }
+
+    public function getDesiredUnit(): ?Unit
+    {
+        return $this->desiredUnit;
+    }
+
+    /** The wanted quantity in base units, or none (both parts are set or cleared together). */
+    public function applyDesired(?float $quantity, ?Unit $unit): static
+    {
+        $this->desiredQuantity = null === $quantity ? null : $quantity;
+        $this->desiredUnit = null === $quantity ? null : $unit;
+
+        return $this;
+    }
+
+    /**
+     * Where the line stands on quantities, as an error body recalls it.
+     *
+     * @return array<string, mixed>
+     */
+    public function quantityState(): array
+    {
+        return [
+            'id' => (string) $this->id,
+            'quantity' => $this->quantity,
+            'unit' => $this->unit?->value,
+            'desiredQuantity' => $this->desiredQuantity,
+            'desiredUnit' => $this->desiredUnit?->value,
+            'needed' => $this->needed,
+        ];
     }
 
     public function isChecked(): bool

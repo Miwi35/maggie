@@ -105,9 +105,10 @@ export class GroceryListPage extends AdminShell {
    * The label is free text on purpose: the add dialog's product autocomplete is
    * `freeSolo`, and a label matching no product is the path that creates one
    * (`AddGroceryItemHandler`). Pass `store` to choose an existing shop from its
-   * own autocomplete.
+   * own autocomplete. `quantity` types the plain quantity field; `packs` counts the
+   * packagings of a product that is bought in them.
    */
-  async addItem(label: string, options: { quantity?: number; store?: string } = {}): Promise<void> {
+  async addItem(label: string, options: { quantity?: number; packs?: number; store?: string } = {}): Promise<void> {
     await this.addButton.click()
     await expect(this.addDialog).toBeVisible()
 
@@ -115,6 +116,11 @@ export class GroceryListPage extends AdminShell {
 
     if (options.quantity !== undefined) {
       await this.addDialog.getByLabel('Quantité').fill(String(options.quantity))
+    }
+
+    if (options.packs !== undefined) {
+      // A product bought in a packaging is counted in it (MAG-573): the field only exists once the typed label names that product.
+      await this.addDialog.getByTestId('quantity-entry').getByRole('spinbutton', { name: /^Nombre de / }).fill(String(options.packs))
     }
 
     if (options.store !== undefined) {

@@ -1,0 +1,16 @@
+# "Add rice, the week is heavy" — the restock (2 packs) does not cover the meals
+# of the week (MAG-573). The tool really runs: the API answers `coversWeek: false`
+# and `packagingsToCover: 3`, and Maggie says it and offers to adjust. The
+# journey asserts on the line the API holds (2 packs) and on her sentence.
+# Sorted before the scenario below: its needle is a subset of this message.
+name: grocery-add-rice-short-week
+description: Add rice with no quantity when the week's meals need more than the restock.
+
+match:
+  user_contains: "ajoute du riz basmati, la semaine est chargée"
+
+turns:
+  - tools:
+      - name: add_grocery_item
+        input: {label: "Riz basmati"}
+  - text: "J'ai ajouté 2 paquets de riz basmati (votre réassort), mais ça ne couvre pas les repas de la semaine : il en faut 3. Je passe à 3 paquets ?"

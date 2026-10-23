@@ -15,6 +15,7 @@ final readonly class AddGroceryItemCommand
         public ?string $storeName = null,
         public ?string $category = null,
         public string $source = 'manual',
+        public ?int $packagings = null,
     ) {
     }
 }

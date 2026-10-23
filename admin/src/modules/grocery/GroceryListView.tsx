@@ -53,15 +53,19 @@ import { usePurchaseSuggestions } from './usePurchaseSuggestions'
 import { SuggestionsBanner } from './SuggestionsBanner'
 import { ERRAND_TOPIC, PRODUCT_TOPIC, isSuggestionOnlyUpdate, suggestionItem } from './purchaseSuggestions'
 import type { PurchaseSuggestion } from './purchaseSuggestions'
-import { isPackaged, lineUnit, neededLabel, packagingContent, quantityHint, unitLabel } from './groceryQuantity'
+import { desiredLabel, isPackaged, lineUnit, packagingContent, quantityHint, neededLabel } from './groceryQuantity'
 import type { NeededEntry } from './groceryQuantity'
 import type { PackagedProduct } from './groceryQuantity'
+import { QuantityEntry } from './QuantityEntry'
+import { useRecipeNeed } from './recipeNeed'
+import { draftForLine, draftPayload, initialDraft, isDraftValid, withNeed } from './quantityEntry'
+import type { EntryProduct, QuantityDraft } from './quantityEntry'
 import { NO_AISLE, groupByStoreAndAisle, hasAisles } from './groceryAisles'
 import type { AisleSection, AisleSummary, StoreGroup } from './groceryAisles'
 import { AisleError, createAisle, fetchAisles, setProductAisle } from './aislesApi'
 import type { Aisle } from './aislesApi'
 
-interface ProductOption {
+interface ProductOption extends EntryProduct {
   id: string
   name: string
   category: string
@@ -82,6 +86,9 @@ interface GroceryItem {
   customLabel?: string
   quantity?: number
   unit?: string
+  /** What was asked of a packaged line, in base units: 1400 g in 3 packs (MAG-573). */
+  desiredQuantity?: number | null
+  desiredUnit?: string | null
   needed?: NeededEntry[] | null
   checked: boolean
   source: string
@@ -143,6 +150,14 @@ const requestAddItem = (payload: Record<string, unknown>) =>
     body: JSON.stringify(payload),
   })
 
+// What the API says when it refuses a quantity (400 `{error}`), told in the dialog.
+const refusal = async (response: Response): Promise<string | null> => {
+  if (response.status !== 400) return null
+  const body = await response.json().catch(() => null)
+
+  return typeof body?.error === 'string' ? body.error : null
+}
+
 // The product behind a line, as the bare ULID the recurring items point at (REST sends an `@id`, Mercure an `id`).
 const productIdOf = (item: GroceryItem): string | null => {
   const raw = item.product?.['@id'] ?? item.product?.id
@@ -189,6 +204,9 @@ function SortableGroceryItem({
 
   const label = item.label
   const compact = useCompactScreen()
+  const packagedLine = isPackaged(item.product)
+  // « 1,4 kg (dont 800 g pour les recettes) »: what was asked, under the name.
+  const lineDetail = desiredLabel(item.desiredQuantity, item.desiredUnit, item.needed)
 
   return (
     // `data-testid` and `data-store`: MUI renders a store's ListSubheader as an
@@ -231,6 +249,7 @@ function SortableGroceryItem({
         </ListItemIcon>
         <ListItemText
           primary={label}
+          secondary={packagedLine && lineDetail ? <span data-testid="needed-reminder">{lineDetail}</span> : null}
           primaryTypographyProps={{ noWrap: compact, title: label }}
           sx={{
             textDecoration: item.checked ? 'line-through' : 'none',
@@ -275,11 +294,6 @@ function SortableGroceryItem({
         )}
         {isPackaged(item.product) ? (
           <>
-            {neededLabel(item.needed) && (
-              <Typography variant="caption" color="text.secondary" data-testid="needed-reminder" sx={{ whiteSpace: 'nowrap', mr: 0.5 }}>
-                {neededLabel(item.needed)} pour les repas
-              </Typography>
-            )}
             <QuantityStepper
               label={label}
               quantity={item.quantity}
@@ -323,8 +337,7 @@ export const GroceryListView = () => {
   const [itemToDelete, setItemToDelete] = useState<GroceryItem | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [newItemLabel, setNewItemLabel] = useState('')
-  const [newItemQuantity, setNewItemQuantity] = useState('')
-  const [newItemUnit, setNewItemUnit] = useState('')
+  const [newItemDraft, setNewItemDraft] = useState<QuantityDraft>(() => initialDraft(null))
   const [products, setProducts] = useState<ProductOption[]>([])
   const [stores, setStores] = useState<StoreOption[]>([])
   const [newItemCategory, setNewItemCategory] = useState('')
@@ -334,8 +347,12 @@ export const GroceryListView = () => {
   const [laterOpen, setLaterOpen] = useState(false)
   const [detailItem, setDetailItem] = useState<GroceryItem | null>(null)
   const [editLabel, setEditLabel] = useState('')
-  const [editQuantity, setEditQuantity] = useState('')
+  const [editDraft, setEditDraft] = useState<QuantityDraft>(() => initialDraft(null))
+  const [editInitialDraft, setEditInitialDraft] = useState<QuantityDraft>(() => initialDraft(null))
   const [editCategory, setEditCategory] = useState('')
+  // The API's refusal of a quantity, told in the dialog that sent it.
+  const [addError, setAddError] = useState<string | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
   const [editSelectedStore, setEditSelectedStore] = useState<StoreOption | null>(null)
   const [editStoreInput, setEditStoreInput] = useState('')
   // The aisles of the line's store, and the aisle typed or chosen for its product there.
@@ -451,11 +468,37 @@ export const GroceryListView = () => {
     fetchOptions()
   }, [addDialogOpen, dataProvider])
 
+  // The product the typed label names, whose packaging decides how a quantity is typed (MAG-573).
+  const newItemProduct = useMemo(
+    () => products.find((p) => p.name.toLowerCase() === newItemLabel.trim().toLowerCase()) ?? null,
+    [products, newItemLabel],
+  )
+  const newItemProductId = newItemProduct?.id ?? null
+  const [draftProductId, setDraftProductId] = useState<string | null>(null)
+  // Choosing a product fills the quantity from it; the owner then edits it freely.
+  if (draftProductId !== newItemProductId) {
+    setDraftProductId(newItemProductId)
+    setNewItemDraft(initialDraft(newItemProduct))
+    setAddError(null)
+  }
+  // What the week's meals need of the product: shown in the dialog, and fills
+  // the packagings when the product has no restock.
+  const addWeek = useRecipeNeed(isPackaged(newItemProduct) && addDialogOpen ? bareId(newItemProduct?.id ?? '') || null : null)
+  const addNeed = addWeek.recipeNeed
+  useEffect(() => {
+    setNewItemDraft((draft) => withNeed(draft, newItemProduct, addNeed))
+  }, [addNeed, newItemProduct])
+  const editProductId = detailItem && isPackaged(detailItem.product) ? productIdOf(detailItem) : null
+  const editWeek = useRecipeNeed(editProductId)
+
   // Initialize edit state when detail item changes
   useEffect(() => {
     if (!detailItem) return
     setEditLabel(detailItem.label)
-    setEditQuantity(detailItem.quantity != null ? String(detailItem.quantity) : '')
+    const lineDraft = draftForLine(detailItem.quantity, detailItem.product, { quantity: detailItem.desiredQuantity, unit: detailItem.desiredUnit })
+    setEditDraft(lineDraft)
+    setEditInitialDraft(lineDraft)
+    setEditError(null)
     setEditCategory('')
     setEditAisleInput(detailItem.aisle?.name ?? '')
     setEditAisles([])
@@ -547,7 +590,7 @@ export const GroceryListView = () => {
         const response = await fetch(`${entrypoint}/grocery/edit-item/${item.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ quantity }),
+          body: JSON.stringify({ packagings: quantity }),
         })
         saved = response.ok
       } catch {
@@ -624,15 +667,17 @@ export const GroceryListView = () => {
 
   const handleEditItem = async () => {
     if (!groceryList || !detailItem || !editLabel) return
+    setEditError(null)
     try {
       const token = localStorage.getItem('token')
       const payload: Record<string, unknown> = {
         label: editLabel,
       }
-      // A product with a packaging has a number of packagings to set, the
-      // others no quantity at all (MAG-299).
-      if (isPackaged(detailItem.product) && editQuantity) {
-        payload.quantity = parseInt(editQuantity, 10)
+      // A product with a packaging has a quantity to set, in the mode chosen,
+      // the others none at all (MAG-299). Only a changed quantity is sent: the
+      // line keeps what the meals need otherwise.
+      if (isPackaged(detailItem.product) && JSON.stringify(editDraft) !== JSON.stringify(editInitialDraft)) {
+        Object.assign(payload, draftPayload(editDraft))
       }
       if (editCategory) {
         payload.category = editCategory
@@ -651,6 +696,7 @@ export const GroceryListView = () => {
         body: JSON.stringify(payload),
       })
       if (!response.ok) {
+        setEditError(await refusal(response))
         notify("Erreur : l'article n'a pas été modifié", { type: 'error' })
         return
       }
@@ -666,11 +712,11 @@ export const GroceryListView = () => {
 
   const handleAddItem = async () => {
     if (!groceryList || !newItemLabel) return
+    setAddError(null)
     try {
       const payload: Record<string, unknown> = {
         label: newItemLabel,
-        quantity: newItemQuantity ? parseFloat(newItemQuantity) : null,
-        unit: newItemUnit || null,
+        ...draftPayload(newItemDraft),
       }
       if (newItemCategory) {
         payload.category = newItemCategory
@@ -682,19 +728,26 @@ export const GroceryListView = () => {
       }
       const response = await requestAddItem(payload)
       if (!response.ok) {
+        setAddError(await refusal(response))
         notify("Erreur : l'article n'a pas été ajouté", { type: 'error' })
         return
       }
+      const added = await response.json().catch(() => ({}))
       setAddDialogOpen(false)
       setNewItemLabel('')
-      setNewItemQuantity('')
-      setNewItemUnit('')
+      setNewItemDraft(initialDraft(null))
       setNewItemCategory('')
       setSelectedStore(null)
       setStoreInputValue('')
       const { data } = await dataProvider.getOne('grocery_lists', { id: groceryList.id })
       setGroceryList(data as GroceryListData)
-      notify('Article ajouté', { type: 'success' })
+      if (added?.coversWeek === false && added.packagingsToCover) {
+        notify(`Article ajouté, mais il ne couvre pas les besoins de la semaine : ${added.packagingsToCover} conditionnements nécessaires`, {
+          type: 'warning',
+        })
+      } else {
+        notify('Article ajouté', { type: 'success' })
+      }
     } catch {
       notify('Erreur', { type: 'error' })
     }
@@ -1134,7 +1187,6 @@ export const GroceryListView = () => {
               onChange={(_e, value) => {
                 if (value && typeof value !== 'string') {
                   setNewItemLabel(value.name)
-                  if (value.defaultUnit) setNewItemUnit(value.defaultUnit)
                   if (value.category) setNewItemCategory(value.category)
                   if (value.preferredStore) {
                     const ps = value.preferredStore
@@ -1166,30 +1218,16 @@ export const GroceryListView = () => {
               filterOptions={(x) => x}
               noOptionsText={newItemLabel.length < 2 ? 'Tapez au moins 2 caractères' : 'Nouveau produit'}
             />
-            <TextField
-              label="Quantité"
-              type="number"
-              value={newItemQuantity}
-              onChange={(e) => setNewItemQuantity(e.target.value)}
+            <QuantityEntry
+              product={newItemProduct}
+              draft={newItemDraft}
+              onChange={(draft) => {
+                setAddError(null)
+                setNewItemDraft(draft)
+              }}
+              week={addWeek}
+              error={addError}
             />
-            <FormControl>
-              <InputLabel>Unité</InputLabel>
-              <Select value={newItemUnit} onChange={(e) => setNewItemUnit(e.target.value)} label="Unité">
-                <MenuItem value="">Aucune</MenuItem>
-                <MenuItem value="g">g</MenuItem>
-                <MenuItem value="kg">kg</MenuItem>
-                <MenuItem value="ml">ml</MenuItem>
-                <MenuItem value="l">l</MenuItem>
-                <MenuItem value="cl">cl</MenuItem>
-                <MenuItem value="piece">pièce</MenuItem>
-                <MenuItem value="bunch">botte</MenuItem>
-                <MenuItem value="can">boîte</MenuItem>
-                <MenuItem value="bottle">bouteille</MenuItem>
-                <MenuItem value="pack">paquet</MenuItem>
-                <MenuItem value="sachet">sachet</MenuItem>
-                <MenuItem value="jar">bocal</MenuItem>
-              </Select>
-            </FormControl>
             <FormControl>
               <InputLabel>Catégorie</InputLabel>
               <Select
@@ -1227,7 +1265,7 @@ export const GroceryListView = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddDialogOpen(false)}>Annuler</Button>
-          <Button onClick={handleAddItem} variant="contained" disabled={!newItemLabel}>
+          <Button onClick={handleAddItem} variant="contained" disabled={!newItemLabel || !isDraftValid(newItemDraft)}>
             Ajouter
           </Button>
         </DialogActions>
@@ -1279,12 +1317,15 @@ export const GroceryListView = () => {
               noOptionsText={editLabel.length < 2 ? 'Tapez au moins 2 caractères' : 'Nouveau produit'}
             />
             {isPackaged(detailItem?.product) && (
-              <TextField
-                label={`Nombre de ${unitLabel(lineUnit(detailItem?.product), 2) || 'conditionnements'}`}
-                type="number"
-                value={editQuantity}
-                onChange={(e) => setEditQuantity(e.target.value)}
-                slotProps={{ htmlInput: { min: 1, step: 1 } }}
+              <QuantityEntry
+                product={detailItem?.product}
+                draft={editDraft}
+                onChange={(draft) => {
+                  setEditError(null)
+                  setEditDraft(draft)
+                }}
+                week={editWeek}
+                error={editError}
               />
             )}
             <FormControl>
@@ -1346,7 +1387,7 @@ export const GroceryListView = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDetailItem(null)}>Annuler</Button>
-          <Button onClick={handleEditItem} variant="contained" disabled={!editLabel}>
+          <Button onClick={handleEditItem} variant="contained" disabled={!editLabel || !isDraftValid(editDraft)}>
             Enregistrer
           </Button>
         </DialogActions>

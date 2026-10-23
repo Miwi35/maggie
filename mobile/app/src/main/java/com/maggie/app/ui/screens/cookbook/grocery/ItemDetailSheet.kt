@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
@@ -32,7 +31,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.GroceryItem
@@ -49,7 +47,7 @@ fun ItemDetailSheet(
     item: GroceryItem,
     products: List<Product>,
     stores: List<Store>,
-    onSave: (label: String, quantity: Float?, storeId: String?, storeName: String?, category: String?) -> Unit,
+    onSave: (label: String, quantity: QuantityPayload?, storeId: String?, storeName: String?, category: String?) -> Unit,
     onDismiss: () -> Unit,
     recurring: RecurringFrequency? = null,
     onRecurringChange: ((RecurringFrequency?) -> Unit)? = null,
@@ -89,7 +87,7 @@ fun ItemDetailContent(
     item: GroceryItem,
     products: List<Product>,
     stores: List<Store>,
-    onSave: (label: String, quantity: Float?, storeId: String?, storeName: String?, category: String?) -> Unit,
+    onSave: (label: String, quantity: QuantityPayload?, storeId: String?, storeName: String?, category: String?) -> Unit,
     modifier: Modifier = Modifier,
     // The « Récurrent » setting needs a product, since a recurring item is a product's (MAG-369).
     recurring: RecurringFrequency? = null,
@@ -102,7 +100,8 @@ fun ItemDetailContent(
     frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
 ) {
     var label by remember { mutableStateOf(item.label) }
-    var quantityText by remember { mutableStateOf(item.quantity?.let(::formatQuantity) ?: "") }
+    val initialDraft = remember { quantityDraftForLine(item.quantity, item.product) }
+    var draft by remember { mutableStateOf(initialDraft) }
     var selectedCategory by remember { mutableStateOf(item.product?.category) }
     var selectedStoreId by remember { mutableStateOf(item.store?.id) }
     var storeText by remember { mutableStateOf(item.store?.name ?: "") }
@@ -164,16 +163,9 @@ fun ItemDetailContent(
                 )
             }
 
-            // Only a packaged product has a quantity to set: its number of packagings.
+            // Only a packaged product has a quantity to set: packagings, or a quantity turned into packagings.
             if (item.isPackaged) {
-                OutlinedTextField(
-                    value = quantityText,
-                    onValueChange = { quantityText = it },
-                    label = { Text("Nombre de ${unitLabel(item.countedUnit, 2f)}") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
+                QuantityEntry(product = item.product, draft = draft, onChange = { draft = it })
             }
 
             // Category picker
@@ -284,8 +276,9 @@ fun ItemDetailContent(
             // Save button
             Button(
                 onClick = {
-                    if (label.isNotBlank()) {
-                        val qty = if (item.isPackaged) parseQuantity(quantityText) else null
+                    if (label.isNotBlank() && (!item.isPackaged || draft.isValid())) {
+                        // Only a change is sent: the same number of packagings must not rewrite the line's need.
+                        val qty = if (item.isPackaged && draft != initialDraft) draft.payload() else null
                         val sName = if (selectedStoreId == null && storeText.isNotBlank()) storeText.trim() else null
                         val catStr = selectedCategory?.name?.lowercase()
                         onSave(label.trim(), qty, selectedStoreId, sName, catStr)
@@ -293,7 +286,7 @@ fun ItemDetailContent(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = label.isNotBlank(),
+                enabled = label.isNotBlank() && (!item.isPackaged || draft.isValid()),
             ) {
                 Text("Enregistrer")
             }
