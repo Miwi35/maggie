@@ -17,6 +17,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Core\Authentication\Token\PreAuthenticatedToken;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Uid\Ulid;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Guards the MCP endpoint, which sits outside the API firewall.
@@ -34,6 +35,7 @@ use Symfony\Component\Uid\Ulid;
 final class McpAccessListener
 {
     public const USER_HEADER = 'X-Maggie-User-Id';
+    private const SESSION_HEADER = 'Mcp-Session-Id';
 
     public function __construct(
         private readonly TokenStorageInterface $tokenStorage,
@@ -69,19 +71,24 @@ final class McpAccessListener
             if (null !== $user) {
                 $this->authenticate($user);
             }
+        } else {
+            $user = $this->resolveJwtUser($credentials);
 
-            return;
+            if (null === $user) {
+                $event->setResponse($this->unauthorized('Invalid bearer token.'));
+
+                return;
+            }
+
+            $this->authenticate($user);
         }
 
-        $user = $this->resolveJwtUser($credentials);
+        // The SDK parses this header with Uuid::fromString() and lets the exception escape as a 500.
+        $sessionId = $request->headers->get(self::SESSION_HEADER, '');
 
-        if (null === $user) {
-            $event->setResponse($this->unauthorized('Invalid bearer token.'));
-
-            return;
+        if ('' !== $sessionId && !Uuid::isValid($sessionId)) {
+            $event->setResponse($this->sessionNotFound());
         }
-
-        $this->authenticate($user);
     }
 
     private function extractBearer(Request $request): ?string
@@ -149,13 +156,24 @@ final class McpAccessListener
 
     private function unauthorized(string $message): JsonResponse
     {
+        return $this->error(-32001, $message, Response::HTTP_UNAUTHORIZED);
+    }
+
+    /** Same answer as the SDK gives for an unknown session, so a client starts a new one. */
+    private function sessionNotFound(): JsonResponse
+    {
+        return $this->error(-32600, 'Session not found or has expired.', Response::HTTP_NOT_FOUND);
+    }
+
+    private function error(int $code, string $message, int $status): JsonResponse
+    {
         return new JsonResponse([
             'jsonrpc' => '2.0',
             'id' => null,
             'error' => [
-                'code' => -32001,
+                'code' => $code,
                 'message' => $message,
             ],
-        ], Response::HTTP_UNAUTHORIZED);
+        ], $status);
     }
 }
