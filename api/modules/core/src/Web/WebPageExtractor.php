@@ -146,8 +146,11 @@ class WebPageExtractor
 
             foreach ($this->flatten($decoded) as $object) {
                 $size = \strlen(json_encode($object, JSON_UNESCAPED_UNICODE) ?: '');
-                if (\count($objects) >= self::MAX_STRUCTURED_OBJECTS || $bytes + $size > self::MAX_STRUCTURED_BYTES) {
+                if (\count($objects) >= self::MAX_STRUCTURED_OBJECTS) {
                     break 2;
+                }
+                if ($bytes + $size > self::MAX_STRUCTURED_BYTES) {
+                    continue;
                 }
                 $objects[] = $object;
                 $bytes += $size;

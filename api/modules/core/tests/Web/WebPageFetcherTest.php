@@ -239,6 +239,20 @@ class WebPageFetcherTest extends TestCase
         self::assertStringContainsString('Crêpes à la bière', $page->html);
     }
 
+    public function testACharsetThePageInventedDoesNotBreakTheRead(): void
+    {
+        $page = $this->fetcher(fn () => self::html('<html><body>Crêpes</body></html>', 200, ['content-type: text/html; charset=x-bogus']))->fetch('https://recettes.test/');
+
+        self::assertStringContainsString('Crêpes', $page->html);
+    }
+
+    public function testAnIpLiteralIsCheckedButNotPinned(): void
+    {
+        $this->fetcher(fn () => self::html())->fetch('https://93.184.216.34/');
+
+        self::assertArrayNotHasKey('resolve', $this->requests[0]['options']);
+    }
+
     public function testAnIpv6HostIsPinnedToo(): void
     {
         $this->fetcher(fn () => self::html())->fetch('https://v6.test/');

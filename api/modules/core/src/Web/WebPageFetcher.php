@@ -54,7 +54,7 @@ class WebPageFetcher
                     'Accept-Language' => 'fr,en;q=0.7',
                 ],
             ];
-            if (null !== $pin) {
+            if (null !== $pin && false === filter_var(trim($parts['host'], '[]'), FILTER_VALIDATE_IP)) {
                 $options['resolve'] = [$parts['host'] => $pin];
             }
 
@@ -125,7 +125,7 @@ class WebPageFetcher
      */
     private function checkedAddress(string $host, int $port): ?string
     {
-        if (\in_array($host, $this->allowedHosts, true)) {
+        if (\in_array($host, array_map(static fn ($allowed) => strtolower(trim((string) $allowed)), $this->allowedHosts), true)) {
             return null;
         }
         if (!\in_array($port, self::PUBLIC_PORTS, true)) {
@@ -221,9 +221,10 @@ class WebPageFetcher
             $charset = strtoupper($m[1]);
         }
         if (null !== $charset && 'UTF-8' !== $charset && 'UTF8' !== $charset) {
-            $converted = @mb_convert_encoding($body, 'UTF-8', $charset);
-            if (\is_string($converted)) {
-                return $converted;
+            try {
+                return mb_convert_encoding($body, 'UTF-8', $charset);
+            } catch (\ValueError) {
+                // A charset the page invented: read it as UTF-8, sanitised below.
             }
         }
 
