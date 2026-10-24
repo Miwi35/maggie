@@ -48,6 +48,7 @@ private val ACTIVITY_LABELS = mapOf(
     "get_recipe" to "Lecture d'une recette",
     "search_recipes" to "Recherche de recettes",
     "get_weather" to "Consultation de la météo",
+    "read_web_page" to "Lecture d'une page web",
     "add_grocery_item" to "Ajout aux courses",
     "remove_grocery_item" to "Retrait des courses",
     "get_grocery_list" to "Consultation des courses",

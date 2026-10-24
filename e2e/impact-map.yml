@@ -321,6 +321,11 @@ web:
     areas: [chat, cookbook]
     paths:
       - 'agent/fixtures/fake-llm/02-screen-recipe-incomplete.yaml'
+  e2e/web/tests/chat-read-web-page.spec.ts:
+    areas: [chat, cookbook]
+    paths:
+      - 'agent/fixtures/fake-llm/14-screen-page-*.yaml'
+      - '.docker/e2e/wiremock/mappings/web-pages.json'
   e2e/web/tests/memory-layers.spec.ts:
     areas: [chat, dashboard]
     paths:

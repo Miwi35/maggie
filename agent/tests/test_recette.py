@@ -70,6 +70,7 @@ class TestDryRunToolRouter:
             ("memory_search", {"requete": "x"}),
             ("get_events_by_date", {"date": "2026-10-06"}),
             ("get_weather", {"location": "Rennes"}),
+            ("read_web_page", {"url": "https://www.marmiton.org/recettes/x"}),
             ("manage_tasks", {"action": "list"}),
             ("manage_events", {"action": "get", "id": "1"}),
             ("monthly_review", {"action": "review"}),

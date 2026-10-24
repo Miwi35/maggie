@@ -32,6 +32,10 @@ services:
             $forecastUrl: '%env(OPEN_METEO_FORECAST_URL)%'
             $geocodingUrl: '%env(OPEN_METEO_GEOCODING_URL)%'
 
+    Maggie\Core\Web\WebPageFetcher:
+        arguments:
+            $allowedHosts: '%env(csv:READ_WEB_PAGE_ALLOWED_HOSTS)%'
+
     Elastic\Elasticsearch\Client:
         factory: ['Maggie\Core\Elasticsearch\ElasticsearchClientFactory', 'create']
         arguments:

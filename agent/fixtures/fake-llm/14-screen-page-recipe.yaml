@@ -1,0 +1,18 @@
+# « Ajoute cette recette » with the page's address in the screen context (MAG-597): Maggie
+# reads the page with read_web_page — the tool really runs, against the Marmiton fixture the
+# e2e stack serves from WireMock (.docker/e2e/wiremock/mappings/web-pages.json) — and
+# PROPOSES the recipe with what the page holds. Nothing is created before the user's « oui »:
+# the proposal is the whole answer, and the journey proves on the data that no recipe exists.
+# The figures below are that fixture's: 6 people, 6 ingredients, 3 steps.
+name: screen-page-recipe
+description: A recipe asked from a page address is read first, then proposed, never created unasked.
+
+match:
+  user_contains: "ajoute cette recette"
+  user_matches: '(https?://wiremock:8080/pages/marmiton/\S+)'
+
+turns:
+  - tools:
+      - name: read_web_page
+        input: {url: '\1'}
+  - text: "J'ai lu la page : « Boeuf bourguignon : la vraie recette », pour 6 personnes, avec 6 ingrédients (boeuf à braiser, lardons, oignons, carottes, vin rouge, ail) et 3 étapes. Je l'ajoute à ton livre de recettes ?"

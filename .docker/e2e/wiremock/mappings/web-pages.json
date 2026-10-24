@@ -1,0 +1,46 @@
+{
+  "mappings": [
+    {
+      "name": "Web page — Page recette Marmiton — JSON-LD Recipe",
+      "request": {
+        "method": "GET",
+        "urlPath": "/pages/marmiton/boeuf-bourguignon"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/html; charset=utf-8"
+        },
+        "body": "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Boeuf bourguignon : la vraie recette | Marmiton</title>\n  <meta property=\"og:title\" content=\"Boeuf bourguignon : la vraie recette\">\n  <style>.hidden { display: none }</style>\n  <script type=\"application/ld+json\">\n  {\n    \"@context\": \"https://schema.org\",\n    \"@graph\": [\n      {\n        \"@type\": \"Recipe\",\n        \"name\": \"Boeuf bourguignon : la vraie recette\",\n        \"recipeYield\": \"6 personnes\",\n        \"prepTime\": \"PT30M\",\n        \"cookTime\": \"PT3H\",\n        \"recipeIngredient\": [\n          \"1,2 kg de boeuf à braiser\",\n          \"150 g de lardons\",\n          \"2 oignons\",\n          \"3 carottes\",\n          \"75 cl de vin rouge\",\n          \"2 gousses d'ail\"\n        ],\n        \"recipeInstructions\": [\n          {\"@type\": \"HowToStep\", \"text\": \"Faire revenir les lardons puis les morceaux de boeuf.\"},\n          {\"@type\": \"HowToStep\", \"text\": \"Ajouter les oignons, les carottes et l'ail, puis mouiller avec le vin.\"},\n          {\"@type\": \"HowToStep\", \"text\": \"Laisser mijoter à feu doux pendant 3 heures.\"}\n        ]\n      },\n      {\"@type\": \"BreadcrumbList\", \"itemListElement\": []}\n    ]\n  }\n  </script>\n  <script type=\"application/ld+json\">{ this is not json }</script>\n</head>\n<body>\n  <header><a href=\"/\">Marmiton</a></header>\n  <nav>Recettes Menus Shopping Newsletter</nav>\n  <script>window.dataLayer = [\"tracking should never be read\"];</script>\n  <main>\n    <h1>Boeuf bourguignon : la vraie recette</h1>\n    <p>Un grand classique de la cuisine bourguignonne, à préparer la veille pour le servir encore meilleur.</p>\n    <h2>Ingrédients</h2>\n    <ul>\n      <li>1,2 kg de boeuf à braiser</li>\n      <li>150 g de lardons</li>\n      <li>2 oignons</li>\n    </ul>\n    <h2>Préparation</h2>\n    <p>Faire revenir les lardons puis les morceaux de boeuf. Laisser mijoter à feu doux pendant 3 heures.</p>\n  </main>\n  <aside>Les recettes qui vous plairont</aside>\n  <footer>© Marmiton - Mentions légales</footer>\n</body>\n</html>\n"
+      }
+    },
+    {
+      "name": "Web page — Page événement — JSON-LD Event",
+      "request": {
+        "method": "GET",
+        "urlPath": "/pages/events/concert-jazz"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/html; charset=utf-8"
+        },
+        "body": "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Concert de jazz au Liberté - Rennes</title>\n  <script type=\"application/ld+json\">\n  {\n    \"@context\": \"https://schema.org\",\n    \"@type\": \"Event\",\n    \"name\": \"Concert de jazz au Liberté\",\n    \"startDate\": \"2026-11-14T20:30:00+01:00\",\n    \"endDate\": \"2026-11-14T23:00:00+01:00\",\n    \"location\": {\n      \"@type\": \"Place\",\n      \"name\": \"Le Liberté\",\n      \"address\": {\"@type\": \"PostalAddress\", \"streetAddress\": \"1 esplanade Charles de Gaulle\", \"postalCode\": \"35000\", \"addressLocality\": \"Rennes\"}\n    }\n  }\n  </script>\n</head>\n<body>\n  <article>\n    <h1>Concert de jazz au Liberté</h1>\n    <p>Samedi 14 novembre 2026 à 20 h 30, au Liberté, 1 esplanade Charles de Gaulle à Rennes. Ouverture des portes à 19 h 45. Tarif unique : 22 euros.</p>\n    <p>Une soirée avec trois formations de la scène rennaise, du jazz manouche aux standards revisités, dans la grande salle du Liberté.</p>\n  </article>\n</body>\n</html>\n"
+      }
+    },
+    {
+      "name": "Web page — Page produit — JSON-LD Product",
+      "request": {
+        "method": "GET",
+        "urlPath": "/pages/products/cafe-arabica"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/html; charset=utf-8"
+        },
+        "body": "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Café en grains Arabica 1 kg</title>\n  <script type=\"application/ld+json\">\n  [\n    {\"@context\": \"https://schema.org\", \"@type\": \"Organization\", \"name\": \"Cafés Martin\"},\n    {\n      \"@context\": \"https://schema.org\",\n      \"@type\": \"Product\",\n      \"name\": \"Café en grains Arabica 1 kg\",\n      \"brand\": {\"@type\": \"Brand\", \"name\": \"Cafés Martin\"},\n      \"offers\": {\"@type\": \"Offer\", \"price\": \"14.90\", \"priceCurrency\": \"EUR\", \"availability\": \"https://schema.org/InStock\"}\n    }\n  ]\n  </script>\n</head>\n<body>\n  <h1>Café en grains Arabica 1 kg</h1>\n  <p>Un café rond et doux, torréfié en France.</p>\n  <p>14,90 € - En stock</p>\n</body>\n</html>\n"
+      }
+    }
+  ]
+}
