@@ -292,7 +292,7 @@ const RecipeSheet = () => {
 }
 
 export const RecipeShow = () => (
-  <Show title="Recette">
+  <Show title="Recette" actions={false}>
     <RecipeSheet />
   </Show>
 )
