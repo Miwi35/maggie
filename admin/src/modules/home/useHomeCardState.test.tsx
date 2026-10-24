@@ -71,12 +71,26 @@ describe('useHomeCardState', () => {
     await waitFor(() => expect(result.current.state).toEqual({ count: 1 }))
 
     await act(async () => {
-      await emitMercure('/home/grocery', {})
+      await emitMercure('/home/{module}', { action: 'refresh', module: 'grocery' })
     })
 
     expect(result.current.loading).toBe(false)
     await waitFor(() => expect(result.current.state).toEqual({ count: 2 }))
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  test('ignores what another card of the Accueil is told, on the stream all the cards share', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok({ count: 1 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useHomeCardState<{ count: number }>('grocery', 'today'))
+    await waitFor(() => expect(result.current.state).toEqual({ count: 1 }))
+
+    await act(async () => {
+      await emitMercure('/home/{module}', { action: 'refresh', module: 'tasks' })
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   test('keeps the last state when a refresh fails', async () => {
@@ -87,7 +101,7 @@ describe('useHomeCardState', () => {
     await waitFor(() => expect(result.current.state).toEqual({ count: 1 }))
 
     await act(async () => {
-      await emitMercure('/home/health', {})
+      await emitMercure('/home/{module}', { action: 'refresh', module: 'health' })
     })
 
     await waitFor(() => expect(result.current.error).toBe(true))

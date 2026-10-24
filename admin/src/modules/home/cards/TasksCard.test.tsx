@@ -248,7 +248,7 @@ describe('TasksCard', () => {
     await screen.findByTestId('home-tasks-ring')
 
     answer = { ...base, done: 3 }
-    await emitMercure('/home/tasks', {})
+    await emitMercure('/home/{module}', { action: 'refresh', module: 'tasks' })
 
     await waitFor(() => expect(screen.getByTestId('home-tasks-ring')).toHaveTextContent('3 sur 4'))
   })

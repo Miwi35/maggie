@@ -62,6 +62,13 @@ object UiTags {
     const val HOME_GROCERY_EMPTY = "home_grocery_empty"
     const val HOME_GROCERY_ERROR = "home_grocery_error"
     const val HOME_GROCERY_RETRY = "home_grocery_retry"
+    /** Accueil › Nutrition card (MAG-564): a slot's row, a meal, its missing line, the error and its retry. */
+    const val HOME_NUTRITION_SLOT = "home_nutrition_slot"
+    const val HOME_NUTRITION_MEAL = "home_nutrition_meal"
+    const val HOME_NUTRITION_MISSING = "home_nutrition_missing"
+    const val HOME_NUTRITION_EMPTY = "home_nutrition_empty"
+    const val HOME_NUTRITION_ERROR = "home_nutrition_error"
+    const val HOME_NUTRITION_RETRY = "home_nutrition_retry"
 
     /**
      * Accueil › Tâches (MAG-561) — the ring « x sur n », the « n en retard » line, the « + n autres » link,

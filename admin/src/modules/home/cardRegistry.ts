@@ -2,6 +2,7 @@ import { createElement } from 'react'
 import type { ReactNode } from 'react'
 import { GroceryHomeCard } from '../grocery/GroceryHomeCard'
 import { TasksCard } from './cards/TasksCard'
+import { NutritionHomeCard } from '../cookbook/NutritionHomeCard'
 import type { HomeDay } from './homeDay'
 
 /** Where a card sits: the full-width strip of actions, the left column, or the grid of the other modules. */
@@ -32,4 +33,10 @@ export const cardRegistry: HomeCardEntry[] = [
     render: ({ day }) => createElement(GroceryHomeCard, { day }),
   },
   { module: 'tasks', zone: 'left', order: homeOrder('tasks'), render: ({ day }) => createElement(TasksCard, { day }) },
+  {
+    module: 'nutrition',
+    zone: 'grid',
+    order: homeOrder('nutrition'),
+    render: ({ day }) => createElement(NutritionHomeCard, { day }),
+  },
 ]
