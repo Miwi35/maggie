@@ -88,7 +88,7 @@ test('the usual shop chosen in the product form is saved and still there when th
     const shell = new AdminShell(page)
     await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
 
-    const shop = shell.content.getByLabel('Magasin habituel')
+    const shop = shell.content.getByLabel('Magasin habituel', { exact: true })
     await shop.fill('Primeur')
     await page.getByRole('option', { name: 'Primeur du marché' }).click()
 
@@ -110,7 +110,7 @@ test('the usual shop chosen in the product form is saved and still there when th
     )
 
     await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
-    await expect(shell.content.getByLabel('Magasin habituel')).toHaveValue('Primeur du marché')
+    await expect(shell.content.getByLabel('Magasin habituel', { exact: true })).toHaveValue('Primeur du marché')
     const stored = await api.get(iri, { headers: { Accept: 'application/ld+json' } })
     expect(((await stored.json()) as ProductRow).preferredStore).toBe(greengrocer)
   } finally {
@@ -142,7 +142,7 @@ test('an ingredient opened as a product saves its usual shop from the product fo
     const shell = new AdminShell(page)
     await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
 
-    const shop = shell.content.getByLabel('Magasin habituel')
+    const shop = shell.content.getByLabel('Magasin habituel', { exact: true })
     await shop.fill('Primeur')
     await page.getByRole('option', { name: 'Primeur du marché' }).click()
 
