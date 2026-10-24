@@ -75,7 +75,11 @@ test('filter a store and an aisle, then give a product an aisle at its fallback 
       category: 'other',
       preferredStore: superUStore['@id'],
     })
-    await created('/api/products', { name: biscuits, category: 'other', preferredStore: superUStore['@id'] })
+    const biscuitsProduct = await created('/api/products', {
+      name: biscuits,
+      category: 'other',
+      preferredStore: superUStore['@id'],
+    })
     await shelve(yogurtProduct, superUStore, fresh)
     await shelve(pastaProduct, superUStore, grocery)
 
@@ -108,10 +112,7 @@ test('filter a store and an aisle, then give a product an aisle at its fallback 
     await expect(shell.content.getByText(biscuits)).toHaveCount(0)
 
     // --- When: the sheet of Biscuits takes Biocoop as fallback, in a new aisle ---
-    const onShelves = await getCollection<{ id: string; name: string }>(api, `/api/products?store=${superUStore.id}`)
-    const biscuitsIri = onShelves.find((row) => row.name === biscuits)?.id
-    expect(biscuitsIri, 'the Biscuits product is not in the collection').toBeTruthy()
-    await shell.goto(`${ROUTES.products}/${encodeURIComponent(String(biscuitsIri))}`)
+    await shell.goto(`${ROUTES.products}/${encodeURIComponent(biscuitsProduct['@id'])}`)
 
     await page.getByRole('combobox', { name: 'À défaut', exact: true }).fill(biocoop)
     await page.getByRole('option', { name: biocoop }).click()
