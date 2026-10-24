@@ -1,0 +1,27 @@
+# The same recipe said aloud (MAG-598). A dictation reaches Maggie as plain text, uncleaned
+# (20-transcription-cleanup.yaml), so it is spoken French — « deux cents grammes », « pendant ce
+# temps » — and her job is the same as with the pasted text: the same proposal, the same « oui »
+# (15-recipe-yes.yaml), the same recipe in the end.
+name: recipe-dictated
+description: A dictated recipe is structured and proposed, never created unasked.
+
+match:
+  user_contains:
+    - "pâtes aux légumes"
+    - "deux cents grammes de pâtes"
+
+turns:
+  - tools:
+      - name: search_ingredients
+        input: {query: "pâtes"}
+  - text: |-
+      Voici « Pâtes aux légumes » pour 4 personnes, avec 3 ingrédients, 5 étapes et 2 ustensiles.
+      Ingrédients : 200 g de pâtes, 1 courgette, 1 poivron.
+      Étapes :
+      1. Mettre l'eau à bouillir, 10 min en fond.
+      2. Couper les légumes.
+      3. Cuire les pâtes, 12 min en fond (après l'étape 1).
+      4. Faire revenir les légumes, 8 min.
+      5. Égoutter, mélanger (après les étapes 3 et 4).
+      Ustensiles : une casserole, une poêle.
+      Je la crée ?

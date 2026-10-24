@@ -14,7 +14,7 @@ from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
 
-OFFERED = [{"name": name, "input_schema": {}} for name in ("read_web_page", "create_recipe", "create_event", "add_grocery_item")]
+OFFERED = [{"name": name, "input_schema": {}} for name in ("read_web_page", "search_ingredients", "create_recipe", "create_event", "add_grocery_item")]
 WRITES = {"create_recipe", "create_event", "add_grocery_item"}
 BASE = "http://wiremock:8080/pages"
 
@@ -57,17 +57,17 @@ async def ask(message: str, address: str) -> dict:
 
 
 @pytest.mark.parametrize(
-    ("message", "path", "proposal"),
+    ("message", "path", "proposal", "lookups"),
     [
-        ("Ajoute cette recette", "marmiton/boeuf-bourguignon", "6 ingrédients"),
-        ("Mets ça dans mon agenda", "events/concert-jazz", "14 novembre 2026"),
-        ("Ajoute ça à mes courses", "products/cafe-arabica", "14,90 €"),
+        ("Ajoute cette recette", "marmiton/boeuf-bourguignon", "6 ingrédients", [("search_ingredients", {"query": "boeuf"})]),
+        ("Mets ça dans mon agenda", "events/concert-jazz", "14 novembre 2026", []),
+        ("Ajoute ça à mes courses", "products/cafe-arabica", "14,90 €", []),
     ],
 )
-async def test_the_page_is_read_at_its_address_then_proposed_and_nothing_is_written(api, message, path, proposal):
+async def test_the_page_is_read_at_its_address_then_proposed_and_nothing_is_written(api, message, path, proposal, lookups):
     result = await ask(message, f"{BASE}/{path}")
 
-    assert api.calls == [("read_web_page", {"url": f"{BASE}/{path}"})]
+    assert api.calls == [("read_web_page", {"url": f"{BASE}/{path}"}), *lookups]
     assert not WRITES & {call["name"] for call in result["tool_calls"]}
     assert proposal in result["response"]
     assert result["response"].rstrip().endswith("?"), "a proposal waits for the yes"

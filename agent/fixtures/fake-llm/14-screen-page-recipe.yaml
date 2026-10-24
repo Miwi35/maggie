@@ -1,11 +1,13 @@
-# « Ajoute cette recette » with the page's address in the screen context (MAG-597): Maggie
-# reads the page with read_web_page — the tool really runs, against the Marmiton fixture the
-# e2e stack serves from WireMock (.docker/e2e/wiremock/mappings/web-pages.json) — and
-# PROPOSES the recipe with what the page holds. Nothing is created before the user's « oui »:
-# the proposal is the whole answer, and the journey proves on the data that no recipe exists.
-# The figures below are that fixture's: 6 people, 6 ingredients, 3 steps.
+# « Ajoute cette recette » with the page's address in the screen context (MAG-597, MAG-598):
+# Maggie reads the page with read_web_page — the tool really runs, against the Marmiton fixture
+# the e2e stack serves from WireMock (.docker/e2e/wiremock/mappings/web-pages.json) — looks the
+# ingredients up in the catalogue, and PROPOSES the whole recipe: portions, ingredients, steps
+# with their durations and dependencies, utensils. Nothing is created before the user's « oui »
+# (14-screen-page-recipe-yes.yaml): the proposal is the whole answer, and the journey proves on
+# the data that no recipe exists. The figures below are that fixture's: 6 people, 6 ingredients,
+# 3 steps, one cocotte. The fake does not read the tool results, so the proposal is a fixture too.
 name: screen-page-recipe
-description: A recipe asked from a page address is read first, then proposed, never created unasked.
+description: A recipe asked from a page address is read first, then proposed in full, never created unasked.
 
 match:
   user_contains: "ajoute cette recette"
@@ -15,4 +17,16 @@ turns:
   - tools:
       - name: read_web_page
         input: {url: '\1'}
-  - text: "J'ai lu la page : « Boeuf bourguignon : la vraie recette », pour 6 personnes, avec 6 ingrédients (boeuf à braiser, lardons, oignons, carottes, vin rouge, ail) et 3 étapes. Je l'ajoute à ton livre de recettes ?"
+  - tools:
+      - name: search_ingredients
+        input: {query: "boeuf"}
+  - text: |-
+      J'ai lu la page : « Boeuf bourguignon : la vraie recette », pour 6 personnes, avec 6 ingrédients, 3 étapes et une cocotte.
+      Ingrédients : 1,2 kg de boeuf à braiser, 150 g de lardons, 2 oignons, 3 carottes, 75 cl de vin rouge, 2 gousses d'ail.
+      Étapes :
+      1. Faire revenir les lardons puis les morceaux de boeuf dans une cocotte.
+      2. Ajouter les oignons, les carottes et l'ail, puis mouiller avec le vin (après l'étape 1).
+      3. Laisser mijoter à feu doux, 3 h en fond (après l'étape 2).
+      Ustensile : une cocotte.
+      Notes : Source : \1
+      Je l'ajoute à ton livre de recettes ?

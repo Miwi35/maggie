@@ -1,0 +1,40 @@
+# « Oui » after 14-screen-page-recipe.yaml proposed the Marmiton recipe (MAG-598): only now is the
+# recipe written, and with everything explicit — the tool deduces nothing. Each ingredient is
+# matched to Ciqual by its code (the account has no catalogue yet), and the steps name theirs by
+# the exact Ciqual name, since the products are created by this very call and have no id yet.
+# The page's address comes back from the history (`history_matches`) into the notes.
+#
+# Steps, as the page and the proposal gave them: 2 follows 1, and the 3-hour simmer is a timer
+# that runs in the background, after 2.
+name: screen-page-recipe-yes
+description: Create the proposed Marmiton recipe with its ingredients, steps and utensil once the user agrees.
+
+match:
+  user_matches: '^\W*oui\b'
+  history_contains: "ton livre de recettes ?"
+  history_matches: '(https?://wiremock:8080/pages/marmiton/[\w-]+)'
+
+turns:
+  - tools:
+      - name: create_recipe
+        input:
+          name: "Boeuf bourguignon : la vraie recette"
+          servings: 6
+          notes: "Source : \\1"
+          utensils: '["Cocotte"]'
+          ingredients: |-
+            [
+              {"ciqualAlimCode": "6270", "quantity": 1.2, "unit": "kg"},
+              {"ciqualAlimCode": "28501", "quantity": 150, "unit": "g"},
+              {"ciqualAlimCode": "20034", "quantity": 2, "unit": "piece"},
+              {"ciqualAlimCode": "20009", "quantity": 3, "unit": "piece"},
+              {"ciqualAlimCode": "5214", "quantity": 75, "unit": "cl"},
+              {"ciqualAlimCode": "11000", "quantity": 2, "unit": "piece"}
+            ]
+          steps: |-
+            [
+              {"text": "Faire revenir les lardons puis les morceaux de boeuf dans une cocotte.", "ingredientIds": ["Lardon nature, cru", "Boeuf, paleron cru"], "utensils": ["Cocotte"]},
+              {"text": "Ajouter les oignons, les carottes et l'ail, puis mouiller avec le vin.", "ingredientIds": ["Oignon, cru", "Carotte, crue", "Ail, cru", "Vin rouge"], "waitsFor": [1]},
+              {"text": "Laisser mijoter à feu doux pendant 3 heures.", "durationMinutes": 180, "background": true, "waitsFor": [2]}
+            ]
+  - text: "C'est fait : « Boeuf bourguignon : la vraie recette » est dans ton livre de recettes, pour 6 personnes, avec ses 6 ingrédients, ses 3 étapes et la cocotte."

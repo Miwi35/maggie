@@ -1,0 +1,38 @@
+# « Oui » after 15-recipe-pasted.yaml or 15-recipe-dictated.yaml proposed « Pâtes aux légumes »
+# (MAG-598): the same recipe whichever way it came in. Everything is explicit: the ingredients by
+# their Ciqual code (the account has no catalogue yet), the steps naming theirs by the exact Ciqual
+# name since the products are created by this very call, the utensils by name.
+#
+# The reference example of the steps spec (MAG-490): two timers in the background (the water, the
+# pasta), the vegetables in the pan meanwhile, and a last step that waits for two others.
+name: recipe-yes
+description: Create the proposed pasted or dictated recipe with its steps and utensils once the user agrees.
+
+match:
+  user_matches: '^\W*oui\b'
+  history_contains:
+    - "Pâtes aux légumes"
+    - "Je la crée ?"
+
+turns:
+  - tools:
+      - name: create_recipe
+        input:
+          name: "Pâtes aux légumes"
+          servings: 4
+          utensils: '["Casserole", "Poêle"]'
+          ingredients: |-
+            [
+              {"ciqualAlimCode": "9810", "quantity": 200, "unit": "g"},
+              {"ciqualAlimCode": "20020", "quantity": 1, "unit": "piece"},
+              {"ciqualAlimCode": "20041", "quantity": 1, "unit": "piece"}
+            ]
+          steps: |-
+            [
+              {"text": "Mettre l'eau à bouillir.", "durationMinutes": 10, "background": true, "utensils": ["Casserole"]},
+              {"text": "Couper les légumes.", "ingredientIds": ["Courgette, chair et peau, crue", "Poivron, vert, jaune ou rouge, cru"]},
+              {"text": "Cuire les pâtes.", "durationMinutes": 12, "background": true, "ingredientIds": ["Pâtes sèches, standard, crues"], "waitsFor": [1]},
+              {"text": "Faire revenir les légumes.", "durationMinutes": 8, "utensils": ["Poêle"]},
+              {"text": "Égoutter les pâtes et mélanger avec les légumes.", "waitsFor": [3, 4]}
+            ]
+  - text: "C'est fait : « Pâtes aux légumes » est dans ton livre de recettes, pour 4 personnes, avec ses 3 ingrédients, ses 5 étapes, la casserole et la poêle."
