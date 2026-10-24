@@ -13,7 +13,7 @@ use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Event\MealRemoved;
 use Maggie\Cookbook\Event\MealRescheduled;
 use Maggie\Cookbook\Message\CreateMealCommand;
-use Maggie\Cookbook\Tests\Support\ChoosesMealGroceriesTrait;
+use Maggie\MealGrocery\Tests\Support\ChoosesMealGroceriesTrait;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Envelope;
@@ -55,7 +55,7 @@ class MealScheduleListenerTest extends KernelTestCase
         );
     }
 
-    public function testDeletingAMealSendsTheEventWithIdsAndItsContributionsOnceItIsGone(): void
+    public function testDeletingAMealSendsTheEventWithItsIdsOnceItIsGone(): void
     {
         $mealId = $this->planMeal('pasta', '+1 day');
         $meal = $this->em()->find(Meal::class, $mealId);
@@ -70,7 +70,6 @@ class MealScheduleListenerTest extends KernelTestCase
         self::assertInstanceOf(MealRemoved::class, $event);
         self::assertSame($mealId, $event->mealId);
         self::assertSame($userId, $event->userId);
-        self::assertEqualsCanonicalizing([400.0, 4.0], array_column($event->contributions, 'quantity'));
         self::assertSame([false], $this->transactionOpenWhenSent, 'the event goes out after the flush is committed');
         self::assertNull($this->em()->find(Meal::class, $mealId));
     }

@@ -1,7 +1,7 @@
 mcp:
     app: 'maggie-mcp'
     version: '1.0.0'
-    description: 'Maggie AI Agent MCP Server — calendar, cookbook, grocery, finance and notification tools'
+    description: 'Maggie AI Agent MCP Server — calendar, cookbook, grocery, meal-grocery, finance and notification tools'
     pagination_limit: 500
     instructions: |
         This MCP server exposes Maggie's business modules: calendar (events, tasks,
@@ -19,6 +19,7 @@ mcp:
             - 'modules/core/src'
             - 'modules/finance/src'
             - 'modules/grocery/src'
+            - 'modules/meal-grocery/src'
             - 'modules/notification/src'
         exclude_dirs:
             - 'DataFixtures'

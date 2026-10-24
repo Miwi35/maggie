@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Mcp\Tool;
 
-use Maggie\Cookbook\Entity\Meal;
-use Maggie\Cookbook\Entity\Recipe;
-use Maggie\Cookbook\Entity\RecipeIngredient;
-use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
@@ -15,6 +11,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Message\UpdateProductCommand;
+use Maggie\Grocery\Port\RecipeDemandInterface;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Grocery\Repository\ProductRepository;
 use Mcp\Capability\Attribute\McpTool;
@@ -32,7 +29,7 @@ class UpdateStockTool
         private readonly McpUserContext $userContext,
         private readonly ProductRepository $productRepository,
         private readonly GroceryListRepository $groceryListRepository,
-        private readonly MealRepository $mealRepository,
+        private readonly RecipeDemandInterface $recipeDemand,
     ) {
     }
 
@@ -55,7 +52,7 @@ class UpdateStockTool
                 'product' => ['id' => (string) $found->getId(), 'name' => $found->getName()],
                 'stockState' => $stockState->value,
                 'restock' => $this->restock($user, $found, $stockState, $linesBefore),
-                'plannedMeals' => $this->plannedMeals($user, $found),
+                'plannedMeals' => $this->recipeDemand->plannedMeals($user, $found, self::MEAL_WINDOW_DAYS),
             ], JSON_THROW_ON_ERROR);
         } catch (MissingMcpUserException|\DomainException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
@@ -162,25 +159,5 @@ class UpdateStockTool
             $list->getItems()->toArray(),
             static fn (GroceryItem $item) => !$item->isChecked() && (string) $item->getProduct()?->getId() === (string) $product->getId(),
         ));
-    }
-
-    /** @return list<array{date: string, slot: string, recipes: list<string>}> */
-    private function plannedMeals(User $user, Product $product): array
-    {
-        $productId = (string) $product->getId();
-
-        return array_map(static fn (Meal $meal) => [
-            'date' => $meal->getDate()?->format('Y-m-d') ?? '',
-            'slot' => $meal->getSlot()->value,
-            'recipes' => array_values(array_map(
-                static fn (Recipe $recipe) => $recipe->getName(),
-                array_filter(
-                    $meal->getRecipes()->toArray(),
-                    static fn (Recipe $recipe) => $recipe->getIngredients()->exists(
-                        static fn ($_, RecipeIngredient $line) => (string) $line->getIngredient()->getId() === $productId,
-                    ),
-                ),
-            )),
-        ], $this->mealRepository->findUpcomingUsingProduct($user, $product, self::MEAL_WINDOW_DAYS));
     }
 }

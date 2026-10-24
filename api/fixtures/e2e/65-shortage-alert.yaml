@@ -59,7 +59,7 @@ Maggie\Cookbook\Entity\Meal:
     agenda: '@e2e_shortage_agenda'
     recipes: ['@e2e_shortage_recipe']
 
-Maggie\Cookbook\Entity\ShortageAlert:
+Maggie\MealGrocery\Entity\ShortageAlert:
   e2e_shortage_alert:
     user: '@e2e_shortage_user'
     meal: '@e2e_shortage_dinner'

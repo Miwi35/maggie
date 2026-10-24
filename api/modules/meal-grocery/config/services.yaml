@@ -1,0 +1,14 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Maggie\MealGrocery\:
+        resource: '../src/'
+        exclude:
+            - '../src/Entity/'
+            - '../src/MaggieMealGroceryBundle.php'
+
+    # Ports owned by cookbook and grocery, implemented here.
+    Maggie\Cookbook\Port\MealGroceryPreviewInterface: '@Maggie\MealGrocery\Service\MealGroceryChoice'
+    Maggie\Grocery\Port\RecipeDemandInterface: '@Maggie\MealGrocery\Service\RecipeNeeds'

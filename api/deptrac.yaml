@@ -1,0 +1,53 @@
+# Who may depend on whom between the modules of modules/ (MAG-587).
+# The rule and the way to change it: agent-os/standards/backend/module-boundaries.md
+deptrac:
+  cache_file: var/deptrac.cache
+  paths:
+    - ./modules
+  exclude_files:
+    - '#/tests/#'
+    - '#/migrations/#'
+  layers:
+    - name: Core
+      collectors:
+        - { type: classNameRegex, value: '#^Maggie\\Core\\#' }
+    - name: Notification
+      collectors:
+        - { type: classNameRegex, value: '#^Maggie\\Notification\\#' }
+    - name: Calendar
+      collectors:
+        - { type: classNameRegex, value: '#^Maggie\\Calendar\\#' }
+    - name: Finance
+      collectors:
+        - { type: classNameRegex, value: '#^Maggie\\Finance\\#' }
+    - name: Cookbook
+      collectors:
+        - { type: classNameRegex, value: '#^Maggie\\Cookbook\\#' }
+    - name: MealGrocery
+      collectors:
+        - { type: classNameRegex, value: '#^Maggie\\MealGrocery\\#' }
+    # An Ingredient is a Product (single-table inheritance): Cookbook reads and
+    # edits the catalogue through these classes and no others of Grocery. The
+    # list includes what the product and its trait pull in (aisles, exceptions,
+    # processors), because deptrac flattens inheritance and traits.
+    - name: GroceryCatalogue
+      collectors:
+        - type: classNameRegex
+          value: '#^Maggie\\Grocery\\(Entity\\(Product|Store|SeasonalLine|Aisle|ProductAisle)|Enum\\(Unit|ProductCategory|ProductStockState)|Exception\\.+|Repository\\(Product|Store)Repository|Service\\SeasonCalendar|State\\(DispatchesProductCommandTrait|(Create|Update|Delete)ProductProcessor)|UseCase\\(Create|Update|Delete)Product)$#'
+    - name: Grocery
+      collectors:
+        - type: bool
+          must:
+            - { type: classNameRegex, value: '#^Maggie\\Grocery\\#' }
+          must_not:
+            - type: classNameRegex
+              value: '#^Maggie\\Grocery\\(Entity\\(Product|Store|SeasonalLine|Aisle|ProductAisle)|Enum\\(Unit|ProductCategory|ProductStockState)|Exception\\.+|Repository\\(Product|Store)Repository|Service\\SeasonCalendar|State\\(DispatchesProductCommandTrait|(Create|Update|Delete)ProductProcessor)|UseCase\\(Create|Update|Delete)Product)$#'
+  ruleset:
+    Core: ~
+    Notification: [Core]
+    Calendar: [Core, Notification]
+    Finance: [Core, Calendar, Notification]
+    Grocery: [Core, GroceryCatalogue]
+    GroceryCatalogue: [Core, Grocery]
+    Cookbook: [Core, Calendar, GroceryCatalogue]
+    MealGrocery: [Core, Calendar, Notification, Cookbook, Grocery, GroceryCatalogue]

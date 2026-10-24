@@ -9,7 +9,8 @@
         {"type": "path", "url": "modules/notification", "options": {"symlink": true}},
         {"type": "path", "url": "modules/grocery", "options": {"symlink": true}},
         {"type": "path", "url": "modules/cookbook", "options": {"symlink": true}},
-        {"type": "path", "url": "modules/finance", "options": {"symlink": true}}
+        {"type": "path", "url": "modules/finance", "options": {"symlink": true}},
+        {"type": "path", "url": "modules/meal-grocery", "options": {"symlink": true}}
     ],
     "require": {
         "php": ">=8.4",
@@ -28,6 +29,7 @@
         "maggie/core": "@dev",
         "maggie/finance": "@dev",
         "maggie/grocery": "@dev",
+        "maggie/meal-grocery": "@dev",
         "maggie/notification": "@dev",
         "nelmio/cors-bundle": "^2.6.1",
         "nyholm/psr7": "^1.8.2",
@@ -73,6 +75,7 @@
             "Maggie\\Core\\Tests\\": "modules/core/tests/",
             "Maggie\\Finance\\Tests\\": "modules/finance/tests/",
             "Maggie\\Grocery\\Tests\\": "modules/grocery/tests/",
+            "Maggie\\MealGrocery\\Tests\\": "modules/meal-grocery/tests/",
             "Maggie\\Notification\\Tests\\": "modules/notification/tests/"
         }
     },
@@ -108,6 +111,7 @@
         }
     },
     "require-dev": {
+        "deptrac/deptrac": "^4.7",
         "doctrine/doctrine-fixtures-bundle": "^4.3.1",
         "friendsofphp/php-cs-fixer": "^3.95",
         "hautelook/alice-bundle": "^2.17.2",

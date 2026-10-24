@@ -35,6 +35,8 @@ backend:
     description: ProjectionMiddleware publishes on Mercure and indexes the whole unit of work, to the row's owner, after the root handler — handlers never call the hub or the indexer
   domain-events:
     description: A business effect is the consequence of a domain event — Doctrine listener → Specification → event on event.bus → event handler → command → use case → service, postFlush dispatch, identifiers only
+  module-boundaries:
+    description: api/modules are independent — deptrac.yaml rules (task api:lint), core depends on no module (tagged interfaces, events), Recettes ↔ Courses bridge in modules/meal-grocery, ReminderSourceInterface, the catalogue exception
 
 deployment:
   ci-cd-pipeline:

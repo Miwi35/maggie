@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Grocery\MessageHandler;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Cookbook\Entity\Meal;
-use Maggie\Cookbook\Entity\MealGroceryContribution;
-use Maggie\Cookbook\Repository\MealGroceryContributionRepository;
-use Maggie\Cookbook\Service\RecipeNeeds;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
@@ -20,12 +16,12 @@ use Maggie\Grocery\Enum\Unit;
 use Maggie\Grocery\Exception\InvalidGroceryQuantityException;
 use Maggie\Grocery\Message\AddGroceryItemCommand;
 use Maggie\Grocery\Message\AddGroceryItemResult;
+use Maggie\Grocery\Port\RecipeDemandInterface;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Maggie\Grocery\Repository\ProductRepository;
 use Maggie\Grocery\Repository\StoreRepository;
 use Maggie\Grocery\Service\DesiredQuantity;
 use Maggie\Grocery\Service\GroceryLineNeeds;
-use Maggie\Grocery\Service\Needs;
 use Maggie\Grocery\Service\Packaging;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -41,8 +37,7 @@ class AddGroceryItemHandler
         private readonly Packaging $packaging,
         private readonly GroceryLineNeeds $lineNeeds,
         private readonly DesiredQuantity $desired,
-        private readonly RecipeNeeds $recipeNeeds,
-        private readonly MealGroceryContributionRepository $contributionRepository,
+        private readonly RecipeDemandInterface $recipeDemand,
     ) {
     }
 
@@ -145,7 +140,7 @@ class AddGroceryItemHandler
         $packagingUnit = $matched?->getPackagingUnit();
 
         // What the week's meals need of the product (a product just created has no meals).
-        $week = null === $matched ? ['needs' => [], 'meals' => []] : $this->recipeNeeds->forProduct($user, $matched);
+        $week = null === $matched ? ['needs' => [], 'meals' => []] : $this->recipeDemand->forProduct($user, $matched);
         $needs = $week['needs'];
         $recipeNeed = null === $product ? null : $this->desired->headline($product, $needs);
 
@@ -187,7 +182,9 @@ class AddGroceryItemHandler
             $item->setQuantity($quantity);
             $item->setUnit($unit);
             $item->applyDesired($wanted[0] ?? null, $wanted[1] ?? null);
-            $this->holdMeals($item, $matched, $week['meals']);
+            if (null !== $matched) {
+                $this->recipeDemand->hold($item, $matched, $week['meals']);
+            }
         }
 
         $maxPosition = 0;
@@ -220,43 +217,6 @@ class AddGroceryItemHandler
             $covers,
             $covers || null === $product->getPackagingUnit() ? null : $this->packaging->packsFor($product, $needs),
         );
-    }
-
-    /**
-     * The new line holds the week's meals as the meal sync would have: one
-     * contribution each, and their sum as the line's need. A later sync of one
-     * of these meals then adjusts its share instead of adding it a second time.
-     * A meal already holding a line of the product elsewhere is left to it.
-     *
-     * @param list<array{mealId: string, quantity: float, unit: ?string}> $meals
-     */
-    private function holdMeals(GroceryItem $item, ?Product $product, array $meals): void
-    {
-        if (null === $product) {
-            return;
-        }
-
-        $needed = [];
-        foreach ($meals as $line) {
-            $meal = $this->em->getReference(Meal::class, $line['mealId']);
-            foreach ($this->contributionRepository->findByMeal($meal) as $held) {
-                if ((string) $held->getGroceryItem()->getProduct()?->getId() === (string) $product->getId()) {
-                    continue 2;
-                }
-            }
-
-            $unit = null === $line['unit'] ? null : Unit::from($line['unit']);
-            $needed = Needs::add($needed, $line['quantity'], $unit);
-
-            $contribution = new MealGroceryContribution();
-            $contribution->setMeal($meal);
-            $contribution->setGroceryItem($item);
-            $contribution->setQuantity($line['quantity']);
-            $contribution->setUnit($unit);
-            $this->em->persist($contribution);
-        }
-
-        $item->setNeeded([] === $needed ? null : $needed);
     }
 
     /**

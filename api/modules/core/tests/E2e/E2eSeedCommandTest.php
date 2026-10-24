@@ -19,7 +19,6 @@ use Maggie\Calendar\Service\AgendaChoiceKind;
 use Maggie\Calendar\Service\AgendaSuggester;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\Recipe;
-use Maggie\Cookbook\Entity\ShortageAlert;
 use Maggie\Core\E2e\Command\E2eSeedCommand;
 use Maggie\Core\E2e\Fixture\E2eDateProvider;
 use Maggie\Core\Entity\User;
@@ -35,6 +34,7 @@ use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Service\PurchaseSuggestions;
+use Maggie\MealGrocery\Entity\ShortageAlert;
 use Maggie\Notification\Entity\Notification;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Application;
@@ -673,7 +673,7 @@ final class E2eSeedCommandTest extends KernelTestCase
             $this->entityManager(),
             $container->get(E2eDateProvider::class),
             $loader,
-            $container->get(\Maggie\Finance\Doctrine\TransactionListener::class),
+            new \Maggie\Core\E2e\Fixture\FixtureEffects([$container->get(\Maggie\Finance\Doctrine\TransactionListener::class)]),
             $container->get(\Elastic\Elasticsearch\Client::class),
             new \Maggie\Core\E2e\Fixture\E2eFixtureCatalog($container->getParameter('kernel.project_dir')),
             $container->getParameter('kernel.project_dir'),

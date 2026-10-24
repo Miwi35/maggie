@@ -8,6 +8,7 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PreFlushEventArgs;
 use Doctrine\ORM\Events;
+use Maggie\Core\E2e\Fixture\FixtureEffectsInterface;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Event\TransactionChanged;
 use Maggie\Finance\Event\TransactionRecorded;
@@ -31,7 +32,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 #[AsDoctrineListener(event: Events::preFlush)]
 #[AsDoctrineListener(event: Events::onFlush)]
 #[AsDoctrineListener(event: Events::postFlush, priority: -100)]
-final class TransactionListener
+final class TransactionListener implements FixtureEffectsInterface
 {
     /** @var list<array{Transaction, array<string, array{mixed, mixed}>}> */
     private array $saved = [];

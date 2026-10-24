@@ -119,6 +119,13 @@ tasks:
         echo "PHPStan on: $FILES"
         task wt:phpstan -- $FILES
 
+  deptrac:
+    desc: Module boundaries (deptrac) on this worktree, like CI
+    cmds:
+      - task: _php
+        vars:
+          COMMAND: 'vendor/bin/deptrac analyse --no-progress --no-interaction {{.CLI_ARGS}}'
+
   cs:fix:
     desc: PHP-CS-Fixer in write mode on this worktree
     cmds:

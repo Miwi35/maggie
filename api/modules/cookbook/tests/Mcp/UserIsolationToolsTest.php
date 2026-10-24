@@ -11,13 +11,13 @@ use Maggie\Calendar\Entity\Agenda;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Mcp\Tool\DeleteRecipeTool;
-use Maggie\Cookbook\Mcp\Tool\GenerateGroceryListTool;
 use Maggie\Cookbook\Mcp\Tool\GetRecipeTool;
 use Maggie\Cookbook\Mcp\Tool\ManageMealsTool;
 use Maggie\Cookbook\Mcp\Tool\SearchIngredientsTool;
 use Maggie\Cookbook\Mcp\Tool\SearchRecipesTool;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mcp\MissingMcpUserException;
+use Maggie\MealGrocery\Mcp\Tool\GenerateGroceryListTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**

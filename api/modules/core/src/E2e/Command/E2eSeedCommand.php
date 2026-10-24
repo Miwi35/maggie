@@ -11,7 +11,7 @@ use Fidry\AliceDataFixtures\LoaderInterface;
 use Fidry\AliceDataFixtures\Persistence\PurgeMode;
 use Maggie\Core\E2e\Fixture\E2eDateProvider;
 use Maggie\Core\E2e\Fixture\E2eFixtureCatalog;
-use Maggie\Finance\Doctrine\TransactionListener;
+use Maggie\Core\E2e\Fixture\FixtureEffects;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -46,7 +46,7 @@ final class E2eSeedCommand extends Command
         private readonly E2eDateProvider $dateProvider,
         #[Autowire(service: 'fidry_alice_data_fixtures.loader.doctrine')]
         private readonly LoaderInterface $fixtureLoader,
-        private readonly TransactionListener $transactionEffects,
+        private readonly FixtureEffects $fixtureEffects,
         private readonly ElasticsearchClient $elasticsearch,
         private readonly E2eFixtureCatalog $catalog,
         private readonly string $projectDir,
@@ -102,7 +102,7 @@ final class E2eSeedCommand extends Command
 
         // The fixtures are history, exactly as written: a journey starts from an
         // operation nothing has filed, which the categorisation would file at load.
-        $objects = $this->transactionEffects->withoutEffects(fn () => $this->fixtureLoader->load(
+        $objects = $this->fixtureEffects->withoutEffects(fn () => $this->fixtureLoader->load(
             $this->catalog->files(),
             [],
             [],

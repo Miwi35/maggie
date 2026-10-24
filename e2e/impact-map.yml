@@ -234,6 +234,7 @@ areas:
     - e2e/web/pages/GoogleSettingsPage.ts
   grocery:
     - api/modules/grocery/**
+    - api/modules/meal-grocery/**
     - api/fixtures/e2e/30-grocery.yaml
     - admin/src/modules/grocery/**
     - mobile/app/src/main/java/com/maggie/app/ui/screens/cookbook/grocery/**
@@ -244,6 +245,7 @@ areas:
     - e2e/mobile/scripts/grocery-api.js
   cookbook:
     - api/modules/cookbook/**
+    - api/modules/meal-grocery/**
     - api/fixtures/e2e/40-cookbook.yaml
     - admin/src/modules/cookbook/**
     - ciqual/**
@@ -360,10 +362,10 @@ web:
     # « Il manque » (MAG-570): the alert, its action route and the seeded account.
     paths:
       - api/fixtures/e2e/65-shortage-alert.yaml
-      - api/modules/cookbook/src/Entity/ShortageAlert.php
-      - api/modules/cookbook/src/Controller/ShortageAlertController.php
-      - api/modules/cookbook/src/Repository/ShortageAlertRepository.php
-      - api/modules/cookbook/src/Service/{ShortageAlerts,RecipeNeeds}.php
+      - api/modules/meal-grocery/src/Entity/ShortageAlert.php
+      - api/modules/meal-grocery/src/Controller/ShortageAlertController.php
+      - api/modules/meal-grocery/src/Repository/ShortageAlertRepository.php
+      - api/modules/meal-grocery/src/Service/{ShortageAlerts,RecipeNeeds}.php
   e2e/web/tests/mercure.spec.ts:
     areas: [realtime, grocery, calendar, settings]
   e2e/web/tests/live-lists.spec.ts:

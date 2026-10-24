@@ -74,17 +74,19 @@ framework:
             'Maggie\Cookbook\Message\CreateMealCommand': sync
             'Maggie\Cookbook\Message\UpdateMealCommand': sync
             'Maggie\Cookbook\Message\DeleteMealCommand': sync
-            'Maggie\Cookbook\Message\ChooseMealGroceriesCommand': sync
-            'Maggie\Cookbook\Message\GenerateGroceryListCommand': sync
-            'Maggie\Cookbook\Message\RevokeMealGroceriesCommand': sync
-            'Maggie\Cookbook\Message\SyncMealGroceriesCommand': sync
+            'Maggie\MealGrocery\Message\ChooseMealGroceriesCommand': sync
+            'Maggie\MealGrocery\Message\GenerateGroceryListCommand': sync
+            'Maggie\MealGrocery\Message\RevokeMealGroceriesCommand': sync
+            'Maggie\MealGrocery\Message\SyncMealGroceriesCommand': sync
             'Maggie\Cookbook\Event\MealRemoved': sync
             'Maggie\Cookbook\Event\MealRescheduled': sync
-            'Maggie\Cookbook\Message\ReleaseMealGroceriesCommand': sync
-            'Maggie\Cookbook\Message\ConsolidateGroceryListCommand': sync
+            'Maggie\MealGrocery\Message\ReleaseMealGroceriesCommand': sync
+            'Maggie\MealGrocery\Message\ConsolidateGroceryListCommand': sync
             'Maggie\Cookbook\Event\MealPassed': sync
             'Maggie\Cookbook\Event\MealGuestsChanged': sync
-            'Maggie\Cookbook\Message\RescaleMealGroceriesCommand': sync
+            'Maggie\Cookbook\Event\DefaultGuestsChanged': sync
+            'Maggie\Core\Event\UserSignedInWithGoogle': sync
+            'Maggie\MealGrocery\Message\RescaleMealGroceriesCommand': sync
             'Maggie\Cookbook\Message\CreateMealSettingsCommand': sync
             'Maggie\Cookbook\Message\UpdateMealSettingsCommand': sync
             'Maggie\Cookbook\Message\CreateUtensilCommand': sync

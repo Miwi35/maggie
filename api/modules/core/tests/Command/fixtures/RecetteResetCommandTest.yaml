@@ -114,7 +114,7 @@ Maggie\Cookbook\Entity\Meal:
     agenda: '@agenda_<current()>'
     recipes: ['@recipe_<current()>']
 
-Maggie\Cookbook\Entity\MealGroceryContribution:
+Maggie\MealGrocery\Entity\MealGroceryContribution:
   contribution_{recette, other}:
     meal: '@meal_<current()>'
     groceryItem: '@item_<current()>'
