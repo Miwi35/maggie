@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Grocery\Home;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Maggie\Cookbook\Entity\Meal;
-use Maggie\Cookbook\Entity\Recipe;
-use Maggie\Cookbook\Service\RecipeNeeds;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Home\HomeCardProviderInterface;
 use Maggie\Core\Home\HomeCardWatcherInterface;
@@ -16,6 +13,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
+use Maggie\Grocery\Port\RecipeDemandInterface;
 use Symfony\Component\Clock\ClockInterface;
 
 /**
@@ -31,7 +29,7 @@ class GroceryHomeCard implements HomeCardProviderInterface, HomeCardWatcherInter
 
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly RecipeNeeds $recipeNeeds,
+        private readonly RecipeDemandInterface $recipeDemand,
         private readonly ClockInterface $clock,
     ) {
     }
@@ -43,7 +41,7 @@ class GroceryHomeCard implements HomeCardProviderInterface, HomeCardWatcherInter
 
     public function watchedEntities(): array
     {
-        return [GroceryItem::class, GroceryList::class, Store::class, Product::class, Meal::class, Recipe::class];
+        return [GroceryItem::class, GroceryList::class, Store::class, Product::class, ...$this->recipeDemand->watchedEntities()];
     }
 
     public function state(User $user, HomeDay $day): array
@@ -83,7 +81,7 @@ class GroceryHomeCard implements HomeCardProviderInterface, HomeCardWatcherInter
                     'day' => $need['date'] === $today->format('Y-m-d') ? HomeDay::Today->value : HomeDay::Tomorrow->value,
                     'slot' => $need['slot'],
                 ],
-                $this->recipeNeeds->runningOut($user, $today),
+                $this->recipeDemand->runningOut($user, $today),
             ),
             'stores' => $stores,
         ];

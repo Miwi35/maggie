@@ -11,6 +11,7 @@ use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Maggie\Core\Controller\GoogleAuthController;
 use Maggie\Core\Entity\RefreshToken;
+use Maggie\Core\Event\UserSignedInWithGoogle;
 use Maggie\Core\Mercure\MercureAccessToken;
 use Maggie\Core\Mercure\MercureSubscriberTokenFactory;
 use Maggie\Core\Repository\UserRepository;
@@ -20,7 +21,9 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBus;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * The web sign-in: what the browser is handed when Google sends the user back.
@@ -66,6 +69,26 @@ final class GoogleAuthControllerTest extends KernelTestCase
         self::assertSame('google-callback@example.com', $stored->getUsername());
     }
 
+    public function testCallbackAnnouncesTheSignInOnTheEventBusForTheModulesThatReadFromGoogle(): void
+    {
+        $bus = new class implements MessageBusInterface {
+            /** @var list<object> */
+            public array $sent = [];
+
+            public function dispatch(object $message, array $stamps = []): Envelope
+            {
+                $this->sent[] = $message;
+
+                return new Envelope($message);
+            }
+        };
+
+        $this->controller(eventBus: $bus)->callback(Request::create('/api/auth/google/callback', 'GET', ['code' => 'a-code']));
+
+        $user = $this->entityManager()->getRepository(\Maggie\Core\Entity\User::class)->findOneBy(['email' => 'google-callback@example.com']);
+        self::assertEquals([new UserSignedInWithGoogle((string) $user->getId())], $bus->sent);
+    }
+
     public function testRefreshTokenIsNeverPutInTheRedirectUrl(): void
     {
         $response = $this->controller()->callback(Request::create('/api/auth/google/callback', 'GET', ['code' => 'a-code']));
@@ -82,7 +105,7 @@ final class GoogleAuthControllerTest extends KernelTestCase
         self::assertSame(0, $this->entityManager()->getRepository(RefreshToken::class)->count([]));
     }
 
-    private function controller(bool $failExchange = false): GoogleAuthController
+    private function controller(bool $failExchange = false, ?MessageBusInterface $eventBus = null): GoogleAuthController
     {
         $container = self::getContainer();
 
@@ -107,7 +130,7 @@ final class GoogleAuthControllerTest extends KernelTestCase
             $container->get(UserRepository::class),
             $this->entityManager(),
             $container->get(JWTTokenManagerInterface::class),
-            new MessageBus(),
+            $eventBus ?? new MessageBus(),
             $container->get(RefreshTokenGeneratorInterface::class),
             $container->get(RefreshTokenManagerInterface::class),
             new MercureSubscriberTokenFactory(new MercureAccessToken('a-mercure-secret-of-at-least-32-bytes', 'http://localhost/.well-known/mercure')),

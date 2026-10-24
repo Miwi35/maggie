@@ -7,9 +7,11 @@ use Gesdinet\JWTRefreshTokenBundle\Generator\RefreshTokenGeneratorInterface;
 use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Event\UserSignedInWithGoogle;
 use Maggie\Core\Mercure\MercureSubscriberTokenFactory;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Core\Security\RefreshTokenCookieFactory;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,7 +27,8 @@ final class GoogleAuthController
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly JWTTokenManagerInterface $jwtManager,
-        private readonly MessageBusInterface $messageBus,
+        #[Autowire(service: 'event.bus')]
+        private readonly MessageBusInterface $eventBus,
         private readonly RefreshTokenGeneratorInterface $refreshTokenGenerator,
         private readonly RefreshTokenManagerInterface $refreshTokenManager,
         private readonly MercureSubscriberTokenFactory $mercureSubscriberTokenFactory,
@@ -164,13 +167,7 @@ final class GoogleAuthController
         }
         $this->entityManager->flush();
 
-        // Refreshes the tasks of the list the owner chose in Paramètres ›
-        // Google. A first sign-in has chosen none, and the pull does nothing
-        // until it has: the list is the owner's to pick, never ours to adopt
-        // (MAG-118).
-        $this->messageBus->dispatch(new \Maggie\Calendar\Message\PullTasksFromGoogleCommand(
-            userId: (string) $user->getId(),
-        ));
+        $this->eventBus->dispatch(new UserSignedInWithGoogle((string) $user->getId()));
 
         $jwt = $this->jwtManager->create($user);
 

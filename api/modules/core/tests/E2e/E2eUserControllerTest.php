@@ -14,6 +14,7 @@ use Maggie\Core\E2e\Controller\E2eAccessGuard;
 use Maggie\Core\E2e\Controller\E2eUserController;
 use Maggie\Core\E2e\Fixture\E2eDateProvider;
 use Maggie\Core\E2e\Fixture\E2eFixtureCatalog;
+use Maggie\Core\E2e\Fixture\FixtureEffects;
 use Maggie\Core\E2e\User\E2eUserFactory;
 use Maggie\Core\E2e\User\LoadedObjectsIndexer;
 use Maggie\Core\Entity\RefreshToken;
@@ -232,7 +233,7 @@ final class E2eUserControllerTest extends KernelTestCase
                 $this->entityManager(),
                 $container->get(E2eDateProvider::class),
                 $loader,
-                $container->get(TransactionListener::class),
+                new FixtureEffects([$container->get(TransactionListener::class)]),
                 new E2eFixtureCatalog($projectDir),
                 $indexer,
                 $projectDir,

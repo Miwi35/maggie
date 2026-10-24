@@ -9,9 +9,9 @@ use Fidry\AliceDataFixtures\LoaderInterface;
 use Fidry\AliceDataFixtures\Persistence\PurgeMode;
 use Maggie\Core\E2e\Fixture\E2eDateProvider;
 use Maggie\Core\E2e\Fixture\E2eFixtureCatalog;
+use Maggie\Core\E2e\Fixture\FixtureEffects;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Entity\UserPreference;
-use Maggie\Finance\Doctrine\TransactionListener;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Uid\Ulid;
 
@@ -35,7 +35,7 @@ final class E2eUserFactory
         private readonly E2eDateProvider $dateProvider,
         #[Autowire(service: 'fidry_alice_data_fixtures.loader.doctrine')]
         private readonly LoaderInterface $fixtureLoader,
-        private readonly TransactionListener $transactionEffects,
+        private readonly FixtureEffects $fixtureEffects,
         private readonly E2eFixtureCatalog $catalog,
         private readonly LoadedObjectsIndexer $indexer,
         private readonly string $projectDir,
@@ -101,7 +101,7 @@ final class E2eUserFactory
 
         try {
             // History, like the seed's: nothing a journey starts from is a movement to record.
-            return $this->transactionEffects->withoutEffects(fn () => $this->fixtureLoader->load(
+            return $this->fixtureEffects->withoutEffects(fn () => $this->fixtureLoader->load(
                 [$file],
                 [],
                 [],

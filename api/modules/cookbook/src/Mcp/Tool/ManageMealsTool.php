@@ -8,8 +8,8 @@ use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Message\DeleteMealCommand;
 use Maggie\Cookbook\Message\UpdateMealCommand;
+use Maggie\Cookbook\Port\MealGroceryPreviewInterface;
 use Maggie\Cookbook\Repository\MealRepository;
-use Maggie\Cookbook\Service\MealGroceryChoice;
 use Maggie\Cookbook\Service\MealGuests;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
@@ -25,7 +25,7 @@ class ManageMealsTool
         private readonly MessageBusInterface $bus,
         private readonly MealRepository $mealRepository,
         private readonly McpUserContext $userContext,
-        private readonly MealGroceryChoice $choice,
+        private readonly MealGroceryPreviewInterface $groceryPreview,
         private readonly MealGuests $mealGuests,
     ) {
     }
@@ -106,7 +106,7 @@ class ManageMealsTool
         return json_encode([
             'success' => true,
             'meal' => $this->serialize($meal),
-            'groceryPreview' => $this->choice->preview($meal),
+            'groceryPreview' => $this->groceryPreview->preview($meal),
         ], JSON_THROW_ON_ERROR);
     }
 

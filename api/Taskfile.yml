@@ -63,6 +63,12 @@ tasks:
     cmds:
       - task: cs:check
       - task: phpstan
+      - task: deptrac
+
+  deptrac:
+    desc: Check the boundaries between modules (deptrac.yaml)
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} exec php vendor/bin/deptrac analyse --no-progress --no-interaction {{.CLI_ARGS}}
 
   phpstan:
     desc: Run PHPStan static analysis

@@ -356,6 +356,8 @@ jobs:
       - name: PHP-CS-Fixer
         run: vendor/bin/php-cs-fixer fix --dry-run --diff --no-interaction
       - run: vendor/bin/phpstan analyse
+      - name: Module boundaries (deptrac)
+        run: vendor/bin/deptrac analyse --no-progress --no-interaction
 
   agent-lint:
     name: Agent Lint (Ruff)
