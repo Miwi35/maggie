@@ -82,9 +82,11 @@ data class ScreenContext(
     /**
      * The block sent beside the first sentence, or null if there is nothing to say.
      *
-     * With an image attached, the image carries the content: the block names the
-     * app and the page's domain, never the texts nor the full address (MAG-214, the
-     * owner's decision). Without one, the texts are all the model gets.
+     * The image never replaces the rest (MAG-595, lifting MAG-214's « the image
+     * carries the content »): the full address and the texts go with or without
+     * it, so Maggie can read the page itself and not only guess from a picture.
+     * The address is sent only if it is `http(s)`: `content://`, `file://` and
+     * app-internal links mean nothing outside the phone.
      * [imageAttached] is whether bytes actually go with the sentence, not
      * [hasScreenshot]: a file that could not be read must not be announced.
      */
@@ -98,16 +100,12 @@ data class ScreenContext(
         ).joinToString(" ")
         if (app.isNotEmpty()) lines += "Application : $app"
 
-        if (imageAttached) {
-            webUri?.let { host(it) }?.let { lines += "Page : $it" }
-            lines += "L'image jointe est une capture de cet écran."
-        } else {
-            webUri?.takeIf { it.isNotBlank() }?.let { lines += "Page : $it" }
-            if (texts.isNotEmpty()) {
-                lines += "Texte à l'écran :"
-                texts.forEach { lines += "- $it" }
-            }
+        webUri?.let { webPage(it) }?.let { lines += "Page : $it" }
+        if (texts.isNotEmpty()) {
+            lines += "Texte à l'écran :"
+            texts.forEach { lines += "- $it" }
         }
+        if (imageAttached) lines += "L'image jointe est une capture de cet écran."
 
         // A screenshot that was not attached, and nothing else: no block.
         if (lines.size == 1) return null
@@ -124,12 +122,18 @@ data class ScreenContext(
         intent.putExtra(EXTRA_SCREENSHOT_MISS, screenshotMiss?.name)
     }
 
+    /** The address when it is a single-line `http(s)` URL (one line keeps [withoutPromptBlock] sound), else null. */
+    private fun webPage(uri: String): String? =
+        uri.trim().takeIf { HTTP_URL.matches(it) }
+
     private fun host(uri: String): String? =
         Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#]+)").find(uri)?.groupValues?.get(1)
             ?.removePrefix("www.")
             ?.takeIf { it.isNotBlank() }
 
     companion object {
+        private val HTTP_URL = Regex("^https?://\\S+$", RegexOption.IGNORE_CASE)
+
         /** The first line of [toPromptBlock], and the marker [withoutPromptBlock] looks for. */
         const val PROMPT_HEADER = "[Contexte de l'écran]"
 
