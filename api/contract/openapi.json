@@ -4527,6 +4527,32 @@
                         "explode": false
                     },
                     {
+                        "name": "store",
+                        "in": "query",
+                        "description": "Only the products of this store: its usual or fallback store, or one with an aisle in it. Given as its IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    },
+                    {
+                        "name": "aisle",
+                        "in": "query",
+                        "description": "Only the products in this aisle of the store (an IRI), or `none` for those with no aisle in it. Needs `store`; an aisle of another store is a 400.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/aisles/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    },
+                    {
                         "name": "order[name]",
                         "in": "query",
                         "description": "",
@@ -4534,7 +4560,38 @@
                         "deprecated": false,
                         "schema": {
                             "type": "string",
-                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[aisle]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[stockState]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
                             "enum": [
                                 "asc",
                                 "desc"
@@ -7746,6 +7803,32 @@
                         "explode": false
                     },
                     {
+                        "name": "store",
+                        "in": "query",
+                        "description": "Only the products of this store: its usual or fallback store, or one with an aisle in it. Given as its IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/stores/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    },
+                    {
+                        "name": "aisle",
+                        "in": "query",
+                        "description": "Only the products in this aisle of the store (an IRI), or `none` for those with no aisle in it. Needs `store`; an aisle of another store is a 400.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/aisles/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    },
+                    {
                         "name": "order[name]",
                         "in": "query",
                         "description": "",
@@ -7753,7 +7836,38 @@
                         "deprecated": false,
                         "schema": {
                             "type": "string",
-                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[aisle]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[stockState]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
                             "enum": [
                                 "asc",
                                 "desc"

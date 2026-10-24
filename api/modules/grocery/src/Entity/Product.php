@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Entity;
 
-use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
@@ -27,6 +26,7 @@ use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
+use Maggie\Grocery\Doctrine\Filter\ProductShelfFilter;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Enum\Unit;
@@ -48,7 +48,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\InheritanceType('SINGLE_TABLE')]
 #[ORM\DiscriminatorColumn(name: 'dtype', type: 'string', length: 20)]
 #[ORM\DiscriminatorMap(['product' => Product::class])]
-#[ApiFilter(OrderFilter::class, properties: ['name'])]
+#[ApiFilter(ProductShelfFilter::class)]
 #[Indexed(index: 'products', module: 'grocery')]
 #[ApiResource(operations: [
     new GetCollection(provider: ElasticsearchCollectionProvider::class),
@@ -155,9 +155,17 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
      * Its aisle in each store, one at most per store (MAG-493). Read and
      * written as `aisles`: this collection is the storage, never serialised.
      *
+     * Indexed as `aisles`, nested: filtering and sorting by aisle read the store
+     * and the aisle position of the same entry (MAG-604).
+     *
      * @var Collection<int, ProductAisle>
      */
     #[ORM\OneToMany(targetEntity: ProductAisle::class, mappedBy: 'product', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[IndexedField(name: 'aisles', type: 'nested', properties: [
+        'storeId' => ['type' => 'keyword'],
+        'aisleId' => ['type' => 'keyword'],
+        'aislePosition' => ['type' => 'integer'],
+    ])]
     #[ApiProperty(readable: false, writable: false)]
     #[Ignore]
     private Collection $aisleAssignments;
@@ -670,6 +678,14 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'stockState' => $this->stockState->value,
             'restockQuantity' => $this->restockQuantity,
             'autoRestock' => $this->autoRestock,
+            'aisles' => array_map(
+                static fn (ProductAisle $assignment): array => [
+                    'storeId' => (string) $assignment->getStore()->getId(),
+                    'aisleId' => (string) $assignment->getAisle()->getId(),
+                    'aislePosition' => $assignment->getAisle()->getPosition(),
+                ],
+                $this->aisleAssignments->toArray(),
+            ),
             'seasonMonths' => $this->seasonMonths,
             'suggestionSnoozedUntil' => $this->suggestionSnoozedUntil?->format('Y-m-d'),
         ];

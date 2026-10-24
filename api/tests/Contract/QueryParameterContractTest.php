@@ -11,8 +11,10 @@ use ApiPlatform\OpenApi\Factory\OpenApiFactoryInterface;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
+use Maggie\Core\Elasticsearch\Query\ElasticsearchDomainFilter;
 use Maggie\Core\Elasticsearch\Query\ElasticsearchFilterTranslator;
 use Maggie\Core\Entity\User;
+use Maggie\Grocery\Elasticsearch\ProductShelfSearchFilter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -125,7 +127,11 @@ final class QueryParameterContractTest extends WebTestCase
             'order[name]' => 'admin MealsWeekView',
         ],
         '/api/products' => [
-            'order[name]' => 'admin GroceryListView',
+            'order[name]' => 'admin GroceryListView and ProductList',
+            'order[aisle]' => 'admin ProductList, the products of a store in the way through it (MAG-604)',
+            'order[stockState]' => 'admin ProductList (MAG-604)',
+            'store' => 'admin ProductList, the products of one store (MAG-604)',
+            'aisle' => 'admin ProductList, one aisle of that store or `none` (MAG-604)',
         ],
         '/api/stores' => [
             'order[name]' => 'admin GroceryListView',
@@ -190,10 +196,13 @@ final class QueryParameterContractTest extends WebTestCase
     public function testEveryParameterTheClientsSendSurvivesElasticsearchTranslation(string $path, array $parameters): void
     {
         $translator = new ElasticsearchFilterTranslator();
+        $domain = $this->domainFilterFor($this->entityClassFor($path));
 
         foreach ($parameters as $name => $sender) {
-            $query = self::parseQueryString($name.'='.self::sampleValueFor($name));
-            $translated = $translator->translate($query);
+            // A parameter of the resource's own (`store`, `aisle`, `order[aisle]`) is read together with its
+            // neighbour: an aisle means nothing without its store.
+            $query = self::parseQueryString($name.'='.self::sampleValueFor($name).(null !== $domain ? '&store=01ARZ3NDEKTSV4RRFFQ69G5FAV' : ''));
+            $translated = $translator->translate($query, domain: $domain);
 
             $clauses = \count($translated['must']) + \count($translated['filter']) + \count($translated['sort']);
 
@@ -259,6 +268,13 @@ final class QueryParameterContractTest extends WebTestCase
             $sorting = (bool) preg_match('/^order\[(.+)]$/', $name, $matches);
             $property = $sorting ? $matches[1] : self::filteredProperty($name);
 
+            // The resource's own filters read the index through their own clauses, which the
+            // resource's tests hold to the mapping (ProductShelfSearchFilterTest).
+            $domain = $this->domainFilterFor($entityClass);
+            if (null !== $domain && (\in_array($name, $domain->parameters(), true) || ($sorting && \in_array($property, $domain->sortFields(), true)))) {
+                continue;
+            }
+
             if (null === $property) {
                 // exists[…] compiles to an `exists` query, which is
                 // meaningful on any field, present or not.
@@ -297,6 +313,14 @@ final class QueryParameterContractTest extends WebTestCase
                 ),
             );
         }
+    }
+
+    /** @param class-string $entityClass */
+    private function domainFilterFor(string $entityClass): ?ElasticsearchDomainFilter
+    {
+        $filter = self::getContainer()->get(ProductShelfSearchFilter::class);
+
+        return $filter instanceof ElasticsearchDomainFilter && $filter->supports($entityClass) ? $filter : null;
     }
 
     /**
