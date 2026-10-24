@@ -318,7 +318,7 @@ class ProjectionMiddlewareTest extends KernelTestCase
         self::assertStringNotContainsString('Yaourts', json_encode($logger->records, JSON_THROW_ON_ERROR));
     }
 
-    public function testAnAnnouncedActionAndADeletionAreLoggedWithTheirType(): void
+    public function testADeletionIsLoggedWithItsType(): void
     {
         $logger = $this->recordingLogger();
         $middleware = new ProjectionMiddleware(

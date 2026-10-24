@@ -147,10 +147,12 @@ class MercureService(
         Log.i(TAG, "Subscribing to Mercure: $url")
 
         var lastEventId: String? = null
-        var connectedBefore = false
+        var attempted = false
 
         while (isActive) {
             val streamId = UUID.randomUUID().toString()
+            val isRetry = attempted
+            attempted = true
             try {
                 val mercureToken = authRepository.getMercureToken()
                 client.sse(url, request = {
@@ -159,8 +161,7 @@ class MercureService(
                     lastEventId?.let { header("Last-Event-ID", it) }
                 }) {
                     Log.i(TAG, "SSE connected to $topic")
-                    if (connectedBefore) reconnected.tryEmit(topic)
-                    connectedBefore = true
+                    if (isRetry) reconnected.tryEmit(topic)
                     incoming.collect { event ->
                         Log.d(TAG, "SSE event received on $topic: ${event.data?.take(100)}")
                         event.id?.let { lastEventId = it }

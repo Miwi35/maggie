@@ -13,6 +13,7 @@ use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Home\HomeCardPublisher;
 use Maggie\Core\Identifier\CanonicalId;
 use Maggie\Core\Mercure\MercureTopic;
+use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Mercure\HubInterface;
@@ -36,6 +37,7 @@ use Symfony\Component\Messenger\Stamp\ReceivedStamp;
  * Each row is published to the user who owns it, never to the one who is
  * logged in: a message handled by a worker has nobody logged in.
  */
+#[WithMonologChannel('mercure')]
 final class ProjectionMiddleware implements MiddlewareInterface
 {
     private LoggerInterface $logger;

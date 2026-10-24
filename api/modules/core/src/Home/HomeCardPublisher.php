@@ -7,6 +7,7 @@ namespace Maggie\Core\Home;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\MercureTopic;
 use Maggie\Core\Projection\Change;
+use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
@@ -19,6 +20,7 @@ use Symfony\Component\Mercure\Update;
  * (see {@see publishAffected()}); any other calls {@see publish()} itself.
  * Clients refetch the card.
  */
+#[WithMonologChannel('mercure')]
 class HomeCardPublisher
 {
     private LoggerInterface $logger;
