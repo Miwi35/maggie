@@ -823,6 +823,42 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
+     * The Agenda card of the Accueil (MAG-562), as `/api/home/agenda` sends it on the day of the recorded
+     * event, whose reminder and activity the card carries. The events of the recorded whole-day event's
+     * day are appended: a whole-day event spells its days differently, and the mobile DTO must prove both.
+     */
+    public function testTheAgendaHomeRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $read = function (string $at): array {
+            Clock::set(new MockClock($at));
+            $this->client->request('GET', '/api/home/agenda?day=today', [], [], $this->authHeaders());
+            self::assertResponseIsSuccessful();
+            $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+            self::assertIsArray($body);
+
+            return $body;
+        };
+
+        $body = $read('2026-03-15 08:00:00 UTC');
+        $allDay = $read('2026-03-12 08:00:00 UTC');
+        self::assertNotSame([], $body['events'], 'The recorded day has no event, so the recording proves nothing.');
+        self::assertNotSame([], $allDay['events'], 'The recorded whole-day event is missing from its day.');
+        $body['events'] = array_merge($body['events'], $allDay['events']);
+
+        $this->assertMatchesContract(
+            'responses/home_agenda.read.json',
+            self::stabilise($body),
+            'GET /api/home/agenda no longer returns what it used to. The mobile DTOs (AgendaHome.kt) are written against this response.',
+        );
+    }
+
+    /**
      * The evening's review (MAG-500), as `/api/day-reviews/{date}` sends it
      * after « Bonne nuit »: what helped, and when it was done.
      */

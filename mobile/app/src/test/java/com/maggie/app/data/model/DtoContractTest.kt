@@ -1218,6 +1218,24 @@ class DtoContractTest {
         assertEquals(495000, balance.savings.plannedCents)
     }
 
+    @Test
+    fun `the agenda card of the Accueil deserialises from the recorded response`() {
+        val body = readRecording("home_agenda.read")
+
+        val state = AgendaHomeState.from(body)
+
+        assertEquals("The recording proves nothing without both a timed and a whole-day event.", 2, state.events.size)
+        assertTrue(state.events.any { it.allDay && it.startDate != null && it.endDate != null })
+        assertNotNull(state.nowInstant)
+        assertDeclaredFieldsExist("AgendaHomeState", serializer<AgendaHomeState>(), body.keys, "home_agenda.read")
+        assertDeclaredFieldsExist(
+            dtoName = "AgendaHomeEvent",
+            serializer = serializer<AgendaHomeEvent>(),
+            emitted = keysOf(body, "events"),
+            source = "home_agenda.read",
+        )
+    }
+
     private fun <T> assertCollectionContract(name: String, serializer: KSerializer<T>, dtoName: String) {
         val body = readRecording("$name.collection")
         val members = body["member"]?.jsonArray

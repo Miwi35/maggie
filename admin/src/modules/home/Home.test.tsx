@@ -136,7 +136,9 @@ describe('Home', () => {
                   ? { tasks: [], routines: [] }
                   : url.startsWith('/api/home/finance')
                     ? { week: emptyRing, month: emptyRing, toQualifyCount: 0, nextProject: null }
-                    : { count: 0, forRecipes: [], stores: [] },
+                    : url.startsWith('/api/home/agenda')
+                      ? { day: 'today', now: null, events: [] }
+                      : { count: 0, forRecipes: [], stores: [] },
             ),
         }),
       )

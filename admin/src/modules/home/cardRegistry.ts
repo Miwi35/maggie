@@ -4,6 +4,7 @@ import { FinanceHomeCard } from '../finance/FinanceHomeCard'
 import { GroceryHomeCard } from '../grocery/GroceryHomeCard'
 import { TasksCard } from './cards/TasksCard'
 import { NutritionHomeCard } from '../cookbook/NutritionHomeCard'
+import { AgendaCard } from './cards/AgendaCard'
 import type { HomeDay } from './homeDay'
 
 /** Where a card sits: the full-width strip of actions, the left column, or the grid of the other modules. */
@@ -46,4 +47,5 @@ export const cardRegistry: HomeCardEntry[] = [
     order: homeOrder('finance'),
     render: ({ day }) => createElement(FinanceHomeCard, { day }),
   },
+  { module: 'agenda', zone: 'left', order: homeOrder('agenda'), render: ({ day }) => createElement(AgendaCard, { day }) },
 ]

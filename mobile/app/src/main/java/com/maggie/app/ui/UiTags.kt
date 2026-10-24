@@ -69,6 +69,18 @@ object UiTags {
     const val HOME_NUTRITION_EMPTY = "home_nutrition_empty"
     const val HOME_NUTRITION_ERROR = "home_nutrition_error"
     const val HOME_NUTRITION_RETRY = "home_nutrition_retry"
+    /** Accueil · Agenda (MAG-562): a row of the day (suffixed by the event id), the « maintenant » line, « Voir la journée ». */
+    const val HOME_AGENDA_ROW_PREFIX = "home_agenda_row_"
+    const val HOME_AGENDA_NOW_LINE = "home_agenda_now_line"
+    const val HOME_AGENDA_SEE_DAY = "home_agenda_see_day"
+
+    fun homeAgendaRow(eventId: String) = HOME_AGENDA_ROW_PREFIX + eventId
+
+    /** Accueil · Agenda — the fiche of an event touched on the card, and what it offers. */
+    const val HOME_AGENDA_SHEET = "home_agenda_sheet"
+    const val HOME_AGENDA_SHEET_TITLE = "home_agenda_sheet_title"
+    const val HOME_AGENDA_OPEN_EVENT = "home_agenda_open_event"
+    const val HOME_AGENDA_LAUNCH = "home_agenda_launch"
 
     /** Accueil › Finance card (MAG-565): a ring by period, the « n à qualifier » pill, the next project, the error state. */
     const val HOME_FINANCE_RING_PREFIX = "home_finance_ring_"

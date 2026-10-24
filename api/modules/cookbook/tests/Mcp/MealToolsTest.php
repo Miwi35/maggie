@@ -87,6 +87,9 @@ class MealToolsTest extends KernelTestCase
     public function testCreateMealPersistsPublishesAndIndexes(): void
     {
         $this->loadFixtures('meal.yaml');
+        // The fixture's agenda is announced to the Accueil's Agenda card (MAG-562): count only what the tool publishes.
+        $this->resetMercure();
+        $this->resetAsyncTransport();
         $this->loginFixtureUser();
 
         $recipe = $this->getFixture('pasta');

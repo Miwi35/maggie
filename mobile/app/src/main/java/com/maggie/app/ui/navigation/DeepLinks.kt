@@ -98,6 +98,9 @@ object DeepLinks {
 
     fun patternsFor(route: String): List<String> = PATTERNS[route].orEmpty()
 
+    /** The route that opens this event in the Agenda, as a link would. */
+    fun eventRoute(id: String) = EVENT_ROUTE.replace("{$ARG_ID}", id)
+
     fun forRoute(route: String): List<NavDeepLink> =
         patternsFor(route).map { pattern -> navDeepLink { uriPattern = pattern } }
 

@@ -73,7 +73,16 @@ export class ChatPanel {
    */
   async open(): Promise<void> {
     if (!(await this.input.isVisible())) {
-      await this.page.getByRole('banner').getByRole('button', { name: 'Chat avec Maggie' }).click()
+      // Right after a reload the shell is not mounted yet, so the first read says « closed »
+      // even though the shell is about to open the panel itself; clicking then would close it.
+      // Wait for the app bar (the shell mounted), read again, and click only if still closed.
+      const toggle = this.page.getByRole('banner').getByRole('button', { name: 'Chat avec Maggie' })
+      await expect(toggle).toBeVisible()
+
+      if (!(await this.input.isVisible())) {
+        await toggle.click()
+      }
+
       await expect(this.input).toBeVisible()
     }
 

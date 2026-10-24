@@ -41,4 +41,24 @@ export class HomePage extends AdminShell {
   tick(title: string): Locator {
     return this.content.getByRole('checkbox', { name: `${title} : fait`, exact: true })
   }
+
+  /** The Agenda card's list of the day. */
+  get agendaList(): Locator {
+    return this.content.getByRole('list', { name: 'Événements du jour' })
+  }
+
+  /** A row of the Agenda card, by the title of its event. */
+  agendaRow(title: string): Locator {
+    return this.agendaList.getByRole('button', { name: new RegExp(title) })
+  }
+
+  /** The « maintenant · HH:MM » line of the Agenda card. */
+  get nowLine(): Locator {
+    return this.agendaList.getByRole('separator', { name: /^maintenant · \d{2}:\d{2}$/ })
+  }
+
+  /** The fiche of the event touched in the Agenda card. */
+  eventPanel(title: string): Locator {
+    return this.page.getByRole('region', { name: `Fiche : ${title}` })
+  }
 }
