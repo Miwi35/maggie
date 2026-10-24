@@ -204,7 +204,7 @@ for (const withStore of [false, true]) {
 
       await shell.content.getByRole('combobox', { name: 'Conditionnement' }).click()
       await page.getByRole('option', { name: 'bocal' }).click()
-      await shell.content.getByLabel('Contenu').fill('750')
+      await shell.content.getByLabel('Contenu', { exact: true }).fill('750')
 
       const patched = page.waitForResponse(
         (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
