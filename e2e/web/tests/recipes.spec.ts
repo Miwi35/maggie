@@ -830,6 +830,10 @@ test.describe('Recipes and meals', () => {
     await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`)
     await expect(page).toHaveURL(/#\/recipes\/.+\/show/)
     await expect(line).toContainText('utilisé dans les étapes 2, 6')
+    // A stale link under the recipe (MAG-607) settles on the sheet instead of redirecting forever
+    await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/edit`)
+    await expect(page).toHaveURL(/#\/recipes\/[^/]+\/show$/)
+    await expect(line).toContainText('utilisé dans les étapes 2, 6')
     await line.getByRole('button', { name: 'Actions pour Lardons fumés' }).click()
     await page.getByRole('menuitem', { name: 'Modifier' }).click()
 
