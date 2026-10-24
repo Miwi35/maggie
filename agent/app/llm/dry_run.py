@@ -15,6 +15,7 @@ READ_ONLY_TOOLS = (A2A_ALLOWED_TOOLS - {"get_grocery_list"}) | {
     "get_skill",
     "memory_search",
     "memory_open",
+    "read_web_page",
 }
 # One tool, read and write actions: only these actions read.
 READ_ONLY_ACTIONS = {"list", "get"}

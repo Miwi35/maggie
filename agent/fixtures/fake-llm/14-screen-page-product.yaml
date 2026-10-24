@@ -1,0 +1,15 @@
+# « Ajoute ça à mes courses » over a product page (MAG-597): the page is read, the product is
+# proposed for the grocery list, and nothing is added before the « oui ». The figures are the
+# fixture's (.docker/e2e/wiremock/mappings/web-pages.json).
+name: screen-page-product
+description: A product asked from a page address is read first, then proposed for the list, never added unasked.
+
+match:
+  user_contains: "à mes courses"
+  user_matches: '(https?://wiremock:8080/pages/products/\S+)'
+
+turns:
+  - tools:
+      - name: read_web_page
+        input: {url: '\1'}
+  - text: "J'ai lu la page : « Café en grains Arabica 1 kg » des Cafés Martin, à 14,90 €. Je l'ajoute à ta liste de courses ?"

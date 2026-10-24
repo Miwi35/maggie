@@ -1,0 +1,15 @@
+# « Mets ça dans mon agenda » over an event page (MAG-597): the page is read, the event is
+# proposed with its date, time and place, and nothing is created before the « oui ». The
+# figures are the fixture's (.docker/e2e/wiremock/mappings/web-pages.json).
+name: screen-page-event
+description: An event asked from a page address is read first, then proposed, never created unasked.
+
+match:
+  user_contains: "dans mon agenda"
+  user_matches: '(https?://wiremock:8080/pages/events/\S+)'
+
+turns:
+  - tools:
+      - name: read_web_page
+        input: {url: '\1'}
+  - text: "J'ai lu la page : « Concert de jazz au Liberté », le samedi 14 novembre 2026 de 20 h 30 à 23 h, au Liberté à Rennes. Je l'ajoute à ton agenda ?"

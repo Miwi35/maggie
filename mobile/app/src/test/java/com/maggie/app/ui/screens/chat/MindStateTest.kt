@@ -11,6 +11,7 @@ class MindStateTest {
     fun `a known tool is named in plain words`() {
         assertEquals("Suppression d'un événement", toolActivityLabel("delete_event"))
         assertEquals("Consultation de la météo", toolActivityLabel("get_weather"))
+        assertEquals("Lecture d'une page web", toolActivityLabel("read_web_page"))
     }
 
     @Test

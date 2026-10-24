@@ -182,6 +182,18 @@ class TestTheGuard:
 
         assert guard.review("Le dossier est à rendre le 12 octobre.") is Verdict.ACCEPT
 
+    def test_a_page_read_backs_the_date_it_publishes(self):
+        guard = self.guard("Mets ça dans mon agenda https://example.org/events/jazz")
+        guard.record("read_web_page", json.dumps({"title": "Concert de jazz", "structured": [{"@type": "Event"}]}))
+
+        assert guard.review("Le concert a lieu le samedi 14 novembre 2026 à 20 h 30. Je l'ajoute ?") is Verdict.ACCEPT
+
+    def test_a_refused_page_backs_nothing(self):
+        guard = self.guard("Mets ça dans mon agenda https://example.org/events/jazz")
+        guard.record("read_web_page", json.dumps({"error": "adresse non publique"}))
+
+        assert guard.review(WRONG_DAY) is Verdict.RETRY
+
     def test_memory_is_not_the_agenda(self):
         guard = self.guard()
         guard.record("memory_open", json.dumps({"chemin": "Julie habite à Rennes.md", "contenu": "Julie habite à Rennes"}))

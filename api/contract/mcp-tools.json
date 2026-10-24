@@ -3402,6 +3402,21 @@
         },
         "description": "Say what to transfer to give the savings advances back (\"quoi virer, où, et combien ?\"). No arguments. One counter-transfer per open advance, of exactly what is left of it, from the checking account the money landed on to the savings source it came from: proposals[] gives fromAccountId, toAccountId, amountCents, advanceId, currency and a label ready to copy; totalCents adds them up. The proposal is capped at what the checking account holds: when it cannot cover an advance, the proposal is reduced to the balance (isPartial true) and unproposed[] says what could not be proposed (advanceId, sourceAccountName, amountCents, reason insufficient_balance or no_checking_account), unproposedCents adding it up — say it plainly, never present a reduced transfer as the full return. With no open advance, proposals is empty and that is good news: nothing is owed. Amounts are positive integer cents, divide by 100 to speak them. Nothing here moves money: say what to transfer, never that it was transferred. When the user makes the exact transfer, the next detection settles the advance on its own; a regular top-up of the savings account is never counted as a return (mark it funding with manage_transactions if it could be mistaken for one)."
     },
+    "read_web_page": {
+        "name": "read_web_page",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "url"
+            ]
+        },
+        "description": "Read a public web page: returns its `title`, its main readable `text` (bounded) and `structured`, the schema.org JSON-LD objects of the page as published (`Recipe` with its ingredients and steps, `Event`, `Product`, `Article`, `LocalBusiness`…). Use it when the screen context gives a page address or the user cites a link, BEFORE acting on that page (creating a recipe, an event, a grocery item…): a screenshot or a title is never the content. Only public http(s) pages are read, without JavaScript and without the user's login; a page that is private, too big, too slow or refused comes back as an `error` with the reason — say so and ask the user for the content instead. Reading changes nothing."
+    },
     "record_proaction_result": {
         "name": "record_proaction_result",
         "inputSchema": {

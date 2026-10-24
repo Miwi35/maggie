@@ -11,6 +11,7 @@ the one thing this stack exists to guarantee.
 | `mappings/google.json` | Google Calendar and Google Tasks | `GOOGLE_API_BASE_URL` |
 | `mappings/openai.json` | Whisper speech-to-text | `OPENAI_BASE_URL` (agent) |
 | `mappings/open-meteo.json` | Open-Meteo — city search and daily forecast (`get_weather`, MAG-156) | `OPEN_METEO_FORECAST_URL`, `OPEN_METEO_GEOCODING_URL` |
+| `mappings/web-pages.json` | Public web pages — a Marmiton recipe, an event, a product, each with its JSON-LD (`read_web_page`, MAG-597) | `READ_WEB_PAGE_ALLOWED_HOSTS=wiremock` (the tool refuses private hosts, so the stack's own WireMock is allowed by name) |
 
 `google.json` covers every call the agenda can make from the browser: list the
 calendars, import one (watch + pull), export a local agenda (create a calendar),
@@ -118,3 +119,8 @@ week view. `timezone='Europe/Paris'` is not decoration — `now` defaults to UTC
 which is yesterday's date for the seed between 00:00 and 02:00 Paris time. The
 other event stays pinned to March 2026 on purpose: the web journeys look it up
 by title and do not care where it falls.
+
+`web-pages.json` holds verbatim copies of three HTML fixtures of `api/modules/core/tests/Web/fixtures/`
+(`marmiton-boeuf-bourguignon.html`, `event-concert.html`, `product-coffee.html`). The fake-llm scenarios
+`14-screen-page-*.yaml` repeat their figures in Maggie's scripted answers: change a page here, its fixture
+and its scenario together.

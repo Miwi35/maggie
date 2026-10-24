@@ -143,8 +143,9 @@ _DATE_CITED = re.compile(
     re.IGNORECASE,
 )
 
-# Tools whose result is the agenda, or carries the hour the answer gives.
-AGENDA_READ_TOOLS = (*AGENDA_TOOLS, "get_event", "check_conflicts", "get_tasks")
+# Tools whose result is the agenda, or carries the hour the answer gives — a page read does:
+# « mets ça dans mon agenda » over an event page proposes the date the page publishes (MAG-597).
+AGENDA_READ_TOOLS = (*AGENDA_TOOLS, "get_event", "check_conflicts", "get_tasks", "read_web_page")
 
 NUDGE = (
     "[Contrôle automatique] Ta réponse annonce un rappel, mais aucun appel à schedule_proaction "
