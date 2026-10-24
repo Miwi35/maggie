@@ -187,16 +187,26 @@ for (const withStore of [false, true]) {
         packagingUnit: 'pack',
         packagingSize: 500,
         packagingSizeUnit: 'g',
-        ...(withStore ? { preferredStore: greengrocer } : {}),
       },
     })
     expect(created.status(), `the API refused the ingredient: ${await created.text()}`).toBe(201)
     const iri = ((await created.json()) as { '@id': string })['@id']
 
     try {
-      await waitForIndexed<ProductRow>(api, '/api/products?itemsPerPage=200', (row) => row.name === name, {
-        what: 'The packaged ingredient',
-      })
+      // Creating an ingredient does not take a store: it is set on the product route, as the product form does.
+      if (withStore) {
+        const stored = await api.patch(iri.replace('/api/ingredients/', '/api/products/'), {
+          headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
+          data: { preferredStore: greengrocer },
+        })
+        expect(stored.status(), `the API refused the shop: ${await stored.text()}`).toBe(200)
+      }
+      await waitForIndexed<ProductRow>(
+        api,
+        '/api/products?itemsPerPage=200',
+        (row) => row.name === name && (!withStore || row.preferredStore === greengrocer),
+        { what: 'The packaged ingredient' },
+      )
 
       const shell = new AdminShell(page)
       await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
