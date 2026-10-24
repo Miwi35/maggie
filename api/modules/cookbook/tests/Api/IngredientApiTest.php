@@ -6,7 +6,11 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use Doctrine\ORM\EntityManagerInterface;
+use Elastic\Elasticsearch\Client;
 use Maggie\Cookbook\Entity\Ingredient;
+use Maggie\Core\Tests\Elasticsearch\RecordingElasticsearchTrait;
+use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\Unit;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -17,6 +21,7 @@ class IngredientApiTest extends WebTestCase
     use AuthenticatedTestTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
+    use RecordingElasticsearchTrait;
 
     private KernelBrowser $client;
 
@@ -82,6 +87,138 @@ class IngredientApiTest extends WebTestCase
         self::assertSame('Tomate cerise', $this->reload($tomato)->getName());
         $this->assertMercureUpdatePublished('/ingredients/');
         $this->assertElasticsearchIndexDispatched(Ingredient::class);
+    }
+
+    public function testPatchSetsThePreferredAndTheFallbackStore(): void
+    {
+        $this->loadTomato();
+        $onion = $this->getFixture('onion');
+        $halles = $this->getFixture('halles');
+        $bio = $this->getFixture('bio');
+
+        $this->patchIngredient($onion, [
+            'preferredStore' => '/api/stores/'.$halles->getId(),
+            'fallbackStore' => '/api/stores/'.$bio->getId(),
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($onion);
+        self::assertSame((string) $halles->getId(), (string) $reloaded->getPreferredStore()?->getId());
+        self::assertSame((string) $bio->getId(), (string) $reloaded->getFallbackStore()?->getId());
+        self::assertSame(Unit::Pack, $reloaded->getPackagingUnit());
+        $this->assertMercureUpdatePublished('/ingredients/');
+        $this->assertElasticsearchIndexDispatched(Ingredient::class);
+    }
+
+    public function testPatchSendingBackTheStoresWhenTheIndexServesThemKeepsTheManagedStores(): void
+    {
+        $this->loadTomato();
+        $onion = $this->getFixture('onion');
+        $halles = $this->getFixture('halles');
+        $bio = $this->getFixture('bio');
+        /** @var EntityManagerInterface $em */
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $onion->setPreferredStore($halles)->setFallbackStore($bio);
+        $em->flush();
+        $this->serveStoresFromTheIndex($halles, $bio);
+
+        $this->client->request('GET', '/api/ingredients/'.$onion->getId(), [], [], array_merge([
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()));
+        $record = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $record['id'] = $record['@id'];
+        $record['originId'] = (string) $onion->getId();
+        $record['packagingSize'] = 500;
+
+        $this->patchIngredient($onion, $record);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($onion);
+        self::assertSame(500.0, $reloaded->getPackagingSize());
+        self::assertSame((string) $halles->getId(), (string) $reloaded->getPreferredStore()?->getId());
+        self::assertSame((string) $bio->getId(), (string) $reloaded->getFallbackStore()?->getId());
+        $this->assertMercureUpdatePublished('/ingredients/');
+        $this->assertElasticsearchIndexDispatched(Ingredient::class);
+    }
+
+    public function testPatchWithNullStoresClearsThem(): void
+    {
+        $this->loadTomato();
+        $onion = $this->getFixture('onion');
+        $this->patchIngredient($onion, [
+            'preferredStore' => '/api/stores/'.$this->getFixture('halles')->getId(),
+            'fallbackStore' => '/api/stores/'.$this->getFixture('bio')->getId(),
+        ]);
+
+        $this->patchIngredient($onion, ['preferredStore' => null]);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($onion);
+        self::assertNull($reloaded->getPreferredStore());
+        self::assertSame((string) $this->getFixture('bio')->getId(), (string) $reloaded->getFallbackStore()?->getId());
+    }
+
+    public function testPatchWithoutStoresKeepsThem(): void
+    {
+        $this->loadTomato();
+        $onion = $this->getFixture('onion');
+        $this->patchIngredient($onion, ['preferredStore' => '/api/stores/'.$this->getFixture('halles')->getId()]);
+
+        $this->patchIngredient($onion, ['name' => 'Oignon jaune']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame((string) $this->getFixture('halles')->getId(), (string) $this->reload($onion)->getPreferredStore()?->getId());
+    }
+
+    public function testPatchRefusesAStoreOfAnotherUser(): void
+    {
+        $this->loadTomato();
+        $onion = $this->getFixture('onion');
+
+        $this->patchIngredient($onion, ['preferredStore' => '/api/stores/'.$this->getFixture('other_user_store')->getId()]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertNull($this->reload($onion)->getPreferredStore());
+    }
+
+    public function testPatchRefusesAStoreSentAsAnEmbeddedObjectAndCreatesNone(): void
+    {
+        $this->loadTomato();
+        $onion = $this->getFixture('onion');
+        $stores = $this->storeCount();
+
+        $this->patchIngredient($onion, ['preferredStore' => ['id' => (string) $this->getFixture('halles')->getId(), 'name' => 'Halles du voisin']]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame($stores, $this->storeCount());
+        self::assertNull($this->reload($onion)->getPreferredStore());
+    }
+
+    private function storeCount(): int
+    {
+        /** @var EntityManagerInterface $em */
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+
+        return $em->getRepository(Store::class)->count([]);
+    }
+
+    private function serveStoresFromTheIndex(Store ...$stores): void
+    {
+        $documents = [];
+        foreach ($stores as $store) {
+            $documents[(string) $store->getId()] = json_decode(json_encode($store->toSearchDocument(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+        }
+        $this->client->disableReboot();
+        self::getContainer()->set(Client::class, $this->recordingClient(static function (string $method, string $path) use ($documents): array {
+            foreach ($documents as $id => $document) {
+                if (str_ends_with($path, '/_doc/'.$id)) {
+                    return [200, ['_index' => 'stores', '_id' => $id, 'found' => true, '_source' => $document]];
+                }
+            }
+
+            return [404, ['found' => false]];
+        }));
+        self::getContainer()->get('doctrine.orm.entity_manager');
     }
 
     public function testPatchThroughTheProductRouteSendingBackTheWholeRecordSavesIt(): void

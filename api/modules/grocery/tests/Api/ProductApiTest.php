@@ -6,10 +6,13 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use Elastic\Elasticsearch\Client;
+use Maggie\Core\Tests\Elasticsearch\RecordingElasticsearchTrait;
 use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
+use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\GroceryItemSource;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -20,6 +23,7 @@ class ProductApiTest extends WebTestCase
     use AuthenticatedTestTrait;
     use MercureAssertionTrait;
     use ElasticsearchAssertionTrait;
+    use RecordingElasticsearchTrait;
 
     private KernelBrowser $client;
 
@@ -145,6 +149,49 @@ class ProductApiTest extends WebTestCase
         self::assertSame((string) $bio->getId(), (string) $reloaded->getFallbackStore()?->getId());
         $this->assertMercureUpdatePublished('/products/');
         $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    /**
+     * The index answers `GET /api/stores/{id}` as it does in production: the
+     * store read from it is a rebuilt object, which the product must not keep.
+     */
+    public function testPatchSettingTheStoresWhenTheIndexServesThemKeepsTheManagedStores(): void
+    {
+        $product = $this->load();
+        $halles = $this->getFixture('halles');
+        $bio = $this->getFixture('bio');
+        $this->serveStoresFromTheIndex($halles, $bio);
+
+        $this->patch($product, [
+            'preferredStore' => '/api/stores/'.$halles->getId(),
+            'fallbackStore' => '/api/stores/'.$bio->getId(),
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $reloaded = $this->reload($product);
+        self::assertSame((string) $halles->getId(), (string) $reloaded->getPreferredStore()?->getId());
+        self::assertSame((string) $bio->getId(), (string) $reloaded->getFallbackStore()?->getId());
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+    }
+
+    private function serveStoresFromTheIndex(Store ...$stores): void
+    {
+        $documents = [];
+        foreach ($stores as $store) {
+            $documents[(string) $store->getId()] = json_decode(json_encode($store->toSearchDocument(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+        }
+        $this->client->disableReboot();
+        self::getContainer()->set(Client::class, $this->recordingClient(static function (string $method, string $path) use ($documents): array {
+            foreach ($documents as $id => $document) {
+                if (str_ends_with($path, '/_doc/'.$id)) {
+                    return [200, ['_index' => 'stores', '_id' => $id, 'found' => true, '_source' => $document]];
+                }
+            }
+
+            return [404, ['found' => false]];
+        }));
+        self::getContainer()->get('doctrine.orm.entity_manager');
     }
 
     public function testPatchWithNullPreferredStoreClearsItAndKeepsTheOthers(): void

@@ -164,3 +164,78 @@ test('an ingredient opened as a product saves its usual shop from the product fo
     await api.delete(ingredientIri)
   }
 })
+
+/**
+ * MAG-603: saving a packaged ingredient from the admin answered 500 « A new
+ * entity was found through Product#preferredStore » — the store sent as an IRI
+ * was rebuilt from the index, and Doctrine took the copy for a new row. The
+ * list shows ingredients under their own IRI, so the form PATCHes
+ * `/api/ingredients/{id}`.
+ */
+for (const withStore of [false, true]) {
+  test(`an ingredient ${withStore ? 'with' : 'without'} a usual shop saves a new packaging from the form — MAG-603`, async ({
+    page,
+    api,
+  }) => {
+    const name = `Lentilles MAG-603 ${withStore ? 'shop' : 'noshop'} ${Date.now()}`
+    const greengrocer = `/api/stores/${seedId('e2e_store_greengrocer')}`
+    const created = await api.post('/api/ingredients', {
+      headers: LD,
+      data: {
+        name,
+        category: 'grain',
+        packagingUnit: 'pack',
+        packagingSize: 500,
+        packagingSizeUnit: 'g',
+      },
+    })
+    expect(created.status(), `the API refused the ingredient: ${await created.text()}`).toBe(201)
+    const iri = ((await created.json()) as { '@id': string })['@id']
+
+    try {
+      // Creating an ingredient does not take a store: it is set on the product route, as the product form does.
+      if (withStore) {
+        const stored = await api.patch(iri.replace('/api/ingredients/', '/api/products/'), {
+          headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
+          data: { preferredStore: greengrocer },
+        })
+        expect(stored.status(), `the API refused the shop: ${await stored.text()}`).toBe(200)
+      }
+      await waitForIndexed<ProductRow>(
+        api,
+        '/api/products?itemsPerPage=200',
+        (row) => row.name === name && (!withStore || row.preferredStore === greengrocer),
+        { what: 'The packaged ingredient' },
+      )
+
+      const shell = new AdminShell(page)
+      await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
+      await expect(shell.content.getByLabel('Nom')).toHaveValue(name)
+
+      await shell.content.getByRole('combobox', { name: 'Conditionnement' }).click()
+      await page.getByRole('option', { name: 'bocal' }).click()
+      await shell.content.getByLabel('Contenu', { exact: true }).fill('750')
+
+      const patched = page.waitForResponse(
+        (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
+      )
+      await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+      const response = await patched
+      expect(response.status(), `the API refused the ingredient: ${await response.text()}`).toBe(200)
+
+      const stored = await waitForIndexed<ProductRow & { packagingUnit?: string; packagingSize?: number }>(
+        api,
+        '/api/products?itemsPerPage=200',
+        (row) => row.name === name && row.packagingUnit === 'jar',
+        { what: 'The ingredient with its new packaging' },
+      )
+      expect(stored.packagingSize).toBe(750)
+      expect(stored.preferredStore ?? null).toBe(withStore ? greengrocer : null)
+
+      await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
+      await expect(shell.content.getByTestId('packaging-preview')).toContainText('bocal')
+    } finally {
+      await api.delete(iri)
+    }
+  })
+}

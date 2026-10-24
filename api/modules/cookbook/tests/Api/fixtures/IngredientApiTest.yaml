@@ -3,6 +3,24 @@ Maggie\Core\Entity\User:
     email: cookbook-test@example.com
     googleId: google-cookbook-test
     name: Cookbook Test User
+  other_user:
+    email: cookbook-other@example.com
+    googleId: google-cookbook-other
+    name: Cookbook Other User
+
+Maggie\Grocery\Entity\Store:
+  halles:
+    name: Halles du voisin
+    visitOrder: 1
+    user: '@test_user'
+  bio:
+    name: Biocoop
+    visitOrder: 2
+    user: '@test_user'
+  other_user_store:
+    name: Magasin d'un autre
+    visitOrder: 1
+    user: '@other_user'
 
 Maggie\Cookbook\Entity\Ingredient:
   tomato:
@@ -14,6 +32,14 @@ Maggie\Cookbook\Entity\Ingredient:
     proteinPer100g: 0.9
     carbsPer100g: 2.8
     fatPer100g: 0.2
+    user: '@test_user'
+
+  onion:
+    name: Oignon
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    packagingUnit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    packagingSize: 1000
+    packagingSizeUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
     user: '@test_user'
 
   basil:
