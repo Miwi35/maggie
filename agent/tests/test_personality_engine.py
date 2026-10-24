@@ -245,6 +245,26 @@ class TestPersonalityEngine:
         assert "lis la source" in prompt
 
     @pytest.mark.asyncio
+    async def test_the_shipped_prompt_has_her_propose_a_recipe_and_create_it_only_after_the_yes(self):
+        """MAG-598: the half of the structuring that lives in the prompt — the fake LLM calls whatever its fixture says."""
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        assert "RECETTE À STRUCTURER" in prompt
+        assert "AVANT tout create_recipe" in prompt
+        assert "search_ingredients" in prompt and "search_ciqual_foods" in prompt
+        assert "non rapproché" in prompt and "jamais deviné" in prompt
+        assert "waitsFor" in prompt and "background true" in prompt
+        assert "Je la crée ?" in prompt
+        assert "Tu n'écris qu'après le « oui »" in prompt
+        assert "TOUT, explicitement" in prompt
+        assert "tu le notes dans notes" in prompt
+        assert "Sans « oui », rien n'est créé." in prompt
+
+    @pytest.mark.asyncio
     async def test_the_shipped_prompt_has_her_cite_late_tasks_first_and_offer_one_someday_task(self):
         """MAG-409: the half that lives in the prompt — the fake LLM calls whatever its fixture says."""
         engine = PersonalityEngine()

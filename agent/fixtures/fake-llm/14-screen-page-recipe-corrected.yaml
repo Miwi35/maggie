@@ -1,0 +1,16 @@
+# « Plutôt pour 12 personnes » after 14-screen-page-recipe.yaml proposed the Marmiton recipe
+# (MAG-598): a correction makes the whole proposal again — quantities in proportion to the
+# portions — and writes nothing. It does not end on the sentence 14-screen-page-recipe-yes.yaml
+# waits for in the history, so a « oui » to the corrected proposal is a scenario of its own.
+name: screen-page-recipe-corrected
+description: Remake the Marmiton proposal for 12 people, creating nothing.
+
+match:
+  user_matches: 'plutôt pour 12 personnes'
+  history_contains: "ton livre de recettes ?"
+
+turns:
+  - text: |-
+      Voilà pour 12 personnes, les quantités doublées : 2,4 kg de boeuf à braiser, 300 g de lardons, 4 oignons, 6 carottes, 150 cl de vin rouge, 4 gousses d'ail.
+      Les 3 étapes et la cocotte ne changent pas : faire revenir, ajouter les légumes et le vin (après l'étape 1), mijoter 3 h en fond (après l'étape 2).
+      Je l'ajoute avec ces quantités ?

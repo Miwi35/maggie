@@ -1,0 +1,30 @@
+# A recipe pasted into the chat (MAG-598): Maggie cuts it into ingredients, steps and utensils and
+# PROPOSES it; 15-recipe-yes.yaml writes it after the « oui ». It is the reference example of the
+# steps spec (MAG-490): two timers in the background, and a last step that waits for two others.
+# 15-recipe-dictated.yaml is the same recipe said aloud: both end on the same proposal.
+#
+# The ingredient is looked up in the catalogue first — the tool really runs; the fake does not
+# read its answer, so the proposal is a fixture.
+name: recipe-pasted
+description: A pasted recipe is structured and proposed, never created unasked.
+
+match:
+  user_contains:
+    - "Pâtes aux légumes"
+    - "200 g de pâtes"
+
+turns:
+  - tools:
+      - name: search_ingredients
+        input: {query: "pâtes"}
+  - text: |-
+      Voici « Pâtes aux légumes » pour 4 personnes, avec 3 ingrédients, 5 étapes et 2 ustensiles.
+      Ingrédients : 200 g de pâtes, 1 courgette, 1 poivron.
+      Étapes :
+      1. Mettre l'eau à bouillir, 10 min en fond.
+      2. Couper les légumes.
+      3. Cuire les pâtes, 12 min en fond (après l'étape 1).
+      4. Faire revenir les légumes, 8 min.
+      5. Égoutter, mélanger (après les étapes 3 et 4).
+      Ustensiles : une casserole, une poêle.
+      Je la crée ?
