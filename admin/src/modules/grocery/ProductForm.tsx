@@ -4,8 +4,6 @@ import {
   NumberInput,
   BooleanInput,
   SelectInput,
-  ReferenceInput,
-  AutocompleteInput,
   required,
 } from 'react-admin'
 import Box from '@mui/material/Box'
@@ -13,7 +11,7 @@ import { FormSection } from '../../components/form/FormSection'
 import { CATEGORY_CHOICES, STOCK_STATE_CHOICES, UNIT_CHOICES } from './productChoices'
 import { PackagingInputs } from './PackagingInputs'
 import { ProductRecurrence } from './ProductRecurrence'
-import { ProductAisleInputs } from './ProductAisleInputs'
+import { ProductStoreInputs } from './ProductStoreInputs'
 import { SeasonMonthsInput } from './SeasonMonthsInput'
 
 const formSx = { maxWidth: 680 }
@@ -62,29 +60,7 @@ export const ProductForm = () => (
 
     <SeasonMonthsInput />
 
-    <FormSection
-      title="Où l'acheter"
-      description="Quand un magasin est indiqué, l'article part directement dans la bonne liste."
-    />
-
-    <Box sx={rowSx}>
-      <ReferenceInput source="preferredStore" reference="stores">
-        <AutocompleteInput
-          label="Magasin habituel"
-          optionText="name"
-          sx={halfSx}
-          helperText="Facultatif."
-        />
-      </ReferenceInput>
-      <ReferenceInput source="fallbackStore" reference="stores">
-        <AutocompleteInput
-          label="À défaut"
-          optionText="name"
-          sx={halfSx}
-          helperText="Le magasin de repli quand le premier ne l'a pas."
-        />
-      </ReferenceInput>
-    </Box>
+    <ProductStoreInputs />
 
     <NumberInput
       source="shelfLifeDays"
@@ -92,8 +68,6 @@ export const ProductForm = () => (
       sx={halfSx}
       helperText="Facultatif — sert à proposer le réachat au bon moment."
     />
-
-    <ProductAisleInputs />
 
     <FormSection
       title="Ce qu'il m'en reste"

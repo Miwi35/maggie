@@ -5,6 +5,7 @@ namespace Maggie\Grocery\Tests\Entity;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Elasticsearch\Hydrator\ElasticsearchEntityHydrator;
 use Maggie\Core\Entity\User;
+use Maggie\Grocery\Entity\Aisle;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
@@ -143,5 +144,24 @@ class ProductSearchDocumentTest extends TestCase
         self::assertSame(3, $payload['restockQuantity']);
         self::assertTrue($payload['autoRestock']);
         self::assertArrayNotHasKey('isAutoRestock', $payload);
+    }
+
+    public function testTheDocumentHoldsTheAisleAndItsPositionInEachStore(): void
+    {
+        $crèmerie = (new Aisle())->setStore($this->preferred)->setName('Crèmerie')->setPosition(3)->setUser($this->user);
+        $frais = (new Aisle())->setStore($this->fallback)->setName('Frais')->setPosition(1)->setUser($this->user);
+        $this->product->assignAisle($crèmerie)->assignAisle($frais);
+
+        $document = $this->product->toSearchDocument();
+
+        self::assertEqualsCanonicalizing([
+            ['storeId' => (string) $this->preferred->getId(), 'aisleId' => (string) $crèmerie->getId(), 'aislePosition' => 3],
+            ['storeId' => (string) $this->fallback->getId(), 'aisleId' => (string) $frais->getId(), 'aislePosition' => 1],
+        ], $document['aisles']);
+    }
+
+    public function testAProductWithoutAnAisleIndexesAnEmptyList(): void
+    {
+        self::assertSame([], $this->product->toSearchDocument()['aisles']);
     }
 }

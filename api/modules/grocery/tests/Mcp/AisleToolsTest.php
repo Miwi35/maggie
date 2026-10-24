@@ -132,6 +132,18 @@ class AisleToolsTest extends KernelTestCase
         $this->assertMercurePublishedOnce('/api/grocery_lists/'.$this->id('grocery_list'));
     }
 
+    public function testReorderingReindexesTheProductsOfTheStoreForTheirAislePosition(): void
+    {
+        $this->load();
+
+        $this->aisles('reorder', storeId: $this->id('carrefour'), aisleIds: [$this->id('fruits'), $this->id('boulangerie'), $this->id('cremerie')]);
+
+        foreach (['pommes', 'pain', 'lait'] as $ref) {
+            $this->assertElasticsearchIndexDispatchedFor(Product::class, $this->id($ref));
+        }
+        self::assertNotContains($this->id('eponges'), $this->reindexedIdsOf(Product::class), 'No aisle in this store: its document has nothing to change');
+    }
+
     public function testTheSameProductIsUnderItsOwnAisleInEachStore(): void
     {
         $this->load();

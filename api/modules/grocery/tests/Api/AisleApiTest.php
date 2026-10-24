@@ -8,8 +8,12 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Grocery\Entity\Aisle;
+use Maggie\Grocery\Entity\GroceryItem;
+use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\ProductAisle;
+use Maggie\Grocery\Entity\Store;
+use Maggie\Grocery\Enum\GroceryItemSource;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -324,5 +328,29 @@ class AisleApiTest extends WebTestCase
             'Pain @ Carrefour' => 'Boulangerie',
             'Lait @ Lidl' => 'Frais',
         ], $aisles);
+    }
+
+    /** MAG-604: a line moved to the product's fallback store takes the aisle the product has there. */
+    public function testALineInTheFallbackStoreTakesTheAisleOfThatStoreOrNone(): void
+    {
+        $this->load();
+        $em = $this->em();
+        $lidl = $em->find(Store::class, $this->id('lidl'));
+        $list = $em->find(GroceryList::class, $this->id('grocery_list'));
+        $em->find(Product::class, $this->id('lait'))->setFallbackStore($lidl);
+        $pain = $em->find(Product::class, $this->id('pain'))->setFallbackStore($lidl);
+        $em->persist((new GroceryItem())->setGroceryList($list)->setProduct($pain)->setStore($lidl)->setSource(GroceryItemSource::Manual)->setPosition(9));
+        $em->flush();
+        $em->clear();
+
+        $data = $this->call('GET', '/api/grocery_lists/'.$this->id('grocery_list'));
+
+        $aisles = [];
+        foreach ($data['items'] as $item) {
+            $aisles[$item['label'].' @ '.$item['store']['name']] = $item['aisle']['name'] ?? null;
+        }
+        self::assertSame('Frais', $aisles['Lait @ Lidl']);
+        self::assertSame('Boulangerie', $aisles['Pain @ Carrefour'], 'The aisle is the one of the line\'s store, not of another');
+        self::assertNull($aisles['Pain @ Lidl'], 'Pain has an aisle at Carrefour only: « Sans rayon » at Lidl');
     }
 }

@@ -59,7 +59,11 @@
         "order[name]": "admin MealsWeekView"
     },
     "/api/products": {
-        "order[name]": "admin GroceryListView"
+        "order[name]": "admin GroceryListView and ProductList",
+        "order[aisle]": "admin ProductList, the products of a store in the way through it (MAG-604)",
+        "order[stockState]": "admin ProductList (MAG-604)",
+        "store": "admin ProductList, the products of one store (MAG-604)",
+        "aisle": "admin ProductList, one aisle of that store or `none` (MAG-604)"
     },
     "/api/stores": {
         "order[name]": "admin GroceryListView"

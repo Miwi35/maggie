@@ -10,9 +10,11 @@ use Elastic\Elasticsearch\Client;
 use Maggie\Core\Elasticsearch\Hydrator\ElasticsearchEntityHydrator;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Elasticsearch\Pagination\ElasticsearchPaginator;
+use Maggie\Core\Elasticsearch\Query\ElasticsearchDomainFilter;
 use Maggie\Core\Elasticsearch\Query\ElasticsearchFilterTranslator;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * @implements ProviderInterface<object>
@@ -28,7 +30,8 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
     private const MAX_ITEMS_PER_PAGE = 100;
 
     /**
-     * @param ProviderInterface<object> $doctrineProvider
+     * @param ProviderInterface<object>           $doctrineProvider
+     * @param iterable<ElasticsearchDomainFilter> $domainFilters
      */
     public function __construct(
         private readonly Client $client,
@@ -39,6 +42,7 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
         private readonly LoggerInterface $logger,
         private readonly ProviderInterface $doctrineProvider,
         private readonly string $environment = 'prod',
+        private readonly iterable $domainFilters = [],
     ) {
     }
 
@@ -53,6 +57,9 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
 
         try {
             return $this->doProvide($meta, $entityClass, $operation, $context);
+        } catch (HttpExceptionInterface $e) {
+            // The client's mistake, not Elasticsearch's: Doctrine would only say the same.
+            throw $e;
         } catch (\Throwable $e) {
             // An error, not a warning: Doctrine serializes the whole entity,
             // Elasticsearch rebuilds it from the indexed document, so the same
@@ -81,7 +88,7 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
     {
         $userId = $this->getCurrentUserId();
         $filters = $context['filters'] ?? [];
-        $translated = $this->filterTranslator->translate($filters, $meta['fields'], $meta['relations'], $meta['dayFields'] ?? []);
+        $translated = $this->filterTranslator->translate($filters, $meta['fields'], $meta['relations'], $meta['dayFields'] ?? [], $this->domainFilterFor($entityClass));
 
         // `?pagination=false` (MAG-430): the client asks for the whole collection
         // in one answer, as API Platform's Doctrine provider gives it.
@@ -155,6 +162,18 @@ final class ElasticsearchCollectionProvider implements ProviderInterface
         }
 
         return new ElasticsearchPaginator($items, (float) $page, (float) $itemsPerPage, (float) $total);
+    }
+
+    /** @param class-string $entityClass */
+    private function domainFilterFor(string $entityClass): ?ElasticsearchDomainFilter
+    {
+        foreach ($this->domainFilters as $filter) {
+            if ($filter->supports($entityClass)) {
+                return $filter;
+            }
+        }
+
+        return null;
     }
 
     /**

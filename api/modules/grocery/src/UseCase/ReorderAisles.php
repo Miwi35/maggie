@@ -32,7 +32,7 @@ class ReorderAisles
         $aisles = $this->aisleOrder->reorder($store, $aisleIds);
 
         $this->em->flush();
-        $this->groceryListAisles->announce($store->getUser());
+        $this->groceryListAisles->announce($store->getUser(), $store);
 
         return $aisles;
     }

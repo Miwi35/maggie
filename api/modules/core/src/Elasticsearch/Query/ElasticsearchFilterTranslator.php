@@ -22,14 +22,18 @@ final class ElasticsearchFilterTranslator
      * @param array<string, array{field: string, exclusiveEnd: bool}>         $dayFields an instant field → the day field a
      *                                                                                   document holds instead when it
      *                                                                                   has no instant — see dayAwareDateFilter()
+     * @param ElasticsearchDomainFilter|null                                  $domain    The resource's own parameters, which
+     *                                                                                   no field of the index carries by that name
      *
-     * @return array{must: array<int, array<string, mixed>>, filter: array<int, array<string, mixed>>, sort: array<int, array<string, string>>}
+     * @return array{must: array<int, array<string, mixed>>, filter: array<int, array<string, mixed>>, sort: array<int, array<string, mixed>>}
      */
-    public function translate(array $filters, array $fields = [], array $relations = [], array $dayFields = []): array
+    public function translate(array $filters, array $fields = [], array $relations = [], array $dayFields = [], ?ElasticsearchDomainFilter $domain = null): array
     {
         $must = [];
         $filter = [];
         $sort = [];
+        $owned = $domain?->parameters() ?? [];
+        $ownedSorts = $domain?->sortFields() ?? [];
 
         foreach ($filters as $key => $value) {
             // PHP parses bracket query params into nested arrays:
@@ -46,8 +50,14 @@ final class ElasticsearchFilterTranslator
 
             if ('order' === $key && \is_array($value)) {
                 foreach ($value as $field => $direction) {
-                    $sort[] = [self::sortField($field, $fields) => strtolower($direction)];
+                    $sort[] = null !== $domain && \in_array($field, $ownedSorts, true)
+                        ? $domain->sort($field, strtolower((string) $direction), $filters)
+                        : [self::sortField($field, $fields) => strtolower($direction)];
                 }
+                continue;
+            }
+
+            if (\in_array($key, $owned, true)) {
                 continue;
             }
 
@@ -92,6 +102,10 @@ final class ElasticsearchFilterTranslator
             if (\is_string($value) && '' !== $value) {
                 $filter[] = ['term' => [$key => $value]];
             }
+        }
+
+        if (null !== $domain) {
+            array_push($filter, ...$domain->clauses($filters));
         }
 
         return [

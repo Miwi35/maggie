@@ -63,13 +63,37 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/products{?order[name]}",
+        "template": "/api/products{?store,aisle,order[name],order[aisle],order[stockState]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
                 "@type": "IriTemplateMapping",
+                "variable": "store",
+                "property": "store",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "aisle",
+                "property": "aisle",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
                 "variable": "order[name]",
                 "property": "name",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[aisle]",
+                "property": "aisle",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[stockState]",
+                "property": "stockState",
                 "required": false
             }
         ]
