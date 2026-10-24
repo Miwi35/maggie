@@ -678,14 +678,15 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'stockState' => $this->stockState->value,
             'restockQuantity' => $this->restockQuantity,
             'autoRestock' => $this->autoRestock,
-            'aisles' => array_map(
+            // array_values: a row removed from the collection leaves a gap in its keys, and a gap is a JSON object.
+            'aisles' => array_values(array_map(
                 static fn (ProductAisle $assignment): array => [
                     'storeId' => (string) $assignment->getStore()->getId(),
                     'aisleId' => (string) $assignment->getAisle()->getId(),
                     'aislePosition' => $assignment->getAisle()->getPosition(),
                 ],
                 $this->aisleAssignments->toArray(),
-            ),
+            )),
             'seasonMonths' => $this->seasonMonths,
             'suggestionSnoozedUntil' => $this->suggestionSnoozedUntil?->format('Y-m-d'),
         ];
