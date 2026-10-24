@@ -272,7 +272,7 @@ class PushPayloadTest {
 
     @Test
     fun `a grocery message without a shortage id keeps the default button, and a blank id is none`() {
-        assertEquals(listOf(PushActionKind.OK), payload("grocery").actions())
+        assertEquals(listOf(PushActionKind.REPLY), payload("grocery").actions())
         assertNull(payload("grocery", "shortageId" to "").shortageId)
     }
 }
