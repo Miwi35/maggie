@@ -210,4 +210,25 @@ class PushNotifierTest {
         assertTrue(start.isBroadcast)
         assertEquals(PushActionReceiver.actionFor(PushActionKind.START), start.savedIntent.action)
     }
+
+    @Test
+    fun `a shortage alert carries Ajouter à la liste and Plus tard as broadcasts to the receiver (MAG-570)`() {
+        notifier.show(
+            PushPayload.from(
+                mapOf(
+                    "notificationId" to "n-1",
+                    "type" to "grocery",
+                    "title" to "Il manque : parmesan",
+                    "shortageId" to "01HZX3K9P2M7Q4R8S5T6V0W1AB",
+                    "actions" to "add",
+                ),
+            )!!,
+        )
+
+        assertEquals(listOf("Ajouter à la liste", "Plus tard"), buttons())
+        val add = shadowOf(shown().actions.first().actionIntent)
+        assertTrue(add.isBroadcast)
+        assertEquals(PushActionReceiver.actionFor(PushActionKind.ADD_TO_LIST), add.savedIntent.action)
+        assertEquals("01HZX3K9P2M7Q4R8S5T6V0W1AB", add.savedIntent.getStringExtra(PushIntents.EXTRA_SHORTAGE_ID))
+    }
 }

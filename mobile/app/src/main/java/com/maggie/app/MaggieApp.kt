@@ -356,7 +356,7 @@ class MaggieApp : Application() {
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
-            viewModel { NotificationViewModel(get(), get(), get(), get()) }
+            viewModel { NotificationViewModel(get(), get(), get(), get(), get()) }
             viewModel {
                 InterruptionViewModel(
                     get(),

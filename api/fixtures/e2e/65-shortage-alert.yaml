@@ -1,0 +1,76 @@
+# « Il manque » (MAG-570, extends MAG-103): the gratin planned tonight needs a
+# parmesan the pantry does not have and the list does not hold.
+#
+# An account of its own: « Ajouter à la liste » puts the parmesan on the list and
+# deletes the notification, which would move the bell and the list of any account
+# another journey reads. The cron cannot run from a browser: the alert and its
+# notification are seeded as already sent, and the smoke journey
+# (e2e/smoke/smoke.sh, step 11d) proves the cron files them. The quiet hours are
+# turned off so that the nightly run, at any hour, behaves like the day one.
+
+Maggie\Core\Entity\User:
+  e2e_shortage_user:
+    email: 'e2e-shortage@maggie.local'
+    googleId: 'e2e-shortage-google-id'
+    name: 'Jade Manque'
+
+Maggie\Calendar\Entity\TaskSettings:
+  e2e_shortage_settings:
+    user: '@e2e_shortage_user'
+    quietStart: '00:00'
+    quietEnd: '00:00'
+
+Maggie\Calendar\Entity\Agenda:
+  e2e_shortage_agenda:
+    name: Repas
+    module: cookbook
+    color: '#FF6B35'
+    timeZone: 'Europe/Paris'
+    user: '@e2e_shortage_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  e2e_shortage_parmesan:
+    name: Parmesan
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
+    user: '@e2e_shortage_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  e2e_shortage_recipe:
+    name: Gratin du soir
+    servings: 2
+    tags: ['four']
+    user: '@e2e_shortage_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  e2e_shortage_recipe_parmesan:
+    recipe: '@e2e_shortage_recipe'
+    ingredient: '@e2e_shortage_parmesan'
+    quantity: 80
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+Maggie\Cookbook\Entity\Meal:
+  e2e_shortage_dinner:
+    summary: Gratin du soir
+    slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
+    date: '<e2eDate()>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_shortage_agenda'
+    recipes: ['@e2e_shortage_recipe']
+
+Maggie\Cookbook\Entity\ShortageAlert:
+  e2e_shortage_alert:
+    user: '@e2e_shortage_user'
+    meal: '@e2e_shortage_dinner'
+    product: '@e2e_shortage_parmesan'
+
+Maggie\Notification\Entity\Notification:
+  e2e_shortage_notification:
+    user: '@e2e_shortage_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Grocery)>'
+    title: 'Il manque : Parmesan'
+    body: 'Pour Gratin du soir, ce soir.'
+    relatedEntityIri: '<("/api/shortage-alerts/" . @e2e_shortage_alert->getId())>'
+    actions: [add]
+    readAt: null

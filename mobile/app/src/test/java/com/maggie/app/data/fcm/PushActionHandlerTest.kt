@@ -1,5 +1,7 @@
 package com.maggie.app.data.fcm
 
+import com.maggie.app.data.model.ShortageAlertAnswer
+import com.maggie.app.data.model.ShortageAlert
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.ApprovalDecisionException
@@ -334,5 +336,53 @@ class PushActionHandlerTest {
         assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.OPEN, routine))
 
         coVerify(exactly = 1) { api.answerTaskReminder("r-9", "open") }
+    }
+
+    // MAG-570: « Ajouter à la liste » answers a shortage alert.
+
+    private val shortage = payload("grocery").copy(shortageId = "01HZX3K9P2M7Q4R8S5T6V0W1AB", reminderActions = listOf("add"))
+
+    @Test
+    fun `Ajouter à la liste answers the shortage alert and closes the notification`() = runBlocking {
+        coEvery { api.answerShortageAlert("01HZX3K9P2M7Q4R8S5T6V0W1AB", "add") } returns
+            ShortageAlertAnswer(ShortageAlert(id = "01HZX3K9P2M7Q4R8S5T6V0W1AB", name = "parmesan", resolved = true))
+
+        assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.ADD_TO_LIST, shortage))
+
+        coVerify(exactly = 1) { api.answerShortageAlert("01HZX3K9P2M7Q4R8S5T6V0W1AB", "add") }
+        coVerify(exactly = 0) { api.markNotificationRead(any()) }
+    }
+
+    @Test
+    fun `a shortage already resolved, unknown or refused settles the notification in French`() = runBlocking {
+        for (status in listOf(400, 404, 409)) {
+            coEvery { api.answerShortageAlert(any(), "add") } throws ApiRefusalException(status, "refused")
+
+            assertEquals(PushOutcome.Settled("Ce manquant n'est plus à signaler."), handler.handle(PushActionKind.ADD_TO_LIST, shortage))
+        }
+    }
+
+    @Test
+    fun `a shortage answer that cannot reach Maggie keeps the button to press again`() = runBlocking {
+        coEvery { api.answerShortageAlert(any(), "add") } throws java.io.IOException("offline")
+        assertEquals(PushOutcome.Retry("Maggie est injoignable. Réessayez."), handler.handle(PushActionKind.ADD_TO_LIST, shortage))
+
+        coEvery { api.answerShortageAlert(any(), "add") } throws ApiRefusalException(503, "Service Unavailable")
+        assertEquals(PushOutcome.Retry("Maggie est injoignable. Réessayez."), handler.handle(PushActionKind.ADD_TO_LIST, shortage))
+    }
+
+    @Test
+    fun `Ajouter à la liste without its shortage answers nothing`() = runBlocking {
+        val outcome = handler.handle(PushActionKind.ADD_TO_LIST, payload("grocery"))
+
+        assertTrue(outcome is PushOutcome.Settled)
+        coVerify(exactly = 0) { api.answerShortageAlert(any(), any()) }
+    }
+
+    @Test
+    fun `Plus tard on a shortage alert stays local`() = runBlocking {
+        assertEquals(PushOutcome.Postponed, handler.handle(PushActionKind.LATER, shortage))
+
+        coVerify(exactly = 0) { api.answerShortageAlert(any(), any()) }
     }
 }

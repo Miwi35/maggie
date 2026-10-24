@@ -19,6 +19,7 @@ use Maggie\Calendar\Service\AgendaChoiceKind;
 use Maggie\Calendar\Service\AgendaSuggester;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\Recipe;
+use Maggie\Cookbook\Entity\ShortageAlert;
 use Maggie\Core\E2e\Command\E2eSeedCommand;
 use Maggie\Core\E2e\Fixture\E2eDateProvider;
 use Maggie\Core\Entity\User;
@@ -123,9 +124,10 @@ final class E2eSeedCommandTest extends KernelTestCase
         // takes capital out of it. The twenty-fourth is the Courses card's (MAG-563): six
         // open lines at one shop. The twenty-fifth and twenty-sixth are the home tasks
         // card's (MAG-561), web and mobile: its ring counts the day's tasks exactly,
-        // and the journeys write theirs. A twenty-seventh would mean somebody added an
-        // account without saying why.
-        self::assertSame(27, $this->rowsOf(User::class));
+        // and the journeys write theirs. The twenty-seventh is the « Il manque »'s (MAG-570):
+        // answering it deletes the notification its journey reads. A twenty-eighth
+        // would mean somebody added an account without saying why.
+        self::assertSame(28, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -152,6 +154,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-home@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-home-tasks@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-home-tasks-mobile@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-shortage@maggie.local']));
 
         // Five: the signed-in user's four, and the neighbour's one. An event
         // belongs to a user through its agenda, so the neighbour needs one of
@@ -159,18 +162,19 @@ final class E2eSeedCommandTest extends KernelTestCase
         // not two since MAG-150: the agenda deduction has nothing to deduce
         // between two agendas, and « Boulot » and « Concerts » are what the
         // journeys watch an event be filed into. Six since MAG-6: the approval
-        // cards journey deletes an event from an agenda of its own.
-        self::assertSame(6, $this->rowsOf(Agenda::class));
-        // Events include the meals, which extend Event: 15 events + 2 meals. Four
+        // cards journey deletes an event from an agenda of its own. Seven since
+        // MAG-570: the « Il manque » account's « Repas ».
+        self::assertSame(7, $this->rowsOf(Agenda::class));
+        // Events include the meals, which extend Event: 15 events + 3 meals. Four
         // of the fifteen are the habits the deduction reads (MAG-150), one the
         // day on the 1st of the month (MAG-382).
-        self::assertSame(17, $this->rowsOf(Event::class));
-        self::assertSame(2, $this->rowsOf(Meal::class));
+        self::assertSame(18, $this->rowsOf(Event::class));
+        self::assertSame(3, $this->rowsOf(Meal::class));
         // Eight since MAG-405: one task due two days ago, never done. Eleven since
         // MAG-406: the three whose order « Aujourd'hui » is read in. Twelve since
         // MAG-510: the reminders account's « Appeler le garagiste ».
         self::assertSame(12, $this->rowsOf(Task::class));
-        self::assertSame(3, $this->rowsOf(Recipe::class));
+        self::assertSame(4, $this->rowsOf(Recipe::class));
         // Five on the owner's list, three on the shopper's, six on the Courses card's (MAG-563).
         self::assertSame(14, $this->rowsOf(GroceryItem::class));
         // One list each, and pinned here rather than only per user: a fourth
@@ -202,8 +206,9 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Eleven since MAG-457: the month balance account's « Alimentation » and « Transport ».
         // Thirteen since MAG-529: the next project account's « Restaurants » and « Obsydian ».
         self::assertSame(13, $this->rowsOf(Envelope::class));
-        // Three since MAG-510: the nudge the reminders journey answers.
-        self::assertSame(3, $this->rowsOf(Notification::class));
+        // Three since MAG-510: the nudge the reminders journey answers. Four since
+        // MAG-570: the « Il manque : Parmesan » the shortage journey answers.
+        self::assertSame(4, $this->rowsOf(Notification::class));
 
         // MAG-556: the PEA of the placement withdrawal journey, and the 1 500 € the
         // trip takes out of it the month it is bought.
@@ -293,6 +298,25 @@ final class E2eSeedCommandTest extends KernelTestCase
         $list = $this->repository(GroceryList::class)->findOneBy(['user' => $home]);
         self::assertNotNull($list);
         self::assertSame(6, $this->rowsOf(GroceryItem::class, ['groceryList' => $list, 'checked' => false]));
+    }
+
+    public function testTheShortageAccountHasAParmesanMissingForTonightsDinner(): void
+    {
+        // MAG-570: the alert, its notification and the meal it points at are what the journey answers.
+        $this->seed();
+
+        $user = $this->repository(User::class)->findOneBy(['email' => 'e2e-shortage@maggie.local']);
+        self::assertNotNull($user);
+        $alert = $this->repository(ShortageAlert::class)->findOneBy(['user' => $user]);
+        self::assertNotNull($alert);
+        self::assertFalse($alert->isResolved());
+        self::assertSame('Parmesan', $alert->getProduct()->getName());
+        self::assertSame('dinner', $alert->getMeal()->getSlot()->value);
+
+        $notification = $this->repository(Notification::class)->findOneBy(['user' => $user]);
+        self::assertNotNull($notification);
+        self::assertSame('/api/shortage-alerts/'.$alert->getId(), $notification->getRelatedEntityIri());
+        self::assertSame(['add'], $notification->getActions());
     }
 
     public function testTheAgendaDeductionReadsTheSeedTheWayTheJourneysExpect(): void
@@ -472,11 +496,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(28, $this->rowsOf(User::class));
+        self::assertSame(29, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(27, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(28, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

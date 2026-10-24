@@ -62,6 +62,7 @@ class PushActionHandler(
         // « Je m'y mets » and « Voir » open the app by themselves (an activity intent): this only answers the reminder.
         PushActionKind.START, PushActionKind.OPEN, PushActionKind.IN_TEN, PushActionKind.TONIGHT, PushActionKind.TOMORROW ->
             answerReminder(kind, payload) { PushOutcome.Closed }
+        PushActionKind.ADD_TO_LIST -> addToList(payload)
         PushActionKind.TICK -> answerReminder(kind, payload) { answer ->
             PushOutcome.Rewarded(answer.reward?.message ?: answer.notification?.title ?: TICKED)
         }
@@ -92,6 +93,22 @@ class PushActionHandler(
             if (e.status in FINAL_STATUSES) PushOutcome.Settled(refusal(kind, e)) else PushOutcome.Retry(UNREACHABLE)
         } catch (e: Exception) {
             Log.w(TAG, "Reminder answer failed: ${e.message}")
+            PushOutcome.Retry(UNREACHABLE)
+        }
+    }
+
+    // The alert is answered once: a refusal (400, 404, 409) means the product is no longer missing.
+    private suspend fun addToList(payload: PushPayload): PushOutcome {
+        val shortageId = payload.shortageId ?: return PushOutcome.Settled(SHORTAGE_SETTLED)
+        return try {
+            apiService.answerShortageAlert(shortageId, "add")
+            PushOutcome.Closed
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiRefusalException) {
+            if (e.status in FINAL_STATUSES) PushOutcome.Settled(SHORTAGE_SETTLED) else PushOutcome.Retry(UNREACHABLE)
+        } catch (e: Exception) {
+            Log.w(TAG, "Shortage answer failed: ${e.message}")
             PushOutcome.Retry(UNREACHABLE)
         }
     }
@@ -172,6 +189,7 @@ class PushActionHandler(
         const val REPLY_BUDGET_MS = 7_000L
         private const val UNREACHABLE = "Maggie est injoignable. Réessayez."
         private const val REMINDER_SETTLED = "Ce rappel n'est plus en attente."
+        private const val SHORTAGE_SETTLED = "Ce manquant n'est plus à signaler."
         private const val TICKED = "C'est fait."
 
         /** The reminder cannot take this answer, now or later: 400 unknown button, 404 gone, 409 refused. */

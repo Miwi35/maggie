@@ -348,6 +348,15 @@ web:
       - api/modules/calendar/src/Service/{TaskReminders,ReminderMessages}.php
       - api/modules/calendar/src/Message/AnswerTaskReminderCommand.php
       - api/modules/calendar/src/MessageHandler/AnswerTaskReminderHandler.php
+  e2e/web/tests/shortage-interruption.spec.ts:
+    areas: [interruptions, notification, grocery, cookbook, realtime]
+    # « Il manque » (MAG-570): the alert, its action route and the seeded account.
+    paths:
+      - api/fixtures/e2e/65-shortage-alert.yaml
+      - api/modules/cookbook/src/Entity/ShortageAlert.php
+      - api/modules/cookbook/src/Controller/ShortageAlertController.php
+      - api/modules/cookbook/src/Repository/ShortageAlertRepository.php
+      - api/modules/cookbook/src/Service/{ShortageAlerts,RecipeNeeds}.php
   e2e/web/tests/mercure.spec.ts:
     areas: [realtime, grocery, calendar, settings]
   e2e/web/tests/live-lists.spec.ts:

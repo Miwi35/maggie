@@ -79,6 +79,8 @@ class PushMessageFactory
             // A task reminder's buttons (MAG-510), as ordered keys the phone labels; they answer the reminder.
             'reminderId' => $notification->getReminderId(),
             'taskId' => null === $notification->getReminderId() ? null : $this->taskId($notification->getRelatedEntityIri()),
+            // A missing product's button (MAG-570): « Ajouter à la liste » answers this alert.
+            'shortageId' => null === $notification->getReminderId() ? $this->shortageId($notification->getRelatedEntityIri()) : null,
             'actions' => [] === $notification->getActions() ? null : implode(',', $notification->getActions()),
         ], static fn (?string $value) => null !== $value && '' !== $value);
 
@@ -153,6 +155,13 @@ class PushMessageFactory
         $path = (string) parse_url((string) $relatedEntityIri, PHP_URL_PATH);
 
         return 1 === preg_match('#^/api/tasks/([0-9A-Za-z-]{1,64})$#', $path, $m) ? $m[1] : null;
+    }
+
+    private function shortageId(?string $relatedEntityIri): ?string
+    {
+        $path = (string) parse_url((string) $relatedEntityIri, PHP_URL_PATH);
+
+        return 1 === preg_match('#^/api/shortage-alerts/([0-9A-Za-z-]{1,64})$#', $path, $m) ? $m[1] : null;
     }
 
     /** @return array{link: string, label: string}|null */

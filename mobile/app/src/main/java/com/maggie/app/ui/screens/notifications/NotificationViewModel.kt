@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.fcm.PushActionHandler
+import com.maggie.app.data.fcm.PushActionKind
+import com.maggie.app.data.fcm.PushOutcome
 import com.maggie.app.data.interruption.InterruptionCenter
 import com.maggie.app.data.interruption.Interruptions
 import com.maggie.app.data.model.Notification
@@ -26,6 +29,7 @@ class NotificationViewModel(
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
     private val interruptions: InterruptionCenter,
+    private val pushActions: PushActionHandler,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NotificationUiState())
@@ -76,6 +80,20 @@ class NotificationViewModel(
     fun open(notification: Notification) {
         val payload = Interruptions.of(notification, again = true)
         if (payload != null) interruptions.reopen(payload) else markRead(notification.id)
+    }
+
+    /**
+     * « Ajouter à la liste » on a shortage alert (MAG-570): the same answer as the push's button. The row goes
+     * when the server deletes the notification; a refusal means the product is no longer missing, so it goes too.
+     */
+    fun addToList(notification: Notification) {
+        val payload = Interruptions.of(notification, again = true)?.takeIf { it.shortageId != null } ?: return
+        viewModelScope.launch {
+            when (val outcome = pushActions.handle(PushActionKind.ADD_TO_LIST, payload)) {
+                is PushOutcome.Retry -> _uiState.value = _uiState.value.copy(error = outcome.message)
+                else -> refresh()
+            }
+        }
     }
 
     fun delete(id: String) {

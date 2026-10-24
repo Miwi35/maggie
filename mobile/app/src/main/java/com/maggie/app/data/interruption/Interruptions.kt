@@ -50,6 +50,7 @@ object Interruptions {
     private val FINANCE_LABELS = mapOf("banks" to "Reconnecter la banque", "budgets" to "Voir les enveloppes")
     private val FINANCE_SCREENS = setOf("", "accounts", "budgets", "categories", "rules", "rule-suggestions", "banks", "cushion", "savings-advances", "loans", "review")
     private val ENTITY_PATH = Regex("^/api/([a-z_]+)/([0-9A-Za-z-]{1,64})$")
+    private val SHORTAGE_PATH = Regex("^/api/shortage-alerts/([0-9A-Za-z]{26})$")
     private val FINANCE_PATH = Regex("^/finance(?:/([a-z-]+))?/?$")
 
     /**
@@ -69,7 +70,14 @@ object Interruptions {
             actionLabel = label,
             approvalId = null,
             interaction = null,
+            shortageId = shortageIdOf(notification),
         )
+    }
+
+    /** The shortage alert a grocery notification announces (MAG-570), read from its IRI; null for any other. */
+    fun shortageIdOf(notification: Notification): String? {
+        if (notification.type != "grocery") return null
+        return SHORTAGE_PATH.matchEntire(notification.relatedEntityIri.orEmpty())?.groupValues?.get(1)
     }
 
     /** A held action waiting for the owner's answer; null once decided or expired. */

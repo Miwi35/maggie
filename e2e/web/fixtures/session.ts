@@ -197,6 +197,14 @@ export const HOME_USER_EMAIL = 'e2e-home@maggie.local'
  */
 export const HOME_TASKS_USER_EMAIL = 'e2e-home-tasks@maggie.local'
 
+/**
+ * The twenty-seventh seeded account, for « Il manque » (MAG-570): tonight's gratin
+ * lacks a parmesan, and « Ajouter à la liste » puts it on the list and deletes the
+ * notification — on an account other journeys read the bell or the list of, their
+ * counts would move under them.
+ */
+export const SHORTAGE_USER_EMAIL = 'e2e-shortage@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

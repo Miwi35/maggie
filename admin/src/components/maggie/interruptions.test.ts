@@ -49,3 +49,49 @@ describe('readFeedMessage', () => {
     expect(event).toEqual({ kind: 'withdraw', id: 'notification:/api/notifications/n1' })
   })
 })
+
+describe('a missing product (MAG-570)', () => {
+  const shortage = {
+    '@id': '/api/notifications/n9',
+    type: 'grocery',
+    title: 'Il manque : parmesan',
+    body: 'Pour Pâtes carbonara, ce soir.',
+    relatedEntityIri: '/api/shortage-alerts/01K0SHORTAGE0000000000000A',
+    actions: ['add'],
+    readAt: null,
+  }
+
+  test('is an interruption carrying the alert, with the body as message and no link', () => {
+    const event = readFeedMessage(JSON.stringify(shortage))
+
+    expect(event).toEqual({
+      kind: 'interrupt',
+      interruption: {
+        source: 'notification',
+        id: 'notification:/api/notifications/n9',
+        ref: '/api/notifications/n9',
+        title: 'Il manque : parmesan',
+        message: 'Pour Pâtes carbonara, ce soir.',
+        link: null,
+        shortageId: '01K0SHORTAGE0000000000000A',
+      },
+    })
+  })
+
+  test('without the « add » action it is a plain notification', () => {
+    const event = readFeedMessage(JSON.stringify({ ...shortage, actions: [] }))
+
+    expect(event).toMatchObject({ kind: 'interrupt', interruption: { source: 'notification', link: null } })
+    expect(event?.kind === 'interrupt' && 'shortageId' in event.interruption).toBe(false)
+  })
+
+  test('is withdrawn when the shortage is settled and the notification deleted', () => {
+    const event = readFeedMessage(JSON.stringify({ '@id': shortage['@id'], deleted: true }))
+
+    expect(event).toEqual({ kind: 'withdraw', id: 'notification:/api/notifications/n9' })
+  })
+
+  test('its alert has no screen to open', () => {
+    expect(notificationLink(shortage.relatedEntityIri)).toBeNull()
+  })
+})

@@ -158,6 +158,7 @@ object PushIntents {
     const val EXTRA_REMINDER_ID = "reminderId"
     const val EXTRA_TASK_ID = "taskId"
     const val EXTRA_ACTIONS = "actions"
+    const val EXTRA_SHORTAGE_ID = "shortageId"
 
     /** The reminder's button the app answers once it is open (« Je m'y mets »), by its key. */
     const val EXTRA_ANSWER = "com.maggie.app.push.ANSWER"
@@ -173,13 +174,14 @@ object PushIntents {
         payload.interaction?.let { intent.putExtra(EXTRA_INTERACTION, kotlinx.serialization.json.Json.encodeToString(PushInteraction.serializer(), it)) }
         intent.putExtra(EXTRA_REMINDER_ID, payload.reminderId)
         intent.putExtra(EXTRA_TASK_ID, payload.taskId)
+        intent.putExtra(EXTRA_SHORTAGE_ID, payload.shortageId)
         if (payload.reminderActions.isNotEmpty()) intent.putExtra(EXTRA_ACTIONS, payload.reminderActions.joinToString(","))
     }
 
     fun payloadOf(intent: Intent): PushPayload? = PushPayload.from(
         data = listOf(
             EXTRA_NOTIFICATION_ID, EXTRA_TYPE, EXTRA_TITLE, EXTRA_TEXT, EXTRA_LINK, EXTRA_APPROVAL_ID, EXTRA_INTERACTION,
-            EXTRA_REMINDER_ID, EXTRA_TASK_ID, EXTRA_ACTIONS,
+            EXTRA_REMINDER_ID, EXTRA_TASK_ID, EXTRA_ACTIONS, EXTRA_SHORTAGE_ID,
         )
             .mapNotNull { key -> intent.getStringExtra(key)?.let { key to it } }
             .toMap(),

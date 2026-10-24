@@ -44,6 +44,9 @@ enum class PushActionKind(val label: String, val reminderKey: String? = null) {
 
     /** « Voir » of a routine reminder (MAG-512): the app opens on the tasks, the reminder is answered. */
     OPEN("Voir", "open"),
+
+    /** « Ajouter à la liste » of a shortage alert (MAG-570): the missing product goes on the shopping list. */
+    ADD_TO_LIST("Ajouter à la liste", "add"),
     ;
 
     companion object {
@@ -72,6 +75,8 @@ data class PushPayload(
     val taskId: String? = null,
     /** The reminder's buttons as the server orders them (`data.actions`), keys as they came. */
     val reminderActions: List<String> = emptyList(),
+    /** The shortage alert the notification is (MAG-570): « Ajouter à la liste » answers it. */
+    val shortageId: String? = null,
 ) {
     /**
      * The buttons the notification carries, by what it asks.
@@ -86,11 +91,14 @@ data class PushPayload(
      *
      * A task reminder (MAG-510) carries the buttons the server lists, in its order, the three
      * first Android shows; a key the app does not know is skipped, and none listed is none shown.
+     *
+     * A shortage alert (MAG-570) carries « Ajouter à la liste » and « Plus tard ».
      */
     fun actions(): List<PushActionKind> {
         val kind = interaction?.kind
         return when {
             reminderId != null -> reminderActions.mapNotNull(PushActionKind::ofReminderKey).distinct().take(MAX_ACTIONS)
+            shortageId != null -> listOf(PushActionKind.ADD_TO_LIST, PushActionKind.LATER)
             kind == "ack" -> if (interaction?.completable == true) listOf(PushActionKind.DONE, PushActionKind.LATER) else listOf(PushActionKind.OK)
             kind == "action" -> seenOrOpened()
             kind == "confirm" -> approvalButtons()
@@ -144,6 +152,7 @@ data class PushPayload(
                 },
                 reminderId = data["reminderId"]?.takeIf { it.isNotBlank() },
                 taskId = data["taskId"]?.takeIf { it.isNotBlank() },
+                shortageId = data["shortageId"]?.takeIf { it.isNotBlank() },
                 reminderActions = data["actions"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
             )
         }
