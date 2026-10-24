@@ -39,7 +39,12 @@ tags:
     visible:
       id: "home_agenda_now_line"
     timeout: 20000
-- assertVisible: ".*Appel avec le plombier.*"
+# The 18:30 row sits below the fold on a phone, under the Tâches card: scroll to it.
+- scrollUntilVisible:
+    element: ".*Appel avec le plombier.*"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
 
 - tapOn: ".*Appel avec le plombier.*"
 - extendedWaitUntil:
