@@ -110,6 +110,7 @@ fun ProductListScreen(
                         CircularProgressIndicator()
                     }
                 }
+                uiState.products.isEmpty() && uiState.error != null -> Unit
                 uiState.products.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(

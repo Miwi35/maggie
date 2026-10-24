@@ -75,7 +75,9 @@ tags:
 # The shop: both products appear, each under the header of its rayon, the first rayon first.
 - tapOn:
     id: "product_filter_store"
-- tapOn: "Épicerie du coin"
+- tapOn:
+    id: "product_filter_option"
+    text: "Épicerie du coin"
 - extendedWaitUntil:
     visible: "Frais MAG-606"
     timeout: 30000
@@ -93,7 +95,9 @@ tags:
 # The rayon: only its product stays, under its header.
 - tapOn:
     id: "product_filter_aisle"
-- tapOn: "Frais MAG-606"
+- tapOn:
+    id: "product_filter_option"
+    text: "Frais MAG-606"
 - extendedWaitUntil:
     visible:
       text: "Yaourt MAG-606"

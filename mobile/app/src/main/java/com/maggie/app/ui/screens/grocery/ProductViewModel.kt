@@ -85,7 +85,8 @@ class ProductViewModel(
 
     private fun applyQuery(query: ProductQuery) {
         if (query == _uiState.value.query) return
-        _uiState.value = _uiState.value.copy(query = query)
+        // The old list belongs to the old filter: grouped under the new store it would show another store's products.
+        _uiState.value = _uiState.value.copy(query = query, products = emptyList())
         load(withStores = false)
     }
 
@@ -209,6 +210,8 @@ class ProductViewModel(
                     )
                     if (editor.draft.preferredAisle?.isNew == true) loadAisles(editor.draft.preferredStoreId!!)
                     if (editor.draft.fallbackAisle?.isNew == true) loadAisles(editor.draft.fallbackStoreId!!)
+                    // A new aisle or store may take the product out of the filtered list.
+                    if (_uiState.value.query.isFiltered) load(withStores = false)
                 }
                 .onFailure { e ->
                     updateEditor { it.copy(isSaving = false, error = e.message ?: "L'enregistrement a échoué.") }

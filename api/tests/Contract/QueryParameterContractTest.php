@@ -130,11 +130,11 @@ final class QueryParameterContractTest extends WebTestCase
             'order[name]' => 'admin MealsWeekView',
         ],
         '/api/products' => [
-            'order[name]' => 'admin GroceryListView and ProductList',
-            'order[aisle]' => 'admin ProductList, the products of a store in the way through it (MAG-604)',
-            'order[stockState]' => 'admin ProductList (MAG-604)',
-            'store' => 'admin ProductList, the products of one store (MAG-604)',
-            'aisle' => 'admin ProductList, one aisle of that store or `none` (MAG-604)',
+            'order[name]' => 'admin GroceryListView and ProductList, mobile ProductListScreen',
+            'order[aisle]' => 'admin ProductList and mobile ProductListScreen, the products of a store in the way through it (MAG-604)',
+            'order[stockState]' => 'admin ProductList and mobile ProductListScreen (MAG-604, MAG-606)',
+            'store' => 'admin ProductList and mobile ProductListScreen, the products of one store (MAG-604)',
+            'aisle' => 'admin ProductList and mobile ProductListScreen, one aisle of that store or `none` (MAG-604)',
         ],
         '/api/stores' => [
             'order[name]' => 'admin GroceryListView',

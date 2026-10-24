@@ -13,6 +13,7 @@ import com.maggie.app.data.repository.StoreRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -229,17 +230,22 @@ class ProductViewModelShelfTest {
     }
 
     @Test
-    fun `the list is loading while the API answers a new filter, and keeps what it showed`() = runTest {
+    fun `the list is loading, and empty, while the API answers a new filter`() = runTest {
         val viewModel = open()
+        val answer = CompletableDeferred<Result<List<Product>>>()
+        coEvery { productRepository.getProducts(ProductQuery(storeId = "s1")) } coAnswers { answer.await() }
 
         viewModel.selectFilterStore("s1")
-        testDispatcher.scheduler.runCurrent()
+        advanceUntilIdle()
 
-        // Not advanced yet: the request is in flight.
-        val loading = viewModel.uiState.value
-        assertEquals(3, loading.products.size)
+        // The old list belongs to the old filter: it is not shown grouped under the new store.
+        assertTrue(viewModel.uiState.value.isLoading)
+        assertTrue(viewModel.uiState.value.products.isEmpty())
+
+        answer.complete(Result.success(listOf(yaourt)))
         advanceUntilIdle()
         assertFalse(viewModel.uiState.value.isLoading)
+        assertEquals(listOf(yaourt), viewModel.uiState.value.products)
     }
 
     @Test
