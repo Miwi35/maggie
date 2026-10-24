@@ -15,9 +15,9 @@ use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 /**
- * The product and ingredient processors answer a packaging, a stock, an
- * aisle or season months the handler refused with a 400, a product still in use with a 409, the same
- * answers the MCP tools give as an error.
+ * The product and ingredient processors answer a packaging, a stock, an aisle or
+ * season months the handler refused with a 400, a product still in use with a 409,
+ * the same answers the MCP tools give as an error.
  * The using class holds the bus as `$bus`.
  */
 trait DispatchesProductCommandTrait

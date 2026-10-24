@@ -32,6 +32,8 @@ class UpdateIngredientProcessor implements ProcessorInterface
         if (null !== $previous) {
             foreach ([
                 'defaultUnit' => 'getDefaultUnit',
+                'preferredStore' => 'getPreferredStore',
+                'fallbackStore' => 'getFallbackStore',
                 'ciqualAlimCode' => 'getCiqualAlimCode',
                 'kcalPer100g' => 'getKcalPer100g',
                 'proteinPer100g' => 'getProteinPer100g',
@@ -53,6 +55,8 @@ class UpdateIngredientProcessor implements ProcessorInterface
             name: $data->getName(),
             category: $data->getCategory()->value,
             defaultUnit: $data->getDefaultUnit()?->value,
+            preferredStoreId: null !== $data->getPreferredStore() ? (string) $data->getPreferredStore()->getId() : null,
+            fallbackStoreId: null !== $data->getFallbackStore() ? (string) $data->getFallbackStore()->getId() : null,
             ciqualAlimCode: $data->getCiqualAlimCode(),
             kcalPer100g: $data->getKcalPer100g(),
             proteinPer100g: $data->getProteinPer100g(),
