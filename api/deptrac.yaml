@@ -33,7 +33,7 @@ deptrac:
     - name: GroceryCatalogue
       collectors:
         - type: classNameRegex
-          value: '#^Maggie\\Grocery\\(Entity\\(Product|Store|SeasonalLine|Aisle|ProductAisle)|Enum\\(Unit|ProductCategory|ProductStockState)|Exception\\.+|Repository\\(Product|Store)Repository|Service\\SeasonCalendar|State\\(DispatchesProductCommandTrait|(Create|Update|Delete)ProductProcessor)|UseCase\\(Create|Update|Delete)Product)$#'
+          value: '#^Maggie\\Grocery\\(Entity\\(Product|Store|SeasonalLine|Aisle|ProductAisle)|Doctrine\\Filter\\ProductShelfFilter|Enum\\(Unit|ProductCategory|ProductStockState)|Exception\\.+|Repository\\(Product|Store)Repository|Service\\SeasonCalendar|State\\(DispatchesProductCommandTrait|(Create|Update|Delete)ProductProcessor)|UseCase\\(Create|Update|Delete)Product)$#'
     - name: Grocery
       collectors:
         - type: bool
@@ -41,7 +41,7 @@ deptrac:
             - { type: classNameRegex, value: '#^Maggie\\Grocery\\#' }
           must_not:
             - type: classNameRegex
-              value: '#^Maggie\\Grocery\\(Entity\\(Product|Store|SeasonalLine|Aisle|ProductAisle)|Enum\\(Unit|ProductCategory|ProductStockState)|Exception\\.+|Repository\\(Product|Store)Repository|Service\\SeasonCalendar|State\\(DispatchesProductCommandTrait|(Create|Update|Delete)ProductProcessor)|UseCase\\(Create|Update|Delete)Product)$#'
+              value: '#^Maggie\\Grocery\\(Entity\\(Product|Store|SeasonalLine|Aisle|ProductAisle)|Doctrine\\Filter\\ProductShelfFilter|Enum\\(Unit|ProductCategory|ProductStockState)|Exception\\.+|Repository\\(Product|Store)Repository|Service\\SeasonCalendar|State\\(DispatchesProductCommandTrait|(Create|Update|Delete)ProductProcessor)|UseCase\\(Create|Update|Delete)Product)$#'
   ruleset:
     Core: ~
     Notification: [Core]
