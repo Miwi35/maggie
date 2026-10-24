@@ -92,14 +92,14 @@ test('filter a store and an aisle, then give a product an aisle at its fallback 
     // --- When: the products screen is filtered on Super U › Frais ------------
     const shell = new AdminShell(page)
     await shell.goto(ROUTES.products)
-    await shell.content.getByRole('combobox', { name: 'Magasin' }).click()
+    await shell.content.getByRole('combobox', { name: /^Magasin/ }).click()
     await page.getByRole('option', { name: superU }).click()
 
     // Grouped by aisle in the order of the way, « Sans rayon » last.
     const headings = shell.content.getByRole('heading', { level: 3 })
     await expect(headings).toHaveText(['Frais · 1', 'Épicerie · 1', 'Sans rayon · 1'])
 
-    await shell.content.getByRole('combobox', { name: 'Rayon' }).click()
+    await shell.content.getByRole('combobox', { name: /^Rayon/ }).click()
     await page.getByRole('option', { name: 'Frais' }).click()
 
     // --- Then: only the product on that shelf is left -----------------------
@@ -113,7 +113,7 @@ test('filter a store and an aisle, then give a product an aisle at its fallback 
     expect(biscuitsIri, 'the Biscuits product is not in the collection').toBeTruthy()
     await shell.goto(`${ROUTES.products}/${encodeURIComponent(String(biscuitsIri))}`)
 
-    await page.getByRole('combobox', { name: 'À défaut' }).fill(biocoop)
+    await page.getByRole('combobox', { name: 'À défaut', exact: true }).fill(biocoop)
     await page.getByRole('option', { name: biocoop }).click()
     await page.getByRole('combobox', { name: 'Rayon du magasin à défaut' }).click()
     await page.getByRole('option', { name: 'Nouveau rayon…' }).click()
