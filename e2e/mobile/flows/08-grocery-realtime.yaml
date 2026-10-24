@@ -89,6 +89,46 @@ tags:
     timeout: 30000
 
 # ---------------------------------------------------------------------------
+# Back on the list after another screen (MAG-609). An update the stream missed
+# (a drop, a phone that slept) used to stay missing until the app was killed:
+# the list is now read again each time its screen is shown, so a line added while
+# the owner was elsewhere is there when they come back, with no relaunch and no
+# pull. The write is made while the list is not on screen.
+# ---------------------------------------------------------------------------
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: tasks
+- extendedWaitUntil:
+    notVisible:
+      id: "grocery"
+    timeout: 20000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: add
+      LABEL: Yaourts MAG-609
+      STORE: Épicerie du coin
+      WAIT_MS: "1000"
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: grocery
+- extendedWaitUntil:
+    visible:
+      text: ".*Yaourts MAG-609.*"
+      below: "Épicerie du coin"
+    timeout: 30000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: remove
+      LABEL: Yaourts MAG-609
+- extendedWaitUntil:
+    notVisible: ".*Yaourts MAG-609.*"
+    timeout: 30000
+
+# ---------------------------------------------------------------------------
 # Phone → web. A line added on the phone, through the add sheet: the product
 # field opens a full-screen search where a free label is accepted as typed, the
 # shop is picked from the list, then « Ajouter ». The database has it, in the

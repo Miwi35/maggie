@@ -30,7 +30,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -79,6 +81,7 @@ class GroceryViewModelTest {
         coEvery { authRepository.getUserId() } returns "user-1"
         every { authRepository.token } returns flowOf("jwt")
         every { mercureService.subscribe(any()) } returns emptyFlow()
+        every { mercureService.reconnections(any()) } returns emptyFlow()
         coEvery { groceryListRepository.getGroceryList() } returns Result.success(sampleList)
         coEvery { productRepository.getProducts() } returns Result.success(emptyList())
         coEvery { storeRepository.getStores() } returns Result.success(emptyList())
@@ -965,6 +968,58 @@ class GroceryViewModelTest {
 
         assertEquals(listOf("a"), viewModel.uiState.value.laterItems.map { it.id })
         assertTrue(viewModel.uiState.value.storeGroups.isEmpty())
+    }
+
+    @Test
+    fun `an item added elsewhere shows when the screen is shown again, whatever the stream missed`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
+
+        val yaourts = GroceryItem(id = "item-4", customLabel = "Yaourts", checked = false, position = 1)
+        coEvery { groceryListRepository.getGroceryList() } returns
+            Result.success(sampleList.copy(items = sampleItems + yaourts))
+        val loadingStates = mutableListOf<Boolean>()
+        val watching = launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect { loadingStates += it.isLoading }
+        }
+
+        viewModel.onScreenResumed()
+        advanceUntilIdle()
+        watching.cancel()
+
+        assertTrue(viewModel.uiState.value.groceryList!!.items.any { it.id == "item-4" })
+        assertFalse("the list stays on screen without the pull indicator", loadingStates.any { it })
+    }
+
+    @Test
+    fun `a failed reload on resume keeps the list and shows no error`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        coEvery { groceryListRepository.getGroceryList() } returns Result.failure(RuntimeException("offline"))
+
+        viewModel.onScreenResumed()
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `the list is read again when the stream reconnects`() = runTest {
+        val reconnected = MutableSharedFlow<Unit>()
+        every { mercureService.reconnections("/users/user-1/api/grocery_lists/{id}") } returns reconnected
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertEquals(3, viewModel.uiState.value.groceryList!!.items.size)
+
+        val yaourts = GroceryItem(id = "item-4", customLabel = "Yaourts", checked = false, position = 1)
+        coEvery { groceryListRepository.getGroceryList() } returns
+            Result.success(sampleList.copy(items = sampleItems + yaourts))
+        reconnected.emit(Unit)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.groceryList!!.items.any { it.id == "item-4" })
     }
 
     @Test

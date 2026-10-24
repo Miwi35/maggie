@@ -17,9 +17,12 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -127,23 +130,41 @@ class MercureService(
     private val authRepository: AuthRepository,
     private val hubUrl: String = BuildConfig.MERCURE_URL,
     private val client: HttpClient = defaultClient(),
+    private val reconnectDelayMs: Long = 3_000,
 ) {
+    private val reconnected = MutableSharedFlow<String>(extraBufferCapacity = 16)
+
+    /**
+     * Emits each time the stream of [topic] is connected again after a drop. The hub replays what was
+     * missed from the last event id when it still holds it ([subscribe] sends it); a subscriber that
+     * must not show a stale state reloads on this signal for the case where it does not.
+     */
+    fun reconnections(topic: String): Flow<Unit> = reconnected.filter { it == topic }.map { }
+
     fun subscribe(topic: String): Flow<MercureEvent> = callbackFlow {
         val url = buildSubscriptionUrl(hubUrl, topic)
 
         Log.i(TAG, "Subscribing to Mercure: $url")
 
+        var lastEventId: String? = null
+        var attempted = false
+
         while (isActive) {
             val streamId = UUID.randomUUID().toString()
+            val isRetry = attempted
+            attempted = true
             try {
                 val mercureToken = authRepository.getMercureToken()
                 client.sse(url, request = {
                     header(StreamCalls.HEADER, streamId)
                     mercureToken?.let { header("Authorization", "Bearer $it") }
+                    lastEventId?.let { header("Last-Event-ID", it) }
                 }) {
                     Log.i(TAG, "SSE connected to $topic")
+                    if (isRetry) reconnected.tryEmit(topic)
                     incoming.collect { event ->
                         Log.d(TAG, "SSE event received on $topic: ${event.data?.take(100)}")
+                        event.id?.let { lastEventId = it }
                         trySend(
                             MercureEvent(
                                 id = event.id,
@@ -162,8 +183,8 @@ class MercureService(
             }
 
             if (isActive) {
-                Log.i(TAG, "SSE disconnected from $topic, reconnecting in 3s...")
-                delay(3000)
+                Log.i(TAG, "SSE disconnected from $topic, reconnecting in ${reconnectDelayMs}ms...")
+                delay(reconnectDelayMs)
             }
         }
 

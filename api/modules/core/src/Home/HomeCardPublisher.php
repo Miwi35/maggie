@@ -7,6 +7,9 @@ namespace Maggie\Core\Home;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\MercureTopic;
 use Maggie\Core\Projection\Change;
+use Monolog\Attribute\WithMonologChannel;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
@@ -17,14 +20,19 @@ use Symfony\Component\Mercure\Update;
  * (see {@see publishAffected()}); any other calls {@see publish()} itself.
  * Clients refetch the card.
  */
+#[WithMonologChannel('mercure')]
 class HomeCardPublisher
 {
+    private LoggerInterface $logger;
+
     /** @param iterable<HomeCardProviderInterface> $providers */
     public function __construct(
         private readonly HubInterface $hub,
         #[AutowireIterator(HomeCardRegistry::TAG)]
         private readonly iterable $providers = [],
+        ?LoggerInterface $logger = null,
     ) {
+        $this->logger = $logger ?? new NullLogger();
     }
 
     /**
@@ -46,8 +54,9 @@ class HomeCardPublisher
      * Refreshes, for each owner of these changes, every watching card whose entities they touch — once per card and owner.
      *
      * @param list<Change> $changes
+     * @param ?string      $messageClass the message whose changes these are, for the publication log
      */
-    public function publishAffected(array $changes): void
+    public function publishAffected(array $changes, ?string $messageClass = null): void
     {
         $announced = [];
 
@@ -63,18 +72,24 @@ class HomeCardPublisher
                 }
 
                 $announced[$key] = true;
-                $this->publishFor($change->ownerId, $provider->module());
+                $this->publishFor($change->ownerId, $provider->module(), $messageClass);
             }
         }
     }
 
-    private function publishFor(string $userId, string $module): void
+    private function publishFor(string $userId, string $module, ?string $messageClass = null): void
     {
         $this->hub->publish(new Update(
             topics: [self::topic($userId, $module)],
             data: json_encode(['action' => 'refresh', 'module' => $module], JSON_THROW_ON_ERROR),
             private: true,
         ));
+
+        $this->logger->info('Mercure update published', [
+            'topic' => self::topic($userId, $module),
+            'type' => 'home-refresh',
+            'message' => $messageClass,
+        ]);
     }
 
     private static function touches(HomeCardWatcherInterface $watcher, Change $change): bool

@@ -10,6 +10,7 @@ use Lcobucci\JWT\Signer\InvalidKeyProvided;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Projection\ProjectionMiddleware;
 use Maggie\Core\Projection\WorkCollector;
+use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Message\CheckGroceryItemCommand;
 use Maggie\Grocery\Message\DeleteStoreCommand;
@@ -280,6 +281,65 @@ class ProjectionMiddlewareTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatchedFor(Store::class, $this->storeId());
     }
 
+    /** Without it a lost update cannot be told from one never sent (MAG-609); and the log carries no content. */
+    public function testEachPublishedUpdateIsLoggedWithItsTopicAndTypeAndNoContent(): void
+    {
+        $logger = $this->recordingLogger();
+        $middleware = new ProjectionMiddleware(
+            $this->getMercureHub(),
+            self::getContainer()->get(MessageBusInterface::class),
+            self::getContainer()->get(WorkCollector::class),
+            $logger,
+        );
+        $listId = (string) $this->getFixture('grocery_list')->getId();
+
+        $middleware->handle(
+            $this->received(new CheckGroceryItemCommand(groceryItemId: 'x', userId: $this->ownerId(), checked: true)),
+            $this->stackRunning(function () {
+                $item = $this->em()->find(GroceryItem::class, (string) $this->getFixture('item_tomato')->getId());
+                $item->setCustomLabel('Yaourts à la vanille');
+                $this->em()->flush();
+            }),
+        );
+
+        $published = array_values(array_filter(
+            $logger->records,
+            static fn (array $record) => 'Mercure update published' === $record['message'],
+        ));
+        $onTheList = array_values(array_filter(
+            $published,
+            fn (array $record) => '/users/'.$this->ownerId().'/api/grocery_lists/'.$listId === $record['context']['topic'],
+        ));
+        self::assertCount(1, $onTheList);
+        self::assertSame('updated', $onTheList[0]['context']['type']);
+        self::assertSame(CheckGroceryItemCommand::class, $onTheList[0]['context']['message']);
+        self::assertIsInt($onTheList[0]['context']['items']);
+        self::assertSame(LogLevel::INFO, $onTheList[0]['level']);
+        self::assertStringNotContainsString('Yaourts', json_encode($logger->records, JSON_THROW_ON_ERROR));
+    }
+
+    public function testADeletionIsLoggedWithItsType(): void
+    {
+        $logger = $this->recordingLogger();
+        $middleware = new ProjectionMiddleware(
+            $this->getMercureHub(),
+            self::getContainer()->get(MessageBusInterface::class),
+            self::getContainer()->get(WorkCollector::class),
+            $logger,
+        );
+
+        $middleware->handle(
+            $this->received(new DeleteStoreCommand(storeId: $this->storeId())),
+            $this->stackRunning(function () {
+                $this->em()->remove($this->em()->find(Store::class, $this->storeId()));
+                $this->em()->flush();
+            }),
+        );
+
+        $types = array_map(static fn (array $record) => $record['context']['type'] ?? null, $logger->records);
+        self::assertContains('deleted', $types);
+    }
+
     private function failingMiddleware(\Throwable $failure, AbstractLogger $logger): ProjectionMiddleware
     {
         $hub = $this->createStub(HubInterface::class);
@@ -296,12 +356,12 @@ class ProjectionMiddlewareTest extends KernelTestCase
     private function recordingLogger(): AbstractLogger
     {
         return new class extends AbstractLogger {
-            /** @var list<array{level: mixed, message: string}> */
+            /** @var list<array{level: mixed, message: string, context: array<string, mixed>}> */
             public array $records = [];
 
             public function log($level, string|\Stringable $message, array $context = []): void
             {
-                $this->records[] = ['level' => $level, 'message' => (string) $message];
+                $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
             }
         };
     }
