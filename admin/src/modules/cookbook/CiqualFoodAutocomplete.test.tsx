@@ -5,7 +5,6 @@ import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-a
 import polyglotI18nProvider from 'ra-i18n-polyglot'
 import { MemoryRouter } from 'react-router-dom'
 import { messages } from '../../i18n/messages'
-import { RecipeCreate } from './RecipeCreate'
 import { IngredientCreate } from './IngredientCreate'
 
 const TOMATO = {
@@ -55,40 +54,6 @@ const pickTomato = async (user: ReturnType<typeof userEvent.setup>) => {
 describe('CiqualFoodAutocomplete', { timeout: 30_000 }, () => {
   beforeEach(() => stubCiqual())
   afterEach(() => vi.unstubAllGlobals())
-
-  test('in a recipe row, the chosen code lands in the row and nowhere else', async () => {
-    const user = userEvent.setup()
-    const create = renderForm('recipes', <RecipeCreate />)
-
-    await user.type(screen.getByLabelText(/Nom/), 'Sauce')
-    await user.click(screen.getByRole('button', { name: 'Ajouter' }))
-    await pickTomato(user)
-    await user.type(screen.getByLabelText(/Quantité/), '400')
-    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
-
-    await waitFor(() => expect(create).toHaveBeenCalled())
-    const sent = create.mock.calls[0][1].data as Record<string, unknown>
-    expect(sent.ingredients).toEqual([{ ciqualAlimCode: TOMATO.alim_code, ingredientName: TOMATO.alim_name_fr, quantity: 400, unit: 'g' }])
-    expect(sent).not.toHaveProperty('ciqualAlimCode')
-  })
-
-  test('each recipe row keeps its own code', async () => {
-    const user = userEvent.setup()
-    const create = renderForm('recipes', <RecipeCreate />)
-
-    await user.type(screen.getByLabelText(/Nom/), 'Sauce')
-    await user.click(screen.getByRole('button', { name: 'Ajouter' }))
-    await user.click(screen.getByRole('button', { name: 'Ajouter' }))
-    const [, second] = screen.getAllByLabelText(/Aliment Ciqual/)
-    await user.type(second, 'tomate')
-    await user.click(await screen.findByRole('option', { name: new RegExp(TOMATO.alim_name_fr, 'i') }, { timeout: 5_000 }))
-    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
-
-    await waitFor(() => expect(create).toHaveBeenCalled())
-    const ingredients = create.mock.calls[0][1].data.ingredients as Array<{ ciqualAlimCode?: string | null }>
-    expect(ingredients[0].ciqualAlimCode ?? null).toBeNull()
-    expect(ingredients[1].ciqualAlimCode).toBe(TOMATO.alim_code)
-  })
 
   test('outside an array, the code stays at the root of the ingredient form', async () => {
     const user = userEvent.setup()

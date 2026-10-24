@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import Button from '@mui/material/Button'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { Confirm, useDelete, useNotify, useRecordContext, useRedirect, useRefresh } from 'react-admin'
@@ -50,27 +50,24 @@ const ConfirmContent = ({ impact }: { impact: ImpactState }) => {
 }
 
 /**
- * Deleting a recipe also deletes the meals it was the only recipe of (MAG-289),
- * so the confirmation says how many, and on which days, before the owner agrees.
+ * The confirmation of deleting the recipe in context. Deleting a recipe also deletes the meals it
+ * was the only recipe of (MAG-289), so it says how many, and on which days, before the owner agrees.
  */
-export const RecipeDeleteButton = () => {
+export const RecipeDeleteConfirm = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const record = useRecordContext<{ id: string; name: string }>()
   const notify = useNotify()
   const refresh = useRefresh()
   const redirect = useRedirect()
   const [deleteOne, { isPending }] = useDelete()
-  const [open, setOpen] = useState(false)
   const [impact, setImpact] = useState<ImpactState>(undefined)
+  const recordId = record ? String(record.id) : null
 
-  if (!record) return null
-
-  const onOpen = (event: MouseEvent) => {
-    event.stopPropagation()
+  useEffect(() => {
+    if (!open || recordId === null) return
     setImpact(undefined)
-    setOpen(true)
 
     const token = localStorage.getItem('token')
-    fetch(`${recipeIri(String(record.id))}/deletion-impact`, {
+    fetch(`${recipeIri(recordId)}/deletion-impact`, {
       headers: {
         Accept: 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -79,7 +76,9 @@ export const RecipeDeleteButton = () => {
       .then((res) => (res.ok ? (res.json() as Promise<Impact>) : Promise.reject(new Error(res.statusText))))
       .then((data) => setImpact({ mealCount: data.mealCount, meals: data.meals ?? [] }))
       .catch(() => setImpact(null))
-  }
+  }, [open, recordId])
+
+  if (!record) return null
 
   const onConfirm = () => {
     deleteOne(
@@ -88,13 +87,13 @@ export const RecipeDeleteButton = () => {
       {
         mutationMode: 'pessimistic',
         onSuccess: () => {
-          setOpen(false)
+          onClose()
           notify('Recette supprimée', { type: 'success' })
           redirect('list', 'recipes')
           refresh()
         },
         onError: (error) => {
-          setOpen(false)
+          onClose()
           notify(`Erreur : ${(error as Error).message}`, { type: 'error' })
         },
       },
@@ -102,19 +101,38 @@ export const RecipeDeleteButton = () => {
   }
 
   return (
+    <Confirm
+      isOpen={open}
+      loading={isPending || impact === undefined}
+      title={confirmTitle(record.name, impact?.mealCount)}
+      content={<ConfirmContent impact={impact} />}
+      onConfirm={onConfirm}
+      onClose={onClose}
+    />
+  )
+}
+
+export const RecipeDeleteButton = () => {
+  const record = useRecordContext<{ id: string; name: string }>()
+  const [open, setOpen] = useState(false)
+
+  if (!record) return null
+
+  return (
     // The dialog is a portal, but its clicks still bubble to the datagrid row.
     <span onClick={(event) => event.stopPropagation()}>
-      <Button color="error" size="small" startIcon={<DeleteIcon />} onClick={onOpen}>
+      <Button
+        color="error"
+        size="small"
+        startIcon={<DeleteIcon />}
+        onClick={(event: MouseEvent) => {
+          event.stopPropagation()
+          setOpen(true)
+        }}
+      >
         Supprimer
       </Button>
-      <Confirm
-        isOpen={open}
-        loading={isPending || impact === undefined}
-        title={confirmTitle(record.name, impact?.mealCount)}
-        content={<ConfirmContent impact={impact} />}
-        onConfirm={onConfirm}
-        onClose={() => setOpen(false)}
-      />
+      <RecipeDeleteConfirm open={open} onClose={() => setOpen(false)} />
     </span>
   )
 }

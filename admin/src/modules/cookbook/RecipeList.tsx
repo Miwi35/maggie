@@ -4,7 +4,6 @@ import {
   NumberField,
   DateField,
   FunctionField,
-  EditButton,
   ShowButton,
 } from 'react-admin'
 import { ListEmpty } from '../../components/list/ListEmpty'
@@ -24,7 +23,7 @@ const RECIPE_LIVE: LiveConfig = {
 
 const RecipeDatagrid = () => {
   return (
-    <Datagrid rowClick="edit" bulkActionButtons={false}>
+    <Datagrid rowClick="show" bulkActionButtons={false}>
       <TextField source="name" label="Nom" />
       <NumberField source="servings" label="Portions" />
       <FunctionField
@@ -49,7 +48,6 @@ const RecipeDatagrid = () => {
       />
       <DateField source="createdAt" label="Créé le" />
       <ShowButton />
-      <EditButton />
       <RecipeDeleteButton />
     </Datagrid>
   )

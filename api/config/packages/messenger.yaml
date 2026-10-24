@@ -69,6 +69,7 @@ framework:
             'Maggie\Cookbook\Message\DeleteIngredientCommand': sync
             'Maggie\Cookbook\Message\CreateRecipeCommand': sync
             'Maggie\Cookbook\Message\UpdateRecipeCommand': sync
+            'Maggie\Cookbook\Message\ReplaceRecipeIngredientCommand': sync
             'Maggie\Cookbook\Message\DeleteRecipeCommand': sync
             'Maggie\Cookbook\Message\CreateMealCommand': sync
             'Maggie\Cookbook\Message\UpdateMealCommand': sync

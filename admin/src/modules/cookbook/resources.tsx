@@ -9,7 +9,6 @@ const IngredientCreate = lazyPage(() => import('./IngredientCreate'), 'Ingredien
 const IngredientEdit = lazyPage(() => import('./IngredientEdit'), 'IngredientEdit')
 const IngredientList = lazyPage(() => import('./IngredientList'), 'IngredientList')
 const RecipeCreate = lazyPage(() => import('./RecipeCreate'), 'RecipeCreate')
-const RecipeEdit = lazyPage(() => import('./RecipeEdit'), 'RecipeEdit')
 const RecipeList = lazyPage(() => import('./RecipeList'), 'RecipeList')
 const RecipeShow = lazyPage(() => import('./RecipeShow'), 'RecipeShow')
 
@@ -25,6 +24,6 @@ export const cookbookResources = (
       create={IngredientCreate}
       edit={IngredientEdit}
     />
-    <ResourceGuesser name="recipes" list={RecipeList} create={RecipeCreate} edit={RecipeEdit} show={RecipeShow} />
+    <ResourceGuesser name="recipes" list={RecipeList} create={RecipeCreate} show={RecipeShow} />
   </>
 )

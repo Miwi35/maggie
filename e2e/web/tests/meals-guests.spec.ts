@@ -135,20 +135,21 @@ test.describe('The guests of a meal', () => {
       )
 
       // When I open the recipe sheet and simulate 8 guests…
-      await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(recipe['@id'])}`)
-      const simulation = shell.content.getByTestId('recipe-scale-simulation')
-      await expect(simulation).toBeVisible()
+      await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(recipe['@id'])}/show`)
+      const quantity = shell.content.getByRole('button', { name: /Modifier la quantité de/ })
+      await expect(quantity).toHaveText(/400/)
       for (let i = 0; i < 4; i++) {
-        await simulation.getByRole('button', { name: /Un convive de plus/ }).click()
+        await shell.content.getByRole('button', { name: /Un convive de plus/ }).click()
       }
 
       // …then the quantities are the API's, for 8: 800 g.
-      await expect(simulation.getByRole('list', { name: 'Quantités pour 8 personnes' })).toContainText('800 g')
+      await expect(shell.content.getByTestId('guests-value')).toHaveText('8')
+      await expect(quantity).toHaveText(/800/)
 
       // One click gives the recipe's own servings back, and nothing was saved.
-      await simulation.getByRole('button', { name: /Parts de la recette/ }).click()
-      await expect(simulation.getByRole('list')).toHaveCount(0)
-      await expect(simulation.getByTestId('guests-value')).toHaveText('4')
+      await shell.content.getByRole('button', { name: 'Revenir à 4' }).click()
+      await expect(shell.content.getByTestId('guests-value')).toHaveText('4')
+      await expect(quantity).toHaveText(/400/)
       const stored = await api.get(recipe['@id'], { headers: { Accept: 'application/ld+json' } })
       const record = (await stored.json()) as { servings: number; ingredients: Array<{ quantity: number }> }
       expect(record.servings).toBe(4)

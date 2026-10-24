@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { moveStep, removeStep, setDuration, stepOfError, stepsPayload } from './recipeSteps'
+import { moveStep, removeStep, setDuration, stepsPayload } from './recipeSteps'
 import type { RecipeStepDraft } from './recipeSteps'
 
 const step = (text: string, waitsFor: number[] = [], extra: Partial<RecipeStepDraft> = {}): RecipeStepDraft => ({
@@ -70,7 +70,7 @@ describe('setDuration', () => {
 })
 
 describe('stepsPayload', () => {
-  test('sends the whole list in order, ingredients and utensils by name', () => {
+  test('sends the whole list in order: ingredients by id when known, by name otherwise, utensils by name', () => {
     const payload = stepsPayload([
       step('  Cuire  ', [], {
         durationMinutes: 12,
@@ -81,7 +81,7 @@ describe('stepsPayload', () => {
       step('Égoutter', [1]),
     ])
     expect(payload).toEqual([
-      { text: 'Cuire', durationMinutes: 12, background: true, ingredientIds: ['Pâtes', 'Sel'], utensils: ['Casserole', 'Passoire'], waitsFor: [] },
+      { text: 'Cuire', durationMinutes: 12, background: true, ingredientIds: ['01I', 'Sel'], utensils: ['Casserole', 'Passoire'], waitsFor: [] },
       { text: 'Égoutter', durationMinutes: null, background: false, ingredientIds: [], utensils: [], waitsFor: [1] },
     ])
   })
@@ -92,16 +92,5 @@ describe('stepsPayload', () => {
 
   test('a recipe without steps sends an empty list', () => {
     expect(stepsPayload(undefined)).toEqual([])
-  })
-})
-
-describe('stepOfError', () => {
-  test.each([
-    ['Step 3 needs a text.', 3],
-    ['Step 2: a step runs in the background only with a duration.', 2],
-    ['"Pâtes" cannot leave the recipe: step 4 (« Cuire ») uses it. Change the step first.', 4],
-    ['steps must be a list.', null],
-  ])('%s', (message, expected) => {
-    expect(stepOfError(message)).toBe(expected)
   })
 })

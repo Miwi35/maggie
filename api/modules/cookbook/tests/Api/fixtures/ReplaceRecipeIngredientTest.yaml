@@ -1,0 +1,97 @@
+# Replacing an ingredient of a recipe (MAG-601), shared by the API and MCP suites:
+# a boeuf bourguignon whose steps 2 and 6 use the lardons.
+Maggie\Core\Entity\User:
+  test_user:
+    email: replace-ingredient-test@example.com
+    googleId: google-replace-ingredient-test
+    name: Replace Ingredient Test User
+  other_user:
+    email: replace-ingredient-other@example.com
+    googleId: google-replace-ingredient-other
+    name: Replace Ingredient Other User
+
+Maggie\Cookbook\Entity\Ingredient:
+  beef_food:
+    name: Bœuf
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Meat)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@test_user'
+  bacon_food:
+    name: Lardons fumés
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Meat)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@test_user'
+  belly_food:
+    name: Poitrine fumée
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Meat)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@test_user'
+  other_food:
+    name: Poitrine de l'autre
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Meat)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\Utensil:
+  pot:
+    name: Cocotte
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  bourguignon:
+    name: Bœuf bourguignon
+    servings: 4
+    user: '@test_user'
+    utensils: ['@pot']
+  other_recipe:
+    name: Recette de l'autre
+    servings: 2
+    user: '@other_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  beef_line:
+    recipe: '@bourguignon'
+    ingredient: '@beef_food'
+    quantity: 800.0
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  bacon_line:
+    recipe: '@bourguignon'
+    ingredient: '@bacon_food'
+    quantity: 200.0
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+
+Maggie\Cookbook\Entity\RecipeStep:
+  step_1:
+    recipe: '@bourguignon'
+    position: 1
+    text: Couper le bœuf en cubes
+    ingredients: ['@beef_food']
+  step_2:
+    recipe: '@bourguignon'
+    position: 2
+    text: Faire revenir 200 g de lardons fumés dans la cocotte
+    durationMinutes: 5
+    ingredients: ['@bacon_food']
+    utensils: ['@pot']
+  step_3:
+    recipe: '@bourguignon'
+    position: 3
+    text: Ajouter le bœuf et le faire dorer
+    ingredients: ['@beef_food']
+  step_4:
+    recipe: '@bourguignon'
+    position: 4
+    text: Mijoter
+    durationMinutes: 120
+    background: true
+    waitsFor: ['@step_3']
+  step_5:
+    recipe: '@bourguignon'
+    position: 5
+    text: Saler et poivrer
+  step_6:
+    recipe: '@bourguignon'
+    position: 6
+    text: Parsemer de lardons fumés et servir
+    ingredients: ['@bacon_food']
+    waitsFor: ['@step_4']
