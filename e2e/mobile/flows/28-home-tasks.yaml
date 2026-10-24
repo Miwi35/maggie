@@ -18,6 +18,10 @@ onFlowComplete:
 # task done. The rows, the routines, Demain's disabled boxes and the error paths are
 # `TasksCardScreenTest`'s and `TasksCardViewModelTest`'s.
 #
+# An empty card is not drawn (MAG-594): the account has no meal, no shopping line, no event and no
+# account, so once the cards have read, only the Tâches card is on screen and the calm sentence is not
+# (a card still reading stays drawn, so the wait is for it to go).
+#
 # It signs in as its own account, `e2e-home-tasks-mobile`: the ring counts the day's tasks
 # exactly, so no other journey may write tasks to it.
 
@@ -47,6 +51,27 @@ onFlowComplete:
       id: "home_tasks_ring"
       text: "0 sur 3"
     timeout: 20000
+
+- extendedWaitUntil:
+    notVisible:
+      id: "home_card_nutrition"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      id: "home_card_grocery"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      id: "home_card_finance"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      id: "home_card_agenda"
+    timeout: 20000
+- assertVisible:
+    id: "home_card_tasks"
+- assertNotVisible:
+    id: "home_empty"
 
 - tapOn:
     id: "home_task_check_.*"

@@ -16,7 +16,10 @@ data class FinanceHomeUiState(
     val isLoading: Boolean = true,
     /** The last read failed; [state], when there is one, is the previous answer. */
     val failed: Boolean = false,
-)
+) {
+    val status: HomeCardStatus
+        get() = homeCardStatus(state, loading = isLoading, failed = failed && !isLoading) { it.isEmpty }
+}
 
 /**
  * The Finance card (MAG-565): the week and month rings, the lines to qualify and the next project, read

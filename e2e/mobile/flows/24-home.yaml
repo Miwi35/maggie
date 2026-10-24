@@ -15,6 +15,9 @@ tags:
 # six open lines at one shop (`64-grocery-home.yaml`). Then the card shows five of them and
 # « + 1 », and « Demain » leaves it as it was.
 #
+# The empty cards (MAG-594): the account has no meal, so the Nutrition card is not drawn and the cards
+# that have something stay (`28-home-tasks.yaml` is the account with nothing but a task, on Aujourd'hui).
+#
 # The Finance card (MAG-565, extends MAG-102): the same account has a 1 000 € envelope and 10 €
 # spent on the 1st (`65-finance-home.yaml`), so the card says « Dans le rythme » for the week and the month.
 
@@ -91,3 +94,12 @@ tags:
     timeout: 20000
 - assertVisible:
     text: "Mois : Dans le rythme.*"
+
+# No meal on this account: the Nutrition card is gone once read (Demain is selected), the Courses and
+# Finance cards stay, and the sentence « Rien de prévu » is not said. Aujourd'hui is `28-home-tasks.yaml`'s.
+- extendedWaitUntil:
+    notVisible:
+      id: "home_card_nutrition"
+    timeout: 20000
+- assertNotVisible:
+    id: "home_empty"

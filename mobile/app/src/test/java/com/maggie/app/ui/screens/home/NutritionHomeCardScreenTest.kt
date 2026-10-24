@@ -38,12 +38,28 @@ class NutritionHomeCardScreenTest {
 
     @Test
     fun `lunch and dinner are two rows`() {
-        draw(NutritionHomeUiState(state(), isLoading = false))
+        draw(NutritionHomeUiState(state(lunch = listOf(meal("m", names("Soupe")))), isLoading = false))
 
         compose.onNodeWithText("Nutrition").assertIsDisplayed()
         compose.onNodeWithText("Déjeuner").assertIsDisplayed()
         compose.onNodeWithText("Dîner").assertIsDisplayed()
         compose.onAllNodesWithTag(UiTags.HOME_NUTRITION_SLOT).assertCountEquals(2)
+    }
+
+    @Test
+    fun `a day without meal draws nothing`() {
+        draw(NutritionHomeUiState(state(), isLoading = false))
+
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.NUTRITION)).assertDoesNotExist()
+        compose.onNodeWithText("Nutrition").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a failed read keeps the card, with its error`() {
+        draw(NutritionHomeUiState(isLoading = false, failed = true))
+
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.NUTRITION)).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.HOME_NUTRITION_ERROR).assertIsDisplayed()
     }
 
     @Test
@@ -90,7 +106,7 @@ class NutritionHomeCardScreenTest {
     @Test
     fun `a tap on the header opens Repas`() {
         var opened = 0
-        draw(NutritionHomeUiState(state(), isLoading = false), onOpen = { opened++ })
+        draw(NutritionHomeUiState(state(dinner = listOf(meal("m", names("Soupe")))), isLoading = false), onOpen = { opened++ })
 
         compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.NUTRITION)).performClick()
 

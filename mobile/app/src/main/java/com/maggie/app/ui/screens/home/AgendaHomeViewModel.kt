@@ -28,6 +28,14 @@ data class AgendaHomeUiState(
     val readAtElapsedMs: Long = 0,
 ) {
     val opened: AgendaHomeEvent? get() = openId?.let { id -> state?.events?.firstOrNull { it.id == id } }
+
+    /** What the Accueil learns of the card: a day with no event is not drawn (MAG-594). */
+    val status: HomeCardStatus
+        get() = when {
+            state == null -> if (error) HomeCardStatus.ERROR else HomeCardStatus.LOADING
+            state.events.isEmpty() -> HomeCardStatus.EMPTY
+            else -> HomeCardStatus.FILLED
+        }
 }
 
 /**

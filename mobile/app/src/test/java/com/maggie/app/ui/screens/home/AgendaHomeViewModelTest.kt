@@ -199,4 +199,30 @@ class AgendaHomeViewModelTest {
 
         coVerify(exactly = 0) { repository.state(any(), any()) }
     }
+
+    @Test
+    fun `status - loading, filled, empty on a day without event, filled again on a push, failed`() = runTest(dispatcher) {
+        coEvery { repository.state("agenda", HomeDay.TOMORROW) } returns Result.success(answer(date = "2026-10-15", now = null))
+        val viewModel = viewModel()
+        assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
+
+        viewModel.show(HomeDay.TODAY)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+
+        viewModel.show(HomeDay.TOMORROW)
+        assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
+
+        coEvery { repository.state("agenda", HomeDay.TOMORROW) } returns Result.success(answer("t", date = "2026-10-15", now = null))
+        changes.emit(Unit)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+
+        coEvery { repository.state("agenda", HomeDay.TODAY) } returns Result.failure(RuntimeException("503"))
+        viewModel.show(HomeDay.TODAY)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.ERROR, viewModel.uiState.value.status)
+    }
 }

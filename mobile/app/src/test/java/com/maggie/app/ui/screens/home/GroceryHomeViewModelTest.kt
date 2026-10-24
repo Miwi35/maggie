@@ -130,4 +130,47 @@ class GroceryHomeViewModelTest {
 
         coVerify(exactly = 0) { repository.state(any(), HomeDay.TOMORROW) }
     }
+
+    private val emptyAnswer = Json.parseToJsonElement("""{"count":0,"forRecipes":[],"stores":[]}""") as JsonObject
+
+    @Test
+    fun `status - loading, then filled, empty, filled again on a push, failed, loading on retry`() = runTest(dispatcher) {
+        val viewModel = GroceryHomeViewModel(repository)
+        assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
+
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+
+        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(emptyAnswer)
+        changes.emit(Unit)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
+
+        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(answer(1))
+        changes.emit(Unit)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+
+        coEvery { repository.state(any(), any()) } returns Result.failure(RuntimeException("offline"))
+        changes.emit(Unit)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.ERROR, viewModel.uiState.value.status)
+
+        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(emptyAnswer)
+        viewModel.refresh()
+        assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
+    }
+
+    @Test
+    fun `status - what the meals lack keeps an empty list filled`() = runTest(dispatcher) {
+        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(
+            Json.parseToJsonElement("""{"count":0,"forRecipes":[{"name":"Parmesan","day":"today","slot":"dinner"}],"stores":[]}""") as JsonObject,
+        )
+        val viewModel = GroceryHomeViewModel(repository)
+        advanceUntilIdle()
+
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+    }
 }

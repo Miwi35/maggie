@@ -34,6 +34,14 @@ data class TasksCardUiState(
 ) {
     /** Tomorrow is read-only: its rows and its chips are not tickable. */
     val canTick: Boolean get() = card?.editable == true
+
+    /** What the Accueil learns of the card: an empty one is not drawn, unless a failure message is still to be read. */
+    val status: HomeCardStatus
+        get() = when {
+            card == null -> if (error != null) HomeCardStatus.ERROR else HomeCardStatus.LOADING
+            card.isEmpty && message == null -> HomeCardStatus.EMPTY
+            else -> HomeCardStatus.FILLED
+        }
 }
 
 /**

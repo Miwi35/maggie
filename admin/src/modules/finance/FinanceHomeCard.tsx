@@ -9,6 +9,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { rhythmColor } from '../../design/tokens'
 import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
+import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
 import type { HomeDay } from '../home/homeDay'
 import { useHomeCardState } from '../home/useHomeCardState'
 import { formatCents } from './accountTypes'
@@ -32,6 +33,8 @@ interface FinanceHomeState {
   month: HomeRing
   toQualifyCount: number
   nextProject: HomeNextProject | null
+  accountCount: number
+  envelopeCount: number
 }
 
 const SIZE = 96
@@ -42,18 +45,25 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 /**
  * The Finance tile of the Accueil (MAG-565): the week and the month as two rings
  * with their rhythm status, the lines still to qualify, and the next project.
- * Same figures as the Finance Dashboard; it does not follow « Demain ».
+ * Same figures as the Finance Dashboard; it does not follow « Demain ». Drawn
+ * as soon as there is an account or an envelope, not before (MAG-594).
  */
 export const FinanceHomeCard = ({ day }: { day: HomeDay }) => {
   const { state, loading, error, retry } = useHomeCardState<FinanceHomeState>('finance', day)
+  const status = homeCardStatus({ state, loading, error }, isEmpty)
+  useReportHomeCard('finance', status)
+
+  if (status === 'empty') return null
 
   return (
     <HomeCard module="finance" title="Finance" to="/finance/dashboard">
-      {state ? <Body state={state} /> : error ? <HomeCardError onRetry={() => void retry()} /> : loading ? <Loading /> : null}
-      {state && error && <HomeCardError onRetry={() => void retry()} />}
+      {state && !isEmpty(state) ? <Body state={state} /> : !error && loading ? <Loading /> : null}
+      {error && <HomeCardError onRetry={() => void retry()} />}
     </HomeCard>
   )
 }
+
+const isEmpty = (state: FinanceHomeState) => state.accountCount === 0 && state.envelopeCount === 0
 
 const Loading = () => (
   <Box aria-busy="true" data-testid="home-finance-loading">

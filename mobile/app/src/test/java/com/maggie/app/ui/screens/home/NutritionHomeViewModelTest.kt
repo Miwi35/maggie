@@ -164,4 +164,46 @@ class NutritionHomeViewModelTest {
 
         assertEquals("tomorrow", viewModel.uiState.value.state?.day)
     }
+
+    private val noMeal = Json.parseToJsonElement(
+        """{"module":"nutrition","day":"tomorrow","date":"2026-10-15","slots":[{"slot":"lunch","meals":[]},{"slot":"dinner","meals":[]}]}""",
+    ) as JsonObject
+
+    @Test
+    fun `status - loading, filled today, loading then empty on a day without meal, filled again, failed`() = runTest(dispatcher) {
+        coEvery { repository.state("nutrition", HomeDay.TOMORROW) } returns Result.success(noMeal)
+        val viewModel = NutritionHomeViewModel(repository)
+        assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
+
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+
+        viewModel.selectDay(HomeDay.TOMORROW)
+        assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
+
+        viewModel.selectDay(HomeDay.TODAY)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+
+        coEvery { repository.state(any(), any()) } returns Result.failure(RuntimeException("offline"))
+        changes.emit(Unit)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.ERROR, viewModel.uiState.value.status)
+    }
+
+    @Test
+    fun `status - a meal pushed into an empty day brings the card back`() = runTest(dispatcher) {
+        coEvery { repository.state("nutrition", HomeDay.TODAY) } returns Result.success(noMeal)
+        val viewModel = NutritionHomeViewModel(repository)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
+
+        coEvery { repository.state("nutrition", HomeDay.TODAY) } returns Result.success(answer("today", "Pâtes"))
+        changes.emit(Unit)
+        advanceUntilIdle()
+
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+    }
 }

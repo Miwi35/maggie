@@ -102,10 +102,27 @@ class GroceryHomeCardScreenTest {
     }
 
     @Test
-    fun `an empty list says so`() {
+    fun `an empty list and nothing the meals lack draws nothing`() {
         draw(GroceryHomeUiState(GroceryHomeState(), isLoading = false))
 
-        compose.onNodeWithTag(UiTags.HOME_GROCERY_EMPTY).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.GROCERY)).assertDoesNotExist()
+        compose.onNodeWithText("Courses").assertDoesNotExist()
+    }
+
+    @Test
+    fun `what the meals lack is enough to draw the card, with an empty list`() {
+        draw(GroceryHomeUiState(GroceryHomeState(forRecipes = listOf(GroceryHomeRecipeNeed("Parmesan", "today", "dinner"))), isLoading = false))
+
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.GROCERY)).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.HOME_GROCERY_RECIPES).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a failed read keeps the card, with its error`() {
+        draw(GroceryHomeUiState(isLoading = false, failed = true))
+
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.GROCERY)).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.HOME_GROCERY_ERROR).assertIsDisplayed()
     }
 
     @Test

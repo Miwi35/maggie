@@ -149,13 +149,15 @@ describe('AgendaCard', () => {
     expect(rows().map((row) => row.getAttribute('data-kind'))).toEqual(['plain', 'plain'])
   })
 
-  test('says so when there is nothing planned', async () => {
+  test('is not drawn at all when there is nothing planned', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(answer(today([]))))
 
     renderCard()
+    expect(screen.getByLabelText("Chargement de l'agenda")).toBeInTheDocument()
 
-    expect(await screen.findByText("Rien de prévu aujourd'hui.")).toBeInTheDocument()
-    expect(screen.queryByTestId('agenda-row')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByTestId('home-card-agenda')).not.toBeInTheDocument())
+    expect(screen.queryByText(/Rien de prévu/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Agenda' })).not.toBeInTheDocument()
   })
 
   test('touching a row opens the fiche of the event, with its fields', async () => {
@@ -233,7 +235,8 @@ describe('AgendaCard', () => {
     })
     // Deleted meanwhile: the fiche has nothing to show and closes.
     await waitFor(() => expect(screen.queryByTestId('agenda-event-panel')).not.toBeInTheDocument())
-    expect(screen.getByText("Rien de prévu aujourd'hui.")).toBeInTheDocument()
+    // The last event gone, the card is gone with it.
+    expect(screen.queryByTestId('home-card-agenda')).not.toBeInTheDocument()
   })
 
   test('moves the line on with the clock, without asking the server again', async () => {
@@ -279,9 +282,9 @@ describe('AgendaCard', () => {
   })
 
   test('the title opens the Agenda', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(answer(today([]))))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(answer(today([upcoming]))))
     renderCard()
-    await screen.findByText("Rien de prévu aujourd'hui.")
+    await screen.findByTestId('agenda-row')
 
     expect(screen.getByRole('link', { name: 'Agenda' })).toHaveAttribute('href', '/calendar')
   })

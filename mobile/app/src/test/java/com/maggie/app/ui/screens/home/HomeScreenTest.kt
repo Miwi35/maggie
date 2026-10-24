@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.HomeDay
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.DRAWER_DESTINATIONS
@@ -33,6 +34,13 @@ class HomeScreenTest {
 
     @get:Rule
     val compose = ScreenRule()
+
+    /** A card that tells the Accueil its [status] and draws [text] only when it is not empty, as the real ones do. */
+    private fun reporting(module: String, status: HomeCardStatus, text: String = "$module:card") =
+        HomeCardEntry(module, HomeZone.MAIN) {
+            ReportHomeCard(module, status)
+            if (status != HomeCardStatus.EMPTY) Text(text)
+        }
 
     private fun card(module: String, zone: HomeZone = HomeZone.MAIN, order: Int = HomeModules.orderOf(module)) =
         HomeCardEntry(module, zone, order) { day -> Text("$module:${day.apiValue}") }
@@ -161,5 +169,96 @@ class HomeScreenTest {
         compose.onNodeWithText("ouvrir").performClick()
 
         assertEquals(listOf(Screen.Tasks.route), opened)
+    }
+
+    @Test
+    fun `an empty card is not drawn and leaves no gap between the others`() {
+        val registry = listOf(
+            reporting(HomeModules.TASKS, HomeCardStatus.FILLED),
+            reporting(HomeModules.AGENDA, HomeCardStatus.EMPTY),
+            reporting(HomeModules.GROCERY, HomeCardStatus.EMPTY),
+            reporting(HomeModules.FINANCE, HomeCardStatus.FILLED),
+        )
+        val closed = listOf(reporting(HomeModules.TASKS, HomeCardStatus.FILLED), reporting(HomeModules.FINANCE, HomeCardStatus.FILLED))
+        var shown by mutableStateOf(registry)
+        compose.setContent { HomeScreen(viewModel = HomeViewModel(), registry = shown) }
+        val gap = top("finance:") - top("tasks:")
+
+        shown = closed
+        compose.waitForIdle()
+
+        assertEquals(gap, top("finance:") - top("tasks:"))
+        compose.onNodeWithTag(UiTags.HOME_EMPTY).assertDoesNotExist()
+    }
+
+    @Test
+    fun `when every card is empty the screen says one calm sentence, for each day`() {
+        val registry = listOf(
+            reporting(HomeModules.TASKS, HomeCardStatus.EMPTY),
+            reporting(HomeModules.NUTRITION, HomeCardStatus.EMPTY),
+        )
+        compose.setContent { HomeScreen(viewModel = HomeViewModel(), registry = registry) }
+
+        compose.onNodeWithTag(UiTags.HOME_EMPTY).assertIsDisplayed()
+        compose.onNodeWithText("Rien de prévu aujourd'hui.").assertIsDisplayed()
+
+        selectSegment(UiTags.HOME_DAY_TOMORROW)
+
+        compose.onNodeWithText("Rien de prévu demain.").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a card still loading, or failed, keeps the sentence away`() {
+        val loading = listOf(reporting(HomeModules.TASKS, HomeCardStatus.EMPTY), reporting(HomeModules.AGENDA, HomeCardStatus.LOADING))
+        val failed = listOf(reporting(HomeModules.TASKS, HomeCardStatus.EMPTY), reporting(HomeModules.AGENDA, HomeCardStatus.ERROR))
+        var registry by mutableStateOf(loading)
+        compose.setContent { HomeScreen(viewModel = HomeViewModel(), registry = registry) }
+
+        compose.onNodeWithTag(UiTags.HOME_EMPTY).assertDoesNotExist()
+
+        registry = failed
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.HOME_EMPTY).assertDoesNotExist()
+        compose.onNodeWithText("agenda:card").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a card empty today and full tomorrow shows up on Demain, and the other way round`() {
+        val byDay = listOf(
+            HomeCardEntry(HomeModules.TASKS, HomeZone.MAIN) { day ->
+                val status = if (day == HomeDay.TODAY) HomeCardStatus.EMPTY else HomeCardStatus.FILLED
+                ReportHomeCard(HomeModules.TASKS, status)
+                if (status == HomeCardStatus.FILLED) Text("tasks:card")
+            },
+            HomeCardEntry(HomeModules.AGENDA, HomeZone.MAIN) { day ->
+                val status = if (day == HomeDay.TODAY) HomeCardStatus.FILLED else HomeCardStatus.EMPTY
+                ReportHomeCard(HomeModules.AGENDA, status)
+                if (status == HomeCardStatus.FILLED) Text("agenda:card")
+            },
+        )
+        compose.setContent { HomeScreen(viewModel = HomeViewModel(), registry = byDay) }
+
+        compose.onNodeWithText("agenda:card").assertIsDisplayed()
+        compose.onNodeWithText("tasks:card").assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.HOME_EMPTY).assertDoesNotExist()
+
+        selectSegment(UiTags.HOME_DAY_TOMORROW)
+
+        compose.onNodeWithText("tasks:card").assertIsDisplayed()
+        compose.onNodeWithText("agenda:card").assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.HOME_EMPTY).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a card that leaves the registry stops counting`() {
+        var registry by mutableStateOf(listOf(reporting(HomeModules.TASKS, HomeCardStatus.EMPTY), reporting(HomeModules.AGENDA, HomeCardStatus.FILLED)))
+        compose.setContent { HomeScreen(viewModel = HomeViewModel(), registry = registry) }
+        compose.onNodeWithTag(UiTags.HOME_EMPTY).assertDoesNotExist()
+
+        registry = listOf(reporting(HomeModules.TASKS, HomeCardStatus.EMPTY))
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.HOME_EMPTY).assertIsDisplayed()
     }
 }

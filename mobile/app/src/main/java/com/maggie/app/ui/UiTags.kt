@@ -41,6 +41,9 @@ object UiTags {
     const val HOME_DAY_TODAY = "home_day_today"
     const val HOME_DAY_TOMORROW = "home_day_tomorrow"
 
+    /** Accueil — the one calm sentence said when every card is empty (MAG-594). */
+    const val HOME_EMPTY = "home_empty"
+
     /** Accueil — a card (suffixed by its module: `tasks`, `agenda`…) and the header that opens its module. */
     const val HOME_CARD_PREFIX = "home_card_"
     const val HOME_CARD_HEADER_PREFIX = "home_header_"
@@ -59,7 +62,6 @@ object UiTags {
     const val HOME_GROCERY_STORE = "home_grocery_store"
     const val HOME_GROCERY_ITEM = "home_grocery_item"
     const val HOME_GROCERY_MORE = "home_grocery_more"
-    const val HOME_GROCERY_EMPTY = "home_grocery_empty"
     const val HOME_GROCERY_ERROR = "home_grocery_error"
     const val HOME_GROCERY_RETRY = "home_grocery_retry"
     /** Accueil › Nutrition card (MAG-564): a slot's row, a meal, its missing line, the error and its retry. */

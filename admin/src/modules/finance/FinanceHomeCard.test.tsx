@@ -41,6 +41,8 @@ const STATE = {
   month: ring(),
   toQualifyCount: 3,
   nextProject: { projectId: 'p1', name: 'Vélo', amountCents: 100000, gatheredCents: 74000, purchaseMonth: '2099-10' },
+  accountCount: 2,
+  envelopeCount: 4,
 }
 
 const ok = (body: unknown) => ({ ok: true, json: () => Promise.resolve(body) })
@@ -60,6 +62,34 @@ describe('FinanceHomeCard', () => {
     expect(within(ringOf('week')).getByTestId('home-finance-remaining').textContent).toMatch(/45,00\s€/)
     expect(within(ringOf('month')).getByTestId('home-finance-remaining').textContent).toMatch(/210,00\s€/)
     expect(ringOf('week')).toHaveAccessibleName(/Semaine : Dans le rythme/)
+  })
+
+  test('is not drawn at all with no account and no envelope', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok({ ...STATE, accountCount: 0, envelopeCount: 0, toQualifyCount: 0, nextProject: null })))
+    renderCard()
+    expect(screen.getByTestId('home-finance-loading')).toBeInTheDocument()
+
+    await waitFor(() => expect(screen.queryByTestId('home-card-finance')).toBeNull())
+    expect(screen.queryByText('Finance')).toBeNull()
+  })
+
+  test('is drawn with an account only, or an envelope only', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok({ ...STATE, accountCount: 1, envelopeCount: 0 })))
+    const { unmount } = renderCard()
+    expect(await screen.findAllByTestId('home-finance-ring')).toHaveLength(2)
+    unmount()
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok({ ...STATE, accountCount: 0, envelopeCount: 1 })))
+    renderCard()
+    expect(await screen.findAllByTestId('home-finance-ring')).toHaveLength(2)
+  })
+
+  test('stays drawn, with its error, when the read fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve({}) }))
+    renderCard()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger cette carte.')
+    expect(screen.getByTestId('home-card-finance')).toBeInTheDocument()
   })
 
   test('says « Dans le rythme » on track, in the on-track colour of the charter', async () => {

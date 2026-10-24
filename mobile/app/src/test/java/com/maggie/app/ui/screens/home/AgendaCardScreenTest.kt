@@ -11,7 +11,6 @@ import com.maggie.app.data.model.AgendaHomeEvent
 import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.EventReminder
 import com.maggie.app.data.model.EventReminders
-import com.maggie.app.data.model.HomeDay
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.tap
 import com.maggie.app.ui.UiTags
@@ -69,7 +68,6 @@ class AgendaCardScreenTest {
 
     private fun draw(
         state: AgendaHomeState?,
-        day: HomeDay = HomeDay.TODAY,
         compact: Boolean = true,
         loading: Boolean = false,
         error: Boolean = false,
@@ -79,7 +77,6 @@ class AgendaCardScreenTest {
     ) {
         compose.setContent {
             AgendaCardContent(
-                day = day,
                 state = state,
                 loading = loading,
                 error = error,
@@ -162,7 +159,7 @@ class AgendaCardScreenTest {
     @Test
     fun `tomorrow is the whole day with no line`() {
         val tomorrow = AgendaHomeState(date = "2026-10-15", now = null, events = listOf(standup, dentist, review))
-        draw(tomorrow, day = HomeDay.TOMORROW)
+        draw(tomorrow)
 
         compose.onNodeWithTag(UiTags.HOME_AGENDA_NOW_LINE).assertDoesNotExist()
         compose.onNodeWithText("Point d'équipe").assertIsDisplayed()
@@ -171,15 +168,18 @@ class AgendaCardScreenTest {
     }
 
     @Test
-    fun `an empty day says so, for each day`() {
+    fun `a day with no event draws no card, today or tomorrow`() {
         draw(today())
-        compose.onNodeWithText("Rien de prévu aujourd'hui.").assertIsDisplayed()
+
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.AGENDA)).assertDoesNotExist()
+        compose.onNodeWithText("Agenda").assertDoesNotExist()
     }
 
     @Test
-    fun `an empty tomorrow says so`() {
-        draw(AgendaHomeState(date = "2026-10-15"), day = HomeDay.TOMORROW)
-        compose.onNodeWithText("Rien de prévu demain.").assertIsDisplayed()
+    fun `a card still loading or failed is not an empty day`() {
+        draw(state = null, loading = true)
+
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.AGENDA)).assertIsDisplayed()
     }
 
     @Test

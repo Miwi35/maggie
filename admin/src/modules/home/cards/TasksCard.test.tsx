@@ -116,16 +116,26 @@ describe('TasksCard', () => {
     expect(await screen.findByRole('link', { name: '+ 1 autre' })).toBeInTheDocument()
   })
 
-  test('says there is nothing planned, for the day it shows', async () => {
+  test('is not drawn at all with no task and no routine, whatever the day', async () => {
     stubApi({ ...base, tasks: [], routines: [], done: 0, total: 0, overdue: 0 })
     const { unmount } = renderCard()
-    expect(await screen.findByText("Rien de prévu aujourd'hui")).toBeInTheDocument()
-    expect(screen.queryByTestId('home-tasks-ring')).not.toBeInTheDocument()
+    expect(screen.getByTestId('home-tasks-loading')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByTestId('home-card-tasks')).not.toBeInTheDocument())
+    expect(screen.queryByText(/Rien de prévu/)).not.toBeInTheDocument()
     unmount()
 
     stubApi({ ...base, day: 'tomorrow', editable: false, tasks: [], routines: [], done: 0, total: 0, overdue: 0 })
     renderCard('tomorrow')
-    expect(await screen.findByText('Rien de prévu demain')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByTestId('home-tasks-loading')).not.toBeInTheDocument())
+    expect(screen.queryByTestId('home-card-tasks')).not.toBeInTheDocument()
+  })
+
+  test('stays drawn with only a routine', async () => {
+    stubApi({ ...base, tasks: [], done: 0, total: 0, overdue: 0 })
+    renderCard()
+
+    expect(await screen.findByRole('region', { name: 'Routines' })).toBeInTheDocument()
+    expect(screen.getByTestId('home-card-tasks')).toBeInTheDocument()
   })
 
   test('ticks a task at once, sends the done call, then reads the card again', async () => {

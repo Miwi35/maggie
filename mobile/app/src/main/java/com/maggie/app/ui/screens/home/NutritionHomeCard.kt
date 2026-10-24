@@ -34,7 +34,7 @@ import org.koin.androidx.compose.koinViewModel
 
 /**
  * The Nutrition card of the Accueil (MAG-564): the meals of the selected day, lunch then dinner, each with
- * all its recipes, its guests and what its recipes lack. A tap anywhere opens Cuisine on « Repas ».
+ * all its recipes, its guests and what its recipes lack. A day with no meal draws no card (MAG-594). A tap anywhere opens Cuisine on « Repas ».
  */
 @Composable
 fun NutritionHomeCard(day: HomeDay, viewModel: NutritionHomeViewModel = koinViewModel()) {
@@ -46,6 +46,9 @@ fun NutritionHomeCard(day: HomeDay, viewModel: NutritionHomeViewModel = koinView
 
 @Composable
 internal fun NutritionHomeCardContent(ui: NutritionHomeUiState, onOpen: () -> Unit, onRetry: () -> Unit) {
+    ReportHomeCard(HomeModules.NUTRITION, ui.status)
+    if (ui.status == HomeCardStatus.EMPTY) return
+
     HomeCard(title = "Nutrition", module = HomeModules.NUTRITION, onOpen = onOpen) {
         val state = ui.state
         Column(
@@ -55,7 +58,7 @@ internal fun NutritionHomeCardContent(ui: NutritionHomeUiState, onOpen: () -> Un
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when {
-                state != null -> NutritionHomeBody(state)
+                state != null && !state.isEmpty -> NutritionHomeBody(state)
                 ui.failed && !ui.isLoading -> Unit
                 else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }

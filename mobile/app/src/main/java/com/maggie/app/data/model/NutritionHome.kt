@@ -11,7 +11,10 @@ data class NutritionHomeState(
     val day: String = "",
     val date: String = "",
     val slots: List<NutritionHomeSlot> = emptyList(),
-)
+) {
+    /** No meal planned in any slot: the card is not drawn (MAG-594). */
+    val isEmpty: Boolean get() = slots.all { it.meals.isEmpty() }
+}
 
 @Serializable
 data class NutritionHomeSlot(

@@ -35,8 +35,30 @@ class FinanceHomeCardScreenTest {
     private fun loaded(state: FinanceHomeState) = FinanceHomeUiState(state, isLoading = false)
 
     @Test
+    fun `with neither account nor envelope the card draws nothing`() {
+        draw(loaded(FinanceHomeState(week = onTrack, month = onTrack)))
+
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.FINANCE)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `an envelope alone is enough to draw the card`() {
+        draw(loaded(FinanceHomeState(envelopeCount = 1, week = onTrack, month = onTrack)))
+
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.FINANCE)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a failed read keeps the card, with its error`() {
+        draw(FinanceHomeUiState(isLoading = false, failed = true))
+
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.FINANCE)).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.HOME_FINANCE_ERROR).assertIsDisplayed()
+    }
+
+    @Test
     fun `each ring says its rhythm and the card names Finance`() {
-        draw(loaded(FinanceHomeState(week = above, month = onTrack)))
+        draw(loaded(FinanceHomeState(accountCount = 1, week = above, month = onTrack)))
 
         compose.onNodeWithText("Finance").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertIsDisplayed()
@@ -47,7 +69,7 @@ class FinanceHomeCardScreenTest {
 
     @Test
     fun `a ring reads its rhythm word and its amounts to a screen reader and to Maestro`() {
-        draw(loaded(FinanceHomeState(week = above, month = onTrack)))
+        draw(loaded(FinanceHomeState(accountCount = 1, week = above, month = onTrack)))
 
         compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertContentDescriptionContains("Au-dessus du rythme", substring = true)
         compose.onNodeWithTag(UiTags.homeFinanceRing("month")).assertContentDescriptionContains("Dans le rythme", substring = true)
@@ -55,7 +77,7 @@ class FinanceHomeCardScreenTest {
 
     @Test
     fun `a ring without envelope says so and draws no amount`() {
-        draw(loaded(FinanceHomeState(week = FinanceHomeRing(), month = onTrack)))
+        draw(loaded(FinanceHomeState(accountCount = 1, week = FinanceHomeRing(), month = onTrack)))
 
         compose.onNodeWithText("Aucune enveloppe").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertContentDescriptionContains("Aucune enveloppe", substring = true)
@@ -63,7 +85,7 @@ class FinanceHomeCardScreenTest {
 
     @Test
     fun `the pill shows the lines to qualify, and only when there are some`() {
-        draw(loaded(FinanceHomeState(week = onTrack, month = onTrack, toQualifyCount = 3)))
+        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack, toQualifyCount = 3)))
 
         compose.onNodeWithTag(UiTags.HOME_FINANCE_TO_QUALIFY).assertIsDisplayed()
         compose.onNodeWithText("3 à qualifier").assertIsDisplayed()
@@ -71,14 +93,14 @@ class FinanceHomeCardScreenTest {
 
     @Test
     fun `no pill with nothing to qualify`() {
-        draw(loaded(FinanceHomeState(week = onTrack, month = onTrack)))
+        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack)))
 
         compose.onAllNodesWithTag(UiTags.HOME_FINANCE_TO_QUALIFY).assertCountEquals(0)
     }
 
     @Test
     fun `the next project shows its name and what is gathered`() {
-        draw(loaded(FinanceHomeState(week = onTrack, month = onTrack, nextProject = project)))
+        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack, nextProject = project)))
 
         compose.onNodeWithTag(UiTags.HOME_FINANCE_NEXT_PROJECT).assertIsDisplayed()
         compose.onNodeWithText("Voyage").assertIsDisplayed()
@@ -86,7 +108,7 @@ class FinanceHomeCardScreenTest {
 
     @Test
     fun `no next project, no block`() {
-        draw(loaded(FinanceHomeState(week = onTrack, month = onTrack)))
+        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack)))
 
         compose.onAllNodesWithTag(UiTags.HOME_FINANCE_NEXT_PROJECT).assertCountEquals(0)
     }
@@ -94,7 +116,7 @@ class FinanceHomeCardScreenTest {
     @Test
     fun `a tap on the card or on the pill opens Finance`() {
         var opened = 0
-        draw(loaded(FinanceHomeState(week = onTrack, month = onTrack, toQualifyCount = 2)), onOpen = { opened++ })
+        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack, toQualifyCount = 2)), onOpen = { opened++ })
 
         compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.FINANCE)).performClick()
         compose.onNodeWithTag(UiTags.HOME_FINANCE_TO_QUALIFY).performClick()

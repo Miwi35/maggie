@@ -1,5 +1,11 @@
 # Added to ../../Api/fixtures/next_project.yaml (read on 2026-10-21): a line the
-# owner has not qualified yet, and a second user with an account and a line of their own.
+# owner has not qualified yet, and a second user with an account and a line of their own, and a third with nothing at all.
+Maggie\Core\Entity\User:
+  empty_user:
+    email: finance-home-empty@example.com
+    googleId: google-finance-home-empty
+    name: Finance Home Empty User
+
 Maggie\Finance\Entity\Transaction:
   to_qualify:
     account: '@checking'

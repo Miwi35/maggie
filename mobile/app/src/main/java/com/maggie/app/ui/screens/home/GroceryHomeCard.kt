@@ -38,7 +38,7 @@ import org.koin.androidx.compose.koinViewModel
 
 /**
  * The Courses card of the Accueil (MAG-563): the open list as a compact tile, by shop, with what the
- * meals of today and tomorrow lack above it. Nothing to tick here — a tap anywhere opens Courses.
+ * meals of today and tomorrow lack above it. With neither, the card is not drawn (MAG-594). Nothing to tick here — a tap anywhere opens Courses.
  * The card does not follow « Demain »: the list is the same whatever the day.
  */
 @Composable
@@ -50,6 +50,9 @@ fun GroceryHomeCard(viewModel: GroceryHomeViewModel = koinViewModel()) {
 
 @Composable
 internal fun GroceryHomeCardContent(ui: GroceryHomeUiState, onOpen: () -> Unit, onRetry: () -> Unit) {
+    ReportHomeCard(HomeModules.GROCERY, ui.status)
+    if (ui.status == HomeCardStatus.EMPTY) return
+
     HomeCard(title = "Courses", module = HomeModules.GROCERY, onOpen = onOpen) {
         val state = ui.state
         Column(
@@ -59,7 +62,7 @@ internal fun GroceryHomeCardContent(ui: GroceryHomeUiState, onOpen: () -> Unit, 
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when {
-                state != null -> GroceryHomeBody(state)
+                state != null && !state.isEmpty -> GroceryHomeBody(state)
                 ui.failed && !ui.isLoading -> Unit
                 else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
@@ -70,15 +73,6 @@ internal fun GroceryHomeCardContent(ui: GroceryHomeUiState, onOpen: () -> Unit, 
 
 @Composable
 private fun GroceryHomeBody(state: GroceryHomeState) {
-    if (state.count == 0 && state.forRecipes.isEmpty()) {
-        Text(
-            text = "Rien à acheter pour le moment.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.testTag(UiTags.HOME_GROCERY_EMPTY),
-        )
-        return
-    }
     if (state.forRecipes.isNotEmpty()) {
         Text(
             text = buildAnnotatedString {

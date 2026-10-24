@@ -48,4 +48,13 @@ class FinanceHomeTest {
     fun `the pill counts the lines to qualify`() {
         assertEquals("3 à qualifier", FinanceHomeState(toQualifyCount = 3).toQualifyLabel())
     }
+
+    @Test
+    fun `the card is empty with neither account nor envelope, and only then`() {
+        val none = json.decodeFromString(FinanceHomeState.serializer(), """{"accountCount":0,"envelopeCount":0}""")
+        val account = json.decodeFromString(FinanceHomeState.serializer(), """{"accountCount":1,"envelopeCount":0}""")
+        val envelope = json.decodeFromString(FinanceHomeState.serializer(), """{"accountCount":0,"envelopeCount":3}""")
+
+        assertEquals(listOf(true, false, false), listOf(none.isEmpty, account.isEmpty, envelope.isEmpty))
+    }
 }

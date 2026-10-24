@@ -378,4 +378,30 @@ class TasksCardViewModelTest {
 
         coVerify(exactly = 1) { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) }
     }
+
+    @Test
+    fun `status - loading, filled, empty on a day with nothing, loading on the day change, error then filled on retry`() = runTest {
+        fakes.answers(HomeDay.TOMORROW, EMPTY_CARD)
+        val viewModel = fakes.viewModel()
+
+        viewModel.show(HomeDay.TODAY)
+        assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+
+        viewModel.show(HomeDay.TOMORROW)
+        assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
+
+        coEvery { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) } returns Result.failure(RuntimeException("HTTP 503"))
+        viewModel.show(HomeDay.TODAY)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.ERROR, viewModel.uiState.value.status)
+
+        fakes.answers(HomeDay.TODAY, TODAY_CARD)
+        viewModel.retry()
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+    }
 }

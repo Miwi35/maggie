@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -17,6 +18,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -32,7 +35,8 @@ private val DAYS = listOf(
 /**
  * The Accueil (MAG-560): the selector « Aujourd'hui · Demain », the action cards in head, then the cards
  * of [registry] stacked in the spec's order; [onNavigate] is how a card opens its module. The title is the top bar's, drawn by the navigation. A card
- * that has nothing to say draws nothing, so an empty registry leaves the selector alone.
+ * that has nothing to say for the day draws nothing and takes no room; when every card is in that case the screen
+ * says one calm sentence instead (MAG-594). An empty registry leaves the selector alone.
  */
 @Composable
 fun HomeScreen(
@@ -53,6 +57,14 @@ internal fun HomeContent(
     registry: List<HomeCardEntry>,
 ) {
     val (actions, cards) = registry.inScreenOrder()
+    val statuses = remember { mutableStateMapOf<String, HomeCardStatus>() }
+    val report = remember<(String, HomeCardStatus?) -> Unit> {
+        { module, status ->
+            if (status == null) statuses.remove(module) else statuses.put(module, status)
+            Unit
+        }
+    }
+    val everyCardIsEmpty = registry.isNotEmpty() && registry.all { statuses[it.module] == HomeCardStatus.EMPTY }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -80,6 +92,17 @@ internal fun HomeContent(
             }
         }
 
-        (actions + cards).forEach { entry -> key(entry.zone, entry.module) { entry.content(day) } }
+        CompositionLocalProvider(LocalHomeCardReporter provides report) {
+            (actions + cards).forEach { entry -> key(entry.zone, entry.module) { entry.content(day) } }
+        }
+
+        if (everyCardIsEmpty) {
+            Text(
+                text = if (day == HomeDay.TODAY) "Rien de prévu aujourd'hui." else "Rien de prévu demain.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(UiTags.HOME_EMPTY),
+            )
+        }
     }
 }
