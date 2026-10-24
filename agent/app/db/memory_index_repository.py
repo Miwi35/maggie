@@ -7,7 +7,7 @@ the unit tests run on SQLite, which falls back to a plain substring match over t
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -30,7 +30,7 @@ from app.db.memory_index_model import (
     MemoryUsage,
 )
 from app.memory import paths
-from app.memory.carte import Carte, content_hash, search_text
+from app.memory.carte import ARCHIVED_KEY, QUESTION_KEY, Carte, content_hash, flags_of, search_text
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,11 @@ class IndexedFile:
     body: str
     content_hash: str
     unreadable: str | None
+    flags: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def archived(self) -> bool:
+        return ARCHIVED_KEY in self.flags
 
 
 @dataclass(frozen=True)
@@ -67,6 +72,10 @@ class CardView:
     personnes: list[str]
     evoque: list[str]
     alias: list[str]
+    # Set aside by the night (MAG-159): out of the permanent profile and of the recall, still there to search.
+    archived: bool = False
+    # What the night wants asked of the owner about this fiche, at the next natural occasion.
+    question: str = ""
 
 
 @dataclass(frozen=True)
@@ -94,6 +103,7 @@ def _as_indexed(row: MemoryFile) -> IndexedFile:
         body=row.body or "",
         content_hash=row.content_hash,
         unreadable=row.unreadable,
+        flags=dict(row.flags or {}),
     )
 
 
@@ -151,6 +161,7 @@ class MemoryIndexRepository:
                     MemoryFile.resume,
                     MemoryFile.moments,
                     MemoryFile.personnes,
+                    MemoryFile.flags,
                 )
                 .where(MemoryFile.user_id == user_id, MemoryFile.unreadable.is_(None))
                 .order_by(MemoryFile.path)
@@ -172,8 +183,10 @@ class MemoryIndexRepository:
                     personnes=list(personnes or []),
                     evoque=sorted(terms.get(path, {}).get(TERM_EVOQUE, [])),
                     alias=sorted(terms.get(path, {}).get(TERM_ALIAS, [])),
+                    archived=ARCHIVED_KEY in (flags or {}),
+                    question=str((flags or {}).get(QUESTION_KEY) or ""),
                 )
-                for path, kind, card_id, title, resume, moments, personnes in files.all()
+                for path, kind, card_id, title, resume, moments, personnes, flags in files.all()
             ]
 
     async def upsert(
@@ -207,6 +220,7 @@ class MemoryIndexRepository:
                     search_text=search_text(title, carte, body),
                     content_hash=digest,
                     unreadable=unreadable,
+                    flags=flags_of(carte) or None,
                     indexed_at=datetime.now(UTC),
                 )
             )

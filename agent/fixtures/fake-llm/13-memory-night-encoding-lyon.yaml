@@ -1,0 +1,18 @@
+# Encoding along the way of the second conversation of the night's journey (MAG-159): « finalement Lyon »
+# contradicts a fiche, and the encoder does not decide that on its own. It writes the carte, says it doubts,
+# and leaves the fiches to the night.
+name: memory-night-encoding-lyon
+description: The carte alone of a passage that contradicts a fiche; the fiches are left to the night.
+
+match:
+  system_contains: "tu écris la mémoire de maggie"
+  user_matches: '## (\d{4}-\d{2}-\d{2} \d{2}h\d{2}) — Propriétaire\s+Finalement, je m.installe à Lyon'
+
+turns:
+  - text: |
+      {"carte": {"resume": "Le propriétaire dit qu'il s'installe finalement à Lyon.",
+        "moments": [{"heure": "\1", "texte": "Le propriétaire dit qu'il s'installe finalement à Lyon"}],
+        "personnes": [],
+        "evoque": ["déménagement"]},
+       "fiches": [],
+       "doute": "Lyon remplace-t-il Rennes, ou est-ce un second logement ?"}

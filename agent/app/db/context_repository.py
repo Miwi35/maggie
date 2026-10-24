@@ -90,6 +90,8 @@ class ContextRepository:
                         "(SELECT max(m.created_at) FROM agent_message m WHERE m.context_id = c.id)"
                     )
                 )
+            # MAG-159 — what the night leaves on a fiche's carte (archived, question), read by recall.
+            await conn.execute(text("ALTER TABLE memory_file ADD COLUMN IF NOT EXISTS flags JSON"))
             # MAG-195 — French full-text search over the memory folder. The index is throwaway
             # (it is rebuilt from the files), so this one is created, never migrated.
             await conn.execute(

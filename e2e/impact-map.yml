@@ -328,6 +328,14 @@ web:
       - 'agent/app/queue/scheduler.py'
       - 'agent/app/e2e.py'
       - 'agent/fixtures/fake-llm/*-memory-*.yaml'
+  e2e/web/tests/memory-night.spec.ts:
+    areas: [chat, dashboard]
+    paths:
+      - 'agent/app/memory/**'
+      - 'agent/app/queue/scheduler.py'
+      - 'agent/app/e2e.py'
+      - 'agent/fixtures/fake-llm/*-memory-*.yaml'
+      - 'agent/fixtures/fake-llm/09-context-router-night-lyon.yaml'
   e2e/web/tests/chat-approvals.spec.ts:
     areas: [chat, interruptions, calendar, realtime]
   e2e/web/tests/maggie-interruption.spec.ts:

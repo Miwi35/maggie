@@ -9,6 +9,7 @@ from app.db.context_model import ContextStatus, ConversationContext
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
+from app.db.memory_night_repository import DONE
 from app.db.message_repository import message_repo
 from app.db.pending_action_repository import pending_action_repo
 from app.llm.context_summary import context_summarizer
@@ -16,6 +17,7 @@ from app.llm.gateway import LLMGateway
 from app.llm.style_synthesis import style_synthesizer
 from app.mcp.client import mcp_client
 from app.memory.encoder import memory_encoder
+from app.memory.night import memory_night
 from app.proactions import api as proactions_api
 from app.proactions.legacy import migrate_legacy_proactions
 from app.queue.proaction_publisher import publish_proaction
@@ -321,6 +323,35 @@ async def _memory_encoding_loop() -> None:
         await asyncio.sleep(settings.memory_encode_interval_seconds)
 
 
+async def run_memory_night(now: datetime | None = None, user_id: str | None = None, force: bool = False) -> int:
+    """One tick of the night's upkeep (MAG-159) for the owners whose night is due or whose pass was cut off.
+
+    `user_id` narrows it to one owner and `force` starts a pass whatever the hour (the e2e stack's way of
+    running it on demand). Returns how many passes ended in this tick.
+    """
+    now = now or _utcnow()
+    if user_id is None:
+        runs = await memory_night.run_all(now)
+    else:
+        run = await memory_night.run(user_id, now, force=force)
+        runs = [run] if run is not None else []
+    ended = sum(1 for run in runs if run.status == DONE)
+    if ended:
+        logger.info(f"Memory night: {ended} pass(es) ended")
+    return ended
+
+
+async def _memory_night_loop() -> None:
+    """Every few minutes, look for a night to start or resume. Never on the path of a turn."""
+    while True:
+        try:
+            await run_memory_night()
+        except Exception as e:
+            logger.error(f"Memory night loop error: {e}")
+
+        await asyncio.sleep(settings.memory_night_interval_seconds)
+
+
 async def start_scheduler() -> None:
     """Start the scheduler loops as background tasks."""
     _tasks.append(asyncio.create_task(_execution_loop()))
@@ -328,4 +359,5 @@ async def start_scheduler() -> None:
     _tasks.append(asyncio.create_task(_context_lifecycle_loop()))
     _tasks.append(asyncio.create_task(_style_synthesis_loop()))
     _tasks.append(asyncio.create_task(_memory_encoding_loop()))
+    _tasks.append(asyncio.create_task(_memory_night_loop()))
     logger.info("Proaction scheduler started")

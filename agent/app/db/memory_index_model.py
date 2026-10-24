@@ -52,6 +52,9 @@ class MemoryFile(AgentBase):
     search_text = Column(Text, nullable=False, default="")
     content_hash = Column(String(64), nullable=False)
     unreadable = Column(String(300), nullable=True)
+    # What the night leaves on a fiche's carte and recall must see without opening the file (MAG-159):
+    # `archivee` (the date it was set aside) and `question` (what to ask the owner). Read from the carte.
+    flags = Column(JSON, nullable=True)
     indexed_at = Column(DateTime(timezone=True), nullable=False, default=_now)
 
 
@@ -111,3 +114,38 @@ class MemoryOutbox(AgentBase):
     last_error = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=_now)
+
+
+class MemoryNightRun(AgentBase):
+    """One night's pass over a user's folder (MAG-159): where it stopped, and the account it ends with.
+
+    Not rebuildable: it is what lets a pass cut off (restart, budget) resume instead of starting over, and
+    what the proactions journal (MAG-155) will read. `night` is the user's local date; one row per night.
+    """
+
+    __tablename__ = "memory_night_run"
+    __table_args__ = (Index("idx_memory_night_user", "user_id", "night"),)
+
+    id = Column(String(32), primary_key=True)
+    user_id = Column(String(36), nullable=False)
+    night = Column(String(10), nullable=False)
+    status = Column(String(12), nullable=False, default="running")  # running | done
+    # Keys of the units already done in this pass (a conversation at a given content, a step).
+    done = Column(JSON, nullable=False, default=list)
+    report = Column(JSON, nullable=False, default=dict)
+    calls = Column(Integer, nullable=False, default=0)
+    started_at = Column(DateTime(timezone=True), nullable=False, default=_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=_now)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class MemoryNightSeen(AgentBase):
+    """What the night has already worked on, at which content: tomorrow only reads what changed since."""
+
+    __tablename__ = "memory_night_seen"
+
+    user_id = Column(String(36), primary_key=True)
+    card_id = Column(String(64), primary_key=True)
+    scope = Column(String(16), primary_key=True)  # consolidated | tidied
+    digest = Column(String(64), nullable=False)
+    seen_at = Column(DateTime(timezone=True), nullable=False, default=_now)

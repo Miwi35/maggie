@@ -1,0 +1,16 @@
+# The night (MAG-159) rereads the first conversation of its journey: what it holds is already in the fiche the
+# encoder wrote, so nothing changes in it — the claim is offered again and the code sees it is already there.
+name: memory-night-consolidate-rennes
+description: The night rereads the Rennes conversation and finds nothing to add.
+
+match:
+  system_contains: "tu relis une conversation"
+  user_matches: '## (\d{4}-\d{2}-\d{2} \d{2}h\d{2}) — Propriétaire\s+J.ai emménagé à Rennes'
+
+turns:
+  - text: |
+      {"fiches": [{"chemin": null, "titre": "Le propriétaire habite à Rennes", "dossiers": ["Lieu de vie"],
+         "resume": "Où habite le propriétaire", "personnes": [], "evoque": [], "alias": [],
+         "ajouts": [{"texte": "Le propriétaire habite à Rennes", "heure": "\1"}],
+         "remplace": [], "doute": null}],
+       "carte": {"personnes": [], "evoque": ["changement d'adresse"]}}
