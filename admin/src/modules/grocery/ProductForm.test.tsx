@@ -87,6 +87,20 @@ describe('ProductForm', () => {
     expect(data.fallbackStore).toBe(primeur.id)
   })
 
+  test('saves a product without store with no store object, whatever else is edited', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit(undefined, { ...product, preferredStore: undefined, fallbackStore: undefined })
+
+    await user.type(await screen.findByLabelText(/Nom/), ' au sel')
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    const data = update.mock.calls[0][1].data
+    for (const field of ['preferredStore', 'fallbackStore']) {
+      expect(data[field] ?? null).toBeNull()
+    }
+  })
+
   test('shows the packaging the product already has, as a sentence', async () => {
     renderEdit(undefined, { ...product, packagingUnit: 'pack', packagingSize: 500, packagingSizeUnit: 'g' })
 

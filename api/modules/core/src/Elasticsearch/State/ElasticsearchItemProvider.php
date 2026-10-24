@@ -33,6 +33,13 @@ final class ElasticsearchItemProvider implements ProviderInterface
 
     public function provide(Operation $operation, array $uriVariables = [], array $context = []): object|array|null
     {
+        // A relation sent as an IRI is resolved here to be attached to an entity
+        // being written: only a managed entity can be, the index rebuilds a copy
+        // Doctrine takes for a new row.
+        if (true === ($context['fetch_data'] ?? false)) {
+            return $this->doctrineProvider->provide($operation, $uriVariables, $context);
+        }
+
         $entityClass = $operation->getClass();
         $meta = $this->metadataReader->read($entityClass);
 
