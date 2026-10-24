@@ -27,8 +27,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -71,6 +69,7 @@ import com.maggie.app.data.model.label
 import com.maggie.app.data.model.projectDateLabel
 import com.maggie.app.data.model.projectFundingSummary
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import kotlin.math.abs
@@ -207,7 +206,7 @@ internal fun ProjectSheetContent(
 
 @Composable
 private fun SheetCard(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Card(modifier = modifier.fillMaxWidth()) {
+    MaggieCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             content()
@@ -357,8 +356,8 @@ private fun OptionColumns(options: ProjectOptions) {
 @Composable
 private fun OptionColumnCard(column: OptionColumn, currency: String, costScale: Int, delayScale: Int, modifier: Modifier) {
     val option = column.option
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    MaggieCard(
+        raised = true,
         modifier = modifier.testTag(UiTags.projectOption(column.key)),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -486,7 +485,7 @@ private fun FundingSourceEditor(
     placements: List<Placement>,
     actions: ProjectSheetActions,
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+    MaggieCard(raised = true) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text(source.kind.label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))

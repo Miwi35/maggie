@@ -15,8 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -53,6 +51,7 @@ import com.maggie.app.data.model.treasuryDate
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -145,7 +144,7 @@ fun TreasuryScreen(
 private fun SalaryDayCard(isSaving: Boolean, onSave: (String) -> Unit) {
     var day by remember { mutableStateOf("") }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -171,13 +170,9 @@ private fun SalaryCard(outlook: TreasuryOutlook) {
     val salary = outlook.salary
     val late = salary.isLate && !salary.isReceived
 
-    Card(
+    MaggieCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = if (late) {
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-        } else {
-            CardDefaults.cardColors()
-        },
+        containerColor = if (late) MaterialTheme.colorScheme.tertiaryContainer else null,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             if (late) {
@@ -253,7 +248,7 @@ private fun ProjectionCard(outlook: TreasuryOutlook, months: Int?, onSelectHoriz
     val overdraft = outlook.overdraft
     val onDate = overdraft.onDate
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -292,7 +287,7 @@ private fun AdviceCard(
 ) {
     val advice = outlook.advice
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -395,7 +390,7 @@ private fun AdviceBody(
 private fun OverdraftLimitCard(limitCents: Int, isSaving: Boolean, onSave: (String) -> Unit) {
     var limit by remember(limitCents) { mutableStateOf((limitCents / 100.0).toString()) }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

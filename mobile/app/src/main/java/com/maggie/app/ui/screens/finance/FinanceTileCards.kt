@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -53,8 +52,10 @@ import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.referenceSalarySourceLabel
 import com.maggie.app.data.model.treasuryDate
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.DeepLinks
 import com.maggie.app.ui.navigation.Screen
+import com.maggie.app.ui.theme.maggieSurface
 
 /** The envelopes drawn as bars; the tile leads to the budget for the rest. */
 internal const val MAX_TILE_ENVELOPES = 6
@@ -67,7 +68,7 @@ private fun FinanceTile(
     onClick: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag(tag)) {
+    MaggieCard(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag(tag)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -236,7 +237,7 @@ private fun EnvelopeBars(envelopes: List<TileEnvelope>) {
                         .fillMaxWidth()
                         .height(64.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(maggieSurface().track)
                         .testTag(UiTags.financeTileEnvelope(envelope.envelopeId))
                         .semantics {
                             contentDescription = "${envelope.name} : ${formatCents(envelope.consumedCents)} " +

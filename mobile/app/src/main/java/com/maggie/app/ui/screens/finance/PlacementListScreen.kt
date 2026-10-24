@@ -1,6 +1,5 @@
 package com.maggie.app.ui.screens.finance
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,8 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -78,10 +75,12 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.maggieSurface
 import java.time.LocalDate
 
 /**
@@ -205,7 +204,7 @@ private fun PlacementPhoneList(
 @Composable
 private fun ProjectionCard(placement: Placement, state: PlacementUiState, onEdit: () -> Unit) {
     val colors = placementChartColors()
-    Card(modifier = Modifier.fillMaxWidth().testTag(UiTags.PLACEMENT_CARD)) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().testTag(UiTags.PLACEMENT_CARD)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -312,13 +311,10 @@ private fun ChartSlot(state: PlacementUiState, placement: Placement, height: Dp,
 
 @Composable
 private fun PlacementRow(placement: Placement, isSelected: Boolean, onClick: () -> Unit) {
-    val ring = placementChartColors().capital
-    Card(
+    MaggieCard(
         onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-        border = if (isSelected) BorderStroke(1.5.dp, ring) else null,
+        selected = isSelected,
+        listRow = true,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
@@ -387,7 +383,7 @@ private fun SettingsPanel(
     onEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(modifier = modifier.fillMaxHeight().testTag(UiTags.PLACEMENT_SETTINGS)) {
+    MaggieCard(modifier = modifier.fillMaxHeight().testTag(UiTags.PLACEMENT_SETTINGS)) {
         Column(
             modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -419,7 +415,7 @@ private fun SettingsPanel(
 private fun FrequencyControl(current: PlacementFrequency, onPick: (PlacementFrequency) -> Unit) {
     Surface(
         shape = RoundedCornerShape(50),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        color = maggieSurface().raised,
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
     ) {
         Row(modifier = Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -517,7 +513,7 @@ private fun ProjectionPanel(placement: Placement, state: PlacementUiState, modif
             FigureTile("Dont intérêts composés", formatEuros(placement.interest), Modifier.weight(1f))
         }
         val withdrawals = state.simulation?.takeIf { it.hasWithdrawals }
-        Card(modifier = Modifier.fillMaxWidth()) {
+        MaggieCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (withdrawals != null) {
                     Text(
@@ -550,7 +546,7 @@ private fun ProjectionPanel(placement: Placement, state: PlacementUiState, modif
 
 @Composable
 private fun FigureTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier = modifier) {
+    MaggieCard(modifier = modifier) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Light)

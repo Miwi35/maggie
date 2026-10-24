@@ -17,8 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -54,6 +52,7 @@ import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.navigation.Screen
 import kotlin.math.roundToInt
@@ -118,7 +117,7 @@ fun LoanListScreen(
                     items(uiState.loans, key = { it.id }) { loan ->
                         val schedule = uiState.timeline?.loans?.firstOrNull { it.id == loan.id }
 
-                        Card(
+                        MaggieCard(
                             onClick = { onOpenLoan(loan.id) },
                             modifier = Modifier.fillMaxWidth().testTag(UiTags.LOAN_ROW),
                         ) {
@@ -201,11 +200,8 @@ fun LoanListScreen(
 
 @Composable
 private fun DebtTimelineCard(timeline: DebtTimeline) {
-    Card(
+    MaggieCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text("Libération des charges", style = MaterialTheme.typography.titleSmall)

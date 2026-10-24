@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,6 +48,8 @@ import com.maggie.app.data.model.upcomingMonthLabel
 import com.maggie.app.data.model.upcomingRangeLabel
 import com.maggie.app.data.model.upcomingSourceLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
+import com.maggie.app.ui.theme.maggieSurface
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -170,7 +171,7 @@ private fun PeriodCard(
     kind: String,
     emptyText: String,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().testTag(tag)) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().testTag(tag)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             Hint(range)
@@ -305,7 +306,7 @@ private fun weekdayInitial(date: String): String =
 
 @Composable
 private fun EnvelopesCard(month: UpcomingMonth) {
-    Card(modifier = Modifier.fillMaxWidth().testTag(UiTags.UPCOMING_ENVELOPES)) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().testTag(UiTags.UPCOMING_ENVELOPES)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text("Enveloppes du mois suivant", style = MaterialTheme.typography.titleSmall)
             Hint("${upcomingMonthLabel(month.month)}, telles qu'ajustées")
@@ -369,7 +370,7 @@ private fun Bar(fraction: Float, marker: Float?, color: Color, modifier: Modifie
             .padding(top = 4.dp)
             .height(8.dp)
             .clip(RoundedCornerShape(4.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(maggieSurface().track),
     ) {
         Box(modifier = Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).fillMaxHeight().background(color))
         if (marker != null) {
@@ -384,7 +385,7 @@ private fun Bar(fraction: Float, marker: Float?, color: Color, modifier: Modifie
 @Composable
 private fun RemainingCard(month: UpcomingMonth) {
     val short = month.remainingCents < 0
-    Card(modifier = Modifier.fillMaxWidth().testTag(UiTags.UPCOMING_REMAINING)) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().testTag(UiTags.UPCOMING_REMAINING)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text("Reste vers les projets", style = MaterialTheme.typography.titleSmall)
             Hint(upcomingMonthLabel(month.month))

@@ -23,7 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -70,6 +69,7 @@ import com.maggie.app.data.model.scenarioMonthLabel
 import com.maggie.app.data.model.scenarioNLabel
 import com.maggie.app.data.model.scenarioTableRows
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.chartColor
 import com.maggie.app.ui.uiTagRoot
@@ -110,7 +110,7 @@ class ScenarioActions(
 @Composable
 fun ScenarioCurrentCard(state: ScenarioUiState, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val unavailable = !state.hasLoaded && state.error != null
-    Card(onClick = onClick, modifier = modifier.fillMaxWidth().testTag(UiTags.SCENARIO_CURRENT_CARD)) {
+    MaggieCard(onClick = onClick, modifier = modifier.fillMaxWidth().testTag(UiTags.SCENARIO_CURRENT_CARD)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -242,7 +242,7 @@ private fun ScenarioRow(
     actions: ScenarioActions,
     onAskDelete: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().testTag(UiTags.scenarioRow(scenario.id))) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().testTag(UiTags.scenarioRow(scenario.id))) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             scenarioKindLabel(scenario)?.let {
                 Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

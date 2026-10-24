@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -80,6 +79,7 @@ import com.maggie.app.data.model.transferBadge
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.uiTagRoot
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -435,7 +435,7 @@ private fun AccountTimelineContent(
 
 @Composable
 private fun TimelineLineRow(line: TimelineLine, onOpen: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().testTag(UiTags.TIMELINE_LINE).clickable(onClick = onOpen)) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().testTag(UiTags.TIMELINE_LINE).clickable(onClick = onOpen)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,

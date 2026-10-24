@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +34,7 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.incidentKindLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
+import com.maggie.app.ui.components.MaggieCard
 
 /**
  * The payments the bank rejected, one line each (MAG-375): who was paid, what kind of payment,
@@ -147,7 +147,7 @@ private fun IncidentCard(
     rowTag: String,
     action: @Composable () -> Unit,
 ) {
-    Card(
+    MaggieCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag(rowTag)

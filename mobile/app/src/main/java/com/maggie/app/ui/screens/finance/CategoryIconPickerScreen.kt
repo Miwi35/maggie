@@ -1,6 +1,5 @@
 package com.maggie.app.ui.screens.finance
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +18,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -40,6 +38,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 
 /**
  * Full-screen choice of a category's icon (MAG-474): a search field on top, then a grid of
@@ -126,13 +125,7 @@ private fun IconTile(
     onClick: () -> Unit,
     glyph: @Composable () -> Unit,
 ) {
-    OutlinedCard(
-        modifier = modifier,
-        border = BorderStroke(
-            width = if (selected) 2.dp else 1.dp,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-        ),
-    ) {
+    MaggieCard(modifier = modifier, selected = selected, listRow = true) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

@@ -27,6 +27,7 @@ import com.maggie.app.data.model.LoanCurvePoint
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatLoanMonth
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.maggieSurface
 
 /** « Fin en Mars 2034 », or the dash when the schedule never reaches zero. */
 fun loanEndLabel(freedOn: String?): String = if (freedOn == null) "Pas de fin calculée" else "Fin en ${formatLoanMonth(freedOn)}"
@@ -123,7 +124,7 @@ private fun BarLine(label: String, cents: Int, scale: Float, currency: String, c
             Text(label, style = MaterialTheme.typography.bodySmall)
             Text(formatCents(cents, currency), style = MaterialTheme.typography.bodySmall)
         }
-        Box(modifier = Modifier.fillMaxWidth().height(10.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(5.dp))) {
+        Box(modifier = Modifier.fillMaxWidth().height(10.dp).background(maggieSurface().track, RoundedCornerShape(5.dp))) {
             if (cents > 0) {
                 Box(
                     modifier = Modifier

@@ -14,7 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -41,7 +40,9 @@ import com.maggie.app.data.model.REVIEW_LEVEL_YEAR
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.periodLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.components.statusColor
+import com.maggie.app.ui.theme.maggieSurface
 import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
@@ -137,7 +138,7 @@ private fun PeriodMonthBar(month: PeriodMonth) {
         LinearProgressIndicator(
             progress = { fill },
             color = statusColor(status),
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            trackColor = maggieSurface().track,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).height(8.dp),
         )
     }
@@ -163,7 +164,7 @@ private fun PeriodEnvelopeBar(envelope: PeriodEnvelope) {
         LinearProgressIndicator(
             progress = { fill },
             color = statusColor(envelopeScoreStatus(envelope.status)),
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            trackColor = maggieSurface().track,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).height(8.dp),
         )
     }
@@ -237,7 +238,7 @@ fun PeriodPlanStep(viewModel: PeriodReviewViewModel, nextPeriod: PlanningPeriodR
             )
         }
         state.oneOffs.forEachIndexed { index, oneOff ->
-            Card(modifier = Modifier.fillMaxWidth().testTag(UiTags.PERIOD_PLAN_ONE_OFF_ROW)) {
+            MaggieCard(modifier = Modifier.fillMaxWidth().testTag(UiTags.PERIOD_PLAN_ONE_OFF_ROW)) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -299,7 +300,7 @@ fun PeriodPlanStep(viewModel: PeriodReviewViewModel, nextPeriod: PlanningPeriodR
 
 @Composable
 private fun PlanRow(category: PlanCategory, value: String, set: Boolean, refused: Boolean, onChange: (String) -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().testTag(UiTags.periodPlanRow(category.categoryId))) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().testTag(UiTags.periodPlanRow(category.categoryId))) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(category.categoryName, style = MaterialTheme.typography.titleSmall)
             Text(

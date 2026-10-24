@@ -15,8 +15,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,6 +44,7 @@ import com.maggie.app.data.model.label
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.MaggieCard
 import java.time.YearMonth
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -219,7 +218,7 @@ private fun AdjustmentCard(
     onApply: () -> Unit,
 ) {
     val name = line.categoryName.ifEmpty { line.categoryPath }
-    Card(modifier = Modifier.fillMaxWidth().testTag(UiTags.budgetAdjustRow(name))) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().testTag(UiTags.budgetAdjustRow(name))) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text(line.categoryPath.ifEmpty { name }, style = MaterialTheme.typography.bodyLarge)
             Text(
@@ -301,8 +300,8 @@ private fun SuggestionBlock(
     enabled: Boolean,
     onApply: () -> Unit,
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+    MaggieCard(
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag(UiTags.BUDGET_ADJUST_SUGGESTION_PREFIX + name),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

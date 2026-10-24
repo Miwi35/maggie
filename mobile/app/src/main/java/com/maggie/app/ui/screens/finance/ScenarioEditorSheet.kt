@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +42,7 @@ import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.ScenarioRepayment
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.uiTagRoot
 
 /**
@@ -173,7 +173,7 @@ private fun RepaymentsEditor(editor: ScenarioEditor, options: ScenarioOptions?, 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Remboursements anticipés simulés", style = MaterialTheme.typography.titleSmall)
         editor.draft.repayments.forEach { repayment ->
-            Card(modifier = Modifier.fillMaxWidth()) {
+            MaggieCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (loans.isEmpty()) {
                         Text("Aucun prêt à rembourser.", style = MaterialTheme.typography.bodyMedium)
