@@ -1,0 +1,21 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: cookbook-test@example.com
+    googleId: google-cookbook-test
+    name: Cookbook Test User
+
+Maggie\Grocery\Entity\Store:
+  halles:
+    name: Halles du voisin
+    user: '@test_user'
+
+  bio:
+    name: Biocoop
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Ingredient:
+  lemon:
+    name: Citron
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    preferredStore: '@halles'
+    user: '@test_user'

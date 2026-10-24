@@ -8,8 +8,10 @@ use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Message\UpdateIngredientCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
 use Maggie\Grocery\Entity\Product;
+use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
 use Maggie\Grocery\Enum\Unit;
+use Maggie\Grocery\Repository\StoreRepository;
 use Maggie\Grocery\UseCase\UpdateProduct;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -19,6 +21,7 @@ class UpdateIngredientHandler
     public function __construct(
         private readonly UpdateProduct $updateProduct,
         private readonly IngredientRepository $ingredientRepository,
+        private readonly StoreRepository $storeRepository,
     ) {
     }
 
@@ -37,6 +40,17 @@ class UpdateIngredientHandler
             $ingredient->setDefaultUnit(Unit::from($command->defaultUnit));
         } elseif ($command->clears('defaultUnit')) {
             $ingredient->setDefaultUnit(null);
+        }
+        // The request names a store by IRI and API Platform rebuilds it from the index: swap it for the managed row.
+        if (null !== $command->preferredStoreId) {
+            $ingredient->setPreferredStore($this->ownedStore($command->preferredStoreId, $ingredient));
+        } elseif ($command->clears('preferredStore')) {
+            $ingredient->setPreferredStore(null);
+        }
+        if (null !== $command->fallbackStoreId) {
+            $ingredient->setFallbackStore($this->ownedStore($command->fallbackStoreId, $ingredient));
+        } elseif ($command->clears('fallbackStore')) {
+            $ingredient->setFallbackStore(null);
         }
         if (null !== $command->ciqualAlimCode) {
             $ingredient->setCiqualAlimCode($command->ciqualAlimCode);
@@ -96,5 +110,15 @@ class UpdateIngredientHandler
         $this->updateProduct->execute($ingredient);
 
         return $ingredient;
+    }
+
+    private function ownedStore(string $storeId, Ingredient $ingredient): Store
+    {
+        $store = $this->storeRepository->find($storeId);
+        if (null === $store || (string) $store->getUser()->getId() !== (string) $ingredient->getUser()->getId()) {
+            throw new \DomainException("Store not found: {$storeId}");
+        }
+
+        return $store;
     }
 }
