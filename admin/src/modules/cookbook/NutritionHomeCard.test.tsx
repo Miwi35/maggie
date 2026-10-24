@@ -10,7 +10,11 @@ import type { HomeDay } from '../home/homeDay'
 
 vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
 
-const Where = () => <output data-testid="where">{useLocation().pathname}</output>
+const Where = () => {
+  const location = useLocation()
+
+  return <output data-testid="where">{`${location.pathname}${location.search}`}</output>
+}
 
 const renderCard = (day: HomeDay = 'today') =>
   render(
@@ -138,6 +142,25 @@ describe('NutritionHomeCard', () => {
     await screen.findByTestId('home-nutrition-dinner')
 
     expect(fetchMock).toHaveBeenCalledWith('/api/home/nutrition?day=tomorrow', expect.anything())
+  })
+
+  test('« ▶ Lancer » on a meal opens the Cuisine activity for that meal, from the Accueil', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(TODAY)))
+    renderCard()
+    const [first, second] = await screen.findAllByTestId('home-nutrition-meal')
+
+    expect(within(first).getByRole('link', { name: 'Lancer la cuisine de Lasagnes · Salade verte · Tiramisu' })).toHaveAttribute('href', '/activites/cuisine?meal=m1')
+    await user.click(within(second).getByRole('link', { name: /^Lancer/ }))
+
+    expect(screen.getByTestId('where')).toHaveTextContent('/activites/cuisine?meal=m2')
+  })
+
+  test('there is nothing to launch for tomorrow', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(TODAY)))
+    renderCard('tomorrow')
+    await screen.findByTestId('home-nutrition-dinner')
+    expect(screen.queryByTestId('home-launch-nutrition')).toBeNull()
   })
 
   test('opens the meals from its title', async () => {

@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.luminance
 enum class ModuleHue(internal val hue: Pair<Color, Color>) {
     FINANCE(MaggieTokens.Module.finance),
     TASKS(MaggieTokens.Module.taches),
+    CUISINE(MaggieTokens.Module.cuisine),
 }
 
 /** Whether the app is drawn on the dark Veilleuse — the theme's own choice, not the system's. */

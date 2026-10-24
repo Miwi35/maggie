@@ -19,6 +19,10 @@ object DeepLinks {
     const val ARG_MESSAGE = "message"
     const val ARG_NAME = "name"
 
+    /** What the Cuisine activity cooks (MAG-580): a meal, or one recipe. */
+    const val ARG_MEAL = "meal"
+    const val ARG_RECIPE = "recipe"
+
     const val EVENT_ROUTE = "link/event/{$ARG_ID}"
     const val TASK_ROUTE = "link/task/{$ARG_ID}"
 
@@ -91,6 +95,7 @@ object DeepLinks {
         Screen.PlacementList.route to listOf("$SCHEME://finance/placements", "$SCHEME://finance/planning/placements"),
         Screen.Independence.route to listOf("$SCHEME://finance/planning/independence"),
         Screen.FinanceReviewActivity.route to listOf("$SCHEME://finance/review/activity"),
+        Screen.CookingActivity.route to listOf("$SCHEME://activity/cooking?$ARG_MEAL={$ARG_MEAL}&$ARG_RECIPE={$ARG_RECIPE}"),
         Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}"),
     )
 

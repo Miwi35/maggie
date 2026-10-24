@@ -40,6 +40,16 @@ class DeepLinksTest {
     }
 
     @Test
+    fun `the Cuisine activity opens from activity cooking with a meal or a recipe (MAG-580)`() {
+        assertEquals(
+            listOf("$scheme://activity/cooking?meal={meal}&recipe={recipe}"),
+            DeepLinks.patternsFor(Screen.CookingActivity.route),
+        )
+        assertEquals("activity/cooking?meal=01JABCDEFGHJKMNPQRSTVWXYZ0", Screen.CookingActivity.ofMeal("01JABCDEFGHJKMNPQRSTVWXYZ0"))
+        assertEquals("activity/cooking?recipe=01JABCDEFGHJKMNPQRSTVWXYZ0", Screen.CookingActivity.ofRecipe("01JABCDEFGHJKMNPQRSTVWXYZ0"))
+    }
+
+    @Test
     fun `the treasury screen opens from finance treasury`() {
         assertEquals(listOf("$scheme://finance/treasury"), DeepLinks.patternsFor(Screen.Treasury.route))
     }

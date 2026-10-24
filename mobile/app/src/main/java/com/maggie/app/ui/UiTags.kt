@@ -1234,6 +1234,8 @@ object UiTags {
     const val RECIPE_GUESTS_SIMULATION = "recipe_guests_simulation"
     const val RECIPE_GUESTS_ERROR = "recipe_guests_error"
     const val RECIPE_INGREDIENT_QUANTITY = "recipe_ingredient_quantity"
+    /** « Cuisiner » on a recipe sheet: opens the Cuisine activity (MAG-580). */
+    const val RECIPE_COOK = "recipe_cook"
 
     /** The « de saison » / « hors saison » badge of a product, a grocery line or an ingredient (MAG-494), the product's season chips, and its button. */
     const val SEASON_BADGE = "season_badge"
@@ -1289,6 +1291,7 @@ object UiTags {
     const val MEAL_DETAIL_SAVE = "meal_detail_save"
     const val MEAL_DETAIL_DELETE = "meal_detail_delete"
     const val MEAL_DETAIL_INGREDIENTS = "meal_detail_ingredients"
+    const val MEAL_DETAIL_LAUNCH = "meal_detail_launch"
 
     // Activité Comptes · la revue (MAG-456): the full-screen wizard, its header, its footer and the card of a line.
     const val EVENT_LAUNCH_ACTIVITY = "event_launch_activity"
@@ -1313,6 +1316,44 @@ object UiTags {
     const val REVIEW_ACTIVITY_DONE = "review_activity_done"
     const val REVIEW_ACTIVITY_RESTART = "review_activity_restart"
     const val REVIEW_ACTIVITY_REMAINING = "review_activity_remaining"
+
+    // The frame every activity shares (MAG-580): the activity itself, Maggie, ✕ and « Quitter l'activité ? ».
+    const val ACTIVITY_SCAFFOLD = "activity_scaffold"
+    const val ACTIVITY_MAGGIE = "activity_maggie"
+    const val ACTIVITY_QUIT = "activity_quit"
+    const val ACTIVITY_QUIT_CONFIRM = "activity_quit_confirm"
+    const val ACTIVITY_QUIT_STAY = "activity_quit_stay"
+    const val ACTIVITY_QUIT_LEAVE = "activity_quit_leave"
+
+    // Activité Cuisine (MAG-580): « Pour combien ? », « On sort tout », a step, « Bon appétit » and the states between.
+    const val COOKING_LOADING = "cooking_loading"
+    const val COOKING_ERROR = "cooking_error"
+    const val COOKING_RETRY = "cooking_retry"
+    const val COOKING_EMPTY = "cooking_empty"
+    const val COOKING_EMPTY_BACK = "cooking_empty_back"
+    const val COOKING_DONE = "cooking_done"
+    const val COOKING_FINISH = "cooking_finish"
+    const val COOKING_PROGRESS = "cooking_progress"
+    const val COOKING_SERVINGS = "cooking_servings"
+    const val COOKING_SERVINGS_MINUS = "cooking_servings_minus"
+    const val COOKING_SERVINGS_PLUS = "cooking_servings_plus"
+    const val COOKING_SERVINGS_VALUE = "cooking_servings_value"
+    const val COOKING_CONTINUE = "cooking_continue"
+    const val COOKING_PREPARATION = "cooking_preparation"
+    const val COOKING_GUESTS_MINUS = "cooking_guests_minus"
+    const val COOKING_GUESTS_PLUS = "cooking_guests_plus"
+    const val COOKING_GUESTS_VALUE = "cooking_guests_value"
+    const val COOKING_INGREDIENT = "cooking_ingredient"
+    const val COOKING_UTENSIL = "cooking_utensil"
+    const val COOKING_QUEUE_ITEM = "cooking_queue_item"
+    const val COOKING_QUEUE_CURRENT = "cooking_queue_current"
+    const val COOKING_START = "cooking_start"
+    const val COOKING_NO_STEPS = "cooking_no_steps"
+    const val COOKING_SKIP = "cooking_skip"
+    const val COOKING_STEP = "cooking_step"
+    const val COOKING_STEP_TEXT = "cooking_step_text"
+    const val COOKING_PREVIOUS = "cooking_previous"
+    const val COOKING_NEXT = "cooking_next"
 
     // The two steps that close a quarter, a semester or a year (MAG-462).
     const val PERIOD_BALANCE = "review_period_balance"

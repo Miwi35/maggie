@@ -4,8 +4,11 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
+import RestaurantIcon from '@mui/icons-material/Restaurant'
 import { Confirm, Show, useCreate, useGetMany, useNotify, useRecordContext, useRedirect, useUpdate } from 'react-admin'
+import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { useMercure } from '../../hooks/useMercure'
+import { recipeLaunchPath } from './cooking/cookingSession'
 import { GuestsStepper } from './GuestsStepper'
 import { ActionsMenu, EditButton, IngredientsBlock, NotesBlock, NutritionBlock, StepsBlock, UtensilsBlock } from './RecipeBlocks'
 import { RecipeDeleteConfirm } from './RecipeDeleteButton'
@@ -49,6 +52,7 @@ const errorMessage = (failure: unknown) => refusalOf(failure) ?? (failure as Err
 const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: boolean }) => {
   const notify = useNotify()
   const redirect = useRedirect()
+  const location = useLocation()
   const [update] = useUpdate()
   const [create] = useCreate()
   const [dialog, setDialog] = useState<Dialog | null>(creating ? { kind: 'header' } : null)
@@ -204,6 +208,17 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
         </Typography>
         {!creating && (
           <>
+            <Button
+              component={RouterLink}
+              to={recipeLaunchPath(idOf(recipe.id))}
+              state={{ from: `${location.pathname}${location.search}` }}
+              variant="contained"
+              startIcon={<RestaurantIcon />}
+              data-testid="recipe-cook"
+              sx={{ minHeight: 48 }}
+            >
+              Cuisiner
+            </Button>
             <EditButton label="Modifier le nom, les portions et les tags" onClick={() => setDialog({ kind: 'header' })} />
             <ActionsMenu
               label="Actions de la recette"

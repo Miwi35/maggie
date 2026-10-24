@@ -388,6 +388,14 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
+  test('« Cuisiner » opens the Cuisine activity on this recipe', async () => {
+    renderSheet()
+
+    const link = await screen.findByRole('link', { name: 'Cuisiner' })
+
+    expect(link).toHaveAttribute('href', '/activites/cuisine?recipe=01R')
+  })
+
   test('Dupliquer creates a copy from the sheet', async () => {
     const user = userEvent.setup()
     const { create } = renderSheet()

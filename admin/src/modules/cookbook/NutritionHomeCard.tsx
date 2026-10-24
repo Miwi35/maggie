@@ -1,12 +1,14 @@
 import Box from '@mui/material/Box'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
+import { ActivityLaunchButton } from '../home/ActivityLaunchButton'
 import { moduleColor } from '../home/moduleColor'
 import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
 import type { HomeDay } from '../home/homeDay'
 import { useHomeCardState } from '../home/useHomeCardState'
+import { mealLaunchPath } from './cooking/cookingSession'
 
 interface HomeMeal {
   id: string
@@ -42,7 +44,7 @@ export const NutritionHomeCard = ({ day }: { day: HomeDay }) => {
 
   return (
     <HomeCard module="nutrition" title="Nutrition" to="/meals">
-      {state && !isEmpty(state) ? <Body state={state} /> : !error && loading ? <Loading /> : null}
+      {state && !isEmpty(state) ? <Body state={state} day={day} /> : !error && loading ? <Loading /> : null}
       {error && <HomeCardError onRetry={() => void retry()} />}
     </HomeCard>
   )
@@ -57,7 +59,7 @@ const Loading = () => (
   </Box>
 )
 
-const Body = ({ state }: { state: NutritionHomeState }) => (
+const Body = ({ state, day }: { state: NutritionHomeState; day: HomeDay }) => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
     {state.slots.map(({ slot, meals }) => (
       <Box key={slot} component="section" aria-label={SLOT_LABELS[slot]} data-testid={`home-nutrition-${slot}`}>
@@ -71,7 +73,7 @@ const Body = ({ state }: { state: NutritionHomeState }) => (
         ) : (
           <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
             {meals.map((meal) => (
-              <Meal key={meal.id} meal={meal} />
+              <Meal key={meal.id} meal={meal} day={day} />
             ))}
           </Box>
         )}
@@ -80,18 +82,19 @@ const Body = ({ state }: { state: NutritionHomeState }) => (
   </Box>
 )
 
-const Meal = ({ meal }: { meal: HomeMeal }) => {
+const Meal = ({ meal, day }: { meal: HomeMeal; day: HomeDay }) => {
   const names = meal.recipes.length > 0 ? meal.recipes.map((r) => r.name).join(' · ') : meal.title
 
   return (
     <Box component="li" data-testid="home-nutrition-meal" sx={{ py: 0.25 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
-        <Typography variant="body2" data-testid="home-nutrition-recipes">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+        <Typography variant="body2" data-testid="home-nutrition-recipes" sx={{ flex: 1, minWidth: 0 }}>
           {names}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }} data-testid="home-nutrition-guests">
           {`${meal.guests} pers.`}
         </Typography>
+        {meal.recipes.length > 0 && <ActivityLaunchButton module="nutrition" activity={`la cuisine de ${names}`} day={day} to={mealLaunchPath(meal.id)} />}
       </Box>
       {meal.missing.length > 0 && (
         <Typography

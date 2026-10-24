@@ -1625,6 +1625,12 @@ class MaggieApiService(
         }.body<ApiCollection<Meal>>().member
     }
 
+    suspend fun getMeal(id: String): Meal {
+        return client.get("$baseUrl/api/meals/$id") {
+            accept(ContentType("application", "ld+json"))
+        }.orRefusal().body()
+    }
+
     suspend fun createMeal(request: MealCreateRequest): Meal {
         return client.post("$baseUrl/api/meals") {
             contentType(ContentType.Application.Json)

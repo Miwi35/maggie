@@ -29,6 +29,11 @@ class ModuleHuesTest {
     }
 
     @Test
+    fun `the Cuisine activity is periwinkle (MAG-580)`() {
+        assertEquals(ModuleHue.CUISINE, moduleHueOf(Screen.CookingActivity.route))
+    }
+
+    @Test
     fun `other screens keep Maggie's violet`() {
         assertNull(moduleHueOf(Screen.Settings.route))
         assertNull(moduleHueOf(Screen.Loading.route))
