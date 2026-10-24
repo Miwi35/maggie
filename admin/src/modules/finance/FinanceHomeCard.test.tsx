@@ -133,7 +133,7 @@ describe('FinanceHomeCard', () => {
     expect(within(project).getByRole('progressbar', { name: 'Vélo : 74 % atteint' })).toBeInTheDocument()
 
     await act(async () => {
-      await emitMercure('/home/finance', {})
+      await emitMercure('/home/{module}', { action: 'refresh', module: 'finance' })
     })
 
     await waitFor(() => expect(screen.queryByTestId('home-finance-next-project')).toBeNull())
