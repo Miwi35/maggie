@@ -48,9 +48,9 @@ tags:
 - tapOn:
     id: "grocery_menu"
 - tapOn: "Produits"
-- extendedWaitUntil:
-    visible: "Pâtes sèches MAG-605"
-    timeout: 30000
+- scrollUntilVisible:
+    element: "Pâtes sèches MAG-605"
+    timeout: 60000
 
 # The sheet, then the cascade: the shop, then its rayon.
 - tapOn: "Pâtes sèches MAG-605"
@@ -73,9 +73,9 @@ tags:
 - tapOn:
     id: "product_sheet_save"
 
-- extendedWaitUntil:
-    visible: "Épicerie du coin · Rayon MAG-605"
-    timeout: 20000
+- scrollUntilVisible:
+    element: "Épicerie du coin · Rayon MAG-605"
+    timeout: 30000
 
 # What the phone saved is what the API holds.
 - runScript:
