@@ -1,0 +1,122 @@
+appId: com.maggie.app.e2e
+name: 21-product-filters
+tags:
+  - grocery
+---
+# Courses › Produits is filtered by shop and by rayon (MAG-606): the owner chooses « Magasin », the
+# products come grouped by rayon in the order of the way through the shop; then « Rayon », and only that
+# rayon's products stay, under its header. The API does the filtering (MAG-604), so this is the one run
+# that proves the phone sends the filters the API reads.
+#
+# The JVM tests (`ProductViewModelShelfTest`, `ProductListShelfScreenTest`, `ProductShelfTest`) own the
+# cases — Sans rayon, the reset of the rayon on a new shop, the sort, the error, the empty list.
+#
+# Signed in as the neighbour, like `08`. The shop is the seed's « Épicerie du coin »; the rayons and the
+# two products carry the ticket's number and are gone at the end.
+
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: aisles
+      STORE: Épicerie du coin
+      AISLES: Frais MAG-606|Épicerie MAG-606
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: product
+      LABEL: Yaourt MAG-606
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: product
+      LABEL: Biscottes MAG-606
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: shelve
+      LABEL: Yaourt MAG-606
+      STORE: Épicerie du coin
+      AISLE: Frais MAG-606
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: shelve
+      LABEL: Biscottes MAG-606
+      STORE: Épicerie du coin
+      AISLE: Épicerie MAG-606
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/21-product-filters.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: grocery
+- extendedWaitUntil:
+    visible:
+      id: "grocery"
+    timeout: 20000
+
+- tapOn:
+    id: "grocery_menu"
+- tapOn: "Produits"
+- extendedWaitUntil:
+    visible:
+      id: "product_filter_store"
+    timeout: 30000
+
+# The shop: both products appear, each under the header of its rayon, the first rayon first.
+- tapOn:
+    id: "product_filter_store"
+- tapOn: "Épicerie du coin"
+- extendedWaitUntil:
+    visible: "Frais MAG-606"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Yaourt MAG-606"
+      below: "Frais MAG-606"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "Biscottes MAG-606"
+      below: "Épicerie MAG-606"
+    timeout: 10000
+
+# The rayon: only its product stays, under its header.
+- tapOn:
+    id: "product_filter_aisle"
+- tapOn: "Frais MAG-606"
+- extendedWaitUntil:
+    visible:
+      text: "Yaourt MAG-606"
+      below: "Frais MAG-606"
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Biscottes MAG-606"
+    timeout: 30000
+
+# Clean-up: the products, then the rayons — the seed is as it was.
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: drop-product
+      LABEL: Yaourt MAG-606
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: drop-product
+      LABEL: Biscottes MAG-606
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: drop-aisles
+      STORE: Épicerie du coin
+      AISLES: Frais MAG-606|Épicerie MAG-606

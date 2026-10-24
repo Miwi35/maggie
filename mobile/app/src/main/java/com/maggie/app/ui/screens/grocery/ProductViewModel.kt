@@ -4,11 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.ProductCreateRequest
 import com.maggie.app.data.model.Aisle
+import com.maggie.app.data.model.AisleFilter
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.ProductQuery
+import com.maggie.app.data.model.ProductSort
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -18,10 +23,20 @@ data class ProductUiState(
     val stores: List<Store> = emptyList(),
     // The aisles of each store by store id, to name a product's aisle and to choose one (MAG-605).
     val aislesByStore: Map<String, List<Aisle>> = emptyMap(),
+    // What the API is asked for: the store, its aisle and the sort (MAG-606).
+    val query: ProductQuery = ProductQuery(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val editor: ProductEditorState? = null,
-)
+) {
+    /** The aisles of the chosen store, in the way through it; empty without a store. */
+    val storeAisles: List<Aisle>
+        get() = query.storeId?.let { aislesByStore[it] }.orEmpty().sortedBy { it.position }
+
+    /** The products cut by aisle once a store is chosen, null while the list is flat. */
+    val sections: List<ProductSection>?
+        get() = query.storeId?.let { groupByAisle(products, it, storeAisles) }
+}
 
 /** The product sheet being edited: [original] as the list holds it, [draft] as typed. */
 data class ProductEditorState(
@@ -41,23 +56,55 @@ class ProductViewModel(
     private val _uiState = MutableStateFlow(ProductUiState())
     val uiState: StateFlow<ProductUiState> = _uiState
 
+    private var loadJob: Job? = null
+    private var storesLoaded = false
+
     init {
         refresh()
     }
 
-    fun refresh() {
-        viewModelScope.launch {
+    fun refresh() = load(withStores = true)
+
+    /** A store resets the aisle to « tous »: an aisle belongs to one store. */
+    fun selectFilterStore(storeId: String?) {
+        val sort = _uiState.value.query.sort.takeUnless { storeId == null && it == ProductSort.AISLE } ?: ProductSort.NAME
+        applyQuery(ProductQuery(storeId = storeId, sort = sort))
+    }
+
+    fun selectFilterAisle(aisle: AisleFilter) {
+        val query = _uiState.value.query
+        if (query.storeId == null) return
+        applyQuery(query.copy(aisle = aisle))
+    }
+
+    fun selectSort(sort: ProductSort) {
+        val query = _uiState.value.query
+        if (sort == ProductSort.AISLE && query.storeId == null) return
+        applyQuery(query.copy(sort = sort))
+    }
+
+    private fun applyQuery(query: ProductQuery) {
+        if (query == _uiState.value.query) return
+        _uiState.value = _uiState.value.copy(query = query)
+        load(withStores = false)
+    }
+
+    private fun load(withStores: Boolean) {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val products = productRepository.getProducts().getOrThrow()
-                val stores = storeRepository.getStores().getOrDefault(emptyList())
-                val aisles = stores.associate { it.id to storeRepository.getAisles(it.id).getOrDefault(emptyList()) }
-                _uiState.value = _uiState.value.copy(
-                    products = products,
-                    stores = stores,
-                    aislesByStore = aisles,
-                    isLoading = false,
-                )
+                // The stores come first: the filter bar needs them even when the products fail.
+                if (withStores || !storesLoaded) {
+                    val stores = storeRepository.getStores().getOrDefault(emptyList())
+                    val aisles = stores.associate { it.id to storeRepository.getAisles(it.id).getOrDefault(emptyList()) }
+                    _uiState.value = _uiState.value.copy(stores = stores, aislesByStore = aisles)
+                    storesLoaded = true
+                }
+                val products = productRepository.getProducts(_uiState.value.query).getOrThrow()
+                _uiState.value = _uiState.value.copy(products = products, isLoading = false)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }

@@ -1255,6 +1255,14 @@ object UiTags {
     const val PRODUCT_SHEET_FALLBACK_STORE = "product_sheet_fallback_store"
     const val PRODUCT_SHEET_FALLBACK_AISLE = "product_sheet_fallback_aisle"
 
+    /** The three filter chips of Courses › Produits (MAG-606): Magasin, Rayon, Trier — each opens a bottom sheet. */
+    const val PRODUCT_FILTER_STORE = "product_filter_store"
+    const val PRODUCT_FILTER_AISLE = "product_filter_aisle"
+    const val PRODUCT_FILTER_SORT = "product_filter_sort"
+
+    /** One choice of a filter's bottom sheet — the same tag on each, told apart by its text, which the list behind may repeat. */
+    const val PRODUCT_FILTER_OPTION = "product_filter_option"
+
     /**
      * The equipment and the steps of a recipe (MAG-492). On the sheet: the utensil chips and one step row
      * (`recipe_step`, `recipe_step_duration`, `recipe_step_waits`). On the edit sheet: « Ajouter une étape »,

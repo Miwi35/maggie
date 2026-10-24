@@ -83,30 +83,43 @@ fun ProductListScreen(
             }
         },
     ) { paddingValues ->
-        when {
-            uiState.isLoading && uiState.products.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center,
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            ProductFilterBar(
+                state = uiState,
+                onStore = viewModel::selectFilterStore,
+                onAisle = viewModel::selectFilterAisle,
+                onSort = viewModel::selectSort,
+            )
+            uiState.error?.let { error ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CircularProgressIndicator()
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = viewModel::refresh) { Text("Réessayer") }
                 }
             }
-            uiState.products.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Aucun produit", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val sections = uiState.sections
+            when {
+                uiState.isLoading && uiState.products.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
                 }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(uiState.products, key = { it.id }) { product ->
+                uiState.products.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (uiState.query.isFiltered) "Aucun produit ne correspond." else "Aucun produit",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                else -> {
+                    val card: @Composable (Product) -> Unit = { product ->
                         ProductCard(
                             product = product,
                             onDelete = { viewModel.deleteProduct(product.id) },
@@ -117,6 +130,22 @@ fun ProductListScreen(
                             storeLine = storeAisleLabel(product.preferredStore, product, uiState.stores, uiState.aislesByStore),
                             fallbackLine = storeAisleLabel(product.fallbackStore, product, uiState.stores, uiState.aislesByStore),
                         )
+                    }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (sections == null) {
+                            items(uiState.products, key = { it.id }) { card(it) }
+                        } else {
+                            sections.forEach { section ->
+                                item(key = "aisle-${section.aisleId ?: "none"}") {
+                                    AisleHeader(section)
+                                }
+                                items(section.products, key = { it.id }) { card(it) }
+                            }
+                        }
                     }
                 }
             }
@@ -146,6 +175,22 @@ fun ProductListScreen(
                 showCreateDialog = false
             },
             onDismiss = { showCreateDialog = false },
+        )
+    }
+}
+
+/** The title of an aisle of the chosen store, and how many products it holds. */
+@Composable
+private fun AisleHeader(section: ProductSection) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(text = section.title, style = MaterialTheme.typography.titleSmall)
+        Text(
+            text = section.products.size.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

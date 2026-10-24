@@ -12,7 +12,7 @@
 //
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   ACTION  add | check | remove | expect | aisles | assign | drop-aisles |
-//           product | drop-product | meals | drop-meals | expect-line | expect-product
+//           product | drop-product | shelve | meals | drop-meals | expect-line | expect-product
 //   LABEL   the line, as written on the list
 //   EMAIL   the account, default the shopper (e2e-other@maggie.local)
 //   STORE   add: the shop's name, an existing one — left out, no shop;
@@ -26,6 +26,9 @@
 //   product, drop-product: LABEL is the product's name. `product` creates a pasta
 //           in 500 g packs, two packs when it runs low, restocked by itself —
 //           left as found when it exists; `drop-product` deletes it (MAG-573)
+//   shelve: LABEL is an existing product; it takes AISLE (by name) in STORE — the aisle the
+//           products list groups it under, waited for in the API's own `store`+`aisle`
+//           filter (MAG-606)
 //   meals, drop-meals: LABEL is the product's name. `meals` plans, in the week to
 //           come, a 500 g meal (tomorrow) and a 300 g meal (in three days) of it,
 //           each from a recipe of its own: the 800 g « pour les recettes » of the add
@@ -403,6 +406,48 @@ if (ACTION === 'add') {
     }
     if (Date.now() >= deadline) {
       fail('the product never carried "' + STORE + '" / "' + (typeof AISLE !== 'undefined' ? AISLE : '') + '" within 30 s')
+    }
+    pause(300)
+  }
+} else if (ACTION === 'shelve') {
+  const store = storeId()
+  const aisle = aislesOf(store).filter(function (candidate) { return candidate.name === AISLE })[0]
+  if (!aisle) {
+    fail('no aisle "' + AISLE + '" in "' + STORE + '" — run the `aisles` action first')
+  }
+  let product
+  for (;;) {
+    product = productNamed(LABEL)
+    if (product) {
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('the product never became findable within 30 s')
+    }
+    pause(300)
+  }
+  const aisles = (product.aisles || []).filter(function (entry) {
+    return idOf(entry.store) !== store
+  })
+  aisles.push({ store: store, aisle: aisle.id })
+  const response = http.request(base + '/api/products/' + product.id, {
+    method: 'PATCH',
+    headers: authorized({ 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' }),
+    body: JSON.stringify({ aisles: aisles }),
+  })
+  if (!response.ok) {
+    fail('PATCH /api/products/' + product.id + ' answered ' + response.status + ': ' + response.body)
+  }
+  // Indexed before the script returns: the app reads the products through the filter.
+  const filterUrl = base + '/api/products?pagination=false&store=' + encodeURIComponent('/api/stores/' + store)
+    + '&aisle=' + encodeURIComponent('/api/aisles/' + aisle.id)
+  for (;;) {
+    const found = http.get(filterUrl, { headers: authorized({ Accept: 'application/ld+json' }) })
+    if (found.ok && JSON.parse(found.body).member.some(function (candidate) { return candidate.name === LABEL })) {
+      break
+    }
+    if (Date.now() >= deadline) {
+      fail('the aisle filter never returned "' + LABEL + '" within 30 s')
     }
     pause(300)
   }
