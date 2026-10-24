@@ -164,7 +164,7 @@ const StoreWithAisle = ({
         }}
       />
     </ReferenceInput>
-    {control && storeId && <AisleChoice storeId={storeId} label={aisleLabel} control={control} />}
+    {control && storeId && <AisleChoice key={storeId} storeId={storeId} label={aisleLabel} control={control} />}
   </Box>
 )
 
