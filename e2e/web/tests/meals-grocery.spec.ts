@@ -18,7 +18,7 @@ import { ROUTES } from '../pages/routes.js'
  * one line rather than piling up, a meal moved or cancelled taking back exactly
  * its own share, a perishable deferred by its shelf life, a recurring item
  * whose fortnight has not run out — all of that is
- * `api/modules/cookbook/tests/MessageHandler/MealGrocerySyncTest.php`, twenty-odd
+ * `api/modules/meal-grocery/tests/MessageHandler/MealGrocerySyncTest.php`, twenty-odd
  * cases of it, on every pull request. Re-asserting a quantity here would be a
  * slower test of the same thing. Recurring items reaching the list at all is a
  * different claim, and it is covered in `grocery-errand.spec.ts`, which owns a

@@ -275,6 +275,24 @@ final class ShortageAlertsTest extends KernelTestCase
         $this->assertMercureDeletePublished('/api/notifications/'.$notificationId);
     }
 
+    public function testAMealRemovedByAnyDoorTakesItsNotificationsWithIt(): void
+    {
+        $this->service()->run($this->user());
+        $this->em()->clear();
+        $notificationId = (string) $this->notificationFor('Pour Gratin, ce soir.')->getId();
+        $this->reset();
+        $meal = $this->em()->getRepository(Meal::class)->findOneBy(['summary' => 'Dîner : Gratin', 'date' => new \DateTimeImmutable('2026-10-14')]);
+
+        // Not through DeleteMeal: what the agenda's own doors do, a plain remove and flush.
+        $this->em()->remove($meal);
+        $this->em()->flush();
+        $this->em()->clear();
+
+        self::assertCount(2, $this->em()->getRepository(ShortageAlert::class)->findAll());
+        self::assertNotContains('Il manque : Parmesan · Pour Gratin, ce soir.', $this->notificationTexts());
+        $this->assertMercureDeletePublished('/api/notifications/'.$notificationId);
+    }
+
     public function testAnotherUsersMealsAreNotMine(): void
     {
         $other = $this->em()->getRepository(User::class)->findOneBy(['email' => 'shortage-other@example.com']);
