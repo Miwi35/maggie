@@ -25,9 +25,13 @@ test('« ▶ Lancer » on tonight’s meal opens the Cuisine activity, which lis
   const preparation = page.getByTestId('cooking-preparation')
   await expect(preparation).toBeVisible()
   await expect(preparation.getByTestId('cooking-queue-item')).toHaveCount(2)
-  await expect(preparation.getByTestId('cooking-queue-item').nth(0)).toContainText('Pâtes au pesto')
-  await expect(preparation.getByTestId('cooking-queue-item').nth(0)).toHaveAttribute('data-current', 'true')
-  await expect(preparation.getByTestId('cooking-queue-item').nth(1)).toContainText('Salade de saison')
+  // A meal keeps no order among its recipes (the API serves them as the database returns them): both are
+  // there, and the first one served is the current one.
+  const queue = preparation.getByTestId('cooking-queue-item')
+  await expect(queue.filter({ hasText: 'Pâtes au pesto' })).toHaveCount(1)
+  await expect(queue.filter({ hasText: 'Salade de saison' })).toHaveCount(1)
+  await expect(queue.nth(0)).toHaveAttribute('data-current', 'true')
+  await expect(queue.nth(1)).not.toHaveAttribute('data-current', 'true')
 
   // When I press Échap with nothing running, I leave without being asked, back on the Accueil.
   const left = page.waitForURL((url) => !url.pathname.startsWith('/activites/cuisine'))
