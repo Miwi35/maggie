@@ -128,7 +128,7 @@ export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
               height: 18,
               borderRadius: '50%',
               fontSize: 11,
-              fontWeight: 700,
+              fontWeight: 600,
               bgcolor: colour,
               color: theme.palette.background.default,
             }}

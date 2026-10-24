@@ -160,7 +160,7 @@ const Ring = ({ period, title, ring }: { period: 'week' | 'month'; title: string
               height: 16,
               borderRadius: '50%',
               fontSize: 10,
-              fontWeight: 700,
+              fontWeight: 600,
               bgcolor: colour,
               color: theme.palette.background.default,
             }}
