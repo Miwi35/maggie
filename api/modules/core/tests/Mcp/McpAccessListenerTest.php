@@ -107,6 +107,35 @@ class McpAccessListenerTest extends TestCase
         self::assertSame(Response::HTTP_UNAUTHORIZED, $event->getResponse()->getStatusCode());
     }
 
+    public function testMalformedSessionIdAnswersNotFoundInsteadOfCrashing(): void
+    {
+        $event = $this->dispatch('/_mcp', [
+            'HTTP_AUTHORIZATION' => 'Bearer '.self::SERVICE_TOKEN,
+            'HTTP_MCP_SESSION_ID' => 'not-a-uuid',
+        ]);
+
+        self::assertNotNull($event->getResponse());
+        self::assertSame(Response::HTTP_NOT_FOUND, $event->getResponse()->getStatusCode());
+        self::assertSame(-32600, json_decode((string) $event->getResponse()->getContent(), true)['error']['code']);
+    }
+
+    public function testMalformedSessionIdWithoutTokenStaysUnauthorized(): void
+    {
+        $event = $this->dispatch('/_mcp', ['HTTP_MCP_SESSION_ID' => 'not-a-uuid']);
+
+        self::assertSame(Response::HTTP_UNAUTHORIZED, $event->getResponse()?->getStatusCode());
+    }
+
+    public function testWellFormedSessionIdIsLeftToTheSdk(): void
+    {
+        $event = $this->dispatch('/_mcp', [
+            'HTTP_AUTHORIZATION' => 'Bearer '.self::SERVICE_TOKEN,
+            'HTTP_MCP_SESSION_ID' => '0192f3a4-5b6c-7d8e-9f01-23456789abcd',
+        ]);
+
+        self::assertNull($event->getResponse());
+    }
+
     /**
      * @param array<string, string> $server
      */
