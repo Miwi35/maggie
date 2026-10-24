@@ -1,6 +1,6 @@
 import { ResourceGuesser } from '@api-platform/admin'
-import { CustomRoutes } from 'react-admin'
-import { Navigate, Route } from 'react-router-dom'
+import { CustomRoutes, useCreatePath } from 'react-admin'
+import { Navigate, Route, useParams } from 'react-router-dom'
 import { lazyPage } from '../../lazyPage'
 
 const CalendarView = lazyPage(() => import('../calendar/CalendarView'), 'CalendarView')
@@ -12,8 +12,14 @@ const RecipeCreate = lazyPage(() => import('./RecipeCreate'), 'RecipeCreate')
 const RecipeList = lazyPage(() => import('./RecipeList'), 'RecipeList')
 const RecipeShow = lazyPage(() => import('./RecipeShow'), 'RecipeShow')
 
-// react-admin serves `:id` as the edit route: a recipe has no edit form, its sheet is the page.
-export const RecipeEditRedirect = () => <Navigate to="show" replace />
+// react-admin serves `:id/*` as the edit route: a recipe has no edit form, its sheet is the page.
+// The target is absolute: a relative one stacks on the splat and never settles (React error #185).
+export const RecipeEditRedirect = () => {
+  const { id } = useParams()
+  const createPath = useCreatePath()
+
+  return <Navigate to={createPath({ resource: 'recipes', type: 'show', id })} replace />
+}
 
 export const cookbookResources = (
   <>
