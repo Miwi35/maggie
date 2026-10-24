@@ -246,8 +246,9 @@ describe('Home', () => {
       const fetchMock = vi.fn((url: string) => {
         const ok = (body: unknown) => Promise.resolve({ ok: true, json: () => Promise.resolve(body) })
         const fail = () => Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) })
-        if (/\/tasks(\/view\/today)?(\?|$)|\/routines\/day\//.test(url)) {
+        if (/\/tasks(\/view\/today)?(\?|$)|\/routines\/day\/|\/task-settings\/me/.test(url)) {
           if (failing.includes('tasks')) return fail()
+          if (url.includes('/task-settings/me')) return ok({ dayMoments: {} })
           if (url.includes('/routines/day/')) return ok({ date: 'd', moments: [] })
           if (url.includes('completedAt%5Bafter')) return ok({ member: [] })
 

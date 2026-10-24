@@ -74,6 +74,8 @@ export interface TasksReads {
   /** Ticked today, latest first; empty for tomorrow. */
   done: ViewTask[]
   routines: RoutinesDay
+  /** Today only: the user's day moments (`anchor` → `HH:MM`), from the task settings. */
+  dayMoments?: Partial<Record<string, string>>
 }
 
 const idOf = (iri: string | null | undefined): string | null => (iri ? (iri.split('/').pop() ?? null) : null)
@@ -98,12 +100,25 @@ function byUrgency(a: ViewTask, b: ViewTask): number {
   )
 }
 
-/** The routines of the current moment — the last whose hour has passed, the first before the day starts. */
-function currentMoment(moments: DayMoment[], now: string): DayMoment[] {
-  const passed = moments.filter((moment) => moment.time <= now).length
-  const current = moments[Math.max(passed - 1, 0)]
+/** The latest day moment already started, the first one before the day's first; null without any moment. */
+export function currentAnchor(dayMoments: Partial<Record<string, string>> | undefined, now: string): string | null {
+  const moments = Object.entries(dayMoments ?? {})
+    .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+    .sort((a, b) => compare(a[1], b[1]))
 
-  return current ? [current] : []
+  let current = moments[0]?.[0] ?? null
+  for (const [anchor, time] of moments) {
+    if (time <= now) current = anchor
+  }
+
+  return current
+}
+
+/** The routine groups of the current moment only (a group anchored `time` therefore never shows today). */
+function currentMoment(moments: DayMoment[], dayMoments: TasksReads['dayMoments'], now: string): DayMoment[] {
+  const anchor = currentAnchor(dayMoments, now)
+
+  return anchor === null ? [] : moments.filter((moment) => moment.anchor === anchor)
 }
 
 /** The state of the card for `day` from the reads, `now` being `HH:MM` here. */
@@ -112,7 +127,7 @@ export function composeTasksState(day: 'today' | 'tomorrow', reads: TasksReads, 
   const open = today ? reads.open : [...reads.open].sort(byUrgency)
   const doneRows = today ? reads.done.slice(0, SLOTS) : []
   const openRows = open.slice(0, SLOTS - doneRows.length)
-  const moments = today ? currentMoment(reads.routines.moments, now) : reads.routines.moments
+  const moments = today ? currentMoment(reads.routines.moments, reads.dayMoments, now) : reads.routines.moments
 
   return {
     module: 'tasks',

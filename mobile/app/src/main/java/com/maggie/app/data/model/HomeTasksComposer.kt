@@ -10,8 +10,11 @@ object HomeTasksComposer {
     /** The rows of the card, done ones included. */
     const val SLOTS = 5
 
-    /** Today: the open tasks as the today view orders them, the last tasks done today, the routines of the current moment. */
-    fun today(open: List<Task>, done: List<Task>, routines: RoutineDayView, now: LocalTime): HomeTasks {
+    /**
+     * Today: the open tasks as the today view orders them, the last tasks done today, the routines of the current moment
+     * of the day, which the user's [dayMoments] (settings: anchor → `HH:MM`) say.
+     */
+    fun today(open: List<Task>, done: List<Task>, routines: RoutineDayView, dayMoments: Map<String, String>, now: LocalTime): HomeTasks {
         val doneRows = done.take(SLOTS)
         val openRows = open.take(SLOTS - doneRows.size)
         return HomeTasks(
@@ -22,7 +25,7 @@ object HomeTasksComposer {
             total = doneRows.size + openRows.size,
             more = open.size - openRows.size,
             overdue = open.count { (it.overdueDays ?: 0) > 0 },
-            routines = currentMoment(routines, now).map { it.toRow() },
+            routines = currentMoment(routines, dayMoments, now).map { it.toRow() },
         )
     }
 
@@ -42,12 +45,21 @@ object HomeTasksComposer {
         )
     }
 
-    /** The routines of the last moment whose hour has passed at [now], else of the first moment. */
-    internal fun currentMoment(day: RoutineDayView, now: LocalTime): List<DayRoutine> {
-        val timed = day.moments.mapNotNull { moment -> moment.timeOfDay?.let { it to moment } }
-        if (timed.isEmpty()) return emptyList()
-        val current = timed.map { it.first }.filter { it <= now }.maxOrNull() ?: timed.minOf { it.first }
-        return timed.filter { it.first == current }.flatMap { it.second.routines }
+    /**
+     * The routines of the groups anchored at the current moment: among all the user's [dayMoments] (not only those with a
+     * routine due), the last one whose `HH:MM` has passed at [now], else the first. A group anchored `time` never matches;
+     * no moment configured, no routine.
+     */
+    internal fun currentMoment(day: RoutineDayView, dayMoments: Map<String, String>, now: LocalTime): List<DayRoutine> {
+        val anchor = currentAnchor(dayMoments, now) ?: return emptyList()
+        return day.moments.filter { it.anchor == anchor }.flatMap { it.routines }
+    }
+
+    /** `HH:MM` strings compare like the times they are; a stable sort keeps the settings' order for equal hours. */
+    internal fun currentAnchor(dayMoments: Map<String, String>, now: LocalTime): String? {
+        val sorted = dayMoments.entries.sortedBy { it.value }
+        val nowText = "%02d:%02d".format(now.hour, now.minute)
+        return (sorted.lastOrNull { it.value <= nowText } ?: sorted.firstOrNull())?.key
     }
 
     private fun Task.toRow(done: Boolean) = HomeTask(

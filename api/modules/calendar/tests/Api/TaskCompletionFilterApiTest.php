@@ -102,6 +102,14 @@ class TaskCompletionFilterApiTest extends WebTestCase
             ['Done this morning', 'Done yesterday'],
             $this->titles(['completedAt' => ['before' => '2026-10-24T08:00:00+02:00']]),
         );
+        self::assertSame(
+            ['Done this evening'],
+            $this->titles(['completedAt' => ['after' => '2026-10-24T08:00:01+02:00', 'strictly_before' => '2026-10-24T21:00:01+02:00']]),
+        );
+        self::assertSame(
+            ['Done this morning'],
+            $this->titles(['completedAt' => ['after' => '2026-10-24T08:00:00+02:00', 'strictly_before' => '2026-10-24T21:00:00+02:00']]),
+        );
     }
 
     public function testItComposesWithTheExistsFilter(): void

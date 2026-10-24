@@ -73,7 +73,7 @@ export function fetchCompletedBetween(after: string, before: string, limit: numb
   return fetchMembers(
     new URLSearchParams({
       'completedAt[after]': after,
-      'completedAt[before]': before,
+      'completedAt[strictly_before]': before,
       'order[completedAt]': 'desc',
       itemsPerPage: String(limit),
     }),

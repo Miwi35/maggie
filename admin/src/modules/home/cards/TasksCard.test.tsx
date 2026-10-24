@@ -24,6 +24,8 @@ interface Reads {
   open: ViewTask[]
   done: ViewTask[]
   moments: DayMoment[]
+  /** The task settings' day moments; `wake` is always started, the others never are, so `wake` is current whatever the hour. */
+  dayMoments?: Record<string, string>
 }
 
 const wake: DayMoment = {
@@ -43,6 +45,7 @@ const base: Reads = {
   ],
   done: [task('T4', 'Payer la cantine')],
   moments: [wake],
+  dayMoments: { wake: '00:00', afterBreakfast: '23:59', afterLunch: '23:59', afterDinner: '23:59' },
 }
 
 const json = (body: unknown, status = 200) => ({ ok: status < 400, status, json: () => Promise.resolve(body) })
@@ -58,6 +61,7 @@ const stubApi = (reads: Reads | (() => Reads), writes: (url: string, init: Reque
       if (method !== 'GET') return writes(url, init)
       if (status() !== 200) return json({ detail: 'SQLSTATE secret' }, status())
       const now = typeof reads === 'function' ? reads() : reads
+      if (url.includes('/task-settings/me')) return json({ dayMoments: now.dayMoments ?? base.dayMoments })
       if (url.includes('/routines/day/')) return json({ date: 'd', moments: now.moments })
       if (decodeURIComponent(url).includes('completedAt[')) return json({ member: now.done })
 
@@ -116,12 +120,24 @@ describe('TasksCard', () => {
     await screen.findByTestId('home-tasks-ring')
 
     expect(calls.some((c) => c.url.includes('/home/'))).toBe(false)
+    expect(calls.some((c) => c.url.includes('/api/home/tasks'))).toBe(false)
+    expect(reads(calls, '/api/task-settings/me')).toHaveLength(1)
     expect(reads(calls, '/tasks/view/today')).toHaveLength(1)
     expect(reads(calls, '/routines/day/')).toHaveLength(1)
     const done = new URL(reads(calls, 'completedAt%5B')[0].url)
     expect(done.searchParams.get('completedAt[after]')).toMatch(/^\d{4}-\d\d-\d\dT00:00:00[+-]\d\d:\d\d$/)
+    expect(done.searchParams.get('completedAt[strictly_before]')).toMatch(/^\d{4}-\d\d-\d\dT00:00:00[+-]\d\d:\d\d$/)
+    expect(done.searchParams.has('completedAt[before]')).toBe(false)
     expect(done.searchParams.get('order[completedAt]')).toBe('desc')
     expect(done.searchParams.get('itemsPerPage')).toBe('5')
+  })
+
+  test('shows no routine today when the current day moment has none due', async () => {
+    stubApi({ ...base, dayMoments: { wake: '00:00', afterBreakfast: '00:01', afterLunch: '23:59', afterDinner: '23:59' } })
+    renderCard()
+
+    await screen.findByTestId('home-tasks-ring')
+    expect(screen.queryByRole('region', { name: 'Routines' })).not.toBeInTheDocument()
   })
 
   test('indents a subtask under its task', async () => {
@@ -286,6 +302,7 @@ describe('TasksCard', () => {
     expect(screen.queryByTestId('home-tasks-ring')).not.toBeInTheDocument()
     expect(reads(calls, '/tasks/view/today')).toHaveLength(0)
     expect(reads(calls, 'completedAt%5B')).toHaveLength(0)
+    expect(reads(calls, '/task-settings/me')).toHaveLength(0)
     const tomorrow = addDays(localDay(new Date()), 1)
     const due = new URL(reads(calls, 'dueDate')[0].url)
     expect(due.searchParams.get('exists[completedAt]')).toBe('false')

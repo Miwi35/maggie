@@ -1054,12 +1054,12 @@ class MaggieApiService(
         }.orRefusal().body<ApiCollection<Task>>().member
     }
 
-    /** The [limit] last tasks done between [after] and [before] (ISO-8601 with offset), the latest first; 404 when the module is absent. */
+    /** The [limit] last tasks done from [after] (included) to [before] (excluded) (ISO-8601 with offset), the latest first; 404 when the module is absent. */
     suspend fun getTasksCompletedBetween(after: String, before: String, limit: Int): List<Task> {
         return client.get("$baseUrl/api/tasks") {
             accept(ContentType("application", "ld+json"))
             url.parameters.append("completedAt[after]", after)
-            url.parameters.append("completedAt[before]", before)
+            url.parameters.append("completedAt[strictly_before]", before)
             url.parameters.append("order[completedAt]", "desc")
             url.parameters.append("itemsPerPage", limit.toString())
         }.orRefusal().body<ApiCollection<Task>>().member

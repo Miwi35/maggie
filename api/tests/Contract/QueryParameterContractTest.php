@@ -81,7 +81,7 @@ final class QueryParameterContractTest extends WebTestCase
             'dueDate[after]' => 'admin CalendarView',
             'dueDate[before]' => 'admin CalendarView and Dashboard, mobile getOpenTasks',
             'completedAt[after]' => 'admin and mobile Accueil, the Tâches card (tasks done today, MAG-588)',
-            'completedAt[before]' => 'admin and mobile Accueil, the Tâches card (tasks done today, MAG-588)',
+            'completedAt[strictly_before]' => 'admin and mobile Accueil, the Tâches card (tasks done today, MAG-588)',
             'order[dueDate]' => 'admin CalendarView and Dashboard',
             'order[criticality]' => 'admin Dashboard',
             'order[completedAt]' => 'admin and mobile Accueil, the Tâches card (the last tasks done today, MAG-588)',

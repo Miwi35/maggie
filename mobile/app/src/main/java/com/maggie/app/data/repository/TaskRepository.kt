@@ -94,7 +94,7 @@ class TaskRepository(
         return apiService.getTodayTasks()
     }
 
-    /** The [limit] last tasks done between [after] and [before] (ISO-8601 with offset), the latest first. Not cached. */
+    /** The [limit] last tasks done from [after] (included) to [before] (excluded), ISO-8601 with offset, the latest first. Not cached. */
     suspend fun getCompletedBetween(after: String, before: String, limit: Int): List<Task> =
         apiService.getTasksCompletedBetween(after, before, limit)
 

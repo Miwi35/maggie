@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { composeTasksState, localMidnightIso } from './tasksCardState'
-import type { DayMoment } from '../../calendar/routinesApi'
+import type { Anchor, DayMoment } from '../../calendar/routinesApi'
 import type { ViewTask } from '../../calendar/taskViews'
 
 const task = (id: string, extra: Partial<ViewTask> = {}) =>
@@ -8,20 +8,22 @@ const task = (id: string, extra: Partial<ViewTask> = {}) =>
 
 const tasks = (n: number, prefix = 'O') => Array.from({ length: n }, (_, i) => task(`${prefix}${i}`))
 
-const moment = (time: string, ...titles: string[]): DayMoment => ({
-  anchor: 'time',
+const moment = (anchor: Anchor, time: string, ...titles: string[]): DayMoment => ({
+  anchor,
   time,
   routines: titles.map((title) => ({
     id: `R-${title}`,
     title,
-    anchor: 'time',
-    anchorTime: time,
+    anchor,
+    anchorTime: null,
     time,
     remind: false,
     recurrence: { kind: 'daily' },
     checked: title === 'Cochée',
   })),
 })
+
+const dayMoments = { wake: '07:00', afterBreakfast: '08:00', afterLunch: '12:30', afterDinner: '21:00' }
 
 const none = { date: 'd', moments: [] }
 
@@ -70,8 +72,13 @@ describe('composeTasksState — today', () => {
   })
 
   describe('routines', () => {
-    const day = { date: 'd', moments: [moment('07:00', 'Réveil'), moment('12:30', 'Midi', 'Cochée'), moment('21:00', 'Soir')] }
-    const titles = (now: string) => composeTasksState('today', { open: [], done: [], routines: day }, now).routines.map((r) => r.title)
+    const day = {
+      date: 'd',
+      moments: [moment('wake', '07:00', 'Réveil'), moment('afterLunch', '12:30', 'Midi', 'Cochée'), moment('afterDinner', '21:00', 'Soir'), moment('time', '13:00', 'Horaire')],
+    }
+    const titlesWith = (moments: Record<string, string> | undefined, now: string, routines = day) =>
+      composeTasksState('today', { open: [], done: [], routines, dayMoments: moments }, now).routines.map((r) => r.title)
+    const titles = (now: string) => titlesWith(dayMoments, now)
 
     test('shows the moment whose hour has passed last', () => {
       expect(titles('13:00')).toEqual(['Midi', 'Cochée'])
@@ -83,14 +90,36 @@ describe('composeTasksState — today', () => {
       expect(titles('05:00')).toEqual(['Réveil'])
     })
 
-    test('maps a routine to a row', () => {
-      const state = composeTasksState('today', { open: [], done: [], routines: day }, '13:00')
+    test('shows nothing when the current moment, among all the moments, has no routine due', () => {
+      const wakeOnly = { date: 'd', moments: [moment('wake', '07:00', 'Réveil')] }
 
-      expect(state.routines[1]).toEqual({ id: 'R-Cochée', title: 'Cochée', anchor: 'time', time: '12:30', checked: true })
+      expect(titlesWith(dayMoments, '10:00', wakeOnly)).toEqual([])
+      expect(titlesWith(dayMoments, '07:30', wakeOnly)).toEqual(['Réveil'])
+    })
+
+    test('never shows a group anchored to an hour', () => {
+      const timed = { date: 'd', moments: [moment('time', '13:00', 'Horaire')] }
+
+      expect(titlesWith(dayMoments, '13:30', timed)).toEqual([])
+    })
+
+    test('orders the moments by hour, whatever the order they come in', () => {
+      expect(titlesWith({ afterDinner: '21:00', wake: '07:00', afterLunch: '12:30' }, '15:00')).toEqual(['Midi', 'Cochée'])
+    })
+
+    test('has none without day moments', () => {
+      expect(titlesWith(undefined, '13:00')).toEqual([])
+      expect(titlesWith({}, '13:00')).toEqual([])
+    })
+
+    test('maps a routine to a row', () => {
+      const state = composeTasksState('today', { open: [], done: [], routines: day, dayMoments }, '13:00')
+
+      expect(state.routines[1]).toEqual({ id: 'R-Cochée', title: 'Cochée', anchor: 'afterLunch', time: '12:30', checked: true })
     })
 
     test('has none without a moment', () => {
-      expect(composeTasksState('today', { open: [], done: [], routines: none }, '13:00').routines).toEqual([])
+      expect(composeTasksState('today', { open: [], done: [], routines: none, dayMoments }, '13:00').routines).toEqual([])
     })
   })
 })
@@ -131,9 +160,9 @@ describe('composeTasksState — tomorrow', () => {
   })
 
   test('lists the routines of every moment', () => {
-    const routines = { date: 'd', moments: [moment('07:00', 'A'), moment('21:00', 'B', 'C')] }
+    const routines = { date: 'd', moments: [moment('wake', '07:00', 'A'), moment('time', '21:00', 'B', 'C')] }
 
-    expect(composeTasksState('tomorrow', { open: [], done: [], routines }, '23:00').routines.map((r) => r.title)).toEqual(['A', 'B', 'C'])
+    expect(composeTasksState('tomorrow', { open: [], done: [], routines, dayMoments }, '23:00').routines.map((r) => r.title)).toEqual(['A', 'B', 'C'])
   })
 })
 

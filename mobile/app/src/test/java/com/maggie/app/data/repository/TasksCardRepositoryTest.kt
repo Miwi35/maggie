@@ -6,11 +6,14 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.local.dao.TaskDao
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.AlertRule
 import com.maggie.app.data.model.DayRoutine
 import com.maggie.app.data.model.HomeDay
 import com.maggie.app.data.model.RoutineDayView
 import com.maggie.app.data.model.RoutineMoment
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.TaskSettings
+import com.maggie.app.data.model.TaskSettingsValues
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -45,6 +48,7 @@ class TasksCardRepositoryTest {
 
     private val today = LocalDate.of(2026, 10, 23)
     private val noon = LocalTime.NOON
+    private val earlyMorning = LocalTime.of(7, 45)
 
     private fun task(id: String, overdueDays: Int? = null) = Task(id = id, title = "Tâche $id", overdueDays = overdueDays)
 
@@ -53,18 +57,54 @@ class TasksCardRepositoryTest {
         moments = listOf(RoutineMoment("wake", "07:30", listOf(DayRoutine("r1", "Eau", "wake", null, "07:30")))),
     )
 
+    private val dayMoments = mapOf("wake" to "07:30", "afterBreakfast" to "08:30", "afterLunch" to "12:30", "afterDinner" to "20:00")
+
+    private fun settings(moments: Map<String, String> = dayMoments): TaskSettings {
+        val values = TaskSettingsValues(
+            orderLevels = mapOf("timePressure" to 2),
+            alertSchedule = mapOf("normal" to AlertRule(daysBefore = emptyList(), dueDay = true, overdueEveryDays = 2)),
+            morningTime = "08:00",
+            eveningTime = "21:00",
+            rewardAnimation = true,
+            rewardVibration = true,
+            rewardSound = true,
+            tone = "doux",
+            dayMoments = moments,
+            reminderDailyCap = 6,
+            quietStart = "21:00",
+            quietEnd = "08:00",
+        )
+        return TaskSettings(
+            id = "ts1",
+            orderLevels = values.orderLevels,
+            alertSchedule = values.alertSchedule,
+            morningTime = values.morningTime,
+            eveningTime = values.eveningTime,
+            rewardAnimation = true,
+            rewardVibration = true,
+            rewardSound = true,
+            tone = values.tone,
+            dayMoments = moments,
+            reminderDailyCap = values.reminderDailyCap,
+            quietStart = values.quietStart,
+            quietEnd = values.quietEnd,
+            defaults = values,
+        )
+    }
+
     private fun answers() {
         coEvery { api.getTodayTasks() } returns listOf(task("o1", overdueDays = 1), task("o2"))
         coEvery { api.getTasksCompletedBetween(any(), any(), any()) } returns listOf(task("d1"))
         coEvery { api.getOpenTasksDueOn(any(), any()) } returns listOf(task("t1"))
         coEvery { api.getRoutinesDay(any()) } returns routines
+        coEvery { api.getTaskSettings() } returns settings()
     }
 
     @Test
     fun `today is composed from the today view, the tasks done today and the routines of the day`() = runTest {
         answers()
 
-        val card = repository.read(HomeDay.TODAY, today, noon).getOrThrow()
+        val card = repository.read(HomeDay.TODAY, today, earlyMorning).getOrThrow()
 
         assertEquals(listOf("o1", "o2", "d1"), card.tasks.map { it.id })
         assertEquals(1, card.done)
@@ -74,7 +114,7 @@ class TasksCardRepositoryTest {
     }
 
     @Test
-    fun `the tasks done today are asked between midnight and the next one, in the user's zone, five at most`() = runTest {
+    fun `the tasks done today are asked from midnight to the next one excluded, in the user's zone, five at most`() = runTest {
         answers()
 
         repository.read(HomeDay.TODAY, today, noon).getOrThrow()
@@ -82,6 +122,39 @@ class TasksCardRepositoryTest {
         coVerify(exactly = 1) {
             api.getTasksCompletedBetween("2026-10-23T00:00:00+02:00", "2026-10-24T00:00:00+02:00", 5)
         }
+    }
+
+    @Test
+    fun `today keeps only the routines of the current day moment of the settings, not of the moments with a routine due`() = runTest {
+        answers()
+
+        // 12:00: the current moment is afterBreakfast (08:30), the only routine due is anchored on wake.
+        assertTrue(repository.read(HomeDay.TODAY, today, noon).getOrThrow().routines.isEmpty())
+        coVerify(exactly = 1) { api.getTaskSettings() }
+    }
+
+    @Test
+    fun `today without day moments has no routine`() = runTest {
+        answers()
+        coEvery { api.getTaskSettings() } returns settings(emptyMap())
+
+        assertTrue(repository.read(HomeDay.TODAY, today, earlyMorning).getOrThrow().routines.isEmpty())
+    }
+
+    @Test
+    fun `the settings answered 404 give an empty card`() = runTest {
+        answers()
+        coEvery { api.getTaskSettings() } throws ApiRefusalException(404, "Not found")
+
+        assertTrue(repository.read(HomeDay.TODAY, today, noon).getOrThrow().isEmpty)
+    }
+
+    @Test
+    fun `the settings failing is a failure`() = runTest {
+        answers()
+        coEvery { api.getTaskSettings() } throws RuntimeException("offline")
+
+        assertTrue(repository.read(HomeDay.TODAY, today, noon).isFailure)
     }
 
     @Test
@@ -96,6 +169,7 @@ class TasksCardRepositoryTest {
         coVerify(exactly = 1) { api.getRoutinesDay("2026-10-24") }
         coVerify(exactly = 0) { api.getTodayTasks() }
         coVerify(exactly = 0) { api.getTasksCompletedBetween(any(), any(), any()) }
+        coVerify(exactly = 0) { api.getTaskSettings() }
     }
 
     @Test
@@ -109,11 +183,12 @@ class TasksCardRepositoryTest {
     }
 
     @Test
-    fun `the three reads of today start together`() = runTest {
+    fun `the four reads of today start together`() = runTest {
         val gate = CompletableDeferred<Unit>()
         coEvery { api.getTodayTasks() } coAnswers { gate.await(); emptyList() }
         coEvery { api.getTasksCompletedBetween(any(), any(), any()) } coAnswers { gate.await(); emptyList() }
         coEvery { api.getRoutinesDay(any()) } coAnswers { gate.await(); routines }
+        coEvery { api.getTaskSettings() } coAnswers { gate.await(); settings() }
 
         val read = launch { repository.read(HomeDay.TODAY, today, noon) }
         runCurrent()
@@ -121,6 +196,7 @@ class TasksCardRepositoryTest {
         coVerify(exactly = 1) { api.getTodayTasks() }
         coVerify(exactly = 1) { api.getTasksCompletedBetween(any(), any(), any()) }
         coVerify(exactly = 1) { api.getRoutinesDay(any()) }
+        coVerify(exactly = 1) { api.getTaskSettings() }
         gate.complete(Unit)
         read.join()
     }

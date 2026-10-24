@@ -3,6 +3,8 @@ import { addDays, localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { fetchRoutinesDay, ROUTINE_TOPICS } from '../calendar/routinesApi'
 import { ApiStatusError, fetchCompletedBetween, fetchOpenDueOn, fetchTaskView } from '../calendar/taskViews'
+import { API_PATH as TASK_SETTINGS_PATH, apiFetch } from '../settings/taskSettingsApi'
+import type { TaskSettingsResponse } from '../settings/taskSettingsApi'
 import { composeTasksState, emptyTasksState, localMidnightIso } from './cards/tasksCardState'
 import type { TasksHomeState } from './cards/tasksCardState'
 import type { HomeDay } from './homeDay'
@@ -23,19 +25,29 @@ const orAbsent = <T>(read: Promise<T>): Promise<T | typeof ABSENT> =>
     throw e
   })
 
+/** The user's day moments (`GET /api/task-settings/me`), which decide the routines the card shows today. */
+async function fetchDayMoments(): Promise<Partial<Record<string, string>>> {
+  const response = await apiFetch(TASK_SETTINGS_PATH)
+  if (!response.ok) throw new ApiStatusError(`Réglages des tâches : ${response.status}`, response.status)
+  const body = (await response.json()) as Partial<TaskSettingsResponse> | null
+
+  return body?.dayMoments ?? {}
+}
+
 async function read(day: HomeDay): Promise<TasksHomeState> {
   const now = new Date()
   const today = localDay(now)
   const tomorrow = addDays(today, 1)
 
-  const [open, done, routines] = await Promise.all([
+  const [open, done, routines, dayMoments] = await Promise.all([
     orAbsent(day === 'today' ? fetchTaskView('today').then((view) => view.member) : fetchOpenDueOn(tomorrow)),
     orAbsent(day === 'today' ? fetchCompletedBetween(localMidnightIso(today), localMidnightIso(tomorrow), DONE_LINES) : Promise.resolve([])),
     orAbsent(fetchRoutinesDay(day === 'today' ? today : tomorrow)),
+    orAbsent(day === 'today' ? fetchDayMoments() : Promise.resolve(undefined)),
   ])
-  if (open === ABSENT || done === ABSENT || routines === ABSENT) return emptyTasksState(day)
+  if (open === ABSENT || done === ABSENT || routines === ABSENT || dayMoments === ABSENT) return emptyTasksState(day)
 
-  return composeTasksState(day, { open, done, routines }, hhmm(now))
+  return composeTasksState(day, { open, done, routines, dayMoments }, hhmm(now))
 }
 
 /**

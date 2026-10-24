@@ -51,7 +51,8 @@ class TasksCardRepository(
                             )
                         }
                         val routines = async { routineRepository.getDay(today).getOrThrow() }
-                        HomeTasksComposer.today(open.await(), done.await(), routines.await(), now)
+                        val settings = async { taskRepository.getTaskSettings().getOrThrow() }
+                        HomeTasksComposer.today(open.await(), done.await(), routines.await(), settings.await().dayMoments, now)
                     }
                     HomeDay.TOMORROW -> {
                         val tomorrow = today.plusDays(1)
