@@ -1,4 +1,4 @@
-import { apiUrl, headers } from './taskViews'
+import { ApiStatusError, apiUrl, headers } from './taskViews'
 
 /** The moment a routine hangs on (MAG-511): one of the day's, or an hour of its own. */
 export const ANCHORS = ['wake', 'afterBreakfast', 'afterLunch', 'afterDinner', 'time'] as const
@@ -52,7 +52,7 @@ export interface RoutineFields {
 const routineError = async (response: Response): Promise<Error> => {
   const body = (await response.json().catch(() => ({}))) as { error?: string }
 
-  return new Error(body.error ?? `Routines : ${response.status}`)
+  return new ApiStatusError(body.error ?? `Routines : ${response.status}`, response.status)
 }
 
 const JSON_HEADERS = { Accept: 'application/json', 'Content-Type': 'application/json' }

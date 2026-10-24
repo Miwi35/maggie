@@ -39,12 +39,12 @@ class HomeCardRegistryTest extends TestCase
         self::assertNull($registry->get('tasks'));
     }
 
-    public function testProvidersFollowThePageOrderWhateverTheRegistrationOrder(): void
+    public function testProvidersKeepTheirRegistrationOrder(): void
     {
         $registry = new HomeCardRegistry(array_map(self::provider(...), ['leisure', 'extra', 'agenda', 'tasks', 'grocery']));
 
         self::assertSame(
-            ['tasks', 'agenda', 'grocery', 'leisure', 'extra'],
+            ['leisure', 'extra', 'agenda', 'tasks', 'grocery'],
             array_map(static fn (HomeCardProviderInterface $p): string => $p->module(), $registry->all()),
         );
     }

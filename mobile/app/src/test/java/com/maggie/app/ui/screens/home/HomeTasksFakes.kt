@@ -5,41 +5,40 @@ import com.maggie.app.data.model.HomeRoutine
 import com.maggie.app.data.model.HomeSaga
 import com.maggie.app.data.model.HomeTask
 import com.maggie.app.data.model.HomeTasks
-import com.maggie.app.data.repository.HomeCardRepository
 import com.maggie.app.data.repository.RoutineRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.TasksCardRepository
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
 import java.time.LocalDate
+import java.time.LocalTime
 
 /**
- * The « Tâches » card over faked repositories (MAG-561): the real [TasksCardViewModel], a card the API would
- * answer for each day, and the push of `home/tasks` as a flow the test emits on.
+ * The « Tâches » card over faked repositories (MAG-561): the real [TasksCardViewModel], a card the repository
+ * would compose for each day, and the pushes on tasks and routines as a flow the test emits on.
  */
 class HomeTasksFakes(
     val today: LocalDate = LocalDate.of(2026, 10, 23),
+    val now: LocalTime = LocalTime.of(10, 0),
 ) {
-    val homeCards = mockk<HomeCardRepository>()
+    val cards = mockk<TasksCardRepository>()
     val taskRepository = mockk<TaskRepository>()
     val routineRepository = mockk<RoutineRepository>()
     val pushes = MutableSharedFlow<Unit>()
 
     init {
-        every { homeCards.changes(HomeModules.TASKS) } returns pushes
+        every { cards.changes() } returns pushes
         answers(HomeDay.TODAY, TODAY_CARD)
         answers(HomeDay.TOMORROW, TOMORROW_CARD)
     }
 
     fun answers(day: HomeDay, card: HomeTasks) {
-        coEvery { homeCards.state(HomeModules.TASKS, day) } returns Result.success(card.asJson())
+        coEvery { cards.read(day, today, now) } returns Result.success(card)
     }
 
-    fun viewModel() = TasksCardViewModel(homeCards, taskRepository, routineRepository, today = { today })
+    fun viewModel() = TasksCardViewModel(cards, taskRepository, routineRepository, today = { today }, now = { now })
 
     companion object {
         /** 3 sur 5, one of them late; a subtask, a saga, two routines, one more task not listed. */
@@ -72,9 +71,5 @@ class HomeTasksFakes(
         )
 
         val EMPTY_CARD = HomeTasks()
-
-        private val json = Json { encodeDefaults = true }
-
-        fun HomeTasks.asJson(): JsonObject = json.encodeToJsonElement(HomeTasks.serializer(), this).jsonObject
     }
 }

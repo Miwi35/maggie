@@ -15,7 +15,7 @@ import { HomeCardError } from '../HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../homeCardStatus'
 import { moduleColor } from '../moduleColor'
 import type { HomeDay } from '../homeDay'
-import { useHomeCardState } from '../useHomeCardState'
+import { useTasksCardState } from '../useTasksCardState'
 import { withRoutineChecked, withTaskDone } from './tasksCardState'
 import type { HomeRoutine, HomeTask, TasksHomeState } from './tasksCardState'
 
@@ -31,7 +31,7 @@ const WRITE_FAILED = "Impossible d'enregistrer : rien n'a été modifié. Réess
 
 /** The « Tâches » card of the Accueil (MAG-561): the day's tasks and the routines of the moment, ticked in place. */
 export const TasksCard = ({ day }: { day: HomeDay }) => {
-  const { state, loading, error, retry } = useHomeCardState<TasksHomeState>('tasks', day)
+  const { state, loading, error, retry } = useTasksCardState(day)
   // What the card shows between a tick and the API's answer: the ticks sent on top of the state they were made on.
   // A new read is a new state, which drops them — the API's word wins.
   const [optimistic, setOptimistic] = useState<{ base: TasksHomeState | null; ops: Op[] }>({ base: null, ops: [] })

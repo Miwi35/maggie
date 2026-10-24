@@ -1051,7 +1051,29 @@ class MaggieApiService(
     suspend fun getTodayTasks(): List<Task> {
         return client.get("$baseUrl/api/tasks/view/today") {
             accept(ContentType("application", "ld+json"))
-        }.body<ApiCollection<Task>>().member
+        }.orRefusal().body<ApiCollection<Task>>().member
+    }
+
+    /** The [limit] last tasks done between [after] and [before] (ISO-8601 with offset), the latest first; 404 when the module is absent. */
+    suspend fun getTasksCompletedBetween(after: String, before: String, limit: Int): List<Task> {
+        return client.get("$baseUrl/api/tasks") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("completedAt[after]", after)
+            url.parameters.append("completedAt[before]", before)
+            url.parameters.append("order[completedAt]", "desc")
+            url.parameters.append("itemsPerPage", limit.toString())
+        }.orRefusal().body<ApiCollection<Task>>().member
+    }
+
+    /** The open tasks due on [date] (`YYYY-MM-DD`), at most [limit], in no particular order; 404 when the module is absent. */
+    suspend fun getOpenTasksDueOn(date: String, limit: Int): List<Task> {
+        return client.get("$baseUrl/api/tasks") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("exists[completedAt]", "false")
+            url.parameters.append("dueDate[after]", date)
+            url.parameters.append("dueDate[before]", date)
+            url.parameters.append("itemsPerPage", limit.toString())
+        }.orRefusal().body<ApiCollection<Task>>().member
     }
 
     /** One read of a task view (MAG-408); only « done » is paged, from [page] 1. */

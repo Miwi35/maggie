@@ -84,12 +84,12 @@ class HomeCardScreenTest {
     fun `every module has a colour of its own, the accent for an unknown one`() {
         val colors = mutableMapOf<String, Long>()
         compose.setContent {
-            (HomeModules.ORDER + "unknown").forEach { colors[it] = homeModuleColor(it).value.toLong() }
+            (HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD) + "unknown").forEach { colors[it] = homeModuleColor(it).value.toLong() }
         }
         compose.waitForIdle()
 
-        assertEquals(HomeModules.ORDER.size + 1, colors.size)
+        assertEquals(HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD).size + 1, colors.size)
         assertEquals(colors.getValue("tasks"), colors.getValue("unknown"))
-        assertEquals(HomeModules.ORDER.size, colors.values.toSet().size)
+        assertEquals(HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD).size, colors.values.toSet().size)
     }
 }

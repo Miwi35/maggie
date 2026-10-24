@@ -10599,6 +10599,54 @@
                         "explode": false
                     },
                     {
+                        "name": "completedAt[before]",
+                        "in": "query",
+                        "description": "A bound that is not a date is refused with a 400.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "completedAt[strictly_before]",
+                        "in": "query",
+                        "description": "A bound that is not a date is refused with a 400.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "completedAt[after]",
+                        "in": "query",
+                        "description": "A bound that is not a date is refused with a 400.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "completedAt[strictly_after]",
+                        "in": "query",
+                        "description": "A bound that is not a date is refused with a 400.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "exists[completedAt]",
                         "in": "query",
                         "description": "",
@@ -10729,6 +10777,23 @@
                     },
                     {
                         "name": "order[position]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[completedAt]",
                         "in": "query",
                         "description": "",
                         "required": false,

@@ -21,6 +21,7 @@ import com.maggie.app.data.model.HomeDay
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.DRAWER_DESTINATIONS
+import com.maggie.app.ui.layout.appLayoutFor
 import com.maggie.app.ui.navigation.Screen
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -37,13 +38,25 @@ class HomeScreenTest {
 
     /** A card that tells the Accueil its [status] and draws [text] only when it is not empty, as the real ones do. */
     private fun reporting(module: String, status: HomeCardStatus, text: String = "$module:card") =
-        HomeCardEntry(module, HomeZone.MAIN) {
+        HomeCardEntry(module) {
             ReportHomeCard(module, status)
             if (status != HomeCardStatus.EMPTY) Text(text)
         }
 
-    private fun card(module: String, zone: HomeZone = HomeZone.MAIN, order: Int = HomeModules.orderOf(module)) =
-        HomeCardEntry(module, zone, order) { day -> Text("$module:${day.apiValue}") }
+    private fun card(module: String) = HomeCardEntry(module) { day -> Text("$module:${day.apiValue}") }
+
+    private fun layoutOf(
+        phone: List<HomeCardSetting>,
+        tablet: List<HomeCardSetting> = phone,
+        launch: List<HomeCardSetting> = emptyList(),
+    ) = HomeLayoutFile(
+        mapOf(
+            HomeFormat.PHONE to mapOf(HomeSlot.LAUNCH to launch, HomeSlot.CARD to phone),
+            HomeFormat.TABLET to mapOf(HomeSlot.CARD to tablet),
+        ),
+    )
+
+    private fun settings(vararg modules: String) = modules.map { HomeCardSetting(it) }
 
     /**
      * The segment's own click action: under Robolectric a synthetic touch does not select a segmented
@@ -103,15 +116,19 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `the action cards come first, then the others in the spec's order`() {
+    fun `the launch cards come first, then the others in the layout's order, whatever the registry's`() {
         val registry = listOf(
             card(HomeModules.LEISURE),
             card(HomeModules.FINANCE),
             card(HomeModules.AGENDA),
             card(HomeModules.TASKS),
-            card(HomeModules.HEALTH, zone = HomeZone.ACTION),
+            card(HomeModules.HEALTH),
         )
-        compose.setContent { HomeScreen(viewModel = HomeViewModel(), registry = registry) }
+        val layout = layoutOf(
+            phone = settings(HomeModules.TASKS, HomeModules.AGENDA, HomeModules.FINANCE, HomeModules.LEISURE),
+            launch = settings(HomeModules.HEALTH),
+        )
+        compose.setContent { HomeScreen(viewModel = HomeViewModel(layout), registry = registry, format = HomeFormat.PHONE) }
 
         val tops = listOf("health:", "tasks:", "agenda:", "finance:", "leisure:").map { top(it) }
 
@@ -120,19 +137,64 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `the order of the modules is the spec's`() {
-        assertEquals(
-            listOf("tasks", "agenda", "grocery", "nutrition", "health", "finance", "leisure"),
-            HomeModules.ORDER,
+    fun `a disabled card is not drawn, and a key with no component is skipped`() {
+        val registry = listOf(card(HomeModules.TASKS), card(HomeModules.AGENDA), card(HomeModules.FINANCE))
+        val layout = layoutOf(
+            phone = listOf(
+                HomeCardSetting(HomeModules.TASKS),
+                HomeCardSetting(HomeModules.AGENDA, enabled = false),
+                HomeCardSetting(HomeModules.HEALTH),
+                HomeCardSetting(HomeModules.FINANCE),
+            ),
         )
-        assertTrue(HomeModules.orderOf("unknown") > HomeModules.orderOf(HomeModules.LEISURE))
+        compose.setContent { HomeScreen(viewModel = HomeViewModel(layout), registry = registry, format = HomeFormat.PHONE) }
+
+        compose.onNodeWithText("tasks:today").assertIsDisplayed()
+        compose.onNodeWithText("finance:today").assertIsDisplayed()
+        compose.onNodeWithText("agenda:today").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a card the layout does not name is not drawn even when it is registered`() {
+        val registry = listOf(card(HomeModules.TASKS), card(HomeModules.AGENDA))
+        compose.setContent {
+            HomeScreen(viewModel = HomeViewModel(layoutOf(phone = settings(HomeModules.TASKS))), registry = registry, format = HomeFormat.PHONE)
+        }
+
+        compose.onNodeWithText("tasks:today").assertIsDisplayed()
+        compose.onNodeWithText("agenda:today").assertDoesNotExist()
+    }
+
+    @Test
+    fun `each format is drawn from its own section`() {
+        val registry = listOf(card(HomeModules.TASKS), card(HomeModules.AGENDA))
+        val layout = layoutOf(
+            phone = settings(HomeModules.TASKS, HomeModules.AGENDA),
+            tablet = settings(HomeModules.AGENDA, HomeModules.TASKS),
+        )
+        var format by mutableStateOf(HomeFormat.PHONE)
+        compose.setContent { HomeScreen(viewModel = HomeViewModel(layout), registry = registry, format = format) }
+        assertTrue(top("tasks:") < top("agenda:"))
+
+        format = HomeFormat.TABLET
+        compose.waitForIdle()
+
+        assertTrue(top("agenda:") < top("tasks:"))
+    }
+
+    @Test
+    fun `the window picks the format - a phone width is the phone, a wider one the tablet`() {
+        assertEquals(HomeFormat.PHONE, HomeLayout.formatFor(appLayoutFor(411, 891)))
+        assertEquals(HomeFormat.PHONE, HomeLayout.formatFor(appLayoutFor(280, 653)))
+        assertEquals(HomeFormat.TABLET, HomeLayout.formatFor(appLayoutFor(674, 841)))
+        assertEquals(HomeFormat.TABLET, HomeLayout.formatFor(appLayoutFor(1280, 800)))
     }
 
     @Test
     fun `a card that draws nothing takes no place between the others`() {
         val withHole = listOf(
             card(HomeModules.TASKS),
-            HomeCardEntry(HomeModules.AGENDA, HomeZone.MAIN) { },
+            HomeCardEntry(HomeModules.AGENDA) { },
             card(HomeModules.FINANCE),
         )
         val withoutHole = listOf(card(HomeModules.TASKS), card(HomeModules.FINANCE))
@@ -147,11 +209,8 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `the Tâches card is the first of the registry, in the main zone`() {
-        val first = HomeCardRegistry.entries.minByOrNull { it.order }!!
-
-        assertEquals(HomeModules.TASKS, first.module)
-        assertEquals(HomeZone.MAIN, first.zone)
+    fun `the Tâches card is the first of the default layout, and registered once`() {
+        assertEquals(HomeModules.TASKS, HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD).first())
         assertEquals(1, HomeCardRegistry.entries.count { it.module == HomeModules.TASKS })
     }
 
@@ -159,7 +218,7 @@ class HomeScreenTest {
     fun `a card opens its module through the route the Accueil was given`() {
         val opened = mutableListOf<String>()
         val registry = listOf(
-            HomeCardEntry(HomeModules.TASKS, HomeZone.MAIN) {
+            HomeCardEntry(HomeModules.TASKS) {
                 val open = LocalHomeNavigation.current
                 Text("ouvrir", modifier = androidx.compose.ui.Modifier.clickable { open(Screen.Tasks.route) })
             },
@@ -226,12 +285,12 @@ class HomeScreenTest {
     @Test
     fun `a card empty today and full tomorrow shows up on Demain, and the other way round`() {
         val byDay = listOf(
-            HomeCardEntry(HomeModules.TASKS, HomeZone.MAIN) { day ->
+            HomeCardEntry(HomeModules.TASKS) { day ->
                 val status = if (day == HomeDay.TODAY) HomeCardStatus.EMPTY else HomeCardStatus.FILLED
                 ReportHomeCard(HomeModules.TASKS, status)
                 if (status == HomeCardStatus.FILLED) Text("tasks:card")
             },
-            HomeCardEntry(HomeModules.AGENDA, HomeZone.MAIN) { day ->
+            HomeCardEntry(HomeModules.AGENDA) { day ->
                 val status = if (day == HomeDay.TODAY) HomeCardStatus.FILLED else HomeCardStatus.EMPTY
                 ReportHomeCard(HomeModules.AGENDA, status)
                 if (status == HomeCardStatus.FILLED) Text("agenda:card")
