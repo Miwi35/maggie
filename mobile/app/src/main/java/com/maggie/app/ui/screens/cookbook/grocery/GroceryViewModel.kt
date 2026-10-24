@@ -192,14 +192,13 @@ class GroceryViewModel(
     private fun subscribeToGroceryUpdates(): Job {
         return viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
-            val topic = MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS)
             // The hub may not hold what the dropped stream missed: reread the list once it is back.
             launch {
-                mercureService.reconnections(topic)
+                mercureService.reconnections(MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS))
                     .catch { }
                     .collect { refresh(showSpinner = false) }
             }
-            mercureService.subscribe(topic)
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS))
                 .catch { /* SSE connection errors — MercureService handles auto-reconnect */ }
                 .collect { event ->
                     // Any change to the list can take a product out of the suggestions, or put it back; an
