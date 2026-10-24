@@ -1241,6 +1241,19 @@ object UiTags {
     const val PRODUCT_SEASON_EDIT = "product_season_edit"
 
     /**
+     * The product sheet of Courses › Produits (MAG-605): the sheet itself, its error line, « Enregistrer »,
+     * the grocery list's « ⋮ » menu that leads to it, and the four fields of the store cascade — « Magasin habituel » then its rayon, « À défaut » then its rayon.
+     */
+    const val PRODUCT_SHEET = "product_sheet"
+    const val GROCERY_MENU = "grocery_menu"
+    const val PRODUCT_SHEET_ERROR = "product_sheet_error"
+    const val PRODUCT_SHEET_SAVE = "product_sheet_save"
+    const val PRODUCT_SHEET_STORE = "product_sheet_store"
+    const val PRODUCT_SHEET_AISLE = "product_sheet_aisle"
+    const val PRODUCT_SHEET_FALLBACK_STORE = "product_sheet_fallback_store"
+    const val PRODUCT_SHEET_FALLBACK_AISLE = "product_sheet_fallback_aisle"
+
+    /**
      * The equipment and the steps of a recipe (MAG-492). On the sheet: the utensil chips and one step row
      * (`recipe_step`, `recipe_step_duration`, `recipe_step_waits`). On the edit sheet: « Ajouter une étape »,
      * a step's text, its « Ustensile » button, « Enregistrer », and the full-screen utensil search with its

@@ -1,0 +1,100 @@
+appId: com.maggie.app.e2e
+name: 20-product-sheet
+tags:
+  - grocery
+---
+# A product of the catalogue is edited from its own sheet (MAG-605): Courses › Produits, a touch on
+# the product opens a full-screen sheet; the owner chooses « Magasin habituel », then its rayon (the
+# aisles of that shop only), saves, and the list shows « Magasin · Rayon » under the product.
+#
+# The JVM tests (`ProductViewModelEditorTest`, `ProductEditorTest`, `ProductDetailScreenTest`) own the
+# cases — the patch, the cascade, the new aisle, the refused save; this is the one run against the
+# real API, which proves the PATCH is accepted and read back.
+#
+# Signed in as the neighbour, like `08`. The shop is the seed's « Épicerie du coin »; the product and
+# the aisle carry the ticket's number and are gone at the end.
+
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: aisles
+      STORE: Épicerie du coin
+      AISLES: Rayon MAG-605
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: product
+      LABEL: Pâtes sèches MAG-605
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/20-product-sheet.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: grocery
+- extendedWaitUntil:
+    visible:
+      id: "grocery"
+    timeout: 20000
+
+- tapOn:
+    id: "grocery_menu"
+- tapOn: "Produits"
+- extendedWaitUntil:
+    visible: "Pâtes sèches MAG-605"
+    timeout: 30000
+
+# The sheet, then the cascade: the shop, then its rayon.
+- tapOn: "Pâtes sèches MAG-605"
+- extendedWaitUntil:
+    visible:
+      id: "product_sheet"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "product_sheet_store"
+- tapOn:
+    id: "product_sheet_store"
+- tapOn: "Épicerie du coin"
+- scrollUntilVisible:
+    element:
+      id: "product_sheet_aisle"
+- tapOn:
+    id: "product_sheet_aisle"
+- tapOn: "Rayon MAG-605"
+- tapOn:
+    id: "product_sheet_save"
+
+- extendedWaitUntil:
+    visible: "Épicerie du coin · Rayon MAG-605"
+    timeout: 20000
+
+# What the phone saved is what the API holds.
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: expect-product
+      LABEL: Pâtes sèches MAG-605
+      STORE: Épicerie du coin
+      AISLE: Rayon MAG-605
+
+# Clean-up: the product, then the aisle — the seed is as it was.
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: drop-product
+      LABEL: Pâtes sèches MAG-605
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      ACTION: drop-aisles
+      STORE: Épicerie du coin
+      AISLES: Rayon MAG-605

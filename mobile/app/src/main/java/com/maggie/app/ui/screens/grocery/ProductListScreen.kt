@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.grocery
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.ProductCreateRequest
+import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
@@ -58,6 +60,7 @@ fun ProductListScreen(
     viewModel: ProductViewModel,
     recurringViewModel: RecurringGroceryViewModel,
     onBack: () -> Unit,
+    onSearchCiqual: suspend (String) -> List<CiqualFood> = { emptyList() },
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val recurringState by recurringViewModel.uiState.collectAsState()
@@ -110,11 +113,29 @@ fun ProductListScreen(
                             recurring = recurringState.forProduct(product.id)?.frequency,
                             onRecurringChange = { recurringViewModel.setFrequency(product.id, it) },
                             onSeasonMonthsChange = { viewModel.updateSeasonMonths(product.id, it) },
+                            onOpen = { viewModel.openProduct(product.id) },
+                            storeLine = storeAisleLabel(product.preferredStore, product, uiState.stores, uiState.aislesByStore),
+                            fallbackLine = storeAisleLabel(product.fallbackStore, product, uiState.stores, uiState.aislesByStore),
                         )
                     }
                 }
             }
         }
+    }
+
+    uiState.editor?.let { editor ->
+        ProductDetailScreen(
+            editor = editor,
+            stores = uiState.stores,
+            aislesByStore = uiState.aislesByStore,
+            onDraftChange = viewModel::editDraft,
+            onSelectStore = viewModel::selectStore,
+            onSelectAisle = viewModel::selectAisle,
+            onPickCiqual = viewModel::pickCiqual,
+            onSearchCiqual = onSearchCiqual,
+            onSave = viewModel::saveProduct,
+            onDismiss = viewModel::closeProduct,
+        )
     }
 
     if (showCreateDialog) {
@@ -171,6 +192,9 @@ internal fun ProductCard(
     recurring: RecurringFrequency? = null,
     onRecurringChange: ((RecurringFrequency?) -> Unit)? = null,
     onSeasonMonthsChange: ((List<Int>) -> Unit)? = null,
+    onOpen: (() -> Unit)? = null,
+    storeLine: String? = null,
+    fallbackLine: String? = null,
 ) {
     var editingSeason by remember { mutableStateOf(false) }
 
@@ -178,6 +202,7 @@ internal fun ProductCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier)
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -204,6 +229,20 @@ internal fun ProductCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     StockStateChip(product.stockState)
                     SeasonBadge(product.inSeason)
+                }
+                storeLine?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                fallbackLine?.let {
+                    Text(
+                        text = "À défaut : $it",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 product.packagingLabel()?.let {
                     Text(

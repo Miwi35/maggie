@@ -64,6 +64,7 @@ executionOrder:
     - finance-todo
     - 19-finance-contacts
     - 19-grocery-packagings
+    - 20-product-sheet
     - 20-finance-upcoming
     - 21-finance-peer-debts
     - 22-finance-review-activity

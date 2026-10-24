@@ -12,7 +12,7 @@
 //
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   ACTION  add | check | remove | expect | aisles | assign | drop-aisles |
-//           product | drop-product | meals | drop-meals | expect-line
+//           product | drop-product | meals | drop-meals | expect-line | expect-product
 //   LABEL   the line, as written on the list
 //   EMAIL   the account, default the shopper (e2e-other@maggie.local)
 //   STORE   add: the shop's name, an existing one — left out, no shop;
@@ -30,6 +30,9 @@
 //           come, a 500 g meal (tomorrow) and a 300 g meal (in three days) of it,
 //           each from a recipe of its own: the 800 g « pour les recettes » of the add
 //           sheet; `drop-meals` deletes the meals and their recipes (MAG-573)
+//   expect-product: LABEL is the product's name; waits until it carries STORE as its
+//           usual shop and, when AISLE is given, that aisle in it — what the product sheet
+//           saved, read back from the API (MAG-605)
 //   expect-line: the line's quantity and unit as stored (QUANTITY, UNIT) and,
 //           when given, the wanted quantity kept beside the packagings
 //           (DESIRED_QUANTITY, DESIRED_UNIT) and the single need
@@ -382,6 +385,26 @@ if (ACTION === 'add') {
     if (!response.ok) {
       fail('DELETE /api/ingredients/' + known.id + ' answered ' + response.status + ': ' + response.body)
     }
+  }
+} else if (ACTION === 'expect-product') {
+  const store = storeId()
+  for (;;) {
+    const product = productNamed(LABEL)
+    if (product) {
+      const stored = JSON.parse(http.get(base + '/api/products/' + product.id, {
+        headers: authorized({ Accept: 'application/ld+json' }),
+      }).body)
+      const aisleId = (stored.aisles || []).filter(function (entry) { return entry.store === store })
+        .map(function (entry) { return entry.aisle })[0]
+      const aisleName = aisleId ? aislesOf(store).filter(function (a) { return a.id === aisleId }).map(function (a) { return a.name })[0] : undefined
+      if (idOf(stored.preferredStore) === store && (typeof AISLE === 'undefined' || !AISLE || aisleName === AISLE)) {
+        break
+      }
+    }
+    if (Date.now() >= deadline) {
+      fail('the product never carried "' + STORE + '" / "' + (typeof AISLE !== 'undefined' ? AISLE : '') + '" within 30 s')
+    }
+    pause(300)
   }
 } else if (ACTION === 'meals') {
   const product = productNamed(LABEL)

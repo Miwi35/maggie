@@ -193,7 +193,7 @@ fun GroceryScreen(
                         Icon(Icons.Default.History, contentDescription = "Courses passées")
                     }
                     Box {
-                        IconButton(onClick = { menuExpanded = true }) {
+                        IconButton(onClick = { menuExpanded = true }, modifier = Modifier.testTag(UiTags.GROCERY_MENU)) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Menu")
                         }
                         DropdownMenu(
