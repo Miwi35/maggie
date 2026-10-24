@@ -210,7 +210,7 @@ test('a recipe built on its sheet carries the Ciqual food picked', async ({ page
   )
   const naming = page.getByRole('dialog', { name: 'Nouvelle recette' })
   await naming.getByLabel('Nom').fill(name)
-  await naming.getByRole('button', { name: 'Enregistrer' }).click()
+  await naming.getByRole('button', { name: 'Créer' }).click()
   expect((await created).status(), 'the API refused the new recipe').toBe(201)
   await expect(page).toHaveURL(/#\/recipes\/.+\/show/)
 

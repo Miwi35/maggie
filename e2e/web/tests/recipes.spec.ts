@@ -69,7 +69,7 @@ test.describe('Recipes and meals', () => {
     const dialog = page.getByRole('dialog', { name: 'Nouvelle recette' })
     await dialog.getByLabel('Nom').fill(name)
     await dialog.getByLabel(/Tags/).fill('rapide, hiver')
-    await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+    await dialog.getByRole('button', { name: 'Créer' }).click()
 
     // MAG-117 recette: the owner saved a recipe and found an empty list. The
     // sheet of the new recipe opens, and the list already has the recipe — no
