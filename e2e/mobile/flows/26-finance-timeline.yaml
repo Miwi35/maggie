@@ -73,17 +73,20 @@ tags:
 
 # A second scenario beside the followed one: its own line, and the API's sentence on the gap of N.
 # « Qualité de vie » is `auto-quality` until a journey stores it, then a ULID:
-# reach its chip by the scenario's name, inside a compare chip. The chips sit at the top of the frise,
+# reach its chip by the scenario's name, inside a compare chip. The chip's label is a child text node,
+# not the chip's own text: match it with containsDescendants. The chips sit at the top of the frise,
 # above the events the flow just scrolled down to: scroll back up.
 - scrollUntilVisible:
     element:
       id: "timeline_compare_.*"
-      text: "Qualité de vie"
+      containsDescendants:
+        - text: "Qualité de vie"
     direction: UP
     timeout: 20000
 - tapOn:
     id: "timeline_compare_.*"
-    text: "Qualité de vie"
+    containsDescendants:
+      - text: "Qualité de vie"
 - scrollUntilVisible:
     element:
       id: "timeline_compared_track"
