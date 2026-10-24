@@ -19,8 +19,8 @@ export interface LaunchTarget {
 
 /**
  * The activity an agenda event launches, from its `activity` field; `null` for an event that is not
- * one. Cuisine and Sport have no activity yet: their meal and workout lines open their own sheet,
- * which the card that draws the line passes as `to`.
+ * one. Only the review is launched by an agenda event: a meal's event does not carry the meal, so
+ * Cuisine starts from the meal lines of the Nutrition card (`mealLaunchPath`); Sport has no activity yet.
  */
 export const launchTargetFor = (activity: string | null | undefined): LaunchTarget | null =>
   activity === REVIEW_ACTIVITY ? { module: 'finance', path: REVIEW_ACTIVITY_PATH } : null

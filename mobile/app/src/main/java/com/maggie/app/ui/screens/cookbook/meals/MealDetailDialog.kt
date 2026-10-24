@@ -44,6 +44,7 @@ fun MealDetailDialog(
     onSaved: (Meal) -> Unit,
     onDeleted: () -> Unit,
     onChooseIngredients: () -> Unit,
+    onLaunch: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -110,6 +111,12 @@ fun MealDetailDialog(
                         enabled = !state.isBusy && !state.hasChanges && state.recipeIds.isNotEmpty(),
                         modifier = Modifier.testTag(UiTags.MEAL_DETAIL_INGREDIENTS),
                     ) { Text("Ingrédients") }
+                    // « Lancer » opens the Cuisine activity on this meal (MAG-580); unsaved changes would be cooked stale.
+                    TextButton(
+                        onClick = onLaunch,
+                        enabled = !state.isBusy && !state.hasChanges && state.recipeIds.isNotEmpty(),
+                        modifier = Modifier.testTag(UiTags.MEAL_DETAIL_LAUNCH),
+                    ) { Text("Lancer") }
                     TextButton(
                         onClick = { confirmingDelete = true },
                         enabled = !state.isBusy,

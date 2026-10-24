@@ -29,11 +29,14 @@ private val FINANCE_ONLY_ROUTES = setOf(
     DeepLinks.CONTACT_ROUTE,
 )
 
+private val COOKING_ROUTES = setOf(Screen.CookingActivity.route)
+
 /** The module whose hue a route is drawn in, `null` for the screens that keep Maggie's violet. */
 internal fun moduleHueOf(route: String?): ModuleHue? = when {
     route == null -> null
     FinanceSection.of(route) != null || route in FINANCE_ONLY_ROUTES -> ModuleHue.FINANCE
     route in TASK_ROUTES -> ModuleHue.TASKS
+    route in COOKING_ROUTES -> ModuleHue.CUISINE
     else -> null
 }
 

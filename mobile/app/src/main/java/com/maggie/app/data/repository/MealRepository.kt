@@ -15,6 +15,10 @@ class MealRepository(
         apiService.getMeals(fromDay = fromDay, toDay = toDay)
     }
 
+    suspend fun getMeal(id: String): Result<Meal> = runCatching {
+        apiService.getMeal(id)
+    }
+
     suspend fun createMeal(request: MealCreateRequest): Result<Meal> = runCatching {
         apiService.createMeal(request)
     }
