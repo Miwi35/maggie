@@ -192,7 +192,14 @@ class GroceryViewModel(
     private fun subscribeToGroceryUpdates(): Job {
         return viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
-            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS))
+            val topic = MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS)
+            // The hub may not hold what the dropped stream missed: reread the list once it is back.
+            launch {
+                mercureService.reconnections(topic)
+                    .catch { }
+                    .collect { refresh(showSpinner = false) }
+            }
+            mercureService.subscribe(topic)
                 .catch { /* SSE connection errors — MercureService handles auto-reconnect */ }
                 .collect { event ->
                     // Any change to the list can take a product out of the suggestions, or put it back; an
@@ -317,11 +324,18 @@ class GroceryViewModel(
         )
     }
 
+    /**
+     * The screen is shown again (back from another screen, app back in the foreground): the stream
+     * may have missed an update meanwhile. Reloads without the pull indicator, and a failure keeps
+     * the list on screen.
+     */
+    fun onScreenResumed() = refresh(showSpinner = false)
+
     /** The list, and « Souvent pris » with it (a pull refreshes both). */
-    fun refresh() {
+    fun refresh(showSpinner: Boolean = true) {
         refreshSuggestions()
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            if (showSpinner) _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val fetched = groceryListRepository.getGroceryList().getOrThrow()
                 val list = fetched?.copy(items = withPendingQuantities(fetched.items))
@@ -333,7 +347,7 @@ class GroceryViewModel(
                     isLoading = false,
                 )
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
+                if (showSpinner) _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
             }
         }
     }

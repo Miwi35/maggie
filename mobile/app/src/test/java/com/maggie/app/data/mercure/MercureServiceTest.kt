@@ -211,6 +211,84 @@ class MercureServiceTest {
         }
     }
 
+    // The hub replays what a dropped stream missed from the last id the client saw; without it an
+    // update published during the gap is lost for good (MAG-609).
+    @Test
+    fun `a reconnection sends the id of the last event received and is announced`() = runBlocking {
+        val heads = LinkedBlockingQueue<String>()
+        val server = ServerSocket(0)
+        val accepting = thread(isDaemon = true) {
+            var connection = 0
+            while (!server.isClosed) {
+                val socket = try { server.accept() } catch (e: Exception) { return@thread }
+                connection++
+                val first = connection == 1
+                thread(isDaemon = true) {
+                    try {
+                        val input = socket.getInputStream()
+                        val head = StringBuilder()
+                        while (!head.endsWith("\r\n\r\n")) {
+                            val byte = input.read()
+                            if (byte == -1) return@thread
+                            head.append(byte.toChar())
+                        }
+                        heads.put(head.toString())
+                        val body = if (first) "id: evt-42\ndata: {\"n\":1}\n\n" else ": hello\n\n"
+                        socket.getOutputStream().apply {
+                            write("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n$body".toByteArray())
+                            flush()
+                        }
+                        if (first) {
+                            socket.close()
+                        } else {
+                            while (input.read() != -1) {
+                                // Hold the stream open until the client hangs up.
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Closed by the test's cleanup.
+                    }
+                }
+            }
+        }
+        io.mockk.mockkStatic(android.util.Log::class)
+        io.mockk.every { android.util.Log.i(any(), any<String>()) } returns 0
+        io.mockk.every { android.util.Log.d(any(), any<String>()) } returns 0
+        io.mockk.every { android.util.Log.w(any(), any<String>()) } returns 0
+        val authRepository = io.mockk.mockk<com.maggie.app.data.auth.AuthRepository>()
+        io.mockk.coEvery { authRepository.getMercureToken() } returns null
+        val client = MercureService.defaultClient()
+        val service = MercureService(authRepository, "http://127.0.0.1:${server.localPort}/hub", client, reconnectDelayMs = 50)
+        val topic = "/users/u/api/grocery_lists/{id}"
+
+        try {
+            val reconnected = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val watchingReconnections = launch(Dispatchers.IO, start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                service.reconnections(topic).first()
+                reconnected.complete(Unit)
+            }
+            val stream = launch(Dispatchers.IO) { service.subscribe(topic).collect { } }
+
+            val firstHead = withContext(Dispatchers.IO) { heads.poll(30, TimeUnit.SECONDS) }
+            val secondHead = withContext(Dispatchers.IO) { heads.poll(30, TimeUnit.SECONDS) }
+            assertNotNull("the first connection never reached the hub", firstHead)
+            assertNotNull("the stream never reconnected", secondHead)
+            assertFalse("nothing to resume from on the first connection", firstHead!!.contains("Last-Event-ID", ignoreCase = true))
+            assertTrue(
+                "the reconnection must resume from the last event received:\n$secondHead",
+                secondHead!!.contains("Last-Event-ID: evt-42", ignoreCase = true),
+            )
+            kotlinx.coroutines.withTimeout(30_000) { reconnected.await() }
+            watchingReconnections.cancel()
+            stream.cancelAndJoin()
+        } finally {
+            io.mockk.unmockkStatic(android.util.Log::class)
+            client.close()
+            server.close()
+            accepting.join(1000)
+        }
+    }
+
     @Test
     fun `buildSubscriptionUrl subscribes a placeholder topic as a URL pattern`() {
         val url = MercureService.buildSubscriptionUrl(

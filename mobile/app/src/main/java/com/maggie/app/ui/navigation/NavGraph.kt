@@ -48,6 +48,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.core.content.ContextCompat
 import androidx.core.util.Consumer
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -1541,6 +1543,8 @@ fun NavGraph() {
                         )
                     }
                     composable(Screen.Grocery.route) {
+                        // The stream behind the list can miss an update (Maggie adds a line while the app sleeps).
+                        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { groceryViewModel.onScreenResumed() }
                         val groceryState by groceryViewModel.uiState.collectAsState()
                         val recurringState by recurringGroceryViewModel.uiState.collectAsState()
                         // Resolved on every state: an item deleted or changed elsewhere is not edited from a stale copy.

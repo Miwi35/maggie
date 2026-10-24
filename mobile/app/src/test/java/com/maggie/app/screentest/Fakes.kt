@@ -146,6 +146,7 @@ private fun signedIn(): Pair<AuthRepository, MercureService> {
     every { auth.isAuthenticated } returns flowOf(true)
     coEvery { auth.getUserId() } returns "user-neighbour"
     every { mercure.subscribe(any()) } returns emptyFlow()
+    every { mercure.reconnections(any()) } returns emptyFlow()
     return auth to mercure
 }
 

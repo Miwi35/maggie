@@ -45,6 +45,29 @@ class HomeCardPublisherTest extends KernelTestCase
         self::assertSame(['action' => 'refresh', 'module' => 'tasks'], json_decode($update->getData(), true));
     }
 
+    public function testEachRefreshIsLoggedWithItsTopicAndTypeAndTheMessageClass(): void
+    {
+        $logger = new class extends \Psr\Log\AbstractLogger {
+            /** @var list<array{level: mixed, message: string, context: array<string, mixed>}> */
+            public array $records = [];
+
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
+            }
+        };
+        $publisher = new HomeCardPublisher($this->getMercureHub(), [$this->watcher('shelf', [\ArrayObject::class])], $logger);
+
+        $publisher->publishAffected([new Change(\ArrayObject::class, '1', ChangeKind::Inserted, 'owner-a')], 'App\\Some\\Command');
+
+        self::assertCount(1, $logger->records);
+        self::assertSame(\Psr\Log\LogLevel::INFO, $logger->records[0]['level']);
+        self::assertSame(
+            ['topic' => '/users/owner-a/home/shelf', 'type' => 'home-refresh', 'message' => 'App\\Some\\Command'],
+            $logger->records[0]['context'],
+        );
+    }
+
     public function testPublishAffectedRefreshesAWatchingCardOncePerOwner(): void
     {
         $publisher = new HomeCardPublisher($this->getMercureHub(), [$this->watcher('shelf', [\ArrayObject::class])]);

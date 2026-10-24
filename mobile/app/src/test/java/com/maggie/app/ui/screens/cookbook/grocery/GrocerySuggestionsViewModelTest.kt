@@ -67,6 +67,7 @@ class GrocerySuggestionsViewModelTest {
         coEvery { authRepository.getUserId() } returns "user-1"
         every { authRepository.token } returns flowOf("jwt")
         every { mercureService.subscribe(any()) } returns emptyFlow()
+        every { mercureService.reconnections(any()) } returns emptyFlow()
         coEvery { groceryListRepository.getGroceryList() } returns Result.success(GroceryList(id = "list-1"))
         coEvery { groceryListRepository.getSuggestions() } returns Result.success(listOf(coffee, rice))
     }

@@ -94,7 +94,7 @@ final class ProjectionMiddleware implements MiddlewareInterface
 
         foreach ($work->changes() as $change) {
             try {
-                $this->publish($change);
+                $this->publish($change, $message);
             } catch (JwtException $e) {
                 // Not rethrown: the write is done and a worker would retry the command.
                 $this->logger->critical('Mercure updates cannot be signed, check MERCURE_JWT_SECRET (at least 32 bytes): {error}', [
@@ -119,7 +119,7 @@ final class ProjectionMiddleware implements MiddlewareInterface
         }
 
         try {
-            $this->homeCards?->publishAffected($work->changes());
+            $this->homeCards?->publishAffected($work->changes(), $message::class);
         } catch (\Throwable $e) {
             $this->logger->error('Failed to publish home card refreshes: {error}', [
                 'error' => $e->getMessage(),
@@ -128,7 +128,7 @@ final class ProjectionMiddleware implements MiddlewareInterface
         }
     }
 
-    private function publish(Change $change): void
+    private function publish(Change $change, object $message): void
     {
         if (!is_subclass_of($change->class, MercurePublishable::class)) {
             return;
@@ -143,9 +143,13 @@ final class ProjectionMiddleware implements MiddlewareInterface
 
         if (ChangeKind::Deleted === $change->kind) {
             $payload = ['deleted' => true];
+            $type = 'deleted';
         } elseif (null !== $change->actionPayload) {
             $payload = $change->actionPayload;
+            $action = $payload['action'] ?? null;
+            $type = 'action:'.(\is_string($action) ? $action : 'unknown');
         } else {
+            $type = ChangeKind::Inserted === $change->kind ? 'created' : 'updated';
             $entity = $change->entity;
             \assert($entity instanceof MercurePublishable);
             $differential = ChangeKind::Updated === $change->kind && [] !== $change->properties;
@@ -165,6 +169,13 @@ final class ProjectionMiddleware implements MiddlewareInterface
                 data: json_encode(['@id' => $iri] + $payload, JSON_THROW_ON_ERROR),
                 private: true,
             ));
+
+            // Metadata only, never a label or a name: this is how a lost update is told from one never sent.
+            $this->logger->info('Mercure update published', [
+                'topic' => MercureTopic::scoped($ownerId, $iri),
+                'type' => $type,
+                'message' => $message::class,
+            ] + (\is_array($payload['items'] ?? null) ? ['items' => \count($payload['items'])] : []));
         }
     }
 
