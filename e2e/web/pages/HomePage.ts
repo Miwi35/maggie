@@ -10,6 +10,7 @@ export class HomePage extends AdminShell {
   readonly groceryCard: Locator
   /** The ring of the Tâches card, named by what it reads: « 1 sur 3 ». */
   readonly tasksRing: Locator
+  readonly financeCard: Locator
 
   constructor(page: Page) {
     super(page)
@@ -17,6 +18,7 @@ export class HomePage extends AdminShell {
     this.daySelector = this.content.getByRole('group', { name: 'Jour' })
     this.groceryCard = this.content.getByTestId('home-card-grocery')
     this.tasksRing = this.content.getByTestId('home-tasks-ring')
+    this.financeCard = this.content.getByTestId('home-card-finance')
   }
 
   async open(day?: 'today' | 'tomorrow'): Promise<void> {

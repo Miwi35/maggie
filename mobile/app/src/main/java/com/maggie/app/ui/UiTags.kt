@@ -70,6 +70,15 @@ object UiTags {
     const val HOME_NUTRITION_ERROR = "home_nutrition_error"
     const val HOME_NUTRITION_RETRY = "home_nutrition_retry"
 
+    /** Accueil › Finance card (MAG-565): a ring by period, the « n à qualifier » pill, the next project, the error state. */
+    const val HOME_FINANCE_RING_PREFIX = "home_finance_ring_"
+    const val HOME_FINANCE_TO_QUALIFY = "home_finance_to_qualify"
+    const val HOME_FINANCE_NEXT_PROJECT = "home_finance_next_project"
+    const val HOME_FINANCE_ERROR = "home_finance_error"
+    const val HOME_FINANCE_RETRY = "home_finance_retry"
+
+    fun homeFinanceRing(period: String) = HOME_FINANCE_RING_PREFIX + period
+
     /**
      * Accueil › Tâches (MAG-561) — the ring « x sur n », the « n en retard » line, the « + n autres » link,
      * the saga line, the bar of routines, the failure message and the retry of a failed read.

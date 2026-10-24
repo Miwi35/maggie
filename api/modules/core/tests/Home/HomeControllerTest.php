@@ -62,7 +62,7 @@ class HomeControllerTest extends WebTestCase
     {
         $this->authenticateAsUser($this->getFixture('test_user'));
 
-        $this->client->request('GET', '/api/home/finance', [], [], $this->authHeaders());
+        $this->client->request('GET', '/api/home/unknown', [], [], $this->authHeaders());
 
         self::assertResponseStatusCodeSame(404);
         self::assertSame(404, $this->body()['status']);

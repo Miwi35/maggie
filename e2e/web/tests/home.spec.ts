@@ -51,3 +51,25 @@ test('the Courses card shows five lines of a six-line list and « + 1 »', async
   await expect(card.getByTestId('home-grocery-item')).toHaveCount(5)
   await expect(card.getByRole('checkbox')).toHaveCount(0)
 })
+
+/**
+ * The Finance card (MAG-565, extends MAG-102): the week and the month as rings with their
+ * rhythm. The Accueil's account has a 1 000 € envelope and 10 € spent on the 1st, under the pace
+ * whatever the day. Touching the card opens Finance › Dashboard.
+ */
+test('the Finance card says « Dans le rythme » and opens the Dashboard', async ({ homeUser }) => {
+  const home = new HomePage(homeUser.page)
+  await home.open()
+
+  const card = home.financeCard
+  await expect(card.getByTestId('home-finance-ring')).toHaveCount(2)
+  await expect(card.getByTestId('home-finance-status').first()).toContainText('Dans le rythme')
+  await expect(card.getByTestId('home-finance-status').last()).toContainText('Dans le rythme')
+
+  // It does not follow the selector.
+  await home.day('Demain').click()
+  await expect(card.getByTestId('home-finance-ring')).toHaveCount(2)
+
+  await card.getByRole('link', { name: 'Finance' }).first().click()
+  await expect(homeUser.page).toHaveURL(/\/finance\/dashboard/)
+})

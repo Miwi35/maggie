@@ -119,6 +119,7 @@ describe('Home', () => {
 
     test('the Nutrition card asks for the day the selector is on', async () => {
       const user = userEvent.setup()
+      const emptyRing = { status: 'on_track', label: 'Dans le rythme', budgetCents: 0, remainingCents: 0, expectedRemainingCents: 0 }
       const fetchMock = vi.fn((url: string) =>
         Promise.resolve({
           ok: true,
@@ -133,7 +134,9 @@ describe('Home', () => {
                   }
                 : url.startsWith('/api/home/tasks')
                   ? { tasks: [], routines: [] }
-                  : { count: 0, forRecipes: [], stores: [] },
+                  : url.startsWith('/api/home/finance')
+                    ? { week: emptyRing, month: emptyRing, toQualifyCount: 0, nextProject: null }
+                    : { count: 0, forRecipes: [], stores: [] },
             ),
         }),
       )

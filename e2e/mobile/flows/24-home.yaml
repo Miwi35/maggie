@@ -14,6 +14,9 @@ tags:
 # The Courses card (MAG-563, extends MAG-99): it signs in as the seed's home account, who has
 # six open lines at one shop (`64-grocery-home.yaml`). Then the card shows five of them and
 # « + 1 », and « Demain » leaves it as it was.
+#
+# The Finance card (MAG-565, extends MAG-102): the same account has a 1 000 € envelope and 10 €
+# spent on the 1st (`65-finance-home.yaml`), so the card says « Dans le rythme » for the week and the month.
 
 - launchApp:
     clearState: true
@@ -76,3 +79,15 @@ tags:
     checked: true
 - assertVisible: "Article 5"
 - assertNotVisible: "Article 6"
+
+# The Finance card: both rings under the pace, whatever the day (the ring's accessibility text carries the word: the id sits on a parent node without text).
+- scrollUntilVisible:
+    element:
+      id: "home_finance_ring_month"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "Semaine : Dans le rythme.*"
+    timeout: 20000
+- assertVisible:
+    text: "Mois : Dans le rythme.*"
