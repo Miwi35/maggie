@@ -1,76 +1,97 @@
-import { describe, test, expect, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AdminContext, Notification, ResourceContextProvider, ResourceDefinitionContextProvider, testDataProvider } from 'react-admin'
+import { AdminContext, Notification, ResourceContextProvider, testDataProvider } from 'react-admin'
+import type { DataProvider } from 'react-admin'
+import polyglotI18nProvider from 'ra-i18n-polyglot'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { messages } from '../../i18n/messages'
 import { RecipeCreate } from './RecipeCreate'
 
-vi.mock('./CiqualFoodAutocomplete', () => ({ CiqualFoodAutocomplete: () => null }))
+vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
 
-// The API Platform guesser gives `recipes` an edit page, which is where react-admin sends a saved record by default.
-const definitions = { recipes: { name: 'recipes', hasList: true, hasEdit: true } }
+const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
-const renderCreate = (create = vi.fn().mockResolvedValue({ data: { id: '/api/recipes/1' } })) => {
+const renderCreate = (create: DataProvider['create']) =>
   render(
     <MemoryRouter initialEntries={['/recipes/create']}>
-      <AdminContext dataProvider={testDataProvider({ create })}>
+      <AdminContext
+        dataProvider={testDataProvider({
+          create,
+          getList: (() => Promise.resolve({ data: [], total: 0 })) as unknown as DataProvider['getList'],
+          getMany: (() => Promise.resolve({ data: [] })) as unknown as DataProvider['getMany'],
+        })}
+        i18nProvider={i18nProvider}
+      >
+        <Routes>
+          <Route
+            path="/recipes/create"
+            element={
+              <ResourceContextProvider value="recipes">
+                <RecipeCreate />
+              </ResourceContextProvider>
+            }
+          />
+          <Route path="/recipes" element={<p>la liste</p>} />
+          <Route path="/recipes/:id/show" element={<p>la fiche</p>} />
+        </Routes>
         <Notification />
-        <ResourceDefinitionContextProvider definitions={definitions}>
-          <ResourceContextProvider value="recipes">
-            <Routes>
-              <Route path="/recipes/create" element={<RecipeCreate />} />
-              <Route path="/recipes" element={<p>Liste des recettes</p>} />
-              <Route path="/recipes/:id" element={<p>Formulaire de la recette</p>} />
-            </Routes>
-          </ResourceContextProvider>
-        </ResourceDefinitionContextProvider>
       </AdminContext>
     </MemoryRouter>,
   )
-  return create
-}
 
-describe('RecipeCreate', () => {
-  test('sends the tags as a list of strings, not as the typed text', async () => {
-    const user = userEvent.setup()
-    const create = renderCreate()
+describe('RecipeCreate', { timeout: 30_000 }, () => {
+  beforeEach(() => vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) }))))
+  afterEach(() => vi.unstubAllGlobals())
 
-    await user.type(screen.getByLabelText(/Nom/), 'Pâtes')
-    await user.type(screen.getByLabelText(/Tags/), 'rapide, végétarien')
-    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+  test('opens the sheet empty, with the name popin on top and the blocks not yet editable', async () => {
+    renderCreate(vi.fn() as unknown as DataProvider['create'])
 
-    await waitFor(() => expect(create).toHaveBeenCalled())
-    expect(create.mock.calls[0][1].data.tags).toEqual(['rapide', 'végétarien'])
+    expect(await screen.findByRole('dialog', { name: 'Nouvelle recette' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Nouvelle recette', level: 1, hidden: true })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ajouter un ingrédient', hidden: true })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Ajouter une étape', hidden: true })).toBeDisabled()
   })
 
-  test('sends an empty list when no tag is typed', async () => {
+  test('creates the recipe from the popin with an empty body otherwise, then opens its sheet', async () => {
     const user = userEvent.setup()
-    const create = renderCreate()
+    const create = vi.fn(() => Promise.resolve({ data: { id: '/api/recipes/01NEW' } }))
+    renderCreate(create as unknown as DataProvider['create'])
 
-    await user.type(screen.getByLabelText(/Nom/), 'Pâtes')
-    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+    await user.type(await screen.findByLabelText(/^Nom/), 'Soupe')
+    await user.click(screen.getByRole('button', { name: 'Créer' }))
 
-    await waitFor(() => expect(create).toHaveBeenCalled())
-    expect(create.mock.calls[0][1].data.tags ?? []).toEqual([])
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1))
+    expect(create).toHaveBeenCalledWith('recipes', { data: { ingredients: [], utensils: [], steps: [], name: 'Soupe', servings: 4, tags: [] } })
+    expect(await screen.findByText('la fiche')).toBeInTheDocument()
   })
 
-  test('goes back to the list once the recipe is saved', async () => {
-    const user = userEvent.setup()
-    renderCreate()
+  test('cannot be created without a name', async () => {
+    renderCreate(vi.fn() as unknown as DataProvider['create'])
 
-    await user.type(screen.getByLabelText(/Nom/), 'Pâtes')
-    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
-
-    expect(await screen.findByText('Liste des recettes')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Créer' })).toBeDisabled()
   })
 
-  test('says a recipe was saved, not a generic element', async () => {
+  test('an API refusal stays in the popin', async () => {
     const user = userEvent.setup()
-    renderCreate()
+    const create = vi.fn(() => Promise.reject(Object.assign(new Error('Nom déjà pris'), { status: 400, body: { 'hydra:description': 'Nom déjà pris' } })))
+    renderCreate(create as unknown as DataProvider['create'])
 
-    await user.type(screen.getByLabelText(/Nom/), 'Pâtes')
-    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+    await user.type(await screen.findByLabelText(/^Nom/), 'Soupe')
+    await user.click(screen.getByRole('button', { name: 'Créer' }))
 
-    expect(await screen.findByText('Recette enregistrée')).toBeInTheDocument()
+    expect(await screen.findByText('Nom déjà pris')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  test('cancelling goes back to the list and creates nothing', async () => {
+    const user = userEvent.setup()
+    const create = vi.fn()
+    renderCreate(create as unknown as DataProvider['create'])
+
+    await user.click(await screen.findByRole('button', { name: 'Annuler' }))
+
+    expect(await screen.findByText('la liste')).toBeInTheDocument()
+    expect(create).not.toHaveBeenCalled()
   })
 })

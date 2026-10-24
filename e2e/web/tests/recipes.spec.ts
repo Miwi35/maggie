@@ -65,15 +65,19 @@ test.describe('Recipes and meals', () => {
     const shell = new AdminShell(page)
     await shell.goto(`${ROUTES.recipes}/create`)
 
-    await shell.content.getByLabel('Nom').fill(name)
-    await shell.content.getByLabel(/Tags/).fill('rapide, hiver')
-    await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+    // MAG-601: the creation opens the empty sheet with the « Nouvelle recette » popin on top.
+    const dialog = page.getByRole('dialog', { name: 'Nouvelle recette' })
+    await dialog.getByLabel('Nom').fill(name)
+    await dialog.getByLabel(/Tags/).fill('rapide, hiver')
+    await dialog.getByRole('button', { name: 'Créer' }).click()
 
-    // MAG-117 recette: the owner saved a recipe, stayed on the form and found
-    // an empty list. Saving leads to the list, and the list already has the
-    // recipe — no reload, no waiting for the index.
-    await expect(page.getByText('Recette enregistrée')).toBeVisible()
-    await expect(page).toHaveURL(new RegExp(`#${ROUTES.recipes}$`))
+    // MAG-117 recette: the owner saved a recipe and found an empty list. The
+    // sheet of the new recipe opens, and the list already has the recipe — no
+    // reload, no waiting for the index.
+    await expect(page.getByText('Recette créée')).toBeVisible()
+    await expect(page).toHaveURL(/#\/recipes\/.+\/show/)
+    await expect(shell.content.getByRole('heading', { name })).toBeVisible()
+    await shell.goto(ROUTES.recipes)
     // The list is oldest first, ten a page, and the other journeys leave their
     // recipes behind: a new one may be on the second page, so show them all.
     await shell.content.getByRole('combobox', { name: /Lignes par page/ }).click()
@@ -605,7 +609,7 @@ test.describe('Recipes and meals', () => {
     ])
   })
 
-  test('the reference recipe is entered step by step in the form, with two utensils, and read back on the sheet — MAG-491', async ({ page, api }) => {
+  test('the reference recipe is entered step by step in the popins, with two utensils, and read back on the sheet — MAG-491', async ({ page, api }) => {
     // Given a recipe with its ingredients, and a utensil already in the catalogue
     const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
     const stamp = Date.now()
@@ -634,42 +638,46 @@ test.describe('Recipes and meals', () => {
     expect(created.status(), `POST answered ${created.status()}: ${await created.text()}`).toBe(201)
     const { '@id': iri, name } = (await created.json()) as { '@id': string; name: string }
 
-    // When I enter the five steps of the reference example, and two utensils one of which is new
+    // When I enter the five steps of the reference example, and two utensils one of which is new,
+    // each in its popin on the recipe's sheet (MAG-601)
     const shell = new AdminShell(page)
-    await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`)
-    await expect(shell.content.getByLabel(/^Nom/)).toHaveValue(name)
+    await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
+    await expect(shell.content.getByRole('heading', { name })).toBeVisible()
 
-    await shell.content.getByRole('combobox', { name: 'Matériel' }).click()
-    await page.getByRole('option', { name: existing, exact: true }).click()
-    await shell.content.getByRole('combobox', { name: 'Matériel' }).fill(fresh)
-    await page.getByRole('option', { name: `Ajouter « ${fresh} »` }).click()
+    const dialog = page.getByRole('dialog')
+    const save = async () => {
+      await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+      await expect(dialog).toBeHidden()
+    }
+    const chip = async (field: string, option: string, create = false) => {
+      const input = dialog.getByRole('combobox', { name: field })
+      if (create) await input.fill(option)
+      else await input.click()
+      await page.getByRole('option', { name: create ? `Ajouter « ${option} »` : option, exact: true }).click()
+    }
+
+    await shell.content.getByRole('button', { name: 'Modifier le matériel' }).click()
+    await chip('Matériel', existing)
+    await chip('Matériel', fresh, true)
+    await save()
 
     const steps = [
-      { text: "Mettre l'eau à bouillir", duration: '10', background: true },
-      { text: 'Couper les légumes', duration: '' },
-      { text: 'Cuire les pâtes', duration: '12', background: true },
-      { text: 'Faire revenir les légumes', duration: '8' },
-      { text: 'Égoutter, mélanger', duration: '' },
+      { text: "Mettre l'eau à bouillir", duration: '10', background: true, utensil: existing },
+      { text: 'Couper les légumes', ingredient: names.courgette },
+      { text: 'Cuire les pâtes', duration: '12', background: true, waits: ['Étape 1'], ingredient: names.pasta },
+      { text: 'Faire revenir les légumes', duration: '8', utensil: fresh },
+      { text: 'Égoutter, mélanger', waits: ['Étape 3', 'Étape 4'] },
     ]
-    const group = (position: number) => shell.content.getByRole('group', { name: `Étape ${position}` })
-    const choose = async (position: number, field: string, option: string) => {
-      await group(position).getByRole('combobox', { name: field }).click()
-      await page.getByRole('option', { name: option, exact: true }).click()
-    }
-    for (const [index, step] of steps.entries()) {
+    for (const step of steps) {
       await shell.content.getByRole('button', { name: 'Ajouter une étape' }).click()
-      await group(index + 1).getByLabel('Texte').fill(step.text)
-      if (step.duration) await group(index + 1).getByLabel('Durée (min)').fill(step.duration)
-      if (step.background) await group(index + 1).getByRole('checkbox', { name: 'En fond' }).check()
+      await dialog.getByLabel('Texte').fill(step.text)
+      if (step.duration) await dialog.getByLabel('Durée (min)').fill(step.duration)
+      if (step.background) await dialog.getByRole('checkbox', { name: 'En fond' }).check()
+      for (const earlier of step.waits ?? []) await chip('Attend', earlier)
+      if (step.ingredient) await chip('Ingrédients', step.ingredient)
+      if (step.utensil) await chip('Ustensiles', step.utensil)
+      await save()
     }
-    await choose(3, 'Attend', 'Étape 1')
-    await choose(5, 'Attend', 'Étape 3')
-    await choose(5, 'Attend', 'Étape 4')
-    await choose(2, 'Ingrédients', names.courgette)
-    await choose(3, 'Ingrédients', names.pasta)
-    await choose(1, 'Ustensiles', existing)
-    await choose(4, 'Ustensiles', fresh)
-    await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
 
     // Then the API holds the five steps as entered
     interface StoredStep {
@@ -706,14 +714,15 @@ test.describe('Recipes and meals', () => {
     await expect(shell.content.getByText('⏱ 12 min')).toBeVisible()
   })
 
-  test('an open recipe sheet shows the quantity and the notes changed elsewhere, and keeps the field being typed — MAG-330', async ({
+  test('an open recipe sheet shows the quantity changed elsewhere, and a popin keeps the text being typed — MAG-330', async ({
     page,
     api,
     session,
   }) => {
     // Given a recipe with a line of 400 g, open in the admin.
     const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
-    const ingredient = await api.post('/api/ingredients', { headers, data: { name: `Orge MAG-330 ${Date.now()}`, category: 'grain' } })
+    const orge = `Orge MAG-330 ${Date.now()}`
+    const ingredient = await api.post('/api/ingredients', { headers, data: { name: orge, category: 'grain' } })
     expect(ingredient.status()).toBe(201)
     const ingredientIri = ((await ingredient.json()) as { '@id': string })['@id']
 
@@ -739,34 +748,133 @@ test.describe('Recipes and meals', () => {
     }
 
     const shell = new AdminShell(page)
-    await openSubscribed(page, () => shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`), userTopic(session.user.id, '/api/recipes/{id}'))
-    await expect(shell.content.getByLabel(/Quantité/)).toHaveValue('400')
+    await openSubscribed(page, () => shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`), userTopic(session.user.id, '/api/recipes/{id}'))
+    const quantity = (observer: Page) => observer.getByRole('button', { name: `Modifier la quantité de ${orge}`, includeHidden: true })
+    await expect(quantity(page)).toHaveText(/400/)
 
     // When the quantity changes elsewhere, the sheet shows it with no reload.
     await expectRealtimeSync(
       page,
       () => change((record) => { record.ingredients[0].quantity = 600 }),
       async (observer) => {
-        await expect(observer.getByLabel(/Quantité/)).toHaveValue('600', { timeout: 10_000 })
+        await expect(quantity(observer)).toHaveText(/600/, { timeout: 10_000 })
       },
     )
 
-    // And when I am typing the notes while they change elsewhere, my text stays,
-    // the other fields follow, and the sheet says the recipe changed.
-    await shell.content.getByLabel('Notes').fill('Ma version des notes')
+    // And when I am typing the notes while they change elsewhere, my text stays in
+    // the popin and the sheet behind follows.
+    await shell.content.getByRole('button', { name: 'Modifier les notes' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Notes' })
+    await dialog.getByLabel('Notes').fill('Ma version des notes')
     await expectRealtimeSync(
       page,
       () => change((record) => { record.notes = 'Notes de l’autre appareil'; record.ingredients[0].quantity = 750 }),
       async (observer) => {
-        await expect(observer.getByLabel(/Quantité/)).toHaveValue('750', { timeout: 10_000 })
+        await expect(quantity(observer)).toHaveText(/750/, { timeout: 10_000 })
       },
     )
-    await expect(shell.content.getByLabel('Notes')).toHaveValue('Ma version des notes')
-    await expect(page.getByText(/modifiée ailleurs/)).toBeVisible()
+    await expect(dialog.getByLabel('Notes')).toHaveValue('Ma version des notes')
 
-    // « Recharger » takes what the other device wrote.
-    await page.getByRole('button', { name: 'Recharger' }).click()
-    await expect(shell.content.getByLabel('Notes')).toHaveValue('Notes de l’autre appareil')
-    await expect(page.getByText(/modifiée ailleurs/)).toHaveCount(0)
+    // Closed without saving, the sheet shows what the other device wrote.
+    await dialog.getByRole('button', { name: 'Annuler' }).click()
+    await expect(shell.content.getByText('Notes de l’autre appareil')).toBeVisible()
+  })
+
+  test('replacing the lardons by the smoked belly moves the step links, and rewrites steps 2 and 6 only when asked — MAG-601', async ({ page, api }) => {
+    // Given a bœuf bourguignon whose steps 2 and 6 cite the lardons by name and quantity
+    const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const product = async (name: string): Promise<{ '@id': string; id: string }> => {
+      const created = await api.post('/api/ingredients', { headers, data: { name, category: 'other' } })
+      expect(created.status(), `POST /api/ingredients answered ${created.status()}`).toBe(201)
+
+      return (await created.json()) as { '@id': string; id: string }
+    }
+    const boeuf = await product('Bœuf à braiser')
+    const lardons = await product('Lardons fumés')
+    await product('Poitrine fumée')
+    const STEP_2 = 'Faire revenir 200 g de lardons fumés dans la cocotte'
+    const STEP_6 = 'Servir avec lardons fumés et pain grillé'
+
+    const created = await api.post('/api/recipes', {
+      headers,
+      data: {
+        name: 'Bœuf bourguignon MAG-601',
+        servings: 4,
+        ingredients: [
+          { ingredient: boeuf['@id'], quantity: 800, unit: 'g' },
+          { ingredient: lardons['@id'], quantity: 200, unit: 'g' },
+        ],
+        steps: [
+          { text: 'Couper la viande en cubes', ingredientIds: [boeuf.id] },
+          { text: STEP_2, ingredientIds: [lardons.id] },
+          { text: 'Ajouter le vin et laisser mijoter', durationMinutes: 150, background: true },
+          { text: 'Préparer la purée' },
+          { text: 'Dresser les assiettes' },
+          { text: STEP_6, ingredientIds: [lardons.id] },
+        ],
+      },
+    })
+    expect(created.status(), `POST answered ${created.status()}: ${await created.text()}`).toBe(201)
+    const iri = ((await created.json()) as { '@id': string })['@id']
+    await waitForIndexed<{ name: string }>(api, '/api/products?itemsPerPage=100', (p) => p.name === 'Poitrine fumée', {
+      what: 'The product the lardons are replaced by',
+    })
+
+    // When I replace the lardons by the smoked belly from their ⋮ menu
+    const shell = new AdminShell(page)
+    await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
+    const line = shell.content.getByRole('button', { name: 'Modifier la quantité de Lardons fumés' }).locator('xpath=ancestor::li[1]')
+    await expect(line).toContainText('utilisé dans les étapes 2, 6')
+    await line.getByRole('button', { name: 'Actions pour Lardons fumés' }).click()
+    await page.getByRole('menuitem', { name: 'Modifier' }).click()
+
+    const dialog = page.getByRole('dialog', { name: /Modifier « Lardons fumés »/ })
+    const picker = dialog.getByLabel('Ingrédient')
+    await picker.fill('Poitrine fumée')
+    await page.getByRole('option', { name: 'Poitrine fumée', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+
+    // Then the links have moved, and the texts that cite the lardons are offered before and after, untouched
+    const offer = page.getByRole('dialog', { name: 'Mettre à jour les étapes ?' })
+    await expect(offer).toBeVisible()
+    const list = offer.getByRole('list', { name: 'Étapes à mettre à jour' })
+    await expect(list.getByText(STEP_2)).toBeVisible()
+    await expect(list.getByText('Faire revenir 200 g de poitrine fumée dans la cocotte')).toBeVisible()
+    await expect(list.getByText(STEP_6)).toBeVisible()
+    await expect(list.getByText('Servir avec poitrine fumée et pain grillé')).toBeVisible()
+
+    interface StoredStep {
+      position: number
+      text: string
+      ingredients?: Array<{ name: string }>
+    }
+    const stepsOf = async (): Promise<StoredStep[]> => {
+      const read = await api.get(iri, { headers: { Accept: 'application/ld+json' } })
+
+      return ((await read.json()) as { steps: StoredStep[] }).steps
+    }
+    expect((await stepsOf())[1].text, 'the text was rewritten before the owner said so').toBe(STEP_2)
+
+    // And « Mettre à jour » rewrites steps 2 and 6, and no other
+    await offer.getByRole('button', { name: 'Mettre à jour' }).click()
+    await expect(offer).toBeHidden()
+    const steps = shell.content.getByRole('listitem', { name: /^Étape \d+$/ })
+    await expect(steps.nth(1)).toContainText('Faire revenir 200 g de poitrine fumée dans la cocotte')
+    await expect(steps.nth(5)).toContainText('Servir avec poitrine fumée et pain grillé')
+    await expect(steps.nth(0)).toContainText('Couper la viande en cubes')
+
+    await expect
+      .poll(async () => (await stepsOf()).map((step) => step.text), { timeout: 30_000, message: 'The rewritten steps never reached the API' })
+      .toEqual([
+        'Couper la viande en cubes',
+        'Faire revenir 200 g de poitrine fumée dans la cocotte',
+        'Ajouter le vin et laisser mijoter',
+        'Préparer la purée',
+        'Dresser les assiettes',
+        'Servir avec poitrine fumée et pain grillé',
+      ])
+    const stored = await stepsOf()
+    expect(stored[1].ingredients?.map((i) => i.name)).toEqual(['Poitrine fumée'])
+    expect(stored[5].ingredients?.map((i) => i.name)).toEqual(['Poitrine fumée'])
   })
 })

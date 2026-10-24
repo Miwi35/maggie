@@ -1,135 +1,294 @@
-import type { ReactNode } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
-import { Show, useRecordContext } from 'react-admin'
-import { nameOf } from './recipeSteps'
-import type { NameRef } from './recipeSteps'
+import { Confirm, Show, useCreate, useGetMany, useNotify, useRecordContext, useRedirect, useUpdate } from 'react-admin'
+import { useMercure } from '../../hooks/useMercure'
+import { GuestsStepper } from './GuestsStepper'
+import { ActionsMenu, EditButton, IngredientsBlock, NotesBlock, NutritionBlock, StepsBlock, UtensilsBlock } from './RecipeBlocks'
+import { RecipeDeleteConfirm } from './RecipeDeleteButton'
+import { HeaderDialog, NotesDialog, PlanMealDialog, UtensilsDialog } from './RecipeDialogs'
+import { RecipeIngredientDialog } from './RecipeIngredientDialog'
+import type { ReplaceBody, ReplaceOutcome } from './RecipeIngredientDialog'
+import { RecipeStepDialog } from './RecipeStepDialog'
+import { idOf, linesPayload, nutritionPerServing, orderedSteps, productIdOf, stepLabel, stepsUsing, utensilNames, withoutProduct } from './recipeSheet'
+import type { ProductInfo, RecipeLine, RecipeRecord } from './recipeSheet'
+import { moveStep, refusalOf, removeStep, stepsPayload } from './recipeSteps'
+import { useScaledQuantities } from './useScaledQuantities'
 
-interface Step {
-  id?: string
-  position?: number
-  text: string
-  durationMinutes: number | null
-  background: boolean
-  ingredients?: NameRef[]
-  utensils?: NameRef[]
-  waitsFor?: number[]
+const RECIPE_TOPICS = ['/api/recipes/{id}']
+
+// The parts of the sheet the API publishes when they change.
+const LIVE_FIELDS = ['name', 'servings', 'tags', 'notes', 'ingredients', 'utensils', 'steps'] as const
+
+const liveOf = (source: Record<string, unknown> | undefined): Partial<RecipeRecord> => {
+  const live: Record<string, unknown> = {}
+  for (const field of LIVE_FIELDS) if (source && field in source) live[field] = source[field]
+
+  return live as Partial<RecipeRecord>
 }
 
-interface Recipe {
-  name: string
-  servings?: number
-  tags?: string[]
-  notes?: string | null
-  ingredients?: { id?: string; ingredientName: string; quantity: number; unit: string }[]
-  utensils?: NameRef[]
-  steps?: Step[]
-}
+type Dialog =
+  | { kind: 'header' }
+  | { kind: 'notes' }
+  | { kind: 'utensils' }
+  | { kind: 'plan' }
+  | { kind: 'delete' }
+  | { kind: 'ingredient'; line: RecipeLine | null }
+  | { kind: 'step'; index: number }
 
-const unitLabels: Record<string, string> = { piece: 'pièce', bunch: 'botte', can: 'boîte', bottle: 'bouteille', jar: 'bocal' }
+const errorMessage = (failure: unknown) => refusalOf(failure) ?? (failure as Error | undefined)?.message ?? 'Enregistrement impossible'
 
-const durationLabel = (minutes: number): string => {
-  if (minutes < 60) return `${minutes} min`
-  const rest = minutes % 60
-  return `${Math.floor(minutes / 60)} h${rest === 0 ? '' : ` ${String(rest).padStart(2, '0')}`}`
-}
+/**
+ * The recipe, read from top to bottom (MAG-601): each block has its own edit button and edits in a
+ * popin, so nothing is a form to fill whole. Every change goes to the API as it is made; the sheet
+ * shows what the API kept, and what other clients or Maggie change reaches it live.
+ */
+const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: boolean }) => {
+  const notify = useNotify()
+  const redirect = useRedirect()
+  const [update] = useUpdate()
+  const [create] = useCreate()
+  const [dialog, setDialog] = useState<Dialog | null>(creating ? { kind: 'header' } : null)
+  const [removing, setRemoving] = useState<RecipeLine | null>(null)
+  const [guests, setGuests] = useState<number | null>(null)
+  // What the API answered to our own changes and what the hub published since the record was read:
+  // newer than the read, which an index not yet refreshed could still serve.
+  const [live, setLive] = useState<Partial<RecipeRecord>>({})
+  const recipe = useMemo<RecipeRecord>(() => ({ ...record, ...live }), [record, live])
 
-const Section = ({ title, children }: { title: string; children: ReactNode }) => (
-  <Box component="section" sx={{ mb: 3 }}>
-    <Typography variant="h6" component="h2" sx={{ mb: 1 }}>
-      {title}
-    </Typography>
-    {children}
-  </Box>
-)
+  const lines = useMemo(() => recipe.ingredients ?? [], [recipe.ingredients])
+  const steps = useMemo(() => orderedSteps(recipe.steps), [recipe.steps])
+  const servings = recipe.servings ?? 1
+  const shownGuests = guests ?? servings
+  const recipeId = creating ? null : idOf(record.id)
+  const scaled = useScaledQuantities(recipeId, servings, shownGuests)
+  const simulating = shownGuests !== servings
+  const scaledLines = useMemo(
+    () => new Map(scaled.state === 'ready' ? scaled.lines.flatMap((line) => (line.id ? [[line.id, line] as const] : [])) : []),
+    [scaled],
+  )
 
-const Names = ({ names, label }: { names: NameRef[]; label: string }) => (
-  <Box component="ul" aria-label={label} sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, listStyle: 'none', m: 0, p: 0 }}>
-    {names.map((ref) => (
-      <li key={nameOf(ref)}>
-        <Chip label={nameOf(ref)} size="small" variant="outlined" />
-      </li>
-    ))}
-  </Box>
-)
+  const productRefs = [...new Set(lines.map((line) => line.ingredient?.['@id'] ?? line.ingredient?.id).filter((ref): ref is string => Boolean(ref)))]
+  const { data: productData } = useGetMany<ProductInfo>('ingredients', { ids: productRefs }, { enabled: productRefs.length > 0 })
+  const products = useMemo(() => new Map((productData ?? []).map((product) => [idOf(product.id), product])), [productData])
+  const nutrition = useMemo(() => nutritionPerServing(lines, servings, products), [lines, servings, products])
 
-const StepRow = ({ step, position }: { step: Step; position: number }) => {
-  const ingredients = step.ingredients ?? []
-  const utensils = step.utensils ?? []
-  const waitsFor = step.waitsFor ?? []
+  const onMercure = useCallback(
+    (data?: string) => {
+      if (!data || creating) return
+      try {
+        const payload = JSON.parse(data) as Record<string, unknown>
+        if (idOf(payload['@id']) !== idOf(record.id) || payload.deleted) return
+        setLive((previous) => ({ ...previous, ...liveOf(payload) }))
+      } catch {
+        // Not a recipe update.
+      }
+    },
+    [creating, record.id],
+  )
+  useMercure(RECIPE_TOPICS, onMercure)
+
+  /** Sends part of the recipe; null when the API kept it, its refusal otherwise. */
+  const save = useCallback(
+    (data: Record<string, unknown>) =>
+      new Promise<string | null>((resolve) => {
+        update(
+          'recipes',
+          { id: record.id, data, previousData: record },
+          {
+            mutationMode: 'pessimistic',
+            onSuccess: (response) => {
+              setLive((previous) => ({ ...previous, ...liveOf(response as Record<string, unknown>) }))
+              resolve(null)
+            },
+            onError: (failure) => resolve(errorMessage(failure)),
+          },
+        )
+      }),
+    [update, record],
+  )
+
+  const saveOrNotify = async (data: Record<string, unknown>) => {
+    const refused = await save(data)
+    if (refused) notify(refused, { type: 'error' })
+  }
+
+  const createRecipe = (data: Record<string, unknown>) =>
+    new Promise<string | false>((resolve) => {
+      create(
+        'recipes',
+        { data: { ingredients: [], utensils: [], steps: [], ...data } },
+        {
+          onSuccess: (created) => {
+            notify('Recette créée', { type: 'success' })
+            redirect('show', 'recipes', (created as { id: string }).id)
+            // The popin goes with the page: closing it would send the owner back to the list.
+            resolve(false)
+          },
+          onError: (failure) => resolve(errorMessage(failure)),
+        },
+      )
+    })
+
+  const replaceIngredient = async (body: ReplaceBody): Promise<ReplaceOutcome> => {
+    const token = localStorage.getItem('token')
+    try {
+      const response = await fetch(`/api/recipes/${recipeId}/replace-ingredient`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(body),
+      })
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; recipe?: Record<string, unknown>; textSuggestions?: [] }
+      if (!response.ok || !payload.recipe) return { error: payload.error ?? 'Le remplacement a échoué.' }
+      setLive((previous) => ({ ...previous, ...liveOf(payload.recipe) }))
+
+      return { result: { recipe: payload.recipe as unknown as RecipeRecord, textSuggestions: payload.textSuggestions ?? [] } }
+    } catch {
+      return { error: 'Le remplacement a échoué : le serveur ne répond pas.' }
+    }
+  }
+
+  const duplicate = () =>
+    create(
+      'recipes',
+      {
+        data: {
+          name: `${recipe.name} (copie)`,
+          servings: recipe.servings,
+          tags: recipe.tags ?? [],
+          notes: recipe.notes ?? undefined,
+          ingredients: linesPayload(lines),
+          utensils: utensilNames(recipe.utensils),
+          steps: stepsPayload(steps),
+        },
+      },
+      {
+        onSuccess: (created) => {
+          notify('Recette dupliquée', { type: 'success' })
+          redirect('show', 'recipes', (created as { id: string }).id)
+        },
+        onError: (failure) => notify(errorMessage(failure), { type: 'error' }),
+      },
+    )
+
+  const removeLine = async (line: RecipeLine) => {
+    const product = productIdOf(line)
+    const rest = lines.filter((other) => other !== line)
+    const linked = product !== null && stepsUsing(steps, product).length > 0
+    const refused = await save({
+      ingredients: linesPayload(rest),
+      ...(linked ? { steps: stepsPayload(withoutProduct(steps, product)) } : {}),
+    })
+    setRemoving(null)
+    if (refused) notify(refused, { type: 'error' })
+  }
+
+  const askRemoveLine = (line: RecipeLine) => {
+    const product = productIdOf(line)
+    if (product && stepsUsing(steps, product).length > 0) setRemoving(line)
+    else removeLine(line)
+  }
+
+  const close = () => setDialog(null)
+  const closeHeader = () => (creating ? redirect('list', 'recipes') : close())
+  const removingSteps = removing ? stepsUsing(steps, productIdOf(removing) ?? '') : []
 
   return (
-    <Box component="li" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1.5 }}>
-      <Typography component="div">
-        <strong>{position}.</strong> {step.text}
-      </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
-        {step.durationMinutes !== null && <Chip size="small" label={`⏱ ${durationLabel(step.durationMinutes)}`} />}
-        {step.background && <Chip size="small" color="info" label="en fond" />}
-        {waitsFor.length > 0 && <Chip size="small" variant="outlined" label={`attend ${waitsFor.join(', ')}`} />}
+    <Box sx={{ p: 2, width: '100%' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="h5" component="h1" sx={{ flexGrow: 1 }}>
+          {creating ? 'Nouvelle recette' : recipe.name}
+        </Typography>
+        {!creating && (
+          <>
+            <EditButton label="Modifier le nom, les portions et les tags" onClick={() => setDialog({ kind: 'header' })} />
+            <ActionsMenu
+              label="Actions de la recette"
+              actions={[
+                { label: 'Dupliquer', onClick: duplicate },
+                { label: 'Planifier un repas', onClick: () => setDialog({ kind: 'plan' }) },
+                { label: 'Supprimer', onClick: () => setDialog({ kind: 'delete' }), danger: true },
+              ]}
+            />
+          </>
+        )}
       </Box>
-      {ingredients.length > 0 && <Names names={ingredients} label={`Ingrédients de l'étape ${position}`} />}
-      {utensils.length > 0 && <Names names={utensils} label={`Ustensiles de l'étape ${position}`} />}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 2 }}>
+        {!creating && <GuestsStepper label="Portions" value={shownGuests} onChange={setGuests} />}
+        {(recipe.tags ?? []).map((tag) => (
+          <Chip key={tag} label={tag} size="small" />
+        ))}
+      </Box>
+      {simulating && (
+        <Alert
+          severity={scaled.state === 'failed' ? 'error' : 'info'}
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => setGuests(null)}>
+              Revenir à {servings}
+            </Button>
+          }
+        >
+          {scaled.state === 'failed'
+            ? `Impossible de calculer les quantités pour ${shownGuests} personnes : celles de la recette restent valables.`
+            : `Quantités pour ${shownGuests} personne${shownGuests > 1 ? 's' : ''} : une simulation, rien n’est enregistré.`}
+        </Alert>
+      )}
+
+      <IngredientsBlock
+        recipe={recipe}
+        scaled={scaledLines}
+        products={products}
+        simulating={simulating}
+        creating={creating}
+        onAdd={() => setDialog({ kind: 'ingredient', line: null })}
+        onEdit={(line) => setDialog({ kind: 'ingredient', line })}
+        onRemove={askRemoveLine}
+        onQuantity={(line, quantity) => save({ ingredients: linesPayload(lines.map((other) => (other === line ? { ...other, quantity } : other))) })}
+      />
+      <UtensilsBlock recipe={recipe} creating={creating} onEdit={() => setDialog({ kind: 'utensils' })} />
+      <NotesBlock recipe={recipe} creating={creating} onEdit={() => setDialog({ kind: 'notes' })} />
+      <StepsBlock
+        steps={steps}
+        creating={creating}
+        onAdd={() => setDialog({ kind: 'step', index: steps.length })}
+        onEdit={(index) => setDialog({ kind: 'step', index })}
+        onMove={(from, to) => saveOrNotify({ steps: stepsPayload(moveStep(steps, from, to)) })}
+        onRemove={(index) => saveOrNotify({ steps: stepsPayload(removeStep(steps, index)) })}
+      />
+      <NutritionBlock nutrition={nutrition} />
+
+      {dialog?.kind === 'header' && (
+        <HeaderDialog recipe={recipe} creating={creating} onSave={creating ? createRecipe : save} onClose={closeHeader} />
+      )}
+      {dialog?.kind === 'notes' && <NotesDialog notes={recipe.notes} onSave={save} onClose={close} />}
+      {dialog?.kind === 'utensils' && <UtensilsDialog utensils={recipe.utensils} onSave={save} onClose={close} />}
+      {dialog?.kind === 'ingredient' && (
+        <RecipeIngredientDialog recipe={recipe} line={dialog.line} onSave={save} onReplace={replaceIngredient} onClose={close} />
+      )}
+      {dialog?.kind === 'step' && <RecipeStepDialog recipe={recipe} steps={steps} index={dialog.index} onSave={save} onClose={close} />}
+      {dialog?.kind === 'plan' && <PlanMealDialog recipe={recipe} onClose={close} />}
+      {dialog?.kind === 'delete' && <RecipeDeleteConfirm open onClose={close} />}
+      <Confirm
+        isOpen={removing !== null}
+        title={`Retirer « ${removing?.ingredientName ?? ''} » ?`}
+        content={`${removingSteps.length === 1 ? "L'" : 'Les '}${stepLabel(removingSteps)} ${removingSteps.length === 1 ? 'utilise' : 'utilisent'} cet ingrédient : le lien sera retiré de ${removingSteps.length === 1 ? 'cette étape' : 'ces étapes'}, leur texte ne change pas.`}
+        confirm="Retirer"
+        onConfirm={() => removing && removeLine(removing)}
+        onClose={() => setRemoving(null)}
+      />
     </Box>
   )
 }
 
 const RecipeSheet = () => {
-  const recipe = useRecordContext<Recipe>()
-  if (!recipe) return null
+  const record = useRecordContext<RecipeRecord>()
+  if (!record) return null
 
-  const ingredients = recipe.ingredients ?? []
-  const utensils = recipe.utensils ?? []
-  const steps = [...(recipe.steps ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-
-  return (
-    <Box sx={{ p: 2, width: '100%' }}>
-      <Typography variant="h5" component="h1" sx={{ mb: 1 }}>
-        {recipe.name}
-      </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center', mb: 2 }}>
-        {recipe.servings !== undefined && (
-          <Typography color="text.secondary" sx={{ mr: 1 }}>
-            {recipe.servings} portion{recipe.servings > 1 ? 's' : ''}
-          </Typography>
-        )}
-        {(recipe.tags ?? []).map((tag) => (
-          <Chip key={tag} label={tag} size="small" />
-        ))}
-      </Box>
-      {recipe.notes && (
-        <Typography sx={{ mb: 3, whiteSpace: 'pre-wrap' }} color="text.secondary">
-          {recipe.notes}
-        </Typography>
-      )}
-      {ingredients.length > 0 && (
-        <Section title="Ingrédients">
-          <Box component="ul" sx={{ m: 0, pl: 3 }}>
-            {ingredients.map((line, index) => (
-              <li key={line.id ?? index}>
-                {line.quantity} {unitLabels[line.unit] ?? line.unit} {line.ingredientName}
-              </li>
-            ))}
-          </Box>
-        </Section>
-      )}
-      {utensils.length > 0 && (
-        <Section title="Matériel">
-          <Names names={utensils} label="Matériel" />
-        </Section>
-      )}
-      {steps.length > 0 && (
-        <Section title="Étapes">
-          <Box component="ol" sx={{ m: 0, p: 0, listStyle: 'none' }}>
-            {steps.map((step, index) => (
-              <StepRow key={step.id ?? index} step={step} position={index + 1} />
-            ))}
-          </Box>
-        </Section>
-      )}
-    </Box>
-  )
+  return <Sheet key={String(record.id)} record={record} />
 }
 
 export const RecipeShow = () => (
@@ -137,3 +296,8 @@ export const RecipeShow = () => (
     <RecipeSheet />
   </Show>
 )
+
+const EMPTY: RecipeRecord = { id: '', name: '', servings: 4, tags: [], notes: null, ingredients: [], utensils: [], steps: [] }
+
+/** The same page, empty: the first popin names the recipe, the blocks are filled from the sheet it then opens. */
+export const NewRecipeSheet = () => <Sheet record={EMPTY} creating />

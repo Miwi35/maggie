@@ -198,40 +198,50 @@ test('the ingredient a recipe creates from a Ciqual code is searchable at once, 
  * create with a notification, and waiting for a recipe that is never written
  * would cost the journey thirty seconds to say the same thing.
  */
-test('a recipe created from the form carries the Ciqual food picked', async ({ page, api }) => {
+test('a recipe built on its sheet carries the Ciqual food picked', async ({ page, api }) => {
   const name = perAttempt('Sauce tomate MAG-101')
   const shell = new AdminShell(page)
   await shell.goto(`${ROUTES.recipes}/create`)
 
-  await shell.content.getByLabel('Nom').fill(name)
-
-  const posted = page.waitForResponse(
+  // MAG-601: the recipe is created from its name, then its sheet takes the
+  // ingredient in a popin.
+  const created = page.waitForResponse(
     (response) => response.url().includes('/api/recipes') && response.request().method() === 'POST',
   )
+  const naming = page.getByRole('dialog', { name: 'Nouvelle recette' })
+  await naming.getByLabel('Nom').fill(name)
+  await naming.getByRole('button', { name: 'Créer' }).click()
+  expect((await created).status(), 'the API refused the new recipe').toBe(201)
+  await expect(page).toHaveURL(/#\/recipes\/.+\/show/)
 
-  // An icon button, labelled by `ra.action.add` — "Ajouter" in French (exact: the
-  // form also has « Ajouter une étape »). Pinned
-  // by `RecipeCreate.handles.test.tsx`, so a renamed label fails there in
-  // seconds rather than here in minutes.
-  await shell.content.getByRole('button', { name: 'Ajouter', exact: true }).click()
+  const patched = page.waitForResponse(
+    (response) => response.url().includes('/api/recipes/') && response.request().method() === 'PATCH',
+  )
+
+  await shell.content.getByRole('button', { name: 'Ajouter un ingrédient' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Ajouter un ingrédient' })
 
   // Two characters is the autocomplete's threshold and 300 ms its debounce;
   // the option is chosen by its exact name rather than by position, because
   // the service ranks results and the ranking is not this journey's business.
-  await shell.content.getByLabel('Aliment Ciqual').fill('tomate ronde')
-  await page.getByRole('option', { name: TOMATO.name }).click()
+  await dialog.getByLabel('Ingrédient').fill('tomate ronde')
+  await page.getByRole('option', { name: new RegExp(TOMATO.name) }).click()
 
-  await shell.content.getByLabel('Quantité').fill('4')
-  await shell.content.getByLabel('Unité').click()
+  await dialog.getByLabel('Quantité').fill('4')
+  await dialog.getByLabel('Unité').click()
   await page.getByRole('option', { name: 'pièce' }).click()
 
-  await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+  await dialog.getByRole('button', { name: 'Enregistrer' }).click()
 
-  const response = await posted
+  const response = await patched
   expect(
     response.status(),
     `the API refused the recipe: ${await response.text()}`,
-  ).toBe(201)
+  ).toBe(200)
+  expect(JSON.parse(response.request().postData() ?? '{}')).toMatchObject({
+    ingredients: [{ ciqualAlimCode: TOMATO.code, quantity: 4, unit: 'piece' }],
+  })
+  await expect(shell.content.getByRole('button', { name: `Modifier la quantité de ${TOMATO.name}` })).toBeVisible()
 
   const stored = await waitForIndexed<StoredRecipe>(api, '/api/recipes?itemsPerPage=100', (recipe) => recipe.name === name, {
     what: 'The new recipe',
@@ -257,24 +267,25 @@ test('the quantity of an ingredient already in a recipe can be changed', async (
   const iri = ((await created.json()) as { '@id': string })['@id']
 
   const shell = new AdminShell(page)
-  await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`)
+  await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
 
-  const quantity = shell.content.getByLabel('Quantité')
-  await expect(quantity).toHaveValue('200')
-  await quantity.fill('300')
+  // One click on the number turns it into a field (MAG-601); Enter saves.
+  const open = shell.content.getByRole('button', { name: `Modifier la quantité de ${COURGETTE.name}` })
+  await expect(open).toHaveText(/200/)
+  await open.click()
 
   const patched = page.waitForResponse(
     (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
   )
-  await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+  const quantity = shell.content.getByRole('spinbutton', { name: `Quantité de ${COURGETTE.name}` })
+  await quantity.fill('300')
+  await quantity.press('Enter')
   const response = await patched
   expect(response.status(), `the API refused the recipe: ${await response.text()}`).toBe(200)
 
-  // Kept on the API side, and still there when the recipe is opened again — a
-  // save sends the owner back to the list, so the edit page is reopened rather
-  // than reloaded.
-  await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`)
-  await expect(shell.content.getByLabel('Quantité')).toHaveValue('300')
+  // Kept on the API side, and still there when the sheet is opened again.
+  await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
+  await expect(shell.content.getByRole('button', { name: `Modifier la quantité de ${COURGETTE.name}` })).toHaveText(/300/)
   const stored = (await (await api.get(iri, { headers: { Accept: 'application/ld+json' } })).json()) as {
     ingredients: { quantity: number; ciqualAlimCode: string }[]
   }

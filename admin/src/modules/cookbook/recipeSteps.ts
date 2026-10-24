@@ -18,6 +18,9 @@ export interface RecipeStepDraft {
 
 export const nameOf = (ref: NameRef): string => (typeof ref === 'string' ? ref : ref.name)
 
+// An ingredient a step uses, as the API reads it: by id when it has one, so a renamed product keeps its steps.
+export const refOf = (ref: NameRef): string => (typeof ref === 'string' ? ref : (ref.id ?? ref.name))
+
 export const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
 export const dragId = (step: RecipeStepDraft, index: number): string => step.id ?? step.key ?? `step-${index}`
@@ -82,16 +85,15 @@ export const stepsPayload = (steps: RecipeStepDraft[] | undefined) =>
     text: step.text.trim(),
     durationMinutes: step.durationMinutes,
     background: step.durationMinutes !== null && step.background,
-    ingredientIds: step.ingredients.map(nameOf),
+    ingredientIds: step.ingredients.map(refOf),
     utensils: step.utensils.map(nameOf),
     waitsFor: step.waitsFor,
   }))
 
-/** The step an API refusal is about ("Step 3 needs a text.", "… step 3 (« … ») uses it"), if it names one. */
-export const stepOfError = (message: string): number | null => {
-  const found = /\bstep (\d+)/i.exec(message)
-  return found ? Number(found[1]) : null
+/** The message of an API refusal (400) of the recipe, if that is what `error` is. */
+export const refusalOf = (error: unknown): string | null => {
+  const { status, body, message } = (error ?? {}) as { status?: number; body?: Record<string, unknown>; message?: string }
+  if (status !== 400) return null
+  const detail = body?.['hydra:description'] ?? body?.detail ?? body?.error ?? message
+  return typeof detail === 'string' && detail !== '' ? detail : null
 }
-
-/** The recipe as the API reads it: its steps in their written shape. */
-export const recipeTransform = <T extends { steps?: RecipeStepDraft[] }>(data: T) => ({ ...data, steps: stepsPayload(data.steps) })

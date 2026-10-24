@@ -3465,6 +3465,57 @@
         },
         "description": "Reorder grocery items by setting their position. Pass an array of {id, position} pairs."
     },
+    "replace_recipe_ingredient": {
+        "name": "replace_recipe_ingredient",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "recipeId": {
+                    "type": "string"
+                },
+                "ingredientId": {
+                    "type": "string"
+                },
+                "withIngredientId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "withCiqualAlimCode": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "quantity": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null
+                },
+                "unit": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "rewriteText": {
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "required": [
+                "recipeId",
+                "ingredientId"
+            ]
+        },
+        "description": "Give a line of a recipe another product, without breaking its steps: the steps that used the old ingredient use the new one. ingredientId is the ingredient the recipe line has now; give the new one as withIngredientId or withCiqualAlimCode; quantity and unit are optional (kept when omitted). The text of the steps is never rewritten on a deduction: the answer lists textSuggestions ({position, before, after}) for the steps that cite the old name or quantity — pass rewriteText true only when the user asked for the texts to follow."
+    },
     "save_routine": {
         "name": "save_routine",
         "inputSchema": {

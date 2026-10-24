@@ -1,0 +1,132 @@
+import { packagingLabel } from '../grocery/packaging'
+import { UNIT_CHOICES } from '../grocery/productChoices'
+import { nameOf } from './recipeSteps'
+import type { NameRef, RecipeStepDraft } from './recipeSteps'
+
+export { UNIT_CHOICES }
+
+export interface RecipeLine {
+  id?: string
+  ingredient?: { '@id'?: string; id: string; name: string; ciqualAlimCode?: string | null; inSeason?: boolean | null }
+  ingredientName: string
+  ciqualAlimCode?: string | null
+  quantity: number
+  unit: string
+  inSeason?: boolean | null
+}
+
+export type RecipeStep = RecipeStepDraft & { position?: number }
+
+export interface RecipeRecord {
+  id: string
+  '@id'?: string
+  name: string
+  servings?: number
+  tags?: string[]
+  notes?: string | null
+  ingredients?: RecipeLine[]
+  utensils?: NameRef[]
+  steps?: RecipeStep[]
+}
+
+/** What the sheet knows of a product of the catalogue: its nutrition and how it is bought. */
+export interface ProductInfo {
+  id: string
+  name?: string
+  kcalPer100g?: number | null
+  proteinPer100g?: number | null
+  carbsPer100g?: number | null
+  fatPer100g?: number | null
+  packagingUnit?: string | null
+  packagingSize?: number | null
+  packagingSizeUnit?: string | null
+}
+
+export const idOf = (value: unknown): string => String(value).split('/').pop() ?? ''
+
+export const productIdOf = (line: RecipeLine): string | null => line.ingredient?.id ?? null
+
+export const durationLabel = (minutes: number): string => {
+  if (minutes < 60) return `${minutes} min`
+  const rest = minutes % 60
+  return `${Math.floor(minutes / 60)} h${rest === 0 ? '' : ` ${String(rest).padStart(2, '0')}`}`
+}
+
+/** The lines as the API reads them: the whole list, each line naming its product. */
+export const linesPayload = (lines: RecipeLine[]) =>
+  lines.map((line) => {
+    const product = productIdOf(line)
+    return {
+      ...(product ? { ingredientId: product } : { ciqualAlimCode: line.ciqualAlimCode }),
+      quantity: line.quantity,
+      unit: line.unit,
+    }
+  })
+
+export const utensilNames = (utensils: NameRef[] | undefined): string[] => (utensils ?? []).map(nameOf)
+
+const usesProduct = (step: RecipeStep, product: string) => step.ingredients.some((ref) => typeof ref !== 'string' && ref.id === product)
+
+/** The steps (their positions, 1-based) that use a product of the recipe. */
+export const stepsUsing = (steps: RecipeStep[], product: string): number[] =>
+  steps.flatMap((step, index) => (usesProduct(step, product) ? [index + 1] : []))
+
+/** The steps without the product: what is sent once the owner agreed to take the links off. */
+export const withoutProduct = (steps: RecipeStep[], product: string): RecipeStep[] =>
+  steps.map((step) => (usesProduct(step, product) ? { ...step, ingredients: step.ingredients.filter((ref) => typeof ref === 'string' || ref.id !== product) } : step))
+
+/** The steps in the order of their position. */
+export const orderedSteps = (steps: RecipeStep[] | undefined): RecipeStep[] =>
+  [...(steps ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+
+export const stepLabel = (steps: number[]): string => (steps.length === 1 ? `étape ${steps[0]}` : `étapes ${steps.join(', ')}`)
+
+/** « utilisé dans les étapes 2, 6 », or null when no step uses it. */
+export const usedInLabel = (steps: number[]): string | null => (steps.length === 0 ? null : `utilisé dans ${steps.length === 1 ? "l'" : 'les '}${stepLabel(steps)}`)
+
+export const productPackaging = (product: ProductInfo | undefined): string | null =>
+  product ? packagingLabel(product.packagingUnit, product.packagingSize, product.packagingSizeUnit) : null
+
+// The recipe's weights and volumes read as grams (a millilitre of food weighs about a gram); a
+// count (pieces, bunches) has no weight the app knows, so it is left out and the sheet says so.
+const GRAMS: Record<string, number> = { g: 1, kg: 1000, ml: 1, cl: 10, l: 1000 }
+
+export interface Nutrition {
+  kcal: number
+  protein: number
+  carbs: number
+  fat: number
+  /** Lines the figures leave out: counted in pieces, or a product with no nutrition. */
+  skipped: number
+}
+
+export const nutritionPerServing = (lines: RecipeLine[], servings: number, products: Map<string, ProductInfo>): Nutrition | null => {
+  if (lines.length === 0 || servings <= 0) return null
+
+  const total = { kcal: 0, protein: 0, carbs: 0, fat: 0 }
+  let skipped = 0
+  let counted = 0
+  for (const line of lines) {
+    const product = products.get(productIdOf(line) ?? '')
+    const grams = GRAMS[line.unit]
+    if (!product || grams === undefined || product.kcalPer100g == null) {
+      skipped += 1
+      continue
+    }
+    const factor = (line.quantity * grams) / 100
+    total.kcal += factor * product.kcalPer100g
+    total.protein += factor * (product.proteinPer100g ?? 0)
+    total.carbs += factor * (product.carbsPer100g ?? 0)
+    total.fat += factor * (product.fatPer100g ?? 0)
+    counted += 1
+  }
+  if (counted === 0) return null
+
+  return {
+    kcal: Math.round(total.kcal / servings),
+    protein: Math.round(total.protein / servings),
+    carbs: Math.round(total.carbs / servings),
+    fat: Math.round(total.fat / servings),
+    skipped,
+  }
+}
