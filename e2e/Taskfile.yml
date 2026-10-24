@@ -390,8 +390,8 @@ tasks:
     # next journey slow, billed and flaky, which is exactly what this ticket
     # removed.
     #
-    # Separate from CI on purpose (the `eval` job of .github/workflows/nightly.yml, nightly and on
-    # demand): a prompt regression is a signal, not a merge blocker.
+    # Separate from CI on purpose (the `eval` job of .github/workflows/nightly.yml, on demand
+    # only, never on the schedule): a prompt regression is a signal, not a merge blocker.
     #
     # Three things to know before reading a local run's report. It reseeds first,
     # because the scenarios write and a second run on an unreseeded stack has the
@@ -399,7 +399,7 @@ tasks:
     # leaves its own writes and the last scenario's conversation behind — run
     # `task e2e:seed` before a journey. And unless you export ANTHROPIC_MODEL, the
     # agent falls back to its own default rather than what production serves — the
-    # nightly reads that from infra/k8s/configmap.yaml, and the two have differed.
+    # eval workflow reads that from infra/k8s/configmap.yaml, and the two have differed.
     # The report header prints whichever model answered.
     vars:
       BASE_URL:
@@ -419,7 +419,7 @@ tasks:
       - defer: '{{.COMPOSE}} up -d --wait --no-deps --force-recreate agent'
       # CLI_ARGS is global in Task: it reaches every task called with `- task:`,
       # and `seed` passes it to app:e2e:seed. Left alone, `task e2e:eval --
-      # --report …` — what the nightly `eval` job always runs — dies on "The --report option
+      # --report …` — what the on-demand `eval` job always runs — dies on "The --report option
       # does not exist", before the agent is ever flipped to the real model.
       - task: seed
         vars:

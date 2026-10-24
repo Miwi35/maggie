@@ -63,7 +63,7 @@ how the fixtures stay deterministic and which external services are simulated:
 journey can talk to Maggie deterministically. It replaces the model and nothing
 else — the tool loop, the streaming gateway and MCP are the production ones.
 Judgement (tone, tool choice, keeping the thread) is checked separately by the
-eval suite, `task e2e:eval`, on the real model, nightly and outside CI. An
+eval suite, `task e2e:eval`, on the real model, by hand when a prompt changes, never nightly nor in CI. An
 assertion that would hold with any plausible wording belongs in a journey with
 the fake, not in the eval.
 
@@ -198,7 +198,7 @@ The account has no side effect outside the platform: no push notification, no Go
 | Integration | Real DB, real DI container | With service containers |
 | API/HTTP | Full request cycle | With service containers |
 | E2E | Playwright (web, `task e2e:web`) and Maestro (mobile, `task e2e:mobile`), fake LLM | Blocking (MAG-96) |
-| Eval | Real model, prompt-lab scenarios | Nightly, non-blocking (ADR-005) |
+| Eval | Real model, prompt-lab scenarios | By hand when a prompt changes, non-blocking (ADR-005) |
 
 ## Per-Component Quick Reference
 
