@@ -60,7 +60,7 @@ onFlowComplete:
 - assertVisible: "Pour combien ?"
 - assertVisible:
     id: "cooking_servings_value"
-    text: "2"
+- assertVisible: "La recette est prévue pour 2."
 - tapOn:
     id: "cooking_continue"
 
