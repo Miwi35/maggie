@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AdminContext, Notification, ResourceContextProvider, testDataProvider } from 'react-admin'
+import { AdminContext, Notification, ResourceContextProvider, ResourceDefinitionContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -99,7 +99,7 @@ const stubFetch = (routes: Record<string, () => Promise<Response>> = {}) => {
 
 const refusal = (message: string) => Object.assign(new Error(message), { status: 400, body: { 'hydra:description': message } })
 
-const renderSheet = (overrides: Partial<DataProvider> = {}, record: Record<string, unknown> = recipe) => {
+const renderSheet = (overrides: Partial<DataProvider> = {}, record: Record<string, unknown> = recipe, hasEdit = false) => {
   // The API answers with the recipe as it keeps it: here, the scalar fields the call changed.
   const update = vi.fn((_resource: string, params: { data: Record<string, unknown> }) => {
     const { name, servings, tags, notes } = params.data
@@ -125,9 +125,11 @@ const renderSheet = (overrides: Partial<DataProvider> = {}, record: Record<strin
           <Route
             path="/recipes/:id/show"
             element={
-              <ResourceContextProvider value="recipes">
-                <RecipeShow />
-              </ResourceContextProvider>
+              <ResourceDefinitionContextProvider definitions={{ recipes: { name: 'recipes', hasList: true, hasShow: true, hasEdit } }}>
+                <ResourceContextProvider value="recipes">
+                  <RecipeShow />
+                </ResourceContextProvider>
+              </ResourceDefinitionContextProvider>
             }
           />
           <Route path="*" element={<p>ailleurs</p>} />
@@ -150,6 +152,13 @@ const stepItems = () => screen.getAllByRole('listitem', { name: /^Étape \d+$/ }
 describe('RecipeShow', { timeout: 30_000 }, () => {
   beforeEach(() => stubFetch())
   afterEach(() => vi.unstubAllGlobals())
+
+  test('offers no edit form: react-admin’s default Éditer button is gone even when the resource has an edit route', async () => {
+    renderSheet({}, recipe, true)
+
+    expect(await screen.findByRole('heading', { name: 'Bœuf bourguignon' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Éditer' })).not.toBeInTheDocument()
+  })
 
   test('reads like a page: header, ingredients, utensils, notes, steps and nutrition per person', async () => {
     renderSheet()

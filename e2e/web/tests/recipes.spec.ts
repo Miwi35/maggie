@@ -825,6 +825,11 @@ test.describe('Recipes and meals', () => {
     await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
     const line = shell.content.getByRole('button', { name: 'Modifier la quantité de Lardons fumés' }).locator('xpath=ancestor::li[1]')
     await expect(line).toContainText('utilisé dans les étapes 2, 6')
+    // And the sheet offers no edit form: no « Éditer » button, and the old edit URL leads back to the sheet
+    await expect(page.getByRole('link', { name: 'Éditer' })).toHaveCount(0)
+    await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`)
+    await expect(page).toHaveURL(/#\/recipes\/.+\/show/)
+    await expect(line).toContainText('utilisé dans les étapes 2, 6')
     await line.getByRole('button', { name: 'Actions pour Lardons fumés' }).click()
     await page.getByRole('menuitem', { name: 'Modifier' }).click()
 

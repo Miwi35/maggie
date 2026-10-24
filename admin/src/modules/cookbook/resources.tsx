@@ -1,6 +1,6 @@
 import { ResourceGuesser } from '@api-platform/admin'
 import { CustomRoutes } from 'react-admin'
-import { Route } from 'react-router-dom'
+import { Navigate, Route } from 'react-router-dom'
 import { lazyPage } from '../../lazyPage'
 
 const CalendarView = lazyPage(() => import('../calendar/CalendarView'), 'CalendarView')
@@ -11,6 +11,9 @@ const IngredientList = lazyPage(() => import('./IngredientList'), 'IngredientLis
 const RecipeCreate = lazyPage(() => import('./RecipeCreate'), 'RecipeCreate')
 const RecipeList = lazyPage(() => import('./RecipeList'), 'RecipeList')
 const RecipeShow = lazyPage(() => import('./RecipeShow'), 'RecipeShow')
+
+// react-admin serves `:id` as the edit route: a recipe has no edit form, its sheet is the page.
+export const RecipeEditRedirect = () => <Navigate to="show" replace />
 
 export const cookbookResources = (
   <>
@@ -24,6 +27,6 @@ export const cookbookResources = (
       create={IngredientCreate}
       edit={IngredientEdit}
     />
-    <ResourceGuesser name="recipes" list={RecipeList} create={RecipeCreate} show={RecipeShow} />
+    <ResourceGuesser name="recipes" list={RecipeList} create={RecipeCreate} show={RecipeShow} edit={RecipeEditRedirect} />
   </>
 )
