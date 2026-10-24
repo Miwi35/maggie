@@ -45,6 +45,7 @@ services:
         arguments:
             $doctrineProvider: '@ApiPlatform\Doctrine\Orm\State\CollectionProvider'
             $environment: '%kernel.environment%'
+            $domainFilters: !tagged_iterator maggie.es_domain_filter
 
     Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider:
         arguments:

@@ -11,6 +11,7 @@ use Elastic\Elasticsearch\Exception\ClientResponseException;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Core\Elasticsearch\Hydrator\ElasticsearchEntityHydrator;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
+use Maggie\Core\Elasticsearch\Query\ElasticsearchDomainFilter;
 use Maggie\Core\Elasticsearch\Query\ElasticsearchFilterTranslator;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Entity\User;
@@ -18,6 +19,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 /**
  * Collections of indexed entities come from Elasticsearch and fall back to
@@ -32,7 +34,8 @@ final class ElasticsearchCollectionProviderFallbackTest extends TestCase
     private LoggerInterface&MockObject $logger;
     private ProviderInterface&MockObject $doctrine;
 
-    private function provider(\Closure $respond): ElasticsearchCollectionProvider
+    /** @param iterable<ElasticsearchDomainFilter> $domainFilters */
+    private function provider(\Closure $respond, iterable $domainFilters = []): ElasticsearchCollectionProvider
     {
         $this->logger = $this->createMock(LoggerInterface::class);
         $this->doctrine = $this->createMock(ProviderInterface::class);
@@ -49,7 +52,45 @@ final class ElasticsearchCollectionProviderFallbackTest extends TestCase
             $this->logger,
             $this->doctrine,
             'prod',
+            $domainFilters,
         );
+    }
+
+    public function testAMistakeOfTheClientIsNotAFallback(): void
+    {
+        $refusing = new class implements ElasticsearchDomainFilter {
+            public function supports(string $entityClass): bool
+            {
+                return true;
+            }
+
+            public function parameters(): array
+            {
+                return ['aisle'];
+            }
+
+            public function sortFields(): array
+            {
+                return [];
+            }
+
+            public function clauses(array $filters): array
+            {
+                throw new BadRequestHttpException('The "aisle" filter needs a "store".');
+            }
+
+            public function sort(string $field, string $direction, array $filters): array
+            {
+                return [];
+            }
+        };
+        $provider = $this->provider(static fn (): array => [200, ['hits' => ['total' => ['value' => 0], 'hits' => []]]], [$refusing]);
+
+        $this->logger->expects(self::never())->method('error');
+        $this->doctrine->expects(self::never())->method('provide');
+
+        $this->expectException(BadRequestHttpException::class);
+        $provider->provide(new GetCollection(class: Event::class), [], ['filters' => ['aisle' => 'x']]);
     }
 
     public function testAFailedSearchFallsBackToDoctrineAndIsLoggedAsAnError(): void
