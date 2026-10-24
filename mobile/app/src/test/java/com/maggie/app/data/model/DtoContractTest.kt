@@ -1077,7 +1077,9 @@ class DtoContractTest {
         assertTrue("No recorded task has a score, so orderScore proves nothing.", collection.any { (it.orderScore ?: 0) > 0 })
         assertTrue("No recorded task is done, so completedAt proves nothing.", collection.any { it.completedAt != null })
 
-        val card = HomeTasksComposer.today(today, collection.filter { it.isDone }, day, java.time.LocalTime.NOON)
+        val dayMoments = json.decodeFromJsonElement(serializer<TaskSettings>(), readRecording("task_settings.me")).dayMoments
+
+        val card = HomeTasksComposer.today(today, collection.filter { it.isDone }, day, dayMoments, java.time.LocalTime.of(21, 0))
         assertTrue(card.tasks.any { it.parentId == "01ARZ3NDEKTSV4RRFFQ69G5FAV" })
         assertTrue(card.tasks.any { it.done })
         assertTrue(card.overdue > 0)

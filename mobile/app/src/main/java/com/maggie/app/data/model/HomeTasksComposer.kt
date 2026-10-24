@@ -1,6 +1,7 @@
 package com.maggie.app.data.model
 
 import java.time.LocalTime
+import java.util.Locale
 
 /**
  * Composes the « Tâches » card of the Accueil from the business resources it reads: the open tasks of the day, the
@@ -58,7 +59,7 @@ object HomeTasksComposer {
     /** `HH:MM` strings compare like the times they are; a stable sort keeps the settings' order for equal hours. */
     internal fun currentAnchor(dayMoments: Map<String, String>, now: LocalTime): String? {
         val sorted = dayMoments.entries.sortedBy { it.value }
-        val nowText = "%02d:%02d".format(now.hour, now.minute)
+        val nowText = String.format(Locale.ROOT, "%02d:%02d", now.hour, now.minute)
         return (sorted.lastOrNull { it.value <= nowText } ?: sorted.firstOrNull())?.key
     }
 
