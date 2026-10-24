@@ -4,6 +4,7 @@ import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.ProductCreateRequest
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductAisle
+import kotlinx.serialization.json.JsonObject
 
 class ProductRepository(
     private val apiService: MaggieApiService,
@@ -22,6 +23,10 @@ class ProductRepository(
 
     suspend fun updateSeasonMonths(id: String, months: List<Int>): Result<Product> = runCatching {
         apiService.updateProductSeasonMonths(id, months)
+    }
+
+    suspend fun updateProduct(id: String, fields: JsonObject): Result<Product> = runCatching {
+        apiService.updateProduct(id, fields)
     }
 
     suspend fun deleteProduct(id: String): Result<Unit> = runCatching {

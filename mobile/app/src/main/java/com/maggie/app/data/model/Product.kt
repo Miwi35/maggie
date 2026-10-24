@@ -8,6 +8,8 @@ data class Product(
     val name: String,
     val defaultUnit: CookbookUnit? = null,
     val category: ProductCategory,
+    // The Ciqual food it is linked to (MAG-605); the API only sends its code.
+    val ciqualAlimCode: String? = null,
     val kcalPer100g: Float? = null,
     val proteinPer100g: Float? = null,
     val carbsPer100g: Float? = null,

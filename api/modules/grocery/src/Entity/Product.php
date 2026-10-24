@@ -656,6 +656,7 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'defaultUnit' => $this->defaultUnit?->value,
             'userId' => (string) $this->user->getId(),
             'dtype' => strtolower((new \ReflectionClass($this))->getShortName()),
+            'ciqualAlimCode' => $this->ciqualAlimCode,
             'kcalPer100g' => $this->kcalPer100g,
             'proteinPer100g' => $this->proteinPer100g,
             'carbsPer100g' => $this->carbsPer100g,

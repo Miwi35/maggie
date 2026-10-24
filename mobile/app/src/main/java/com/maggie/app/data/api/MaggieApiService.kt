@@ -1757,6 +1757,15 @@ class MaggieApiService(
         }.body()
     }
 
+    /** A merge-patch of just the [fields] that changed (MAG-605); a refusal carries the API's message. */
+    suspend fun updateProduct(id: String, fields: JsonObject): Product {
+        return client.patch("$baseUrl/api/products/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(fields)
+        }.orRefusal().body()
+    }
+
     suspend fun deleteProduct(id: String) {
         client.delete("$baseUrl/api/products/$id")
     }

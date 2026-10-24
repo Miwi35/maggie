@@ -287,6 +287,26 @@ class ProductApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Product::class);
     }
 
+    public function testPatchSetsTheCiqualLinkAndNullClearsIt(): void
+    {
+        $product = $this->load();
+
+        $this->patch($product, ['ciqualAlimCode' => '9810']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('9810', $this->reload($product)->getCiqualAlimCode());
+        $this->assertMercureUpdatePublished('/products/');
+        $this->assertElasticsearchIndexDispatched(Product::class);
+
+        $this->patch($product, ['name' => 'Riz basmati']);
+        self::assertSame('9810', $this->reload($product)->getCiqualAlimCode(), 'A PATCH without the link keeps it');
+
+        $this->patch($product, ['ciqualAlimCode' => null]);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->reload($product)->getCiqualAlimCode());
+    }
+
     public function testPatchSetsAJarWithoutContent(): void
     {
         $product = $this->load();

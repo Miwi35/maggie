@@ -95,6 +95,13 @@ class ProductSearchDocumentTest extends TestCase
         self::assertSame(Unit::Gram, $hydrated->getPackagingSizeUnit());
     }
 
+    public function testTheCiqualLinkSurvivesTheRoundTripThroughElasticsearch(): void
+    {
+        $this->product->setCiqualAlimCode('9810');
+
+        self::assertSame('9810', $this->hydrate($this->product)->getCiqualAlimCode());
+    }
+
     public function testTheMercurePayloadCarriesThePackaging(): void
     {
         $this->product->setPackagingUnit(Unit::Jar);

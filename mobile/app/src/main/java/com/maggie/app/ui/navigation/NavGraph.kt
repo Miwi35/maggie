@@ -1608,6 +1608,7 @@ fun NavGraph() {
                             viewModel = productViewModel,
                             recurringViewModel = recurringGroceryViewModel,
                             onBack = { navController.popBackStack() },
+                            onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
                         )
                     }
                     composable(Screen.StoreList.route) {

@@ -566,6 +566,9 @@ mobile:
     areas: [grocery, realtime]
   e2e/mobile/flows/19-grocery-packagings.yaml:
     areas: [grocery]
+  e2e/mobile/flows/20-product-sheet.yaml:
+    areas: [grocery]
+    paths: ['mobile/app/src/main/java/com/maggie/app/ui/screens/grocery/Product*.kt']
   e2e/mobile/flows/18-grocery-aisles.yaml:
     areas: [grocery]
     paths: ['mobile/app/src/main/java/com/maggie/app/ui/screens/grocery/StoreAisles*.kt']
