@@ -13,6 +13,7 @@ use Maggie\Calendar\Service\RewardGranter;
 use Maggie\Calendar\Service\RewardMessages;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
+use Maggie\Finance\Entity\Scenario;
 use Maggie\Finance\Enum\RecurrencePeriod;
 use Maggie\Finance\Tests\UseCase\RecurringProjectionsWorld;
 use Maggie\Finance\UseCase\GetAccountTimeline;
@@ -510,6 +511,49 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/finance_scenario.read.json',
             self::stabilise($detail),
             'GET /api/finance/scenarios/{id} no longer returns what it used to. The mobile DTOs and the admin client read the figures of each repayment from it.',
+        );
+    }
+
+    /**
+     * The 20-year frise (MAG-554), read on 2026-10-21: a current scenario with
+     * two projects, a placement and a loan, an automatic scenario beside it
+     * and the gap of N between them.
+     */
+    public function testTheTimelineRecordingIsCurrent(): void
+    {
+        Clock::set(new MockClock('2026-10-21 12:00:00 UTC'));
+        $this->em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $this->loadFixtures(\dirname(__DIR__, 2).'/modules/finance/tests/Api/fixtures/timeline.yaml');
+
+        $mine = $this->getFixture('mine');
+        self::assertInstanceOf(Scenario::class, $mine);
+        $mine->setProjects([
+            ['projectId' => (string) $this->getFixture('trip')->getId(), 'position' => 0],
+            ['projectId' => (string) $this->getFixture('car')->getId(), 'position' => 1],
+        ])->setPlacements([['placementId' => (string) $this->getFixture('pea')->getId()]])->setMonthlySaving(150000);
+        $this->em->flush();
+
+        $user = $this->getFixture('test_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('POST', '/api/finance/scenarios/'.$mine->getId().'/make-current', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/api/finance/timeline?compare=auto-quality', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotEmpty($body['current']['events'], 'The recorded frise holds no event.');
+        self::assertNotNull($body['current']['nDate'], 'The recorded frise never reaches independence.');
+        self::assertNotEmpty($body['compared']['events'], 'The recorded comparison holds no event.');
+        self::assertNotNull($body['difference'], 'The recorded comparison holds no gap of N.');
+        self::assertContains('independence_reached', array_column($body['current']['events'], 'type'));
+
+        $this->assertMatchesContract(
+            'responses/finance_timeline.read.json',
+            self::stabilise($body),
+            'GET /api/finance/timeline no longer returns what it used to. The mobile DTOs (FinanceTimeline.kt) and the admin hook read this response.',
         );
     }
 

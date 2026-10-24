@@ -51,6 +51,8 @@ export const ROUTES = {
   financeProjects: '/finance/projects',
   // The Indépendance tab of Planification, where the placements sit (MAG-555).
   financePlanningIndependence: '/finance/summary/planning/independence',
+  // The 20-year frise of Planification (MAG-554).
+  financePlanningTimeline: '/finance/summary/planning/timeline',
   financeReview: '/finance/review',
   // The review as a full-screen activity, out of the layout (MAG-456).
   financeReviewActivity: '/finance/review/activity',

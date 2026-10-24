@@ -25,8 +25,10 @@
         "debt_end": "dette",
         "early_repayment": "dette",
         "placement_start": "investissement",
+        "placement_milestone": "investissement",
         "independence_milestone": "indépendance",
         "independence_reached": "indépendance",
-        "cushion_complete": "matelas"
+        "cushion_complete": "matelas",
+        "cushion_recharging": "matelas"
     }
 }

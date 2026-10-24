@@ -12,6 +12,7 @@ import { LoanList } from './LoanList'
 import { PeerDebtsPage } from './PeerDebtsPage'
 import { ProjectsPage } from './ProjectsPage'
 import { ReviewPage } from './ReviewPage'
+import { TimelinePanel } from './TimelinePanel'
 import { RecurringOperationsPage } from './RecurringOperationsPage'
 import { SavingsAdvancesPage } from './SavingsAdvancesPage'
 import { StatementImportPage } from './StatementImportPage'
@@ -48,6 +49,7 @@ export const ASPECT_CONTENT: Record<string, ComponentType> = {
   projects: ProjectsPage,
   loans: inResource('loans', LoanList),
   independence: IndependencePanel,
+  timeline: TimelinePanel,
   banks: BankConnectionsPage,
   categories: inResource('categories', CategoryList),
 }

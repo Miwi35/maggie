@@ -89,7 +89,7 @@ describe('the seven Finance menus', () => {
   test('open Planification on Projets, before Prêts (MAG-519)', () => {
     const planning = FINANCE_MENUS.find((menu) => menu.key === 'planning')
 
-    expect(planning?.aspects.map((aspect) => aspect.id)).toEqual(['projects', 'loans', 'independence'])
+    expect(planning?.aspects.map((aspect) => aspect.id)).toEqual(['projects', 'loans', 'independence', 'timeline'])
     expect(labels('/finance/projects')).toEqual(['Finance', 'Planification', 'Projets'])
   })
 })

@@ -115,6 +115,8 @@ const PROBES: Record<string, Probe> = {
   projects: useProjectsProbe,
   loans: useLoansProbe,
   independence: useIndependenceProbe,
+  // Never the tab a menu opens on: it reads the plan the other tabs build.
+  timeline: useNoDataProbe,
   banks: useBanksProbe,
   categories: useCategoriesProbe,
 }

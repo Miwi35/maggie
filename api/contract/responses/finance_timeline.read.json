@@ -1,0 +1,346 @@
+{
+    "startMonth": "2026-10",
+    "horizonMonths": 240,
+    "assumptions": "Hypothèses : matelas intact, revenus stables, sans vacance locative ni imprévu",
+    "categories": [
+        {
+            "key": "projet",
+            "label": "Projets",
+            "color": "#B8DE6F"
+        },
+        {
+            "key": "dette",
+            "label": "Dettes",
+            "color": "#8FB8FF"
+        },
+        {
+            "key": "investissement",
+            "label": "Investissements",
+            "color": "#F2C46D"
+        },
+        {
+            "key": "indépendance",
+            "label": "Indépendance",
+            "color": "#7FD1AE"
+        },
+        {
+            "key": "fiscal",
+            "label": "Fiscal",
+            "color": "#C7B5FF"
+        },
+        {
+            "key": "matelas",
+            "label": "Matelas",
+            "color": "#ABA6B8"
+        }
+    ],
+    "current": {
+        "scenarioId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "name": "Mon plan",
+        "nDate": "2046-03",
+        "events": [
+            {
+                "id": "independence_milestone:25",
+                "month": "2026-10",
+                "type": "independence_milestone",
+                "category": "indépendance",
+                "label": "25 % du train de vie couvert",
+                "sublabel": null,
+                "amount_eur": null,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "percent": 25
+                }
+            },
+            {
+                "id": "placement_start:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2026-10",
+                "type": "placement_start",
+                "category": "investissement",
+                "label": "PEA",
+                "sublabel": null,
+                "amount_eur": 2000,
+                "monthly_impact_eur": -150,
+                "n_impact_months": null,
+                "detail": {
+                    "placementId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "finalCents": 2795271,
+                    "rentCents": 9318
+                }
+            },
+            {
+                "id": "project_start:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2026-10",
+                "type": "project_start",
+                "category": "projet",
+                "label": "Voyage au Japon",
+                "sublabel": "Début de l'épargne",
+                "amount_eur": 2000,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                }
+            },
+            {
+                "id": "project_purchase:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2026-11",
+                "type": "project_purchase",
+                "category": "projet",
+                "label": "Voyage au Japon",
+                "sublabel": "Achat",
+                "amount_eur": 2000,
+                "monthly_impact_eur": null,
+                "n_impact_months": 1,
+                "detail": {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "wellbeing": "comfort",
+                    "loanStartMonth": null
+                }
+            },
+            {
+                "id": "project_start:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2026-11",
+                "type": "project_start",
+                "category": "projet",
+                "label": "Voiture",
+                "sublabel": "Début de l'épargne",
+                "amount_eur": 6000,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                }
+            },
+            {
+                "id": "project_purchase:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2027-03",
+                "type": "project_purchase",
+                "category": "projet",
+                "label": "Voiture",
+                "sublabel": "Achat",
+                "amount_eur": 6000,
+                "monthly_impact_eur": null,
+                "n_impact_months": 4,
+                "detail": {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "wellbeing": "high",
+                    "loanStartMonth": null
+                }
+            },
+            {
+                "id": "debt_end:loan:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2027-08",
+                "type": "debt_end",
+                "category": "dette",
+                "label": "Fin du prêt : Crédit conso",
+                "sublabel": null,
+                "amount_eur": null,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "loanId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                }
+            },
+            {
+                "id": "independence_milestone:50",
+                "month": "2030-09",
+                "type": "independence_milestone",
+                "category": "indépendance",
+                "label": "50 % du train de vie couvert",
+                "sublabel": null,
+                "amount_eur": null,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "percent": 50
+                }
+            },
+            {
+                "id": "placement_milestone:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2036-10",
+                "type": "placement_milestone",
+                "category": "investissement",
+                "label": "PEA",
+                "sublabel": "Terme du placement simulé",
+                "amount_eur": 27952.71,
+                "monthly_impact_eur": 93.18,
+                "n_impact_months": null,
+                "detail": {
+                    "placementId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "years": 10
+                }
+            },
+            {
+                "id": "independence_milestone:75",
+                "month": "2038-06",
+                "type": "independence_milestone",
+                "category": "indépendance",
+                "label": "75 % du train de vie couvert",
+                "sublabel": null,
+                "amount_eur": null,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "percent": 75
+                }
+            },
+            {
+                "id": "independence_reached",
+                "month": "2046-03",
+                "type": "independence_reached",
+                "category": "indépendance",
+                "label": "Indépendance financière",
+                "sublabel": "Les rentes couvrent le train de vie",
+                "amount_eur": null,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "percent": 100
+                }
+            }
+        ]
+    },
+    "compared": {
+        "scenarioId": "auto-quality",
+        "name": "Qualité de vie",
+        "nDate": "2043-09",
+        "events": [
+            {
+                "id": "independence_milestone:25",
+                "month": "2026-10",
+                "type": "independence_milestone",
+                "category": "indépendance",
+                "label": "25 % du train de vie couvert",
+                "sublabel": null,
+                "amount_eur": null,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "percent": 25
+                }
+            },
+            {
+                "id": "project_start:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2026-10",
+                "type": "project_start",
+                "category": "projet",
+                "label": "Voiture",
+                "sublabel": "Début de l'épargne",
+                "amount_eur": 6000,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                }
+            },
+            {
+                "id": "project_purchase:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2027-01",
+                "type": "project_purchase",
+                "category": "projet",
+                "label": "Voiture",
+                "sublabel": "Achat",
+                "amount_eur": 6000,
+                "monthly_impact_eur": null,
+                "n_impact_months": 4,
+                "detail": {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "wellbeing": "high",
+                    "loanStartMonth": null
+                }
+            },
+            {
+                "id": "project_start:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2027-01",
+                "type": "project_start",
+                "category": "projet",
+                "label": "Voyage au Japon",
+                "sublabel": "Début de l'épargne",
+                "amount_eur": 2000,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                }
+            },
+            {
+                "id": "project_purchase:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2027-02",
+                "type": "project_purchase",
+                "category": "projet",
+                "label": "Voyage au Japon",
+                "sublabel": "Achat",
+                "amount_eur": 2000,
+                "monthly_impact_eur": null,
+                "n_impact_months": 1,
+                "detail": {
+                    "projectId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "wellbeing": "comfort",
+                    "loanStartMonth": null
+                }
+            },
+            {
+                "id": "debt_end:loan:01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "month": "2027-08",
+                "type": "debt_end",
+                "category": "dette",
+                "label": "Fin du prêt : Crédit conso",
+                "sublabel": null,
+                "amount_eur": null,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "loanId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                }
+            },
+            {
+                "id": "independence_milestone:50",
+                "month": "2030-01",
+                "type": "independence_milestone",
+                "category": "indépendance",
+                "label": "50 % du train de vie couvert",
+                "sublabel": null,
+                "amount_eur": null,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "percent": 50
+                }
+            },
+            {
+                "id": "independence_milestone:75",
+                "month": "2036-11",
+                "type": "independence_milestone",
+                "category": "indépendance",
+                "label": "75 % du train de vie couvert",
+                "sublabel": null,
+                "amount_eur": null,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "percent": 75
+                }
+            },
+            {
+                "id": "independence_reached",
+                "month": "2043-09",
+                "type": "independence_reached",
+                "category": "indépendance",
+                "label": "Indépendance financière",
+                "sublabel": "Les rentes couvrent le train de vie",
+                "amount_eur": null,
+                "monthly_impact_eur": null,
+                "n_impact_months": null,
+                "detail": {
+                    "percent": 100
+                }
+            }
+        ]
+    },
+    "difference": {
+        "months": -30,
+        "sentence": "N 2 ans 6 mois plus tôt que « Mon plan »"
+    }
+}
