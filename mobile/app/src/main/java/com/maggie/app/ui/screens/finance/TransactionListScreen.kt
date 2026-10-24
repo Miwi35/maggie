@@ -21,7 +21,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -76,6 +75,7 @@ import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -365,7 +365,7 @@ fun TransactionListScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             items(uiState.transactions, key = { it.id }) { transaction ->
-                                Card(modifier = Modifier.fillMaxWidth().clickable { viewModel.openDetail(transaction.id) }) {
+                                MaggieCard(modifier = Modifier.fillMaxWidth().clickable { viewModel.openDetail(transaction.id) }) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()

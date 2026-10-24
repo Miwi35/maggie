@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -49,6 +48,7 @@ import com.maggie.app.data.model.owesYouLabel
 import com.maggie.app.data.model.youOweLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.ListDetailPane
 
 /**
@@ -198,7 +198,7 @@ private fun Totals(state: PeerDebtsUiState) {
 
 @Composable
 private fun TotalTile(title: String, caption: String, cents: Int, tag: String, modifier: Modifier) {
-    Card(modifier = modifier.testTag(tag)) {
+    MaggieCard(modifier = modifier.testTag(tag)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(formatCents(cents), style = MaterialTheme.typography.headlineSmall)

@@ -19,8 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -66,9 +64,11 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.Screen
+import com.maggie.app.ui.theme.maggieSurface
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -249,9 +249,9 @@ private fun ProjectList(
                         add(CustomAccessibilityAction("Descendre ${project.name}") { onMoveBy(project.id, 1); true })
                     }
                 }
-                Card(
+                MaggieCard(
                     onClick = { onOpen(project.id) },
-                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDragging) 8.dp else 1.dp),
+                    elevation = if (isDragging) 8.dp else 0.dp,
                     modifier = Modifier
                         .fillMaxWidth()
                         .longPressDraggableHandle(onDragStopped = { onEndMove() })
@@ -442,6 +442,6 @@ private fun wellbeingColors(wellbeing: ProjectWellbeing): Pair<Color, Color> = w
         ProjectWellbeing.ESSENTIAL -> primaryContainer to onPrimaryContainer
         ProjectWellbeing.HIGH -> secondaryContainer to onSecondaryContainer
         ProjectWellbeing.MEDIUM -> tertiaryContainer to onTertiaryContainer
-        ProjectWellbeing.COMFORT -> surfaceVariant to onSurfaceVariant
+        ProjectWellbeing.COMFORT -> maggieSurface().raised to onSurfaceVariant
     }
 }

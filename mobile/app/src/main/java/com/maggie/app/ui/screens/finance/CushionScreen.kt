@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -51,6 +50,7 @@ import com.maggie.app.data.model.rechargePlanLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.Screen
 import kotlin.math.roundToInt
 
@@ -132,7 +132,7 @@ fun CushionScreen(
 
 @Composable
 internal fun CushionSummaryCard(status: CushionStatus) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -244,7 +244,7 @@ private fun CushionSettingsCard(
         mutableStateOf((status.rechargeCapCents / 100.0).toString())
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

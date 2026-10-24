@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -80,6 +79,7 @@ import com.maggie.app.data.model.splitSharesOf
 import com.maggie.app.data.model.toSortPillLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.FinanceSection
 import com.maggie.app.ui.navigation.ProvideFinanceNav
 import com.maggie.app.ui.navigation.financeSubviewState
@@ -431,7 +431,7 @@ private fun BudgetCard(
     onSaveSplit: () -> Unit = {},
     onCancelSplit: () -> Unit = {},
 ) {
-    Card(modifier = Modifier.fillMaxWidth().padding(start = ((depth - 1) * 16).dp)) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().padding(start = ((depth - 1) * 16).dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

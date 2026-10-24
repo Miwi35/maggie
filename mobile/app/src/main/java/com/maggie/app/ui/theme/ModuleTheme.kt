@@ -19,6 +19,11 @@ enum class ModuleHue(internal val hue: Pair<Color, Color>) {
 @ReadOnlyComposable
 fun isMaggieDark(): Boolean = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
+/** The mode's surfaces — `paper`, `raised`, `track` — which the colour scheme has no role for. */
+@Composable
+@ReadOnlyComposable
+fun maggieSurface(): MaggieTokens.Surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
+
 /**
  * This scheme, with the module's hue where the violet accent was: active tabs, rings, curves,
  * buttons and selected chips of a module's screens take its colour. Surfaces, inks and errors stay.

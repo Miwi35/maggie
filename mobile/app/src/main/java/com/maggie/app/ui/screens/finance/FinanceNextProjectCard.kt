@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.NextProject
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 import java.time.LocalDate
 
 /** Whole months from [today]'s month to [purchaseMonth] (`YYYY-MM`), never below 0. */
@@ -56,7 +56,7 @@ internal fun negativeReturnSentence(project: NextProject): String? = project.del
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NextProjectCard(project: NextProject, modifier: Modifier = Modifier, today: LocalDate = LocalDate.now()) {
-    Card(modifier = modifier.fillMaxWidth().testTag(UiTags.FINANCE_NEXT_PROJECT)) {
+    MaggieCard(modifier = modifier.fillMaxWidth().testTag(UiTags.FINANCE_NEXT_PROJECT)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text("Prochain projet", style = MaterialTheme.typography.titleSmall)
             Row(

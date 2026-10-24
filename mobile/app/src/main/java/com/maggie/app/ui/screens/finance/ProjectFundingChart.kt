@@ -45,6 +45,7 @@ import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.theme.chartColor
+import com.maggie.app.ui.theme.maggieSurface
 
 /** The three sources that fund the projects, bottom to top of a bar: the salary carries the stack. */
 enum class FundingSource(val label: String, val slot: Int) {
@@ -233,7 +234,7 @@ private fun MonthBar(
         modifier = Modifier
             .width(column)
             .height(PLOT_HEIGHT + MARK_BAND)
-            .then(if (bar.index == 0) Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else Modifier)
+            .then(if (bar.index == 0) Modifier.background(maggieSurface().raised.copy(alpha = 0.5f)) else Modifier)
             .clickable { onTap(bar.detail) }
             .semantics { contentDescription = bar.detail }
             .testTag(UiTags.FUNDING_MONTH),

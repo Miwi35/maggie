@@ -17,8 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -49,6 +47,7 @@ import com.maggie.app.data.model.ProjectDateMode
 import com.maggie.app.data.model.ProjectWellbeing
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.DateField
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.uiTagRoot
@@ -182,8 +181,8 @@ internal fun ProjectFormContent(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 form.error?.let { refusal ->
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    MaggieCard(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
                         modifier = Modifier.fillMaxWidth().testTag(UiTags.PROJECT_FORM_ERROR),
                     ) {
                         Text(

@@ -22,8 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -54,6 +52,7 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.CategorySearchDialog
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.theme.MaggieDarkColorScheme
 import com.maggie.app.ui.theme.MaggieShapes
@@ -119,7 +118,7 @@ private fun ProjectsStep(upcomingViewModel: UpcomingViewModel, nextProject: Next
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         upcoming.projection?.month?.let { month ->
-            Card(modifier = Modifier.fillMaxWidth().testTag(UiTags.REVIEW_ACTIVITY_REMAINING)) {
+            MaggieCard(modifier = Modifier.fillMaxWidth().testTag(UiTags.REVIEW_ACTIVITY_REMAINING)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Reste vers les projets", style = MaterialTheme.typography.titleSmall)
                     Text(
@@ -342,9 +341,8 @@ private fun ReviewLine(
     onJudge: (String) -> Unit,
 ) {
     val facts: @Composable (Modifier) -> Unit = { modifier ->
-        Card(
+        MaggieCard(
             modifier = modifier.testTag(UiTags.REVIEW_ACTIVITY_CARD),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(

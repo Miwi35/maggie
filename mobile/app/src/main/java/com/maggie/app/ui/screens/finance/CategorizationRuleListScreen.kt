@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -56,6 +55,7 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 
@@ -150,7 +150,7 @@ fun CategorizationRuleListScreen(
                             rule.maxAmountCents,
                         )
 
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        MaggieCard(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,

@@ -14,8 +14,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -49,6 +47,7 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.unproposedReasonLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -206,13 +205,9 @@ private fun SalaryDayCard(
     val asked = delay.salaryExpectedDay == null
     val isLate = !asked && delay.isLate
 
-    Card(
+    MaggieCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = if (isLate) {
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-        } else {
-            CardDefaults.cardColors()
-        },
+        containerColor = if (isLate) MaterialTheme.colorScheme.errorContainer else null,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -261,7 +256,7 @@ private fun SalaryDayCard(
 
 @Composable
 private fun TotalCard(advances: SavingsAdvances) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Reste à rendre", style = MaterialTheme.typography.titleSmall)
             Text(
@@ -287,7 +282,7 @@ private fun ProposalCard(
     enabled: Boolean,
     onDone: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 "Remettre ${formatCents(proposal.amountCents, proposal.currency)} sur $destination",
@@ -318,7 +313,7 @@ private fun ProposalCard(
 
 @Composable
 private fun AdvanceCard(advance: SavingsAdvance) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(advance.sourceAccountName, style = MaterialTheme.typography.titleSmall)
             formatAdvanceDate(advance.openedOn)?.let {

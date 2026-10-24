@@ -19,8 +19,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -43,6 +41,7 @@ import com.maggie.app.data.model.categoryKindLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.ListDetailPane
 import com.maggie.app.ui.navigation.Screen
 
@@ -181,13 +180,10 @@ private fun CategoryTreeRow(
     onAddChild: () -> Unit,
 ) {
     val category = row.category
-    Card(
+    MaggieCard(
         modifier = Modifier.fillMaxWidth().padding(start = INDENT * (row.level - 1)),
-        colors = if (selected) {
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        } else {
-            CardDefaults.cardColors()
-        },
+        selected = selected,
+        listRow = true,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = 4.dp, horizontal = 4.dp),

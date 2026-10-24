@@ -16,7 +16,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,10 +50,12 @@ import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.toQualifyLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.components.MonthScoreRing
 import com.maggie.app.ui.components.RhythmCurve
 import com.maggie.app.ui.components.statusColor
 import com.maggie.app.ui.navigation.DeepLinks
+import com.maggie.app.ui.theme.maggieSurface
 
 private const val CLOSE = "close"
 private const val OVER = "over"
@@ -143,7 +144,7 @@ private fun ColumnScope.MonthBalanceCards(balance: MonthBalance, onOpenToQualify
     toQualifyLabel(balance.toQualify)?.let { label ->
         ToQualifyPill(label, onClick = onOpenToQualify)
     }
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             MonthScoreRing(balance.spending)
             RhythmCurve(rhythm = balance.spending.rhythm, title = "Mois")
@@ -202,7 +203,7 @@ fun MonthBalanceSection(
 
 @Composable
 internal fun BalanceCard(title: String, tag: String, content: @Composable () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().testTag(tag)) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().testTag(tag)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             content()
@@ -250,7 +251,7 @@ private fun EnvelopeBar(envelope: BalanceEnvelope) {
         LinearProgressIndicator(
             progress = { fill },
             color = color,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            trackColor = maggieSurface().track,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).height(8.dp),
         )
         Text(amounts, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -261,7 +262,7 @@ private fun EnvelopeBar(envelope: BalanceEnvelope) {
 internal fun SatisfactionCard(satisfaction: BalanceSatisfaction) {
     BalanceCard("Satisfaction", UiTags.MONTH_BALANCE_SATISFACTION) {
         val kept = satisfaction.keptPercent
-        val track = MaterialTheme.colorScheme.surfaceVariant
+        val track = maggieSurface().track
         val color = statusColor("green")
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {

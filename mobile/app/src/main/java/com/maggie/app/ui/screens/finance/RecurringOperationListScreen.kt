@@ -20,8 +20,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -66,6 +64,7 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.Screen
 
 /**
@@ -230,7 +229,7 @@ private fun RecurringContent(
     ) {
         uiState.overview?.totals?.takeIf { uiState.operations.isNotEmpty() }?.let { totals ->
             item(key = "totals") {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                MaggieCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Coût mensuel", style = MaterialTheme.typography.bodySmall)
                         Text(
@@ -334,7 +333,7 @@ fun SeriesBadges(series: RecurringSeries, onClick: () -> Unit = {}) {
 
 @Composable
 fun SeriesCard(series: RecurringSeries, record: RecurringOperationRecord?, onClick: () -> Unit = {}) {
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -393,9 +392,9 @@ private fun ProposalCard(
 ) {
     val claims = claimsOf(proposal)
 
-    Card(
+    MaggieCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -432,7 +431,7 @@ private fun SuggestionCard(
 ) {
     val chosen = state.categoryOf(suggestion)
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(suggestion.label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))

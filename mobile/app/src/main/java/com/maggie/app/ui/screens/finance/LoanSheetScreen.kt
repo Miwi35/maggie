@@ -15,8 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,6 +44,7 @@ import com.maggie.app.data.model.conditionRows
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatRate
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import java.util.Locale
@@ -131,7 +130,7 @@ internal fun LoanSheetContent(
 
 @Composable
 private fun SheetCard(title: String, content: @Composable () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             content()
@@ -208,8 +207,8 @@ private fun LoanEditCard(state: LoanDetailUiState, onEdit: (LoanTermsDraft) -> U
             endLabel = state.curve?.let { loanEndLabel(it.freedOn) },
         )
         state.saveError?.let { refusal ->
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            MaggieCard(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
                 modifier = Modifier.fillMaxWidth().testTag(UiTags.LOAN_SAVE_ERROR),
             ) {
                 Text(refusal, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(16.dp))

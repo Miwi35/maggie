@@ -15,11 +15,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Button
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.navigation.ProvideFinanceNav
 import com.maggie.app.ui.navigation.financeSubviewState
 import com.maggie.app.ui.navigation.FinanceSection
-import androidx.compose.material3.Card
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.heightIn
@@ -233,7 +233,7 @@ internal fun reviewDueTitle(month: Int): String {
 /** The review waiting for tonight (owner, 21 Oct.): a 64 dp card with its time and one « Lancer » pill, above the rings. */
 @Composable
 private fun ReviewDueCard(title: String, onLaunch: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag(UiTags.FINANCE_REVIEW_CARD)) {
+    MaggieCard(modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag(UiTags.FINANCE_REVIEW_CARD)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,

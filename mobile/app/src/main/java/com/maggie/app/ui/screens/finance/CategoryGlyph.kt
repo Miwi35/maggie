@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.theme.readableTextOn
 
 /** The Material icon behind the names a category's `icon` field takes (« shopping-cart »); null when the name is not one we draw. */
@@ -36,7 +37,7 @@ internal fun categoryColorOrNull(hex: String?): Color? {
 internal fun CategoryGlyph(color: String?, icon: String?, modifier: Modifier = Modifier) {
     val fill = categoryColorOrNull(color)
     val vector = categoryIcon(icon) ?: if (icon.isNullOrBlank()) null else Icons.AutoMirrored.Filled.Label
-    val background = fill ?: MaterialTheme.colorScheme.surfaceVariant
+    val background = fill ?: maggieSurface().raised
     val tint = if (fill == null) MaterialTheme.colorScheme.onSurfaceVariant else readableTextOn(fill)
     val description = listOfNotNull(
         fill?.let { "couleur ${CategoryColors.normalize(color.orEmpty())}" },

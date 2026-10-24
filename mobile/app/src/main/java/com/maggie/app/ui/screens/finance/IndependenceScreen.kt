@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -20,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.Screen
 
 /** Planification · Indépendance (MAG-537): the counter and the net saving capacity, off the dashboard's tile. */
@@ -48,7 +48,7 @@ fun IndependenceScreen(viewModel: FinanceDashboardViewModel) {
                 contentPadding = PaddingValues(16.dp),
             ) {
                 item {
-                    Card(modifier = Modifier.testTag(UiTags.FINANCE_TILE_PLANNING)) {
+                    MaggieCard(modifier = Modifier.testTag(UiTags.FINANCE_TILE_PLANNING)) {
                         Column(modifier = Modifier.padding(16.dp)) { IndependenceBody(planning) }
                     }
                 }

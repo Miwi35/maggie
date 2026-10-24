@@ -52,6 +52,7 @@ import com.maggie.app.data.model.ProjectDateMode
 import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.maggieSurface
 
 /** A bar over months `from..to` (both included, 0 = the current month). [runsOn]: it goes past the right edge. */
 data class GanttBar(val from: Int, val to: Int, val runsOn: Boolean, val detail: String)
@@ -312,7 +313,7 @@ internal fun Axis(planning: ProjectPlanning, column: Dp, trackWidth: Dp, todayTa
             Column(
                 modifier = Modifier
                     .width(column)
-                    .then(if (index == 0) Modifier.background(MaterialTheme.colorScheme.surfaceVariant).testTag(todayTag) else Modifier)
+                    .then(if (index == 0) Modifier.background(maggieSurface().raised).testTag(todayTag) else Modifier)
                     .semantics { contentDescription = ganttMonthLabel("${total / 12}-${(month + 1).toString().padStart(2, '0')}") },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -356,7 +357,7 @@ private fun TrackRow(
         contentAlignment = Alignment.CenterStart,
     ) {
         // The current month, in the background of every line.
-        Box(Modifier.width(column).height(height).background(colors.surfaceVariant.copy(alpha = 0.5f)))
+        Box(Modifier.width(column).height(height).background(maggieSurface().raised.copy(alpha = 0.5f)))
         row.deadline?.let { mark ->
             val dash = PathEffect.dashPathEffect(floatArrayOf(6f, 4f))
             val lineColor = colors.onSurface

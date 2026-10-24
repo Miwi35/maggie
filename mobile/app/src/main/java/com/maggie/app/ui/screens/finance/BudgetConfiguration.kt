@@ -18,8 +18,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -61,6 +59,7 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.ListDetailPane
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -204,15 +203,12 @@ private fun BudgetNodeRow(
     onClick: () -> Unit,
     caption: String? = null,
 ) {
-    Card(
+    MaggieCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = INDENT * (indentLevel - 1)),
-        colors = if (selected) {
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        } else {
-            CardDefaults.cardColors()
-        },
+        selected = selected,
+        listRow = true,
     ) {
         // The tag is on the clickable column, which merges the texts of the row: a test reads them from it.
         Column(
