@@ -1,7 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getToken } from '../../auth/session'
 import { useMercure } from '../../hooks/useMercure'
 import type { HomeDay } from './homeDay'
+
+/**
+ * Every card of the Accueil listens on one stream, `home/{module}` for all modules.
+ *
+ * Over HTTP/1.1 a browser keeps six connections per origin and each EventSource
+ * holds one for good: with the bell, the chat and the agent feed already open, a
+ * stream per card left a third card's Accueil unable to send any request (MAG-473).
+ */
+const HOME_TOPICS = ['/home/{module}']
+
+/** Whether a `home/{module}` update is for this card; one that cannot be read refreshes it anyway. */
+function announces(data: string | undefined, module: string): boolean {
+  try {
+    const parsed = JSON.parse(data ?? '') as { module?: unknown }
+    return typeof parsed.module !== 'string' || parsed.module === module
+  } catch {
+    return true
+  }
+}
 
 /**
  * What a card of the Accueil shows: `GET /api/home/{module}?day=…`, read again
@@ -50,9 +69,8 @@ export function useHomeCardState<T>(module: string, day: HomeDay) {
     }
   }, [load])
 
-  const topics = useMemo(() => [`/home/${module}`], [module])
-  useMercure(topics, () => {
-    void load(false)
+  useMercure(HOME_TOPICS, (data) => {
+    if (announces(data, module)) void load(false)
   })
 
   const retry = useCallback(() => load(true), [load])

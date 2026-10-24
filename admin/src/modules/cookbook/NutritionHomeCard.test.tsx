@@ -131,7 +131,7 @@ describe('NutritionHomeCard', () => {
     await screen.findByTestId('home-nutrition-dinner')
 
     await act(async () => {
-      await emitMercure('/home/nutrition', {})
+      await emitMercure('/home/{module}', { action: 'refresh', module: 'nutrition' })
     })
 
     expect(await screen.findByText('Quiche')).toBeInTheDocument()

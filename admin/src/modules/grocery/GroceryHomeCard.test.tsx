@@ -144,7 +144,7 @@ describe('GroceryHomeCard', () => {
     await screen.findByText('Pain')
 
     await act(async () => {
-      await emitMercure('/home/grocery', {})
+      await emitMercure('/home/{module}', { action: 'refresh', module: 'grocery' })
     })
 
     await waitFor(() => expect(screen.queryByText('Pain')).toBeNull())
