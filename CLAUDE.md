@@ -47,7 +47,7 @@ What any session needs to ship here, and what Cyrus's skills look up:
 - **Before every push**: `task fix:all` (see *Commands*).
 - **A Cyrus session does not wait for CI** (owner, 13 Oct.): it opens its PR as a **draft**, moves the ticket to In Review and stops. The dispatcher's train does the rest — a green PR that needs no rebase merges directly, one behind `main` is rebased one at a time, after the PRs its ticket depends on; a red PR gets a repair session from the CI lane. Never `gh pr ready`, never auto-merge, never `gh pr merge` from a session. **Merging deploys to production.**
 - **Drafts: light CI (lint, unit tests, contracts, no e2e); ready: full CI, e2e included** (`agent-os/standards/deployment/ci-cd-pipeline.md`). A draft's run never proves a merge: Cyrus marks a draft green in light CI ready, then merges on its full run. GitHub's merge queue is out of reach on this personal repository: the train replaces it.
-- **Wait for CI** (only when a session must, e.g. an emergency): check first that the PR is not conflicting (`gh pr view <n> --json mergeable` — `CONFLICTING`: GitHub runs no CI; rebase, resolve, `git push --force-with-lease`), then `gh pr checks <n> --watch --fail-fast`. Red → read the failing job's log (`gh run view --log-failed`), fix, push, watch again. Red twice in a row → comment the failure, `needs-human`, stop. The merge still goes through the dispatcher's train: the session opens the PR and stops.
+- **Wait for CI** (only when a session must, e.g. an emergency): check first that the PR is not conflicting (`gh pr view <n> --json mergeable` — `CONFLICTING`: GitHub runs no CI; rebase, resolve, `git push --force-with-lease`), then `gh pr checks <n> --watch --fail-fast`. Red → read the failing job's log (`gh run view --log-failed`), fix, push, watch again. Red twice in a row → comment the failure, add `ci-blocked`, stop: the dispatcher's CI lane repairs it, then a deep repair once its repairs run out, again each time `main` moves. Never `needs-human` for a technical failure. The merge still goes through the dispatcher's train: the session opens the PR and stops.
 - **Nothing reaches the owner's acceptance without a green e2e**: the e2e jobs are required checks, and every `Feature` or `Bug` is `blockedBy` the ticket that made them required (MAG-96).
 - A ticket in « Emergency » stays there when its PR opens — never In Review: the dispatcher freezes the train meanwhile and lifts the freeze once the fix is deployed green.
 - A merged `Feature` or `Bug` goes to « Recette », where the owner accepts it in production; a `Task` goes to Done. Each `Feature` or `Bug` gets a **Recette** comment (format: Cyrus's `recette-comment` skill).
@@ -73,8 +73,9 @@ Stop and ask only for:
 - a product, UX or data-model decision nothing answers and that is costly to undo;
 - conflicting requirements;
 - something destructive or irreversible (deleting data, prod, secrets, infra);
-- a missing access or credential;
-- the same failure twice (CI red twice in a row, a rebase conflict you cannot resolve).
+- a missing access or credential.
+
+A technical failure — CI red twice, a rebase you cannot resolve, a review loop that does not converge — is never `needs-human`: comment what you established, add `ci-blocked`, stop. `needs-human` means a question the owner must answer.
 
 To ask: reply in the ticket's agent thread with short questions, each as options with your recommendation first; add the `needs-human` label; stop cleanly. When the answer arrives in the thread, remove `needs-human` and resume where you stopped.
 
@@ -90,7 +91,7 @@ Once the ticket is implemented and its tests pass, the session orchestrates a re
 1. Send the branch to a fresh `code-reviewer` subagent with the ticket, the spec folder and the base branch.
 2. `CHANGES_REQUIRED` → hand the blocking findings to a `fullstack-developer` subagent to fix (tests first when a test is missing), then re-run lint and the targeted tests of what the fix touched.
 3. Resubmit to a new `code-reviewer` with the previous findings and the commit it reviewed: it checks **only the fixes** since then, not the whole branch again. Repeat until `ACCEPT`.
-4. Three rounds without `ACCEPT`: stop and ask (`needs-human`), listing what is left.
+4. Three rounds without `ACCEPT`: comment what is left, add `ci-blocked`, stop.
 
 The PR description ends with a **Review** section: number of rounds, blocking findings fixed, minor findings left as is.
 
