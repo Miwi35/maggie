@@ -4,6 +4,7 @@ import Typography from '@mui/material/Typography'
 import { moduleColor } from '../home/moduleColor'
 import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
+import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
 import type { HomeDay } from '../home/homeDay'
 import { useHomeCardState } from '../home/useHomeCardState'
 
@@ -29,18 +30,25 @@ const SLOT_LABELS: Record<HomeSlot['slot'], string> = { lunch: 'Déjeuner', dinn
 /**
  * The Nutrition card of the Accueil (MAG-564): the meals of the chosen day, lunch
  * then dinner, with what the stock lacks for them. Read-only; the title opens the
- * week of meals (the admin has no other Menu view).
+ * week of meals (the admin has no other Menu view). With no meal planned that day
+ * it is not drawn at all (MAG-594).
  */
 export const NutritionHomeCard = ({ day }: { day: HomeDay }) => {
   const { state, loading, error, retry } = useHomeCardState<NutritionHomeState>('nutrition', day)
+  const status = homeCardStatus({ state, loading, error }, isEmpty)
+  useReportHomeCard('nutrition', status)
+
+  if (status === 'empty') return null
 
   return (
     <HomeCard module="nutrition" title="Nutrition" to="/meals">
-      {state ? <Body state={state} /> : error ? <HomeCardError onRetry={() => void retry()} /> : loading ? <Loading /> : null}
-      {state && error && <HomeCardError onRetry={() => void retry()} />}
+      {state && !isEmpty(state) ? <Body state={state} /> : !error && loading ? <Loading /> : null}
+      {error && <HomeCardError onRetry={() => void retry()} />}
     </HomeCard>
   )
 }
+
+const isEmpty = (state: NutritionHomeState) => state.slots.every(({ meals }) => meals.length === 0)
 
 const Loading = () => (
   <Box aria-busy="true" data-testid="home-nutrition-loading">

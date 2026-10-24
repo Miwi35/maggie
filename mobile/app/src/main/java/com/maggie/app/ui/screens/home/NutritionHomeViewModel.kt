@@ -19,7 +19,10 @@ data class NutritionHomeUiState(
     val isLoading: Boolean = true,
     /** The last read failed; [state], when there is one, is the previous answer. */
     val failed: Boolean = false,
-)
+) {
+    val status: HomeCardStatus
+        get() = homeCardStatus(state, loading = isLoading, failed = failed && !isLoading) { it.isEmpty }
+}
 
 /**
  * The Nutrition card (MAG-564): the meals of the selected day, read from `/api/home/nutrition`, again when

@@ -83,6 +83,34 @@ describe('NutritionHomeCard', () => {
     expect(within(screen.getByTestId('home-nutrition-dinner')).queryByTestId('home-nutrition-empty')).toBeNull()
   })
 
+  test('is not drawn at all when no meal is planned for the day', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        ok({
+          slots: [
+            { slot: 'lunch', meals: [] },
+            { slot: 'dinner', meals: [] },
+          ],
+        }),
+      ),
+    )
+    renderCard()
+    expect(screen.getByTestId('home-nutrition-loading')).toBeInTheDocument()
+
+    await waitFor(() => expect(screen.queryByTestId('home-card-nutrition')).toBeNull())
+    expect(screen.queryByText('Nutrition')).toBeNull()
+    expect(screen.queryByTestId('home-nutrition-empty')).toBeNull()
+  })
+
+  test('stays drawn, with its error, when the read fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve({}) }))
+    renderCard()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger cette carte.')
+    expect(screen.getByTestId('home-card-nutrition')).toBeInTheDocument()
+  })
+
   test('says what is missing, only for the meal that lacks something', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(TODAY)))
     renderCard()

@@ -19,6 +19,8 @@ use Maggie\Finance\Entity\SafetyCushion;
 use Maggie\Finance\Entity\Scenario;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Entity\TreasurySettings;
+use Maggie\Finance\Repository\AccountRepository;
+use Maggie\Finance\Repository\EnvelopeRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\GetFinanceScores;
 use Maggie\Finance\UseCase\GetProjectPlanning;
@@ -36,6 +38,8 @@ class FinanceHomeCard implements HomeCardProviderInterface, HomeCardWatcherInter
         private readonly GetFinanceScores $getFinanceScores,
         private readonly GetProjectPlanning $getProjectPlanning,
         private readonly TransactionRepository $transactionRepository,
+        private readonly AccountRepository $accountRepository,
+        private readonly EnvelopeRepository $envelopeRepository,
     ) {
     }
 
@@ -70,6 +74,9 @@ class FinanceHomeCard implements HomeCardProviderInterface, HomeCardWatcherInter
             'month' => self::ring($scores['month']['rhythm']),
             'toQualifyCount' => $this->transactionRepository->countToSortForUser($user),
             'nextProject' => $this->nextProject($user),
+            // Without an account nor an envelope the card has nothing to say: the clients leave it out (MAG-594).
+            'accountCount' => $this->accountRepository->count(['user' => $user]),
+            'envelopeCount' => $this->envelopeRepository->count(['user' => $user]),
         ];
     }
 

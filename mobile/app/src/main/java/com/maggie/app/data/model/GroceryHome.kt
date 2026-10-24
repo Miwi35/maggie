@@ -12,7 +12,10 @@ data class GroceryHomeState(
     /** What the meals of today and tomorrow lack: out or running low, on the list or not. */
     val forRecipes: List<GroceryHomeRecipeNeed> = emptyList(),
     val stores: List<GroceryHomeStore> = emptyList(),
-)
+) {
+    /** An empty list and nothing the recipes lack: the card is not drawn (MAG-594). */
+    val isEmpty: Boolean get() = count == 0 && forRecipes.isEmpty()
+}
 
 @Serializable
 data class GroceryHomeRecipeNeed(

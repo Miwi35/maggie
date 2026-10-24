@@ -100,6 +100,7 @@ fun TasksHomeCard(day: HomeDay, viewModel: TasksCardViewModel = koinViewModel())
 fun TasksCard(viewModel: TasksCardViewModel, onOpen: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     val card = state.card
+    ReportHomeCard(HomeModules.TASKS, state.status)
     if (card != null && card.isEmpty && state.message == null) return
 
     HomeCard(title = "Tâches", module = HomeModules.TASKS, onOpen = onOpen) {

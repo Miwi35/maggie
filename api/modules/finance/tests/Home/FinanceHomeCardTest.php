@@ -129,6 +129,26 @@ class FinanceHomeCardTest extends WebTestCase
         self::assertSame(0, $card['month']['budgetCents']);
     }
 
+    public function testTheCardSaysHowManyAccountsAndEnvelopesTheUserHas(): void
+    {
+        $card = $this->get('/api/home/finance');
+        self::assertSame(3, $card['accountCount']);
+        self::assertGreaterThan(0, $card['envelopeCount']);
+
+        $lonely = $this->get('/api/home/finance', 'lonely_user');
+        self::assertSame(1, $lonely['accountCount']);
+        self::assertSame(0, $lonely['envelopeCount']);
+    }
+
+    public function testAUserWithoutAccountNorEnvelopeHasNone(): void
+    {
+        $card = $this->get('/api/home/finance', 'empty_user');
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(0, $card['accountCount']);
+        self::assertSame(0, $card['envelopeCount']);
+    }
+
     public function testTheCardDoesNotMoveWithTheDay(): void
     {
         $today = $this->get('/api/home/finance?day=today');

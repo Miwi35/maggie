@@ -14,7 +14,12 @@ data class FinanceHomeState(
     val toQualifyCount: Int = 0,
     /** The first project of the current scenario's planning; null with none. */
     val nextProject: FinanceHomeProject? = null,
-)
+    /** Accounts and envelopes the user has: with neither, the card is not drawn (MAG-594). */
+    val accountCount: Int = 0,
+    val envelopeCount: Int = 0,
+) {
+    val isEmpty: Boolean get() = accountCount == 0 && envelopeCount == 0
+}
 
 @Serializable
 data class FinanceHomeRing(

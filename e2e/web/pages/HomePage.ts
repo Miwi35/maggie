@@ -11,6 +11,8 @@ export class HomePage extends AdminShell {
   /** The ring of the Tâches card, named by what it reads: « 1 sur 3 ». */
   readonly tasksRing: Locator
   readonly financeCard: Locator
+  /** The one calm sentence the page says when every card is empty. */
+  readonly calmSentence: Locator
 
   constructor(page: Page) {
     super(page)
@@ -19,6 +21,7 @@ export class HomePage extends AdminShell {
     this.groceryCard = this.content.getByTestId('home-card-grocery')
     this.tasksRing = this.content.getByTestId('home-tasks-ring')
     this.financeCard = this.content.getByTestId('home-card-finance')
+    this.calmSentence = this.content.getByTestId('home-empty')
   }
 
   async open(day?: 'today' | 'tomorrow'): Promise<void> {
@@ -30,6 +33,11 @@ export class HomePage extends AdminShell {
   async expectReady(): Promise<void> {
     await expect(this.trail.getByText('Accueil')).toHaveAttribute('aria-current', 'page')
     await expect(this.daySelector).toBeVisible()
+  }
+
+  /** The card of a module (`grocery`, `nutrition`, `tasks`, `agenda`, `finance`): absent from the page when it is empty. */
+  card(module: string): Locator {
+    return this.content.getByTestId(`home-card-${module}`)
   }
 
   /** « Aujourd'hui » or « Demain ». */

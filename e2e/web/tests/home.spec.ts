@@ -117,3 +117,47 @@ test('the Agenda card puts « maintenant » between the done and the coming even
   await expect(fiche).toContainText('Devis de la salle de bain')
   await expect(fiche.getByRole('link', { name: "Ouvrir dans l'agenda" })).toBeVisible()
 })
+
+/**
+ * The empty cards (MAG-594, extends MAG-101): a card with nothing to say for the chosen day is not
+ * drawn, no title, no frame. An account of its own, with the `empty` profile (no meal, no
+ * shopping line, no task, no event, no account): the Accueil says one calm sentence; a task
+ * due today brings the Tâches card back — and only that one — until « Demain », where it is empty.
+ */
+test.describe('an empty card is not drawn', () => {
+  test.use({ journeyAccount: 'empty' })
+
+  const MODULES = ['tasks', 'agenda', 'grocery', 'nutrition', 'finance'] as const
+
+  test('a user with nothing sees no card but one calm sentence, and a task brings only its card @responsive', async ({ page, api }) => {
+    const home = new HomePage(page)
+
+    // Given a user with no meal, no shopping line and nothing planned, when I open the Accueil…
+    await home.open()
+
+    // …no card is drawn, and the page says one sentence for the day.
+    await expect(home.calmSentence).toHaveText("Rien de prévu aujourd'hui.")
+    for (const module of MODULES) await expect(home.card(module)).toHaveCount(0)
+    await home.day('Demain').click()
+    await expect(home.calmSentence).toHaveText('Rien de prévu demain.')
+
+    // When a task falls due today…
+    const response = await api.post('/api/tasks', {
+      headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+      data: { title: 'Appeler le plombier', dueDate: parisDay() },
+    })
+    expect(response.ok(), `POST /api/tasks answered ${response.status()}`).toBe(true)
+    await home.open()
+
+    // …the Tâches card comes, the others stay away, and the sentence is gone.
+    await expect(home.card('tasks')).toBeVisible()
+    await expect(home.tick('Appeler le plombier')).toBeVisible()
+    await expect(home.calmSentence).toHaveCount(0)
+    for (const module of MODULES.filter((m) => m !== 'tasks')) await expect(home.card(module)).toHaveCount(0)
+
+    // Tomorrow it is empty, so it goes again.
+    await home.day('Demain').click()
+    await expect(home.calmSentence).toHaveText('Rien de prévu demain.')
+    await expect(home.card('tasks')).toHaveCount(0)
+  })
+})

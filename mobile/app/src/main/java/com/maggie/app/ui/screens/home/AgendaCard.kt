@@ -91,7 +91,7 @@ internal fun rowTimeLabel(event: AgendaHomeEvent, date: String): String {
 
 /**
  * The Agenda card of the Accueil (MAG-562): the day as a list of hours, the « maintenant » line between what
- * is done and what follows, and the fiche of the event that is touched. The day is the Accueil's selector's.
+ * is done and what follows, and the fiche of the event that is touched. The day is the Accueil's selector's. A day with no event draws no card (MAG-594).
  */
 @Composable
 fun AgendaCard(day: HomeDay, viewModel: AgendaHomeViewModel = koinViewModel()) {
@@ -109,8 +109,9 @@ fun AgendaCard(day: HomeDay, viewModel: AgendaHomeViewModel = koinViewModel()) {
         }
     }
 
+    ReportHomeCard(HomeModules.AGENDA, ui.status)
+
     AgendaCardContent(
-        day = day,
         state = ui.state,
         loading = ui.loading,
         error = ui.error,
@@ -139,7 +140,6 @@ fun AgendaCard(day: HomeDay, viewModel: AgendaHomeViewModel = koinViewModel()) {
 
 @Composable
 internal fun AgendaCardContent(
-    day: HomeDay,
     state: AgendaHomeState?,
     loading: Boolean,
     error: Boolean,
@@ -149,6 +149,8 @@ internal fun AgendaCardContent(
     onOpenEvent: (AgendaHomeEvent) -> Unit,
     onRetry: () -> Unit,
 ) {
+    if (state != null && state.events.isEmpty()) return
+
     HomeCard(title = "Agenda", module = HomeModules.AGENDA, onOpen = onOpenAgenda) {
         when {
             state == null && error -> {
@@ -157,11 +159,6 @@ internal fun AgendaCardContent(
             }
             state == null && loading -> Text("Chargement…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             state == null -> Unit
-            state.events.isEmpty() -> Text(
-                if (day == HomeDay.TODAY) "Rien de prévu aujourd'hui." else "Rien de prévu demain.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             else -> {
                 val timeline = state.timeline(now, compact)
                 timeline.allDay.forEach { AgendaRowItem(it, state.date, now, onOpenEvent) }

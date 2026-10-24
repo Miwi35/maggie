@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography'
 import CheckIcon from '@mui/icons-material/Check'
 import { HomeCard } from '../HomeCard'
 import { HomeCardError } from '../HomeCardError'
+import { homeCardStatus, useReportHomeCard } from '../homeCardStatus'
 import { useHomeCardState } from '../useHomeCardState'
 import type { HomeDay } from '../homeDay'
 import { AgendaEventPanel } from './AgendaEventPanel'
@@ -137,6 +138,9 @@ export const AgendaCard = ({ day }: { day: HomeDay }) => {
   // The fiche follows the card: a refresh updates it, a deleted event closes it.
   const opened = state?.events.find((event) => event.id === openId) ?? null
 
+  const status = homeCardStatus({ state, loading, error }, (s) => s.events.length === 0)
+  useReportHomeCard('agenda', status)
+
   const rows = (list: TimelineRow[]) =>
     list.map((row) => (
       <li key={`${row.event.id}${row.event.startAt ?? ''}`}>
@@ -144,20 +148,17 @@ export const AgendaCard = ({ day }: { day: HomeDay }) => {
       </li>
     ))
 
+  if (status === 'empty') return null
+
   return (
     <HomeCard module="agenda" title="Agenda" to="/calendar">
       {error && <HomeCardError onRetry={() => void retry()} />}
-      {loading && !state && (
+      {loading && (!state || state.events.length === 0) && !error && (
         <Box aria-busy="true" aria-label="Chargement de l'agenda">
           <Skeleton height={28} />
           <Skeleton height={28} />
           <Skeleton height={28} />
         </Box>
-      )}
-      {state && state.events.length === 0 && (
-        <Typography variant="body2" color="text.secondary">
-          {day === 'today' ? "Rien de prévu aujourd'hui." : 'Rien de prévu demain.'}
-        </Typography>
       )}
       {state && state.events.length > 0 && (
         <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }} aria-label="Événements du jour">

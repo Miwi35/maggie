@@ -12,6 +12,7 @@ import { checkRoutine } from '../../calendar/routinesApi'
 import { setTaskDone } from '../../calendar/taskViews'
 import { HomeCard } from '../HomeCard'
 import { HomeCardError } from '../HomeCardError'
+import { homeCardStatus, useReportHomeCard } from '../homeCardStatus'
 import { moduleColor } from '../moduleColor'
 import type { HomeDay } from '../homeDay'
 import { useHomeCardState } from '../useHomeCardState'
@@ -46,6 +47,8 @@ export const TasksCard = ({ day }: { day: HomeDay }) => {
   }
 
   const shown = state && optimistic.base === state ? optimistic.ops.reduce((s, op) => op(s), state) : state
+  const status = homeCardStatus({ state: shown, loading, error }, isEmpty)
+  useReportHomeCard('tasks', status)
 
   const tick = (key: string, op: Op, send: () => Promise<unknown>) => {
     if (inFlight.current.has(key) || !state) return
@@ -75,6 +78,8 @@ export const TasksCard = ({ day }: { day: HomeDay }) => {
       () => checkRoutine(routine.id, localDay(new Date()), !routine.checked),
     )
 
+  if (status === 'empty') return null
+
   return (
     <HomeCard module="tasks" title="Tâches" to="/tasks">
       {!shown && loading ? (
@@ -93,30 +98,27 @@ export const TasksCard = ({ day }: { day: HomeDay }) => {
               {WRITE_FAILED}
             </Typography>
           )}
-          <TasksBody state={shown} day={day} pending={pending} onTask={toggleTask} onRoutine={toggleRoutine} />
+          {isEmpty(shown) ? (
+            loading && !error && <Skeleton height={32} data-testid="home-tasks-loading" />
+          ) : (
+            <TasksBody state={shown} pending={pending} onTask={toggleTask} onRoutine={toggleRoutine} />
+          )}
         </>
       )}
     </HomeCard>
   )
 }
 
+const isEmpty = (state: TasksHomeState) => state.tasks.length === 0 && state.routines.length === 0
+
 interface BodyProps {
   state: TasksHomeState
-  day: HomeDay
   pending: ReadonlySet<string>
   onTask: (task: HomeTask) => void
   onRoutine: (routine: HomeRoutine) => void
 }
 
-const TasksBody = ({ state, day, pending, onTask, onRoutine }: BodyProps) => {
-  if (state.tasks.length === 0 && state.routines.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        {day === 'tomorrow' ? 'Rien de prévu demain' : "Rien de prévu aujourd'hui"}
-      </Typography>
-    )
-  }
-
+const TasksBody = ({ state, pending, onTask, onRoutine }: BodyProps) => {
   const disabled = !state.editable
 
   return (

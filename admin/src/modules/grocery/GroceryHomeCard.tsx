@@ -3,6 +3,7 @@ import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
+import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
 import type { HomeDay } from '../home/homeDay'
 import { useHomeCardState } from '../home/useHomeCardState'
 import { neededLabel, quantityHint } from './groceryQuantity'
@@ -36,17 +37,24 @@ interface GroceryHomeState {
  * The Courses tile of the Accueil (MAG-563): what the next meals lack, then the
  * open list store by store in a few tight lines. Read-only — a line is ticked in
  * Courses — and it does not follow the day selector, the list being today's.
+ * Empty (no line, nothing missing for a recipe), it is not drawn at all (MAG-594).
  */
 export const GroceryHomeCard = ({ day }: { day: HomeDay }) => {
   const { state, loading, error, retry } = useHomeCardState<GroceryHomeState>('grocery', day)
+  const status = homeCardStatus({ state, loading, error }, isEmpty)
+  useReportHomeCard('grocery', status)
+
+  if (status === 'empty') return null
 
   return (
     <HomeCard module="grocery" title="Courses" to="/grocery">
-      {state ? <Body state={state} /> : error ? <HomeCardError onRetry={() => void retry()} /> : loading ? <Loading /> : null}
-      {state && error && <HomeCardError onRetry={() => void retry()} />}
+      {state && !isEmpty(state) ? <Body state={state} /> : !error && loading ? <Loading /> : null}
+      {error && <HomeCardError onRetry={() => void retry()} />}
     </HomeCard>
   )
 }
+
+const isEmpty = (state: GroceryHomeState) => state.count === 0 && state.forRecipes.length === 0
 
 const Loading = () => (
   <Box aria-busy="true" data-testid="home-grocery-loading">
@@ -57,14 +65,6 @@ const Loading = () => (
 )
 
 const Body = ({ state }: { state: GroceryHomeState }) => {
-  if (state.count === 0 && state.forRecipes.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary" data-testid="home-grocery-empty">
-        Rien à acheter pour le moment.
-      </Typography>
-    )
-  }
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       {state.forRecipes.length > 0 && (

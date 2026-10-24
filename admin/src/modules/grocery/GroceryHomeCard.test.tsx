@@ -123,11 +123,40 @@ describe('GroceryHomeCard', () => {
     expect(recipes.compareDocumentPosition(screen.getAllByTestId('home-grocery-store')[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  test('says so when there is nothing to buy', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok({ count: 0, forRecipes: [], stores: [] })))
+  test('is not drawn at all when there is nothing to buy and nothing missing for a recipe', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok({ count: 0, forRecipes: [], stores: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    renderCard()
+    expect(screen.getByTestId('home-grocery-loading')).toBeInTheDocument()
+
+    await waitFor(() => expect(screen.queryByTestId('home-card-grocery')).toBeNull())
+    expect(screen.queryByText('Courses')).toBeNull()
+    expect(screen.queryByText(/Rien à acheter/)).toBeNull()
+  })
+
+  test('stays drawn when only a recipe lacks something', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(ok({ count: 0, forRecipes: [{ name: 'Parmesan', day: 'today', slot: 'dinner' }], stores: [] })),
+    )
     renderCard()
 
-    expect(await screen.findByTestId('home-grocery-empty')).toHaveTextContent('Rien à acheter')
+    expect(await screen.findByTestId('home-grocery-recipes')).toBeInTheDocument()
+  })
+
+  test('comes back when the list fills up', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(ok({ count: 0, forRecipes: [], stores: [] })).mockResolvedValueOnce(ok(SIX_AT_THE_SUPERMARKET)),
+    )
+    renderCard()
+    await waitFor(() => expect(screen.queryByTestId('home-card-grocery')).toBeNull())
+
+    await act(async () => {
+      await emitMercure('/home/{module}', { action: 'refresh', module: 'grocery' })
+    })
+
+    expect(await screen.findAllByTestId('home-grocery-store')).toHaveLength(3)
   })
 
   test('reads the list again when an item is ticked elsewhere', async () => {
@@ -160,6 +189,7 @@ describe('GroceryHomeCard', () => {
     renderCard()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger cette carte.')
+    expect(screen.getByTestId('home-card-grocery')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Réessayer' }))
 

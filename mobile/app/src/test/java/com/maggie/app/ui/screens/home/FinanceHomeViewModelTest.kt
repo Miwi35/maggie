@@ -36,7 +36,7 @@ class FinanceHomeViewModelTest {
         """
         {"week":{"status":"on_track","label":"Dans le rythme","budgetCents":7000,"remainingCents":5000,"expectedRemainingCents":4000},
          "month":{"status":"above","label":"Au-dessus du rythme","budgetCents":30000,"remainingCents":1000,"expectedRemainingCents":9000},
-         "toQualifyCount":$toQualify,
+         "toQualifyCount":$toQualify,"accountCount":2,"envelopeCount":4,
          "nextProject":{"projectId":"p1","name":"$projectName","amountCents":100000,"gatheredCents":25000,"purchaseMonth":"2027-03"},
          "extra":"ignored"}
         """.trimIndent(),
@@ -132,5 +132,41 @@ class FinanceHomeViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { repository.state(any(), HomeDay.TOMORROW) }
+    }
+
+    private val noAccountNorEnvelope = Json.parseToJsonElement(
+        """{"week":{"status":"on_track","label":"","budgetCents":0,"remainingCents":0,"expectedRemainingCents":0},
+           "month":{"status":"on_track","label":"","budgetCents":0,"remainingCents":0,"expectedRemainingCents":0},
+           "toQualifyCount":0,"nextProject":null,"accountCount":0,"envelopeCount":0}""",
+    ) as JsonObject
+
+    @Test
+    fun `status - loading, then filled, empty, filled again on a push, failed, loading on retry`() = runTest(dispatcher) {
+        val viewModel = FinanceHomeViewModel(repository)
+        assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
+
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+
+        coEvery { repository.state("finance", HomeDay.TODAY) } returns Result.success(noAccountNorEnvelope)
+        changes.emit(Unit)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
+
+        coEvery { repository.state("finance", HomeDay.TODAY) } returns Result.success(answer(1))
+        changes.emit(Unit)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
+
+        coEvery { repository.state(any(), any()) } returns Result.failure(RuntimeException("offline"))
+        changes.emit(Unit)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.ERROR, viewModel.uiState.value.status)
+
+        coEvery { repository.state("finance", HomeDay.TODAY) } returns Result.success(noAccountNorEnvelope)
+        viewModel.refresh()
+        assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
+        advanceUntilIdle()
+        assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
     }
 }

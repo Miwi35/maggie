@@ -16,7 +16,10 @@ data class GroceryHomeUiState(
     val isLoading: Boolean = true,
     /** The last read failed; [state], when there is one, is the previous answer. */
     val failed: Boolean = false,
-)
+) {
+    val status: HomeCardStatus
+        get() = homeCardStatus(state, loading = isLoading, failed = failed && !isLoading) { it.isEmpty }
+}
 
 /**
  * The Courses card (MAG-563): the open list by shop, read from `/api/home/grocery`. The list does not

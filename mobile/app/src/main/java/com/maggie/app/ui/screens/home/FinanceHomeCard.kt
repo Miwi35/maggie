@@ -51,6 +51,7 @@ import org.koin.androidx.compose.koinViewModel
  * The Finance card of the Accueil (MAG-565): the week and the month as two rings with their rhythm
  * status, the lines still to qualify, and the next project. A tap anywhere opens Finance › Dashboard.
  * The card does not follow « Demain »: the figures are the same whatever the day.
+ * It is drawn as soon as there is an account or an envelope, not before (MAG-594).
  */
 @Composable
 fun FinanceHomeCard(viewModel: FinanceHomeViewModel = koinViewModel()) {
@@ -61,6 +62,9 @@ fun FinanceHomeCard(viewModel: FinanceHomeViewModel = koinViewModel()) {
 
 @Composable
 internal fun FinanceHomeCardContent(ui: FinanceHomeUiState, onOpen: () -> Unit, onRetry: () -> Unit) {
+    ReportHomeCard(HomeModules.FINANCE, ui.status)
+    if (ui.status == HomeCardStatus.EMPTY) return
+
     HomeCard(title = "Finance", module = HomeModules.FINANCE, onOpen = onOpen) {
         val state = ui.state
         Column(
@@ -70,7 +74,7 @@ internal fun FinanceHomeCardContent(ui: FinanceHomeUiState, onOpen: () -> Unit, 
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             when {
-                state != null -> FinanceHomeBody(state, onOpen)
+                state != null && !state.isEmpty -> FinanceHomeBody(state, onOpen)
                 ui.failed && !ui.isLoading -> Unit
                 else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
