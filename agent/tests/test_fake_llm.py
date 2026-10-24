@@ -1663,6 +1663,32 @@ class TestAQuestionWithAPicture:
         assert fake_module.images_received() == 1
         fake_module.reset_images_received()
 
+    async def test_the_shipped_scenario_for_a_recipe_asked_over_a_bare_screenshot_asks_for_the_title_alone_then_says_what_is_missing(
+        self,
+    ):
+        """MAG-596: the journey's proof is the data, this one is that the scenario is reached over the picture's one."""
+        client = build_client(DEFAULT_FIXTURES_DIR)
+        asked = with_picture(
+            "[Contexte de l'écran]\nPage : https://www.marmiton.org\n\nAjoute cette recette"
+        )
+
+        first = await client.messages.create(model="fake", messages=[asked])
+        calls = [block for block in first.content if isinstance(block, FakeToolUseBlock)]
+        assert [(call.name, call.input) for call in calls] == [
+            ("create_recipe", {"name": "Boeuf bourguignon : la vraie recette"})
+        ]
+
+        second = await client.messages.create(
+            model="fake",
+            messages=[
+                asked,
+                {"role": "assistant", "content": [{"type": "tool_use", "id": calls[0].id, "name": "create_recipe"}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": calls[0].id, "content": "{}"}]},
+            ],
+        )
+        assert "Je n'ai rien créé" in text_of(second)
+        assert "lise la page" in text_of(second)
+
     async def test_the_shipped_scenario_answers_whatever_was_dictated(self):
         """The voice journey's stubbed Whisper says « tomates »; with a picture, the picture wins."""
         client = build_client(DEFAULT_FIXTURES_DIR)

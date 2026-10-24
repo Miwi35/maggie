@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_recipe', description: 'Create a new recipe. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it. '.StepsArgument::DESCRIPTION)]
+#[McpTool(name: 'create_recipe', description: 'Create a new recipe. A recipe is its ingredients and its steps: with neither, nothing is created and the error says what is missing — never create an empty recipe from a title alone (a screenshot of a page shows the title and the photo, not the recipe). When the user has not given them and you cannot read them from the source (the page, a screenshot, a quoted message), tell the user so and offer to read the page or ask for the ingredients and the method. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Tags is a comma-separated list. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it. '.StepsArgument::DESCRIPTION)]
 class CreateRecipeTool
 {
     public function __construct(
@@ -43,6 +43,10 @@ class CreateRecipeTool
                 : null;
             $utensilList = UtensilsArgument::parse($utensils);
             $stepList = StepsArgument::parse($steps);
+
+            if ([] === ($ingredientList ?? []) && [] === ($stepList ?? [])) {
+                throw new BadRequestHttpException(sprintf('Recipe "%s" has no ingredients and no steps: nothing was created. A recipe needs its ingredients (ingredients) or its method (steps), or both. Tell the user what is missing and read it from the source or ask for it; do not retry with the title alone.', $name));
+            }
 
             $envelope = $this->bus->dispatch(new CreateRecipeCommand(
                 userId: (string) $user->getId(),

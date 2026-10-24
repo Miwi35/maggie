@@ -34,7 +34,7 @@ class RecipeToolsTest extends KernelTestCase
         $this->loginFixtureUser();
 
         $tool = self::getContainer()->get(CreateRecipeTool::class);
-        $result = $tool('Salade niçoise', 2, 'salad,summer', 'Best served cold');
+        $result = $tool('Salade niçoise', 2, 'salad,summer', 'Best served cold', steps: '[{"text":"Assembler et servir frais"}]');
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['success']);
@@ -49,6 +49,42 @@ class RecipeToolsTest extends KernelTestCase
 
         $this->assertMercureUpdatePublished('/recipes/');
         $this->assertElasticsearchIndexDispatched(Recipe::class);
+    }
+
+    public function testCreateRecipeWithNeitherIngredientsNorStepsCreatesNothingAndSaysWhatIsMissing(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(CreateRecipeTool::class);
+
+        foreach ([
+            ['Boeuf bourguignon : la vraie recette'],
+            ['Boeuf bourguignon : la vraie recette', 4, 'plat', 'vu sur Marmiton'],
+            ['Boeuf bourguignon : la vraie recette', 4, '', null, '[]', null, '[]'],
+        ] as $arguments) {
+            $data = json_decode($tool(...$arguments), true, 512, JSON_THROW_ON_ERROR);
+
+            self::assertArrayNotHasKey('success', $data);
+            self::assertStringContainsString('ingredients', $data['error']);
+            self::assertStringContainsString('steps', $data['error']);
+            self::assertStringContainsString('Boeuf bourguignon : la vraie recette', $data['error']);
+        }
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertCount(0, $em->getRepository(Recipe::class)->findAll());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testCreateRecipeWithOnlyStepsIsStillCreated(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $tool = self::getContainer()->get(CreateRecipeTool::class);
+
+        $data = json_decode($tool('Tartines', steps: '[{"text":"Griller le pain"}]'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['success']);
     }
 
     public function testGetRecipeReturnsWithIngredients(): void
