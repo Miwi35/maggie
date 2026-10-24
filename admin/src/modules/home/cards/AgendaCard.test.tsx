@@ -224,12 +224,12 @@ describe('AgendaCard', () => {
     await screen.findByTestId('agenda-event-panel')
 
     await act(async () => {
-      await emitMercure('/home/agenda', {})
+      await emitMercure('/home/{module}', { action: 'refresh', module: 'agenda' })
     })
     await waitFor(() => expect(within(screen.getByTestId('agenda-event-panel')).getByRole('heading')).toHaveTextContent('Dentiste (déplacé)'))
 
     await act(async () => {
-      await emitMercure('/home/agenda', {})
+      await emitMercure('/home/{module}', { action: 'refresh', module: 'agenda' })
     })
     // Deleted meanwhile: the fiche has nothing to show and closes.
     await waitFor(() => expect(screen.queryByTestId('agenda-event-panel')).not.toBeInTheDocument())
