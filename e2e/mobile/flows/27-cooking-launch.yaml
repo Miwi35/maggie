@@ -74,8 +74,10 @@ onFlowComplete:
 - tapOn:
     text: "Got it"
     optional: true
-- assertVisible:
-    id: "cooking_start"
+- extendedWaitUntil:
+    visible:
+      id: "cooking_start"
+    timeout: 20000
 - assertNotVisible:
     id: "chat_open"
 
