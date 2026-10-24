@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 
 /**
  * Full-screen choice of a category's icon (MAG-474): a search field on top, then a grid of
