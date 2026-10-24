@@ -261,6 +261,7 @@ class TestPersonalityEngine:
         assert "Je la crée ?" in prompt
         assert "Tu n'écris qu'après le « oui »" in prompt
         assert "TOUT, explicitement" in prompt
+        assert "tu le notes dans notes" in prompt
         assert "Sans « oui », rien n'est créé." in prompt
 
     @pytest.mark.asyncio
