@@ -231,6 +231,20 @@ class TestPersonalityEngine:
         assert "relis les données avec tes outils" in prompt
 
     @pytest.mark.asyncio
+    async def test_the_shipped_prompt_forbids_creating_an_empty_record_in_silence(self):
+        """MAG-596: on 24 Oct. « ajoute cette recette » over a screenshot made a recipe with no ingredient and no step."""
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        assert "FICHE INCOMPLÈTE" in prompt
+        assert "l'essentiel" in prompt
+        assert "ne crée rien" in prompt
+        assert "lis la source" in prompt
+
+    @pytest.mark.asyncio
     async def test_the_shipped_prompt_has_her_cite_late_tasks_first_and_offer_one_someday_task(self):
         """MAG-409: the half that lives in the prompt — the fake LLM calls whatever its fixture says."""
         engine = PersonalityEngine()

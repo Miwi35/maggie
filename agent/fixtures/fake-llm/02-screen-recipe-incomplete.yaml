@@ -1,0 +1,27 @@
+# « Ajoute cette recette » over a screenshot that shows a title and a photo, and a screen
+# context that holds nothing but the page's domain (MAG-596). On 24 Oct. Maggie created
+# « Boeuf bourguignon : la vraie recette » with no ingredient and no step, and said nothing.
+#
+# Two turns, like 33-create-event-ambiguous-agenda.yaml: the first asks for the tool with the
+# title alone — the mistake — and the tool really runs and really refuses, so the journey
+# proves on the data that no recipe exists; the second is the answer, which says what is
+# missing and offers to read the page or asks for the ingredients. Only the second is shown.
+#
+# Numbered 02, below 03-screen-image.yaml, which answers any question that comes with a
+# picture and would otherwise win. The image condition also keeps the context router (no
+# picture) out of it. Whether the real model holds back on its own is `task e2e:eval`'s.
+name: screen-recipe-incomplete
+description: "A recipe asked from a screenshot with no recipe in it: the tool refuses, Maggie says what is missing."
+
+match:
+  user_has_image: true
+  user_contains:
+    - "marmiton.org"
+    - "ajoute cette recette"
+
+turns:
+  - tools:
+      - name: create_recipe
+        input:
+          name: "Boeuf bourguignon : la vraie recette"
+  - text: "Je ne vois pas la recette elle-même : ta capture montre le titre et la photo, et je n'ai que le domaine marmiton.org. Je n'ai rien créé. Veux-tu que je lise la page, ou peux-tu me donner les ingrédients et les étapes ?"

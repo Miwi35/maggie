@@ -187,7 +187,7 @@ class UtensilToolsTest extends KernelTestCase
     {
         $this->load('user.yaml');
 
-        $data = $this->call(CreateRecipeTool::class, 'Omelette', utensils: '["Casserole", "Poêle"]');
+        $data = $this->call(CreateRecipeTool::class, 'Omelette', utensils: '["Casserole", "Poêle"]', steps: '[{"text":"Battre les oeufs"}]');
 
         self::assertTrue($data['success']);
         self::assertSame(['Casserole', 'Poêle'], array_column($data['recipe']['utensils'], 'name'));
@@ -201,8 +201,8 @@ class UtensilToolsTest extends KernelTestCase
     {
         $this->load('user.yaml');
 
-        self::assertArrayHasKey('error', $this->call(CreateRecipeTool::class, 'Omelette', utensils: 'Poêle'));
-        self::assertArrayHasKey('error', $this->call(CreateRecipeTool::class, 'Omelette', utensils: '{"name": "Poêle"}'));
+        self::assertArrayHasKey('error', $this->call(CreateRecipeTool::class, 'Omelette', utensils: 'Poêle', steps: '[{"text":"Battre les oeufs"}]'));
+        self::assertArrayHasKey('error', $this->call(CreateRecipeTool::class, 'Omelette', utensils: '{"name": "Poêle"}', steps: '[{"text":"Battre les oeufs"}]'));
         self::assertSame([], $this->em()->getRepository(Recipe::class)->findAll());
     }
 
