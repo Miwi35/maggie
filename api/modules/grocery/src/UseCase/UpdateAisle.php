@@ -35,7 +35,7 @@ class UpdateAisle
         }
 
         $this->em->flush();
-        $this->groceryListAisles->announce($aisle->getUser());
+        $this->groceryListAisles->announce($aisle->getUser(), $aisle->getStore());
 
         return $aisle;
     }
