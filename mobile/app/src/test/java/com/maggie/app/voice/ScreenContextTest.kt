@@ -36,7 +36,7 @@ class ScreenContextTest {
     }
 
     @Test
-    fun `with a screenshot the block names the app and the domain, and leaves the content to the image`() {
+    fun `with a screenshot the block still gives the full address and the texts (MAG-595)`() {
         val screen = ScreenContext(
             appPackage = "com.example.shop",
             appLabel = "Boutique",
@@ -49,11 +49,54 @@ class ScreenContextTest {
             """
             [Contexte de l'écran]
             Application : Boutique (com.example.shop)
-            Page : boutique.example
+            Page : https://www.boutique.example/cafe?ref=42
+            Texte à l'écran :
+            - Café moulu 250 g
+            - 4,90 €
             L'image jointe est une capture de cet écran.
             """.trimIndent(),
             screen.toPromptBlock(imageAttached = true),
         )
+    }
+
+    @Test
+    fun `with a screenshot and no address the block is unchanged by the page line (MAG-595)`() {
+        val screen = ScreenContext(appLabel = "Boutique", hasScreenshot = true)
+
+        assertEquals(
+            """
+            [Contexte de l'écran]
+            Application : Boutique
+            L'image jointe est une capture de cet écran.
+            """.trimIndent(),
+            screen.toPromptBlock(imageAttached = true),
+        )
+    }
+
+    @Test
+    fun `an address that is not http or https is never sent (MAG-595)`() {
+        listOf(
+            "content://com.example.shop/recette/42",
+            "file:///sdcard/Download/recette.html",
+            "android-app://com.example.shop/recette/42",
+            "intent://recette#Intent;scheme=shop;end",
+            "boutique.example/cafe",
+            "https://boutique.example/a b",
+        ).forEach { uri ->
+            listOf(true, false).forEach { imageAttached ->
+                val block = ScreenContext(appLabel = "Boutique", webUri = uri, hasScreenshot = true)
+                    .toPromptBlock(imageAttached = imageAttached)!!
+                assertFalse("$uri $imageAttached", block.contains("Page :"))
+                assertFalse("$uri $imageAttached", block.contains(uri))
+            }
+        }
+    }
+
+    @Test
+    fun `an http address is sent whole, whatever the case of its scheme (MAG-595)`() {
+        val block = ScreenContext(webUri = "HTTP://boutique.example/cafe?x=1#top").toPromptBlock()!!
+
+        assertTrue(block.contains("Page : HTTP://boutique.example/cafe?x=1#top"))
     }
 
     /** A file that could not be read is not announced: the model gets the texts instead. */
