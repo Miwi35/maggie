@@ -8,21 +8,25 @@ onFlowComplete:
   - setOrientation: PORTRAIT
 ---
 # The Cuisine activity, launched from a recipe (MAG-580, extends 12-recipe-steps and 14-rotation), then
-# followed step by step (MAG-581).
+# followed step by step (MAG-581), with its timers (MAG-582).
 #
 # Étant donné une recette de deux portions avec ses étapes
 # Quand je tape « Cuisiner » sur sa fiche
 # Alors « Pour combien ? » est prérempli avec 2 ; « Continuer » ouvre la préparation, sans la barre de Maggie
 # Et quand je commence la recette puis tourne le téléphone, je reste sur la même étape
-# Et quand j'avance, l'étape 3 attend l'eau, « C'est prêt » la libère, et l'étape 5 attend les pâtes et les
-#   légumes ; tourné, je reste sur l'étape 5 avec son attente
-# Et quand je tape ✕, je reviens à la fiche de la recette (rien ne tourne : aucune confirmation)
+# Et quand je tape « Lancer et continuer » sur l'étape 1 (en fond), le minuteur « Eau » tourne et l'étape 2 s'ouvre
+# Et quand j'avance, l'étape 3 attend l'eau « encore mm:ss », « C'est prêt » la libère, « Lancer et continuer »
+#   lance « Pâtes » ; l'étape 5 attend les pâtes et les légumes ; tourné, je reste sur l'étape 5 avec son
+#   attente et mes deux minuteurs, avec leur reste (relus de l'API, aucun relancé)
+# Et quand je tape ✕, « Quitter l'activité ? » dit « 2 minuteurs tournent encore (Eau, Pâtes) : ils s'arrêteront. » ;
+#   « Quitter » les arrête et me ramène à la fiche de la recette
 #
 # What a JVM test cannot see is the real activity being recreated by a real rotation, the window's
 # immersive mode, and the back stack that brings ✕ back to the sheet. The recipe is this flow's own,
 # created over HTTP by `scripts/recipe-api.js` and deleted at the end. What is not here: each transition
 # of the session (`CookingSessionTest`, `CookingViewModelTest`), what the screens draw (`CookingScreensTest`),
-# the frame's confirmation (`ActivityScaffoldScreenTest`), the tablet's 64 dp buttons.
+# the frame's confirmation (`ActivityScaffoldScreenTest`), the tablet's 64 dp buttons, a timer's end and its
+# alert (`CookingViewModelTest`, `CookingScreensTest`: ten minutes is too long for a journey).
 
 - runFlow: ../subflows/new-user.yaml
 
@@ -106,17 +110,23 @@ onFlowComplete:
     visible: "Étape 1 sur 5"
     timeout: 20000
 
-# The reference example: step 3 waits for the water, « C'est prêt » lifts it.
+# Step 1 boils in the background: « Lancer et continuer » starts its timer and goes on (MAG-582).
+- assertVisible: "Lancer et continuer"
 - tapOn:
     id: "cooking_next"
 - extendedWaitUntil:
     visible: "Étape 2 sur 5"
     timeout: 20000
 - assertVisible: "Couper les légumes"
+- extendedWaitUntil:
+    visible: "Eau · [0-9][0-9]:[0-9][0-9]"
+    timeout: 20000
+
+# The reference example: step 3 waits for the water, still running; « C'est prêt » lifts it.
 - tapOn:
     id: "cooking_next"
 - extendedWaitUntil:
-    visible: "Attend l'eau à bouillir · étape 1"
+    visible: "Attend l'eau à bouillir · étape 1 · encore [0-9][0-9]:[0-9][0-9]"
     timeout: 20000
 - assertVisible: "Étape 3 sur 5"
 - tapOn:
@@ -125,34 +135,59 @@ onFlowComplete:
     notVisible:
       id: "cooking_wait"
     timeout: 20000
+# The pasta cook in the background too: a second timer.
+- assertVisible: "Lancer et continuer"
 - tapOn:
     id: "cooking_next"
 - extendedWaitUntil:
     visible: "Étape 4 sur 5"
     timeout: 20000
+- extendedWaitUntil:
+    visible: "Pâtes · [0-9][0-9]:[0-9][0-9]"
+    timeout: 20000
+- assertVisible: "Eau · [0-9][0-9]:[0-9][0-9]"
 
 # Step 5 waits for the pasta and the vegetables; turned, it is still step 5 and still waiting.
 - tapOn:
     id: "cooking_next"
 - extendedWaitUntil:
-    visible: "Attend les pâtes et les légumes · étapes 3 et 4"
+    visible: "Attend les pâtes et les légumes · étapes 3 et 4 · encore [0-9][0-9]:[0-9][0-9]"
     timeout: 20000
 - assertVisible: "Étape 5 sur 5"
 
+# Turned: the two timers are read back from the API, in the « Minuteurs » column, each with its rest.
 - setOrientation: LANDSCAPE_LEFT
 - extendedWaitUntil:
-    visible: "Attend les pâtes et les légumes · étapes 3 et 4"
+    visible: "Attend les pâtes et les légumes · étapes 3 et 4 · encore [0-9][0-9]:[0-9][0-9]"
     timeout: 20000
 - assertVisible: "Étape 5 sur 5"
+- extendedWaitUntil:
+    visible:
+      id: "cooking_timers_column"
+    timeout: 20000
+- assertVisible: "étape 1 · en fond"
+- assertVisible: "étape 3 · en fond"
+- assertVisible:
+    id: "cooking_timer_row_clock"
+    text: "[0-9][0-9]:[0-9][0-9]"
+    index: 1
 
 - setOrientation: PORTRAIT
 - extendedWaitUntil:
-    visible: "Attend les pâtes et les légumes · étapes 3 et 4"
+    visible: "Attend les pâtes et les légumes · étapes 3 et 4 · encore [0-9][0-9]:[0-9][0-9]"
     timeout: 20000
+- assertVisible: "Eau · [0-9][0-9]:[0-9][0-9]"
+- assertVisible: "Pâtes · [0-9][0-9]:[0-9][0-9]"
 
-# ✕ leaves at once and lands on the recipe it came from.
+# ✕ asks first while the timers run, says which stop; « Quitter » stops them and lands on the recipe.
 - tapOn:
     id: "activity_quit"
+- extendedWaitUntil:
+    visible: "Quitter l'activité ?"
+    timeout: 15000
+- assertVisible: "2 minuteurs tournent encore .Eau, Pâtes. : ils s'arrêteront."
+- tapOn:
+    id: "activity_quit_leave"
 - extendedWaitUntil:
     notVisible:
       id: "cooking_step"

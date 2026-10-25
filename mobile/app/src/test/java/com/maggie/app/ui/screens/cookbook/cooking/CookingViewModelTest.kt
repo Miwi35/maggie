@@ -2,7 +2,11 @@ package com.maggie.app.ui.screens.cookbook.cooking
 
 import androidx.lifecycle.SavedStateHandle
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.local.dao.RecipeDao
+import com.maggie.app.data.mercure.MercureEvent
+import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.repository.CookingTimerRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.RecipeRepository
 import io.ktor.client.HttpClient
@@ -16,10 +20,15 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
+import io.ktor.http.content.OutgoingContent
+import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -49,6 +58,16 @@ class CookingViewModelTest {
     private var failing = false
     private var mealJson = mealWith(listOf("r-a", "r-b", "r-c"), guests = 4)
 
+    /** The API's timers (MAG-582), on the clock the test moves. */
+    private val server = FakeTimerServer { nowMs }
+    private var nowMs = 1_000_000L
+    private val timerEvents = MutableSharedFlow<MercureEvent>(extraBufferCapacity = 16)
+    private val mercure = mockk<MercureService> {
+        every { subscribe(any()) } returns timerEvents
+        every { reconnections(any()) } returns emptyFlow()
+    }
+    private val auth = mockk<AuthRepository> { coEvery { getUserId() } returns "u-1" }
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
@@ -74,11 +93,20 @@ class CookingViewModelTest {
             """"utensils":[{"id":"u1","name":"Fouet"}],"steps":[$stepsJson]}"""
     }
 
+    /** Where « Quitter » sends its cancellations: the test's own scheduler. */
+    private var timerScope: kotlinx.coroutines.CoroutineScope = kotlinx.coroutines.CoroutineScope(testDispatcher)
+
     private fun newViewModel(handle: SavedStateHandle, stepsOf: (String) -> Int = { 2 }): CookingViewModel {
         val engine = MockEngine { request ->
             requests += request
             val path = request.url.encodedPath
+            val timerAnswer = if (path.startsWith("/api/cooking/timers")) {
+                server.handle(request.method, path, (request.body as? OutgoingContent.ByteArrayContent)?.bytes()?.decodeToString())
+            } else {
+                null
+            }
             val body = when {
+                timerAnswer != null -> timerAnswer.second
                 failing -> null
                 path == "/api/meals/meal-1" -> mealJson
                 path == "/api/meals/meal-empty" -> mealWith(emptyList(), guests = 2)
@@ -88,7 +116,13 @@ class CookingViewModelTest {
                 }
                 else -> null
             }
-            if (body == null) {
+            if (timerAnswer != null) {
+                respond(
+                    content = ByteReadChannel(timerAnswer.second),
+                    status = HttpStatusCode.fromValue(timerAnswer.first),
+                    headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            } else if (body == null) {
                 respondError(HttpStatusCode.InternalServerError)
             } else {
                 respond(
@@ -102,7 +136,15 @@ class CookingViewModelTest {
             install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
         }
         val api = MaggieApiService(client)
-        return CookingViewModel(handle, MealRepository(api), RecipeRepository(api, mockk<RecipeDao>(relaxed = true)))
+        return CookingViewModel(
+            handle,
+            MealRepository(api),
+            RecipeRepository(api, mockk<RecipeDao>(relaxed = true)),
+            CookingTimerRepository(api, sendScope = timerScope),
+            mercure,
+            auth,
+            clock = { nowMs },
+        )
     }
 
     private fun referenceHandle(): SavedStateHandle {
@@ -437,6 +479,290 @@ class CookingViewModelTest {
         assertEquals(5, second.uiState.value.session?.step)
         assertEquals("only the steps not yet forced still wait", listOf(3, 4), second.uiState.value.pending)
         assertEquals(listOf(1), second.uiState.value.session?.ready)
+    }
+
+
+    // --- The timers (MAG-582)
+
+    private val CookingViewModel.state get() = uiState.value
+
+    private fun event(row: FakeTimerServer.Row) =
+        MercureEvent(data = """{"@id":"/api/cooking/timers/${row.id}",""" + server.json(row).drop(1))
+
+    private suspend fun TestScope.timersRead(viewModel: CookingViewModel, count: Int) {
+        settle { viewModel.state.timers.size == count }
+    }
+
+    /** Step 1, « Lancer et continuer »: the water's timer runs and step 2 is on screen. */
+    private suspend fun TestScope.waterStarted(viewModel: CookingViewModel) {
+        ready(viewModel)
+        viewModel.next()
+        viewModel.startAndNext()
+        settle { viewModel.state.session?.step == 2 }
+    }
+
+    /** On to step 4, with the water and the pasta started in the background. */
+    private suspend fun TestScope.atStep4(viewModel: CookingViewModel) {
+        waterStarted(viewModel)
+        viewModel.next()
+        viewModel.ready()
+        viewModel.startAndNext()
+        settle { viewModel.state.session?.step == 4 }
+    }
+
+    @Test
+    fun `Lancer et continuer starts the step's timer, then goes to the next step`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        waterStarted(viewModel)
+
+        assertEquals(1, server.posts.size)
+        assertTrue(server.posts.single().contains("\"label\":\"Eau\""))
+        assertTrue(server.posts.single().contains("\"durationSeconds\":600"))
+        assertTrue(server.posts.single().contains("\"stepPosition\":1"))
+        val timer = viewModel.state.timers.single()
+        assertEquals("Eau", timer.label)
+        assertEquals(600, viewModel.state.remainingOf(timer))
+    }
+
+    @Test
+    fun `Lancer et continuer on a step whose timer already runs only goes on`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        waterStarted(viewModel)
+
+        viewModel.previous()
+        viewModel.startAndNext()
+        settle { viewModel.state.session?.step == 2 }
+
+        assertEquals(2, viewModel.state.session?.step)
+        assertEquals("no second timer", 1, server.posts.size)
+    }
+
+    @Test
+    fun `a refused start leaves the step where it is and says why`() = runTest(testDispatcher) {
+        server.refuseStart = true
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        viewModel.next()
+
+        viewModel.startAndNext()
+        settle { viewModel.state.timerError != null }
+
+        assertEquals(1, viewModel.state.session?.step)
+        assertEquals(CookingViewModel.START_FAILED, viewModel.state.timerError)
+        assertTrue(viewModel.state.timers.isEmpty())
+        assertFalse(viewModel.state.starting)
+    }
+
+    @Test
+    fun `each tick counts down from what the API said`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        waterStarted(viewModel)
+
+        nowMs += 61_000
+        viewModel.tick()
+
+        assertEquals(539, viewModel.state.remainingOf(viewModel.state.timers.single()))
+    }
+
+    @Test
+    fun `Demarrer starts a step that is not in the background, without leaving it`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        atStep4(viewModel)
+
+        viewModel.toggleTimer()
+        timersRead(viewModel, 3)
+
+        assertEquals(4, viewModel.state.session?.step)
+        assertEquals("Légumes", viewModel.state.timerOf(4)?.label)
+        assertEquals(480, viewModel.state.timerOf(4)?.let(viewModel.state::remainingOf))
+    }
+
+    @Test
+    fun `Pause keeps the rest and Reprendre goes on from it`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        atStep4(viewModel)
+        viewModel.toggleTimer()
+        timersRead(viewModel, 3)
+        nowMs += 80_000
+        viewModel.tick()
+
+        viewModel.toggleTimer()
+        settle { viewModel.state.timerOf(4)?.status == com.maggie.app.data.model.CookingTimerStatus.PAUSED }
+        nowMs += 30_000
+        viewModel.tick()
+        assertEquals("paused, it does not count", 400, viewModel.state.timerOf(4)?.let(viewModel.state::remainingOf))
+
+        viewModel.toggleTimer()
+        settle { viewModel.state.timerOf(4)?.status == com.maggie.app.data.model.CookingTimerStatus.RUNNING }
+        assertEquals(400, viewModel.state.timerOf(4)?.let(viewModel.state::remainingOf))
+        assertEquals(listOf("pause", "resume"), server.patches.map { it.second })
+    }
+
+    @Test
+    fun `plus and minus one minute move the step's timer`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        atStep4(viewModel)
+        viewModel.toggleTimer()
+        timersRead(viewModel, 3)
+
+        viewModel.addMinutes(1)
+        settle { viewModel.state.timerOf(4)?.remainingSeconds == 540 }
+        viewModel.addMinutes(-1)
+        settle { viewModel.state.timerOf(4)?.remainingSeconds == 480 }
+
+        assertEquals(480, viewModel.state.timerOf(4)?.let(viewModel.state::remainingOf))
+        assertEquals(listOf("add", "add"), server.patches.map { it.second })
+    }
+
+    @Test
+    fun `minus one on the last minute rings it at once and its alert shows`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        atStep4(viewModel)
+        viewModel.toggleTimer()
+        timersRead(viewModel, 3)
+        nowMs += 450_000
+        viewModel.tick()
+
+        viewModel.addMinutes(-1)
+        settle { viewModel.state.alert != null }
+
+        assertEquals("Légumes", viewModel.state.alert?.label)
+        assertEquals("Légumes : c'est prêt", doneTitle(viewModel.state.alert!!))
+        assertTrue("its step is ready", 4 in viewModel.state.session!!.ready)
+    }
+
+    @Test
+    fun `a wait says encore with the longest rest of what it waits for, nothing before it starts`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        waterStarted(viewModel)
+        viewModel.next()
+        assertEquals(listOf(1), viewModel.state.pending)
+        nowMs += 10_000
+        viewModel.tick()
+        assertEquals(590, viewModel.state.awaitedLeft)
+
+        viewModel.ready()
+        viewModel.startAndNext()
+        settle { viewModel.state.session?.step == 4 }
+        viewModel.next()
+        assertEquals(listOf(3, 4), viewModel.state.pending)
+        assertEquals("the pasta runs, the vegetables are not started", 720, viewModel.state.awaitedLeft)
+    }
+
+    @Test
+    fun `a timer rung through Mercure shows its alert and frees the step that waits for it`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        waterStarted(viewModel)
+        viewModel.next()
+        assertEquals(listOf(1), viewModel.state.pending)
+
+        timerEvents.emit(event(server.ring(server.rows.values.single().id)))
+        settle { viewModel.state.alert != null }
+
+        assertEquals("Eau", viewModel.state.alert?.label)
+        assertEquals(emptyList<Int>(), viewModel.state.pending)
+        assertEquals(listOf(1), viewModel.state.session?.ready)
+    }
+
+    @Test
+    fun `a count that reached zero reads the API again, every two seconds, until it rang`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        waterStarted(viewModel)
+        val before = server.gets
+
+        nowMs += 600_000
+        viewModel.tick()
+        settle { server.gets == before + 1 }
+        nowMs += 1_000
+        viewModel.tick()
+        advanceUntilIdle()
+        assertEquals("not twice within two seconds", before + 1, server.gets)
+
+        server.ring(server.rows.values.single().id)
+        nowMs += 1_000
+        viewModel.tick()
+        settle { viewModel.state.alert != null }
+
+        assertEquals(before + 2, server.gets)
+        assertEquals("Eau", viewModel.state.alert?.label)
+    }
+
+    @Test
+    fun `OK dismisses the timer, its alert leaves and the next one comes`() = runTest(testDispatcher) {
+        val first = server.seed("Eau", REFERENCE, 1, 600).also { nowMs += 1; server.ring(it.id) }
+        nowMs += 1_000
+        val second = server.seed("Pâtes", REFERENCE, 3, 720).also { server.ring(it.id) }
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        timersRead(viewModel, 2)
+        assertEquals(first.id, viewModel.state.alert?.id)
+        assertTrue(viewModel.announce(first.id))
+        assertFalse("rung once", viewModel.announce(first.id))
+
+        viewModel.dismiss(first.id)
+
+        assertEquals(second.id, viewModel.state.alert?.id)
+        settle { server.patches.isNotEmpty() }
+        assertEquals(listOf(first.id to "dismiss"), server.patches)
+        assertEquals("dismissed", server.rows.getValue(first.id).status)
+    }
+
+    @Test
+    fun `a timer cancelled or dismissed elsewhere leaves the screen`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        waterStarted(viewModel)
+        val row = server.rows.values.single().also { it.status = "cancelled" }
+
+        timerEvents.emit(event(row))
+        settle { viewModel.state.timers.isEmpty() }
+
+        assertTrue(viewModel.state.timers.isEmpty())
+    }
+
+    @Test
+    fun `a rotation while two timers run finds the same timers with the same rest and starts nothing`() = runTest(testDispatcher) {
+        val handle = referenceHandle()
+        val first = newViewModel(handle)
+        atStep4(first)
+        nowMs += 65_000
+        first.tick()
+        val posts = server.posts.size
+        val rests = first.state.timers.associate { it.label to first.state.remainingOf(it) }
+        assertEquals(mapOf("Eau" to 535, "Pâtes" to 655), rests)
+
+        val second = newViewModel(handle)
+        ready(second)
+        timersRead(second, 2)
+
+        assertEquals(first.state.timers.map { it.id }, second.state.timers.map { it.id })
+        assertEquals(rests, second.state.timers.associate { it.label to second.state.remainingOf(it) })
+        assertEquals("no POST on the way back", posts, server.posts.size)
+        assertEquals(4, second.state.session?.step)
+    }
+
+    @Test
+    fun `a running timer asks before quitting, and Quitter cancels every timer on screen`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        atStep4(viewModel)
+        assertTrue(viewModel.state.confirmQuit)
+        assertEquals("2 minuteurs tournent encore (Eau, Pâtes) : ils s'arrêteront.", quitDetail(viewModel.state.timers))
+
+        viewModel.quit()
+        settle { server.patches.size == 2 }
+
+        assertTrue(viewModel.state.timers.isEmpty())
+        assertEquals(listOf("cancel", "cancel"), server.patches.map { it.second })
+        assertTrue(server.rows.values.all { it.status == "cancelled" })
+    }
+
+    @Test
+    fun `nothing running, nothing to confirm`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        timersRead(viewModel, 0)
+
+        assertFalse(viewModel.state.confirmQuit)
+        assertNull(quitDetail(viewModel.state.timers))
     }
 
     private companion object {

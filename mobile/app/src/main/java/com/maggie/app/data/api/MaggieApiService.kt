@@ -14,6 +14,10 @@ import com.maggie.app.data.model.ContactCounterpartyCreateRequest
 import com.maggie.app.data.model.ContactCreateRequest
 import com.maggie.app.data.model.CounterpartySuggestion
 import com.maggie.app.data.model.Context
+import com.maggie.app.data.model.CookingTimer
+import com.maggie.app.data.model.CookingTimerChangeRequest
+import com.maggie.app.data.model.CookingTimerList
+import com.maggie.app.data.model.CookingTimerStartRequest
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Errand
 import com.maggie.app.data.model.Event
@@ -939,6 +943,9 @@ class ApprovalDecisionException(val status: Int) : Exception("HTTP $status") {
  */
 class ApiRefusalException(val status: Int, message: String) : Exception(message)
 
+/** A timer change the API refused (400) or does not know (404); [timer] is how it stands, when the API says. */
+class CookingTimerRefusedException(val status: Int, message: String, val timer: CookingTimer?) : Exception(message)
+
 private val REFUSAL_JSON = Json { ignoreUnknownKeys = true; isLenient = true }
 
 /** The `detail` (or `hydra:description`, `message`, `error`) of an error body, falling back to a generic sentence. */
@@ -1608,6 +1615,40 @@ class MaggieApiService(
             accept(ContentType("application", "ld+json"))
             setBody(data)
         }.orRefusal().body()
+    }
+
+    // Cooking timers (MAG-582): plain JSON, a change is an action.
+    suspend fun getCookingTimers(): List<CookingTimer> {
+        return client.get("$baseUrl/api/cooking/timers") {
+            accept(ContentType.Application.Json)
+            url.parameters.append("status", "running,paused,done")
+        }.orRefusal().body<CookingTimerList>().member
+    }
+
+    suspend fun startCookingTimer(request: CookingTimerStartRequest): CookingTimer {
+        return client.post("$baseUrl/api/cooking/timers") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    /** A refusal (400) carries the timer as it stands: [CookingTimerRefusedException.timer]. */
+    suspend fun changeCookingTimer(id: String, request: CookingTimerChangeRequest): CookingTimer {
+        val response = client.patch("$baseUrl/api/cooking/timers/$id") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(request)
+        }
+        if (!response.status.isSuccess()) {
+            val body = response.bodyAsText()
+            val timer = runCatching {
+                REFUSAL_JSON.parseToJsonElement(body).jsonObject["timer"]
+                    ?.let { REFUSAL_JSON.decodeFromJsonElement(CookingTimer.serializer(), it) }
+            }.getOrNull()
+            throw CookingTimerRefusedException(response.status.value, refusalMessage(response.status.value, body), timer)
+        }
+        return response.body()
     }
 
     /** The user's whole utensil catalogue, by name. */

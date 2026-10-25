@@ -190,4 +190,29 @@ class InterruptionsTest {
 
         assertEquals(FeedEvent.Withdraw("n-7"), Interruptions.readNotification("""{"@id":"/api/notifications/n-7","deleted":true}"""))
     }
+
+    // --- A cooking timer seen elsewhere (MAG-582)
+
+    @Test
+    fun `a timer acknowledged or cancelled elsewhere names the tray notification to take down`() {
+        assertEquals("cooking-timer-t-1", Interruptions.readCookingTimer("""{"@id":"/api/cooking/timers/t-1","id":"t-1","status":"dismissed"}"""))
+        assertEquals("cooking-timer-t-2", Interruptions.readCookingTimer("""{"@id":"/api/cooking/timers/t-2","status":"cancelled"}"""))
+        assertNull(Interruptions.readCookingTimer("""{"@id":"/api/cooking/timers/t-1","id":"t-1","status":"done"}"""))
+        assertNull(Interruptions.readCookingTimer("""{"@id":"/api/cooking/timers/t-1","id":"t-1","status":"running"}"""))
+        assertNull(Interruptions.readCookingTimer("not json"))
+    }
+
+    @Test
+    fun `a timer's end read elsewhere withdraws it and names its tray notification`() {
+        assertEquals(
+            FeedEvent.Withdraw("n-9", "cooking-timer-t-1"),
+            Interruptions.readNotification(
+                """{"@id":"/api/notifications/n-9","readAt":"2026-10-25T10:00:00+00:00","relatedEntityIri":"/api/cooking/timers/t-1"}""",
+            ),
+        )
+        assertEquals(
+            FeedEvent.Withdraw("n-7"),
+            Interruptions.readNotification("""{"@id":"/api/notifications/n-7","readAt":"2026-10-25T10:00:00+00:00"}"""),
+        )
+    }
 }

@@ -27,16 +27,20 @@ class InterruptionFeedTest {
     private val center = InterruptionCenter()
     private val notifications = MutableSharedFlow<MercureEvent>()
     private val approvalEvents = MutableSharedFlow<MercureEvent>()
+    private val timerEvents = MutableSharedFlow<MercureEvent>()
+    private val cleared = mutableListOf<String>()
 
     private val mercure = mockk<MercureService> {
         every { subscribe(MercureTopics.userScoped("u-1", MercureTopics.NOTIFICATIONS)) } returns notifications
         every { subscribe(MercureTopics.agentScoped("u-1", MercureTopics.APPROVALS)) } returns approvalEvents
+        every { subscribe(MercureTopics.userScoped("u-1", MercureTopics.COOKING_TIMERS)) } returns timerEvents
     }
+
     private val approvals = mockk<ApprovalRepository>()
     private val auth = mockk<AuthRepository> { coEvery { getUserId() } returns "u-1" }
 
     private fun kotlinx.coroutines.test.TestScope.start() {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { InterruptionFeed(center, mercure, approvals, auth).run() }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { InterruptionFeed(center, mercure, approvals, auth, clearSystem = { cleared += it }).run() }
     }
 
     private fun notification(id: String, extra: String = "") =
@@ -130,7 +134,7 @@ class InterruptionFeedTest {
         coEvery { approvals.getPending() } returns Result.success(emptyList())
         val signedIn = MutableSharedFlow<Boolean>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            InterruptionFeed(center, mercure, approvals, auth).runWhileSignedIn(signedIn)
+            InterruptionFeed(center, mercure, approvals, auth, clearSystem = { cleared += it }).runWhileSignedIn(signedIn)
         }
 
         signedIn.emit(true)
@@ -147,11 +151,22 @@ class InterruptionFeedTest {
         coEvery { approvals.getPending() } returns Result.success(emptyList())
         val signedIn = MutableStateFlow(true)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            InterruptionFeed(center, mercure, approvals, auth).runWhileSignedIn(signedIn)
+            InterruptionFeed(center, mercure, approvals, auth, clearSystem = { cleared += it }).runWhileSignedIn(signedIn)
         }
         signedIn.value = false
         signedIn.value = true
 
         verify(exactly = 2) { mercure.subscribe(MercureTopics.userScoped("u-1", MercureTopics.NOTIFICATIONS)) }
+    }
+
+    @Test
+    fun `a cooking timer acknowledged on another device leaves this tray`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        start()
+
+        timerEvents.emit(MercureEvent(data = """{"@id":"/api/cooking/timers/t-1","id":"t-1","status":"running"}"""))
+        timerEvents.emit(MercureEvent(data = """{"@id":"/api/cooking/timers/t-1","id":"t-1","status":"dismissed"}"""))
+
+        assertEquals(listOf("cooking-timer-t-1"), cleared)
     }
 }
