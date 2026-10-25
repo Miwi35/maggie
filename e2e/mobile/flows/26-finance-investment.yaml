@@ -55,15 +55,24 @@ tags:
     timeout: 30000
 
 # The row of the box: one node for accessibility, its texts are read together, hence the `.*`.
+# The row is tall: on a tablet or a foldable the list stops with its title at the screen's edge, under the
+# chat band, and its lines below it. Each line is scrolled to the middle, top to bottom.
 - scrollUntilVisible:
-    element: ".*Box à louer.*"
+    element: ".*Loyer perçu : 650[,.]00 EUR par mois.*"
+    centerElement: true
     timeout: 30000
-- extendedWaitUntil:
-    visible: ".*Loyer perçu : 650[,.]00 EUR par mois.*"
+- scrollUntilVisible:
+    element: ".*Mensualité du prêt : .* EUR par mois.*"
+    centerElement: true
     timeout: 10000
-- assertVisible: ".*Mensualité du prêt : .* EUR par mois.*"
-- assertVisible: ".*Solde : .* EUR par mois.*"
-- assertVisible: ".*Revendre en .* 20[0-9]{2} pour 4000[,.]00 EUR net, pour l'apport de Studio.*"
+- scrollUntilVisible:
+    element: ".*Solde : .* EUR par mois.*"
+    centerElement: true
+    timeout: 10000
+- scrollUntilVisible:
+    element: ".*Revendre en .* 20[0-9]{2} pour 4000[,.]00 EUR net, pour l'apport de Studio.*"
+    centerElement: true
+    timeout: 10000
 
 # Its sheet: the investment card, read-only.
 - tapOn: ".*Box à louer.*"

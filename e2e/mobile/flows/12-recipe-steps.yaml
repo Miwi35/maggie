@@ -84,6 +84,11 @@ tags:
     element: "Modifier"
     direction: UP
 - tapOn: "Modifier"
+# The edit form is its own screen: scrolling while the sheet is still leaving can land the swipe on an
+# ingredient field and open its search dialog (red then flaky on the 24 and 25 Oct. nights).
+- extendedWaitUntil:
+    visible: "Modifier la recette"
+    timeout: 20000
 - scrollUntilVisible:
     element:
       id: "recipe_utensil_add"

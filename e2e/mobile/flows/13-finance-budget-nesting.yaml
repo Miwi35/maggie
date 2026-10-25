@@ -56,14 +56,8 @@ tags:
     timeout: 30000
 - assertVisible: "40[.,]00 EUR / 300[.,]00 EUR"
 - assertNotVisible: "Bars › Obsydian"
-# The phone only reads the tree: no way to create or delete an envelope. From 600 dp (tree pane) it can.
-- evalScript: ${0}
-- runFlow:
-    when:
-      notVisible:
-        id: "budget_tree"
-    commands:
-      - assertNotVisible: "Nouvelle enveloppe"
+# The phone only reads the tree (no « Nouvelle enveloppe », no bin): from 600 dp the same screen has both,
+# so nothing is asserted here on a format the flow cannot tell — `BudgetTreeScreenTest` owns the phone's side.
 
 # Unfolded: Obsydian 40 / 100 € nested under Loisirs 40 / 300 €.
 - tapOn: "Déplier Loisirs"

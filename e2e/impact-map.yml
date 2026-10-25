@@ -414,7 +414,8 @@ web:
       reason: >-
         « an event created in one window appears in the other without a reload »
         red twice (retry included) on two unrelated PRs (#545, #537, 17 Oct.) while
-        green every night on main: realtime timing on a loaded runner.
+        green every night on main, 23 to 25 Oct. included: realtime timing on a loaded runner. Lift it after a week
+        without a failure on a pull request.
   e2e/web/tests/agenda-google.spec.ts:
     areas: [calendar, google]
   e2e/web/tests/agenda-isolation.spec.ts:
@@ -594,12 +595,6 @@ mobile:
   e2e/mobile/flows/10-finance-recurring.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/recurring-api.js]
-    quarantine:
-      since: 2026-10-21
-      reason: >-
-        Red on the tablet every night since 18 Oct.: `recurring_save` sits under the launcher's taskbar
-        (bottom 60 px) and the tap opens another app (MAG-531).
-        Lift it once that is fixed.
   e2e/mobile/flows/10-meal-ingredient-choice.yaml:
     areas: [cookbook, grocery]
     paths: [e2e/mobile/scripts/meal-api.js]
@@ -608,9 +603,8 @@ mobile:
     quarantine:
       since: 2026-10-08
       reason: >-
-        Its first assertion matched the chip's tag and its title together, which
-        never are on the same node: red on every night, all formats. Repaired on
-        21 Oct. (MAG-521); the steps after it never ran. Lift it after one green night.
+        Repaired on 21 Oct. (MAG-521), green on every format on the night of 24 Oct., but flaky on the phone
+        on 25 Oct. (red, green on retry), cause not found yet. Lift it after a week without a retry.
   e2e/mobile/flows/15-calendar-more-than-a-page.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/event-api.js]
@@ -643,22 +637,12 @@ mobile:
   e2e/mobile/flows/17b-tasks-day.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/day-plan-api.js]
-    quarantine:
-      since: 2026-10-21
-      reason: >-
-        Red on the tablet every night since 18 Oct.: the reserve row stays under the launcher's taskbar
-        (MAG-531). Lift it once that is fixed.
   e2e/mobile/flows/17c-task-focus.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/focus-api.js]
   e2e/mobile/flows/17c-tasks-evening.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/day-review-api.js]
-    quarantine:
-      since: 2026-10-21
-      reason: >-
-        Red on the tablet every night since 18 Oct.: `tasks_evening_good_night` sits under the launcher's
-        taskbar (MAG-531). Lift it once that is fixed.
   e2e/mobile/flows/17d-task-bravo.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/bravo-api.js]
@@ -668,11 +652,6 @@ mobile:
   e2e/mobile/flows/17f-routines.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/routines-api.js]
-    quarantine:
-      since: 2026-10-21
-      reason: >-
-        Red on the tablet every night since 18 Oct.: `routines_add` sits under the launcher's taskbar
-        (MAG-531). Lift it once that is fixed.
   e2e/mobile/flows/13-finance-category-edit.yaml:
     areas: [finance]
   e2e/mobile/flows/13-finance-review-list.yaml:
@@ -726,8 +705,10 @@ mobile:
     quarantine:
       since: 2026-10-21
       reason: >-
-        Red on the tablet and the foldable every night since 18 Oct.: `project_save` sits under the
-        launcher's taskbar (MAG-531). Lift it once that is fixed.
+        Red on the tablet and the foldable every night since 18 Oct. (the phone passes): the journey read the
+        Gantt and the rows from the phone's layout, where a wide screen puts the scenarios first and the Gantt last.
+        Reworked to scroll to each block on every format (MAG-611): not yet seen on a night, no app defect found.
+        Lift it after one green night.
   e2e/mobile/flows/24-finance-loans.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/loans-api.js, api/fixtures/e2e/50-finance.yaml]
@@ -761,11 +742,6 @@ mobile:
   e2e/mobile/flows/finance-todo.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/finance-todo-api.js]
-    quarantine:
-      since: 2026-10-21
-      reason: >-
-        Red on the tablet every night since 18 Oct.: the « N rejets » pill opens the account on its
-        Transactions tab instead of Incidents, so `incident_row` is absent (MAG-533). Lift it once that is fixed.
   e2e/mobile/flows/14-interruption.yaml:
     areas: [interruptions, notification, realtime]
     paths:
