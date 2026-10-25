@@ -7,8 +7,8 @@ import Typography from '@mui/material/Typography'
 import CheckIcon from '@mui/icons-material/Check'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
-import { Confirm, Show, useCreate, useGetMany, useNotify, useRecordContext, useRedirect, useUpdate } from 'react-admin'
-import { Link as RouterLink, useLocation } from 'react-router-dom'
+import { Confirm, Show, useCreate, useCreatePath, useGetMany, useNotify, useRecordContext, useRedirect, useUpdate } from 'react-admin'
+import { Link as RouterLink, Navigate, useLocation, useParams } from 'react-router-dom'
 import { ReadingPage } from '../../components/layout/ReadingPage'
 import { useMercure } from '../../hooks/useMercure'
 import { recipeLaunchPath } from './cooking/cookingSession'
@@ -19,7 +19,7 @@ import { HeaderDialog, NotesDialog, PlanMealDialog, UtensilsDialog } from './Rec
 import { RecipeIngredientDialog } from './RecipeIngredientDialog'
 import type { ReplaceBody, ReplaceOutcome } from './RecipeIngredientDialog'
 import { RecipeStepDialog } from './RecipeStepDialog'
-import { idOf, linesPayload, nutritionPerServing, orderedSteps, productIdOf, stepLabel, stepsUsing, utensilNames, withoutProduct } from './recipeSheet'
+import { canonicalRecordId, idOf, linesPayload, nutritionPerServing, orderedSteps, productIdOf, stepLabel, stepsUsing, utensilNames, withoutProduct } from './recipeSheet'
 import type { ProductInfo, RecipeLine, RecipeRecord } from './recipeSheet'
 import { moveStep, refusalOf, removeStep, stepsPayload } from './recipeSteps'
 import { useScaledQuantities } from './useScaledQuantities'
@@ -328,11 +328,23 @@ const RecipeSheet = () => {
   return <Sheet key={String(record.id)} record={record} />
 }
 
-export const RecipeShow = () => (
-  <Show title="Recette" actions={false}>
-    <RecipeSheet />
-  </Show>
-)
+export const RecipeShow = () => {
+  const { id } = useParams()
+  const createPath = useCreatePath()
+  const canonicalId = id === undefined ? undefined : canonicalRecordId(id)
+
+  // An address that spells the ULID another way (UUID notation, lower case) opens the same
+  // recipe on its canonical address; left as it is, the sheet would throw on the id the API answers with.
+  if (id !== undefined && canonicalId !== id) {
+    return <Navigate to={createPath({ resource: 'recipes', type: 'show', id: canonicalId })} replace />
+  }
+
+  return (
+    <Show title="Recette" actions={false}>
+      <RecipeSheet />
+    </Show>
+  )
+}
 
 const EMPTY: RecipeRecord = { id: '', name: '', servings: 4, tags: [], notes: null, ingredients: [], utensils: [], steps: [] }
 

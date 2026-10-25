@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { servingsLabel, shortName, stepRefLabel, stepsTitle } from './recipeSheet'
+import { canonicalRecordId, servingsLabel, shortName, stepRefLabel, stepsTitle } from './recipeSheet'
 import type { RecipeStep } from './recipeSheet'
 
 const step = (durationMinutes: number | null, background = false): RecipeStep => ({
@@ -60,5 +60,24 @@ describe('servingsLabel', () => {
   test('agrees with the number', () => {
     expect(servingsLabel(1)).toBe('1 portion')
     expect(servingsLabel(4)).toBe('4 portions')
+  })
+})
+
+describe('canonicalRecordId', () => {
+  const ULID = '01M5PVZHGMHNHJ6VHJY6G0XWS1'
+
+  test('spells a UUID-notation id the way the API names the record', () => {
+    expect(canonicalRecordId('/api/recipes/01a16dbf-c614-8d63-236e-32f1a00ef321')).toBe('/api/recipes/01M5PVZHGMHNHJ6VHJY6G0XWS1')
+  })
+
+  test('upper-cases a lowercase ULID, bare or inside an IRI', () => {
+    expect(canonicalRecordId(ULID.toLowerCase())).toBe(ULID)
+    expect(canonicalRecordId(`/api/recipes/${ULID.toLowerCase()}`)).toBe(`/api/recipes/${ULID}`)
+  })
+
+  test('leaves a canonical id and anything that is not an id as it is', () => {
+    expect(canonicalRecordId(`/api/recipes/${ULID}`)).toBe(`/api/recipes/${ULID}`)
+    expect(canonicalRecordId('01R')).toBe('01R')
+    expect(canonicalRecordId('')).toBe('')
   })
 })

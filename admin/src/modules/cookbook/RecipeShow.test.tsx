@@ -99,7 +99,7 @@ const stubFetch = (routes: Record<string, () => Promise<Response>> = {}) => {
 
 const refusal = (message: string) => Object.assign(new Error(message), { status: 400, body: { 'hydra:description': message } })
 
-const renderSheet = (overrides: Partial<DataProvider> = {}, record: Record<string, unknown> = recipe, hasEdit = false) => {
+const renderSheet = (overrides: Partial<DataProvider> = {}, record: Record<string, unknown> = recipe, hasEdit = false, address = '/recipes/%2Fapi%2Frecipes%2F01R/show') => {
   // The API answers with the recipe as it keeps it: here, the scalar fields the call changed.
   const update = vi.fn((_resource: string, params: { data: Record<string, unknown> }) => {
     const { name, servings, tags, notes } = params.data
@@ -119,7 +119,7 @@ const renderSheet = (overrides: Partial<DataProvider> = {}, record: Record<strin
   })
 
   render(
-    <MemoryRouter initialEntries={['/recipes/%2Fapi%2Frecipes%2F01R/show']}>
+    <MemoryRouter initialEntries={[address]}>
       <AdminContext dataProvider={dataProvider} i18nProvider={i18nProvider}>
         <Routes>
           <Route
@@ -836,5 +836,14 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     await edit(user)
     expect(screen.getByText('Aucun ustensile.')).toBeInTheDocument()
     expect(screen.getByText('Aucune note.')).toBeInTheDocument()
+  })
+
+  test('an address spelling the ULID as a UUID opens the sheet instead of crashing on the id the API answers with (MAG-641)', async () => {
+    const canonical = '/api/recipes/01M5PVZHGMHNHJ6VHJY6G0XWS1'
+    const getOne = vi.fn((_resource: string, params: { id: string }) => Promise.resolve({ data: { ...recipe, id: canonical, '@id': canonical, name: `Fiche ${params.id}` } }))
+    renderSheet({ getOne: getOne as unknown as DataProvider['getOne'] }, recipe, false, `/recipes/${encodeURIComponent('/api/recipes/01a16dbf-c614-8d63-236e-32f1a00ef321')}/show`)
+
+    expect(await screen.findByRole('heading', { name: `Fiche ${canonical}` })).toBeInTheDocument()
+    expect(getOne).not.toHaveBeenCalledWith('recipes', expect.objectContaining({ id: '/api/recipes/01a16dbf-c614-8d63-236e-32f1a00ef321' }))
   })
 })
