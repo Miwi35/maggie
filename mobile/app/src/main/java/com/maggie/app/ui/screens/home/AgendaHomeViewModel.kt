@@ -87,9 +87,10 @@ class AgendaHomeViewModel(
         load?.cancel()
         if (!silently) _uiState.update { it.copy(loading = it.state == null, error = false) }
         load = viewModelScope.launch {
-            val result = repository.read(day, clock().atZone(DateRanges.zone).toLocalDate())
+            val asked = clock()
             val stamp = elapsedRealtime()
-            val readAt = if (day == HomeDay.TODAY) clock() else null
+            val result = repository.read(day, asked.atZone(DateRanges.zone).toLocalDate())
+            val readAt = if (day == HomeDay.TODAY) asked else null
             _uiState.update { current ->
                 if (current.day != day) {
                     current

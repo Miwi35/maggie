@@ -59,7 +59,10 @@ final class ExpandedEventCollectionProvider implements ProviderInterface
         $from = self::instant($after, 'endAt[after]');
         $until = self::instant($before, 'startAt[before]');
 
-        $period = $this->read($operation, $uriVariables, $context, $filters);
+        // The period is half-open: an event ending at its start, or starting at its end, is not in it.
+        $strict = ['endAt' => ['strictly_after' => $after] + ($filters['endAt'] ?? []), 'startAt' => ['strictly_before' => $before] + ($filters['startAt'] ?? [])];
+        unset($strict['endAt']['after'], $strict['startAt']['before']);
+        $period = $this->read($operation, $uriVariables, $context, $strict + $filters);
         $others = array_diff_key($filters, array_flip(['startAt', 'endAt', 'exists', 'order']));
         $series = $this->read($operation, $uriVariables, $context, ['exists' => ['rrule' => 'true'], 'startAt' => ['strictly_before' => $after]] + $others);
 

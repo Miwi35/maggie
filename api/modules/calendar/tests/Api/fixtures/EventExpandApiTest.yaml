@@ -98,6 +98,19 @@ Maggie\Calendar\Entity\Event:
     rrule: FREQ=YEARLY
     agenda: '@perso'
 
+  # Ends as the day begins, and begins as it ends: neither is in it.
+  ended_at_midnight:
+    summary: Fini à minuit
+    startAt: '<(new \DateTimeImmutable("2037-03-10T23:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-11T00:00:00+01:00"))>'
+    agenda: '@perso'
+
+  starts_at_midnight:
+    summary: Début à minuit
+    startAt: '<(new \DateTimeImmutable("2037-03-12T00:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-12T01:00:00+01:00"))>'
+    agenda: '@perso'
+
   strangers_event:
     summary: Stranger
     startAt: '<(new \DateTimeImmutable("2037-03-11T09:00:00+01:00"))>'

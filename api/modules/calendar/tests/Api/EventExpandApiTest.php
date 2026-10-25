@@ -113,6 +113,14 @@ class EventExpandApiTest extends WebTestCase
         self::assertNotContains('Médicament', $summaries);
     }
 
+    public function testThePeriodIsHalfOpen(): void
+    {
+        $summaries = self::summaries($this->get(['expand' => 'true'] + self::DAY));
+
+        self::assertNotContains('Fini à minuit', $summaries);
+        self::assertNotContains('Début à minuit', $summaries);
+    }
+
     public function testTheTimedOnesComeByStart(): void
     {
         $data = $this->get(['expand' => 'true'] + self::DAY);
