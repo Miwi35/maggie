@@ -147,6 +147,11 @@ const openMenu = async (user: ReturnType<typeof userEvent.setup>, label: string,
   await user.click(await screen.findByRole('menuitem', { name: item }))
 }
 
+const edit = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(await screen.findByRole('button', { name: 'Modifier' }))
+  await screen.findByRole('button', { name: 'Terminé' })
+}
+
 const stepItems = () => screen.getAllByRole('listitem', { name: /^Étape \d+$/ })
 
 describe('RecipeShow', { timeout: 30_000 }, () => {
@@ -166,44 +171,122 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     const heading = await screen.findByRole('heading', { name: 'Bœuf bourguignon' })
     const page = screen.getByTestId('reading-page')
     expect(page).toContainElement(heading)
-    expect(page).toContainElement(screen.getByRole('button', { name: 'Modifier la quantité de Lardons fumés' }))
+    expect(page).toContainElement(screen.getByRole('region', { name: 'Ingrédients' }))
     expect(page).toHaveStyle({ maxWidth: '1100px' })
   })
 
-  test('reads like a page: header, ingredients, utensils, notes, steps and nutrition per person', async () => {
+  test('reads like a page: quantities before the names, the steps beside, what one serving brings at the end', async () => {
     renderSheet()
 
     expect(await screen.findByRole('heading', { name: 'Bœuf bourguignon' })).toBeInTheDocument()
     expect(screen.getByText('mijoté')).toBeInTheDocument()
     expect(screen.getByTestId('guests-value')).toHaveTextContent('4')
 
-    const lardons = screen.getByRole('button', { name: 'Modifier la quantité de Lardons fumés' }).closest('li') as HTMLElement
-    expect(within(lardons).getByText(/utilisé dans les étapes 2, 6/)).toBeInTheDocument()
-    expect(within(lardons).getByRole('button', { name: 'Modifier la quantité de Lardons fumés' })).toHaveTextContent('200 g')
-    const oignons = screen.getByRole('button', { name: 'Modifier la quantité de Oignons' }).closest('li') as HTMLElement
-    expect(within(oignons).queryByText(/utilisé dans/)).not.toBeInTheDocument()
+    const ingredients = screen.getByRole('region', { name: 'Ingrédients' })
+    expect(within(ingredients).getByRole('heading', { name: 'Ingrédients · 4 portions' })).toBeInTheDocument()
+    const lardons = within(ingredients).getByText('Lardons fumés').closest('li') as HTMLElement
+    expect(lardons.textContent).toMatch(/^200gLardons fumés/)
+    expect(within(lardons).getByText('ét. 2 · 6')).toBeInTheDocument()
+    expect(within(lardons).getByText('paquet de 200 g')).toBeInTheDocument()
+    const oignons = within(ingredients).getByText('Oignons').closest('li') as HTMLElement
+    expect(oignons.textContent).toMatch(/^2pièces/)
+    expect(within(oignons).queryByText(/ét\./)).not.toBeInTheDocument()
+    expect(within(ingredients).getByText('Bœuf à braiser').closest('li')).toHaveTextContent('ét. 1')
 
-    expect(within(screen.getByRole('list', { name: 'Matériel' })).getByText('Cocotte')).toBeInTheDocument()
+    expect(within(screen.getByRole('list', { name: 'Ustensiles' })).getByText('Cocotte')).toBeInTheDocument()
+    expect(screen.queryByText('Matériel')).not.toBeInTheDocument()
     expect(screen.getByText('Meilleur le lendemain')).toBeInTheDocument()
 
+    // 10 min + 2 h 30 of simmering, the simmering being left to the pot.
+    const steps = screen.getByRole('region', { name: 'Étapes' })
+    expect(within(steps).getByRole('heading', { name: 'Étapes · 2 h 40, dont 2 h 30 en fond' })).toBeInTheDocument()
     const items = stepItems()
     expect(items).toHaveLength(6)
-    expect(items[1]).toHaveTextContent(`2. ${STEP_2}`)
+    expect(items[1]).toHaveTextContent(new RegExp(`^2${STEP_2}`))
     expect(within(items[1]).getByText('⏱ 10 min')).toBeInTheDocument()
-    expect(within(items[1]).getByText('Lardons fumés')).toBeInTheDocument()
+    expect(within(items[1]).getByText('Lardons')).toBeInTheDocument()
     expect(within(items[1]).getByText('Cocotte')).toBeInTheDocument()
+    expect(within(items[0]).getByText('Bœuf')).toBeInTheDocument()
     expect(within(items[3]).getByText('en fond')).toBeInTheDocument()
     expect(within(items[3]).getByText('⏱ 2 h 30')).toBeInTheDocument()
-    expect(within(items[3]).getByText('attend 3')).toBeInTheDocument()
+    expect(within(items[3]).getByText('attend ét. 3')).toBeInTheDocument()
 
     // (800 g × 100 + 200 g × 300) / 4 portions; the onions, counted in pieces, are left out and said so.
-    expect(await screen.findByText('350 kcal')).toBeInTheDocument()
+    expect(await screen.findByTestId('nutrition-energy')).toHaveTextContent('≈ 350 kcal')
+    expect(screen.getByText('Protéines 48 g')).toBeInTheDocument()
+    expect(screen.getByText('Lipides 24 g')).toBeInTheDocument()
+    expect(screen.getByText('Glucides 1 g')).toBeInTheDocument()
     expect(screen.getByText(/1 ingrédient compté à la pièce/)).toBeInTheDocument()
+  })
+
+  test('opens to read: none of the edit tools is there, the portions and the actions of the page are', async () => {
+    renderSheet()
+
+    expect(await screen.findByRole('heading', { name: 'Bœuf bourguignon' })).toBeInTheDocument()
+    for (const name of [
+      'Ajouter un ingrédient',
+      'Ajouter une étape',
+      'Modifier la quantité de Lardons fumés',
+      'Actions pour Oignons',
+      "Actions pour l'étape 1",
+      "Déplacer l'étape 1",
+      'Modifier les notes',
+      'Modifier les ustensiles',
+      'Modifier le nom, les portions et les tags',
+    ]) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+    }
+    expect(screen.getByRole('button', { name: /Un convive de plus/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cuisiner' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Actions de la recette' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Modifier' })).toBeInTheDocument()
+  })
+
+  test('« Modifier » turns the edit tools on and « Terminé » turns them off', async () => {
+    const user = userEvent.setup()
+    renderSheet()
+
+    await edit(user)
+    expect(screen.queryByRole('button', { name: 'Modifier' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ajouter un ingrédient' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ajouter une étape' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Modifier la quantité de Lardons fumés' })).toHaveTextContent('200 g')
+    expect(screen.getByRole('button', { name: "Actions pour l'étape 1" })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: "Déplacer l'étape 1" })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Modifier les notes' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Modifier les ustensiles' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Modifier le nom, les portions et les tags' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Terminé' }))
+    expect(await screen.findByRole('button', { name: 'Modifier' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ajouter un ingrédient' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: "Actions pour l'étape 1" })).not.toBeInTheDocument()
+    expect(screen.getByText('Lardons fumés')).toBeInTheDocument()
+  })
+
+  test('an ingredient added while editing is on the sheet once back to reading', async () => {
+    const user = userEvent.setup()
+    const after = { ...recipe, ingredients: [...recipe.ingredients, { id: 'L4', ingredient: POITRINE, ingredientName: POITRINE.name, quantity: 150, unit: 'g' }] }
+    renderSheet({ update: (() => Promise.resolve({ data: after })) as unknown as DataProvider['update'] })
+
+    await edit(user)
+    await user.click(screen.getByRole('button', { name: 'Ajouter un ingrédient' }))
+    await user.type(await screen.findByLabelText('Ingrédient'), 'poitrine')
+    await user.click(await screen.findByRole('option', { name: /Poitrine fumée/ }))
+    await user.type(screen.getByLabelText('Quantité'), '150')
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Terminé' }))
+    const ingredients = screen.getByRole('region', { name: 'Ingrédients' })
+    expect((await within(ingredients).findByText('Poitrine fumée')).closest('li')?.textContent).toMatch(/^150gPoitrine fumée/)
+    expect(screen.queryByRole('button', { name: 'Ajouter un ingrédient' })).not.toBeInTheDocument()
   })
 
   test('a click on the quantity turns it into a field, and Enter saves the whole list of lines', async () => {
     const user = userEvent.setup()
     const { update } = renderSheet()
+    await edit(user)
 
     await user.click(await screen.findByRole('button', { name: 'Modifier la quantité de Lardons fumés' }))
     const field = screen.getByRole('spinbutton', { name: 'Quantité de Lardons fumés' })
@@ -223,6 +306,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('a quantity that is not above zero is refused on the spot, and the API refusal is shown under the field', async () => {
     const user = userEvent.setup()
     const { update } = renderSheet({ update: (() => Promise.reject(refusal('Quantité trop grande'))) as unknown as DataProvider['update'] })
+    await edit(user)
 
     await user.click(await screen.findByRole('button', { name: 'Modifier la quantité de Oignons' }))
     const field = screen.getByRole('spinbutton', { name: 'Quantité de Oignons' })
@@ -242,6 +326,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
       'guests=6': () => json({ ingredients: [{ id: 'L2', ingredientName: 'Lardons fumés', quantity: 300, unit: 'g' }] }),
     })
     renderSheet()
+    await edit(user)
 
     await user.click(await screen.findByRole('button', { name: /Un convive de plus/ }))
     await user.click(screen.getByRole('button', { name: /Un convive de plus/ }))
@@ -260,6 +345,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     const user = userEvent.setup()
     stubFetch({ 'guests=5': () => json(null, false, 500) })
     renderSheet()
+    await edit(user)
 
     await user.click(await screen.findByRole('button', { name: /Un convive de plus/ }))
 
@@ -270,6 +356,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('Monter and Descendre reorder the steps and send them in their new order', async () => {
     const user = userEvent.setup()
     const { update } = renderSheet()
+    await edit(user)
 
     await openMenu(user, "Actions pour l'étape 2", 'Monter')
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
@@ -286,6 +373,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('the first step cannot go up and the last cannot go down', async () => {
     const user = userEvent.setup()
     renderSheet()
+    await edit(user)
 
     await user.click(await screen.findByRole('button', { name: "Actions pour l'étape 1" }))
     expect(screen.getByRole('menuitem', { name: 'Monter' })).toHaveAttribute('aria-disabled', 'true')
@@ -294,6 +382,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('a refused reorder is said in a notification', async () => {
     const user = userEvent.setup()
     renderSheet({ update: (() => Promise.reject(refusal('Étape 3 attend une étape qui la suit'))) as unknown as DataProvider['update'] })
+    await edit(user)
 
     await openMenu(user, "Actions pour l'étape 3", 'Monter')
 
@@ -303,6 +392,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('deleting a step sends the list without it', async () => {
     const user = userEvent.setup()
     const { update } = renderSheet()
+    await edit(user)
 
     await openMenu(user, "Actions pour l'étape 3", 'Supprimer')
 
@@ -313,6 +403,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('a step is edited in a popin', async () => {
     const user = userEvent.setup()
     const { update } = renderSheet()
+    await edit(user)
 
     await openMenu(user, "Actions pour l'étape 3", 'Modifier')
     const text = await screen.findByLabelText('Texte')
@@ -329,6 +420,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('a step popin shows the API refusal and stays open', async () => {
     const user = userEvent.setup()
     renderSheet({ update: (() => Promise.reject(refusal('Step 3 needs a text.'))) as unknown as DataProvider['update'] })
+    await edit(user)
 
     await openMenu(user, "Actions pour l'étape 3", 'Modifier')
     await user.click(await screen.findByRole('button', { name: 'Enregistrer' }))
@@ -340,6 +432,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('a new step is added at the end', async () => {
     const user = userEvent.setup()
     const { update } = renderSheet()
+    await edit(user)
 
     await user.click(await screen.findByRole('button', { name: 'Ajouter une étape' }))
     await user.type(await screen.findByLabelText('Texte'), 'Dresser')
@@ -354,6 +447,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('the notes and the utensils each have their own popin', async () => {
     const user = userEvent.setup()
     const { update } = renderSheet()
+    await edit(user)
 
     await user.click(await screen.findByRole('button', { name: 'Modifier les notes' }))
     const notes = await screen.findByRole('textbox', { name: 'Notes' })
@@ -362,7 +456,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
     await waitFor(() => expect(update).toHaveBeenCalledWith('recipes', expect.objectContaining({ data: { notes: 'À réchauffer' } })))
 
-    await user.click(await screen.findByRole('button', { name: 'Modifier le matériel' }))
+    await user.click(await screen.findByRole('button', { name: 'Modifier les ustensiles' }))
     await user.click(await screen.findByRole('button', { name: 'Enregistrer' }))
     await waitFor(() => expect(update).toHaveBeenCalledWith('recipes', expect.objectContaining({ data: { utensils: ['Cocotte'] } })))
   })
@@ -370,6 +464,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('the name, portions and tags are edited together, and a refusal stays in the popin', async () => {
     const user = userEvent.setup()
     const { update } = renderSheet()
+    await edit(user)
 
     await user.click(await screen.findByRole('button', { name: 'Modifier le nom, les portions et les tags' }))
     const name = await screen.findByRole('textbox', { name: 'Nom' })
@@ -390,6 +485,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
   test('the header popin keeps its refusal visible', async () => {
     const user = userEvent.setup()
     renderSheet({ update: (() => Promise.reject(refusal('Nom déjà pris'))) as unknown as DataProvider['update'] })
+    await edit(user)
 
     await user.click(await screen.findByRole('button', { name: 'Modifier le nom, les portions et les tags' }))
     await user.click(await screen.findByRole('button', { name: 'Enregistrer' }))
@@ -473,6 +569,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     test('one no step uses leaves at once', async () => {
       const user = userEvent.setup()
       const { update } = renderSheet()
+      await edit(user)
 
       await openMenu(user, 'Actions pour Oignons', 'Retirer')
 
@@ -488,6 +585,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     test('one still linked to steps asks first, lists them, then takes the links off', async () => {
       const user = userEvent.setup()
       const { update } = renderSheet()
+      await edit(user)
 
       await openMenu(user, 'Actions pour Lardons fumés', 'Retirer')
 
@@ -507,6 +605,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     test('declining the confirmation changes nothing', async () => {
       const user = userEvent.setup()
       const { update } = renderSheet()
+      await edit(user)
 
       await openMenu(user, 'Actions pour Lardons fumés', 'Retirer')
       await user.click(await screen.findByRole('button', { name: 'Annuler' }))
@@ -517,6 +616,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     test('a refusal is notified and the ingredient stays', async () => {
       const user = userEvent.setup()
       renderSheet({ update: (() => Promise.reject(refusal('Impossible de retirer'))) as unknown as DataProvider['update'] })
+      await edit(user)
 
       await openMenu(user, 'Actions pour Oignons', 'Retirer')
 
@@ -529,6 +629,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     test('a Ciqual food goes into the new line by its code', async () => {
       const user = userEvent.setup()
       const { update } = renderSheet()
+      await edit(user)
 
       await user.click(await screen.findByRole('button', { name: 'Ajouter un ingrédient' }))
       await user.type(await screen.findByLabelText('Ingrédient'), 'tomate')
@@ -545,6 +646,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     test('a catalogue product goes in by its id', async () => {
       const user = userEvent.setup()
       const { update } = renderSheet()
+      await edit(user)
 
       await user.click(await screen.findByRole('button', { name: 'Ajouter un ingrédient' }))
       await user.type(await screen.findByLabelText('Ingrédient'), 'poitrine')
@@ -559,6 +661,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     test('a product already in the recipe is refused before anything is sent', async () => {
       const user = userEvent.setup()
       const { update } = renderSheet()
+      await edit(user)
 
       await user.click(await screen.findByRole('button', { name: 'Ajouter un ingrédient' }))
       await user.type(await screen.findByLabelText('Ingrédient'), 'oignons')
@@ -573,6 +676,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     test('the catalogue shows how a product is bought', async () => {
       const user = userEvent.setup()
       renderSheet()
+      await edit(user)
 
       await user.click(await screen.findByRole('button', { name: 'Ajouter un ingrédient' }))
       await user.type(await screen.findByLabelText('Ingrédient'), 'lardons')
@@ -606,6 +710,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
       const user = userEvent.setup()
       const fetcher = stubFetch({ '/replace-ingredient': () => json({ recipe: after, textSuggestions: suggestions, textRewritten: false }) })
       const { update } = renderSheet()
+      await edit(user)
 
       await replace(user)
 
@@ -636,6 +741,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
       const user = userEvent.setup()
       stubFetch({ '/replace-ingredient': () => json({ recipe: after, textSuggestions: suggestions, textRewritten: false }) })
       const { update } = renderSheet()
+      await edit(user)
 
       await replace(user)
       await user.click(await screen.findByRole('button', { name: 'Laisser' }))
@@ -650,6 +756,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
       const user = userEvent.setup()
       stubFetch({ '/replace-ingredient': () => json({ recipe: after, textSuggestions: [], textRewritten: false }) })
       renderSheet()
+      await edit(user)
 
       await replace(user)
 
@@ -661,6 +768,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
       const user = userEvent.setup()
       stubFetch({ '/replace-ingredient': () => json({ error: '« Poitrine fumée » est déjà dans la recette.' }, false, 400) })
       renderSheet()
+      await edit(user)
 
       await replace(user)
 
@@ -672,6 +780,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
       const user = userEvent.setup()
       stubFetch({ '/replace-ingredient': () => Promise.reject(new TypeError('network')) })
       renderSheet()
+      await edit(user)
 
       await replace(user)
 
@@ -682,6 +791,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
       const user = userEvent.setup()
       const fetcher = stubFetch()
       const { update } = renderSheet()
+      await edit(user)
 
       await openMenu(user, 'Actions pour Lardons fumés', 'Modifier')
       const quantity = await screen.findByLabelText('Quantité')
@@ -712,14 +822,19 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     expect(screen.getByRole('heading', { name: 'Bœuf bourguignon' })).toBeInTheDocument()
   })
 
-  test('a recipe without ingredients, utensils or steps says so, and shows no nutrition', async () => {
+  test('a recipe without ingredients, utensils, notes or steps reads without empty blocks, and shows no nutrition', async () => {
+    const user = userEvent.setup()
     renderSheet({}, { id: '/api/recipes/01R', name: 'Salade', servings: 1, tags: [], notes: null, ingredients: [], utensils: [], steps: [] })
 
     expect(await screen.findByRole('heading', { name: 'Salade' })).toBeInTheDocument()
     expect(screen.getByText('Aucun ingrédient pour l’instant.')).toBeInTheDocument()
-    expect(screen.getByText('Aucun matériel.')).toBeInTheDocument()
-    expect(screen.getByText('Aucune note.')).toBeInTheDocument()
     expect(screen.getByText('Aucune étape pour l’instant.')).toBeInTheDocument()
-    expect(screen.queryByText(/Valeurs nutritionnelles/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Ustensiles' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Notes' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Valeurs par personne/)).not.toBeInTheDocument()
+
+    await edit(user)
+    expect(screen.getByText('Aucun ustensile.')).toBeInTheDocument()
+    expect(screen.getByText('Aucune note.')).toBeInTheDocument()
   })
 })

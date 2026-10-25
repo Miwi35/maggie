@@ -79,10 +79,36 @@ export const withoutProduct = (steps: RecipeStep[], product: string): RecipeStep
 export const orderedSteps = (steps: RecipeStep[] | undefined): RecipeStep[] =>
   [...(steps ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
 
-export const stepLabel = (steps: number[]): string => (steps.length === 1 ? `étape ${steps[0]}` : `étapes ${steps.join(', ')}`)
+/** « ét. 2 · 6 »: the short form of the steps that use an ingredient, for a line of the list. */
+export const stepRefLabel = (steps: number[]): string | null => (steps.length === 0 ? null : `ét. ${steps.join(' · ')}`)
 
-/** « utilisé dans les étapes 2, 6 », or null when no step uses it. */
-export const usedInLabel = (steps: number[]): string | null => (steps.length === 0 ? null : `utilisé dans ${steps.length === 1 ? "l'" : 'les '}${stepLabel(steps)}`)
+/** « Étapes · 3 h 17, dont 2 h 30 en fond »: the time the steps add up to, and the part left to a pot. */
+export const stepsTitle = (steps: RecipeStep[]): string => {
+  const total = steps.reduce((sum, step) => sum + (step.durationMinutes ?? 0), 0)
+  if (total === 0) return 'Étapes'
+  const background = steps.reduce((sum, step) => sum + (step.background ? (step.durationMinutes ?? 0) : 0), 0)
+
+  return `Étapes · ${durationLabel(total)}${background > 0 ? `, dont ${durationLabel(background)} en fond` : ''}`
+}
+
+/** « 4 portions » for the title of the ingredients. */
+export const servingsLabel = (servings: number): string => `${servings} portion${servings > 1 ? 's' : ''}`
+
+const ARTICLES = new Set(['le', 'la', 'les', 'un', 'une', 'du', 'de', 'des', 'd', 'l'])
+
+/** The short name of a pastille: « Bœuf » for « Bœuf (paleron) », « Planche » for « Planche à découper ». */
+export const shortName = (name: string): string => {
+  const words = name
+    .split(/[\s’']+/)
+    .map((word) => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''))
+    .filter(Boolean)
+  const first = words.find((word) => !ARTICLES.has(word.toLowerCase()))
+  const short = first ?? words[0] ?? name
+
+  return short.charAt(0).toUpperCase() + short.slice(1)
+}
+
+export const stepLabel = (steps: number[]): string => (steps.length === 1 ? `étape ${steps[0]}` : `étapes ${steps.join(', ')}`)
 
 export const productPackaging = (product: ProductInfo | undefined): string | null =>
   product ? packagingLabel(product.packagingUnit, product.packagingSize, product.packagingSizeUnit) : null

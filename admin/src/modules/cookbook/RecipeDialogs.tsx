@@ -160,8 +160,8 @@ export const UtensilsDialog = ({ utensils, onSave, onClose }: { utensils: Recipe
   })
 
   return (
-    <EditDialog title="Matériel" onClose={onClose} error={error} saving={saving} onSubmit={() => run(() => onSave({ utensils: names }))}>
-      <NameChipsInput label="Matériel" create value={names} options={(data ?? []).map((utensil) => utensil.name)} onChange={setNames} />
+    <EditDialog title="Ustensiles" onClose={onClose} error={error} saving={saving} onSubmit={() => run(() => onSave({ utensils: names }))}>
+      <NameChipsInput label="Ustensiles" create value={names} options={(data ?? []).map((utensil) => utensil.name)} onChange={setNames} />
     </EditDialog>
   )
 }
