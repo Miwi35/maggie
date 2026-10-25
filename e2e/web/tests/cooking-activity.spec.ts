@@ -3,7 +3,7 @@ import { AdminShell } from '../pages/AdminShell.js'
 import { HomePage } from '../pages/HomePage.js'
 import { ROUTES } from '../pages/routes.js'
 import type { APIRequestContext } from '@playwright/test'
-import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { waitForIndexed } from '../helpers/api.js'
 
 const JSON_HEADERS = { 'Content-Type': 'application/json', Accept: 'application/json' }
 
@@ -69,19 +69,18 @@ test('« ▶ Lancer » on tonight’s meal opens the Cuisine activity, which lis
 })
 
 /**
- * The recipe, one step at a time (MAG-581, extends MAG-99): the steps spec's reference example, launched from
- * the recipe's « Cuisiner », followed with the arrow keys. The Vitest suite owns every screen and key; this is
- * the real route, the real keyboard and the API that serves the steps with what they wait for. Since the
- * timers (MAG-582), → on a step in the background starts its timer: the water and the pasta run meanwhile.
+ * The steps column (MAG-614, extends MAG-99): « Suivant » ticks the step it leaves and nothing holds it back, a
+ * touched step is shown without being ticked, and a timer that ends lights the line of its step — no dialog.
+ * The Vitest suite owns every state of the column; this is the real route, the real keyboard and the API that
+ * serves the steps, the timers and their worker.
  */
-test('the reference recipe is cooked step by step: → three times lands on a step that waits for step 1, « C’est prêt » lifts it', async ({
+test('the steps column ticks the steps as I go, jumps to a touched one without ticking it, and lights a step whose timer ended', async ({
   nutritionUser,
 }) => {
   const { page, api } = nutritionUser
   const LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
-  const name = 'Pâtes aux légumes MAG-581'
-  const ingredientNames = ['Pâtes MAG-581', 'Légumes MAG-581']
-  const utensilName = 'Casserole MAG-581'
+  const name = 'Pot-au-feu MAG-614'
+  const ingredientName = 'Bœuf MAG-614'
   const created: string[] = []
 
   const post = async (path: string, body: unknown): Promise<{ '@id': string; id: string }> => {
@@ -94,108 +93,18 @@ test('the reference recipe is cooked step by step: → three times lands on a st
   }
 
   try {
-    // Given the reference recipe: water 10 min in the background, cut, pasta 12 min in the background (waits 1),
-    // vegetables 8 min, drain (waits 3 and 4).
-    const pasta = await post('/api/ingredients', { name: ingredientNames[0], category: 'grain' })
-    const vegetables = await post('/api/ingredients', { name: ingredientNames[1], category: 'grain' })
+    // Given a recipe of five steps, the third a 1 min boil in the background.
+    const beef = await post('/api/ingredients', { name: ingredientName, category: 'grain' })
     const recipe = await post('/api/recipes', {
       name,
       servings: 2,
-      ingredients: [
-        { ingredient: pasta['@id'], quantity: 200, unit: 'g' },
-        { ingredient: vegetables['@id'], quantity: 300, unit: 'g' },
-      ],
-      utensils: [{ name: utensilName }],
+      ingredients: [{ ingredient: beef['@id'], quantity: 500, unit: 'g' }],
       steps: [
-        { text: "Mettre l'eau à bouillir", durationMinutes: 10, background: true, utensils: [{ name: utensilName }] },
-        { text: 'Couper les légumes', ingredientIds: [vegetables['@id']] },
-        { text: 'Cuire les pâtes', durationMinutes: 12, background: true, ingredientIds: [pasta['@id']], waitsFor: [1] },
-        { text: 'Faire revenir les légumes', durationMinutes: 8, ingredientIds: [vegetables['@id']] },
-        { text: 'Égoutter, mélanger', waitsFor: [3, 4] },
-      ],
-    })
-    await waitForIndexed(api, '/api/recipes?itemsPerPage=200', (row: { name?: string }) => row.name === name)
-
-    // When I press « Cuisiner » on its sheet, answer « Pour combien ? » and start…
-    await new AdminShell(page).goto(`${ROUTES.recipes}/${encodeURIComponent(recipe['@id'])}/show`)
-    await page.getByTestId('recipe-cook').click()
-    await expect(page).toHaveURL(/\/activites\/cuisine\?recipe=/)
-    await page.getByRole('button', { name: 'Continuer' }).click()
-    await expect(page.getByTestId('cooking-preparation')).toBeVisible()
-    await page.getByRole('button', { name: "C'est parti" }).click()
-
-    // …the first step is alone on screen, with its utensil and the step after it.
-    await expect(page.getByTestId('cooking-step-text')).toHaveText("Mettre l'eau à bouillir")
-    await expect(page.getByTestId('cooking-step-utensil')).toHaveText(utensilName)
-    await expect(page.getByTestId('cooking-upnext')).toHaveText('Ensuite · Couper les légumes')
-
-    // Then → twice reaches step 3, which waits for the water, and Suivant is held back.
-    await page.keyboard.press('ArrowRight')
-    await expect(page.getByTestId('cooking-step-number')).toHaveText('2')
-    await page.keyboard.press('ArrowRight')
-    await expect(page.getByTestId('cooking-step-number')).toHaveText('3')
-    await expect(page.getByTestId('cooking-wait')).toContainText("Attend l'eau à bouillir · étape 1 · encore")
-    await expect(page.getByRole('button', { name: 'Lancer et continuer' })).toBeDisabled()
-
-    // → does nothing while it waits; « C'est prêt » lifts it and → goes on to step 4.
-    await page.keyboard.press('ArrowRight')
-    await expect(page.getByTestId('cooking-step-number')).toHaveText('3')
-    await page.getByTestId('cooking-ready').click()
-    await expect(page.getByTestId('cooking-wait')).toHaveCount(0)
-    await page.keyboard.press('ArrowRight')
-    await expect(page.getByTestId('cooking-step-number')).toHaveText('4')
-
-    // And ← comes back to step 3, then the page reloads on the same step.
-    await page.keyboard.press('ArrowLeft')
-    await expect(page.getByTestId('cooking-step-number')).toHaveText('3')
-    await page.reload()
-    await expect(page.getByTestId('cooking-step-number')).toHaveText('3')
-  } finally {
-    await cancelTimers(api, created)
-    for (const iri of created.reverse()) {
-      await api.delete(iri).catch(() => undefined)
-    }
-    const leftovers = await getCollection<{ '@id': string; name: string }>(api, '/api/utensils?itemsPerPage=200').catch(() => [])
-    for (const utensil of leftovers.filter((row) => row.name === utensilName)) {
-      await api.delete(utensil['@id']).catch(() => undefined)
-    }
-  }
-})
-
-/**
- * The timers (MAG-582, extends MAG-99): a step in the background starts its own and the cook goes on; at the
- * end the API rings it — the alert over the step, the notification for every device — and « OK » dismisses it.
- * The Vitest suite owns the ring, the column, the waits and the quit; this is the real API, its worker and its
- * notification.
- */
-test('« Lancer et continuer » starts « Eau »; −1 ends it at once, the alert « Eau : c’est prêt » shows with its notification, and OK takes it away', async ({
-  nutritionUser,
-}) => {
-  const { page, api } = nutritionUser
-  const LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
-  const name = 'Pâtes minute MAG-582'
-  const ingredientName = 'Pâtes MAG-582'
-  const created: string[] = []
-
-  const post = async (path: string, body: unknown): Promise<{ '@id': string; id: string }> => {
-    const response = await api.post(path, { headers: LD, data: body })
-    expect(response.ok(), `POST ${path} answered ${response.status()}: ${await response.text()}`).toBe(true)
-    const record = (await response.json()) as { '@id': string; id: string }
-    created.push(record['@id'])
-
-    return record
-  }
-
-  try {
-    // Given a recipe whose step 1 « Mettre l'eau à bouillir » lasts 1 min in the background…
-    const pasta = await post('/api/ingredients', { name: ingredientName, category: 'grain' })
-    const recipe = await post('/api/recipes', {
-      name,
-      servings: 2,
-      ingredients: [{ ingredient: pasta['@id'], quantity: 200, unit: 'g' }],
-      steps: [
+        { text: 'Couper le bœuf', ingredientIds: [beef['@id']] },
+        { text: 'Faire revenir la viande' },
         { text: "Mettre l'eau à bouillir", durationMinutes: 1, background: true },
-        { text: 'Cuire les pâtes', ingredientIds: [pasta['@id']], waitsFor: [1] },
+        { text: 'Préparer les légumes' },
+        { text: 'Dresser et servir' },
       ],
     })
     await waitForIndexed(api, '/api/recipes?itemsPerPage=200', (row: { name?: string }) => row.name === name)
@@ -204,26 +113,55 @@ test('« Lancer et continuer » starts « Eau »; −1 ends it at once, the aler
     await page.getByTestId('recipe-cook').click()
     await page.getByRole('button', { name: 'Continuer' }).click()
     await page.getByRole('button', { name: "C'est parti" }).click()
-    await expect(page.getByTestId('cooking-step-text')).toHaveText("Mettre l'eau à bouillir")
-    await expect(page.getByTestId('cooking-main-timer-label')).toHaveText('Eau')
+    await expect(page.getByTestId('cooking-step-text')).toHaveText('Couper le bœuf')
 
-    // When « Lancer et continuer »: the timer « Eau » runs and the next step is on screen.
-    await page.getByRole('button', { name: 'Lancer et continuer' }).click()
+    // The column lists the five steps, the first one current, none ticked, « 0 / 5 faites ».
+    const column = page.getByTestId('cooking-steps-column')
+    const rows = column.getByTestId('cooking-step-row')
+    await expect(rows).toHaveCount(5)
+    await expect(rows.nth(0)).toHaveAttribute('data-state', 'current')
+    await expect(column.getByTestId('cooking-steps-progress')).toHaveText('0 / 5 faites')
+
+    // When I do « Suivant » twice, two steps are ticked and the progress says « 2 / 5 faites ».
+    await page.getByRole('button', { name: /Suivant/ }).click()
     await expect(page.getByTestId('cooking-step-number')).toHaveText('2')
-    const water = page.getByTestId('cooking-timers').getByTestId('cooking-timer').filter({ hasText: 'Eau' })
-    await expect(water).toHaveAttribute('data-status', 'running')
-    await expect(page.getByTestId('cooking-wait')).toContainText('encore')
+    await page.getByRole('button', { name: /Suivant/ }).click()
+    await expect(page.getByTestId('cooking-step-number')).toHaveText('3')
+    await expect(rows.nth(0)).toHaveAttribute('data-done', 'true')
+    await expect(rows.nth(1)).toHaveAttribute('data-done', 'true')
+    await expect(rows.nth(2)).toHaveAttribute('data-state', 'current')
+    await expect(column.getByTestId('cooking-steps-progress')).toHaveText('2 / 5 faites')
 
-    // When −1 on it, back on its step (one minute left, none after): it rings at once.
-    await page.getByRole('button', { name: /Précédent/ }).click()
-    await expect(page.getByTestId('cooking-main-timer')).toHaveAttribute('data-status', 'running')
+    // When I touch step 5 in the column, it is shown without being ticked, and « Suivant » is never held back.
+    await rows.nth(4).click()
+    await expect(page.getByTestId('cooking-step-text')).toHaveText('Dresser et servir')
+    await expect(rows.nth(4)).toHaveAttribute('data-done', 'false')
+    await expect(column.getByTestId('cooking-steps-progress')).toHaveText('2 / 5 faites')
+    await expect(page.getByRole('button', { name: /Suivant|Repas servi/ })).toBeEnabled()
+
+    // The page reloads on the same step with the same two steps ticked.
+    await page.reload()
+    await expect(page.getByTestId('cooking-step-text')).toHaveText('Dresser et servir')
+    await expect(column.getByTestId('cooking-steps-progress')).toHaveText('2 / 5 faites')
+
+    // When I go back to step 3 and « Lancer et continuer », its timer runs on its own line and step 3 is not ticked.
+    await rows.nth(2).click()
+    await expect(page.getByTestId('cooking-step-text')).toHaveText("Mettre l'eau à bouillir")
+    await page.getByRole('button', { name: 'Lancer et continuer' }).click()
+    await expect(page.getByTestId('cooking-step-number')).toHaveText('4')
+    const lineTimer = rows.nth(2).getByTestId('cooking-step-timer')
+    await expect(lineTimer).toHaveAttribute('data-status', 'running')
+    await expect(rows.nth(2)).toHaveAttribute('data-done', 'false')
+
+    // When I touch the timer, I am back on its step, and −1 ends it at once.
+    await lineTimer.click()
+    await expect(page.getByTestId('cooking-step-text')).toHaveText("Mettre l'eau à bouillir")
     await page.getByRole('button', { name: 'Retirer une minute' }).click()
 
-    // Then the alert « Eau : c'est prêt » shows over the step, and the notification for every device exists.
-    const alert = page.getByTestId('cooking-timer-alert')
-    await expect(alert).toBeVisible({ timeout: 20_000 })
-    await expect(alert).toContainText("Eau : c'est prêt")
-    await expect(alert).toContainText("minuteur de l'étape 1")
+    // Then the line lights, without a dialog; the notification for every device exists.
+    await expect(rows.nth(2)).toHaveAttribute('data-lit', 'true', { timeout: 20_000 })
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByTestId('cooking-timer-alert')).toHaveCount(0)
     const notification = await waitForIndexed(
       api,
       '/api/notifications?itemsPerPage=100',
@@ -232,9 +170,10 @@ test('« Lancer et continuer » starts « Eau »; −1 ends it at once, the aler
     )
     created.push(String((notification as { '@id'?: string })['@id'] ?? ''))
 
-    // When OK, the alert leaves.
-    await alert.getByRole('button', { name: 'OK' }).click()
-    await expect(alert).toHaveCount(0)
+    // When I touch the lit line, it goes out and the step stays unticked: ticking is « Suivant »'s.
+    await rows.nth(2).click()
+    await expect(rows.nth(2)).toHaveAttribute('data-lit', 'false')
+    await expect(rows.nth(2)).toHaveAttribute('data-done', 'false')
   } finally {
     await cancelTimers(api, created)
     for (const iri of created.filter(Boolean).reverse()) {

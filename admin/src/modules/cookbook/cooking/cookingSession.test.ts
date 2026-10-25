@@ -3,12 +3,15 @@ import {
   advance,
   back,
   clearSession,
+  completeStep,
   confirmServings,
+  goToStep,
+  isStepDone,
   loadSession,
-  markReady,
   mealLaunchPath,
   mealSession,
   recipeLaunchPath,
+  progressOf,
   recipeSession,
   saveSession,
   skipRecipe,
@@ -111,18 +114,61 @@ describe('cookingSession', () => {
     expect(loadSession({ kind: 'meal', id: 'M1' })).toBeNull()
   })
 
-  test('« C\'est prêt » remembers the steps forced, once each, in order', () => {
-    const session = mealSession('M1', ['A'], 2, 1000)
-    const forced = markReady(markReady(session, [3, 1]), [1, 4])
+  test('« Suivant » ticks the step it leaves, in order and once', () => {
+    let session = mealSession('M1', ['A'], 2, 1000)
+    session = advance(session, 3)
+    expect(session.doneSteps).toEqual({})
 
-    expect(forced.ready).toEqual([1, 3, 4])
-    expect(markReady(forced, [3])).toBe(forced)
+    session = advance(advance(session, 3), 3)
+
+    expect(session).toMatchObject({ step: 3, doneSteps: { A: [1, 2] } })
+    expect(completeStep(session).doneSteps).toEqual({ A: [1, 2, 3] })
+    expect(completeStep(completeStep(session))).toEqual(completeStep(session))
   })
 
-  test('the forced steps belong to a recipe: the next one starts clean', () => {
-    const forced = markReady({ ...mealSession('M1', ['A', 'B'], 2, 1000), step: 2 }, [1])
+  test('the last step is ticked as the recipe is left, and ticks stay with their recipe', () => {
+    const last = { ...mealSession('M1', ['A', 'B'], 2, 1000), step: 2 }
+    const next = advance(last, 2)
 
-    expect(advance(forced, 2, 5000)).toMatchObject({ recipeIndex: 1, step: 0, ready: [] })
+    expect(next).toMatchObject({ recipeIndex: 1, step: 0, doneSteps: { A: [2] } })
+    expect(isStepDone(next, 'A', 2)).toBe(true)
+    expect(isStepDone(next, 'B', 2)).toBe(false)
+  })
+
+  test('« Lancer et continuer » moves on without ticking the step', () => {
+    const session = { ...mealSession('M1', ['A'], 2, 1000), step: 2 }
+
+    expect(advance(session, 3, 5000, false)).toMatchObject({ step: 3, doneSteps: {} })
+  })
+
+  test('the preparation has nothing to tick', () => {
+    const session = mealSession('M1', ['A'], 2, 1000)
+
+    expect(completeStep(session)).toBe(session)
+  })
+
+  test('a step touched in the column is shown without being ticked, in any recipe of the queue', () => {
+    const session = { ...mealSession('M1', ['A', 'B'], 2, 1000), step: 1 }
+
+    expect(goToStep(session, 0, 5)).toMatchObject({ recipeIndex: 0, step: 5, doneSteps: {} })
+    expect(goToStep(session, 1, 3)).toMatchObject({ recipeIndex: 1, step: 3, doneSteps: {} })
+    expect(goToStep(session, 2, 1)).toBe(session)
+    expect(goToStep(session, 0, 0)).toBe(session)
+    expect(goToStep(recipeSession('R1', 2), 0, 1)).toMatchObject({ phase: 'servings', step: 0 })
+  })
+
+  test('the progress counts the ticked steps of every recipe over all their steps', () => {
+    const session = { ...mealSession('M1', ['A', 'B'], 2, 1000), doneSteps: { A: [1, 2, 9], B: [1] } }
+
+    expect(progressOf(session, { A: 6, B: 5 })).toEqual({ done: 3, total: 11 })
+    expect(progressOf(session, { A: 6 })).toEqual({ done: 2, total: 6 })
+  })
+
+  test('the ticked steps survive a reload', () => {
+    const session = advance(advance({ ...mealSession('M1', ['A'], 2, 1000), step: 1 }, 4), 4)
+    saveSession(session)
+
+    expect(loadSession({ kind: 'meal', id: 'M1' })?.doneSteps).toEqual({ A: [1, 2] })
   })
 
   test('serving the last recipe notes when, so « Bon appétit » can say how long it took', () => {
@@ -132,13 +178,13 @@ describe('cookingSession', () => {
     expect(skipRecipe({ ...last, step: 0 }, 9000)).toMatchObject({ phase: 'done', finishedAt: 9000 })
   })
 
-  test('a session stored before the steps had a wait is resumed with nothing forced', () => {
-    const old: Record<string, unknown> = { ...mealSession('M1', ['A'], 2) }
-    delete old.ready
+  test('a session stored before the column is resumed with nothing ticked', () => {
+    const old: Record<string, unknown> = { ...mealSession('M1', ['A'], 2), ready: [1] }
+    delete old.doneSteps
     delete old.startedAt
     delete old.finishedAt
     sessionStorage.setItem('maggie.cooking-session', JSON.stringify(old))
 
-    expect(loadSession({ kind: 'meal', id: 'M1' })).toMatchObject({ ready: [], finishedAt: 0 })
+    expect(loadSession({ kind: 'meal', id: 'M1' })).toMatchObject({ doneSteps: {}, finishedAt: 0 })
   })
 })

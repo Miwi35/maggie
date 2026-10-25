@@ -32,8 +32,8 @@ export interface CookingSession {
   guests: number
   /** `servings` asks « Pour combien ? » (launched from a recipe), `done` is « Bon appétit ». */
   phase: 'servings' | 'cooking' | 'done'
-  /** The positions of the current recipe's timed steps the cook declared ready (« C'est prêt »). */
-  ready: number[]
+  /** The positions of the steps the cook validated (« Suivant »), by recipe id: the column ticks them. */
+  doneSteps: Record<string, number[]>
   /** When the cook started, in ms: « Bon appétit » says how long it took. */
   startedAt: number
   /** When the last recipe was served, in ms; 0 while cooking. */
@@ -56,7 +56,7 @@ export const mealSession = (mealId: string, recipeIds: string[], guests: number,
     step: 0,
     guests: count,
     phase: 'cooking',
-    ready: [],
+    doneSteps: {},
     startedAt: now,
     finishedAt: 0,
   }
@@ -73,7 +73,7 @@ export const recipeSession = (recipeId: string, servings: number, now: number = 
     step: 0,
     guests: count,
     phase: 'servings',
-    ready: [],
+    doneSteps: {},
     startedAt: now,
     finishedAt: 0,
   }
@@ -92,22 +92,55 @@ export const confirmServings = (session: CookingSession): CookingSession => ({ .
 /** The next recipe's preparation, or « Bon appétit » after the last one. */
 const nextRecipe = (session: CookingSession, now: number): CookingSession =>
   session.recipeIndex + 1 < session.queue.length
-    ? { ...session, recipeIndex: session.recipeIndex + 1, step: 0, ready: [] }
+    ? { ...session, recipeIndex: session.recipeIndex + 1, step: 0 }
     : { ...session, phase: 'done', finishedAt: now }
 
-/** « Suivant »: the next step, then the next recipe. `stepCount` is the current recipe's. */
-export const advance = (session: CookingSession, stepCount: number, now: number = Date.now()): CookingSession =>
-  session.phase !== 'cooking' ? session : session.step < stepCount ? { ...session, step: session.step + 1 } : nextRecipe(session, now)
+/** Ticks the current step as done; the preparation (step 0) has nothing to tick. */
+export const completeStep = (session: CookingSession): CookingSession => {
+  if (session.phase !== 'cooking' || session.step < 1) return session
+  const recipeId = session.queue[session.recipeIndex].recipeId
+  const done = session.doneSteps[recipeId] ?? []
+  if (done.includes(session.step)) return session
+
+  return { ...session, doneSteps: { ...session.doneSteps, [recipeId]: [...done, session.step].sort((a, b) => a - b) } }
+}
+
+/**
+ * « Suivant »: ticks the current step, then goes to the next step, then the next recipe. `validate` is false
+ * for « Lancer et continuer », which starts a background step's timer without finishing the step.
+ * `stepCount` is the current recipe's.
+ */
+export const advance = (session: CookingSession, stepCount: number, now: number = Date.now(), validate: boolean = true): CookingSession => {
+  if (session.phase !== 'cooking') return session
+  const ticked = validate ? completeStep(session) : session
+
+  return ticked.step < stepCount ? { ...ticked, step: ticked.step + 1 } : nextRecipe(ticked, now)
+}
+
+/** A step touched in the column: the screen goes there, nothing is ticked. */
+export const goToStep = (session: CookingSession, recipeIndex: number, step: number): CookingSession =>
+  session.phase === 'cooking' && recipeIndex >= 0 && recipeIndex < session.queue.length && step >= 1
+    ? { ...session, recipeIndex, step }
+    : session
 
 /** « Passer »: leaves a recipe that has no step to cook. */
 export const skipRecipe = (session: CookingSession, now: number = Date.now()): CookingSession =>
   session.phase === 'cooking' ? nextRecipe(session, now) : session
 
-/** « C'est prêt »: these timed steps of the current recipe no longer hold anything back. */
-export const markReady = (session: CookingSession, positions: number[]): CookingSession => {
-  const ready = [...new Set([...session.ready, ...positions])].sort((a, b) => a - b)
+export const isStepDone = (session: CookingSession, recipeId: string, position: number): boolean =>
+  (session.doneSteps[recipeId] ?? []).includes(position)
 
-  return ready.length === session.ready.length ? session : { ...session, ready }
+/** « 6 / 11 faites »: the ticked steps of the recipes read so far, and all their steps. */
+export const progressOf = (session: CookingSession, stepCounts: Record<string, number>): { done: number; total: number } => {
+  let done = 0
+  let total = 0
+  for (const recipeId of new Set(session.queue.map((entry) => entry.recipeId))) {
+    const count = stepCounts[recipeId] ?? 0
+    total += count
+    done += (session.doneSteps[recipeId] ?? []).filter((position) => position >= 1 && position <= count).length
+  }
+
+  return { done, total }
 }
 
 /** « Précédent »: the step before, down to the preparation. */
@@ -115,6 +148,14 @@ export const back = (session: CookingSession): CookingSession =>
   session.phase === 'cooking' && session.step > 0 ? { ...session, step: session.step - 1 } : session
 
 const STORAGE_KEY = 'maggie.cooking-session'
+
+const readDoneSteps = (raw: unknown): Record<string, number[]> => {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+
+  return Object.fromEntries(
+    Object.entries(raw).map(([recipeId, positions]) => [recipeId, Array.isArray(positions) ? positions.filter(Number.isInteger) : []]),
+  )
+}
 
 /** The session a reload of the page resumes: only when it is the same launch. */
 export const loadSession = (origin: CookingOrigin): CookingSession | null => {
@@ -128,7 +169,7 @@ export const loadSession = (origin: CookingOrigin): CookingSession | null => {
 
     return {
       ...stored,
-      ready: Array.isArray(stored.ready) ? stored.ready : [],
+      doneSteps: readDoneSteps(stored.doneSteps),
       startedAt: typeof stored.startedAt === 'number' ? stored.startedAt : Date.now(),
       finishedAt: 0,
     }

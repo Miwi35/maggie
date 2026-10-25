@@ -91,15 +91,11 @@ export const stepTimer = <T extends CookingTimer>(timers: T[], position: number)
   return [...mine].reverse().find((timer) => timer.status !== 'dismissed') ?? mine[mine.length - 1]
 }
 
-/** The steps whose timer has rung: whatever waits for them may go on. */
-export const rungPositions = (timers: CookingTimer[]): number[] =>
-  [...new Set(timers.filter((timer) => timer.status === 'done' || timer.status === 'dismissed').map((timer) => timer.stepPosition))]
+/** The timer a step's line shows: running, paused or rung; none once acknowledged. */
+export const lineTimer = <T extends CookingTimer>(timers: T[], position: number): T | undefined => {
+  const timer = stepTimer(timers, position)
 
-/** « encore 04:20 »: the longest rest of the awaited timers that still tick, null when none was started. */
-export const awaitedRemaining = (timers: TimerView[], pending: number[]): number | null => {
-  const rests = timers.filter((timer) => pending.includes(timer.stepPosition) && isTicking(timer)).map((timer) => timer.remaining)
-
-  return rests.length > 0 ? Math.max(...rests) : null
+  return timer && timer.status !== 'dismissed' ? timer : undefined
 }
 
 /** « 2 minuteurs tournent encore (Pâtes, Légumes) : ils s'arrêteront. » */
@@ -112,6 +108,3 @@ export const quitDetail = (timers: CookingTimer[]): string | undefined => {
     ? `1 minuteur tourne encore (${labels}) : il s'arrêtera.`
     : `${ticking.length} minuteurs tournent encore (${labels}) : ils s'arrêteront.`
 }
-
-/** The alert's title, the same as the push on every device. */
-export const doneTitle = (timer: CookingTimer): string => `${timer.label} : c'est prêt`

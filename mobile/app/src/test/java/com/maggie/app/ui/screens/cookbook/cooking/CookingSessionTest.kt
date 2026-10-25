@@ -119,22 +119,98 @@ class CookingSessionTest {
     }
 
     @Test
-    fun `Cest pret lifts the wait of the timed steps, once each`() {
-        val session = mealSession("M1", listOf("A"), 2)
+    fun `Suivant ticks the step it leaves, the preparation ticks nothing`() {
+        val onStepOne = mealSession("M1", listOf("A"), 2).advance(3)
+        assertEquals(emptyMap<String, List<Int>>(), onStepOne.doneSteps)
 
-        val forced = session.markReady(listOf(3, 1)).markReady(listOf(1))
+        val onStepTwo = onStepOne.advance(3)
 
-        assertEquals(listOf(1, 3), forced.ready)
-        assertEquals(forced, forced.markReady(listOf(3)))
+        assertEquals(2, onStepTwo.step)
+        assertEquals(mapOf("A" to listOf(1)), onStepTwo.doneSteps)
+        assertTrue(onStepTwo.isDone("A", 1))
+        assertFalse(onStepTwo.isDone("A", 2))
     }
 
     @Test
-    fun `the forced steps belong to one recipe and start again with the next`() {
-        val forced = mealSession("M1", listOf("A", "B"), 2).advance(3).markReady(listOf(1))
+    fun `Lancer et continuer goes on without ticking the step`() {
+        val onStepOne = mealSession("M1", listOf("A"), 2).advance(3)
 
-        assertEquals(emptyList<Int>(), forced.advance(1).advance(1).ready)
-        assertEquals(emptyList<Int>(), forced.skipRecipe().ready)
-        assertEquals(listOf(1), forced.back().ready)
+        val onStepTwo = onStepOne.advance(3, validate = false)
+
+        assertEquals(2, onStepTwo.step)
+        assertEquals(emptyMap<String, List<Int>>(), onStepTwo.doneSteps)
+    }
+
+    @Test
+    fun `a step is ticked once and the list stays sorted`() {
+        val session = mealSession("M1", listOf("A"), 2).copy(step = 3)
+            .completeStep().copy(step = 1).completeStep().completeStep()
+
+        assertEquals(mapOf("A" to listOf(1, 3)), session.doneSteps)
+        assertEquals(session, session.completeStep())
+    }
+
+    @Test
+    fun `the last step of a recipe is ticked when Suivant leaves it, and the ticks follow to the next recipe`() {
+        val next = mealSession("M1", listOf("A", "B"), 2).copy(step = 2).advance(2)
+
+        assertEquals(1, next.recipeIndex)
+        assertEquals(0, next.step)
+        assertEquals(mapOf("A" to listOf(2)), next.doneSteps)
+        assertEquals(mapOf("A" to listOf(2)), next.advance(2).advance(2).doneSteps.filterKeys { it == "A" })
+    }
+
+    @Test
+    fun `serving the last step ticks it before Bon appetit`() {
+        val done = mealSession("M1", listOf("A"), 2).copy(step = 1).advance(1)
+
+        assertEquals(CookingPhase.DONE, done.phase)
+        assertEquals(mapOf("A" to listOf(1)), done.doneSteps)
+    }
+
+    @Test
+    fun `Precedent and Passer leave the ticks as they are`() {
+        val session = mealSession("M1", listOf("A", "B"), 2).advance(3).advance(3)
+
+        assertEquals(session.doneSteps, session.back().doneSteps)
+        assertEquals(session.doneSteps, session.skipRecipe().doneSteps)
+    }
+
+    @Test
+    fun `touching a step goes there without ticking, in this recipe or another`() {
+        val session = mealSession("M1", listOf("A", "B"), 2).advance(3)
+
+        val sameRecipe = session.goToStep(0, 3, stepCount = 3)
+        assertEquals(0, sameRecipe.recipeIndex)
+        assertEquals(3, sameRecipe.step)
+
+        val otherRecipe = session.goToStep(1, 2, stepCount = 4)
+        assertEquals(1, otherRecipe.recipeIndex)
+        assertEquals(2, otherRecipe.step)
+        assertEquals(emptyMap<String, List<Int>>(), otherRecipe.doneSteps)
+    }
+
+    @Test
+    fun `touching a step that does not exist, or outside the cooking phase, moves nothing`() {
+        val session = mealSession("M1", listOf("A", "B"), 2).advance(3)
+
+        assertEquals(session, session.goToStep(0, 0, stepCount = 3))
+        assertEquals(session, session.goToStep(0, 4, stepCount = 3))
+        assertEquals(session, session.goToStep(2, 1, stepCount = 3))
+        assertEquals(session, session.goToStep(-1, 1, stepCount = 3))
+        val asking = recipeSession("R1", 4)
+        assertEquals(asking, asking.goToStep(0, 1, stepCount = 3))
+    }
+
+    @Test
+    fun `the progress counts the ticked steps over every step of the queue`() {
+        val session = mealSession("M1", listOf("A", "B"), 2).copy(
+            doneSteps = mapOf("A" to listOf(1, 2, 9), "B" to listOf(1)),
+        )
+
+        assertEquals(3, session.doneCount(mapOf("A" to 5, "B" to 6)))
+        assertEquals(1, session.doneCount(mapOf("A" to 0, "B" to 6)))
+        assertEquals(0, session.doneCount(emptyMap()))
     }
 
     @Test
@@ -159,23 +235,30 @@ class CookingSessionTest {
     }
 
     @Test
-    fun `a session stored before the wait existed is resumed with nothing forced`() {
-        val old = """{"origin":{"kind":"MEAL","id":"M1"},"queue":[{"recipeId":"A","servings":2}],"step":2,"guests":2,"phase":"COOKING"}"""
+    fun `a session stored before the list existed is resumed with nothing ticked, its old fields ignored`() {
+        val old = """{"origin":{"kind":"MEAL","id":"M1"},"queue":[{"recipeId":"A","servings":2}],"step":2,"guests":2,"phase":"COOKING","ready":[1]}"""
 
-        val restored = Json.decodeFromString(CookingSession.serializer(), old)
+        val restored = sessionJson.decodeFromString(CookingSession.serializer(), old)
 
         assertEquals(2, restored.step)
-        assertEquals(emptyList<Int>(), restored.ready)
+        assertEquals(emptyMap<String, List<Int>>(), restored.doneSteps)
         assertEquals(0L, restored.finishedAt)
     }
 
     @Test
-    fun `the forced steps survive a round trip through the saved state`() {
-        val session = mealSession("M1", listOf("A"), 2).advance(5).markReady(listOf(1, 3))
+    fun `the ticked steps survive a round trip through the saved state`() {
+        val session = mealSession("M1", listOf("A", "B"), 2).advance(5).advance(5).advance(5)
 
-        val restored = Json.decodeFromString(CookingSession.serializer(), Json.encodeToString(CookingSession.serializer(), session))
+        val restored = sessionJson.decodeFromString(CookingSession.serializer(), sessionJson.encodeToString(CookingSession.serializer(), session))
 
         assertEquals(session, restored)
-        assertEquals(listOf(1, 3), restored.ready)
+        assertEquals(mapOf("A" to listOf(1, 2)), restored.doneSteps)
+    }
+
+    @Test
+    fun `the ticked steps are written as the admin writes them, positions by recipe id`() {
+        val session = mealSession("M1", listOf("A"), 2).copy(doneSteps = mapOf("A" to listOf(1, 3)))
+
+        assertTrue(Json { encodeDefaults = true }.encodeToString(CookingSession.serializer(), session).contains("\"doneSteps\":{\"A\":[1,3]}"))
     }
 }

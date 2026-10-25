@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Typography from '@mui/material/Typography'
 import { useSearchParams } from 'react-router-dom'
 import { ActivityShell } from '../../../components/activity/ActivityShell'
@@ -14,11 +14,13 @@ import {
 } from './CookingScreens'
 import { orderedSteps } from '../recipeSheet'
 import type { RecipeRecord, RecipeStep } from '../recipeSheet'
-import { COOKING_COLOR, COOKING_FALLBACK_PATH, advance, back, confirmServings, markReady, skipRecipe, withGuests } from './cookingSession'
+import { COOKING_COLOR, COOKING_FALLBACK_PATH, advance, back, confirmServings, goToStep, isStepDone, progressOf, skipRecipe, withGuests } from './cookingSession'
 import type { CookingOrigin, CookingSession } from './cookingSession'
-import { pendingWaits } from './cookingSteps'
-import { MainTimer, TimerAlert, TimerColumn, TimerError } from './CookingTimers'
-import { awaitedRemaining, quitDetail, rungPositions, stepSeconds, stepTimer, timerLabel, timersOfRecipe } from './cookingTimers'
+import { CookingStepsColumn } from './CookingStepsColumn'
+import type { ColumnRecipe } from './CookingStepsColumn'
+import { MainTimer, TimerError } from './CookingTimers'
+import { lineTimer, quitDetail, stepSeconds, stepTimer, timerLabel, timersOfRecipe } from './cookingTimers'
+import type { TimerView } from './cookingTimers'
 import { useCookingActivity } from './useCookingActivity'
 import { useCookingTimers } from './useCookingTimers'
 import type { CookingTimers } from './useCookingTimers'
@@ -59,22 +61,17 @@ const Cooking = ({ origin, goBack }: { origin: CookingOrigin; goBack: () => void
       </Typography>
     ) : null
 
-  // One alert at a time, the first rung first; « OK » brings the next.
-  const ringing = useMemo(
-    () => timers.timers.filter((timer) => timer.status === 'done').sort((a, b) => (a.finishedAt ?? '').localeCompare(b.finishedAt ?? ''))[0],
-    [timers.timers],
-  )
   const detail = quitDetail(timers.timers)
 
   return (
     <ActivityShell color={COOKING_COLOR} name="Cuisine" confirmQuit={detail !== undefined} confirmDetail={detail} onQuit={quit} progress={progress}>
-      {ringing && <TimerAlert key={ringing.id} timer={ringing} onDismiss={() => void timers.change(ringing.id, 'dismiss')} />}
       {timers.error && <TimerError message={timers.error} onClose={timers.clearError} />}
       <Body
         timers={timers}
         load={load}
         session={session}
         recipe={recipe}
+        recipes={recipes}
         names={names}
         steps={steps}
         refreshing={refreshing}
@@ -91,6 +88,7 @@ type BodyProps = {
   load: ReturnType<typeof useCookingActivity>['load']
   session: ReturnType<typeof useCookingActivity>['session']
   recipe: RecipeRecord | undefined
+  recipes: Record<string, RecipeRecord>
   names: Record<string, string>
   steps: RecipeStep[]
   refreshing: boolean
@@ -99,26 +97,17 @@ type BodyProps = {
   quit: () => void
 }
 
-const Body = ({ timers, load, session, recipe, names, steps, refreshing, retry, update, quit }: BodyProps) => {
+const Body = ({ timers, load, session, recipe, recipes, names, steps, refreshing, retry, update, quit }: BodyProps) => {
   const [starting, setStarting] = useState(false)
   const cooking = load === 'ready' && session?.phase === 'cooking' && recipe !== undefined && steps.length > 0
   const position = session?.step ?? 0
   const recipeId = session ? session.queue[session.recipeIndex].recipeId : ''
   const mine = useMemo(() => timersOfRecipe(timers.timers, recipeId), [timers.timers, recipeId])
-  // A rung timer lets go of what waited for it, as « C'est prêt » does.
-  const rung = useMemo(() => rungPositions(mine), [mine])
-  const pending = cooking && position > 0 ? pendingWaits(steps, position, [...session.ready, ...rung]) : []
   const inStep = cooking && position > 0 && position <= steps.length
   const current = inStep ? steps[position - 1] : undefined
   const seconds = stepSeconds(current)
   const timer = seconds > 0 ? stepTimer(mine, position) : undefined
   const launches = seconds > 0 && current?.background === true && timer === undefined
-
-  // Kept with the session: a reload, whose read leaves the dismissed timers out, stays unlocked.
-  const rungKey = rung.join(',')
-  useEffect(() => {
-    if (rungKey) update((from) => markReady(from, rungKey.split(',').map(Number)))
-  }, [rungKey, update])
 
   const { start } = timers
   const startStep = useCallback(async (): Promise<boolean> => {
@@ -130,14 +119,39 @@ const Body = ({ timers, load, session, recipe, names, steps, refreshing, retry, 
     return started
   }, [current, position, recipeId, seconds, start])
 
-  // « Lancer et continuer »: the timer first; refused, the step stays and says why.
+  // « Suivant » ticks the step; « Lancer et continuer » starts the timer first (refused, the step stays and says why) and ticks nothing.
   const next = useCallback(async () => {
+    if (starting) return
     if (launches && !(await startStep())) return
-    update((from) => advance(from, steps.length))
-  }, [launches, startStep, steps.length, update])
+    update((from) => advance(from, steps.length, Date.now(), !launches))
+  }, [launches, startStep, starting, steps.length, update])
+
+  const { change } = timers
+  const select = useCallback(
+    (recipeIndex: number, step: number, timer: TimerView | undefined) => {
+      update((from) => goToStep(from, recipeIndex, step))
+      if (timer?.status === 'done') void change(timer.id, 'dismiss')
+    },
+    [change, update],
+  )
+
+  const columnRecipes = useMemo<ColumnRecipe[]>(
+    () =>
+      (session?.queue ?? []).map((entry) => {
+        const queued = recipes[entry.recipeId]
+
+        return {
+          recipeId: entry.recipeId,
+          name: queued?.name ?? '…',
+          steps: orderedSteps(queued?.steps).map((step, index) => ({ position: index + 1, text: step.text })),
+        }
+      }),
+    [session?.queue, recipes],
+  )
+  const stepCounts = useMemo(() => Object.fromEntries(columnRecipes.map((entry) => [entry.recipeId, entry.steps.length])), [columnRecipes])
 
   useStepKeys({
-    onNext: cooking && pending.length === 0 && !starting ? () => void next() : undefined,
+    onNext: cooking && !starting ? () => void next() : undefined,
     onPrevious: inStep ? () => update(back) : undefined,
   })
 
@@ -182,33 +196,34 @@ const Body = ({ timers, load, session, recipe, names, steps, refreshing, retry, 
       step={session.step}
       steps={steps}
       lines={recipe.ingredients ?? []}
-      pending={pending}
-      waitRemaining={awaitedRemaining(mine, pending)}
       isLastOfAll={isLastRecipe && session.step === steps.length}
       launches={launches}
       busy={starting}
+      column={
+        <CookingStepsColumn
+          recipes={columnRecipes}
+          current={{ recipeIndex: session.recipeIndex, step: session.step }}
+          isDone={(id, position) => isStepDone(session, id, position)}
+          timerOf={(id, position) => lineTimer(timersOfRecipe(timers.timers, id), position)}
+          {...progressOf(session, stepCounts)}
+          onSelect={select}
+        />
+      }
       timers={
-        <>
-          {seconds > 0 && (
-            <MainTimer
-              label={timer?.label ?? timerLabel(current.text, position)}
-              seconds={seconds}
-              timer={timer}
-              busy={starting}
-              onStart={() => void startStep()}
-              onToggle={() => timer && void timers.change(timer.id, timer.status === 'running' ? 'pause' : 'resume')}
-              onAdd={(delta) => timer && void timers.change(timer.id, 'add', delta)}
-            />
-          )}
-          <TimerColumn
-            timers={timers.timers.filter((other) => other.id !== timer?.id && other.status !== 'dismissed')}
-            isBackground={(other) => mine.includes(other) && steps[other.stepPosition - 1]?.background === true}
+        seconds > 0 && (
+          <MainTimer
+            label={timer?.label ?? timerLabel(current.text, position)}
+            seconds={seconds}
+            timer={timer}
+            busy={starting}
+            onStart={() => void startStep()}
+            onToggle={() => timer && void timers.change(timer.id, timer.status === 'running' ? 'pause' : 'resume')}
+            onAdd={(delta) => timer && void timers.change(timer.id, 'add', delta)}
           />
-        </>
+        )
       }
       onPrevious={() => update(back)}
       onNext={() => void next()}
-      onReady={() => update((from) => markReady(from, pending))}
     />
   )
 }

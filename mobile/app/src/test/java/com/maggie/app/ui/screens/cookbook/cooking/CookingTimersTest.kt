@@ -70,10 +70,34 @@ class CookingTimersTest {
     }
 
     @Test
-    fun `the timers go in a strip on a phone upright, in a column otherwise`() {
-        assertEquals(TimersLayout.STRIP, timersLayout(411, landscape = false))
-        assertEquals(TimersLayout.SIDE, timersLayout(411, landscape = true))
-        assertEquals(TimersLayout.BELOW, timersLayout(800, landscape = false))
-        assertEquals(TimersLayout.SIDE, timersLayout(800, landscape = true))
+    fun `a timer's rest on a step's line reads minutes and seconds, and hours from the hour`() {
+        assertEquals("09:12", lineClock(552))
+        assertEquals("00:00", lineClock(-4))
+        assertEquals("59:59", lineClock(3599))
+        assertEquals("1:00:00", lineClock(3600))
+        assertEquals("1:05:07", lineClock(3907))
+    }
+
+    @Test
+    fun `the line under a timer's name follows its state`() {
+        assertEquals("c'est prêt", timerSubLine(timer("Eau", CookingTimerStatus.DONE), background = true))
+        assertEquals("en pause", timerSubLine(timer("Eau", CookingTimerStatus.PAUSED), background = false))
+        assertEquals("en fond : passe à la suite", timerSubLine(null, background = true))
+        assertEquals("à lancer", timerSubLine(null, background = false))
+        assertEquals("en cours", timerSubLine(timer("Eau", CookingTimerStatus.RUNNING), background = false))
+    }
+
+    @Test
+    fun `the steps go in a column on a tablet or a phone sideways, in a banner on a phone upright`() {
+        assertEquals(StepsLayout.BANNER, stepsLayout(411, landscape = false))
+        assertEquals(StepsLayout.COLUMN, stepsLayout(411, landscape = true))
+        assertEquals(StepsLayout.COLUMN, stepsLayout(600, landscape = false))
+        assertEquals(StepsLayout.COLUMN, stepsLayout(800, landscape = true))
+    }
+
+    @Test
+    fun `the progress reads done over the steps of the whole meal`() {
+        assertEquals("0 / 7 faites", progressText(0, 7))
+        assertEquals("2 / 7 faites", progressText(2, 7))
     }
 }

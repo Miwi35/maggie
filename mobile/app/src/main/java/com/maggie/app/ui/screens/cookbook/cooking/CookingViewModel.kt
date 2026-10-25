@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 
 enum class CookingLoad {
     LOADING,
@@ -64,25 +63,28 @@ data class CookingUiState(
 
     val steps: List<RecipeStep> get() = recipe?.orderedSteps().orEmpty()
 
-    /** The earlier steps the current step still waits for; empty on the preparation. A rung timer is ready. */
-    val pending: List<Int>
-        get() = session?.takeIf { it.phase == CookingPhase.COOKING && it.step > 0 }
-            ?.let { session ->
-                val rung = timers.filter { it.status == CookingTimerStatus.DONE && it.recipeId == session.current?.recipeId }
-                    .map { it.stepPosition }
-                pendingWaits(steps, session.step, session.ready + rung)
-            }
-            .orEmpty()
+    /** Steps per recipe of the queue, by id; a recipe not read yet counts none. */
+    val stepCounts: Map<String, Int>
+        get() = session?.queue.orEmpty().associate { it.recipeId to (recipes[it.recipeId]?.steps?.size ?: 0) }
+
+    /** Every step of the meal, recipe after recipe: « 6 / 11 faites ». */
+    val totalSteps: Int get() = stepCounts.values.sum()
+
+    val doneCount: Int get() = session?.doneCount(stepCounts) ?: 0
 
     /** The current step, null on the preparation. */
     val currentStep: RecipeStep?
         get() = session?.takeIf { it.phase == CookingPhase.COOKING && it.step > 0 }?.let { steps.getOrNull(it.step - 1) }
 
+    /** The timer on screen for a step of a recipe: the last one started when there are several. */
+    fun timerFor(recipeId: String, position: Int): CookingTimer? =
+        timers.lastOrNull { it.recipeId == recipeId && it.stepPosition == position }
+
     /** The timer of a step of the current recipe. */
-    fun timerOf(position: Int): CookingTimer? {
-        val recipeId = session?.current?.recipeId ?: return null
-        return timers.firstOrNull { it.recipeId == recipeId && it.stepPosition == position }
-    }
+    fun timerOf(position: Int): CookingTimer? = session?.current?.recipeId?.let { timerFor(it, position) }
+
+    /** A timer rang and was not acknowledged: its step's line is lit. */
+    val ringing: List<CookingTimer> get() = timers.filter { it.status == CookingTimerStatus.DONE }
 
     /** Seconds left: counted down from the deadline while it runs, the rest while paused, none once rung. */
     fun remainingOf(timer: CookingTimer): Int = when (timer.status) {
@@ -92,14 +94,6 @@ data class CookingUiState(
         CookingTimerStatus.PAUSED -> timer.remainingSeconds
         else -> 0
     }
-
-    /** The longest rest of the awaited timers still counting: « encore 02:10 »; null when none is started. */
-    val awaitedLeft: Int?
-        get() = pending.mapNotNull { timerOf(it) }.filter { it.status.isCounting }.maxOfOrNull { remainingOf(it) }
-
-    /** The first timer that rang and was not acknowledged: its alert is over the step, the others wait. */
-    val alert: CookingTimer?
-        get() = timers.filter { it.status == CookingTimerStatus.DONE }.minByOrNull { it.finishedAt.orEmpty() }
 
     /** Leaving would stop a timer: « Quitter l'activité ? » first. */
     val confirmQuit: Boolean get() = timers.any { it.status.isCounting }
@@ -162,23 +156,40 @@ class CookingViewModel(
 
     fun skipRecipe() = change { it.skipRecipe() }
 
-    /** The next step; held back while the current one waits for a timed step, until « C'est prêt ». */
+    /** « Suivant »: the step on screen is ticked off, then the next one. Nothing holds it back. */
     fun next() {
         val state = _uiState.value
-        if (state.recipe == null || state.pending.isNotEmpty()) return
+        if (state.recipe == null) return
         change { it.advance(state.steps.size) }
     }
 
     /**
-     * « Lancer et continuer » on a step that cooks in the background: its timer starts, then the next step.
-     * A refusal leaves the step where it is, with the reason.
+     * A step touched in the list, of the current recipe or another of the queue: it is shown, not ticked.
+     * Touching the line of a timer that rang acknowledges it.
+     */
+    fun openStep(recipeIndex: Int, position: Int) {
+        val state = _uiState.value
+        val recipeId = state.session?.queue?.getOrNull(recipeIndex)?.recipeId ?: return
+        change { it.goToStep(recipeIndex, position, state.stepCounts[recipeId] ?: 0) }
+        state.timerFor(recipeId, position)?.takeIf { it.status == CookingTimerStatus.DONE }?.let { dismiss(it.id) }
+    }
+
+    /**
+     * « Lancer et continuer » on a step that cooks in the background: its timer starts, then the next step,
+     * the step itself not ticked. A refusal leaves the step where it is, with the reason.
      */
     fun startAndNext() {
         val state = _uiState.value
-        if (state.pending.isNotEmpty()) return
         val step = state.currentStep
         if (step?.durationMinutes == null || state.timerOf(step.position) != null) return next()
-        startTimer(step) { next() }
+        val from = state.session?.let { it.recipeIndex to it.step }
+        startTimer(step) {
+            // The cook may have moved while the timer was on its way: go on only from the step it was started on.
+            val session = _uiState.value.session
+            if (session != null && session.recipeIndex to session.step == from) {
+                change { it.advance(_uiState.value.steps.size, validate = false) }
+            }
+        }
     }
 
     /** Démarrer, Pause or Reprendre on the current step's timer. */
@@ -201,7 +212,7 @@ class CookingViewModel(
         changeTimer(timer.id, CookingTimerAction.ADD, minutes * 60)
     }
 
-    /** « OK » on the alert: the timer is acknowledged everywhere, its notification leaves the other devices. */
+    /** A rung timer is acknowledged everywhere, its notification leaves the other devices. */
     fun dismiss(id: String) {
         val timer = _uiState.value.timers.firstOrNull { it.id == id && it.status == CookingTimerStatus.DONE } ?: return
         // Gone from the screen at once; the API's answer, or Mercure, confirms it.
@@ -233,13 +244,6 @@ class CookingViewModel(
             lastPoll = now
             loadTimers()
         }
-    }
-
-    /** « C'est prêt »: what the current step waits for no longer holds it back. */
-    fun ready() {
-        val pending = _uiState.value.pending
-        if (pending.isEmpty()) return
-        change { it.markReady(pending) }
     }
 
     private fun start() {
@@ -313,7 +317,7 @@ class CookingViewModel(
                 onFailure = { error ->
                     // Refused: the timer as it stands, so the screen shows what can still be done with it.
                     (error as? CookingTimerRefusedException)?.timer?.let(::applyTimer)
-                    // « OK » that did not get through: the alert comes back from the API's list.
+                    // An acknowledgement that did not get through: the timer comes back from the API's list.
                     if (action == CookingTimerAction.DISMISS) loadTimers() else _uiState.update { it.copy(timerError = CHANGE_FAILED) }
                 },
             )
@@ -353,7 +357,7 @@ class CookingViewModel(
         }
     }
 
-    /** One timer as the API now says it is: kept, replaced, or gone; a rung one frees the steps that wait for it. */
+    /** One timer as the API now says it is: kept, replaced, or gone; a rung one lights its step's line. */
     private fun applyTimer(timer: CookingTimer) {
         val now = clock()
         _uiState.update { state ->
@@ -368,11 +372,6 @@ class CookingViewModel(
                 if (timer.status == CookingTimerStatus.RUNNING) mapOf(timer.id to now + timer.remainingSeconds * 1000L) else emptyMap()
             state.copy(timers = timers, deadlines = deadlines, now = now)
         }
-        val session = _uiState.value.session
-        val finished = timer.status == CookingTimerStatus.DONE || timer.status == CookingTimerStatus.DISMISSED
-        if (finished && session != null && timer.recipeId == session.current?.recipeId) {
-            change { it.markReady(listOf(timer.stepPosition)) }
-        }
     }
 
     private fun change(transform: (CookingSession) -> CookingSession) {
@@ -384,12 +383,12 @@ class CookingViewModel(
     }
 
     private fun publish(session: CookingSession) {
-        savedState[KEY_SESSION] = Json.encodeToString(CookingSession.serializer(), session)
+        savedState[KEY_SESSION] = sessionJson.encodeToString(CookingSession.serializer(), session)
         _uiState.update { it.copy(session = session) }
     }
 
     private fun restore(): CookingSession? = savedState.get<String>(KEY_SESSION)?.let { raw ->
-        runCatching { Json.decodeFromString(CookingSession.serializer(), raw) }.getOrNull()
+        runCatching { sessionJson.decodeFromString(CookingSession.serializer(), raw) }.getOrNull()
     }
 
     private fun fail() {

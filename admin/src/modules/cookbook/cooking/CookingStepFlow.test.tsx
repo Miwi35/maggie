@@ -92,6 +92,10 @@ const startReference = async () => {
   await userEvent.click(screen.getByRole('button', { name: "C'est parti" }))
 }
 
+const rows = () => screen.getAllByTestId('cooking-step-row')
+const rowOf = (position: number) => rows().find((row) => row.dataset.position === String(position))!
+const progress = () => screen.getByTestId('cooking-steps-progress').textContent
+
 const stepText = () => screen.getByTestId('cooking-step-text').textContent
 const stepNumber = () => screen.getByTestId('cooking-step-number').textContent
 
@@ -146,53 +150,87 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
     await waitFor(() => expect(screen.getByTestId('cooking-step-ingredient')).toHaveTextContent('600'))
   })
 
-  test('the segments tell done, current and upcoming steps', async () => {
+  test('the column lists every step: ticked and faded, current in front, the others neutral, with « n / m faites »', async () => {
     await startReference()
+    expect(progress()).toBe('0 / 5 faites')
+    expect(rows().map((row) => row.dataset.state)).toEqual(['current', 'upcoming', 'upcoming', 'upcoming', 'upcoming'])
+
+    // Step 1 is in the background: it launches its timer and ticks nothing; step 2 is ticked by « Suivant ».
     await pressNext(2)
 
-    const states = screen.getAllByTestId('cooking-segment').map((segment) => segment.getAttribute('data-state'))
-    expect(states).toEqual(['done', 'done', 'current', 'upcoming', 'upcoming'])
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuetext', 'Étape 3 sur 5')
+    expect(rows().map((row) => row.dataset.state)).toEqual(['upcoming', 'done', 'current', 'upcoming', 'upcoming'])
+    expect(rowOf(3)).toHaveAttribute('aria-current', 'step')
+    expect(rowOf(2)).toHaveAttribute('data-done', 'true')
+    expect(progress()).toBe('1 / 5 faites')
+    expect(screen.getByRole('progressbar', { name: 'Avancement des étapes' })).toHaveAttribute('aria-valuenow', '20')
   })
 
-  test('step 3 waits for the water; « C\'est prêt » lifts it', async () => {
+  test('« Lancer et continuer » starts the timer and moves on without ticking the step', async () => {
     await startReference()
-    await pressNext(2)
 
-    expect(screen.getByTestId('cooking-wait')).toHaveTextContent("Attend l'eau à bouillir · étape 1")
-    expect(screen.getByRole('button', { name: 'Lancer et continuer' })).toBeDisabled()
-
-    await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
-
-    expect(screen.queryByTestId('cooking-wait')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Lancer et continuer' }))
-    await waitFor(() => expect(screen.getByTestId('cooking-step-number')).toHaveTextContent('4'))
+
+    await waitFor(() => expect(stepNumber()).toBe('2'))
+    expect(rowOf(1)).toHaveAttribute('data-done', 'false')
+    expect(progress()).toBe('0 / 5 faites')
   })
 
-  test('step 5 waits for the pasta and the vegetables, and « C\'est prêt » forces both', async () => {
+  test('« Suivant » ticks the step it leaves', async () => {
     await startReference()
-    await pressNext(2)
-    await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
-    await pressNext(2)
+    await pressNext(1)
 
-    expect(screen.getByTestId('cooking-step-number')).toHaveTextContent('5')
-    expect(screen.getByTestId('cooking-wait')).toHaveTextContent('Attend les pâtes et les légumes · étapes 3 et 4')
+    await userEvent.click(screen.getByRole('button', { name: /Suivant/ }))
 
-    await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
-    expect(screen.queryByTestId('cooking-wait')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Repas servi' })).toBeEnabled()
+    await waitFor(() => expect(stepNumber()).toBe('3'))
+    expect(rowOf(2)).toHaveAttribute('data-done', 'true')
+    expect(rowOf(1)).toHaveAttribute('data-done', 'false')
   })
 
-  test('→ and Espace go on, ← goes back, and a held step ignores them', async () => {
+  test('touching a step goes there without ticking it, then « Suivant » ticks it', async () => {
+    await startReference()
+
+    await userEvent.click(rowOf(5))
+
+    expect(stepNumber()).toBe('5')
+    expect(stepText()).toBe('Égoutter, mélanger')
+    expect(rowOf(5)).toHaveAttribute('data-state', 'current')
+    expect(rowOf(5)).toHaveAttribute('data-done', 'false')
+    expect(progress()).toBe('0 / 5 faites')
+
+    await userEvent.click(rowOf(2))
+    expect(stepNumber()).toBe('2')
+    await userEvent.click(rowOf(5))
+    await userEvent.click(screen.getByRole('button', { name: 'Repas servi' }))
+    await screen.findByText('Bon appétit')
+  })
+
+  test('no « Suivant » is ever disabled: the steps do not wait for one another', async () => {
+    await startReference()
+
+    for (const position of [1, 2, 3, 4, 5]) {
+      await userEvent.click(rowOf(position))
+      expect(screen.getByRole('button', { name: /Suivant|Lancer et continuer|Repas servi/ })).toBeEnabled()
+    }
+    expect(screen.queryByTestId('cooking-wait')).not.toBeInTheDocument()
+    expect(screen.queryByText("C'est prêt")).not.toBeInTheDocument()
+    expect(screen.queryByText(/Attend /)).not.toBeInTheDocument()
+  })
+
+  test('on a phone-sized window the list folds behind « Voir les étapes »', async () => {
+    await startReference()
+
+    expect(screen.getByTestId('cooking-steps-toggle')).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(screen.getByTestId('cooking-steps-toggle'))
+    expect(screen.getByTestId('cooking-steps-toggle')).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  test('→ and Espace go on, ← goes back', async () => {
     await startReference()
     expect(stepText()).toBe("Mettre l'eau à bouillir")
 
     await pressNext()
     expect(stepText()).toBe('Couper les légumes')
     await userEvent.keyboard(' ')
-    expect(screen.getByTestId('cooking-step-number')).toHaveTextContent('3')
-
-    await userEvent.keyboard('{ArrowRight}')
     expect(screen.getByTestId('cooking-step-number')).toHaveTextContent('3')
 
     await userEvent.keyboard('{ArrowLeft}')
@@ -222,16 +260,14 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
     field.remove()
   })
 
-  test('Espace on a focused button presses that button, not « Suivant »', async () => {
+  test('Espace on a focused row presses that row, not « Suivant »', async () => {
     await startReference()
     await pressNext(2)
-    const ready = screen.getByRole('button', { name: "C'est prêt" })
-    ready.focus()
+    rowOf(1).focus()
 
     await userEvent.keyboard(' ')
 
-    expect(screen.queryByTestId('cooking-wait')).not.toBeInTheDocument()
-    expect(screen.getByTestId('cooking-step-number')).toHaveTextContent('3')
+    expect(screen.getByTestId('cooking-step-number')).toHaveTextContent('1')
   })
 
   test('the focus is visible on the buttons of a step', async () => {
@@ -258,12 +294,9 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
     renderActivity('/activites/cuisine?meal=MEAL')
     await screen.findByTestId('cooking-preparation')
 
-    // The reference recipe: five steps, two held.
+    // The reference recipe: five steps.
     await userEvent.keyboard('{ArrowRight}')
-    await pressNext(2)
-    await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
-    await pressNext(2)
-    await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
+    await pressNext(4)
     await userEvent.keyboard('{ArrowRight}')
 
     // The meal keeps no order among its recipes: whichever came first, the other follows.
@@ -281,19 +314,52 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
     expect(screen.getByTestId('cooking-done-summary')).toHaveTextContent('1 min en cuisine · 4 convives')
   })
 
-  test('the step survives a reload', async () => {
+  test('the step and the ticked steps survive a reload', async () => {
     const first = renderActivity('/activites/cuisine?recipe=REF')
     await screen.findByText('Pour combien ?')
     await userEvent.click(screen.getByRole('button', { name: 'Continuer' }))
     await screen.findByTestId('cooking-preparation')
     await userEvent.keyboard('{ArrowRight}')
     await pressNext(2)
-    await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
     first.unmount()
 
     renderActivity('/activites/cuisine?recipe=REF')
 
     expect(await screen.findByTestId('cooking-step-number')).toHaveTextContent('3')
-    expect(screen.queryByTestId('cooking-wait')).not.toBeInTheDocument()
+    expect(rows().map((row) => row.dataset.done)).toEqual(['false', 'true', 'false', 'false', 'false'])
+    expect(progress()).toBe('1 / 5 faites')
+  })
+})
+
+describe('The column of a meal with two recipes', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    timersApi = fakeTimersApi()
+    vi.stubGlobal('fetch', vi.fn(fakeFetch))
+    Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { configurable: true, writable: true, value: () => Promise.reject(new Error('refused')) })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  test('lists the steps recipe after recipe, counts them all, and a touch jumps to the other recipe without ticking', async () => {
+    renderActivity('/activites/cuisine?meal=MEAL')
+    await screen.findByTestId('cooking-preparation')
+    await userEvent.keyboard('{ArrowRight}')
+    await screen.findByTestId('cooking-steps-column')
+
+    await waitFor(() => expect(progress()).toBe('0 / 6 faites'))
+    const column = screen.getByTestId('cooking-steps-column')
+    expect(within(column).getByRole('heading', { name: 'Pâtes aux légumes' })).toBeInTheDocument()
+    expect(within(column).getByRole('heading', { name: 'Salade' })).toBeInTheDocument()
+    expect(rows()).toHaveLength(6)
+
+    const salad = within(within(column).getByRole('region', { name: 'Salade' })).getByTestId('cooking-step-row')
+    await userEvent.click(salad)
+
+    expect(stepText()).toBe('Laver la salade')
+    expect(salad).toHaveAttribute('data-state', 'current')
+    expect(progress()).toBe('0 / 6 faites')
   })
 })

@@ -1,6 +1,10 @@
 package com.maggie.app.ui.screens.cookbook.cooking
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+
+/** The session's JSON in the saved state: a field this version no longer knows (an older session) is ignored. */
+internal val sessionJson = Json { ignoreUnknownKeys = true }
 
 /** What the activity cooks: a meal (`?meal=`) or one recipe (`?recipe=`). */
 @Serializable
@@ -38,8 +42,11 @@ data class CookingSession(
     val step: Int = 0,
     val guests: Int,
     val phase: CookingPhase,
-    /** The timed steps of the current recipe the cook said « C'est prêt » to; reset with each recipe. */
-    val ready: List<Int> = emptyList(),
+    /**
+     * The steps ticked off, by recipe id (positions as in `step`, 1-based, sorted): « Suivant » ticks the step
+     * it leaves. The admin keeps the same shape, so a resumed activity (MAG-613) reads either.
+     */
+    val doneSteps: Map<String, List<Int>> = emptyMap(),
     /** Epoch millis: when the session began, and when « Bon appétit » was reached (0 until then). */
     val startedAt: Long = 0L,
     val finishedAt: Long = 0L,
@@ -47,6 +54,12 @@ data class CookingSession(
     val current: QueuedRecipe? get() = queue.getOrNull(recipeIndex)
 
     val isLastRecipe: Boolean get() = recipeIndex == queue.lastIndex
+
+    fun isDone(recipeId: String, position: Int): Boolean = position in doneSteps[recipeId].orEmpty()
+
+    /** Steps ticked off across the queue; [stepCounts] (by recipe id) leaves out positions a recipe no longer has. */
+    fun doneCount(stepCounts: Map<String, Int>): Int =
+        queue.sumOf { entry -> doneSteps[entry.recipeId].orEmpty().count { it in 1..(stepCounts[entry.recipeId] ?: 0) } }
 
     /** A stored session worth resuming for [origin]: same launch, not finished, an index inside the queue. */
     fun resumes(origin: CookingOrigin): Boolean =
@@ -94,27 +107,39 @@ fun CookingSession.confirmServings(): CookingSession = copy(phase = CookingPhase
 /** The next recipe's preparation, or « Bon appétit » after the last one. */
 private fun CookingSession.nextRecipe(now: Long): CookingSession =
     if (recipeIndex + 1 < queue.size) {
-        copy(recipeIndex = recipeIndex + 1, step = 0, ready = emptyList())
+        copy(recipeIndex = recipeIndex + 1, step = 0)
     } else {
         copy(phase = CookingPhase.DONE, finishedAt = now)
     }
 
-/** « Suivant »: the next step, then the next recipe. [stepCount] is the current recipe's. */
-fun CookingSession.advance(stepCount: Int, now: Long = System.currentTimeMillis()): CookingSession = when {
-    phase != CookingPhase.COOKING -> this
-    step < stepCount -> copy(step = step + 1)
-    else -> nextRecipe(now)
+/** The step on screen is ticked off; the preparation has nothing to tick. */
+fun CookingSession.completeStep(): CookingSession {
+    val recipeId = current?.recipeId
+    if (phase != CookingPhase.COOKING || step < 1 || recipeId == null || isDone(recipeId, step)) return this
+    return copy(doneSteps = doneSteps + (recipeId to (doneSteps[recipeId].orEmpty() + step).sorted()))
 }
+
+/**
+ * « Suivant »: ticks the step it leaves, then the next step, then the next recipe. [stepCount] is the current
+ * recipe's. « Lancer et continuer » goes on without ticking ([validate] false).
+ */
+fun CookingSession.advance(stepCount: Int, validate: Boolean = true, now: Long = System.currentTimeMillis()): CookingSession {
+    if (phase != CookingPhase.COOKING) return this
+    val from = if (validate) completeStep() else this
+    return if (step < stepCount) from.copy(step = step + 1) else from.nextRecipe(now)
+}
+
+/** A step touched in the list, of this recipe or another of the queue: shown, never ticked. */
+fun CookingSession.goToStep(recipeIndex: Int, position: Int, stepCount: Int): CookingSession =
+    if (phase == CookingPhase.COOKING && recipeIndex in queue.indices && position in 1..stepCount) {
+        copy(recipeIndex = recipeIndex, step = position)
+    } else {
+        this
+    }
 
 /** « Passer »: leaves a recipe that has no step to cook. */
 fun CookingSession.skipRecipe(now: Long = System.currentTimeMillis()): CookingSession =
     if (phase == CookingPhase.COOKING) nextRecipe(now) else this
-
-/** « C'est prêt »: these timed steps of the current recipe no longer hold anything back. */
-fun CookingSession.markReady(positions: List<Int>): CookingSession {
-    val merged = (ready + positions).distinct().sorted()
-    return if (merged.size == ready.size) this else copy(ready = merged)
-}
 
 /** Whole minutes spent cooking, at least one. */
 val CookingSession.minutesCooked: Int

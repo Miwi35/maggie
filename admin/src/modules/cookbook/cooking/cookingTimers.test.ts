@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { awaitedRemaining, clockOf, doneTitle, quitDetail, rungPositions, stepTimer, timerLabel, timersOfRecipe } from './cookingTimers'
+import { clockOf, lineTimer, quitDetail, stepTimer, timerLabel, timersOfRecipe } from './cookingTimers'
 import type { CookingTimer, TimerView } from './cookingTimers'
 
 const timer = (id: string, extra: Partial<TimerView> = {}): TimerView => ({
@@ -61,16 +61,14 @@ describe('the timers of a step', () => {
     expect(timersOfRecipe([timer('T1'), other], 'REF').map((t) => t.id)).toEqual(['T1'])
   })
 
-  test('a rung or dismissed timer lets go of its step', () => {
-    expect(rungPositions([timer('T1', { status: 'done' }), timer('T2', { stepPosition: 3, status: 'dismissed' }), timer('T3', { stepPosition: 4 })])).toEqual([1, 3])
-  })
+  test('a line shows a running, paused or rung timer, and nothing once it was acknowledged', () => {
+    const running = timer('T1')
+    const rung = timer('T2', { stepPosition: 2, status: 'done', remaining: 0 })
 
-  test('« encore »: the longest rest of the awaited timers that tick, none when none was started', () => {
-    const pasta = timer('T1', { stepPosition: 3, remaining: 130 })
-    const vegetables = timer('T2', { stepPosition: 4, remaining: 260, status: 'paused' })
-    expect(awaitedRemaining([pasta, vegetables], [3, 4])).toBe(260)
-    expect(awaitedRemaining([pasta], [4])).toBeNull()
-    expect(awaitedRemaining([timer('T3', { stepPosition: 3, status: 'done', remaining: 0 })], [3])).toBeNull()
+    expect(lineTimer([running, rung], 1)).toBe(running)
+    expect(lineTimer([running, rung], 2)).toBe(rung)
+    expect(lineTimer([timer('T3', { status: 'dismissed' })], 1)).toBeUndefined()
+    expect(lineTimer([running], 4)).toBeUndefined()
   })
 })
 
@@ -81,9 +79,5 @@ describe('the words of the timers', () => {
     expect(quitDetail([pasta, vegetables])).toBe("2 minuteurs tournent encore (Pâtes, Légumes) : ils s'arrêteront.")
     expect(quitDetail([pasta])).toBe("1 minuteur tourne encore (Pâtes) : il s'arrêtera.")
     expect(quitDetail([timer('T3', { status: 'done' })])).toBeUndefined()
-  })
-
-  test('the alert reads « {label} : c’est prêt »', () => {
-    expect(doneTitle(timer('T1', { label: 'Pâtes' }))).toBe("Pâtes : c'est prêt")
   })
 })
