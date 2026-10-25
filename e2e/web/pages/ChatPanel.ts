@@ -45,11 +45,14 @@ export class ChatPanel {
   readonly stopDictationButton: Locator
   /** « Arrêter », which takes the place of « Envoyer » while Maggie answers (MAG-320). */
   readonly stopButton: Locator
+  /** Maggie's 64px portrait, bottom right: opens the conversation, then folds it away. */
+  readonly portrait: Locator
   /** The panel's own way out — the only one once it is a full-screen sheet. */
   readonly closeButton: Locator
 
   constructor(private readonly page: Page) {
     this.panel = page.getByTestId('chat-panel')
+    this.portrait = page.getByTestId('maggie-portrait')
     this.input = this.panel.getByPlaceholder('Demande à Maggie...')
     this.chatTab = this.panel.getByRole('tab', { name: 'Chat' })
     this.mindTab = this.panel.getByRole('tab', { name: 'Mind' })
@@ -64,8 +67,8 @@ export class ChatPanel {
   }
 
   /**
-   * The panel opens with the shell above `md`; below it the app bar's button
-   * is what brings it in (MAG-38). Idempotent.
+   * The shell opens with Maggie folded into her floating portrait (MAG-624); a click on it
+   * brings the panel in. Idempotent.
    *
    * Returns once the history is in the list (MAG-394): it replaces the messages when it
    * lands, so a message sent before that would vanish from the list, and a count of
@@ -74,13 +77,12 @@ export class ChatPanel {
   async open(): Promise<void> {
     if (!(await this.input.isVisible())) {
       // Right after a reload the shell is not mounted yet, so the first read says « closed »
-      // even though the shell is about to open the panel itself; clicking then would close it.
-      // Wait for the app bar (the shell mounted), read again, and click only if still closed.
-      const toggle = this.page.getByRole('banner').getByRole('button', { name: 'Chat avec Maggie' })
-      await expect(toggle).toBeVisible()
+      // whatever the state; wait for the portrait (the shell mounted), read again, and click
+      // only if still closed — the portrait is a toggle, a second click would fold it away.
+      await expect(this.portrait).toBeVisible()
 
       if (!(await this.input.isVisible())) {
-        await toggle.click()
+        await this.portrait.click()
       }
 
       await expect(this.input).toBeVisible()
@@ -102,7 +104,7 @@ export class ChatPanel {
     await expect(this.input).toBeHidden()
   }
 
-  /** Closed whatever its state at the start: open with the shell above `md`, away below it. Idempotent. */
+  /** Closed whatever its state at the start. Idempotent. */
   async ensureClosed(): Promise<void> {
     if (await this.input.isVisible()) {
       await this.close()

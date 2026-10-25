@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -25,6 +26,7 @@ import com.maggie.app.ui.components.ChatBottomBar
 import com.maggie.app.ui.components.ChatRailActions
 import com.maggie.app.ui.components.DRAWER_DESTINATIONS
 import com.maggie.app.ui.components.MaggieNavigationRail
+import com.maggie.app.ui.components.MaggiePortrait
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.components.RAIL_DESTINATIONS
 import org.junit.Assert.assertEquals
@@ -54,13 +56,14 @@ class AppShellScreenTest {
     val compose = ScreenRule()
 
     private var navigatedTo: String? = null
+    private var portraitTaps = 0
 
     private companion object {
         const val CONTENT = "contenu"
     }
 
     @Composable
-    private fun Shell(route: String = "cookbook") {
+    private fun Shell(route: String = "cookbook", panelOpen: Boolean = false) {
         val layout = rememberAppLayout()
         val hasRail = layout.navigation == NavigationKind.RAIL
 
@@ -85,8 +88,13 @@ class AppShellScreenTest {
             } else {
                 null
             },
-            chatPanel = if (layout.chatEntry == ChatEntry.PANEL) {
+            chatPanel = if (layout.chatEntry == ChatEntry.PANEL && panelOpen) {
                 { Box(Modifier.width(CHAT_PANEL_WIDTH).testTag(UiTags.CHAT_PANEL)) { Text("Maggie") } }
+            } else {
+                null
+            },
+            chatPortrait = if (layout.chatEntry == ChatEntry.PANEL && !panelOpen) {
+                { MaggiePortrait(onClick = { portraitTaps++ }) }
             } else {
                 null
             },
@@ -190,8 +198,8 @@ class AppShellScreenTest {
 
     @Test
     @Config(qualifiers = "w1280dp-h800dp-xhdpi")
-    fun `a tablet in landscape draws the rail and the permanent panel instead of the bar`() {
-        compose.setContent { Shell() }
+    fun `a tablet in landscape draws the rail and the open conversation drawer instead of the bar`() {
+        compose.setContent { Shell(panelOpen = true) }
 
         compose.onNodeWithTag(UiTags.NAV_RAIL).assertExists()
         compose.onNodeWithTag(UiTags.CHAT_PANEL).assertIsDisplayed()
@@ -199,11 +207,48 @@ class AppShellScreenTest {
         compose.onNodeWithText("Chili sin carne").assertIsDisplayed()
     }
 
+    /** `Chat-Tablette`, `ouvert` off (MAG-624): only Maggie's face, 64 dp, bottom right, and the content keeps its width. */
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `a tablet in landscape folds Maggie to her portrait until asked`() {
+        compose.setContent { Shell() }
+
+        compose.onNodeWithTag(UiTags.CHAT_PANEL).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.CHAT_OPEN).assertIsDisplayed()
+
+        val portrait = compose.onNodeWithTag(UiTags.CHAT_OPEN).fetchSemanticsNode()
+        val density = compose.density.density
+        assertEquals(64, (portrait.size.width / density).toInt())
+        assertEquals(64, (portrait.size.height / density).toInt())
+
+        val root = compose.onRoot().fetchSemanticsNode().size
+        val right = portrait.positionInRoot.x + portrait.size.width
+        val bottom = portrait.positionInRoot.y + portrait.size.height
+        assertTrue("the portrait is in the right half", right > root.width * 0.9f)
+        assertTrue("the portrait is in the bottom", bottom > root.height * 0.9f)
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `tapping the portrait asks for the conversation, and the portrait never covers the content`() {
+        compose.setContent { Shell() }
+
+        compose.onNodeWithTag(UiTags.CHAT_OPEN).performClick()
+        assertEquals(1, portraitTaps)
+
+        val content = compose.onNodeWithTag(CONTENT).fetchSemanticsNode()
+        val portrait = compose.onNodeWithTag(UiTags.CHAT_OPEN).fetchSemanticsNode()
+        assertTrue(
+            "the content must end above the portrait, or its bottom-right action is hidden",
+            content.positionInRoot.y + content.size.height <= portrait.positionInRoot.y,
+        )
+    }
+
     /** The rail is left of the content and the conversation right of it — « is it visible » cannot say that. */
     @Test
     @Config(qualifiers = "w1280dp-h800dp-xhdpi")
     fun `the content sits between the rail and the conversation`() {
-        compose.setContent { Shell() }
+        compose.setContent { Shell(panelOpen = true) }
 
         val railX = compose.onNodeWithTag(UiTags.NAV_RAIL).fetchSemanticsNode().positionInRoot.x
         val contentX = compose.onNodeWithText("Chili sin carne").fetchSemanticsNode().positionInRoot.x

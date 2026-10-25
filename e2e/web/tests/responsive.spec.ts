@@ -121,17 +121,22 @@ test.describe('Responsive @responsive', () => {
 
     await dashboard.open()
 
-    // Open beside the page on a desk; below `md` it waits behind the app
-    // bar's button rather than taking a third of the window from the page it
-    // is about.
-    await expect(chat.input).toBeVisible({ visible: !shape.narrow })
+    // Folded into Maggie's portrait everywhere (MAG-624): the page is whole, and
+    // only the 64px face says she is there.
+    await expect(chat.input).toBeHidden()
+    await expect(chat.portrait).toBeVisible()
+    const portraitBox = await chat.portrait.boundingBox()
+    expect(Math.round(portraitBox?.width ?? 0)).toBe(64)
 
+    // A click opens the conversation, a column beside the page on a desk, the
+    // whole window as a sheet below `md`.
     await chat.open()
     const panel = await chat.panel.boundingBox()
     expect(Math.round(panel?.width ?? 0)).toBe(shape.chatWidth)
 
     // And the page is whole again once it is put away.
     await chat.close()
+    await expect(chat.portrait).toBeVisible()
     await expect(dashboard.daySelector).toBeVisible()
   })
 

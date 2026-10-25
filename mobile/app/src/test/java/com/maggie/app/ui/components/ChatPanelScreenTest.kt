@@ -49,13 +49,35 @@ class ChatPanelScreenTest {
         compose.onNodeWithText("Des poireaux et des câpres aux Halles du voisin.").assertIsDisplayed()
     }
 
-    /** It is the layout, not an overlay: there is nothing to dismiss, so no close button. */
+    /** Folded back to Maggie's portrait with the ✕ (MAG-624); with nothing to fold, no ✕. */
     @Test
-    fun `the panel has no close button, unlike the sheet`() {
+    fun `the drawer folds back with its close button`() {
+        var folded = 0
+        val chat = FakeChat()
+        compose.setContent { ChatPanel(viewModel = chat.viewModel, onClosePanel = { folded++ }) }
+
+        compose.onNodeWithTag(UiTags.CHAT_CLOSE).performClick()
+
+        assertEquals(1, folded)
+    }
+
+    @Test
+    fun `without a way to fold it the panel has no close button`() {
         val chat = FakeChat()
         compose.setContent { ChatPanel(viewModel = chat.viewModel) }
 
         compose.onNodeWithTag(UiTags.CHAT_CLOSE).assertDoesNotExist()
+    }
+
+    /** `Chat-Tablette`: her face and her name, the threads and the ✕ — no loupe. */
+    @Test
+    fun `the header names Maggie with her face, and has the threads but no search`() {
+        val chat = FakeChat()
+        compose.setContent { ChatPanel(viewModel = chat.viewModel, onClosePanel = {}) }
+
+        compose.onNodeWithText("Maggie").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CHAT_THREADS).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Rechercher").assertDoesNotExist()
     }
 
     @Test
@@ -90,7 +112,7 @@ class ChatPanelScreenTest {
      * tablet has instead of the bar.
      */
     @Test
-    fun `the mic is on the panel, and the threads are an icon of its header beside the search`() {
+    fun `the mic is on the panel, and the threads are an icon of its header`() {
         var micTaps = 0
         var threadTaps = 0
         val chat = FakeChat()
@@ -107,7 +129,6 @@ class ChatPanelScreenTest {
 
         assertEquals(1, micTaps)
         assertEquals(1, threadTaps)
-        compose.onNodeWithContentDescription("Rechercher").assertIsDisplayed()
         compose.onNodeWithContentDescription("Fils de discussion").assertIsDisplayed()
     }
 }

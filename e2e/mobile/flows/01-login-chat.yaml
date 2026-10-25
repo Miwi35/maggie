@@ -42,9 +42,28 @@ tags:
       id: "home_screen"
     timeout: 20000
 
-# The chat, from the bar every main screen carries. By id and not by its
-# placeholder: « Demander à Maggie... » is on screen twice once the sheet opens.
+# The bar under the content (MAG-624, `Tel-Cible`): the field and the mic on its right. The
+# header is the menu and the title — no search nor bell, they are in the drawer.
+- assertVisible:
+    id: "chat_open"
+- assertVisible:
+    id: "chat_mic"
+- assertNotVisible: "Rechercher"
+
+# The chat, from the bar every main screen carries. By id and not by its text.
 - runFlow: ../subflows/open-chat.yaml
+
+# The sheet (`Chat-Tel`): Chat | Mind as a pill, the threads and the ✕ in the header.
+# On the 840 dp tablet the drawer is folded to Maggie's portrait, which `open-chat.yaml`
+# taps through the same `chat_open`.
+- extendedWaitUntil:
+    visible:
+      id: "chat_tab"
+    timeout: 20000
+- assertVisible:
+    id: "mind_tab"
+- assertVisible:
+    id: "chat_threads"
 
 # Waited for rather than asserted: the sheet is a window being created, and the
 # `tapOn` below would wait on its own — but then a failure would read as "the tap

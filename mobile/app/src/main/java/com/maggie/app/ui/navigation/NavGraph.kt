@@ -79,6 +79,7 @@ import com.maggie.app.ui.components.ChatPanel
 import com.maggie.app.ui.components.ChatRailActions
 import com.maggie.app.data.fcm.PushIntents
 import com.maggie.app.ui.components.ChatSheet
+import com.maggie.app.ui.components.MaggiePortrait
 import com.maggie.app.ui.interruption.InterruptionHost
 import com.maggie.app.ui.components.ContextListSheet
 import com.maggie.app.ui.components.MaggieNavigationRail
@@ -702,6 +703,7 @@ fun NavGraph() {
     val subtasksViewModel: SubtasksViewModel = koinViewModel()
     val recurringGroceryViewModel: RecurringGroceryViewModel = koinViewModel()
     var showChatSheet by rememberSaveable { mutableStateOf(false) }
+    var chatPanelOpen by rememberSaveable { mutableStateOf(false) }
     val chatSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showContextSheet by rememberSaveable { mutableStateOf(false) }
     val contextSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1011,6 +1013,12 @@ fun NavGraph() {
         if (chrome.showsRail) drawerState.close()
     }
 
+    // Every way into the conversation: the drawer on a wide window, where Maggie is folded to her
+    // portrait until asked for (MAG-624), the sheet elsewhere.
+    fun openChat() {
+        if (chrome.showsChatPanel) chatPanelOpen = true else showChatSheet = true
+    }
+
     // The mic: voice mode needs the permission first, and it always opens the sheet —
     // even behind the panel, which has no push-to-talk bar of its own.
     fun startVoiceMode() {
@@ -1039,6 +1047,7 @@ fun NavGraph() {
                     currentRoute = currentRoute,
                     onNavigate = ::navigateTo,
                     onCloseDrawer = { scope.launch { drawerState.close() } },
+                    unreadNotifications = notificationUiState.unreadCount,
                 )
             },
             rail = if (chrome.showsRail) {
@@ -1049,7 +1058,7 @@ fun NavGraph() {
                         chatAction = if (chrome.showsChatInRail) {
                             {
                                 ChatRailActions(
-                                    onOpenChat = { showChatSheet = true },
+                                    onOpenChat = ::openChat,
                                     onMicClick = ::startVoiceMode,
                                 )
                             }
@@ -1061,14 +1070,20 @@ fun NavGraph() {
             } else {
                 null
             },
-            chatPanel = if (chrome.showsChatPanel) {
+            chatPanel = if (chrome.showsChatPanel && chatPanelOpen) {
                 {
                     ChatPanel(
                         viewModel = chatViewModel,
                         onMicClick = ::startVoiceMode,
                         onOpenThreads = { showContextSheet = true },
+                        onClosePanel = { chatPanelOpen = false },
                     )
                 }
+            } else {
+                null
+            },
+            chatPortrait = if (chrome.showsChatPanel && !chatPanelOpen) {
+                { MaggiePortrait(onClick = { chatPanelOpen = true }) }
             } else {
                 null
             },
@@ -1095,13 +1110,14 @@ fun NavGraph() {
                             onNotificationsClick = { navigateTo(Screen.Notifications.route) },
                             onSearchClick = { navigateTo(Screen.Search.route) },
                             dense = chrome.denseTopBar,
+                            actionsInBar = chrome.showsRail,
                         )
                     }
                 },
                 bottomBar = {
                     if (chrome.showsChatBar) {
                         ChatBottomBar(
-                            onOpenChat = { showChatSheet = true },
+                            onOpenChat = ::openChat,
                             onMicClick = ::startVoiceMode,
                         )
                     }
@@ -1111,7 +1127,9 @@ fun NavGraph() {
                     route = currentRoute,
                     navController = navController,
                     startDestination = Screen.Loading.route,
-                    modifier = Modifier.padding(paddingValues).clearOfNavigationBar(paidByChatBar = chrome.showsChatBar),
+                    modifier = Modifier.padding(paddingValues).clearOfNavigationBar(
+                        paidByChatBar = chrome.showsChatBar || (chrome.showsChatPanel && !chatPanelOpen),
+                    ),
                     enterTransition = { fadeIn() },
                     exitTransition = { fadeOut() },
                     popEnterTransition = { fadeIn() },
@@ -1972,7 +1990,7 @@ fun NavGraph() {
                         PlacementFormPage(navController, entry)
                     }
                     composable(Screen.FinanceReviewActivity.route, deepLinks = DeepLinks.forRoute(Screen.FinanceReviewActivity.route)) {
-                        ReviewActivityPage(navController, onOpenMaggie = { showChatSheet = true })
+                        ReviewActivityPage(navController, onOpenMaggie = ::openChat)
                     }
                     composable(
                         Screen.CookingActivity.route,
@@ -1985,7 +2003,7 @@ fun NavGraph() {
                         },
                         deepLinks = DeepLinks.forRoute(Screen.CookingActivity.route),
                     ) {
-                        CookingActivityPage(navController, onOpenMaggie = { showChatSheet = true })
+                        CookingActivityPage(navController, onOpenMaggie = ::openChat)
                     }
                     composable(Screen.Independence.route, deepLinks = DeepLinks.forRoute(Screen.Independence.route)) {
                         IndependenceScreen(koinViewModel<FinanceDashboardViewModel>())
@@ -2172,6 +2190,7 @@ fun NavGraph() {
             },
             voiceManager = if (voiceModeActive) voiceManager else null,
             onOpenThreads = { showContextSheet = true },
+            onMicClick = ::startVoiceMode,
         )
     }
 
@@ -2268,7 +2287,7 @@ fun NavGraph() {
     if (linkReady) {
         InterruptionHost(
             onOpenLink = { navController.handleDeepLink(PushIntents.open(context, it, toLink = true)) },
-            onOpenChat = { showChatSheet = true },
+            onOpenChat = ::openChat,
         )
     }
 

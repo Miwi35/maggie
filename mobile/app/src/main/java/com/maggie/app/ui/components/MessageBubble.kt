@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,7 +28,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -51,6 +49,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -85,9 +84,11 @@ fun DecisionLine(text: String) {
  *   No confirmation: one message takes nothing else with it, and « Annuler » follows.
  *   A long press had no other use here, so the menu has no « Copier » to sit beside.
  * @param onEdit set on the last message of the user only: « Modifier » puts it back in the input (MAG-320).
- * @param onRate when set, an answer of Maggie's has a thumb up and a thumb down under it
- *   (MAG-23): called with the new rating — `null` when the selected thumb is tapped again.
- *   Never on a question. The word on why that follows a thumb down is [FeedbackCommentDialog].
+ * @param onRate when set, a long press on an answer of Maggie's offers a thumb up and a thumb
+ *   down (MAG-23): called with the new rating — `null` when the selected thumb is chosen again.
+ *   Never on a question. The mock-ups draw no thumbs under the answers (MAG-624), so they live
+ *   in the menu rather than leave the app. The word on why that follows a thumb down is
+ *   [FeedbackCommentDialog].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -112,17 +113,25 @@ fun MessageBubble(
     )
     var menuOpen by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
+    val canRate = onRate != null && !isUser
+    val hasMenu = onDelete != null || canRate
 
-    val gestures = if (onClick != null || onDelete != null) {
+    val gestures = if (onClick != null || hasMenu) {
         Modifier.combinedClickable(
             onClick = { onClick?.invoke() },
-            onLongClick = onDelete?.let {
+            onLongClick = if (hasMenu) {
                 {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     menuOpen = true
                 }
+            } else {
+                null
             },
-            onLongClickLabel = onDelete?.let { "Supprimer le message" },
+            onLongClickLabel = when {
+                onDelete != null -> "Supprimer le message"
+                canRate -> "Noter la réponse"
+                else -> null
+            },
         )
     } else {
         Modifier
@@ -173,7 +182,7 @@ fun MessageBubble(
                     }
                 }
 
-                if (onDelete != null) {
+                if (hasMenu) {
                     // A popup is a window of its own, so it carries its own tag root (MAG-98).
                     DropdownMenu(
                         expanded = menuOpen,
@@ -191,56 +200,61 @@ fun MessageBubble(
                                 modifier = Modifier.testTag(UiTags.MESSAGE_EDIT),
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text("Supprimer") },
-                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
-                            onClick = {
-                                menuOpen = false
-                                onDelete()
-                            },
-                            modifier = Modifier.testTag(UiTags.MESSAGE_DELETE),
-                        )
+                        if (canRate) {
+                            FeedbackMenuItems(
+                                feedback = message.feedback,
+                                onRate = {
+                                    menuOpen = false
+                                    onRate(it)
+                                },
+                            )
+                        }
+                        if (onDelete != null) {
+                            DropdownMenuItem(
+                                text = { Text("Supprimer") },
+                                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    onDelete()
+                                },
+                                modifier = Modifier.testTag(UiTags.MESSAGE_DELETE),
+                            )
+                        }
                     }
                 }
-            }
-
-            if (onRate != null && !isUser) {
-                FeedbackThumbs(feedback = message.feedback, onRate = onRate)
             }
         }
     }
 }
 
 /**
- * The two thumbs under an answer (MAG-23). Tapping the selected one takes it back; a thumb
- * down is recorded at once, and the ViewModel then offers [FeedbackCommentDialog].
+ * The two thumbs in the menu of an answer (MAG-23). Choosing the selected one takes it back; a
+ * thumb down is recorded at once, and the ViewModel then offers [FeedbackCommentDialog].
  */
 @Composable
-private fun FeedbackThumbs(feedback: String?, onRate: (rating: String?) -> Unit) {
-    Row {
-        IconToggleButton(
-            checked = feedback == MessageFeedback.UP,
-            onCheckedChange = { checked -> onRate(MessageFeedback.UP.takeIf { checked }) },
-            modifier = Modifier.testTag(UiTags.MESSAGE_THUMB_UP),
-        ) {
-            Icon(
-                if (feedback == MessageFeedback.UP) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
-                contentDescription = "Réponse utile",
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        IconToggleButton(
-            checked = feedback == MessageFeedback.DOWN,
-            onCheckedChange = { checked -> onRate(MessageFeedback.DOWN.takeIf { checked }) },
-            modifier = Modifier.testTag(UiTags.MESSAGE_THUMB_DOWN),
-        ) {
-            Icon(
-                if (feedback == MessageFeedback.DOWN) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
-                contentDescription = "Réponse à revoir",
-                modifier = Modifier.size(18.dp),
-            )
-        }
-    }
+private fun FeedbackMenuItems(feedback: String?, onRate: (rating: String?) -> Unit) {
+    val up = feedback == MessageFeedback.UP
+    val down = feedback == MessageFeedback.DOWN
+    DropdownMenuItem(
+        text = { Text("Réponse utile") },
+        leadingIcon = {
+            Icon(if (up) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp, contentDescription = null)
+        },
+        onClick = { onRate(MessageFeedback.UP.takeIf { !up }) },
+        modifier = Modifier
+            .testTag(UiTags.MESSAGE_THUMB_UP)
+            .semantics { selected = up },
+    )
+    DropdownMenuItem(
+        text = { Text("Réponse à revoir") },
+        leadingIcon = {
+            Icon(if (down) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown, contentDescription = null)
+        },
+        onClick = { onRate(MessageFeedback.DOWN.takeIf { !down }) },
+        modifier = Modifier
+            .testTag(UiTags.MESSAGE_THUMB_DOWN)
+            .semantics { selected = down },
+    )
 }
 
 /**

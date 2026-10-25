@@ -2335,7 +2335,8 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         sx={{
           display: { xs: 'flex', md: 'none' },
           position: 'fixed',
-          bottom: 24,
+          // Above Maggie's 64px portrait, which holds the corner (MAG-624).
+          bottom: 24 + 64 + 16,
           right: 24,
           zIndex: (theme) => theme.zIndex.speedDial,
         }}

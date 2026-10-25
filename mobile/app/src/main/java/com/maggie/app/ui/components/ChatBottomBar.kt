@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -12,9 +14,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
@@ -27,10 +31,10 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 
 /**
- * The band under the content: the mic, and the field that opens the
- * conversation. Drawn on a window tall enough to pay 72 dp for it —
- * [com.maggie.app.ui.layout.ChatEntry.BOTTOM_BAR]. A short window gets
- * [ChatRailActions] instead.
+ * The band under the content, as `charte/Tel-Cible` draws it (MAG-624): the field that opens the
+ * conversation with Maggie's face inside it, and the mic as a filled violet button on the right.
+ * Drawn on a window tall enough to pay 72 dp for it — [com.maggie.app.ui.layout.ChatEntry.BOTTOM_BAR].
+ * A short window gets [ChatRailActions] instead.
  */
 @Composable
 fun ChatBottomBar(
@@ -47,26 +51,34 @@ fun ChatBottomBar(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ChatMicButton(onMicClick)
-
-            Spacer(modifier = Modifier.width(8.dp))
-
             Surface(
                 modifier = Modifier
                     .weight(1f)
                     .testTag(UiTags.CHAT_OPEN)
                     .clickable(onClick = onOpenChat),
-                shape = MaterialTheme.shapes.small,
+                shape = CircleShape,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 color = MaterialTheme.colorScheme.surface,
             ) {
-                Text(
-                    text = "Demander à Maggie...",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                ) {
+                    MaggieAvatar(size = 32.dp, modifier = Modifier.testTag(UiTags.CHAT_AVATAR))
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Text(
+                        text = "Demander à Maggie...",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            ChatMicFilledButton(onMicClick)
         }
     }
 }
@@ -104,6 +116,21 @@ fun ChatRailActions(
 @Composable
 internal fun ChatMicButton(onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.testTag(UiTags.CHAT_MIC)) {
+        Icon(Icons.Default.Mic, contentDescription = "Micro")
+    }
+}
+
+/** The mic as the mock-ups draw it: a filled violet button. The bar's, and the sheet's input row's. */
+@Composable
+internal fun ChatMicFilledButton(onClick: () -> Unit) {
+    FilledIconButton(
+        onClick = onClick,
+        modifier = Modifier.size(48.dp).testTag(UiTags.CHAT_MIC),
+        colors = IconButtonDefaults.filledIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ),
+    ) {
         Icon(Icons.Default.Mic, contentDescription = "Micro")
     }
 }

@@ -20,17 +20,19 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -76,6 +78,7 @@ fun ChatSheet(
     onDismiss: () -> Unit,
     voiceManager: VoiceManager? = null,
     onOpenThreads: () -> Unit = {},
+    onMicClick: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberChatListState(viewModel)
@@ -93,7 +96,6 @@ fun ChatSheet(
         ModalBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
-            dragHandle = null,
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             modifier = Modifier.fillMaxHeight(0.85f),
         ) {
@@ -101,7 +103,7 @@ fun ChatSheet(
             // `uiTagRoot()` goes here too (MAG-98): without it `voice_state` and
             // `chat_close` are invisible to Maestro.
             Column(modifier = Modifier.fillMaxWidth().uiTagRoot()) {
-                ChatHeader(onClose = onDismiss, onSearch = viewModel::openSearch, onThreads = onOpenThreads)
+                ChatHeader(onClose = onDismiss, onThreads = onOpenThreads)
 
                 ChatTabbedBody(
                     viewModel = viewModel,
@@ -170,7 +172,11 @@ fun ChatSheet(
                     tonalElevation = BottomSheetDefaults.Elevation,
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        ChatHeader(onClose = onDismiss, onSearch = viewModel::openSearch, onThreads = onOpenThreads)
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            BottomSheetDefaults.DragHandle()
+                        }
+
+                        ChatHeader(onClose = onDismiss, onThreads = onOpenThreads)
 
                         ChatTabbedBody(
                             viewModel = viewModel,
@@ -184,6 +190,7 @@ fun ChatSheet(
                             viewModel = viewModel,
                             isSending = uiState.isLoading,
                             focusRequester = focusRequester,
+                            leading = { ChatMicButton(onMicClick) },
                         )
                     }
                 }
@@ -208,6 +215,7 @@ fun ChatPanel(
     viewModel: ChatViewModel,
     onMicClick: () -> Unit = {},
     onOpenThreads: () -> Unit = {},
+    onClosePanel: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -232,7 +240,7 @@ fun ChatPanel(
                     WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End),
                 ),
         ) {
-            ChatHeader(onClose = null, onSearch = viewModel::openSearch, onThreads = onOpenThreads)
+            ChatHeader(onClose = onClosePanel, onThreads = onOpenThreads, showsIdentity = true)
 
             ChatTabbedBody(
                 viewModel = viewModel,
@@ -358,27 +366,32 @@ private fun ChatSnackbarHost(viewModel: ChatViewModel) {
     SnackbarHost(hostState)
 }
 
-/** @param onClose `null` in the permanent panel, which is not an overlay to dismiss. */
+/**
+ * The threads and the ✕, nothing else (MAG-624, `Chat-Tel`): the sheet has no title and no
+ * search — the search button opened nothing the app bar does not already open.
+ *
+ * @param onClose `null` when there is nothing to dismiss.
+ * @param showsIdentity the tablet's drawer names its owner — Maggie's face and her name — since
+ * nothing else on the page says whose conversation it is; the sheet comes from her field.
+ */
 @Composable
-private fun ChatHeader(onClose: (() -> Unit)?, onSearch: () -> Unit, onThreads: () -> Unit) {
+private fun ChatHeader(onClose: (() -> Unit)?, onThreads: () -> Unit, showsIdentity: Boolean = false) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 16.dp, end = 4.dp, top = 4.dp),
     ) {
-        Text(
-            text = "Maggie",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.align(Alignment.CenterStart),
-        )
+        if (showsIdentity) {
+            Row(modifier = Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
+                MaggieAvatar(size = 32.dp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(text = "Maggie", style = MaterialTheme.typography.titleMedium)
+            }
+        }
         Row(modifier = Modifier.align(Alignment.CenterEnd)) {
-            // The threads are how the one conversation is filed: a discreet icon beside the
-            // search, which is the other way of finding something in it (MAG-342).
+            // The threads are how the one conversation is filed: a discreet icon (MAG-342).
             IconButton(onClick = onThreads, modifier = Modifier.testTag(UiTags.CHAT_THREADS)) {
                 Icon(Icons.Outlined.Forum, contentDescription = "Fils de discussion")
-            }
-            IconButton(onClick = onSearch) {
-                Icon(Icons.Default.Search, contentDescription = "Rechercher")
             }
             if (onClose != null) {
                 IconButton(onClick = onClose, modifier = Modifier.testTag(UiTags.CHAT_CLOSE)) {
@@ -440,22 +453,28 @@ private fun ChatInputRow(
                 .weight(1f)
                 .testTag(UiTags.CHAT_INPUT)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it },
-            placeholder = { Text("Demander à Maggie...") },
+            placeholder = { Text("Écrire à Maggie…") },
             singleLine = true,
+            shape = CircleShape,
         )
         Spacer(modifier = Modifier.width(8.dp))
         if (uiState.answering) {
-            IconButton(onClick = viewModel::stop, modifier = Modifier.testTag(UiTags.CHAT_STOP)) {
+            FilledIconButton(
+                onClick = viewModel::stop,
+                modifier = Modifier.testTag(UiTags.CHAT_STOP),
+                colors = IconButtonDefaults.filledIconButtonColors(),
+            ) {
                 Icon(Icons.Default.Stop, contentDescription = "Arrêter")
             }
         } else {
-            IconButton(
+            FilledIconButton(
                 onClick = {
                     viewModel.sendMessage(input.text)
                     input = TextFieldValue("")
                 },
                 modifier = Modifier.testTag(UiTags.CHAT_SEND),
                 enabled = input.text.isNotBlank() && !isSending,
+                colors = IconButtonDefaults.filledIconButtonColors(),
             ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Envoyer")
             }
