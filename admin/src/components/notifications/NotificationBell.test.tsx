@@ -547,3 +547,46 @@ describe('NotificationBell — a missing product (MAG-570)', () => {
     expect(screen.queryByText(shortage.title)).toBeNull()
   })
 })
+
+describe('NotificationBell — a cooking timer that rang (MAG-582)', () => {
+  const rang = {
+    ...dentistPayload,
+    id: '01K0TIMR',
+    type: 'cooking_timer',
+    title: "Pâtes : c'est prêt",
+    body: "minuteur de l'étape 3 · Pâtes aux légumes",
+    relatedEntityIri: '/api/cooking/timers/01K0TIMER000000000000000A',
+    createdAt: '2026-10-25T19:00:00+00:00',
+  }
+
+  beforeEach(() => {
+    refetch.mockReset()
+    update.mockReset()
+    redirect.mockReset()
+    listed = []
+  })
+
+  test('is listed with its body, unread, and opens no screen', async () => {
+    update.mockResolvedValue({ data: { ...rang, id: iri('01K0TIMR'), readAt: '2026-10-25T19:01:00+00:00' } })
+    render(<NotificationBell />)
+
+    emit({ '@id': iri('01K0TIMR'), ...rang })
+
+    expect(unread()).toBe('1')
+    await openBell()
+    expect(screen.getByText("Pâtes : c'est prêt")).toBeInTheDocument()
+    expect(screen.getByText("minuteur de l'étape 3 · Pâtes aux légumes")).toBeInTheDocument()
+    await userEvent.click(screen.getByText("Pâtes : c'est prêt"))
+    expect(update).toHaveBeenCalledWith('notifications', expect.objectContaining({ id: iri('01K0TIMR') }))
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
+  test('leaves the unread count once « OK » in the activity marks it read', () => {
+    render(<NotificationBell />)
+    emit({ '@id': iri('01K0TIMR'), ...rang })
+
+    emit({ '@id': iri('01K0TIMR'), readAt: '2026-10-25T19:01:00+00:00' })
+
+    expect(unread()).toBe('')
+  })
+})

@@ -5,6 +5,7 @@ import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { veilleuseDarkTheme } from '../../../theme'
 import { CookingActivityPage } from './CookingActivityPage'
+import { fakeTimersApi } from './fakeTimersApi'
 
 vi.mock('../../../components/chat/ChatWidget', () => ({ ChatWidget: () => null }))
 
@@ -54,8 +55,13 @@ const RECIPES: Record<string, { name: string; steps: unknown[] }> = {
   SALAD: { name: 'Salade', steps: [step(1, 'Laver la salade')] },
 }
 
-const fakeFetch = (input: RequestInfo | URL) => {
+// The steps in the background start their timer (MAG-582): the API keeps them.
+let timersApi = fakeTimersApi()
+
+const fakeFetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input)
+  const timers = timersApi.handle(url, init)
+  if (timers) return timers
   const respond = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
   if (url === '/api/meals/MEAL') return respond({ id: 'MEAL', guests: 4, recipes: ['/api/recipes/REF', '/api/recipes/SALAD'] })
   const recipe = url.match(/^\/api\/recipes\/([^?]+)(?:\?guests=(\d+))?$/)
@@ -87,10 +93,21 @@ const startReference = async () => {
 }
 
 const stepText = () => screen.getByTestId('cooking-step-text').textContent
+const stepNumber = () => screen.getByTestId('cooking-step-number').textContent
+
+/** → once per step: a step in the background posts its timer first, so each move is awaited. */
+const pressNext = async (times = 1) => {
+  for (let count = 0; count < times; count++) {
+    const from = stepNumber()
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => expect(stepNumber()).not.toBe(from))
+  }
+}
 
 describe('The steps of the Cuisine activity (MAG-581)', () => {
   beforeEach(() => {
     sessionStorage.clear()
+    timersApi = fakeTimersApi()
     vi.stubGlobal('fetch', vi.fn(fakeFetch))
     Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { configurable: true, writable: true, value: () => Promise.reject(new Error('refused')) })
   })
@@ -107,7 +124,8 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
     expect(within(screen.getByTestId('cooking-step-needs')).getByText('Casserole')).toBeInTheDocument()
     expect(screen.getByTestId('cooking-upnext')).toHaveTextContent('Ensuite · Couper les légumes')
 
-    await userEvent.click(screen.getByRole('button', { name: /Suivant/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Lancer et continuer' }))
+    await waitFor(() => expect(stepText()).toBe('Couper les légumes'))
     const ingredients = screen.getAllByTestId('cooking-step-ingredient')
     expect(ingredients).toHaveLength(1)
     expect(ingredients[0]).toHaveTextContent('300')
@@ -123,15 +141,14 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
     await screen.findByTestId('cooking-preparation')
     await waitFor(() => expect(screen.getByRole('button', { name: "C'est parti" })).toBeEnabled())
     await userEvent.click(screen.getByRole('button', { name: "C'est parti" }))
-    await userEvent.click(screen.getByRole('button', { name: /Suivant/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Lancer et continuer' }))
 
     await waitFor(() => expect(screen.getByTestId('cooking-step-ingredient')).toHaveTextContent('600'))
   })
 
   test('the segments tell done, current and upcoming steps', async () => {
     await startReference()
-    await userEvent.click(screen.getByRole('button', { name: /Suivant/ }))
-    await userEvent.click(screen.getByRole('button', { name: /Suivant/ }).closest('footer')!.querySelector('button:last-child') as HTMLElement)
+    await pressNext(2)
 
     const states = screen.getAllByTestId('cooking-segment').map((segment) => segment.getAttribute('data-state'))
     expect(states).toEqual(['done', 'done', 'current', 'upcoming', 'upcoming'])
@@ -140,24 +157,23 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
 
   test('step 3 waits for the water; « C\'est prêt » lifts it', async () => {
     await startReference()
-    await userEvent.click(screen.getByRole('button', { name: /Suivant/ }))
-    await userEvent.click(screen.getByRole('button', { name: /Suivant/ }))
+    await pressNext(2)
 
     expect(screen.getByTestId('cooking-wait')).toHaveTextContent("Attend l'eau à bouillir · étape 1")
-    expect(screen.getByRole('button', { name: /Suivant/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Lancer et continuer' })).toBeDisabled()
 
     await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
 
     expect(screen.queryByTestId('cooking-wait')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /Suivant/ }))
-    expect(screen.getByTestId('cooking-step-number')).toHaveTextContent('4')
+    await userEvent.click(screen.getByRole('button', { name: 'Lancer et continuer' }))
+    await waitFor(() => expect(screen.getByTestId('cooking-step-number')).toHaveTextContent('4'))
   })
 
   test('step 5 waits for the pasta and the vegetables, and « C\'est prêt » forces both', async () => {
     await startReference()
-    await userEvent.keyboard('{ArrowRight}{ArrowRight}')
+    await pressNext(2)
     await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
-    await userEvent.keyboard('{ArrowRight}{ArrowRight}')
+    await pressNext(2)
 
     expect(screen.getByTestId('cooking-step-number')).toHaveTextContent('5')
     expect(screen.getByTestId('cooking-wait')).toHaveTextContent('Attend les pâtes et les légumes · étapes 3 et 4')
@@ -171,7 +187,7 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
     await startReference()
     expect(stepText()).toBe("Mettre l'eau à bouillir")
 
-    await userEvent.keyboard('{ArrowRight}')
+    await pressNext()
     expect(stepText()).toBe('Couper les légumes')
     await userEvent.keyboard(' ')
     expect(screen.getByTestId('cooking-step-number')).toHaveTextContent('3')
@@ -208,7 +224,7 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
 
   test('Espace on a focused button presses that button, not « Suivant »', async () => {
     await startReference()
-    await userEvent.keyboard('{ArrowRight}{ArrowRight}')
+    await pressNext(2)
     const ready = screen.getByRole('button', { name: "C'est prêt" })
     ready.focus()
 
@@ -233,7 +249,7 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
     const first = screen.getByTestId('cooking-step-content')
     expect(document.head.innerHTML).toMatch(/560ms/)
 
-    await userEvent.keyboard('{ArrowRight}')
+    await pressNext()
 
     expect(screen.getByTestId('cooking-step-content')).not.toBe(first)
   })
@@ -243,9 +259,10 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
     await screen.findByTestId('cooking-preparation')
 
     // The reference recipe: five steps, two held.
-    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}')
+    await userEvent.keyboard('{ArrowRight}')
+    await pressNext(2)
     await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
-    await userEvent.keyboard('{ArrowRight}{ArrowRight}')
+    await pressNext(2)
     await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
     await userEvent.keyboard('{ArrowRight}')
 
@@ -269,7 +286,8 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
     await screen.findByText('Pour combien ?')
     await userEvent.click(screen.getByRole('button', { name: 'Continuer' }))
     await screen.findByTestId('cooking-preparation')
-    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}')
+    await userEvent.keyboard('{ArrowRight}')
+    await pressNext(2)
     await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
     first.unmount()
 

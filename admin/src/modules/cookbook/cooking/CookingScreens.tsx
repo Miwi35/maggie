@@ -17,6 +17,7 @@ import { nameOf } from '../recipeSteps'
 import { MAX_GUESTS, MIN_GUESTS } from './cookingSession'
 import type { QueuedRecipe } from './cookingSession'
 import { stepIngredients, waitLabel } from './cookingSteps'
+import { clockOf } from './cookingTimers'
 
 /** Every main button of the activity: readable from the counter, hit with a floury thumb. */
 const BUTTON_HEIGHT = 64
@@ -371,13 +372,20 @@ const SegmentBar = ({ step, count }: { step: number; count: number }) => (
   </Box>
 )
 
-/** A step, one at a time: its number, its text, what it takes, what comes next, and what it waits for. */
+/**
+ * A step, one at a time: its number, its text, what it takes, what comes next, and what it waits for;
+ * at its side the timers (MAG-582). A step in the background starts its timer and goes on.
+ */
 export const StepScreen = ({
   step,
   steps,
   lines,
   pending,
+  waitRemaining,
   isLastOfAll,
+  launches,
+  busy,
+  timers,
   onPrevious,
   onNext,
   onReady,
@@ -386,7 +394,15 @@ export const StepScreen = ({
   steps: RecipeStep[]
   lines: RecipeLine[]
   pending: number[]
+  /** The longest rest of the awaited timers that run, in seconds; null when none was started. */
+  waitRemaining: number | null
   isLastOfAll: boolean
+  /** The main button is « Lancer et continuer »: the step's timer starts, then the next step. */
+  launches: boolean
+  /** A timer is being started: the main button waits for it. */
+  busy: boolean
+  /** The step's timer and the others, drawn at its side. */
+  timers: ReactNode
   onPrevious: () => void
   onNext: () => void
   onReady: () => void
@@ -402,70 +418,81 @@ export const StepScreen = ({
       <Screen id="step">
         <SegmentBar step={step} count={steps.length} />
         <Box
-          key={step}
-          data-testid="cooking-step-content"
           sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
             flex: 1,
-            justifyContent: 'center',
-            maxWidth: 1100,
-            py: 2,
-            '@media (prefers-reduced-motion: no-preference)': { animation: `${stepFade} 560ms ease-out` },
+            display: 'grid',
+            gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1.25fr) minmax(0, 1fr)' },
+            gap: { xs: 3, md: 8 },
+            alignItems: 'center',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
-            <Typography
-              component="span"
-              data-testid="cooking-step-number"
-              aria-hidden
-              sx={{ fontSize: { xs: 72, md: 104, lg: 120 }, lineHeight: 1, fontWeight: 700, color: 'primary.main', fontVariantNumeric: 'tabular-nums' }}
-            >
-              {step}
-            </Typography>
-            <Typography variant="overline" color="text.secondary" data-testid="cooking-step-count">
-              Étape {step} sur {steps.length}
-            </Typography>
-          </Box>
-          <Typography
-            data-testid="cooking-step-text"
-            sx={{ fontSize: { xs: 28, md: 40, lg: 46 }, lineHeight: 1.25, fontWeight: 500, maxWidth: '36ch' }}
+          <Box
+            key={step}
+            data-testid="cooking-step-content"
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              justifyContent: 'center',
+              minWidth: 0,
+              py: 2,
+              '@media (prefers-reduced-motion: no-preference)': { animation: `${stepFade} 560ms ease-out` },
+            }}
           >
-            {current.text}
-          </Typography>
-
-          {(ingredients.length > 0 || utensils.length > 0) && (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }} data-testid="cooking-step-needs">
-              {ingredients.map(({ key, name, line }) => (
-                <Chip
-                  key={key}
-                  data-testid="cooking-step-ingredient"
-                  label={line ? `${quantityLabel(line.quantity, line.unit)} ${name}`.trim() : name}
-                  sx={{ fontSize: '1.125rem', height: 44 }}
-                />
-              ))}
-              {utensils.map((name) => (
-                <Chip key={name} data-testid="cooking-step-utensil" variant="outlined" label={name} sx={{ fontSize: '1.125rem', height: 44 }} />
-              ))}
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+              <Typography
+                component="span"
+                data-testid="cooking-step-number"
+                aria-hidden
+                sx={{ fontSize: { xs: 72, md: 104, lg: 120 }, lineHeight: 1, fontWeight: 700, color: 'primary.main', fontVariantNumeric: 'tabular-nums' }}
+              >
+                {step}
+              </Typography>
+              <Typography variant="overline" color="text.secondary" data-testid="cooking-step-count">
+                Étape {step} sur {steps.length}
+              </Typography>
             </Box>
-          )}
-
-          {waiting && (
-            <Alert
-              severity="warning"
-              icon={false}
-              data-testid="cooking-wait"
-              sx={{ alignItems: 'center', fontSize: '1.25rem', '& .MuiAlert-action': { pt: 0 } }}
-              action={
-                <Button data-testid="cooking-ready" variant="outlined" color="inherit" onClick={onReady} sx={{ minHeight: BUTTON_HEIGHT, px: 3 }}>
-                  C'est prêt
-                </Button>
-              }
+            <Typography
+              data-testid="cooking-step-text"
+              sx={{ fontSize: { xs: 28, md: 40, lg: 46 }, lineHeight: 1.25, fontWeight: 500, maxWidth: '36ch' }}
             >
-              {waitLabel(steps, pending)}
-            </Alert>
-          )}
+              {current.text}
+            </Typography>
+
+            {(ingredients.length > 0 || utensils.length > 0) && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }} data-testid="cooking-step-needs">
+                {ingredients.map(({ key, name, line }) => (
+                  <Chip
+                    key={key}
+                    data-testid="cooking-step-ingredient"
+                    label={line ? `${quantityLabel(line.quantity, line.unit)} ${name}`.trim() : name}
+                    sx={{ fontSize: '1.125rem', height: 44 }}
+                  />
+                ))}
+                {utensils.map((name) => (
+                  <Chip key={name} data-testid="cooking-step-utensil" variant="outlined" label={name} sx={{ fontSize: '1.125rem', height: 44 }} />
+                ))}
+              </Box>
+            )}
+
+            {waiting && (
+              <Alert
+                severity="warning"
+                icon={false}
+                data-testid="cooking-wait"
+                sx={{ alignItems: 'center', fontSize: '1.25rem', '& .MuiAlert-action': { pt: 0 } }}
+                action={
+                  <Button data-testid="cooking-ready" variant="outlined" color="inherit" onClick={onReady} sx={{ minHeight: BUTTON_HEIGHT, px: 3 }}>
+                    C'est prêt
+                  </Button>
+                }
+              >
+                {waitLabel(steps, pending)}
+                {waitRemaining !== null && ` · encore ${clockOf(waitRemaining)}`}
+              </Alert>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, py: 2 }}>{timers}</Box>
         </Box>
 
         {following && (
@@ -479,10 +506,10 @@ export const StepScreen = ({
         <Button
           variant="contained"
           onClick={onNext}
-          disabled={waiting}
+          disabled={waiting || busy}
           sx={{ minWidth: { xs: 0, md: 280 }, flex: { xs: 1, md: 'none' } }}
         >
-          {isLastOfAll ? 'Repas servi' : 'Suivant →'}
+          {launches ? 'Lancer et continuer' : isLastOfAll ? 'Repas servi' : 'Suivant →'}
         </Button>
       </Footer>
     </>
