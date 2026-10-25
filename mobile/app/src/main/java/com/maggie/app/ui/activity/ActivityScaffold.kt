@@ -49,6 +49,8 @@ private val HEADER_BUTTON = 56.dp
  * something would be lost, such as a running timer — leaving asks « Quitter l'activité ? » first, and
  * [confirmDetail] says what.
  *
+ * The background is the night with the module's colour as a radial halo (MAG-617); no activity draws its own.
+ *
  * The immersion is taken when the frame enters the composition and given back when it leaves it, whichever way
  * it leaves: ✕, back, a link, the process.
  */
@@ -104,7 +106,9 @@ fun ActivityScaffold(
             modifier = modifier.fillMaxSize().testTag(UiTags.ACTIVITY_SCAFFOLD),
             color = MaterialTheme.colorScheme.background,
         ) {
-            Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+            Column(
+                modifier = Modifier.fillMaxSize().activityHalo(MaterialTheme.colorScheme.primary).safeDrawingPadding(),
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,

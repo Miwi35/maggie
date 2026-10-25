@@ -170,6 +170,15 @@ describe('ReviewActivityPage', () => {
     fetchMock.mockReset()
   })
 
+  test('draws the Comptes mint as a radial halo on the night background (MAG-617)', async () => {
+    renderActivity()
+    await card()
+
+    const background = window.getComputedStyle(screen.getByTestId('review-activity')).backgroundImage
+    expect(background).toContain('radial-gradient(900px 600px at 85% 30%')
+    expect(background).toContain('rgba(127, 209, 174, 0.13)')
+  })
+
   test('shows the first line, its counter, the five segments and what comes next', async () => {
     renderActivity()
 

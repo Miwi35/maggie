@@ -50,6 +50,8 @@ import com.maggie.app.data.model.ReviewQueueItem
 import com.maggie.app.data.model.ReviewStep
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.activity.ActivityHalo
+import com.maggie.app.ui.activity.activityHalo
 import com.maggie.app.ui.components.CategorySearchDialog
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.MaggieCard
@@ -205,7 +207,11 @@ fun ReviewActivityScreen(
             modifier = Modifier.fillMaxSize().testTag(UiTags.REVIEW_ACTIVITY),
             color = MaterialTheme.colorScheme.background,
         ) {
-            Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .activityHalo(MaterialTheme.colorScheme.primary, ActivityHalo.Review)
+                    .safeDrawingPadding(),
+            ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     ReviewHeader(state = state, onQuit = onQuit, onOpenMaggie = onOpenMaggie)
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
