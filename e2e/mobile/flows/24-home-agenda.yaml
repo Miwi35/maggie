@@ -35,9 +35,13 @@ tags:
 - extendedWaitUntil:
     visible: ".*Point du matin.*"
     timeout: 20000
-- extendedWaitUntil:
-    visible:
+# The agenda sits under the tasks: on a tablet's 800 dp the line of now is below the fold, which a wait
+# does not scroll to.
+- scrollUntilVisible:
+    element:
       id: "home_agenda_now_line"
+    direction: DOWN
+    centerElement: true
     timeout: 20000
 # The 18:30 row sits below the fold on a phone, under the Tâches card: scroll to it.
 - scrollUntilVisible:

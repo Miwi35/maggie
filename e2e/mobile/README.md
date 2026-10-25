@@ -112,6 +112,12 @@ against an app nobody launched.
    `../subflows/open-chat.yaml` / `close-chat.yaml`. The nightly plays the phone, the foldable and the
    tablet: `nav_menu` does not exist from 600 dp (a rail replaces it), `chat_open`
    not from 840 dp (the conversation is already open). Lint refuses a direct tap.
+   **A screen is not laid out the same on every format** (MAG-611): from 600 dp a list can put a panel
+   above its rows (Projets: the scenarios, then the rows, the Gantt last), from 840 dp the chat panel turns
+   Comptes into a master-detail with no pager, and an 800 dp tall screen pushes a block under the fold. So
+   reach what you assert with `scrollUntilVisible` (`extendedWaitUntil` does not scroll), and branch on
+   `chat_panel` or on the phone-only id with `evalScript: ${0}` + `runFlow: when:` rather than assume the
+   phone's order. A phone-only rule belongs in a screen test, not in the journey.
 2. **`launchApp: clearState: true` and `permissions: all: allow`.** Without the
    first, a second run starts signed in and never sees the login screen; without
    the second, a runtime permission dialog belongs to the system UI and the step

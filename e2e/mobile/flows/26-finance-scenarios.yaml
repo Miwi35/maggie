@@ -3,7 +3,7 @@ name: 26-finance-scenarios
 tags:
   - finance
 ---
-# Les scénarios des projets, from the phone (MAG-551, extends MAG-102).
+# Les scénarios des projets, on every format (MAG-551, extends MAG-102; MAG-611 for the tablet's panel).
 #
 # Étant donné les projets du seed et aucun scénario courant
 # Quand j'ouvre Finance › Planification › Projets
@@ -37,20 +37,23 @@ tags:
 - runFlow: ../subflows/sign-in.yaml
 
 - openLink: "maggie-e2e://finance/projects"
+# The card on a phone, the panel on a tablet or a foldable (from 600 dp the scenarios sit above the list):
+# both say the same thing, and only the phone has a sheet to open.
 - extendedWaitUntil:
-    visible:
-      id: "scenario_current_card"
+    visible: ".*Aucun scénario courant.*"
     timeout: 30000
-# No scenario is current by default: the card says so and invites to pick one.
-- assertVisible: ".*Aucun scénario courant.*"
-
-# The card opens the sheet « Scénarios ».
-- tapOn:
-    id: "scenario_current_card"
-- extendedWaitUntil:
-    visible:
-      id: "scenario_sheet"
-    timeout: 20000
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "scenario_current_card"
+    commands:
+      - tapOn:
+          id: "scenario_current_card"
+      - extendedWaitUntil:
+          visible:
+            id: "scenario_sheet"
+          timeout: 20000
 - extendedWaitUntil:
     visible:
       id: "scenario_none"
@@ -60,9 +63,6 @@ tags:
       id: "scenario_make_current_.*"
     timeout: 20000
 
-# « Rapide » becomes the current scenario. The API stores the automatic scenario when it is made current:
-# its row's id is `auto-rapid` before and a ULID after, so no tag names it. The button is the one under
-# the row's title.
 - tapOn:
     text: "Rendre courant"
     below: "Rapide"
@@ -86,8 +86,15 @@ tags:
       ACTION: expect-current
       NAME: Rapide
 
-# Closing the sheet: the card behind it follows.
-- back
+# Closing the sheet: the card behind it follows. The panel of a tablet has no sheet to close (and a `back`
+# there would leave the screen).
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "scenario_sheet"
+    commands:
+      - back
 - extendedWaitUntil:
     visible: ".*Scénario courant · Rapide.*"
     timeout: 20000

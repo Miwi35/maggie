@@ -3,7 +3,7 @@ name: 23-finance-projects
 tags:
   - finance
 ---
-# Les projets de Planification, from the phone (MAG-519, extends MAG-102).
+# Les projets de Planification, on every format (MAG-519, extends MAG-102; MAG-611 for the wide layouts).
 #
 # Étant donné l'app sur Finance › Planification
 # Quand je touche la carte « Projets »
@@ -85,37 +85,12 @@ tags:
     visible:
       id: "projects"
     timeout: 30000
-# The Gantt of the planning: one line per project, Déménagement above Canapé.
-- extendedWaitUntil:
-    visible:
-      id: "project_gantt"
-    timeout: 30000
-- assertVisible: "Déménagement"
-- assertVisible: "Canapé"
-
-# The funding chart under it, read-only on a phone: scroll down to it, the legend names the sources.
-- scrollUntilVisible:
-    element:
-      id: "funding_chart"
-    timeout: 20000
-- extendedWaitUntil:
-    visible:
-      id: "funding_legend"
-    timeout: 10000
-- extendedWaitUntil:
-    visible: ".*Salaire.*"
-    timeout: 10000
-- extendedWaitUntil:
-    visible: ".*Économies.*"
-    timeout: 10000
-- extendedWaitUntil:
-    visible: ".*Capital libéré.*"
-    timeout: 10000
-
-# The chart pushes the list down: the rows are brought back into view before they are read.
+# The rows: scrolled to from the top, which reaches them on every format. The phone has the Gantt above the
+# list, a tablet or a foldable (from 600 dp) the scenarios above it and the Gantt under it.
 # A row is one node for accessibility: its texts are read together, hence the `.*`.
 - scrollUntilVisible:
     element: ".*1. Déménagement.*"
+    centerElement: true
     timeout: 20000
 - extendedWaitUntil:
     visible:
@@ -159,6 +134,51 @@ tags:
     visible:
       text: ".*2. Déménagement.*"
       below: ".*1. Canapé.*"
+    timeout: 30000
+
+# The Gantt of the planning: one line per project, in the new order. From the top again, so that the same
+# scroll down reaches it above the list (phone) or under it (tablet, foldable).
+- scrollUntilVisible:
+    element:
+      id: "project_gantt"
+    centerElement: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Déménagement"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Canapé"
+    timeout: 10000
+
+# The funding chart under it, read-only on a phone: scroll down to it, the legend names the sources.
+- scrollUntilVisible:
+    element:
+      id: "funding_chart"
+    centerElement: true
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "funding_legend"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ".*Salaire.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ".*Économies.*"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ".*Capital libéré.*"
+    timeout: 10000
+
+# Back on top for the row: it is above the chart on a tablet and under it on a phone.
+- openLink: "maggie-e2e://finance"
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_ring_week"
+    timeout: 30000
+- openLink: "maggie-e2e://finance/projects"
+- scrollUntilVisible:
+    element: ".*1. Canapé.*"
     timeout: 30000
 
 # ---------------------------------------------------------------------------
@@ -241,10 +261,12 @@ tags:
 - runFlow: ../subflows/sign-in.yaml
 
 - openLink: "maggie-e2e://finance/projects"
-- extendedWaitUntil:
-    visible: ".*1. Voiture.*"
+- scrollUntilVisible:
+    element: ".*1. Voiture.*"
     timeout: 30000
-- assertVisible: ".*économies \\+ emprunt \\+ salaire.*"
+- extendedWaitUntil:
+    visible: ".*économies \\+ emprunt \\+ salaire.*"
+    timeout: 10000
 - tapOn: ".*1. Voiture.*"
 - extendedWaitUntil:
     visible:

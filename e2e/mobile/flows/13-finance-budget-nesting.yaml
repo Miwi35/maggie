@@ -56,34 +56,47 @@ tags:
     timeout: 30000
 - assertVisible: "40[.,]00 EUR / 300[.,]00 EUR"
 - assertNotVisible: "Bars › Obsydian"
-# The phone only reads the tree: no way to create or delete an envelope. From 600 dp (tree pane) it can.
+# The phone only reads the tree (no « Nouvelle enveloppe », no bin): from 600 dp the same screen has both,
+# so nothing is asserted here on a format the flow cannot tell — `BudgetTreeScreenTest` owns the phone's side.
+
+# The phone folds the tree and opens a detail screen. From 840 dp (the tablet, with its chat panel) the
+# screen is the configuration pane: a flat tree, always open, its detail beside it, no « Déplier » and no
+# « Bars › Obsydian » path. `budget_tree` exists only there.
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "budget_tree"
+    commands:
+      # Obsydian 40 / 100 € is a row of its own under Loisirs 40 / 300 €.
+      - extendedWaitUntil:
+          visible: "Obsydian"
+          timeout: 10000
+      - assertVisible: "40[.,]00 EUR / 100[.,]00 EUR"
 - evalScript: ${0}
 - runFlow:
     when:
       notVisible:
         id: "budget_tree"
     commands:
-      - assertNotVisible: "Nouvelle enveloppe"
-
-# Unfolded: Obsydian 40 / 100 € nested under Loisirs 40 / 300 €.
-- tapOn: "Déplier Loisirs"
-- extendedWaitUntil:
-    visible: "Bars › Obsydian"
-    timeout: 10000
-- assertVisible: "40[.,]00 EUR / 100[.,]00 EUR"
-# Bars has no envelope: it only appears inside Obsydian's path.
-- assertNotVisible: "Bars"
-
-# Touching Loisirs lists the month's lines of the subtree, Obsydian's spend included.
-- tapOn: "Loisirs"
-- extendedWaitUntil:
-    visible:
-      id: "budget_detail"
-    timeout: 20000
-- extendedWaitUntil:
-    visible: "OBSYDIAN MAG-412"
-    timeout: 20000
-- back
+      # Unfolded: Obsydian 40 / 100 € nested under Loisirs 40 / 300 €.
+      - tapOn: "Déplier Loisirs"
+      - extendedWaitUntil:
+          visible: "Bars › Obsydian"
+          timeout: 10000
+      - assertVisible: "40[.,]00 EUR / 100[.,]00 EUR"
+      # Bars has no envelope: it only appears inside Obsydian's path.
+      - assertNotVisible: "Bars"
+      # Touching Loisirs lists the month's lines of the subtree, Obsydian's spend included.
+      - tapOn: "Loisirs"
+      - extendedWaitUntil:
+          visible:
+            id: "budget_detail"
+          timeout: 20000
+      - extendedWaitUntil:
+          visible: "OBSYDIAN MAG-412"
+          timeout: 20000
+      - back
 
 # A 25 € spend on Bars, while the screen is open: the period is reloaded.
 - runScript:
@@ -94,9 +107,26 @@ tags:
       TODAY: ${TODAY}
 # One reload at a time: the previous month is empty, then the shown one is read again.
 - tapOn: "Mois précédent"
-- extendedWaitUntil:
-    visible: "Aucune enveloppe pour cette période.*"
-    timeout: 30000
+# The phone and the foldable say the month is empty; the tablet's pane has no empty state, its tree just
+# loses Obsydian's figures.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "budget_tree"
+    commands:
+      - extendedWaitUntil:
+          visible: "Aucune enveloppe pour cette période.*"
+          timeout: 30000
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "budget_tree"
+    commands:
+      - extendedWaitUntil:
+          notVisible: "40[.,]00 EUR / 100[.,]00 EUR"
+          timeout: 30000
 - tapOn: "Mois suivant"
 
 - extendedWaitUntil:
@@ -195,11 +225,27 @@ tags:
 - extendedWaitUntil:
     visible: "Cinéma"
     timeout: 30000
-- scrollUntilVisible:
-    element: ".*45[.,]00 EUR · saison.*"
-- extendedWaitUntil:
-    visible: ".*45[.,]00 EUR · saison.*"
-    timeout: 30000
+# The season is named on the phone's and the foldable's cards; the tablet's tree rows carry the amount only.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "budget_tree"
+    commands:
+      - scrollUntilVisible:
+          element: ".*45[.,]00 EUR · saison.*"
+      - extendedWaitUntil:
+          visible: ".*45[.,]00 EUR · saison.*"
+          timeout: 30000
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "budget_tree"
+    commands:
+      - extendedWaitUntil:
+          visible: ".*45[.,]00 EUR.*"
+          timeout: 30000
 
 # Left as found.
 - runScript:
