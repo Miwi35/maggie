@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Button
 import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.navigation.DeepLinks
 import com.maggie.app.ui.navigation.ProvideFinanceNav
 import com.maggie.app.ui.navigation.financeSubviewState
 import com.maggie.app.ui.navigation.FinanceSection
@@ -166,7 +167,13 @@ private fun CurrentTab(
             }
             if (dashboard != null) {
                 dashboard.scores?.let { scores ->
-                    item { ScoreRings(week = scores.week, month = scores.month) }
+                    item {
+                        ScoreRings(
+                            week = scores.week,
+                            month = scores.month,
+                            onClassify = { onOpen(DeepLinks.REVIEW_TO_SORT_ROUTE) },
+                        )
+                    }
                     item { RhythmCurvePanel(week = scores.week.rhythm, month = scores.month.rhythm) }
                 }
                 dashboard.nextProject?.let { project -> item { NextProjectCard(project) } }

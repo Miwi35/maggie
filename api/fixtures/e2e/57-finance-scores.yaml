@@ -91,3 +91,17 @@ Maggie\Finance\Entity\Transaction:
     categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
     categorizedAt: '<e2eDate("first day of this month")>'
     user: '@e2e_scores_user'
+
+  # Debited on the 2nd and filed nowhere (MAG-643): the month's rhythm cannot be
+  # judged — « Rythme incomplet », 250 € non classés — while the week of the
+  # pinned 13th (Monday the 7th at the earliest) holds nothing unclassified and
+  # keeps its pace. Not in `spentCents`: the 1 000 € / 420 € left stay exact.
+  e2e_scores_unclassified:
+    account: '@e2e_scores_checking'
+    amountCents: -25000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month", "+1 day")>'
+    label: 'CARTE INCONNUE'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::None)>'
+    user: '@e2e_scores_user'

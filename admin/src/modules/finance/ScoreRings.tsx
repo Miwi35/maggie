@@ -1,12 +1,14 @@
 import { useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import ButtonBase from '@mui/material/ButtonBase'
+import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
-import { rhythmColor } from '../../design/tokens'
 import { formatCents } from './accountTypes'
-import { reasonText, remainingShare, RHYTHM_META } from './useFinanceScores'
+import { reviewLink } from './reviewFilter'
+import { reasonText, remainingShare, RHYTHM_META, rhythmStatusColour } from './useFinanceScores'
 import type { FinanceScores, PeriodScore } from './useFinanceScores'
 
 const SIZE = 148
@@ -18,14 +20,16 @@ interface ScoreRingProps {
   period: 'week' | 'month'
   title: string
   score: PeriodScore
+  /** `YYYY-MM` the « Classer » link opens the review on; the current month when absent. */
+  reviewMonth?: string
 }
 
-export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
+export const ScoreRing = ({ period, title, score, reviewMonth }: ScoreRingProps) => {
   const theme = useTheme()
   const [open, setOpen] = useState(false)
   const { rhythm } = score
   const meta = RHYTHM_META[rhythm.status]
-  const colour = rhythmColor(meta.color, theme.palette.mode)
+  const colour = rhythmStatusColour(rhythm.status, theme)
   const hasBudget = rhythm.budgetCents > 0
   const share = remainingShare(rhythm.remainingCents, rhythm.budgetCents)
   const expectedShare = remainingShare(rhythm.expectedRemainingCents, rhythm.budgetCents)
@@ -147,6 +151,19 @@ export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
         )}
       </ButtonBase>
 
+      {rhythm.unclassifiedCount > 0 && (
+        <Typography variant="caption" color="text.secondary" component="p" sx={{ m: 0 }} data-testid="ring-unclassified">
+          {formatCents(rhythm.unclassifiedCents)} non classés ·{' '}
+          <Link
+            component={RouterLink}
+            to={reviewLink({ state: 'unrecognised', month: reviewMonth })}
+            data-testid="ring-unclassified-link"
+          >
+            Classer
+          </Link>
+        </Typography>
+      )}
+
       {open && (
         <Box component="ul" data-testid="score-reasons" sx={{ m: 0, mt: 1, pl: 2, textAlign: 'left' }}>
           {score.reasons.length === 0 && (
@@ -180,7 +197,7 @@ interface ScoreRingsProps {
  */
 export const ScoreRings = ({ scores }: ScoreRingsProps) => (
   <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2 }} justifyContent="space-around">
-    <ScoreRing period="week" title="Semaine" score={scores.week} />
-    <ScoreRing period="month" title="Mois" score={scores.month} />
+    <ScoreRing period="week" title="Semaine" score={scores.week} reviewMonth={scores.date.slice(0, 7)} />
+    <ScoreRing period="month" title="Mois" score={scores.month} reviewMonth={scores.date.slice(0, 7)} />
   </Stack>
 )

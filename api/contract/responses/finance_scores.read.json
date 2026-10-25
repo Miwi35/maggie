@@ -17,6 +17,8 @@
             "expectedRemainingCents": 0,
             "status": "above",
             "label": "Au-dessus du rythme",
+            "unclassifiedCount": 0,
+            "unclassifiedCents": 0,
             "curve": [
                 {
                     "date": "2026-03-09",
@@ -87,6 +89,8 @@
             "expectedRemainingCents": -60000,
             "status": "above",
             "label": "Au-dessus du rythme",
+            "unclassifiedCount": 0,
+            "unclassifiedCents": 0,
             "curve": [
                 {
                     "date": "2026-03-01",

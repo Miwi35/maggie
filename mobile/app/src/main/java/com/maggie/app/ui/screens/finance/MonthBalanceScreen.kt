@@ -146,7 +146,7 @@ private fun ColumnScope.MonthBalanceCards(balance: MonthBalance, onOpenToQualify
     }
     MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            MonthScoreRing(balance.spending)
+            MonthScoreRing(balance.spending, onClassify = onOpenToQualify)
             RhythmCurve(rhythm = balance.spending.rhythm, title = "Mois")
         }
     }

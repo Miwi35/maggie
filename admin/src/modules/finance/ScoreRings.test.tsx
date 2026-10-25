@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
+import { MemoryRouter } from 'react-router-dom'
 import { veilleuseDarkTheme, veilleuseLightTheme } from '../../theme'
 import { TOKENS } from '../../design/tokens'
 import { ScoreRings } from './ScoreRings'
@@ -146,6 +147,77 @@ describe('ScoreRings', () => {
 
     expect(within(ring('week')).getByText('Aucune enveloppe')).toBeInTheDocument()
     expect(within(ring('week')).queryByTestId('rhythm-tick')).not.toBeInTheDocument()
+  })
+})
+
+describe('ScoreRings — debits nobody classified (MAG-643)', () => {
+  const incomplete = (overrides = {}) =>
+    rhythm({
+      status: 'incomplete',
+      label: 'Rythme incomplet',
+      spentCents: 0,
+      remainingCents: 100000,
+      unclassifiedCount: 3,
+      unclassifiedCents: 200000,
+      ...overrides,
+    })
+
+  const renderIncomplete = (value = scores({ month: period({ status: 'neutral', rhythm: incomplete() }) })) =>
+    render(
+      <MemoryRouter>
+        <ThemeProvider theme={theme}>
+          <ScoreRings scores={value} />
+        </ThemeProvider>
+      </MemoryRouter>,
+    )
+
+  test('an incomplete rhythm says so, in a neutral colour that is neither the mint of « Dans le rythme » nor the orange', () => {
+    renderIncomplete()
+
+    const month = ring('month')
+    expect(month.dataset.status).toBe('incomplete')
+    expect(within(month).getByText('Rythme incomplet')).toBeInTheDocument()
+    expect(within(month).queryByText('Dans le rythme')).not.toBeInTheDocument()
+    expect(arc('month')).toHaveAttribute('stroke', theme.palette.text.secondary)
+    expect(arc('month')).not.toHaveAttribute('stroke', TOKENS.rhythm.onTrack.dark)
+    expect(arc('month')).not.toHaveAttribute('stroke', TOKENS.rhythm.above.dark)
+  })
+
+  test('under the ring: the weight of what is not classed and a link to the review filtered on it, for the month shown', () => {
+    renderIncomplete()
+
+    const line = within(ring('month')).getByTestId('ring-unclassified')
+    expect(line).toHaveTextContent(`${money(200000)} non classés · Classer`)
+    expect(within(line).getByTestId('ring-unclassified-link')).toHaveAttribute(
+      'href',
+      '/finance/review?state=unrecognised&month=2026-10',
+    )
+  })
+
+  test('the line is absent from a ring whose debits are all classified', () => {
+    renderIncomplete()
+
+    expect(within(ring('week')).queryByTestId('ring-unclassified')).not.toBeInTheDocument()
+    expect(within(ring('week')).queryByText('Classer')).not.toBeInTheDocument()
+  })
+
+  test('its reason is written out when the ring is touched', async () => {
+    const user = userEvent.setup()
+    renderIncomplete(
+      scores({
+        month: period({
+          status: 'neutral',
+          reasons: [{ code: 'unclassified_debits', amountCents: 200000 }],
+          rhythm: incomplete(),
+        }),
+      }),
+    )
+
+    await user.click(within(ring('month')).getByRole('button'))
+
+    expect(within(ring('month')).getByTestId('score-reasons')).toHaveTextContent(
+      `${money(200000)} de débits sans catégorie, non comptés dans le rythme`,
+    )
   })
 })
 

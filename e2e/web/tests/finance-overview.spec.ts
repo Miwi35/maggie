@@ -261,9 +261,11 @@ test('the rings say what is left and in which state, and the curve marks the ren
   await expect(month.getByTestId('rhythm-tick')).toBeVisible()
   // The ring says where the pace stands, never the daily score (MAG-538). The
   // month's answer moves with the day the journey runs: 1 000 € spent is
-  // « in the rhythm » early in the month and « above » around the 13th.
-  expect(['on_track', 'above']).toContain(await month.getAttribute('data-status'))
-  await expect(month).toContainText(/Dans le rythme|Au-dessus du rythme/)
+  // « above » around the 13th, and while 250 € wait unclassified (MAG-643) it
+  // is never « in the rhythm », whatever the day.
+  expect(['incomplete', 'above']).toContain(await month.getAttribute('data-status'))
+  await expect(month).toContainText(/Rythme incomplet|Au-dessus du rythme/)
+  await expect(month).not.toContainText('Dans le rythme')
   await expect(month).not.toContainText(/Dans le vert|Dans les clous|Attention|Dépassement/)
 
   // A touch gives the reasons, and another one hides them.
@@ -274,13 +276,25 @@ test('the rings say what is left and in which state, and the curve marks the ren
   await expect(reasons).toBeHidden()
 
   // Nothing was booked in the pinned day's week (the rent is on the 5th, the
-  // groceries on the 1st): its pace is held.
+  // groceries on the 1st, the unclassified line on the 2nd): its pace is held.
   const week = overview.scoreRing('week')
   await expect(week).toBeVisible()
   await expect(week).toHaveAttribute('data-status', 'on_track')
   await expect(week).toContainText('Dans le rythme')
   await expect(week).not.toContainText(/Dans le vert|Dans les clous|Attention|Dépassement/)
 
+  // What the rhythm leaves out is said under the ring, sober, and one tap from
+  // the review of those very lines (MAG-643). The week holds none of them.
+  const unclassified = month.getByTestId('ring-unclassified')
+  await expect(unclassified).toContainText(`${euros(25000)} non classés`)
+  await expect(week.getByTestId('ring-unclassified')).toHaveCount(0)
+  await month.getByTestId('ring-unclassified-link').click()
+  await expect(scoresUser.page).toHaveURL(/\/finance\/review\?.*state=unrecognised/)
+  const review = new FinanceReviewPage(scoresUser.page)
+  await expect(review.row('CARTE INCONNUE')).toBeVisible()
+  await expect(review.row('LOYER')).toHaveCount(0)
+
+  await overview.open()
   const [year, monthNumber] = seedAnchorDate().split('-')
   const rent = overview.debitMarker('Loyer')
   await expect(rent).toHaveCount(1)

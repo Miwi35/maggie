@@ -30,6 +30,10 @@ use Symfony\Component\Uid\Ulid;
  * or more is orange, under 80 % is green, in between is neutral. The month
  * keeps its own rules on top (an envelope overrun caused by mandatory transactions is red,
  * a planned overrun orange, and green still needs what MAG-274 asks of it).
+ * The rhythm only sums classified debits. It carries the debits of the period
+ * nobody classified (`unclassifiedCount`, `unclassifiedCents`) and, while there
+ * are some and the pace looks fine, says « Rythme incomplet » rather than
+ * « Dans le rythme »: no verdict on data that is not all there (MAG-643).
  * A pure read: it publishes nothing and indexes nothing.
  */
 class GetFinanceScores
@@ -120,8 +124,12 @@ class GetFinanceScores
             $monthDays[] = sprintf('%s-%02d', $monthKey, $i);
         }
 
-        $month = $this->monthScore($user, $monthPlan, $this->rhythm($monthDays, $plans, $today, $monthPlan['budgetCents']));
-        $week = $this->weekScore($plans, $this->rhythm($weekDays, $plans, $today, null));
+        $tomorrow = $date->modify('+1 day');
+        $monthUnclassified = $this->transactionRepository->summariseUnclassifiedDebitsBetween($user, new \DateTimeImmutable($monthKey.'-01'), $tomorrow);
+        $weekUnclassified = $this->transactionRepository->summariseUnclassifiedDebitsBetween($user, $monday, $tomorrow);
+
+        $month = $this->monthScore($user, $monthPlan, $this->rhythm($monthDays, $plans, $today, $monthPlan['budgetCents'], $monthUnclassified));
+        $week = $this->weekScore($plans, $this->rhythm($weekDays, $plans, $today, null, $weekUnclassified));
         $year = $this->yearScore($monthPlan['annual']);
 
         $global = $month['status'];
@@ -213,13 +221,14 @@ class GetFinanceScores
     /**
      * The rhythm over a run of days, which may straddle two months.
      *
-     * @param list<string>                        $days   Y-m-d, in order
-     * @param array<string, array<string, mixed>> $plans  per Y-m
-     * @param int|null                            $budget the period's budget, or null to take what its pace sums to
+     * @param list<string>                        $days         Y-m-d, in order
+     * @param array<string, array<string, mixed>> $plans        per Y-m
+     * @param int|null                            $budget       the period's budget, or null to take what its pace sums to
+     * @param array{count: int, cents: int}       $unclassified the period's debits no category claims, up to today
      *
      * @return array<string, mixed>
      */
-    private function rhythm(array $days, array $plans, string $today, ?int $budget): array
+    private function rhythm(array $days, array $plans, string $today, ?int $budget, array $unclassified): array
     {
         $spentCumulative = 0;
         $debitsCumulative = 0;
@@ -266,7 +275,11 @@ class GetFinanceScores
         }
 
         $budget ??= $expected;
-        $status = $this->isAbove($spentToDate, $expectedToDate) ? RhythmStatus::Above : RhythmStatus::OnTrack;
+        $status = match (true) {
+            $this->isAbove($spentToDate, $expectedToDate) => RhythmStatus::Above,
+            $unclassified['count'] > 0 => RhythmStatus::Incomplete,
+            default => RhythmStatus::OnTrack,
+        };
 
         return [
             'budgetCents' => $budget,
@@ -276,6 +289,8 @@ class GetFinanceScores
             'expectedRemainingCents' => $budget - $expectedToDate,
             'status' => $status->value,
             'label' => $status->label(),
+            'unclassifiedCount' => $unclassified['count'],
+            'unclassifiedCents' => $unclassified['cents'],
             'curve' => $curve,
             'debits' => $debits,
         ];
@@ -306,7 +321,30 @@ class GetFinanceScores
             $status = DailyScore::Neutral;
         }
 
-        return ['status' => $status, 'reasons' => $reasons, 'rhythm' => $rhythm];
+        return $this->withUnclassified(['status' => $status, 'reasons' => $reasons, 'rhythm' => $rhythm]);
+    }
+
+    /**
+     * Debits nobody classified make a green « Dans le vert » a claim the data
+     * cannot back: the score falls back to neutral and says why. An orange or a
+     * red stays — what is classified is already enough to warn.
+     *
+     * @param array{status: DailyScore, reasons: list<array<string, mixed>>, rhythm: array<string, mixed>} $score
+     *
+     * @return array{status: DailyScore, reasons: list<array<string, mixed>>, rhythm: array<string, mixed>}
+     */
+    private function withUnclassified(array $score): array
+    {
+        if (RhythmStatus::Incomplete->value !== $score['rhythm']['status'] || DailyScore::Red === $score['status']) {
+            return $score;
+        }
+
+        $score['reasons'][] = ['code' => 'unclassified_debits', 'amountCents' => $score['rhythm']['unclassifiedCents']];
+        if (DailyScore::Green === $score['status']) {
+            $score['status'] = DailyScore::Neutral;
+        }
+
+        return $score;
     }
 
     /**
@@ -349,18 +387,18 @@ class GetFinanceScores
         }
 
         if ($this->isBelowGreenLine($spent, $expected)) {
-            return [
+            return $this->withUnclassified([
                 'status' => DailyScore::Green,
                 'reasons' => [['code' => 'below_rhythm', 'amountCents' => $expected - $spent]],
                 'rhythm' => $rhythm,
-            ];
+            ]);
         }
 
-        return [
+        return $this->withUnclassified([
             'status' => DailyScore::Neutral,
             'reasons' => [['code' => 'on_rhythm', 'amountCents' => $expected - $spent]],
             'rhythm' => $rhythm,
-        ];
+        ]);
     }
 
     /**

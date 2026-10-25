@@ -8,6 +8,8 @@ export const rhythm = (overrides: Partial<Rhythm> = {}): Rhythm => ({
   expectedRemainingCents: 40000,
   status: 'on_track',
   label: 'Dans le rythme',
+  unclassifiedCount: 0,
+  unclassifiedCents: 0,
   curve: [
     { date: '2026-10-04', spentCents: 0, expectedCents: 0 },
     { date: '2026-10-05', spentCents: 20000, expectedCents: 50000 },

@@ -148,7 +148,7 @@ export const MonthBalanceTab = () => {
             <CardContent>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
                 <Box sx={{ flex: '0 0 220px' }}>
-                  <ScoreRing period="month" title="Dépensé" score={balance.spending} />
+                  <ScoreRing period="month" title="Dépensé" score={balance.spending} reviewMonth={balance.month} />
                 </Box>
                 <Box sx={{ flex: 1, width: '100%' }}>
                   <RhythmCurve rhythm={balance.spending.rhythm} />

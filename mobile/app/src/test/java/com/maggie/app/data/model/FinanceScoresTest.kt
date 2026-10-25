@@ -61,6 +61,24 @@ class FinanceScoresTest {
     }
 
     @Test
+    fun `the unclassified debits reason says they are not in the rhythm`() {
+        assertEquals(
+            "${formatCents(200000)} de débits sans catégorie, non comptés dans le rythme",
+            text("unclassified_debits", cents = 200000),
+        )
+    }
+
+    @Test
+    fun `the rhythm keeps what no category claims, and zero when the API says nothing`() {
+        val rhythm = json.decodeFromString<Rhythm>("""{"status":"incomplete","unclassifiedCount":3,"unclassifiedCents":200000}""")
+
+        assertEquals("incomplete", rhythm.status)
+        assertEquals(3, rhythm.unclassifiedCount)
+        assertEquals(200000, rhythm.unclassifiedCents)
+        assertEquals(0, json.decodeFromString<Rhythm>("{}").unclassifiedCount)
+    }
+
+    @Test
     fun `the budget of the period exceeded names the period`() {
         assertEquals("Budget de la semaine dépassé de ${formatCents(1349)}", text("week_budget_exceeded", cents = 1349))
         assertEquals("Budget du mois dépassé de ${formatCents(9)}", text("total_budget_exceeded", cents = 9))

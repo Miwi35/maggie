@@ -5,6 +5,7 @@ namespace Maggie\Finance\Tests\UseCase;
 use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Enum\TransactionStatus;
+use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\UseCase\GetFinanceScores;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -266,6 +267,79 @@ class GetFinanceScoresTest extends KernelTestCase
         $this->spendGroceries('2026-10-14', 90000, status: TransactionStatus::Planned);
 
         self::assertSame(78000, $this->scores('2026-10-13')['month']['rhythm']['spentCents']);
+    }
+
+    public function testUnclassifiedDebitsAreCountedPerPeriodAndTheRhythmIsIncomplete(): void
+    {
+        $this->leaveUnclassified('2026-10-03', -150000);
+        $this->leaveUnclassified('2026-10-13', -20000);
+
+        $scores = $this->scores('2026-10-13');
+
+        self::assertSame(2, $scores['month']['rhythm']['unclassifiedCount']);
+        self::assertSame(170000, $scores['month']['rhythm']['unclassifiedCents']);
+        // The week of the 12th only holds the second one.
+        self::assertSame(1, $scores['week']['rhythm']['unclassifiedCount']);
+        self::assertSame(20000, $scores['week']['rhythm']['unclassifiedCents']);
+        foreach (['week', 'month'] as $period) {
+            self::assertSame('incomplete', $scores[$period]['rhythm']['status']);
+            self::assertSame('Rythme incomplet', $scores[$period]['rhythm']['label']);
+        }
+    }
+
+    public function testAnIncompleteRhythmNeverStaysGreenAndSaysWhy(): void
+    {
+        // Nothing classified spent: the pace alone would make the month and the week green.
+        self::assertSame('green', $this->scores('2026-10-13')['month']['status']);
+
+        $this->leaveUnclassified('2026-10-13', -200000);
+
+        $scores = $this->scores('2026-10-13');
+
+        foreach (['week', 'month'] as $period) {
+            self::assertSame('neutral', $scores[$period]['status']);
+            self::assertContains('unclassified_debits', self::codes($scores[$period]));
+            $reason = $scores[$period]['reasons'][array_search('unclassified_debits', self::codes($scores[$period]), true)];
+            self::assertSame(200000, $reason['amountCents']);
+        }
+        self::assertSame('neutral', $scores['global']['status']);
+    }
+
+    public function testClassifiedSpendingAboveThePaceStaysAboveEvenWithUnclassifiedDebits(): void
+    {
+        $this->spendGroceries('2026-10-03', 42000);
+        $this->leaveUnclassified('2026-10-04', -1000);
+
+        $month = $this->scores('2026-10-13')['month'];
+
+        self::assertSame('above', $month['rhythm']['status']);
+        self::assertSame(1, $month['rhythm']['unclassifiedCount']);
+        self::assertSame('orange', $month['status']);
+    }
+
+    public function testInternalTransfersRejectionsCreditsAndPlannedLinesAreNotUnclassifiedDebits(): void
+    {
+        $this->leaveUnclassified('2026-10-03', -50000, TransferKind::Internal);
+        $this->leaveUnclassified('2026-10-04', -4000, TransferKind::Rejected);
+        $this->leaveUnclassified('2026-10-05', 90000);
+        $this->leaveUnclassified('2026-10-06', -7000, status: TransactionStatus::Planned);
+        $this->leaveUnclassified('2026-10-07', -3000, as: 'other_user');
+        $this->spendGroceries('2026-10-08', 5000);
+
+        $month = $this->scores('2026-10-13')['month']['rhythm'];
+
+        self::assertSame(0, $month['unclassifiedCount']);
+        self::assertSame(0, $month['unclassifiedCents']);
+        self::assertSame('on_track', $month['status']);
+        self::assertSame('Dans le rythme', $month['label']);
+    }
+
+    public function testAnUnclassifiedDebitAfterTheDayAskedIsNotCounted(): void
+    {
+        $this->leaveUnclassified('2026-10-20', -9000);
+
+        self::assertSame(0, $this->scores('2026-10-13')['month']['rhythm']['unclassifiedCount']);
+        self::assertSame(1, $this->scores('2026-10-20')['month']['rhythm']['unclassifiedCount']);
     }
 
     public function testTheDateIsEchoedBack(): void

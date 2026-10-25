@@ -188,4 +188,20 @@ class ScoreRingsTest {
     fun `a date that cannot be read is shown as it is`() {
         assertEquals("not-a-date", dayMonthLabel("not-a-date"))
     }
+
+    @Test
+    fun `while debits are unclassified the pace is called incomplete and carries no verdict colour`() {
+        val incomplete = onTrack.copy(status = "incomplete", unclassifiedCount = 3, unclassifiedCents = 200000)
+
+        assertEquals("Rythme incomplet", rhythmWord(incomplete))
+        assertEquals("neutral", rhythmMarkStatus(incomplete))
+        assertEquals("orange", rhythmMarkStatus(onTrack.copy(status = "above")))
+        assertEquals("green", rhythmMarkStatus(onTrack))
+    }
+
+    @Test
+    fun `the unclassified line carries the amount, and only when a debit is left unclassified`() {
+        assertEquals("${ringAmount(200000)} non classés", unclassifiedLine(onTrack.copy(unclassifiedCount = 3, unclassifiedCents = 200000)))
+        assertNull(unclassifiedLine(onTrack))
+    }
 }

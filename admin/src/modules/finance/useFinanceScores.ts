@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { TOKENS } from '../../design/tokens'
+import type { Theme } from '@mui/material/styles'
+import { rhythmColor, TOKENS } from '../../design/tokens'
 import { formatCents } from './accountTypes'
 
 export type ScoreStatus = 'green' | 'neutral' | 'orange' | 'red'
@@ -30,8 +31,11 @@ export interface Rhythm {
   expectedSpentCents: number
   remainingCents: number
   expectedRemainingCents: number
-  status: 'on_track' | 'above'
+  status: 'on_track' | 'above' | 'incomplete'
   label: string
+  /** The period's debits no category claims: not in `spentCents`, so the pace says nothing about them (MAG-643). */
+  unclassifiedCount: number
+  unclassifiedCents: number
   curve: RhythmPoint[]
   debits: RhythmDebit[]
 }
@@ -58,9 +62,18 @@ export type RhythmStatus = Rhythm['status']
  * API's own `rhythm.label` when it sends one. The ring says this — never the
  * daily score (`PeriodScore.status`), which Maggie reads and the reasons explain.
  */
-export const RHYTHM_META: Record<RhythmStatus, { word: string; glyph: string; color: keyof typeof TOKENS.rhythm }> = {
+export const RHYTHM_META: Record<RhythmStatus, { word: string; glyph: string; color: keyof typeof TOKENS.rhythm | null }> = {
   on_track: { word: 'Dans le rythme', glyph: '✓', color: 'onTrack' },
   above: { word: 'Au-dessus du rythme', glyph: '!', color: 'above' },
+  // Debits are not classified: no verdict, so no colour of the pace — the neutral text colour.
+  incomplete: { word: 'Rythme incomplet', glyph: '…', color: null },
+}
+
+/** The colour of a rhythm status: mint, orange, or the neutral text colour of a rhythm that cannot be judged. */
+export const rhythmStatusColour = (status: RhythmStatus, theme: Theme): string => {
+  const { color } = RHYTHM_META[status]
+
+  return color === null ? theme.palette.text.secondary : rhythmColor(color, theme.palette.mode)
 }
 
 /** Turns a reason code into the sentence a person reads. */
@@ -96,6 +109,8 @@ export function reasonText(reason: ScoreReason): string {
       return `${amount} de plus qu'à la même période l'an dernier`
     case 'spending_above_reference_salary':
       return `Dépenses au-dessus du salaire de référence de ${amount}`
+    case 'unclassified_debits':
+      return `${amount} de débits sans catégorie, non comptés dans le rythme`
     case 'no_budget':
       return 'Aucune enveloppe sur cette période : rien à comparer'
     default:

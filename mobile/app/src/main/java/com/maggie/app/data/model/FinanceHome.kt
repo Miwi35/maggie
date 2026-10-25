@@ -48,7 +48,7 @@ data class FinanceHomeState(
 }
 
 data class FinanceHomeRing(
-    /** `on_track` or `above`. */
+    /** `on_track`, `above` or `incomplete`. */
     val status: String = "on_track",
     val label: String = "",
     val budgetCents: Int = 0,

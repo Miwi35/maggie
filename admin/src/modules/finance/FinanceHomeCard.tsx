@@ -6,7 +6,6 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
 import { Link as RouterLink } from 'react-router-dom'
-import { rhythmColor } from '../../design/tokens'
 import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
@@ -14,7 +13,7 @@ import { formatCents } from './accountTypes'
 import { purchaseLabel } from './nextProject'
 import { reviewLink } from './reviewFilter'
 import { useFinanceCardState } from './useFinanceCardState'
-import { remainingShare, RHYTHM_META } from './useFinanceScores'
+import { remainingShare, RHYTHM_META, rhythmStatusColour } from './useFinanceScores'
 import type { FinanceHomeState, HomeNextProject, HomeRing } from './financeCardState'
 
 const SIZE = 96
@@ -81,7 +80,7 @@ const Body = ({ state }: { state: FinanceHomeState }) => (
 const Ring = ({ period, title, ring }: { period: 'week' | 'month'; title: string; ring: HomeRing }) => {
   const theme = useTheme()
   const meta = RHYTHM_META[ring.status]
-  const colour = rhythmColor(meta.color, theme.palette.mode)
+  const colour = rhythmStatusColour(ring.status, theme)
   const hasBudget = ring.budgetCents > 0
   const share = remainingShare(ring.remainingCents, ring.budgetCents)
   const word = ring.label || meta.word

@@ -5,6 +5,7 @@ namespace Maggie\Finance\Tests\UseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransactionStatus;
+use Maggie\Finance\Enum\TransferKind;
 
 /**
  * October 2026 of `finance_scores.yaml`: 1 500 € of monthly budget, rent
@@ -34,6 +35,23 @@ trait FinanceScoresWorld
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->persist($spend);
+        $this->flushWithoutTransactionEffects($em);
+    }
+
+    /** A line no category claims: a debit by default, a credit with a positive amount. */
+    private function leaveUnclassified(string $day, int $cents, TransferKind $kind = TransferKind::None, TransactionStatus $status = TransactionStatus::Spent, string $as = 'scores_user'): void
+    {
+        $line = new Transaction();
+        $line->setUser($this->getFixture($as));
+        $line->setAccount($this->getFixture('scores_checking'));
+        $line->setAmountCents($cents);
+        $line->setLabel('Sans catégorie');
+        $line->setBookedAt(new \DateTimeImmutable($day));
+        $line->setStatus($status);
+        $line->setTransferKind($kind);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->persist($line);
         $this->flushWithoutTransactionEffects($em);
     }
 }

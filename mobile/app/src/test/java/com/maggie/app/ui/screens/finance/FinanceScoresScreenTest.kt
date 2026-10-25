@@ -25,6 +25,8 @@ import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.RhythmCurvePanel
 import com.maggie.app.ui.components.ScoreRings
+import com.maggie.app.ui.navigation.DeepLinks
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -151,6 +153,59 @@ class FinanceScoresScreenTest {
         compose.onNodeWithTag(UiTags.financeScoreRing("week")).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.financeScoreRing("week")).performClick()
         compose.onNodeWithText("• Aucune enveloppe sur cette période : rien à comparer").assertIsDisplayed()
+    }
+
+    private val unclassifiedMonth = month.copy(
+        status = "neutral",
+        label = "Dans les clous",
+        rhythm = month.rhythm.copy(
+            status = "incomplete",
+            label = "Rythme incomplet",
+            unclassifiedCount = 4,
+            unclassifiedCents = 200000,
+        ),
+    )
+
+    @Test
+    fun `debits left unclassified are said under their ring, the pace is incomplete, and Classer opens the review`() {
+        var classified = 0
+        compose.setContent { ScoreRings(week = week, month = unclassifiedMonth, onClassify = { classified++ }) }
+
+        compose.onNodeWithText("Rythme incomplet", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Dans le rythme", substring = true).assertIsDisplayed() // the week, which holds none
+        compose.onNodeWithTag(UiTags.financeScoreUnclassified("month")).assertIsDisplayed()
+        compose.onNodeWithText("${ringAmount(200000)} non classés", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.financeScoreUnclassified("week")).assertDoesNotExist()
+
+        compose.onNodeWithTag(UiTags.financeScoreClassify("month")).performClick()
+
+        assertEquals(1, classified)
+    }
+
+    @Test
+    fun `no unclassified line when every debit has a category`() {
+        compose.setContent { ScoreRings(week = week, month = month) }
+
+        compose.onNodeWithTag(UiTags.financeScoreUnclassified("month")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.financeScoreUnclassified("week")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the dashboard sends Classer to the lines to sort`() {
+        var opened: String? = null
+        val withUnclassified = scores.copy(month = unclassifiedMonth)
+        compose.setContent {
+            FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
+                upcomingViewModel = FakeUpcoming().viewModel,
+                viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 3, scores = withUnclassified)).viewModel,
+                onOpen = { opened = it },
+            )
+        }
+
+        compose.onNodeWithTag(UiTags.financeScoreClassify("month")).performScrollTo().performClick()
+
+        assertEquals(DeepLinks.REVIEW_TO_SORT_ROUTE, opened)
     }
 
     @Test

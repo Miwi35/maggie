@@ -54,6 +54,7 @@ import com.maggie.app.data.model.toQualifyLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.NO_ENVELOPE_TEXT
 import com.maggie.app.ui.components.hasEnvelope
+import com.maggie.app.ui.components.rhythmMarkStatus
 import com.maggie.app.ui.components.rhythmWord
 import com.maggie.app.ui.components.ringFill
 import com.maggie.app.ui.navigation.Screen
@@ -170,7 +171,8 @@ private fun FinanceHomePill(text: String, color: Color, tag: String, icon: Image
 @Composable
 private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHomeRing) {
     val rhythm = ring.toRhythm()
-    val color = financeRhythmColor(ring.status, isDark())
+    val status = rhythmMarkStatus(rhythm)
+    val color = if (status == "neutral") statusColor(status) else financeRhythmColor(ring.status, isDark())
     // The charter's track the arc runs on: what is left of the budget is drawn, what is spent is the track.
     val track = maggieSurface().track
     val fill = ringFill(rhythm)

@@ -46,9 +46,12 @@ data class Rhythm(
     val expectedSpentCents: Int = 0,
     val remainingCents: Int = 0,
     val expectedRemainingCents: Int = 0,
-    // `on_track` or `above`.
+    // `on_track`, `above`, or `incomplete` while debits of the period are unclassified (MAG-643).
     val status: String = "on_track",
     val label: String = "",
+    // The period's debits no category claims: not in [spentCents], so the pace says nothing about them.
+    val unclassifiedCount: Int = 0,
+    val unclassifiedCents: Int = 0,
     val curve: List<RhythmPoint> = emptyList(),
     val debits: List<RhythmDebit> = emptyList(),
 )
@@ -91,6 +94,7 @@ fun reasonText(reason: ScoreReason): String {
         "below_last_year" -> "$amount de moins qu'à la même période l'an dernier"
         "above_last_year" -> "$amount de plus qu'à la même période l'an dernier"
         "spending_above_reference_salary" -> "$amount de plus que le salaire de référence"
+        "unclassified_debits" -> "$amount de débits sans catégorie, non comptés dans le rythme"
         "no_budget" -> "Aucune enveloppe sur cette période : rien à comparer"
         else -> reason.code
     }

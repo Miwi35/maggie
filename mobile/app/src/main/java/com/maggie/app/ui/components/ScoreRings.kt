@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
@@ -74,8 +76,26 @@ fun scoreWord(status: String, label: String): String = label.ifBlank {
 
 /** The word of a ring that has a budget: where spending stands against its pace (`RhythmStatus`, MAG-537). */
 fun rhythmWord(rhythm: Rhythm): String = rhythm.label.ifBlank {
-    if (rhythm.status == "above") "Au-dessus du rythme" else "Dans le rythme"
+    when (rhythm.status) {
+        "above" -> "Au-dessus du rythme"
+        "incomplete" -> "Rythme incomplet"
+        else -> "Dans le rythme"
+    }
 }
+
+/** The score status a rhythm status is drawn with: the pace is never a verdict while debits are unclassified. */
+fun rhythmMarkStatus(rhythm: Rhythm): String = when (rhythm.status) {
+    "above" -> "orange"
+    "incomplete" -> "neutral"
+    else -> "green"
+}
+
+/** « 2 000 € non classés » under a ring; null when every debit of the period has a category. */
+fun unclassifiedLine(rhythm: Rhythm): String? =
+    if (rhythm.unclassifiedCount > 0) "${ringAmount(rhythm.unclassifiedCents)} non classés" else null
+
+/** An amount of a ring, in « € » as the mock-ups write it: « 120,00 € ». */
+fun ringAmount(cents: Int): String = NumberFormat.getCurrencyInstance(Locale.FRANCE).format(cents / 100.0)
 
 /** The word under a ring: the pace when there is a budget, the period's own label otherwise. */
 internal fun ringWord(score: PeriodScore): String =
@@ -83,12 +103,12 @@ internal fun ringWord(score: PeriodScore): String =
 
 /**
  * The status that colours a ring and picks its glyph: the pace when there is a budget (mint check or
- * orange warning, the mock-ups' two states), like its word; the period's own status otherwise.
+ * orange warning, the mock-ups' two states; neutral while debits are unclassified), like its word; the
+ * period's own status otherwise.
  */
 fun ringStatus(score: PeriodScore): String = when {
     !hasEnvelope(score.rhythm) -> score.status
-    score.rhythm.status == "above" -> "orange"
-    else -> "green"
+    else -> rhythmMarkStatus(score.rhythm)
 }
 
 /** A ring needs a budget to be proportional to; without one there is nothing to draw. */
@@ -169,6 +189,7 @@ fun ScoreRings(
     week: PeriodScore,
     month: PeriodScore,
     modifier: Modifier = Modifier,
+    onClassify: () -> Unit = {},
 ) {
     var opened by rememberSaveable { mutableStateOf<String?>(null) }
     val toggle = { period: String -> opened = if (opened == period) null else period }
@@ -176,8 +197,8 @@ fun ScoreRings(
     MaggieCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                ScoreRing("Semaine", WEEK, week, opened == WEEK) { toggle(WEEK) }
-                ScoreRing("Mois", MONTH, month, opened == MONTH) { toggle(MONTH) }
+                ScoreRing("Semaine", WEEK, week, opened == WEEK, onClassify) { toggle(WEEK) }
+                ScoreRing("Mois", MONTH, month, opened == MONTH, onClassify) { toggle(MONTH) }
             }
             when (opened) {
                 WEEK -> ScoreReasons("Semaine", week)
@@ -192,11 +213,12 @@ fun ScoreRings(
 fun MonthScoreRing(
     score: PeriodScore,
     modifier: Modifier = Modifier,
+    onClassify: () -> Unit = {},
 ) {
     var isOpen by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        ScoreRing("Dépensé", MONTH, score, isOpen) { isOpen = !isOpen }
+        ScoreRing("Dépensé", MONTH, score, isOpen, onClassify) { isOpen = !isOpen }
         if (isOpen) ScoreReasons("Mois", score)
     }
 }
@@ -207,6 +229,7 @@ private fun ScoreRing(
     period: String,
     score: PeriodScore,
     isOpen: Boolean,
+    onClassify: () -> Unit,
     onClick: () -> Unit,
 ) {
     val rhythm = score.rhythm
@@ -217,43 +240,72 @@ private fun ScoreRing(
     val fill = ringFill(rhythm)
     val tick = ringTick(rhythm)
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clickable(onClickLabel = if (isOpen) "Masquer les raisons" else "Voir les raisons", role = Role.Button, onClick = onClick)
-            .padding(8.dp)
-            .testTag(UiTags.financeScoreRing(period))
-            .semantics(mergeDescendants = true) { contentDescription = ringDescription(title, score) },
-    ) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .clickable(onClickLabel = if (isOpen) "Masquer les raisons" else "Voir les raisons", role = Role.Button, onClick = onClick)
+                .padding(8.dp)
+                .testTag(UiTags.financeScoreRing(period))
+                .semantics(mergeDescendants = true) { contentDescription = ringDescription(title, score) },
+        ) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
 
-        Box(modifier = Modifier.padding(vertical = 8.dp).size(RING_SIZE), contentAlignment = Alignment.Center) {
-            Canvas(modifier = Modifier.size(RING_SIZE)) {
-                val stroke = RING_STROKE.toPx()
-                val topLeft = Offset(stroke / 2, stroke / 2)
-                val arc = Size(size.width - stroke, size.height - stroke)
+            Box(modifier = Modifier.padding(vertical = 8.dp).size(RING_SIZE), contentAlignment = Alignment.Center) {
+                Canvas(modifier = Modifier.size(RING_SIZE)) {
+                    val stroke = RING_STROKE.toPx()
+                    val topLeft = Offset(stroke / 2, stroke / 2)
+                    val arc = Size(size.width - stroke, size.height - stroke)
 
-                drawArc(track, -90f, 360f, false, topLeft, arc, style = Stroke(stroke))
-                if (fill > 0f) {
-                    drawArc(color, -90f, 360f * fill, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Butt))
+                    drawArc(track, -90f, 360f, false, topLeft, arc, style = Stroke(stroke))
+                    if (fill > 0f) {
+                        drawArc(color, -90f, 360f * fill, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Butt))
+                    }
+                    if (tick != null) {
+                        val angle = Math.toRadians((-90f + 360f * tick).toDouble())
+                        val middle = Offset(size.width / 2, size.height / 2)
+                        val inner = arc.width / 2 - stroke * 0.75f
+                        val outer = arc.width / 2 + stroke * 0.75f
+                        drawLine(
+                            color = tickColor,
+                            start = Offset(middle.x + inner * cos(angle).toFloat(), middle.y + inner * sin(angle).toFloat()),
+                            end = Offset(middle.x + outer * cos(angle).toFloat(), middle.y + outer * sin(angle).toFloat()),
+                            strokeWidth = 3.dp.toPx(),
+                        )
+                    }
                 }
-                if (tick != null) {
-                    val angle = Math.toRadians((-90f + 360f * tick).toDouble())
-                    val middle = Offset(size.width / 2, size.height / 2)
-                    val inner = arc.width / 2 - stroke * 0.75f
-                    val outer = arc.width / 2 + stroke * 0.75f
-                    drawLine(
-                        color = tickColor,
-                        start = Offset(middle.x + inner * cos(angle).toFloat(), middle.y + inner * sin(angle).toFloat()),
-                        end = Offset(middle.x + outer * cos(angle).toFloat(), middle.y + outer * sin(angle).toFloat()),
-                        strokeWidth = 3.dp.toPx(),
-                    )
-                }
+                RingCenter(rhythm)
             }
-            RingCenter(rhythm)
-        }
 
-        StatusLabel(status, ringWord(score))
+            StatusLabel(status, ringWord(score))
+        }
+        UnclassifiedLine(period, rhythm, onClassify)
+    }
+}
+
+/** What the pace leaves out, said under the ring in the secondary style, with the way to the Revue (MAG-643). */
+@Composable
+private fun UnclassifiedLine(period: String, rhythm: Rhythm, onClassify: () -> Unit) {
+    val line = unclassifiedLine(rhythm) ?: return
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.testTag(UiTags.financeScoreUnclassified(period)),
+    ) {
+        Text(
+            text = "$line · ",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "Classer",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clickable(role = Role.Button, onClick = onClassify)
+                .heightIn(min = 48.dp)
+                .wrapContentHeight(Alignment.CenterVertically)
+                .testTag(UiTags.financeScoreClassify(period)),
+        )
     }
 }
 

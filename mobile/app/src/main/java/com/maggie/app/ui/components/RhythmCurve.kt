@@ -142,7 +142,11 @@ fun RhythmCurve(
         return
     }
 
-    val spentColor = if (rhythm.status == "above") MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
+    val spentColor = when (rhythm.status) {
+        "above" -> MaterialTheme.colorScheme.tertiary
+        "incomplete" -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.primary
+    }
     val expectedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val debitColor = MaterialTheme.colorScheme.outline
     val curve = rhythm.curve
@@ -229,8 +233,8 @@ fun RhythmCurve(
                 Text("— Dépensé", style = MaterialTheme.typography.labelSmall, color = spentColor)
                 Text("- - Attendu", style = MaterialTheme.typography.labelSmall, color = expectedColor)
                 StatusLabel(
-                    status = if (rhythm.status == "above") "orange" else "green",
-                    label = rhythm.label.ifBlank { if (rhythm.status == "above") "Au-dessus du rythme" else "Dans le rythme" },
+                    status = rhythmMarkStatus(rhythm),
+                    label = rhythmWord(rhythm),
                 )
             }
         }

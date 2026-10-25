@@ -335,6 +335,8 @@ object UiTags {
      */
     const val FINANCE_SCORE_RING_PREFIX = "finance_score_ring_"
     const val FINANCE_SCORE_REASONS = "finance_score_reasons"
+    const val FINANCE_SCORE_UNCLASSIFIED_PREFIX = "finance_score_unclassified_"
+    const val FINANCE_SCORE_CLASSIFY_PREFIX = "finance_score_classify_"
     const val FINANCE_RHYTHM_CURVE = "finance_rhythm_curve"
     const val FINANCE_RHYTHM_PERIOD_PREFIX = "finance_rhythm_period_"
     const val FINANCE_RHYTHM_DEBIT_PREFIX = "finance_rhythm_debit_"
@@ -765,6 +767,8 @@ object UiTags {
     fun subview(key: String) = SUBVIEW_PREFIX + key
 
     fun financeScoreRing(period: String) = FINANCE_SCORE_RING_PREFIX + period
+    fun financeScoreUnclassified(period: String) = FINANCE_SCORE_UNCLASSIFIED_PREFIX + period
+    fun financeScoreClassify(period: String) = FINANCE_SCORE_CLASSIFY_PREFIX + period
 
     fun financeRhythmPeriod(period: String) = FINANCE_RHYTHM_PERIOD_PREFIX + period
 
