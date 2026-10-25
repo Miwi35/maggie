@@ -214,6 +214,22 @@ final class ElasticsearchFilterTranslatorTest extends TestCase
         );
     }
 
+    /** MAG-588: « faites aujourd'hui » is a period on the indexed `completedAt`, served by Elasticsearch like the collection. */
+    public function testACompletionPeriodBecomesTwoRangeClauses(): void
+    {
+        $translated = $this->translator->translate(
+            self::query('completedAt[after]=2026-10-24T00%3A00%3A00%2B02%3A00&completedAt[before]=2026-10-24T23%3A59%3A59%2B02%3A00'),
+        );
+
+        self::assertSame(
+            [
+                ['range' => ['completedAt' => ['gte' => '2026-10-24T00:00:00+02:00']]],
+                ['range' => ['completedAt' => ['lte' => '2026-10-24T23:59:59+02:00']]],
+            ],
+            $translated['filter'],
+        );
+    }
+
     public function testPaginationIsNotTranslated(): void
     {
         $translated = $this->translator->translate(self::query('page=2&itemsPerPage=50&pagination=false'));

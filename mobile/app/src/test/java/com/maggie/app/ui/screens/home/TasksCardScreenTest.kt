@@ -204,7 +204,7 @@ class TasksCardScreenTest {
 
     @Test
     fun `a failed read says so in words and Réessayer reads again`() {
-        coEvery { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) } returns Result.failure(RuntimeException("HTTP 503"))
+        coEvery { fakes.cards.read(HomeDay.TODAY, any(), any()) } returns Result.failure(RuntimeException("HTTP 503"))
         show()
 
         compose.onNodeWithTag(UiTags.HOME_TASKS_ERROR).assertIsDisplayed()

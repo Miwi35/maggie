@@ -80,7 +80,7 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/tasks{?dueDate[before],dueDate[strictly_before],dueDate[after],dueDate[strictly_after],exists[completedAt],exists[dueDate],priority,priority[],criticality,criticality[],order[id],order[dueDate],order[criticality],order[position],parent}",
+        "template": "/api/tasks{?dueDate[before],dueDate[strictly_before],dueDate[after],dueDate[strictly_after],completedAt[before],completedAt[strictly_before],completedAt[after],completedAt[strictly_after],exists[completedAt],exists[dueDate],priority,priority[],criticality,criticality[],order[id],order[dueDate],order[criticality],order[position],order[completedAt],parent}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -105,6 +105,30 @@
                 "@type": "IriTemplateMapping",
                 "variable": "dueDate[strictly_after]",
                 "property": "dueDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "completedAt[before]",
+                "property": "completedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "completedAt[strictly_before]",
+                "property": "completedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "completedAt[after]",
+                "property": "completedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "completedAt[strictly_after]",
+                "property": "completedAt",
                 "required": false
             },
             {
@@ -165,6 +189,12 @@
                 "@type": "IriTemplateMapping",
                 "variable": "order[position]",
                 "property": "position",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[completedAt]",
+                "property": "completedAt",
                 "required": false
             },
             {

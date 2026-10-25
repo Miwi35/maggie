@@ -80,8 +80,11 @@ final class QueryParameterContractTest extends WebTestCase
             'exists[dueDate]' => 'admin Dashboard, mobile getUndatedTasks',
             'dueDate[after]' => 'admin CalendarView',
             'dueDate[before]' => 'admin CalendarView and Dashboard, mobile getOpenTasks',
+            'completedAt[after]' => 'admin and mobile Accueil, the Tâches card (tasks done today, MAG-588)',
+            'completedAt[strictly_before]' => 'admin and mobile Accueil, the Tâches card (tasks done today, MAG-588)',
             'order[dueDate]' => 'admin CalendarView and Dashboard',
             'order[criticality]' => 'admin Dashboard',
+            'order[completedAt]' => 'admin and mobile Accueil, the Tâches card (the last tasks done today, MAG-588)',
             'order[id]' => 'admin raw-data list (react-admin sorts by id when a list names no sort)',
             'parent' => 'admin TaskEditDialog and mobile SubtasksViewModel, the subtasks of the task open (MAG-404)',
             'order[position]' => 'admin TaskEditDialog and mobile SubtasksViewModel, the subtasks in Google\'s order (MAG-404)',
@@ -437,6 +440,12 @@ final class QueryParameterContractTest extends WebTestCase
             '/api/tasks', 'dueDate[before]=2026-04-01T00:00:00%2B00:00', 'title',
             ['Open, due in March'],
             ['Completed'],
+        ];
+
+        yield 'tasks completed after a date' => [
+            '/api/tasks', 'completedAt[after]=2026-03-19T00:00:00%2B00:00', 'title',
+            ['Completed'],
+            ['Open, due in March', 'Open, no due date'],
         ];
 
         // The subtasks of one task, as the edit dialog lists them (MAG-404).

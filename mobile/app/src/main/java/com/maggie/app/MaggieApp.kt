@@ -71,6 +71,7 @@ import com.maggie.app.data.repository.ErrandRepository
 import com.maggie.app.data.repository.RecurringGroceryRepository
 import com.maggie.app.data.repository.StoreRepository
 import com.maggie.app.data.repository.RoutineRepository
+import com.maggie.app.data.repository.TasksCardRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.ui.screens.shared.SubtasksViewModel
 import com.maggie.app.data.repository.ThemeChoiceRepository
@@ -325,6 +326,7 @@ class MaggieApp : Application() {
             single { FinanceDashboardRepository(get()) }
             single { UpcomingRepository(get()) }
             single { HomeCardRepository(get(), get(), get()) }
+            single { TasksCardRepository(get(), get(), get(), get()) }
             single { MonthBalanceRepository(get()) }
             single { TransactionRepository(get()) }
             single { ContactRepository(get()) }

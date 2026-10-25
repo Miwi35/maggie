@@ -10,12 +10,15 @@ import kotlinx.coroutines.flow.update
 data class HomeUiState(val day: HomeDay = HomeDay.TODAY)
 
 /**
- * The selector « Aujourd'hui · Demain ». Plain state, like the other screens' ViewModels: the ViewModel
- * outlives a rotation, and a new session starts on today.
+ * The selector « Aujourd'hui · Demain », and the cards each format draws, from [layout]. Plain state, like the
+ * other screens' ViewModels: the ViewModel outlives a rotation, and a new session starts on today.
  */
-class HomeViewModel : ViewModel() {
+class HomeViewModel(private val layout: HomeLayoutFile = HomeLayout.file) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
+
+    /** The card keys the screen of [format] stacks, in order; the registry says which of them have a component. */
+    fun cards(format: HomeFormat): List<String> = layout.screenCards(format)
 
     fun selectDay(day: HomeDay) {
         _uiState.update { it.copy(day = day) }

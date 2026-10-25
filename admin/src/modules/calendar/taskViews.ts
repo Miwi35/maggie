@@ -26,6 +26,16 @@ export interface TaskViewResult {
   totalItems: number
 }
 
+/** An API answer that was not OK, with its status — the Accueil tells an absent module (404) from a failure. */
+export class ApiStatusError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 export const headers = (extra: Record<string, string> = {}): Record<string, string> => {
   const token = getToken()
 
@@ -37,7 +47,7 @@ export async function fetchTaskView(view: TaskView, page = 1): Promise<TaskViewR
   const query = view === 'done' ? `?page=${page}&itemsPerPage=30` : ''
   const response = await fetch(`${apiUrl}/tasks/view/${view}${query}`, { headers: headers() })
   if (!response.ok) {
-    throw new Error(`Tâches : ${response.status}`)
+    throw new ApiStatusError(`Tâches : ${response.status}`, response.status)
   }
   const body = (await response.json()) as Partial<TaskViewResult>
 
@@ -46,6 +56,40 @@ export async function fetchTaskView(view: TaskView, page = 1): Promise<TaskViewR
     counts: { today: 0, upcoming: 0, someday: 0, done: 0, ...body.counts },
     totalItems: body.totalItems ?? 0,
   }
+}
+
+async function fetchMembers(query: URLSearchParams): Promise<ViewTask[]> {
+  const response = await fetch(`${apiUrl}/tasks?${query.toString()}`, { headers: headers() })
+  if (!response.ok) {
+    throw new ApiStatusError(`Tâches : ${response.status}`, response.status)
+  }
+  const body = (await response.json()) as { member?: ViewTask[] }
+
+  return body.member ?? []
+}
+
+/** The tasks ticked off in [`after`, `before`[ (ISO instants), the latest first. */
+export function fetchCompletedBetween(after: string, before: string, limit: number): Promise<ViewTask[]> {
+  return fetchMembers(
+    new URLSearchParams({
+      'completedAt[after]': after,
+      'completedAt[strictly_before]': before,
+      'order[completedAt]': 'desc',
+      itemsPerPage: String(limit),
+    }),
+  )
+}
+
+/** The open tasks due on `day` (`YYYY-MM-DD`), in no particular order. */
+export function fetchOpenDueOn(day: string): Promise<ViewTask[]> {
+  return fetchMembers(
+    new URLSearchParams({
+      'exists[completedAt]': 'false',
+      'dueDate[after]': day,
+      'dueDate[before]': day,
+      itemsPerPage: '100',
+    }),
+  )
 }
 
 /** Ticks a task off (`done`) or reopens it — one merge-patch on `completedAt`. */

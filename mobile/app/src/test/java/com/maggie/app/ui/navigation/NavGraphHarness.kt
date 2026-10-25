@@ -58,7 +58,10 @@ internal fun startNavGraphApp() {
         every { uiState } returns state(ContextUiState())
         every { threadEvents } returns MutableSharedFlow()
     }
-    val home = mockk<HomeViewModel>(relaxed = true) { every { uiState } returns state(HomeUiState()) }
+    val home = mockk<HomeViewModel>(relaxed = true) {
+        every { uiState } returns state(HomeUiState())
+        every { cards(any()) } answers { com.maggie.app.ui.screens.home.HomeLayout.file.screenCards(firstArg()) }
+    }
     val groceryHome = mockk<com.maggie.app.ui.screens.home.GroceryHomeViewModel>(relaxed = true) {
         every { uiState } returns state(com.maggie.app.ui.screens.home.GroceryHomeUiState(isLoading = false))
     }

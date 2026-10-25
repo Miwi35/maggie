@@ -14,7 +14,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 #[AutoconfigureTag(HomeCardRegistry::TAG)]
 interface HomeCardProviderInterface
 {
-    /** The slug in the URL, one of {@see HomeCardRegistry::ORDER}. */
+    /** The slug in the URL. */
     public function module(): string;
 
     /**

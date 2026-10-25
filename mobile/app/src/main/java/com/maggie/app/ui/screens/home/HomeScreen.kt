@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.HomeDay
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.layout.rememberAppLayout
 import org.koin.androidx.compose.koinViewModel
 
 private val DAYS = listOf(
@@ -33,8 +34,9 @@ private val DAYS = listOf(
 )
 
 /**
- * The Accueil (MAG-560): the selector « Aujourd'hui · Demain », the action cards in head, then the cards
- * of [registry] stacked in the spec's order; [onNavigate] is how a card opens its module. The title is the top bar's, drawn by the navigation. A card
+ * The Accueil (MAG-560): the selector « Aujourd'hui · Demain », then the cards [HomeLayout] gives the window's
+ * [format], stacked in its order, each drawn by its component in [registry] (a key with none is skipped);
+ * [onNavigate] is how a card opens its module. The title is the top bar's, drawn by the navigation. A card
  * that has nothing to say for the day draws nothing and takes no room; when every card is in that case the screen
  * says one calm sentence instead (MAG-594). An empty registry leaves the selector alone.
  */
@@ -42,11 +44,14 @@ private val DAYS = listOf(
 fun HomeScreen(
     viewModel: HomeViewModel = koinViewModel(),
     registry: List<HomeCardEntry> = HomeCardRegistry.entries,
+    format: HomeFormat = HomeLayout.formatFor(rememberAppLayout()),
     onNavigate: (String) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val components = registry.associateBy { it.module }
+    val cards = viewModel.cards(format).mapNotNull { components[it] }
     CompositionLocalProvider(LocalHomeNavigation provides onNavigate) {
-        HomeContent(day = uiState.day, onSelectDay = viewModel::selectDay, registry = registry)
+        HomeContent(day = uiState.day, onSelectDay = viewModel::selectDay, cards = cards)
     }
 }
 
@@ -54,9 +59,8 @@ fun HomeScreen(
 internal fun HomeContent(
     day: HomeDay,
     onSelectDay: (HomeDay) -> Unit,
-    registry: List<HomeCardEntry>,
+    cards: List<HomeCardEntry>,
 ) {
-    val (actions, cards) = registry.inScreenOrder()
     val statuses = remember { mutableStateMapOf<String, HomeCardStatus>() }
     val report = remember<(String, HomeCardStatus?) -> Unit> {
         { module, status ->
@@ -64,7 +68,7 @@ internal fun HomeContent(
             Unit
         }
     }
-    val everyCardIsEmpty = registry.isNotEmpty() && registry.all { statuses[it.module] == HomeCardStatus.EMPTY }
+    val everyCardIsEmpty = cards.isNotEmpty() && cards.all { statuses[it.module] == HomeCardStatus.EMPTY }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -93,7 +97,7 @@ internal fun HomeContent(
         }
 
         CompositionLocalProvider(LocalHomeCardReporter provides report) {
-            (actions + cards).forEach { entry -> key(entry.zone, entry.module) { entry.content(day) } }
+            cards.forEach { entry -> key(entry.module) { entry.content(day) } }
         }
 
         if (everyCardIsEmpty) {

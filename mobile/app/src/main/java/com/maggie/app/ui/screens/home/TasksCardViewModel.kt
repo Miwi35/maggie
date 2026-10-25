@@ -4,19 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.HomeDay
 import com.maggie.app.data.model.HomeTasks
-import com.maggie.app.data.repository.HomeCardRepository
 import com.maggie.app.data.repository.RoutineRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.TasksCardRepository
 import com.maggie.app.util.DateRanges
-import com.maggie.app.util.rethrowCancellation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import java.time.LocalDate
+import java.time.LocalTime
 
 /**
  * What the « Tâches » card holds (MAG-561). [card] is the last answer of the API, moved by the ticks the
@@ -47,14 +46,15 @@ data class TasksCardUiState(
 /**
  * The « Tâches » card of the Accueil: today's (or tomorrow's) tasks and the routines of the moment, tickable
  * from the home. A tick is shown at once (the row struck, the ring moved) and then asked of the API with the
- * calls the Tâches screen makes; refused, it is taken back and said in words. The card is read again when
- * the API announces a change on `home/tasks`, and after each tick.
+ * calls the Tâches screen makes; refused, it is taken back and said in words. The card is composed from the
+ * tasks and routines resources (MAG-588), and read again when the API announces a change on either, and after each tick.
  */
 class TasksCardViewModel(
-    private val homeCardRepository: HomeCardRepository,
+    private val cardRepository: TasksCardRepository,
     private val taskRepository: TaskRepository,
     private val routineRepository: RoutineRepository,
     private val today: () -> LocalDate = { DateRanges.todayDate() },
+    private val now: () -> LocalTime = { DateRanges.nowTime() },
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TasksCardUiState())
@@ -144,7 +144,7 @@ class TasksCardViewModel(
     private fun listen() {
         if (listenJob?.isActive == true) return
         listenJob = viewModelScope.launch {
-            homeCardRepository.changes(HomeModules.TASKS).collect { readAgain() }
+            cardRepository.changes().collect { readAgain() }
         }
     }
 
@@ -163,9 +163,7 @@ class TasksCardViewModel(
         val day = state.day
         if (!silent) _uiState.update { it.copy(isLoading = true, error = null) }
         loadJob = viewModelScope.launch {
-            homeCardRepository.state(HomeModules.TASKS, day)
-                .mapCatching { JSON.decodeFromJsonElement(HomeTasks.serializer(), it) }
-                .rethrowCancellation()
+            cardRepository.read(day, today(), now())
                 .onSuccess { card ->
                     _uiState.update { if (it.day == day) it.copy(card = card, isLoading = false, error = null) else it }
                 }
@@ -185,7 +183,5 @@ class TasksCardViewModel(
         const val READ_FAILED = "Impossible de charger les tâches."
         const val TASK_FAILED = "Impossible de cocher la tâche. Réessaie."
         const val ROUTINE_FAILED = "Impossible de cocher la routine. Réessaie."
-
-        private val JSON = Json { ignoreUnknownKeys = true }
     }
 }

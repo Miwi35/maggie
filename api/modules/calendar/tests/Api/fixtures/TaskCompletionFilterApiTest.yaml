@@ -1,0 +1,35 @@
+# completedAt[after] / completedAt[before] (MAG-588).
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Calendar\Entity\Task:
+  done_morning:
+    title: Done this morning
+    completedAt: '<(new \DateTimeImmutable("2026-10-24 08:00:00+02:00"))>'
+    user: '@test_user'
+
+  done_evening:
+    title: Done this evening
+    completedAt: '<(new \DateTimeImmutable("2026-10-24 21:00:00+02:00"))>'
+    user: '@test_user'
+
+  done_yesterday:
+    title: Done yesterday
+    completedAt: '<(new \DateTimeImmutable("2026-10-23 23:30:00+02:00"))>'
+    user: '@test_user'
+
+  still_open:
+    title: Still open
+    user: '@test_user'
+
+  done_by_someone_else:
+    title: Done by someone else
+    completedAt: '<(new \DateTimeImmutable("2026-10-24 09:00:00+02:00"))>'
+    user: '@other_user'

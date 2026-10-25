@@ -1067,20 +1067,23 @@ class DtoContractTest {
     }
 
     @Test
-    fun `the Tâches card of the Accueil deserialises from the recorded response under the names the API sends (MAG-561)`() {
-        val body = readRecording("home_tasks.read")
-        assertDeclaredFieldsExist("HomeTasks", serializer<HomeTasks>(), body.keys, "home_tasks.read")
-        assertDeclaredFieldsExist("HomeTask", serializer<HomeTask>(), keysOf(body, "tasks"), "home_tasks.read")
-        assertDeclaredFieldsExist("HomeRoutine", serializer<HomeRoutine>(), keysOf(body, "routines"), "home_tasks.read")
-        (body["saga"] as? JsonObject)?.let {
-            assertDeclaredFieldsExist("HomeSaga", serializer<HomeSaga>(), it.keys, "home_tasks.read")
-        }
+    fun `the Tâches card composes from fields the recorded tasks and routines carry (MAG-588)`() {
+        val today = json.decodeFromJsonElement(serializer<TaskViewResponse>(), readRecording("tasks.view_today")).member
+        val collection = json.decodeFromJsonElement(ApiCollection.serializer(serializer<Task>()), readRecording("tasks.collection")).member
+        val day = json.decodeFromJsonElement(serializer<RoutineDayView>(), readRecording("routines.day"))
 
-        val card = json.decodeFromJsonElement(serializer<HomeTasks>(), body)
-        assertTrue("The recording home_tasks.read has no task, so it proves nothing.", card.tasks.isNotEmpty())
-        assertTrue("The recording home_tasks.read has no routine, so it proves nothing.", card.routines.isNotEmpty())
-        assertTrue(card.total <= 5)
-        assertTrue(card.done <= card.total)
+        assertTrue("No recorded task is late, so overdueDays proves nothing.", today.any { (it.overdueDays ?: 0) > 0 })
+        assertTrue("No recorded task is a subtask, so parent proves nothing.", today.any { it.parent != null })
+        assertTrue("No recorded task has a score, so orderScore proves nothing.", collection.any { (it.orderScore ?: 0) > 0 })
+        assertTrue("No recorded task is done, so completedAt proves nothing.", collection.any { it.completedAt != null })
+
+        val dayMoments = json.decodeFromJsonElement(serializer<TaskSettings>(), readRecording("task_settings.me")).dayMoments
+
+        val card = HomeTasksComposer.today(today, collection.filter { it.isDone }, day, dayMoments, java.time.LocalTime.of(21, 0))
+        assertTrue(card.tasks.any { it.parentId == "01ARZ3NDEKTSV4RRFFQ69G5FAV" })
+        assertTrue(card.tasks.any { it.done })
+        assertTrue(card.overdue > 0)
+        assertTrue(card.routines.isNotEmpty())
     }
 
     @Test

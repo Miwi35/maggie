@@ -1,8 +1,10 @@
 package com.maggie.app.ui.screens.home
 
 import com.maggie.app.data.model.HomeDay
+import com.maggie.app.data.model.HomeTasks
 import com.maggie.app.data.model.Routine
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.repository.TasksCardRepository
 import com.maggie.app.ui.screens.home.HomeTasksFakes.Companion.EMPTY_CARD
 import com.maggie.app.ui.screens.home.HomeTasksFakes.Companion.TODAY_CARD
 import com.maggie.app.ui.screens.home.HomeTasksFakes.Companion.TOMORROW_CARD
@@ -31,6 +33,7 @@ import java.time.LocalDate
 /**
  * The « Tâches » card of the Accueil (MAG-561): one test per transition — read, read refused, a task ticked,
  * refused, unticked, a routine ticked, refused, tomorrow (nothing tickable), a push, a tap while one is in flight.
+ * The card is read through [TasksCardRepository], whose composition has its own tests.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TasksCardViewModelTest {
@@ -79,7 +82,29 @@ class TasksCardViewModelTest {
         assertEquals(TODAY_CARD, state.card)
         assertNull(state.error)
         assertTrue(state.canTick)
-        coVerify(exactly = 1) { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) }
+        coVerify(exactly = 1) { fakes.cards.read(HomeDay.TODAY, any(), any()) }
+    }
+
+    @Test
+    fun `the card is read for the day shown, at today's date and the time of the moment`() = runTest {
+        val viewModel = fakes.viewModel()
+
+        viewModel.show(HomeDay.TOMORROW)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { fakes.cards.read(HomeDay.TOMORROW, LocalDate.of(2026, 10, 23), java.time.LocalTime.of(10, 0)) }
+    }
+
+    @Test
+    fun `the empty card of an absent module (404) is EMPTY, with no error`() = runTest {
+        fakes.answers(HomeDay.TODAY, HomeTasks(day = "today"))
+        val viewModel = fakes.viewModel()
+
+        viewModel.show(HomeDay.TODAY)
+        advanceUntilIdle()
+
+        assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
+        assertNull(viewModel.uiState.value.error)
     }
 
     @Test
@@ -95,7 +120,7 @@ class TasksCardViewModelTest {
 
     @Test
     fun `a failed read leaves an error in words, never the raw one, and Réessayer reads again`() = runTest {
-        coEvery { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) } returns Result.failure(RuntimeException("HTTP 503 upstream"))
+        coEvery { fakes.cards.read(HomeDay.TODAY, any(), any()) } returns Result.failure(RuntimeException("HTTP 503 upstream"))
         val viewModel = fakes.viewModel()
 
         viewModel.show(HomeDay.TODAY)
@@ -115,18 +140,6 @@ class TasksCardViewModelTest {
     }
 
     @Test
-    fun `a body the card cannot read is a failed read`() = runTest {
-        coEvery { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) } returns
-            Result.success(kotlinx.serialization.json.buildJsonObject { put("tasks", kotlinx.serialization.json.JsonPrimitive("nope")) })
-        val viewModel = fakes.viewModel()
-
-        viewModel.show(HomeDay.TODAY)
-        advanceUntilIdle()
-
-        assertEquals(TasksCardViewModel.READ_FAILED, viewModel.uiState.value.error)
-    }
-
-    @Test
     fun `ticking a task shows it done at once, ring and late count moved, before the API answers`() = runTest {
         val answer = CompletableDeferred<Result<Task>>()
         coEvery { fakes.taskRepository.toggleDone("t1", true) } coAnswers { answer.await() }
@@ -143,7 +156,7 @@ class TasksCardViewModelTest {
         assertEquals(4, optimistic.card!!.total)
         assertEquals(0, optimistic.card!!.overdue)
         assertEquals(setOf("t1"), optimistic.pendingTasks)
-        coVerify(exactly = 1) { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) }
+        coVerify(exactly = 1) { fakes.cards.read(HomeDay.TODAY, any(), any()) }
         answer.complete(Result.success(doneTask))
     }
 
@@ -159,7 +172,7 @@ class TasksCardViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 1) { fakes.taskRepository.toggleDone("t1", true) }
-        coVerify(exactly = 2) { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) }
+        coVerify(exactly = 2) { fakes.cards.read(HomeDay.TODAY, any(), any()) }
         val state = viewModel.uiState.value
         assertTrue(state.card!!.tasks.first { it.id == "t1" }.done)
         assertEquals(2, state.card!!.done)
@@ -232,12 +245,12 @@ class TasksCardViewModelTest {
         fakes.pushes.emit(Unit)
         runCurrent()
 
-        coVerify(exactly = 1) { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) }
+        coVerify(exactly = 1) { fakes.cards.read(HomeDay.TODAY, any(), any()) }
         assertTrue(viewModel.uiState.value.card!!.tasks.first { it.id == "t2" }.done)
 
         answer.complete(Result.success(doneTask))
         advanceUntilIdle()
-        coVerify(exactly = 2) { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) }
+        coVerify(exactly = 2) { fakes.cards.read(HomeDay.TODAY, any(), any()) }
     }
 
     @Test
@@ -342,7 +355,7 @@ class TasksCardViewModelTest {
         val viewModel = fakes.viewModel()
         viewModel.show(HomeDay.TODAY)
         advanceUntilIdle()
-        coEvery { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) } returns Result.failure(RuntimeException("offline"))
+        coEvery { fakes.cards.read(HomeDay.TODAY, any(), any()) } returns Result.failure(RuntimeException("offline"))
 
         fakes.pushes.emit(Unit)
         advanceUntilIdle()
@@ -376,7 +389,7 @@ class TasksCardViewModelTest {
         fakes.pushes.emit(Unit)
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) }
+        coVerify(exactly = 1) { fakes.cards.read(HomeDay.TODAY, any(), any()) }
     }
 
     @Test
@@ -394,7 +407,7 @@ class TasksCardViewModelTest {
         advanceUntilIdle()
         assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
 
-        coEvery { fakes.homeCards.state(HomeModules.TASKS, HomeDay.TODAY) } returns Result.failure(RuntimeException("HTTP 503"))
+        coEvery { fakes.cards.read(HomeDay.TODAY, any(), any()) } returns Result.failure(RuntimeException("HTTP 503"))
         viewModel.show(HomeDay.TODAY)
         advanceUntilIdle()
         assertEquals(HomeCardStatus.ERROR, viewModel.uiState.value.status)

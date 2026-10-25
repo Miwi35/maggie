@@ -1,6 +1,5 @@
 package com.maggie.app.data.model
 
-import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -8,7 +7,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The « Tâches » card of the Accueil as the API sends it, and how a tick moves it before the API has answered (MAG-561). */
+/** How a tick moves the « Tâches » card of the Accueil before the API has answered (MAG-561). */
 class HomeTasksTest {
 
     private val card = HomeTasks(
@@ -24,32 +23,15 @@ class HomeTasksTest {
     )
 
     @Test
-    fun `the body of the API is read under its own names`() {
-        val body = """
-            {"module":"tasks","day":"today","editable":true,
-             "tasks":[{"id":"01J","title":"Appeler","done":false,"overdueDays":2,"parentId":null},
-                      {"id":"01K","title":"Choisir","done":true,"overdueDays":null,"parentId":"01J"}],
-             "done":1,"total":2,"more":3,"overdue":1,
-             "routines":[{"id":"r","title":"Eau","anchor":"wake","time":"07:30","checked":false}],
-             "saga":{"title":"Déménagement","done":2,"total":6}}
-        """.trimIndent()
-
-        val read = Json { ignoreUnknownKeys = true }.decodeFromString(HomeTasks.serializer(), body)
-
-        assertEquals(2, read.tasks.first().overdueDays)
-        assertTrue(read.tasks.last().isSubtask)
-        assertFalse(read.tasks.first().isSubtask)
-        assertEquals(3, read.more)
-        assertEquals("wake", read.routines.single().anchor)
-        assertEquals(HomeSaga("Déménagement", 2, 6), read.saga)
+    fun `a row with a parent is a subtask`() {
+        assertTrue(HomeTask("a", "Choisir", parentId = "p").isSubtask)
+        assertFalse(HomeTask("p", "Réserver").isSubtask)
     }
 
     @Test
-    fun `a null saga is no saga`() {
-        val read = Json { ignoreUnknownKeys = true }.decodeFromString(HomeTasks.serializer(), """{"saga":null}""")
-
-        assertNull(read.saga)
-        assertTrue(read.isEmpty)
+    fun `a card without saga, tasks, routines or more is empty`() {
+        assertNull(HomeTasks().saga)
+        assertTrue(HomeTasks().isEmpty)
     }
 
     @Test

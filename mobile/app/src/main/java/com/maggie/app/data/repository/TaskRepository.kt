@@ -94,6 +94,14 @@ class TaskRepository(
         return apiService.getTodayTasks()
     }
 
+    /** The [limit] last tasks done from [after] (included) to [before] (excluded), ISO-8601 with offset, the latest first. Not cached. */
+    suspend fun getCompletedBetween(after: String, before: String, limit: Int): List<Task> =
+        apiService.getTasksCompletedBetween(after, before, limit)
+
+    /** The open tasks due on [date], at most [limit]; the caller sorts them. Not cached. */
+    suspend fun getOpenDueOn(date: LocalDate, limit: Int): List<Task> =
+        apiService.getOpenTasksDueOn(date.toString(), limit)
+
     /** One read of a view (MAG-408): its tasks, the counts of the four views, and for « done » the page asked. */
     suspend fun getTaskView(view: TaskView, page: Int? = null): Result<TaskViewResponse> = runCatching {
         apiService.getTaskView(view.key, page)

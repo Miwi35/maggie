@@ -19,6 +19,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Enum\TaskCriticality;
 use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Enum\TaskUrgencyLevel;
+use Maggie\Calendar\Filter\CompletionPeriodFilter;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\State\CreateTaskProcessor;
 use Maggie\Calendar\State\DeleteTaskProcessor;
@@ -45,9 +46,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(columns: ['due_date'], name: 'idx_task_due_date')]
 #[ORM\Index(columns: ['completed_at'], name: 'idx_task_completed_at')]
 #[ApiFilter(DateFilter::class, properties: ['dueDate'])]
+#[ApiFilter(CompletionPeriodFilter::class, properties: ['completedAt'])]
 #[ApiFilter(ExistsFilter::class, properties: ['completedAt', 'dueDate'])]
 #[ApiFilter(SearchFilter::class, properties: ['priority' => 'exact', 'criticality' => 'exact'])]
-#[ApiFilter(OrderFilter::class, properties: ['id', 'dueDate', 'criticality', 'position'])]
+#[ApiFilter(OrderFilter::class, properties: ['id', 'dueDate', 'criticality', 'position', 'completedAt'])]
 #[ApiFilter(UlidRelationFilter::class, properties: ['parent'])]
 #[Indexed(index: 'tasks', module: 'calendar')]
 #[ApiResource(operations: [

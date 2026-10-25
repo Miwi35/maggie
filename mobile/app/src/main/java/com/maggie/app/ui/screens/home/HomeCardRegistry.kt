@@ -4,10 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.maggie.app.data.model.HomeDay
 
-/** Where a card goes on the Accueil: [ACTION] cards head the screen, [MAIN] cards are stacked under them. */
-enum class HomeZone { ACTION, MAIN }
-
-/** The modules of the Accueil, in the order of the spec; a card's [HomeCardEntry.module] is one of these. */
+/** The modules of the Accueil; a card's [HomeCardEntry.module] and the keys of [HomeLayout] are these. */
 object HomeModules {
     const val TASKS = "tasks"
     const val AGENDA = "agenda"
@@ -16,23 +13,15 @@ object HomeModules {
     const val HEALTH = "health"
     const val FINANCE = "finance"
     const val LEISURE = "leisure"
-
-    val ORDER: List<String> = listOf(TASKS, AGENDA, GROCERY, NUTRITION, HEALTH, FINANCE, LEISURE)
-
-    /** The rank of [module] in [ORDER]; a module the list does not know comes last. */
-    fun orderOf(module: String): Int = ORDER.indexOf(module).let { if (it < 0) ORDER.size else it }
 }
 
 /**
- * One card of the Accueil. The module's ticket registers it and draws the whole card (a [HomeCard] or a
- * [HomeActionCard]), from [content]'s `day`; a card with nothing to say draws nothing and takes no room.
- *
- * @param order the rank among the cards of the same zone; by default the module's place in [HomeModules.ORDER].
+ * One card of the Accueil: the component of a [module]. The module's ticket registers it and draws the whole card
+ * (a [HomeCard] or a [HomeActionCard]), from [content]'s `day`; a card with nothing to say draws nothing and takes no
+ * room. Which cards the screen draws, and in which order, is [HomeLayout]'s.
  */
 class HomeCardEntry(
     val module: String,
-    val zone: HomeZone,
-    val order: Int = HomeModules.orderOf(module),
     val content: @Composable (day: HomeDay) -> Unit,
 )
 
@@ -48,16 +37,11 @@ val LocalHomeNavigation = staticCompositionLocalOf<(String) -> Unit> { {} }
  */
 object HomeCardRegistry {
     val entries: List<HomeCardEntry> = listOf(
-        HomeCardEntry(module = HomeModules.GROCERY, zone = HomeZone.MAIN) { GroceryHomeCard() },
+        HomeCardEntry(HomeModules.GROCERY) { GroceryHomeCard() },
         // MAG-561: today's tasks and the routines of the moment.
-        HomeCardEntry(HomeModules.TASKS, HomeZone.MAIN) { day -> TasksHomeCard(day) },
-        HomeCardEntry(module = HomeModules.NUTRITION, zone = HomeZone.MAIN) { day -> NutritionHomeCard(day) },
-        HomeCardEntry(module = HomeModules.FINANCE, zone = HomeZone.MAIN) { FinanceHomeCard() },
-        HomeCardEntry(HomeModules.AGENDA, HomeZone.MAIN) { day -> AgendaCard(day) },
+        HomeCardEntry(HomeModules.TASKS) { day -> TasksHomeCard(day) },
+        HomeCardEntry(HomeModules.NUTRITION) { day -> NutritionHomeCard(day) },
+        HomeCardEntry(HomeModules.FINANCE) { FinanceHomeCard() },
+        HomeCardEntry(HomeModules.AGENDA) { day -> AgendaCard(day) },
     )
 }
-
-/** [entries] as the screen stacks them: the action cards first, then the others, each zone by [HomeCardEntry.order]. */
-internal fun List<HomeCardEntry>.inScreenOrder(): Pair<List<HomeCardEntry>, List<HomeCardEntry>> =
-    filter { it.zone == HomeZone.ACTION }.sortedBy { it.order } to
-        filter { it.zone == HomeZone.MAIN }.sortedBy { it.order }

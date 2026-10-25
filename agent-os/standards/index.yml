@@ -25,6 +25,8 @@ api:
     description: Entity conventions — ULID keys, MercurePublishable interface, modular bundles, ownership interfaces, Messenger commands and routing per entity
   mcp-tools:
     description: MCP tools — CRUD tools per entity enforced, write via bus, read via repo filtered by user, new entity checklist with migration step
+  resources-only:
+    description: L'API n'expose que des ressources et actions du domaine — pas d'endpoint d'écran (/api/home), ni ordre ni mise en page ; agréger par un filtre de domaine ou un index Elasticsearch, jamais une vue SQL ; calcul métier dans l'API, filtre simple dans le front
   taskfile:
     description: API task commands — composer, console passthrough, testing
   testing:
