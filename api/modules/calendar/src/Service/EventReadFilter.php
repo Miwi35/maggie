@@ -10,7 +10,7 @@ use Symfony\Component\String\UnicodeString;
 
 /**
  * What the two event reads (`get_upcoming_events`, `get_events_by_date`) narrow their result
- * with: some of the user's agendas, and the title of the event looked for (MAG-325).
+ * with: some of the user's agendas, and the title or place of the event looked for (MAG-325).
  */
 class EventReadFilter
 {
@@ -64,7 +64,7 @@ class EventReadFilter
                 return false;
             }
 
-            return [] === $words || self::titleMatches($event->getSummary(), $words);
+            return [] === $words || self::matches(trim($event->getSummary().' '.$event->getLocation()), $words);
         }));
     }
 
@@ -101,16 +101,17 @@ class EventReadFilter
     }
 
     /**
-     * The title holds a word of the query, give or take case, accents and a typo.
+     * The title or the place holds a word of the query, give or take case, accents and a typo:
+     * « Lubus », as a dictation heard it, finds « Black Wizards » at « L'UBU, Rennes ».
      *
      * @param list<string> $queryWords
      */
-    private static function titleMatches(string $summary, array $queryWords): bool
+    private static function matches(string $text, array $queryWords): bool
     {
-        $titleWords = self::words($summary, keepFiller: true);
+        $eventWords = self::words($text, keepFiller: true);
 
         foreach ($queryWords as $wanted) {
-            foreach ($titleWords as $word) {
+            foreach ($eventWords as $word) {
                 if (self::sameWord($wanted, $word)) {
                     return true;
                 }

@@ -65,3 +65,10 @@ Maggie\Calendar\Entity\Event:
     endAt: '<(new \DateTimeImmutable("tomorrow 11:00", new \DateTimeZone("Europe/Paris")))>'
     timeZone: Europe/Paris
     agenda: '@other_default_agenda'
+  concert_event:
+    summary: Black Wizards
+    location: "L'UBU, Rennes"
+    startAt: '<(new \DateTimeImmutable("+9 days 19:00", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("+9 days 22:00", new \DateTimeZone("Europe/Paris")))>'
+    timeZone: Europe/Paris
+    agenda: '@default_agenda'
