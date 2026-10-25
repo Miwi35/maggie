@@ -100,7 +100,7 @@ fun hasEnvelope(rhythm: Rhythm): Boolean = rhythm.budgetCents > 0
 
 /**
  * The share of the ring that is still to spend: what remains of the budget, from 0 to 1.
- * An overspent period (negative remainder) fills the whole ring, in red.
+ * An overspent period (negative remainder) fills the whole ring.
  */
 fun ringFill(rhythm: Rhythm): Float = when {
     !hasEnvelope(rhythm) -> 0f
