@@ -497,7 +497,9 @@ test('a thread is still there after a reload, and only once', async ({ page }) =
   // so five more inserted before this one would push the agenda question off
   // the page and turn these counts into zero — with a failure message blaming
   // persistence. Paginate the history if the file grows that far.
+  // Maggie opens folded into her portrait (MAG-624): the conversation is brought in first.
   const chat = new ChatPanel(page)
+  await chat.open()
   const agenda = agendaExchange(agendaRef)
   await expect(chat.bubbles(agenda.question)).toHaveCount(1)
   await expect(chat.bubbles(agenda.answer)).toHaveCount(1)
@@ -507,6 +509,7 @@ test('a thread is still there after a reload, and only once', async ({ page }) =
   // history would come back doubled.
   await page.reload()
   await dashboard.expectReady()
+  await chat.open()
   await expect(chat.bubbles(agenda.question)).toHaveCount(1)
   await expect(chat.bubbles(agenda.answer)).toHaveCount(1)
 })
