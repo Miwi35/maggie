@@ -1,5 +1,5 @@
 import { test, expect, seedDate } from '../fixtures/index.js'
-import type { APIRequestContext, Page } from '@playwright/test'
+import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { getCollection, plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed, userTopic } from '../helpers/mercure.js'
 import { dayOfThisWeek } from '../helpers/week.js'
@@ -79,10 +79,6 @@ test.describe('Recipes and meals', () => {
     await expect(page).toHaveURL(/#\/recipes\/.+\/show/)
     await expect(shell.content.getByRole('heading', { name })).toBeVisible()
     await shell.goto(ROUTES.recipes)
-    // The list is oldest first, ten a page, and the other journeys leave their
-    // recipes behind: a new one may be on the second page, so show them all.
-    await shell.content.getByRole('combobox', { name: /Lignes par page/ }).click()
-    await page.getByRole('option', { name: '50', exact: true }).click()
     const row = shell.content.getByRole('row').filter({ hasText: name })
     await expect(row).toBeVisible()
     await expect(row.getByText('rapide', { exact: true })).toBeVisible()
@@ -99,8 +95,14 @@ test.describe('Recipes and meals', () => {
    * the deploy back. Asserted on a list loaded afresh, which is the index's word.
    */
   for (const kind of [
-    { label: 'recipe', index: 'recipes', route: ROUTES.recipes, path: '/api/recipes', data: (name: string) => ({ name, servings: 2 }), confirm: (page: Page) => page.getByRole('dialog').getByRole('button', { name: 'Confirmer' }).click() },
-    { label: 'ingredient', index: 'products', route: ROUTES.ingredients, path: '/api/ingredients', data: (name: string) => ({ name, category: 'grain' }), confirm: async () => {} },
+    { label: 'recipe', index: 'recipes', route: ROUTES.recipes, path: '/api/recipes', data: (name: string) => ({ name, servings: 2 }), remove: async (page: Page, row: Locator) => {
+        // MAG-629: the table has no delete button; the recipe leaves from its sheet, which asks first (MAG-289).
+        await row.click()
+        await page.getByRole('button', { name: 'Actions de la recette' }).click()
+        await page.getByRole('menuitem', { name: 'Supprimer' }).click()
+        await page.getByRole('dialog').getByRole('button', { name: 'Confirmer' }).click()
+      } },
+    { label: 'ingredient', index: 'products', route: ROUTES.ingredients, path: '/api/ingredients', data: (name: string) => ({ name, category: 'grain' }), remove: async (_page: Page, row: Locator) => { await row.getByRole('button', { name: 'Supprimer' }).click() } },
   ]) {
     test(`a deleted ${kind.label} leaves the list, and stays gone after a reload`, async ({ page, api }) => {
       const name = `Suppression MAG-266 ${kind.label} ${Date.now()}`
@@ -126,16 +128,14 @@ test.describe('Recipes and meals', () => {
         .poll(inIndex, { timeout: 30_000, message: `The ${kind.label} never reached the ${kind.index} index` })
         .toBe(true)
 
-      // Newest first, so the row is on the first page whatever the seed holds.
+      // Newest first, so the row is on the first page whatever the seed holds (the recipe table holds them all, by name).
       const shell = new AdminShell(page)
-      const list = `${kind.route}?sort=id&order=DESC&perPage=50`
+      const list = kind.label === 'recipe' ? kind.route : `${kind.route}?sort=id&order=DESC&perPage=50`
       await shell.goto(list)
       const row = shell.content.getByRole('row').filter({ hasText: name })
       await expect(row).toBeVisible()
 
-      await row.getByRole('button', { name: 'Supprimer' }).click()
-      // A recipe asks first, since its planned meals go with it (MAG-289).
-      await kind.confirm(page)
+      await kind.remove(page, row)
       await expect(row).toHaveCount(0)
 
       // The screen forgets the row at once and sends the delete after the undo
@@ -401,9 +401,11 @@ test.describe('Recipes and meals', () => {
     await meals.open()
     await expect(meals.cardWith(name)).toHaveCount(2)
 
-    await shell.goto(`${ROUTES.recipes}?sort=id&order=DESC&perPage=50`)
+    await shell.goto(ROUTES.recipes)
     const row = shell.content.getByRole('row').filter({ hasText: name })
-    await row.getByRole('button', { name: 'Supprimer' }).click()
+    await row.click()
+    await shell.content.getByRole('button', { name: 'Actions de la recette' }).click()
+    await page.getByRole('menuitem', { name: 'Supprimer' }).click()
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toContainText(`Supprimer « ${name} » et ses 2 repas planifiés ?`)
@@ -914,6 +916,43 @@ test.describe('Recipes and meals', () => {
     expect(stored[5].ingredients?.map((i) => i.name)).toEqual(['Poitrine fumée'])
   })
 
+  test('the recipe table filters on a tag pastille, and a click on a row opens the sheet read-only — MAG-629', async ({ page, api }) => {
+    // Given two recipes, one tagged « rapide », the other « four »
+    const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const stamp = Date.now()
+    const quick = `Express MAG-629 ${stamp}`
+    const baked = `Gratin MAG-629 ${stamp}`
+    for (const [name, tags] of [[quick, ['rapide']], [baked, ['four']]] as const) {
+      const made = await api.post('/api/recipes', {
+        headers,
+        data: { name, servings: 2, tags, steps: [{ text: 'Cuire', durationMinutes: 25 }] },
+      })
+      expect(made.status(), `POST /api/recipes answered ${made.status()}: ${await made.text()}`).toBe(201)
+    }
+    await waitForIndexed<RecipeRow>(api, '/api/recipes', (r) => r.name === baked, { what: 'The recipes of this journey' })
+
+    // When I open the table
+    const shell = new AdminShell(page)
+    await shell.goto(ROUTES.recipes)
+    await expect(shell.content.getByRole('columnheader')).toHaveText(['Recette', 'Portions', 'Tags', 'Durée', 'kcal / pers.', 'Dernier repas'])
+    const row = (name: string): Locator => shell.content.getByRole('row').filter({ hasText: name })
+    await expect(row(quick)).toBeVisible()
+    await expect(row(baked)).toBeVisible()
+    await expect(row(quick)).toContainText('25 min')
+
+    // And I press the « Rapide » pastille, only the quick one remains
+    await shell.content.getByRole('button', { name: 'Rapide', exact: true }).click()
+    await expect(row(quick)).toBeVisible()
+    await expect(row(baked)).toHaveCount(0)
+
+    // And I click its row, the sheet opens, read-only
+    await row(quick).click()
+    await expect(page).toHaveURL(/#\/recipes\/.+\/show/)
+    await expect(shell.content.getByRole('heading', { name: quick })).toBeVisible()
+    await expect(shell.content.getByRole('button', { name: 'Modifier', exact: true })).toBeVisible()
+    await expect(shell.content.getByRole('button', { name: 'Ajouter un ingrédient' })).toHaveCount(0)
+  })
+
   test('a recipe opened from the table is read in two columns, with what one serving brings; « Modifier » adds an ingredient and « Terminé » reads it — MAG-618', async ({ page, api }) => {
     // Given a recipe whose lardons carry 300 kcal per 100 g, and a product still to add
     const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
@@ -949,8 +988,6 @@ test.describe('Recipes and meals', () => {
     // When I click the recipe in the table
     const shell = new AdminShell(page)
     await shell.goto(ROUTES.recipes)
-    await shell.content.getByRole('combobox', { name: /Lignes par page/ }).click()
-    await page.getByRole('option', { name: '50', exact: true }).click()
     await shell.content.getByRole('row').filter({ hasText: name }).click()
 
     // Then the sheet is read, not edited: the quantity before the name, the steps beside, no edit tool

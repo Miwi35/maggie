@@ -1,11 +1,12 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
+import { useState } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, Notification, RecordContextProvider, ResourceContextProvider, testDataProvider } from 'react-admin'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
 import { MemoryRouter } from 'react-router-dom'
 import { messages } from '../../i18n/messages'
-import { RecipeDeleteButton } from './RecipeDeleteButton'
+import { RecipeDeleteConfirm } from './RecipeDeleteButton'
 
 /**
  * MAG-289: deleting a recipe deletes the meals it was the only recipe of, so
@@ -16,13 +17,24 @@ const recipe = { id: '/api/recipes/01C', name: 'Couscous' }
 
 const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
+const DeleteButton = () => {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)}>Supprimer</button>
+      <RecipeDeleteConfirm open={open} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
 const renderButton = (remove: ReturnType<typeof vi.fn>) =>
   render(
     <MemoryRouter>
       <AdminContext dataProvider={testDataProvider({ delete: remove })} i18nProvider={i18nProvider}>
         <ResourceContextProvider value="recipes">
           <RecordContextProvider value={recipe}>
-            <RecipeDeleteButton />
+            <DeleteButton />
           </RecordContextProvider>
         </ResourceContextProvider>
         <Notification />
@@ -41,7 +53,7 @@ type PlannedMeal = { date: string; slot: 'lunch' | 'dinner' }
 const mealCount = (count: number, meals: PlannedMeal[] = []) =>
   answerWith({ ok: true, json: () => Promise.resolve({ mealCount: count, meals }) })
 
-describe('RecipeDeleteButton', { timeout: 30_000 }, () => {
+describe('RecipeDeleteConfirm', { timeout: 30_000 }, () => {
   beforeEach(() => {
     localStorage.setItem('token', 'jwt')
   })

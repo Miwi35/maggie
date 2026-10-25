@@ -1,6 +1,4 @@
-import { useEffect, useState, type MouseEvent } from 'react'
-import Button from '@mui/material/Button'
-import DeleteIcon from '@mui/icons-material/Delete'
+import { useEffect, useState } from 'react'
 import { Confirm, useDelete, useNotify, useRecordContext, useRedirect, useRefresh } from 'react-admin'
 
 type PlannedMeal = { date: string; slot: 'lunch' | 'dinner' }
@@ -109,30 +107,5 @@ export const RecipeDeleteConfirm = ({ open, onClose }: { open: boolean; onClose:
       onConfirm={onConfirm}
       onClose={onClose}
     />
-  )
-}
-
-export const RecipeDeleteButton = () => {
-  const record = useRecordContext<{ id: string; name: string }>()
-  const [open, setOpen] = useState(false)
-
-  if (!record) return null
-
-  return (
-    // The dialog is a portal, but its clicks still bubble to the datagrid row.
-    <span onClick={(event) => event.stopPropagation()}>
-      <Button
-        color="error"
-        size="small"
-        startIcon={<DeleteIcon />}
-        onClick={(event: MouseEvent) => {
-          event.stopPropagation()
-          setOpen(true)
-        }}
-      >
-        Supprimer
-      </Button>
-      <RecipeDeleteConfirm open={open} onClose={() => setOpen(false)} />
-    </span>
   )
 }
