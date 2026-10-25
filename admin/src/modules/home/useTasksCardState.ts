@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { addDays, localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
-import { fetchRoutinesDay, ROUTINE_TOPICS } from '../calendar/routinesApi'
+import { fetchRoutinesDay } from '../calendar/routinesApi'
 import { ApiStatusError, fetchCompletedBetween, fetchOpenDueOn, fetchTaskView } from '../calendar/taskViews'
 import { API_PATH as TASK_SETTINGS_PATH, apiFetch } from '../settings/taskSettingsApi'
 import type { TaskSettingsResponse } from '../settings/taskSettingsApi'
 import { composeTasksState, emptyTasksState, localMidnightIso } from './cards/tasksCardState'
 import type { TasksHomeState } from './cards/tasksCardState'
 import type { HomeDay } from './homeDay'
-
-// One array for the whole app: the shared stream is keyed on its content, and the hook resubscribes on identity.
-const TOPICS = ['/api/tasks/{id}', ...ROUTINE_TOPICS]
+import { HOME_RESOURCE_TOPICS } from './homeResourceTopics'
 
 const DONE_LINES = 5
 
@@ -87,7 +85,7 @@ export function useTasksCardState(day: HomeDay) {
     }
   }, [load])
 
-  useMercure(TOPICS, () => {
+  useMercure(HOME_RESOURCE_TOPICS, () => {
     void load(false)
   })
 

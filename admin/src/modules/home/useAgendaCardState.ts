@@ -7,9 +7,7 @@ import type { ApiAgenda, ApiEvent } from './cards/agendaCardState'
 import type { AgendaHomeState } from './cards/agendaTimeline'
 import { localMidnightIso } from './cards/tasksCardState'
 import type { HomeDay } from './homeDay'
-
-// One array for the whole app: the shared stream is keyed on its content, and the hook resubscribes on identity.
-const TOPICS = ['/api/events/{id}', '/api/agendas/{id}']
+import { HOME_RESOURCE_TOPICS } from './homeResourceTopics'
 
 async function members<T>(path: string, label: string): Promise<T[]> {
   const response = await fetch(`${apiUrl}${path}`, { headers: headers() })
@@ -81,7 +79,7 @@ export function useAgendaCardState(day: HomeDay) {
     }
   }, [load])
 
-  useMercure(TOPICS, () => {
+  useMercure(HOME_RESOURCE_TOPICS, () => {
     void load(false)
   })
 
