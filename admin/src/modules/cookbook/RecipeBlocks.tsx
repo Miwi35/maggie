@@ -17,15 +17,15 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { quantityLabel } from '../grocery/packaging'
+import { quantityLabel, quantityParts } from '../grocery/packaging'
 import { SeasonBadge } from '../grocery/SeasonBadge'
-import { durationLabel, productPackaging, stepsUsing, usedInLabel, utensilNames } from './recipeSheet'
+import { durationLabel, productPackaging, servingsLabel, shortName, stepRefLabel, stepsTitle, stepsUsing, utensilNames } from './recipeSheet'
 import type { Nutrition, ProductInfo, RecipeLine, RecipeRecord, RecipeStep } from './recipeSheet'
 import { dragId, nameOf } from './recipeSteps'
 import type { NameRef } from './recipeSteps'
 
-export const Section = ({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) => (
-  <Box component="section" aria-label={title} sx={{ mb: 3 }}>
+export const Section = ({ title, label, action, children }: { title: string; label?: string; action?: ReactNode; children: ReactNode }) => (
+  <Box component="section" aria-label={label ?? title} sx={{ mb: 3 }}>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
       <Typography variant="h6" component="h2" sx={{ flexGrow: 1 }}>
         {title}
@@ -150,12 +150,33 @@ const QuantityEdit = ({
   )
 }
 
+const QUANTITY_WIDTH = 44
+const UNIT_WIDTH = 64
+
+/** The quantity of a line, the number and its unit in two columns so the whole list lines up. */
+const QuantityText = ({ quantity, unit }: { quantity: number; unit: string }) => {
+  const parts = quantityParts(quantity, unit)
+
+  return (
+    <>
+      <Typography component="span" sx={{ width: QUANTITY_WIDTH, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+        {parts.amount}
+      </Typography>
+      <Typography component="span" color="text.secondary" sx={{ width: UNIT_WIDTH, flexShrink: 0 }}>
+        {parts.unit}
+      </Typography>
+    </>
+  )
+}
+
 export const IngredientsBlock = ({
   recipe,
   scaled,
   products,
   simulating,
   creating,
+  editing,
+  servings,
   onAdd,
   onEdit,
   onRemove,
@@ -166,6 +187,8 @@ export const IngredientsBlock = ({
   products: Map<string, ProductInfo>
   simulating: boolean
   creating: boolean
+  editing: boolean
+  servings: number
   onAdd: () => void
   onEdit: (line: RecipeLine) => void
   onRemove: (line: RecipeLine) => void
@@ -176,41 +199,57 @@ export const IngredientsBlock = ({
 
   return (
     <Section
-      title="Ingrédients"
+      title={`Ingrédients · ${servingsLabel(servings)}`}
+      label="Ingrédients"
       action={
-        <Button size="small" startIcon={<AddIcon />} onClick={onAdd} disabled={creating || simulating}>
-          Ajouter un ingrédient
-        </Button>
+        editing && (
+          <Button size="small" startIcon={<AddIcon />} onClick={onAdd} disabled={creating || simulating}>
+            Ajouter un ingrédient
+          </Button>
+        )
       }
     >
       {lines.length === 0 && <Typography color="text.secondary">Aucun ingrédient pour l’instant.</Typography>}
       <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
         {lines.map((line) => {
           const product = line.ingredient?.id ?? ''
-          const usedIn = usedInLabel(stepsUsing(steps, product))
+          const reference = stepRefLabel(stepsUsing(steps, product))
           const packaging = productPackaging(products.get(product))
           const shown = (line.id && scaled.get(line.id)) || line
 
           return (
-            <Box component="li" key={line.id ?? line.ingredientName} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
-              <Box sx={{ flexGrow: 1 }}>
+            <Box component="li" key={line.id ?? line.ingredientName} sx={{ display: 'flex', alignItems: 'baseline', gap: 1, py: 0.5 }}>
+              {editing ? (
+                <Box sx={{ width: QUANTITY_WIDTH + UNIT_WIDTH + 8, flexShrink: 0, textAlign: 'right' }}>
+                  <QuantityEdit line={line} shown={shown} disabled={simulating} onSave={(quantity) => onQuantity(line, quantity)} />
+                </Box>
+              ) : (
+                <QuantityText quantity={shown.quantity} unit={shown.unit} />
+              )}
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                 <Typography component="span">{line.ingredientName}</Typography>
-                {(usedIn || packaging) && (
+                {packaging && (
                   <Typography variant="caption" color="text.secondary" display="block">
-                    {[usedIn, packaging].filter(Boolean).join(' · ')}
+                    {packaging}
                   </Typography>
                 )}
               </Box>
               <SeasonBadge inSeason={line.inSeason} />
-              <QuantityEdit line={line} shown={shown} disabled={simulating} onSave={(quantity) => onQuantity(line, quantity)} />
-              <ActionsMenu
-                label={`Actions pour ${line.ingredientName}`}
-                disabled={simulating}
-                actions={[
-                  { label: 'Modifier', onClick: () => onEdit(line) },
-                  { label: 'Retirer', onClick: () => onRemove(line), danger: true },
-                ]}
-              />
+              {reference && (
+                <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                  {reference}
+                </Typography>
+              )}
+              {editing && (
+                <ActionsMenu
+                  label={`Actions pour ${line.ingredientName}`}
+                  disabled={simulating}
+                  actions={[
+                    { label: 'Modifier', onClick: () => onEdit(line) },
+                    { label: 'Retirer', onClick: () => onRemove(line), danger: true },
+                  ]}
+                />
+              )}
             </Box>
           )
         })}
@@ -219,35 +258,86 @@ export const IngredientsBlock = ({
   )
 }
 
-const Pastilles = ({ names, label }: { names: NameRef[]; label: string }) =>
+/** The pastilles of a block or a step: the short name of each, the full one on hover. */
+const Pastilles = ({ names, label, short = false }: { names: NameRef[]; label: string; short?: boolean }) =>
   names.length === 0 ? null : (
     <Box component="ul" aria-label={label} sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, listStyle: 'none', m: 0, p: 0 }}>
       {names.map((ref) => (
-        <li key={nameOf(ref)}>
-          <Chip label={nameOf(ref)} size="small" variant="outlined" />
+        <li key={nameOf(ref)} title={nameOf(ref)}>
+          <Chip label={short ? shortName(nameOf(ref)) : nameOf(ref)} size="small" variant="outlined" />
         </li>
       ))}
     </Box>
   )
 
-export const UtensilsBlock = ({ recipe, creating, onEdit }: { recipe: RecipeRecord; creating: boolean; onEdit: () => void }) => {
+export const UtensilsBlock = ({ recipe, creating, editing, onEdit }: { recipe: RecipeRecord; creating: boolean; editing: boolean; onEdit: () => void }) => {
   const names = utensilNames(recipe.utensils)
+  if (!editing && names.length === 0) return null
 
   return (
-    <Section title="Matériel" action={<EditButton label="Modifier le matériel" onClick={onEdit} disabled={creating} />}>
-      {names.length === 0 ? <Typography color="text.secondary">Aucun matériel.</Typography> : <Pastilles names={names} label="Matériel" />}
+    <Section title="Ustensiles" action={editing && <EditButton label="Modifier les ustensiles" onClick={onEdit} disabled={creating} />}>
+      {names.length === 0 ? <Typography color="text.secondary">Aucun ustensile.</Typography> : <Pastilles names={names} label="Ustensiles" />}
     </Section>
   )
 }
 
-export const NotesBlock = ({ recipe, creating, onEdit }: { recipe: RecipeRecord; creating: boolean; onEdit: () => void }) => (
-  <Section title="Notes" action={<EditButton label="Modifier les notes" onClick={onEdit} disabled={creating} />}>
-    {recipe.notes ? (
-      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{recipe.notes}</Typography>
-    ) : (
-      <Typography color="text.secondary">Aucune note.</Typography>
-    )}
-  </Section>
+export const NotesBlock = ({ recipe, creating, editing, onEdit }: { recipe: RecipeRecord; creating: boolean; editing: boolean; onEdit: () => void }) => {
+  if (!editing && !recipe.notes) return null
+
+  return (
+    <Section title="Notes" action={editing && <EditButton label="Modifier les notes" onClick={onEdit} disabled={creating} />}>
+      {recipe.notes ? (
+        <Typography sx={{ whiteSpace: 'pre-wrap' }}>{recipe.notes}</Typography>
+      ) : (
+        <Typography color="text.secondary">Aucune note.</Typography>
+      )}
+    </Section>
+  )
+}
+
+const StepContent = ({ step, position }: { step: RecipeStep; position: number }) => {
+  const waitsFor = step.waitsFor ?? []
+
+  return (
+    <Box sx={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      <Typography component="div">{step.text}</Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+        {step.durationMinutes !== null && <Chip size="small" label={`⏱ ${durationLabel(step.durationMinutes)}`} />}
+        {step.background && <Chip size="small" color="info" label="en fond" />}
+        {waitsFor.length > 0 && <Chip size="small" variant="outlined" label={`attend ${stepRefLabel(waitsFor)}`} />}
+      </Box>
+      <Pastilles short names={step.ingredients} label={`Ingrédients de l'étape ${position}`} />
+      <Pastilles short names={step.utensils} label={`Ustensiles de l'étape ${position}`} />
+    </Box>
+  )
+}
+
+const StepNumber = ({ position }: { position: number }) => (
+  <Box
+    aria-hidden
+    sx={{
+      width: 28,
+      height: 28,
+      flexShrink: 0,
+      borderRadius: '50%',
+      bgcolor: 'primary.main',
+      color: 'primary.contrastText',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontWeight: 700,
+      fontVariantNumeric: 'tabular-nums',
+    }}
+  >
+    {position}
+  </Box>
+)
+
+const ReadStep = ({ step, index }: { step: RecipeStep; index: number }) => (
+  <Paper component="li" variant="outlined" aria-label={`Étape ${index + 1}`} sx={{ p: 1.5, mb: 1, display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+    <StepNumber position={index + 1} />
+    <StepContent step={step} position={index + 1} />
+  </Paper>
 )
 
 const SortableStep = ({
@@ -267,7 +357,6 @@ const SortableStep = ({
 }) => {
   const position = index + 1
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: dragId(step, index) })
-  const waitsFor = step.waitsFor ?? []
 
   return (
     <Paper
@@ -275,24 +364,14 @@ const SortableStep = ({
       component="li"
       variant="outlined"
       aria-label={`Étape ${position}`}
-      sx={{ p: 1, mb: 1, display: 'flex', alignItems: 'flex-start', gap: 1, opacity: isDragging ? 0.5 : 1 }}
+      sx={{ p: 1.5, mb: 1, display: 'flex', alignItems: 'flex-start', gap: 1, opacity: isDragging ? 0.5 : 1 }}
       style={{ transform: CSS.Transform.toString(transform), transition }}
     >
       <IconButton size="small" aria-label={`Déplacer l'étape ${position}`} sx={{ cursor: 'grab' }} {...attributes} {...listeners}>
         <DragIndicatorIcon fontSize="small" />
       </IconButton>
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <Typography component="div">
-          <strong>{position}.</strong> {step.text}
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
-          {step.durationMinutes !== null && <Chip size="small" label={`⏱ ${durationLabel(step.durationMinutes)}`} />}
-          {step.background && <Chip size="small" color="info" label="en fond" />}
-          {waitsFor.length > 0 && <Chip size="small" variant="outlined" label={`attend ${waitsFor.join(', ')}`} />}
-        </Box>
-        <Pastilles names={step.ingredients} label={`Ingrédients de l'étape ${position}`} />
-        <Pastilles names={step.utensils} label={`Ustensiles de l'étape ${position}`} />
-      </Box>
+      <StepNumber position={position} />
+      <StepContent step={step} position={position} />
       <ActionsMenu
         label={`Actions pour l'étape ${position}`}
         actions={[
@@ -309,6 +388,7 @@ const SortableStep = ({
 export const StepsBlock = ({
   steps,
   creating,
+  editing,
   onAdd,
   onEdit,
   onMove,
@@ -316,6 +396,7 @@ export const StepsBlock = ({
 }: {
   steps: RecipeStep[]
   creating: boolean
+  editing: boolean
   onAdd: () => void
   onEdit: (index: number) => void
   onMove: (from: number, to: number) => void
@@ -335,45 +416,65 @@ export const StepsBlock = ({
 
   return (
     <Section
-      title="Étapes"
+      title={stepsTitle(steps)}
+      label="Étapes"
       action={
-        <Button size="small" startIcon={<AddIcon />} onClick={onAdd} disabled={creating}>
-          Ajouter une étape
-        </Button>
+        editing && (
+          <Button size="small" startIcon={<AddIcon />} onClick={onAdd} disabled={creating}>
+            Ajouter une étape
+          </Button>
+        )
       }
     >
       {steps.length === 0 && <Typography color="text.secondary">Aucune étape pour l’instant.</Typography>}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={steps.map(dragId)} strategy={verticalListSortingStrategy}>
-          <Box component="ol" sx={{ m: 0, p: 0, listStyle: 'none' }}>
-            {steps.map((step, index) => (
-              <SortableStep
-                key={dragId(step, index)}
-                step={step}
-                index={index}
-                count={steps.length}
-                onEdit={() => onEdit(index)}
-                onMove={(to) => onMove(index, to)}
-                onRemove={() => onRemove(index)}
-              />
-            ))}
-          </Box>
-        </SortableContext>
-      </DndContext>
+      {editing ? (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={steps.map(dragId)} strategy={verticalListSortingStrategy}>
+            <Box component="ol" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+              {steps.map((step, index) => (
+                <SortableStep
+                  key={dragId(step, index)}
+                  step={step}
+                  index={index}
+                  count={steps.length}
+                  onEdit={() => onEdit(index)}
+                  onMove={(to) => onMove(index, to)}
+                  onRemove={() => onRemove(index)}
+                />
+              ))}
+            </Box>
+          </SortableContext>
+        </DndContext>
+      ) : (
+        <Box component="ol" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+          {steps.map((step, index) => (
+            <ReadStep key={dragId(step, index)} step={step} index={index} />
+          ))}
+        </Box>
+      )}
     </Section>
   )
 }
 
-export const NutritionBlock = ({ nutrition }: { nutrition: Nutrition | null }) => {
+/**
+ * What one serving brings, at the end of the sheet. The share of the day's need only shows when the
+ * reference is known (Santé › Configuration): without it the line is left out, not guessed.
+ */
+export const NutritionBlock = ({ nutrition, dailyKcal = null }: { nutrition: Nutrition | null; dailyKcal?: number | null }) => {
   if (!nutrition) return null
 
+  const share = dailyKcal && dailyKcal > 0 ? Math.round((nutrition.kcal / dailyKcal) * 100) : null
+
   return (
-    <Section title="Valeurs nutritionnelles par personne">
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        <Chip label={`${nutrition.kcal} kcal`} />
-        <Chip variant="outlined" label={`${nutrition.protein} g de protéines`} />
-        <Chip variant="outlined" label={`${nutrition.carbs} g de glucides`} />
-        <Chip variant="outlined" label={`${nutrition.fat} g de lipides`} />
+    <Section title="Valeurs par personne">
+      <Typography data-testid="nutrition-energy" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+        {`≈ ${nutrition.kcal} kcal`}
+        {share !== null && ` · ${share} % du besoin du jour`}
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}>
+        <Typography color="text.secondary">{`Protéines ${nutrition.protein} g`}</Typography>
+        <Typography color="text.secondary">{`Lipides ${nutrition.fat} g`}</Typography>
+        <Typography color="text.secondary">{`Glucides ${nutrition.carbs} g`}</Typography>
       </Box>
       {nutrition.skipped > 0 && (
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>

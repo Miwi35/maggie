@@ -32,9 +32,15 @@ export const packagingLabel = (
   return `${bought} de ${formatSize(size)} ${content}`
 }
 
+/** A count of what is bought, in two parts so a list can align them: « 300 » and « g ». */
+export const quantityParts = (quantity: number, unit: string): { amount: string; unit: string } => ({
+  amount: formatSize(quantity),
+  unit: quantity > 1 && PLURALS[unit] ? PLURALS[unit] : unitName(unit),
+})
+
 /** A count of what is bought, as the owner says it: « 1 paquet », « 2 bocaux », « 300 g ». */
 export const quantityLabel = (quantity: number, unit: string): string => {
-  const name = quantity > 1 && PLURALS[unit] ? PLURALS[unit] : unitName(unit)
+  const parts = quantityParts(quantity, unit)
 
-  return `${formatSize(quantity)} ${name}`
+  return `${parts.amount} ${parts.unit}`
 }

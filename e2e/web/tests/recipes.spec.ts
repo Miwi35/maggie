@@ -656,9 +656,10 @@ test.describe('Recipes and meals', () => {
       await page.getByRole('option', { name: create ? `Ajouter « ${option} »` : option, exact: true }).click()
     }
 
-    await shell.content.getByRole('button', { name: 'Modifier le matériel' }).click()
-    await chip('Matériel', existing)
-    await chip('Matériel', fresh, true)
+    await shell.content.getByRole('button', { name: 'Modifier', exact: true }).click()
+    await shell.content.getByRole('button', { name: 'Modifier les ustensiles' }).click()
+    await chip('Ustensiles', existing)
+    await chip('Ustensiles', fresh, true)
     await save()
 
     const steps = [
@@ -707,10 +708,10 @@ test.describe('Recipes and meals', () => {
     // And the sheet shows the equipment, and the fifth step waiting for 3 and 4
     await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
     await expect(shell.content.getByRole('heading', { name })).toBeVisible()
-    const equipment = shell.content.getByRole('list', { name: 'Matériel' })
+    const equipment = shell.content.getByRole('list', { name: 'Ustensiles', exact: true })
     await expect(equipment.getByText(existing)).toBeVisible()
     await expect(equipment.getByText(fresh)).toBeVisible()
-    await expect(shell.content.getByText('attend 3, 4')).toBeVisible()
+    await expect(shell.content.getByText('attend ét. 3 · 4')).toBeVisible()
     await expect(shell.content.getByText('⏱ 12 min')).toBeVisible()
   })
 
@@ -741,10 +742,11 @@ test.describe('Recipes and meals', () => {
     const sheet = await shell.content.getByTestId('reading-page').boundingBox()
     expect(sheet?.width).toBeLessThanOrEqual(1100)
     const label = await shell.content.getByText(ingredientName, { exact: true }).first().boundingBox()
-    const quantity = await shell.content.getByRole('button', { name: `Modifier la quantité de ${ingredientName}` }).boundingBox()
+    const line = shell.content.getByRole('region', { name: 'Ingrédients' }).getByRole('listitem').filter({ hasText: ingredientName })
+    const quantity = await line.getByText('200', { exact: true }).boundingBox()
     expect(label, 'The ingredient name is not on the sheet').not.toBeNull()
     expect(quantity, 'The quantity is not on the sheet').not.toBeNull()
-    expect(quantity!.x + quantity!.width - label!.x).toBeLessThanOrEqual(1100)
+    expect(label!.x + label!.width - quantity!.x).toBeLessThanOrEqual(1100)
   })
 
   test('an open recipe sheet shows the quantity changed elsewhere, and a popin keeps the text being typed — MAG-330', async ({
@@ -782,7 +784,7 @@ test.describe('Recipes and meals', () => {
 
     const shell = new AdminShell(page)
     await openSubscribed(page, () => shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`), userTopic(session.user.id, '/api/recipes/{id}'))
-    const quantity = (observer: Page) => observer.getByRole('button', { name: `Modifier la quantité de ${orge}`, includeHidden: true })
+    const quantity = (observer: Page) => observer.getByRole('listitem', { includeHidden: true }).filter({ hasText: orge })
     await expect(quantity(page)).toHaveText(/400/)
 
     // When the quantity changes elsewhere, the sheet shows it with no reload.
@@ -796,6 +798,7 @@ test.describe('Recipes and meals', () => {
 
     // And when I am typing the notes while they change elsewhere, my text stays in
     // the popin and the sheet behind follows.
+    await shell.content.getByRole('button', { name: 'Modifier', exact: true }).click()
     await shell.content.getByRole('button', { name: 'Modifier les notes' }).click()
     const dialog = page.getByRole('dialog', { name: 'Notes' })
     await dialog.getByLabel('Notes').fill('Ma version des notes')
@@ -856,17 +859,18 @@ test.describe('Recipes and meals', () => {
     // When I replace the lardons by the smoked belly from their ⋮ menu
     const shell = new AdminShell(page)
     await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
-    const line = shell.content.getByRole('button', { name: 'Modifier la quantité de Lardons fumés' }).locator('xpath=ancestor::li[1]')
-    await expect(line).toContainText('utilisé dans les étapes 2, 6')
+    const line = shell.content.getByRole('region', { name: 'Ingrédients' }).getByRole('listitem').filter({ hasText: 'Lardons fumés' })
+    await expect(line).toContainText('ét. 2 · 6')
     // And the sheet offers no edit form: no « Éditer » button, and the old edit URL leads back to the sheet
     await expect(page.getByRole('link', { name: 'Éditer' })).toHaveCount(0)
     await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}`)
     await expect(page).toHaveURL(/#\/recipes\/.+\/show/)
-    await expect(line).toContainText('utilisé dans les étapes 2, 6')
+    await expect(line).toContainText('ét. 2 · 6')
     // A stale link under the recipe (MAG-607) settles on the sheet instead of redirecting forever
     await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/edit`)
     await expect(page).toHaveURL(/#\/recipes\/[^/]+\/show$/)
-    await expect(line).toContainText('utilisé dans les étapes 2, 6')
+    await expect(line).toContainText('ét. 2 · 6')
+    await shell.content.getByRole('button', { name: 'Modifier', exact: true }).click()
     await line.getByRole('button', { name: 'Actions pour Lardons fumés' }).click()
     await page.getByRole('menuitem', { name: 'Modifier' }).click()
 
@@ -918,5 +922,76 @@ test.describe('Recipes and meals', () => {
     const stored = await stepsOf()
     expect(stored[1].ingredients?.map((i) => i.name)).toEqual(['Poitrine fumée'])
     expect(stored[5].ingredients?.map((i) => i.name)).toEqual(['Poitrine fumée'])
+  })
+
+  test('a recipe opened from the table is read in two columns, with what one serving brings; « Modifier » adds an ingredient and « Terminé » reads it — MAG-618', async ({ page, api }) => {
+    // Given a recipe whose lardons carry 300 kcal per 100 g, and a product still to add
+    const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const stamp = Date.now()
+    const lardonsName = `Lardons MAG-618 ${stamp}`
+    const poitrineName = `Poitrine MAG-618 ${stamp}`
+    const product = async (name: string, extra: Record<string, unknown> = {}): Promise<{ '@id': string; id: string }> => {
+      const made = await api.post('/api/ingredients', { headers, data: { name, category: 'other', ...extra } })
+      expect(made.status(), `POST /api/ingredients answered ${made.status()}`).toBe(201)
+
+      return (await made.json()) as { '@id': string; id: string }
+    }
+    const lardons = await product(lardonsName, { kcalPer100g: 300, proteinPer100g: 15, carbsPer100g: 1, fatPer100g: 28 })
+    await product(poitrineName)
+    const name = `Fiche MAG-618 ${stamp}`
+    const created = await api.post('/api/recipes', {
+      headers,
+      data: {
+        name,
+        servings: 4,
+        ingredients: [{ ingredient: lardons['@id'], quantity: 400, unit: 'g' }],
+        steps: [
+          { text: 'Faire revenir les lardons', durationMinutes: 10, ingredientIds: [lardons.id] },
+          { text: 'Laisser mijoter', durationMinutes: 90, background: true },
+        ],
+      },
+    })
+    expect(created.status(), `POST answered ${created.status()}: ${await created.text()}`).toBe(201)
+    await waitForIndexed<{ name: string }>(api, '/api/products?itemsPerPage=100', (p) => p.name === poitrineName, { what: 'The product to add' })
+    await page.setViewportSize({ width: 1440, height: 900 })
+
+    // When I click the recipe in the table
+    const shell = new AdminShell(page)
+    await shell.goto(ROUTES.recipes)
+    await shell.content.getByRole('combobox', { name: /Lignes par page/ }).click()
+    await page.getByRole('option', { name: '50', exact: true }).click()
+    await shell.content.getByRole('row').filter({ hasText: name }).click()
+
+    // Then the sheet is read, not edited: the quantity before the name, the steps beside, no edit tool
+    await expect(page).toHaveURL(/#\/recipes\/.+\/show/)
+    await expect(shell.content.getByRole('heading', { name })).toBeVisible()
+    const ingredients = shell.content.getByRole('region', { name: 'Ingrédients' })
+    await expect(ingredients.getByRole('heading', { name: 'Ingrédients · 4 portions' })).toBeVisible()
+    await expect(ingredients.getByRole('listitem').filter({ hasText: lardonsName })).toContainText('ét. 1')
+    await expect(shell.content.getByRole('heading', { name: 'Étapes · 1 h 40, dont 1 h 30 en fond' })).toBeVisible()
+    await expect(shell.content.getByRole('button', { name: 'Ajouter un ingrédient' })).toHaveCount(0)
+    await expect(shell.content.getByRole('button', { name: "Actions pour l'étape 1" })).toHaveCount(0)
+    const left = await ingredients.boundingBox()
+    const right = await shell.content.getByRole('region', { name: 'Étapes' }).boundingBox()
+    expect(left!.width, 'The ingredients column is about 520 px').toBeLessThanOrEqual(540)
+    expect(right!.x, 'The steps sit to the right of the ingredients').toBeGreaterThanOrEqual(left!.x + left!.width)
+    // 400 g at 300 kcal per 100 g for 4 portions
+    await expect(shell.content.getByTestId('nutrition-energy')).toContainText('≈ 300 kcal')
+
+    // When I press « Modifier » and add an ingredient
+    await shell.content.getByRole('button', { name: 'Modifier', exact: true }).click()
+    await shell.content.getByRole('button', { name: 'Ajouter un ingrédient' }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByLabel('Ingrédient').fill(poitrineName)
+    await page.getByRole('option', { name: poitrineName, exact: true }).click()
+    await dialog.getByLabel('Quantité').fill('150')
+    await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(dialog).toBeHidden()
+
+    // And « Terminé », the sheet reads again and has the ingredient
+    await shell.content.getByRole('button', { name: 'Terminé' }).click()
+    await expect(ingredients.getByRole('listitem').filter({ hasText: poitrineName })).toContainText('150')
+    await expect(shell.content.getByRole('button', { name: 'Ajouter un ingrédient' })).toHaveCount(0)
+    await expect(shell.content.getByRole('button', { name: 'Modifier', exact: true })).toBeVisible()
   })
 })

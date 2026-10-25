@@ -218,6 +218,8 @@ test('a recipe built on its sheet carries the Ciqual food picked', async ({ page
     (response) => response.url().includes('/api/recipes/') && response.request().method() === 'PATCH',
   )
 
+  // The sheet opens to read (MAG-618): « Modifier » brings the edit tools.
+  await shell.content.getByRole('button', { name: 'Modifier', exact: true }).click()
   await shell.content.getByRole('button', { name: 'Ajouter un ingrédient' }).click()
   const dialog = page.getByRole('dialog', { name: 'Ajouter un ingrédient' })
 
@@ -270,6 +272,7 @@ test('the quantity of an ingredient already in a recipe can be changed', async (
   await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
 
   // One click on the number turns it into a field (MAG-601); Enter saves.
+  await shell.content.getByRole('button', { name: 'Modifier', exact: true }).click()
   const open = shell.content.getByRole('button', { name: `Modifier la quantité de ${COURGETTE.name}` })
   await expect(open).toHaveText(/200/)
   await open.click()
@@ -285,7 +288,7 @@ test('the quantity of an ingredient already in a recipe can be changed', async (
 
   // Kept on the API side, and still there when the sheet is opened again.
   await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
-  await expect(shell.content.getByRole('button', { name: `Modifier la quantité de ${COURGETTE.name}` })).toHaveText(/300/)
+  await expect(shell.content.getByRole('region', { name: 'Ingrédients' }).getByRole('listitem')).toHaveText(/300/)
   const stored = (await (await api.get(iri, { headers: { Accept: 'application/ld+json' } })).json()) as {
     ingredients: { quantity: number; ciqualAlimCode: string }[]
   }

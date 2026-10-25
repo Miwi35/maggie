@@ -136,7 +136,7 @@ test.describe('The guests of a meal', () => {
 
       // When I open the recipe sheet and simulate 8 guests…
       await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(recipe['@id'])}/show`)
-      const quantity = shell.content.getByRole('button', { name: /Modifier la quantité de/ })
+      const quantity = shell.content.getByRole('region', { name: 'Ingrédients' }).getByRole('listitem')
       await expect(quantity).toHaveText(/400/)
       for (let i = 0; i < 4; i++) {
         await shell.content.getByRole('button', { name: /Un convive de plus/ }).click()

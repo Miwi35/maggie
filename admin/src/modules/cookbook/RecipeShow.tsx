@@ -4,6 +4,8 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
+import CheckIcon from '@mui/icons-material/Check'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
 import { Confirm, Show, useCreate, useGetMany, useNotify, useRecordContext, useRedirect, useUpdate } from 'react-admin'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
@@ -46,9 +48,11 @@ type Dialog =
 const errorMessage = (failure: unknown) => refusalOf(failure) ?? (failure as Error | undefined)?.message ?? 'Enregistrement impossible'
 
 /**
- * The recipe, read from top to bottom (MAG-601): each block has its own edit button and edits in a
- * popin, so nothing is a form to fill whole. Every change goes to the API as it is made; the sheet
- * shows what the API kept, and what other clients or Maggie change reaches it live.
+ * The recipe, read in two columns (MAG-618): ingredients, utensils and notes on the left, the steps
+ * on the right, what one serving brings at the end. It opens to read; « Modifier » turns on the
+ * edit tools (MAG-601): each block edits in a popin, so nothing is a form to fill whole. Every
+ * change goes to the API as it is made; the sheet shows what the API kept, and what other clients or
+ * Maggie change reaches it live. The mode is not remembered: the next sheet opens to read.
  */
 const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: boolean }) => {
   const notify = useNotify()
@@ -59,6 +63,7 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
   const [dialog, setDialog] = useState<Dialog | null>(creating ? { kind: 'header' } : null)
   const [removing, setRemoving] = useState<RecipeLine | null>(null)
   const [guests, setGuests] = useState<number | null>(null)
+  const [editing, setEditing] = useState(creating)
   // What the API answered to our own changes and what the hub published since the record was read:
   // newer than the read, which an index not yet refreshed could still serve.
   const [live, setLive] = useState<Partial<RecipeRecord>>({})
@@ -220,7 +225,16 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
             >
               Cuisiner
             </Button>
-            <EditButton label="Modifier le nom, les portions et les tags" onClick={() => setDialog({ kind: 'header' })} />
+            <Button
+              variant="outlined"
+              startIcon={editing ? <CheckIcon /> : <EditOutlinedIcon />}
+              onClick={() => setEditing((current) => !current)}
+              data-testid="recipe-edit-toggle"
+              sx={{ minHeight: 48 }}
+            >
+              {editing ? 'Terminé' : 'Modifier'}
+            </Button>
+            {editing && <EditButton label="Modifier le nom, les portions et les tags" onClick={() => setDialog({ kind: 'header' })} />}
             <ActionsMenu
               label="Actions de la recette"
               actions={[
@@ -254,27 +268,34 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
         </Alert>
       )}
 
-      <IngredientsBlock
-        recipe={recipe}
-        scaled={scaledLines}
-        products={products}
-        simulating={simulating}
-        creating={creating}
-        onAdd={() => setDialog({ kind: 'ingredient', line: null })}
-        onEdit={(line) => setDialog({ kind: 'ingredient', line })}
-        onRemove={askRemoveLine}
-        onQuantity={(line, quantity) => save({ ingredients: linesPayload(lines.map((other) => (other === line ? { ...other, quantity } : other))) })}
-      />
-      <UtensilsBlock recipe={recipe} creating={creating} onEdit={() => setDialog({ kind: 'utensils' })} />
-      <NotesBlock recipe={recipe} creating={creating} onEdit={() => setDialog({ kind: 'notes' })} />
-      <StepsBlock
-        steps={steps}
-        creating={creating}
-        onAdd={() => setDialog({ kind: 'step', index: steps.length })}
-        onEdit={(index) => setDialog({ kind: 'step', index })}
-        onMove={(from, to) => saveOrNotify({ steps: stepsPayload(moveStep(steps, from, to)) })}
-        onRemove={(index) => saveOrNotify({ steps: stepsPayload(removeStep(steps, index)) })}
-      />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '520px minmax(0, 1fr)' }, columnGap: 4, alignItems: 'start' }}>
+        <Box>
+          <IngredientsBlock
+            recipe={recipe}
+            scaled={scaledLines}
+            products={products}
+            simulating={simulating}
+            creating={creating}
+            editing={editing}
+            servings={shownGuests}
+            onAdd={() => setDialog({ kind: 'ingredient', line: null })}
+            onEdit={(line) => setDialog({ kind: 'ingredient', line })}
+            onRemove={askRemoveLine}
+            onQuantity={(line, quantity) => save({ ingredients: linesPayload(lines.map((other) => (other === line ? { ...other, quantity } : other))) })}
+          />
+          <UtensilsBlock recipe={recipe} creating={creating} editing={editing} onEdit={() => setDialog({ kind: 'utensils' })} />
+          <NotesBlock recipe={recipe} creating={creating} editing={editing} onEdit={() => setDialog({ kind: 'notes' })} />
+        </Box>
+        <StepsBlock
+          steps={steps}
+          creating={creating}
+          editing={editing}
+          onAdd={() => setDialog({ kind: 'step', index: steps.length })}
+          onEdit={(index) => setDialog({ kind: 'step', index })}
+          onMove={(from, to) => saveOrNotify({ steps: stepsPayload(moveStep(steps, from, to)) })}
+          onRemove={(index) => saveOrNotify({ steps: stepsPayload(removeStep(steps, index)) })}
+        />
+      </Box>
       <NutritionBlock nutrition={nutrition} />
 
       {dialog?.kind === 'header' && (
