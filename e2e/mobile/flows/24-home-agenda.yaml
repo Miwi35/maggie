@@ -50,6 +50,49 @@ tags:
     visible: ".*Point du matin.*"
     timeout: 20000
 
+# « ▶ Lancer » (MAG-568): the seed's « Revue d'octobre » (20:00) is an activity, so its line carries
+# the pill; « Demain » draws none; touching it on « Aujourd'hui » opens the Comptes activity.
+- scrollUntilVisible:
+    element:
+      id: "home_launch_finance"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "home_day_tomorrow"
+- extendedWaitUntil:
+    visible:
+      id: "home_day_tomorrow"
+      checked: true
+    timeout: 20000
+- assertNotVisible:
+    id: "home_launch_finance"
+- tapOn:
+    id: "home_day_today"
+- scrollUntilVisible:
+    element:
+      id: "home_launch_finance"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "home_launch_finance"
+- extendedWaitUntil:
+    visible:
+      id: "review_activity"
+    timeout: 30000
+- tapOn:
+    id: "review_activity_quit"
+- extendedWaitUntil:
+    visible:
+      id: "home_screen"
+    timeout: 20000
+- scrollUntilVisible:
+    element: ".*Appel avec le plombier.*"
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+
 - tapOn: ".*Appel avec le plombier.*"
 - extendedWaitUntil:
     visible:

@@ -117,8 +117,10 @@ fun AgendaCard(day: HomeDay, viewModel: AgendaHomeViewModel = koinViewModel()) {
         error = ui.error,
         now = now,
         compact = compact,
+        day = day,
         onOpenAgenda = { navigate(Screen.Calendar.route) },
         onOpenEvent = { viewModel.open(it.id) },
+        onLaunch = { route -> navigate(route) },
         onRetry = viewModel::retry,
     )
 
@@ -145,8 +147,10 @@ internal fun AgendaCardContent(
     error: Boolean,
     now: Instant?,
     compact: Boolean,
+    day: HomeDay,
     onOpenAgenda: () -> Unit,
     onOpenEvent: (AgendaHomeEvent) -> Unit,
+    onLaunch: (String) -> Unit,
     onRetry: () -> Unit,
 ) {
     if (state != null && state.events.isEmpty()) return
@@ -161,10 +165,10 @@ internal fun AgendaCardContent(
             state == null -> Unit
             else -> {
                 val timeline = state.timeline(now, compact)
-                timeline.allDay.forEach { AgendaRowItem(it, state.date, now, onOpenEvent) }
-                timeline.past.forEach { AgendaRowItem(it, state.date, now, onOpenEvent) }
+                timeline.allDay.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch) }
+                timeline.past.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch) }
                 if (timeline.hasNowLine && now != null) NowLine(now)
-                timeline.following.forEach { AgendaRowItem(it, state.date, now, onOpenEvent) }
+                timeline.following.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch) }
                 if (timeline.hidden > 0) {
                     TextButton(
                         onClick = onOpenAgenda,
@@ -194,7 +198,7 @@ private fun NowLine(now: Instant) {
 }
 
 @Composable
-private fun AgendaRowItem(row: AgendaRow, date: String, now: Instant?, onOpen: (AgendaHomeEvent) -> Unit) {
+private fun AgendaRowItem(row: AgendaRow, date: String, now: Instant?, day: HomeDay, onOpen: (AgendaHomeEvent) -> Unit, onLaunch: (String) -> Unit) {
     val event = row.event
     val past = row.kind == AgendaRowKind.PAST
     val next = row.kind == AgendaRowKind.NEXT
@@ -207,47 +211,67 @@ private fun AgendaRowItem(row: AgendaRow, date: String, now: Instant?, onOpen: (
     }
     val details = listOfNotNull(event.locationShort, hint).joinToString(" · ")
 
+    val launchRoute = launchRouteFor(event.activity)
+
+    // The row's own tap and the ▶ are siblings, never nested: two buttons, each its own semantics node.
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .alpha(if (past) PAST_ALPHA else 1f)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (next) agendaColor.copy(alpha = NEXT_TINT_ALPHA) else Color.Transparent)
-            .clickable(role = Role.Button) { onOpen(event) }
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-            .testTag(UiTags.homeAgendaRow(event.id)),
+            .background(if (next) agendaColor.copy(alpha = NEXT_TINT_ALPHA) else Color.Transparent),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = rowTimeLabel(event, date).ifEmpty { if (event.allDay) "Journée" else "" },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(56.dp),
-        )
-        Box(Modifier.size(width = 4.dp, height = 28.dp).clip(RoundedCornerShape(2.dp)).background(agendaColor))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = event.summary + if (past) " · fait" else "",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (next) FontWeight.SemiBold else FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (past) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(14.dp))
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 48.dp)
+                .clickable(role = Role.Button) { onOpen(event) }
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .testTag(UiTags.homeAgendaRow(event.id)),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = rowTimeLabel(event, date).ifEmpty { if (event.allDay) "Journée" else "" },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(56.dp),
+            )
+            Box(Modifier.size(width = 4.dp, height = 28.dp).clip(RoundedCornerShape(2.dp)).background(agendaColor))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = event.summary + if (past) " · fait" else "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (next) FontWeight.SemiBold else FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (past) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(14.dp))
+                }
+                if (details.isNotEmpty()) {
+                    Text(
+                        text = details,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-            if (details.isNotEmpty()) {
-                Text(
-                    text = details,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+        }
+        // « ▶ Lancer » on an event that is an activity — today only; the pill draws nothing for tomorrow.
+        if (launchRoute != null) {
+            ActivityLaunchButton(
+                module = HomeModules.FINANCE,
+                activity = event.summary,
+                day = day,
+                onLaunch = { onLaunch(launchRoute) },
+                modifier = Modifier.padding(end = 8.dp),
+            )
         }
     }
 }

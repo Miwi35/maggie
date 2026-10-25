@@ -3,6 +3,8 @@ package com.maggie.app.ui.screens.home
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -11,9 +13,11 @@ import com.maggie.app.data.model.AgendaHomeEvent
 import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.EventReminder
 import com.maggie.app.data.model.EventReminders
+import com.maggie.app.data.model.HomeDay
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.tap
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.navigation.Screen
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -71,8 +75,10 @@ class AgendaCardScreenTest {
         compact: Boolean = true,
         loading: Boolean = false,
         error: Boolean = false,
+        day: HomeDay = HomeDay.TODAY,
         onOpenAgenda: () -> Unit = {},
         onOpenEvent: (AgendaHomeEvent) -> Unit = {},
+        onLaunch: (String) -> Unit = {},
         onRetry: () -> Unit = {},
     ) {
         compose.setContent {
@@ -82,8 +88,10 @@ class AgendaCardScreenTest {
                 error = error,
                 now = if (state?.date == "2026-10-14") now else null,
                 compact = compact,
+                day = day,
                 onOpenAgenda = onOpenAgenda,
                 onOpenEvent = onOpenEvent,
+                onLaunch = onLaunch,
                 onRetry = onRetry,
             )
         }
@@ -154,6 +162,36 @@ class AgendaCardScreenTest {
         compose.onNodeWithTag(UiTags.homeAgendaRow("p1")).assertExists()
         compose.onNodeWithTag(UiTags.homeAgendaRow("c6")).assertExists()
         compose.onNodeWithTag(UiTags.HOME_AGENDA_SEE_DAY).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the review's line carries a Lancer today, and only an activity does`() {
+        val launched = mutableListOf<String>()
+        draw(today(standup, dentist, review), onLaunch = { launched += it })
+
+        compose.onNodeWithTag(UiTags.homeLaunch("finance")).assertExists()
+        compose.onNodeWithContentDescription("Lancer Revue de septembre").assertExists()
+        assertEquals(1, compose.onAllNodesWithTag(UiTags.homeLaunch("finance")).fetchSemanticsNodes().size)
+
+        compose.onNodeWithTag(UiTags.homeLaunch("finance")).tap()
+        assertEquals(listOf(Screen.FinanceReviewActivity.route), launched)
+    }
+
+    @Test
+    fun `touching the Lancer does not open the fiche of the row`() {
+        val opened = mutableListOf<String>()
+        draw(today(review), onOpenEvent = { opened += it.id })
+
+        compose.onNodeWithTag(UiTags.homeLaunch("finance")).tap()
+        assertTrue(opened.isEmpty())
+    }
+
+    @Test
+    fun `tomorrow has no Lancer on the review's line`() {
+        draw(AgendaHomeState(date = "2026-10-15", events = listOf(standup, review)), day = HomeDay.TOMORROW)
+
+        compose.onNodeWithTag(UiTags.homeAgendaRow("e3")).assertExists()
+        compose.onNodeWithTag(UiTags.homeLaunch("finance")).assertDoesNotExist()
     }
 
     @Test

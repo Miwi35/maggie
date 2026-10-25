@@ -256,6 +256,16 @@ Maggie\Calendar\Entity\Event:
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
     agenda: '@e2e_agenda_shared'
 
+  # The monthly review of the evening (MAG-568): an activity, so its line on the Accueil carries « ▶ Lancer ».
+  e2e_event_home_review:
+    summary: Revue d'octobre
+    activity: finance-review
+    startAt: '<e2eDate("20:00")>'
+    endAt: '<e2eDate("21:00")>'
+    timeZone: 'Europe/Paris'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
+    agenda: '@e2e_agenda_shared'
+
   # The neighbour's, at the same hour as the signed-in user's lunch: a journey
   # asking "what do I have today?" has to come back without it.
   e2e_other_event_today:

@@ -169,6 +169,26 @@ test('the Agenda card puts « maintenant » between the done and the coming even
 })
 
 /**
+ * « ▶ Lancer » on an agenda line (MAG-568, extends MAG-562): the seed's « Revue d'octobre » (20:00,
+ * an activity) carries the pill, an ordinary event does not; touching it opens the Comptes activity;
+ * « Demain » draws none.
+ */
+test("the review's line on the Accueil carries a ▶ Lancer that opens the activity, and « Demain » none @responsive", async ({ page }) => {
+  const home = new HomePage(page)
+  await home.open()
+
+  await expect(home.agendaRow('Revue d.octobre')).toBeVisible()
+  await expect(home.agendaRow('Appel avec le plombier')).toBeVisible()
+  await expect(home.agendaList.getByRole('link', { name: 'Lancer Appel avec le plombier' })).toHaveCount(0)
+
+  await home.agendaList.getByRole('link', { name: /^Lancer Revue d.octobre$/ }).click()
+  await expect(page).toHaveURL(/\/finance\/review\/activity/)
+
+  await home.open('tomorrow')
+  await expect(page.getByRole('link', { name: /^Lancer / })).toHaveCount(0)
+})
+
+/**
  * The empty cards (MAG-594, extends MAG-101): a card with nothing to say for the chosen day is not
  * drawn, no title, no frame. An account of its own, with the `empty` profile (no meal, no
  * shopping line, no task, no event, no account): the Accueil says one calm sentence; a task
