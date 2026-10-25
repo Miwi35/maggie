@@ -107,9 +107,26 @@ tags:
       TODAY: ${TODAY}
 # One reload at a time: the previous month is empty, then the shown one is read again.
 - tapOn: "Mois précédent"
-- extendedWaitUntil:
-    visible: "Aucune enveloppe pour cette période.*"
-    timeout: 30000
+# The phone and the foldable say the month is empty; the tablet's pane has no empty state, its tree just
+# loses Obsydian's figures.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "budget_tree"
+    commands:
+      - extendedWaitUntil:
+          visible: "Aucune enveloppe pour cette période.*"
+          timeout: 30000
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "budget_tree"
+    commands:
+      - extendedWaitUntil:
+          notVisible: "40[.,]00 EUR / 100[.,]00 EUR"
+          timeout: 30000
 - tapOn: "Mois suivant"
 
 - extendedWaitUntil:
