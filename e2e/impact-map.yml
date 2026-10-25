@@ -350,6 +350,8 @@ web:
     areas: [chat, dashboard, finance, grocery, cookbook, design]
   e2e/web/tests/breadcrumbs.spec.ts:
     areas: [dashboard, finance, settings, design]
+  e2e/web/tests/navigation.spec.ts:
+    areas: [dashboard, calendar, settings, design]
   e2e/web/tests/notifications-bell.spec.ts:
     areas: [notification, realtime]
     # The buttons of a task reminder (MAG-510): the reminders live in the calendar module.

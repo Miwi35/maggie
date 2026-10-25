@@ -365,7 +365,7 @@ export class CalendarPage extends AdminShell {
   /** Fills the "Nouvelle tâche" dialog from "Créer ▾ → Tâche" and submits. */
   async createTask(task: NewTask): Promise<void> {
     await this.createMenu.click()
-    await this.page.getByRole('menuitem', { name: 'Tâche' }).click()
+    await this.page.getByRole('menuitem', { name: 'Tâche', exact: true }).click()
 
     const dialog = this.createTaskDialog
     await expect(dialog).toBeVisible()
