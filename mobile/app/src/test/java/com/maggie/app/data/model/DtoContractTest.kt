@@ -1222,21 +1222,19 @@ class DtoContractTest {
     }
 
     @Test
-    fun `the agenda card of the Accueil deserialises from the recorded response`() {
-        val body = readRecording("home_agenda.read")
+    fun `the agenda card of the Accueil is composed from the recorded events and agendas`() {
+        val events = json.decodeFromJsonElement(ApiCollection.serializer(serializer<Event>()), readRecording("events.collection")).member
+        val agendas = json.decodeFromJsonElement(ApiCollection.serializer(serializer<Agenda>()), readRecording("agendas.collection")).member
+        val byId = agendas.associateBy { it.id }
 
-        val state = AgendaHomeState.from(body)
+        val rows = events.map { AgendaHomeEvent.from(it, byId[it.agenda?.substringAfterLast('/')]) }
 
-        assertEquals("The recording proves nothing without both a timed and a whole-day event.", 2, state.events.size)
-        assertTrue(state.events.any { it.allDay && it.startDate != null && it.endDate != null })
-        assertNotNull(state.nowInstant)
-        assertDeclaredFieldsExist("AgendaHomeState", serializer<AgendaHomeState>(), body.keys, "home_agenda.read")
-        assertDeclaredFieldsExist(
-            dtoName = "AgendaHomeEvent",
-            serializer = serializer<AgendaHomeEvent>(),
-            emitted = keysOf(body, "events"),
-            source = "home_agenda.read",
+        assertTrue(
+            "The recording proves nothing without both a timed and a whole-day event.",
+            rows.any { it.allDay && it.startDate != null && it.endDate != null } && rows.any { !it.allDay && it.start != null },
         )
+        assertTrue("The agenda IRI of an event must name an agenda of the recording.", rows.all { it.agendaName == "Recorded Agenda" && it.agendaColor == "#336699" })
+        assertEquals("Lisbon", rows.first { it.location != null }.locationShort)
     }
 
     private fun <T> assertCollectionContract(name: String, serializer: KSerializer<T>, dtoName: String) {

@@ -1,6 +1,6 @@
 import { parseDay } from '../../../dates'
 
-/** An event of `GET /api/home/agenda`, as the API describes it (MAG-562). */
+/** An event of the day as the card draws it (MAG-562), composed from `GET /api/events` and `GET /api/agendas`. */
 export interface AgendaHomeEvent {
   id: string
   summary: string
@@ -26,7 +26,7 @@ export interface AgendaHomeEvent {
 
 export interface AgendaHomeState {
   date: string
-  /** The server's clock, in the owner's zone: `null` for tomorrow, which has no « maintenant » line. */
+  /** The instant of the read: `null` for tomorrow, which has no « maintenant » line. */
   now: string | null
   events: AgendaHomeEvent[]
 }

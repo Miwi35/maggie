@@ -6,7 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.AgendaHomeEvent
 import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.HomeDay
-import com.maggie.app.data.repository.HomeCardRepository
+import com.maggie.app.data.repository.AgendaCardRepository
+import com.maggie.app.util.DateRanges
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +25,9 @@ data class AgendaHomeUiState(
     val loading: Boolean = true,
     val error: Boolean = false,
     val openId: String? = null,
-    /** The device's monotonic clock when [state] was read: the server's `now` moves on from there. */
+    /** The device's clock when [state] was read, null for a day with no line (tomorrow); it moves on from there. */
+    val readAt: Instant? = null,
+    /** The device's monotonic clock at that moment. */
     val readAtElapsedMs: Long = 0,
 ) {
     val opened: AgendaHomeEvent? get() = openId?.let { id -> state?.events?.firstOrNull { it.id == id } }
@@ -39,13 +42,14 @@ data class AgendaHomeUiState(
 }
 
 /**
- * Reads the Agenda card for the day the Accueil asks for, and again each time Mercure says it moved.
- * The « maintenant » line is the server's `now` plus the time elapsed since the read: a phone with a wrong
- * clock still draws the line where the owner's day is.
+ * Reads the Agenda card for the day the Accueil asks for from the events and agendas resources (MAG-589), and again
+ * each time Mercure says one of them moved. The « maintenant » line is the device's clock at the read plus the time
+ * elapsed since: a changed system clock does not make it jump.
  */
 class AgendaHomeViewModel(
-    private val repository: HomeCardRepository,
+    private val repository: AgendaCardRepository,
     private val elapsedRealtime: () -> Long = { SystemClock.elapsedRealtime() },
+    private val clock: () -> Instant = { Instant.now() },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AgendaHomeUiState())
     val uiState: StateFlow<AgendaHomeUiState> = _uiState
@@ -54,7 +58,7 @@ class AgendaHomeViewModel(
 
     init {
         viewModelScope.launch {
-            repository.changes(MODULE).collect { read(silently = true) }
+            repository.changes().collect { read(silently = true) }
         }
     }
 
@@ -76,30 +80,27 @@ class AgendaHomeViewModel(
 
     /** The instant the line stands at, [elapsedRealtime] ms after the read; null when the day has no line. */
     fun nowAt(ui: AgendaHomeUiState): Instant? =
-        ui.state?.nowInstant?.plusMillis(elapsedRealtime() - ui.readAtElapsedMs)
+        ui.readAt?.plusMillis(elapsedRealtime() - ui.readAtElapsedMs)
 
     private fun read(silently: Boolean) {
         val day = _uiState.value.day
         load?.cancel()
         if (!silently) _uiState.update { it.copy(loading = it.state == null, error = false) }
         load = viewModelScope.launch {
-            val result = repository.state(MODULE, day).mapCatching(AgendaHomeState::from)
+            val result = repository.read(day, clock().atZone(DateRanges.zone).toLocalDate())
             val stamp = elapsedRealtime()
+            val readAt = if (day == HomeDay.TODAY) clock() else null
             _uiState.update { current ->
                 if (current.day != day) {
                     current
                 } else {
                     result.fold(
-                        onSuccess = { current.copy(state = it, loading = false, error = false, readAtElapsedMs = stamp) },
+                        onSuccess = { current.copy(state = it, loading = false, error = false, readAt = readAt, readAtElapsedMs = stamp) },
                         // A refresh that fails keeps what the card shows: the next one will do.
                         onFailure = { if (silently && current.state != null) current else current.copy(loading = false, error = true) },
                     )
                 }
             }
         }
-    }
-
-    private companion object {
-        const val MODULE = HomeModules.AGENDA
     }
 }

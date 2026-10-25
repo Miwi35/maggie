@@ -15,10 +15,12 @@ use ApiPlatform\Metadata\Post;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Enum\EventStatus;
+use Maggie\Calendar\Filter\EventExpandFilter;
 use Maggie\Calendar\Filter\EventPeriodFilter;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\State\CreateEventProcessor;
 use Maggie\Calendar\State\DeleteEventProcessor;
+use Maggie\Calendar\State\ExpandedEventCollectionProvider;
 use Maggie\Calendar\State\UpdateEventProcessor;
 use Maggie\Calendar\Trait\HasGoogleEventTrackingTrait;
 use Maggie\Core\Contract\IndexableInterface;
@@ -27,7 +29,6 @@ use Maggie\Core\Contract\OwnedThroughInterface;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\Attribute\IndexedRelation;
-use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Core\Serializer\StrictDayNormalizer;
@@ -51,7 +52,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ApiFilter(OrderFilter::class, properties: ['id', 'startAt'])]
 #[Indexed(index: 'events', module: 'calendar')]
 #[ApiResource(operations: [
-    new GetCollection(provider: ElasticsearchCollectionProvider::class),
+    new GetCollection(provider: ExpandedEventCollectionProvider::class, filters: [EventExpandFilter::class]),
     new Get(provider: ElasticsearchItemProvider::class),
     new Post(processor: CreateEventProcessor::class),
     new Patch(processor: UpdateEventProcessor::class),

@@ -234,12 +234,11 @@ describe('Home', () => {
     const nothing: Record<string, unknown> = {
       nutrition: { slots: [{ slot: 'lunch', meals: [] }, { slot: 'dinner', meals: [] }] },
       finance,
-      agenda: { day: 'today', now: null, events: [] },
       grocery: { count: 0, forRecipes: [], stores: [] },
     }
 
     /**
-     * Stubs fetch with `nothing`, each module's answer overridden by `answers[module][day]`; the Tâches card
+     * Stubs fetch with `nothing`, each module's answer overridden by `answers[module][day]`; the Agenda card reads empty events, and the Tâches card
      * reads the tasks and routines resources, `answers.tasks[day]` being the open tasks it finds.
      */
     const stubHome = (answers: Record<string, Partial<Record<'today' | 'tomorrow', unknown>>> = {}, failing: string[] = []) => {
@@ -253,6 +252,9 @@ describe('Home', () => {
           if (url.includes('completedAt%5Bafter')) return ok({ member: [] })
 
           return ok({ member: answers.tasks?.[url.includes('view/today') ? 'today' : 'tomorrow'] ?? [] })
+        }
+        if (/\/(events\?|agendas)/.test(url)) {
+          return failing.includes('agenda') ? fail() : ok({ member: [] })
         }
         const module = /\/api\/home\/(\w+)/.exec(url)?.[1] ?? ''
         const day = url.includes('day=tomorrow') ? 'tomorrow' : 'today'

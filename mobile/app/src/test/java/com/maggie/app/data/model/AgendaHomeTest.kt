@@ -1,7 +1,5 @@
 package com.maggie.app.data.model
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -29,15 +27,9 @@ class AgendaHomeTest {
         endDate = LocalDate.of(2026, 10, 16),
     )
 
-    private fun day(vararg events: AgendaHomeEvent) = AgendaHomeState(date = "2026-10-14", now = "2026-10-14T14:12:00+02:00", events = events.toList())
+    private fun day(vararg events: AgendaHomeEvent) = AgendaHomeState(date = "2026-10-14", events = events.toList())
 
     private fun AgendaTimeline.ids(rows: (AgendaTimeline) -> List<AgendaRow>) = rows(this).map { it.event.id to it.kind }
-
-    @Test
-    fun `the now is read from the server's offset date time`() {
-        assertEquals(now, day().nowInstant)
-        assertNull(AgendaHomeState(date = "2026-10-15").nowInstant)
-    }
 
     @Test
     fun `an ended event is above the line, one in progress and the others below, the first to start being the next`() {
@@ -70,7 +62,7 @@ class AgendaHomeTest {
     @Test
     fun `tomorrow has no line, no done and no next, and a phone does not cut it`() {
         val many = (1..9).map { timed("e$it", "2026-10-15T0$it:00:00Z", "2026-10-15T0$it:30:00Z") }
-        val tomorrow = AgendaHomeState(date = "2026-10-15", now = null, events = listOf(stay) + many)
+        val tomorrow = AgendaHomeState(date = "2026-10-15", events = listOf(stay) + many)
 
         val timeline = tomorrow.timeline(null, compact = true)
 
@@ -113,24 +105,61 @@ class AgendaHomeTest {
     }
 
     @Test
-    fun `the answer decodes, whole-day dates and reminders included`() {
-        val body = Json.parseToJsonElement(
-            """
-            {"module":"agenda","day":"today","date":"2026-10-14","now":"2026-10-14T14:12:00+02:00","events":[
-              {"id":"1","summary":"Dentiste","location":"Cabinet Martin, 15 rue de la Paix","locationShort":"Cabinet Martin",
-               "allDay":false,"startAt":"2026-10-14T15:00:00+02:00","endAt":"2026-10-14T16:00:00+02:00","timeZone":"Europe/Paris",
-               "reminders":{"useDefault":false,"overrides":[{"method":"popup","minutes":30}]},"agendaName":"Perso","agendaColor":"#336699"},
-              {"id":"2","summary":"Séjour","allDay":true,"startDate":"2026-10-13","endDate":"2026-10-16","lastDay":"2026-10-15"}
-            ]}
-            """.trimIndent(),
-        ) as JsonObject
+    fun `an occurrence of the events resource becomes a row, with its agenda and the place without its address`() {
+        val event = Event(
+            id = "1",
+            summary = "Dentiste",
+            location = "Cabinet Martin, 15 rue de la Paix",
+            startAt = "2026-10-14T15:00:00+02:00",
+            endAt = "2026-10-14T16:00:00+02:00",
+            reminders = EventReminders(overrides = listOf(EventReminder(minutes = 30))),
+            agenda = "/api/agendas/ag1",
+        )
 
-        val state = AgendaHomeState.from(body)
+        val row = AgendaHomeEvent.from(event, Agenda(id = "ag1", name = "Perso", color = "#336699"))
 
-        assertEquals(2, state.events.size)
-        assertEquals("Cabinet Martin", state.events[0].locationShort)
-        assertEquals(30, state.events[0].reminders?.overrides?.single()?.minutes)
-        assertEquals(LocalDate.of(2026, 10, 16), state.events[1].endDate)
-        assertEquals(Instant.parse("2026-10-14T13:00:00Z"), state.events[0].start)
+        assertEquals("Cabinet Martin", row.locationShort)
+        assertEquals("Cabinet Martin, 15 rue de la Paix", row.location)
+        assertEquals(30, row.reminders?.overrides?.single()?.minutes)
+        assertEquals(Instant.parse("2026-10-14T13:00:00Z"), row.start)
+        assertEquals(Instant.parse("2026-10-14T14:00:00Z"), row.end)
+        assertEquals(listOf("ag1", "Perso", "#336699"), listOf(row.agendaId, row.agendaName, row.agendaColor))
+    }
+
+    @Test
+    fun `a whole-day occurrence keeps its dates, the end excluded, and an unknown agenda has no name`() {
+        val row = AgendaHomeEvent.from(
+            Event(id = "2", summary = "Séjour", allDay = true, startDate = "2026-10-13", endDate = "2026-10-16", agenda = "/api/agendas/gone"),
+            agenda = null,
+        )
+
+        assertEquals(LocalDate.of(2026, 10, 13), row.startDate)
+        assertEquals(LocalDate.of(2026, 10, 16), row.endDate)
+        assertNull(row.start)
+        assertEquals("gone", row.agendaId)
+        assertNull(row.agendaName)
+        assertNull(row.agendaColor)
+    }
+
+    @Test
+    fun `the place is what comes before the first comma, null when blank`() {
+        assertEquals("Lisbon", AgendaHomeEvent.shortLocation("Lisbon"))
+        assertEquals("Cabinet", AgendaHomeEvent.shortLocation("  Cabinet , rue X, Paris"))
+        assertEquals(", rue X", AgendaHomeEvent.shortLocation(", rue X"))
+        assertNull(AgendaHomeEvent.shortLocation("   "))
+        assertNull(AgendaHomeEvent.shortLocation(null))
+    }
+
+    @Test
+    fun `the day is ordered whole-day first, then by start, then by title`() {
+        val zed = AgendaHomeEvent(id = "z", summary = "Zumba", allDay = true, startDate = LocalDate.of(2026, 10, 14), endDate = LocalDate.of(2026, 10, 15))
+        val abe = zed.copy(id = "a", summary = "Anniversaire")
+        val late = timed("late", "2026-10-14T16:00:00Z", "2026-10-14T17:00:00Z")
+        val early = timed("early", "2026-10-14T07:00:00Z", "2026-10-14T08:00:00Z")
+        val tie = early.copy(id = "tie", summary = "A égalité")
+
+        val ordered = listOf(late, zed, early, tie, abe).sortedWith(AgendaHomeEvent.ORDER)
+
+        assertEquals(listOf("a", "z", "tie", "early", "late"), ordered.map { it.id })
     }
 }
