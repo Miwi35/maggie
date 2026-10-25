@@ -45,9 +45,18 @@ tags:
       id: "grocery"
     timeout: 20000
 
+# Courses › Liste ▾ (MAG-627): the three pages are siblings of one menu, Magasins then Produits.
 - tapOn:
-    id: "grocery_menu"
-- tapOn: "Produits"
+    id: "breadcrumb_section"
+- tapOn:
+    id: "breadcrumb_menu_stores"
+- extendedWaitUntil:
+    visible: "Nouveau magasin"
+    timeout: 30000
+- tapOn:
+    id: "breadcrumb_section"
+- tapOn:
+    id: "breadcrumb_menu_products"
 - scrollUntilVisible:
     element: "Pâtes sèches MAG-605"
     timeout: 60000

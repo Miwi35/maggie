@@ -65,8 +65,9 @@ tags:
     timeout: 20000
 
 - tapOn:
-    id: "grocery_menu"
-- tapOn: "Produits"
+    id: "breadcrumb_section"
+- tapOn:
+    id: "breadcrumb_menu_products"
 - extendedWaitUntil:
     visible:
       id: "product_filter_store"

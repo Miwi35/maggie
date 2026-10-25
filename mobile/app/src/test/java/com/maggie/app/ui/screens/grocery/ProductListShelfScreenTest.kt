@@ -63,7 +63,7 @@ class ProductListShelfScreenTest {
         }
         val viewModel = ProductViewModel(productRepository, storeRepository)
         compose.setContent {
-            ProductListScreen(viewModel = viewModel, recurringViewModel = FakeRecurring().viewModel, onBack = {})
+            ProductListScreen(viewModel = viewModel, recurringViewModel = FakeRecurring().viewModel)
         }
         compose.waitForIdle()
     }

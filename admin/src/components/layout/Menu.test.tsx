@@ -261,12 +261,21 @@ describe('CustomMenu — the modules of the mockup', () => {
     stubPersonality('Maggie')
     renderMenuAt('/products')
 
-    expect(await screen.findByRole('menuitem', { name: 'Liste de courses' })).toHaveAttribute('href', '/grocery')
+    expect(await screen.findByRole('menuitem', { name: 'Liste' })).toHaveAttribute('href', '/grocery')
+    expect(screen.queryByRole('menuitem', { name: 'Liste de courses' })).toBeNull()
     expect(screen.getByRole('menuitem', { name: 'Produits' })).toHaveAttribute('href', '/products')
     expect(screen.getByRole('menuitem', { name: 'Magasins' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Courses passées' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Recettes' })).toBeNull()
     expect(screen.queryByRole('menuitem', { name: 'Préférences' })).toBeNull()
+  })
+
+  test('« Courses passées » is no entry of the sidebar: the Liste page opens it', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/errands')
+
+    await screen.findByRole('menuitem', { name: 'Liste' })
+    expect(screen.queryByRole('menuitem', { name: 'Courses passées' })).toBeNull()
+    expect(hrefs()).not.toContain('/errands')
   })
 
   test('places the sub-entries right under their module', async () => {

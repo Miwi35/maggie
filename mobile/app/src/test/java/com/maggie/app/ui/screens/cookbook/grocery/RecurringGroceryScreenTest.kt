@@ -25,7 +25,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The recurring items on the grocery screen: the tab, the line's indicator and the detail's setting (MAG-369). */
+/** The recurring items on the grocery screen: the sheet behind « + Produit récurrent », the line's indicator and the detail's setting (MAG-369, MAG-627). */
 @RunWith(AndroidJUnit4::class)
 class RecurringGroceryScreenTest {
 
@@ -51,51 +51,54 @@ class RecurringGroceryScreenTest {
         ),
     )
 
+    // Without « Lait »: the sheet opens over the list, and the row of the sheet must be the only « Lait » on screen.
+    private val listWithoutMilk = GroceryList(id = "list-2", items = list.items.filter { it.id != "item-milk" })
+
     private fun show(fake: FakeGrocery) {
         compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
     }
 
-    private fun openRecurringTab() {
-        compose.onNodeWithTag(UiTags.GROCERY_TAB_RECURRING).performClick()
+    private fun openRecurringSheet() {
+        compose.onNodeWithTag(UiTags.GROCERY_RECURRING_OPEN).performClick()
     }
 
     @Test
     fun `the screen opens on the list`() {
         show(FakeGrocery(list = list, recurring = FakeRecurring(listOf(milkRecurring), listOf(milk))))
 
-        compose.onNodeWithTag(UiTags.GROCERY_TAB_LIST).assertIsSelected()
+        compose.onNodeWithTag(UiTags.GROCERY_RECURRING_OPEN).assertIsDisplayed()
         compose.onNodeWithText("Sacs", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Prochain ajout", substring = true).assertDoesNotExist()
     }
 
     @Test
-    fun `the tab lists the label, the frequency and the next due date`() {
-        show(FakeGrocery(list = list, recurring = FakeRecurring(listOf(milkRecurring), listOf(milk))))
+    fun `the sheet lists the label, the frequency and the next due date`() {
+        show(FakeGrocery(list = listWithoutMilk, recurring = FakeRecurring(listOf(milkRecurring), listOf(milk))))
 
-        openRecurringTab()
+        openRecurringSheet()
 
-        compose.onNodeWithTag(UiTags.GROCERY_TAB_RECURRING).assertIsSelected()
+        compose.onNodeWithText("Produits récurrents").assertIsDisplayed()
         compose.onNodeWithText("Lait").assertIsDisplayed()
         compose.onNodeWithText("Toutes les semaines").assertIsDisplayed()
         compose.onNodeWithText("Prochain ajout : 20/10/2026").assertIsDisplayed()
     }
 
     @Test
-    fun `the tab says so when nothing is recurring`() {
-        show(FakeGrocery(list = list))
+    fun `the sheet says so when nothing is recurring`() {
+        show(FakeGrocery(list = listWithoutMilk))
 
-        openRecurringTab()
+        openRecurringSheet()
 
         compose.onNodeWithText("Aucun article récurrent").assertIsDisplayed()
     }
 
     @Test
-    fun `removing from the tab deletes the item`() {
+    fun `removing from the sheet deletes the item`() {
         val recurring = FakeRecurring(listOf(milkRecurring), listOf(milk))
-        show(FakeGrocery(list = list, recurring = recurring))
-        openRecurringTab()
+        show(FakeGrocery(list = listWithoutMilk, recurring = recurring))
+        openRecurringSheet()
 
-        compose.onNodeWithContentDescription("Retirer Lait").performClick()
+        compose.onNodeWithContentDescription("Retirer Lait").tap()
 
         compose.onNodeWithText("Aucun article récurrent").assertIsDisplayed()
         assertTrue(recurring.items.isEmpty())
@@ -104,10 +107,10 @@ class RecurringGroceryScreenTest {
     @Test
     fun `adding a product asks for a frequency, weekly by default`() {
         val recurring = FakeRecurring(products = listOf(rice))
-        show(FakeGrocery(list = list, products = listOf(rice), recurring = recurring))
-        openRecurringTab()
+        show(FakeGrocery(list = listWithoutMilk, products = listOf(rice), recurring = recurring))
+        openRecurringSheet()
 
-        compose.onNodeWithTag(UiTags.RECURRING_ADD).performClick()
+        compose.onNodeWithTag(UiTags.RECURRING_ADD).tap()
         // The search offers nothing before two letters.
         compose.onNodeWithTag(UiTags.PRODUCT_SEARCH).performTextInput("Ri")
         compose.onNodeWithText("Riz").performClick()
@@ -121,10 +124,10 @@ class RecurringGroceryScreenTest {
     @Test
     fun `changing the frequency of a row patches the item`() {
         val recurring = FakeRecurring(listOf(milkRecurring), listOf(milk))
-        show(FakeGrocery(list = list, recurring = recurring))
-        openRecurringTab()
+        show(FakeGrocery(list = listWithoutMilk, recurring = recurring))
+        openRecurringSheet()
 
-        compose.onNodeWithText("Lait").performClick()
+        compose.onNodeWithText("Lait").tap()
         compose.onNodeWithTag(UiTags.recurringOption("monthly")).performClick()
         compose.onNodeWithText("Enregistrer").performClick()
 

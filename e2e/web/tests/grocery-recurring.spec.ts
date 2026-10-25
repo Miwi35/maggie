@@ -9,19 +9,19 @@ import { ROUTES } from '../pages/routes.js'
  * The generated « Articles récurrents » pages were refused at acceptance: no
  * way to make a product recurring from the list or the product sheet, and the
  * collection lived in a menu entry of its own. The setting now lives on the
- * line and on the product, and the items on a « Récurrents » tab of the list.
+ * line and on the product, and the items in the « Produit récurrent » dialog of the list (MAG-627: the tab became a dialog of the ⋮ menu).
  */
 
 const LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
 
-test('a line is made recurring, shows up in the Récurrents tab with its next date, and is removed from there', async ({
+test('a line is made recurring, shows up in the recurring dialog with its next date, and is removed from there', async ({
   page,
 }) => {
   const label = `Lait MAG-369 ${Date.now()}`
   const grocery = new GroceryListPage(page)
   await grocery.open()
 
-  await expect(grocery.tab('Liste')).toHaveAttribute('aria-selected', 'true')
+  await expect(grocery.content.getByRole('tab')).toHaveCount(0)
 
   await grocery.addItem(label)
   await expect(grocery.line(label)).toBeVisible()
@@ -30,7 +30,7 @@ test('a line is made recurring, shows up in the Récurrents tab with its next da
     await grocery.setLineRecurrence(label, 'Toutes les semaines')
     await expect(grocery.line(label).getByRole('button', { name: `Récurrence de ${label} : toutes les semaines` })).toBeVisible()
 
-    await grocery.openRecurringTab()
+    await grocery.openRecurringDialog()
     const row = grocery.recurringRow(label)
     await expect(row).toBeVisible()
     await expect(row).toContainText('Prochaine échéance : ')
@@ -39,16 +39,18 @@ test('a line is made recurring, shows up in the Récurrents tab with its next da
     await grocery.removeRecurring(label)
     await expect(row).toBeHidden()
 
-    await grocery.tab('Liste').click()
+    await grocery.closeRecurringDialog()
     await expect(grocery.line(label)).toBeVisible()
     await expect(grocery.line(label).getByRole('button', { name: `Rendre ${label} récurrent` })).toBeVisible()
   } finally {
-    await grocery.tab('Liste').click()
+    if (await grocery.recurringDialog.isVisible()) {
+      await grocery.closeRecurringDialog()
+    }
     await grocery.deleteLine(label)
   }
 })
 
-test('the product sheet sets the recurrence, and the Récurrents tab and the list line follow', async ({ page, api }) => {
+test('the product sheet sets the recurrence, and the recurring dialog and the list line follow', async ({ page, api }) => {
   const name = `Beurre MAG-369 ${Date.now()}`
   const created = await api.post('/api/products', { headers: LD, data: { name, category: 'other' } })
   expect(created.status()).toBe(201)
@@ -67,7 +69,7 @@ test('the product sheet sets the recurrence, and the Récurrents tab and the lis
 
     const grocery = new GroceryListPage(page)
     await grocery.open()
-    await grocery.openRecurringTab()
+    await grocery.openRecurringDialog()
     const row = grocery.recurringRow(name)
     await expect(row).toBeVisible()
     await expect(row).toContainText('Prochaine échéance : ')

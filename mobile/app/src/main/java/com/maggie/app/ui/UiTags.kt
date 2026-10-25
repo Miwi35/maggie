@@ -820,11 +820,10 @@ object UiTags {
     /** The search field of the product picker, a window of its own. */
     const val PRODUCT_SEARCH = "product_search"
 
-    /** The grocery screen's tabs: the list, and the recurring items (MAG-369). */
-    const val GROCERY_TAB_LIST = "grocery_tab_list"
-    const val GROCERY_TAB_RECURRING = "grocery_tab_recurring"
+    /** « + Produit récurrent », the end of the list: opens the recurring items (MAG-369, MAG-627). */
+    const val GROCERY_RECURRING_OPEN = "grocery_recurring_open"
 
-    /** The recurring tab's « Ajouter un produit », which opens the product search. */
+    /** The recurring items' « Ajouter un produit », which opens the product search. */
     const val RECURRING_ADD = "recurring_add"
 
     /** The repeat icon and frequency under a list line whose product comes back by itself. */
@@ -835,7 +834,7 @@ object UiTags {
 
     fun recurringOption(value: String) = RECURRING_OPTION_PREFIX + value
 
-    /** The grocery screen's history icon, the « Courses passées » screen and one errand's sheet (MAG-488). */
+    /** « Courses passées » in the list's « ⋮ » menu, the « Courses passées » screen and one errand's sheet (MAG-488). */
     const val PAST_ERRANDS_OPEN = "past_errands_open"
     const val PAST_ERRANDS = "past_errands"
     const val PAST_ERRAND_SHEET = "past_errand_sheet"
@@ -1304,9 +1303,10 @@ object UiTags {
 
     /**
      * The product sheet of Courses › Produits (MAG-605): the sheet itself, its error line, « Enregistrer »,
-     * the grocery list's « ⋮ » menu that leads to it, and the four fields of the store cascade — « Magasin habituel » then its rayon, « À défaut » then its rayon.
+     * the four fields of the store cascade — « Magasin habituel » then its rayon, « À défaut » then its rayon.
      */
     const val PRODUCT_SHEET = "product_sheet"
+    /** The grocery list's « ⋮ » menu (MAG-627: « Courses passées »). */
     const val GROCERY_MENU = "grocery_menu"
     const val PRODUCT_SHEET_ERROR = "product_sheet_error"
     const val PRODUCT_SHEET_SAVE = "product_sheet_save"

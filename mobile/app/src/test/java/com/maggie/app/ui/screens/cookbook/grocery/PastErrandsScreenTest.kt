@@ -103,7 +103,7 @@ class PastErrandsScreenTest {
     }
 
     @Test
-    fun `the grocery screen's history icon asks for « Courses passées »`() {
+    fun `the grocery screen's menu asks for « Courses passées »`() {
         val fake = FakeGrocery()
         var opened = 0
         compose.setContent {
@@ -114,8 +114,9 @@ class PastErrandsScreenTest {
             )
         }
 
+        compose.onNodeWithTag(UiTags.GROCERY_MENU).performClick()
         compose.onNodeWithTag(UiTags.PAST_ERRANDS_OPEN).assertIsDisplayed()
-        compose.onNodeWithContentDescription("Courses passées").performClick()
+        compose.onNodeWithText("Courses passées").performClick()
 
         assertEquals(1, opened)
     }

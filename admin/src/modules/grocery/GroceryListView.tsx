@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import { useDataProvider, useNotify, Title } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 import { useItemTransitions, transitionSx } from '../../hooks/useItemTransitions'
@@ -10,6 +11,7 @@ import { CSS } from '@dnd-kit/utilities'
 import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
+import Menu from '@mui/material/Menu'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
@@ -32,15 +34,14 @@ import InputLabel from '@mui/material/InputLabel'
 import CircularProgress from '@mui/material/CircularProgress'
 import Collapse from '@mui/material/Collapse'
 import IconButton from '@mui/material/IconButton'
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
-import AddIcon from '@mui/icons-material/Add'
+import EventRepeatIcon from '@mui/icons-material/EventRepeat'
+import HistoryIcon from '@mui/icons-material/History'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
 import DoneAllIcon from '@mui/icons-material/DoneAll'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
 import { QuantityStepper } from './QuantityStepper'
 import { LineRecurrence } from './LineRecurrence'
 import { SeasonBadge } from './SeasonBadge'
@@ -334,6 +335,8 @@ export const GroceryListView = () => {
   const [storeInputValue, setStoreInputValue] = useState('')
   const [collapsedStores, setCollapsedStores] = useState<Set<string>>(new Set())
   const [laterOpen, setLaterOpen] = useState(false)
+  const [actionsAnchor, setActionsAnchor] = useState<HTMLElement | null>(null)
+  const [recurringOpen, setRecurringOpen] = useState(false)
   const [detailItem, setDetailItem] = useState<GroceryItem | null>(null)
   const [editLabel, setEditLabel] = useState('')
   const [editDraft, setEditDraft] = useState<QuantityDraft>(() => initialDraft(null))
@@ -437,7 +440,6 @@ export const GroceryListView = () => {
       [handleMercure, reloadRecurring, reloadSuggestions],
     ),
   )
-  const [tab, setTab] = useState<'list' | 'recurring'>('list')
 
   // Fetch products & stores when add dialog opens
   useEffect(() => {
@@ -962,72 +964,82 @@ export const GroceryListView = () => {
   const checkedCount = todayItems.filter((i) => i.checked).length
   const totalCount = todayItems.length
 
+  const closeActions = () => setActionsAnchor(null)
+
   return (
-    <Box sx={{ p: { xs: 1, md: 2 }, maxWidth: 800, mx: 'auto', width: '100%' }}>
+    <Box data-testid="grocery-page" sx={{ p: { xs: 1, md: 2 }, width: '100%' }}>
       <Title title="Courses" />
 
-      <Paper sx={{ p: { xs: 1, md: 2 } }}>
-        <Tabs value={tab} onChange={(_e, value) => setTab(value)} sx={{ mb: 2 }}>
-          <Tab label="Liste" value="list" />
-          <Tab label="Récurrents" value="recurring" />
-        </Tabs>
+      {loading && !groceryList && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
 
-        {tab === 'recurring' && <RecurringTab recurring={recurring} />}
-
-        {tab === 'list' && loading && !groceryList && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
-        )}
-
-        {tab === 'list' && groceryList && (
-          <>
-            {/* Wraps rather than overflows: the title and the two actions are
-                320px of content on a 393px screen once the padding is paid. */}
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 1,
-                mb: 2,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                <ShoppingCartIcon color="primary" />
-                <Typography variant="h6" sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
-                  Ma liste de courses
-                </Typography>
-                <Chip
-                  label={`${checkedCount}/${totalCount}`}
-                  size="small"
-                  color={checkedCount === totalCount && totalCount > 0 ? 'success' : 'default'}
-                />
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button startIcon={<AddIcon />} size="small" onClick={() => setAddDialogOpen(true)}>
-                  Ajouter
-                </Button>
-                <Button
-                  startIcon={<DoneAllIcon />}
-                  size="small"
-                  color="success"
-                  variant="outlined"
-                  onClick={handleEndErrand}
-                  disabled={checkedCount === 0}
-                >
-                  Terminer les courses
-                </Button>
-              </Box>
-            </Box>
-
-            <SuggestionsBanner
-              suggestions={suggestions.suggestions}
-              onAdd={handleAddSuggestion}
-              onSnooze={suggestions.snooze}
+      {groceryList && (
+        <>
+          {/* The page title and the trail come from the navigation table: only the actions are drawn here. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+            <Chip
+              label={`${checkedCount}/${totalCount}`}
+              size="small"
+              color={checkedCount === totalCount && totalCount > 0 ? 'success' : 'default'}
             />
+            <Button variant="contained" onClick={() => setAddDialogOpen(true)}>
+              + Article
+            </Button>
+            <IconButton aria-label="Plus d'actions" aria-haspopup="menu" onClick={(e) => setActionsAnchor(e.currentTarget)}>
+              <MoreVertIcon />
+            </IconButton>
+            <Menu anchorEl={actionsAnchor} open={actionsAnchor !== null} onClose={closeActions}>
+              <MenuItem
+                onClick={() => {
+                  closeActions()
+                  setRecurringOpen(true)
+                }}
+              >
+                <ListItemIcon>
+                  <EventRepeatIcon fontSize="small" />
+                </ListItemIcon>
+                Produit récurrent
+              </MenuItem>
+              <MenuItem
+                disabled={checkedCount === 0}
+                onClick={() => {
+                  closeActions()
+                  handleEndErrand()
+                }}
+              >
+                <ListItemIcon>
+                  <DoneAllIcon fontSize="small" />
+                </ListItemIcon>
+                Terminer les courses
+              </MenuItem>
+              <MenuItem component={RouterLink} to="/errands" onClick={closeActions}>
+                <ListItemIcon>
+                  <HistoryIcon fontSize="small" />
+                </ListItemIcon>
+                Courses passées
+              </MenuItem>
+            </Menu>
+          </Box>
 
+          <SuggestionsBanner
+            suggestions={suggestions.suggestions}
+            onAdd={handleAddSuggestion}
+            onSnooze={suggestions.snooze}
+          />
+
+          {/* One block per store, side by side as soon as the page is wide enough for two. */}
+          <Box
+            data-testid="grocery-stores"
+            sx={{
+              display: 'grid',
+              gap: 2,
+              alignItems: 'start',
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(auto-fill, minmax(min(100%, 420px), 1fr))' },
+            }}
+          >
             {storeGroups.map((group) => {
               const storeKey = group.storeId || '__unassigned__'
               const isCollapsed = collapsedStores.has(storeKey)
@@ -1036,11 +1048,12 @@ export const GroceryListView = () => {
               const groupTotal = realItems.length
 
               return (
-                <Box key={storeKey} data-testid="grocery-store-group" data-store={group.storeName} sx={{ mb: 1 }}>
+                <Paper key={storeKey} variant="outlined" data-testid="grocery-store-group" data-store={group.storeName}>
                   <List
                     dense
                     subheader={
                       <ListSubheader
+                        disableSticky
                         sx={{
                           bgcolor: 'transparent',
                           fontWeight: 600,
@@ -1106,61 +1119,72 @@ export const GroceryListView = () => {
                       ))}
                     </Collapse>
                   </List>
-                </Box>
+                </Paper>
               )
             })}
+          </Box>
 
-            {totalCount === 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                Cette liste est vide.
-              </Typography>
-            )}
+          {totalCount === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              Cette liste est vide.
+            </Typography>
+          )}
 
-            {laterItems.length > 0 && (
-              <Box data-testid="grocery-later" sx={{ mt: 1 }}>
-                <List dense>
-                  <ListItemButton onClick={() => setLaterOpen((open) => !open)} dense>
-                    <ListItemText
-                      primary={`Plus tard (${laterItems.length})`}
-                      primaryTypographyProps={{ fontWeight: 600 }}
-                    />
-                    {laterOpen ? <ExpandLess /> : <ExpandMore />}
-                  </ListItemButton>
-                  <Collapse in={laterOpen} unmountOnExit>
-                    {laterItems.map((item) => (
-                      <ListItem
-                        key={item.id}
-                        data-testid="grocery-later-item"
-                        secondaryAction={
-                          <IconButton
-                            size="small"
-                            edge="end"
-                            aria-label={`Supprimer ${item.label}`}
-                            onClick={() => askDeleteItem(item)}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        }
-                      >
-                        <ListItemText
-                          primary={item.label}
-                          secondary={`À acheter à partir du ${formatBuyAfter(item.buyAfter ?? '')}`}
-                        />
-                      </ListItem>
-                    ))}
-                  </Collapse>
-                </List>
-              </Box>
-            )}
-          </>
-        )}
+          {laterItems.length > 0 && (
+            <Box data-testid="grocery-later" sx={{ mt: 1 }}>
+              <List dense>
+                <ListItemButton onClick={() => setLaterOpen((open) => !open)} dense>
+                  <ListItemText
+                    primary={`Plus tard (${laterItems.length})`}
+                    primaryTypographyProps={{ fontWeight: 600 }}
+                  />
+                  {laterOpen ? <ExpandLess /> : <ExpandMore />}
+                </ListItemButton>
+                <Collapse in={laterOpen} unmountOnExit>
+                  {laterItems.map((item) => (
+                    <ListItem
+                      key={item.id}
+                      data-testid="grocery-later-item"
+                      secondaryAction={
+                        <IconButton
+                          size="small"
+                          edge="end"
+                          aria-label={`Supprimer ${item.label}`}
+                          onClick={() => askDeleteItem(item)}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      }
+                    >
+                      <ListItemText
+                        primary={item.label}
+                        secondary={`À acheter à partir du ${formatBuyAfter(item.buyAfter ?? '')}`}
+                      />
+                    </ListItem>
+                  ))}
+                </Collapse>
+              </List>
+            </Box>
+          )}
+        </>
+      )}
 
-        {tab === 'list' && !loading && !groceryList && (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-            Aucune liste. Demandez à Maggie d'en créer une !
-          </Typography>
-        )}
-      </Paper>
+      {!loading && !groceryList && (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+          Aucune liste. Demandez à Maggie d'en créer une !
+        </Typography>
+      )}
+
+      {/* Recurring products */}
+      <Dialog open={recurringOpen} onClose={() => setRecurringOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Produits récurrents</DialogTitle>
+        <DialogContent>
+          <RecurringTab recurring={recurring} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRecurringOpen(false)}>Fermer</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Add item dialog */}
       <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="xs" fullWidth>

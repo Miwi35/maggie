@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { GroceryListView } from './GroceryListView'
 
 /**
@@ -138,19 +139,20 @@ describe('GroceryListView — the handles the grocery journeys use', () => {
     mockGetOne.mockResolvedValue({ data: LIST })
   })
 
-  test('the screen the journeys open names itself, and offers both actions', async () => {
-    render(<GroceryListView />)
+  test('the screen the journeys open offers « + Article » and, in the ⋮ menu, ending the errand', async () => {
+    const user = userEvent.setup()
+    render(<GroceryListView />, { wrapper: MemoryRouter })
 
-    await waitFor(() => expect(screen.getByText('Ma liste de courses')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: '+ Article' })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: "Plus d'actions" }))
 
-    expect(screen.getByRole('button', { name: 'Ajouter' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Terminer les courses' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Terminer les courses' })).toBeInTheDocument()
     // `checked/total` — the chip a journey reads to know where the trip is up to.
     expect(screen.getByText('1/4')).toBeInTheDocument()
   })
 
   test('every line is a grocery-item carrying its shop', async () => {
-    render(<GroceryListView />)
+    render(<GroceryListView />, { wrapper: MemoryRouter })
 
     await waitFor(() => expect(screen.getByText('Pâtes complètes')).toBeInTheDocument())
 
@@ -167,7 +169,7 @@ describe('GroceryListView — the handles the grocery journeys use', () => {
   })
 
   test('the aisles are groups in visit order', async () => {
-    render(<GroceryListView />)
+    render(<GroceryListView />, { wrapper: MemoryRouter })
 
     await waitFor(() => expect(screen.getByText('Pâtes complètes')).toBeInTheDocument())
 
@@ -180,27 +182,26 @@ describe('GroceryListView — the handles the grocery journeys use', () => {
 
   test('the add dialog carries the four fields a journey fills', async () => {
     const user = userEvent.setup()
-    render(<GroceryListView />)
+    render(<GroceryListView />, { wrapper: MemoryRouter })
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Ajouter' })).toBeInTheDocument())
-    await user.click(screen.getByRole('button', { name: 'Ajouter' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '+ Article' })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: '+ Article' }))
 
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText('Ajouter un article')).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Article')).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Quantité')).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Magasin')).toBeInTheDocument()
-    // Same name as the button that opened it, which is why the journey scopes
-    // its click to the dialog.
     expect(within(dialog).getByRole('button', { name: 'Ajouter' })).toBeInTheDocument()
   })
 
   test('ending the errand lists what is left, each with a way to drop it', async () => {
     const user = userEvent.setup()
-    render(<GroceryListView />)
+    render(<GroceryListView />, { wrapper: MemoryRouter })
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Terminer les courses' })).toBeInTheDocument())
-    await user.click(screen.getByRole('button', { name: 'Terminer les courses' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: "Plus d'actions" })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: "Plus d'actions" }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Terminer les courses' }))
 
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText('Articles restants')).toBeInTheDocument()

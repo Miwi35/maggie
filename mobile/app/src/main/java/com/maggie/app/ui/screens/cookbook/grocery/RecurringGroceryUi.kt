@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,16 +23,17 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,28 +53,6 @@ import com.maggie.app.data.model.label
 import com.maggie.app.data.model.nextDueLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
-
-const val TAB_LIST = 0
-const val TAB_RECURRING = 1
-
-/** « Liste » and « Récurrents », the grocery screen's two tabs. */
-@Composable
-fun GroceryTabs(selected: Int, onSelect: (Int) -> Unit) {
-    TabRow(selectedTabIndex = selected) {
-        Tab(
-            selected = selected == TAB_LIST,
-            onClick = { onSelect(TAB_LIST) },
-            text = { Text("Liste") },
-            modifier = Modifier.testTag(UiTags.GROCERY_TAB_LIST),
-        )
-        Tab(
-            selected = selected == TAB_RECURRING,
-            onClick = { onSelect(TAB_RECURRING) },
-            text = { Text("Récurrents") },
-            modifier = Modifier.testTag(UiTags.GROCERY_TAB_RECURRING),
-        )
-    }
-}
 
 /** « Non » and the three frequencies, one tap each; [allowNone] is off where « Non » means nothing (the add dialog). */
 @OptIn(ExperimentalLayoutApi::class)
@@ -143,7 +123,29 @@ fun RecurringIndicator(frequency: RecurringFrequency, modifier: Modifier = Modif
     }
 }
 
-/** The « Récurrents » tab: label, frequency and next due date; add through the product search, change, remove. */
+/** The recurring items, in a full-height sheet opened from the end of the list (MAG-627). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecurringGroceryBottomSheet(
+    viewModel: RecurringGroceryViewModel,
+    products: List<Product>,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        modifier = Modifier.uiTagRoot(),
+    ) {
+        Text(
+            text = "Produits récurrents",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        RecurringGroceryTab(viewModel = viewModel, products = products, modifier = Modifier.fillMaxHeight())
+    }
+}
+
+/** The recurring items: label, frequency and next due date; add through the product search, change, remove. */
 @Composable
 fun RecurringGroceryTab(
     viewModel: RecurringGroceryViewModel,

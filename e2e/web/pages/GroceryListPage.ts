@@ -3,14 +3,19 @@ import type { Locator, Page } from '@playwright/test'
 import { AdminShell } from './AdminShell.js'
 import { ROUTES } from './routes.js'
 
-/** Courses → Liste de courses. */
+/** Courses → Liste (MAG-627: store blocks, « + Article », the ⋮ menu). */
 export class GroceryListPage extends AdminShell {
+  /** The page's h1, drawn by the layout from the navigation table. */
   readonly heading: Locator
+  /** « + Article »: it only exists once the page holds a list, so it also says the list is drawn. */
   readonly addButton: Locator
-  readonly endErrandButton: Locator
+  /** The ⋮ menu: « Produit récurrent », « Terminer les courses », « Courses passées ». */
+  readonly actionsButton: Locator
+  /** « Produit récurrent »: the recurring products, in a dialog. */
+  readonly recurringDialog: Locator
   /** « Plus tard »: the lines whose `buyAfter` is still ahead. */
   readonly laterSection: Locator
-  /** The dialog behind "Ajouter" and the one behind "Terminer les courses". */
+  /** The dialog behind « + Article » and the one behind « Terminer les courses ». */
   readonly addDialog: Locator
   readonly remainingDialog: Locator
   /** « Souvent pris » (MAG-495): the products the past errands say are due again. */
@@ -18,10 +23,10 @@ export class GroceryListPage extends AdminShell {
 
   constructor(page: Page) {
     super(page)
-    this.heading = this.content.getByText('Ma liste de courses')
-    // Exact: the « Souvent pris » rows carry « Ajouter Café » and the like.
-    this.addButton = this.content.getByRole('button', { name: 'Ajouter', exact: true })
-    this.endErrandButton = this.content.getByRole('button', { name: 'Terminer les courses' })
+    this.heading = this.content.getByRole('heading', { level: 1, name: 'Liste', exact: true })
+    this.addButton = this.content.getByRole('button', { name: '+ Article', exact: true })
+    this.actionsButton = this.content.getByRole('button', { name: "Plus d'actions" })
+    this.recurringDialog = page.getByRole('dialog', { name: 'Produits récurrents' })
     this.laterSection = this.content.getByTestId('grocery-later')
     this.addDialog = page.getByRole('dialog').filter({ hasText: 'Ajouter un article' })
     this.remainingDialog = page.getByRole('dialog').filter({ hasText: 'Articles restants' })
@@ -31,6 +36,13 @@ export class GroceryListPage extends AdminShell {
   async open(): Promise<void> {
     await this.goto(ROUTES.grocery)
     await expect(this.heading).toBeVisible()
+    await expect(this.addButton).toBeVisible()
+  }
+
+  /** Opens the ⋮ menu and clicks one of its entries. */
+  async chooseAction(name: 'Produit récurrent' | 'Terminer les courses' | 'Courses passées'): Promise<void> {
+    await this.actionsButton.click()
+    await this.page.getByRole('menuitem', { name, exact: true }).click()
   }
 
   item(label: string): Locator {
@@ -50,7 +62,7 @@ export class GroceryListPage extends AdminShell {
    */
   async expectItemEventually(label: string): Promise<void> {
     await this.page.reload()
-    await expect(this.heading).toBeVisible()
+    await expect(this.addButton).toBeVisible()
     await expect(this.item(label)).toBeVisible()
   }
 
@@ -136,11 +148,6 @@ export class GroceryListPage extends AdminShell {
     await expect(this.addDialog).toBeHidden()
   }
 
-  /** The « Liste » and « Récurrents » tabs above the list. */
-  tab(name: 'Liste' | 'Récurrents'): Locator {
-    return this.content.getByRole('tab', { name, exact: true })
-  }
-
   /** The repeat button of a line, whatever state it is in: the bare icon or the frequency chip. */
   recurrenceControl(label: string): Locator {
     return this.line(label).getByRole('button', { name: new RegExp(`^(Rendre ${label} récurrent|Récurrence de ${label} :)`) })
@@ -152,18 +159,24 @@ export class GroceryListPage extends AdminShell {
     await this.page.getByRole('menuitem', { name: choice, exact: true }).click()
   }
 
-  /** A row of the « Récurrents » tab. */
+  /** A row of the « Produit récurrent » dialog. */
   recurringRow(label: string): Locator {
-    return this.content.getByTestId('recurring-item').filter({ hasText: label })
+    return this.recurringDialog.getByTestId('recurring-item').filter({ hasText: label })
   }
 
-  /** Opens the « Récurrents » tab. */
-  async openRecurringTab(): Promise<void> {
-    await this.tab('Récurrents').click()
-    await expect(this.content.getByTestId('recurring-tab')).toBeVisible()
+  /** Opens the « Produit récurrent » dialog from the ⋮ menu. */
+  async openRecurringDialog(): Promise<void> {
+    await this.chooseAction('Produit récurrent')
+    await expect(this.recurringDialog.getByTestId('recurring-tab')).toBeVisible()
   }
 
-  /** Removes an item from the « Récurrents » tab. */
+  /** Closes the « Produit récurrent » dialog. */
+  async closeRecurringDialog(): Promise<void> {
+    await this.recurringDialog.getByRole('button', { name: 'Fermer' }).click()
+    await expect(this.recurringDialog).toBeHidden()
+  }
+
+  /** Removes an item from the « Produit récurrent » dialog. */
   async removeRecurring(label: string): Promise<void> {
     await this.recurringRow(label).getByRole('button', { name: `Retirer ${label} des articles récurrents` }).click()
   }
@@ -180,7 +193,7 @@ export class GroceryListPage extends AdminShell {
 
   /** Ends the errand and waits for the dialog listing what is left. */
   async endErrand(): Promise<void> {
-    await this.endErrandButton.click()
+    await this.chooseAction('Terminer les courses')
     await expect(this.remainingDialog).toBeVisible()
   }
 
