@@ -17,3 +17,9 @@ Maggie\Cookbook\Entity\Recipe:
     servings: 4
     tags: ['pasta']
     user: '@test_user'
+
+  bourguignon:
+    name: Bœuf bourguignon
+    servings: 4
+    tags: ['viande']
+    user: '@test_user'

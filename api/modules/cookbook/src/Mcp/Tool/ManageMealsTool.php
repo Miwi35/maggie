@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\Mcp\Tool;
 
+use Maggie\Calendar\Service\EventReadFilter;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Message\CreateMealCommand;
 use Maggie\Cookbook\Message\DeleteMealCommand;
@@ -18,15 +19,19 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_meals', description: 'List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate. create answers groceryPreview: the meal\'s ingredients with their stock, to choose from with manage_meal_groceries add. guests is how many people the meal is cooked for (1 or more): the recipes\' quantities scale to it, and changing it on update rescales what the meal put on the grocery list. Without guests a meal follows the user\'s default (manage_meal_settings); useDefaultGuests true on update gives it back to the default. Every meal answered carries guests and guestsIsDefault.')]
+#[McpTool(name: 'manage_meals', description: 'List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate, or query: to find a meal the user names (« le boeuf bourguignon ») in every agenda, pass query, the distinctive word(s) of its title (case, accents, ligatures and typos do not matter) and no dates: the search then covers the next year; with dates it stays inside them. Look a meal up this way before telling the user it does not exist, then pass its id to update or delete. create answers groceryPreview: the meal\'s ingredients with their stock, to choose from with manage_meal_groceries add. guests is how many people the meal is cooked for (1 or more): the recipes\' quantities scale to it, and changing it on update rescales what the meal put on the grocery list. Without guests a meal follows the user\'s default (manage_meal_settings); useDefaultGuests true on update gives it back to the default. Every meal answered carries guests and guestsIsDefault.')]
 class ManageMealsTool
 {
+    /** How far a search by title looks when the caller gave no window of its own. */
+    private const TITLE_SEARCH_DAYS = 365;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly MealRepository $mealRepository,
         private readonly McpUserContext $userContext,
         private readonly MealGroceryPreviewInterface $groceryPreview,
         private readonly MealGuests $mealGuests,
+        private readonly EventReadFilter $titleFilter,
     ) {
     }
 
@@ -40,10 +45,11 @@ class ManageMealsTool
         ?string $recipeIds = null,
         ?int $guests = null,
         ?bool $useDefaultGuests = null,
+        ?string $query = null,
     ): string {
         try {
             return match ($action) {
-                'list' => $this->list($fromDate, $toDate),
+                'list' => $this->list($fromDate, $toDate, $query),
                 'create' => $this->create($date, $slot, $recipeIds, Meal::guestsFrom($guests)),
                 'update' => $this->update($mealId, $date, $slot, $recipeIds, Meal::guestsFrom($guests), $useDefaultGuests ?? false),
                 'delete' => $this->delete($mealId),
@@ -58,10 +64,19 @@ class ManageMealsTool
         }
     }
 
-    private function list(?string $fromDate, ?string $toDate): string
+    private function list(?string $fromDate, ?string $toDate, ?string $query): string
     {
+        $this->titleFilter->assertSearchable($query);
+        $searching = $this->titleFilter->hasQuery($query);
+
+        // A name search with no window of its own looks ahead: the meal is still to be eaten.
+        if ($searching && null === $fromDate && null === $toDate) {
+            $fromDate = (new \DateTimeImmutable('today'))->format('Y-m-d');
+            $toDate = (new \DateTimeImmutable('today +'.self::TITLE_SEARCH_DAYS.' days'))->format('Y-m-d');
+        }
+
         if (null === $fromDate || null === $toDate) {
-            return json_encode(['error' => 'fromDate and toDate are required for list.'], JSON_THROW_ON_ERROR);
+            return json_encode(['error' => 'fromDate and toDate are required for list, unless query is given.'], JSON_THROW_ON_ERROR);
         }
 
         $user = $this->userContext->requireUser();
@@ -77,6 +92,10 @@ class ManageMealsTool
             Meal::dayOfString($fromDate),
             Meal::dayOfString($toDate),
         );
+        if ($searching) {
+            /** @var Meal[] $meals */
+            $meals = $this->titleFilter->keep($meals, null, $query);
+        }
 
         return json_encode([
             'meals' => array_map(fn (Meal $m) => $this->serialize($m), $meals),

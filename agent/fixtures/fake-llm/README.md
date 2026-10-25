@@ -200,6 +200,8 @@ et Garde Ael » (MAG-325): the rule is stored as a `behavior` directive, and the
 `get_upcoming_events` called with `agendas`, once that directive is in the system prompt.
 `97-delete-event-by-name.yaml` replays the 7 Oct. conversation: an event the owner names is looked up with `query`
 and no `days`, whatever its date.
+`97-move-meal-by-name.yaml` (MAG-639) is its twin for a planned meal, which the event tools leave out: `manage_meals list` with
+`query` and no dates, then `update` on the id found, to tomorrow's `lunch`.
 
 The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change

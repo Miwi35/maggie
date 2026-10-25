@@ -460,6 +460,10 @@ web:
     areas: [cookbook, grocery]
   e2e/web/tests/meals-move.spec.ts:
     areas: [cookbook]
+  e2e/web/tests/meals-chat-move.spec.ts:
+    areas: [cookbook, chat]
+    paths:
+      - 'agent/fixtures/fake-llm/97-move-meal-by-name.yaml'
   e2e/web/tests/meals-module-calendar.spec.ts:
     areas: [cookbook, calendar]
   e2e/web/tests/meals-grocery.spec.ts:

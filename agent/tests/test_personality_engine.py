@@ -185,6 +185,23 @@ class TestPersonalityEngine:
         assert "memory_open" in prompt and "n'en invente jamais" in prompt
 
     @pytest.mark.asyncio
+    async def test_a_standing_agenda_limit_never_narrows_a_search_by_name(self):
+        """MAG-639: a stored « ne me parle que de … » hid the meal she was asked to move; no fake LLM reads the prompt."""
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        by_name = next(line for line in prompt.splitlines() if "UN ÉVÉNEMENT PAR SON NOM" in line)
+        assert "tous les agendas" in by_name and "Repas" in by_name
+        assert "ne passe PAS agendas" in by_name and "même si une règle" in by_name
+        assert "dans CE message" in by_name
+        assert "manage_meals" in by_name and "n'est pas un événement" in by_name
+        limit = next(line for line in prompt.splitlines() if "SE LIMITER À CERTAINS AGENDAS" in line)
+        assert "jamais à une recherche par nom" in limit
+
+    @pytest.mark.asyncio
     async def test_the_shipped_prompt_tells_her_to_file_a_tone_preference(self):
         """The half of MAG-22 that lives in the prompt, not in the code.
 

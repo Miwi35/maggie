@@ -1,0 +1,24 @@
+# « Déplace le repas boeuf bourguignon à demain midi » (MAG-639, the 24 Oct. conversation).
+#
+# In production she answered « je n'ai trouvé aucun événement » and asked, because the event tools
+# leave the planned meals out (MAG-323) and a stored « ne me parle que de … » had narrowed her
+# lookup. A meal the owner names is looked up in the meals tool by its title (« boeuf » finds
+# « Bœuf bourguignon »), whatever its date and agenda, then moved on the id found: a meal is a day
+# and a slot, so « demain midi » is tomorrow's lunch. She does not ask where the meal is.
+#
+# The seed has no such meal: plant « Bœuf bourguignon » at Saturday dinner before replaying, and,
+# to replay the incident, a directive « Ne me parle que des événements des agendas Défaut et
+# Garde Ael » in her memory.
+name: deplacer-repas-par-nom
+description: Find a planned meal by its title and move it to tomorrow's lunch without asking.
+channel: chat
+
+steps:
+  - user_message: "Déplace le repas boeuf bourguignon à demain midi."
+    expected_tools: [manage_meals]
+    forbidden_tools: [update_event, delete_event]
+    expected_absent: ["aucun événement", "dans quel agenda", "quel jour"]
+    expected_behavior: >
+      Elle cherche le repas par son titre dans l'outil des repas, sans dates ni agenda, le déplace
+      au déjeuner de demain et le confirme en une phrase, sans demander où il se trouve ni en quel
+      agenda il est rangé, même si une règle mémorisée limite ses lectures à d'autres agendas.

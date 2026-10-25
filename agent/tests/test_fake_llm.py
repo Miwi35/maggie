@@ -527,6 +527,38 @@ class TestMatching:
         assert first.content[0].name == "list_routines"
         assert second.content[0].input == {"id": "01JBQF3KQXW8Z7P4M5R6T9VNCE"}
 
+    async def test_the_meal_scenario_looks_it_up_by_title_then_moves_it_on_the_id_found(self):
+        """97-move-meal-by-name.yaml (MAG-639): `manage_meals list` with a query and no dates, then `update` on the id found."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        question = "Déplace le repas boeuf bourguignon à demain midi"
+        meal = "01JBQF3KQXW8Z7P4M5R6T9VNCE"
+        # As the tool answers it: the ligature escaped, keys in the order of ManageMealsTool::serialize().
+        found = json.dumps(
+            {"meals": [{"id": meal, "date": "2026-10-24", "slot": "dinner", "summary": "B\u0153uf bourguignon"}], "count": 1}
+        )
+
+        async def turn(rounds: list[dict]):
+            return await client.messages.create(
+                model="fake",
+                max_tokens=1024,
+                system="Tu es Maggie. Ne me parle que des événements des agendas Défaut et Garde Ael",
+                tools=[{"name": "manage_meals"}],
+                messages=[{"role": "user", "content": question}, *rounds],
+            )
+
+        lookup = [
+            {"role": "assistant", "content": [{"type": "tool_use", "id": "t0", "name": "manage_meals", "input": {}}]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t0", "content": found}]},
+        ]
+
+        first = await turn([])
+        second = await turn(lookup)
+
+        assert first.content[0].input == {"action": "list", "query": "boeuf bourguignon"}
+        assert second.content[0].input["action"] == "update"
+        assert second.content[0].input["mealId"] == meal
+        assert second.content[0].input["slot"] == "lunch"
+
     async def test_the_early_repayment_scenario_acts_on_the_loan_its_list_returned(self):
         """91-loans-early-repayment.yaml (MAG-522): the update and the simulation carry the id of « Prêt immo »."""
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
