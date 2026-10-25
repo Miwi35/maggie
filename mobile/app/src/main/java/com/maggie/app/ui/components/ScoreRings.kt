@@ -85,6 +85,16 @@ fun ringAmount(cents: Int): String = NumberFormat.getCurrencyInstance(Locale.FRA
 internal fun ringWord(score: PeriodScore): String =
     if (hasEnvelope(score.rhythm)) rhythmWord(score.rhythm) else scoreWord(score.status, score.label)
 
+/**
+ * The status that colours a ring and picks its glyph: the pace when there is a budget (mint check or
+ * orange warning, the mock-ups' two states), like its word; the period's own status otherwise.
+ */
+fun ringStatus(score: PeriodScore): String = when {
+    !hasEnvelope(score.rhythm) -> score.status
+    score.rhythm.status == "above" -> "orange"
+    else -> "green"
+}
+
 /** A ring needs a budget to be proportional to; without one there is nothing to draw. */
 fun hasEnvelope(rhythm: Rhythm): Boolean = rhythm.budgetCents > 0
 
@@ -204,7 +214,8 @@ private fun ScoreRing(
     onClick: () -> Unit,
 ) {
     val rhythm = score.rhythm
-    val color = statusColor(score.status)
+    val status = ringStatus(score)
+    val color = statusColor(status)
     val track = MaterialTheme.colorScheme.surfaceVariant
     val tickColor = MaterialTheme.colorScheme.onSurface
     val fill = ringFill(rhythm)
@@ -246,7 +257,7 @@ private fun ScoreRing(
             RingCenter(rhythm)
         }
 
-        StatusLabel(score.status, ringWord(score))
+        StatusLabel(status, ringWord(score))
     }
 }
 

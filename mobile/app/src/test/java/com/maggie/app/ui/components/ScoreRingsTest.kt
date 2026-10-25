@@ -92,6 +92,25 @@ class ScoreRingsTest {
     }
 
     @Test
+    fun `a ring with a budget takes its glyph and colour from the pace, whatever the period's status`() {
+        for (status in listOf("neutral", "green", "something_new")) {
+            assertEquals("green", ringStatus(PeriodScore(status = status, rhythm = onTrack)))
+        }
+        assertEquals("orange", ringStatus(PeriodScore(status = "neutral", rhythm = onTrack.copy(status = "above"))))
+        assertEquals(ScoreMark.CHECK, scoreMark(ringStatus(PeriodScore(status = "neutral", rhythm = onTrack))))
+        assertEquals(
+            ScoreMark.WARNING,
+            scoreMark(ringStatus(PeriodScore(status = "neutral", rhythm = onTrack.copy(status = "above")))),
+        )
+    }
+
+    @Test
+    fun `a ring without a budget keeps the status of its period`() {
+        assertEquals("neutral", ringStatus(PeriodScore(status = "neutral")))
+        assertEquals("red", ringStatus(PeriodScore(status = "red")))
+    }
+
+    @Test
     fun `the pace word falls back when the API sent no label`() {
         assertEquals("Dans le rythme", rhythmWord(onTrack))
         assertEquals("Au-dessus du rythme", rhythmWord(onTrack.copy(status = "above")))
