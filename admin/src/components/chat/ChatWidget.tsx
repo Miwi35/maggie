@@ -412,6 +412,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       },
       onError: (message) => {
         console.error('Stream error:', message)
+        // A bubble left by the run that just failed (a waiting text) must not outlive it (MAG-638).
+        streamingTextRef.current = ''
+        setStreamingText('')
+        setStreamingMsgId(null)
         // A 400 on a correction means the message is no longer the last one: the retry goes
         // out as a plain message instead of failing the same way (MAG-320).
         const last = lastSendRef.current
@@ -692,6 +696,13 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
             const stoppedAnswer =
               data.role === 'assistant' && data.interrupted && (stoppingRef.current || ignoredAnswersRef.current.has(data.id))
             if (stoppedEcho || stoppedAnswer) return
+            // The answer is stored under the id the stream shows it with: once it is in the list, a
+            // bubble still on that id is a stale waiting text and would sit below the answer (MAG-638).
+            if (data.role === 'assistant' && data.id === answerIdRef.current) {
+              streamingTextRef.current = ''
+              setStreamingText('')
+              setStreamingMsgId(null)
+            }
             setMessages((prev) => {
               // Dedup: skip if already in list by real ID. A message this tab streamed
               // learns its thread from the echo, which is what a thread's deletion needs.

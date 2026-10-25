@@ -587,6 +587,66 @@ describe('ChatWidget', () => {
     expect(screen.getByText('Hello Maggie')).toBeInTheDocument()
   })
 
+  // MAG-638: a waiting text (« Je vérifie… ») shown while a tool runs is a passing state; if the
+  // stream that carried it ends without clearing it, the stored answer must replace it.
+  describe('the waiting text of a turn', () => {
+    beforeEach(() => {
+      localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
+    })
+
+    afterEach(() => {
+      localStorage.removeItem('user')
+    })
+
+    function chatSource(): MockEventSource {
+      const source = MockEventSource.instances.find(
+        (es) => new URL(es.url, 'http://localhost').searchParams.get('match') === '/chat/user-1',
+      )
+      if (!source) throw new Error('the panel is not subscribed to /chat/user-1')
+      return source
+    }
+
+    test('does not stay below the answer that arrives over Mercure', async () => {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+      const { container } = renderWithTheme(<ChatWidget {...defaultProps} />)
+      await waitFor(() => expect(container.querySelector('[data-history-loaded="true"]')).not.toBeNull())
+
+      act(() => {
+        stream.callbacks.onTextStart('answer-1')
+        stream.callbacks.onTextDelta('answer-1', 'Je vérifie cela pour vous, monsieur.')
+      })
+      expect(screen.getByText('Je vérifie cela pour vous, monsieur.')).toBeInTheDocument()
+
+      act(() => {
+        chatSource().onmessage?.({
+          data: JSON.stringify({
+            id: 'answer-1',
+            role: 'assistant',
+            content: 'La prochaine fois, c’est samedi.',
+            createdAt: '2026-10-25T14:56:00Z',
+          }),
+        } as MessageEvent)
+      })
+
+      expect(await screen.findByText('La prochaine fois, c’est samedi.')).toBeInTheDocument()
+      expect(screen.queryByText('Je vérifie cela pour vous, monsieur.')).not.toBeInTheDocument()
+    })
+
+    test('is taken away when the stream fails', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+      renderWithTheme(<ChatWidget {...defaultProps} />)
+
+      act(() => {
+        stream.callbacks.onTextStart('answer-1')
+        stream.callbacks.onTextDelta('answer-1', 'Je vérifie cela pour vous, monsieur.')
+      })
+      act(() => stream.callbacks.onError('HTTP 502'))
+
+      expect(screen.queryByText('Je vérifie cela pour vous, monsieur.')).not.toBeInTheDocument()
+    })
+  })
+
   // MAG-363: a message the agent did not answer is a state of that message, with a way
   // to send it again — not an answer from Maggie.
   describe('a message the agent could not be reached for', () => {

@@ -15,6 +15,7 @@ from sqlalchemy import select
 from app.api import routes
 from app.db.message_repository import message_repo
 from app.db.models import TURN_EXPIRED, Message
+from app.llm import turns
 from app.llm.history import build_history
 from app.llm.streaming import answer_message_id
 from app.llm.turns import TurnRunner, lease_deadline
@@ -67,6 +68,32 @@ class TestAClientThatLeaves:
         assert [m.content for m in answers] == ["Rappel programmé."]
         published_roles = [call.args[1]["role"] for call in publish.await_args_list]
         assert published_roles == ["user", "assistant"]
+
+
+class SilentToolGateway:
+    """A turn whose tool is slow: nothing to say between the call and its result (MAG-638)."""
+
+    async def chat_stream(self, message, user_id, user_msg_id, **_kwargs):
+        yield {"type": "RUN_STARTED", "runId": "run-1"}
+        yield {"type": "TOOL_CALL_START", "toolCallId": "t1", "toolName": "get_upcoming_events"}
+        await asyncio.sleep(0.2)
+        yield {"type": "TOOL_CALL_END", "toolCallId": "t1", "toolName": "get_upcoming_events"}
+        yield {"type": "RUN_FINISHED", "runId": "run-1"}
+
+
+class TestASilentTool:
+    @pytest.mark.asyncio
+    async def test_the_response_keeps_the_connection_alive_while_the_turn_is_silent(self, chat_db, monkeypatch):
+        monkeypatch.setattr(turns, "KEEPALIVE_SECONDS", 0.03)
+
+        with patch.object(routes, "streaming_gateway", SilentToolGateway()):
+            response = await routes.chat_stream(routes.ChatRequest(message="C'est quand Lubus ?"), user_id="user-1")
+            chunks = [chunk async for chunk in response.body_iterator]
+        await turns.turn_runner.idle()
+
+        assert chunks.count(": keep-alive\n\n") >= 3
+        assert chunks[-1].startswith('data: {"type": "RUN_FINISHED"')
+        assert chunks.index(": keep-alive\n\n") > 1  # after the tool call started, while it runs
 
 
 NOW = datetime.now(UTC)
