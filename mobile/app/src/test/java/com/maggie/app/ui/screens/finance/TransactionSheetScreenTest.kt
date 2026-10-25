@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -62,6 +63,28 @@ class TransactionSheetScreenTest {
         assertEquals(sections, sectionTagsDrawn())
         compose.onNodeWithTag(UiTags.sheetSection("partage")).assertExists()
         compose.onNodeWithTag(UiTags.sheetSection("jugement")).assertExists()
+    }
+
+    @Test
+    fun `the list writes a line's day as dd-MM-yyyy, not the raw date-time`() {
+        val dated = coffee.copy(bookedAt = "2026-10-20T00:00:00+00:00")
+        show(FakeTransactionTransfers(transactions = listOf(dated)))
+
+        compose.onNodeWithText("20/10/2026", substring = true).assertIsDisplayed()
+        compose.onAllNodesWithText("T00:00:00", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `« Voir la fiche » of a line the list has not loaded opens that line's sheet`() {
+        val old = Transaction(id = "tx-old", label = "PRELEVEMENT PACIFICA", amountCents = -4200, bookedAt = "2026-10-01")
+        val server = FakeTransactionTransfers(transactions = listOf(coffee, old), unlistedIds = setOf("tx-old"))
+        compose.setContent {
+            TransactionListScreen(viewModel = server.viewModel, accountName = "Livret", onBack = {}, openTransactionId = "tx-old")
+        }
+        compose.waitForIdle()
+
+        assertEquals(sections, sectionTagsDrawn())
+        compose.onNodeWithText("PRELEVEMENT PACIFICA", substring = true).assertExists()
     }
 
     @Test

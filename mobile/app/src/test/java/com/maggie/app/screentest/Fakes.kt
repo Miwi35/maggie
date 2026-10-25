@@ -487,6 +487,8 @@ class FakeTransactionTransfers(
     contacts: List<Contact> = emptyList(),
     /** « Ce virement est » of the transfers to or from a contact (MAG-453), by line id; any other line is not asked. */
     allocations: Map<String, TransactionAllocation> = emptyMap(),
+    /** Lines the first page does not hold (an older day): the API still serves each one on its own. */
+    private val unlistedIds: Set<String> = emptySet(),
 ) {
     private val allocationOf = allocations.toMutableMap()
 
@@ -521,9 +523,10 @@ class FakeTransactionTransfers(
         coEvery { categoryRepository.getCategories() } returns Result.success(emptyList())
         // The API leaves the rejected payments out of the list and serves them as incidents (MAG-375).
         coEvery { repository.getTransactions(any(), any()) } answers {
-            val page = lines.filterNot { it.isRejected }
+            val page = lines.filterNot { it.isRejected || it.id in unlistedIds }
             Result.success(TransactionPage(page, page.size))
         }
+        coEvery { repository.getTransaction(any()) } answers { Result.success(lines.first { it.id == firstArg<String>() }) }
         coEvery { repository.getIncidents(any()) } answers { Result.success(incidents()) }
         coEvery { repository.getSettledIncidents(any()) } returns Result.success(emptyList())
         coEvery { repository.getTransfer(any()) } answers {

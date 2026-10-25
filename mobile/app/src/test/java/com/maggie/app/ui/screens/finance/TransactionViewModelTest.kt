@@ -442,6 +442,35 @@ class TransactionViewModelTest {
     }
 
     @Test
+    fun `opening a line the list has not loaded reads it and opens its sheet`() = runTest {
+        val old = Transaction(id = "old-1", label = "PRELEVEMENT PACIFICA", amountCents = -4200, bookedAt = "2026-10-01")
+        coEvery { transactionRepository.getTransaction("old-1") } returns Result.success(old)
+        coEvery { transactionRepository.getTransfer("old-1") } returns Result.success(TransferInfo())
+        coEvery { peerDebtRepository.getMyShare("old-1") } returns Result.success(MyShare(transactionId = "old-1", amountCents = -4200, canBeShared = true))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail("old-1")
+        advanceUntilIdle()
+
+        assertEquals("old-1", viewModel.uiState.value.detail!!.transaction.id)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a line the list has not loaded and the API cannot read shows the error, no sheet`() = runTest {
+        coEvery { transactionRepository.getTransaction("old-1") } returns Result.failure(RuntimeException("offline"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail("old-1")
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.detail)
+        assertEquals("offline", viewModel.uiState.value.error)
+    }
+
+    @Test
     fun `a failing transfer load is shown on the detail, not on the list`() = runTest {
         coEvery { transactionRepository.getTransfer("tx-1") } returns Result.failure(RuntimeException("offline"))
         viewModel = newViewModel()
