@@ -35,6 +35,7 @@ import com.maggie.app.data.model.incidentKindLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.MaggieCard
+import com.maggie.app.ui.components.formatBookedDay
 
 /**
  * The payments the bank rejected, one line each (MAG-375): who was paid, what kind of payment,
@@ -161,7 +162,7 @@ private fun IncidentCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(incident.counterpartyName, style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    text = "${incident.bookedAt} · ${incidentKindLabel(incident.kind)}",
+                    text = "${formatBookedDay(incident.bookedAt)} · ${incidentKindLabel(incident.kind)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -64,7 +64,6 @@ import com.maggie.app.data.model.TransactionPrefill
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.qualificationProvenance
 import com.maggie.app.data.model.formatCents
-import com.maggie.app.data.model.formatDay
 import com.maggie.app.data.model.idOfIri
 import com.maggie.app.data.model.transactionPills
 import com.maggie.app.data.model.incidentsTabTitle
@@ -77,6 +76,7 @@ import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.components.MaggieCard
+import com.maggie.app.ui.components.formatBookedDay
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -380,7 +380,7 @@ fun TransactionListScreen(
                                                 style = MaterialTheme.typography.bodyLarge,
                                             )
                                             val subtitle = buildString {
-                                                transaction.bookedAt?.let { append(formatDay(it)).append(" · ") }
+                                                formatBookedDay(transaction.bookedAt)?.let { append(it).append(" · ") }
                                                 append(transactionStatusLabel(transaction.status, transaction.amountCents))
                                             }
                                             Text(

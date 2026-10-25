@@ -55,6 +55,7 @@ import com.maggie.app.data.model.transferBadgeLabel
 import com.maggie.app.data.model.transferLegSummary
 import com.maggie.app.data.model.visibleSheetSections
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.formatBookedDay
 
 /**
  * What the sheet does for the owner; each gesture acts at once, there is no « Enregistrer » for the
@@ -126,7 +127,7 @@ fun TransactionDetailScreen(
             )
             Text(
                 text = listOfNotNull(
-                    transaction.bookedAt?.take(10),
+                    formatBookedDay(transaction.bookedAt),
                     transactionStatusLabel(transaction.status, transaction.amountCents),
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
@@ -540,7 +541,7 @@ fun CounterpartSearchScreen(
                         Text(
                             text = listOfNotNull(
                                 leg.accountName,
-                                leg.bookedAt?.take(10),
+                                formatBookedDay(leg.bookedAt),
                                 formatCents(leg.amountCents, leg.currency),
                             ).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,

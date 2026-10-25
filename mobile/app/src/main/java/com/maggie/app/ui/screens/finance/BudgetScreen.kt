@@ -80,6 +80,7 @@ import com.maggie.app.data.model.toSortPillLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.components.MaggieCard
+import com.maggie.app.ui.components.formatBookedDay
 import com.maggie.app.ui.navigation.FinanceSection
 import com.maggie.app.ui.navigation.ProvideFinanceNav
 import com.maggie.app.ui.navigation.financeSubviewState
@@ -557,7 +558,7 @@ private fun EnvelopeSpendRow(line: Transaction) {
         Column(modifier = Modifier.weight(1f)) {
             Text(line.label, style = MaterialTheme.typography.bodyMedium)
             Text(
-                line.bookedAt.orEmpty().take(10),
+                formatBookedDay(line.bookedAt).orEmpty(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

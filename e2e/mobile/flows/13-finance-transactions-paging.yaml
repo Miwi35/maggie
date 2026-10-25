@@ -12,6 +12,8 @@ tags:
 # When I open its full list and scroll to the bottom,
 # Then the 45th line is visible.
 #
+# MAG-635: the lines read their day (« mar. 20 oct. 2026 »), never the API's date-time.
+#
 # The data is set by `scripts/transactions-api.js` on the seed's second user. The requests
 # asked (one page on opening, one more near the end, none once all are loaded) are counted by
 # `TransactionViewModelTest`.
@@ -51,6 +53,7 @@ tags:
     visible: "LIGNE MAG-436 1"
     timeout: 30000
 - assertNotVisible: "LIGNE MAG-436 45"
+- assertNotVisible: ".*T00:00:00.*"
 
 # When I go down to the bottom, the following pages come in and the last line shows.
 - scrollUntilVisible:
