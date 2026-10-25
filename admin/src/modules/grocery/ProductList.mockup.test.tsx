@@ -242,5 +242,6 @@ describe('ProductList — the mockup « Admin-Produits » (MAG-622)', () => {
     await user.click(within(confirm).getByRole('button', { name: 'Supprimer' }))
 
     await waitFor(() => expect(dataProvider.delete).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 })
