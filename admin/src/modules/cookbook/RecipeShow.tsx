@@ -268,7 +268,7 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '520px minmax(0, 1fr)' }, columnGap: 4, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: '520px minmax(0, 1fr)' }, columnGap: 4, alignItems: 'start' }}>
         <Box>
           <IngredientsBlock
             recipe={recipe}

@@ -264,7 +264,7 @@ const Pastilles = ({ names, label, short = false }: { names: NameRef[]; label: s
     <Box component="ul" aria-label={label} sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, listStyle: 'none', m: 0, p: 0 }}>
       {names.map((ref) => (
         <li key={nameOf(ref)} title={nameOf(ref)}>
-          <Chip label={short ? shortName(nameOf(ref)) : nameOf(ref)} size="small" variant="outlined" />
+          <Chip label={short ? shortName(nameOf(ref)) : nameOf(ref)} aria-label={nameOf(ref)} size="small" variant="outlined" />
         </li>
       ))}
     </Box>
