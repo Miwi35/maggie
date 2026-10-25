@@ -3,7 +3,12 @@ package com.maggie.app.ui.screens.cookbook.recipes
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.RecipeRepository
+import com.maggie.app.data.model.Ingredient
+import com.maggie.app.data.model.ProductCategory
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -32,6 +37,7 @@ class RecipeDetailViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var recipeRepository: RecipeRepository
+    private lateinit var ingredientRepository: IngredientRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private val events = MutableSharedFlow<MercureEvent>()
@@ -40,6 +46,8 @@ class RecipeDetailViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         recipeRepository = mockk()
+        ingredientRepository = mockk()
+        coEvery { ingredientRepository.getIngredients() } returns Result.success(emptyList())
         mercureService = mockk()
         authRepository = mockk()
         coEvery { recipeRepository.getRecipe("recipe-1") } returns Result.success(carbonara())
@@ -53,7 +61,7 @@ class RecipeDetailViewModelTest {
     }
 
     private fun TestScope.openSheet(): RecipeDetailViewModel {
-        val viewModel = RecipeDetailViewModel("recipe-1", recipeRepository, mercureService, authRepository)
+        val viewModel = RecipeDetailViewModel("recipe-1", recipeRepository, ingredientRepository, mercureService, authRepository)
         advanceUntilIdle()
         return viewModel
     }
@@ -146,7 +154,7 @@ class RecipeDetailViewModelTest {
             gate.await()
             Result.success(if (calls++ == 0) carbonara() else carbonara(500f))
         }
-        val viewModel = RecipeDetailViewModel("recipe-1", recipeRepository, mercureService, authRepository)
+        val viewModel = RecipeDetailViewModel("recipe-1", recipeRepository, ingredientRepository, mercureService, authRepository)
         runCurrent()
 
         events.emit(MercureEvent(data = published(publishedLine(500))))
@@ -269,5 +277,27 @@ class RecipeDetailViewModelTest {
 
         assertEquals(437.5f, viewModel.uiState.value.ingredients.single().quantity)
         assertEquals(350f, viewModel.uiState.value.recipe!!.ingredients.single().quantity)
+    }
+
+    @Test
+    fun `the sheet counts what a serving brings from the catalogue`() = runTest {
+        coEvery { ingredientRepository.getIngredients() } returns Result.success(
+            listOf(Ingredient("i-1", "Pâtes", null, ProductCategory.GRAIN, kcalPer100g = 350f, proteinPer100g = 12f, carbsPer100g = 70f, fatPer100g = 2f)),
+        )
+        coEvery { recipeRepository.getRecipe("recipe-1") } returns Result.success(carbonara().copy(ingredients = listOf(pastaLine(400f).copy(ingredient = JsonObject(mapOf("id" to JsonPrimitive("i-1")))))))
+
+        val viewModel = openSheet()
+
+        assertEquals(RecipeNutrition(kcal = 350, protein = 12, carbs = 70, fat = 2, skipped = 0), viewModel.uiState.value.nutrition)
+    }
+
+    @Test
+    fun `a catalogue that cannot be read leaves the sheet without figures`() = runTest {
+        coEvery { ingredientRepository.getIngredients() } returns Result.failure(RuntimeException("offline"))
+
+        val viewModel = openSheet()
+
+        assertNull(viewModel.uiState.value.nutrition)
+        assertEquals(carbonara(), viewModel.uiState.value.recipe)
     }
 }

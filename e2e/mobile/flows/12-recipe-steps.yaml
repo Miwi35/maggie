@@ -41,6 +41,13 @@ tags:
 - scrollUntilVisible:
     element: "Poêle MAG-492"
 
+# MAG-630: the quantities read as the Cuisine activity writes them, never « 1.0 kg ».
+- scrollUntilVisible:
+    element: "Pâtes MAG-492"
+    direction: UP
+- assertVisible: "1 kg"
+- assertNotVisible: "1.0 kg"
+
 # The steps, with what the cook needs to know to chain them.
 - scrollUntilVisible:
     element: "Cuire les pâtes"
@@ -58,10 +65,19 @@ tags:
 - scrollUntilVisible:
     element: "attend 3, 4"
 
+# MAG-630: the values of one serving close the sheet.
+- scrollUntilVisible:
+    element: "Par personne"
+- assertVisible: "≈ 500 kcal"
+- assertVisible: "Protéines 20 g"
+
 # A utensil from the phone: the full-screen search, a name the catalogue lacks, created on the spot.
 - scrollUntilVisible:
     element:
       id: "recipe_utensil"
+    direction: UP
+- scrollUntilVisible:
+    element: "Modifier"
     direction: UP
 - tapOn: "Modifier"
 - scrollUntilVisible:

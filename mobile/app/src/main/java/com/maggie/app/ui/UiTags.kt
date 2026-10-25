@@ -1236,6 +1236,10 @@ object UiTags {
     const val RECIPE_INGREDIENT_QUANTITY = "recipe_ingredient_quantity"
     /** « Cuisiner » on a recipe sheet: opens the Cuisine activity (MAG-580). */
     const val RECIPE_COOK = "recipe_cook"
+    const val RECIPE_EDIT = "recipe_edit"
+    const val RECIPE_MENU = "recipe_menu"
+    const val RECIPE_DELETE = "recipe_delete"
+    const val RECIPE_NUTRITION = "recipe_nutrition"
 
     /** The « de saison » / « hors saison » badge of a product, a grocery line or an ingredient (MAG-494), the product's season chips, and its button. */
     const val SEASON_BADGE = "season_badge"

@@ -10,7 +10,8 @@
 //   ACTION    create | create-method (both set output.recipeId) | set-quantity | set-notes | remove | expect
 //             create-method: the steps spec's reference example (MAG-492) — boil water 10 min in the
 //             background, cut the vegetables, cook the pasta 12 min in the background (waits 1),
-//             sauté 8 min, drain and mix (waits 3 and 4) — with its utensils
+//             sauté 8 min, drain and mix (waits 3 and 4) — with its utensils; 1 kg of pasta at
+//             100 kcal per 100 g (500 kcal per serving, MAG-630)
 //   RECIPE    the recipe's name
 //   QUANTITY  create, set-quantity: grams of the recipe's single line
 //   NOTES     set-notes: the notes
@@ -122,10 +123,10 @@ function removeLeftovers() {
     })
 }
 
-function createIngredient(name) {
+function createIngredient(name, nutrition) {
   const response = http.post(base + '/api/ingredients', {
     headers: authorized(LD),
-    body: JSON.stringify({ name: name, category: 'grain' }),
+    body: JSON.stringify(Object.assign({ name: name, category: 'grain' }, nutrition || {})),
   })
   if (!response.ok) {
     fail('POST /api/ingredients answered ' + response.status + ': ' + response.body)
@@ -158,7 +159,8 @@ if (ACTION === 'create') {
   output.recipeId = JSON.parse(response.body).id
 } else if (ACTION === 'create-method') {
   removeLeftovers()
-  const pasta = createIngredient(methodIngredients[0])
+  // MAG-630: the pasta carries values, so the sheet's « Par personne » has figures to show.
+  const pasta = createIngredient(methodIngredients[0], { kcalPer100g: 100, proteinPer100g: 4, carbsPer100g: 20, fatPer100g: 1 })
   const vegetables = createIngredient(methodIngredients[1])
   const response = http.post(base + '/api/recipes', {
     headers: authorized(LD),
@@ -166,7 +168,7 @@ if (ACTION === 'create') {
       name: RECIPE,
       servings: 2,
       ingredients: [
-        { ingredient: pasta, quantity: 200, unit: 'g' },
+        { ingredient: pasta, quantity: 1, unit: 'kg' },
         { ingredient: vegetables, quantity: 300, unit: 'g' },
       ],
       utensils: [{ name: methodUtensils[0] }, { name: methodUtensils[1] }],

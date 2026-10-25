@@ -65,12 +65,11 @@ import com.maggie.app.data.model.CookingTimerStatus
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.RecipeIngredient
 import com.maggie.app.data.model.RecipeStep
-import com.maggie.app.data.model.frenchLabel
+import com.maggie.app.data.model.quantityLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.activity.ActivityImmersion
 import com.maggie.app.ui.activity.ActivityScaffold
 import com.maggie.app.ui.activity.rememberWindowImmersion
-import com.maggie.app.ui.screens.cookbook.grocery.formatQuantity
 import com.maggie.app.ui.theme.ModuleHue
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
@@ -443,7 +442,7 @@ private fun PreparationScreen(
                 Row(modifier = Modifier.fillMaxWidth().testTag(UiTags.COOKING_INGREDIENT), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(ingredient.ingredientName.orEmpty(), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     Text(
-                        "${formatQuantity(ingredient.quantity)} ${ingredient.unit.frenchLabel(ingredient.quantity)}".trim(),
+                        ingredient.quantityLabel(),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -586,7 +585,7 @@ private fun StepNeeds(step: RecipeStep, lines: List<RecipeIngredient>) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ingredients.forEach { need ->
             val line = need.line
-            val quantity = line?.let { "${formatQuantity(it.quantity)} ${it.unit.frenchLabel(it.quantity)}".trim() }
+            val quantity = line?.quantityLabel()
             AssistChip(
                 onClick = {},
                 label = { Text(if (quantity != null) "$quantity ${need.name}" else need.name, style = MaterialTheme.typography.bodyLarge) },
