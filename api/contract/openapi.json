@@ -19157,6 +19157,14 @@
                     "allDay": {
                         "type": "boolean"
                     },
+                    "recipeNames": {
+                        "readOnly": true,
+                        "description": "The names of the meal's recipes; the title is the owner's when he typed one.",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
                     "guestsIsDefault": {
                         "readOnly": true,
                         "type": "boolean"
@@ -19350,6 +19358,14 @@
                     "allDay": {
                         "type": "boolean"
                     },
+                    "recipeNames": {
+                        "readOnly": true,
+                        "description": "The names of the meal's recipes; the title is the owner's when he typed one.",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
                     "guestsIsDefault": {
                         "readOnly": true,
                         "type": "boolean"
@@ -19538,6 +19554,14 @@
                     },
                     "allDay": {
                         "type": "boolean"
+                    },
+                    "recipeNames": {
+                        "readOnly": true,
+                        "description": "The names of the meal's recipes; the title is the owner's when he typed one.",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "guestsIsDefault": {
                         "readOnly": true,
@@ -19736,6 +19760,14 @@
                             },
                             "allDay": {
                                 "type": "boolean"
+                            },
+                            "recipeNames": {
+                                "readOnly": true,
+                                "description": "The names of the meal's recipes; the title is the owner's when he typed one.",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
                             },
                             "guestsIsDefault": {
                                 "readOnly": true,

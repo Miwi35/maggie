@@ -342,6 +342,17 @@ class Meal extends Event implements MercurePublishable
         return new ArrayCollection($this->recipes->getValues());
     }
 
+    /**
+     * The names of the recipes, as {@see MealTitle} reads them: what a summary card shows without a request per recipe.
+     *
+     * @return list<string>
+     */
+    #[ApiProperty(writable: false, description: 'The names of the meal\'s recipes; the title is the owner\'s when he typed one.')]
+    public function getRecipeNames(): array
+    {
+        return $this->getRecipes()->map(static fn (Recipe $recipe): string => $recipe->getName())->getValues();
+    }
+
     public function addRecipe(Recipe $recipe): static
     {
         if (!$this->recipes->contains($recipe)) {

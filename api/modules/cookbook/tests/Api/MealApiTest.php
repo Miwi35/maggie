@@ -424,6 +424,46 @@ class MealApiTest extends WebTestCase
     }
 
     /**
+     * The Accueil card names the recipes of a day's meals from this one read, with no request per recipe (MAG-591):
+     * the names stay the recipes' when the owner gave the meal a title of its own.
+     */
+    public function testTheMealsListTheNamesOfTheirRecipes(): void
+    {
+        $this->authenticateFixtureUser();
+        $pasta = $this->getFixture('pasta');
+        $salad = $this->getFixture('salad');
+
+        $this->postMeal([
+            'date' => '2026-10-07',
+            'slot' => 'lunch',
+            'customTitle' => 'Repas de fête',
+            'recipes' => ['/api/recipes/'.$salad->getId(), '/api/recipes/'.$pasta->getId()],
+        ]);
+        $this->postMeal(['date' => '2026-10-07', 'slot' => 'dinner']);
+
+        $this->client->request('GET', '/api/meals?date%5Bafter%5D=2026-10-07&date%5Bbefore%5D=2026-10-07&order%5Bdate%5D=asc', [], [], array_merge(
+            ['HTTP_ACCEPT' => 'application/ld+json'],
+            $this->authHeaders(),
+        ));
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $bySlot = array_column($data['member'], null, 'slot');
+        self::assertEqualsCanonicalizing(['Salade verte', 'Pâtes à la tomate'], $bySlot['lunch']['recipeNames']);
+        self::assertSame('Repas de fête', $bySlot['lunch']['summary']);
+        self::assertSame([], $bySlot['dinner']['recipeNames']);
+    }
+
+    public function testRecipeNamesAreReadOnly(): void
+    {
+        $this->authenticateFixtureUser();
+        $created = $this->postMeal(['date' => '2026-10-07', 'slot' => 'lunch', 'recipeNames' => ['Inventé']]);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame([], $created['recipeNames']);
+    }
+
+    /**
      * An instant a client sends does not get to decide the day: `startAt` is
      * derived from `date`, as the whole day in the meal's time zone. The body
      * below is exactly what the week view used to send — the offset is an

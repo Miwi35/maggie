@@ -4,15 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.HomeDay
 import com.maggie.app.data.model.NutritionHomeState
-import com.maggie.app.data.repository.HomeCardRepository
+import com.maggie.app.data.repository.NutritionCardRepository
+import com.maggie.app.util.DateRanges
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
+import java.time.Instant
 
 data class NutritionHomeUiState(
     val state: NutritionHomeState? = null,
@@ -25,12 +24,13 @@ data class NutritionHomeUiState(
 }
 
 /**
- * The Nutrition card (MAG-564): the meals of the selected day, read from `/api/home/nutrition`, again when
- * the day changes and each time the API says it moved (`home/nutrition`).
+ * The Cuisine card (MAG-564): the meals of the selected day, read from the meals and the recipe needs (MAG-591), again when
+ * the day changes and each time Mercure says one of the resources behind them moved.
  */
-class NutritionHomeViewModel(private val repository: HomeCardRepository) : ViewModel() {
-    private val json = Json { ignoreUnknownKeys = true }
-
+class NutritionHomeViewModel(
+    private val repository: NutritionCardRepository,
+    private val clock: () -> Instant = { Instant.now() },
+) : ViewModel() {
     private val _uiState = MutableStateFlow(NutritionHomeUiState())
     val uiState: StateFlow<NutritionHomeUiState> = _uiState
 
@@ -38,9 +38,9 @@ class NutritionHomeViewModel(private val repository: HomeCardRepository) : ViewM
     private var reading: Job? = null
 
     init {
-        read()
+        read(silently = false)
         viewModelScope.launch {
-            repository.changes(MODULE).collect { read() }
+            repository.changes().collect { read(silently = true) }
         }
     }
 
@@ -49,30 +49,27 @@ class NutritionHomeViewModel(private val repository: HomeCardRepository) : ViewM
         if (next == day) return
         day = next
         _uiState.value = NutritionHomeUiState()
-        read()
+        read(silently = false)
     }
 
     /** « Réessayer »: the card shows its loading state again while it reads. */
     fun refresh() {
         _uiState.update { it.copy(isLoading = true) }
-        read()
+        read(silently = false)
     }
 
     // A newer read replaces the one in flight, so a late answer for the previous day never lands.
-    private fun read() {
+    private fun read(silently: Boolean) {
         reading?.cancel()
         val asked = day
         reading = viewModelScope.launch {
-            val result = repository.state(MODULE, asked)
-            currentCoroutineContext().ensureActive()
-            result
-                .mapCatching { json.decodeFromJsonElement(NutritionHomeState.serializer(), it) }
-                .onSuccess { state -> _uiState.value = NutritionHomeUiState(state = state, isLoading = false) }
-                .onFailure { _uiState.update { it.copy(isLoading = false, failed = true) } }
+            val today = clock().atZone(DateRanges.zone).toLocalDate()
+            val date = if (asked == HomeDay.TODAY) today else today.plusDays(1)
+            repository.read(date).fold(
+                onSuccess = { state -> _uiState.value = NutritionHomeUiState(state = state, isLoading = false) },
+                // A refresh that fails keeps what the card shows: the next one will do.
+                onFailure = { _uiState.update { current -> if (silently && current.state != null) current else current.copy(isLoading = false, failed = true) } },
+            )
         }
-    }
-
-    private companion object {
-        const val MODULE = "nutrition"
     }
 }

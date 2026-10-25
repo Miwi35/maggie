@@ -7,43 +7,28 @@ import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
 import type { HomeDay } from '../home/homeDay'
-import { useHomeCardState } from '../home/useHomeCardState'
 import { mealLaunchPath } from './cooking/cookingSession'
-
-interface HomeMeal {
-  id: string
-  title: string
-  guests: number
-  recipes: { id: string; name: string }[]
-  missing: { id: string; name: string }[]
-}
-
-interface HomeSlot {
-  slot: 'lunch' | 'dinner'
-  meals: HomeMeal[]
-}
-
-interface NutritionHomeState {
-  slots: HomeSlot[]
-}
+import { useNutritionCardState } from './useNutritionCardState'
+import type { HomeMeal, HomeSlot, NutritionHomeState } from './nutritionCardState'
 
 const SLOT_LABELS: Record<HomeSlot['slot'], string> = { lunch: 'Déjeuner', dinner: 'Dîner' }
 
 /**
- * The Nutrition card of the Accueil (MAG-564): the meals of the chosen day, lunch
- * then dinner, with what the stock lacks for them. Read-only; the title opens the
- * week of meals (the admin has no other Menu view). With no meal planned that day
- * it is not drawn at all (MAG-594).
+ * The Cuisine card of the Accueil (MAG-564): the meals of the chosen day, lunch
+ * then dinner, with what the stock lacks for them, read from the meals and recipe
+ * needs resources (MAG-591). Read-only; the title opens the week of meals (the
+ * admin has no other Menu view). With no meal planned that day it is not drawn at
+ * all (MAG-594).
  */
 export const NutritionHomeCard = ({ day }: { day: HomeDay }) => {
-  const { state, loading, error, retry } = useHomeCardState<NutritionHomeState>('nutrition', day)
+  const { state, loading, error, retry } = useNutritionCardState(day)
   const status = homeCardStatus({ state, loading, error }, isEmpty)
   useReportHomeCard('nutrition', status)
 
   if (status === 'empty') return null
 
   return (
-    <HomeCard module="nutrition" title="Nutrition" to="/meals">
+    <HomeCard module="nutrition" title="Cuisine" to="/meals">
       {state && !isEmpty(state) ? <Body state={state} day={day} /> : !error && loading ? <Loading /> : null}
       {error && <HomeCardError onRetry={() => void retry()} />}
     </HomeCard>
@@ -83,7 +68,7 @@ const Body = ({ state, day }: { state: NutritionHomeState; day: HomeDay }) => (
 )
 
 const Meal = ({ meal, day }: { meal: HomeMeal; day: HomeDay }) => {
-  const names = meal.recipes.length > 0 ? meal.recipes.map((r) => r.name).join(' · ') : meal.title
+  const names = meal.recipes.length > 0 ? meal.recipes.join(' · ') : meal.title
 
   return (
     <Box component="li" data-testid="home-nutrition-meal" sx={{ py: 0.25 }}>
@@ -102,7 +87,7 @@ const Meal = ({ meal, day }: { meal: HomeMeal; day: HomeDay }) => {
           data-testid="home-nutrition-missing"
           sx={(theme) => ({ display: 'block', color: moduleColor(theme, 'grocery') })}
         >
-          {`manque : ${meal.missing.map((m) => m.name).join(', ')}`}
+          {`manque : ${meal.missing.join(', ')}`}
         </Typography>
       )}
     </Box>

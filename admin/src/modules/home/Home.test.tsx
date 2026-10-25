@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, useLocation } from 'react-router-dom'
+import { addDays, localDay } from '../../dates'
 import { veilleuseLightTheme } from '../../theme'
 import { Home } from './Home'
 import { cardRegistry } from './cardRegistry'
@@ -229,16 +230,13 @@ describe('Home', () => {
 
     const emptyRing = { status: 'on_track', label: 'Dans le rythme', budgetCents: 0, remainingCents: 0, expectedRemainingCents: 0 }
     const finance = { week: emptyRing, month: emptyRing, toQualifyCount: 0, nextProject: null, accountCount: 0, envelopeCount: 0 }
-    const meal = { id: 'm1', title: 'Soupe', guests: 2, recipes: [{ id: 'r1', name: 'Soupe' }], missing: [] }
+    const meal = { id: 'm1', slot: 'lunch', summary: 'Soupe', guests: 2, recipeNames: ['Soupe'] }
     const task = { id: 't1', title: 'Appeler le plombier', overdueDays: null }
-    const nothing: Record<string, unknown> = {
-      nutrition: { slots: [{ slot: 'lunch', meals: [] }, { slot: 'dinner', meals: [] }] },
-      finance,
-    }
+    const nothing: Record<string, unknown> = { finance }
 
     /**
-     * Stubs fetch with `nothing`, each module's answer overridden by `answers[module][day]`; the Agenda card reads empty events, the Courses card reads the open list in `answers.grocery.today`, and the Tâches card
-     * reads the tasks and routines resources, `answers.tasks[day]` being the open tasks it finds.
+     * Stubs fetch with `nothing`, each module's answer overridden by `answers[module][day]`; the Agenda card reads empty events, the Courses card reads the open list in `answers.grocery.today`, the Cuisine card reads
+     * the meals of the day in `answers.nutrition[day]`, and the Tâches card reads the tasks and routines resources, `answers.tasks[day]` being the open tasks it finds.
      */
     const stubHome = (answers: Record<string, Partial<Record<'today' | 'tomorrow', unknown>>> = {}, failing: string[] = []) => {
       const fetchMock = vi.fn((url: string) => {
@@ -262,6 +260,12 @@ describe('Home', () => {
 
           return ok({ member: [{ id: 'l1' }] })
         }
+        if (/\/meals\?/.test(url)) {
+          if (failing.includes('nutrition')) return fail()
+          const tomorrow = url.includes(`date%5Bafter%5D=${addDays(localDay(new Date()), 1)}`)
+
+          return ok({ member: answers.nutrition?.[tomorrow ? 'tomorrow' : 'today'] ?? [] })
+        }
         const module = /\/api\/home\/(\w+)/.exec(url)?.[1] ?? ''
         const day = url.includes('day=tomorrow') ? 'tomorrow' : 'today'
         if (failing.includes(module)) return fail()
@@ -273,18 +277,19 @@ describe('Home', () => {
       return fetchMock
     }
 
-    test('the Nutrition card asks for the day the selector is on', async () => {
+    test('the Cuisine card asks for the meals of the day the selector is on', async () => {
       const user = userEvent.setup()
-      const fetchMock = stubHome({
-        nutrition: { today: { slots: [{ slot: 'lunch', meals: [meal] }, { slot: 'dinner', meals: [] }] } },
-      })
+      const fetchMock = stubHome({ nutrition: { today: [meal] } })
+      const mealsOf = (day: string) => fetchMock.mock.calls.filter(([url]) => String(url).includes(`/meals?`) && String(url).includes(`date%5Bafter%5D=${day}`))
       renderHome('/', homeConfig, cardRegistry)
       await screen.findByTestId('home-nutrition-lunch')
-      expect(fetchMock).toHaveBeenCalledWith('/api/home/nutrition?day=today', expect.anything())
+      const today = localDay(new Date())
+      expect(mealsOf(today)).toHaveLength(1)
 
       await user.click(screen.getByRole('button', { name: 'Demain' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/home/nutrition?day=tomorrow', expect.anything()))
+      await waitFor(() => expect(mealsOf(addDays(today, 1))).toHaveLength(1))
+      expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/home/nutrition'))).toHaveLength(0)
     })
 
     test('a card empty today and full tomorrow appears on « Demain », and goes again on « Aujourd\'hui »', async () => {
@@ -308,7 +313,7 @@ describe('Home', () => {
 
     test('a card full today and empty tomorrow goes on « Demain »', async () => {
       const user = userEvent.setup()
-      stubHome({ nutrition: { today: { slots: [{ slot: 'lunch', meals: [meal] }, { slot: 'dinner', meals: [] }] } } })
+      stubHome({ nutrition: { today: [meal] } })
       renderHome('/', homeConfig, cardRegistry)
       expect(await screen.findByTestId('home-card-nutrition')).toBeVisible()
 

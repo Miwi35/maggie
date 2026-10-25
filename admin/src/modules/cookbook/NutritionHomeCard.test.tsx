@@ -8,6 +8,8 @@ import { emitMercure } from '../../test/mercure'
 import { NutritionHomeCard } from './NutritionHomeCard'
 import type { HomeDay } from '../home/homeDay'
 
+const NOW = '2026-10-14T14:12:00+02:00'
+
 vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
 
 const Where = () => {
@@ -26,44 +28,60 @@ const renderCard = (day: HomeDay = 'today') =>
     </MemoryRouter>,
   )
 
-const named = (id: string, name: string) => ({ id, name })
-
-const meal = (id: string, recipes: string[], extra: Record<string, unknown> = {}) => ({
+const meal = (id: string, slot: 'lunch' | 'dinner', recipes: string[], extra: Record<string, unknown> = {}) => ({
   id,
-  title: recipes[0],
+  slot,
+  date: '2026-10-14',
+  summary: recipes.join(', '),
   guests: 2,
-  recipes: recipes.map((name, i) => named(`${id}-r${i}`, name)),
-  missing: [],
+  recipes: recipes.map((_, i) => `/api/recipes/${id}-r${i}`),
+  recipeNames: recipes,
   ...extra,
 })
 
-const TODAY = {
-  module: 'nutrition',
-  day: 'today',
-  date: '2026-10-14',
-  slots: [
-    { slot: 'lunch', meals: [] },
-    {
-      slot: 'dinner',
-      meals: [
-        meal('m1', ['Lasagnes', 'Salade verte', 'Tiramisu'], {
-          guests: 4,
-          missing: [named('i1', 'Parmesan'), named('i2', 'Basilic')],
-        }),
-        meal('m2', ['Soupe'], { guests: 1 }),
-      ],
-    },
-  ],
+const need = (mealId: string, productId: string, name: string) => ({ productId, name, date: '2026-10-14', slot: 'dinner', mealId, mealName: 'x', missing: true })
+
+const MEALS = [
+  meal('m1', 'dinner', ['Lasagnes', 'Salade verte', 'Tiramisu'], { guests: 4 }),
+  meal('m2', 'dinner', ['Soupe'], { guests: 1 }),
+]
+const NEEDS = [need('m1', 'p1', 'Parmesan'), need('m1', 'p2', 'Basilic'), need('m1', 'p1', 'Parmesan')]
+
+const ok = (body: unknown) => ({ ok: true, status: 200, json: () => Promise.resolve(body) })
+const failing = (status: number) => ({ ok: false, status, json: () => Promise.resolve({}) })
+
+interface Answers {
+  meals?: unknown[]
+  needs?: unknown[]
+  /** A response overriding the read of the meals or of the needs. */
+  mealsResponse?: unknown
+  needsResponse?: unknown
 }
 
-const ok = (body: unknown) => ({ ok: true, json: () => Promise.resolve(body) })
+/** The two reads of the card: the day's meals, what their recipes lack. */
+const reads = (answers: Answers = {}) =>
+  vi.fn((url: string) => {
+    if (url.includes('/grocery/recipe-needs')) return Promise.resolve(answers.needsResponse ?? ok({ member: answers.needs ?? NEEDS }))
+    if (/\/meals\?/.test(url)) return Promise.resolve(answers.mealsResponse ?? ok({ member: answers.meals ?? MEALS }))
+
+    return Promise.reject(new Error(`unexpected ${url}`))
+  })
+
+const callsTo = (mock: ReturnType<typeof vi.fn>, part: string) => mock.mock.calls.filter(([url]) => String(url).includes(part))
 
 describe('NutritionHomeCard', () => {
-  beforeEach(() => localStorage.setItem('token', 'test-jwt'))
-  afterEach(() => vi.unstubAllGlobals())
+  beforeEach(() => {
+    localStorage.setItem('token', 'test-jwt')
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(NOW))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
 
   test('shows lunch then dinner, a meal with all its recipes on one line and its guests', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(TODAY)))
+    vi.stubGlobal('fetch', reads())
     renderCard()
 
     const dinner = await screen.findByTestId('home-nutrition-dinner')
@@ -76,8 +94,26 @@ describe('NutritionHomeCard', () => {
     expect(within(second).getByTestId('home-nutrition-guests')).toHaveTextContent('1 pers.')
   })
 
+  test('reads business resources only: two requests for the day, none to /api/home', async () => {
+    const fetchMock = reads()
+    vi.stubGlobal('fetch', fetchMock)
+    renderCard()
+    await screen.findByTestId('home-nutrition-dinner')
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(callsTo(fetchMock, '/home')).toHaveLength(0)
+    const meals = new URL(String(callsTo(fetchMock, '/meals?')[0][0]))
+    expect(meals.searchParams.get('date[after]')).toBe('2026-10-14')
+    expect(meals.searchParams.get('date[before]')).toBe('2026-10-14')
+    expect(meals.searchParams.get('pagination')).toBe('false')
+    const needs = new URL(String(callsTo(fetchMock, '/grocery/recipe-needs')[0][0]))
+    expect(needs.searchParams.get('from')).toBe('2026-10-14')
+    expect(needs.searchParams.get('to')).toBe('2026-10-14')
+    expect(needs.searchParams.get('missing')).toBe('true')
+  })
+
   test('puts « — » on an empty slot', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(TODAY)))
+    vi.stubGlobal('fetch', reads())
     renderCard()
 
     const lunch = await screen.findByTestId('home-nutrition-lunch')
@@ -88,35 +124,32 @@ describe('NutritionHomeCard', () => {
   })
 
   test('is not drawn at all when no meal is planned for the day', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        ok({
-          slots: [
-            { slot: 'lunch', meals: [] },
-            { slot: 'dinner', meals: [] },
-          ],
-        }),
-      ),
-    )
+    vi.stubGlobal('fetch', reads({ meals: [], needs: [] }))
     renderCard()
     expect(screen.getByTestId('home-nutrition-loading')).toBeInTheDocument()
 
     await waitFor(() => expect(screen.queryByTestId('home-card-nutrition')).toBeNull())
-    expect(screen.queryByText('Nutrition')).toBeNull()
+    expect(screen.queryByText('Cuisine')).toBeNull()
     expect(screen.queryByTestId('home-nutrition-empty')).toBeNull()
   })
 
   test('stays drawn, with its error, when the read fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve({}) }))
+    vi.stubGlobal('fetch', reads({ mealsResponse: failing(500) }))
     renderCard()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger cette carte.')
     expect(screen.getByTestId('home-card-nutrition')).toBeInTheDocument()
   })
 
-  test('says what is missing, only for the meal that lacks something', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(TODAY)))
+  test('stays drawn, with its error, when only the needs fail', async () => {
+    vi.stubGlobal('fetch', reads({ needsResponse: failing(500) }))
+    renderCard()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger cette carte.')
+  })
+
+  test('says what is missing, once per product, only for the meal that lacks something', async () => {
+    vi.stubGlobal('fetch', reads())
     renderCard()
 
     const [first, second] = await screen.findAllByTestId('home-nutrition-meal')
@@ -126,27 +159,35 @@ describe('NutritionHomeCard', () => {
     expect(screen.getAllByTestId('home-nutrition-missing')).toHaveLength(1)
   })
 
-  test('falls back to the title of a meal without recipe', async () => {
-    const body = { slots: [{ slot: 'lunch', meals: [{ ...meal('m9', []), title: 'Restaurant' }] }, { slot: 'dinner', meals: [] }] }
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(body)))
+  test('falls back to the title of a meal without recipe, and has nothing to launch for it', async () => {
+    vi.stubGlobal('fetch', reads({ meals: [meal('m9', 'lunch', [], { summary: 'Restaurant' })], needs: [] }))
     renderCard()
 
     expect(await screen.findByTestId('home-nutrition-recipes')).toHaveTextContent('Restaurant')
+    expect(screen.queryByRole('link', { name: /^Lancer/ })).toBeNull()
   })
 
-  test('asks for the day it is given', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(ok(TODAY))
+  test('names the recipes, not the title the owner gave the meal', async () => {
+    vi.stubGlobal('fetch', reads({ meals: [meal('m8', 'dinner', ['Pâtes', 'Salade'], { summary: 'Repas de fête' })], needs: [] }))
+    renderCard()
+
+    expect(await screen.findByTestId('home-nutrition-recipes')).toHaveTextContent('Pâtes · Salade')
+  })
+
+  test('asks for tomorrow, the user’s day plus one, when the selector is on Demain', async () => {
+    const fetchMock = reads()
     vi.stubGlobal('fetch', fetchMock)
     renderCard('tomorrow')
 
     await screen.findByTestId('home-nutrition-dinner')
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/home/nutrition?day=tomorrow', expect.anything())
+    expect(new URL(String(callsTo(fetchMock, '/meals?')[0][0])).searchParams.get('date[after]')).toBe('2026-10-15')
+    expect(new URL(String(callsTo(fetchMock, '/grocery/recipe-needs')[0][0])).searchParams.get('from')).toBe('2026-10-15')
   })
 
   test('« ▶ Lancer » on a meal opens the Cuisine activity for that meal, from the Accueil', async () => {
     const user = userEvent.setup()
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(TODAY)))
+    vi.stubGlobal('fetch', reads())
     renderCard()
     const [first, second] = await screen.findAllByTestId('home-nutrition-meal')
 
@@ -157,7 +198,7 @@ describe('NutritionHomeCard', () => {
   })
 
   test('there is nothing to launch for tomorrow', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(TODAY)))
+    vi.stubGlobal('fetch', reads())
     renderCard('tomorrow')
     await screen.findByTestId('home-nutrition-dinner')
     expect(screen.queryByTestId('home-launch-nutrition')).toBeNull()
@@ -165,39 +206,42 @@ describe('NutritionHomeCard', () => {
 
   test('opens the meals from its title', async () => {
     const user = userEvent.setup()
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(TODAY)))
+    vi.stubGlobal('fetch', reads())
     renderCard()
     await screen.findByTestId('home-nutrition-dinner')
 
-    await user.click(screen.getByRole('link', { name: 'Nutrition' }))
+    await user.click(screen.getByRole('link', { name: 'Cuisine' }))
 
     expect(screen.getByTestId('where')).toHaveTextContent('/meals')
   })
 
-  test('shows a loading state, then reads again when the meals change elsewhere', async () => {
-    const afterChange = { ...TODAY, slots: [{ slot: 'lunch', meals: [meal('m3', ['Quiche'])] }, TODAY.slots[1]] }
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(ok(TODAY)).mockResolvedValueOnce(ok(afterChange)))
-    renderCard()
-    expect(screen.getByTestId('home-nutrition-loading')).toBeInTheDocument()
-    await screen.findByTestId('home-nutrition-dinner')
+  test.each([['/api/meals/{id}'], ['/api/recipes/{id}'], ['/api/products/{id}'], ['/api/ingredients/{id}']])(
+    'shows a loading state, then reads again when %s changes elsewhere',
+    async (topic) => {
+      const fetchMock = reads()
+      vi.stubGlobal('fetch', fetchMock)
+      renderCard()
+      expect(screen.getByTestId('home-nutrition-loading')).toBeInTheDocument()
+      await screen.findByTestId('home-nutrition-dinner')
+      fetchMock.mockImplementation(reads({ meals: [meal('m3', 'lunch', ['Quiche']), ...MEALS], needs: NEEDS }).getMockImplementation()!)
 
-    await act(async () => {
-      await emitMercure('/home/{module}', { action: 'refresh', module: 'nutrition' })
-    })
+      await act(async () => {
+        await emitMercure(topic, { id: 'x' })
+      })
 
-    expect(await screen.findByText('Quiche')).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByTestId('home-nutrition-loading')).toBeNull())
-  })
+      expect(await screen.findByText('Quiche')).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByTestId('home-nutrition-loading')).toBeNull())
+    },
+  )
 
   test('says it could not load, and tries again', async () => {
     const user = userEvent.setup()
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({}) }).mockResolvedValueOnce(ok(TODAY)),
-    )
+    const fetchMock = reads({ mealsResponse: failing(500) })
+    vi.stubGlobal('fetch', fetchMock)
     renderCard()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger cette carte.')
+    fetchMock.mockImplementation(reads().getMockImplementation()!)
 
     await user.click(screen.getByRole('button', { name: 'Réessayer' }))
 

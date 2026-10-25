@@ -61,7 +61,7 @@ internal fun NutritionHomeCardContent(
     ReportHomeCard(HomeModules.NUTRITION, ui.status)
     if (ui.status == HomeCardStatus.EMPTY) return
 
-    HomeCard(title = "Nutrition", module = HomeModules.NUTRITION, onOpen = onOpen) {
+    HomeCard(title = "Cuisine", module = HomeModules.NUTRITION, onOpen = onOpen) {
         val state = ui.state
         Column(
             modifier = Modifier
@@ -116,7 +116,7 @@ private fun NutritionHomeMealRow(meal: NutritionHomeMeal, day: HomeDay, onLaunch
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
-            meal.guests?.let {
+            meal.guests.let {
                 Text(
                     text = "$it pers.",
                     style = MaterialTheme.typography.bodySmall,
