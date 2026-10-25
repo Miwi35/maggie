@@ -34,6 +34,7 @@ import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.directionLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.formatBookedDay
 
 /**
  * « Créer un filtre » (MAG-464): a categorisation rule drafted from a line, with the lines it
@@ -145,7 +146,7 @@ private fun LazyListScope.matchList(draft: RuleDraftState) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(UiTags.RULE_DRAFT_MATCH)) {
             Text(match.label, style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = listOfNotNull(match.bookedAt.take(10).ifBlank { null }, formatCents(match.amountCents))
+                text = listOfNotNull(formatBookedDay(match.bookedAt.ifBlank { null }), formatCents(match.amountCents))
                     .joinToString(" · ") + if (match.wouldChange) " · serait classée" else "",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

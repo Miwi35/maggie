@@ -168,7 +168,7 @@ class TransactionSheetScreenTest {
 
         open("Café du coin")
         compose.onNodeWithTag(UiTags.RECURRING_ATTACHED).performScrollTo().assertTextContains("Série", substring = true)
-        compose.onNodeWithText("Échéance : 2026-09-14").assertExists()
+        compose.onNodeWithText("Échéance : lun. 14 sept. 2026").assertExists()
 
         compose.onNodeWithTag(UiTags.RECURRING_DETACH).performScrollTo().performClick()
         compose.waitForIdle()

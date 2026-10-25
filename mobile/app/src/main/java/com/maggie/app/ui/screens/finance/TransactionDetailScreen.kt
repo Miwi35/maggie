@@ -301,7 +301,7 @@ private fun RecurrenceSection(state: TransferDetailState, actions: TransactionSh
             modifier = Modifier.testTag(UiTags.RECURRING_ATTACHED),
         )
         transaction.recurringOccurrenceOn?.let {
-            Text("Échéance : ${it.take(10)}", style = MaterialTheme.typography.bodyMedium)
+            Text("Échéance : ${formatBookedDay(it)}", style = MaterialTheme.typography.bodyMedium)
         }
         OutlinedButton(
             onClick = actions.onDetach,

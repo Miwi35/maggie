@@ -83,6 +83,7 @@ import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.components.ModuleDetailBar
 import com.maggie.app.ui.components.SubviewBar
 import com.maggie.app.ui.components.SubviewItem
+import com.maggie.app.ui.components.formatBookedDay
 import com.maggie.app.ui.layout.ListDetailPane
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.theme.MaggieTokens
@@ -456,7 +457,7 @@ private fun LineRow(line: ReviewQueueItem, isCursor: Boolean, onClick: () -> Uni
                 color = if (isCursor) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                listOfNotNull(line.bookedAt, line.contact?.name).joinToString(" · "),
+                listOfNotNull(formatBookedDay(line.bookedAt), line.contact?.name).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -549,7 +550,7 @@ private fun FicheCard(
             Text(line.label, style = MaterialTheme.typography.titleMedium)
             Text(formatCents(line.amountCents, line.currency), style = MaterialTheme.typography.headlineSmall)
             Text(
-                listOfNotNull(line.bookedAt, line.accountName).joinToString(" · "),
+                listOfNotNull(formatBookedDay(line.bookedAt), line.accountName).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
