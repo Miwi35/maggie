@@ -516,6 +516,16 @@ class CookingScreensTest {
     }
 
     @Test
+    fun `a background step whose timer was acknowledged reads Suivant, not Lancer et continuer`() {
+        draw(timedState(step = 1).copy(launched = setOf("r-a" to 1)))
+
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertTextEquals("Suivant →")
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).performClick()
+
+        assertEquals(listOf("next"), actionsLog)
+    }
+
+    @Test
     fun `a swipe on a background step starts its timer too`() {
         draw(timedState(step = 1))
 

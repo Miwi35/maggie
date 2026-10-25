@@ -58,6 +58,8 @@ data class CookingUiState(
     val starting: Boolean = false,
     /** The API's timers were read once (or could not be): until then a step's timer may already run elsewhere. */
     val timersLoaded: Boolean = false,
+    /** Steps (recipe id, position) a timer was started on, even if it was since acknowledged or cancelled. */
+    val launched: Set<Pair<String, Int>> = emptySet(),
 ) {
     val recipe: Recipe? get() = session?.current?.let { recipes[it.recipeId] }
 
@@ -82,6 +84,12 @@ data class CookingUiState(
 
     /** The timer of a step of the current recipe. */
     fun timerOf(position: Int): CookingTimer? = session?.current?.recipeId?.let { timerFor(it, position) }
+
+    /** « Lancer et continuer » is offered once per step: a timer acknowledged or cancelled does not bring it back. */
+    fun hasLaunched(position: Int): Boolean {
+        val recipeId = session?.current?.recipeId ?: return false
+        return (recipeId to position) in launched || timerFor(recipeId, position) != null
+    }
 
     /** A timer rang and was not acknowledged: its step's line is lit. */
     val ringing: List<CookingTimer> get() = timers.filter { it.status == CookingTimerStatus.DONE }
@@ -181,7 +189,7 @@ class CookingViewModel(
     fun startAndNext() {
         val state = _uiState.value
         val step = state.currentStep
-        if (step?.durationMinutes == null || state.timerOf(step.position) != null) return next()
+        if (step?.durationMinutes == null || state.hasLaunched(step.position)) return next()
         val from = state.session?.let { it.recipeIndex to it.step }
         startTimer(step) {
             // The cook may have moved while the timer was on its way: go on only from the step it was started on.
@@ -336,6 +344,7 @@ class CookingViewModel(
                 state.copy(
                     timersLoaded = true,
                     timers = timers.filter { it.status.isActive },
+                    launched = state.launched + timers.mapNotNull { t -> t.recipeId?.let { it to t.stepPosition } },
                     deadlines = timers.filter { it.status == CookingTimerStatus.RUNNING }
                         .associate { it.id to now + it.remainingSeconds * 1000L },
                     now = now,
@@ -370,7 +379,12 @@ class CookingViewModel(
             }
             val deadlines = state.deadlines - timer.id +
                 if (timer.status == CookingTimerStatus.RUNNING) mapOf(timer.id to now + timer.remainingSeconds * 1000L) else emptyMap()
-            state.copy(timers = timers, deadlines = deadlines, now = now)
+            state.copy(
+                timers = timers,
+                deadlines = deadlines,
+                now = now,
+                launched = timer.recipeId?.let { state.launched + (it to timer.stepPosition) } ?: state.launched,
+            )
         }
     }
 

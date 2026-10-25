@@ -606,7 +606,7 @@ private fun StepScreen(
     val following = steps.getOrNull(step)
     val landscape = configuration.screenWidthDp > configuration.screenHeightDp
     // A step that cooks in the background starts its timer and goes on in one tap (MAG-582).
-    val launches = current.background && current.durationMinutes != null && state.timerOf(current.position) == null
+    val launches = current.background && current.durationMinutes != null && !state.hasLaunched(current.position)
     val main = if (launches) actions.startAndNext else actions.next
 
     val number: @Composable () -> Unit = {

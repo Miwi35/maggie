@@ -749,6 +749,26 @@ class CookingViewModelTest {
     }
 
     @Test
+    fun `a step whose rung timer was acknowledged does not offer Lancer et continuer again`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        waterStarted(viewModel)
+        nowMs += 1
+        timerEvents.emit(event(server.ring(server.rows.values.single().id)))
+        settle { viewModel.state.ringing.isNotEmpty() }
+        viewModel.openStep(0, 1)
+        settle { viewModel.state.timerFor(REFERENCE, 1) == null }
+        assertEquals(1, server.posts.size)
+
+        assertTrue("the step stays launched", viewModel.state.hasLaunched(1))
+        viewModel.startAndNext()
+        advanceUntilIdle()
+
+        assertEquals("no second timer", 1, server.posts.size)
+        assertEquals("the step is ticked and the cook goes on", 2, viewModel.state.session?.step)
+        assertTrue(1 in viewModel.state.session?.doneSteps?.get(REFERENCE).orEmpty())
+    }
+
+    @Test
     fun `touching another step leaves a rung timer lit`() = runTest(testDispatcher) {
         server.seed("Eau", REFERENCE, 1, 600).also { nowMs += 1; server.ring(it.id) }
         val viewModel = newViewModel(referenceHandle())
