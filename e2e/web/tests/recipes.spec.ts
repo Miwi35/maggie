@@ -714,6 +714,39 @@ test.describe('Recipes and meals', () => {
     await expect(shell.content.getByText('⏱ 12 min')).toBeVisible()
   })
 
+  test('on a 2000 px window the recipe sheet keeps its reading width, so a quantity stays next to its ingredient — MAG-612', async ({ page, api }) => {
+    // Given a recipe with ingredients, and a very wide window
+    const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+    const stamp = Date.now()
+    const ingredientName = `Lardons MAG-612 ${stamp}`
+    const ingredient = await api.post('/api/ingredients', { headers, data: { name: ingredientName, category: 'grain' } })
+    expect(ingredient.status()).toBe(201)
+    const ingredientIri = ((await ingredient.json()) as { '@id': string })['@id']
+    const created = await api.post('/api/recipes', {
+      headers,
+      data: { name: `Fiche large MAG-612 ${stamp}`, servings: 4, ingredients: [{ ingredient: ingredientIri, quantity: 200, unit: 'g' }] },
+    })
+    expect(created.status(), `POST answered ${created.status()}: ${await created.text()}`).toBe(201)
+    const { '@id': iri, name } = (await created.json()) as { '@id': string; name: string }
+    await page.setViewportSize({ width: 2000, height: 1000 })
+
+    // When I open its sheet
+    const shell = new AdminShell(page)
+    await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
+    await expect(shell.content.getByRole('heading', { name })).toBeVisible()
+
+    // Then the sheet does not go past the reading width, and the quantity is within it of the ingredient's name
+    const area = await shell.content.boundingBox()
+    expect(area?.width, 'The content area must be wider than the reading width, or the cap proves nothing').toBeGreaterThan(1100)
+    const sheet = await shell.content.getByTestId('reading-page').boundingBox()
+    expect(sheet?.width).toBeLessThanOrEqual(1100)
+    const label = await shell.content.getByText(ingredientName, { exact: true }).first().boundingBox()
+    const quantity = await shell.content.getByRole('button', { name: `Modifier la quantité de ${ingredientName}` }).boundingBox()
+    expect(label, 'The ingredient name is not on the sheet').not.toBeNull()
+    expect(quantity, 'The quantity is not on the sheet').not.toBeNull()
+    expect(quantity!.x + quantity!.width - label!.x).toBeLessThanOrEqual(1100)
+  })
+
   test('an open recipe sheet shows the quantity changed elsewhere, and a popin keeps the text being typed — MAG-330', async ({
     page,
     api,

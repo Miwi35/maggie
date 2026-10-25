@@ -160,6 +160,16 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     expect(screen.queryByRole('link', { name: 'Éditer' })).not.toBeInTheDocument()
   })
 
+  test('the sheet keeps a reading width: a quantity stays near its ingredient on a wide screen (MAG-612)', async () => {
+    renderSheet()
+
+    const heading = await screen.findByRole('heading', { name: 'Bœuf bourguignon' })
+    const page = screen.getByTestId('reading-page')
+    expect(page).toContainElement(heading)
+    expect(page).toContainElement(screen.getByRole('button', { name: 'Modifier la quantité de Lardons fumés' }))
+    expect(page).toHaveStyle({ maxWidth: '1100px' })
+  })
+
   test('reads like a page: header, ingredients, utensils, notes, steps and nutrition per person', async () => {
     renderSheet()
 
