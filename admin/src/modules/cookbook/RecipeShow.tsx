@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
 import { Confirm, Show, useCreate, useGetMany, useNotify, useRecordContext, useRedirect, useUpdate } from 'react-admin'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
+import { ReadingPage } from '../../components/layout/ReadingPage'
 import { useMercure } from '../../hooks/useMercure'
 import { recipeLaunchPath } from './cooking/cookingSession'
 import { GuestsStepper } from './GuestsStepper'
@@ -201,7 +202,7 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
   const removingSteps = removing ? stepsUsing(steps, productIdOf(removing) ?? '') : []
 
   return (
-    <Box sx={{ p: 2, width: '100%' }}>
+    <ReadingPage>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography variant="h5" component="h1" sx={{ flexGrow: 1 }}>
           {creating ? 'Nouvelle recette' : recipe.name}
@@ -295,7 +296,7 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
         onConfirm={() => removing && removeLine(removing)}
         onClose={() => setRemoving(null)}
       />
-    </Box>
+    </ReadingPage>
   )
 }
 
