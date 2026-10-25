@@ -1720,11 +1720,11 @@ test('a thread is deleted from the icon next to the search, with its messages', 
   await dashboard.open()
 
   const chat = new ChatPanel(page)
+  await chat.open()
   await expect(chat.bubbles(ONE_DISCUSSION.first)).toHaveCount(1)
   await expect(chat.bubbles(ONE_DISCUSSION.recall)).toHaveCount(1)
 
   // The icon is right beside the search, and the threads are in its dialog — not in the Mind tab.
-  await chat.open()
   const search = chat.panel.getByRole('button', { name: 'Rechercher dans la conversation' })
   await expect(chat.threadsButton).toBeVisible()
   await expect(chat.threadsButton.locator('xpath=following-sibling::*[1]')).toHaveAccessibleName(
@@ -1765,6 +1765,7 @@ test('a thread is deleted from the icon next to the search, with its messages', 
   // And it stays that way from a fresh tab.
   await page.reload()
   await dashboard.expectReady()
+  await chat.open()
   await expect(chat.bubbles(ONE_DISCUSSION.first)).toHaveCount(0)
   await chat.openThreads()
   await expect(chat.context(ONE_DISCUSSION.thread)).toHaveCount(0)
