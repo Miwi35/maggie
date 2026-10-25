@@ -273,7 +273,7 @@ class InterruptionCenterTest {
     }
 
     @Test
-    fun `two holders, one release: still held`() {
+    fun `two holders, one release, still held`() {
         center.hold("cooking_timer")
         center.hold("cooking_timer")
         center.release("cooking_timer")

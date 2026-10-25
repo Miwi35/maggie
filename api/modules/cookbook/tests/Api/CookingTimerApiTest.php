@@ -300,7 +300,11 @@ class CookingTimerApiTest extends WebTestCase
         self::assertCount(1, $this->pushes());
     }
 
-    public function testAnEndDeliveredEarlyIsQueuedAgainForWhatIsLeft(): void
+    /**
+     * The delay decides, not the worker's clock: in the e2e stack every process ticks its own simulated
+     * clock, and a worker 1 s behind php-fpm queued the end again forever instead of ringing it.
+     */
+    public function testTheEndRingsWhenItsDelayIsOverEvenIfTheWorkerClockLags(): void
     {
         $timer = $this->start('Pâtes', 3, 720);
         $end = $this->queuedEnds()[0]['message'];
@@ -309,9 +313,9 @@ class CookingTimerApiTest extends WebTestCase
 
         $this->handle($end);
 
-        self::assertSame(CookingTimerStatus::Running, $this->timer($timer['id'])->getStatus());
-        self::assertSame([], $this->notificationsOf('test_user'));
-        self::assertSame(20_000, $this->queuedEnds()[0]['delay']);
+        self::assertSame(CookingTimerStatus::Done, $this->timer($timer['id'])->getStatus());
+        self::assertCount(1, $this->notificationsOf('test_user'));
+        self::assertSame([], $this->queuedEnds());
     }
 
     public function testNoEndRingsAfterAPause(): void

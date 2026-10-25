@@ -93,8 +93,8 @@ class CookingTimers
     }
 
     /**
-     * Rings the timer once its end is reached for the schedule the message was
-     * queued for. Returns the timer when it rang, null otherwise.
+     * Rings the timer when the end queued for its current revision is delivered.
+     * Returns the timer when it rang, null otherwise.
      */
     public function finish(string $timerId, int $revision): ?CookingTimer
     {
@@ -103,15 +103,9 @@ class CookingTimers
             return null;
         }
 
-        $now = $this->clock->now();
-        // Delivered a little early (a broker's delay is not to the second): queued again for what is left.
-        if ($revision === $timer->getRevision() && CookingTimerStatus::Running === $timer->getStatus() && $timer->getEndsAt() > $now) {
-            $this->scheduleEnd($timer);
-
-            return null;
-        }
-
-        if (!$timer->finish($revision, $now)) {
+        // The delay, computed when the revision was set, says the end is reached; the worker's clock is
+        // not asked again (in the e2e stack it lags php-fpm's, and the end was queued again forever).
+        if (!$timer->finish($revision, $this->clock->now())) {
             return null;
         }
         $this->em->flush();

@@ -612,7 +612,7 @@ class CookingScreensTest {
     }
 
     @Test
-    fun `two rung timers: the first one's alert, the other waits`() {
+    fun `two rung timers, the first one's alert, the other waits`() {
         draw(
             timedState(
                 step = 2,

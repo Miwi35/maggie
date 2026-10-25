@@ -76,11 +76,12 @@ onFlowComplete:
     visible:
       id: "cooking_preparation"
     timeout: 20000
-- assertVisible: "On sort tout"
-# Android's own « Viewing full screen » notice, shown once when the immersive mode starts, covers ✕ until dismissed.
+# Android's own « Viewing full screen » notice, shown once when the immersive mode starts, covers the title
+# and ✕ until dismissed: dismissed before anything at the top is asserted.
 - tapOn:
     text: "Got it"
     optional: true
+- assertVisible: "On sort tout"
 - extendedWaitUntil:
     visible:
       id: "cooking_start"

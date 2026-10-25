@@ -244,12 +244,9 @@ class CookingTimer implements MercurePublishable, OwnedByUserInterface
         if ($revision !== $this->revision || CookingTimerStatus::Running !== $this->status || null === $this->endsAt) {
             return false;
         }
-        if ($this->endsAt > $now) {
-            return false;
-        }
 
         $this->status = CookingTimerStatus::Done;
-        $this->finishedAt = $now;
+        $this->finishedAt = max($now, $this->endsAt);
 
         return true;
     }
