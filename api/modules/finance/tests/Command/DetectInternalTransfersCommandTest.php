@@ -84,7 +84,7 @@ final class DetectInternalTransfersCommandTest extends KernelTestCase
 
         $this->tester->execute([]);
 
-        self::assertStringNotContainsString('2026-09-29 Jean Dupont', $this->tester->getDisplay());
+        self::assertStringContainsString('0 pair(s) and 0 lone leg(s) marked', $this->tester->getDisplay());
     }
 
     public function testDaysMustBeAnInteger(): void

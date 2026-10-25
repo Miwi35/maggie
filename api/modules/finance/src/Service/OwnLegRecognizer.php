@@ -64,7 +64,8 @@ class OwnLegRecognizer
 
     /**
      * Some banks (N26) word a transfer to another account of the holder with
-     * the holder's name alone, no transfer word, no counterparty. A debit only:
+     * the holder's name alone, no transfer word, no counterparty (one that names
+     * someone else is a payment whose reference is the owner's name). A debit only:
      * the same bank words credits that way too, and a line the owner or a rule
      * already qualified is never taken back from them.
      *
@@ -77,7 +78,8 @@ class OwnLegRecognizer
             && \count($holder) >= 2
             && null === $transaction->getCategory()
             && CategorySource::None === $transaction->getCategorySource()
-            && self::namesTheHolder($label, $holder, true, false);
+            && self::namesTheHolder($label, $holder, true, false)
+            && (null === $transaction->getCounterpartyName() || self::namesTheHolder(self::tokens($transaction->getCounterpartyName()), $holder, true, false));
     }
 
     /**

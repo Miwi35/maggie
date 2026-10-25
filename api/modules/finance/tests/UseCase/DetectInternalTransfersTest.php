@@ -594,6 +594,27 @@ class DetectInternalTransfersTest extends KernelTestCase
         self::assertFalse($this->refresh($leg)->isInternalTransfer(), $label);
     }
 
+    public function testADebitWhoseCounterpartyIsSomeoneElseStaysAnExpense(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', -50000, '2026-09-29', 'Meven Cadare', counterparty: 'Alex Martin');
+
+        $report = $this->detect->execute($this->user());
+
+        self::assertSame([], $report['loneLegs']);
+        self::assertFalse($this->refresh($leg)->isInternalTransfer());
+    }
+
+    public function testADebitWhoseCounterpartyIsTheHolderIsAnInternalTransfer(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', -50000, '2026-09-29', 'Meven Cadare', counterparty: 'CADARE MEVEN');
+
+        $this->detect->execute($this->user());
+
+        self::assertSame(TransferKind::Internal, $this->refresh($leg)->getTransferKind());
+    }
+
     public function testACreditLabelledWithTheHoldersNameAloneIsLeftAlone(): void
     {
         $this->ownerIs('Meven Cadare');
