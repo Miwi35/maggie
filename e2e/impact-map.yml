@@ -312,6 +312,8 @@ web:
     areas: [chat, dashboard]
   e2e/web/tests/chat-send-failed.spec.ts:
     areas: [chat, dashboard]
+  e2e/web/tests/chat-stream-cut.spec.ts:
+    areas: [chat, dashboard]
   e2e/web/tests/memory-folder.spec.ts:
     areas: [chat, dashboard]
     paths:
