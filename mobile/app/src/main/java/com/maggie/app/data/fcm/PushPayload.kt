@@ -77,7 +77,12 @@ data class PushPayload(
     val reminderActions: List<String> = emptyList(),
     /** The shortage alert the notification is (MAG-570): « Ajouter à la liste » answers it. */
     val shortageId: String? = null,
+    /** The cooking timer that rang (MAG-582): one notification per timer, cleared once it is seen elsewhere. */
+    val cookingTimerId: String? = null,
 ) {
+    /** The system tag it is shown under — the server's own, so the app's and the system's are one notification. */
+    val systemTag: String get() = cookingTimerId?.let(::cookingTimerTag) ?: notificationId
+
     /**
      * The buttons the notification carries, by what it asks.
      *
@@ -122,6 +127,9 @@ data class PushPayload(
     fun focusLink(): String? = taskId?.takeIf(DeepLinks::isValidId)?.let(DeepLinks::taskFocus)
 
     companion object {
+        /** `PushMessageFactory::COOKING_TIMER_TAG`, followed by the timer's id. */
+        const val COOKING_TIMER_TAG = "cooking-timer"
+
         /** The buttons Android shows on a notification, at most. */
         const val MAX_ACTIONS = 3
 
@@ -153,8 +161,12 @@ data class PushPayload(
                 reminderId = data["reminderId"]?.takeIf { it.isNotBlank() },
                 taskId = data["taskId"]?.takeIf { it.isNotBlank() },
                 shortageId = data["shortageId"]?.takeIf { it.isNotBlank() },
+                cookingTimerId = data["cookingTimerId"]?.takeIf { it.isNotBlank() },
                 reminderActions = data["actions"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
             )
         }
     }
 }
+
+/** The tag of a cooking timer's end (MAG-582): `cooking-timer-{timerId}`, as the server gives it. */
+fun cookingTimerTag(timerId: String): String = "${PushPayload.COOKING_TIMER_TAG}-$timerId"

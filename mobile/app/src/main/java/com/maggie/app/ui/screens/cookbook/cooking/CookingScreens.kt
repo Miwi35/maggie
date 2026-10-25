@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,6 +37,8 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -55,6 +59,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.maggie.app.data.interruption.InterruptionAlert
+import com.maggie.app.data.interruption.InterruptionCenter
+import com.maggie.app.data.model.CookingTimerStatus
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.RecipeIngredient
 import com.maggie.app.data.model.RecipeStep
@@ -65,6 +72,8 @@ import com.maggie.app.ui.activity.ActivityScaffold
 import com.maggie.app.ui.activity.rememberWindowImmersion
 import com.maggie.app.ui.screens.cookbook.grocery.formatQuantity
 import com.maggie.app.ui.theme.ModuleHue
+import kotlinx.coroutines.delay
+import org.koin.compose.koinInject
 
 /** The main buttons: 56 dp on a phone, 64 dp from a tablet's width — a cook's hands are wet or full. */
 internal fun mainButtonHeight(smallestWidthDp: Int): Dp = if (smallestWidthDp >= 600) 64.dp else 56.dp
@@ -81,6 +90,14 @@ class CookingActions(
     val ready: () -> Unit,
     val skipRecipe: () -> Unit,
     val retry: () -> Unit,
+    /** « Lancer et continuer »: the step's timer starts, then the next step (MAG-582). */
+    val startAndNext: () -> Unit = next,
+    /** Démarrer / Pause / Reprendre on the step's timer. */
+    val toggleTimer: () -> Unit = {},
+    /** −1 / +1 min on the step's timer. */
+    val addMinutes: (Int) -> Unit = {},
+    /** « OK » on a rung timer's alert. */
+    val dismissTimer: (String) -> Unit = {},
 ) {
     companion object {
         fun of(viewModel: CookingViewModel) = CookingActions(
@@ -91,6 +108,10 @@ class CookingActions(
             ready = viewModel::ready,
             skipRecipe = viewModel::skipRecipe,
             retry = viewModel::retry,
+            startAndNext = viewModel::startAndNext,
+            toggleTimer = viewModel::toggleTimer,
+            addMinutes = viewModel::addMinutes,
+            dismissTimer = viewModel::dismiss,
         )
     }
 }
@@ -103,13 +124,43 @@ fun CookingActivityScreen(
     onOpenMaggie: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
+    val center: InterruptionCenter = koinInject()
+    val ring: InterruptionAlert = koinInject()
+
+    // The activity says its timers' ends itself: Maggie's interruption would say them a second time.
+    DisposableEffect(center) {
+        center.hold(COOKING_TIMER_TYPE)
+        onDispose { center.release(COOKING_TIMER_TYPE) }
+    }
+
+    // The clocks move each second while a timer runs; the API stays the authority on when it ends.
+    val counting = state.timers.any { it.status == CookingTimerStatus.RUNNING }
+    LaunchedEffect(counting) {
+        while (counting) {
+            viewModel.tick()
+            delay(1_000)
+        }
+    }
+
+    // A sound and a buzz once per rung timer, not at each recomposition.
+    val alert = state.alert
+    LaunchedEffect(alert?.id) {
+        if (alert != null && viewModel.announce(alert.id)) ring.alert()
+    }
+
     CookingActivityContent(
         state = state,
         actions = CookingActions.of(viewModel),
-        onQuit = onQuit,
+        onQuit = {
+            viewModel.quit()
+            onQuit()
+        },
         onOpenMaggie = onOpenMaggie,
     )
 }
+
+/** The notification type of a timer's end (`NotificationType::CookingTimer`). */
+const val COOKING_TIMER_TYPE = "cooking_timer"
 
 @Composable
 fun CookingActivityContent(
@@ -125,9 +176,56 @@ fun CookingActivityContent(
         onQuit = onQuit,
         onOpenMaggie = onOpenMaggie,
         immersion = immersion,
+        confirmQuit = state.confirmQuit,
+        confirmDetail = quitDetail(state.timers),
         progress = { CookingProgress(state) },
     ) {
-        CookingBody(state, actions, onQuit)
+        CookingFrame(state, actions) { CookingBody(state, actions, onQuit) }
+    }
+}
+
+/**
+ * The timers around what is cooked (MAG-582): the strip above it on a phone upright, the « Minuteurs »
+ * column beside or under it otherwise, and a rung timer's alert over it all.
+ */
+@Composable
+private fun CookingFrame(state: CookingUiState, actions: CookingActions, content: @Composable () -> Unit) {
+    val configuration = LocalConfiguration.current
+    val cooking = state.load == CookingLoad.READY && state.session?.phase == CookingPhase.COOKING
+    val buttonHeight = rememberMainButtonHeight()
+    val tablet = configuration.smallestScreenWidthDp >= 600
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (!cooking) {
+            content()
+        } else {
+            when (timersLayout(configuration.smallestScreenWidthDp, configuration.screenWidthDp > configuration.screenHeightDp)) {
+                TimersLayout.STRIP -> Column(modifier = Modifier.fillMaxSize()) {
+                    TimerStrip(state)
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) { content() }
+                }
+                TimersLayout.SIDE -> Row(modifier = Modifier.fillMaxSize()) {
+                    Box(modifier = Modifier.weight(1f).fillMaxSize()) { content() }
+                    TimersColumn(
+                        state,
+                        Modifier.width(if (tablet) 380.dp else 280.dp).fillMaxHeight().padding(end = 16.dp),
+                        ring = if (tablet) 56.dp else 40.dp,
+                    )
+                }
+                TimersLayout.BELOW -> Column(modifier = Modifier.fillMaxSize()) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) { content() }
+                    TimersColumn(state, Modifier.fillMaxWidth().heightIn(max = 280.dp).padding(horizontal = 24.dp), ring = 56.dp)
+                }
+            }
+        }
+        // Over every screen of the activity, « Bon appétit » included: the sound rings wherever the cook is.
+        state.alert?.let { timer ->
+            TimerAlert(
+                timer = timer,
+                onOk = { actions.dismissTimer(timer.id) },
+                buttonHeight = buttonHeight,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
+            )
+        }
     }
 }
 
@@ -163,6 +261,7 @@ private fun CookingBody(state: CookingUiState, actions: CookingActions, onQuit: 
                 PreparationScreen(state, session, recipe, steps.isNotEmpty(), actions)
             } else {
                 StepScreen(
+                    state = state,
                     step = session.step,
                     steps = steps,
                     lines = recipe.ingredients,
@@ -504,6 +603,10 @@ private fun StepNeeds(step: RecipeStep, lines: List<RecipeIngredient>) {
     }
 }
 
+/** « Attend les pâtes · étape 3 », and « · encore 02:10 » while an awaited timer counts. */
+internal fun waitText(steps: List<RecipeStep>, pending: List<Int>, left: Int?): String =
+    waitLabel(steps, pending) + (left?.let { " · encore ${clockOf(it)}" } ?: "")
+
 /** What the step waits for, and « C'est prêt » to force it. */
 @Composable
 private fun WaitPanel(label: String, onReady: () -> Unit, buttonHeight: Dp) {
@@ -513,7 +616,12 @@ private fun WaitPanel(label: String, onReady: () -> Unit, buttonHeight: Dp) {
         modifier = Modifier.fillMaxWidth().testTag(UiTags.COOKING_WAIT),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            Text(
+                label,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.testTag(UiTags.COOKING_WAIT_LABEL),
+            )
             OutlinedButton(
                 onClick = onReady,
                 modifier = Modifier.heightIn(min = buttonHeight).testTag(UiTags.COOKING_READY),
@@ -525,6 +633,7 @@ private fun WaitPanel(label: String, onReady: () -> Unit, buttonHeight: Dp) {
 /** One step, one at a time (MAG-581): number, text, what it takes, what it waits for, what comes next. */
 @Composable
 private fun StepScreen(
+    state: CookingUiState,
     step: Int,
     steps: List<RecipeStep>,
     lines: List<RecipeIngredient>,
@@ -539,6 +648,9 @@ private fun StepScreen(
     val following = steps.getOrNull(step)
     val waiting = pending.isNotEmpty()
     val landscape = configuration.screenWidthDp > configuration.screenHeightDp
+    // A step that cooks in the background starts its timer and goes on in one tap (MAG-582).
+    val launches = current.background && current.durationMinutes != null && state.timerOf(current.position) == null
+    val main = if (launches) actions.startAndNext else actions.next
 
     val number: @Composable () -> Unit = {
         Text(
@@ -560,14 +672,18 @@ private fun StepScreen(
                 modifier = Modifier.testTag(UiTags.COOKING_STEP_TEXT),
             )
             StepNeeds(current, lines)
-            if (waiting) WaitPanel(waitLabel(steps, pending), actions.ready, buttonHeight)
+            if (waiting) {
+                WaitPanel(waitText(steps, pending, state.awaitedLeft), actions.ready, buttonHeight)
+            } else {
+                StepTimerCard(state, current, actions, buttonHeight)
+            }
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .swipeSteps(onPrevious = actions.previous, onNext = { if (!waiting) actions.next() })
+            .swipeSteps(onPrevious = actions.previous, onNext = { if (!waiting && !state.starting) main() })
             .testTag(UiTags.COOKING_STEP),
     ) {
         SegmentBar(step, steps.size)
@@ -584,6 +700,14 @@ private fun StepScreen(
                 number()
                 details(Modifier.fillMaxWidth())
             }
+        }
+        state.timerError?.let { error ->
+            Text(
+                error,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag(UiTags.COOKING_TIMER_ERROR),
+            )
         }
         if (following != null) {
             Text(
@@ -604,10 +728,18 @@ private fun StepScreen(
                 modifier = Modifier.weight(1f).heightIn(min = buttonHeight).testTag(UiTags.COOKING_PREVIOUS),
             ) { Text("← Précédent") }
             Button(
-                onClick = actions.next,
-                enabled = !waiting,
+                onClick = main,
+                enabled = !waiting && !state.starting,
                 modifier = Modifier.weight(1f).heightIn(min = buttonHeight).testTag(UiTags.COOKING_NEXT),
-            ) { Text(if (isLastOfAll) "Repas servi" else "Suivant →") }
+            ) {
+                Text(
+                    when {
+                        launches -> "Lancer et continuer"
+                        isLastOfAll -> "Repas servi"
+                        else -> "Suivant →"
+                    },
+                )
+            }
         }
     }
 }

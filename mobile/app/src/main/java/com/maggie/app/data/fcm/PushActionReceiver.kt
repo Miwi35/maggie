@@ -34,7 +34,7 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
         scope.launch {
             try {
                 when (val outcome = handler.handle(kind, payload, reply) { late -> notifier.show(payload, note = late.message) }) {
-                    PushOutcome.Closed -> notifier.close(payload.notificationId)
+                    PushOutcome.Closed -> notifier.close(payload.systemTag)
                     PushOutcome.Postponed -> notifier.postpone(payload)
                     is PushOutcome.Retry -> notifier.show(payload, note = outcome.message)
                     is PushOutcome.Settled -> notifier.show(payload, note = outcome.message, withActions = false)

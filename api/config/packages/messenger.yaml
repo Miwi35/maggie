@@ -61,6 +61,7 @@ framework:
             'Maggie\Notification\Message\RegisterDeviceTokenCommand': sync
             'Maggie\Notification\Message\UnregisterDeviceTokenCommand': sync
             'Maggie\Notification\Message\SendPushNotificationCommand': async
+            'Maggie\Notification\Message\WithdrawPushNotificationCommand': async
             'Maggie\Grocery\Message\CreateProductCommand': sync
             'Maggie\Grocery\Message\UpdateProductCommand': sync
             'Maggie\Grocery\Message\DeleteProductCommand': sync
@@ -92,6 +93,10 @@ framework:
             'Maggie\Cookbook\Message\CreateUtensilCommand': sync
             'Maggie\Cookbook\Message\RenameUtensilCommand': sync
             'Maggie\Cookbook\Message\DeleteUtensilCommand': sync
+            'Maggie\Cookbook\Message\StartCookingTimerCommand': sync
+            'Maggie\Cookbook\Message\ChangeCookingTimerCommand': sync
+            # Delayed until the timer's end, handled by the worker (MAG-582).
+            'Maggie\Cookbook\Message\FinishCookingTimerCommand': async
             'Maggie\Grocery\Message\RestockProductCommand': sync
             'Maggie\Grocery\Event\ProductOutOfStockEvent': sync
             'Maggie\Grocery\Message\AddRecurringGroceryItemCommand': sync

@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.CookbookUnit
+import com.maggie.app.data.model.CookingTimer
+import com.maggie.app.data.model.CookingTimerStatus
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.RecipeIngredient
 import com.maggie.app.data.model.RecipeStep
@@ -59,6 +61,10 @@ class CookingScreensTest {
         ready = { actionsLog += "ready" },
         skipRecipe = { actionsLog += "skip" },
         retry = { actionsLog += "retry" },
+        startAndNext = { actionsLog += "start-and-next" },
+        toggleTimer = { actionsLog += "toggle" },
+        addMinutes = { actionsLog += "add:$it" },
+        dismissTimer = { actionsLog += "dismiss:$it" },
     )
 
     private fun recipe(id: String, name: String, steps: Int = 2) = Recipe(
@@ -453,5 +459,209 @@ class CookingScreensTest {
         assertEquals(StepSizes(72.sp, 28.sp), stepSizes(411))
         assertEquals(StepSizes(104.sp, 40.sp), stepSizes(600))
         assertEquals(StepSizes(120.sp, 46.sp), stepSizes(900))
+    }
+
+    // --- The timers (MAG-582)
+
+    private val clock = 5_000_000L
+
+    private fun timer(id: String, label: String, step: Int, status: CookingTimerStatus, rest: Int, finishedAt: String? = null) =
+        CookingTimer(
+            id = id,
+            label = label,
+            recipe = "/api/recipes/r-a",
+            stepPosition = step,
+            durationSeconds = 600,
+            remainingSeconds = rest,
+            status = status,
+            finishedAt = finishedAt,
+        )
+
+    private fun timedState(step: Int, vararg timers: CookingTimer, ready: List<Int> = emptyList()) = referenceState(step, ready).copy(
+        timers = timers.toList(),
+        deadlines = timers.filter { it.status == CookingTimerStatus.RUNNING }.associate { it.id to clock + it.remainingSeconds * 1000L },
+        now = clock,
+    )
+
+    private val water = timer("t-1", "Eau", 1, CookingTimerStatus.RUNNING, 552)
+
+    @Test
+    fun `a background step offers Lancer et continuer, its timer full and waiting`() {
+        draw(timedState(step = 1))
+
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertTextEquals("Lancer et continuer")
+        compose.onNodeWithTag(UiTags.COOKING_STEP_TIMER_CLOCK).assertTextEquals("10:00")
+        compose.onNodeWithText("Eau").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_STEP_TIMER_SUB).assertTextEquals("en fond : passe à la suite")
+        compose.onAllNodesWithTag(UiTags.COOKING_TIMER_TOGGLE).assertCountEquals(0)
+
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).performClick()
+
+        assertEquals(listOf("start-and-next"), actionsLog)
+    }
+
+    @Test
+    fun `a swipe on a background step starts its timer too`() {
+        draw(timedState(step = 1))
+
+        compose.onNodeWithTag(UiTags.COOKING_STEP).performTouchInput { swipeLeft() }
+
+        assertEquals(listOf("start-and-next"), actionsLog)
+    }
+
+    @Test
+    fun `once its timer runs, the background step reads Suivant and takes -1, Pause and +1`() {
+        draw(timedState(step = 1, water))
+
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertTextEquals("Suivant →")
+        compose.onNodeWithTag(UiTags.COOKING_STEP_TIMER_CLOCK).assertTextEquals("09:12")
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_TOGGLE).assertTextEquals("Pause")
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_MINUS).performClick()
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_TOGGLE).performClick()
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_PLUS).performClick()
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).performClick()
+
+        assertEquals(listOf("add:-1", "toggle", "add:1", "next"), actionsLog)
+    }
+
+    @Test
+    fun `a timed step that is not in the background has Demarrer, and Suivant as its main button`() {
+        draw(timedState(step = 4, ready = listOf(1)))
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_TOGGLE).assertTextEquals("Démarrer")
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_MINUS).assertIsNotEnabled()
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertTextEquals("Suivant →")
+        compose.onNodeWithTag(UiTags.COOKING_STEP_TIMER_SUB).assertTextEquals("à lancer")
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_TOGGLE).performClick()
+
+        assertEquals(listOf("toggle"), actionsLog)
+    }
+
+    @Test
+    fun `a paused timer offers Reprendre and keeps its rest`() {
+        draw(timedState(step = 4, timer("t-4", "Légumes", 4, CookingTimerStatus.PAUSED, 300)))
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_TOGGLE).assertTextEquals("Reprendre")
+        compose.onNodeWithTag(UiTags.COOKING_STEP_TIMER_CLOCK).assertTextEquals("05:00")
+        compose.onNodeWithTag(UiTags.COOKING_STEP_TIMER_SUB).assertTextEquals("en pause")
+    }
+
+    @Test
+    fun `on a phone upright the timers are a strip of chips, the rung one saying so`() {
+        draw(timedState(step = 4, timer("t-3", "Pâtes", 3, CookingTimerStatus.RUNNING, 552), timer("t-4", "Légumes", 4, CookingTimerStatus.DONE, 0, "2026-10-25T10:00:00+00:00")))
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_STRIP).assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.COOKING_TIMER_CHIP).assertCountEquals(2)
+        compose.onNodeWithText("Pâtes · 09:12").assertIsDisplayed()
+        compose.onNodeWithText("Légumes · c'est prêt").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.COOKING_TIMERS_COLUMN).assertCountEquals(0)
+    }
+
+    @Test
+    fun `no timer, no strip`() {
+        draw(timedState(step = 2))
+
+        compose.onAllNodesWithTag(UiTags.COOKING_TIMER_STRIP).assertCountEquals(0)
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `a phone sideways shows the Minuteurs column with a row per timer`() {
+        draw(timedState(step = 2, water))
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMERS_COLUMN).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_ROW).assertIsDisplayed()
+        compose.onNodeWithText("étape 1 · en fond").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_ROW_CLOCK).assertTextEquals("09:12")
+        compose.onAllNodesWithTag(UiTags.COOKING_TIMER_STRIP).assertCountEquals(0)
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `the Minuteurs column says Aucun minuteur when none runs`() {
+        draw(timedState(step = 2))
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMERS_EMPTY).assertIsDisplayed()
+        compose.onNodeWithText("Aucun minuteur").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h1280dp-xhdpi")
+    fun `a tablet upright shows the Minuteurs column under the step`() {
+        draw(timedState(step = 2, water))
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMERS_COLUMN).assertIsDisplayed()
+        compose.onNodeWithText("Eau").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a rung timer shows its alert over the step, and OK acknowledges it`() {
+        draw(timedState(step = 4, timer("t-3", "Pâtes", 3, CookingTimerStatus.DONE, 0, "2026-10-25T10:00:00+00:00"), ready = listOf(1)))
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_ALERT).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_ALERT_TITLE).assertTextEquals("Pâtes : c'est prêt")
+        compose.onNodeWithText("minuteur de l'étape 3").assertIsDisplayed()
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_ALERT_OK).performClick()
+
+        assertEquals(listOf("dismiss:t-3"), actionsLog)
+    }
+
+    @Test
+    fun `two rung timers, the first one's alert, the other waits`() {
+        draw(
+            timedState(
+                step = 2,
+                timer("t-3", "Pâtes", 3, CookingTimerStatus.DONE, 0, "2026-10-25T10:01:00+00:00"),
+                timer("t-1", "Eau", 1, CookingTimerStatus.DONE, 0, "2026-10-25T10:00:00+00:00"),
+            ),
+        )
+
+        compose.onAllNodesWithTag(UiTags.COOKING_TIMER_ALERT).assertCountEquals(1)
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_ALERT_TITLE).assertTextEquals("Eau : c'est prêt")
+    }
+
+    @Test
+    fun `a wait on a running timer says how long is left`() {
+        draw(timedState(step = 3, timer("t-1", "Eau", 1, CookingTimerStatus.RUNNING, 130)))
+
+        compose.onNodeWithTag(UiTags.COOKING_WAIT_LABEL).assertTextEquals("Attend l'eau à bouillir · étape 1 · encore 02:10")
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_TIMER).assertCountEquals(0)
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a timer that could not start says so under the step`() {
+        draw(timedState(step = 1).copy(timerError = CookingViewModel.START_FAILED))
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_ERROR).assertTextEquals(CookingViewModel.START_FAILED)
+    }
+
+    @Test
+    fun `with timers running the cross asks first, says which stop, and Quitter leaves`() {
+        draw(timedState(step = 4, timer("t-3", "Pâtes", 3, CookingTimerStatus.RUNNING, 552), timer("t-4", "Légumes", 4, CookingTimerStatus.PAUSED, 300)))
+
+        compose.onNodeWithTag(UiTags.ACTIVITY_QUIT).performClick()
+
+        compose.onNodeWithText("Quitter l'activité ?").assertIsDisplayed()
+        compose.onNodeWithText("2 minuteurs tournent encore (Pâtes, Légumes) : ils s'arrêteront.").assertIsDisplayed()
+        assertEquals(0, quits)
+
+        compose.onNodeWithTag(UiTags.ACTIVITY_QUIT_LEAVE).performClick()
+
+        assertEquals(1, quits)
+    }
+
+    @Test
+    fun `with no timer running the cross leaves at once`() {
+        draw(timedState(step = 2))
+
+        compose.onNodeWithTag(UiTags.ACTIVITY_QUIT).performClick()
+
+        assertEquals(1, quits)
     }
 }

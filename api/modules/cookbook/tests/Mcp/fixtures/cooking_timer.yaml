@@ -1,0 +1,19 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: cooking-timer-test@example.com
+    googleId: google-cooking-timer-test
+    name: Cooking Timer Test User
+  other_user:
+    email: cooking-timer-other@example.com
+    googleId: google-cooking-timer-other
+    name: Cooking Timer Other User
+
+Maggie\Cookbook\Entity\Recipe:
+  pasta:
+    name: Pâtes aux légumes
+    servings: 4
+    user: '@test_user'
+  other_recipe:
+    name: Soupe de l'autre
+    servings: 2
+    user: '@other_user'

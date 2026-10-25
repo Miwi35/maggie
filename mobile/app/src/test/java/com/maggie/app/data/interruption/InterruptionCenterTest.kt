@@ -239,4 +239,45 @@ class InterruptionCenterTest {
 
         assertEquals("a", shown())
     }
+
+    // --- The Cuisine activity says its timers' ends itself (MAG-582)
+
+    @Test
+    fun `a timer's end is not raised while the activity holds it, and not later either`() {
+        center.hold("cooking_timer")
+
+        assertFalse(center.offer(message("n-1", type = "cooking_timer")))
+        assertNull(shown())
+
+        center.release("cooking_timer")
+        assertFalse("already said by the activity", center.offer(message("n-1", type = "cooking_timer")))
+        assertTrue(center.offer(message("n-2", type = "cooking_timer")))
+        assertEquals("n-2", shown())
+    }
+
+    @Test
+    fun `the hold is on the timers' ends only`() {
+        center.hold("cooking_timer")
+
+        assertTrue(center.offer(message("n-1", type = "proaction")))
+        assertEquals("n-1", shown())
+    }
+
+    @Test
+    fun `a tap on a timer's end does not open it over the activity`() {
+        center.hold("cooking_timer")
+
+        center.reopen(message("n-1", type = "cooking_timer"))
+
+        assertNull(shown())
+    }
+
+    @Test
+    fun `two holders, one release, still held`() {
+        center.hold("cooking_timer")
+        center.hold("cooking_timer")
+        center.release("cooking_timer")
+
+        assertFalse(center.offer(message("n-1", type = "cooking_timer")))
+    }
 }

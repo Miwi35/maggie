@@ -92,6 +92,29 @@ class NotificationRepository extends ServiceEntityRepository
         return (int) $result > 0;
     }
 
+    /**
+     * The user's unread notifications of one kind about one entity: a cooking
+     * timer's end, read once it is seen on any device (MAG-582).
+     *
+     * @return list<Notification>
+     */
+    public function findUnreadByTypeAndEntity(User $user, NotificationType $type, string $relatedEntityIri): array
+    {
+        /** @var list<Notification> $notifications */
+        $notifications = $this->createQueryBuilder('n')
+            ->where('n.user = :user')
+            ->andWhere('n.type = :type')
+            ->andWhere('n.relatedEntityIri = :iri')
+            ->andWhere('n.readAt IS NULL')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('type', $type)
+            ->setParameter('iri', $relatedEntityIri)
+            ->getQuery()
+            ->getResult();
+
+        return $notifications;
+    }
+
     /** Whether this user was already told about this entity since the given moment. */
     public function existsSince(NotificationType $type, string $relatedEntityIri, \DateTimeImmutable $since): bool
     {

@@ -22,6 +22,8 @@ class InterruptionFeed(
     private val mercure: MercureService,
     private val approvals: ApprovalRepository,
     private val auth: AuthRepository,
+    /** Takes a system notification down by its tag: one read or acknowledged on another device. */
+    private val clearSystem: (String) -> Unit = {},
 ) {
 
     // The sign-in flow re-emits `true` on every token refresh: without the dedupe each refresh
@@ -45,6 +47,12 @@ class InterruptionFeed(
             launch {
                 listen(mercure.subscribe(MercureTopics.agentScoped(userId, MercureTopics.APPROVALS))) { Interruptions.readApproval(it) }
             }
+            // A cooking timer acknowledged or cancelled elsewhere (MAG-582): its end leaves this tray.
+            launch {
+                mercure.subscribe(MercureTopics.userScoped(userId, MercureTopics.COOKING_TIMERS))
+                    .catch { /* the stream reconnects by itself */ }
+                    .collect { event -> Interruptions.readCookingTimer(event.data)?.let(clearSystem) }
+            }
         }
     }
 
@@ -54,7 +62,10 @@ class InterruptionFeed(
             .collect { event ->
                 when (val feed = read(event.data)) {
                     is FeedEvent.Offer -> center.offer(feed.payload)
-                    is FeedEvent.Withdraw -> center.close(feed.key)
+                    is FeedEvent.Withdraw -> {
+                        center.close(feed.key)
+                        feed.systemTag?.let(clearSystem)
+                    }
                     null -> Unit
                 }
             }

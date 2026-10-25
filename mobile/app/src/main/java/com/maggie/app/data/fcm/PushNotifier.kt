@@ -50,17 +50,18 @@ class PushNotifier(private val context: Context) {
         }
 
         context.getSystemService(NotificationManager::class.java)
-            .notify(payload.notificationId, NOTIFICATION_ID, builder.build())
+            .notify(payload.systemTag, NOTIFICATION_ID, builder.build())
         return true
     }
 
-    fun close(notificationId: String) {
-        context.getSystemService(NotificationManager::class.java).cancel(notificationId, NOTIFICATION_ID)
+    /** [tag]: the payload's [PushPayload.systemTag] — its notification id, or `cooking-timer-{id}`. */
+    fun close(tag: String) {
+        context.getSystemService(NotificationManager::class.java).cancel(tag, NOTIFICATION_ID)
     }
 
     /** « Plus tard »: the notification comes back, as it was, after [delayMs]. */
     fun postpone(payload: PushPayload, delayMs: Long = POSTPONE_MS) {
-        close(payload.notificationId)
+        close(payload.systemTag)
         val intent = broadcast(PushActionReceiver.ACTION_RESHOW, payload)
         val pending = PendingIntent.getBroadcast(
             context,
@@ -159,6 +160,7 @@ object PushIntents {
     const val EXTRA_TASK_ID = "taskId"
     const val EXTRA_ACTIONS = "actions"
     const val EXTRA_SHORTAGE_ID = "shortageId"
+    const val EXTRA_COOKING_TIMER_ID = "cookingTimerId"
 
     /** The reminder's button the app answers once it is open (« Je m'y mets »), by its key. */
     const val EXTRA_ANSWER = "com.maggie.app.push.ANSWER"
@@ -175,13 +177,14 @@ object PushIntents {
         intent.putExtra(EXTRA_REMINDER_ID, payload.reminderId)
         intent.putExtra(EXTRA_TASK_ID, payload.taskId)
         intent.putExtra(EXTRA_SHORTAGE_ID, payload.shortageId)
+        intent.putExtra(EXTRA_COOKING_TIMER_ID, payload.cookingTimerId)
         if (payload.reminderActions.isNotEmpty()) intent.putExtra(EXTRA_ACTIONS, payload.reminderActions.joinToString(","))
     }
 
     fun payloadOf(intent: Intent): PushPayload? = PushPayload.from(
         data = listOf(
             EXTRA_NOTIFICATION_ID, EXTRA_TYPE, EXTRA_TITLE, EXTRA_TEXT, EXTRA_LINK, EXTRA_APPROVAL_ID, EXTRA_INTERACTION,
-            EXTRA_REMINDER_ID, EXTRA_TASK_ID, EXTRA_ACTIONS, EXTRA_SHORTAGE_ID,
+            EXTRA_REMINDER_ID, EXTRA_TASK_ID, EXTRA_ACTIONS, EXTRA_SHORTAGE_ID, EXTRA_COOKING_TIMER_ID,
         )
             .mapNotNull { key -> intent.getStringExtra(key)?.let { key to it } }
             .toMap(),
@@ -257,6 +260,7 @@ object PushIntents {
     /** Opening the app from a notification is answering it: the system's own stays in the tray otherwise. */
     fun closeNotificationOf(context: Context, intent: Intent) {
         val id = intent.getStringExtra(EXTRA_NOTIFICATION_ID) ?: return
-        context.getSystemService(NotificationManager::class.java).cancel(id, PushNotifier.NOTIFICATION_ID)
+        val tag = intent.getStringExtra(EXTRA_COOKING_TIMER_ID)?.takeIf { it.isNotBlank() }?.let(::cookingTimerTag) ?: id
+        context.getSystemService(NotificationManager::class.java).cancel(tag, PushNotifier.NOTIFICATION_ID)
     }
 }

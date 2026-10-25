@@ -565,3 +565,15 @@ Maggie\Finance\Entity\Placement:
     annualRate: 600
     years: 20
     user: '@recorded_user'
+
+# A timer of the Cuisine activity (MAG-582), started at the recording's fixed
+# moment so its endsAt and remainingSeconds do not move.
+Maggie\Cookbook\Entity\CookingTimer:
+  recorded_cooking_timer:
+    __construct:
+      user: '@recorded_user'
+      label: Pâtes
+      recipe: '@recorded_recipe'
+      stepPosition: 3
+      durationSeconds: 720
+      now: '<(new \DateTimeImmutable("2026-04-22 11:55:00 UTC"))>'

@@ -13,7 +13,9 @@ use Maggie\Notification\Entity\DeviceToken;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Message\CreateNotificationCommand;
 use Maggie\Notification\Message\SendPushNotificationCommand;
+use Maggie\Notification\Message\WithdrawPushNotificationCommand;
 use Maggie\Notification\MessageHandler\SendPushNotificationHandler;
+use Maggie\Notification\MessageHandler\WithdrawPushNotificationHandler;
 use Maggie\Notification\Push\FcmClient;
 use Maggie\Notification\Push\FcmUnavailableException;
 use Maggie\Notification\Push\PushMessageFactory;
@@ -164,12 +166,61 @@ final class SendPushNotificationHandlerTest extends KernelTestCase
         self::assertNotNull($this->storedToken('phone-token'));
     }
 
+    /** A notification seen elsewhere leaves every device's tray (MAG-582): one data-only message per device. */
+    public function testAWithdrawalReachesEveryDeviceAsDataOnly(): void
+    {
+        $notification = $this->getFixture('already_read');
+        $this->withdrawalHandler()(new WithdrawPushNotificationCommand((string) $notification->getId()));
+
+        self::assertEqualsCanonicalizing(['phone-token', 'tablet-token'], array_column($this->sent, 'token'));
+        self::assertArrayNotHasKey('notification', $this->sent[0]);
+        self::assertSame('withdraw', $this->sent[0]['data']['type']);
+        self::assertSame((string) $notification->getId(), $this->sent[0]['data']['tag']);
+    }
+
+    public function testNoWithdrawalForADeletedNotificationOrWithoutAKey(): void
+    {
+        $this->withdrawalHandler()(new WithdrawPushNotificationCommand('01JZZZZZZZZZZZZZZZZZZZZZZZ'));
+        $this->withdrawalHandler(configured: false)(new WithdrawPushNotificationCommand((string) $this->getFixture('already_read')->getId()));
+
+        self::assertSame([], $this->sent);
+    }
+
+    private function withdrawalHandler(bool $configured = true): WithdrawPushNotificationHandler
+    {
+        $container = self::getContainer();
+
+        return new WithdrawPushNotificationHandler(
+            $this->fcm($configured),
+            new PushMessageFactory(),
+            $container->get(NotificationRepository::class),
+            $container->get(DeviceTokenRepository::class),
+            $container->get(UnregisterDeviceToken::class),
+            new NullLogger(),
+        );
+    }
+
     private function handle(string $notificationRef, bool $configured = true): void
     {
         $this->handler($configured)(new SendPushNotificationCommand((string) $this->getFixture($notificationRef)->getId()));
     }
 
     private function handler(bool $configured = true): SendPushNotificationHandler
+    {
+        $container = self::getContainer();
+
+        return new SendPushNotificationHandler(
+            $this->fcm($configured),
+            new PushMessageFactory(),
+            $container->get(NotificationRepository::class),
+            $container->get(DeviceTokenRepository::class),
+            $container->get(UnregisterDeviceToken::class),
+            new NullLogger(),
+        );
+    }
+
+    /** FCM, mocked: every message lands in `$sent`, answered as `$answers` says. */
+    private function fcm(bool $configured): FcmClient
     {
         $http = new MockHttpClient(function (string $method, string $url, array $options) {
             if (str_contains($url, 'oauth2')) {
@@ -188,16 +239,7 @@ final class SendPushNotificationHandlerTest extends KernelTestCase
             return new MockResponse(json_encode(200 === $status ? ['name' => 'm'] : ['error' => $error]), ['http_code' => $status]);
         });
 
-        $container = self::getContainer();
-
-        return new SendPushNotificationHandler(
-            new FcmClient($http, new ArrayAdapter(), new NullLogger(), $configured ? $this->keyPath : ''),
-            new PushMessageFactory(),
-            $container->get(NotificationRepository::class),
-            $container->get(DeviceTokenRepository::class),
-            $container->get(UnregisterDeviceToken::class),
-            new NullLogger(),
-        );
+        return new FcmClient($http, new ArrayAdapter(), new NullLogger(), $configured ? $this->keyPath : '');
     }
 
     private function storedToken(string $token): ?DeviceToken

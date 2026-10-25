@@ -95,3 +95,34 @@ describe('a missing product (MAG-570)', () => {
     expect(notificationLink(shortage.relatedEntityIri)).toBeNull()
   })
 })
+
+describe('a cooking timer that rang (MAG-582)', () => {
+  const rang = {
+    '@id': '/api/notifications/n12',
+    type: 'cooking_timer',
+    title: "Pâtes : c'est prêt",
+    body: "minuteur de l'étape 3 · Pâtes aux légumes",
+    relatedEntityIri: '/api/cooking/timers/01K0TIMER000000000000000A',
+    readAt: null,
+  }
+
+  test('interrupts the other admin pages with its title and body, and opens nothing', () => {
+    expect(readFeedMessage(JSON.stringify(rang))).toEqual({
+      kind: 'interrupt',
+      interruption: {
+        source: 'notification',
+        id: 'notification:/api/notifications/n12',
+        ref: '/api/notifications/n12',
+        title: "Pâtes : c'est prêt",
+        message: "minuteur de l'étape 3 · Pâtes aux légumes",
+        link: null,
+      },
+    })
+  })
+
+  test('« OK » on another device marks it read: it is withdrawn', () => {
+    const event = readFeedMessage(JSON.stringify({ ...rang, readAt: '2026-10-25T19:00:00+00:00' }))
+
+    expect(event).toEqual({ kind: 'withdraw', id: 'notification:/api/notifications/n12' })
+  })
+})

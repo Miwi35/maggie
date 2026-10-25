@@ -41,4 +41,22 @@ class PushDeliveryTest {
         assertNull(center.current.value)
         verify(exactly = 0) { notifier.show(any(), any(), any()) }
     }
+
+    @Test
+    fun `a withdrawal takes the notification down from the tray and the interruption away`() {
+        val delivery = PushDelivery(center, { notifier }, isForeground = { true })
+        delivery.deliver(payload)
+
+        delivery.withdraw("cooking-timer-t-1", "n-1")
+
+        verify(exactly = 1) { notifier.close("cooking-timer-t-1") }
+        assertNull(center.current.value)
+    }
+
+    @Test
+    fun `a withdrawal without a notification id still clears the tray`() {
+        PushDelivery(center, { notifier }, isForeground = { false }).withdraw("cooking-timer-t-1", null)
+
+        verify(exactly = 1) { notifier.close("cooking-timer-t-1") }
+    }
 }

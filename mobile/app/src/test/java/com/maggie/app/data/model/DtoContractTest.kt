@@ -323,6 +323,10 @@ class DtoContractTest {
         assertCollectionContract("recurring_grocery_items", serializer<RecurringGroceryItem>(), "RecurringGroceryItem")
 
     @Test
+    fun `cooking timers deserialise from the recorded response`() =
+        assertCollectionContract("cooking_timers", serializer<CookingTimer>(), "CookingTimer")
+
+    @Test
     fun `notifications deserialise from the recorded response`() =
         assertCollectionContract("notifications", serializer<Notification>(), "Notification")
 

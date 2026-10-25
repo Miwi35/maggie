@@ -49,5 +49,5 @@ deptrac:
     Finance: [Core, Calendar, Notification]
     Grocery: [Core, GroceryCatalogue]
     GroceryCatalogue: [Core, Grocery]
-    Cookbook: [Core, Calendar, GroceryCatalogue]
+    Cookbook: [Core, Calendar, Notification, GroceryCatalogue]
     MealGrocery: [Core, Calendar, Notification, Cookbook, Grocery, GroceryCatalogue]

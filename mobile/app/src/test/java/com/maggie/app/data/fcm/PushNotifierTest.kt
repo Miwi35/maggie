@@ -231,4 +231,38 @@ class PushNotifierTest {
         assertEquals(PushActionReceiver.actionFor(PushActionKind.ADD_TO_LIST), add.savedIntent.action)
         assertEquals("01HZX3K9P2M7Q4R8S5T6V0W1AB", add.savedIntent.getStringExtra(PushIntents.EXTRA_SHORTAGE_ID))
     }
+
+    // --- A cooking timer's end (MAG-582)
+
+    private fun timerEnd() = PushPayload.from(
+        data = mapOf(
+            "notificationId" to "n-9",
+            "type" to "cooking_timer",
+            "title" to "Pâtes : c'est prêt",
+            "body" to "minuteur de l'étape 3 · Pâtes aux légumes",
+            "cookingTimerId" to "t-1",
+        ),
+    )!!
+
+    @Test
+    fun `a cooking timer's end is posted under cooking-timer-id on the reminders channel`() {
+        shadowOf(manager).setNotificationsEnabled(true)
+
+        assertTrue(notifier.show(timerEnd()))
+
+        val notification = shadowOf(manager).getNotification("cooking-timer-t-1", PushNotifier.NOTIFICATION_ID)
+        assertNotNull(notification)
+        assertEquals(PushChannels.REMINDERS, notification.channelId)
+        assertNull("not under its notification id", shadowOf(manager).getNotification("n-9", PushNotifier.NOTIFICATION_ID))
+    }
+
+    @Test
+    fun `a cooking timer's end is taken down by its tag`() {
+        shadowOf(manager).setNotificationsEnabled(true)
+        notifier.show(timerEnd())
+
+        notifier.close(timerEnd().systemTag)
+
+        assertNull(shadowOf(manager).getNotification("cooking-timer-t-1", PushNotifier.NOTIFICATION_ID))
+    }
 }

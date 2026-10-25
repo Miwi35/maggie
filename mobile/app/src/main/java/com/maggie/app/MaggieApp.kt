@@ -67,6 +67,7 @@ import com.maggie.app.data.repository.ContextRepository
 import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.RecipeRepository
+import com.maggie.app.data.repository.CookingTimerRepository
 import com.maggie.app.data.repository.SearchRepository
 import com.maggie.app.data.repository.ErrandRepository
 import com.maggie.app.data.repository.RecurringGroceryRepository
@@ -291,7 +292,7 @@ class MaggieApp : Application() {
             single<RewardFeedback> { AndroidRewardFeedback(androidContext()) }
             single { TaskRewards(get(), get()) }
             single { PushDelivery(get(), { PushNotifier(androidContext()) }) }
-            single { InterruptionFeed(get(), get(), get(), get()) }
+            single { InterruptionFeed(get(), get(), get(), get(), clearSystem = { PushNotifier(androidContext()).close(it) }) }
 
             // Repositories
             single { EventRepository(get(), get()) }
@@ -303,6 +304,7 @@ class MaggieApp : Application() {
             single { AgendaRepository(get(), get()) }
             single { CalendarCacheFeed(get(), get(), get(), get()) }
             single { RecipeRepository(get(), get()) }
+            single { CookingTimerRepository(get()) }
             single { IngredientRepository(get()) }
             single { MealRepository(get()) }
             single { GroceryListRepository(get()) }
@@ -374,7 +376,7 @@ class MaggieApp : Application() {
                     get(),
                     get(),
                     postpone = { PushNotifier(androidContext()).postpone(it) },
-                    dismiss = { PushNotifier(androidContext()).close(it.notificationId) },
+                    dismiss = { PushNotifier(androidContext()).close(it.systemTag) },
                 )
             }
             viewModel { SearchViewModel(get()) }
@@ -413,7 +415,7 @@ class MaggieApp : Application() {
             viewModel { ScenarioViewModel(get(), get(), get()) }
             viewModel { FinanceTimelineViewModel(get()) }
             viewModel { PlacementViewModel(get(), get(), get()) }
-            viewModel { CookingViewModel(get(), get(), get()) }
+            viewModel { CookingViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { ReviewActivityViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { PeriodReviewViewModel(get()) }
             viewModel { FinanceDashboardViewModel(get(), get(), get(), get(), get()) }

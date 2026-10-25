@@ -275,4 +275,20 @@ class PushPayloadTest {
         assertEquals(listOf(PushActionKind.REPLY), payload("grocery").actions())
         assertNull(payload("grocery", "shortageId" to "").shortageId)
     }
+
+    @Test
+    fun `a cooking timer's end carries its timer and goes by its tag`() {
+        val payload = PushPayload.from(mapOf("notificationId" to "n-9", "type" to "cooking_timer", "title" to "Eau : c'est prêt", "cookingTimerId" to "t-1"))!!
+
+        assertEquals("t-1", payload.cookingTimerId)
+        assertEquals("cooking-timer-t-1", payload.systemTag)
+        assertEquals(PushChannels.REMINDERS, payload.channel)
+    }
+
+    @Test
+    fun `any other push goes by its notification id`() {
+        val payload = PushPayload.from(mapOf("notificationId" to "n-1", "type" to "reminder", "title" to "Rappel"))!!
+
+        assertEquals("n-1", payload.systemTag)
+    }
 }

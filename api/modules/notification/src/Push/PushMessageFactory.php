@@ -30,6 +30,12 @@ class PushMessageFactory
     public const CHANNEL_APPROVALS = 'approvals_v2';
     public const CHANNEL_FINANCE = 'finance_v2';
 
+    /** The Android tag of a cooking timer's end, followed by the timer's id (MAG-582). */
+    public const COOKING_TIMER_TAG = 'cooking-timer';
+
+    /** The `type` of a data-only message that takes a notification down (MAG-582). */
+    public const WITHDRAW_TYPE = 'withdraw';
+
     /**
      * FCM refuses a message over 4096 bytes, and title and text travel twice
      * (both blocks): 2 × (400 + 1200) leaves room for the rest of the data.
@@ -82,6 +88,8 @@ class PushMessageFactory
             // A missing product's button (MAG-570): « Ajouter à la liste » answers this alert.
             'shortageId' => null === $notification->getReminderId() ? $this->shortageId($notification->getRelatedEntityIri()) : null,
             'actions' => [] === $notification->getActions() ? null : implode(',', $notification->getActions()),
+            // A cooking timer's end (MAG-582): the app clears it by this id once the timer is seen elsewhere.
+            'cookingTimerId' => $this->cookingTimerId($notification->getRelatedEntityIri()),
         ], static fn (?string $value) => null !== $value && '' !== $value);
 
         // A task reminder (MAG-510) goes as data alone: a `notification` block would be shown by
@@ -108,9 +116,29 @@ class PushMessageFactory
                 'notification' => [
                     'channel_id' => $this->channel($notification->getType()),
                     // Sent twice (a worker retry), it replaces itself rather than stacking.
-                    'tag' => $id,
+                    'tag' => $this->tag($notification),
                 ],
             ],
+        ];
+    }
+
+    /**
+     * The data-only message that takes a notification down from a device's tray
+     * once it is seen elsewhere (MAG-582): Android hands it to the app even in
+     * the background, which cancels the notification of that tag.
+     *
+     * @return array<string, mixed> the FCM v1 `message` object
+     */
+    public function buildWithdrawal(Notification $notification, string $deviceToken): array
+    {
+        return [
+            'token' => $deviceToken,
+            'data' => [
+                'type' => self::WITHDRAW_TYPE,
+                'notificationId' => (string) $notification->getId(),
+                'tag' => $this->tag($notification),
+            ],
+            'android' => ['priority' => 'high'],
         ];
     }
 
@@ -143,11 +171,30 @@ class PushMessageFactory
     private function channel(NotificationType $type): string
     {
         return match ($type) {
-            NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge, NotificationType::Routine => self::CHANNEL_REMINDERS,
+            NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge, NotificationType::Routine, NotificationType::CookingTimer => self::CHANNEL_REMINDERS,
             NotificationType::Approval => self::CHANNEL_APPROVALS,
             NotificationType::ConsentExpiring, NotificationType::Finance => self::CHANNEL_FINANCE,
             NotificationType::Proaction, NotificationType::Grocery => self::CHANNEL_CHAT,
         };
+    }
+
+    /**
+     * The Android tag: one per notification, and for a cooking timer's end
+     * `cooking-timer-{timerId}` — one per timer (MAG-582), which the app
+     * clears when the timer is seen on another device.
+     */
+    private function tag(Notification $notification): string
+    {
+        $timerId = $this->cookingTimerId($notification->getRelatedEntityIri());
+
+        return null === $timerId ? (string) $notification->getId() : self::COOKING_TIMER_TAG.'-'.$timerId;
+    }
+
+    private function cookingTimerId(?string $relatedEntityIri): ?string
+    {
+        $path = (string) parse_url((string) $relatedEntityIri, PHP_URL_PATH);
+
+        return 1 === preg_match('#^/api/cooking/timers/([0-9A-Za-z-]{1,64})$#', $path, $m) ? $m[1] : null;
     }
 
     private function taskId(?string $relatedEntityIri): ?string

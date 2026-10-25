@@ -3,6 +3,7 @@ package com.maggie.app.data.interruption
 import com.maggie.app.data.fcm.PushChannels
 import com.maggie.app.data.fcm.PushInteraction
 import com.maggie.app.data.fcm.PushPayload
+import com.maggie.app.data.fcm.cookingTimerTag
 import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.ui.navigation.DeepLinks
@@ -30,8 +31,11 @@ val PushPayload.interrupts: Boolean get() = !(type == "approval" && approvalId =
 sealed interface FeedEvent {
     data class Offer(val payload: PushPayload) : FeedEvent
 
-    /** Read, answered, expired or deleted elsewhere: it must not be said any more. */
-    data class Withdraw(val key: String) : FeedEvent
+    /**
+     * Read, answered, expired or deleted elsewhere: it must not be said any more. [systemTag]: the system
+     * notification it left in the tray, when the message names one to take down (a cooking timer's).
+     */
+    data class Withdraw(val key: String, val systemTag: String? = null) : FeedEvent
 }
 
 /** Turns what the API publishes into what the toaster shows — the same targets and words as the push and the admin. */
@@ -50,6 +54,7 @@ object Interruptions {
     private val FINANCE_LABELS = mapOf("banks" to "Reconnecter la banque", "budgets" to "Voir les enveloppes")
     private val FINANCE_SCREENS = setOf("", "accounts", "budgets", "categories", "rules", "rule-suggestions", "banks", "cushion", "savings-advances", "loans", "review")
     private val ENTITY_PATH = Regex("^/api/([a-z_]+)/([0-9A-Za-z-]{1,64})$")
+    private val COOKING_TIMER_PATH = Regex("^/api/cooking/timers/([0-9A-Za-z-]{1,64})$")
     private val SHORTAGE_PATH = Regex("^/api/shortage-alerts/([0-9A-Za-z]{26})$")
     private val FINANCE_PATH = Regex("^/finance(?:/([a-z-]+))?/?$")
 
@@ -103,11 +108,26 @@ object Interruptions {
         val data = objectOf(raw) ?: return null
         val id = data["@id"]?.jsonPrimitive?.contentOrNull?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: return null
         if (data["deleted"]?.jsonPrimitive?.booleanOrNull == true || data["readAt"]?.jsonPrimitive?.contentOrNull != null) {
-            return FeedEvent.Withdraw(id)
+            val timerId = data["relatedEntityIri"]?.jsonPrimitive?.contentOrNull?.let { COOKING_TIMER_PATH.matchEntire(it)?.groupValues?.get(1) }
+            return FeedEvent.Withdraw(id, timerId?.let(::cookingTimerTag))
         }
         // A change that carries only some fields cannot be read as a notification: it is not a new one.
         val notification = runCatching { json.decodeFromJsonElement(Notification.serializer(), data) }.getOrNull() ?: return null
         return of(notification)?.let(FeedEvent::Offer)
+    }
+
+    /**
+     * One message of `/users/{userId}/api/cooking/timers/{id}` (MAG-582): acknowledged or cancelled, wherever
+     * that was, the end it rang leaves this phone's tray — the tag of the timer's system notification.
+     */
+    fun readCookingTimer(raw: String): String? {
+        val data = objectOf(raw) ?: return null
+        val status = data["status"]?.jsonPrimitive?.contentOrNull
+        if (status != "dismissed" && status != "cancelled") return null
+        val id = data["id"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+            ?: data["@id"]?.jsonPrimitive?.contentOrNull?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+            ?: return null
+        return cookingTimerTag(id)
     }
 
     /** One message of `/approvals/{userId}`. */

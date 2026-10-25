@@ -63,6 +63,7 @@ class PushChannelsTest {
     fun `a notification type lands on its channel`() {
         assertEquals(PushChannels.REMINDERS, PushChannels.forType("reminder"))
         assertEquals(PushChannels.REMINDERS, PushChannels.forType("task_due"))
+        assertEquals(PushChannels.REMINDERS, PushChannels.forType("cooking_timer"))
         assertEquals(PushChannels.APPROVALS, PushChannels.forType("approval"))
         assertEquals(PushChannels.FINANCE, PushChannels.forType("finance"))
         assertEquals(PushChannels.FINANCE, PushChannels.forType("consent_expiring"))

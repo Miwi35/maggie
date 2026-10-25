@@ -23,6 +23,7 @@ class InterruptionCenter(private val now: () -> Long = System::currentTimeMillis
     private val seen = LinkedHashSet<String>()
     private val postponed = HashMap<String, Long>()
     private val rung = HashSet<String>()
+    private val quiet = HashMap<String, Int>()
     private val _current = MutableStateFlow<PushPayload?>(null)
 
     /** The one on screen, null when Maggie has nothing to say. */
@@ -35,6 +36,11 @@ class InterruptionCenter(private val now: () -> Long = System::currentTimeMillis
      */
     fun offer(payload: PushPayload, reshow: Boolean = false): Boolean = synchronized(lock) {
         if (!payload.interrupts) return false
+        if (isQuieted(payload)) {
+            // Said by the screen in front, which has its own alert: not raised later either.
+            seen.add(payload.key)
+            return false
+        }
         if (reshow) {
             postponed.remove(payload.key)
         } else if (postponed[payload.key]?.let { it > now() } == true) {
@@ -57,6 +63,7 @@ class InterruptionCenter(private val now: () -> Long = System::currentTimeMillis
     /** The owner asked for it again (a tap on the notification): on screen now, the one it replaces waits its turn. */
     fun reopen(payload: PushPayload) = synchronized(lock) {
         seen.add(payload.key)
+        if (isQuieted(payload)) return
         val showing = _current.value
         if (showing?.key == payload.key) return
         queue.removeAll { it.key == payload.key }
@@ -84,6 +91,20 @@ class InterruptionCenter(private val now: () -> Long = System::currentTimeMillis
         seen.remove(key)
         postponed[key] = now() + delayMs
     }
+
+    /**
+     * A screen that says a [type] of message itself (the Cuisine activity, its timers' ends — MAG-582) keeps
+     * the center from saying it too, for as long as it is shown; [release] when it goes. Counted, so two
+     * holders do not lift each other's.
+     */
+    fun hold(type: String) = synchronized(lock) { quiet[type] = (quiet[type] ?: 0) + 1 }
+
+    fun release(type: String) = synchronized(lock) {
+        val left = (quiet[type] ?: 0) - 1
+        if (left > 0) quiet[type] = left else quiet.remove(type)
+    }
+
+    private fun isQuieted(payload: PushPayload): Boolean = payload.type != null && payload.type in quiet
 
     /** True once per interruption, whichever screen shows it: switching to the overlay must not ring again. */
     fun announce(key: String): Boolean = synchronized(lock) { rung.add(key) }
