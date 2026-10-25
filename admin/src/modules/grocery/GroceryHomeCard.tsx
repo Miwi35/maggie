@@ -4,34 +4,10 @@ import Typography from '@mui/material/Typography'
 import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
-import type { HomeDay } from '../home/homeDay'
-import { useHomeCardState } from '../home/useHomeCardState'
 import { neededLabel, quantityHint } from './groceryQuantity'
-import type { NeededEntry } from './groceryQuantity'
 import { recipeNeedsLabel } from './homeRecipeNeeds'
-import type { RecipeNeed } from './homeRecipeNeeds'
-
-interface HomeItem {
-  id: string
-  name: string
-  quantity: number | null
-  unit: string | null
-  needed: NeededEntry[] | null
-}
-
-interface HomeStore {
-  id: string | null
-  name: string | null
-  count: number
-  items: HomeItem[]
-  more: number
-}
-
-interface GroceryHomeState {
-  count: number
-  forRecipes: RecipeNeed[]
-  stores: HomeStore[]
-}
+import { useGroceryCardState } from './useGroceryCardState'
+import type { GroceryHomeState, HomeStore } from './groceryCardState'
 
 /**
  * The Courses tile of the Accueil (MAG-563): what the next meals lack, then the
@@ -39,8 +15,8 @@ interface GroceryHomeState {
  * Courses — and it does not follow the day selector, the list being today's.
  * Empty (no line, nothing missing for a recipe), it is not drawn at all (MAG-594).
  */
-export const GroceryHomeCard = ({ day }: { day: HomeDay }) => {
-  const { state, loading, error, retry } = useHomeCardState<GroceryHomeState>('grocery', day)
+export const GroceryHomeCard = () => {
+  const { state, loading, error, retry } = useGroceryCardState()
   const status = homeCardStatus({ state, loading, error }, isEmpty)
   useReportHomeCard('grocery', status)
 

@@ -38,6 +38,7 @@ import com.maggie.app.data.repository.CalendarCacheFeed
 import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
+import com.maggie.app.data.repository.GroceryCardRepository
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.MealRepository
@@ -331,6 +332,7 @@ class MaggieApp : Application() {
             single { HomeCardRepository(get(), get(), get()) }
             single { TasksCardRepository(get(), get(), get(), get()) }
             single { AgendaCardRepository(get(), get(), get()) }
+            single { GroceryCardRepository(get(), get(), get()) }
             single { MonthBalanceRepository(get()) }
             single { TransactionRepository(get()) }
             single { ContactRepository(get()) }

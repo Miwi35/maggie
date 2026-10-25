@@ -217,6 +217,10 @@ class DtoContractTest {
         assertCollectionContract("grocery_lists", serializer<GroceryList>(), "GroceryList")
 
     @Test
+    fun `the recipe needs of the Courses card deserialise from the recorded response`() =
+        assertCollectionContract("grocery_recipe_needs", serializer<GroceryRecipeNeed>(), "GroceryRecipeNeed")
+
+    @Test
     fun `past errands deserialise from the recorded response`() =
         assertCollectionContract("errands", serializer<Errand>(), "Errand")
 

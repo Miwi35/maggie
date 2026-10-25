@@ -6,4 +6,14 @@ import { ROUTINE_TOPICS } from '../calendar/routinesApi'
  * one for good, so a stream per card leaves the page unable to send a request (MAG-473). A card that moves
  * to the resources adds its topics here instead of declaring its own.
  */
-export const HOME_RESOURCE_TOPICS = ['/api/tasks/{id}', ...ROUTINE_TOPICS, '/api/events/{id}', '/api/agendas/{id}']
+const GROCERY_TOPICS = [
+  '/api/grocery_lists/{id}',
+  '/api/stores/{id}',
+  '/api/products/{id}',
+  '/api/ingredients/{id}',
+  '/api/aisles/{id}',
+  '/api/meals/{id}',
+  '/api/recipes/{id}',
+]
+
+export const HOME_RESOURCE_TOPICS = ['/api/tasks/{id}', ...ROUTINE_TOPICS, '/api/events/{id}', '/api/agendas/{id}', ...GROCERY_TOPICS]

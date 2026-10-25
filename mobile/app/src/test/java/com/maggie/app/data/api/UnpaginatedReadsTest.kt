@@ -109,6 +109,20 @@ class UnpaginatedReadsTest {
     }
 
     @Test
+    fun `getGroceryRecipeNeeds asks for the missing products of the period in one request`() = runBlocking {
+        val server = FakeCollection(35, pageSize) { """{"productId":"p$it","name":"Produit $it","date":"2026-10-23","slot":"lunch"}""" }
+
+        val result = MaggieApiService(server.client()).getGroceryRecipeNeeds("2026-10-23", "2026-10-24")
+
+        assertEquals(35, result.size)
+        val url = server.single()
+        assertEquals("/api/grocery/recipe-needs", url.encodedPath)
+        assertEquals("2026-10-23", url.parameters["from"])
+        assertEquals("2026-10-24", url.parameters["to"])
+        assertEquals("true", url.parameters["missing"])
+    }
+
+    @Test
     fun `getRecurringEventsBefore reads the 37 series in one request`() = runBlocking {
         val server = events(37)
 
@@ -133,6 +147,7 @@ class UnpaginatedReadsTest {
         check({ it.getUndoneTasks("2026-10-13") }) { """{"id":"t$it","title":"Tâche $it"}""" }
         check({ it.getRecurringOperationRecords() }) { """{"id":"r$it","label":"Récurrence $it"}""" }
         check({ it.getAgendas() }) { """{"id":"a$it","name":"Agenda $it"}""" }
+        check({ it.getGroceryLists() }) { """{"id":"l$it"}""" }
         check({ it.getProducts() }) { """{"id":"p$it","name":"Produit $it","category":"produce"}""" }
         check({ it.getMeals("2026-10-01", "2026-10-31") }) {
             """{"id":"m$it","summary":"Repas $it","date":"2026-10-13","slot":"lunch"}"""

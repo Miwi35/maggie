@@ -24,6 +24,7 @@ import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.GroceryRecipeNeed
 import com.maggie.app.data.model.Ingredient
 import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MyShare
@@ -1752,13 +1753,13 @@ class MaggieApiService(
         return client.get("$baseUrl/api/grocery_lists") {
             accept(ContentType("application", "ld+json"))
             withoutPagination()
-        }.body<ApiCollection<GroceryList>>().member
+        }.orRefusal().body<ApiCollection<GroceryList>>().member
     }
 
     suspend fun getGroceryList(id: String): GroceryList {
         return client.get("$baseUrl/api/grocery_lists/$id") {
             accept(ContentType("application", "ld+json"))
-        }.body()
+        }.orRefusal().body()
     }
 
     suspend fun patchGroceryItem(itemId: String, checked: Boolean) {
@@ -2942,6 +2943,20 @@ class MaggieApiService(
         return client.get("$baseUrl/api/grocery/recipe-need/$productId") {
             accept(ContentType.Application.Json)
         }.orRefusal().body()
+    }
+
+    /**
+     * What the meals from [from] to [to] (`YYYY-MM-DD`, both included) need of the products the owner is low on or out
+     * of, one entry per meal and product, by date then lunch before dinner (MAG-590); 404 when the module is absent.
+     */
+    suspend fun getGroceryRecipeNeeds(from: String, to: String): List<GroceryRecipeNeed> {
+        return client.get("$baseUrl/api/grocery/recipe-needs") {
+            accept(ContentType.Application.Json)
+            withoutPagination()
+            url.parameters.append("from", from)
+            url.parameters.append("to", to)
+            url.parameters.append("missing", "true")
+        }.orRefusal().body<ApiCollection<GroceryRecipeNeed>>().member
     }
 
     /** The products due again by their purchase rhythm (MAG-495): a plain JSON array. */
