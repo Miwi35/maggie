@@ -1,11 +1,16 @@
 package com.maggie.app.ui.screens.home
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.NutritionHomeMeal
 import com.maggie.app.data.model.NutritionHomeSlot
@@ -13,6 +18,7 @@ import com.maggie.app.data.model.NutritionHomeState
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -67,6 +73,17 @@ class NutritionHomeCardScreenTest {
 
         compose.onNodeWithText("Salade · Tarte · Fruits").assertIsDisplayed()
         compose.onNodeWithText("4 pers.").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the guests sit under the recipe name so a long name keeps the row's width`() {
+        val ui = NutritionHomeUiState(state(dinner = listOf(meal("m", names("Bœuf bourguignon")))), isLoading = false)
+        compose.setContent { Box(Modifier.width(328.dp)) { NutritionHomeCardContent(ui, onOpen = {}, onRetry = {}) } }
+
+        val name = compose.onNodeWithText("Bœuf bourguignon").getBoundsInRoot()
+        val guests = compose.onNodeWithText("4 pers.").getBoundsInRoot()
+
+        assertTrue("« 4 pers. » (top ${guests.top}) shares the name's line (bottom ${name.bottom})", guests.top >= name.bottom)
     }
 
     @Test
