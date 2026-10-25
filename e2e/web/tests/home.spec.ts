@@ -177,11 +177,12 @@ test("the review's line on the Accueil carries a ▶ Lancer that opens the activ
   const home = new HomePage(page)
   await home.open()
 
-  await expect(home.agendaRow('Revue d.octobre')).toBeVisible()
+  // `.first()`: on the 25th the real monthly appointment can sit beside the seeded one.
+  await expect(home.agendaRow('Revue d.octobre').first()).toBeVisible()
   await expect(home.agendaRow('Appel avec le plombier')).toBeVisible()
   await expect(home.agendaList.getByRole('link', { name: 'Lancer Appel avec le plombier' })).toHaveCount(0)
 
-  await home.agendaList.getByRole('link', { name: /^Lancer Revue d.octobre$/ }).click()
+  await home.agendaList.getByRole('link', { name: /^Lancer Revue d.octobre$/ }).first().click()
   await expect(page).toHaveURL(/\/finance\/review\/activity/)
 
   await home.open('tomorrow')
