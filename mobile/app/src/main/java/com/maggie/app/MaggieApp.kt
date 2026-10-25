@@ -384,7 +384,7 @@ class MaggieApp : Application() {
             viewModel { SearchViewModel(get()) }
             viewModel { ProactionViewModel(get(), get(), get()) }
             viewModel { RecipeListViewModel(get(), get(), get()) }
-            viewModel { (recipeId: String) -> RecipeDetailViewModel(recipeId, get(), get(), get()) }
+            viewModel { (recipeId: String) -> RecipeDetailViewModel(recipeId, get(), get(), get(), get()) }
             viewModel { (recipeId: String) -> RecipeEditViewModel(recipeId, get(), get(), get()) }
             viewModel { RecipeCreateViewModel(get()) }
             viewModel { MealsWeekViewModel(get(), get(), get()) }

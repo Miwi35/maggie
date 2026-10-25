@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.model.Ingredient
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.RecipeIngredient
+import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.RecipeRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -38,7 +40,12 @@ data class RecipeDetailUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val simulation: RecipeSimulation? = null,
+    /** The catalogue's ingredients by id: what a serving brings is counted from their values. */
+    val products: Map<String, Ingredient> = emptyMap(),
 ) {
+    /** « Par personne »: from the recipe's own quantities and servings, whatever the simulation shows. */
+    val nutrition: RecipeNutrition? get() = recipe?.let { nutritionPerServing(it.ingredients, it.servings, products) }
+
     /** What the sheet lists: the scaled quantities during a simulation, the recipe's own otherwise. */
     val ingredients: List<RecipeIngredient> get() = simulation?.ingredients ?: recipe?.ingredients.orEmpty()
 }
@@ -47,6 +54,7 @@ data class RecipeDetailUiState(
 class RecipeDetailViewModel(
     private val recipeId: String,
     private val recipeRepository: RecipeRepository,
+    private val ingredientRepository: IngredientRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
@@ -59,6 +67,7 @@ class RecipeDetailViewModel(
 
     init {
         load()
+        loadProducts()
         subscribeToMercure()
     }
 
@@ -106,8 +115,17 @@ class RecipeDetailViewModel(
                 result = recipeRepository.getRecipe(recipeId)
             }
             result
-                .onSuccess { _uiState.value = RecipeDetailUiState(recipe = it, isLoading = false) }
-                .onFailure { _uiState.value = RecipeDetailUiState(isLoading = false, error = it.message) }
+                .onSuccess { recipe -> _uiState.update { it.copy(recipe = recipe, isLoading = false, error = null, simulation = null) } }
+                .onFailure { failure -> _uiState.update { it.copy(isLoading = false, error = failure.message) } }
+        }
+    }
+
+    // A catalogue that cannot be read only leaves « Par personne » out: the sheet is still the recipe.
+    private fun loadProducts() {
+        viewModelScope.launch {
+            ingredientRepository.getIngredients().onSuccess { ingredients ->
+                _uiState.update { it.copy(products = ingredients.associateBy(Ingredient::id)) }
+            }
         }
     }
 
@@ -123,9 +141,9 @@ class RecipeDetailViewModel(
     private suspend fun onMessage(data: String) {
         when (val message = parseRecipeMessage(data, recipeId)) {
             RecipeMessage.Elsewhere -> Unit
-            RecipeMessage.Deleted -> _uiState.value = RecipeDetailUiState(isLoading = false, error = "Cette recette a été supprimée.")
+            RecipeMessage.Deleted -> _uiState.update { RecipeDetailUiState(isLoading = false, error = "Cette recette a été supprimée.", products = it.products) }
             RecipeMessage.Unreadable -> recipeRepository.getRecipe(recipeId)
-                .onSuccess { _uiState.value = RecipeDetailUiState(recipe = it, isLoading = false) }
+                .onSuccess { recipe -> _uiState.update { it.copy(recipe = recipe, isLoading = false, error = null, simulation = null) } }
             is RecipeMessage.Changed -> _uiState.value.recipe?.let { current ->
                 _uiState.value = _uiState.value.copy(recipe = message.patch.applyTo(current))
                 _uiState.value.simulation?.let { simulate(it.guests, it.ingredients) }

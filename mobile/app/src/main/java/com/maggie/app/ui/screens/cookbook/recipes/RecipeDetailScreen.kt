@@ -10,25 +10,26 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +48,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.PlannedMealRef
 import com.maggie.app.data.api.RecipeDeletionImpact
+import com.maggie.app.data.model.quantityLabel
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.grocery.SeasonBadge
@@ -173,24 +175,37 @@ fun RecipeDetailScreen(
         }
     }
 
+    var menuOpen by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(recipe?.name ?: "Recette") },
+                title = {},
                 navigationIcon = {
                     if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        TextButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Recettes")
                         }
                     }
                 },
                 windowInsets = if (onBack != null) TopAppBarDefaults.windowInsets else WindowInsets(0),
                 actions = {
-                    IconButton(onClick = { onEdit(recipeId) }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Modifier")
-                    }
-                    IconButton(onClick = { confirmingDelete = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Supprimer")
+                    Box {
+                        IconButton(onClick = { menuOpen = true }, modifier = Modifier.testTag(UiTags.RECIPE_MENU)) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Plus d’actions")
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, modifier = Modifier.uiTagRoot()) {
+                            DropdownMenuItem(
+                                text = { Text("Supprimer") },
+                                onClick = {
+                                    menuOpen = false
+                                    confirmingDelete = true
+                                },
+                                modifier = Modifier.testTag(UiTags.RECIPE_DELETE),
+                            )
+                        }
                     }
                 },
             )
@@ -248,16 +263,25 @@ fun RecipeDetailScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text("${r.servings} portions", style = MaterialTheme.typography.titleMedium)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(r.name, style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            text = recipeSummary(r.steps, state.nutrition, r.servings),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
                     // Activité Cuisine (MAG-580): « Pour combien ? » first, then the preparation.
-                    Button(
-                        onClick = { onCook(recipeId) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(UiTags.RECIPE_COOK),
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Cuisiner")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button(onClick = { onCook(recipeId) }, modifier = Modifier.testTag(UiTags.RECIPE_COOK)) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Cuisiner")
+                        }
+                        OutlinedButton(onClick = { onEdit(recipeId) }, modifier = Modifier.testTag(UiTags.RECIPE_EDIT)) {
+                            Text("Modifier")
+                        }
                     }
 
                     GuestsSimulation(
@@ -296,7 +320,7 @@ fun RecipeDetailScreen(
                                     SeasonBadge(ing.inSeason)
                                 }
                                 Text(
-                                    text = "${ing.quantity} ${ing.unit.name.lowercase()}",
+                                    text = ing.quantityLabel(),
                                     modifier = Modifier.testTag(UiTags.RECIPE_INGREDIENT_QUANTITY),
                                 )
                             }
@@ -305,15 +329,9 @@ fun RecipeDetailScreen(
 
                     RecipeMethod(r)
 
-                    // Nutrition summary placeholder — will populate when ingredients carry macros
-                    if (r.ingredients.isNotEmpty()) {
+                    state.nutrition?.let {
                         HorizontalDivider()
-                        Text("Nutrition (par portion)", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            text = "Les données nutritionnelles seront affichées lorsque les ingrédients seront liés à la base Ciqual.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        RecipeNutritionBlock(it, dailyKcal = null)
                     }
                 }
             }
