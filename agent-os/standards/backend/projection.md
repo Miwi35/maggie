@@ -17,6 +17,7 @@ root message → ProjectionMiddleware::begin()
 - **After the handler.** Nothing leaves while the handler runs. A handler that throws *after* a flush still has its committed rows projected (they exist); a flush that failed projects nothing.
 - **To the owner of the row**, never to whoever is logged in (`Security` is empty in a worker): `OwnedByUserInterface`, `OwnedThroughInterface`, or the `User` itself. A row with no owner is not published.
 - **Payload**: insert → full; update → differential (the changed Doctrine properties, `MercurePayloadFilterTrait`); delete → `{"deleted": true}`. A class and its published ancestors (Meal/Event, Ingredient/Product) each get their topic.
+- **Topic key**: a row its clients know by a key of their own (`/api/activity-status/cuisine`) implements `MercureItemKey`: the key spells its topic and `@id`, unique per owner; rows are still told apart, and indexed, by their ULID.
 - **Index**: every `IndexableInterface` row is reindexed; a removed one is deindexed from its indices. Same real class, never a Doctrine proxy's.
 
 ## Aggregate roots

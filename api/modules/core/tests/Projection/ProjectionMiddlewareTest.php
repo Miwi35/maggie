@@ -8,6 +8,9 @@ use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Lcobucci\JWT\Signer\InvalidKeyProvided;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
+use Maggie\Core\Entity\ActivityStatus;
+use Maggie\Core\Entity\User;
+use Maggie\Core\Enum\Activity;
 use Maggie\Core\Projection\ProjectionMiddleware;
 use Maggie\Core\Projection\WorkCollector;
 use Maggie\Grocery\Entity\GroceryItem;
@@ -111,6 +114,69 @@ class ProjectionMiddlewareTest extends KernelTestCase
         self::assertSame(['/users/'.$this->ownerId().'/api/stores/'.$this->storeId()], $update->getTopics());
         self::assertSame(['@id' => '/api/stores/'.$this->storeId(), 'name' => 'Epicerie'], json_decode($update->getData(), true));
         $this->assertElasticsearchIndexDispatchedFor(Store::class, $this->storeId());
+    }
+
+    /** @return array{ActivityStatus, ActivityStatus} test_user's and a second user's Cuisine, saved outside any message */
+    private function twoUsersCooking(): array
+    {
+        $other = (new User())->setEmail('second-cook@example.com')->setGoogleId('google-second-cook')->setName('Second Cook');
+        $this->em()->persist($other);
+        $statuses = [];
+        foreach ([$this->em()->find(User::class, $this->ownerId()), $other] as $user) {
+            $status = (new ActivityStatus())->setUser($user)->setActivity(Activity::Cuisine)->setOrigin('recipe', 'r1')
+                ->setState('{"step":0}')->setStartedAt(new \DateTimeImmutable())->setUpdatedAt(new \DateTimeImmutable());
+            $this->em()->persist($status);
+            $statuses[] = $status;
+        }
+        $this->em()->flush();
+        $this->resetMercure();
+
+        return [$statuses[0], $statuses[1]];
+    }
+
+    /**
+     * Two users' `cuisine` share a topic key, not a row (MAG-613): one message
+     * touching both publishes each to its owner, with its own state.
+     */
+    public function testRowsKeyedByTheirActivityStayApartAcrossOwners(): void
+    {
+        [$mine, $theirs] = $this->twoUsersCooking();
+        $theirOwner = (string) $theirs->getUser()->getId();
+
+        $this->middleware->handle(
+            $this->received(new UpdateStoreCommand(storeId: $this->storeId())),
+            $this->stackRunning(function () use ($mine, $theirs) {
+                $mine->setState('{"step":1}');
+                $theirs->setState('{"step":2}');
+                $this->em()->flush();
+            }),
+        );
+
+        $published = [];
+        foreach ($this->getMercureHub()->getUpdates() as $update) {
+            $published[$update->getTopics()[0]] = json_decode($update->getData(), true)['state']['step'] ?? null;
+        }
+        self::assertSame([
+            '/users/'.$this->ownerId().'/api/activity-status/cuisine' => 1,
+            '/users/'.$theirOwner.'/api/activity-status/cuisine' => 2,
+        ], $published);
+
+        $this->resetMercure();
+        $this->middleware->handle(
+            $this->received(new UpdateStoreCommand(storeId: $this->storeId())),
+            $this->stackRunning(function () use ($mine, $theirs) {
+                $this->em()->remove($mine);
+                $this->em()->remove($theirs);
+                $this->em()->flush();
+            }),
+        );
+
+        $topics = array_map(static fn ($update): string => $update->getTopics()[0], $this->getMercureHub()->getUpdates());
+        sort($topics);
+        $expected = ['/users/'.$this->ownerId().'/api/activity-status/cuisine', '/users/'.$theirOwner.'/api/activity-status/cuisine'];
+        sort($expected);
+        self::assertSame($expected, $topics);
+        self::assertSame([], $this->reindexedIdsOf(ActivityStatus::class));
     }
 
     public function testNothingIsPublishedBeforeTheHandlerHasReturned(): void

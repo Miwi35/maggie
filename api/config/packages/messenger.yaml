@@ -55,6 +55,8 @@ framework:
             'Maggie\Calendar\Message\PullTasksFromGoogleCommand': async
             'Maggie\Core\Message\UpdateUserCommand': sync
             'Maggie\Core\Message\UpdateUserPreferenceCommand': sync
+            'Maggie\Core\Message\SaveActivityStatusCommand': sync
+            'Maggie\Core\Message\DeleteActivityStatusCommand': sync
             'Maggie\Notification\Message\CreateNotificationCommand': sync
             'Maggie\Notification\Message\MarkNotificationReadCommand': sync
             'Maggie\Notification\Message\DeleteNotificationCommand': sync

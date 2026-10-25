@@ -1,0 +1,31 @@
+{
+    "member": [
+        {
+            "activity": "cuisine",
+            "origin": {
+                "kind": "recipe",
+                "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            },
+            "state": {
+                "queue": [
+                    {
+                        "recipeId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                        "servings": 4
+                    }
+                ],
+                "recipeIndex": 0,
+                "step": 2,
+                "doneSteps": [
+                    [
+                        0,
+                        1
+                    ]
+                ],
+                "guests": 4,
+                "phase": "cooking"
+            },
+            "startedAt": "2026-04-22T12:00:00+00:00",
+            "updatedAt": "2026-01-01T00:00:00+00:00"
+        }
+    ]
+}

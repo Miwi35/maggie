@@ -13,6 +13,7 @@ use Doctrine\Persistence\ObjectManager;
 use Doctrine\Persistence\Proxy;
 use Maggie\Core\Contract\AggregateRoot;
 use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Contract\MercureItemKey;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Contract\OwnedThroughInterface;
@@ -208,6 +209,7 @@ class WorkCollector implements ResetInterface
             ownerId: self::ownerOf($entity),
             entity: $isGone ? null : $entity,
             indices: $isGone && $entity instanceof IndexableInterface ? $this->metadataReader->indicesOf($class) : [],
+            topicId: $entity instanceof MercureItemKey ? $entity->getMercureItemKey() : null,
         );
     }
 

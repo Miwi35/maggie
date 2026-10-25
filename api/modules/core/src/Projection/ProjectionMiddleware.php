@@ -141,7 +141,7 @@ final class ProjectionMiddleware implements MiddlewareInterface
             return;
         }
 
-        $id = CanonicalId::of($change->id);
+        $id = $change->topicId ?? CanonicalId::of($change->id);
 
         if (ChangeKind::Deleted === $change->kind) {
             $payload = ['deleted' => true];
