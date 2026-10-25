@@ -288,7 +288,6 @@ describe('PageHeading — the h1 of every page', () => {
     )
 
   test.each([
-    ['/', 'Accueil'],
     ['/calendar', 'Agenda'],
     ['/tasks', 'Tâches'],
     ['/grocery', 'Courses'],
@@ -304,6 +303,30 @@ describe('PageHeading — the h1 of every page', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
+  test('the Accueil is titled with the date of the day it shows', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 25, 19, 50))
+
+    try {
+      renderHeading('/')
+      expect(screen.getByRole('heading', { level: 1, name: 'Accueil · dimanche 25 octobre' })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('the Accueil on « Demain » is titled with tomorrow', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 25, 19, 50))
+
+    try {
+      renderHeading('/?day=tomorrow')
+      expect(screen.getByRole('heading', { level: 1, name: 'Accueil · lundi 26 octobre' })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('an edit page is titled with the name of the record', async () => {

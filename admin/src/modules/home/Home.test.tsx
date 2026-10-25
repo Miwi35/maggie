@@ -59,7 +59,7 @@ describe('Home', () => {
     // No prose, no empty zone: the page holds the selector only.
     expect(container.firstElementChild?.textContent).toBe("Aujourd'huiDemain")
     expect(container.querySelectorAll('section')).toHaveLength(0)
-    expect(container.firstElementChild?.children).toHaveLength(1)
+    expect(container.firstElementChild?.firstElementChild?.children).toHaveLength(1)
   })
 
   test('hands the day to every card, whatever its zone', async () => {
@@ -124,7 +124,7 @@ describe('Home', () => {
       'card-nutrition',
     ])
     // The selector and the one zone with cards: no launch strip, no left column.
-    expect(container.firstElementChild?.children).toHaveLength(2)
+    expect(container.firstElementChild?.firstElementChild?.children).toHaveLength(2)
   })
 
   test('changing the order of the config changes the order on the page', () => {
@@ -153,14 +153,14 @@ describe('Home', () => {
   test('a config whose keys have no component leaves the selector alone', () => {
     const { container } = renderHome('/', { card: [placed('health')], launch: [placed('leisure')] }, {})
 
-    expect(container.firstElementChild?.children).toHaveLength(1)
+    expect(container.firstElementChild?.firstElementChild?.children).toHaveLength(1)
     expect(screen.queryByTestId('home-empty')).toBeNull()
   })
 
   test('the left column and the grid are the config columns; a card without a column goes to the grid', () => {
     const { container } = renderLayout('/', [placed('tasks', 'left'), { key: 'grocery' }])
 
-    const columns = container.firstElementChild?.children[1].children
+    const columns = container.firstElementChild?.firstElementChild?.children[1].children
     expect(columns).toHaveLength(2)
     expect(within(columns?.[0] as HTMLElement).getByTestId('card-tasks')).toBeInTheDocument()
     expect(within(columns?.[1] as HTMLElement).getByTestId('card-grocery')).toBeInTheDocument()
@@ -355,5 +355,34 @@ describe('Home', () => {
       expect(screen.getByTestId('home-card-tasks')).toBeVisible()
       expect(screen.queryByTestId('home-empty')).toBeNull()
     })
+  })
+})
+
+describe('Home layout (MAG-625)', () => {
+  const columnsOf = (testId: string, query: string) => {
+    const zone = screen.getByTestId(testId).parentElement?.parentElement as HTMLElement
+    const css = Array.from(document.querySelectorAll('style')).map((style) => style.textContent ?? '').join('')
+
+    return { zone, css, query }
+  }
+
+  test('fills the page: no width cap, and the widths follow the page (container query), not the window', () => {
+    renderLayout('/', [placed('tasks', 'left'), placed('agenda', 'left'), placed('grocery'), placed('finance')])
+
+    const { css } = columnsOf('card-tasks', '')
+    expect(css).not.toMatch(/max-width:\s*1200px/)
+    expect(css).toMatch(/@container home \(min-width: 880px\)/)
+    expect(css).toMatch(/grid-template-columns:\s*minmax\(280px, 1fr\) minmax\(0, 2fr\)/)
+    expect(css).toMatch(/grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/)
+  })
+
+  test('puts Tâches then Agenda in the left column and the other modules in the grid', () => {
+    renderLayout('/', [placed('tasks', 'left'), placed('agenda', 'left'), placed('grocery'), placed('finance')])
+
+    const left = screen.getByTestId('card-tasks').parentElement?.parentElement as HTMLElement
+    expect(within(left).getAllByTestId(/^card-/).map((node) => node.dataset.testid)).toEqual(['card-tasks', 'card-agenda'])
+    const grid = screen.getByTestId('card-grocery').parentElement?.parentElement as HTMLElement
+    expect(within(grid).getAllByTestId(/^card-/).map((node) => node.dataset.testid)).toEqual(['card-grocery', 'card-finance'])
+    expect(left).not.toBe(grid)
   })
 })

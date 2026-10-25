@@ -16,6 +16,9 @@ const sx = {
   stack: { display: 'flex', flexDirection: 'column', gap: 2 },
 } as const
 
+/** The page is wide enough for the left column beside the grid. */
+const WIDE = '@container home (min-width: 880px)'
+
 /**
  * The Accueil: the day selector, then the cards of the config (`home.config.ts`) by
  * zone — the strip of launchers, then the left column (Tâches, Agenda) beside the
@@ -27,8 +30,9 @@ const sx = {
  * its place closes up, and when every card is empty the page says one calm sentence
  * instead (MAG-594). A card still loading or in error is not empty.
  *
- * Two columns from `lg`, not `md`: beside the 240px menu and the 380px chat, a
- * 900px window leaves the page no more than 280px.
+ * Full page (`accueil/Accueil-Admin`, MAG-625): the left column beside the grid of the other
+ * modules, which has two columns of its own. The widths are the page's, not the window's — a
+ * container query — since the menu and the open chat panel take 620px of a 1440px window.
  */
 export const Home = ({ config = homeConfig, registry = cardRegistry }: { config?: HomeConfig; registry?: CardRegistry }) => {
   const [day, setDay] = useHomeDay()
@@ -73,7 +77,8 @@ export const Home = ({ config = homeConfig, registry = cardRegistry }: { config?
 
   return (
     <HomeCardStatusContext.Provider value={report}>
-      <Box sx={(theme) => ({ ...sx.stack, gap: 3, p: 3, maxWidth: 1200, mx: 'auto', width: '100%', [theme.breakpoints.down('md')]: { p: 2 } })}>
+      <Box sx={{ containerType: 'inline-size', containerName: 'home', width: '100%', minWidth: 0 }}>
+      <Box sx={(theme) => ({ ...sx.stack, gap: 3, p: 3, [theme.breakpoints.down('md')]: { p: 2 } })}>
         <DaySelector day={day} onChange={setDay} />
         {allEmpty && (
           <Typography variant="body1" color="text.secondary" data-testid="home-empty">
@@ -83,15 +88,15 @@ export const Home = ({ config = homeConfig, registry = cardRegistry }: { config?
         {action.length > 0 && <Box sx={{ ...sx.stack, ...(actionZone.shown === 0 && { display: 'none' }) }}>{action}</Box>}
         {(left.length > 0 || grid.length > 0) && (
           <Box
-            sx={(theme) => ({
+            sx={{
               display: 'grid',
               gap: 2,
               gridTemplateColumns: 'minmax(0, 1fr)',
               alignItems: 'start',
-              [theme.breakpoints.up('lg')]: {
-                gridTemplateColumns: leftZone.shown > 0 && gridZone.shown > 0 ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)',
+              [WIDE]: {
+                gridTemplateColumns: leftZone.shown > 0 && gridZone.shown > 0 ? 'minmax(280px, 1fr) minmax(0, 2fr)' : 'minmax(0, 1fr)',
               },
-            })}
+            }}
           >
             {left.length > 0 && <Box sx={{ ...sx.stack, ...(leftZone.shown === 0 && { display: 'none' }) }}>{left}</Box>}
             {grid.length > 0 && (
@@ -101,6 +106,7 @@ export const Home = ({ config = homeConfig, registry = cardRegistry }: { config?
                   gap: 2,
                   gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
                   alignItems: 'start',
+                  [WIDE]: { gridTemplateColumns: leftZone.shown > 0 ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fill, minmax(240px, 1fr))' },
                 }}
               >
                 {grid}
@@ -108,6 +114,7 @@ export const Home = ({ config = homeConfig, registry = cardRegistry }: { config?
             )}
           </Box>
         )}
+      </Box>
       </Box>
     </HomeCardStatusContext.Provider>
   )

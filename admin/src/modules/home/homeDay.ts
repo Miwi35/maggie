@@ -32,3 +32,12 @@ export function useHomeDay(): [HomeDay, (day: HomeDay) => void] {
 
   return [day, setDay]
 }
+
+const TITLE_DATE = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+/** The Accueil's title, dated with the day its cards show: « Accueil · samedi 25 octobre ». */
+export function homeTitle(day: HomeDay, now: Date = new Date()): string {
+  const shown = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (day === 'tomorrow' ? 1 : 0))
+
+  return `Accueil · ${TITLE_DATE.format(shown)}`
+}

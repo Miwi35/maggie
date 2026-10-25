@@ -25,6 +25,34 @@ test('the Accueil shows its trail and a day selector that switches to « Demain 
   await expect(home.day('Demain')).toHaveAttribute('aria-pressed', 'true')
 })
 
+/**
+ * The Accueil to the letter of the mockup (MAG-625): the page is titled with the day it shows,
+ * and the left column (Agenda here) comes before the grid of the other modules.
+ */
+test('the Accueil is titled with the date of the day, « Demain » with tomorrow, and the Agenda card comes before the grid', async ({ homeUser }) => {
+  const { page } = homeUser
+  const home = new HomePage(page)
+  await home.open()
+
+  const title = page.getByRole('heading', { level: 1, name: /^Accueil · / })
+  await expect(title).toHaveText(/^Accueil · \p{L}+ \d{1,2}(er)? \p{L}+$/u)
+  const today = await title.textContent()
+
+  await home.day('Demain').click()
+  await expect(title).not.toHaveText(String(today))
+  await expect(title).toHaveText(/^Accueil · \p{L}+ \d{1,2}(er)? \p{L}+$/u)
+
+  await home.day("Aujourd'hui").click()
+  await expect(title).toHaveText(String(today))
+
+  const agenda = await home.card('agenda').boundingBox()
+  const grocery = await home.groceryCard.boundingBox()
+  expect(agenda, 'the Agenda card is drawn').not.toBeNull()
+  expect(grocery, 'the Courses card is drawn').not.toBeNull()
+  // Beside the grid on a wide page, above it on a narrow one: never after it.
+  expect(agenda!.y < grocery!.y || agenda!.x < grocery!.x).toBe(true)
+})
+
 test('a link to « Demain » opens the Accueil on it', async ({ page }) => {
   const home = new HomePage(page)
   await home.open('tomorrow')

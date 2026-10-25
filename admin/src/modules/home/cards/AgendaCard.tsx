@@ -3,7 +3,10 @@ import Box from '@mui/material/Box'
 import ButtonBase from '@mui/material/ButtonBase'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
+import Link from '@mui/material/Link'
 import CheckIcon from '@mui/icons-material/Check'
+import { Link as RouterLink } from 'react-router-dom'
+import { ActivityLaunchButton, launchTargetFor } from '../ActivityLaunchButton'
 import { HomeCard } from '../HomeCard'
 import { HomeCardError } from '../HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../homeCardStatus'
@@ -58,12 +61,13 @@ const NowLine = ({ nowMs }: { nowMs: number }) => {
 
 interface RowProps {
   row: TimelineRow
+  day: HomeDay
   date: string
   nowMs: number | null
   onOpen: (event: AgendaHomeEvent) => void
 }
 
-const Row = ({ row, date, nowMs, onOpen }: RowProps) => {
+const Row = ({ row, day, date, nowMs, onOpen }: RowProps) => {
   const { event, kind } = row
   const past = kind === 'past'
   const highlighted = kind === 'next'
@@ -76,7 +80,11 @@ const Row = ({ row, date, nowMs, onOpen }: RowProps) => {
         ? 'en cours'
         : null
 
+  // The ▶ is a link, which cannot sit inside the row's button: it sits beside it, on the same line.
+  const launch = past ? null : launchTargetFor(event.activity)
+
   return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
     <ButtonBase
       onClick={() => onOpen(event)}
       data-testid="agenda-row"
@@ -86,7 +94,8 @@ const Row = ({ row, date, nowMs, onOpen }: RowProps) => {
         alignItems: 'flex-start',
         justifyContent: 'flex-start',
         gap: 1.5,
-        width: '100%',
+        flex: 1,
+        minWidth: 0,
         textAlign: 'left',
         px: 1,
         py: 0.75,
@@ -122,6 +131,8 @@ const Row = ({ row, date, nowMs, onOpen }: RowProps) => {
         )}
       </Box>
     </ButtonBase>
+    {launch && <ActivityLaunchButton module={launch.module} activity={event.summary} day={day} to={launch.path} />}
+    </Box>
   )
 }
 
@@ -141,7 +152,7 @@ export const AgendaCard = ({ day }: { day: HomeDay }) => {
   const rows = (list: TimelineRow[]) =>
     list.map((row) => (
       <li key={`${row.event.id}${row.event.startAt ?? ''}`}>
-        <Row row={row} date={state?.date ?? ''} nowMs={nowMs} onOpen={(e) => setOpenId(e.id)} />
+        <Row row={row} day={day} date={state?.date ?? ''} nowMs={nowMs} onOpen={(e) => setOpenId(e.id)} />
       </li>
     ))
 
@@ -168,6 +179,11 @@ export const AgendaCard = ({ day }: { day: HomeDay }) => {
           )}
           {rows(timeline.following)}
         </Box>
+      )}
+      {state && state.events.length > 0 && (
+        <Link component={RouterLink} to="/calendar" variant="body2" underline="hover" sx={{ display: 'inline-block', mt: 1 }}>
+          Voir la journée ›
+        </Link>
       )}
       <AgendaEventPanel event={opened} onClose={() => setOpenId(null)} />
     </HomeCard>

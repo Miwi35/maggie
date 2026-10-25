@@ -8,6 +8,7 @@ import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import { useNarrowScreen } from '../../hooks/useNarrowScreen'
+import { homeTitle, useHomeDay } from '../../modules/home/homeDay'
 import { useAgentName } from '../../hooks/useAgentName'
 import { AGENT_SETTINGS_PATH, EDIT_LABEL, NEW_LABEL, recordName, resolveTrail } from './navigation'
 import type { SxProps, Theme } from '@mui/material/styles'
@@ -94,12 +95,14 @@ const OWN_HEADING = /^\/recipes\/(create|[^/]+\/show)$/
 export const PageHeading = () => {
   const { pathname } = useLocation()
   const crumbs = useCrumbs()
+  const [day] = useHomeDay()
 
   if (crumbs.length === 0 || OWN_HEADING.test(pathname)) {
     return null
   }
 
-  const title = headingOf(crumbs)
+  // The Accueil is dated, with the day its selector shows (`accueil/Accueil-Admin`).
+  const title = pathname === '/' ? homeTitle(day) : headingOf(crumbs)
 
   return (
     <Typography
