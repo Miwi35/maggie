@@ -4,6 +4,7 @@ import { getCollection, plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed, userTopic } from '../helpers/mercure.js'
 import { dayOfThisWeek } from '../helpers/week.js'
 import { AdminShell } from '../pages/AdminShell.js'
+import { MealsPage } from '../pages/MealsPage.js'
 import { ROUTES } from '../pages/routes.js'
 
 /**
@@ -156,7 +157,7 @@ test.describe('Recipes and meals', () => {
     })
   }
 
-  test('a meal planned from the week view with a recipe saved a moment ago shows in its cell at once', async ({
+  test('a meal planned from the Repas page with a recipe saved a moment ago shows on its day at once', async ({
     page,
     api,
   }) => {
@@ -169,15 +170,12 @@ test.describe('Recipes and meals', () => {
     })
     expect(created.status()).toBe(201)
 
-    const shell = new AdminShell(page)
-    await shell.goto('/meals')
+    const meals = new MealsPage(page)
+    await meals.open()
 
-    // Wednesday lunch: a cell with a meal opens no dialog, so each journey of
-    // this file owns its own — Tuesday is MAG-251's, Thursday MAG-116's, and
-    // the seed's single meal is a dinner.
-    const cell = shell.content.getByTestId('meal-cell-lunch-2')
-    await cell.click()
-    const dialog = page.getByRole('dialog')
+    // Wednesday lunch: each journey of this file owns its own slot — Tuesday
+    // is MAG-251's, Thursday MAG-116's, and the seed's single meal is a dinner.
+    const dialog = await meals.openAddDialog(2, 'lunch')
 
     // A meal is a recipe on a day: with none picked, nothing is created.
     await dialog.getByRole('button', { name: 'Créer' }).click()
@@ -194,12 +192,12 @@ test.describe('Recipes and meals', () => {
     // Found by its name, not by the cell it was planned in: a meal stored at
     // midnight in Paris can be drawn a day early (MAG-166), which is not what
     // this journey is about.
-    await expect(shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: recipeName })).toBeVisible()
+    await expect(meals.cardWith(recipeName)).toBeVisible()
 
     const stored = (await getCollection<MealRow>(api, '/api/meals')).find((m) => String(m.summary).includes(recipeName))
     expect(stored, 'the meal is not in the API collection right after the screen showed it').toBeDefined()
 
-    // MAG-324: the week view names no agenda, and the meal lands in the module
+    // MAG-324: the Repas page names no agenda, and the meal lands in the module
     // agenda « Repas » — created on this first need, found by its attribute and
     // not by its name. The seeded user has none called « Repas », and the
     // default agenda (synced with Google) received nothing.
@@ -218,13 +216,13 @@ test.describe('Recipes and meals', () => {
 
     const defaults = storedAgendas.filter((agenda) => agenda.isDefault)
     expect(defaults.some((agenda) => JSON.stringify(stored?.agenda).includes(agenda['@id']))).toBe(false)
-    await expect(shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: recipeName })).toHaveCount(1)
+    await expect(meals.cardWith(recipeName)).toHaveCount(1)
   })
 
   /**
    * MAG-251: the owner added a meal in the week view and it came up on the day
-   * before. The view labelled its cells with `toISOString()` — the UTC day —
-   * so the cell he clicked offered him Monday for Tuesday, and then wrote it
+   * before. The view labelled its days with `toISOString()` — the UTC day —
+   * so the day he clicked offered him Monday for Tuesday, and then wrote it
    * there.
    *
    * Tuesday lunch, on purpose: the other two journeys in this file plan Monday
@@ -232,8 +230,8 @@ test.describe('Recipes and meals', () => {
    * and carries no ingredient, so nothing reaches the grocery list the rest of
    * the suite shares.
    *
-   * Three checks, because the bug had three faces: the day the cell offers, the
-   * day the API stores, and the cell the meal is drawn in once the page is
+   * Three checks, because the bug had three faces: the day the dialog offers, the
+   * day the API stores, and the day the meal is drawn under once the page is
    * loaded afresh from Elasticsearch.
    */
   test('a lunch planned on Tuesday is on Tuesday, and still is after a reload', async ({ page, api }) => {
@@ -249,16 +247,13 @@ test.describe('Recipes and meals', () => {
       what: 'The recipe this journey plans',
     })
 
-    const shell = new AdminShell(page)
-    await shell.goto('/meals')
+    const meals = new MealsPage(page)
+    await meals.open()
 
-    await shell.content.getByTestId('meal-cell-lunch-1').click()
-
-    const dialog = page.getByRole('dialog')
-    // The day the cell offers. This is the bug: it used to offer the day before.
+    const dialog = await meals.openAddDialog(1, 'lunch')
+    // The day the dialog offers. This is the bug: it used to offer the day before.
     await expect(dialog.getByLabel('Date')).toHaveValue(tuesday)
-    await dialog.getByLabel('Menu').fill('Blanquette')
-    await page.getByRole('option', { name }).click()
+    await meals.pickRecipe(dialog, 'Blanquette', name)
     const mealId = await plannedMealId(page, () => dialog.getByRole('button', { name: 'Créer' }).click())
 
     // The day the API stored, as a day.
@@ -268,11 +263,11 @@ test.describe('Recipes and meals', () => {
     expect(stored.date).toBe(tuesday)
     expect(stored.slot).toBe('lunch')
 
-    // And the cell it is drawn in, on a page loaded afresh.
+    // And the day it is drawn under, on a page loaded afresh.
     await page.reload()
-    await expect(shell.content.getByTestId('meal-cell-lunch-1')).toContainText(name)
-    await expect(shell.content.getByTestId('meal-cell-lunch-0')).not.toContainText(name)
-    await expect(shell.content.getByTestId('meal-cell-lunch-2')).not.toContainText(name)
+    await expect(meals.day(1)).toContainText(name)
+    await expect(meals.day(0)).not.toContainText(name)
+    await expect(meals.day(2)).not.toContainText(name)
   })
 
   test('cancelling a meal takes its ingredients back off the grocery list', async ({ page, api, journeyUser }) => {
@@ -294,17 +289,13 @@ test.describe('Recipes and meals', () => {
       expect(removed.ok() || 404 === removed.status(), `DELETE ${leftover['@id']} answered ${removed.status()}`).toBeTruthy()
     }
 
-    const shell = new AdminShell(page)
-    await shell.goto('/meals')
+    const meals = new MealsPage(page)
+    await meals.open()
 
     // Thursday lunch: the seed plans one dinner and the other journey in this
-    // file uses Tuesday, so this cell is free whatever order they run in.
-    const cell = shell.content.getByTestId('meal-cell-lunch-3')
-    await cell.click()
-
-    const dialog = page.getByRole('dialog')
-    await dialog.getByLabel('Menu').fill('Gratin')
-    await page.getByRole('option', { name: 'Gratin de courgettes' }).click()
+    // file uses Tuesday, so this slot is free whatever order they run in.
+    const dialog = await meals.openAddDialog(3, 'lunch')
+    await meals.pickRecipe(dialog, 'Gratin', 'Gratin de courgettes')
     // The meal is the one this form creates, read off its answer: since MAG-378
     // a meal is named after its recipe, and the user is shared with journeys
     // planning gratins of their own (`meals-module-calendar.spec.ts`).
@@ -325,18 +316,17 @@ test.describe('Recipes and meals', () => {
       { what: 'The gratin’s parmesan' },
     )
 
-    // The week view fetches when it mounts and once on its own write, both
+    // The page fetches when it mounts and once on its own write, both
     // within a blink of the POST and so inside Elasticsearch's refresh — the
-    // cell can still look empty, and nothing refetches on its own afterwards.
+    // day can still look empty, and nothing refetches on its own afterwards.
     // Reload, or the delete button is one that never appears (the meal is
     // findable by now).
     await page.reload()
 
-    // In the cell it was planned in. It used not to be: the grid placed a meal
-    // on the day its `startAt` string began with, and a meal stored at midnight
-    // in Paris comes back from Elasticsearch in UTC and was drawn a day early
-    // (MAG-166). The day is a day now (MAG-251), so the cell is addressable.
-    const planned = cell.getByTestId(`meal-${gratin['@id']}`)
+    // Under the day it was planned on. It used not to be: a meal stored at
+    // midnight in Paris comes back from Elasticsearch in UTC and was drawn a
+    // day early (MAG-166). The day is a day now (MAG-251), so it is addressable.
+    const planned = meals.day(3).getByTestId(`meal-${gratin['@id'].split('/').pop()}`)
     await expect(planned).toBeVisible()
     await planned.getByRole('button', { name: /^Supprimer le repas / }).click()
 
@@ -407,9 +397,9 @@ test.describe('Recipes and meals', () => {
     await expect.poll(async () => (await mealsOf()).length, { timeout: 30_000, message: 'The two meals were never indexed' }).toBe(2)
 
     const shell = new AdminShell(page)
-    await shell.goto('/meals')
-    const week = shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: name })
-    await expect(week).toHaveCount(2)
+    const meals = new MealsPage(page)
+    await meals.open()
+    await expect(meals.cardWith(name)).toHaveCount(2)
 
     await shell.goto(`${ROUTES.recipes}?sort=id&order=DESC&perPage=50`)
     const row = shell.content.getByRole('row').filter({ hasText: name })
@@ -428,9 +418,9 @@ test.describe('Recipes and meals', () => {
       what: 'A grocery list without the deleted recipe’s semolina',
     })
 
-    await shell.goto('/meals')
-    await expect(shell.content.getByTestId('meal-cell-lunch-4')).toBeVisible()
-    await expect(shell.content.locator('[data-testid^="meal-cell-"]').filter({ hasText: name })).toHaveCount(0)
+    await meals.open()
+    await expect(meals.day(4)).toBeVisible()
+    await expect(meals.cardWith(name)).toHaveCount(0)
   })
 
   test('editing a recipe leaves the grocery line of the meals already planned with it alone — MAG-300', async ({ api, journeyUser }) => {

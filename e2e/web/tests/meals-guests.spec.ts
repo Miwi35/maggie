@@ -4,6 +4,7 @@ import { plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { MealSettingsPage } from '../pages/MealSettingsPage.js'
+import { MealsPage } from '../pages/MealsPage.js'
 import { ROUTES } from '../pages/routes.js'
 
 /**
@@ -79,11 +80,10 @@ test.describe('The guests of a meal', () => {
 
     try {
       // When I plan it on Sunday dinner, the « Convives » field marked « par défaut »…
-      await shell.goto(ROUTES.meals)
-      await shell.content.getByTestId('meal-cell-dinner-6').click()
-      const dialog = page.getByRole('dialog')
-      await dialog.getByLabel('Menu').click()
-      await page.getByRole('option', { name: recipeName }).click()
+      const meals = new MealsPage(page)
+      await meals.open()
+      const dialog = await meals.openAddDialog(6, 'dinner')
+      await meals.pickRecipe(dialog, recipeName, recipeName)
       const field = dialog.getByRole('group', { name: 'Convives' })
       await expect(field.getByTestId('guests-value')).toHaveText(String(defaultGuests))
       await expect(field.getByText('par défaut')).toBeVisible()
@@ -120,11 +120,12 @@ test.describe('The guests of a meal', () => {
       await expect(grocery.line(pastaName)).toContainText('600 g')
 
       // When I give the meal back to the default guests…
-      await shell.goto(ROUTES.meals)
-      await page.getByRole('button', { name: new RegExp(`Convives du repas .*${recipeName}`) }).click()
-      const guests = page.getByRole('dialog').filter({ hasText: 'Convives du repas' })
-      await guests.getByRole('button', { name: 'Revenir au défaut' }).click()
-      await expect(guests).toBeHidden()
+      await meals.open()
+      const card = meals.cardOf(mealId)
+      await expect(card.getByTestId('guests-value')).toHaveText('6')
+      await card.getByRole('button', { name: 'Revenir au défaut' }).click()
+      await expect(card.getByTestId('guests-value')).toHaveText(String(defaultGuests))
+      await expect(card.getByText('par défaut')).toBeVisible()
 
       // …then the list follows: the recipe for 4 scaled to the default.
       await waitForIndexed<GroceryListRow>(

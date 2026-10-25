@@ -384,13 +384,15 @@ data class MealCreateRequest(
 )
 
 /**
- * What the meal's sheet saves (MAG-378): the whole menu, and the title the owner typed. A blank
- * [customTitle] puts the title back to the recipes' names.
+ * A merge-patch of a meal: only what is set is sent, the rest stays as it is. The sheet saves the
+ * whole menu and the title the owner typed (MAG-378; a blank [customTitle] puts the title back to the
+ * recipes' names); the week's « − / + » saves [guests] alone (MAG-628).
  */
 @Serializable
 data class MealUpdateRequest(
-    val recipes: List<String>,
-    val customTitle: String,
+    val recipes: List<String>? = null,
+    val customTitle: String? = null,
+    val guests: Int? = null,
 )
 
 @Serializable

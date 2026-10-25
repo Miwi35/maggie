@@ -468,7 +468,7 @@ web:
     areas: [cookbook, chat]
   e2e/web/tests/cookbook-isolation.spec.ts:
     areas: [cookbook, grocery]
-  e2e/web/tests/meals-move.spec.ts:
+  e2e/web/tests/meals-page.spec.ts:
     areas: [cookbook]
   e2e/web/tests/meals-chat-move.spec.ts:
     areas: [cookbook, chat]

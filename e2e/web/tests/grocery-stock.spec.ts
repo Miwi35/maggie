@@ -3,6 +3,7 @@ import { test, expect, seedDate, seedId } from '../fixtures/index.js'
 import { plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { AdminShell } from '../pages/AdminShell.js'
+import { MealsPage } from '../pages/MealsPage.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { ROUTES } from '../pages/routes.js'
@@ -284,7 +285,6 @@ test('one product is one line in packs, with what the meals need as a reminder, 
   // Extends MAG-101. « Pâtes » bought in 500 g packs, in two recipes (300 g and
   // 500 g): the list holds one line, not one per meal.
   const { actor, observer } = twoWindows
-  const acting = new AdminShell(actor)
   const calendar = new CalendarPage(actor)
   const watching = new GroceryListPage(observer)
   const suffix = `${Date.now()}`
@@ -345,11 +345,10 @@ test('one product is one line in packs, with what the meals need as a reminder, 
     await expect(watching.line(pastaName)).toContainText('1 paquet')
 
     // When I plan the 500 g meal, on Sunday dinner…
-    await acting.goto(ROUTES.meals)
-    await acting.content.getByTestId('meal-cell-dinner-6').click()
-    const dialog = actor.getByRole('dialog')
-    await dialog.getByLabel('Menu').click()
-    await actor.getByRole('option', { name: bigRecipeName }).click()
+    const meals = new MealsPage(actor)
+    await meals.open()
+    const dialog = await meals.openAddDialog(6, 'dinner')
+    await meals.pickRecipe(dialog, bigRecipeName, bigRecipeName)
     const secondMealId = await plannedMealId(actor, () => dialog.getByRole('button', { name: 'Créer' }).click())
 
     // …then the box « Courses du repas » says what the list already holds and

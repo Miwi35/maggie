@@ -4,21 +4,26 @@ tags:
   - calendar
   - cookbook
 ---
-# The meals' agenda stays out of the user's list, and the Cuisine module has a
-# calendar of its own (MAG-354).
+# The meals' agenda stays out of the user's list, and the Cuisine module opens on
+# the week's meals (MAG-354, MAG-628).
 #
-# Two screens, one seeded meal (« Pâtes à la tomate », tomorrow's dinner, from
-# `api/fixtures/e2e/40-cookbook.yaml`) and one seeded event that is not a meal
-# (« Stage de voile MAG-288 », an all-day series starting today):
+# Three things, over one seeded meal (« Pâtes à la tomate », tomorrow's dinner, from
+# `api/fixtures/e2e/40-cookbook.yaml`), one seeded event that is not a meal
+# (« Stage de voile MAG-288 », an all-day series starting today) and the journey's
+# own meal (`scripts/meal-week-api.js`: two recipes of 4 servings, for 4 guests, today):
 #
 # - the general calendar's agenda drawer has the single « Repas » line, which is
 #   the meals' filter and not an agenda of the user's;
-# - Cuisine › Planning shows the meal and not the event.
+# - Cuisine opens on Repas, and the week shows the meals and not the event (there is
+#   no Planning any more: the meals are the page);
+# - Given a meal of two recipes this week, when I open Cuisine, Repas shows and I
+#   pass a recipe from 4 to 2 portions: its quantities halve, the other recipe's do
+#   not, and the meal still holds 4 guests (a simulation, never a write).
 #
-# The month is the view the calendar opens on, so tomorrow can be in the next one
-# (on the last day of a month): the flow first gives the meals time to arrive, and
-# only steps forward when the meal still is not on screen. Checking at once would
-# step forward on every run, since the meals load after the title is drawn.
+# Tomorrow can be in the next week (on a Sunday): the flow first gives the meals time
+# to arrive, and only steps forward when the seeded meal still is not on screen.
+# Checking at once would step forward on every run, since the meals load after the
+# heading is drawn.
 
 - launchApp:
     clearState: true
@@ -41,21 +46,53 @@ tags:
 - assertVisible: "Perso"
 - back
 
-# From the burger to Cuisine, then its « Planning » tab.
+- runScript:
+    file: ../scripts/meal-week-api.js
+    env:
+      ACTION: create
+
+# From the burger to Cuisine: it opens on Repas.
 - runFlow:
     file: ../subflows/open-destination.yaml
     env:
       DEST: cookbook
-- tapOn: "Planning"
-
 - extendedWaitUntil:
     visible:
-      id: "calendar_module_title"
+      id: "cookbook_section"
+      text: "Repas"
     timeout: 20000
-- assertVisible: "Planning des repas"
+- assertNotVisible: "Planning"
 
+# 4 → 2 portions on the first recipe: its quantity halves, the second's does not.
+- scrollUntilVisible:
+    element: "Tarte MAG-628"
+    timeout: 30000
 - extendedWaitUntil:
-    visible: ".*Pâtes à la tomate.*"
+    visible: ".*Farine MAG-628 400 g.*"
+    timeout: 20000
+- tapOn:
+    id: "meal_recipe_portions_minus"
+    below: "Soupe MAG-628"
+- tapOn:
+    id: "meal_recipe_portions_minus"
+    below: "Soupe MAG-628"
+- extendedWaitUntil:
+    visible: ".*Farine MAG-628 200 g.*"
+    timeout: 20000
+- assertVisible:
+    id: "meal_recipe_portions_value"
+    text: "2"
+    below: "Soupe MAG-628"
+- assertVisible: ".*Farine MAG-628 400 g.*"
+- runScript:
+    file: ../scripts/meal-week-api.js
+    env:
+      ACTION: expect-unchanged
+
+# The seeded meal is there, the event that is not a meal is not. The week's header stays on
+# screen while the days scroll, so « › » is always at hand.
+- scrollUntilVisible:
+    element: ".*Pâtes à la tomate.*"
     timeout: 10000
     optional: true
 - runFlow:
@@ -63,8 +100,14 @@ tags:
       notVisible: ".*Pâtes à la tomate.*"
     commands:
       - tapOn:
-          id: "calendar_next"
-- extendedWaitUntil:
-    visible: ".*Pâtes à la tomate.*"
-    timeout: 20000
+          id: "meals_week_next"
+- scrollUntilVisible:
+    element: ".*Pâtes à la tomate.*"
+    timeout: 30000
 - assertNotVisible: ".*Stage de voile MAG-288.*"
+
+# Left as found.
+- runScript:
+    file: ../scripts/meal-week-api.js
+    env:
+      ACTION: remove

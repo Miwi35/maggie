@@ -267,11 +267,20 @@ describe('CustomMenu — the modules of the mockup', () => {
       '/grocery',
       '/meals',
       '/meals',
-      '/meals/calendar',
       '/recipes',
       '/finance/dashboard',
       '/settings/preferences',
     ])
+  })
+
+  test('gives Cuisine one Repas entry, then Recettes: no second page for the meals', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/meals')
+    await screen.findByRole('menuitem', { name: 'Recettes' })
+
+    expect(screen.getByRole('menuitem', { name: 'Repas' })).toHaveAttribute('href', '/meals')
+    expect(screen.queryByRole('menuitem', { name: /Planning des repas|Repas de la semaine/ })).toBeNull()
+    expect(hrefs().filter((href) => (href ?? '').startsWith('/meals/'))).toEqual([])
   })
 
   test.each(['/', '/calendar', '/tasks'])('shows no sub-entry on %s', async (path) => {

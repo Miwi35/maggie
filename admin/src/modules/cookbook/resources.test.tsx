@@ -3,8 +3,8 @@ import type { ReactElement } from 'react'
 import { describe, expect, test } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { AdminContext, AdminUI, Resource, testDataProvider } from 'react-admin'
-import { MemoryRouter, useLocation, useParams } from 'react-router-dom'
-import { cookbookResources, RecipeEditRedirect } from './resources'
+import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router-dom'
+import { cookbookResources, MealsCalendarRedirect, RecipeEditRedirect } from './resources'
 
 const resourceProps = (name: string) => {
   const children = Children.toArray((cookbookResources as ReactElement<{ children: React.ReactNode }>).props.children)
@@ -60,5 +60,19 @@ describe('cookbookResources', () => {
     renderAt('/recipes/01R/edit')
 
     expect(await screen.findByText(/^la fiche/)).toBeInTheDocument()
+  })
+
+  test('the old planning address lands on the Repas page, replacing it in the history', async () => {
+    const Where = () => <p>page {useLocation().pathname}</p>
+    render(
+      <MemoryRouter initialEntries={['/meals/calendar']}>
+        <Routes>
+          <Route path="/meals/calendar" element={<MealsCalendarRedirect />} />
+          <Route path="/meals" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('page /meals')).toBeInTheDocument()
   })
 })

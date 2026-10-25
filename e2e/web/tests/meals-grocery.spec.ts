@@ -3,6 +3,7 @@ import type { APIRequestContext, Page } from '@playwright/test'
 import { assistantText, calledTools, toolResults } from '../helpers/agui.js'
 import { getCollection, plannedMealId, waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
+import { MealsPage } from '../pages/MealsPage.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { ROUTES } from '../pages/routes.js'
@@ -255,12 +256,10 @@ test('a planned meal adds nothing, Maggie prepares the week with the recurring i
     })
 
     // When I plan it on Saturday lunch and answer « Plus tard »…
-    const shell = new AdminShell(page)
-    await shell.goto(ROUTES.meals)
-    await shell.content.getByTestId('meal-cell-lunch-5').click()
-    const dialog = page.getByRole('dialog')
-    await dialog.getByLabel('Menu').click()
-    await page.getByRole('option', { name: recipeName }).click()
+    const meals = new MealsPage(page)
+    await meals.open()
+    const dialog = await meals.openAddDialog(5, 'lunch')
+    await meals.pickRecipe(dialog, recipeName, recipeName)
     const mealId = await plannedMealId(page, () => dialog.getByRole('button', { name: 'Créer' }).click())
     await expect(dialog.getByRole('checkbox', { name: riceName })).toBeVisible()
     await dialog.getByRole('button', { name: 'Plus tard' }).click()

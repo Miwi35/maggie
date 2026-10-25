@@ -3,8 +3,8 @@ package com.maggie.app.ui.navigation
 import android.app.Application
 import android.content.ComponentName
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -23,7 +23,7 @@ import org.koin.core.context.stopKoin
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
-/** The Accueil's Nutrition card opens Cuisine on its « Repas » tab (MAG-564), and the next visit starts on « Recettes » again. */
+/** The Accueil's Nutrition card opens Cuisine (MAG-564), which opens on « Repas » whichever way it is reached (MAG-628). */
 @RunWith(AndroidJUnit4::class)
 class HomeNutritionNavGraphScreenTest {
 
@@ -53,15 +53,18 @@ class HomeNutritionNavGraphScreenTest {
         compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.NUTRITION)).performClick()
         compose.waitForIdle()
 
-        compose.onNode(hasText("Repas") and isSelected()).assertIsDisplayed()
+        compose.onNode(hasTestTag(UiTags.COOKBOOK_SECTION) and hasText("Repas")).assertIsDisplayed()
         scenario.close()
     }
 
     @Test
     @Config(qualifiers = PHONE_PORTRAIT)
-    fun `Cuisine opened from the menu starts on Recettes`() {
+    fun `Cuisine opened from the menu starts on Repas, even after a visit to Recettes`() {
         launchOnHome()
         compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.NUTRITION)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION).performClick()
+        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION_RECIPES).performClick()
         compose.waitForIdle()
 
         compose.onNodeWithTag(UiTags.drawerItem("home")).performSemanticsAction(SemanticsActions.OnClick)
@@ -69,7 +72,7 @@ class HomeNutritionNavGraphScreenTest {
         compose.onNodeWithTag(UiTags.drawerItem("cookbook")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
 
-        compose.onNode(hasText("Recettes") and isSelected()).assertIsDisplayed()
+        compose.onNode(hasTestTag(UiTags.COOKBOOK_SECTION) and hasText("Repas")).assertIsDisplayed()
         scenario.close()
     }
 

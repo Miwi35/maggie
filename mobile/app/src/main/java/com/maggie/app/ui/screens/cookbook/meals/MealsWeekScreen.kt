@@ -6,20 +6,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,24 +35,65 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.Ingredient
 import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealSlot
+import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.quantityLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.GuestsStepper
+import com.maggie.app.ui.screens.cookbook.recipes.formatMinutes
+import com.maggie.app.ui.screens.cookbook.recipes.nutritionPerServing
 import com.maggie.app.ui.uiTagRoot
-import java.time.format.DateTimeFormatter
+import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 
 /** « 1 convive », « 4 convives ». */
 internal fun guestsLabel(guests: Int): String = if (guests > 1) "$guests convives" else "$guests convive"
 
+/** « 20 → 26 octobre », or « 28 octobre → 3 novembre » when the week crosses a month. */
+internal fun weekRangeLabel(weekStart: LocalDate): String {
+    val end = weekStart.plusDays(6)
+    fun month(day: LocalDate) = day.month.getDisplayName(TextStyle.FULL, Locale.FRANCE)
+    return if (weekStart.month == end.month) {
+        "${weekStart.dayOfMonth} → ${end.dayOfMonth} ${month(end)}"
+    } else {
+        "${weekStart.dayOfMonth} ${month(weekStart)} → ${end.dayOfMonth} ${month(end)}"
+    }
+}
+
+/** « Lundi 20 »: the title of a day's block. */
+internal fun dayLabel(day: LocalDate): String =
+    day.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.FRANCE).replaceFirstChar { it.uppercase() } + " ${day.dayOfMonth}"
+
+internal fun MealSlot.label(): String = if (this == MealSlot.LUNCH) "Déjeuner" else "Dîner"
+
+/**
+ * « ≈ 515 kcal par personne · 35 min »: what one of the [guests] brings from the quantities scaled to them,
+ * and the time of the steps. Each part only when it is known; null when neither is.
+ */
+internal fun portionFacts(recipe: Recipe, guests: Int, products: Map<String, Ingredient>): String? {
+    val kcal = nutritionPerServing(recipe.ingredients, guests, products)?.kcal
+    val minutes = recipe.steps.sumOf { it.durationMinutes ?: 0 }
+    return listOfNotNull(
+        kcal?.let { "≈ $it kcal par personne" },
+        if (minutes > 0) formatMinutes(minutes) else null,
+    ).joinToString(" · ").ifEmpty { null }
+}
+
+/**
+ * Cuisine › Repas as the mock-up draws it (MAG-628): the week, one block per day, one card per meal. A tap on
+ * the meal opens its sheet, never plans a second one (MAG-378); « + Ajouter un repas » does.
+ */
 @Composable
 fun MealsWeekScreen(
     viewModel: MealsWeekViewModel,
     onCreateMeal: (day: String, slot: String) -> Unit,
     onOpenMeal: (Meal) -> Unit,
+    onChooseIngredients: (mealId: String) -> Unit,
+    onLaunchRecipe: (recipeId: String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var mealToDelete by remember { mutableStateOf<Meal?>(null) }
@@ -74,25 +118,28 @@ fun MealsWeekScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Week navigation
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { viewModel.previousWeek() }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Semaine précédente")
+            IconButton(onClick = viewModel::previousWeek, modifier = Modifier.testTag(UiTags.MEALS_WEEK_PREVIOUS)) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Semaine précédente")
             }
             Text(
-                text = "Semaine du ${uiState.weekStart.format(DateTimeFormatter.ofPattern("dd/MM"))}",
+                text = weekRangeLabel(uiState.weekStart),
                 style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.testTag(UiTags.MEALS_WEEK_LABEL),
             )
-            IconButton(onClick = { viewModel.nextWeek() }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Semaine suivante")
+            IconButton(onClick = viewModel::nextWeek, modifier = Modifier.testTag(UiTags.MEALS_WEEK_NEXT)) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Semaine suivante")
             }
         }
 
-        uiState.deleteError?.let { message ->
+        listOfNotNull(
+            uiState.deleteError?.let { it to viewModel::dismissDeleteError },
+            uiState.guestsError?.let { it to viewModel::dismissGuestsError },
+        ).forEach { (message, dismiss) ->
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -104,147 +151,160 @@ fun MealsWeekScreen(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = viewModel::dismissDeleteError) { Text("Fermer") }
+                TextButton(onClick = dismiss) { Text("Fermer") }
             }
         }
 
-        when {
-            uiState.isLoading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+        if (uiState.isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
-            else -> {
+            return@Column
+        }
+
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            uiState.error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            for (dayOffset in 0L..6L) {
+                val day = uiState.weekStart.plusDays(dayOffset)
+                val slots = uiState.mealsByDaySlot[day].orEmpty()
+                val meals = MealSlot.entries.flatMap { slots[it].orEmpty() }
+                // The first meal of a day is its lunch; once that is planned, the next one is the dinner.
+                val nextSlot = if (slots[MealSlot.LUNCH].isNullOrEmpty()) "lunch" else "dinner"
+
+                Text(
+                    text = dayLabel(day),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                meals.forEach { meal ->
+                    MealCard(
+                        meal = meal,
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        onOpen = { onOpenMeal(meal) },
+                        onLongPress = { mealToDelete = meal },
+                        onChooseIngredients = { onChooseIngredients(meal.id) },
+                        onLaunchRecipe = onLaunchRecipe,
+                    )
+                }
+                TextButton(
+                    onClick = { onCreateMeal(day.toString(), nextSlot) },
+                    modifier = Modifier.testTag(UiTags.mealAddDay(dayOffset.toInt())),
+                ) { Text("+ Ajouter un repas") }
+            }
+            Spacer(Modifier.size(16.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun MealCard(
+    meal: Meal,
+    uiState: MealsWeekUiState,
+    viewModel: MealsWeekViewModel,
+    onOpen: () -> Unit,
+    onLongPress: () -> Unit,
+    onChooseIngredients: () -> Unit,
+    onLaunchRecipe: (String) -> Unit,
+) {
+    val recipeIds = meal.recipeIds()
+    Card(modifier = Modifier.fillMaxWidth().testTag(UiTags.MEAL_CARD)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(
-                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                        .padding(horizontal = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.weight(1f)
+                        .combinedClickable(onClick = onOpen, onLongClick = onLongPress)
+                        .testTag(UiTags.MEAL_ROW),
                 ) {
-                    // Header row
-                    Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(meal.slot.label(), style = MaterialTheme.typography.titleMedium)
+                    // The menu names itself after its recipes, which the card lists below: a title is only worth a line when it says more.
+                    if (recipeIds.isEmpty() || !meal.customTitle.isNullOrBlank()) {
                         Text(
-                            text = "",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                        Text(
-                            text = "Déjeuner",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.labelSmall,
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            text = "Dîner",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.labelSmall,
-                            textAlign = TextAlign.Center,
+                            text = meal.summary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                }
+                Text("Convives", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                GuestsStepper(
+                    value = meal.guests,
+                    onStep = { viewModel.stepGuests(meal.id, it) },
+                    tag = UiTags.MEAL_CARD_GUESTS,
+                )
+            }
 
-                    // Days
-                    for (dayOffset in 0L..6L) {
-                        val day = uiState.weekStart.plusDays(dayOffset)
-                        val dayMeals = uiState.mealsByDaySlot[day] ?: emptyMap()
-                        val dayStr = day.toString()
+            recipeIds.forEach { recipeId ->
+                RecipePortionsBlock(
+                    portions = uiState.portions[MealRecipeKey(meal.id, recipeId)],
+                    products = uiState.products,
+                    onStep = { viewModel.stepPortions(meal.id, recipeId, it) },
+                    onLaunch = { onLaunchRecipe(recipeId) },
+                )
+            }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Top,
-                        ) {
-                            Text(
-                                text = day.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.FRANCE)
-                                    .replaceFirstChar { it.uppercase() } +
-                                    "\n${day.format(DateTimeFormatter.ofPattern("dd/MM"))}",
-                                modifier = Modifier.weight(1f).padding(vertical = 4.dp),
-                                style = MaterialTheme.typography.labelMedium,
-                            )
-
-                            // Lunch
-                            MealSlotCell(
-                                meals = dayMeals[MealSlot.LUNCH] ?: emptyList(),
-                                onCreate = { onCreateMeal(dayStr, "lunch") },
-                                onOpen = onOpenMeal,
-                                onLongPress = { mealToDelete = it },
-                                modifier = Modifier.weight(1f).testTag(UiTags.mealSlot("lunch", dayOffset.toInt())),
-                            )
-
-                            // Dinner
-                            MealSlotCell(
-                                meals = dayMeals[MealSlot.DINNER] ?: emptyList(),
-                                onCreate = { onCreateMeal(dayStr, "dinner") },
-                                onOpen = onOpenMeal,
-                                onLongPress = { mealToDelete = it },
-                                modifier = Modifier.weight(1f).testTag(UiTags.mealSlot("dinner", dayOffset.toInt())),
-                            )
-                        }
-                    }
+            if (recipeIds.isNotEmpty()) {
+                TextButton(onClick = onChooseIngredients, modifier = Modifier.testTag(UiTags.MEAL_CARD_INGREDIENTS)) {
+                    Text("Ingrédients sur la liste")
                 }
             }
         }
     }
 }
 
-/**
- * An empty slot is a card that plans a meal. A slot with meals lists them — a tap opens the
- * meal's sheet, never a second creation (MAG-378) — and ends with a « + » row to plan another.
- */
-@OptIn(ExperimentalFoundationApi::class)
+/** One recipe of a meal: « Lancer », its portions (a simulation, nothing saved) and what that many people bring. */
 @Composable
-private fun MealSlotCell(
-    meals: List<Meal>,
-    onCreate: () -> Unit,
-    onOpen: (Meal) -> Unit,
-    onLongPress: (Meal) -> Unit,
-    modifier: Modifier = Modifier,
+private fun RecipePortionsBlock(
+    portions: RecipePortions?,
+    products: Map<String, Ingredient>,
+    onStep: (Int) -> Unit,
+    onLaunch: () -> Unit,
 ) {
-    val colors = CardDefaults.cardColors(
-        containerColor = if (meals.isEmpty()) {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        } else {
-            MaterialTheme.colorScheme.primaryContainer
-        },
-    )
-    if (meals.isEmpty()) {
-        Card(onClick = onCreate, modifier = modifier.padding(2.dp), colors = colors) {
+    val recipe = portions?.recipe
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "+",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(4.dp).fillMaxWidth(),
+                text = recipe?.name ?: "Recette",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
             )
-        }
-        return
-    }
-    Card(modifier = modifier.padding(2.dp), colors = colors) {
-        Column(modifier = Modifier.padding(4.dp).fillMaxWidth()) {
-            meals.forEach { meal ->
-                Text(
-                    text = meal.summary,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(onClick = { onOpen(meal) }, onLongClick = { onLongPress(meal) })
-                        .testTag(UiTags.MEAL_ROW),
-                )
-                Text(
-                    text = guestsLabel(meal.guests),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag(UiTags.MEAL_ROW_GUESTS),
-                )
+            TextButton(onClick = onLaunch, modifier = Modifier.testTag(UiTags.MEAL_RECIPE_LAUNCH)) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text("Lancer")
             }
-            Text(
-                text = "+",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .combinedClickable(onClick = onCreate)
-                    .testTag(UiTags.MEAL_ADD),
-            )
+        }
+        if (portions != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Portions", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                GuestsStepper(value = portions.guests, onStep = onStep, tag = UiTags.MEAL_RECIPE_PORTIONS)
+                if (portions.isLoading) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            }
+            recipe?.let { scaled ->
+                portionFacts(scaled, portions.guests, products)?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag(UiTags.MEAL_RECIPE_FACTS),
+                    )
+                }
+                if (scaled.ingredients.isNotEmpty()) {
+                    Text(
+                        text = scaled.ingredients.joinToString(" · ") { "${it.ingredientName.orEmpty()} ${it.quantityLabel()}".trim() },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            portions.error?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }

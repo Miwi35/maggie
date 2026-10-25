@@ -4,8 +4,7 @@ import { Navigate, Route, useParams } from 'react-router-dom'
 import { lazyPage } from '../../lazyPage'
 import { COOKING_ACTIVITY_PATH } from './cooking/cookingSession'
 
-const CalendarView = lazyPage(() => import('../calendar/CalendarView'), 'CalendarView')
-const MealsWeekView = lazyPage(() => import('./MealsWeekView'), 'MealsWeekView')
+const MealsPage = lazyPage(() => import('./MealsPage'), 'MealsPage')
 const IngredientCreate = lazyPage(() => import('./IngredientCreate'), 'IngredientCreate')
 const IngredientEdit = lazyPage(() => import('./IngredientEdit'), 'IngredientEdit')
 const IngredientList = lazyPage(() => import('./IngredientList'), 'IngredientList')
@@ -23,11 +22,14 @@ export const RecipeEditRedirect = () => {
   return <Navigate to={createPath({ resource: 'recipes', type: 'show', id })} replace />
 }
 
+// The planning of the meals was a second page for the same function: its old address lands on the Repas page.
+export const MealsCalendarRedirect = () => <Navigate to="/meals" replace />
+
 export const cookbookResources = (
   <>
     <CustomRoutes>
-      <Route path="/meals" element={<MealsWeekView />} />
-      <Route path="/meals/calendar" element={<CalendarView moduleKey="cookbook" />} />
+      <Route path="/meals" element={<MealsPage />} />
+      <Route path="/meals/calendar" element={<MealsCalendarRedirect />} />
     </CustomRoutes>
     {/* The Cuisine activity (MAG-580): full screen, out of the menus. */}
     <CustomRoutes noLayout>

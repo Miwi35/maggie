@@ -253,8 +253,6 @@ sealed class Screen(val route: String, val label: String) {
     data object Search : Screen("search", "Rechercher")
     data object Proactions : Screen("proactions", "Proactions")
     data object Cookbook : Screen("cookbook", "Cuisine")
-    /** A way into Cuisine on its « Repas » tab (the Accueil's Nutrition card): swapped for [Cookbook] at once. */
-    data object CookbookMeals : Screen("cookbook/meals", "Repas")
     data object Grocery : Screen("grocery", "Courses")
     data object ProductList : Screen("products", "Produits")
     data object StoreList : Screen("stores", "Magasins")
@@ -704,7 +702,6 @@ fun NavGraph() {
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
     val mealCreateViewModel: MealCreateViewModel = koinViewModel()
     val mealDetailViewModel: MealDetailViewModel = koinViewModel()
-    val mealsCalendarViewModel: FullCalendarViewModel = koinViewModel(key = "mealsCalendar") { parametersOf("cookbook") }
     val groceryViewModel: GroceryViewModel = koinViewModel()
     val subtasksViewModel: SubtasksViewModel = koinViewModel()
     val recurringGroceryViewModel: RecurringGroceryViewModel = koinViewModel()
@@ -797,7 +794,6 @@ fun NavGraph() {
     }
     var detailRecipeId by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryItemToOpen by rememberSaveable { mutableStateOf<String?>(null) }
-    var cookbookOnMeals by rememberSaveable { mutableStateOf(false) }
     var groceryPaneItemId by rememberSaveable { mutableStateOf<String?>(null) }
     // Read through a State: the NavHost graph is rebuilt when the builder's captures change.
     val paneShown by rememberUpdatedState(chrome.showsDetailPane)
@@ -1546,26 +1542,14 @@ fun NavGraph() {
                             onBack = { navController.popBackStack() },
                         )
                     }
-                    composable(Screen.CookbookMeals.route) { entry ->
-                        LoadingScreen()
-                        LaunchedEffect(Unit) {
-                            cookbookOnMeals = true
-                            navController.replaceLink(entry, Screen.Cookbook.route, singleTop = true)
-                        }
-                    }
                     composable(Screen.Cookbook.route) {
                         val paneRecipeId = detailRecipeId
-                        // The tab is chosen when the screen first draws; the next visit starts on « Recettes » again.
-                        val startOnMeals = remember { cookbookOnMeals }
-                        LaunchedEffect(Unit) { cookbookOnMeals = false }
                         ListDetailPane(
                             showsDetailPane = paneShown,
                             list = {
                                 CookbookScreen(
-                                    startOnMeals = startOnMeals,
                                     recipeListViewModel = recipeListViewModel,
                                     mealsWeekViewModel = mealsWeekViewModel,
-                                    mealsCalendarViewModel = mealsCalendarViewModel,
                                     onRecipeClick = { id ->
                                         detailRecipeId = id
                                         if (!paneShown) navController.navigate(Screen.RecipeDetail.route)
@@ -1580,6 +1564,13 @@ fun NavGraph() {
                                         // Started before the sheet draws: a meal reopened never shows the last opening's state.
                                         mealDetailViewModel.open(meal)
                                         openedMeal = meal
+                                    },
+                                    onChooseIngredients = { mealId ->
+                                        mealToChooseIngredientsOf = mealId
+                                        navController.navigate(Screen.MealIngredientChoice.route)
+                                    },
+                                    onLaunchRecipe = { recipeId ->
+                                        navController.navigate(Screen.CookingActivity.ofRecipe(recipeId)) { launchSingleTop = true }
                                     },
                                 )
                             },
