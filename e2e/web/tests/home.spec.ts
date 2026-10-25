@@ -45,12 +45,24 @@ test('the Accueil is titled with the date of the day, « Demain » with tomorrow
   await home.day("Aujourd'hui").click()
   await expect(title).toHaveText(String(today))
 
-  const agenda = await home.card('agenda').boundingBox()
-  const grocery = await home.groceryCard.boundingBox()
-  expect(agenda, 'the Agenda card is drawn').not.toBeNull()
-  expect(grocery, 'the Courses card is drawn').not.toBeNull()
-  // Beside the grid on a wide page, above it on a narrow one: never after it.
-  expect(agenda!.y < grocery!.y || agenda!.x < grocery!.x).toBe(true)
+  const [agenda, grocery, pageBox] = await Promise.all([
+    home.card('agenda').boundingBox(),
+    home.groceryCard.boundingBox(),
+    page.getByTestId('home-page').boundingBox(),
+  ])
+  expect(agenda && grocery && pageBox, 'the cards and the page are drawn').toBeTruthy()
+  if (pageBox!.width >= 760) {
+    // The page is wide enough (1440px with the menu and the chat open leaves ~820px): the left column
+    // sits beside the grid, whose cards come two by two.
+    expect(agenda!.x + agenda!.width, 'Agenda is left of the grid').toBeLessThanOrEqual(grocery!.x + 1)
+    const columns = await home.groceryCard.evaluate((card) => {
+      const grid = card.parentElement?.parentElement
+      return grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : 0
+    })
+    expect(columns, 'the grid of the other modules has two columns').toBe(2)
+  } else {
+    expect(agenda!.y, 'Agenda is above the grid on a narrow page').toBeLessThan(grocery!.y)
+  }
 })
 
 test('a link to « Demain » opens the Accueil on it', async ({ page }) => {

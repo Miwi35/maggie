@@ -17,7 +17,7 @@ const sx = {
 } as const
 
 /** The page is wide enough for the left column beside the grid. */
-const WIDE = '@container home (min-width: 880px)'
+const WIDE = '@container home (min-width: 760px)'
 
 /**
  * The Accueil: the day selector, then the cards of the config (`home.config.ts`) by
@@ -77,7 +77,7 @@ export const Home = ({ config = homeConfig, registry = cardRegistry }: { config?
 
   return (
     <HomeCardStatusContext.Provider value={report}>
-      <Box sx={{ containerType: 'inline-size', containerName: 'home', width: '100%', minWidth: 0 }}>
+      <Box data-testid="home-page" sx={{ containerType: 'inline-size', containerName: 'home', width: '100%', minWidth: 0 }}>
       <Box sx={(theme) => ({ ...sx.stack, gap: 3, p: 3, [theme.breakpoints.down('md')]: { p: 2 } })}>
         <DaySelector day={day} onChange={setDay} />
         {allEmpty && (
@@ -94,7 +94,7 @@ export const Home = ({ config = homeConfig, registry = cardRegistry }: { config?
               gridTemplateColumns: 'minmax(0, 1fr)',
               alignItems: 'start',
               [WIDE]: {
-                gridTemplateColumns: leftZone.shown > 0 && gridZone.shown > 0 ? 'minmax(280px, 1fr) minmax(0, 2fr)' : 'minmax(0, 1fr)',
+                gridTemplateColumns: leftZone.shown > 0 && gridZone.shown > 0 ? 'minmax(240px, 1fr) minmax(0, 2fr)' : 'minmax(0, 1fr)',
               },
             }}
           >

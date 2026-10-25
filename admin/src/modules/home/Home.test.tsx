@@ -371,8 +371,8 @@ describe('Home layout (MAG-625)', () => {
 
     const { css } = columnsOf('card-tasks', '')
     expect(css).not.toMatch(/max-width:\s*1200px/)
-    expect(css).toMatch(/@container home \(min-width: 880px\)/)
-    expect(css).toMatch(/grid-template-columns:\s*minmax\(280px, 1fr\) minmax\(0, 2fr\)/)
+    expect(css).toMatch(/@container home \(min-width: 760px\)/)
+    expect(css).toMatch(/grid-template-columns:\s*minmax\(240px, 1fr\) minmax\(0, 2fr\)/)
     expect(css).toMatch(/grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/)
   })
 
