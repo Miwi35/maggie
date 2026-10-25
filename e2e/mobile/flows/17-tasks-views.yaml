@@ -135,6 +135,8 @@ tags:
     visible: "Tâche MAG-408"
     timeout: 20000
 - assertVisible: "Sortir les poubelles"
+# MAG-636: the API's English words (criticality, priority) never reach the screen.
+- assertNotVisible: "low|medium|high|critical"
 
 # Its detail deletes it, which leaves the seeded server as it was. On a foldable the detail
 # is a sheet taller than the screen: « Supprimer » is at its foot.

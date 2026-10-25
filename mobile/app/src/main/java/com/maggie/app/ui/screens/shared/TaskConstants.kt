@@ -97,6 +97,7 @@ fun DropdownField(
 
 @Composable
 fun CriticalityChip(criticality: String) {
+    val label = TaskConstants.CRITICALITY_LABELS[criticality] ?: return
     val color = criticalityColor(criticality)
     Surface(
         color = color,
@@ -105,7 +106,7 @@ fun CriticalityChip(criticality: String) {
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
-                text = criticality,
+                text = label,
                 color = readableTextOn(color),
                 fontSize = 10.sp,
                 modifier = Modifier.padding(horizontal = 6.dp),
