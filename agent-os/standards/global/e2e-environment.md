@@ -371,8 +371,13 @@ their [README](../../../scripts/prompt-lab/scenarios/README.md) is the format.
 `task e2e:eval` restarts the agent on `LLM_PROVIDER=anthropic` and puts the fake
 back afterwards, even on failure.
 
-It runs nightly and on demand (the `eval` job of `.github/workflows/nightly.yml`), never in CI: a
-prompt regression is a signal, not a merge blocker. **An assertion that would
+It runs **by hand, when a prompt changes** (MAG-449, owner's decision of 14 Oct.:
+spend as little Anthropic credit as possible in tests, mock first): locally with
+`task e2e:eval`, or from the Actions tab — workflow `Nightly`, `what: eval`, and
+`only` for a single scenario (the `eval` job of `.github/workflows/nightly.yml`).
+Never on the schedule, never in CI: a prompt regression is a signal, not a merge
+blocker. The production smoke test (one question per deploy, a second try if the first fails) is the only
+automatic call to the real model. **An assertion that would
 hold with any plausible wording belongs in a journey with the fake instead** —
 cheaper, deterministic, and it runs on every PR.
 
