@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -76,6 +76,8 @@ def last_exchange_line(last_at: datetime, topic: str | None = None, now: datetim
 
     « Hier » and « avant-hier » count calendar days in Paris, not 24-hour spans: a message
     written at 22h40 is « hier » at 08h the next morning, which is what a greeting needs.
+    The gap itself is real elapsed time, measured between UTC instants: two Paris datetimes
+    subtract as wall-clock readings, which loses or gains an hour across a clock change (MAG-610).
     """
     now = (now or datetime.now(TZ_PARIS)).astimezone(TZ_PARIS)
     last = last_at.astimezone(TZ_PARIS)
@@ -89,7 +91,8 @@ def last_exchange_line(last_at: datetime, topic: str | None = None, now: datetim
     else:
         when = f"{DAYS_FR[last.weekday()]} {last.strftime('%Y-%m-%d')}"
 
-    line = f"Dernière conversation : {when} à {last.strftime('%Hh%M')} ({_elapsed(now - last)})"
+    gap = _elapsed(now.astimezone(UTC) - last.astimezone(UTC))
+    line = f"Dernière conversation : {when} à {last.strftime('%Hh%M')} ({gap})"
     topic = " ".join((topic or "").split())
     return f"{line}, sujet : {topic}." if topic else f"{line}."
 

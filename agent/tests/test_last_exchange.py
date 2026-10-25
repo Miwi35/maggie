@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
+from zoneinfo import ZoneInfo
 
 from app.db.context_model import ConversationContext
 from app.db.message_repository import message_repo
@@ -10,6 +11,7 @@ from app.llm.gateway import LLMGateway
 from app.llm.last_exchange import last_exchange_section
 from app.llm.streaming import StreamingGateway
 from app.memory.agent_memory import MemoryBlocks
+from app.personality.engine import last_exchange_line
 
 
 async def _write(
@@ -71,6 +73,41 @@ class TestFindLast:
 
     async def test_a_user_with_no_message_has_no_last_one(self, chat_db):
         assert await message_repo.find_last("user-1") is None
+
+
+PARIS = ZoneInfo("Europe/Paris")
+
+
+class TestLastExchangeLineAroundClockChanges:
+    """« il y a N h » is the real elapsed time, whatever the wall clock did in between (MAG-610)."""
+
+    def test_the_night_the_clocks_go_back_counts_the_extra_hour(self):
+        last = datetime(2026, 10, 24, 23, 51, tzinfo=PARIS)
+        now = datetime(2026, 10, 25, 8, 51, tzinfo=PARIS)
+
+        line = last_exchange_line(last, now=now)
+
+        assert line == "Dernière conversation : hier à 23h51 (il y a 10h)."
+
+    def test_the_night_the_clocks_go_forward_drops_the_missing_hour(self):
+        last = datetime(2026, 3, 28, 23, 51, tzinfo=PARIS)
+        now = datetime(2026, 3, 29, 8, 51, tzinfo=PARIS)
+
+        line = last_exchange_line(last, now=now)
+
+        assert line == "Dernière conversation : hier à 23h51 (il y a 8h)."
+
+    def test_a_gap_without_clock_change_is_unchanged(self):
+        last = datetime(2026, 7, 14, 23, 51, tzinfo=PARIS)
+        now = datetime(2026, 7, 15, 8, 51, tzinfo=PARIS)
+
+        assert "(il y a 9h)" in last_exchange_line(last, now=now)
+
+    def test_instants_given_in_utc_give_the_same_answer(self):
+        last = datetime(2026, 10, 24, 21, 51, tzinfo=UTC)
+        now = datetime(2026, 10, 25, 7, 51, tzinfo=UTC)
+
+        assert last_exchange_line(last, now=now) == "Dernière conversation : hier à 23h51 (il y a 10h)."
 
 
 class TestLastExchangeSection:
