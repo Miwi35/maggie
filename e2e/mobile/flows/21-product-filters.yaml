@@ -77,7 +77,8 @@ tags:
     id: "product_filter_store"
 - tapOn:
     id: "product_filter_option"
-    text: "Épicerie du coin"
+    containsChild:
+      text: "Épicerie du coin"
 - extendedWaitUntil:
     visible: "Frais MAG-606"
     timeout: 30000
@@ -97,7 +98,8 @@ tags:
     id: "product_filter_aisle"
 - tapOn:
     id: "product_filter_option"
-    text: "Frais MAG-606"
+    containsChild:
+      text: "Frais MAG-606"
 - extendedWaitUntil:
     visible:
       text: "Yaourt MAG-606"
