@@ -225,11 +225,27 @@ tags:
 - extendedWaitUntil:
     visible: "Cinéma"
     timeout: 30000
-- scrollUntilVisible:
-    element: ".*45[.,]00 EUR · saison.*"
-- extendedWaitUntil:
-    visible: ".*45[.,]00 EUR · saison.*"
-    timeout: 30000
+# The season is named on the phone's and the foldable's cards; the tablet's tree rows carry the amount only.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "budget_tree"
+    commands:
+      - scrollUntilVisible:
+          element: ".*45[.,]00 EUR · saison.*"
+      - extendedWaitUntil:
+          visible: ".*45[.,]00 EUR · saison.*"
+          timeout: 30000
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "budget_tree"
+    commands:
+      - extendedWaitUntil:
+          visible: ".*45[.,]00 EUR.*"
+          timeout: 30000
 
 # Left as found.
 - runScript:
