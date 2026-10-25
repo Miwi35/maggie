@@ -57,8 +57,8 @@ export function stubAislesApi(
     const id = url.match(/\/aisles\/([^/?]+)$/)?.[1]
 
     if (method === 'GET' && !id) {
-      const store = new URL(url, 'http://localhost').searchParams.get('store') ?? ''
-      return respond(200, { member: ofStore(store).map(serialise) })
+      const store = new URL(url, 'http://localhost').searchParams.get('store')
+      return respond(200, { member: (store === null ? aisles : ofStore(store)).map(serialise) })
     }
 
     writes.push({ method, url, body })

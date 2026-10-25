@@ -9,7 +9,6 @@ import { StoreAisles } from './StoreAisles'
 const mockNotify = vi.fn()
 vi.mock('react-admin', () => ({
   useNotify: () => mockNotify,
-  useRecordContext: () => ({ id: '/api/stores/carrefour' }),
 }))
 
 // The drag itself needs a layout engine jsdom does not have, so the tests
@@ -58,16 +57,16 @@ describe('StoreAisles', () => {
 
   test("lists the store's aisles, and only its own, in the order of the way through it", async () => {
     stubAislesApi([CARREFOUR[2], OTHER_STORE, CARREFOUR[0], CARREFOUR[1]])
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
 
     await waitFor(() => expect(shown()).toEqual(['Fruits et légumes', 'Crèmerie', 'Boulangerie']))
-    expect(screen.getByText('Rayons')).toBeInTheDocument()
+    expect(screen.getByText('Ordre du parcours')).toBeInTheDocument()
   })
 
   test('adds an aisle at the end with Enter', async () => {
     const user = userEvent.setup()
     const { writes } = stubAislesApi(CARREFOUR)
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
     await user.type(screen.getByLabelText('Nouveau rayon'), 'Surgelés{Enter}')
@@ -82,11 +81,11 @@ describe('StoreAisles', () => {
   test('says why an aisle was refused, and keeps what was typed', async () => {
     const user = userEvent.setup()
     stubAislesApi(CARREFOUR, { failWrites: true })
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
     await user.type(screen.getByLabelText('Nouveau rayon'), 'crèmerie')
-    await user.click(screen.getByRole('button', { name: 'Ajouter' }))
+    await user.click(screen.getByRole('button', { name: '+ Rayon' }))
 
     await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Ce magasin a déjà ce rayon.', { type: 'error' }))
     expect(shown()).toHaveLength(3)
@@ -96,7 +95,7 @@ describe('StoreAisles', () => {
   test('renames an aisle in place', async () => {
     const user = userEvent.setup()
     const { writes } = stubAislesApi(CARREFOUR)
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
     await user.click(screen.getByRole('button', { name: 'Renommer Crèmerie' }))
@@ -111,7 +110,7 @@ describe('StoreAisles', () => {
   test('Escape leaves the name as it was', async () => {
     const user = userEvent.setup()
     const { writes } = stubAislesApi(CARREFOUR)
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
     await user.click(screen.getByRole('button', { name: 'Renommer Crèmerie' }))
@@ -124,7 +123,7 @@ describe('StoreAisles', () => {
   test('deletes an aisle once confirmed', async () => {
     const user = userEvent.setup()
     const { writes } = stubAislesApi(CARREFOUR)
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
     await user.click(screen.getByRole('button', { name: 'Supprimer Crèmerie' }))
@@ -138,7 +137,7 @@ describe('StoreAisles', () => {
 
   test('a drag moves the aisle at once and sends its new place, 1 being the first', async () => {
     const { writes } = stubAislesApi(CARREFOUR)
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
     await drag('bakery', 'dairy')
@@ -149,7 +148,7 @@ describe('StoreAisles', () => {
 
   test('a refused move says so and puts the aisles back as the API has them', async () => {
     stubAislesApi(CARREFOUR, { failWrites: true })
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
     await drag('fruits', 'bakery')
@@ -160,7 +159,7 @@ describe('StoreAisles', () => {
 
   test('an aisle moved elsewhere (the phone, Maggie) is redrawn from its Mercure update', async () => {
     const { aisles } = stubAislesApi(CARREFOUR)
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
     expect(mercure.topics).toEqual(['/api/aisles/{id}'])
 
@@ -172,7 +171,7 @@ describe('StoreAisles', () => {
 
   test("another store's aisle changing leaves this list alone", async () => {
     const { fetchMock } = stubAislesApi(CARREFOUR)
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
     const reads = fetchMock.mock.calls.length
 
@@ -183,7 +182,7 @@ describe('StoreAisles', () => {
 
   test('a list the API does not give says so', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) } as Response)))
-    render(<StoreAisles />)
+    render(<StoreAisles storeId="carrefour" />)
 
     await waitFor(() =>
       expect(mockNotify).toHaveBeenCalledWith("Erreur : les rayons n'ont pas été chargés", { type: 'error' }),

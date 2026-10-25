@@ -50,6 +50,7 @@ const refused = async (response: Response, fallback: string): Promise<AisleError
 interface AisleMember {
   '@id'?: string
   id?: string
+  store?: string | { '@id'?: string }
   name: string
   position: number
 }
@@ -67,6 +68,28 @@ export async function fetchAisles(storeId: string): Promise<Aisle[]> {
   if (!response.ok) throw new AisleError(`aisles: ${response.status}`)
   const body = await response.json()
   return ((body?.member ?? []) as AisleMember[]).map(toAisle).sort((a, b) => a.position - b.position)
+}
+
+/** How many aisles each store has, by bare store id — one read for every store. */
+export async function fetchAisleCounts(): Promise<Record<string, number>> {
+  const response = await call('/aisles', 'GET')
+  if (!response.ok) throw new AisleError(`aisles: ${response.status}`)
+  const body = await response.json()
+  const counts: Record<string, number> = {}
+  for (const member of (body?.member ?? []) as AisleMember[]) {
+    const store = typeof member.store === 'string' ? member.store : (member.store?.['@id'] ?? '')
+    if (store) counts[bareId(store)] = (counts[bareId(store)] ?? 0) + 1
+  }
+  return counts
+}
+
+/** How many products a store has: the ones the product list filtered on that store shows. */
+export async function fetchStoreProductCount(storeId: string): Promise<number> {
+  const query = new URLSearchParams({ store: bareId(storeId), itemsPerPage: '1' })
+  const response = await call(`/products?${query}`, 'GET')
+  if (!response.ok) throw new AisleError(`products: ${response.status}`)
+  const body = await response.json()
+  return Number(body?.totalItems ?? body?.member?.length ?? 0)
 }
 
 /** Adds an aisle at the end of the store's way. */

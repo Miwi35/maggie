@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { useNotify, useRecordContext } from 'react-admin'
+import { useNotify } from 'react-admin'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import {
@@ -21,11 +21,10 @@ import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import TextField from '@mui/material/TextField'
-import AddIcon from '@mui/icons-material/Add'
+import Typography from '@mui/material/Typography'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
-import { FormSection } from '../../components/form/FormSection'
 import { useMercure } from '../../hooks/useMercure'
 import { AISLE_TOPIC, AisleError, createAisle, deleteAisle, fetchAisles, updateAisle } from './aislesApi'
 import type { Aisle } from './aislesApi'
@@ -106,19 +105,16 @@ function SortableAisle({
 }
 
 /**
- * The aisles of the store open in the form, in the order of the way through
- * it: drag one to move it, and the grocery list follows (MAG-493).
+ * The aisles of a store, in the order of the way through it: drag one to move
+ * it, and the grocery list follows (MAG-493).
  */
-export const StoreAisles = () => {
-  const record = useRecordContext<{ id: string }>()
-  const storeId = record?.id ? String(record.id) : null
+export const StoreAisles = ({ storeId }: { storeId: string }) => {
   const notify = useNotify()
   const [aisles, setAisles] = useState<Aisle[]>([])
   const [newName, setNewName] = useState('')
   const [toDelete, setToDelete] = useState<Aisle | null>(null)
 
   const reload = useCallback(async () => {
-    if (!storeId) return
     try {
       setAisles(await fetchAisles(storeId))
     } catch {
@@ -137,7 +133,7 @@ export const StoreAisles = () => {
         try {
           const payload = data ? JSON.parse(data) : null
           // Another store's aisle: nothing to redraw here. A deletion carries no store.
-          if (payload?.storeId && storeId && bareId(String(payload.storeId)) !== bareId(storeId)) return
+          if (payload?.storeId && bareId(String(payload.storeId)) !== bareId(storeId)) return
         } catch {
           // Unreadable: read the aisles again.
         }
@@ -169,7 +165,7 @@ export const StoreAisles = () => {
 
   const handleAdd = async () => {
     const name = newName.trim()
-    if (!storeId || !name) return
+    if (!name) return
     try {
       const created = await createAisle(storeId, name)
       setNewName('')
@@ -200,11 +196,11 @@ export const StoreAisles = () => {
     }
   }
 
-  if (!storeId) return null
-
   return (
-    <Box data-testid="store-aisles" sx={{ px: 2, pb: 2, maxWidth: 680 }}>
-      <FormSection title="Rayons" />
+    <Box data-testid="store-aisles">
+      <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mb: 1 }}>
+        Ordre du parcours
+      </Typography>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={aisles.map((a) => a.id)} strategy={verticalListSortingStrategy}>
           <List dense disablePadding>
@@ -228,8 +224,8 @@ export const StoreAisles = () => {
           }}
           sx={{ flex: 1 }}
         />
-        <Button startIcon={<AddIcon />} onClick={handleAdd} disabled={!newName.trim()}>
-          Ajouter
+        <Button onClick={handleAdd} disabled={!newName.trim()}>
+          + Rayon
         </Button>
       </Box>
 
