@@ -44,6 +44,29 @@ export interface ProductInfo {
 
 export const idOf = (value: unknown): string => String(value).split('/').pop() ?? ''
 
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+const UUID_NOTATION = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const ULID_NOTATION = /^[0-9a-z]{26}$/i
+
+/**
+ * An id (bare or the end of an IRI) in the one spelling the API names a record by: the
+ * upper-case base32 ULID. The API finds a record whatever the notation of the address, but
+ * react-admin refuses a record whose id is not the one it asked for.
+ */
+export const canonicalRecordId = (id: string): string => {
+  const cut = id.lastIndexOf('/') + 1
+  const tail = id.slice(cut)
+  if (UUID_NOTATION.test(tail)) {
+    let rest = BigInt(`0x${tail.replaceAll('-', '')}`)
+    let base32 = ''
+    for (let i = 0; i < 26; i++, rest >>= 5n) base32 = CROCKFORD[Number(rest & 31n)] + base32
+
+    return id.slice(0, cut) + base32
+  }
+
+  return ULID_NOTATION.test(tail) ? id.slice(0, cut) + tail.toUpperCase() : id
+}
+
 export const productIdOf = (line: RecipeLine): string | null => line.ingredient?.id ?? null
 
 export const durationLabel = (minutes: number): string => {
