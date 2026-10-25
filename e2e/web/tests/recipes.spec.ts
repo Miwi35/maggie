@@ -944,6 +944,7 @@ test.describe('Recipes and meals', () => {
       data: {
         name,
         servings: 4,
+        notes: `Note MAG-618 ${stamp}`,
         ingredients: [{ ingredient: lardons['@id'], quantity: 400, unit: 'g' }],
         steps: [
           { text: 'Faire revenir les lardons', durationMinutes: 10, ingredientIds: [lardons.id] },
@@ -993,5 +994,15 @@ test.describe('Recipes and meals', () => {
     await expect(ingredients.getByRole('listitem').filter({ hasText: poitrineName })).toContainText('150')
     await expect(shell.content.getByRole('button', { name: 'Ajouter un ingrédient' })).toHaveCount(0)
     await expect(shell.content.getByRole('button', { name: 'Modifier', exact: true })).toBeVisible()
+
+    // And clearing the notes in « Modifier » takes the block off the sheet once « Terminé »
+    await expect(shell.content.getByText(`Note MAG-618 ${stamp}`)).toBeVisible()
+    await shell.content.getByRole('button', { name: 'Modifier', exact: true }).click()
+    await shell.content.getByRole('button', { name: 'Modifier les notes' }).click()
+    await dialog.getByRole('textbox', { name: 'Notes' }).clear()
+    await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(dialog).toBeHidden()
+    await shell.content.getByRole('button', { name: 'Terminé' }).click()
+    await expect(shell.content.getByText(`Note MAG-618 ${stamp}`)).toHaveCount(0)
   })
 })
