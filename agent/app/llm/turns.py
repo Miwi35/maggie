@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 # A turn that does not renew its lease within this is a turn nobody is running.
 LEASE = timedelta(seconds=30)
 HEARTBEAT_SECONDS = 10
+# A response with nothing to say (a slow tool) says so this often: a proxy or a network that
+# sees a silent connection cuts it, and the client takes the cut for a failed turn (MAG-638).
+KEEPALIVE_SECONDS = 10
 SWEEP_SECONDS = 30
 # How long a repeated request waits for the turn it duplicates before letting go.
 REPLAY_WAIT_SECONDS = 120
@@ -57,6 +60,8 @@ class TurnRunner:
         """Wait until no turn is running — tests, and a clean shutdown."""
         while self._tasks:
             await asyncio.gather(*self._tasks.values(), return_exceptions=True)
+            # Tasks already done are only forgotten by their callbacks, which need a turn of the loop.
+            await asyncio.sleep(0)
 
     def start(
         self,
@@ -69,7 +74,7 @@ class TurnRunner:
         image: ChatImage | None = None,
         carried_over: str | None = None,
         follow: bool = True,
-    ) -> AsyncGenerator[dict, None] | None:
+    ) -> AsyncGenerator[dict | None, None] | None:
         """Launch the turn answering `message_id`; the events come back to whoever follows it.
 
         `carried_over` is what the turn this message replaces had already done (MAG-320).
@@ -245,8 +250,16 @@ class TurnRunner:
             logger.warning(f"Could not hand over the running turns: {exc}")
 
 
-async def _events(queue: asyncio.Queue) -> AsyncGenerator[dict, None]:
-    while (event := await queue.get()) is not _END:
+async def _events(queue: asyncio.Queue) -> AsyncGenerator[dict | None, None]:
+    """The turn's events; `None` is a pause the response turns into a keep-alive."""
+    while True:
+        try:
+            event = await asyncio.wait_for(queue.get(), KEEPALIVE_SECONDS)
+        except TimeoutError:
+            yield None
+            continue
+        if event is _END:
+            return
         yield event
 
 

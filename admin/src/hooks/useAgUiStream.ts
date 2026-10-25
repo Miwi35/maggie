@@ -2,6 +2,8 @@ import { useCallback, useRef, useState } from 'react'
 import { newMessageKey } from './messageKey'
 
 const STREAM_URL = '/agent/chat/stream'
+const MAX_RECONNECTS = 3
+const RECONNECT_DELAY_MS = 500
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('token')
@@ -44,66 +46,51 @@ export function useAgUiStream(callbacks: AgUiCallbacks): UseAgUiStreamReturn {
     const controller = new AbortController()
     controllerRef.current = controller
 
+    const body = JSON.stringify({ message, idempotency_key: idempotencyKey, replaces })
+    let finished = false
+    let opened = false
+    const handle = (event: Record<string, unknown>) => {
+      if (event.type === 'RUN_FINISHED') finished = true
+      dispatchEvent(event, callbacksRef.current)
+    }
+
     try {
-      const response = await fetch(STREAM_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ message, idempotency_key: idempotencyKey, replaces }),
-        signal: controller.signal,
-      })
+      // A stream cut before RUN_FINISHED (a proxy idle timeout, a network blip) is not a failed
+      // turn: the agent keeps running it, so the same request — same key — follows it and brings
+      // back the answer. Only a refusal (HTTP error) or a stream that stays down is a failure (MAG-638).
+      for (let reconnects = 0; ; reconnects++) {
+        try {
+          const response = await fetch(STREAM_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body,
+            signal: controller.signal,
+          })
 
-      if (!response.ok) {
-        callbacksRef.current.onError?.(`HTTP ${response.status}`)
-        return
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        callbacksRef.current.onError?.('No response body')
-        return
-      }
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        // Keep the last incomplete line in buffer
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const jsonStr = line.slice(6).trim()
-          if (!jsonStr) continue
-
-          try {
-            const event = JSON.parse(jsonStr)
-            dispatchEvent(event, callbacksRef.current)
-          } catch {
-            // Skip malformed events
+          if (!response.ok) {
+            callbacksRef.current.onError?.(`HTTP ${response.status}`)
+            return
           }
-        }
-      }
 
-      // Process any remaining buffer
-      if (buffer.startsWith('data: ')) {
-        const jsonStr = buffer.slice(6).trim()
-        if (jsonStr) {
-          try {
-            const event = JSON.parse(jsonStr)
-            dispatchEvent(event, callbacksRef.current)
-          } catch {
-            // Skip
+          const reader = response.body?.getReader()
+          if (!reader) {
+            callbacksRef.current.onError?.('No response body')
+            return
           }
+
+          opened = true
+          await readEvents(reader, handle)
+          if (finished) return
+          throw new Error('Stream ended before the run finished')
+        } catch (error) {
+          if (controller.signal.aborted || finished) return
+          // No stream ever opened: the agent cannot be reached, which is a failure right away.
+          if (!opened || reconnects >= MAX_RECONNECTS) {
+            callbacksRef.current.onError?.(error instanceof Error ? error.message : 'Stream failed')
+            return
+          }
+          await pause(RECONNECT_DELAY_MS * (reconnects + 1), controller.signal)
         }
-      }
-    } catch (error) {
-      if (!controller.signal.aborted) {
-        callbacksRef.current.onError?.(error instanceof Error ? error.message : 'Stream failed')
       }
     } finally {
       if (controllerRef.current === controller) controllerRef.current = null
@@ -112,6 +99,52 @@ export function useAgUiStream(callbacks: AgUiCallbacks): UseAgUiStreamReturn {
   }, [])
 
   return { send, stop, isStreaming }
+}
+
+function pause(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms)
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer)
+        resolve()
+      },
+      { once: true },
+    )
+  })
+}
+
+async function readEvents(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  handle: (event: Record<string, unknown>) => void,
+): Promise<void> {
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  const parse = (line: string) => {
+    if (!line.startsWith('data: ')) return
+    const jsonStr = line.slice(6).trim()
+    if (!jsonStr) return
+    try {
+      handle(JSON.parse(jsonStr))
+    } catch {
+      // Skip malformed events
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    // Keep the last incomplete line in buffer
+    buffer = lines.pop() || ''
+    lines.forEach(parse)
+  }
+
+  parse(buffer)
 }
 
 function dispatchEvent(event: Record<string, unknown>, cb: AgUiCallbacks): void {

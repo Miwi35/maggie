@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useAgUiStream } from './useAgUiStream'
 
@@ -18,9 +18,29 @@ function createMockResponse(events: Record<string, unknown>[]) {
   }
 }
 
+// A stream a proxy cuts during a silence: it delivers what was sent, then breaks.
+function createCutResponse(events: Record<string, unknown>[]) {
+  const encoder = new TextEncoder()
+  const sseData = events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('')
+  return {
+    ok: true,
+    status: 200,
+    body: new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(sseData))
+        controller.error(new TypeError('network error'))
+      },
+    }),
+  }
+}
+
 describe('useAgUiStream', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   test('send triggers fetch and parses events', async () => {
@@ -238,5 +258,109 @@ describe('useAgUiStream', () => {
 
     expect(onError).not.toHaveBeenCalled()
     expect(result.current.isStreaming).toBe(false)
+  })
+
+  // MAG-638: the agent keeps running a turn whose stream was cut during a slow tool; the same
+  // request, same key, follows it and brings the answer back.
+  describe('a stream cut while the turn goes on', () => {
+    test('follows the turn again instead of reporting a failure', async () => {
+      vi.useFakeTimers()
+      const onError = vi.fn()
+      const onTextEnd = vi.fn()
+      const onRunFinished = vi.fn()
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          createCutResponse([
+            { type: 'RUN_STARTED', runId: 'r1' },
+            { type: 'TOOL_CALL_START', toolCallId: 'tc1', toolName: 'get_upcoming_events' },
+          ]),
+        )
+        .mockResolvedValueOnce(
+          createMockResponse([
+            { type: 'RUN_STARTED', runId: 'r1' },
+            { type: 'TEXT_MESSAGE_START', messageId: 'm1', role: 'assistant' },
+            { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm1', delta: 'Samedi' },
+            { type: 'TEXT_MESSAGE_END', messageId: 'm1' },
+            { type: 'RUN_FINISHED', runId: 'r1' },
+          ]),
+        )
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { result } = renderHook(() => useAgUiStream({ onError, onTextEnd, onRunFinished }))
+
+      await act(async () => {
+        const sending = result.current.send('Quand Lubus ?', 'k-1')
+        await vi.runAllTimersAsync()
+        await sending
+      })
+
+      expect(onError).not.toHaveBeenCalled()
+      expect(onTextEnd).toHaveBeenCalledWith('m1')
+      expect(onRunFinished).toHaveBeenCalledTimes(1)
+      const keys = fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body).idempotency_key)
+      expect(keys).toEqual(['k-1', 'k-1'])
+    })
+
+    test('a stream closed before the run finished is followed again too', async () => {
+      vi.useFakeTimers()
+      const onError = vi.fn()
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(createMockResponse([{ type: 'RUN_STARTED', runId: 'r1' }]))
+        .mockResolvedValueOnce(createMockResponse([{ type: 'RUN_STARTED', runId: 'r1' }, { type: 'RUN_FINISHED', runId: 'r1' }]))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { result } = renderHook(() => useAgUiStream({ onError }))
+
+      await act(async () => {
+        const sending = result.current.send('test')
+        await vi.runAllTimersAsync()
+        await sending
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(onError).not.toHaveBeenCalled()
+    })
+
+    test('still fails when the stream stays down', async () => {
+      vi.useFakeTimers()
+      const onError = vi.fn()
+      const fetchMock = vi.fn().mockImplementation(async () => createCutResponse([{ type: 'RUN_STARTED', runId: 'r1' }]))
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { result } = renderHook(() => useAgUiStream({ onError }))
+
+      await act(async () => {
+        const sending = result.current.send('test')
+        await vi.runAllTimersAsync()
+        await sending
+      })
+
+      expect(onError).toHaveBeenCalledTimes(1)
+      expect(onError).toHaveBeenCalledWith('network error')
+      expect(fetchMock).toHaveBeenCalledTimes(4)
+    })
+
+    test('an HTTP error while following is a failure, not a retry', async () => {
+      vi.useFakeTimers()
+      const onError = vi.fn()
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(createCutResponse([{ type: 'RUN_STARTED', runId: 'r1' }]))
+        .mockResolvedValueOnce({ ok: false, status: 502 })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { result } = renderHook(() => useAgUiStream({ onError }))
+
+      await act(async () => {
+        const sending = result.current.send('test')
+        await vi.runAllTimersAsync()
+        await sending
+      })
+
+      expect(onError).toHaveBeenCalledWith('HTTP 502')
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
   })
 })
