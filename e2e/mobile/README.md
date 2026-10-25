@@ -111,7 +111,8 @@ against an app nobody launched.
    ../subflows/open-destination.yaml` with `env: DEST: <route>`, and
    `../subflows/open-chat.yaml` / `close-chat.yaml`. The nightly plays the phone, the foldable and the
    tablet: `nav_menu` does not exist from 600 dp (a rail replaces it), `chat_open`
-   not from 840 dp (the conversation is already open). Lint refuses a direct tap.
+   is Maggie's portrait from 840 dp (the conversation is folded), which has no mic: `../subflows/start-voice.yaml`
+   opens the voice mode. Lint refuses a direct tap.
    **A screen is not laid out the same on every format** (MAG-611): from 600 dp a list can put a panel
    above its rows (Projets: the scenarios, then the rows, the Gantt last), from 840 dp the chat panel turns
    Comptes into a master-detail with no pager, and an 800 dp tall screen pushes a block under the fold. So

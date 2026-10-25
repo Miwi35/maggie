@@ -228,8 +228,8 @@ fun ChatPanel(
             .testTag(UiTags.CHAT_PANEL),
         tonalElevation = 1.dp,
     ) {
-        // Edge to edge, and the frame adds no inset: without these, « Maggie » and
-        // the search button sit in the status-bar strip, where a tap opens the
+        // Edge to edge, and the frame adds no inset: without these, the header's
+        // buttons sit in the status-bar strip, where a tap opens the
         // notification shade. Inside the Surface, as on `ChatBottomBar`, so the
         // panel's tonal colour still paints under the bar instead of stopping at a
         // seam. The bottom one is on the input row; the rest of the frame has its own.

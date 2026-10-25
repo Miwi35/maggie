@@ -1,0 +1,19 @@
+appId: com.maggie.app.e2e
+name: open the chat in voice mode
+---
+# `chat_mic` is the bar's mic on a phone, the rail's on a short window. From 840 dp wide the
+# conversation is folded into Maggie's portrait, which has no mic: the portrait is opened
+# first (MAG-624), and the panel's own `chat_mic` is the one tapped.
+#
+# `evalScript` first, for the reason given in `open-destination.yaml`.
+- evalScript: ${0}
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat_mic"
+    commands:
+      - runFlow: open-chat.yaml
+
+- tapOn:
+    id: "chat_mic"

@@ -1007,7 +1007,11 @@ fun NavGraph() {
     // panel), then open Réglages — the panel goes and the sheet would come back
     // over the settings. Same for a drawer left open when the rail replaces it.
     LaunchedEffect(chrome.showsChatPanel) {
-        if (chrome.showsChatPanel && !voiceModeActive) showChatSheet = false
+        if (chrome.showsChatPanel && !voiceModeActive) {
+            // The conversation the owner had open follows them into the drawer.
+            if (showChatSheet) chatPanelOpen = true
+            showChatSheet = false
+        }
     }
     LaunchedEffect(chrome.showsRail) {
         if (chrome.showsRail) drawerState.close()

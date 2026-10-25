@@ -128,6 +128,7 @@ fun MessageBubble(
                 null
             },
             onLongClickLabel = when {
+                onDelete != null && canRate -> "Ouvrir le menu du message"
                 onDelete != null -> "Supprimer le message"
                 canRate -> "Noter la réponse"
                 else -> null
@@ -153,16 +154,36 @@ fun MessageBubble(
                     modifier = Modifier
                         .widthIn(max = 280.dp)
                         .then(gestures)
-                        // The same action for a screen reader, which has no long press to offer.
+                        // The same actions for a screen reader, which has no long press to offer.
                         .then(
-                            if (onDelete != null) {
+                            if (onDelete != null || canRate) {
                                 Modifier.semantics {
-                                    customActions = listOf(
-                                        CustomAccessibilityAction("Supprimer le message") {
-                                            onDelete()
-                                            true
-                                        },
-                                    )
+                                    customActions = buildList {
+                                        if (canRate) {
+                                            val up = message.feedback == MessageFeedback.UP
+                                            val down = message.feedback == MessageFeedback.DOWN
+                                            add(
+                                                CustomAccessibilityAction("Réponse utile") {
+                                                    onRate?.invoke(MessageFeedback.UP.takeIf { !up })
+                                                    true
+                                                },
+                                            )
+                                            add(
+                                                CustomAccessibilityAction("Réponse à revoir") {
+                                                    onRate?.invoke(MessageFeedback.DOWN.takeIf { !down })
+                                                    true
+                                                },
+                                            )
+                                        }
+                                        if (onDelete != null) {
+                                            add(
+                                                CustomAccessibilityAction("Supprimer le message") {
+                                                    onDelete()
+                                                    true
+                                                },
+                                            )
+                                        }
+                                    }
                                 }
                             } else {
                                 Modifier

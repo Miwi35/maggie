@@ -1,6 +1,8 @@
 package com.maggie.app.ui.components
 
 import android.graphics.Bitmap
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -16,6 +18,7 @@ import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -112,6 +115,19 @@ class MessageBubbleScreenTest {
         compose.onNodeWithTag(UiTags.MESSAGE_THUMB_DOWN).assertIsDisplayed().assertIsNotSelected()
         compose.onNodeWithText("Réponse utile").assertIsDisplayed()
         compose.onNodeWithText("Réponse à revoir").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a screen reader rates an answer through its actions, with no long press`() {
+        compose.setContent { MessageBubble(answer.copy(feedback = MessageFeedback.UP), onRate = record) }
+
+        val actions = compose.onNodeWithText("Il fait beau.").fetchSemanticsNode()
+            .config.getOrNull(SemanticsActions.CustomActions).orEmpty()
+        assertEquals(listOf("Réponse utile", "Réponse à revoir"), actions.map { it.label })
+
+        assertTrue(actions.first { it.label == "Réponse utile" }.action())
+        assertTrue(actions.first { it.label == "Réponse à revoir" }.action())
+        assertEquals(listOf<String?>(null, MessageFeedback.DOWN), ratings)
     }
 
     @Test
