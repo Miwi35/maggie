@@ -1,0 +1,26 @@
+appId: com.maggie.app.e2e
+name: show the navigation
+---
+# Opens the navigation so a flow can read it (MAG-620): the burger opens the drawer under
+# 600 dp; from 600 dp the rail is always on screen and there is nothing to open. A flow that
+# only wants to *go* somewhere runs `open-destination.yaml`; this one is for the flow that
+# reads the entries (`24-home.yaml`: no « Chat », « Agenda » and « Réglages » named so).
+#
+# Like `open-destination.yaml`, the only other file allowed to tap `nav_menu` (`lint.sh` § 9).
+# The `evalScript` first, for the same reason: `when: visible` is counted from the last
+# interaction (README, « Wait with extendedWaitUntil »).
+- evalScript: ${0}
+
+- runFlow:
+    when:
+      visible:
+        id: "nav_menu"
+    commands:
+      - tapOn:
+          id: "nav_menu"
+      # The drawer slides in: until its first entry is there, « no Chat entry » would be
+      # read on a drawer that is not open yet.
+      - extendedWaitUntil:
+          visible:
+            id: "drawer_home"
+          timeout: 20000

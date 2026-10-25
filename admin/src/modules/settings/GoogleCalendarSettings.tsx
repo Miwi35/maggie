@@ -160,10 +160,6 @@ export const GoogleCalendarSettings = () => {
 
   return (
     <Box maxWidth={800} mx="auto" mt={2}>
-      <Typography variant="h5" mb={3}>
-        Paramètres Google
-      </Typography>
-
       <Card sx={{ mb: 3 }}>
         <CardHeader title="Tâches" />
         <CardContent>

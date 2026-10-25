@@ -483,7 +483,7 @@ export const ReviewActivityPage = () => {
             </Stack>
             {step && step !== 'done' && (
               <Stack direction="row" alignItems="baseline" spacing={2} sx={{ mt: 1.5, flexWrap: 'wrap' }}>
-                <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
+                <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
                   {stepTitle(step)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" data-testid="review-then">

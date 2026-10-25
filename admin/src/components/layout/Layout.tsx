@@ -4,7 +4,7 @@ import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
 import { MaggieInterruptionHost } from '../maggie/MaggieInterruptionHost'
 import { CustomAppBar } from './AppBar'
-import { Breadcrumbs } from './Breadcrumbs'
+import { Breadcrumbs, PageHeading } from './Breadcrumbs'
 import { ThemePreferenceSync } from './ThemePreferenceSync'
 import { CustomMenu } from './Menu'
 import { CustomSidebar } from './Sidebar'
@@ -141,6 +141,7 @@ export const Layout = (props: LayoutProps) => {
               {/* The page's own boundary: react-admin's wraps this whole box, chat panel included,
                   so a lazy page still loading would otherwise take the conversation down with it
                   (and a click on the app bar's chat button in that window would close it). */}
+              <PageHeading />
               <Suspense fallback={<Loading />}>{props.children}</Suspense>
             </Box>
           </Box>

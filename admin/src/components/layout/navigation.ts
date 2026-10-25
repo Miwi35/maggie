@@ -43,6 +43,8 @@ export interface NavModule {
   label: string
   /** The module's dashboard, when it has one: its page is the module itself. */
   dashboard?: string
+  /** What the sidebar calls the dashboard when the module has other entries under it (« Liste de courses »). */
+  dashboardLabel?: string
   /** The sidebar's entries under the module, when it has more than a flat list of parts. */
   menus?: NavMenu[]
   parts: NavPart[]
@@ -56,6 +58,8 @@ const resourcePart = (label: string, resource: string): NavPart => ({
   path: `/${resource}`,
   resource,
 })
+
+export const SETTINGS_LABEL = 'Réglages'
 
 export const FINANCE_DASHBOARD_PATH = '/finance/dashboard'
 
@@ -143,19 +147,25 @@ const financeParts = (): NavPart[] => [
   resourcePart('Transactions', 'transactions'),
 ]
 
+/**
+ * The modules of the mockup (MAG-620, `charte/Admin-Cible`), in the sidebar's
+ * order, Réglages last. Santé and Loisirs join the table with their modules.
+ */
 export const NAVIGATION: NavModule[] = [
   {
     label: 'Agenda',
     dashboard: '/calendar',
-    parts: [
-      resourcePart('Agendas', 'agendas'),
-      resourcePart('Événements', 'events'),
-      resourcePart('Tâches', 'tasks'),
-    ],
+    parts: [],
+  },
+  {
+    label: 'Tâches',
+    dashboard: '/tasks',
+    parts: [resourcePart('Tâches', 'tasks')],
   },
   {
     label: 'Courses',
     dashboard: '/grocery',
+    dashboardLabel: 'Liste de courses',
     parts: [
       resourcePart('Produits', 'products'),
       resourcePart('Magasins', 'stores'),
@@ -168,7 +178,6 @@ export const NAVIGATION: NavModule[] = [
       { label: 'Repas de la semaine', path: '/meals' },
       { label: 'Planning des repas', path: '/meals/calendar' },
       resourcePart('Recettes', 'recipes'),
-      resourcePart('Ingrédients', 'ingredients'),
     ],
   },
   {
@@ -178,7 +187,7 @@ export const NAVIGATION: NavModule[] = [
     parts: financeParts(),
   },
   {
-    label: 'Paramètres',
+    label: SETTINGS_LABEL,
     parts: [
       { label: 'Préférences', path: '/settings/preferences' },
       { label: 'Tâches', path: '/settings/tasks' },
@@ -186,6 +195,11 @@ export const NAVIGATION: NavModule[] = [
       { label: 'Repas', path: '/settings/meals' },
       { label: DEFAULT_AGENT_NAME, path: AGENT_SETTINGS_PATH },
       { label: 'Google', path: '/settings/google' },
+      // The raw lists (« Données brutes » of before) live in Réglages: the
+      // records Maggie keeps, edited by hand, are settings of the app.
+      resourcePart('Agendas', 'agendas'),
+      resourcePart('Événements', 'events'),
+      resourcePart('Ingrédients', 'ingredients'),
     ],
   },
 ]
@@ -227,12 +241,18 @@ const moduleCrumb = (module: NavModule): TrailCrumb => ({
 
 const partCrumb = (part: NavPart): TrailCrumb => ({ label: part.label, to: part.path })
 
-/** A part's crumbs after the module: its menu, when it has one, then itself. */
-const partHead = (module: NavModule, part: NavPart): TrailCrumb[] => [
-  moduleCrumb(module),
-  ...(part.menu ? [{ label: part.menu.label, to: part.menu.path }] : []),
-  partCrumb(part),
-]
+/**
+ * A part's crumbs after the module: its menu, when it has one, then itself —
+ * unless the part is the module's own page (« Tâches » of Tâches): one crumb.
+ */
+const partHead = (module: NavModule, part: NavPart): TrailCrumb[] =>
+  part.path === module.dashboard
+    ? [moduleCrumb(module)]
+    : [
+        moduleCrumb(module),
+        ...(part.menu ? [{ label: part.menu.label, to: part.menu.path }] : []),
+        partCrumb(part),
+      ]
 
 /** The Finance menu a page belongs to, so the sidebar can highlight it. */
 export function financeMenuOf(pathname: string): string | undefined {
@@ -329,4 +349,62 @@ export function resolveTrail(pathname: string): TrailCrumb[] {
   }
 
   return []
+}
+
+export interface SidebarEntry {
+  key: string
+  label: string
+  path: string
+}
+
+export interface SidebarModule {
+  label: string
+  path: string
+  /** Shown only while the page belongs to the module. */
+  entries: SidebarEntry[]
+}
+
+const sidebarEntries = (module: NavModule): SidebarEntry[] => {
+  if (module.menus) {
+    return module.menus.map((menu) => ({ key: menu.key, label: menu.label, path: menu.path }))
+  }
+
+  const entries = [
+    ...(module.dashboard ? [{ key: 'home', label: module.dashboardLabel ?? module.label, path: module.dashboard }] : []),
+    ...module.parts
+      .filter((part) => part.path !== module.dashboard)
+      .map((part) => ({ key: part.path, label: part.label, path: part.path })),
+  ]
+
+  // A module that is a single page has nothing to list under it.
+  return entries.length > 1 ? entries : []
+}
+
+/** The sidebar, in the mockup's order: Accueil, the modules, Réglages last. */
+export const SIDEBAR: SidebarModule[] = [
+  { label: HOME_LABEL, path: '/', entries: [] },
+  ...NAVIGATION.map((module) => ({ label: module.label, path: moduleHome(module), entries: sidebarEntries(module) })),
+]
+
+/** The sidebar module a page belongs to, so the menu can open it. */
+export function sidebarModuleOf(pathname: string): string | undefined {
+  const [first] = resolveTrail(pathname)
+
+  return SIDEBAR.find((module) => module.label === first?.label)?.label
+}
+
+/** The path of the sidebar entry the page sits under: the deepest crumb that is an entry. */
+export function sidebarEntryOf(pathname: string): string | undefined {
+  const label = sidebarModuleOf(pathname)
+  const module = SIDEBAR.find((candidate) => candidate.label === label)
+  if (!module) {
+    return undefined
+  }
+
+  const paths = new Set(module.entries.map((entry) => entry.path))
+
+  return resolveTrail(pathname)
+    .map((crumb) => crumb.to)
+    .reverse()
+    .find((to) => paths.has(to))
 }

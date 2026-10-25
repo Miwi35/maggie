@@ -8,10 +8,9 @@ import org.junit.Test
 
 class ChatNavigationTest {
     @Test
-    fun `the drawer has an entry that leads to the full-screen chat`() {
-        val chat = DRAWER_DESTINATIONS.firstOrNull { it.route == Screen.Chat.route }
-
-        assertEquals("Chat", chat?.label)
+    fun `the drawer has no chat entry, Maggie lives in the bottom bar`() {
+        assertTrue(DRAWER_DESTINATIONS.none { it.route == Screen.Chat.route })
+        assertTrue(DRAWER_DESTINATIONS.none { it.label == "Chat" })
     }
 
     @Test

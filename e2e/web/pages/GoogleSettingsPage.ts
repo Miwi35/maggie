@@ -4,7 +4,7 @@ import { AdminShell } from './AdminShell.js'
 import { ROUTES } from './routes.js'
 
 /**
- * Settings → Paramètres Google — the Google Tasks list Maggie syncs with.
+ * Réglages → Google — the Google Tasks list Maggie syncs with.
  *
  * The screen called three endpoints that did not exist until MAG-118, so the
  * select was always empty and "Connecter" posted into the void. What it shows
@@ -15,7 +15,7 @@ export class GoogleSettingsPage extends AdminShell {
 
   constructor(page: Page) {
     super(page)
-    this.heading = this.content.getByRole('heading', { name: 'Paramètres Google' })
+    this.heading = this.content.getByRole('heading', { name: 'Google' })
   }
 
   /**

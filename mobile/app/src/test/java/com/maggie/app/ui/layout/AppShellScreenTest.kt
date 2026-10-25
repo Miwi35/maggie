@@ -228,6 +228,8 @@ class AppShellScreenTest {
         }
         assertEquals(DRAWER_DESTINATIONS.size + 1, RAIL_DESTINATIONS.size)
         compose.onNodeWithTag(UiTags.railItem("settings")).assertExists()
+        compose.onNodeWithTag(UiTags.railItem("chat")).assertDoesNotExist()
+        assertEquals("settings", RAIL_DESTINATIONS.last().route)
     }
 
     /**

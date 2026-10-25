@@ -141,7 +141,7 @@ test.describe('Responsive @responsive', () => {
 
     await dashboard.open()
 
-    await expect(dashboard.menuItem('Calendrier')).toBeVisible({ visible: !shape.narrow })
+    await expect(dashboard.menuItem('Agenda')).toBeVisible({ visible: !shape.narrow })
 
     // An overlay below `md`, already a column above it: either way, opening
     // the menu takes nothing from the page.
@@ -151,9 +151,9 @@ test.describe('Responsive @responsive', () => {
 
     // Picking a destination puts the drawer away — and leaves the desk's
     // column where it was.
-    await dashboard.navigateTo('Calendrier')
+    await dashboard.navigateTo('Agenda')
     await expect(page).toHaveURL(new RegExp(`#${ROUTES.calendar}$`))
-    await expect(dashboard.menuGroup('Courses')).toBeVisible({ visible: !shape.narrow })
+    await expect(dashboard.menuItem('Courses')).toBeVisible({ visible: !shape.narrow })
   })
 
   test('the app bar gives a finger something to hit', async ({ page }) => {

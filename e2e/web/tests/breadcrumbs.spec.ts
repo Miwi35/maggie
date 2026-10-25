@@ -103,7 +103,7 @@ test('a settings page and the dashboard carry their trail @responsive', async ({
 
   // Below `md` only the parent is shown, so the page's own name is not there.
   await shell.goto(ROUTES.preferences)
-  await expect(trail).toContainText(narrow ? 'Paramètres' : 'Préférences')
+  await expect(trail).toContainText(narrow ? 'Réglages' : 'Préférences')
 })
 
 /**

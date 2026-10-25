@@ -42,10 +42,6 @@ export function SearchPage() {
 
   return (
     <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-      <Typography variant="h5" sx={{ mb: 3 }}>
-        Recherche
-      </Typography>
-
       <TextField
         autoFocus
         fullWidth

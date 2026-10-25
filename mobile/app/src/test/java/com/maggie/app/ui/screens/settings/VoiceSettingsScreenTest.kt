@@ -30,7 +30,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
 
 /**
- * Paramètres > Voix, without an emulator (MAG-242).
+ * Réglages > Voix, without an emulator (MAG-242).
  *
  * `10-voice-settings` was a whole journey — sign in, open the drawer, open the
  * settings, open Voix — to assert four lines of a screen: the assistant role row

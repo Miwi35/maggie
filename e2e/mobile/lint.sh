@@ -41,7 +41,8 @@
 #      the chat button under 840 dp, so a journey that taps them is green on the
 #      phone and red on the foldable and the tablet (MAG-391). They go through
 #      `subflows/open-destination.yaml` and `subflows/open-chat.yaml`, the only
-#      files allowed to (`close-chat.yaml` does the same for the sheet's close).
+#      files allowed to (`close-chat.yaml` does the same for the sheet's close, and
+#      `open-navigation.yaml` opens the drawer for a flow that reads the entries).
 #  10. no `id:` spells a data id (`auto-…`, a ULID, a number) after a prefix that
 #      `UiTags.kt` builds from one: it changes under the flow (MAG-578).
 #  11. no bare `hideKeyboard`: only `subflows/hide-keyboard.yaml` calls it (MAG-572).
@@ -376,7 +377,7 @@ printf '\n\033[1m9. No journey taps a control that only exists on some formats\0
 for file in "${flows[@]}"; do
   rel="${file#"$REPO_ROOT"/}"
   case "$rel" in
-    e2e/mobile/subflows/open-destination.yaml | e2e/mobile/subflows/open-chat.yaml)
+    e2e/mobile/subflows/open-destination.yaml | e2e/mobile/subflows/open-chat.yaml | e2e/mobile/subflows/open-navigation.yaml)
       pass "$rel (allowed to)"
       continue
       ;;

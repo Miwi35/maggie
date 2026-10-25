@@ -423,8 +423,7 @@ const ProjectsView = () => {
       <Title title="Finance · Projets" />
       <Box sx={{ display: 'flex', gap: 4, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       <Box sx={{ flex: '1 1 420px', maxWidth: open ? 520 : 820, minWidth: 0 }}>
-        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1, gap: 2 }}>
-          <Typography variant="h6">Projets</Typography>
+        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'flex-end', mb: 1, gap: 2 }}>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditing('new')}>
             Nouveau projet
           </Button>

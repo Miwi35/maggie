@@ -6,7 +6,10 @@ import {
   financeAspectPath,
   financeMenuOf,
   financeSummaryPath,
+  SIDEBAR,
   resolveTrail,
+  sidebarEntryOf,
+  sidebarModuleOf,
 } from './navigation'
 
 const labels = (path: string) => resolveTrail(path).map((crumb) => crumb.label)
@@ -135,10 +138,22 @@ describe('resolveTrail on the Finance menus', () => {
 
   test('every part of a module without menus keeps its two levels', () => {
     for (const module of NAVIGATION.filter((candidate) => !candidate.menus)) {
-      for (const part of module.parts) {
+      for (const part of module.parts.filter((candidate) => candidate.path !== module.dashboard)) {
         expect(labels(part.path)).toEqual([module.label, part.label])
       }
     }
+  })
+
+  test('a part that is the page of its module has one level: Tâches', () => {
+    expect(labels('/tasks')).toEqual(['Tâches'])
+    expect(labels('/tasks/create')).toEqual(['Tâches', 'Nouveau'])
+    expect(labels('/tasks/abc/show')).toEqual(['Tâches', undefined])
+  })
+
+  test('the raw lists sit under Réglages', () => {
+    expect(labels('/agendas')).toEqual(['Réglages', 'Agendas'])
+    expect(labels('/events/create')).toEqual(['Réglages', 'Événements', 'Nouveau'])
+    expect(labels('/ingredients')).toEqual(['Réglages', 'Ingrédients'])
   })
 })
 
@@ -158,5 +173,47 @@ describe('financeMenuOf', () => {
 
   test.each(['/', '/calendar', '/transactions', '/finance/summary/nowhere'])('%s highlights no Finance menu', (path) => {
     expect(financeMenuOf(path)).toBeUndefined()
+  })
+})
+
+describe('the sidebar table', () => {
+  test('lists Accueil · Agenda · Tâches · Courses · Cuisine · Finance, Réglages last', () => {
+    expect(SIDEBAR.map((module) => module.label)).toEqual([
+      'Accueil',
+      'Agenda',
+      'Tâches',
+      'Courses',
+      'Cuisine',
+      'Finance',
+      'Réglages',
+    ])
+  })
+
+  test('has no old name at the first level', () => {
+    const labelsOnTop = SIDEBAR.map((module) => module.label)
+    for (const old of ['Chat', 'Calendrier', 'Paramètres', 'Nutrition', 'Données brutes']) {
+      expect(labelsOnTop).not.toContain(old)
+    }
+  })
+
+  test('opens the module of the page, and the entry it sits under', () => {
+    expect(sidebarModuleOf('/')).toBe('Accueil')
+    expect(sidebarModuleOf('/calendar')).toBe('Agenda')
+    expect(sidebarModuleOf('/tasks/abc/show')).toBe('Tâches')
+    expect(sidebarModuleOf('/recipes/abc/show')).toBe('Cuisine')
+    expect(sidebarModuleOf('/ingredients')).toBe('Réglages')
+    expect(sidebarModuleOf('/nowhere')).toBeUndefined()
+    expect(sidebarEntryOf('/recipes/abc/show')).toBe('/recipes')
+    expect(sidebarEntryOf('/grocery')).toBe('/grocery')
+    expect(sidebarEntryOf('/finance/cushion')).toBe('/finance/summary/treasury')
+    expect(sidebarEntryOf('/calendar')).toBeUndefined()
+  })
+
+  test('every entry resolves to a trail of its own module', () => {
+    for (const module of SIDEBAR) {
+      for (const entry of module.entries) {
+        expect(resolveTrail(entry.path)[0]?.label, entry.path).toBe(module.label)
+      }
+    }
   })
 })

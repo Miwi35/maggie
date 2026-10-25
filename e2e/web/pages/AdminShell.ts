@@ -8,14 +8,12 @@ import { adminUrl } from './routes.js'
  * The menu is the reason this is a page object rather than a handful of
  * selectors. React-admin folds the sidebar away below MUI's `md` breakpoint
  * (900px), so on the `tablet` and `phone` projects the menu only exists once
- * the AppBar toggle has been pressed, and several entries are inside collapsed
- * groups. {@link navigateTo} handles both, which is what lets one journey run
- * at all three widths.
+ * the AppBar toggle has been pressed, and the sub-entries only exist under the
+ * current module. {@link navigateTo} handles both, which is what lets one
+ * journey run at all three widths.
  *
- * Entries are addressed by role rather than by a container: the top-level
- * links sit outside the `<List component="nav">` the collapsible groups live
- * in, so scoping to the navigation landmark would silently miss half of them.
- * `menuitem` is unambiguous page-wide — nothing else in the admin uses it.
+ * Entries are addressed by role rather than by a container. `menuitem` is
+ * unambiguous page-wide — nothing else in the admin uses it.
  */
 export class AdminShell {
   readonly appBar: Locator
@@ -74,16 +72,16 @@ export class AdminShell {
   /**
    * Makes the menu reachable whatever the width. Idempotent.
    *
-   * Keyed on a collapsible group rather than on "Accueil": a folded
-   * sidebar still renders the top-level links as bare icons, accessible name
-   * and all, so testing for one of those reads "already open" while half the
-   * menu is missing and the icons sit under the app bar. The groups only exist
-   * when `useSidebarState()` says the sidebar is expanded — which is exactly
-   * the state a journey needs. React-admin refolds it after every navigation
-   * on a narrow viewport, so this runs before each click.
+   * Keyed on the menu's header (Maggie's avatar and name) rather than on an
+   * entry: a folded sidebar still renders the top-level links as bare icons,
+   * accessible name and all, so testing for one of those reads "already open"
+   * while the sub-entries are missing and the icons sit under the app bar. The
+   * header only exists when `useSidebarState()` says the sidebar is expanded —
+   * which is exactly the state a journey needs. React-admin refolds it after
+   * every navigation on a narrow viewport, so this runs before each click.
    */
   async openMenu(): Promise<void> {
-    const expanded = this.menuGroup('Courses')
+    const expanded = this.page.getByTestId('menu-header')
 
     if (await expanded.isVisible()) {
       return
@@ -97,36 +95,29 @@ export class AdminShell {
     return this.page.getByRole('menuitem', { name: label, exact: true })
   }
 
-  /** The collapsible headings — "Courses", "Nutrition", "Finance", "Données brutes", "Paramètres". */
-  menuGroup(label: string): Locator {
-    return this.page.getByRole('button', { name: label, exact: true })
-  }
-
   /**
-   * Clicks a menu entry, expanding the groups it is nested under first.
+   * Clicks a menu entry.
    *
-   * @param groups outermost first, e.g. `navigateTo('Événements', 'Données brutes', 'Agenda')`
+   * The sidebar is flat (`charte/Admin-Cible`, MAG-620): the modules are always
+   * there, their sub-entries only under the module the page belongs to. An
+   * entry nested in a module is reached by opening that module first.
+   *
+   * @param module the module the entry sits under, e.g. `navigateTo('Événements', 'Réglages')`
    */
-  async navigateTo(label: string, ...groups: string[]): Promise<void> {
+  async navigateTo(label: string, module?: string): Promise<void> {
     await this.openMenu()
 
-    for (const [index, group] of groups.entries()) {
-      const heading = this.menuGroup(group)
-      await expect(heading).toBeVisible()
+    if (module === undefined) {
+      await this.menuItem(label).click()
 
-      // What this group has to reveal: the next heading down, or the entry
-      // itself for the innermost one. Groups keep their state for the life of
-      // the page, so testing that rather than clicking blindly is what stops a
-      // second visit from collapsing what it came to open.
-      const revealed = index + 1 < groups.length ? this.menuGroup(groups[index + 1]) : this.menuItem(label)
-
-      if (!(await revealed.isVisible())) {
-        await heading.click()
-      }
-
-      await expect(revealed).toBeVisible()
+      return
     }
 
-    await this.menuItem(label).click()
+    await this.menuItem(module).click()
+    await this.openMenu()
+
+    // Last: a sub-entry may carry the name of a module (« Tâches » under
+    // Réglages), and the sub-entries are drawn after their module.
+    await this.menuItem(label).last().click()
   }
 }

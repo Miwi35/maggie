@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNotify } from 'react-admin'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { mercureUrl } from '../../hooks/mercureUrl'
-import { announceAgentName, useAgentName } from '../../hooks/useAgentName'
+import { announceAgentName } from '../../hooks/useAgentName'
 import { agentFetch } from './agentFetch'
 import { StyleProposals } from './StyleProposals'
 import { useMercure } from '../../hooks/useMercure'
@@ -132,7 +132,6 @@ function formatDateTime(iso: string | null): string {
 
 export const AgentSettings = () => {
   const notify = useNotify()
-  const agentName = useAgentName()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [personality, setPersonality] = useState<PersonalityConfig>({
@@ -452,10 +451,6 @@ export const AgentSettings = () => {
 
   return (
     <Box maxWidth={900} mx="auto" mt={2}>
-      <Typography variant="h5" mb={2}>
-        {agentName}
-      </Typography>
-
       <Card>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tab label="Personnalité" />

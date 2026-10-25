@@ -152,26 +152,6 @@ describe('AgentSettings — instruction kinds', () => {
   })
 })
 
-describe('AgentSettings — title', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  test('is the name of the agent: Maggie by default', async () => {
-    stubAgentApi([])
-    render(<AgentSettings />)
-
-    expect(await screen.findByRole('heading', { name: 'Maggie' })).toBeInTheDocument()
-  })
-
-  test('follows the name the user gave her', async () => {
-    stubAgentApi([], {}, { ...PERSONALITY, name: 'Alfred' })
-    render(<AgentSettings />)
-
-    expect(await screen.findByRole('heading', { name: 'Alfred' })).toBeInTheDocument()
-  })
-})
-
 /**
  * The Proactions tab reads `/api/proactions` and follows its Mercure topic (MAG-328): the
  * same rows as the agenda, no longer the agent's own list.

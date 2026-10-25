@@ -120,10 +120,6 @@ export const UserPreferenceSettings = () => {
 
   return (
     <Box maxWidth={700} mx="auto" mt={2}>
-      <Typography variant="h5" mb={3}>
-        Préférences
-      </Typography>
-
       {/* Theme */}
       <Card sx={{ mb: 3 }}>
         <CardHeader title="Apparence" />

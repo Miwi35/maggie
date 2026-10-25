@@ -1969,7 +1969,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           {moduleCalendar && (
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2.5, px: 0.5, gap: 1 }}>
               <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: moduleCalendar.color, flexShrink: 0 }} />
-              <Typography variant="subtitle1" component="h1" data-testid="module-calendar-title">
+              <Typography variant="subtitle1" component="h2" data-testid="module-calendar-title">
                 {moduleCalendar.label}
               </Typography>
             </Box>

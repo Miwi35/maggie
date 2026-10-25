@@ -131,7 +131,7 @@ export const TaskOrderSettings = () => {
   }
 
   return (
-    <TaskSettingsFrame title="Ce qui passe en premier" loadFailed={loadFailed} ready={settings !== null} saved={saved}>
+    <TaskSettingsFrame loadFailed={loadFailed} ready={settings !== null} saved={saved}>
       {settings && (
         <Stack spacing={3}>
           <Card variant="outlined">

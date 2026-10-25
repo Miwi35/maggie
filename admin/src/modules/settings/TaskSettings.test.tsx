@@ -126,7 +126,6 @@ describe('TaskSettings — alerts', () => {
     render(<TaskSettings />)
 
     expect(await screen.findByLabelText('Heure du matin')).toHaveValue('07:00')
-    expect(screen.getByRole('heading', { name: 'Tâches' })).toBeInTheDocument()
 
     expect(chip('Critique — J-7')).toHaveAttribute('aria-pressed', 'false')
     expect(chip('Critique — J-3')).toHaveAttribute('aria-pressed', 'true')

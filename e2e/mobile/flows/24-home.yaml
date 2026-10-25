@@ -103,3 +103,40 @@ tags:
     timeout: 20000
 - assertNotVisible:
     id: "home_empty"
+
+# The navigation, to the letter of the mock-up `charte/Tiroir` (MAG-620, extends MAG-99): the
+# drawer under 600 dp, the rail beyond. Maggie lives in the bottom bar, so there is no « Chat »
+# entry; the modules are named « Agenda » and « Réglages ». Which entries and in which order is
+# `DrawerDestinationsTest` / `AppDrawerScreenTest` (JVM); here the live wiring — no Chat entry
+# on either format, and « Agenda » opens the agenda (Réglages, last, may sit under the fold of a
+# short rail: the JVM tests say it).
+- runFlow: ../subflows/open-navigation.yaml
+- assertNotVisible:
+    id: "drawer_chat"
+- assertNotVisible:
+    id: "rail_chat"
+- assertNotVisible: "Calendrier"
+- assertNotVisible: "Paramètres"
+
+# « Agenda » opens the agenda: its week switch is on screen. The tap is the drawer's or the rail's,
+# whichever this window draws.
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "drawer_calendar"
+    commands:
+      - tapOn:
+          id: "drawer_calendar"
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "rail_calendar"
+    commands:
+      - tapOn:
+          id: "rail_calendar"
+- extendedWaitUntil:
+    visible:
+      id: "calendar_view_week"
+    timeout: 20000
