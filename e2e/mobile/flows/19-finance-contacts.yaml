@@ -258,7 +258,7 @@ tags:
 # The rest, 600 €, owed 200 € each; « Enregistrer » writes the part and the créance together.
 # The line sits above the three people just added: it is looked for upwards.
 - scrollUntilVisible:
-    element: "On te doit 600[.,]00 EUR"
+    element: "On te doit 600,00.€"
     direction: UP
     centerElement: true
 - scrollUntilVisible:
@@ -289,7 +289,7 @@ tags:
     visible: "En cours"
     timeout: 30000
 - extendedWaitUntil:
-    visible: "te doit 200[.,]00 EUR"
+    visible: "te doit 200,00.€"
     timeout: 30000
 
 # Only my part counts in « Voyages »: 200 of 300 €, not 800.
@@ -298,7 +298,7 @@ tags:
     visible: "Voyages"
     timeout: 30000
 - extendedWaitUntil:
-    visible: "200[.,]00 EUR / 300[.,]00 EUR"
+    visible: "200,00.€ / 300,00.€"
     timeout: 30000
 
 # MAG-452: Tom's transfers are 800 € of income; 280 € of one are to be given back.
@@ -343,7 +343,7 @@ tags:
       id: "peer_summary"
     centerElement: true
 - extendedWaitUntil:
-    visible: "Crée une dette de 280[.,]00 EUR envers Tom.*"
+    visible: "Crée une dette de 280,00.€ envers Tom.*"
     timeout: 10000
 - scrollUntilVisible:
     element:
@@ -383,7 +383,7 @@ tags:
     visible: "En cours"
     timeout: 30000
 - extendedWaitUntil:
-    visible: "tu lui dois 280[.,]00 EUR"
+    visible: "tu lui dois 280,00.€"
     timeout: 30000
 
 # MAG-453: the créance « Gîte de Crozon » (Tom owes 200 €) and Tom's third transfer, of 400 €.
@@ -419,7 +419,7 @@ tags:
     element:
       id: "peer_unallocated"
 - extendedWaitUntil:
-    visible: "Non affecté : 200[.,]00 EUR"
+    visible: "Non affecté : 200,00.€"
     timeout: 10000
 - scrollUntilVisible:
     element:
@@ -447,9 +447,9 @@ tags:
     timeout: 30000
 - assertVisible: "Avancé à des proches.*"
 - assertVisible: "revient au remboursement"
-- assertVisible: "−600[.,]00 EUR"
-- assertVisible: "4.{0,1}600[.,]00 EUR sur.*"
-- assertVisible: ".*dont 600[.,]00 EUR avancés à des proches.*"
+- assertVisible: "−600,00.€"
+- assertVisible: "4.{0,1}600,00.€ sur.*"
+- assertVisible: ".*dont 600,00.€ avancés à des proches.*"
 
 # Julie gives her 200 € back: the cushion refills.
 - runScript:
@@ -459,9 +459,9 @@ tags:
       ACTION: repay
 - openLink: "maggie-e2e://finance/cushion"
 - extendedWaitUntil:
-    visible: "−400[.,]00 EUR"
+    visible: "−400,00.€"
     timeout: 30000
-- assertVisible: "4.{0,1}800[.,]00 EUR sur.*"
+- assertVisible: "4.{0,1}800,00.€ sur.*"
 
 # Left as found.
 - runScript:

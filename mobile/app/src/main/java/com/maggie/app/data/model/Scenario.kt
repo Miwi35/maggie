@@ -172,13 +172,10 @@ fun nImpactLabel(months: Int?): String = when {
     else -> "N + $months mois"
 }
 
-/** « −120,00 EUR » for a gain that is a loss. */
-fun signedCents(cents: Int): String = if (cents < 0) "−${formatCents(-cents)}" else formatCents(cents)
-
 /** The figures of a repayment on one line: immobilized capital, IRA, real gain, effect on N, freed payment. */
 fun repaymentFiguresLine(figures: RepaymentFigures): String =
     "Capital immobilisé ${formatCents(figures.immobilizedCents)} · IRA ${formatCents(figures.penaltyCents)} · " +
-        "Gain réel ${signedCents(figures.realGainCents)} · ${nImpactLabel(figures.nImpactMonths)} · " +
+        "Gain réel ${formatCents(figures.realGainCents)} · ${nImpactLabel(figures.nImpactMonths)} · " +
         "Mensualité libérée ${formatCents(figures.freedMonthlyCents)}"
 
 private val SCENARIO_MONTH = DateTimeFormatter.ofPattern("LLLL yyyy", Locale.FRENCH)

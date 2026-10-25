@@ -69,8 +69,8 @@ class EnvelopeAdjustmentsScreenTest {
     fun `each envelope shows its actual and next month, the suggestion only where it does not fit`() {
         open()
 
-        compose.onNodeWithText("Réel de septembre 2026 : 390.00 EUR sur 400.00 EUR").assertExists()
-        compose.onNodeWithText("Octobre 2026 : 400.00 EUR").assertExists()
+        compose.onNodeWithText("Réel de septembre 2026 : 390,00\u00A0€ sur 400,00\u00A0€").assertExists()
+        compose.onNodeWithText("Octobre 2026 : 400,00\u00A0€").assertExists()
         compose.onNodeWithTag(UiTags.BUDGET_ADJUST_SUGGESTION_PREFIX + "Loisirs").assertExists()
         compose.onNodeWithText("Dépassée trois mois de suite").assertExists()
         compose.onNodeWithTag(UiTags.BUDGET_ADJUST_SUGGESTION_PREFIX + "Courses").assertDoesNotExist()
@@ -92,7 +92,7 @@ class EnvelopeAdjustmentsScreenTest {
         compose.onNodeWithTag(UiTags.BUDGET_ADJUST_PLUS_PREFIX + "Courses").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("Octobre 2026 : 401.00 EUR").assertExists()
+        compose.onNodeWithText("Octobre 2026 : 401,00\u00A0€").assertExists()
         compose.onNodeWithTag(UiTags.BUDGET_ADJUST_SAVE).assertIsEnabled()
         coVerify(exactly = 0) { repository.applyEnvelopeAdjustments(any()) }
 

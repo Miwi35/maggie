@@ -69,7 +69,7 @@ describe('RuleSuggestions', () => {
 
     expect(await screen.findByText('CARREFOUR DAC VL')).toBeInTheDocument()
     expect(screen.getByText('SAS JARDIS')).toBeInTheDocument()
-    expect(screen.getByText('-145,15 €')).toBeInTheDocument()
+    expect(screen.getByText('\u2212145,15 €')).toBeInTheDocument()
   })
 
   test('only a merchant with a guessed heading starts ticked', async () => {

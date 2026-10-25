@@ -35,7 +35,7 @@ tags:
 # The row's tap opens the sheet, whose pencil opens the form. The sheet is read-only on a phone: the
 # editing of the sources is the tablet's (`ProjectSheetScreenTest`), and the figures themselves are the
 # API's (`api/contract`). The amounts are matched loosely, as the app formats them in the device's
-# locale (« 10000,00 EUR », « 10000.00 EUR »), and the delays are not asserted.
+# locale (« 10 000,00 € »), and the delays are not asserted.
 #
 # Under the Gantt, the funding chart month by month (MAG-528): scrolling the list brings it into
 # view, with its legend of the three sources. Which months are flagged follows the seeded
@@ -282,9 +282,9 @@ tags:
 # The cash and loan total costs, whatever the decimal sign of the locale: 10 000 / 10 421,86.
 # The partial option depends on the seed's saving capacity: the unit tests own it.
 - extendedWaitUntil:
-    visible: "10000[,.]00 EUR"
+    visible: "10.000,00.€"
     timeout: 20000
-- assertVisible: "10421[,.]86 EUR"
+- assertVisible: "10.421,86.€"
 
 # Left as the seed wrote it: no source.
 - runScript:

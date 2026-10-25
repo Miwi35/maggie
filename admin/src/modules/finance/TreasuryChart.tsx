@@ -4,7 +4,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
 import { chartColor } from '../../design/tokens'
-import { formatCents } from './accountTypes'
+import { formatCents, formatCentsRounded } from './accountTypes'
 import type { TreasuryDay, TreasuryMovement } from './useTreasuryOutlook'
 
 const WIDTH = 640
@@ -131,7 +131,7 @@ export const TreasuryChart = ({ projection, limitCents }: TreasuryChartProps) =>
           strokeWidth="1"
         />
         <text x={WIDTH - PAD.right} y={y(0) - 4} fontSize="11" textAnchor="end" fill={theme.palette.text.secondary}>
-          0 €
+          {formatCentsRounded(0)}
         </text>
 
         <polyline points={points} fill="none" stroke={line} strokeWidth="2.5" strokeLinejoin="round" />

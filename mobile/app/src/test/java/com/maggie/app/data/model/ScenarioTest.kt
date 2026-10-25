@@ -165,6 +165,5 @@ class ScenarioTest {
         assertTrue(line.contains("Gain réel ${formatCents(531800)}"))
         assertTrue(line.contains("N − 3 mois"))
         assertTrue(line.contains("Mensualité libérée ${formatCents(41000)}"))
-        assertEquals("−${formatCents(12000)}", signedCents(-12000))
     }
 }

@@ -45,13 +45,13 @@ tags:
     visible:
       id: "budget_adjust_suggestion_Loisirs"
     timeout: 30000
-- assertVisible: ".*140[.,]00 EUR sur 100[.,]00 EUR.*"
-- assertVisible: ".* : 100[.,]00 EUR"
+- assertVisible: ".*140,00.€ sur 100,00.€.*"
+- assertVisible: ".* : 100,00.€"
 
 - tapOn:
     id: "budget_adjust_apply_Loisirs"
 - extendedWaitUntil:
-    visible: ".* : 140[.,]00 EUR"
+    visible: ".* : 140,00.€"
     timeout: 30000
 - extendedWaitUntil:
     notVisible:

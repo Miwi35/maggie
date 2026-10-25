@@ -10,11 +10,10 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import { formatCents } from './accountTypes'
+import { formatCents, formatCentsRounded } from './accountTypes'
 import { InvestmentChart } from './InvestmentChart'
 import { InvestmentDialog } from './InvestmentDialog'
 import { ganttMonthLabel, monthNumber } from './ProjectGantt'
-import { formatEuros } from './placementsApi'
 import { removeInvestment, saveInvestment } from './projectsApi'
 import type { InvestmentInput, PlannedProject, Project, ProjectInvestment } from './projectsApi'
 import type { RenteSourceInvestment } from './useFinanceDashboard'
@@ -73,7 +72,7 @@ const heldMonthsOf = (planned: PlannedProject | null): number | null => {
 const renteCountedLine = (rente: RenteSourceInvestment | null | undefined): string | null => {
   if (!rente || rente.coveragePoints === null) return null
 
-  return `Rente comptée : ${formatEuros(rente.monthlyRentCents)} / mois de loyer · indépendance + ${rente.coveragePoints} point${rente.coveragePoints > 1 ? 's' : ''}`
+  return `Rente comptée : ${formatCentsRounded(rente.monthlyRentCents)} / mois de loyer · indépendance + ${rente.coveragePoints} point${rente.coveragePoints > 1 ? 's' : ''}`
 }
 
 interface ProjectInvestmentCardProps {

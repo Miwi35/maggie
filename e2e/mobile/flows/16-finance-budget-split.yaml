@@ -35,10 +35,10 @@ tags:
 - openLink: "maggie-e2e://finance/budgets"
 
 - extendedWaitUntil:
-    visible: "Bars 100[.,]00 EUR"
+    visible: "Bars 100,00.€"
     timeout: 30000
-- assertVisible: "Cinéma 50[.,]00 EUR"
-- assertVisible: "Libre 150[.,]00 EUR"
+- assertVisible: "Cinéma 50,00.€"
+- assertVisible: "Libre 150,00.€"
 - assertNotVisible: "Répartir"
 
 - runScript:
@@ -54,10 +54,10 @@ tags:
 - tapOn: "Mois suivant"
 
 - extendedWaitUntil:
-    visible: "Bars 120[.,]00 EUR"
+    visible: "Bars 120,00.€"
     timeout: 30000
-- assertVisible: "Cinéma 30[.,]00 EUR"
-- assertVisible: "Libre 150[.,]00 EUR"
+- assertVisible: "Cinéma 30,00.€"
+- assertVisible: "Libre 150,00.€"
 
 # Left as found.
 - runScript:

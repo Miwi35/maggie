@@ -58,7 +58,7 @@ describe('TreasuryChart', () => {
 
     fireEvent.mouseEnter(container.querySelectorAll('rect[fill="transparent"]')[1])
 
-    expect(await screen.findByText(/14 oct\. : solde .* — .*Taxe foncière \(récurrent\) \(-977,00/)).toBeInTheDocument()
+    expect(await screen.findByText(/14 oct\. : solde .* — .*Taxe foncière \(récurrent\) \(\u2212977,00/)).toBeInTheDocument()
   })
 
   test('renders without a line when there is nothing to project', () => {

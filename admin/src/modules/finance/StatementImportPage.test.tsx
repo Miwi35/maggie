@@ -133,7 +133,7 @@ describe('StatementImportPage', () => {
     expect(figure('Déjà présentes')).toHaveTextContent('Déjà présentes1')
     expect(figure('Catégorisées par règle')).toHaveTextContent('Catégorisées par règle1')
     expect(figure('Période')).toHaveTextContent('Période07/09/2026 → 07/09/2026')
-    expect(figure('Solde des mouvements')).toHaveTextContent('-8,10')
+    expect(figure('Solde des mouvements')).toHaveTextContent('\u22128,10')
 
     // The bare ULID, not the IRI react-admin keys the record by — and a
     // rehearsal asks for no write.

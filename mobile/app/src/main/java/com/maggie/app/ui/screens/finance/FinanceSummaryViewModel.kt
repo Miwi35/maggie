@@ -14,7 +14,7 @@ import com.maggie.app.data.model.TreasuryOutlook
 import com.maggie.app.data.model.bankConnectionNeedsAction
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCents
-import com.maggie.app.data.model.formatEuros
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.reviewMonthOf
 import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.lastSyncLabel
@@ -239,7 +239,7 @@ internal fun placementsBlock(placements: List<Placement>): BlockState {
     return BlockState.Ready(
         listOf(
             "${placements.size} placement${if (placements.size > 1) "s" else ""}",
-            "≈ ${formatEuros(placements.sumOf { it.rent })} / mois à terme",
+            "≈ ${formatCentsRounded(placements.sumOf { it.rent })} / mois à terme",
         ),
     )
 }

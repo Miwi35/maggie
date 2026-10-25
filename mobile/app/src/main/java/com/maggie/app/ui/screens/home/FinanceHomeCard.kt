@@ -42,7 +42,7 @@ import com.maggie.app.ui.components.NO_ENVELOPE_TEXT
 import com.maggie.app.ui.components.StatusLabel
 import com.maggie.app.ui.components.hasEnvelope
 import com.maggie.app.ui.components.rhythmWord
-import com.maggie.app.ui.components.ringAmount
+import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.components.ringFill
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.screens.finance.purchaseLabel
@@ -116,7 +116,7 @@ private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHome
     val fill = ringFill(rhythm)
     val word = rhythmWord(rhythm)
     val description = if (hasEnvelope(rhythm)) {
-        "$title : $word, ${ringAmount(ring.remainingCents)} restants sur ${ringAmount(ring.budgetCents)}"
+        "$title : $word, ${formatCents(ring.remainingCents)} restants sur ${formatCents(ring.budgetCents)}"
     } else {
         "$title : $NO_ENVELOPE_TEXT"
     }
@@ -141,7 +141,7 @@ private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHome
             }
             if (hasEnvelope(rhythm)) {
                 Text(
-                    text = ringAmount(ring.remainingCents),
+                    text = formatCents(ring.remainingCents),
                     style = MaterialTheme.typography.labelLarge,
                     color = if (ring.remainingCents < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -187,7 +187,7 @@ private fun FinanceHomeNextProject(project: FinanceHomeProject) {
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
         )
         Text(
-            text = "${ringAmount(project.gatheredCents)} sur ${ringAmount(project.amountCents)}",
+            text = "${formatCents(project.gatheredCents)} sur ${formatCents(project.amountCents)}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),

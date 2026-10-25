@@ -124,7 +124,7 @@ fun independenceRenteSourceRows(sources: RenteSources): List<IndependenceRenteSo
         add(
             IndependenceRenteSourceRow(
                 IndependenceRenteSourceKind.PLACEMENTS,
-                "Placements · ${sources.placements.count} · ≈ ${formatEuros(sources.placements.monthlyRentCents)} / mois à terme",
+                "Placements · ${sources.placements.count} · ≈ ${formatCentsRounded(sources.placements.monthlyRentCents)} / mois à terme",
             ),
         )
     }
@@ -132,7 +132,7 @@ fun independenceRenteSourceRows(sources: RenteSources): List<IndependenceRenteSo
         add(
             IndependenceRenteSourceRow(
                 IndependenceRenteSourceKind.INVESTMENTS,
-                "Investissements · ${sources.investments.count} · ≈ ${formatEuros(sources.investments.monthlyRentCents)} / mois de loyer",
+                "Investissements · ${sources.investments.count} · ≈ ${formatCentsRounded(sources.investments.monthlyRentCents)} / mois de loyer",
             ),
         )
     }

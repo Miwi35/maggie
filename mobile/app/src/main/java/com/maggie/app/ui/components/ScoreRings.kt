@@ -40,10 +40,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.PeriodScore
 import com.maggie.app.data.model.Rhythm
+import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.reasonText
 import com.maggie.app.ui.UiTags
-import java.text.NumberFormat
-import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -77,9 +76,6 @@ fun scoreWord(status: String, label: String): String = label.ifBlank {
 fun rhythmWord(rhythm: Rhythm): String = rhythm.label.ifBlank {
     if (rhythm.status == "above") "Au-dessus du rythme" else "Dans le rythme"
 }
-
-/** An amount of a ring, in « € » as the mock-ups write it: « 120,00 € ». */
-fun ringAmount(cents: Int): String = NumberFormat.getCurrencyInstance(Locale.FRANCE).format(cents / 100.0)
 
 /** The word under a ring: the pace when there is a budget, the period's own label otherwise. */
 internal fun ringWord(score: PeriodScore): String =
@@ -119,12 +115,12 @@ fun ringDescription(title: String, score: PeriodScore): String {
     if (!hasEnvelope(rhythm)) return "$title : $word. $NO_ENVELOPE_TEXT."
 
     val left = if (rhythm.remainingCents < 0) {
-        "dépassé de ${ringAmount(-rhythm.remainingCents)}"
+        "dépassé de ${formatCents(-rhythm.remainingCents)}"
     } else {
-        "il reste ${ringAmount(rhythm.remainingCents)}"
+        "il reste ${formatCents(rhythm.remainingCents)}"
     }
-    return "$title : $word, $left sur ${ringAmount(rhythm.budgetCents)}, " +
-        "attendu aujourd'hui ${ringAmount(rhythm.expectedRemainingCents)}"
+    return "$title : $word, $left sur ${formatCents(rhythm.budgetCents)}, " +
+        "attendu aujourd'hui ${formatCents(rhythm.expectedRemainingCents)}"
 }
 
 private fun ScoreMark.icon(): ImageVector = when (this) {
@@ -279,7 +275,7 @@ private fun RingCenter(rhythm: Rhythm) {
         }
 
         Text(
-            text = ringAmount(rhythm.remainingCents),
+            text = formatCents(rhythm.remainingCents),
             style = MaterialTheme.typography.titleSmall,
             color = if (rhythm.remainingCents < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             maxLines = 1,

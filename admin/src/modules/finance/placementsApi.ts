@@ -1,3 +1,4 @@
+import { formatCentsRounded } from './accountTypes'
 import { bareId } from './envelopeTree'
 
 /**
@@ -98,11 +99,7 @@ export const FREQUENCY_CHOICES: { id: PlacementFrequency; label: string }[] = [
 
 const PERIOD: Record<Exclude<PlacementFrequency, 'once'>, string> = { monthly: 'mois', quarterly: 'trimestre', yearly: 'an' }
 
-const EUROS = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 })
 const PERCENT = new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 2 })
-
-/** 7443007 → « 74 430 € »: rounded to the euro. */
-export const formatEuros = (cents: number): string => EUROS.format(Math.round((cents ?? 0) / 100))
 
 /** 600 → « 6 % », 350 → « 3,5 % ». */
 export const formatRate = (basisPoints: number): string => PERCENT.format((basisPoints ?? 0) / 10000)
@@ -128,12 +125,12 @@ export const depositsLabel = (placement: Pick<Placement, 'initial' | 'deposit' |
   if (placement.deposit > 0) {
     parts.push(
       placement.frequency === 'once'
-        ? `${formatEuros(placement.deposit)} une fois`
-        : `${formatEuros(placement.deposit)} / ${PERIOD[placement.frequency]}`,
+        ? `${formatCentsRounded(placement.deposit)} une fois`
+        : `${formatCentsRounded(placement.deposit)} / ${PERIOD[placement.frequency]}`,
     )
   }
   if (placement.initial > 0) {
-    parts.push(placement.deposit > 0 ? `${formatEuros(placement.initial)} initial` : `${formatEuros(placement.initial)} une fois`)
+    parts.push(placement.deposit > 0 ? `${formatCentsRounded(placement.initial)} initial` : `${formatCentsRounded(placement.initial)} une fois`)
   }
 
   return parts.join(' · ')

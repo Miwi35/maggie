@@ -8,7 +8,7 @@ tags:
 # Étant donné l'opération récurrente « Loyer MAG-309 », 900,00 € le 5 de chaque mois,
 #   dont la ligne « LOYER SCI VERDA » est arrivée huit jours après l'échéance
 # Quand j'ouvre les opérations récurrentes
-# Alors elle coûte 900.00 EUR par mois, le 5 de chaque mois, et « Échéance manquée » le dit
+# Alors elle coûte 900,00 € par mois, le 5 de chaque mois, et « Échéance manquée » le dit
 #   et le rattachement de « LOYER SCI VERDA » m'est proposé
 # Quand je l'accepte
 # Alors la ligne est rattachée en base et la proposition disparaît
@@ -33,7 +33,7 @@ tags:
 #
 # The data is set by `scripts/recurring-api.js` on an account of its own, relative to
 # TODAY (the series starts two months back, so there is always a due date that never came).
-# Amounts are drawn the way the app draws them: « 900.00 EUR ».
+# Amounts are drawn the way the app draws them: « 900,00 € ».
 #
 # What is not here: the creation form and the full-screen category and account searches
 # (`RecurringOperationViewModelTest`, `RecurringOperationScreenTest`), and the admin's
@@ -70,7 +70,7 @@ tags:
     timeout: 30000
 
 - extendedWaitUntil:
-    visible: ".*900[.,]00 EUR par mois.*"
+    visible: ".*900,00.€ par mois.*"
     timeout: 10000
 - extendedWaitUntil:
     visible: ".*le 5 de chaque mois.*"

@@ -55,7 +55,7 @@ class PeerDebtTest {
             listOf(ContactDebt("d-9", "Avance gîte", "2026-10-12", 28000, PeerDebt.DIRECTION_I_OWE)),
             openDebtsOf(debts, "c-tom"),
         )
-        assertEquals("tu lui dois 280.00 EUR", youOweLabel(28000).replace(',', '.'))
+        assertEquals("tu lui dois 280,00\u00A0€", youOweLabel(28000))
     }
 
     @Test
