@@ -27,6 +27,7 @@ use Maggie\Grocery\Entity\Errand;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\PurchasedItem;
 use Maggie\Grocery\Enum\ProductCategory;
+use Maggie\Grocery\Enum\ProductStockState;
 use Maggie\Grocery\Enum\Unit;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
@@ -789,6 +790,37 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/grocery_suggestions.json',
             self::stabilise($body),
             'GET /api/grocery-suggestions no longer returns what it used to. The mobile DTOs are written against this response.',
+        );
+    }
+
+    /**
+     * « Pour les recettes » (MAG-590), as `/api/grocery/recipe-needs` sends it:
+     * the recorded meal's ingredient, out of stock, over the meal's day.
+     */
+    public function testTheRecipeNeedsRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $ingredient = $this->getFixture('recorded_ingredient');
+        self::assertInstanceOf(Product::class, $ingredient);
+        $ingredient->setStockState(ProductStockState::Out);
+        $em->flush();
+        $em->clear();
+        $this->authenticateAsUser($user);
+
+        $this->client->request('GET', '/api/grocery/recipe-needs?from=2026-03-16&to=2026-03-17&missing=true', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertNotSame([], $body['member'], 'The recorded world misses nothing, so the recording proves nothing about an entry.');
+
+        $this->assertMatchesContract(
+            'responses/grocery_recipe_needs.collection.json',
+            self::stabilise($body),
+            'GET /api/grocery/recipe-needs no longer returns what it used to. The mobile DTOs are written against this response.',
         );
     }
 

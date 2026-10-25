@@ -63,10 +63,12 @@ object MercureTopics {
     const val FINANCE_PROJECTS = "finance/projects"
     const val FINANCE_SCENARIOS = "finance/scenarios"
     const val GROCERY_LISTS = "grocery_lists"
+    const val INGREDIENTS = "ingredients"
     const val LOANS = "loans"
     const val MEALS = "meals"
     const val MEAL_SETTINGS = "meal_settings"
     const val NOTIFICATIONS = "notifications"
+    const val PRODUCTS = "products"
     const val PROACTIONS = "proactions"
     const val RECIPES = "recipes"
     const val RECURRING_GROCERY_ITEMS = "recurring_grocery_items"
@@ -74,6 +76,7 @@ object MercureTopics {
     const val ROUTINES = "routines"
     const val ROUTINE_CHECKS = "routine_checks"
     const val SAFETY_CUSHIONS = "safety_cushions"
+    const val STORES = "stores"
     const val TASKS = "tasks"
     const val TASK_SETTINGS = "task_settings"
     const val TRANSACTIONS = "transactions"
@@ -99,10 +102,12 @@ object MercureTopics {
         FINANCE_PROJECTS,
         FINANCE_SCENARIOS,
         GROCERY_LISTS,
+        INGREDIENTS,
         LOANS,
         MEALS,
         MEAL_SETTINGS,
         NOTIFICATIONS,
+        PRODUCTS,
         PROACTIONS,
         RECIPES,
         RECURRING_GROCERY_ITEMS,
@@ -110,6 +115,7 @@ object MercureTopics {
         ROUTINES,
         ROUTINE_CHECKS,
         SAFETY_CUSHIONS,
+        STORES,
         TASKS,
         TASK_SETTINGS,
         TRANSACTIONS,

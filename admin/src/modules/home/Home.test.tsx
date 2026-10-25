@@ -234,11 +234,10 @@ describe('Home', () => {
     const nothing: Record<string, unknown> = {
       nutrition: { slots: [{ slot: 'lunch', meals: [] }, { slot: 'dinner', meals: [] }] },
       finance,
-      grocery: { count: 0, forRecipes: [], stores: [] },
     }
 
     /**
-     * Stubs fetch with `nothing`, each module's answer overridden by `answers[module][day]`; the Agenda card reads empty events, and the Tâches card
+     * Stubs fetch with `nothing`, each module's answer overridden by `answers[module][day]`; the Agenda card reads empty events, the Courses card reads the open list in `answers.grocery.today`, and the Tâches card
      * reads the tasks and routines resources, `answers.tasks[day]` being the open tasks it finds.
      */
     const stubHome = (answers: Record<string, Partial<Record<'today' | 'tomorrow', unknown>>> = {}, failing: string[] = []) => {
@@ -255,6 +254,13 @@ describe('Home', () => {
         }
         if (/\/(events\?|agendas)/.test(url)) {
           return failing.includes('agenda') ? fail() : ok({ member: [] })
+        }
+        if (/\/grocery_lists(\/|\?|$)|\/grocery\/recipe-needs/.test(url)) {
+          if (failing.includes('grocery')) return fail()
+          if (url.includes('/grocery/recipe-needs')) return ok({ member: [], totalItems: 0 })
+          if (/\/grocery_lists\/l1/.test(url)) return ok({ id: 'l1', items: answers.grocery?.today ?? [] })
+
+          return ok({ member: [{ id: 'l1' }] })
         }
         const module = /\/api\/home\/(\w+)/.exec(url)?.[1] ?? ''
         const day = url.includes('day=tomorrow') ? 'tomorrow' : 'today'
@@ -321,7 +327,7 @@ describe('Home', () => {
     })
 
     test('the cards with something stay, the others are gone', async () => {
-      stubHome({ grocery: { today: { ...(nothing.grocery as object), count: 1, stores: [{ id: null, name: null, count: 1, more: 0, items: [{ id: 'i1', name: 'Piles', quantity: null, unit: null, needed: null }] }] } } })
+      stubHome({ grocery: { today: [{ id: 'i1', label: 'Piles', checked: false, position: 0 }] } })
       renderHome('/', homeConfig, cardRegistry)
 
       expect(await screen.findByTestId('home-card-grocery')).toBeVisible()

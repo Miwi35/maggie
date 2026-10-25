@@ -1,7 +1,10 @@
 package com.maggie.app.ui.screens.home
 
-import com.maggie.app.data.model.HomeDay
-import com.maggie.app.data.repository.HomeCardRepository
+import com.maggie.app.data.model.GroceryHomeLine
+import com.maggie.app.data.model.GroceryHomeRecipeNeed
+import com.maggie.app.data.model.GroceryHomeState
+import com.maggie.app.data.model.GroceryHomeStore
+import com.maggie.app.data.repository.GroceryCardRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -14,8 +17,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -24,27 +25,36 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Instant
+import java.time.LocalDate
 
-/** The Courses card of the Accueil (MAG-563): read once, read again when the API says it moved, one test per state. */
+/** The Courses card of the Accueil (MAG-563, MAG-590): read once, read again when Mercure says it moved, one test per state. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class GroceryHomeViewModelTest {
     private val dispatcher = StandardTestDispatcher()
-    private val repository = mockk<HomeCardRepository>()
+    private val repository = mockk<GroceryCardRepository>()
     private val changes = MutableSharedFlow<Unit>()
 
-    private fun answer(count: Int, itemName: String = "Lait"): JsonObject = Json.parseToJsonElement(
-        """
-        {"count":$count,"forRecipes":[{"name":"Parmesan","day":"today","slot":"dinner"}],
-         "stores":[{"id":"s1","name":"Supermarché","count":$count,"more":0,
-           "items":[{"id":"i1","name":"$itemName","quantity":2,"unit":"l","needed":null}]}],"extra":"ignored"}
-        """.trimIndent(),
-    ) as JsonObject
+    private fun answer(count: Int, itemName: String = "Lait") = GroceryHomeState(
+        count = count,
+        forRecipes = listOf(GroceryHomeRecipeNeed("Parmesan", "today", "dinner")),
+        stores = listOf(
+            GroceryHomeStore(
+                id = "s1",
+                name = "Supermarché",
+                count = count,
+                items = listOf(GroceryHomeLine(id = "i1", name = itemName, quantity = 2f, unit = "l")),
+            ),
+        ),
+    )
+
+    private val emptyAnswer = GroceryHomeState()
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
-        every { repository.changes("grocery") } returns changes
-        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(answer(1))
+        every { repository.changes() } returns changes
+        coEvery { repository.read(any()) } returns Result.success(answer(1))
     }
 
     @After
@@ -52,9 +62,11 @@ class GroceryHomeViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private fun viewModel() = GroceryHomeViewModel(repository, clock = { Instant.parse("2026-10-23T12:00:00Z") })
+
     @Test
     fun `the card loads while it reads, then holds the list by shop`() = runTest(dispatcher) {
-        val viewModel = GroceryHomeViewModel(repository)
+        val viewModel = viewModel()
 
         assertTrue(viewModel.uiState.value.isLoading)
         assertNull(viewModel.uiState.value.state)
@@ -70,9 +82,25 @@ class GroceryHomeViewModelTest {
     }
 
     @Test
+    fun `the card is read for the owner's day, taken from the device clock`() = runTest(dispatcher) {
+        viewModel()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.read(LocalDate.of(2026, 10, 23)) }
+    }
+
+    @Test
+    fun `just after midnight in Paris the card reads the day that has begun there`() = runTest(dispatcher) {
+        GroceryHomeViewModel(repository, clock = { Instant.parse("2026-10-23T22:30:00Z") })
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.read(LocalDate.of(2026, 10, 24)) }
+    }
+
+    @Test
     fun `a failing read shows the failure, with no list`() = runTest(dispatcher) {
-        coEvery { repository.state(any(), any()) } returns Result.failure(RuntimeException("503"))
-        val viewModel = GroceryHomeViewModel(repository)
+        coEvery { repository.read(any()) } returns Result.failure(RuntimeException("503"))
+        val viewModel = viewModel()
 
         advanceUntilIdle()
 
@@ -84,11 +112,11 @@ class GroceryHomeViewModelTest {
 
     @Test
     fun `retrying after a failure reads again and clears it`() = runTest(dispatcher) {
-        coEvery { repository.state(any(), any()) } returns Result.failure(RuntimeException("503"))
-        val viewModel = GroceryHomeViewModel(repository)
+        coEvery { repository.read(any()) } returns Result.failure(RuntimeException("503"))
+        val viewModel = viewModel()
         advanceUntilIdle()
 
-        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(answer(1))
+        coEvery { repository.read(any()) } returns Result.success(answer(1))
         viewModel.refresh()
         assertTrue(viewModel.uiState.value.isLoading)
         advanceUntilIdle()
@@ -98,25 +126,41 @@ class GroceryHomeViewModelTest {
     }
 
     @Test
-    fun `a change announced by the API reads the card again`() = runTest(dispatcher) {
-        val viewModel = GroceryHomeViewModel(repository)
+    fun `a change announced by Mercure reads the card again`() = runTest(dispatcher) {
+        val viewModel = viewModel()
         advanceUntilIdle()
 
-        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(answer(2, itemName = "Beurre"))
+        coEvery { repository.read(any()) } returns Result.success(answer(2, itemName = "Beurre"))
         changes.emit(Unit)
         advanceUntilIdle()
 
         assertEquals("Beurre", viewModel.uiState.value.state?.stores?.single()?.items?.single()?.name)
-        coVerify(exactly = 2) { repository.state("grocery", HomeDay.TODAY) }
+        coVerify(exactly = 2) { repository.read(any()) }
     }
 
     @Test
-    fun `a read that fails after a good one keeps the list and flags the failure`() = runTest(dispatcher) {
-        val viewModel = GroceryHomeViewModel(repository)
+    fun `a refresh that fails after a good read keeps the list as it was`() = runTest(dispatcher) {
+        val viewModel = viewModel()
         advanceUntilIdle()
 
-        coEvery { repository.state(any(), any()) } returns Result.failure(RuntimeException("offline"))
+        coEvery { repository.read(any()) } returns Result.failure(RuntimeException("offline"))
         changes.emit(Unit)
+        advanceUntilIdle()
+
+        val ui = viewModel.uiState.value
+        assertFalse(ui.failed)
+        assertFalse(ui.isLoading)
+        assertEquals("Lait", ui.state?.stores?.single()?.items?.single()?.name)
+        assertEquals(HomeCardStatus.FILLED, ui.status)
+    }
+
+    @Test
+    fun `a retry that fails keeps the list and flags the failure`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        coEvery { repository.read(any()) } returns Result.failure(RuntimeException("offline"))
+        viewModel.refresh()
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.failed)
@@ -124,39 +168,29 @@ class GroceryHomeViewModelTest {
     }
 
     @Test
-    fun `the list is read for today whatever the selector says, the card does not follow Demain`() = runTest(dispatcher) {
-        GroceryHomeViewModel(repository)
-        advanceUntilIdle()
-
-        coVerify(exactly = 0) { repository.state(any(), HomeDay.TOMORROW) }
-    }
-
-    private val emptyAnswer = Json.parseToJsonElement("""{"count":0,"forRecipes":[],"stores":[]}""") as JsonObject
-
-    @Test
-    fun `status - loading, then filled, empty, filled again on a push, failed, loading on retry`() = runTest(dispatcher) {
-        val viewModel = GroceryHomeViewModel(repository)
+    fun `status - loading, then filled, empty, filled again on a push, failed on a retry, loading on retry`() = runTest(dispatcher) {
+        val viewModel = viewModel()
         assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
 
         advanceUntilIdle()
         assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
 
-        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(emptyAnswer)
+        coEvery { repository.read(any()) } returns Result.success(emptyAnswer)
         changes.emit(Unit)
         advanceUntilIdle()
         assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
 
-        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(answer(1))
+        coEvery { repository.read(any()) } returns Result.success(answer(1))
         changes.emit(Unit)
         advanceUntilIdle()
         assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
 
-        coEvery { repository.state(any(), any()) } returns Result.failure(RuntimeException("offline"))
-        changes.emit(Unit)
+        coEvery { repository.read(any()) } returns Result.failure(RuntimeException("offline"))
+        viewModel.refresh()
         advanceUntilIdle()
         assertEquals(HomeCardStatus.ERROR, viewModel.uiState.value.status)
 
-        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(emptyAnswer)
+        coEvery { repository.read(any()) } returns Result.success(emptyAnswer)
         viewModel.refresh()
         assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
         advanceUntilIdle()
@@ -164,11 +198,20 @@ class GroceryHomeViewModelTest {
     }
 
     @Test
+    fun `status - no list and a failing first read is an error`() = runTest(dispatcher) {
+        coEvery { repository.read(any()) } returns Result.failure(RuntimeException("offline"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(HomeCardStatus.ERROR, viewModel.uiState.value.status)
+    }
+
+    @Test
     fun `status - what the meals lack keeps an empty list filled`() = runTest(dispatcher) {
-        coEvery { repository.state("grocery", HomeDay.TODAY) } returns Result.success(
-            Json.parseToJsonElement("""{"count":0,"forRecipes":[{"name":"Parmesan","day":"today","slot":"dinner"}],"stores":[]}""") as JsonObject,
+        coEvery { repository.read(any()) } returns Result.success(
+            GroceryHomeState(forRecipes = listOf(GroceryHomeRecipeNeed("Parmesan", "today", "dinner"))),
         )
-        val viewModel = GroceryHomeViewModel(repository)
+        val viewModel = viewModel()
         advanceUntilIdle()
 
         assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)

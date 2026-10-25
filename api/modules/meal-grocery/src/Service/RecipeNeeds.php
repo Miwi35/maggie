@@ -110,6 +110,27 @@ class RecipeNeeds implements RecipeDemandInterface
     public function runningOutPerMeal(User $user, \DateTimeImmutable $from, int $days = 2): array
     {
         $to = $from->modify('+'.(max(1, $days) - 1).' days');
+        $out = [];
+        foreach ($this->ingredientsPerMeal($user, $from, $to) as $entry) {
+            if ($entry['missing']) {
+                unset($entry['missing']);
+                $out[] = $entry;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The ingredients of the meals planned from `$from` to `$to` (both days
+     * included), one entry per meal and product, soonest meal first (lunch
+     * before dinner). `missing` is true when the owner is low on it or out
+     * (MAG-590): the resource behind « Pour les recettes » reads this.
+     *
+     * @return list<array{productId: string, name: string, date: string, slot: string, mealId: string, mealName: string, missing: bool}>
+     */
+    public function ingredientsPerMeal(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
         $meals = $this->mealRepository->findByDateRangeForUser($user, $from, $to);
         usort($meals, static fn ($a, $b) => [$a->getDate(), MealSlot::Lunch === $a->getSlot() ? 0 : 1] <=> [$b->getDate(), MealSlot::Lunch === $b->getSlot() ? 0 : 1]);
 
@@ -120,7 +141,7 @@ class RecipeNeeds implements RecipeDemandInterface
                     $ingredient = $line->getIngredient();
                     $id = (string) $ingredient->getId();
                     $key = $meal->getId().':'.$id;
-                    if (isset($out[$key]) || ProductStockState::InStock === $ingredient->getStockState()) {
+                    if (isset($out[$key])) {
                         continue;
                     }
 
@@ -131,6 +152,7 @@ class RecipeNeeds implements RecipeDemandInterface
                         'slot' => $meal->getSlot()->value,
                         'mealId' => (string) $meal->getId(),
                         'mealName' => MealTitle::of($meal),
+                        'missing' => ProductStockState::InStock !== $ingredient->getStockState(),
                     ];
                 }
             }
