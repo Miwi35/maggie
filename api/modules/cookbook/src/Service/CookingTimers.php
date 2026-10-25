@@ -16,6 +16,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Message\CreateNotificationCommand;
 use Maggie\Notification\Message\MarkNotificationReadCommand;
+use Maggie\Notification\Message\WithdrawPushNotificationCommand;
 use Maggie\Notification\Repository\NotificationRepository;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -30,8 +31,8 @@ use Symfony\Component\Uid\Ulid;
  * The end is a message delayed until `endsAt`. A change of schedule queues a
  * new one and leaves the old to find a different revision; the end that does
  * match turns the timer `done` and raises one notification, which the
- * notification module pushes to every device. « OK » or a cancel marks it read,
- * so it leaves the other devices too.
+ * notification module pushes to every device. « OK » or a cancel marks it read
+ * and withdraws its push, so it leaves the other devices too.
  */
 class CookingTimers
 {
@@ -166,6 +167,8 @@ class CookingTimers
     {
         foreach ($this->notifications->findUnreadByTypeAndEntity($timer->getUser(), NotificationType::CookingTimer, self::iriOf($timer)) as $notification) {
             $this->bus->dispatch(new MarkNotificationReadCommand((string) $notification->getId(), $this->clock->now()));
+            // A phone in a pocket has its app closed: only a push takes the notification down there.
+            $this->bus->dispatch(new WithdrawPushNotificationCommand((string) $notification->getId()), [new DispatchAfterCurrentBusStamp()]);
         }
     }
 

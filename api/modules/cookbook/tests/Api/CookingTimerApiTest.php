@@ -17,6 +17,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Message\SendPushNotificationCommand;
+use Maggie\Notification\Message\WithdrawPushNotificationCommand;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -375,6 +376,13 @@ class CookingTimerApiTest extends WebTestCase
         self::assertNotNull($notifications[0]->getReadAt());
         $this->assertMercureUpdatePublished('/api/notifications/'.$notifications[0]->getId());
         $this->assertMercureUpdatePublished('/api/cooking/timers/'.$timer['id']);
+        // A phone whose app is closed only hears it through a push.
+        $withdrawals = array_values(array_filter(
+            array_map(static fn ($envelope) => $envelope->getMessage(), $this->getAsyncTransport()->getSent()),
+            static fn (object $message) => $message instanceof WithdrawPushNotificationCommand,
+        ));
+        self::assertCount(1, $withdrawals);
+        self::assertSame((string) $notifications[0]->getId(), $withdrawals[0]->notificationId);
     }
 
     public function testCancellingARungTimerReadsItsNotificationToo(): void

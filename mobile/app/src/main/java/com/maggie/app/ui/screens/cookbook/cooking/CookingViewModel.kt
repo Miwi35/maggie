@@ -57,6 +57,8 @@ data class CookingUiState(
     val timerError: String? = null,
     /** A timer is being started: the button does not send a second one. */
     val starting: Boolean = false,
+    /** The API's timers were read once (or could not be): until then a step's timer may already run elsewhere. */
+    val timersLoaded: Boolean = false,
 ) {
     val recipe: Recipe? get() = session?.current?.let { recipes[it.recipeId] }
 
@@ -285,7 +287,8 @@ class CookingViewModel(
         val state = _uiState.value
         val recipeId = state.session?.current?.recipeId ?: return
         val minutes = step.durationMinutes ?: return
-        if (state.starting) return
+        // Before the first read a re-entered step's timer may already run: no second one.
+        if (state.starting || !state.timersLoaded) return
         _uiState.update { it.copy(starting = true, timerError = null) }
         viewModelScope.launch {
             timerRepository.start(timerLabel(step.text, step.position), recipeId, step.position, minutes * 60).fold(
@@ -317,10 +320,14 @@ class CookingViewModel(
     private fun loadTimers() {
         timersJob?.cancel()
         timersJob = viewModelScope.launch {
-            val timers = timerRepository.active().getOrElse { return@launch }
+            val timers = timerRepository.active().getOrElse {
+                _uiState.update { it.copy(timersLoaded = true) }
+                return@launch
+            }
             val now = clock()
             _uiState.update { state ->
                 state.copy(
+                    timersLoaded = true,
                     timers = timers.filter { it.status.isActive },
                     deadlines = timers.filter { it.status == CookingTimerStatus.RUNNING }
                         .associate { it.id to now + it.remainingSeconds * 1000L },

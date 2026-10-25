@@ -167,7 +167,7 @@ class CookingViewModelTest {
     private suspend fun TestScope.ready(viewModel: CookingViewModel) {
         settle {
             val state = viewModel.uiState.value
-            state.load == CookingLoad.READY && !state.refreshing && state.recipe != null
+            state.load == CookingLoad.READY && !state.refreshing && state.recipe != null && state.timersLoaded
         }
     }
 

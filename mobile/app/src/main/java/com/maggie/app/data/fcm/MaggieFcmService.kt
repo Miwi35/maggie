@@ -19,6 +19,11 @@ class MaggieFcmService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        if (message.data["type"] == WITHDRAW_TYPE) {
+            message.data["tag"]?.let { delivery.withdraw(it, message.data["notificationId"]) }
+            return
+        }
+
         val payload = PushPayload.from(
             data = message.data,
             notificationTitle = message.notification?.title,
@@ -29,5 +34,10 @@ class MaggieFcmService : FirebaseMessagingService() {
         // Android calls this in the foreground only (a message with a `notification` block is
         // shown by the system otherwise): the delivery raises the interruption, not a notification.
         delivery.deliver(payload)
+    }
+
+    private companion object {
+        /** The API's data-only message that takes a notification down (`PushMessageFactory::WITHDRAW_TYPE`). */
+        const val WITHDRAW_TYPE = "withdraw"
     }
 }

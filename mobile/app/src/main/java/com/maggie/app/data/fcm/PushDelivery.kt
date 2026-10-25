@@ -20,6 +20,16 @@ class PushDelivery(
         if (isForeground()) center.offer(payload, reshow) else notifier().show(payload)
     }
 
+    /**
+     * A notification seen on another device (MAG-582, the API's `withdraw` data message): it leaves
+     * the tray, and the interruption if the app shows it. Android hands this message to the app
+     * even in the background, which is the only way to reach a phone in a pocket.
+     */
+    fun withdraw(tag: String, notificationId: String?) {
+        notifier().close(tag)
+        notificationId?.let(center::close)
+    }
+
     private companion object {
         fun appIsForeground(): Boolean =
             ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)

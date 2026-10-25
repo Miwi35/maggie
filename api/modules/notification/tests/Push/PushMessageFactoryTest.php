@@ -207,6 +207,18 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('minuteur de l\'étape 3 · Pâtes aux légumes', $first['notification']['body']);
     }
 
+    public function testAWithdrawalIsDataOnlyAndNamesTheTagToTakeDown(): void
+    {
+        $timerId = '01JCOOKINGTIMER0000000000A';
+        $notification = $this->notification(NotificationType::CookingTimer, 'Pâtes : c\'est prêt', null, '/api/cooking/timers/'.$timerId);
+
+        $message = (new PushMessageFactory())->buildWithdrawal($notification, 't');
+
+        self::assertArrayNotHasKey('notification', $message);
+        self::assertSame(['type' => 'withdraw', 'notificationId' => (string) $notification->getId(), 'tag' => 'cooking-timer-'.$timerId], $message['data']);
+        self::assertSame('high', $message['android']['priority']);
+    }
+
     public function testAnotherNotificationKeepsItsOwnTagAndNoTimerId(): void
     {
         $notification = $this->notification(NotificationType::Reminder, 'Rendez-vous', null, '/api/events/01JEVENT');

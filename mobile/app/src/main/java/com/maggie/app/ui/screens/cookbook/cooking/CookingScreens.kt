@@ -217,7 +217,8 @@ private fun CookingFrame(state: CookingUiState, actions: CookingActions, content
                 }
             }
         }
-        state.alert?.takeIf { cooking }?.let { timer ->
+        // Over every screen of the activity, « Bon appétit » included: the sound rings wherever the cook is.
+        state.alert?.let { timer ->
             TimerAlert(
                 timer = timer,
                 onOk = { actions.dismissTimer(timer.id) },

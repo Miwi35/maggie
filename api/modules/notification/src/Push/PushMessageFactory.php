@@ -33,6 +33,9 @@ class PushMessageFactory
     /** The Android tag of a cooking timer's end, followed by the timer's id (MAG-582). */
     public const COOKING_TIMER_TAG = 'cooking-timer';
 
+    /** The `type` of a data-only message that takes a notification down (MAG-582). */
+    public const WITHDRAW_TYPE = 'withdraw';
+
     /**
      * FCM refuses a message over 4096 bytes, and title and text travel twice
      * (both blocks): 2 × (400 + 1200) leaves room for the rest of the data.
@@ -116,6 +119,26 @@ class PushMessageFactory
                     'tag' => $this->tag($notification),
                 ],
             ],
+        ];
+    }
+
+    /**
+     * The data-only message that takes a notification down from a device's tray
+     * once it is seen elsewhere (MAG-582): Android hands it to the app even in
+     * the background, which cancels the notification of that tag.
+     *
+     * @return array<string, mixed> the FCM v1 `message` object
+     */
+    public function buildWithdrawal(Notification $notification, string $deviceToken): array
+    {
+        return [
+            'token' => $deviceToken,
+            'data' => [
+                'type' => self::WITHDRAW_TYPE,
+                'notificationId' => (string) $notification->getId(),
+                'tag' => $this->tag($notification),
+            ],
+            'android' => ['priority' => 'high'],
         ];
     }
 
