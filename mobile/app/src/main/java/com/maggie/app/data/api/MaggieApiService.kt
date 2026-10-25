@@ -38,8 +38,11 @@ import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Aisle
+import com.maggie.app.data.model.AisleFilter
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductAisle
+import com.maggie.app.data.model.ProductQuery
+import com.maggie.app.data.model.ProductSort
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.qualificationPatch
 import com.maggie.app.data.model.Recipe
@@ -1761,10 +1764,26 @@ class MaggieApiService(
     }
 
     // Products
-    suspend fun getProducts(): List<Product> {
+    /** The store, aisle and order are the API's own filters (MAG-604): the list is never cut on the phone. */
+    suspend fun getProducts(query: ProductQuery = ProductQuery()): List<Product> {
         return client.get("$baseUrl/api/products") {
             accept(ContentType("application", "ld+json"))
             withoutPagination()
+            query.storeId?.let { store ->
+                url.parameters.append("store", "/api/stores/$store")
+                when (val aisle = query.aisle) {
+                    AisleFilter.All -> Unit
+                    AisleFilter.None -> url.parameters.append("aisle", "none")
+                    is AisleFilter.One -> url.parameters.append("aisle", "/api/aisles/${aisle.id}")
+                }
+            }
+            val sort = if (query.storeId == null && query.sort == ProductSort.AISLE) ProductSort.NAME else query.sort
+            // Literal names: QueryParameterContractTest reads them from this source.
+            when (sort) {
+                ProductSort.NAME -> url.parameters.append("order[name]", "asc")
+                ProductSort.AISLE -> url.parameters.append("order[aisle]", "asc")
+                ProductSort.STOCK -> url.parameters.append("order[stockState]", "asc")
+            }
         }.body<ApiCollection<Product>>().member
     }
 

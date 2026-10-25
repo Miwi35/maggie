@@ -4,13 +4,14 @@ import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.ProductCreateRequest
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductAisle
+import com.maggie.app.data.model.ProductQuery
 import kotlinx.serialization.json.JsonObject
 
 class ProductRepository(
     private val apiService: MaggieApiService,
 ) {
-    suspend fun getProducts(): Result<List<Product>> = runCatching {
-        apiService.getProducts()
+    suspend fun getProducts(query: ProductQuery = ProductQuery()): Result<List<Product>> = runCatching {
+        apiService.getProducts(query)
     }
 
     suspend fun getProduct(id: String): Result<Product> = runCatching {
