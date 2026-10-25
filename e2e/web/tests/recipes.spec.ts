@@ -736,11 +736,15 @@ test.describe('Recipes and meals', () => {
     await expect(shell.content.getByRole('heading', { name })).toBeVisible()
 
     // Then the sheet does not go past the reading width, and the quantity is within it of the ingredient's name
+    const area = await shell.content.boundingBox()
+    expect(area?.width, 'The content area must be wider than the reading width, or the cap proves nothing').toBeGreaterThan(1100)
     const sheet = await shell.content.getByTestId('reading-page').boundingBox()
     expect(sheet?.width).toBeLessThanOrEqual(1100)
     const label = await shell.content.getByText(ingredientName, { exact: true }).first().boundingBox()
     const quantity = await shell.content.getByRole('button', { name: `Modifier la quantité de ${ingredientName}` }).boundingBox()
-    expect(label && quantity && quantity.x + quantity.width - label.x).toBeLessThanOrEqual(1100)
+    expect(label, 'The ingredient name is not on the sheet').not.toBeNull()
+    expect(quantity, 'The quantity is not on the sheet').not.toBeNull()
+    expect(quantity!.x + quantity!.width - label!.x).toBeLessThanOrEqual(1100)
   })
 
   test('an open recipe sheet shows the quantity changed elsewhere, and a popin keeps the text being typed — MAG-330', async ({
