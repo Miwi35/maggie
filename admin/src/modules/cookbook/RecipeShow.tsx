@@ -111,7 +111,10 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
           {
             mutationMode: 'pessimistic',
             onSuccess: (response) => {
-              setLive((previous) => ({ ...previous, ...liveOf(response as Record<string, unknown>) }))
+              const kept = liveOf(response as Record<string, unknown>)
+              // The API leaves a null field out of its answer: a sent field it does not return was cleared.
+              const cleared = Object.fromEntries(Object.keys(liveOf(data)).filter((field) => !(field in kept)).map((field) => [field, null]))
+              setLive((previous) => ({ ...previous, ...cleared, ...kept }))
               resolve(null)
             },
             onError: (failure) => resolve(errorMessage(failure)),

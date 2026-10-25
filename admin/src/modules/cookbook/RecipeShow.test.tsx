@@ -461,6 +461,23 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     await waitFor(() => expect(update).toHaveBeenCalledWith('recipes', expect.objectContaining({ data: { utensils: ['Cocotte'] } })))
   })
 
+  test('clearing the notes removes the block, although the API leaves a null field out of its answer', async () => {
+    const user = userEvent.setup()
+    const withoutNotes = Object.fromEntries(Object.entries(recipe).filter(([field]) => field !== 'notes'))
+    const update = vi.fn(() => Promise.resolve({ data: withoutNotes }))
+    renderSheet({ update: update as unknown as DataProvider['update'] })
+    expect(await screen.findByText('Meilleur le lendemain')).toBeInTheDocument()
+    await edit(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Modifier les notes' }))
+    await user.clear(await screen.findByRole('textbox', { name: 'Notes' }))
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    await waitFor(() => expect(update).toHaveBeenCalledWith('recipes', expect.objectContaining({ data: { notes: null } })))
+
+    await user.click(screen.getByRole('button', { name: 'Terminé' }))
+    await waitFor(() => expect(screen.queryByText('Meilleur le lendemain')).not.toBeInTheDocument())
+  })
+
   test('the name, portions and tags are edited together, and a refusal stays in the popin', async () => {
     const user = userEvent.setup()
     const { update } = renderSheet()
