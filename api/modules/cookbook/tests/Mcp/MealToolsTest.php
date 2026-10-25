@@ -134,6 +134,51 @@ class MealToolsTest extends KernelTestCase
         self::assertCount(1, $data['meals'][0]['recipes']);
     }
 
+    /** MAG-639: « déplace le repas boeuf bourguignon » names a dish, not a date, and the ligature is not typed. */
+    public function testAMealIsFoundByItsTitleWithoutADateRange(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $soon = (new \DateTimeImmutable('+3 days'))->format('Y-m-d');
+        $later = (new \DateTimeImmutable('+40 days'))->format('Y-m-d');
+        ($this->tool())('create', date: $soon, slot: 'dinner', recipeIds: (string) $this->getFixture('bourguignon')->getId());
+        ($this->tool())('create', date: $later, slot: 'lunch', recipeIds: (string) $this->getFixture('pasta')->getId());
+
+        foreach (['boeuf bourguignon', 'Bœuf bourguignon', 'BOURGUIGNON'] as $query) {
+            $data = json_decode(($this->tool())('list', query: $query), true, 512, JSON_THROW_ON_ERROR);
+
+            self::assertArrayNotHasKey('error', $data, $query);
+            self::assertSame(1, $data['count'], $query);
+            self::assertSame($soon, $data['meals'][0]['date'], $query);
+            self::assertSame('Bœuf bourguignon', $data['meals'][0]['summary'], $query);
+        }
+    }
+
+    public function testAMealSearchStillHonoursAnExplicitRange(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $soon = (new \DateTimeImmutable('+3 days'))->format('Y-m-d');
+        ($this->tool())('create', date: $soon, slot: 'dinner', recipeIds: (string) $this->getFixture('bourguignon')->getId());
+
+        $before = json_decode(($this->tool())('list', fromDate: '2020-01-01', toDate: '2020-01-31', query: 'bourguignon'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(0, $before['count']);
+    }
+
+    public function testAMealQueryWithNoWordToLookForIsRefusedNotIgnored(): void
+    {
+        $this->loadFixtures('meal.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())('list', query: 'ab'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayNotHasKey('meals', $data);
+        self::assertStringContainsString('no word to look for', $data['error']);
+    }
+
     public function testDeleteMealRemovesPublishesAndDeletes(): void
     {
         $this->loadFixtures('meal.yaml');

@@ -53,6 +53,12 @@ Maggie\Calendar\Entity\Event:
     timeZone: Europe/Paris
     rrule: FREQ=WEEKLY
     agenda: '@garde_agenda'
+  ligature_event:
+    summary: Bœuf bourguignon
+    startAt: '<(new \DateTimeImmutable("+20 days 19:30", new \DateTimeZone("Europe/Paris")))>'
+    endAt: '<(new \DateTimeImmutable("+20 days 20:30", new \DateTimeZone("Europe/Paris")))>'
+    timeZone: Europe/Paris
+    agenda: '@default_agenda'
   other_event:
     summary: Piano du voisin
     startAt: '<(new \DateTimeImmutable("tomorrow 10:00", new \DateTimeZone("Europe/Paris")))>'

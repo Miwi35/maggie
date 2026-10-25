@@ -1,0 +1,27 @@
+# « Déplace le repas boeuf bourguignon à demain midi » (MAG-639, the 24 Oct. conversation).
+#
+# The meal is a planned meal of the « Repas » agenda, titled « Bœuf bourguignon » (ligature).
+# In production she looked in the events (which leave the meals out, MAG-323), answered « je
+# n'ai trouvé aucun événement » and asked. A meal is the meals tool's, and she finds it there
+# by its title across every date and agenda — `query`, no dates, no `agendas` — then moves it
+# on the id her own result gave: tomorrow, `lunch` (a meal is a day and a slot, not a time).
+# The API's JSON escapes the ligature (œ); the alternative keeps the pattern holding if the
+# result ever arrives decoded.
+#
+# The fake does not read the result: the journey reads the meal back from the API.
+name: move-meal-by-name
+description: Find a planned meal by its title, whatever its date, then move it to tomorrow's lunch.
+
+match:
+  user_matches: 'd[ée]place le repas boeuf bourguignon [àa] demain midi'
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+date\W+[0-9-]{10}\W+slot\W+\w+\W+summary\W+B(?:\W+u0153|œ)uf bourguignon'
+
+turns:
+  - tools:
+      - name: manage_meals
+        input: {action: list, query: "boeuf bourguignon"}
+  - tools:
+      - name: manage_meals
+        input: {action: update, mealId: '\1', date: "${tomorrow}", slot: lunch}
+  - text: "C'est déplacé : le bœuf bourguignon est demain midi."

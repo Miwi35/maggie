@@ -174,6 +174,30 @@ class EventReadFiltersToolsTest extends KernelTestCase
         self::assertSame(['Récupérer Ael à l\'école'], $this->summaries($this->upcoming(null, null, 'recuperer ael ecole')));
     }
 
+    public function testALigatureInTheTitleIsFoundWithoutIt(): void
+    {
+        $this->loginFixtureUser();
+
+        foreach (['boeuf bourguignon', 'Bœuf bourguignon', 'BOEUF', 'bourguignon'] as $query) {
+            $data = $this->upcoming(null, null, $query);
+            self::assertSame(['Bœuf bourguignon'], $this->summaries($data), $query);
+            self::assertSame('Défaut', $data['events'][0]['agenda'], $query);
+        }
+    }
+
+    public function testASearchThatFindsNothingPointsToTheMealsTool(): void
+    {
+        $this->loginFixtureUser();
+
+        $data = $this->upcoming(null, null, 'lasagnes');
+        self::assertSame(0, $data['count']);
+        self::assertStringContainsString('manage_meals', $data['hint']);
+        self::assertArrayHasKey('hint', $this->byDate($this->tomorrow(), null, 'lasagnes'));
+
+        self::assertArrayNotHasKey('hint', $this->upcoming(null, null, 'piano'));
+        self::assertArrayNotHasKey('hint', $this->upcoming(7));
+    }
+
     public function testTheTitleLeavesOutWhatDoesNotMatch(): void
     {
         $this->loginFixtureUser();

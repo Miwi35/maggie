@@ -79,6 +79,22 @@ class EventReadFilter
         }
     }
 
+    /**
+     * Planned meals are not events here (MAG-323): a title search that found nothing says where else to look.
+     *
+     * @param list<array<string, mixed>> $found
+     *
+     * @return array{hint?: string}
+     */
+    public function mealsHint(bool $searching, array $found): array
+    {
+        if (!$searching || [] !== $found) {
+            return [];
+        }
+
+        return ['hint' => 'No event has that title. Planned meals are not listed here: if it may be a meal (a dish, « le repas … »), search it with manage_meals, action list and query, before saying it does not exist.'];
+    }
+
     public function hasQuery(?string $query): bool
     {
         return null !== $query && [] !== self::words($query);
