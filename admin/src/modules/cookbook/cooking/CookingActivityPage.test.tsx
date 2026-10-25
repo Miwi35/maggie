@@ -190,7 +190,7 @@ describe('CookingActivityPage', () => {
       seen.push(screen.getByTestId('cooking-recipe-name').textContent ?? '')
       await userEvent.click(screen.getByRole('button', { name: "C'est parti" }))
       while (!screen.queryByTestId('cooking-preparation') && !screen.queryByTestId('cooking-done')) {
-        const next = screen.getByRole('button', { name: /Suivant|Terminer/ })
+        const next = screen.getByRole('button', { name: /Suivant|Repas servi/ })
         await userEvent.click(next)
       }
     }

@@ -1,21 +1,28 @@
 package com.maggie.app.ui.screens.cookbook.cooking
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
@@ -24,20 +31,33 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.RecipeIngredient
+import com.maggie.app.data.model.RecipeStep
 import com.maggie.app.data.model.frenchLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.activity.ActivityImmersion
@@ -58,6 +78,7 @@ class CookingActions(
     val confirmServings: () -> Unit,
     val previous: () -> Unit,
     val next: () -> Unit,
+    val ready: () -> Unit,
     val skipRecipe: () -> Unit,
     val retry: () -> Unit,
 ) {
@@ -67,6 +88,7 @@ class CookingActions(
             confirmServings = viewModel::confirmServings,
             previous = viewModel::previous,
             next = viewModel::next,
+            ready = viewModel::ready,
             skipRecipe = viewModel::skipRecipe,
             retry = viewModel::retry,
         )
@@ -133,18 +155,18 @@ private fun CookingBody(state: CookingUiState, actions: CookingActions, onQuit: 
         state.load == CookingLoad.ERROR -> ErrorScreen(actions.retry)
         state.load == CookingLoad.EMPTY -> EmptyScreen(onQuit)
         state.load == CookingLoad.LOADING || session == null || recipe == null -> LoadingScreen()
-        session.phase == CookingPhase.DONE -> DoneScreen(onQuit)
+        session.phase == CookingPhase.DONE -> DoneScreen(session, onQuit)
         session.phase == CookingPhase.SERVINGS -> ServingsScreen(recipe, session.guests, actions)
         else -> {
             val steps = state.steps
-            val text = steps.getOrNull(session.step - 1)
-            if (session.step == 0 || text == null) {
+            if (session.step == 0 || steps.getOrNull(session.step - 1) == null) {
                 PreparationScreen(state, session, recipe, steps.isNotEmpty(), actions)
             } else {
                 StepScreen(
                     step = session.step,
-                    count = steps.size,
-                    text = text,
+                    steps = steps,
+                    lines = recipe.ingredients,
+                    pending = state.pending,
                     isLastOfAll = session.isLastRecipe && session.step == steps.size,
                     actions = actions,
                 )
@@ -169,6 +191,7 @@ private fun CenteredMessage(
     tag: String,
     actionTag: String,
     modifier: Modifier = Modifier,
+    bodyTag: String? = null,
 ) {
     val buttonHeight = rememberMainButtonHeight()
     Column(
@@ -182,6 +205,7 @@ private fun CenteredMessage(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
+            modifier = if (bodyTag != null) Modifier.testTag(bodyTag) else Modifier,
         )
         Button(
             onClick = onAction,
@@ -211,9 +235,10 @@ private fun EmptyScreen(onQuit: () -> Unit) = CenteredMessage(
 )
 
 @Composable
-private fun DoneScreen(onQuit: () -> Unit) = CenteredMessage(
+private fun DoneScreen(session: CookingSession, onQuit: () -> Unit) = CenteredMessage(
     title = "Bon appétit",
-    body = "",
+    body = "${session.minutesCooked} min en cuisine · ${session.guests} ${if (session.guests > 1) "convives" else "convive"}",
+    bodyTag = UiTags.COOKING_DONE_SUMMARY,
     action = "Terminer",
     onAction = onQuit,
     tag = UiTags.COOKING_DONE,
@@ -396,21 +421,179 @@ private fun SectionTitle(title: String) {
     Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
 }
 
-/** One step: its text, big, and « Précédent » / « Suivant ». */
+/** The number's and the text's size by format (MAG-581): phone 72 / 28 sp, tablet 104 / 40 sp, large screen 120 / 46 sp. */
+internal data class StepSizes(val number: TextUnit, val text: TextUnit)
+
+internal fun stepSizes(smallestWidthDp: Int): StepSizes = when {
+    smallestWidthDp >= 900 -> StepSizes(120.sp, 46.sp)
+    smallestWidthDp >= 600 -> StepSizes(104.sp, 40.sp)
+    else -> StepSizes(72.sp, 28.sp)
+}
+
+private val SWIPE_THRESHOLD = 72.dp
+
+/** A horizontal swipe: left goes on, right goes back — in addition to the buttons. */
+private fun Modifier.swipeSteps(onPrevious: () -> Unit, onNext: () -> Unit): Modifier = composed {
+    val previous by rememberUpdatedState(onPrevious)
+    val next by rememberUpdatedState(onNext)
+    val threshold = with(LocalDensity.current) { SWIPE_THRESHOLD.toPx() }
+    pointerInput(threshold) {
+        var travelled = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { travelled = 0f },
+            onDragCancel = { travelled = 0f },
+            onDragEnd = {
+                when {
+                    travelled <= -threshold -> next()
+                    travelled >= threshold -> previous()
+                }
+                travelled = 0f
+            },
+        ) { _, delta -> travelled += delta }
+    }
+}
+
 @Composable
-private fun StepScreen(step: Int, count: Int, text: String, isLastOfAll: Boolean, actions: CookingActions) {
+private fun SegmentBar(step: Int, count: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth().testTag(UiTags.COOKING_SEGMENTS),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        (1..count).forEach { index ->
+            val state = when {
+                index < step -> "faite"
+                index == step -> "en cours"
+                else -> "à venir"
+            }
+            val color = if (index > step) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(8.dp)
+                    .alpha(if (index < step) 0.5f else 1f)
+                    .background(color, RoundedCornerShape(4.dp))
+                    .semantics { contentDescription = "Étape $index : $state" }
+                    .testTag(UiTags.COOKING_SEGMENT),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StepNeeds(step: RecipeStep, lines: List<RecipeIngredient>) {
+    val ingredients = stepIngredients(step, lines)
+    if (ingredients.isEmpty() && step.utensils.isEmpty()) return
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ingredients.forEach { need ->
+            val line = need.line
+            val quantity = line?.let { "${formatQuantity(it.quantity)} ${it.unit.frenchLabel(it.quantity)}".trim() }
+            AssistChip(
+                onClick = {},
+                label = { Text(if (quantity != null) "$quantity ${need.name}" else need.name, style = MaterialTheme.typography.bodyLarge) },
+                modifier = Modifier.testTag(UiTags.COOKING_STEP_INGREDIENT),
+            )
+        }
+        step.utensils.forEach { utensil ->
+            SuggestionChip(
+                onClick = {},
+                label = { Text(utensil.name, style = MaterialTheme.typography.bodyLarge) },
+                modifier = Modifier.testTag(UiTags.COOKING_STEP_UTENSIL),
+            )
+        }
+    }
+}
+
+/** What the step waits for, and « C'est prêt » to force it. */
+@Composable
+private fun WaitPanel(label: String, onReady: () -> Unit, buttonHeight: Dp) {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().testTag(UiTags.COOKING_WAIT),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            OutlinedButton(
+                onClick = onReady,
+                modifier = Modifier.heightIn(min = buttonHeight).testTag(UiTags.COOKING_READY),
+            ) { Text("C'est prêt") }
+        }
+    }
+}
+
+/** One step, one at a time (MAG-581): number, text, what it takes, what it waits for, what comes next. */
+@Composable
+private fun StepScreen(
+    step: Int,
+    steps: List<RecipeStep>,
+    lines: List<RecipeIngredient>,
+    pending: List<Int>,
+    isLastOfAll: Boolean,
+    actions: CookingActions,
+) {
+    val configuration = LocalConfiguration.current
     val buttonHeight = rememberMainButtonHeight()
-    Column(modifier = Modifier.fillMaxSize().testTag(UiTags.COOKING_STEP)) {
+    val sizes = stepSizes(configuration.smallestScreenWidthDp)
+    val current = steps[step - 1]
+    val following = steps.getOrNull(step)
+    val waiting = pending.isNotEmpty()
+    val landscape = configuration.screenWidthDp > configuration.screenHeightDp
+
+    val number: @Composable () -> Unit = {
+        Text(
+            "$step",
+            fontSize = sizes.number,
+            lineHeight = sizes.number,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.semantics { contentDescription = "Étape $step sur ${steps.size}" }.testTag(UiTags.COOKING_STEP_NUMBER),
+        )
+    }
+    val details: @Composable (Modifier) -> Unit = { modifier ->
+        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                current.text,
+                fontSize = sizes.text,
+                lineHeight = sizes.text * 1.25f,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.testTag(UiTags.COOKING_STEP_TEXT),
+            )
+            StepNeeds(current, lines)
+            if (waiting) WaitPanel(waitLabel(steps, pending), actions.ready, buttonHeight)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .swipeSteps(onPrevious = actions.previous, onNext = { if (!waiting) actions.next() })
+            .testTag(UiTags.COOKING_STEP),
+    ) {
+        SegmentBar(step, steps.size)
         Column(
             modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         ) {
+            if (landscape) {
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.Top) {
+                    number()
+                    details(Modifier.weight(1f))
+                }
+            } else {
+                number()
+                details(Modifier.fillMaxWidth())
+            }
+        }
+        if (following != null) {
             Text(
-                "Étape $step sur $count",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
+                "Ensuite · ${following.text}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag(UiTags.COOKING_UPNEXT),
             )
-            Text(text, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.testTag(UiTags.COOKING_STEP_TEXT))
         }
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
@@ -422,8 +605,9 @@ private fun StepScreen(step: Int, count: Int, text: String, isLastOfAll: Boolean
             ) { Text("← Précédent") }
             Button(
                 onClick = actions.next,
+                enabled = !waiting,
                 modifier = Modifier.weight(1f).heightIn(min = buttonHeight).testTag(UiTags.COOKING_NEXT),
-            ) { Text(if (isLastOfAll) "Terminer" else "Suivant →") }
+            ) { Text(if (isLastOfAll) "Repas servi" else "Suivant →") }
         }
     }
 }

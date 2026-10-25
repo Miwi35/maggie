@@ -38,6 +38,11 @@ data class CookingSession(
     val step: Int = 0,
     val guests: Int,
     val phase: CookingPhase,
+    /** The timed steps of the current recipe the cook said « C'est prêt » to; reset with each recipe. */
+    val ready: List<Int> = emptyList(),
+    /** Epoch millis: when the session began, and when « Bon appétit » was reached (0 until then). */
+    val startedAt: Long = 0L,
+    val finishedAt: Long = 0L,
 ) {
     val current: QueuedRecipe? get() = queue.getOrNull(recipeIndex)
 
@@ -54,24 +59,26 @@ const val MAX_GUESTS = 999
 private fun clampGuests(guests: Int) = guests.coerceIn(MIN_GUESTS, MAX_GUESTS)
 
 /** A meal: its recipes in order, all for the meal's guests, straight to the preparation. */
-fun mealSession(mealId: String, recipeIds: List<String>, guests: Int): CookingSession {
+fun mealSession(mealId: String, recipeIds: List<String>, guests: Int, now: Long = System.currentTimeMillis()): CookingSession {
     val count = clampGuests(guests)
     return CookingSession(
         origin = CookingOrigin(CookingOrigin.Kind.MEAL, mealId),
         queue = recipeIds.map { QueuedRecipe(it, count) },
         guests = count,
         phase = CookingPhase.COOKING,
+        startedAt = now,
     )
 }
 
 /** A recipe alone: « Pour combien ? » first, filled with the recipe's own servings. */
-fun recipeSession(recipeId: String, servings: Int): CookingSession {
+fun recipeSession(recipeId: String, servings: Int, now: Long = System.currentTimeMillis()): CookingSession {
     val count = clampGuests(servings)
     return CookingSession(
         origin = CookingOrigin(CookingOrigin.Kind.RECIPE, recipeId),
         queue = listOf(QueuedRecipe(recipeId, count)),
         guests = count,
         phase = CookingPhase.SERVINGS,
+        startedAt = now,
     )
 }
 
@@ -85,18 +92,33 @@ fun CookingSession.withGuests(guests: Int): CookingSession {
 fun CookingSession.confirmServings(): CookingSession = copy(phase = CookingPhase.COOKING, step = 0)
 
 /** The next recipe's preparation, or « Bon appétit » after the last one. */
-private fun CookingSession.nextRecipe(): CookingSession =
-    if (recipeIndex + 1 < queue.size) copy(recipeIndex = recipeIndex + 1, step = 0) else copy(phase = CookingPhase.DONE)
+private fun CookingSession.nextRecipe(now: Long): CookingSession =
+    if (recipeIndex + 1 < queue.size) {
+        copy(recipeIndex = recipeIndex + 1, step = 0, ready = emptyList())
+    } else {
+        copy(phase = CookingPhase.DONE, finishedAt = now)
+    }
 
 /** « Suivant »: the next step, then the next recipe. [stepCount] is the current recipe's. */
-fun CookingSession.advance(stepCount: Int): CookingSession = when {
+fun CookingSession.advance(stepCount: Int, now: Long = System.currentTimeMillis()): CookingSession = when {
     phase != CookingPhase.COOKING -> this
     step < stepCount -> copy(step = step + 1)
-    else -> nextRecipe()
+    else -> nextRecipe(now)
 }
 
 /** « Passer »: leaves a recipe that has no step to cook. */
-fun CookingSession.skipRecipe(): CookingSession = if (phase == CookingPhase.COOKING) nextRecipe() else this
+fun CookingSession.skipRecipe(now: Long = System.currentTimeMillis()): CookingSession =
+    if (phase == CookingPhase.COOKING) nextRecipe(now) else this
+
+/** « C'est prêt »: these timed steps of the current recipe no longer hold anything back. */
+fun CookingSession.markReady(positions: List<Int>): CookingSession {
+    val merged = (ready + positions).distinct().sorted()
+    return if (merged.size == ready.size) this else copy(ready = merged)
+}
+
+/** Whole minutes spent cooking, at least one. */
+val CookingSession.minutesCooked: Int
+    get() = ((finishedAt - startedAt) / 60_000L).toInt().coerceAtLeast(1)
 
 /** « Précédent »: the step before, down to the preparation. */
 fun CookingSession.back(): CookingSession =
