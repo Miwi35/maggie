@@ -77,6 +77,24 @@ describe('ActivityShell', () => {
     Reflect.deleteProperty(navigator, 'wakeLock')
   })
 
+  test("draws the activity's colour as a radial halo on the night background (MAG-617)", () => {
+    installBrowser()
+    renderShell({ color: '#8FB8FF' })
+
+    const background = window.getComputedStyle(screen.getByTestId('activity-shell')).backgroundImage
+    expect(background).toContain('radial-gradient(900px 640px at 78% 30%')
+    expect(background).toContain('rgba(143, 184, 255, 0.16)')
+  })
+
+  test('tints the halo with the colour it is given, not with the accent of the theme', () => {
+    installBrowser()
+    renderShell({ color: '#7FD1AE' })
+
+    const background = window.getComputedStyle(screen.getByTestId('activity-shell')).backgroundImage
+    expect(background).toContain('rgba(127, 209, 174, 0.16)')
+    expect(background).not.toContain('143, 184, 255')
+  })
+
   test('takes the screen as it opens and keeps it on', async () => {
     const browser = installBrowser()
     renderShell()

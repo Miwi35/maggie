@@ -16,6 +16,7 @@ import type { SidebarTab } from '../layout/ChatContext'
 import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 import { TOKENS } from '../../design/tokens'
 import { veilleuseDarkTheme } from '../../theme'
+import { activityHalo } from './activityHalo'
 import { keyBelongsElsewhere } from './keyBelongsElsewhere'
 import { useActivityFullscreen } from './useActivityFullscreen'
 import { useWakeLock } from './useWakeLock'
@@ -43,7 +44,8 @@ interface ActivityShellProps {
  * The frame every activity runs in (MAG-580): full screen on the screen the window is on, or the
  * whole window when the browser refuses; the screen kept on; a ✕ and Échap to leave, asking
  * « Quitter l'activité ? » first when the activity says there is something to lose; Maggie one
- * tap away. The activity itself is its children.
+ * tap away. The activity itself is its children. The background is the night with the activity's
+ * [color] as a radial halo (MAG-617): no activity draws its own.
  */
 export const ActivityShell = ({ color, name, confirmQuit = false, confirmDetail, onQuit, progress, children }: ActivityShellProps) => {
   const [frame, setFrame] = useState<HTMLElement | null>(null)
@@ -127,6 +129,7 @@ export const ActivityShell = ({ color, name, confirmQuit = false, confirmDetail,
           display: 'flex',
           flexDirection: 'column',
           bgcolor: 'background.default',
+          backgroundImage: activityHalo(color),
           color: 'text.primary',
           overflow: 'hidden',
         }}

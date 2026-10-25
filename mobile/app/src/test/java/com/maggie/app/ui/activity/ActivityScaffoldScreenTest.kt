@@ -10,15 +10,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieDarkColorScheme
 import com.maggie.app.ui.theme.ModuleHue
+import com.maggie.app.ui.theme.inModule
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -77,6 +81,16 @@ class ActivityScaffoldScreenTest {
         compose.onNodeWithText("Contenu").assertIsDisplayed()
         compose.onNodeWithContentDescription("Demander à Maggie").assertIsDisplayed()
         compose.onNodeWithContentDescription("Quitter Cuisine").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the background carries a halo in the module's colour`() {
+        draw()
+
+        val halo = compose.onNode(SemanticsMatcher.keyIsDefined(HaloColorKey)).fetchSemanticsNode().config[HaloColorKey]
+
+        assertEquals(MaggieDarkColorScheme.inModule(ModuleHue.CUISINE).primary, halo)
+        assertEquals(Color(0xFF8FB8FF), halo)
     }
 
     @Test

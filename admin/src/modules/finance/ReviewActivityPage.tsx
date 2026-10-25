@@ -14,6 +14,7 @@ import { ChatWidget } from '../../components/chat/ChatWidget'
 import type { SidebarTab } from '../../components/layout/ChatContext'
 import type { AgentState, ContextState, ToolCallState } from '../../components/mind/types'
 import { TOKENS } from '../../design/tokens'
+import { REVIEW_HALO, activityHalo } from '../../components/activity/activityHalo'
 import { veilleuseDarkTheme } from '../../theme'
 import { EnvelopeAdjustments } from './EnvelopeAdjustments'
 import { MonthBalanceTab } from './MonthBalanceTab'
@@ -437,7 +438,14 @@ export const ReviewActivityPage = () => {
       <Box
         data-testid="review-activity"
         data-step={step ?? 'loading'}
-        sx={{ position: 'fixed', inset: 0, display: 'flex', bgcolor: 'background.default', color: 'text.primary' }}
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          display: 'flex',
+          bgcolor: 'background.default',
+          backgroundImage: activityHalo(TOKENS.module.comptes.dark, REVIEW_HALO),
+          color: 'text.primary',
+        }}
       >
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <Box component="header" sx={{ px: { xs: 2, md: 4 }, pt: 2, pb: 1 }}>
