@@ -1,5 +1,6 @@
 {
     "Account": "/users/{userId}/api/accounts/{id}",
+    "ActivityStatus": "/users/{userId}/api/activity-status/{id}",
     "Agenda": "/users/{userId}/api/agendas/{id}",
     "Aisle": "/users/{userId}/api/aisles/{id}",
     "BankConnection": "/users/{userId}/api/bank_connections/{id}",

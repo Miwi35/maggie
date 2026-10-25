@@ -331,6 +331,46 @@ final class RecordedResponseContractTest extends WebTestCase
         );
     }
 
+    /**
+     * The activities in progress (MAG-613), as `/api/activity-status` lists
+     * them once a Cuisine session is saved: the item the PUT and the GET of
+     * `/api/activity-status/{activity}` send, inside `member`.
+     */
+    public function testTheActivityStatusRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $recipeId = '01JB0000000000000000000001';
+        $this->client->request('PUT', '/api/activity-status/cuisine', [], [], $this->authHeaders() + ['CONTENT_TYPE' => 'application/json'], json_encode([
+            'origin' => ['kind' => 'recipe', 'id' => $recipeId],
+            'state' => [
+                'queue' => [['recipeId' => $recipeId, 'servings' => 4]],
+                'recipeIndex' => 0,
+                'step' => 2,
+                'doneSteps' => [[0, 1]],
+                'guests' => 4,
+                'phase' => 'cooking',
+            ],
+        ], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
+
+        $this->client->request('GET', '/api/activity-status', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertCount(1, $body['member'], 'The recording must hold the saved activity.');
+
+        $this->assertMatchesContract(
+            'responses/activity_status.collection.json',
+            self::stabilise($body),
+            'GET /api/activity-status no longer returns what it used to. The clients that resume an activity (Cuisine) read this response.',
+        );
+    }
+
     public function testTheEnvelopeAdjustmentsRecordingIsCurrent(): void
     {
         $this->loadFixtures(\dirname(__DIR__, 2).'/modules/finance/tests/Controller/fixtures/envelope_adjustments.yaml');

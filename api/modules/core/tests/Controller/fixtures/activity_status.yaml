@@ -1,0 +1,20 @@
+# Activities in progress (MAG-613): test_user has none, other_user cooks.
+Maggie\Core\Entity\User:
+  test_user:
+    email: activity-status@example.com
+    googleId: google-activity-status
+    name: Activity Status User
+  other_user:
+    email: activity-status-other@example.com
+    googleId: google-activity-status-other
+    name: Activity Status Other User
+
+Maggie\Core\Entity\ActivityStatus:
+  others_cooking:
+    user: '@other_user'
+    activity: '<(Maggie\Core\Enum\Activity::Cuisine)>'
+    state: '{"recipeIndex":0,"step":3}'
+    startedAt: '<(new \DateTimeImmutable("2026-10-25 08:00:00 UTC"))>'
+    updatedAt: '<(new \DateTimeImmutable("2026-10-25 08:10:00 UTC"))>'
+    __calls:
+      - setOrigin: ['recipe', '01ARZ3NDEKTSV4RRFFQ69G5FAV']

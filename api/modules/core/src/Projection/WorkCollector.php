@@ -13,6 +13,7 @@ use Doctrine\Persistence\ObjectManager;
 use Doctrine\Persistence\Proxy;
 use Maggie\Core\Contract\AggregateRoot;
 use Maggie\Core\Contract\IndexableInterface;
+use Maggie\Core\Contract\MercureItemKey;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Contract\OwnedThroughInterface;
@@ -203,7 +204,7 @@ class WorkCollector implements ResetInterface
 
         return new Change(
             class: $class,
-            id: (string) $entity->getId(),
+            id: $entity instanceof MercureItemKey ? $entity->getMercureItemKey() : (string) $entity->getId(),
             kind: $kind,
             ownerId: self::ownerOf($entity),
             entity: $isGone ? null : $entity,
