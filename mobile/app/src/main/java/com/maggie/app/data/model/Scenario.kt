@@ -153,7 +153,7 @@ data class ScenarioWriteResult(
 fun repaymentTitle(figures: RepaymentFigures?): String =
     if (figures == null || figures.loanName.isBlank()) "Remboursement anticipé" else "${figures.loanName} · remboursement anticipé"
 
-/** « Total » or « Partiel 3000,00 EUR », with what a partial one shortens. */
+/** « Total » or « Partiel 3000,00 € », with what a partial one shortens. */
 fun repaymentKindLabel(repayment: ScenarioRepayment, figures: RepaymentFigures?): String {
     if (repayment.isTotal) return "Total"
     val effect = when (figures?.effect ?: repayment.effect) {

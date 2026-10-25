@@ -97,6 +97,6 @@ fun sortedSummary(result: SortResult): String? {
 private fun otherLines(count: Int): String =
     if (count == 1) "1 autre ligne classée" else "$count autres lignes classées"
 
-/** The pill of the dashboard and the budget: « À qualifier · 3 · 65.20 EUR », or null when there is nothing to qualify. */
+/** The pill of the dashboard and the budget: « À qualifier · 3 · 65,20 € », or null when there is nothing to qualify. */
 fun toSortPillLabel(pile: ToSortPile): String? =
     if (pile.total > 0) "À qualifier · ${pile.total} · ${formatCents(pile.totalCents)}" else null
