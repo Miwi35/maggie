@@ -204,11 +204,12 @@ class WorkCollector implements ResetInterface
 
         return new Change(
             class: $class,
-            id: $entity instanceof MercureItemKey ? $entity->getMercureItemKey() : (string) $entity->getId(),
+            id: (string) $entity->getId(),
             kind: $kind,
             ownerId: self::ownerOf($entity),
             entity: $isGone ? null : $entity,
             indices: $isGone && $entity instanceof IndexableInterface ? $this->metadataReader->indicesOf($class) : [],
+            topicId: $entity instanceof MercureItemKey ? $entity->getMercureItemKey() : null,
         );
     }
 

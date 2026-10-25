@@ -9,9 +9,9 @@ namespace Maggie\Core\Contract;
  * its ULID: the activity in progress is `/api/activity-status/cuisine`, one per
  * user, so its Mercure topic is spelled with `cuisine` (MAG-613).
  *
- * The key replaces the id in the topic and in the payload's `@id`, so it must
- * be unique among the owner's rows of that class. Not for an indexed entity:
- * Elasticsearch documents stay keyed by the ULID.
+ * The key replaces the id in the topic and in the payload's `@id` only, so it
+ * must be unique among the owner's rows of that class. The projection still
+ * tells rows apart, and Elasticsearch still keys documents, by the ULID.
  */
 interface MercureItemKey
 {

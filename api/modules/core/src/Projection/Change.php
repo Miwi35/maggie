@@ -17,6 +17,7 @@ final class Change
      * @param list<string>             $properties    the Doctrine properties that changed; empty: unknown, publish everything
      * @param list<string>             $indices       the indices a removed row leaves
      * @param array<string,mixed>|null $actionPayload replaces the entity's own payload
+     * @param string|null              $topicId       the id its Mercure topic is spelled with, when not the row's ({@see \Maggie\Core\Contract\MercureItemKey})
      */
     public function __construct(
         public readonly string $class,
@@ -27,6 +28,7 @@ final class Change
         public array $properties = [],
         public array $indices = [],
         public ?array $actionPayload = null,
+        public readonly ?string $topicId = null,
     ) {
     }
 
