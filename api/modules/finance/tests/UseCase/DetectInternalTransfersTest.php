@@ -6,10 +6,14 @@ use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
+use Maggie\Finance\Entity\Category;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\ObligationFlag;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
+use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\DetectInternalTransfers;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -545,6 +549,103 @@ class DetectInternalTransfersTest extends KernelTestCase
 
         self::assertSame([], $report['loneLegs'], $label);
         self::assertFalse($this->refresh($leg)->isInternalTransfer(), $label);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function nameOnlyLabels(): iterable
+    {
+        yield 'in order' => ['Meven Cadare'];
+        yield 'surname first' => ['Cadare Meven'];
+        yield 'upper case' => ['MEVEN CADARE'];
+        yield 'accents and case' => ['méven CADARÉ'];
+    }
+
+    #[DataProvider('nameOnlyLabels')]
+    public function testADebitLabelledWithTheHoldersNameAloneIsAnInternalTransfer(string $label): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', -50000, '2026-09-29', $label);
+
+        $report = $this->detect->execute($this->user());
+
+        self::assertSame([(string) $leg->getId()], array_column($report['loneLegs'], 'transactionId'), $label);
+        self::assertSame(TransferKind::Internal, $this->refresh($leg)->getTransferKind(), $label);
+        self::assertSame(TransferSource::Auto, $leg->getTransferSource());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function notTheNameAlone(): iterable
+    {
+        yield 'the first name alone' => ['Meven'];
+        yield 'the surname alone' => ['Cadare'];
+        yield 'a shop that starts with the name' => ['Meven Cadare Boulangerie'];
+        yield 'another first name' => ['Alex Cadare'];
+    }
+
+    #[DataProvider('notTheNameAlone')]
+    public function testADebitThatIsNotTheHoldersNameAloneStaysAnExpense(string $label): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', -50000, '2026-09-29', $label);
+
+        $report = $this->detect->execute($this->user());
+
+        self::assertSame([], $report['loneLegs'], $label);
+        self::assertFalse($this->refresh($leg)->isInternalTransfer(), $label);
+    }
+
+    public function testACreditLabelledWithTheHoldersNameAloneIsLeftAlone(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', 200000, '2026-09-29', 'Meven Cadare');
+
+        $report = $this->detect->execute($this->user());
+
+        self::assertSame([], $report['loneLegs']);
+        self::assertFalse($this->refresh($leg)->isInternalTransfer());
+    }
+
+    public function testADebitTheOwnerAlreadyCategorisedIsNeverReclassified(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $category = (new Category())->setUser($this->user())->setName('Salaire')->setObligation(ObligationFlag::Income);
+        $this->em->persist($category);
+        $leg = $this->add('checking', -50000, '2026-09-29', 'Meven Cadare');
+        $leg->qualify(Qualification::none($category), null);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        $report = $this->detect->execute($this->user());
+
+        self::assertSame([], $report['loneLegs']);
+        self::assertFalse($this->refresh($leg)->isInternalTransfer());
+        self::assertSame('Salaire', $leg->getCategory()?->getName());
+    }
+
+    public function testAnInternalDebitNamedAfterTheHolderLeavesTheLifestyle(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $this->add('checking', -50000, '2026-09-29', 'Meven Cadare');
+        $this->add('checking', -4000, '2026-09-30', 'Boulangerie');
+        /** @var TransactionRepository $repository */
+        $repository = self::getContainer()->get(TransactionRepository::class);
+        $from = new \DateTimeImmutable('2026-09-29');
+        $until = new \DateTimeImmutable('2026-10-01');
+        $before = $repository->sumConsumedBetween($this->user(), $from, $until);
+
+        $this->detect->execute($this->user());
+
+        self::assertSame($before - 50000, $repository->sumConsumedBetween($this->user(), $from, $until));
+    }
+
+    public function testADryRunListsTheNameOnlyDebitAndWritesNothing(): void
+    {
+        $this->ownerIs('Meven Cadare');
+        $leg = $this->add('checking', -50000, '2026-09-29', 'Meven Cadare');
+
+        $report = $this->detect->execute($this->user(), null, true);
+
+        self::assertCount(1, $report['loneLegs']);
+        self::assertFalse($this->refresh($leg)->isInternalTransfer());
     }
 
     public function testAHolderWithOneNameOnlyIsNeverGuessedFrom(): void

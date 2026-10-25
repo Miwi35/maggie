@@ -6,6 +6,7 @@ namespace Maggie\Finance\Service;
 
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\CategorySource;
 
 /**
  * Reads, from one line alone, whether it is a leg of a movement between the
@@ -15,7 +16,8 @@ use Maggie\Finance\Entity\Transaction;
  * Two things give it away. The holder: the label or the counterparty names the
  * owner (« VIR INST de Meven Cadare », in any case and either order). Or the
  * bank: a transfer worded after the bank of another of his accounts
- * (« VIREMENT RECU REVOLUT BANK UAB »). Everything else is somebody else —
+ * (« VIREMENT RECU REVOLUT BANK UAB »). A debit labelled with the holder's
+ * name and nothing else is his own too (MAG-642). Everything else is somebody else —
  * « MR CADARE ALEX » shares a surname, not a person — and stays an income.
  */
 class OwnLegRecognizer
@@ -49,11 +51,33 @@ class OwnLegRecognizer
             return self::HOLDER;
         }
 
+        if (self::isUnqualifiedDebitNamedAfterTheHolder($transaction, $label, $holder)) {
+            return self::HOLDER;
+        }
+
         if (self::hasTransferWord($label) && self::namesAnotherBank($transaction, [$label, $counterparty], $accounts)) {
             return self::BANK;
         }
 
         return null;
+    }
+
+    /**
+     * Some banks (N26) word a transfer to another account of the holder with
+     * the holder's name alone, no transfer word, no counterparty. A debit only:
+     * the same bank words credits that way too, and a line the owner or a rule
+     * already qualified is never taken back from them.
+     *
+     * @param list<string> $label
+     * @param list<string> $holder
+     */
+    private static function isUnqualifiedDebitNamedAfterTheHolder(Transaction $transaction, array $label, array $holder): bool
+    {
+        return $transaction->getAmountCents() < 0
+            && \count($holder) >= 2
+            && null === $transaction->getCategory()
+            && CategorySource::None === $transaction->getCategorySource()
+            && self::namesTheHolder($label, $holder, true, false);
     }
 
     /**
