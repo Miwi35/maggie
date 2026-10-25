@@ -3,8 +3,8 @@ name: 17-tasks-views
 tags:
   - calendar
 ---
-# The Tâches screen, in four tabs (MAG-408): « Aujourd'hui », « À venir »,
-# « À faire un jour », « Faites ». Reached from the drawer / the rail. « Aujourd'hui »
+# The Tâches screen, in four views (MAG-408): « Aujourd'hui », « À venir », « Un jour »,
+# « Faites », chosen from the header « Tâches › … ▾ » (MAG-626). Reached from the drawer / the rail. « Aujourd'hui »
 # is the day since MAG-497: five slots and a reserve folded under its count
 # (`17b-tasks-day` plays it).
 #
@@ -12,13 +12,13 @@ tags:
 # the one view the API puts it in: « Renvoyer le formulaire de la mutuelle » (due two
 # days ago, never done: put off, so it waits in the day's reserve, « reportée »),
 # « Appeler le garage » (in three days), « Trier les
-# photos de vacances » (no day), « Sortir les poubelles » (done yesterday). The tab
+# photos de vacances » (no day), « Sortir les poubelles » (done yesterday). The menu
 # labels carry counts, which the seed and the other journeys move: they are not
-# asserted (the tabs are tapped by id). The ordering and the counts are the API's
+# asserted (the entries are tapped by id). The ordering and the counts are the API's
 # (`TaskViewsTest`) and the ViewModel's (`TasksViewModelTest`).
 #
 # Then the gestures: a task added in « À venir » gets tomorrow, ticking it takes it out
-# of the tab and into « Faites », and its detail (a sheet on a phone, the pane on a
+# of the view and into « Faites », and its detail (a sheet on a phone, the pane on a
 # tablet) deletes it, so the shared server is left as it was.
 
 - launchApp:
@@ -63,8 +63,10 @@ tags:
     timeout: 20000
 - assertNotVisible: ".*En retard.*"
 
-- tapOn:
-    id: "tasks_tab_upcoming"
+- runFlow:
+    file: ../subflows/open-tasks-view.yaml
+    env:
+      VIEW: upcoming
 - extendedWaitUntil:
     visible: "Appeler le garage"
     timeout: 20000
@@ -89,15 +91,18 @@ tags:
     timeout: 20000
 - assertVisible: "Appeler le garage"
 
-# The tabs scroll in the narrow list pane of a tablet: each is reached from the one before it.
-- tapOn:
-    id: "tasks_tab_someday"
+- runFlow:
+    file: ../subflows/open-tasks-view.yaml
+    env:
+      VIEW: someday
 - extendedWaitUntil:
     visible: "Trier les photos de vacances"
     timeout: 20000
 
-- tapOn:
-    id: "tasks_tab_done"
+- runFlow:
+    file: ../subflows/open-tasks-view.yaml
+    env:
+      VIEW: done
 - extendedWaitUntil:
     visible: "Tâche MAG-408"
     timeout: 20000

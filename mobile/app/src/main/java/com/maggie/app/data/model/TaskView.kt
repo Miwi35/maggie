@@ -10,7 +10,7 @@ import java.time.LocalDate
 enum class TaskView(val key: String, val label: String) {
     TODAY("today", "Aujourd'hui"),
     UPCOMING("upcoming", "À venir"),
-    SOMEDAY("someday", "À faire un jour"),
+    SOMEDAY("someday", "Un jour"),
     DONE("done", "Faites"),
     ;
 

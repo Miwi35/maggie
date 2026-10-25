@@ -20,8 +20,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -46,7 +44,7 @@ import com.maggie.app.data.model.TaskView
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.interruption.rememberReducedMotion
 
-/** What a tab says when it holds nothing. */
+/** What a view says when it holds nothing. */
 internal fun emptyTextOf(view: TaskView): String = when (view) {
     TaskView.TODAY -> "Rien à faire aujourd'hui."
     TaskView.UPCOMING -> "Aucune tâche à venir."
@@ -63,7 +61,7 @@ internal fun addHintOf(view: TaskView): String = when (view) {
 }
 
 /**
- * « Aujourd'hui (3) »: the count comes with every read of a view, so the other tabs stay true.
+ * « Aujourd'hui (3) », a menu entry: the count comes with every read of a view, so the other views stay true.
  * « Aujourd'hui » counts what is left of the day (MAG-497), not every task due.
  */
 internal fun tabLabelOf(view: TaskView, state: TasksUiState): String {
@@ -71,23 +69,23 @@ internal fun tabLabelOf(view: TaskView, state: TasksUiState): String {
     return count?.let { "${view.label} ($it)" } ?: view.label
 }
 
-/** The key of the « Routines » tab (MAG-511), beside the four views: `tasks_tab_routines`. */
+/** The key of the « Routines » entry (MAG-511), beside the four views: `tasks_tab_routines`. */
 internal const val ROUTINES_TAB = "routines"
 
 /**
- * The tabs in their order: « Aujourd'hui », then « Routines » when the screen has them (MAG-511),
- * then the other views. A null entry is the « Routines » tab.
+ * The menu entries in their order: « Aujourd'hui », then « Routines » when the screen has them
+ * (MAG-511), then the other views. A null entry is « Routines ».
  */
 internal fun tabsOf(withRoutines: Boolean): List<TaskView?> =
     listOf(TaskView.TODAY) + (if (withRoutines) listOf(null) else emptyList()) + TaskView.entries.drop(1)
 
 /**
- * Tasks in four tabs (MAG-408), as the admin shows them. The list is the API's: its order, its
- * views, subtasks after their parent; « Aujourd'hui » is the day (MAG-497, [DayContent]).
+ * Tasks in four views (MAG-408), as the admin shows them, chosen from the header (MAG-626). The
+ * list is the API's: its order, its views, subtasks after their parent; « Aujourd'hui » is the day (MAG-497, [DayContent]).
  * [onTaskClick] opens the detail, a sheet or the pane beside the list, which the caller draws;
  * [onFocus] opens the Focus (MAG-499) on a task of the day; [onBravo] the Bravo (MAG-508) on a task
- * of the day just ticked. A task ticked in another tab shows its reward as a banner instead.
- * [routines] draws the « Routines » tab (MAG-511), next to « Aujourd'hui »; without it, no such tab.
+ * of the day just ticked. A task ticked in another view shows its reward as a banner instead.
+ * [routines] draws the « Routines » view (MAG-511), next to « Aujourd'hui »; without it, no such entry.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,30 +131,15 @@ fun TasksScreen(
     }
 
     Column(modifier = modifier.fillMaxSize().testTag(UiTags.TASKS)) {
-        val tabs = tabsOf(withRoutines = routines != null)
-        val selected = if (routinesShown) tabs.indexOf(null) else tabs.indexOf(state.view)
-        ScrollableTabRow(selectedTabIndex = selected, edgePadding = 0.dp) {
-            tabs.forEach { view ->
-                if (view == null) {
-                    Tab(
-                        selected = routinesShown,
-                        onClick = { showRoutines = true },
-                        text = { Text("Routines", maxLines = 1) },
-                        modifier = Modifier.testTag(UiTags.tasksTab(ROUTINES_TAB)),
-                    )
-                } else {
-                    Tab(
-                        selected = !routinesShown && state.view == view,
-                        onClick = {
-                            showRoutines = false
-                            viewModel.selectView(view)
-                        },
-                        text = { Text(tabLabelOf(view, state), maxLines = 1) },
-                        modifier = Modifier.testTag(UiTags.tasksTab(view.key)),
-                    )
-                }
-            }
-        }
+        TasksHeader(
+            current = if (routinesShown) null else state.view,
+            entries = tabsOf(withRoutines = routines != null),
+            labelOf = { view -> if (view == null) ROUTINES_LABEL else tabLabelOf(view, state) },
+            onPick = { view ->
+                showRoutines = view == null
+                if (view != null) viewModel.selectView(view)
+            },
+        )
 
         if (routinesShown) {
             routines?.invoke()

@@ -124,7 +124,7 @@ class TasksDayScreenTest {
     fun `the reserve is folded under its count until its header is tapped`() {
         show(listOf(form))
 
-        compose.onNodeWithText("Réserve (1)").assertIsDisplayed()
+        compose.onNodeWithText("Réserve · 1").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.tasksReserveItem("r1")).assertDoesNotExist()
 
         compose.onNodeWithTag(UiTags.TASKS_RESERVE_TOGGLE).performClick()
@@ -140,7 +140,8 @@ class TasksDayScreenTest {
         compose.onNodeWithTag(UiTags.TASKS_NOW).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.TASKS_RING).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.TASKS_DAY_ADD_INPUT).assertIsDisplayed()
-        compose.onNodeWithText("Réserve (1)").assertIsDisplayed()
+        compose.onNodeWithText("Ajouter une tâche").assertIsDisplayed()
+        compose.onNodeWithText("Réserve · 1").assertIsDisplayed()
     }
 
     @Test
