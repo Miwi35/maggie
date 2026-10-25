@@ -5,6 +5,7 @@ import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { addDays, localDay } from '../../dates'
 import { veilleuseLightTheme } from '../../theme'
+import { dashboardFixture } from '../finance/dashboardFixture'
 import { Home } from './Home'
 import { cardRegistry } from './cardRegistry'
 import type { CardRegistry } from './cardRegistry'
@@ -228,15 +229,18 @@ describe('Home', () => {
     beforeEach(() => localStorage.setItem('token', 'test-jwt'))
     afterEach(() => vi.unstubAllGlobals())
 
-    const emptyRing = { status: 'on_track', label: 'Dans le rythme', budgetCents: 0, remainingCents: 0, expectedRemainingCents: 0 }
-    const finance = { week: emptyRing, month: emptyRing, toQualifyCount: 0, nextProject: null, accountCount: 0, envelopeCount: 0 }
+    const base = dashboardFixture()
+    const finance = dashboardFixture({
+      tiles: { ...base.tiles, accounts: { ...base.tiles.accounts, accounts: [] }, budget: { ...base.tiles.budget, envelopes: [] } },
+      todo: { ...base.todo, toSortCount: 0 },
+      nextProject: null,
+    })
     const meal = { id: 'm1', slot: 'lunch', summary: 'Soupe', guests: 2, recipeNames: ['Soupe'] }
     const task = { id: 't1', title: 'Appeler le plombier', overdueDays: null }
-    const nothing: Record<string, unknown> = { finance }
 
     /**
-     * Stubs fetch with `nothing`, each module's answer overridden by `answers[module][day]`; the Agenda card reads empty events, the Courses card reads the open list in `answers.grocery.today`, the Cuisine card reads
-     * the meals of the day in `answers.nutrition[day]`, and the Tâches card reads the tasks and routines resources, `answers.tasks[day]` being the open tasks it finds.
+     * Stubs fetch: the Agenda card reads empty events, the Courses card reads the open list in `answers.grocery.today`, the Cuisine card reads
+     * the meals of the day in `answers.nutrition[day]`, the Finance card reads the dashboard (empty), and the Tâches card reads the tasks and routines resources, `answers.tasks[day]` being the open tasks it finds.
      */
     const stubHome = (answers: Record<string, Partial<Record<'today' | 'tomorrow', unknown>>> = {}, failing: string[] = []) => {
       const fetchMock = vi.fn((url: string) => {
@@ -266,11 +270,11 @@ describe('Home', () => {
 
           return ok({ member: answers.nutrition?.[tomorrow ? 'tomorrow' : 'today'] ?? [] })
         }
-        const module = /\/api\/home\/(\w+)/.exec(url)?.[1] ?? ''
-        const day = url.includes('day=tomorrow') ? 'tomorrow' : 'today'
-        if (failing.includes(module)) return fail()
+        if (/\/finance\/dashboard/.test(url)) {
+          return failing.includes('finance') ? fail() : ok(finance)
+        }
 
-        return ok(answers[module]?.[day] ?? nothing[module])
+        return ok({})
       })
       vi.stubGlobal('fetch', fetchMock)
 

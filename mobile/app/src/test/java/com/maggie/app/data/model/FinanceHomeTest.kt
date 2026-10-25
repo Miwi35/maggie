@@ -1,37 +1,77 @@
 package com.maggie.app.data.model
 
-import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The `/api/home/finance` answer as the Finance card reads it (MAG-565). */
+/** The Finance card of the Accueil as the dashboard composes it (MAG-592). */
 class FinanceHomeTest {
-    private val json = Json { ignoreUnknownKeys = true }
+    private fun scores() = FinanceScores(
+        week = PeriodScore(
+            rhythm = Rhythm(budgetCents = 7000, remainingCents = 1000, expectedRemainingCents = 3000, status = "above", label = "Au-dessus du rythme"),
+        ),
+        month = PeriodScore(
+            rhythm = Rhythm(budgetCents = 30000, remainingCents = 24200, expectedRemainingCents = 21000, status = "on_track", label = "Dans le rythme"),
+        ),
+    )
+
+    private fun dashboard(
+        nextProject: NextProject? = NextProject(projectId = "p1", name = "Voyage", amountCents = 200000, gatheredCents = 50000, purchaseMonth = "2027-03"),
+        toSort: Int = 3,
+        accounts: Int = 2,
+        envelopes: Int = 4,
+    ) = FinanceDashboard(
+        year = 2026,
+        month = 10,
+        scores = scores(),
+        tiles = FinanceTiles(
+            accounts = AccountsTile(accounts = List(accounts) { TileAccount(id = "a$it", name = "Compte $it") }),
+            budget = BudgetTile(envelopes = List(envelopes) { TileEnvelope(envelopeId = "e$it", name = "Enveloppe $it") }),
+        ),
+        todo = FinanceTodo(toSortCount = toSort),
+        nextProject = nextProject,
+    )
 
     @Test
-    fun `the answer decodes, with its two rings and its next project`() {
-        val state = json.decodeFromString(
-            FinanceHomeState.serializer(),
-            """{"week":{"status":"above","label":"Au-dessus du rythme","budgetCents":7000,"remainingCents":1000,"expectedRemainingCents":3000},
-               "month":{"status":"on_track","label":"Dans le rythme","budgetCents":30000,"remainingCents":24200,"expectedRemainingCents":21000},
-               "toQualifyCount":3,
-               "nextProject":{"projectId":"p1","name":"Voyage","amountCents":200000,"gatheredCents":50000,"purchaseMonth":"2027-03"},"extra":1}""",
-        )
+    fun `the rings are the rhythm of the week and of the month of the dashboard`() {
+        val state = FinanceHomeState.from(dashboard())
 
-        assertEquals("above", state.week.status)
-        assertEquals(24200, state.month.remainingCents)
-        assertEquals(3, state.toQualifyCount)
-        assertEquals("Voyage", state.nextProject?.name)
-        assertEquals("2027-03", state.nextProject?.purchaseMonth)
+        assertEquals(FinanceHomeRing("above", "Au-dessus du rythme", 7000, 1000, 3000), state.week)
+        assertEquals(FinanceHomeRing("on_track", "Dans le rythme", 30000, 24200, 21000), state.month)
     }
 
     @Test
-    fun `no next project decodes to null`() {
-        val state = json.decodeFromString(FinanceHomeState.serializer(), """{"toQualifyCount":0,"nextProject":null}""")
+    fun `the card keeps the lines to qualify and the next project`() {
+        val state = FinanceHomeState.from(dashboard())
 
-        assertNull(state.nextProject)
+        assertEquals(3, state.toQualifyCount)
+        assertEquals(FinanceHomeProject("p1", "Voyage", 200000, 50000, "2027-03"), state.nextProject)
+    }
+
+    @Test
+    fun `no next project in the dashboard is none on the card`() {
+        assertNull(FinanceHomeState.from(dashboard(nextProject = null)).nextProject)
+    }
+
+    @Test
+    fun `a dashboard sent without scores draws empty rings`() {
+        val state = FinanceHomeState.from(dashboard().copy(scores = null))
+
         assertEquals(0, state.week.budgetCents)
+        assertEquals(0, state.month.budgetCents)
+    }
+
+    @Test
+    fun `the card is empty with neither account nor envelope, and only then`() {
+        val none = FinanceHomeState.from(dashboard(accounts = 0, envelopes = 0))
+        val account = FinanceHomeState.from(dashboard(accounts = 1, envelopes = 0))
+        val envelope = FinanceHomeState.from(dashboard(accounts = 0, envelopes = 3))
+
+        assertTrue(none.isEmpty)
+        assertEquals(listOf(false, false), listOf(account.isEmpty, envelope.isEmpty))
+        assertEquals(1, account.accountCount)
+        assertEquals(3, envelope.envelopeCount)
     }
 
     @Test
@@ -47,14 +87,5 @@ class FinanceHomeTest {
     @Test
     fun `the pill counts the lines to qualify`() {
         assertEquals("3 à qualifier", FinanceHomeState(toQualifyCount = 3).toQualifyLabel())
-    }
-
-    @Test
-    fun `the card is empty with neither account nor envelope, and only then`() {
-        val none = json.decodeFromString(FinanceHomeState.serializer(), """{"accountCount":0,"envelopeCount":0}""")
-        val account = json.decodeFromString(FinanceHomeState.serializer(), """{"accountCount":1,"envelopeCount":0}""")
-        val envelope = json.decodeFromString(FinanceHomeState.serializer(), """{"accountCount":0,"envelopeCount":3}""")
-
-        assertEquals(listOf(true, false, false), listOf(none.isEmpty, account.isEmpty, envelope.isEmpty))
     }
 }

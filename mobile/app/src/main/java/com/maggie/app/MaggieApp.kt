@@ -56,6 +56,7 @@ import com.maggie.app.data.repository.LoanRepository
 import com.maggie.app.data.repository.PlacementRepository
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.ScenarioRepository
+import com.maggie.app.data.repository.FinanceCardRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
 import com.maggie.app.data.repository.HomeCardRepository
 import com.maggie.app.data.repository.UpcomingRepository
@@ -335,6 +336,7 @@ class MaggieApp : Application() {
             single { AgendaCardRepository(get(), get(), get()) }
             single { GroceryCardRepository(get(), get(), get()) }
             single { NutritionCardRepository(get(), get(), get()) }
+            single { FinanceCardRepository(get(), get(), get()) }
             single { MonthBalanceRepository(get()) }
             single { TransactionRepository(get()) }
             single { ContactRepository(get()) }
