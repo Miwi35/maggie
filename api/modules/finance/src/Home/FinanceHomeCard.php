@@ -97,24 +97,35 @@ class FinanceHomeCard implements HomeCardProviderInterface, HomeCardWatcherInter
     }
 
     /**
-     * The first project the planning lands inside its horizon; null with none.
+     * The first project the planning lands inside its horizon; with none inside
+     * it, the first project of the planning (purchaseMonth null: beyond the
+     * horizon, e.g. while the safety cushion is being built); null with no project.
      *
-     * @return array{projectId: string, name: string, amountCents: int, gatheredCents: int, purchaseMonth: string}|null
+     * @return array{projectId: string, name: string, amountCents: int, gatheredCents: int, purchaseMonth: string|null, horizonMonths: int}|null
      */
     private function nextProject(User $user): ?array
     {
-        foreach ($this->getProjectPlanning->execute($user)['projects'] as $project) {
+        $planning = $this->getProjectPlanning->execute($user);
+        $projects = $planning['projects'];
+        $next = null;
+        foreach ($projects as $project) {
             if (null !== $project['purchaseMonth']) {
-                return [
-                    'projectId' => $project['projectId'],
-                    'name' => $project['name'],
-                    'amountCents' => $project['amountCents'],
-                    'gatheredCents' => $project['gatheredCents'],
-                    'purchaseMonth' => $project['purchaseMonth'],
-                ];
+                $next = $project;
+                break;
             }
         }
+        $next ??= $projects[0] ?? null;
+        if (null === $next) {
+            return null;
+        }
 
-        return null;
+        return [
+            'projectId' => $next['projectId'],
+            'name' => $next['name'],
+            'amountCents' => $next['amountCents'],
+            'gatheredCents' => $next['gatheredCents'],
+            'purchaseMonth' => $next['purchaseMonth'],
+            'horizonMonths' => $planning['horizonMonths'],
+        ];
     }
 }

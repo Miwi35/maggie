@@ -144,18 +144,18 @@ internal fun statusColor(status: String): Color = when (status) {
 
 /** The glyph and the word of a status, side by side. */
 @Composable
-internal fun StatusLabel(status: String, label: String, modifier: Modifier = Modifier) {
+internal fun StatusLabel(status: String, label: String, modifier: Modifier = Modifier, color: Color = statusColor(status)) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Icon(
             imageVector = scoreMark(status).icon(),
             contentDescription = null,
-            tint = statusColor(status),
+            tint = color,
             modifier = Modifier.size(18.dp),
         )
         Text(
             text = scoreWord(status, label),
             style = MaterialTheme.typography.labelLarge,
-            color = statusColor(status),
+            color = color,
             modifier = Modifier.padding(start = 4.dp),
         )
     }

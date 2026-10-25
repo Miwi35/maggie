@@ -22,8 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -42,9 +44,9 @@ import com.maggie.app.ui.components.hasEnvelope
 import com.maggie.app.ui.components.rhythmWord
 import com.maggie.app.ui.components.ringAmount
 import com.maggie.app.ui.components.ringFill
-import com.maggie.app.ui.components.statusColor
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.screens.finance.purchaseLabel
+import com.maggie.app.ui.theme.MaggieTokens
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -99,11 +101,17 @@ private fun FinanceHomeBody(state: FinanceHomeState, onOpen: () -> Unit) {
     state.nextProject?.let { FinanceHomeNextProject(it) }
 }
 
+/** The charter's rhythm colours: mint in the rhythm, orange above it — never the accent violet. */
+internal fun financeRhythmColor(status: String, dark: Boolean): Color {
+    val pair = if (status == "above") MaggieTokens.Rhythm.above else MaggieTokens.Rhythm.onTrack
+    return if (dark) pair.second else pair.first
+}
+
 @Composable
 private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHomeRing) {
     val rhythm = ring.toRhythm()
     val status = if (ring.status == "above") "orange" else "green"
-    val color = statusColor(status)
+    val color = financeRhythmColor(ring.status, MaterialTheme.colorScheme.background.luminance() < 0.5f)
     val track = MaterialTheme.colorScheme.surfaceVariant
     val fill = ringFill(rhythm)
     val word = rhythmWord(rhythm)
@@ -151,7 +159,7 @@ private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHome
                 )
             }
         }
-        if (hasEnvelope(rhythm)) StatusLabel(status, word)
+        if (hasEnvelope(rhythm)) StatusLabel(status, word, color = color)
     }
 }
 
@@ -167,7 +175,7 @@ private fun FinanceHomeNextProject(project: FinanceHomeProject) {
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = purchaseLabel(project.purchaseMonth),
+                text = project.purchaseMonth?.let { purchaseLabel(it) } ?: "au-delà de ${project.horizonMonths} mois",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

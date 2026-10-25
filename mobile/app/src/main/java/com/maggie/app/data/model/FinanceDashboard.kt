@@ -376,6 +376,16 @@ data class NextProject(
     val delay: NextProjectDelay? = null,
 )
 
+/** The first project when none lands inside the horizon (cushion being built): only the Accueil card shows it. */
+@Serializable
+data class ProjectBeyondHorizon(
+    val projectId: String,
+    val name: String,
+    val amountCents: Int = 0,
+    val gatheredCents: Int = 0,
+    val horizonMonths: Int = 36,
+)
+
 /**
  * `GET /api/finance/dashboard`: the scores behind the rings and the curve (null from a server that
  * does not send them: the screen then draws neither) and the three tiles (MAG-420).
@@ -389,4 +399,5 @@ data class FinanceDashboard(
     val todo: FinanceTodo = FinanceTodo(),
     /** The first project of the planning (MAG-529); null with no project, or none within the 36 months. */
     val nextProject: NextProject? = null,
+    val projectBeyondHorizon: ProjectBeyondHorizon? = null,
 )

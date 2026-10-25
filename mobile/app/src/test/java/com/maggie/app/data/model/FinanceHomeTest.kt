@@ -55,6 +55,14 @@ class FinanceHomeTest {
     }
 
     @Test
+    fun `the first project is named beyond the horizon when none is planned`() {
+        val beyond = ProjectBeyondHorizon("p2", "Salle de bain", 900000, 0, 36)
+        val state = FinanceHomeState.from(dashboard(nextProject = null).copy(projectBeyondHorizon = beyond))
+
+        assertEquals(FinanceHomeProject("p2", "Salle de bain", 900000, 0, null, 36), state.nextProject)
+    }
+
+    @Test
     fun `a dashboard sent without scores draws empty rings`() {
         val state = FinanceHomeState.from(dashboard().copy(scores = null))
 

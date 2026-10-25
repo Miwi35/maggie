@@ -182,6 +182,14 @@ export interface NextProject {
   delay: NextProjectDelay | null
 }
 
+export interface ProjectBeyondHorizon {
+  projectId: string
+  name: string
+  amountCents: number
+  gatheredCents: number
+  horizonMonths: number
+}
+
 export interface DashboardTiles {
   accounts: AccountsTile
   budget: BudgetTile
@@ -230,6 +238,8 @@ export interface FinanceDashboard {
   tiles: DashboardTiles
   /** Null with no project, or when none lands inside the 36 months: the block is hidden. */
   nextProject: NextProject | null
+  /** The first project when none lands inside the horizon (cushion being built): only the Accueil card shows it. */
+  projectBeyondHorizon: ProjectBeyondHorizon | null
   todo: DashboardTodo
 }
 

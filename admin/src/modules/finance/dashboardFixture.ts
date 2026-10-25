@@ -116,6 +116,7 @@ export const dashboardFixture = (overrides: Partial<FinanceDashboard> = {}): Fin
     },
   },
   nextProject: nextProjectFixture(),
+  projectBeyondHorizon: null,
   todo: { toSortCount: 3, rejectionsToSettleCount: 1, reviewReady: false, advanceToRepayCents: 80000, owedToMeCents: 0, iOweCents: 0 },
   ...overrides,
 })

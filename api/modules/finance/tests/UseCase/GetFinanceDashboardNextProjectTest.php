@@ -112,4 +112,21 @@ class GetFinanceDashboardNextProjectTest extends KernelTestCase
 
         self::assertNull($this->nextProject());
     }
+
+    public function testTheFirstProjectIsNamedBeyondTheHorizonSoTheAccueilCanShowIt(): void
+    {
+        $dashboard = $this->useCase->execute($this->getFixture('test_user'), 2026, 10);
+        self::assertNull($dashboard['projectBeyondHorizon'], 'a planned project is the next one');
+
+        $this->getFixture('bike')->setAmountCents(100000000);
+        $this->getFixture('japan')->setAmountCents(100000000);
+        $this->em->flush();
+
+        $beyond = $this->useCase->execute($this->getFixture('test_user'), 2026, 10)['projectBeyondHorizon'];
+
+        self::assertSame('Vélo', $beyond['name']);
+        self::assertSame(100000000, $beyond['amountCents']);
+        self::assertSame(36, $beyond['horizonMonths']);
+        self::assertNull($this->useCase->execute($this->getFixture('lonely_user'), 2026, 10)['projectBeyondHorizon']);
+    }
 }

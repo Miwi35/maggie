@@ -8,7 +8,9 @@ export interface HomeNextProject {
   name: string
   amountCents: number
   gatheredCents: number
-  purchaseMonth: string
+  /** Null when the planning lands it beyond `horizonMonths` (the cushion is being built). */
+  purchaseMonth: string | null
+  horizonMonths: number
 }
 
 export interface FinanceHomeState {
@@ -19,6 +21,8 @@ export interface FinanceHomeState {
   accountCount: number
   envelopeCount: number
 }
+
+const HORIZON_MONTHS = 36
 
 const ring = ({ status, label, budgetCents, remainingCents, expectedRemainingCents }: Rhythm): HomeRing => ({
   status,
@@ -31,6 +35,7 @@ const ring = ({ status, label, budgetCents, remainingCents, expectedRemainingCen
 /** The card's state from the Finance dashboard of the current month: the rings, what waits to be qualified, the next project. */
 export function composeFinanceState(dashboard: FinanceDashboard): FinanceHomeState {
   const next = dashboard.nextProject
+  const beyond = dashboard.projectBeyondHorizon
 
   return {
     week: ring(dashboard.scores.week.rhythm),
@@ -43,8 +48,11 @@ export function composeFinanceState(dashboard: FinanceDashboard): FinanceHomeSta
           amountCents: next.amountCents,
           gatheredCents: next.gatheredCents,
           purchaseMonth: next.purchaseMonth,
+          horizonMonths: HORIZON_MONTHS,
         }
-      : null,
+      : beyond
+        ? { ...beyond, purchaseMonth: null }
+        : null,
     accountCount: dashboard.tiles.accounts.accounts.length,
     envelopeCount: dashboard.tiles.budget.envelopes.length,
   }

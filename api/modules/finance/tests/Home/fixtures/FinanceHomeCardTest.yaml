@@ -6,6 +6,25 @@ Maggie\Core\Entity\User:
     googleId: google-finance-home-empty
     name: Finance Home Empty User
 
+  beyond_user:
+    email: finance-home-beyond@example.com
+    googleId: google-finance-home-beyond
+    name: Finance Home Beyond User
+
+Maggie\Finance\Entity\Project:
+  beyond_bathroom:
+    name: Salle de bain
+    amountCents: 900000
+    currency: EUR
+    position: 0
+    user: '@beyond_user'
+  beyond_van:
+    name: Van
+    amountCents: 2500000
+    currency: EUR
+    position: 1
+    user: '@beyond_user'
+
 Maggie\Finance\Entity\Transaction:
   to_qualify:
     account: '@checking'
@@ -36,3 +55,10 @@ Maggie\Finance\Entity\Account:
     balanceCents: 5000
     isCushion: false
     user: '@lonely_user'
+  beyond_checking:
+    name: Compte du patient
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 20000
+    isCushion: false
+    user: '@beyond_user'
