@@ -58,6 +58,27 @@ export async function fetchTaskView(view: TaskView, page = 1): Promise<TaskViewR
   }
 }
 
+const isTask = (task: ViewTask, id: string): boolean => task.id === id || task['@id']?.split('/').pop() === id
+
+/**
+ * The view (and page of « Faites ») that lists the task `id`, among the views the day does not draw;
+ * null when none does — a task that does not exist, or is not the user's.
+ */
+export async function findTaskView(id: string): Promise<{ view: TaskView; page: number } | null> {
+  for (const view of TASK_VIEWS) {
+    if (view === 'today') continue
+    let page = 1
+    for (;;) {
+      const result = await fetchTaskView(view, page)
+      if (result.member.some((task) => isTask(task, id))) return { view, page }
+      if (view !== 'done' || page * 30 >= result.totalItems) break
+      page++
+    }
+  }
+
+  return null
+}
+
 async function fetchMembers(query: URLSearchParams): Promise<ViewTask[]> {
   const response = await fetch(`${apiUrl}/tasks?${query.toString()}`, { headers: headers() })
   if (!response.ok) {

@@ -171,7 +171,7 @@ describe('NotificationBell — opening what a notification is about', () => {
   })
 
   test.each([
-    ['a task due', 'Dans 3 j : Appeler le garage', '/api/tasks/01K0TASK', '/tasks/%2Fapi%2Ftasks%2F01K0TASK/show'],
+    ['a task due', 'Dans 3 j : Appeler le garage', '/api/tasks/01K0TASK', '/tasks?task=01K0TASK'],
     ['a budget alert', 'Enveloppe dépassée', '/finance/budgets', '/envelopes'],
   ])('%s opens the admin screen of its IRI, not the raw API path', async (_, title, relatedEntityIri, path) => {
     const read = { ...dentist, title, relatedEntityIri, readAt: '2026-10-07T10:05:00+00:00' }
@@ -375,7 +375,7 @@ describe('NotificationBell — answering a task reminder (MAG-510)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: "Je m'y mets" }))
 
-    expect(redirect).toHaveBeenCalledExactlyOnceWith('/tasks/%2Fapi%2Ftasks%2F01K0TASK/show')
+    expect(redirect).toHaveBeenCalledExactlyOnceWith('/tasks?task=01K0TASK')
     // Read: only the film is left unread.
     expect(unread()).toBe('1')
   })

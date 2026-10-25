@@ -1,5 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render as renderInto, screen, waitFor, within } from '@testing-library/react'
+import type { ReactElement } from 'react'
+import { MemoryRouter, useNavigate } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { TaskBoard } from './TaskBoard'
 import type { ViewTask } from './taskViews'
@@ -185,6 +187,10 @@ const respond = (url: string, init?: RequestInit): Response => {
   return json({})
 }
 
+/** Where the board is opened: `/tasks`, or `/tasks?task=<id>` from a notification or a search hit (MAG-640). */
+let boardUrl = '/tasks'
+const render = (ui: ReactElement) => renderInto(<MemoryRouter initialEntries={[boardUrl]}>{ui}</MemoryRouter>)
+
 const calls = (method = 'GET') =>
   mockFetch.mock.calls.filter(([, init]) => (init?.method ?? 'GET') === method).map(([url]) => String(url))
 
@@ -231,6 +237,7 @@ describe('TaskBoard', () => {
     vi.setSystemTime(new Date(2026, 9, 15, 10, 0))
     routinesDay = { date: '2026-10-15', moments: [] }
     window.location.hash = ''
+    boardUrl = '/tasks'
     morningTime = null
     eveningTime = null
     confirmedAt = null
@@ -1057,6 +1064,120 @@ describe('TaskBoard', () => {
       expect(await screen.findByRole('region', { name: 'Le soir' })).toBeInTheDocument()
     })
   })
+  describe('a task opened from a link (MAG-640)', () => {
+    const marked = () => document.querySelectorAll('[aria-current="true"]')
+
+    beforeEach(() => {
+      Element.prototype.scrollIntoView = vi.fn()
+    })
+
+    test('a task of the day is marked and scrolled to', async () => {
+      boardUrl = '/tasks?task=01CANTEEN'
+      render(<TaskBoard />)
+
+      const row = (await screen.findByText('Payer la cantine')).closest('li')!
+      await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
+      expect(marked()).toHaveLength(1)
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+    })
+
+    test('a task of the reserve unfolds it', async () => {
+      boardUrl = '/tasks?task=01PHOTOS'
+      render(<TaskBoard />)
+
+      const row = (await screen.findByText('Trier les photos')).closest('li')!
+      await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
+      expect(screen.getByRole('button', { name: 'Réserve (2)' })).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    test('a task of another view opens that view', async () => {
+      boardUrl = '/tasks?task=01FINE'
+      render(<TaskBoard />)
+
+      expect(await screen.findByRole('tab', { name: 'À faire un jour (2)', selected: true })).toBeInTheDocument()
+      const row = (await screen.findByText("Payer l'amende")).closest('li')!
+      await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
+      expect(marked()).toHaveLength(1)
+    })
+
+    test('a task done opens « Faites »', async () => {
+      boardUrl = '/tasks?task=01DONE'
+      render(<TaskBoard />)
+
+      expect(await screen.findByRole('tab', { name: /^Faites/, selected: true })).toBeInTheDocument()
+      const row = (await screen.findByText('Sortir les poubelles')).closest('li')!
+      await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
+    })
+
+    test('the morning proposal does not cover the task a link points at', async () => {
+      morningTime = '08:00'
+      boardUrl = '/tasks?task=01CANTEEN'
+      render(<TaskBoard />)
+
+      const row = (await screen.findByText('Payer la cantine')).closest('li')!
+      await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
+      expect(screen.queryByRole('region', { name: 'Ta journée' })).toBeNull()
+    })
+
+    test('an unknown task leaves the board as it is, with no error', async () => {
+      boardUrl = '/tasks?task=01NOBODY'
+      render(<TaskBoard />)
+
+      expect(await screen.findByRole('list', { name: 'Mes 5' })).toBeInTheDocument()
+      await waitFor(() => expect(viewCalls().some((url) => url.includes('/view/done'))).toBe(true))
+      expect(screen.getByRole('tab', { name: /^Aujourd'hui/, selected: true })).toBeInTheDocument()
+      expect(marked()).toHaveLength(0)
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(mockNotify).not.toHaveBeenCalled()
+    })
+
+    test('a link followed while the board is open moves to the task', async () => {
+      const Link = () => {
+        const navigate = useNavigate()
+
+        return <button onClick={() => navigate('/tasks?task=01MOVING')}>Suivre le lien</button>
+      }
+      renderInto(
+        <MemoryRouter initialEntries={['/tasks']}>
+          <Link />
+          <TaskBoard />
+        </MemoryRouter>,
+      )
+      await screen.findByRole('list', { name: 'Mes 5' })
+      expect(marked()).toHaveLength(0)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Suivre le lien' }))
+
+      expect(await screen.findByRole('tab', { name: 'À venir (2)', selected: true })).toBeInTheDocument()
+      const row = (await screen.findByText('Préparer le déménagement')).closest('li')!
+      await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
+    })
+  })
+
+  describe('a link followed from the view that holds the task (MAG-640)', () => {
+    test('stays on the list and marks the other task', async () => {
+      const Link = () => {
+        const navigate = useNavigate()
+
+        return <button onClick={() => navigate('/tasks?task=01BOXES')}>Suivre le lien</button>
+      }
+      const user = setup()
+      renderInto(
+        <MemoryRouter initialEntries={['/tasks']}>
+          <Link />
+          <TaskBoard />
+        </MemoryRouter>,
+      )
+      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
+      await screen.findByText('Préparer le déménagement')
+
+      await user.click(screen.getByRole('button', { name: 'Suivre le lien' }))
+
+      const row = (await screen.findByText('Réserver le camion')).closest('li')!
+      await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
+    })
+  })
+
   describe('the bravo (MAG-508)', () => {
     beforeEach(() => {
       rewards = { '01BANK': reward('01BANK', 'Réglé.'), '01MOVING': reward('01MOVING', 'Bouclé.') }

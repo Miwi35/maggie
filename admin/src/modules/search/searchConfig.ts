@@ -19,10 +19,31 @@ export const SEARCH_INDEX_CONFIG: Record<string, SearchIndexConfig> = {
     basePath: '/events',
     getPath: (iri) => `/calendar?eventId=${encodeURIComponent(iri)}`,
   },
-  tasks: { label: 'Tâches', icon: 'CheckCircle', resource: 'tasks', basePath: '/tasks' },
+  // The board has no sheet of its own: it opens on the task, highlighted.
+  tasks: {
+    label: 'Tâches',
+    icon: 'CheckCircle',
+    resource: 'tasks',
+    basePath: '/tasks',
+    getPath: (iri) => `/tasks?task=${encodeURIComponent(iri.split('/').pop() ?? '')}`,
+  },
   recipes: { label: 'Recettes', icon: 'Restaurant', resource: 'recipes', basePath: '/recipes' },
-  products: { label: 'Produits', icon: 'ShoppingCart', resource: 'products', basePath: '/products' },
-  agendas: { label: 'Agendas', icon: 'CalendarMonth', resource: 'agendas', basePath: '/agendas' },
+  // No sheet either: the edit form is the product's page.
+  products: {
+    label: 'Produits',
+    icon: 'ShoppingCart',
+    resource: 'products',
+    basePath: '/products',
+    getPath: (iri) => `/products/${encodeURIComponent(iri)}`,
+  },
+  // An agenda is a layer of the calendar, not a page.
+  agendas: {
+    label: 'Agendas',
+    icon: 'CalendarMonth',
+    resource: 'agendas',
+    basePath: '/agendas',
+    getPath: () => '/calendar',
+  },
   grocery_lists: {
     label: 'Courses',
     icon: 'ShoppingBag',
