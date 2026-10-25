@@ -52,23 +52,23 @@ test('the packaging chosen in the product form is saved, read back, and seen liv
     await expect(row).not.toContainText('paquet de 500 g')
 
     await acting.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
-    await expect(acting.content.getByText(/Pas de conditionnement/)).toBeVisible()
+    await expect(acting.productPanel.getByText(/Pas de conditionnement/)).toBeVisible()
 
     // When I give it the packaging « paquet » of 500 g in the admin.
     await expectRealtimeSync(
       observer,
       async () => {
-        await acting.content.getByLabel('Conditionnement', { exact: true }).click()
+        await acting.productPanel.getByLabel('Conditionnement', { exact: true }).click()
         await actor.getByRole('option', { name: 'paquet', exact: true }).click()
-        await acting.content.getByLabel('Contenu', { exact: true }).fill('500')
-        await acting.content.getByLabel('Unité du contenu').click()
+        await acting.productPanel.getByLabel('Contenu', { exact: true }).fill('500')
+        await acting.productPanel.getByLabel('Unité du contenu').click()
         await actor.getByRole('option', { name: 'g', exact: true }).click()
-        await expect(acting.content.getByText("On l'achète en : paquet de 500 g")).toBeVisible()
+        await expect(acting.productPanel.getByText("On l'achète en : paquet de 500 g")).toBeVisible()
 
         const patched = actor.waitForResponse(
           (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
         )
-        await acting.content.getByRole('button', { name: 'Enregistrer' }).click()
+        await acting.productPanel.getByRole('button', { name: 'Enregistrer' }).click()
         const response = await patched
         expect(response.status(), `the API refused the packaging: ${await response.text()}`).toBe(200)
 
@@ -89,7 +89,7 @@ test('the packaging chosen in the product form is saved, read back, and seen liv
     // And the value holds after a reload (saving went back to the list).
     await acting.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
     await actor.reload()
-    await expect(acting.content.getByText("On l'achète en : paquet de 500 g")).toBeVisible()
+    await expect(acting.productPanel.getByText("On l'achète en : paquet de 500 g")).toBeVisible()
     const stored = (await (await api.get(iri, { headers: { Accept: 'application/ld+json' } })).json()) as ProductRow
     expect(stored.packagingSize).toBe(500)
   } finally {
@@ -124,7 +124,7 @@ test('an ingredient shows no packaging in the cookbook, and the same product sho
     await expect(shell.content.getByText(/paquet de 500 g/)).toHaveCount(0)
 
     await shell.goto(`${ROUTES.products}/${encodeURIComponent(productIri)}`)
-    await expect(shell.content.getByText("On l'achète en : paquet de 500 g")).toBeVisible()
+    await expect(shell.productPanel.getByText("On l'achète en : paquet de 500 g")).toBeVisible()
   } finally {
     await api.delete(iri)
   }
@@ -159,22 +159,22 @@ test('a product is « En stock » by default, and the state chosen in its form s
 
     // When I open its form, it is announced « En stock ».
     await acting.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
-    await expect(acting.content.getByText("Ce qu'il m'en reste")).toBeVisible()
-    await expect(acting.content.getByLabel('État du stock')).toContainText('En stock')
+    await expect(acting.productPanel.getByText("Ce qu'il m'en reste")).toBeVisible()
+    await expect(acting.productPanel.getByLabel('État du stock')).toContainText('En stock')
 
     // And I give it 2 packs of restock, the automatic restock, then « Rupture ».
     await expectRealtimeSync(
       observer,
       async () => {
-        await acting.content.getByLabel('Quantité de réapprovisionnement').fill('2')
-        await acting.content.getByLabel('Réapprovisionnement automatique').check()
-        await acting.content.getByLabel('État du stock').click()
+        await acting.productPanel.getByLabel('Quantité de réapprovisionnement').fill('2')
+        await acting.productPanel.getByLabel('Réapprovisionnement automatique').check()
+        await acting.productPanel.getByLabel('État du stock').click()
         await actor.getByRole('option', { name: 'Rupture', exact: true }).click()
 
         const patched = actor.waitForResponse(
           (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
         )
-        await acting.content.getByRole('button', { name: 'Enregistrer' }).click()
+        await acting.productPanel.getByRole('button', { name: 'Enregistrer' }).click()
         const response = await patched
         expect(response.status(), `the API refused the stock: ${await response.text()}`).toBe(200)
 
@@ -239,13 +239,13 @@ test('running out of a product in its form puts its restock on the list of anoth
     await expectRealtimeSync(
       observer,
       async () => {
-        await acting.content.getByLabel('État du stock').click()
+        await acting.productPanel.getByLabel('État du stock').click()
         await actor.getByRole('option', { name: 'Rupture', exact: true }).click()
 
         const patched = actor.waitForResponse(
           (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
         )
-        await acting.content.getByRole('button', { name: 'Enregistrer' }).click()
+        await acting.productPanel.getByRole('button', { name: 'Enregistrer' }).click()
         const response = await patched
         expect(response.status(), `the API refused the stock: ${await response.text()}`).toBe(200)
       },

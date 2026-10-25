@@ -87,9 +87,10 @@ describe('ProductList — filtered and sorted by store and aisle (MAG-604)', () 
     await user.click(await screen.findByRole('combobox', { name: 'Magasin' }))
     await user.click(await screen.findByRole('option', { name: 'Super U' }))
 
-    const headings = await screen.findAllByRole('heading', { level: 3 })
-    expect(headings.map((h) => h.textContent)).toEqual(['Boulangerie · 1', 'Frais · 2', 'Sans rayon · 1'])
-    const fresh = headings[1].closest('section') as HTMLElement
+    await waitFor(() =>
+      expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Boulangerie · 1', 'Frais · 2', 'Sans rayon · 1']),
+    )
+    const fresh = screen.getByRole('heading', { name: 'Frais · 2' }).closest('tbody') as HTMLElement
     expect(within(fresh).getByText('Beurre')).toBeInTheDocument()
     expect(within(fresh).getByText('Yaourt')).toBeInTheDocument()
 
@@ -158,6 +159,6 @@ describe('ProductList — filtered and sorted by store and aisle (MAG-604)', () 
 
     await waitFor(() => expect(productReads().at(-1)?.filter).toEqual({}))
     expect(productReads().at(-1)?.sort).toEqual({ field: 'name', order: 'ASC' })
-    expect(screen.queryAllByRole('heading', { level: 3 })).toEqual([])
+    expect((await screen.findAllByRole('heading', { level: 3 })).map((h) => h.textContent)).toEqual(['Autre · 4'])
   })
 })

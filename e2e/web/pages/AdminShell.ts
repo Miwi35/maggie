@@ -27,10 +27,16 @@ export class AdminShell {
    * test. Every module page object narrows to this.
    */
   readonly content: Locator
+  /**
+   * The fiche of a product, a panel on the right over the Produits list. A
+   * drawer is a portal: it sits beside `content`, not in it.
+   */
+  readonly productPanel: Locator
 
   constructor(readonly page: Page) {
     this.appBar = page.getByRole('banner')
     this.content = page.getByTestId('page-content')
+    this.productPanel = page.getByTestId('product-panel')
     // react-admin labels it from `ra.action.open_menu` / `close_menu`, which
     // ra-language-french renders as "Ouvrir le menu" / "Fermer le menu".
     this.sidebarToggle = this.appBar.getByRole('button', { name: /menu/i })

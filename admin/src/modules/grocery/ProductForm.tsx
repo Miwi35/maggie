@@ -6,6 +6,7 @@ import {
   SelectInput,
   required,
 } from 'react-admin'
+import type { ReactElement } from 'react'
 import Box from '@mui/material/Box'
 import { FormSection } from '../../components/form/FormSection'
 import { CATEGORY_CHOICES, STOCK_STATE_CHOICES, UNIT_CHOICES } from './productChoices'
@@ -18,8 +19,8 @@ const formSx = { maxWidth: 680 }
 const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
 const halfSx = { flex: '1 1 240px' }
 
-export const ProductForm = () => (
-  <SimpleForm sx={formSx}>
+export const ProductForm = ({ toolbar }: { toolbar?: ReactElement }) => (
+  <SimpleForm sx={formSx} toolbar={toolbar}>
     <FormSection
       first
       title="Le produit"
