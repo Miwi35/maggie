@@ -7,12 +7,18 @@ import { getCollection, waitForIndexed } from '../helpers/api.js'
 
 const JSON_HEADERS = { 'Content-Type': 'application/json', Accept: 'application/json' }
 
-/** Every timer the journey left running, paused or rung: stopped, so the next journey starts clean (MAG-582). */
-async function cancelTimers(api: APIRequestContext): Promise<void> {
+// The journeys share `nutritionUser` and the timer journeys both run an « Eau »: one at a time.
+test.describe.configure({ mode: 'serial' })
+
+/**
+ * The timers the journey left running, paused or rung on its own recipes: stopped, so the next journey starts
+ * clean (MAG-582). Another journey's timers are left alone.
+ */
+async function cancelTimers(api: APIRequestContext, recipeIris: string[]): Promise<void> {
   const response = await api.get('/api/cooking/timers', { headers: { Accept: 'application/json' } }).catch(() => null)
   if (!response?.ok()) return
-  const { member = [] } = (await response.json()) as { member?: { id: string }[] }
-  for (const timer of member) {
+  const { member = [] } = (await response.json()) as { member?: { id: string; recipe: string | null }[] }
+  for (const timer of member.filter((row) => row.recipe !== null && recipeIris.includes(row.recipe))) {
     await api.patch(`/api/cooking/timers/${timer.id}`, { headers: JSON_HEADERS, data: { action: 'cancel' } }).catch(() => undefined)
   }
 }
@@ -145,7 +151,7 @@ test('the reference recipe is cooked step by step: → three times lands on a st
     await page.reload()
     await expect(page.getByTestId('cooking-step-number')).toHaveText('3')
   } finally {
-    await cancelTimers(api)
+    await cancelTimers(api, created)
     for (const iri of created.reverse()) {
       await api.delete(iri).catch(() => undefined)
     }
@@ -230,7 +236,7 @@ test('« Lancer et continuer » starts « Eau »; −1 ends it at once, the aler
     await alert.getByRole('button', { name: 'OK' }).click()
     await expect(alert).toHaveCount(0)
   } finally {
-    await cancelTimers(api)
+    await cancelTimers(api, created)
     for (const iri of created.filter(Boolean).reverse()) {
       await api.delete(iri).catch(() => undefined)
     }

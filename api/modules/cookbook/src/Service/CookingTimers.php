@@ -21,6 +21,7 @@ use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Stamp\DispatchAfterCurrentBusStamp;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * The timers of the Cuisine activity (MAG-582): what starts, changes and rings
@@ -49,7 +50,9 @@ class CookingTimers
     /** @throws \DomainException a refused value, or a recipe that is not the user's */
     public function start(User $user, string $label, string $recipeId, int $stepPosition, int $durationSeconds): CookingTimer
     {
-        $recipe = $this->recipes->findOneForUser(self::idOf($recipeId), $user)
+        $id = self::idOf($recipeId);
+        // Not an id at all: refused here, before Doctrine fails to convert it.
+        $recipe = (Ulid::isValid($id) ? $this->recipes->findOneForUser($id, $user) : null)
             ?? throw new \DomainException(\sprintf('Recipe not found: %s', $recipeId));
 
         $timer = new CookingTimer($user, $label, $recipe, $stepPosition, $durationSeconds, $this->clock->now());

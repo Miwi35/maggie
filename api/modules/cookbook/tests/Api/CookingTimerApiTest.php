@@ -129,6 +129,7 @@ class CookingTimerApiTest extends WebTestCase
         yield 'no step' => [['label' => 'Pâtes', 'durationSeconds' => 720]];
         yield 'step zero' => [['label' => 'Pâtes', 'stepPosition' => 0, 'durationSeconds' => 720]];
         yield 'an unknown field' => [['label' => 'Pâtes', 'stepPosition' => 3, 'durationSeconds' => 720, 'endsAt' => 'now']];
+        yield 'a recipe that is not an id' => [['recipe' => 'xyz', 'label' => 'Pâtes', 'stepPosition' => 3, 'durationSeconds' => 720]];
         yield 'not JSON' => ['twelve minutes'];
     }
 
@@ -137,7 +138,7 @@ class CookingTimerApiTest extends WebTestCase
     public function testARefusedStartIsA400AndStoresNothing(array|string $body): void
     {
         if (\is_array($body)) {
-            $body = ['recipe' => (string) $this->recipe('pasta')->getId()] + $body;
+            $body += ['recipe' => (string) $this->recipe('pasta')->getId()];
         }
 
         $this->post($body);
@@ -374,6 +375,18 @@ class CookingTimerApiTest extends WebTestCase
         self::assertNotNull($notifications[0]->getReadAt());
         $this->assertMercureUpdatePublished('/api/notifications/'.$notifications[0]->getId());
         $this->assertMercureUpdatePublished('/api/cooking/timers/'.$timer['id']);
+    }
+
+    public function testCancellingARungTimerReadsItsNotificationToo(): void
+    {
+        $timer = $this->start('Pâtes', 3, 720);
+        $this->clock->sleep(720);
+        $this->handle($this->queuedEnds()[0]['message']);
+
+        $data = $this->patch($timer['id'], ['action' => 'cancel']);
+
+        self::assertSame('cancelled', $data['status']);
+        self::assertNotNull($this->notificationsOf('test_user')[0]->getReadAt());
     }
 
     /**
