@@ -142,13 +142,16 @@ class CookingViewModel(
     init {
         start()
         // Re-read, never restarted: a rotation or a return finds the timers as the API keeps them.
-        loadTimers()
-        followTimers()
+        // An address that names nothing to cook asks the API nothing, its timers included.
+        if (origin != null) {
+            loadTimers()
+            followTimers()
+        }
     }
 
     fun retry() {
         start()
-        loadTimers()
+        if (origin != null) loadTimers()
     }
 
     fun setGuests(guests: Int) = change { it.withGuests(guests) }

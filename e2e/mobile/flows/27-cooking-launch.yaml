@@ -81,7 +81,9 @@ onFlowComplete:
 - tapOn:
     text: "Got it"
     optional: true
-- assertVisible: "On sort tout"
+- extendedWaitUntil:
+    visible: "On sort tout"
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: "cooking_start"
