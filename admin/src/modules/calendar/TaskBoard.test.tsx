@@ -1109,6 +1109,16 @@ describe('TaskBoard', () => {
       await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
     })
 
+    test('the morning proposal does not cover the task a link points at', async () => {
+      morningTime = '08:00'
+      boardUrl = '/tasks?task=01CANTEEN'
+      render(<TaskBoard />)
+
+      const row = (await screen.findByText('Payer la cantine')).closest('li')!
+      await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
+      expect(screen.queryByRole('region', { name: 'Ta journée' })).toBeNull()
+    })
+
     test('an unknown task leaves the board as it is, with no error', async () => {
       boardUrl = '/tasks?task=01NOBODY'
       render(<TaskBoard />)

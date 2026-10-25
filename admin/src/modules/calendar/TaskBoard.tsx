@@ -168,6 +168,10 @@ export const TaskBoard = () => {
   // confirmed (MAG-498). Each opens once per load. The day waits for that answer, so it does not
   // flash before the morning or the evening replaces it.
   const decided = useRef(false)
+  const linked = useRef(target)
+  useEffect(() => {
+    linked.current = target
+  })
   useEffect(() => {
     if (!day || decided.current) return
     decided.current = true
@@ -175,6 +179,8 @@ export const TaskBoard = () => {
     const now = new Date()
     fetchDayTimes()
       .then(async ({ morningTime, eveningTime }) => {
+        // A link to a task shows that task: neither the morning nor the evening covers it.
+        if (linked.current) return
         if (eveningDue(now, eveningTime, opened.total, null)) {
           const review = await fetchDayReview(opened.date).catch(() => null)
           if (review && eveningDue(now, eveningTime, opened.total, review.reviewedAt) && claimEvening()) {
