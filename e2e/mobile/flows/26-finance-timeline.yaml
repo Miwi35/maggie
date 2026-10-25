@@ -46,8 +46,9 @@ tags:
     timeout: 30000
 - tapOn:
     id: "timeline_horizon_240"
-- scrollUntilVisible:
-    element:
+# The horizon toggle was centred: the top of the frise is on screen, and the container is taller than the screen.
+- extendedWaitUntil:
+    visible:
       id: "timeline_frise"
     timeout: 30000
 # The independence event sits below the fold: scrollUntilVisible reaches it.

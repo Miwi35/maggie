@@ -90,6 +90,7 @@ tags:
 # A row is one node for accessibility: its texts are read together, hence the `.*`.
 - scrollUntilVisible:
     element: ".*1. Déménagement.*"
+    centerElement: true
     timeout: 20000
 - extendedWaitUntil:
     visible:
