@@ -33,7 +33,7 @@ final class NotificationTypeTest extends KernelTestCase
     public function testEveryTypeTheProducersNeedExists(): void
     {
         self::assertEqualsCanonicalizing(
-            ['reminder', 'consent_expiring', 'proaction', 'task_due', 'task_nudge', 'routine', 'grocery', 'approval', 'finance'],
+            ['reminder', 'consent_expiring', 'proaction', 'task_due', 'task_nudge', 'routine', 'grocery', 'approval', 'finance', 'cooking_timer'],
             array_map(static fn (NotificationType $type) => $type->value, NotificationType::cases()),
         );
     }
@@ -54,7 +54,7 @@ final class NotificationTypeTest extends KernelTestCase
      */
     public static function newTypes(): iterable
     {
-        foreach (['proaction', 'task_due', 'task_nudge', 'routine', 'grocery', 'approval', 'finance'] as $type) {
+        foreach (['proaction', 'task_due', 'task_nudge', 'routine', 'grocery', 'approval', 'finance', 'cooking_timer'] as $type) {
             yield $type => [$type];
         }
     }

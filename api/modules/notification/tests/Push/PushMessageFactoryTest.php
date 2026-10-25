@@ -191,6 +191,29 @@ final class PushMessageFactoryTest extends TestCase
         yield 'finance' => [NotificationType::Finance, 'finance_v2'];
         yield 'proaction' => [NotificationType::Proaction, 'chat_v2'];
         yield 'grocery' => [NotificationType::Grocery, 'chat_v2'];
+        yield 'cooking timer' => [NotificationType::CookingTimer, 'reminders_v2'];
+    }
+
+    public function testACookingTimersEndIsTaggedOncePerTimerAndCarriesItsId(): void
+    {
+        $timerId = '01JCOOKINGTIMER0000000000A';
+        $first = (new PushMessageFactory())->build($this->notification(NotificationType::CookingTimer, 'Pâtes : c\'est prêt', 'minuteur de l\'étape 3 · Pâtes aux légumes', '/api/cooking/timers/'.$timerId), 't');
+        $again = (new PushMessageFactory())->build($this->notification(NotificationType::CookingTimer, 'Pâtes : c\'est prêt', null, '/api/cooking/timers/'.$timerId), 't');
+
+        self::assertSame('cooking-timer-'.$timerId, $first['android']['notification']['tag']);
+        self::assertSame($first['android']['notification']['tag'], $again['android']['notification']['tag'], 'Two notifications of one timer replace each other on the phone.');
+        self::assertSame($timerId, $first['data']['cookingTimerId']);
+        self::assertSame('cooking_timer', $first['data']['type']);
+        self::assertSame('minuteur de l\'étape 3 · Pâtes aux légumes', $first['notification']['body']);
+    }
+
+    public function testAnotherNotificationKeepsItsOwnTagAndNoTimerId(): void
+    {
+        $notification = $this->notification(NotificationType::Reminder, 'Rendez-vous', null, '/api/events/01JEVENT');
+        $message = (new PushMessageFactory())->build($notification, 't');
+
+        self::assertSame((string) $notification->getId(), $message['android']['notification']['tag']);
+        self::assertArrayNotHasKey('cookingTimerId', $message['data']);
     }
 
     #[DataProvider('channels')]

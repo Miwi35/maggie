@@ -6,6 +6,7 @@
     "Category": "/users/{userId}/api/categories/{id}",
     "Contact": "/users/{userId}/api/contacts/{id}",
     "ContactCounterparty": "/users/{userId}/api/contact_counterparties/{id}",
+    "CookingTimer": "/users/{userId}/api/cooking/timers/{id}",
     "DayPlan": "/users/{userId}/api/day_plans/{id}",
     "DayReview": "/users/{userId}/api/day_reviews/{id}",
     "Envelope": "/users/{userId}/api/envelopes/{id}",

@@ -1275,6 +1275,63 @@
         },
         "description": "The people the owner lends money to or borrows from — one list for both — and the labels under which each one appears on the bank statements (counterparties, e.g. « VIR. DE TOM MARTIN »). Actions: list (every contact with its counterparties), search (by name, query), create (name, optional notes), update (contactId; only provided fields change; to empty notes, list it in clear), delete (contactId; their transactions are detached), link_counterparty (contactId and either label or transactionId — the label of that transaction is used; every non-internal transaction it recognises, past and future, is attached to the contact; a label belongs to one contact only), unlink_counterparty (counterpartyId; its transactions are detached), suggest_counterparties (contactId; labels of unattached transactions that contain a word of the name, most frequent first — confirm them with link_counterparty). A transfer between the owner's own accounts is never attached to a contact."
     },
+    "manage_cooking_timers": {
+        "name": "manage_cooking_timers",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "timerId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "label": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "recipeId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "stepPosition": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "durationSeconds": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "seconds": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, start, pause, resume, add time to, or cancel the user's kitchen timers of the Cuisine activity. list returns the running, paused and done timers with label, step, remainingSeconds and endsAt — answer « how long left for the pasta? » from it. start needs label, recipeId, stepPosition and durationSeconds. pause, resume and cancel need timerId; add needs timerId and seconds (negative to remove time, 60 for one more minute). A refused call returns error plus the current timers: ask the user rather than guess."
+    },
     "manage_envelopes": {
         "name": "manage_envelopes",
         "inputSchema": {

@@ -23,4 +23,6 @@ enum NotificationType: string
     case Approval = 'approval';
     /** A finance alert other than a bank consent (see ConsentExpiring). */
     case Finance = 'finance';
+    /** A timer of the Cuisine activity reached its end (MAG-582). */
+    case CookingTimer = 'cooking_timer';
 }
