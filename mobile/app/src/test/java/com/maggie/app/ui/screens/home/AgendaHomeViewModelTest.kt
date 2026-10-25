@@ -1,7 +1,9 @@
 package com.maggie.app.ui.screens.home
 
+import com.maggie.app.data.model.AgendaHomeEvent
+import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.HomeDay
-import com.maggie.app.data.repository.HomeCardRepository
+import com.maggie.app.data.repository.AgendaCardRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -14,8 +16,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,29 +25,38 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.Instant
+import java.time.LocalDate
 
-/** The Agenda card's state (MAG-562): one test per transition — read, another day, refresh, failure, fiche opened and closed. */
+/** The Agenda card's state (MAG-562, MAG-589): one test per transition — read, another day, refresh, failure, clock, fiche opened and closed. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AgendaHomeViewModelTest {
     private val dispatcher = StandardTestDispatcher()
-    private val repository = mockk<HomeCardRepository>()
+    private val repository = mockk<AgendaCardRepository>()
     private val changes = MutableSharedFlow<Unit>()
     private var elapsed = 1_000L
+    private var deviceNow = Instant.parse("2026-10-14T12:12:00Z") // 14:12 in Paris
+    private val today = LocalDate.of(2026, 10, 14)
 
-    private fun answer(vararg ids: String, date: String = "2026-10-14", now: String? = "2026-10-14T14:12:00+02:00"): JsonObject {
-        val events = ids.joinToString(",") {
-            """{"id":"$it","summary":"Événement $it","startAt":"2026-10-14T15:00:00+02:00","endAt":"2026-10-14T16:00:00+02:00","timeZone":"Europe/Paris"}"""
-        }
-        val nowJson = now?.let { "\"$it\"" } ?: "null"
-        return Json.parseToJsonElement("""{"module":"agenda","date":"$date","now":$nowJson,"events":[$events]}""") as JsonObject
-    }
+    private fun answer(vararg ids: String, date: String = "2026-10-14"): Result<AgendaHomeState> = Result.success(
+        AgendaHomeState(
+            date = date,
+            events = ids.map {
+                AgendaHomeEvent(
+                    id = it,
+                    summary = "Événement $it",
+                    startAt = "2026-10-14T15:00:00+02:00",
+                    endAt = "2026-10-14T16:00:00+02:00",
+                )
+            },
+        ),
+    )
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
-        every { repository.changes("agenda") } returns changes
-        coEvery { repository.state("agenda", HomeDay.TODAY) } returns Result.success(answer("a", "b"))
-        coEvery { repository.state("agenda", HomeDay.TOMORROW) } returns Result.success(answer("t", date = "2026-10-15", now = null))
+        every { repository.changes() } returns changes
+        coEvery { repository.read(HomeDay.TODAY, any()) } returns answer("a", "b")
+        coEvery { repository.read(HomeDay.TOMORROW, any()) } returns answer("t", date = "2026-10-15")
     }
 
     @After
@@ -55,7 +64,7 @@ class AgendaHomeViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = AgendaHomeViewModel(repository, elapsedRealtime = { elapsed })
+    private fun viewModel() = AgendaHomeViewModel(repository, elapsedRealtime = { elapsed }, clock = { deviceNow })
 
     @Test
     fun `it is loading until the first answer`() = runTest(dispatcher) {
@@ -109,7 +118,7 @@ class AgendaHomeViewModelTest {
         val viewModel = viewModel()
         viewModel.show(HomeDay.TODAY)
         advanceUntilIdle()
-        coEvery { repository.state("agenda", HomeDay.TODAY) } returns Result.success(answer("a", "b", "c"))
+        coEvery { repository.read(HomeDay.TODAY, any()) } returns answer("a", "b", "c")
 
         changes.emit(Unit)
         assertEquals(listOf("a", "b"), viewModel.uiState.value.state?.events?.map { it.id })
@@ -121,7 +130,7 @@ class AgendaHomeViewModelTest {
 
     @Test
     fun `a failing read shows the error, retry reads again`() = runTest(dispatcher) {
-        coEvery { repository.state("agenda", HomeDay.TODAY) } returns Result.failure(RuntimeException("503"))
+        coEvery { repository.read(HomeDay.TODAY, any()) } returns Result.failure(RuntimeException("503"))
         val viewModel = viewModel()
         viewModel.show(HomeDay.TODAY)
         advanceUntilIdle()
@@ -129,7 +138,7 @@ class AgendaHomeViewModelTest {
         assertTrue(viewModel.uiState.value.error)
         assertFalse(viewModel.uiState.value.loading)
 
-        coEvery { repository.state("agenda", HomeDay.TODAY) } returns Result.success(answer("a"))
+        coEvery { repository.read(HomeDay.TODAY, any()) } returns answer("a")
         viewModel.retry()
         advanceUntilIdle()
 
@@ -142,7 +151,7 @@ class AgendaHomeViewModelTest {
         val viewModel = viewModel()
         viewModel.show(HomeDay.TODAY)
         advanceUntilIdle()
-        coEvery { repository.state("agenda", HomeDay.TODAY) } returns Result.failure(RuntimeException("503"))
+        coEvery { repository.read(HomeDay.TODAY, any()) } returns Result.failure(RuntimeException("503"))
 
         changes.emit(Unit)
         advanceUntilIdle()
@@ -171,7 +180,7 @@ class AgendaHomeViewModelTest {
         advanceUntilIdle()
         viewModel.open("b")
 
-        coEvery { repository.state("agenda", HomeDay.TODAY) } returns Result.success(answer("a"))
+        coEvery { repository.read(HomeDay.TODAY, any()) } returns answer("a")
         changes.emit(Unit)
         advanceUntilIdle()
 
@@ -193,16 +202,72 @@ class AgendaHomeViewModelTest {
     }
 
     @Test
+    fun `the line is seeded from the device clock, not the elapsed time alone, and ignores a later clock change`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.show(HomeDay.TODAY)
+        advanceUntilIdle()
+        val ui = viewModel.uiState.value
+
+        deviceNow = Instant.parse("2026-10-14T20:00:00Z") // the owner changes the system clock
+
+        assertEquals(Instant.parse("2026-10-14T12:12:00Z"), viewModel.nowAt(ui))
+    }
+
+    @Test
+    fun `today is the owner's day in Paris whatever the device zone, tomorrow is read for the same day`() = runTest(dispatcher) {
+        deviceNow = Instant.parse("2026-10-14T22:30:00Z") // 00:30 on the 15th in Paris
+        val viewModel = viewModel()
+
+        viewModel.show(HomeDay.TODAY)
+        advanceUntilIdle()
+        viewModel.show(HomeDay.TOMORROW)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.read(HomeDay.TODAY, LocalDate.of(2026, 10, 15)) }
+        coVerify(exactly = 1) { repository.read(HomeDay.TOMORROW, LocalDate.of(2026, 10, 15)) }
+    }
+
+    @Test
+    fun `a push re-reads the day shown and the last read wins`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        viewModel.show(HomeDay.TODAY)
+        advanceUntilIdle()
+        coEvery { repository.read(HomeDay.TODAY, any()) } returns answer("x")
+        changes.emit(Unit)
+        advanceUntilIdle()
+        coEvery { repository.read(HomeDay.TODAY, any()) } returns answer("y")
+
+        changes.emit(Unit)
+        changes.emit(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("y"), viewModel.uiState.value.state?.events?.map { it.id })
+        assertFalse(viewModel.uiState.value.loading)
+    }
+
+    @Test
+    fun `a 404 on the resources is a day with no event, the card is not drawn`() = runTest(dispatcher) {
+        coEvery { repository.read(HomeDay.TODAY, any()) } returns Result.success(AgendaHomeState(date = "2026-10-14"))
+        val viewModel = viewModel()
+
+        viewModel.show(HomeDay.TODAY)
+        advanceUntilIdle()
+
+        assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
+        assertFalse(viewModel.uiState.value.error)
+    }
+
+    @Test
     fun `nothing is read before a day is shown`() = runTest(dispatcher) {
         viewModel()
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { repository.state(any(), any()) }
+        coVerify(exactly = 0) { repository.read(any(), any()) }
     }
 
     @Test
     fun `status - loading, filled, empty on a day without event, filled again on a push, failed`() = runTest(dispatcher) {
-        coEvery { repository.state("agenda", HomeDay.TOMORROW) } returns Result.success(answer(date = "2026-10-15", now = null))
+        coEvery { repository.read(HomeDay.TOMORROW, any()) } returns answer(date = "2026-10-15")
         val viewModel = viewModel()
         assertEquals(HomeCardStatus.LOADING, viewModel.uiState.value.status)
 
@@ -215,12 +280,12 @@ class AgendaHomeViewModelTest {
         advanceUntilIdle()
         assertEquals(HomeCardStatus.EMPTY, viewModel.uiState.value.status)
 
-        coEvery { repository.state("agenda", HomeDay.TOMORROW) } returns Result.success(answer("t", date = "2026-10-15", now = null))
+        coEvery { repository.read(HomeDay.TOMORROW, any()) } returns answer("t", date = "2026-10-15")
         changes.emit(Unit)
         advanceUntilIdle()
         assertEquals(HomeCardStatus.FILLED, viewModel.uiState.value.status)
 
-        coEvery { repository.state("agenda", HomeDay.TODAY) } returns Result.failure(RuntimeException("503"))
+        coEvery { repository.read(HomeDay.TODAY, any()) } returns Result.failure(RuntimeException("503"))
         viewModel.show(HomeDay.TODAY)
         advanceUntilIdle()
         assertEquals(HomeCardStatus.ERROR, viewModel.uiState.value.status)

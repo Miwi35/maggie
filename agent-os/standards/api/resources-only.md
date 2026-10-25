@@ -34,5 +34,6 @@ Un module absent répond 404 sur sa ressource : la carte correspondante n'est pa
 | Interdit | `/api/home/finance` — l'écran Accueil décide ce que l'API renvoie |
 | Permis | `GET /api/tasks?completedAt[after]=…&completedAt[before]=…` — « faites aujourd'hui » |
 | Interdit | `GET /api/home/tasks` — une carte entière servie par l'API |
+| Permis | `GET /api/events?expand=true&endAt[after]=…&startAt[before]=…` — les occurrences d'une période, séries dépliées une seule fois par l'API (RRULE), lues par tous les fronts |
 
 `/api/home` et ses cartes restent le temps de la migration des cartes (MAG-589 à 592), puis sont supprimés (MAG-593).

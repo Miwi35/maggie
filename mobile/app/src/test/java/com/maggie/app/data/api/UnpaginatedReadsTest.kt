@@ -94,6 +94,21 @@ class UnpaginatedReadsTest {
     }
 
     @Test
+    fun `getExpandedEvents asks for the unfolded period in one request`() = runBlocking {
+        val server = events(37)
+
+        val result = MaggieApiService(server.client())
+            .getExpandedEvents("2026-10-22T22:00:00Z", "2026-10-23T22:00:00Z")
+
+        assertEquals(37, result.size)
+        val url = server.single()
+        assertEquals("true", url.parameters["expand"])
+        assertEquals("false", url.parameters["pagination"])
+        assertEquals("2026-10-22T22:00:00Z", url.parameters["endAt[after]"])
+        assertEquals("2026-10-23T22:00:00Z", url.parameters["startAt[before]"])
+    }
+
+    @Test
     fun `getRecurringEventsBefore reads the 37 series in one request`() = runBlocking {
         val server = events(37)
 

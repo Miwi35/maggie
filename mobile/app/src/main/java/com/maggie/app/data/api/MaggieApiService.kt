@@ -984,6 +984,21 @@ class MaggieApiService(
         }.body<ApiCollection<Event>>().member
     }
 
+    /**
+     * The events meeting the period with their recurring series already unfolded into occurrences (MAG-589): an
+     * occurrence carries its own start and end and its series' id. Cancelled ones are left out; the order is not
+     * promised.
+     */
+    suspend fun getExpandedEvents(periodStart: String, periodEnd: String): List<Event> {
+        return client.get("$baseUrl/api/events") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("expand", "true")
+            url.parameters.append("endAt[after]", periodStart)
+            url.parameters.append("startAt[before]", periodEnd)
+        }.body<ApiCollection<Event>>().member
+    }
+
     suspend fun getEvent(id: String): Event {
         return client.get("$baseUrl/api/events/$id") {
             accept(ContentType("application", "ld+json"))

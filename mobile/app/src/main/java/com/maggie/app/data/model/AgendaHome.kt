@@ -1,35 +1,21 @@
 package com.maggie.app.data.model
 
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
 /**
- * What `GET /api/home/agenda` answers (MAG-562): the events of one day, whole-day ones first then by start,
- * and `now` for today (null for tomorrow, which has no « maintenant » line). The API says nothing of past,
- * in progress or next: [timeline] works that out from the clock, so the line moves without a new read.
+ * The events of one day for the Accueil's Agenda card (MAG-562), whole-day ones first then by start. [date] is the day,
+ * `YYYY-MM-DD`. The card is composed client-side from the events and agendas resources (MAG-589). The API says nothing of
+ * past, in progress or next: [timeline] works that out from the clock, so the line moves without a new read.
  */
-@Serializable
 data class AgendaHomeState(
     val date: String,
-    val now: String? = null,
     val events: List<AgendaHomeEvent> = emptyList(),
-) {
-    val nowInstant: Instant? get() = now?.let { OffsetDateTime.parse(it).toInstant() }
-
-    companion object {
-        private val json = Json { ignoreUnknownKeys = true }
-
-        fun from(body: JsonObject): AgendaHomeState = json.decodeFromJsonElement(serializer(), body)
-    }
-}
+)
 
 /** One event of the card. [locationShort] is the place without its address (« Cabinet Martin »). */
-@Serializable
 data class AgendaHomeEvent(
     val id: String,
     val summary: String,
@@ -39,8 +25,8 @@ data class AgendaHomeEvent(
     val allDay: Boolean = false,
     val startAt: String? = null,
     val endAt: String? = null,
-    @Serializable(with = IsoDateSerializer::class) val startDate: LocalDate? = null,
-    @Serializable(with = IsoDateSerializer::class) val endDate: LocalDate? = null,
+    val startDate: LocalDate? = null,
+    val endDate: LocalDate? = null,
     val timeZone: String = "Europe/Paris",
     val status: String = "confirmed",
     val reminders: EventReminders? = null,
@@ -49,10 +35,10 @@ data class AgendaHomeEvent(
     val agendaName: String? = null,
     val agendaColor: String? = null,
 ) {
-    val start: Instant? get() = startAt?.let(Instant::parse)
+    val start: Instant? get() = startAt?.let { OffsetDateTime.parse(it).toInstant() }
 
     /** The end; an event without one ends when it starts. */
-    val end: Instant? get() = endAt?.let(Instant::parse) ?: start
+    val end: Instant? get() = endAt?.let { OffsetDateTime.parse(it).toInstant() } ?: start
 
     /** The event as the rest of the app reads it, to reuse its date label, reminders and review title. */
     fun toExpandedEvent(): ExpandedEvent = ExpandedEvent(
@@ -72,6 +58,44 @@ data class AgendaHomeEvent(
         agendaName = agendaName,
         activity = activity,
     )
+
+    companion object {
+        /**
+         * An occurrence of the events resource, with the name and colour of its [agenda] (null when unknown: the
+         * agenda list does not hold it). [Event.agenda] is the IRI `/api/agendas/{id}`.
+         */
+        fun from(event: Event, agenda: Agenda?): AgendaHomeEvent = AgendaHomeEvent(
+            id = event.id,
+            summary = event.summary,
+            description = event.description,
+            location = event.location,
+            locationShort = shortLocation(event.location),
+            allDay = event.allDay,
+            startAt = event.startAt,
+            endAt = event.endAt,
+            startDate = event.firstDate,
+            endDate = event.endDate?.let(LocalDate::parse),
+            timeZone = event.timeZone,
+            status = event.status,
+            reminders = event.reminders,
+            activity = event.activity,
+            agendaId = event.agenda?.substringAfterLast('/'),
+            agendaName = agenda?.name,
+            agendaColor = agenda?.color,
+        )
+
+        /** « Cabinet Dr Martin, 15 rue de la Paix » gives « Cabinet Dr Martin »: the place, not the address. */
+        fun shortLocation(location: String?): String? {
+            if (location.isNullOrBlank()) return null
+            return location.substringBefore(',').trim().ifEmpty { location.trim() }
+        }
+
+        /** Whole-day events first, then by start, then by title. */
+        val ORDER: Comparator<AgendaHomeEvent> = compareBy<AgendaHomeEvent>({ !it.allDay }, { it.sortInstant() }, { it.summary })
+    }
+
+    private fun sortInstant(): Instant? =
+        if (allDay) startDate?.atStartOfDay(ZoneId.of(timeZone))?.toInstant() else start
 
     /** The day the event began on in its own zone; null for a whole-day event, which has dates, not instants. */
     fun firstDay(): LocalDate? = start?.atZone(ZoneId.of(timeZone))?.toLocalDate()

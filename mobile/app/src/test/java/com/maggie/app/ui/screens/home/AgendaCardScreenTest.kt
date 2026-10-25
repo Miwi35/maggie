@@ -64,7 +64,7 @@ class AgendaCardScreenTest {
     )
 
     private fun today(vararg events: AgendaHomeEvent) =
-        AgendaHomeState(date = "2026-10-14", now = "2026-10-14T14:12:00+02:00", events = events.toList())
+        AgendaHomeState(date = "2026-10-14", events = events.toList())
 
     private fun draw(
         state: AgendaHomeState?,
@@ -80,7 +80,7 @@ class AgendaCardScreenTest {
                 state = state,
                 loading = loading,
                 error = error,
-                now = state?.nowInstant,
+                now = if (state?.date == "2026-10-14") now else null,
                 compact = compact,
                 onOpenAgenda = onOpenAgenda,
                 onOpenEvent = onOpenEvent,
@@ -158,7 +158,7 @@ class AgendaCardScreenTest {
 
     @Test
     fun `tomorrow is the whole day with no line`() {
-        val tomorrow = AgendaHomeState(date = "2026-10-15", now = null, events = listOf(standup, dentist, review))
+        val tomorrow = AgendaHomeState(date = "2026-10-15", events = listOf(standup, dentist, review))
         draw(tomorrow)
 
         compose.onNodeWithTag(UiTags.HOME_AGENDA_NOW_LINE).assertDoesNotExist()

@@ -31,6 +31,7 @@ import com.maggie.app.data.reward.RewardFeedback
 import com.maggie.app.data.reward.TaskRewards
 import com.maggie.app.data.local.MaggieDatabase
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.repository.AgendaCardRepository
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.CalendarCacheFeed
@@ -327,6 +328,7 @@ class MaggieApp : Application() {
             single { UpcomingRepository(get()) }
             single { HomeCardRepository(get(), get(), get()) }
             single { TasksCardRepository(get(), get(), get(), get()) }
+            single { AgendaCardRepository(get(), get(), get()) }
             single { MonthBalanceRepository(get()) }
             single { TransactionRepository(get()) }
             single { ContactRepository(get()) }

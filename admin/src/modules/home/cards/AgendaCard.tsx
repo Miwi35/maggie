@@ -7,11 +7,11 @@ import CheckIcon from '@mui/icons-material/Check'
 import { HomeCard } from '../HomeCard'
 import { HomeCardError } from '../HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../homeCardStatus'
-import { useHomeCardState } from '../useHomeCardState'
+import { useAgendaCardState } from '../useAgendaCardState'
 import type { HomeDay } from '../homeDay'
 import { AgendaEventPanel } from './AgendaEventPanel'
 import { buildTimeline, clock, rowTime, untilLabel } from './agendaTimeline'
-import type { AgendaHomeEvent, AgendaHomeState, TimelineRow } from './agendaTimeline'
+import type { AgendaHomeEvent, TimelineRow } from './agendaTimeline'
 
 /** How often the line and « dans 48 min » are recomputed. */
 const TICK_MS = 20_000
@@ -19,26 +19,23 @@ const TICK_MS = 20_000
 /** Past rows stay readable: dimmed, not struck out. */
 const PAST_OPACITY = 0.6
 
-/**
- * The clock of the card: the server's `now`, then the browser's clock moving on from it —
- * a screen with a wrong clock still draws the line where the owner's day is.
- */
-function useNowMs(serverNow: string | null | undefined): number | null {
-  const [clockState, setClockState] = useState<{ serverNow: string; localMs: number; tickMs: number } | null>(null)
+/** The clock of the card: the instant of the read, then the browser's clock moving on from it. */
+function useNowMs(readAt: string | null | undefined): number | null {
+  const [clockState, setClockState] = useState<{ readAt: string; localMs: number; tickMs: number } | null>(null)
 
   useEffect(() => {
-    if (!serverNow) return
+    if (!readAt) return
     const localMs = Date.now()
-    const timer = setInterval(() => setClockState({ serverNow, localMs, tickMs: Date.now() }), TICK_MS)
+    const timer = setInterval(() => setClockState({ readAt, localMs, tickMs: Date.now() }), TICK_MS)
 
     return () => clearInterval(timer)
-  }, [serverNow])
+  }, [readAt])
 
-  if (!serverNow) return null
-  // Until the first tick, or after a fresh read, the server's own instant: no frame without a line.
-  if (clockState?.serverNow !== serverNow) return Date.parse(serverNow)
+  if (!readAt) return null
+  // Until the first tick, or after a fresh read, the instant of the read: no frame without a line.
+  if (clockState?.readAt !== readAt) return Date.parse(readAt)
 
-  return Date.parse(serverNow) + (clockState.tickMs - clockState.localMs)
+  return Date.parse(readAt) + (clockState.tickMs - clockState.localMs)
 }
 
 const NowLine = ({ nowMs }: { nowMs: number }) => {
@@ -128,9 +125,9 @@ const Row = ({ row, date, nowMs, onOpen }: RowProps) => {
   )
 }
 
-/** The Agenda card of the Accueil (MAG-562): the day as a list of hours, the « maintenant » line between what is done and what follows. */
+/** The Agenda card of the Accueil (MAG-562, on the events and agendas resources since MAG-589): the day as a list of hours, the « maintenant » line between what is done and what follows. */
 export const AgendaCard = ({ day }: { day: HomeDay }) => {
-  const { state, loading, error, retry } = useHomeCardState<AgendaHomeState>('agenda', day)
+  const { state, loading, error, retry } = useAgendaCardState(day)
   const nowMs = useNowMs(state?.now)
   const [openId, setOpenId] = useState<string | null>(null)
 

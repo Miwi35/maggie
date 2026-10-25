@@ -3772,6 +3772,18 @@
                         "explode": false
                     },
                     {
+                        "name": "expand",
+                        "in": "query",
+                        "description": "true unfolds the recurring series into their occurrences within the period; endAt[after] and startAt[before] are then required, and the answer is the whole period, never paginated.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "startAt[before]",
                         "in": "query",
                         "description": "An all-day event, which has no startAt, is compared by its startDate.",

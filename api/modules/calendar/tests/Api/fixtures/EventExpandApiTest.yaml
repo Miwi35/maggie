@@ -1,0 +1,118 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: expand@example.com
+    googleId: google-expand
+    name: Expand User
+  other_user:
+    email: expand-other@example.com
+    googleId: google-expand-other
+    name: Expand Other
+
+Maggie\Calendar\Entity\Agenda:
+  perso:
+    name: Perso
+    color: '#4285F4'
+    isDefault: true
+    user: '@test_user'
+  other_agenda:
+    name: Autre
+    isDefault: true
+    user: '@other_user'
+
+# The day asked is Wednesday 2037-03-11, the weeks before it Wednesdays too.
+Maggie\Calendar\Entity\Event:
+  one_off:
+    summary: Dentiste
+    startAt: '<(new \DateTimeImmutable("2037-03-11T15:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-11T16:00:00+01:00"))>'
+    agenda: '@perso'
+
+  all_day:
+    summary: Anniversaire
+    allDay: true
+    startDate: '<(new \DateTimeImmutable("2037-03-11"))>'
+    endDate: '<(new \DateTimeImmutable("2037-03-12"))>'
+    agenda: '@perso'
+
+  # Began the day before, ends in the day.
+  overnight:
+    summary: Garde de nuit
+    startAt: '<(new \DateTimeImmutable("2037-03-10T22:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-11T01:00:00+01:00"))>'
+    agenda: '@perso'
+
+  cancelled_one_off:
+    summary: Annulé
+    startAt: '<(new \DateTimeImmutable("2037-03-11T11:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-11T12:00:00+01:00"))>'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Cancelled)>'
+    agenda: '@perso'
+
+  # A series that began weeks before the day: only its master row is before the period.
+  weekly:
+    summary: Point hebdo
+    startAt: '<(new \DateTimeImmutable("2037-02-04T09:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-02-04T10:00:00+01:00"))>'
+    rrule: FREQ=WEEKLY
+    agenda: '@perso'
+
+  # The occurrence of the 11th, moved to the afternoon.
+  weekly_moved:
+    summary: Point hebdo (déplacé)
+    startAt: '<(new \DateTimeImmutable("2037-03-11T17:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-11T18:00:00+01:00"))>'
+    originalStartAt: '<(new \DateTimeImmutable("2037-03-11T09:00:00+01:00"))>'
+    recurringEvent: '@weekly'
+    agenda: '@perso'
+
+  daily:
+    summary: Médicament
+    startAt: '<(new \DateTimeImmutable("2037-01-05T08:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-01-05T08:15:00+01:00"))>'
+    rrule: FREQ=DAILY
+    agenda: '@perso'
+
+  # Cancelled for the 11th only.
+  daily_cancelled:
+    summary: Médicament
+    startAt: '<(new \DateTimeImmutable("2037-03-11T08:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-11T08:15:00+01:00"))>'
+    originalStartAt: '<(new \DateTimeImmutable("2037-03-11T08:00:00+01:00"))>'
+    recurringEvent: '@daily'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Cancelled)>'
+    agenda: '@perso'
+
+  # A series that ended before the day.
+  finished:
+    summary: Cours terminé
+    startAt: '<(new \DateTimeImmutable("2037-01-07T18:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-01-07T19:00:00+01:00"))>'
+    rrule: 'FREQ=WEEKLY;COUNT=3'
+    agenda: '@perso'
+
+  yearly_all_day:
+    summary: Fête
+    allDay: true
+    startDate: '<(new \DateTimeImmutable("2030-03-11"))>'
+    endDate: '<(new \DateTimeImmutable("2030-03-12"))>'
+    rrule: FREQ=YEARLY
+    agenda: '@perso'
+
+  # Ends as the day begins, and begins as it ends: neither is in it.
+  ended_at_midnight:
+    summary: Fini à minuit
+    startAt: '<(new \DateTimeImmutable("2037-03-10T23:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-11T00:00:00+01:00"))>'
+    agenda: '@perso'
+
+  starts_at_midnight:
+    summary: Début à minuit
+    startAt: '<(new \DateTimeImmutable("2037-03-12T00:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-12T01:00:00+01:00"))>'
+    agenda: '@perso'
+
+  strangers_event:
+    summary: Stranger
+    startAt: '<(new \DateTimeImmutable("2037-03-11T09:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-11T10:00:00+01:00"))>'
+    agenda: '@other_agenda'

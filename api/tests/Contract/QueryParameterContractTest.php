@@ -57,6 +57,15 @@ final class QueryParameterContractTest extends WebTestCase
     use AuthenticatedTestTrait;
 
     /**
+     * Parameters a resource's provider reads before any query is built: they name no indexed field.
+     *
+     * @var array<string, list<string>>
+     */
+    private const PROVIDER_PARAMETERS = [
+        '/api/events' => ['expand'],
+    ];
+
+    /**
      * Collection path => parameter => who sends it.
      *
      * Pagination (`page`, `itemsPerPage`) is left out: API Platform provides
@@ -71,6 +80,7 @@ final class QueryParameterContractTest extends WebTestCase
             'startAt[strictly_before]' => 'admin recurring-event lookup, mobile getRecurringEvents',
             'endAt[after]' => 'admin CalendarView and Dashboard, multi-day events that started before the visible range',
             'endAt[before]' => 'mobile getEvents',
+            'expand' => 'admin and mobile Accueil, the Agenda card (the day with its series unfolded, MAG-589)',
             'exists[rrule]' => 'admin recurring-event lookup, mobile getRecurringEvents',
             'order[startAt]' => 'admin CalendarView, Dashboard and MealsWeekView',
             'order[id]' => 'admin raw-data list (react-admin sorts by id when a list names no sort)',
@@ -268,6 +278,11 @@ final class QueryParameterContractTest extends WebTestCase
         }
 
         foreach ($parameters as $name => $sender) {
+            // Read by the resource's provider before any query is built: it names no field.
+            if (\in_array($name, self::PROVIDER_PARAMETERS[$path] ?? [], true)) {
+                continue;
+            }
+
             $sorting = (bool) preg_match('/^order\[(.+)]$/', $name, $matches);
             $property = $sorting ? $matches[1] : self::filteredProperty($name);
 

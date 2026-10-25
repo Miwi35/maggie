@@ -101,7 +101,7 @@ fun AgendaCard(day: HomeDay, viewModel: AgendaHomeViewModel = koinViewModel()) {
 
     LaunchedEffect(day) { viewModel.show(day) }
 
-    // The line follows the clock: the server's `now`, moved on by the time elapsed since the read.
+    // The line follows the clock: the device's instant at the read, moved on by the time elapsed since.
     val now by produceState(initialValue = viewModel.nowAt(ui), ui) {
         while (true) {
             value = viewModel.nowAt(ui)
