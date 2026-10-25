@@ -1144,6 +1144,30 @@ describe('TaskBoard', () => {
     })
   })
 
+  describe('a link followed from the view that holds the task (MAG-640)', () => {
+    test('stays on the list and marks the other task', async () => {
+      const Link = () => {
+        const navigate = useNavigate()
+
+        return <button onClick={() => navigate('/tasks?task=01BOXES')}>Suivre le lien</button>
+      }
+      const user = setup()
+      renderInto(
+        <MemoryRouter initialEntries={['/tasks']}>
+          <Link />
+          <TaskBoard />
+        </MemoryRouter>,
+      )
+      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
+      await screen.findByText('Préparer le déménagement')
+
+      await user.click(screen.getByRole('button', { name: 'Suivre le lien' }))
+
+      const row = (await screen.findByText('Réserver le camion')).closest('li')!
+      await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
+    })
+  })
+
   describe('the bravo (MAG-508)', () => {
     beforeEach(() => {
       rewards = { '01BANK': reward('01BANK', 'Réglé.'), '01MOVING': reward('01MOVING', 'Bouclé.') }

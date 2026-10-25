@@ -190,6 +190,10 @@ export const TaskBoard = () => {
 
   // The tab that holds the linked task opens, the task is marked and scrolled to; an unknown one leaves the board as it is.
   const located = useRef<string | null>(null)
+  const shown = useRef({ view, page })
+  useEffect(() => {
+    shown.current = { view, page }
+  })
   useEffect(() => {
     if (!target) {
       located.current = null
@@ -199,6 +203,7 @@ export const TaskBoard = () => {
     if (!day || located.current === target) return
     located.current = target
     if (day.slots.some((slot) => slot.task.id === target) || day.reserve.some((task) => task.id === target)) {
+      setPage(1)
       setView('today')
       setHighlighted(target)
       return
@@ -206,9 +211,12 @@ export const TaskBoard = () => {
     findTaskView(target)
       .then((found) => {
         if (located.current !== target || !found) return
-        setLoading(true)
-        setFailed(false)
-        setTasks([])
+        // Already on that view and page: nothing reloads it, so it must not be emptied.
+        if (found.view !== shown.current.view || found.page !== shown.current.page) {
+          setLoading(true)
+          setFailed(false)
+          setTasks([])
+        }
         setPage(found.page)
         setView(found.view)
         setHighlighted(target)
