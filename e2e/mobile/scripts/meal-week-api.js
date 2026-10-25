@@ -78,7 +78,7 @@ function remove(rows) {
 
 function journeyMeals() {
   return collection('/api/meals?itemsPerPage=200').filter(function (row) {
-    return row.summary === 'Dîner MAG-628'
+    return String(row.summary).includes('MAG-628')
   })
 }
 
@@ -100,7 +100,6 @@ if (ACTION === 'create') {
     })['@id']
   })
   const meal = post('/api/meals', {
-    summary: 'Dîner MAG-628',
     date: parisToday(),
     slot: 'dinner',
     guests: 4,
