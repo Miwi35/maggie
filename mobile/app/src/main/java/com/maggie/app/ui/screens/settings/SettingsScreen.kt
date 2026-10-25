@@ -164,7 +164,7 @@ private fun SettingsList(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Paramètres") },
+                title = { Text("Réglages") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -212,7 +212,7 @@ private fun SettingsList(
 
             SettingsRow(
                 icon = Icons.Outlined.DateRange,
-                title = "Calendrier",
+                title = "Agenda",
                 onClick = { onSectionClick(SettingsSection.CALENDAR) },
             )
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -530,7 +530,7 @@ private fun CalendarSection(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Calendrier") },
+                title = { Text("Agenda") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")

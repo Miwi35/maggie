@@ -30,7 +30,7 @@ class AgentSettingsScreenTest {
         compose.onNodeWithText("Agent").assertDoesNotExist()
         compose.onNodeWithText("Maggie").assertIsDisplayed().performClick()
         compose.onNodeWithText("Maggie").assertIsDisplayed()
-        compose.onNodeWithText("Paramètres").assertDoesNotExist()
+        compose.onNodeWithText("Réglages").assertDoesNotExist()
     }
 
     @Test
@@ -42,6 +42,6 @@ class AgentSettingsScreenTest {
         compose.onNodeWithText("Maggie").assertDoesNotExist()
         compose.onNodeWithText("Alfred").assertIsDisplayed().performClick()
         compose.onNodeWithText("Alfred").assertIsDisplayed()
-        compose.onNodeWithText("Paramètres").assertDoesNotExist()
+        compose.onNodeWithText("Réglages").assertDoesNotExist()
     }
 }

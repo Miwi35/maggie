@@ -97,7 +97,7 @@ class AdaptiveNavigationTest {
     }
 
     /**
-     * Paramètres is a rail entry that is not a main screen, so it takes the whole width
+     * Réglages is a rail entry that is not a main screen, so it takes the whole width
      * and loses the rail. That is today's behaviour on a phone — the screen brings its
      * own back arrow — and it is written down in `plan.md` rather than left to be
      * discovered on a tablet. Finance has its own rail, below.

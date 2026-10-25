@@ -127,7 +127,6 @@ export const TimelinePanel = () => {
   return (
     <Box data-testid="timeline-panel" aria-busy={fetching}>
       <Title title="Frise 20 ans" />
-      <Typography variant="h5" component="h2">Frise 20 ans</Typography>
 
       {failed && (
         <Alert

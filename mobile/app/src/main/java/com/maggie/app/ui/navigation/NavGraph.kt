@@ -238,7 +238,7 @@ sealed class Screen(val route: String, val label: String) {
     data object Loading : Screen("loading", "Chargement")
     data object Login : Screen("login", "Connexion")
     data object Home : Screen("home", "Accueil")
-    data object Calendar : Screen("calendar", "Calendrier")
+    data object Calendar : Screen("calendar", "Agenda")
     data object Tasks : Screen("tasks", "Tâches")
     data object EventCreate : Screen("event/create", "Nouvel événement")
     data object TaskCreate : Screen("task/create", "Nouvelle tâche")
@@ -247,7 +247,7 @@ sealed class Screen(val route: String, val label: String) {
     data object TaskFocus : Screen("task/focus", "Focus")
     data object TaskBravo : Screen("task/bravo", "Bravo")
     data object Chat : Screen("chat", "Chat")
-    data object Settings : Screen("settings", "Paramètres")
+    data object Settings : Screen("settings", "Réglages")
     data object Notifications : Screen("notifications", "Notifications")
     data object Search : Screen("search", "Rechercher")
     data object Proactions : Screen("proactions", "Proactions")
@@ -1002,7 +1002,7 @@ fun NavGraph() {
 
     // The panel only suppresses the sheet, so the request would survive it: open the
     // chat on a tablet in portrait, turn to landscape (the sheet gives way to the
-    // panel), then open Paramètres — the panel goes and the sheet would come back
+    // panel), then open Réglages — the panel goes and the sheet would come back
     // over the settings. Same for a drawer left open when the rail replaces it.
     LaunchedEffect(chrome.showsChatPanel) {
         if (chrome.showsChatPanel && !voiceModeActive) showChatSheet = false
@@ -1077,7 +1077,7 @@ fun NavGraph() {
                 modifier = Modifier.weight(1f),
                 // Nothing from here: each piece pays its own inset (`ChatBottomBar`, `ChatPanel`,
                 // `ChatScreen`), and the route's bottom is `clearOfNavigationBar`'s. A `Scaffold`
-                // nested in a route (Cuisine, Calendrier) keeps its own `safeDrawing` for the rest,
+                // nested in a route (Cuisine, Agenda) keeps its own `safeDrawing` for the rest,
                 // minus the navigation bar that is consumed above it. Material 3 1.3 does not
                 // consume `contentWindowInsets` for the body, so handing one down here would pay
                 // the gesture bar twice.

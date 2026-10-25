@@ -88,7 +88,7 @@ A flow takes its dates from `TODAY`, never from a literal.
 |---|---|
 | `config.yaml` | the workspace: which files are flows, and in which order |
 | `flows/` | the journeys, numbered — what `maestro test` runs. The numbers have gaps (01, 02, 04, 05, 08): the missing ones moved to the JVM and keeping their numbers keeps the trail |
-| `subflows/` | shared steps (`sign-in.yaml`, `open-calendar.yaml`, `open-destination.yaml`, `open-chat.yaml`), kept out of the `flows` glob on purpose |
+| `subflows/` | shared steps (`sign-in.yaml`, `open-calendar.yaml`, `open-destination.yaml`, `open-navigation.yaml`, `open-chat.yaml`), kept out of the `flows` glob on purpose |
 | `scripts/` | `runScript` helpers: `grocery-api.js` plays the browser and reads the database back |
 | `shards.txt` | the flows of each CI shard, in order — `lint.sh` checks that every flow is in exactly one |
 | `run.sh` | the whole run: device, bridge, time zone, install, flows |
@@ -248,7 +248,7 @@ MAG-242 moved five journeys and the tail of a sixth. Nothing was dropped.
 | `10-voice-settings` | Voix shows the assistant role row and its state | `VoiceSettingsScreenTest` — each of the three states asserted as itself, where the flows could only assert an alternation |
 | | no wake word, no battery option (MAG-240) | same |
 | | « Ouvrir Maggie rapidement » further down | same |
-| `02-voice-overlay` (tail) | the drawer → Paramètres → Voix walk, and the role row | `VoiceSettingsScreenTest` |
+| `02-voice-overlay` (tail) | the drawer → Réglages → Voix walk, and the role row | `VoiceSettingsScreenTest` |
 | | tapping the row (a system dialog) | nobody's test — Recette, on the owner's phone |
 
 Everything else of `02`, and all of `01`, `04`, `05`, `08`, stayed.

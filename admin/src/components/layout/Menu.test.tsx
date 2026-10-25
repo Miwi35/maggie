@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { AdminContext, memoryStore, testDataProvider } from 'react-admin'
 import { MemoryRouter } from 'react-router-dom'
 import { CustomMenu } from './Menu'
-import { Breadcrumbs } from './Breadcrumbs'
+import { Breadcrumbs, PageHeading } from './Breadcrumbs'
 import { announceAgentName } from '../../hooks/useAgentName'
 import { veilleuseLightTheme } from '../../theme'
 
@@ -18,17 +18,24 @@ const stubPersonality = (name: string | null) =>
     ),
   )
 
-const renderMenu = async () => {
+const renderMenuAt = (path: string) => {
   const user = userEvent.setup()
   render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={[path]}>
       <AdminContext dataProvider={testDataProvider()} theme={veilleuseLightTheme} store={memoryStore()}>
         <CustomMenu />
       </AdminContext>
     </MemoryRouter>,
   )
-  await user.click(screen.getByText('Paramètres'))
+
+  return user
 }
+
+const renderMenu = async () => {
+  renderMenuAt('/settings/preferences')
+}
+
+const hrefs = () => screen.getAllByRole('menuitem').map((item) => item.getAttribute('href'))
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -87,16 +94,29 @@ describe('CustomMenu — the agent entry', () => {
 
     expect(await screen.findByText('Alfred')).toHaveAttribute('aria-current', 'page')
   })
+
+  test('the h1 of the agent settings carries the same name', async () => {
+    stubPersonality('Alfred')
+    render(
+      <MemoryRouter initialEntries={['/settings/agent']}>
+        <AdminContext dataProvider={testDataProvider()} theme={veilleuseLightTheme} store={memoryStore()}>
+          <PageHeading />
+        </AdminContext>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Alfred' })).toBeInTheDocument()
+  })
 })
 
 describe('CustomMenu — the task settings entry', () => {
-  test('sits under Paramètres, after Préférences, and opens /settings/tasks', async () => {
+  test('sits under Réglages, after Préférences, and opens /settings/tasks', async () => {
     stubPersonality('Maggie')
     await renderMenu()
 
     const entries = (await screen.findAllByRole('menuitem')).map((item) => item.getAttribute('href'))
     expect(entries).toContain('/settings/tasks')
-    expect(entries.indexOf('/settings/tasks')).toBe(entries.indexOf('/settings/preferences') + 1)
+    expect(entries.indexOf('/settings/tasks')).toBe(entries.lastIndexOf('/settings/preferences') + 1)
   })
 
   test('is followed by « Ce qui passe en premier », which opens /settings/tasks/order', async () => {
@@ -111,7 +131,7 @@ describe('CustomMenu — the task settings entry', () => {
 })
 
 describe('CustomMenu — the meal settings entry', () => {
-  test('sits under Paramètres, after Ce qui passe en premier, and opens /settings/meals', async () => {
+  test('sits under Réglages, after Ce qui passe en premier, and opens /settings/meals', async () => {
     stubPersonality('Maggie')
     await renderMenu()
 
@@ -133,19 +153,10 @@ describe('CustomMenu — Accueil', () => {
 })
 
 describe('CustomMenu — Finance', () => {
-  const renderFinanceMenu = async (path = '/') => {
+  const renderFinanceMenu = async (path = '/finance/dashboard') => {
     stubPersonality('Maggie')
-    const user = userEvent.setup()
-    render(
-      <MemoryRouter initialEntries={[path]}>
-        <AdminContext dataProvider={testDataProvider()} theme={veilleuseLightTheme} store={memoryStore()}>
-          <CustomMenu />
-        </AdminContext>
-      </MemoryRouter>,
-    )
-    await user.click(screen.getByText('Finance'))
 
-    return user
+    return renderMenuAt(path)
   }
 
   test('opens on seven menus, in order, each on its own page', async () => {
@@ -165,7 +176,7 @@ describe('CustomMenu — Finance', () => {
     }
 
     const hrefs = screen.getAllByRole('menuitem').map((item) => item.getAttribute('href'))
-    const finance = hrefs.slice(hrefs.indexOf('/finance/dashboard'))
+    const finance = hrefs.slice(hrefs.indexOf('/finance/dashboard') + 1)
     expect(finance.slice(0, 7)).toEqual(entries.map(([, href]) => href))
   })
 
@@ -185,11 +196,121 @@ describe('CustomMenu — Finance', () => {
     expect(screen.getByRole('menuitem', { name: 'Dashboard' })).not.toHaveClass('Mui-selected')
   })
 
-  test('highlights nothing in Finance on another module', async () => {
+  test('lists no Finance menu on another module', async () => {
     await renderFinanceMenu('/calendar')
 
-    await screen.findByRole('menuitem', { name: 'Trésorerie' })
-    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).not.toHaveClass('Mui-selected')
-    expect(screen.getByRole('menuitem', { name: 'Comptes' })).not.toHaveClass('Mui-selected')
+    await screen.findByRole('menuitem', { name: 'Finance' })
+    expect(screen.queryByRole('menuitem', { name: 'Dashboard' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: 'Trésorerie' })).toBeNull()
+  })
+})
+
+describe('CustomMenu — the modules of the mockup', () => {
+  const MODULES = [
+    ['Accueil', '/'],
+    ['Agenda', '/calendar'],
+    ['Tâches', '/tasks'],
+    ['Courses', '/grocery'],
+    ['Cuisine', '/meals'],
+    ['Finance', '/finance/dashboard'],
+    ['Réglages', '/settings/preferences'],
+  ]
+
+  test('lists Accueil · Agenda · Tâches · Courses · Cuisine · Finance, then Réglages, in that order', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/')
+
+    for (const [name, href] of MODULES) {
+      expect(await screen.findByRole('menuitem', { name })).toHaveAttribute('href', href)
+    }
+    expect(hrefs()).toEqual(MODULES.map(([, href]) => href))
+  })
+
+  test('has no Chat, Calendrier, Paramètres, Nutrition or Données brutes at the first level', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/')
+    await screen.findByRole('menuitem', { name: 'Réglages' })
+
+    for (const old of ['Chat', 'Calendrier', 'Paramètres', 'Nutrition', 'Données brutes']) {
+      expect(screen.queryByText(old)).toBeNull()
+    }
+  })
+
+  test('opens the Tâches page from the menu', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/')
+
+    expect(await screen.findByRole('menuitem', { name: 'Tâches' })).toHaveAttribute('href', '/tasks')
+  })
+
+  test('shows the sub-entries of the current module only', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/products')
+
+    expect(await screen.findByRole('menuitem', { name: 'Liste de courses' })).toHaveAttribute('href', '/grocery')
+    expect(screen.getByRole('menuitem', { name: 'Produits' })).toHaveAttribute('href', '/products')
+    expect(screen.getByRole('menuitem', { name: 'Magasins' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Courses passées' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Recettes' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: 'Préférences' })).toBeNull()
+  })
+
+  test('places the sub-entries right under their module', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/recipes')
+    await screen.findByRole('menuitem', { name: 'Recettes' })
+
+    expect(hrefs()).toEqual([
+      '/',
+      '/calendar',
+      '/tasks',
+      '/grocery',
+      '/meals',
+      '/meals',
+      '/meals/calendar',
+      '/recipes',
+      '/finance/dashboard',
+      '/settings/preferences',
+    ])
+  })
+
+  test.each(['/', '/calendar', '/tasks'])('shows no sub-entry on %s', async (path) => {
+    stubPersonality('Maggie')
+    renderMenuAt(path)
+    await screen.findByRole('menuitem', { name: 'Réglages' })
+
+    expect(hrefs()).toEqual(MODULES.map(([, href]) => href))
+  })
+
+  test('puts the raw data lists under Réglages', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/settings/preferences')
+    await screen.findByRole('menuitem', { name: 'Préférences' })
+
+    for (const [name, href] of [
+      ['Agendas', '/agendas'],
+      ['Événements', '/events'],
+      ['Ingrédients', '/ingredients'],
+    ]) {
+      expect(screen.getByRole('menuitem', { name })).toHaveAttribute('href', href)
+    }
+  })
+
+  test('marks the module of the page as selected, and its entry too', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/stores')
+
+    expect(await screen.findByRole('menuitem', { name: 'Courses' })).toHaveClass('Mui-selected')
+    expect(screen.getByRole('menuitem', { name: 'Magasins' })).toHaveClass('Mui-selected')
+    expect(screen.getByRole('menuitem', { name: 'Produits' })).not.toHaveClass('Mui-selected')
+    expect(screen.getByRole('menuitem', { name: 'Agenda' })).not.toHaveClass('Mui-selected')
+  })
+
+  test('draws no icon on a sub-entry', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/stores')
+
+    const entry = await screen.findByRole('menuitem', { name: 'Magasins' })
+    expect(entry.querySelector('svg')).toBeNull()
   })
 })

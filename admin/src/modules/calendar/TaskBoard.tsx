@@ -329,10 +329,6 @@ export const TaskBoard = () => {
 
   return (
     <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
-      <Typography variant="h5" sx={{ mb: 2 }}>
-        Tâches
-      </Typography>
-
       <Tabs value={view} onChange={selectView} variant="scrollable" aria-label="Vues des tâches" sx={{ mb: 2 }}>
         {/* « Routines » right after « Aujourd'hui », as on the phone (MAG-511). */}
         {TASK_VIEWS.flatMap((name) => {

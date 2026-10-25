@@ -13,7 +13,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Paramètres > À propos names the commit the installed app was built from (MAG-254). */
+/** Réglages > À propos names the commit the installed app was built from (MAG-254). */
 @RunWith(AndroidJUnit4::class)
 class AboutSettingsScreenTest {
 

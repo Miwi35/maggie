@@ -384,7 +384,7 @@ export const TaskSettings = () => {
   const { settings, loadFailed, saved, save } = useTaskSettings()
 
   return (
-    <TaskSettingsFrame title="Tâches" loadFailed={loadFailed} ready={settings !== null} saved={saved}>
+    <TaskSettingsFrame loadFailed={loadFailed} ready={settings !== null} saved={saved}>
       {settings && (
         <Stack spacing={3}>
           <TimeField

@@ -109,10 +109,6 @@ export const MealSettings = () => {
 
   return (
     <Box maxWidth={700} mx="auto" mt={2}>
-      <Typography variant="h5" mb={3}>
-        Repas
-      </Typography>
-
       <Card sx={{ mb: 3 }}>
         <CardHeader title="Convives" />
         <CardContent>

@@ -120,10 +120,7 @@ export const PeerDebtsPage = () => {
   return (
     <Box sx={{ p: 2, maxWidth: 820 }}>
       <Title title="Créances et dettes" />
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h5" component="h1">
-          Créances et dettes
-        </Typography>
+      <Stack direction="row" justifyContent="flex-end" alignItems="center" sx={{ mb: 2 }}>
         <Button component={Link} to="/contacts/create" startIcon={<AddIcon />} variant="outlined" size="small">
           Personne
         </Button>

@@ -10,7 +10,7 @@ import { CalendarPage } from '../pages/CalendarPage.js'
  * One planned meal and one ordinary event, both on the anchor's day and both under
  * a name the current attempt alone writes (CI retries once and nothing reseeds in
  * between). The general calendar shows the two with « Repas » once in its filters;
- * « Planning des repas », in the Nutrition menu, shows the meal and nothing else.
+ * « Planning des repas », in the Cuisine menu, shows the meal and nothing else.
  */
 
 const jsonLd = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
@@ -84,7 +84,7 @@ test('the general agenda shows the meal and the event with « Repas » once, the
   await expect(general.content.getByText('Repas', { exact: true })).toHaveCount(1)
 
   // The menu entry, not a typed URL, is how the owner gets to the module's calendar.
-  await general.navigateTo('Planning des repas', 'Nutrition')
+  await general.navigateTo('Planning des repas', 'Cuisine')
 
   const module = page.getByTestId('module-calendar')
   await expect(module).toBeVisible()

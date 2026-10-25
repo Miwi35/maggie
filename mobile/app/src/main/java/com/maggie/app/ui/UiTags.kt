@@ -202,6 +202,9 @@ object UiTags {
      */
     const val SETTINGS_ASSISTANT_ROLE = "settings_assistant_role"
 
+    /** Navigation drawer — the header: Maggie's avatar and the day (MAG-620). */
+    const val DRAWER_HEADER = "drawer_header"
+
     /** Navigation drawer — one entry per destination, suffixed by its route. */
     const val DRAWER_ITEM_PREFIX = "drawer_"
 

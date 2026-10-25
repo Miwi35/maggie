@@ -5,9 +5,9 @@ import { AdminContext, memoryStore, testDataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClient } from '@tanstack/react-query'
 import type { DataProvider } from 'react-admin'
-import { Breadcrumbs } from './Breadcrumbs'
+import { Breadcrumbs, PageHeading } from './Breadcrumbs'
 import { CustomMenu } from './Menu'
-import { NAVIGATION, resolveTrail } from './navigation'
+import { NAVIGATION, SIDEBAR, resolveTrail } from './navigation'
 import { veilleuseLightTheme } from '../../theme'
 import { PHONE_WIDTH, resetViewport, setViewportWidth } from '../../test/viewport'
 
@@ -84,32 +84,32 @@ describe('Breadcrumbs', () => {
   test('a creation ends on « Nouveau »', () => {
     renderAt('/events/create')
 
-    expect(labels()).toEqual(['Agenda', 'Événements', 'Nouveau'])
+    expect(labels()).toEqual(['Réglages', 'Événements', 'Nouveau'])
   })
 
-  test('the task settings sit under Paramètres', () => {
+  test('the task settings sit under Réglages', () => {
     renderAt('/settings/tasks')
 
-    expect(labels()).toEqual(['Paramètres', 'Tâches'])
+    expect(labels()).toEqual(['Réglages', 'Tâches'])
   })
 
-  test('the task order settings sit under Paramètres', () => {
+  test('the task order settings sit under Réglages', () => {
     renderAt('/settings/tasks/order')
 
-    expect(labels()).toEqual(['Paramètres', 'Ce qui passe en premier'])
+    expect(labels()).toEqual(['Réglages', 'Ce qui passe en premier'])
   })
 
-  test('the meal settings sit under Paramètres', () => {
+  test('the meal settings sit under Réglages', () => {
     renderAt('/settings/meals')
 
-    expect(labels()).toEqual(['Paramètres', 'Repas'])
+    expect(labels()).toEqual(['Réglages', 'Repas'])
   })
 
   test('a settings page sits under its module', () => {
     renderAt('/settings/agent')
 
-    expect(labels()).toEqual(['Paramètres', 'Maggie'])
-    expect(screen.getByRole('link', { name: 'Paramètres' })).toHaveAttribute('href', '/settings/preferences')
+    expect(labels()).toEqual(['Réglages', 'Maggie'])
+    expect(screen.getByRole('link', { name: 'Réglages' })).toHaveAttribute('href', '/settings/preferences')
   })
 
   test.each([
@@ -227,28 +227,24 @@ describe('Breadcrumbs', () => {
 })
 
 describe('the menu and the breadcrumb agree', () => {
-  /** The menu with every group opened, nested ones included, and the routes it offers. */
+  /** The routes the menu offers, once the page of each module has opened its entries. */
   const openWholeMenu = async () => {
-    const user = userEvent.setup()
-    const { container } = render(
-      <MemoryRouter initialEntries={['/']}>
-        <AdminContext dataProvider={testDataProvider()} theme={veilleuseLightTheme} store={memoryStore()}>
-          <CustomMenu />
-        </AdminContext>
-      </MemoryRouter>,
-    )
+    const hrefs = new Set<string>()
 
-    for (let guard = 0; guard < 10; guard++) {
-      const folded = screen.queryAllByTestId('ExpandMoreIcon')
-      if (folded.length === 0) {
-        break
-      }
-      for (const icon of folded) {
-        await user.click(icon.closest('[role="button"]') as HTMLElement)
-      }
+    for (const module of SIDEBAR) {
+      const { container, unmount } = render(
+        <MemoryRouter initialEntries={[module.path]}>
+          <AdminContext dataProvider={testDataProvider()} theme={veilleuseLightTheme} store={memoryStore()}>
+            <CustomMenu />
+          </AdminContext>
+        </MemoryRouter>,
+      )
+      await screen.findAllByRole('menuitem')
+      container.querySelectorAll('a[href]').forEach((link) => hrefs.add(link.getAttribute('href') as string))
+      unmount()
     }
 
-    return Array.from(container.querySelectorAll('a[href]')).map((link) => link.getAttribute('href') as string)
+    return [...hrefs]
   }
 
   test('every route the menu offers has a trail', async () => {
@@ -264,7 +260,6 @@ describe('the menu and the breadcrumb agree', () => {
   test('the recurring grocery items are a tab of the list, not an entry of the menu', async () => {
     const hrefs = await openWholeMenu()
 
-    expect(screen.queryByText('Articles récurrents')).toBeNull()
     expect(hrefs.some((href) => href.includes('recurring_grocery_items'))).toBe(false)
     expect(hrefs.some((href) => href.endsWith('/grocery'))).toBe(true)
     expect(NAVIGATION.flatMap((module) => module.parts).some((part) => part.resource === 'recurring_grocery_items')).toBe(false)
@@ -272,12 +267,88 @@ describe('the menu and the breadcrumb agree', () => {
 
   test('every part of the table resolves to its own trail, through its menu when it has one', () => {
     for (const module of NAVIGATION) {
-      for (const part of module.parts) {
+      for (const part of module.parts.filter((candidate) => candidate.path !== module.dashboard)) {
         const trail = resolveTrail(part.path)
         expect(trail.map((crumb) => crumb.label)).toEqual(
           part.menu ? [module.label, part.menu.label, part.label] : [module.label, part.label],
         )
       }
     }
+  })
+})
+
+describe('PageHeading — the h1 of every page', () => {
+  const renderHeading = (path: string, dataProvider: DataProvider = testDataProvider()) =>
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AdminContext dataProvider={dataProvider} theme={veilleuseLightTheme} store={memoryStore()}>
+          <PageHeading />
+        </AdminContext>
+      </MemoryRouter>,
+    )
+
+  test.each([
+    ['/', 'Accueil'],
+    ['/calendar', 'Agenda'],
+    ['/tasks', 'Tâches'],
+    ['/grocery', 'Courses'],
+    ['/products', 'Produits'],
+    ['/meals', 'Repas de la semaine'],
+    ['/finance/dashboard', 'Finance'],
+    ['/finance/summary/review', 'Revue'],
+    ['/accounts', 'Comptes et transactions'],
+    ['/settings/preferences', 'Préférences'],
+    ['/agendas', 'Agendas'],
+  ])('%s has the h1 « %s »', (path, title) => {
+    renderHeading(path)
+
+    expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
+  test('an edit page is titled with the name of the record', async () => {
+    const dataProvider = testDataProvider({ getOne: getOne({ id: '/api/events/01', summary: 'Dentiste' }) })
+
+    renderHeading(`/events/${encodeURIComponent('/api/events/01')}`, dataProvider)
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Dentiste' })).toBeInTheDocument()
+  })
+
+  test('a creation is titled « Nouveau » and the list it adds to', () => {
+    renderHeading('/events/create')
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Nouveau · Événements' })).toBeInTheDocument()
+  })
+
+  test.each(['/recipes/create', `/recipes/${encodeURIComponent('/api/recipes/01')}/show`])(
+    'the recipe sheet %s draws its own h1, not a second one',
+    (path) => {
+      renderHeading(path)
+
+      expect(screen.queryByRole('heading')).toBeNull()
+    },
+  )
+
+  test('a page the table does not know has no h1', () => {
+    renderHeading('/nowhere')
+
+    expect(screen.queryByRole('heading')).toBeNull()
+  })
+})
+
+describe('Breadcrumbs — the mockup style', () => {
+  test('is drawn at 13px in normal case, never in small caps', () => {
+    renderAt('/products')
+
+    const style = getComputedStyle(screen.getByText('Produits'))
+    expect(style.fontSize).toBe('0.8125rem')
+    expect(style.fontVariant).not.toContain('small-caps')
+    expect(style.letterSpacing).not.toBe('0.08em')
+  })
+
+  test('a Tâches page has one crumb, the module itself', () => {
+    renderAt('/tasks')
+
+    expect(labels()).toEqual(['Tâches'])
   })
 })

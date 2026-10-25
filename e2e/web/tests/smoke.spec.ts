@@ -35,11 +35,11 @@ test.describe('Admin smoke @responsive', () => {
 
     await dashboard.openMenu()
     await expect(dashboard.menuItem('Accueil')).toBeVisible()
-    await expect(dashboard.menuItem('Calendrier')).toBeVisible()
+    await expect(dashboard.menuItem('Agenda')).toBeVisible()
 
-    // A nested entry, the case the folded sidebar makes interesting: two
-    // collapsed groups to open before the link exists.
-    await dashboard.navigateTo('Événements', 'Données brutes', 'Agenda')
+    // A nested entry, the case the folded sidebar makes interesting: the module
+    // has to be opened before the link exists.
+    await dashboard.navigateTo('Événements', 'Réglages')
     await expect(page).toHaveURL(new RegExp(`#${ROUTES.events}$`))
     await expect(dashboard.content.getByText('Cours de piano').first()).toBeVisible()
 

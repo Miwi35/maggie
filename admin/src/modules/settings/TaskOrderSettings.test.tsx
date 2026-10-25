@@ -84,7 +84,6 @@ describe('TaskOrderSettings', () => {
     render(<TaskOrderSettings />)
 
     const deadline = await screen.findByRole('slider', { name: "L'échéance" })
-    expect(screen.getByRole('heading', { name: 'Ce qui passe en premier' })).toBeInTheDocument()
     expect(deadline).toHaveValue('3')
     expect(deadline).toHaveAttribute('aria-valuetext', 'Beaucoup')
     expect(screen.getByRole('slider', { name: 'La gravité' })).toHaveAttribute('aria-valuetext', 'Peu')

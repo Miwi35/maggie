@@ -10,15 +10,13 @@ import DialogTitle from '@mui/material/DialogTitle'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 
-/** The page around the settings: title, « Enregistré », loading and load error. */
+/** The page around the settings: « Enregistré », loading and load error (the title is the page heading). */
 export const TaskSettingsFrame = ({
-  title,
   loadFailed,
   ready,
   saved,
   children,
 }: {
-  title: string
   loadFailed: boolean
   ready: boolean
   saved: boolean
@@ -42,16 +40,11 @@ export const TaskSettingsFrame = ({
 
   return (
     <Box maxWidth={700} mx="auto" mt={2} mb={4}>
-      <Stack direction="row" alignItems="baseline" spacing={2} mb={3}>
-        <Typography variant="h5" component="h1">
-          {title}
+      {saved && (
+        <Typography variant="caption" color="text.secondary" role="status" display="block" mb={2}>
+          Enregistré
         </Typography>
-        {saved && (
-          <Typography variant="caption" color="text.secondary" role="status">
-            Enregistré
-          </Typography>
-        )}
-      </Stack>
+      )}
       {children}
     </Box>
   )
