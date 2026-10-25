@@ -81,7 +81,7 @@ type BodyProps = {
 }
 
 const Body = ({ load, session, recipe, names, steps, refreshing, retry, update, quit }: BodyProps) => {
-  const cooking = session?.phase === 'cooking' && recipe !== undefined && steps.length > 0
+  const cooking = load === 'ready' && session?.phase === 'cooking' && recipe !== undefined && steps.length > 0
   const position = session?.step ?? 0
   const pending = cooking && position > 0 ? pendingWaits(steps, position, session.ready) : []
   const inStep = cooking && position > 0 && position <= steps.length
