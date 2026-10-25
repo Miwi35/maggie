@@ -35,9 +35,11 @@ onFlowComplete:
     visible: ".*400.* g"
     timeout: 20000
 
+# In landscape the sheet is a short window and « Cuisiner » (MAG-580) sits above the ingredients, so the
+# quantity is below the fold: the open recipe is recognised by its title.
 - setOrientation: LANDSCAPE_LEFT
 - extendedWaitUntil:
-    visible: ".*400.* g"
+    visible: "Salade d'orge MAG-263"
     timeout: 20000
 
 - setOrientation: PORTRAIT

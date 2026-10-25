@@ -127,6 +127,8 @@ import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
 import com.maggie.app.ui.screens.finance.BlockState
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.SummaryBlock
+import com.maggie.app.ui.screens.cookbook.cooking.CookingActivityScreen
+import com.maggie.app.ui.screens.cookbook.cooking.CookingViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityRoute
 import com.maggie.app.ui.screens.finance.ReviewListScreen
 import com.maggie.app.ui.screens.finance.ReviewListViewModel
@@ -294,6 +296,18 @@ sealed class Screen(val route: String, val label: String) {
     }
     /** Activité Comptes · la revue (MAG-456): full screen, outside the Finance menus, so drawn without chrome. */
     data object FinanceReviewActivity : Screen("finance/review/activity", "Revue du mois")
+    /**
+     * Activité Cuisine (MAG-580): full screen, outside the menus, so drawn without chrome. `meal` or `recipe` says
+     * what it cooks.
+     */
+    data object CookingActivity : Screen(
+        "activity/cooking?${DeepLinks.ARG_MEAL}={${DeepLinks.ARG_MEAL}}&${DeepLinks.ARG_RECIPE}={${DeepLinks.ARG_RECIPE}}",
+        "Cuisine",
+    ) {
+        fun ofMeal(mealId: String): String = "activity/cooking?${DeepLinks.ARG_MEAL}=$mealId"
+
+        fun ofRecipe(recipeId: String): String = "activity/cooking?${DeepLinks.ARG_RECIPE}=$recipeId"
+    }
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
     /** Planification · Indépendance (MAG-537): the independence counter and the net saving capacity, a sub-view of its own. */
     data object Independence : Screen("finance_independence", "Indépendance")
@@ -636,6 +650,16 @@ private fun ReviewActivityPage(navController: NavController, onOpenMaggie: () ->
         onQuit = { navController.popBackStack() },
         onOpenMaggie = onOpenMaggie,
         onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
+    )
+}
+
+// Out of NavGraph's body for the same reason as ReviewActivityPage.
+@Composable
+private fun CookingActivityPage(navController: NavController, onOpenMaggie: () -> Unit) {
+    CookingActivityScreen(
+        viewModel = koinViewModel<CookingViewModel>(),
+        onQuit = { navController.popBackStack() },
+        onOpenMaggie = onOpenMaggie,
     )
 }
 
@@ -1534,6 +1558,7 @@ fun NavGraph() {
                                             viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
                                             onBack = null,
                                             onEdit = ::editRecipe,
+                                            onCook = { recipeId -> navController.navigate(Screen.CookingActivity.ofRecipe(recipeId)) { launchSingleTop = true } },
                                             onDelete = { recipeId -> deleteRecipe(recipeId) { detailRecipeId = null } },
                                         )
                                     }
@@ -1949,6 +1974,19 @@ fun NavGraph() {
                     composable(Screen.FinanceReviewActivity.route, deepLinks = DeepLinks.forRoute(Screen.FinanceReviewActivity.route)) {
                         ReviewActivityPage(navController, onOpenMaggie = { showChatSheet = true })
                     }
+                    composable(
+                        Screen.CookingActivity.route,
+                        arguments = listOf(DeepLinks.ARG_MEAL, DeepLinks.ARG_RECIPE).map { name ->
+                            navArgument(name) {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        },
+                        deepLinks = DeepLinks.forRoute(Screen.CookingActivity.route),
+                    ) {
+                        CookingActivityPage(navController, onOpenMaggie = { showChatSheet = true })
+                    }
                     composable(Screen.Independence.route, deepLinks = DeepLinks.forRoute(Screen.Independence.route)) {
                         IndependenceScreen(koinViewModel<FinanceDashboardViewModel>())
                     }
@@ -2009,6 +2047,7 @@ fun NavGraph() {
                                 viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
                                 onBack = { leave() },
                                 onEdit = ::editRecipe,
+                                onCook = { recipeId -> navController.navigate(Screen.CookingActivity.ofRecipe(recipeId)) { launchSingleTop = true } },
                                 onDelete = { recipeId ->
                                     deleteRecipe(recipeId) {
                                         navController.popBackStack()
@@ -2107,6 +2146,10 @@ fun NavGraph() {
                 openedMeal = null
                 mealToChooseIngredientsOf = meal.id
                 navController.navigate(Screen.MealIngredientChoice.route)
+            },
+            onLaunch = {
+                openedMeal = null
+                navController.navigate(Screen.CookingActivity.ofMeal(meal.id)) { launchSingleTop = true }
             },
             onDismiss = { openedMeal = null },
         )

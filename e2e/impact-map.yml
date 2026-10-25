@@ -466,6 +466,9 @@ web:
   e2e/web/tests/home-nutrition.spec.ts:
     areas: [cookbook, dashboard]
     paths: [api/fixtures/e2e/65-nutrition-home.yaml]
+  e2e/web/tests/cooking-activity.spec.ts:
+    areas: [cookbook, dashboard]
+    paths: [api/fixtures/e2e/65-nutrition-home.yaml]
 
   e2e/web/tests/finance-accounts.spec.ts:
     areas: [finance]
@@ -625,6 +628,9 @@ mobile:
     paths: [e2e/mobile/scripts/proaction-api.js]
   e2e/mobile/flows/14-rotation.yaml:
     areas: [cookbook]
+  e2e/mobile/flows/27-cooking-launch.yaml:
+    areas: [cookbook]
+    paths: [e2e/mobile/scripts/recipe-api.js]
   e2e/mobile/flows/15-task-subtasks.yaml:
     areas: [calendar, dashboard]
   e2e/mobile/flows/17-tasks-views.yaml:

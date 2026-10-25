@@ -60,6 +60,22 @@ Maggie\Cookbook\Entity\RecipeIngredient:
     quantity: 40
     unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
 
+# Tonight's two recipes have steps, so the Cuisine activity (MAG-580) has something to cook; no other
+# journey reads them.
+Maggie\Cookbook\Entity\RecipeStep:
+  e2e_nutrition_step_pasta_1:
+    recipe: '@e2e_nutrition_recipe_pasta'
+    position: 1
+    text: 'Cuire les pâtes'
+  e2e_nutrition_step_pasta_2:
+    recipe: '@e2e_nutrition_recipe_pasta'
+    position: 2
+    text: 'Mélanger au pesto'
+  e2e_nutrition_step_salad_1:
+    recipe: '@e2e_nutrition_recipe_salad'
+    position: 1
+    text: 'Laver la salade'
+
 Maggie\Cookbook\Entity\Meal:
   e2e_nutrition_meal_dinner_today:
     summary: Repas

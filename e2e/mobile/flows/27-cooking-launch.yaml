@@ -1,0 +1,123 @@
+appId: com.maggie.app.e2e
+name: 27-cooking-launch
+tags:
+  - cookbook
+  - layout
+# A failure while turned must not leave the phone in landscape for the next flow of the shard.
+onFlowComplete:
+  - setOrientation: PORTRAIT
+---
+# The Cuisine activity, launched from a recipe (MAG-580, extends 12-recipe-steps and 14-rotation).
+#
+# Étant donné une recette de deux portions avec ses étapes
+# Quand je tape « Cuisiner » sur sa fiche
+# Alors « Pour combien ? » est prérempli avec 2 ; « Continuer » ouvre la préparation, sans la barre de Maggie
+# Et quand je commence la recette puis tourne le téléphone, je reste sur la même étape
+# Et quand je tape ✕, je reviens à la fiche de la recette (rien ne tourne : aucune confirmation)
+#
+# What a JVM test cannot see is the real activity being recreated by a real rotation, the window's
+# immersive mode, and the back stack that brings ✕ back to the sheet. The recipe is this flow's own,
+# created over HTTP by `scripts/recipe-api.js` and deleted at the end. What is not here: each transition
+# of the session (`CookingSessionTest`, `CookingViewModelTest`), what the screens draw (`CookingScreensTest`),
+# the frame's confirmation (`ActivityScaffoldScreenTest`), the tablet's 64 dp buttons.
+
+- runFlow: ../subflows/new-user.yaml
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/27-cooking-launch.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/recipe-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      ACTION: create-method
+      RECIPE: Pâtes aux légumes MAG-580
+
+# Opened by its link: the cookbook list shows a page of the recipes of the whole test database.
+- openLink: "maggie-e2e://recipe/${output.recipeId}"
+- extendedWaitUntil:
+    visible: "Matériel"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "recipe_cook"
+    centerElement: true
+- tapOn:
+    id: "recipe_cook"
+
+# « Pour combien ? », filled with the recipe's own two servings.
+- extendedWaitUntil:
+    visible:
+      id: "cooking_servings"
+    timeout: 20000
+- assertVisible: "Pour combien ?"
+- assertVisible:
+    id: "cooking_servings_value"
+- assertVisible: "La recette est prévue pour 2."
+- tapOn:
+    id: "cooking_continue"
+
+# The preparation: everything on the counter, and Maggie's bottom bar nowhere.
+- extendedWaitUntil:
+    visible:
+      id: "cooking_preparation"
+    timeout: 20000
+- assertVisible: "On sort tout"
+# Android's own « Viewing full screen » notice, shown once when the immersive mode starts, covers ✕ until dismissed.
+- tapOn:
+    text: "Got it"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "cooking_start"
+    timeout: 20000
+- assertNotVisible:
+    id: "chat_open"
+
+# First step.
+- tapOn:
+    id: "cooking_start"
+- extendedWaitUntil:
+    visible: "Étape 1 sur 5"
+    timeout: 20000
+- assertVisible: "Mettre l'eau à bouillir"
+
+# Turned: the same step, still full screen.
+- setOrientation: LANDSCAPE_LEFT
+- extendedWaitUntil:
+    visible: "Étape 1 sur 5"
+    timeout: 20000
+- assertVisible: "Mettre l'eau à bouillir"
+- assertNotVisible:
+    id: "chat_open"
+
+- setOrientation: PORTRAIT
+- extendedWaitUntil:
+    visible: "Étape 1 sur 5"
+    timeout: 20000
+
+# ✕ leaves at once and lands on the recipe it came from.
+- tapOn:
+    id: "activity_quit"
+- extendedWaitUntil:
+    notVisible:
+      id: "cooking_step"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: "Matériel"
+    timeout: 20000
+
+# Left as found.
+- runScript:
+    file: ../scripts/recipe-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      ACTION: remove
+      RECIPE: Pâtes aux légumes MAG-580
