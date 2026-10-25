@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
  * it, and no client sends them.
  *
  * [summary] is the title the week shows: the owner's [customTitle] when he typed one, the
- * names of the recipes otherwise (MAG-378). [recipes] are their IRIs.
+ * names of the recipes otherwise (MAG-378). [recipes] are their IRIs, [recipeNames] their names (MAG-591).
  */
 @Serializable
 data class Meal(
@@ -18,6 +18,7 @@ data class Meal(
     val date: String,
     val slot: MealSlot,
     val recipes: List<String> = emptyList(),
+    val recipeNames: List<String> = emptyList(),
     val agenda: String? = null,
     val customTitle: String? = null,
     // The number that counts (the meal's own, or the user's default); [guestsIsDefault] says which (MAG-482).

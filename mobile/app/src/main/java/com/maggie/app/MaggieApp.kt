@@ -43,6 +43,7 @@ import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.NotificationRepository
+import com.maggie.app.data.repository.NutritionCardRepository
 import com.maggie.app.data.repository.AccountRepository
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.BankConnectionRepository
@@ -333,6 +334,7 @@ class MaggieApp : Application() {
             single { TasksCardRepository(get(), get(), get(), get()) }
             single { AgendaCardRepository(get(), get(), get()) }
             single { GroceryCardRepository(get(), get(), get()) }
+            single { NutritionCardRepository(get(), get(), get()) }
             single { MonthBalanceRepository(get()) }
             single { TransactionRepository(get()) }
             single { ContactRepository(get()) }

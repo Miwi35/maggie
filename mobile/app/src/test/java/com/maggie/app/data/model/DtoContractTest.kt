@@ -1128,6 +1128,13 @@ class DtoContractTest {
     }
 
     @Test
+    fun `a meal carries the names of its recipes (MAG-591)`() {
+        val meal = json.decodeFromJsonElement(serializer<Meal>(), readRecording("meals.collection")["member"]!!.jsonArray.first())
+
+        assertEquals(listOf("Recorded Recipe"), meal.recipeNames)
+    }
+
+    @Test
     fun `the finance dashboard carries its scores and its three tiles under the names the API sends`() {
         val body = readRecording("finance_dashboard.read")
         val source = "finance_dashboard.read"

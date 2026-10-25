@@ -8,7 +8,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.NutritionHomeMeal
-import com.maggie.app.data.model.NutritionHomeName
 import com.maggie.app.data.model.NutritionHomeSlot
 import com.maggie.app.data.model.NutritionHomeState
 import com.maggie.app.screentest.ScreenRule
@@ -18,17 +17,17 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The Nutrition card (MAG-564): lunch and dinner, every recipe of a meal on one line, what is missing only when it is. */
+/** The Cuisine card (MAG-564, MAG-591): lunch and dinner, every recipe of a meal on one line, what is missing only when it is. */
 @RunWith(AndroidJUnit4::class)
 class NutritionHomeCardScreenTest {
 
     @get:Rule
     val compose = ScreenRule()
 
-    private fun names(vararg names: String) = names.mapIndexed { i, n -> NutritionHomeName("id$i", n) }
+    private fun names(vararg names: String) = names.toList()
 
-    private fun meal(id: String, recipes: List<NutritionHomeName>, guests: Int? = 4, missing: List<NutritionHomeName> = emptyList()) =
-        NutritionHomeMeal(id = id, title = recipes.firstOrNull()?.name.orEmpty(), guests = guests, recipes = recipes, missing = missing)
+    private fun meal(id: String, recipes: List<String>, guests: Int = 4, missing: List<String> = emptyList()) =
+        NutritionHomeMeal(id = id, title = recipes.firstOrNull().orEmpty(), guests = guests, recipes = recipes, missing = missing)
 
     private fun state(lunch: List<NutritionHomeMeal> = emptyList(), dinner: List<NutritionHomeMeal> = emptyList()) =
         NutritionHomeState(slots = listOf(NutritionHomeSlot("lunch", lunch), NutritionHomeSlot("dinner", dinner)))
@@ -40,7 +39,7 @@ class NutritionHomeCardScreenTest {
     fun `lunch and dinner are two rows`() {
         draw(NutritionHomeUiState(state(lunch = listOf(meal("m", names("Soupe")))), isLoading = false))
 
-        compose.onNodeWithText("Nutrition").assertIsDisplayed()
+        compose.onNodeWithText("Cuisine").assertIsDisplayed()
         compose.onNodeWithText("Déjeuner").assertIsDisplayed()
         compose.onNodeWithText("Dîner").assertIsDisplayed()
         compose.onAllNodesWithTag(UiTags.HOME_NUTRITION_SLOT).assertCountEquals(2)
@@ -51,7 +50,7 @@ class NutritionHomeCardScreenTest {
         draw(NutritionHomeUiState(state(), isLoading = false))
 
         compose.onNodeWithTag(UiTags.homeCard(HomeModules.NUTRITION)).assertDoesNotExist()
-        compose.onNodeWithText("Nutrition").assertDoesNotExist()
+        compose.onNodeWithText("Cuisine").assertDoesNotExist()
     }
 
     @Test

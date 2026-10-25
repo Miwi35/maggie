@@ -71,6 +71,8 @@ data class GroceryRecipeNeed(
     val date: String,
     /** `lunch` or `dinner`. */
     val slot: String,
+    /** The meal that needs it (MAG-591). */
+    val mealId: String = "",
 )
 
 data class GroceryHomeRecipeNeed(

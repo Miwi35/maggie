@@ -1,49 +1,65 @@
 package com.maggie.app.data.model
 
-import kotlinx.serialization.Serializable
-
 /**
- * The Nutrition card of the Accueil (MAG-564): `GET /api/home/nutrition?day=`. Both slots are always there,
- * lunch first; an empty one has no meal.
+ * The Cuisine card of the Accueil (MAG-564, MAG-591): the meals of a day, composed from `GET /api/meals` and
+ * `GET /api/grocery/recipe-needs`. Both slots are always there, lunch first; an empty one has no meal.
  */
-@Serializable
 data class NutritionHomeState(
-    val day: String = "",
-    val date: String = "",
     val slots: List<NutritionHomeSlot> = emptyList(),
 ) {
     /** No meal planned in any slot: the card is not drawn (MAG-594). */
     val isEmpty: Boolean get() = slots.all { it.meals.isEmpty() }
+
+    companion object {
+        private val SLOTS = listOf(MealSlot.LUNCH, MealSlot.DINNER)
+
+        /** The meals of one day and what their recipes lack, each product once per meal. */
+        fun from(meals: List<Meal>, needs: List<GroceryRecipeNeed>): NutritionHomeState {
+            val missing = needs.groupBy { it.mealId }.mapValues { (_, lines) -> lines.distinctBy { it.productId }.map { it.name } }
+            return NutritionHomeState(
+                slots = SLOTS.map { slot ->
+                    NutritionHomeSlot(
+                        slot = slot.name.lowercase(),
+                        meals = meals.filter { it.slot == slot }.map { meal ->
+                            NutritionHomeMeal(
+                                id = meal.id,
+                                title = meal.summary,
+                                guests = meal.guests,
+                                recipes = meal.recipeNames,
+                                missing = missing[meal.id].orEmpty(),
+                            )
+                        },
+                    )
+                },
+            )
+        }
+    }
 }
 
-@Serializable
 data class NutritionHomeSlot(
     /** `lunch` or `dinner`. */
     val slot: String,
     val meals: List<NutritionHomeMeal> = emptyList(),
 )
 
-@Serializable
 data class NutritionHomeMeal(
     val id: String,
     val title: String = "",
-    val guests: Int? = null,
-    val recipes: List<NutritionHomeName> = emptyList(),
-    /** The ingredients of the recipes that are low or out of stock, once each. */
-    val missing: List<NutritionHomeName> = emptyList(),
+    val guests: Int = 1,
+    /** The names of the meal's recipes. */
+    val recipes: List<String> = emptyList(),
+    /** The products its recipes lack (low or out of stock), once each. */
+    val missing: List<String> = emptyList(),
 )
-
-@Serializable
-data class NutritionHomeName(val id: String, val name: String)
 
 /** All the meal's recipes on one line, « Pâtes · Salade »; the meal's own title when it has none. */
 fun NutritionHomeMeal.recipesLabel(): String =
-    recipes.takeIf { it.isNotEmpty() }?.joinToString(" · ") { it.name } ?: title
+    recipes.takeIf { it.isNotEmpty() }?.joinToString(" · ") ?: title
 
 /** « manque : parmesan, basilic », or null when nothing is missing. */
 fun NutritionHomeMeal.missingLabel(): String? =
     missing.takeIf { it.isNotEmpty() }
-        ?.joinToString(", ", prefix = "manque : ") { it.name.replaceFirstChar { c -> c.lowercase() } }
+        ?.joinToString(", ", prefix = "manque : ") { it.replaceFirstChar { c -> c.lowercase() } }
 
 fun NutritionHomeSlot.label(): String = when (slot) {
     "lunch" -> "Déjeuner"

@@ -6,6 +6,7 @@ import { veilleuseLightTheme } from '../../theme'
 import { AgendaCard } from './cards/AgendaCard'
 import { TasksCard } from './cards/TasksCard'
 import { GroceryHomeCard } from '../grocery/GroceryHomeCard'
+import { NutritionHomeCard } from '../cookbook/NutritionHomeCard'
 import { HOME_RESOURCE_TOPICS } from './homeResourceTopics'
 
 class FakeEventSource {
@@ -36,6 +37,7 @@ test('the cards on business resources share one Mercure stream, so the page keep
         <TasksCard day="today" />
         <AgendaCard day="today" />
         <GroceryHomeCard />
+        <NutritionHomeCard day="today" />
       </ThemeProvider>
     </MemoryRouter>,
   )
@@ -43,7 +45,7 @@ test('the cards on business resources share one Mercure stream, so the page keep
   expect(FakeEventSource.instances).toHaveLength(1)
 })
 
-test('the Courses card listens to every resource behind it', () => {
+test('the Courses and Cuisine cards listen to every resource behind them', () => {
   expect(HOME_RESOURCE_TOPICS).toEqual(
     expect.arrayContaining([
       '/api/grocery_lists/{id}',
