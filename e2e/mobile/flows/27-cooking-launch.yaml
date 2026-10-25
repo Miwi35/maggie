@@ -7,12 +7,15 @@ tags:
 onFlowComplete:
   - setOrientation: PORTRAIT
 ---
-# The Cuisine activity, launched from a recipe (MAG-580, extends 12-recipe-steps and 14-rotation).
+# The Cuisine activity, launched from a recipe (MAG-580, extends 12-recipe-steps and 14-rotation), then
+# followed step by step (MAG-581).
 #
 # Étant donné une recette de deux portions avec ses étapes
 # Quand je tape « Cuisiner » sur sa fiche
 # Alors « Pour combien ? » est prérempli avec 2 ; « Continuer » ouvre la préparation, sans la barre de Maggie
 # Et quand je commence la recette puis tourne le téléphone, je reste sur la même étape
+# Et quand j'avance, l'étape 3 attend l'eau, « C'est prêt » la libère, et l'étape 5 attend les pâtes et les
+#   légumes ; tourné, je reste sur l'étape 5 avec son attente
 # Et quand je tape ✕, je reviens à la fiche de la recette (rien ne tourne : aucune confirmation)
 #
 # What a JVM test cannot see is the real activity being recreated by a real rotation, the window's
@@ -101,6 +104,50 @@ onFlowComplete:
 - setOrientation: PORTRAIT
 - extendedWaitUntil:
     visible: "Étape 1 sur 5"
+    timeout: 20000
+
+# The reference example: step 3 waits for the water, « C'est prêt » lifts it.
+- tapOn:
+    id: "cooking_next"
+- extendedWaitUntil:
+    visible: "Étape 2 sur 5"
+    timeout: 20000
+- assertVisible: "Couper les légumes"
+- tapOn:
+    id: "cooking_next"
+- extendedWaitUntil:
+    visible: "Attend l'eau à bouillir · étape 1"
+    timeout: 20000
+- assertVisible: "Étape 3 sur 5"
+- tapOn:
+    id: "cooking_ready"
+- extendedWaitUntil:
+    notVisible:
+      id: "cooking_wait"
+    timeout: 20000
+- tapOn:
+    id: "cooking_next"
+- extendedWaitUntil:
+    visible: "Étape 4 sur 5"
+    timeout: 20000
+
+# Step 5 waits for the pasta and the vegetables; turned, it is still step 5 and still waiting.
+- tapOn:
+    id: "cooking_next"
+- extendedWaitUntil:
+    visible: "Attend les pâtes et les légumes · étapes 3 et 4"
+    timeout: 20000
+- assertVisible: "Étape 5 sur 5"
+
+- setOrientation: LANDSCAPE_LEFT
+- extendedWaitUntil:
+    visible: "Attend les pâtes et les légumes · étapes 3 et 4"
+    timeout: 20000
+- assertVisible: "Étape 5 sur 5"
+
+- setOrientation: PORTRAIT
+- extendedWaitUntil:
+    visible: "Attend les pâtes et les légumes · étapes 3 et 4"
     timeout: 20000
 
 # ✕ leaves at once and lands on the recipe it came from.

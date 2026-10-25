@@ -117,4 +117,65 @@ class CookingSessionTest {
         assertFalse(session.copy(recipeIndex = 4).resumes(meal))
         assertFalse(session.copy(queue = emptyList()).resumes(meal))
     }
+
+    @Test
+    fun `Cest pret lifts the wait of the timed steps, once each`() {
+        val session = mealSession("M1", listOf("A"), 2)
+
+        val forced = session.markReady(listOf(3, 1)).markReady(listOf(1))
+
+        assertEquals(listOf(1, 3), forced.ready)
+        assertEquals(forced, forced.markReady(listOf(3)))
+    }
+
+    @Test
+    fun `the forced steps belong to one recipe and start again with the next`() {
+        val forced = mealSession("M1", listOf("A", "B"), 2).advance(3).markReady(listOf(1))
+
+        assertEquals(emptyList<Int>(), forced.advance(1).advance(1).ready)
+        assertEquals(emptyList<Int>(), forced.skipRecipe().ready)
+        assertEquals(listOf(1), forced.back().ready)
+    }
+
+    @Test
+    fun `serving the last recipe notes when, so Bon appetit can say how long it took`() {
+        val last = mealSession("M1", listOf("A"), 2, now = 1_000L).advance(1, now = 2_000L)
+
+        val done = last.advance(1, now = 61_000L)
+
+        assertEquals(CookingPhase.DONE, done.phase)
+        assertEquals(1_000L, done.startedAt)
+        assertEquals(61_000L, done.finishedAt)
+        assertEquals(1, done.minutesCooked)
+        assertEquals(CookingPhase.DONE, mealSession("M1", listOf("A"), 2, now = 0L).skipRecipe(now = 9_000L).phase)
+    }
+
+    @Test
+    fun `Bon appetit rounds the time to the minute, one at least`() {
+        val base = mealSession("M1", listOf("A"), 2, now = 0L)
+
+        assertEquals(1, base.copy(finishedAt = 5_000L).minutesCooked)
+        assertEquals(25, base.copy(finishedAt = 25 * 60_000L + 59_000L).minutesCooked)
+    }
+
+    @Test
+    fun `a session stored before the wait existed is resumed with nothing forced`() {
+        val old = """{"origin":{"kind":"MEAL","id":"M1"},"queue":[{"recipeId":"A","servings":2}],"step":2,"guests":2,"phase":"COOKING"}"""
+
+        val restored = Json.decodeFromString(CookingSession.serializer(), old)
+
+        assertEquals(2, restored.step)
+        assertEquals(emptyList<Int>(), restored.ready)
+        assertEquals(0L, restored.finishedAt)
+    }
+
+    @Test
+    fun `the forced steps survive a round trip through the saved state`() {
+        val session = mealSession("M1", listOf("A"), 2).advance(5).markReady(listOf(1, 3))
+
+        val restored = Json.decodeFromString(CookingSession.serializer(), Json.encodeToString(CookingSession.serializer(), session))
+
+        assertEquals(session, restored)
+        assertEquals(listOf(1, 3), restored.ready)
+    }
 }

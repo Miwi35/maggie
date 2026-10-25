@@ -5,6 +5,7 @@ import {
   clearSession,
   confirmServings,
   loadSession,
+  markReady,
   mealLaunchPath,
   mealSession,
   recipeLaunchPath,
@@ -108,5 +109,36 @@ describe('cookingSession', () => {
     clearSession()
 
     expect(loadSession({ kind: 'meal', id: 'M1' })).toBeNull()
+  })
+
+  test('« C\'est prêt » remembers the steps forced, once each, in order', () => {
+    const session = mealSession('M1', ['A'], 2, 1000)
+    const forced = markReady(markReady(session, [3, 1]), [1, 4])
+
+    expect(forced.ready).toEqual([1, 3, 4])
+    expect(markReady(forced, [3])).toBe(forced)
+  })
+
+  test('the forced steps belong to a recipe: the next one starts clean', () => {
+    const forced = markReady({ ...mealSession('M1', ['A', 'B'], 2, 1000), step: 2 }, [1])
+
+    expect(advance(forced, 2, 5000)).toMatchObject({ recipeIndex: 1, step: 0, ready: [] })
+  })
+
+  test('serving the last recipe notes when, so « Bon appétit » can say how long it took', () => {
+    const last = { ...mealSession('M1', ['A'], 2, 1000), step: 1 }
+
+    expect(advance(last, 1, 61000)).toMatchObject({ phase: 'done', startedAt: 1000, finishedAt: 61000 })
+    expect(skipRecipe({ ...last, step: 0 }, 9000)).toMatchObject({ phase: 'done', finishedAt: 9000 })
+  })
+
+  test('a session stored before the steps had a wait is resumed with nothing forced', () => {
+    const old: Record<string, unknown> = { ...mealSession('M1', ['A'], 2) }
+    delete old.ready
+    delete old.startedAt
+    delete old.finishedAt
+    sessionStorage.setItem('maggie.cooking-session', JSON.stringify(old))
+
+    expect(loadSession({ kind: 'meal', id: 'M1' })).toMatchObject({ ready: [], finishedAt: 0 })
   })
 })

@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.Recipe
+import com.maggie.app.data.model.RecipeStep
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.ui.navigation.DeepLinks
@@ -40,11 +41,14 @@ data class CookingUiState(
 ) {
     val recipe: Recipe? get() = session?.current?.let { recipes[it.recipeId] }
 
-    val steps: List<String> get() = recipe?.stepTexts().orEmpty()
-}
+    val steps: List<RecipeStep> get() = recipe?.orderedSteps().orEmpty()
 
-/** The recipe's steps in cooking order, as plain text. */
-fun Recipe.stepTexts(): List<String> = steps.sortedBy { it.position }.map { it.text }
+    /** The earlier steps the current step still waits for; empty on the preparation. */
+    val pending: List<Int>
+        get() = session?.takeIf { it.phase == CookingPhase.COOKING && it.step > 0 }
+            ?.let { pendingWaits(steps, it.step, it.ready) }
+            .orEmpty()
+}
 
 /**
  * The Cuisine activity (MAG-580): reads what it cooks (`GET /api/meals/{id}`, `GET /api/recipes/{id}?guests=N`)
@@ -86,9 +90,18 @@ class CookingViewModel(
 
     fun skipRecipe() = change { it.skipRecipe() }
 
+    /** The next step; held back while the current one waits for a timed step, until « C'est prêt ». */
     fun next() {
-        val recipe = _uiState.value.recipe ?: return
-        change { it.advance(recipe.stepTexts().size) }
+        val state = _uiState.value
+        if (state.recipe == null || state.pending.isNotEmpty()) return
+        change { it.advance(state.steps.size) }
+    }
+
+    /** « C'est prêt »: what the current step waits for no longer holds it back. */
+    fun ready() {
+        val pending = _uiState.value.pending
+        if (pending.isEmpty()) return
+        change { it.markReady(pending) }
     }
 
     private fun start() {

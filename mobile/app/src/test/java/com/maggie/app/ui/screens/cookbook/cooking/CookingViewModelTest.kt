@@ -66,7 +66,9 @@ class CookingViewModelTest {
     /** A recipe for 4 whose flour is 200 g: the API scales it to the `guests` asked, as the real one does. */
     private fun recipeJson(id: String, guests: Int?, steps: Int = 2): String {
         val flour = 200 * (guests ?: 4) / 4
-        val stepsJson = (steps downTo 1).joinToString(",") { """{"position":$it,"text":"Étape $it de $id"}""" }
+        val stepsJson = if (id == REFERENCE) REFERENCE_STEPS else {
+            (steps downTo 1).joinToString(",") { """{"position":$it,"text":"Étape $it de $id"}""" }
+        }
         return """{"id":"$id","name":"Recette $id","servings":4,""" +
             """"ingredients":[{"ingredientName":"Farine","quantity":$flour,"unit":"g"}],""" +
             """"utensils":[{"id":"u1","name":"Fouet"}],"steps":[$stepsJson]}"""
@@ -101,6 +103,11 @@ class CookingViewModelTest {
         }
         val api = MaggieApiService(client)
         return CookingViewModel(handle, MealRepository(api), RecipeRepository(api, mockk<RecipeDao>(relaxed = true)))
+    }
+
+    private fun referenceHandle(): SavedStateHandle {
+        mealJson = mealWith(listOf(REFERENCE, "r-b"), guests = 4)
+        return mealHandle()
     }
 
     private fun mealHandle() = SavedStateHandle(mapOf("meal" to "meal-1"))
@@ -208,7 +215,7 @@ class CookingViewModelTest {
         val viewModel = newViewModel(mealHandle())
         ready(viewModel)
 
-        assertEquals(listOf("Étape 1 de r-a", "Étape 2 de r-a"), viewModel.uiState.value.steps)
+        assertEquals(listOf("Étape 1 de r-a", "Étape 2 de r-a"), viewModel.uiState.value.steps.map { it.text })
         viewModel.next()
         viewModel.next()
         assertEquals(2, viewModel.uiState.value.session?.step)
@@ -315,5 +322,130 @@ class CookingViewModelTest {
 
         assertEquals(CookingLoad.ERROR, viewModel.uiState.value.load)
         assertEquals("the session is kept", 2, viewModel.uiState.value.session?.guests)
+    }
+
+    @Test
+    fun `a step that waits for a timed step is held until Cest pret`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+
+        repeat(3) { viewModel.next() }
+        assertEquals(3, viewModel.uiState.value.session?.step)
+        assertEquals(listOf(1), viewModel.uiState.value.pending)
+
+        viewModel.next()
+        assertEquals("Suivant is held back while the step waits", 3, viewModel.uiState.value.session?.step)
+
+        viewModel.ready()
+        assertEquals(emptyList<Int>(), viewModel.uiState.value.pending)
+        assertEquals(listOf(1), viewModel.uiState.value.session?.ready)
+
+        viewModel.next()
+        assertEquals(4, viewModel.uiState.value.session?.step)
+    }
+
+    @Test
+    fun `the last step waits for the pasta and the vegetables, and Cest pret lifts both`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        repeat(3) { viewModel.next() }
+        viewModel.ready()
+        repeat(2) { viewModel.next() }
+
+        assertEquals(5, viewModel.uiState.value.session?.step)
+        assertEquals(listOf(3, 4), viewModel.uiState.value.pending)
+
+        viewModel.ready()
+
+        assertEquals(emptyList<Int>(), viewModel.uiState.value.pending)
+        assertEquals(listOf(1, 3, 4), viewModel.uiState.value.session?.ready)
+    }
+
+    @Test
+    fun `Precedent is never held back by a wait`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        repeat(3) { viewModel.next() }
+
+        viewModel.previous()
+
+        assertEquals(2, viewModel.uiState.value.session?.step)
+        assertEquals(emptyList<Int>(), viewModel.uiState.value.pending)
+    }
+
+    @Test
+    fun `Cest pret does nothing when nothing is awaited`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        val before = viewModel.uiState.value.session
+
+        viewModel.ready()
+        viewModel.next()
+        viewModel.ready()
+
+        assertEquals(before?.copy(step = 1), viewModel.uiState.value.session)
+    }
+
+    @Test
+    fun `the next recipe follows the last step with its preparation and nothing forced`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        repeat(3) { viewModel.next() }
+        viewModel.ready()
+        repeat(2) { viewModel.next() }
+        viewModel.ready()
+        viewModel.next()
+
+        val session = viewModel.uiState.value.session!!
+        assertEquals(CookingPhase.COOKING, session.phase)
+        assertEquals("r-b", session.current?.recipeId)
+        assertEquals(0, session.step)
+        assertEquals(emptyList<Int>(), session.ready)
+    }
+
+    @Test
+    fun `the last step of the last recipe closes on Bon appetit with the time spent`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        repeat(3) { viewModel.next() }
+        viewModel.ready()
+        repeat(2) { viewModel.next() }
+        viewModel.ready()
+        repeat(4) { viewModel.next() } // → B's preparation → its two steps → Bon appétit
+        settle { viewModel.uiState.value.recipe != null }
+
+        val session = viewModel.uiState.value.session!!
+        assertEquals(CookingPhase.DONE, session.phase)
+        assertEquals(true, session.finishedAt >= session.startedAt)
+        assertEquals(1, session.minutesCooked)
+    }
+
+    @Test
+    fun `a rotation resumes on the same step with its wait lifted`() = runTest(testDispatcher) {
+        val handle = referenceHandle()
+        val first = newViewModel(handle)
+        ready(first)
+        repeat(3) { first.next() }
+        first.ready()
+        repeat(2) { first.next() }
+        assertEquals(5, first.uiState.value.session?.step)
+
+        val second = newViewModel(handle)
+        ready(second)
+
+        assertEquals(first.uiState.value.session, second.uiState.value.session)
+        assertEquals(5, second.uiState.value.session?.step)
+        assertEquals("only the steps not yet forced still wait", listOf(3, 4), second.uiState.value.pending)
+        assertEquals(listOf(1), second.uiState.value.session?.ready)
+    }
+
+    private companion object {
+        const val REFERENCE = "r-ref"
+        const val REFERENCE_STEPS =
+            """{"position":1,"text":"Mettre l'eau à bouillir","durationMinutes":10,"background":true,"utensils":[{"id":"u1","name":"Casserole"}]},""" +
+                """{"position":2,"text":"Couper les légumes"},""" +
+                """{"position":3,"text":"Cuire les pâtes","durationMinutes":12,"background":true,"waitsFor":[1]},""" +
+                """{"position":4,"text":"Faire revenir les légumes","durationMinutes":8},""" +
+                """{"position":5,"text":"Égoutter, mélanger","waitsFor":[3,4]}"""
     }
 }

@@ -1355,6 +1355,17 @@ object UiTags {
     const val COOKING_PREVIOUS = "cooking_previous"
     const val COOKING_NEXT = "cooking_next"
 
+    // The step by step (MAG-581): segments, number, what a step takes, the wait and « C'est prêt », the next step.
+    const val COOKING_SEGMENTS = "cooking_segments"
+    const val COOKING_SEGMENT = "cooking_segment"
+    const val COOKING_STEP_NUMBER = "cooking_step_number"
+    const val COOKING_STEP_INGREDIENT = "cooking_step_ingredient"
+    const val COOKING_STEP_UTENSIL = "cooking_step_utensil"
+    const val COOKING_WAIT = "cooking_wait"
+    const val COOKING_READY = "cooking_ready"
+    const val COOKING_UPNEXT = "cooking_upnext"
+    const val COOKING_DONE_SUMMARY = "cooking_done_summary"
+
     // The two steps that close a quarter, a semester or a year (MAG-462).
     const val PERIOD_BALANCE = "review_period_balance"
     const val PERIOD_BALANCE_MONTHS = "review_period_balance_months"

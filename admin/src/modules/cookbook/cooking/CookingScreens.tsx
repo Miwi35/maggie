@@ -11,11 +11,12 @@ import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import { Link as RouterLink } from 'react-router-dom'
 import { quantityLabel } from '../../grocery/packaging'
-import { idOf } from '../recipeSheet'
-import type { RecipeRecord } from '../recipeSheet'
+import { durationLabel, idOf } from '../recipeSheet'
+import type { RecipeLine, RecipeRecord, RecipeStep } from '../recipeSheet'
 import { nameOf } from '../recipeSteps'
 import { MAX_GUESTS, MIN_GUESTS } from './cookingSession'
 import type { QueuedRecipe } from './cookingSession'
+import { stepIngredients, waitLabel } from './cookingSteps'
 
 /** Every main button of the activity: readable from the counter, hit with a floury thumb. */
 const BUTTON_HEIGHT = 64
@@ -331,48 +332,172 @@ const QueueRow = ({ position, name, entry, current }: { position: number; name: 
   </Box>
 )
 
-/** A step: the text for now (the detailed course is MAG-581), with « Précédent » / « Suivant ». */
+const stepFade = keyframes`
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+`
+
+/** Faites / courante / à venir: one segment per step. */
+const SegmentBar = ({ step, count }: { step: number; count: number }) => (
+  <Box
+    role="progressbar"
+    aria-label="Avancement des étapes"
+    aria-valuemin={1}
+    aria-valuemax={count}
+    aria-valuenow={step}
+    aria-valuetext={`Étape ${step} sur ${count}`}
+    data-testid="cooking-segments"
+    sx={{ display: 'flex', gap: 0.75, width: '100%', maxWidth: 960 }}
+  >
+    {Array.from({ length: count }, (_, index) => {
+      const state = index + 1 < step ? 'done' : index + 1 === step ? 'current' : 'upcoming'
+
+      return (
+        <Box
+          key={index}
+          data-testid="cooking-segment"
+          data-state={state}
+          sx={{
+            flex: 1,
+            height: 8,
+            borderRadius: 4,
+            bgcolor: state === 'upcoming' ? 'action.disabledBackground' : 'primary.main',
+            opacity: state === 'done' ? 0.5 : 1,
+            transition: 'background-color 240ms, opacity 240ms',
+          }}
+        />
+      )
+    })}
+  </Box>
+)
+
+/** A step, one at a time: its number, its text, what it takes, what comes next, and what it waits for. */
 export const StepScreen = ({
   step,
-  stepCount,
-  text,
+  steps,
+  lines,
+  pending,
   isLastOfAll,
   onPrevious,
   onNext,
+  onReady,
 }: {
   step: number
-  stepCount: number
-  text: string
+  steps: RecipeStep[]
+  lines: RecipeLine[]
+  pending: number[]
   isLastOfAll: boolean
   onPrevious: () => void
   onNext: () => void
-}) => (
-  <>
-    <Screen id="step">
-      <Typography variant="overline" color="text.secondary" data-testid="cooking-step-count">
-        Étape {step} sur {stepCount}
-      </Typography>
-      <Typography
-        data-testid="cooking-step-text"
-        sx={{ m: 'auto 0', fontSize: 'clamp(1.75rem, 1rem + 2.6vw, 3rem)', lineHeight: 1.3, fontWeight: 500, maxWidth: '36ch' }}
-      >
-        {text}
-      </Typography>
-    </Screen>
-    <Footer>
-      <Button onClick={onPrevious}>← Précédent</Button>
-      <Button variant="contained" onClick={onNext} sx={{ minWidth: { xs: 0, md: 280 }, flex: { xs: 1, md: 'none' } }}>
-        {isLastOfAll ? 'Terminer' : 'Suivant →'}
-      </Button>
-    </Footer>
-  </>
-)
+  onReady: () => void
+}) => {
+  const current = steps[step - 1]
+  const following = steps[step]
+  const ingredients = stepIngredients(current, lines)
+  const utensils = current.utensils.map(nameOf)
+  const waiting = pending.length > 0
 
-export const DoneScreen = ({ onQuit }: { onQuit: () => void }) => (
+  return (
+    <>
+      <Screen id="step">
+        <SegmentBar step={step} count={steps.length} />
+        <Box
+          key={step}
+          data-testid="cooking-step-content"
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            flex: 1,
+            justifyContent: 'center',
+            maxWidth: 1100,
+            py: 2,
+            '@media (prefers-reduced-motion: no-preference)': { animation: `${stepFade} 560ms ease-out` },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+            <Typography
+              component="span"
+              data-testid="cooking-step-number"
+              aria-hidden
+              sx={{ fontSize: { xs: 72, md: 104, lg: 120 }, lineHeight: 1, fontWeight: 700, color: 'primary.main', fontVariantNumeric: 'tabular-nums' }}
+            >
+              {step}
+            </Typography>
+            <Typography variant="overline" color="text.secondary" data-testid="cooking-step-count">
+              Étape {step} sur {steps.length}
+            </Typography>
+          </Box>
+          <Typography
+            data-testid="cooking-step-text"
+            sx={{ fontSize: { xs: 28, md: 40, lg: 46 }, lineHeight: 1.25, fontWeight: 500, maxWidth: '36ch' }}
+          >
+            {current.text}
+          </Typography>
+
+          {(ingredients.length > 0 || utensils.length > 0) && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }} data-testid="cooking-step-needs">
+              {ingredients.map(({ key, name, line }) => (
+                <Chip
+                  key={key}
+                  data-testid="cooking-step-ingredient"
+                  label={line ? `${quantityLabel(line.quantity, line.unit)} ${name}`.trim() : name}
+                  sx={{ fontSize: '1.125rem', height: 44 }}
+                />
+              ))}
+              {utensils.map((name) => (
+                <Chip key={name} data-testid="cooking-step-utensil" variant="outlined" label={name} sx={{ fontSize: '1.125rem', height: 44 }} />
+              ))}
+            </Box>
+          )}
+
+          {waiting && (
+            <Alert
+              severity="warning"
+              icon={false}
+              data-testid="cooking-wait"
+              sx={{ alignItems: 'center', fontSize: '1.25rem', '& .MuiAlert-action': { pt: 0 } }}
+              action={
+                <Button data-testid="cooking-ready" variant="outlined" color="inherit" onClick={onReady} sx={{ minHeight: BUTTON_HEIGHT, px: 3 }}>
+                  C'est prêt
+                </Button>
+              }
+            >
+              {waitLabel(steps, pending)}
+            </Alert>
+          )}
+        </Box>
+
+        {following && (
+          <Typography data-testid="cooking-upnext" color="text.secondary" noWrap sx={{ fontSize: '1.125rem', pb: 1 }}>
+            Ensuite · {following.text}
+          </Typography>
+        )}
+      </Screen>
+      <Footer>
+        <Button onClick={onPrevious}>← Précédent</Button>
+        <Button
+          variant="contained"
+          onClick={onNext}
+          disabled={waiting}
+          sx={{ minWidth: { xs: 0, md: 280 }, flex: { xs: 1, md: 'none' } }}
+        >
+          {isLastOfAll ? 'Repas servi' : 'Suivant →'}
+        </Button>
+      </Footer>
+    </>
+  )
+}
+
+/** « Bon appétit »: how long it took and for how many. */
+export const DoneScreen = ({ minutes, guests, onQuit }: { minutes: number; guests: number; onQuit: () => void }) => (
   <Screen id="done">
     <Box sx={{ m: 'auto', textAlign: 'center' }}>
-      <Typography variant="h2" component="h1" sx={{ fontWeight: 600, mb: 4 }}>
+      <Typography variant="h2" component="h1" sx={{ fontWeight: 600, mb: 2 }}>
         Bon appétit
+      </Typography>
+      <Typography color="text.secondary" data-testid="cooking-done-summary" sx={{ fontSize: '1.5rem', mb: 4 }}>
+        {durationLabel(Math.max(1, minutes))} en cuisine · {guests} {guests > 1 ? 'convives' : 'convive'}
       </Typography>
       <Button variant="contained" onClick={onQuit} sx={{ minHeight: BUTTON_HEIGHT, minWidth: 280 }}>
         Terminer
