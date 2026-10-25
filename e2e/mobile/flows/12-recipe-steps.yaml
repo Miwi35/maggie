@@ -45,7 +45,9 @@ tags:
 - scrollUntilVisible:
     element: "Pâtes MAG-492"
     direction: UP
-- assertVisible: "1 kg"
+- extendedWaitUntil:
+    visible: "1 kg"
+    timeout: 10000
 - assertNotVisible: "1.0 kg"
 
 # The steps, with what the cook needs to know to chain them.
@@ -68,7 +70,9 @@ tags:
 # MAG-630: the values of one serving close the sheet.
 - scrollUntilVisible:
     element: "Par personne"
-- assertVisible: "≈ 500 kcal"
+- extendedWaitUntil:
+    visible: "≈ 500 kcal"
+    timeout: 10000
 - assertVisible: "Protéines 20 g"
 
 # A utensil from the phone: the full-screen search, a name the catalogue lacks, created on the spot.

@@ -196,7 +196,7 @@ fun RecipeDetailScreen(
                         IconButton(onClick = { menuOpen = true }, modifier = Modifier.testTag(UiTags.RECIPE_MENU)) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Plus d’actions")
                         }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, modifier = Modifier.uiTagRoot()) {
                             DropdownMenuItem(
                                 text = { Text("Supprimer") },
                                 onClick = {
