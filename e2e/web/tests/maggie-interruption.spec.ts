@@ -1,4 +1,4 @@
-import { test, expect, e2eNow } from '../fixtures/index.js'
+import { test, expect, e2eNow, seedDate } from '../fixtures/index.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { HomePage } from '../pages/HomePage.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
@@ -6,6 +6,7 @@ import { toolResults } from '../helpers/agui.js'
 import { callMcpTool } from '../helpers/mcp.js'
 import { openSubscribed, publishOnHub } from '../helpers/mercure.js'
 import { NotificationBell } from '../pages/NotificationBell.js'
+import { TasksPage } from '../pages/TasksPage.js'
 
 /**
  * Maggie speaking first (MAG-311, extends MAG-97 / MAG-99).
@@ -175,14 +176,22 @@ test('a task alert « Dans 3 j » interrupts, and « Voir la tâche » opens the
   const interruption = page.getByRole('alertdialog').filter({ hasText: title })
   await expect(interruption).toBeVisible({ timeout: 5_000 })
   await interruption.getByRole('button', { name: 'Voir la tâche' }).click()
-  await expect(page).toHaveURL(/\/tasks\//)
+  await expect(page).toHaveURL(/#\/tasks\?task=e2e-task-due-1$/)
 })
 
-test('touching a task alert in the bell opens the task screen, not a missing page (MAG-410 recette)', async ({
+test('touching a task alert in the bell opens the task board on that task, highlighted (MAG-410 recette, MAG-640)', async ({
   interruptedUser,
 }) => {
   const { page, api } = interruptedUser
-  const title = `Dans 3 j : Appeler le garage ${test.info().retry}`
+  const attempt = test.info().retry
+  const taskTitle = `Appeler le garage ${attempt}`
+  const title = `Dans 3 j : ${taskTitle}`
+  const created = await api.post('/api/tasks', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: { title: taskTitle, dueDate: seedDate(3) },
+  })
+  expect(created.ok(), `POST /api/tasks answered ${created.status()}`).toBe(true)
+  const taskId = String(((await created.json()) as { id: string }).id)
   const bell = new NotificationBell(page)
   await openSubscribed(page, () => bell.goto('/'))
 
@@ -192,7 +201,7 @@ test('touching a task alert in the bell opens the task screen, not a missing pag
         action: 'create',
         type: 'task_due',
         title,
-        relatedEntityIri: '/api/tasks/e2e-task-due-bell',
+        relatedEntityIri: `/api/tasks/${taskId}`,
       })
     ).error,
   ).toBeUndefined()
@@ -205,8 +214,11 @@ test('touching a task alert in the bell opens the task screen, not a missing pag
   await bell.open()
   await bell.item(title).click()
 
-  await expect(page).toHaveURL(/#\/tasks\/.+\/show/)
-  await expect(page).not.toHaveURL(/#\/api\//)
+  await expect(page).toHaveURL(new RegExp(`#/tasks\\?task=${taskId}$`))
+  const board = new TasksPage(page)
+  await expect(board.heading).toBeVisible()
+  await expect(board.row(taskTitle)).toBeVisible()
+  await expect(board.row(taskTitle)).toHaveAttribute('aria-current', 'true')
 })
 
 test('a notification created by a proaction interrupts, even with the chat open', async ({ interruptedUser }) => {

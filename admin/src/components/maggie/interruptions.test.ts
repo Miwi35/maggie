@@ -4,7 +4,7 @@ import { notificationLink, readFeedMessage } from './interruptions'
 describe('notificationLink', () => {
   test.each([
     ['/api/events/e1', "Voir l'événement", '/calendar?eventId=%2Fapi%2Fevents%2Fe1'],
-    ['/api/tasks/t1', 'Voir la tâche', '/tasks/%2Fapi%2Ftasks%2Ft1/show'],
+    ['/api/tasks/t1', 'Voir la tâche', '/tasks?task=t1'],
     ['/api/recipes/r1', 'Voir la recette', '/recipes/%2Fapi%2Frecipes%2Fr1/show'],
     ['/api/grocery_items/g1', 'Voir la liste de courses', '/grocery'],
     ['/tasks', 'Voir les routines', '/tasks'],

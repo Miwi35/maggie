@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
 import { useNotify } from 'react-admin'
 import {
@@ -64,6 +64,8 @@ interface TaskDayProps {
   onReload: () => void
   /** Opens the edit form of a task, by id. */
   onEdit: (taskId: string) => void
+  /** The task a link points at (MAG-640): marked, scrolled to, its reserve unfolded. */
+  highlightId?: string | null
   /** Opens the morning's proposal again (MAG-498). */
   onChange?: () => void
   /** Opens the evening's review on demand (MAG-500). */
@@ -176,6 +178,7 @@ interface SlotRowProps {
   count: number
   today: string
   busy: boolean
+  highlighted: boolean
   onToggle: () => void
   onEdit: () => void
   onFocus: () => void
@@ -184,7 +187,16 @@ interface SlotRowProps {
 }
 
 /** A slot of the day: a place a reserve task can be dropped on, and a task that can be dragged elsewhere. */
-const SlotRow = ({ task, index, count, today, busy, onToggle, onEdit, onFocus, onMove, onRemove }: SlotRowProps) => {
+const scrolled = new WeakSet<Element>()
+
+/** Brings the row a link points at into view — once per row, whatever the re-renders. */
+export const scrollToRow = (node: HTMLElement | null) => {
+  if (!node || scrolled.has(node)) return
+  scrolled.add(node)
+  node.scrollIntoView?.({ block: 'center' })
+}
+
+const SlotRow = ({ task, index, count, today, busy, highlighted, onToggle, onEdit, onFocus, onMove, onRemove }: SlotRowProps) => {
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: placeId(index) })
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({
     id: `slot:${task.id}`,
@@ -199,7 +211,9 @@ const SlotRow = ({ task, index, count, today, busy, onToggle, onEdit, onFocus, o
       ref={(node) => {
         setDropRef(node)
         setNodeRef(node)
+        if (highlighted) scrollToRow(node)
       }}
+      aria-current={highlighted ? 'true' : undefined}
       disablePadding
       style={{ transform: CSS.Translate.toString(transform) }}
       sx={{
@@ -209,6 +223,7 @@ const SlotRow = ({ task, index, count, today, busy, onToggle, onEdit, onFocus, o
         borderColor: isOver ? 'primary.main' : 'divider',
         mb: 0.5,
         pr: 0.5,
+        ...(highlighted && { bgcolor: 'action.selected' }),
         ...(isDragging && { zIndex: 10, boxShadow: 3, bgcolor: 'background.paper' }),
       }}
     >
@@ -297,11 +312,12 @@ interface ReserveRowProps {
   today: string
   slots: DayTask[]
   busy: boolean
+  highlighted: boolean
   onEdit: () => void
   onPlace: (target: DayTarget) => void
 }
 
-const ReserveRow = ({ task, today, slots, busy, onEdit, onPlace }: ReserveRowProps) => {
+const ReserveRow = ({ task, today, slots, busy, highlighted, onEdit, onPlace }: ReserveRowProps) => {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({
     id: `reserve:${task.id}`,
     data: { taskId: task.id },
@@ -313,10 +329,14 @@ const ReserveRow = ({ task, today, slots, busy, onEdit, onPlace }: ReserveRowPro
 
   return (
     <ListItem
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node)
+        if (highlighted) scrollToRow(node)
+      }}
+      aria-current={highlighted ? 'true' : undefined}
       disablePadding
       style={{ transform: CSS.Translate.toString(transform) }}
-      sx={{ gap: 0.5, pr: 0.5, ...(isDragging && { zIndex: 10, boxShadow: 3, bgcolor: 'background.paper' }) }}
+      sx={{ gap: 0.5, pr: 0.5, ...(highlighted && { bgcolor: 'action.selected' }), ...(isDragging && { zIndex: 10, boxShadow: 3, bgcolor: 'background.paper' }) }}
     >
       <IconButton
         size="small"
@@ -389,6 +409,7 @@ export const TaskDay = ({
   onDay,
   onReload,
   onEdit,
+  highlightId = null,
   onChange,
   onEvening,
   cheer = DEFAULT_CHEER,
@@ -404,6 +425,10 @@ export const TaskDay = ({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor),
   )
+
+  useEffect(() => {
+    if (highlightId && day.reserve.some((task) => task.id === highlightId)) setReserveOpen(true)
+  }, [highlightId, day.reserve])
 
   const slotTasks = useMemo(() => day.slots.map((slot) => slot.task), [day.slots])
   const ids = slotTasks.map((task) => task.id)
@@ -596,6 +621,7 @@ export const TaskDay = ({
             count={slotTasks.length}
             today={today}
             busy={busy}
+            highlighted={task.id === highlightId}
             onToggle={() => toggle(task)}
             onEdit={() => onEdit(task.id)}
             onFocus={() => setFocusId(task.id)}
@@ -635,6 +661,7 @@ export const TaskDay = ({
               today={today}
               slots={slotTasks}
               busy={busy}
+              highlighted={task.id === highlightId}
               onEdit={() => onEdit(task.id)}
               onPlace={(target) => place(task.id, target)}
             />

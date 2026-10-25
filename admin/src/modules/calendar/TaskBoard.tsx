@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { useNotify } from 'react-admin'
+import { useSearchParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Checkbox from '@mui/material/Checkbox'
@@ -17,7 +18,7 @@ import UpdateIcon from '@mui/icons-material/Update'
 import { addDays, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { TaskBravoBanner, TaskPalier } from './TaskBravo'
-import { TaskDay } from './TaskDay'
+import { scrollToRow, TaskDay } from './TaskDay'
 import { TaskEditDialog } from './TaskEditDialog'
 import { TaskEvening } from './TaskEvening'
 import { TaskMorning } from './TaskMorning'
@@ -28,7 +29,7 @@ import type { DayPlan } from './dayPlan'
 import { fetchDayReview } from './dayReview'
 import { DEFAULT_CHEER, fetchReward, fetchRewardCheer, parseReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
-import { createTask, fetchTask, fetchTaskView, postponedLabel, setTaskDone, TASK_VIEWS } from './taskViews'
+import { createTask, fetchTask, fetchTaskView, findTaskView, postponedLabel, setTaskDone, TASK_VIEWS } from './taskViews'
 import type { TaskCounts, TaskView, ViewTask } from './taskViews'
 
 // The day is published apart from its tasks (MAG-497): a tick moves both. So is the evening's review (MAG-500).
@@ -68,6 +69,10 @@ const shortDay = (day: string): string =>
  */
 export const TaskBoard = () => {
   const notify = useNotify()
+  const [searchParams] = useSearchParams()
+  // `#/tasks?task=<id>`: the task a notification or a search hit points at (MAG-640).
+  const target = searchParams.get('task')?.split('/').pop() || null
+  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const [view, setView] = useState<BoardTab>(initialTab)
   const [page, setPage] = useState(1)
@@ -183,6 +188,34 @@ export const TaskBoard = () => {
       .finally(() => setOpening(false))
   }, [day])
 
+  // The tab that holds the linked task opens, the task is marked and scrolled to; an unknown one leaves the board as it is.
+  const located = useRef<string | null>(null)
+  useEffect(() => {
+    if (!target) {
+      located.current = null
+      setHighlighted(null)
+      return
+    }
+    if (!day || located.current === target) return
+    located.current = target
+    if (day.slots.some((slot) => slot.task.id === target) || day.reserve.some((task) => task.id === target)) {
+      setView('today')
+      setHighlighted(target)
+      return
+    }
+    findTaskView(target)
+      .then((found) => {
+        if (located.current !== target || !found) return
+        setLoading(true)
+        setFailed(false)
+        setTasks([])
+        setPage(found.page)
+        setView(found.view)
+        setHighlighted(target)
+      })
+      .catch(console.error)
+  }, [target, day])
+
   const reload = useCallback(() => {
     loadRef.current()
     loadDayRef.current()
@@ -226,6 +259,7 @@ export const TaskBoard = () => {
 
   const selectView = (_: unknown, next: BoardTab) => {
     if (next === view) return
+    setHighlighted(null)
     setLoading(true)
     setFailed(false)
     setTasks([])
@@ -325,6 +359,7 @@ export const TaskBoard = () => {
             onDay={showDay}
             onReload={reload}
             onEdit={edit}
+            highlightId={highlighted}
             onChange={() => setPreparing(true)}
             onEvening={() => setReviewing(day)}
             cheer={cheer}
@@ -349,7 +384,13 @@ export const TaskBoard = () => {
             const indented = !!task.parent && listed.has(task.parent)
 
             return (
-              <ListItem key={task.id} disablePadding sx={{ pl: indented ? 4 : 0 }}>
+              <ListItem
+                key={task.id}
+                ref={task.id === highlighted ? scrollToRow : undefined}
+                aria-current={task.id === highlighted ? 'true' : undefined}
+                disablePadding
+                sx={{ pl: indented ? 4 : 0, borderRadius: 1, ...(task.id === highlighted && { bgcolor: 'action.selected' }) }}
+              >
                 <Checkbox
                   size="small"
                   checked={done}

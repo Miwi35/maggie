@@ -48,11 +48,11 @@ describe('getResultPath', () => {
     expect(path).not.toContain('eventId')
   })
 
-  // The routes the admin registers: a ResourceGuesser gives `/<name>/<iri>/show`, the rest are pages.
+  // Routes the admin really has: the task board opens on the task, the product has its edit form, an agenda lives in the calendar.
   test.each([
-    ['tasks', `/tasks/${encodeURIComponent('/api/tasks/01ABC')}/show`],
-    ['products', `/products/${encodeURIComponent('/api/products/01ABC')}/show`],
-    ['agendas', `/agendas/${encodeURIComponent('/api/agendas/01ABC')}/show`],
+    ['tasks', '/tasks?task=01ABC'],
+    ['products', `/products/${encodeURIComponent('/api/products/01ABC')}`],
+    ['agendas', '/calendar'],
     ['recurring_grocery_items', '/grocery'],
     ['grocery_lists', '/grocery'],
     ['notifications', '/'],
