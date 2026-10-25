@@ -2952,6 +2952,7 @@ class MaggieApiService(
     suspend fun getGroceryRecipeNeeds(from: String, to: String): List<GroceryRecipeNeed> {
         return client.get("$baseUrl/api/grocery/recipe-needs") {
             accept(ContentType.Application.Json)
+            withoutPagination()
             url.parameters.append("from", from)
             url.parameters.append("to", to)
             url.parameters.append("missing", "true")
