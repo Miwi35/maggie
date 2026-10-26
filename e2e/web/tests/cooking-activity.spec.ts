@@ -244,7 +244,10 @@ test('quitting at step 3 keeps the cook: the sheet says « Reprendre », the act
     await expect(page.getByTestId('recipe-cook')).toHaveText(/Reprendre/)
     await expect(page.getByTestId('recipe-cook-detail')).toHaveText('étape 3/4')
 
-    // When a tab that never saw the activity reopens it, it is at step 3 with the first two ticked.
+    // When a tab that never saw the activity reopens it, it is at step 3 with the first two ticked. The first tab
+    // lets go of its Mercure streams first: on the stack's HTTP/1.1 the six connections of one origin are shared
+    // by the tabs, and a second tab would wait behind them.
+    await page.goto('about:blank')
     const other = await page.context().newPage()
     try {
       await new AdminShell(other).goto(sheet)
