@@ -113,9 +113,8 @@ test('the annual envelope is consumed by the whole year, the monthly one by its 
  * as a reason — and a ring that showed its status without its cause would be
  * a verdict, which is why touching it opens the reasons.
  *
- * The status word is not pinned here: since MAG-416 the month also follows
- * its spending rhythm, which moves with the day the journey runs. The
- * rhythm itself is asserted in `finance-overview.spec.ts`. The deficit's
+ * The status word is not pinned here: the ring gives no verdict (MAG-643);
+ * what it counts is asserted in `finance-overview.spec.ts`. The deficit's
  * amount is asserted in `finance-cushion.spec.ts`, which owns the target it
  * is computed from.
  */
@@ -123,7 +122,7 @@ test('the month score is held back by the safety net, and says so', async ({ pag
   const budget = new FinanceBudgetPage(page)
   await budget.open()
 
-  await expect(budget.scoreRing('month')).toContainText(/Dans le rythme|Au-dessus du rythme/)
+  await expect(budget.scoreRing('month')).toContainText('dépensés')
   const reasons = await budget.scoreReasons('month')
   await expect(reasons).toContainText('Matelas incomplet')
   await expect(

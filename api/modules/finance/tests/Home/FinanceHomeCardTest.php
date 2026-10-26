@@ -84,24 +84,21 @@ class FinanceHomeCardTest extends WebTestCase
         foreach (['week', 'month'] as $period) {
             $rhythm = $dashboard['scores'][$period]['rhythm'];
             self::assertSame([
-                'status' => $rhythm['status'],
-                'label' => $rhythm['label'],
-                'budgetCents' => $rhythm['budgetCents'],
-                'remainingCents' => $rhythm['remainingCents'],
-                'expectedRemainingCents' => $rhythm['expectedRemainingCents'],
+                'spentCents' => $rhythm['spentCents'],
+                'expectedSpentCents' => $rhythm['expectedSpentCents'],
+                'plannedCents' => $rhythm['plannedCents'],
             ], $card[$period]);
         }
     }
 
-    public function testTheMonthIsAboveTheRhythmAndTheBudgetIsTheEnvelopes(): void
+    public function testTheMonthCountsEveryDebitAndExpectsTheRecurringOnes(): void
     {
         $month = $this->get('/api/home/finance')['month'];
 
-        // 200 € + 100 € of envelopes, 230 € + 128 € spent: over the budget.
-        self::assertSame('above', $month['status']);
-        self::assertSame('Au-dessus du rythme', $month['label']);
-        self::assertSame(30000, $month['budgetCents']);
-        self::assertSame(30000 - 35800, $month['remainingCents']);
+        // 230 € + 128 € qualified plus a 15 € unclassified debit: every debit counts, the envelopes play no part.
+        self::assertSame(37300, $month['spentCents']);
+        self::assertArrayNotHasKey('status', $month);
+        self::assertArrayNotHasKey('budgetCents', $month);
     }
 
     public function testTheQualifyCountAndTheNextProjectAreTheDashboards(): void
@@ -127,7 +124,8 @@ class FinanceHomeCardTest extends WebTestCase
 
         self::assertNull($card['nextProject']);
         self::assertSame(1, $card['toQualifyCount']);
-        self::assertSame(0, $card['month']['budgetCents']);
+        // The lonely user's only debit is unclassified: it still counts.
+        self::assertSame(900, $card['month']['spentCents']);
     }
 
     public function testTheNextProjectIsShownEvenWhenNoneLandsInsideTheHorizon(): void

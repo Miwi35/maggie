@@ -47,30 +47,17 @@ data class FinanceHomeState(
     }
 }
 
+/** A mini-ring of the card: what was spent, what was expected by now and what is planned in all — no verdict. */
 data class FinanceHomeRing(
-    /** `on_track`, `above` or `incomplete`. */
-    val status: String = "on_track",
-    val label: String = "",
-    val budgetCents: Int = 0,
-    val remainingCents: Int = 0,
-    val expectedRemainingCents: Int = 0,
+    val spentCents: Int = 0,
+    val expectedSpentCents: Int = 0,
+    val plannedCents: Int = 0,
 ) {
-    /** The ring as the dashboard's ring helpers read it. */
-    fun toRhythm() = Rhythm(
-        budgetCents = budgetCents,
-        remainingCents = remainingCents,
-        expectedRemainingCents = expectedRemainingCents,
-        status = status,
-        label = label,
-    )
-
     companion object {
         fun from(rhythm: Rhythm) = FinanceHomeRing(
-            status = rhythm.status,
-            label = rhythm.label,
-            budgetCents = rhythm.budgetCents,
-            remainingCents = rhythm.remainingCents,
-            expectedRemainingCents = rhythm.expectedRemainingCents,
+            spentCents = rhythm.spentCents,
+            expectedSpentCents = rhythm.expectedSpentCents,
+            plannedCents = rhythm.plannedCents,
         )
     }
 }
@@ -87,16 +74,6 @@ data class FinanceHomeProject(
 
 /** « n à qualifier », the pill of the lines the review is waiting for. */
 fun FinanceHomeState.toQualifyLabel(): String = "$toQualifyCount à qualifier"
-
-/**
- * The status of the card's one rhythm pill: `above` as soon as the week or the month runs above its rhythm,
- * `on_track` otherwise; null when neither has an envelope (no pace to tell).
- */
-fun FinanceHomeState.rhythmStatus(): String? {
-    val paced = listOf(week, month).filter { it.budgetCents > 0 }
-    if (paced.isEmpty()) return null
-    return if (paced.any { it.status == "above" }) "above" else "on_track"
-}
 
 /**
  * The right of the next project's line, as the mock-up writes it: « 740 / 1 200 € · mars 2027 »; [monthLabel]

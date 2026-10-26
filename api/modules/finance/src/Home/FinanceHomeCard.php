@@ -27,7 +27,7 @@ use Maggie\Finance\UseCase\GetProjectPlanning;
 
 /**
  * The Finance tile of the home page (MAG-565): the week and the month as two
- * rings with their rhythm status, the lines still to qualify, and the next
+ * rings with their rhythm (spent against expected), the lines still to qualify, and the next
  * project of the current scenario. It reads the use cases the Finance
  * Dashboard is made of, so both tell the same figures. It does not move with
  * « Aujourd'hui · Demain ».
@@ -83,16 +83,14 @@ class FinanceHomeCard implements HomeCardProviderInterface, HomeCardWatcherInter
     /**
      * @param array<string, mixed> $rhythm
      *
-     * @return array{status: string, label: string, budgetCents: int, remainingCents: int, expectedRemainingCents: int}
+     * @return array{spentCents: int, expectedSpentCents: int, plannedCents: int}
      */
     private static function ring(array $rhythm): array
     {
         return [
-            'status' => $rhythm['status'],
-            'label' => $rhythm['label'],
-            'budgetCents' => $rhythm['budgetCents'],
-            'remainingCents' => $rhythm['remainingCents'],
-            'expectedRemainingCents' => $rhythm['expectedRemainingCents'],
+            'spentCents' => $rhythm['spentCents'],
+            'expectedSpentCents' => $rhythm['expectedSpentCents'],
+            'plannedCents' => $rhythm['plannedCents'],
         ];
     }
 

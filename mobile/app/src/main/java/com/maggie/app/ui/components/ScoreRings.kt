@@ -11,12 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,13 +25,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.PeriodScore
 import com.maggie.app.data.model.Rhythm
@@ -51,104 +44,45 @@ import kotlin.math.sin
 private const val WEEK = "week"
 private const val MONTH = "month"
 
-/** Shown in a ring that has no envelope behind it. */
-const val NO_ENVELOPE_TEXT = "Aucune enveloppe"
-
-/** The glyph that goes with a status: a status is never told by its colour alone. */
-enum class ScoreMark { CHECK, INFO, WARNING, ERROR }
-
-fun scoreMark(status: String): ScoreMark = when (status) {
-    "green" -> ScoreMark.CHECK
-    "orange" -> ScoreMark.WARNING
-    "red" -> ScoreMark.ERROR
-    else -> ScoreMark.INFO
-}
-
-/** The word next to the glyph: the API's own label, or a fallback if it sent none. */
-fun scoreWord(status: String, label: String): String = label.ifBlank {
-    when (status) {
-        "green" -> "Dans le vert"
-        "orange" -> "Attention"
-        "red" -> "Dépassement"
-        else -> "Dans les clous"
-    }
-}
-
-/** The word of a ring that has a budget: where spending stands against its pace (`RhythmStatus`, MAG-537). */
-fun rhythmWord(rhythm: Rhythm): String = rhythm.label.ifBlank {
-    when (rhythm.status) {
-        "above" -> "Au-dessus du rythme"
-        "incomplete" -> "Rythme incomplet"
-        else -> "Dans le rythme"
-    }
-}
-
-/** The score status a rhythm status is drawn with: the pace is never a verdict while debits are unclassified. */
-fun rhythmMarkStatus(rhythm: Rhythm): String = when (rhythm.status) {
-    "above" -> "orange"
-    "incomplete" -> "neutral"
-    else -> "green"
-}
-
-/** « 2 000 € non classés » under a ring; null when every debit of the period has a category. */
+/** « 2 000,00 € non classés » under a ring; null when every debit of the period has a category. */
 fun unclassifiedLine(rhythm: Rhythm): String? =
-    if (rhythm.unclassifiedCount > 0) "${ringAmount(rhythm.unclassifiedCents)} non classés" else null
-
-/** An amount of a ring, in « € » as the mock-ups write it: « 120,00 € ». */
-fun ringAmount(cents: Int): String = NumberFormat.getCurrencyInstance(Locale.FRANCE).format(cents / 100.0)
-
-/** The word under a ring: the pace when there is a budget, the period's own label otherwise. */
-internal fun ringWord(score: PeriodScore): String =
-    if (hasEnvelope(score.rhythm)) rhythmWord(score.rhythm) else scoreWord(score.status, score.label)
+    if (rhythm.unclassifiedCount > 0) "${formatCents(rhythm.unclassifiedCents)} non classés" else null
 
 /**
- * The status that colours a ring and picks its glyph: the pace when there is a budget (mint check or
- * orange warning, the mock-ups' two states; neutral while debits are unclassified), like its word; the
- * period's own status otherwise.
+ * How much of the ring is drawn: what was spent against the larger of the spending and the plan, from 0 to 1.
+ * Spending more than planned is normal, so it fills the ring and says nothing else. No scale, no arc.
  */
-fun ringStatus(score: PeriodScore): String = when {
-    !hasEnvelope(score.rhythm) -> score.status
-    else -> rhythmMarkStatus(score.rhythm)
+fun ringFill(spentCents: Int, plannedCents: Int): Float {
+    val scale = maxOf(spentCents, plannedCents)
+    return if (scale <= 0) 0f else (spentCents.toFloat() / scale).coerceIn(0f, 1f)
 }
 
-/** A ring needs a budget to be proportional to; without one there is nothing to draw. */
-fun hasEnvelope(rhythm: Rhythm): Boolean = rhythm.budgetCents > 0
+fun ringFill(rhythm: Rhythm): Float = ringFill(rhythm.spentCents, rhythm.plannedCents)
 
-/**
- * The share of the ring that is still to spend: what remains of the budget, from 0 to 1.
- * An overspent period (negative remainder) fills the whole ring.
- */
-fun ringFill(rhythm: Rhythm): Float = when {
-    !hasEnvelope(rhythm) -> 0f
-    rhythm.remainingCents < 0 -> 1f
-    else -> (rhythm.remainingCents.toFloat() / rhythm.budgetCents).coerceIn(0f, 1f)
-}
-
-/** Where the tick sits on the ring: what should remain today, as a share of the budget. Null without a budget. */
-fun ringTick(rhythm: Rhythm): Float? =
-    if (hasEnvelope(rhythm)) (rhythm.expectedRemainingCents.toFloat() / rhythm.budgetCents).coerceIn(0f, 1f) else null
-
-/** What a screen reader says of a ring, and what Maestro can read: the word, the amounts, in clear. */
-fun ringDescription(title: String, score: PeriodScore): String {
-    val word = ringWord(score)
-    val rhythm = score.rhythm
-    if (!hasEnvelope(rhythm)) return "$title : $word. $NO_ENVELOPE_TEXT."
-
-    val left = if (rhythm.remainingCents < 0) {
-        "dépassé de ${formatCents(-rhythm.remainingCents)}"
+/** Where the tick sits on the ring: what was expected by today on the same scale. Null when nothing is planned. */
+fun ringTick(spentCents: Int, expectedSpentCents: Int, plannedCents: Int): Float? =
+    if (plannedCents > 0) {
+        (expectedSpentCents.toFloat() / maxOf(spentCents, plannedCents, 1)).coerceIn(0f, 1f)
     } else {
-        "il reste ${formatCents(rhythm.remainingCents)}"
+        null
     }
-    return "$title : $word, $left sur ${formatCents(rhythm.budgetCents)}, " +
-        "attendu aujourd'hui ${formatCents(rhythm.expectedRemainingCents)}"
+
+fun ringTick(rhythm: Rhythm): Float? = ringTick(rhythm.spentCents, rhythm.expectedSpentCents, rhythm.plannedCents)
+
+/** « Attendu 900,00 € » under a ring; null when nothing is planned. */
+fun expectedLine(expectedSpentCents: Int, plannedCents: Int): String? =
+    if (plannedCents > 0) "Attendu ${formatCents(expectedSpentCents)}" else null
+
+fun expectedLine(rhythm: Rhythm): String? = expectedLine(rhythm.expectedSpentCents, rhythm.plannedCents)
+
+/** What a screen reader says of a ring, and what Maestro can read: the amounts, in clear, never a verdict. */
+fun ringDescription(title: String, spentCents: Int, expectedSpentCents: Int, plannedCents: Int): String {
+    val expected = if (plannedCents > 0) ", ${formatCents(expectedSpentCents)} attendus" else ""
+    return "$title : ${formatCents(spentCents)} dépensés$expected. Afficher les raisons"
 }
 
-private fun ScoreMark.icon(): ImageVector = when (this) {
-    ScoreMark.CHECK -> Icons.Default.CheckCircle
-    ScoreMark.INFO -> Icons.Default.Info
-    ScoreMark.WARNING -> Icons.Default.Warning
-    ScoreMark.ERROR -> Icons.Default.Error
-}
+fun ringDescription(title: String, rhythm: Rhythm): String =
+    ringDescription(title, rhythm.spentCents, rhythm.expectedSpentCents, rhythm.plannedCents)
 
 @Composable
 internal fun statusColor(status: String): Color = when (status) {
@@ -158,31 +92,44 @@ internal fun statusColor(status: String): Color = when (status) {
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
-/** The glyph and the word of a status, side by side. */
+/** The track, the neutral arc and the tick of a ring; shared by the dashboard and the home card. */
 @Composable
-internal fun StatusLabel(status: String, label: String, modifier: Modifier = Modifier, color: Color = statusColor(status)) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = scoreMark(status).icon(),
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(18.dp),
-        )
-        Text(
-            text = scoreWord(status, label),
-            style = MaterialTheme.typography.labelLarge,
-            color = color,
-            modifier = Modifier.padding(start = 4.dp),
-        )
+internal fun SpentRingCanvas(fill: Float, tick: Float?, diameter: Dp, stroke: Dp) {
+    val track = maggieSurface().track
+    val arcColor = MaterialTheme.colorScheme.primary
+    val tickColor = MaterialTheme.colorScheme.onSurface
+
+    Canvas(modifier = Modifier.size(diameter)) {
+        val strokePx = stroke.toPx()
+        val topLeft = Offset(strokePx / 2, strokePx / 2)
+        val arc = Size(size.width - strokePx, size.height - strokePx)
+
+        drawArc(track, -90f, 360f, false, topLeft, arc, style = Stroke(strokePx))
+        if (fill > 0f) {
+            drawArc(arcColor, -90f, 360f * fill, false, topLeft, arc, style = Stroke(strokePx, cap = StrokeCap.Butt))
+        }
+        if (tick != null) {
+            val angle = Math.toRadians((-90f + 360f * tick).toDouble())
+            val middle = Offset(size.width / 2, size.height / 2)
+            val inner = arc.width / 2 - strokePx * 0.75f
+            val outer = arc.width / 2 + strokePx * 0.75f
+            drawLine(
+                color = tickColor,
+                start = Offset(middle.x + inner * cos(angle).toFloat(), middle.y + inner * sin(angle).toFloat()),
+                end = Offset(middle.x + outer * cos(angle).toFloat(), middle.y + outer * sin(angle).toFloat()),
+                strokeWidth = 3.dp.toPx(),
+            )
+        }
     }
 }
 
 /**
- * What is left to spend this week and this month (MAG-417).
+ * What was spent this week and this month, against what was planned (MAG-417, MAG-643).
  *
  * Plain values only, no ViewModel: the finance dashboard draws it today and the home will draw
- * it from its own state. Each ring is the remainder of the budget, as an arc proportional to the
- * budget; the tick marks what should remain today. A tap on a ring lists the reasons of its score.
+ * it from its own state. Each ring says the amount spent; the arc is its share of the larger of the
+ * spending and the plan, the tick marks what was expected by today. No verdict: spending more than
+ * expected is normal. A tap on a ring lists the reasons of its score.
  */
 @Composable
 fun ScoreRings(
@@ -218,7 +165,7 @@ fun MonthScoreRing(
     var isOpen by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        ScoreRing("Dépensé", MONTH, score, isOpen, onClassify) { isOpen = !isOpen }
+        ScoreRing("Mois", MONTH, score, isOpen, onClassify) { isOpen = !isOpen }
         if (isOpen) ScoreReasons("Mois", score)
     }
 }
@@ -233,10 +180,6 @@ private fun ScoreRing(
     onClick: () -> Unit,
 ) {
     val rhythm = score.rhythm
-    val status = ringStatus(score)
-    val color = statusColor(status)
-    val track = maggieSurface().track
-    val tickColor = MaterialTheme.colorScheme.onSurface
     val fill = ringFill(rhythm)
     val tick = ringTick(rhythm)
 
@@ -247,43 +190,24 @@ private fun ScoreRing(
                 .clickable(onClickLabel = if (isOpen) "Masquer les raisons" else "Voir les raisons", role = Role.Button, onClick = onClick)
                 .padding(8.dp)
                 .testTag(UiTags.financeScoreRing(period))
-                .semantics(mergeDescendants = true) { contentDescription = ringDescription(title, score) },
+                .semantics(mergeDescendants = true) { contentDescription = ringDescription(title, rhythm) },
         ) {
             Text(title, style = MaterialTheme.typography.titleSmall)
 
             Box(modifier = Modifier.padding(vertical = 8.dp).size(RING_SIZE), contentAlignment = Alignment.Center) {
-                Canvas(modifier = Modifier.size(RING_SIZE)) {
-                    val stroke = RING_STROKE.toPx()
-                    val topLeft = Offset(stroke / 2, stroke / 2)
-                    val arc = Size(size.width - stroke, size.height - stroke)
-
-                    drawArc(track, -90f, 360f, false, topLeft, arc, style = Stroke(stroke))
-                    if (fill > 0f) {
-                        drawArc(color, -90f, 360f * fill, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Butt))
-                    }
-                    if (tick != null) {
-                        val angle = Math.toRadians((-90f + 360f * tick).toDouble())
-                        val middle = Offset(size.width / 2, size.height / 2)
-                        val inner = arc.width / 2 - stroke * 0.75f
-                        val outer = arc.width / 2 + stroke * 0.75f
-                        drawLine(
-                            color = tickColor,
-                            start = Offset(middle.x + inner * cos(angle).toFloat(), middle.y + inner * sin(angle).toFloat()),
-                            end = Offset(middle.x + outer * cos(angle).toFloat(), middle.y + outer * sin(angle).toFloat()),
-                            strokeWidth = 3.dp.toPx(),
-                        )
-                    }
-                }
+                SpentRingCanvas(fill, tick, RING_SIZE, RING_STROKE)
                 RingCenter(rhythm)
             }
 
-            StatusLabel(status, ringWord(score))
+            expectedLine(rhythm)?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         UnclassifiedLine(period, rhythm, onClassify)
     }
 }
 
-/** What the pace leaves out, said under the ring in the secondary style, with the way to the Revue (MAG-643). */
+/** What no category claims yet, said under the ring in the secondary style, with the way to the Revue (MAG-643). */
 @Composable
 private fun UnclassifiedLine(period: String, rhythm: Rhythm, onClassify: () -> Unit) {
     val line = unclassifiedLine(rhythm) ?: return
@@ -316,25 +240,15 @@ private fun RingCenter(rhythm: Rhythm) {
         modifier = Modifier.size(RING_SIZE - RING_STROKE * 2 - 4.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        if (!hasEnvelope(rhythm)) {
-            Text(
-                text = NO_ENVELOPE_TEXT,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            return@Column
-        }
-
         Text(
-            text = formatCents(rhythm.remainingCents),
+            text = formatCents(rhythm.spentCents),
             style = MaterialTheme.typography.titleSmall,
-            color = if (rhythm.remainingCents < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = if (rhythm.remainingCents < 0) "dépassé" else "restant",
+            text = "dépensés",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

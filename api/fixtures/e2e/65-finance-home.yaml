@@ -1,9 +1,8 @@
 # The Finance card of the Accueil (MAG-565, extends MAG-102): the week and month
-# rings, « Dans le rythme ».
+# rings, what was spent.
 #
 # On the Accueil's own account (`64-grocery-home.yaml`), nobody else signs in
-# there: one 1 000 € envelope and 10 € spent on the 1st, so the spending is
-# under the pace whatever the stack's day is. One project, « Vélo », so the card
+# there: one 1 000 € envelope and 10 € spent on the 1st. One project, « Vélo », so the card
 # draws the next project's bar.
 
 Maggie\Finance\Entity\Account:

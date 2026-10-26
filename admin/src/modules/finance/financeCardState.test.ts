@@ -3,18 +3,18 @@ import { composeFinanceState } from './financeCardState'
 import { dashboardFixture, nextProjectFixture } from './dashboardFixture'
 import { period, rhythm, scores } from './scoresFixture'
 
-test('the rings are the rhythm of the week and of the month of the dashboard', () => {
+test('the rings are what the week and the month of the dashboard spent and expected', () => {
   const state = composeFinanceState(
     dashboardFixture({
       scores: scores({
-        week: period({ rhythm: rhythm({ budgetCents: 7000, remainingCents: 4500, expectedRemainingCents: 4000 }) }),
-        month: period({ rhythm: rhythm({ status: 'above', label: 'Au-dessus du rythme', remainingCents: -100 }) }),
+        week: period({ rhythm: rhythm({ spentCents: 4500, expectedSpentCents: 0, plannedCents: 0 }) }),
+        month: period({ rhythm: rhythm({ spentCents: 120000, expectedSpentCents: 78000, plannedCents: 81000 }) }),
       }),
     }),
   )
 
-  expect(state.week).toEqual({ status: 'on_track', label: 'Dans le rythme', budgetCents: 7000, remainingCents: 4500, expectedRemainingCents: 4000 })
-  expect(state.month).toMatchObject({ status: 'above', remainingCents: -100 })
+  expect(state.week).toEqual({ spentCents: 4500, expectedSpentCents: 0, plannedCents: 0 })
+  expect(state.month).toEqual({ spentCents: 120000, expectedSpentCents: 78000, plannedCents: 81000 })
 })
 
 test('the card keeps only what it draws of the next project, and counts the lines to qualify', () => {

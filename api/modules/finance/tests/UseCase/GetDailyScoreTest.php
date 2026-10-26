@@ -85,14 +85,14 @@ class GetDailyScoreTest extends KernelTestCase
         self::assertSame(55000, $reason['amountCents']);
     }
 
-    /** The mark can hold green back; it cannot lift a budget fault off the colour. */
-    public function testAboveTheMarkAnOverspentEnvelopeIsStillRed(): void
+    /** The mark can hold green back; it cannot lift an envelope fault off the colour. */
+    public function testAboveTheMarkAnOverspentEnvelopeIsStillOrange(): void
     {
         $this->spendInSeptember('declared', 1000000, inGroceries: true);
 
         $data = $this->score('declared');
 
-        self::assertSame('red', $data['score']);
+        self::assertSame('orange', $data['score']);
         self::assertContains('spending_above_reference_salary', self::codes($data));
     }
 

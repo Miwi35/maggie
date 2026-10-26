@@ -19,7 +19,7 @@ const [ANCHOR_YEAR, ANCHOR_MONTH] = seedAnchorDate().split('-').map(Number)
  * courant on it, Then the envelope bar is overrun and the month ring shows its
  * total.
  */
-test('an overspent envelope is overrun on its bar, and the month ring shows what is left', async ({
+test('an overspent envelope is overrun on its bar, and the month ring shows everything spent', async ({
   balanceUser,
 }) => {
   const balance = new FinanceMonthBalancePage(balanceUser.page)
@@ -34,7 +34,8 @@ test('an overspent envelope is overrun on its bar, and the month ring shows what
   await expect(food).toHaveAttribute('data-status', 'held')
   await expect(food).toContainText('Tenue')
 
-  await expect(balance.monthRing.getByTestId('ring-remaining')).toContainText(euros(15000))
+  // 100 € + 150 € spent; the envelopes sort the money, they do not set the ring's scale.
+  await expect(balance.monthRing.getByTestId('ring-spent')).toContainText(euros(25000))
 })
 
 test('a month with nothing in it is drawn empty, not as the month before', async ({ balanceUser }) => {

@@ -1,6 +1,5 @@
 package com.maggie.app.ui.screens.home
 
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -13,6 +12,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.FinanceHomeProject
 import com.maggie.app.data.model.FinanceHomeRing
 import com.maggie.app.data.model.FinanceHomeState
+import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
@@ -21,8 +22,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The Finance card (MAG-565), as `accueil/Accueil-Tel` draws it: two small rings, one rhythm pill, the orange
- * « n à qualifier » pill, the next project with « x / y € · mois » and its bar.
+ * The Finance card (MAG-565), as `accueil/Accueil-Tel` draws it: two small rings of what was spent (no verdict),
+ * the orange « n à qualifier » pill, the next project with « x / y € · mois » and its bar.
  */
 @RunWith(AndroidJUnit4::class)
 class FinanceHomeCardScreenTest {
@@ -30,8 +31,8 @@ class FinanceHomeCardScreenTest {
     @get:Rule
     val compose = ScreenRule()
 
-    private val onTrack = FinanceHomeRing("on_track", "Dans le rythme", 30000, 24200, 21000)
-    private val above = FinanceHomeRing("above", "Au-dessus du rythme", 7000, 1000, 3000)
+    private val onTrack = FinanceHomeRing(spentCents = 5800, expectedSpentCents = 9000, plannedCents = 93000)
+    private val above = FinanceHomeRing(spentCents = 125599, expectedSpentCents = 93000, plannedCents = 93000)
     private val project = FinanceHomeProject("p1", "Voyage", 100000, 25000, "2027-03")
 
     private fun draw(ui: FinanceHomeUiState, onOpen: () -> Unit = {}, onRetry: () -> Unit = {}) =
@@ -62,53 +63,44 @@ class FinanceHomeCardScreenTest {
     }
 
     @Test
-    fun `the two rings carry their period under them and one pill tells the rhythm`() {
-        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack)))
+    fun `each ring carries its period under it and what was spent in it, rounded to the euro`() {
+        draw(loaded(FinanceHomeState(accountCount = 1, week = above, month = onTrack)))
 
         compose.onNodeWithText("Finance").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.homeFinanceRing("month")).assertIsDisplayed()
         compose.onNodeWithText("Semaine", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("Mois", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.HOME_FINANCE_RHYTHM, useUnmergedTree = true).assertIsDisplayed()
-        compose.onAllNodesWithText("Dans le rythme", useUnmergedTree = true).assertCountEquals(1)
+        compose.onNodeWithText(formatCentsRounded(125599), useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText(formatCentsRounded(5800), useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
-    fun `one period above its rhythm makes the pill say so`() {
+    fun `spending above what is expected carries no verdict`() {
         draw(loaded(FinanceHomeState(accountCount = 1, week = above, month = onTrack)))
 
-        compose.onAllNodesWithText("Au-dessus du rythme", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("Dans le rythme", useUnmergedTree = true).assertCountEquals(0)
+        for (word in listOf("Au-dessus du rythme", "Dans le rythme", "Rythme incomplet", "restant", "Aucune enveloppe")) {
+            compose.onAllNodesWithText(word, substring = true).assertCountEquals(0)
+        }
     }
 
     @Test
-    fun `the remaining amount sits in the ring, rounded to the euro`() {
-        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack)))
-
-        compose.onAllNodesWithText("242\u00A0€", useUnmergedTree = true).assertCountEquals(2)
-    }
-
-    @Test
-    fun `no envelope at all, no rhythm pill`() {
-        draw(loaded(FinanceHomeState(accountCount = 1, week = FinanceHomeRing(), month = FinanceHomeRing())))
-
-        compose.onAllNodesWithTag(UiTags.HOME_FINANCE_RHYTHM, useUnmergedTree = true).assertCountEquals(0)
-    }
-
-    @Test
-    fun `a ring reads its rhythm word and its amounts to a screen reader and to Maestro`() {
+    fun `a ring reads its amounts to a screen reader and to Maestro`() {
         draw(loaded(FinanceHomeState(accountCount = 1, week = above, month = onTrack)))
 
-        compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertContentDescriptionContains("Au-dessus du rythme", substring = true)
-        compose.onNodeWithTag(UiTags.homeFinanceRing("month")).assertContentDescriptionContains("Dans le rythme", substring = true)
+        compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertContentDescriptionContains(
+            "Semaine : ${formatCents(125599)} dépensés, ${formatCents(93000)} attendus",
+            substring = true,
+        )
     }
 
     @Test
-    fun `a ring without envelope says so and draws no amount`() {
-        draw(loaded(FinanceHomeState(accountCount = 1, week = FinanceHomeRing(), month = onTrack)))
+    fun `a ring with nothing planned shows its spending and no expected line`() {
+        draw(loaded(FinanceHomeState(accountCount = 1, week = FinanceHomeRing(spentCents = 1349), month = onTrack)))
 
-        compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertContentDescriptionContains("Aucune enveloppe", substring = true)
+        compose.onNodeWithText(formatCentsRounded(1349), useUnmergedTree = true).assertIsDisplayed()
+        compose.onAllNodesWithText("Attendu", substring = true, useUnmergedTree = true).assertCountEquals(1) // the month's only
+        compose.onNodeWithText("Attendu ${formatCents(9000)}", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
@@ -143,17 +135,6 @@ class FinanceHomeCardScreenTest {
         compose.onNodeWithTag(UiTags.HOME_FINANCE_NEXT_PROJECT).assertIsDisplayed()
         compose.onNodeWithText("Salle de bain").assertIsDisplayed()
         compose.onNodeWithText("0 / 9\u202F000\u00A0€ · au-delà de 36 mois").assertIsDisplayed()
-    }
-
-    @Test
-    fun `the rings read mint in the rhythm and orange above it, never the accent violet`() {
-        val mint = Color(0xFF1B7352) to Color(0xFF7FD1AE)
-        val orange = Color(0xFFA65500) to Color(0xFFF0A35E)
-
-        assertEquals(mint.first, financeRhythmColor("on_track", dark = false))
-        assertEquals(mint.second, financeRhythmColor("on_track", dark = true))
-        assertEquals(orange.first, financeRhythmColor("above", dark = false))
-        assertEquals(orange.second, financeRhythmColor("above", dark = true))
     }
 
     @Test

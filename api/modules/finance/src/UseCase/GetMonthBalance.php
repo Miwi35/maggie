@@ -9,15 +9,15 @@ use Maggie\Finance\Repository\TransactionRepository;
 
 /**
  * The balance of one month, in the figures the « État courant » dashboard
- * draws: the month's spending against its budget and its rhythm, each root
- * envelope held / close / over, the satisfaction on what was judged, what was
+ * draws: the month's spending rhythm (every debit spent against the recurring
+ * ones planned), each root envelope held / close / over, the satisfaction on what was judged, what was
  * put aside against what was planned, the safety cushion, and what is still
  * waiting to be qualified.
  *
  * It composes the use cases that already answer each part — one set of rules.
- * Envelopes and the rhythm read the qualified transactions only (a line with
- * no category belongs to no envelope); the unqualified ones of the month are
- * reported apart under `toQualify`. A pure read: it publishes nothing and
+ * The rhythm reads every debit of the month, classified or not; the envelopes
+ * only the qualified ones (a line with no category belongs to no envelope), and
+ * the unqualified ones of the month are reported apart under `toQualify`. A pure read: it publishes nothing and
  * indexes nothing (the one write is the default cushion row GetCushionStatus
  * creates for a user who has none).
  */

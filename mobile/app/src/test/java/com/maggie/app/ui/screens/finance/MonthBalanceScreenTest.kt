@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsSelected
@@ -58,12 +59,9 @@ class MonthBalanceScreenTest {
             status = "red",
             label = "Dépassement",
             rhythm = Rhythm(
-                budgetCents = 70000,
                 spentCents = 85000,
-                remainingCents = -15000,
-                expectedRemainingCents = 0,
-                status = "above",
-                label = "Au-dessus du rythme",
+                expectedSpentCents = 2300,
+                plannedCents = 70000,
                 curve = listOf(
                     RhythmPoint("2026-09-01", spentCents = 0, expectedCents = 0),
                     RhythmPoint("2026-09-02", spentCents = 85000, expectedCents = 2300),
@@ -110,13 +108,15 @@ class MonthBalanceScreenTest {
     }
 
     @Test
-    fun `the month ring says its status and what is over, and the curve is drawn`() {
+    fun `the month ring says what was spent without a verdict, and the curve is drawn`() {
         open()
         revealBalance()
 
         compose.onNodeWithTag(UiTags.financeScoreRing("month")).performScrollTo().assertIsDisplayed()
-        compose.onAllNodesWithText("Au-dessus du rythme", substring = true).onFirst().performScrollTo().assertIsDisplayed()
-        compose.onAllNodesWithText(formatCents(-15000), substring = true).onFirst().performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText(formatCents(85000), substring = true).onFirst().performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText("dépensés").onFirst().performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText("Au-dessus du rythme", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Attention").assertCountEquals(0)
         compose.onNodeWithTag(UiTags.FINANCE_RHYTHM_CURVE).performScrollTo().assertIsDisplayed()
     }
 

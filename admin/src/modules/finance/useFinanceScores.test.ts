@@ -112,9 +112,9 @@ describe('scoreDate', () => {
 })
 
 describe('reasonText', () => {
-  test('words the rhythm reasons', () => {
-    expect(reasonText({ code: 'above_rhythm', amountCents: 5000 })).toContain('de plus que le rythme')
-    expect(reasonText({ code: 'week_budget_exceeded', amountCents: 5000 })).toContain('de la semaine')
+  test('words the envelope reasons, and no longer the rhythm ones (MAG-643)', () => {
+    expect(reasonText({ code: 'optional_category_exceeded', categoryName: 'Loisirs', amountCents: 5000 })).toContain('Loisirs dépassée')
+    expect(reasonText({ code: 'above_rhythm', amountCents: 5000 })).toBe('above_rhythm')
   })
 
   test('an unknown code falls back to itself rather than breaking', () => {

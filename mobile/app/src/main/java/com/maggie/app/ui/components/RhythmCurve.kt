@@ -47,11 +47,11 @@ private const val MONTH = "month"
 /** Where along the curve a day falls, from 0 (first day) to 1 (last). A one-day curve has only its start. */
 fun dayFraction(index: Int, count: Int): Float = if (count <= 1) 0f else index.toFloat() / (count - 1)
 
-/** The tallest value drawn, so that both curves and the budget fit; never 0, to keep a division safe. */
+/** The tallest value drawn, so that both curves fit; never 0, to keep a division safe. */
 fun curveCeiling(rhythm: Rhythm): Int {
     val spent = rhythm.curve.mapNotNull { it.spentCents }
     val expected = rhythm.curve.map { it.expectedCents }
-    return (spent + expected + rhythm.budgetCents).maxOrNull()?.coerceAtLeast(1) ?: 1
+    return (spent + expected).maxOrNull()?.coerceAtLeast(1) ?: 1
 }
 
 /** The point of today: the last day the spending is known for. */
@@ -73,16 +73,10 @@ fun dayMonthLabel(date: String): String =
 private fun dayOfMonth(date: String): String =
     runCatching { LocalDate.parse(date).dayOfMonth.toString() }.getOrDefault(date)
 
-/** What a screen reader and Maestro get of the curve: where the spending stands against what was expected. */
-fun curveDescription(title: String, rhythm: Rhythm): String {
-    val today = lastKnownPoint(rhythm)
-        ?: return "Courbe du rythme, $title : pas de dépense connue pour le moment"
-    val spent = formatCents(today.spentCents ?: 0)
-    val expected = formatCents(today.expectedCents)
-    val debits = if (rhythm.debits.isEmpty()) "" else {
-        ", prélèvements : " + rhythm.debits.joinToString(", ") { "${it.label} le ${dayMonthLabel(it.date)}" }
-    }
-    return "Courbe du rythme, $title : dépensé $spent au ${dayMonthLabel(today.date)}, attendu $expected$debits"
+/** What a screen reader and Maestro get of the curve: the two figures, never a verdict. */
+fun curveDescription(rhythm: Rhythm): String {
+    val today = lastKnownPoint(rhythm) ?: return "Dépensé cumulé : aucune dépense connue pour le moment"
+    return "Dépensé cumulé : ${formatCents(today.spentCents ?: 0)} pour ${formatCents(today.expectedCents)} attendus"
 }
 
 /** The description of one debit marker. */
@@ -101,7 +95,6 @@ fun RhythmCurvePanel(
     modifier: Modifier = Modifier,
 ) {
     var period by rememberSaveable { mutableStateOf(MONTH) }
-    val title = if (period == WEEK) "Semaine" else "Mois"
 
     MaggieCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -120,7 +113,7 @@ fun RhythmCurvePanel(
                     modifier = Modifier.testTag(UiTags.financeRhythmPeriod(MONTH)),
                 )
             }
-            RhythmCurve(rhythm = if (period == WEEK) week else month, title = title)
+            RhythmCurve(rhythm = if (period == WEEK) week else month)
         }
     }
 }
@@ -129,7 +122,6 @@ fun RhythmCurvePanel(
 @Composable
 fun RhythmCurve(
     rhythm: Rhythm,
-    title: String,
     modifier: Modifier = Modifier,
 ) {
     if (rhythm.curve.isEmpty()) {
@@ -142,11 +134,7 @@ fun RhythmCurve(
         return
     }
 
-    val spentColor = when (rhythm.status) {
-        "above" -> MaterialTheme.colorScheme.tertiary
-        "incomplete" -> MaterialTheme.colorScheme.onSurface
-        else -> MaterialTheme.colorScheme.primary
-    }
+    val spentColor = MaterialTheme.colorScheme.primary
     val expectedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val debitColor = MaterialTheme.colorScheme.outline
     val curve = rhythm.curve
@@ -180,7 +168,7 @@ fun RhythmCurve(
                     .fillMaxWidth()
                     .height(CURVE_HEIGHT)
                     .testTag(UiTags.FINANCE_RHYTHM_CURVE)
-                    .semantics { contentDescription = curveDescription(title, rhythm) },
+                    .semantics { contentDescription = curveDescription(rhythm) },
             ) {
                 val pad = 4.dp.toPx()
                 val usable = size.height - 2 * pad
@@ -232,10 +220,6 @@ fun RhythmCurve(
             Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("— Dépensé", style = MaterialTheme.typography.labelSmall, color = spentColor)
                 Text("- - Attendu", style = MaterialTheme.typography.labelSmall, color = expectedColor)
-                StatusLabel(
-                    status = rhythmMarkStatus(rhythm),
-                    label = rhythmWord(rhythm),
-                )
             }
         }
     }

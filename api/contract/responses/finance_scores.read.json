@@ -1,22 +1,13 @@
 {
     "date": "2026-03-15",
     "week": {
-        "status": "red",
-        "label": "Dépassement",
-        "reasons": [
-            {
-                "code": "week_budget_exceeded",
-                "amountCents": 1349
-            }
-        ],
+        "status": "neutral",
+        "label": "Dans les clous",
+        "reasons": [],
         "rhythm": {
-            "budgetCents": 0,
             "spentCents": 1349,
             "expectedSpentCents": 0,
-            "remainingCents": -1349,
-            "expectedRemainingCents": 0,
-            "status": "above",
-            "label": "Au-dessus du rythme",
+            "plannedCents": 0,
             "unclassifiedCount": 0,
             "unclassifiedCents": 0,
             "curve": [
@@ -60,16 +51,12 @@
         }
     },
     "month": {
-        "status": "red",
-        "label": "Dépassement",
+        "status": "orange",
+        "label": "Attention",
         "reasons": [
             {
                 "code": "optional_category_exceeded",
                 "categoryName": "Recorded Parent Category",
-                "amountCents": 95599
-            },
-            {
-                "code": "total_budget_exceeded",
                 "amountCents": 95599
             },
             {
@@ -82,13 +69,9 @@
             }
         ],
         "rhythm": {
-            "budgetCents": 30000,
             "spentCents": 121349,
             "expectedSpentCents": 90000,
-            "remainingCents": -91349,
-            "expectedRemainingCents": -60000,
-            "status": "above",
-            "label": "Au-dessus du rythme",
+            "plannedCents": 93000,
             "unclassifiedCount": 0,
             "unclassifiedCents": 0,
             "curve": [
@@ -271,10 +254,6 @@
             {
                 "code": "optional_category_exceeded",
                 "categoryName": "Recorded Parent Category",
-                "amountCents": 95599
-            },
-            {
-                "code": "total_budget_exceeded",
                 "amountCents": 95599
             },
             {

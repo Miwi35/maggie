@@ -355,51 +355,6 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
-     * What the envelopes of a set of categories consumed each day of a
-     * half-open period: spent and committed debits, as positive cents per
-     * Y-m-d. Same scope as {@see sumByStatusForCategoriesBetween} — transfers
-     * and spends attributed to a one-off envelope are out. A day with nothing
-     * is absent.
-     *
-     * @param list<Ulid> $categoryIds
-     *
-     * @return array<string, int>
-     */
-    public function sumConsumedPerDayForCategoriesBetween(User $user, array $categoryIds, \DateTimeImmutable $from, \DateTimeImmutable $until): array
-    {
-        if ([] === $categoryIds) {
-            return [];
-        }
-
-        $rows = $this->createQueryBuilder('t')
-            ->select('t.bookedAt AS bookedAt, '.self::OWN_AMOUNT.' AS amountCents')
-            ->andWhere('t.user = :user')
-            ->andWhere('t.transferKind = :noTransfer')
-            ->andWhere('t.category IN (:categories)')
-            ->andWhere('t.oneOffEnvelope IS NULL')
-            ->andWhere('t.amountCents < 0')
-            ->andWhere('t.status IN (:consumed)')
-            ->andWhere('t.bookedAt >= :from')
-            ->andWhere('t.bookedAt < :until')
-            ->setParameter('user', $user->getId(), 'ulid')
-            ->setParameter('noTransfer', TransferKind::None->value)
-            ->setParameter('categories', array_map(static fn (Ulid $id): string => $id->toRfc4122(), $categoryIds), ArrayParameterType::STRING)
-            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
-            ->setParameter('from', $from)
-            ->setParameter('until', $until)
-            ->getQuery()
-            ->getResult();
-
-        $perDay = [];
-        foreach ($rows as $row) {
-            $day = $row['bookedAt']->format('Y-m-d');
-            $perDay[$day] = ($perDay[$day] ?? 0) + abs((int) $row['amountCents']);
-        }
-
-        return $perDay;
-    }
-
-    /**
      * Debits attributed to the user's one-off envelopes, whenever booked, per
      * envelope id then per status, as positive cents. An envelope nothing was
      * attributed to is absent.
@@ -786,11 +741,44 @@ class TransactionRepository extends ServiceEntityRepository
      * and committed debits, without the exceptional ones, the repayments
      * (counted on their own by the debt timeline) and what is put aside
      * (saving, investment) — all read off the transaction's qualification.
+     * Classified or not, with an envelope or not: the one definition of
+     * « Dépensé » (MAG-643).
      */
     public function sumConsumedBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): int
     {
-        $total = $this->createQueryBuilder('t')
+        $total = $this->consumedQuery($user, $from, $until)
             ->select('SUM('.self::OWN_AMOUNT.')')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return abs((int) $total);
+    }
+
+    /**
+     * {@see sumConsumedBetween} per booking day, as positive cents, keyed by
+     * Y-m-d. A day with nothing is absent.
+     *
+     * @return array<string, int>
+     */
+    public function sumConsumedPerDayBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
+    {
+        $rows = $this->consumedQuery($user, $from, $until)
+            ->select('t.bookedAt AS bookedAt, '.self::OWN_AMOUNT.' AS amountCents')
+            ->getQuery()
+            ->getResult();
+
+        $perDay = [];
+        foreach ($rows as $row) {
+            $day = $row['bookedAt']->format('Y-m-d');
+            $perDay[$day] = ($perDay[$day] ?? 0) + abs((int) $row['amountCents']);
+        }
+
+        return $perDay;
+    }
+
+    private function consumedQuery(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): QueryBuilder
+    {
+        return $this->createQueryBuilder('t')
             ->andWhere('t.user = :user')
             ->andWhere('t.transferKind = :noTransfer')
             ->andWhere('t.amountCents < 0')
@@ -804,11 +792,7 @@ class TransactionRepository extends ServiceEntityRepository
             ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
             ->setParameter('outsideLifestyle', [QualificationKind::Repayment->value, QualificationKind::Saving->value, QualificationKind::Investment->value])
             ->setParameter('from', $from)
-            ->setParameter('until', $until)
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        return abs((int) $total);
+            ->setParameter('until', $until);
     }
 
     /**

@@ -63,14 +63,15 @@ class FinanceScoresControllerTest extends WebTestCase
         $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertSame('2026-10-13', $data['date']);
-        self::assertSame('orange', $data['month']['status']);
-        self::assertSame('Attention', $data['month']['label']);
-        self::assertSame(108194, $data['month']['rhythm']['expectedSpentCents']);
+        // 1 200 € spent against 780 € expected: more than planned is normal, the colour reads the envelopes.
+        self::assertSame('green', $data['month']['status']);
+        self::assertSame('Dans le vert', $data['month']['label']);
+        self::assertSame(78000, $data['month']['rhythm']['expectedSpentCents']);
         self::assertSame(120000, $data['month']['rhythm']['spentCents']);
-        self::assertSame('above', $data['month']['rhythm']['status']);
+        self::assertArrayNotHasKey('status', $data['month']['rhythm']);
         self::assertCount(31, $data['month']['rhythm']['curve']);
-        self::assertCount(2, $data['month']['rhythm']['debits']);
-        self::assertSame('orange', $data['global']['status']);
+        self::assertCount(3, $data['month']['rhythm']['debits']);
+        self::assertSame('green', $data['global']['status']);
         self::assertArrayNotHasKey('rhythm', $data['global']);
         self::assertCount(7, $data['week']['rhythm']['curve']);
     }

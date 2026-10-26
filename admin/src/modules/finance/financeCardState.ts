@@ -1,7 +1,7 @@
 import type { FinanceDashboard } from './useFinanceDashboard'
 import type { Rhythm } from './useFinanceScores'
 
-export type HomeRing = Pick<Rhythm, 'status' | 'label' | 'budgetCents' | 'remainingCents' | 'expectedRemainingCents'>
+export type HomeRing = Pick<Rhythm, 'spentCents' | 'expectedSpentCents' | 'plannedCents'>
 
 export interface HomeNextProject {
   projectId: string
@@ -24,12 +24,10 @@ export interface FinanceHomeState {
 
 const HORIZON_MONTHS = 36
 
-const ring = ({ status, label, budgetCents, remainingCents, expectedRemainingCents }: Rhythm): HomeRing => ({
-  status,
-  label,
-  budgetCents,
-  remainingCents,
-  expectedRemainingCents,
+const ring = ({ spentCents, expectedSpentCents, plannedCents }: Rhythm): HomeRing => ({
+  spentCents,
+  expectedSpentCents,
+  plannedCents,
 })
 
 /** The card's state from the Finance dashboard of the current month: the rings, what waits to be qualified, the next project. */

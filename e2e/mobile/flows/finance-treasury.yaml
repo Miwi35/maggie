@@ -102,8 +102,8 @@ tags:
     timeout: 30000
 - assertVisible:
     id: "finance_score_ring_month"
-# The status is a word, never a colour alone.
-- assertVisible: ".*(Dans le rythme|Au-dessus du rythme|Aucune enveloppe).*"
+# The ring says what was spent, without a verdict (MAG-643).
+- assertVisible: ".*dépensés.*"
 # A tap on a ring lists the reasons, a second one hides them.
 - tapOn:
     id: "finance_score_ring_month"

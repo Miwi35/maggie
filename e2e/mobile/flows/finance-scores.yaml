@@ -7,7 +7,7 @@ tags:
 #
 # Étant donné un loyer de 700,00 € prélevé le 5 et 300,00 € de courses, contre 1 420,00 € d'enveloppes
 # Quand j'ouvre les finances
-# Alors les anneaux de la semaine et du mois disent leur état en toutes lettres
+# Alors les anneaux de la semaine et du mois disent ce qui est dépensé, sans verdict
 # Et le mois, qui compte un débit non classé, dit « non classés · Classer » sous son anneau (MAG-643)
 # Quand je touche l'anneau du mois
 # Alors les raisons de son état s'affichent, et se referment au second toucher
@@ -17,7 +17,7 @@ tags:
 # The data is seeded for `e2e-scores@maggie.local` (api/fixtures/e2e/57-finance-scores.yaml), an
 # account only the scores journeys sign in to. CI pins the day to the 13th, after the rent. The
 # amounts are not asserted — they are drawn with the phone's locale (`ScoreRingsTest` reads them,
-# and `finance-overview.spec.ts` asserts the 420,00 € left on the web).
+# and `finance-overview.spec.ts` asserts the 1 250,00 € spent on the web).
 
 - launchApp:
     clearState: true
@@ -37,9 +37,10 @@ tags:
     timeout: 30000
 - assertVisible:
     id: "finance_score_ring_month"
-# The status is a word, never a colour alone: the rhythm's own (MAG-537).
-- assertVisible: ".*(Dans le rythme|Au-dessus du rythme|Rythme incomplet).*"
-# What the pace leaves out is said under the ring, with the way to the Revue (MAG-643).
+# The ring says what was spent, every debit counted: no verdict (MAG-643).
+- assertVisible: ".*dépensés.*"
+- assertNotVisible: ".*(Dans le rythme|Au-dessus du rythme|Rythme incomplet).*"
+# What is not classed is said under the ring, with the way to the Revue (MAG-643).
 - assertVisible:
     id: "finance_score_unclassified_month"
 - assertVisible: ".*non classés.*"

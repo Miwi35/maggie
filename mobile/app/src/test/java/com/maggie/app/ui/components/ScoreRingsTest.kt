@@ -1,6 +1,5 @@
 package com.maggie.app.ui.components
 
-import com.maggie.app.data.model.PeriodScore
 import com.maggie.app.data.model.Rhythm
 import com.maggie.app.data.model.RhythmDebit
 import com.maggie.app.data.model.RhythmPoint
@@ -12,122 +11,64 @@ import org.junit.Test
 
 class ScoreRingsTest {
 
-    private val onTrack = Rhythm(budgetCents = 20000, remainingCents = 12000, expectedRemainingCents = 10000)
+    // Spent 600 against 1 000 planned, 400 of it expected by now.
+    private val rhythm = Rhythm(spentCents = 60000, expectedSpentCents = 40000, plannedCents = 100000)
 
     @Test
-    fun `the arc is what remains of the budget`() {
-        assertEquals(0.6f, ringFill(onTrack), 0.0001f)
+    fun `the arc is the share of the plan already spent`() {
+        assertEquals(0.6f, ringFill(rhythm), 0.0001f)
     }
 
     @Test
-    fun `a spent budget leaves an empty arc`() {
-        assertEquals(0f, ringFill(onTrack.copy(remainingCents = 0)), 0f)
+    fun `spending more than planned fills the ring and says nothing else`() {
+        assertEquals(1f, ringFill(rhythm.copy(spentCents = 250000)), 0f)
+        assertEquals(1f, ringFill(rhythm.copy(plannedCents = 0)), 0f)
     }
 
     @Test
-    fun `an overspent period fills the whole ring`() {
-        assertEquals(1f, ringFill(onTrack.copy(remainingCents = -500)), 0f)
+    fun `nothing spent and nothing planned draws no arc`() {
+        assertEquals(0f, ringFill(Rhythm()), 0f)
+        assertEquals(0f, ringFill(rhythm.copy(spentCents = 0)), 0f)
     }
 
     @Test
-    fun `a remainder above the budget does not draw past the circle`() {
-        assertEquals(1f, ringFill(onTrack.copy(remainingCents = 25000)), 0f)
+    fun `the tick sits where the expected spending is on the same scale`() {
+        assertEquals(0.4f, ringTick(rhythm)!!, 0.0001f)
+        // Spent beyond the plan: the scale is the spending.
+        assertEquals(0.2f, ringTick(rhythm.copy(spentCents = 200000))!!, 0.0001f)
     }
 
     @Test
-    fun `without a budget there is nothing to divide and nothing to draw`() {
-        val none = Rhythm(budgetCents = 0, spentCents = 1349, remainingCents = -1349)
-
-        assertEquals(0f, ringFill(none), 0f)
-        assertNull(ringTick(none))
-        assertTrue(!hasEnvelope(none))
+    fun `no tick without a planned debit`() {
+        assertNull(ringTick(Rhythm(spentCents = 1349)))
+        assertNull(expectedLine(Rhythm(spentCents = 1349)))
     }
 
     @Test
-    fun `the tick sits where the remainder should be today`() {
-        assertEquals(0.5f, ringTick(onTrack)!!, 0.0001f)
+    fun `the expected line names the amount expected to date, only with a plan`() {
+        assertEquals("Attendu ${formatCents(40000)}", expectedLine(rhythm))
     }
 
     @Test
-    fun `an expected remainder below zero puts the tick at the end of the arc`() {
-        assertEquals(0f, ringTick(onTrack.copy(expectedRemainingCents = -60000))!!, 0f)
-    }
-
-    @Test
-    fun `a status is told by a glyph as well as by a colour`() {
-        assertEquals(ScoreMark.CHECK, scoreMark("green"))
-        assertEquals(ScoreMark.INFO, scoreMark("neutral"))
-        assertEquals(ScoreMark.WARNING, scoreMark("orange"))
-        assertEquals(ScoreMark.ERROR, scoreMark("red"))
-        assertEquals(ScoreMark.INFO, scoreMark("something_new"))
-    }
-
-    @Test
-    fun `the word is the one the API sent, with a fallback when it sent none`() {
-        assertEquals("Hors budget", scoreWord("red", "Hors budget"))
-        assertEquals("Dans le vert", scoreWord("green", ""))
-        assertEquals("Attention", scoreWord("orange", ""))
-        assertEquals("Dépassement", scoreWord("red", ""))
-        assertEquals("Dans les clous", scoreWord("neutral", ""))
-    }
-
-    @Test
-    fun `a ring with a budget says its pace, and its amounts in euros`() {
-        val score = PeriodScore(status = "green", label = "Dans le vert", rhythm = onTrack)
-
+    fun `a ring reads its amounts and never a verdict`() {
         assertEquals(
-            "Mois : Dans le rythme, il reste ${formatCents(12000)} sur ${formatCents(20000)}, " +
-                "attendu aujourd'hui ${formatCents(10000)}",
-            ringDescription("Mois", score),
+            "Mois : ${formatCents(60000)} dépensés, ${formatCents(40000)} attendus. Afficher les raisons",
+            ringDescription("Mois", rhythm),
         )
-        assertTrue(formatCents(12000).endsWith("€"))
+        assertEquals(
+            "Semaine : ${formatCents(1349)} dépensés. Afficher les raisons",
+            ringDescription("Semaine", Rhythm(spentCents = 1349)),
+        )
+        assertTrue(formatCents(60000).endsWith("€"))
     }
 
     @Test
-    fun `a ring above its pace says so, whatever the API's colour`() {
-        val above = onTrack.copy(status = "above", label = "Au-dessus du rythme")
-        val score = PeriodScore(status = "orange", label = "Attention", rhythm = above)
+    fun `spending beyond what is expected carries no word of pace`() {
+        val description = ringDescription("Mois", rhythm.copy(spentCents = 900000))
 
-        assertTrue(ringDescription("Mois", score).startsWith("Mois : Au-dessus du rythme, "))
-    }
-
-    @Test
-    fun `a ring with a budget takes its glyph and colour from the pace, whatever the period's status`() {
-        for (status in listOf("neutral", "green", "something_new")) {
-            assertEquals("green", ringStatus(PeriodScore(status = status, rhythm = onTrack)))
+        for (word in listOf("rythme", "dépassé", "restant", "reste")) {
+            assertTrue(description, !description.contains(word))
         }
-        assertEquals("orange", ringStatus(PeriodScore(status = "neutral", rhythm = onTrack.copy(status = "above"))))
-        assertEquals(ScoreMark.CHECK, scoreMark(ringStatus(PeriodScore(status = "neutral", rhythm = onTrack))))
-        assertEquals(
-            ScoreMark.WARNING,
-            scoreMark(ringStatus(PeriodScore(status = "neutral", rhythm = onTrack.copy(status = "above")))),
-        )
-    }
-
-    @Test
-    fun `a ring without a budget keeps the status of its period`() {
-        assertEquals("neutral", ringStatus(PeriodScore(status = "neutral")))
-        assertEquals("red", ringStatus(PeriodScore(status = "red")))
-    }
-
-    @Test
-    fun `the pace word falls back when the API sent no label`() {
-        assertEquals("Dans le rythme", rhythmWord(onTrack))
-        assertEquals("Au-dessus du rythme", rhythmWord(onTrack.copy(status = "above")))
-    }
-
-    @Test
-    fun `an overspent ring says by how much`() {
-        val score = PeriodScore(status = "red", label = "Dépassement", rhythm = onTrack.copy(remainingCents = -9134))
-
-        assertTrue(ringDescription("Mois", score).contains("dépassé de ${formatCents(9134)}"))
-    }
-
-    @Test
-    fun `a ring without envelope says so`() {
-        val score = PeriodScore(status = "neutral", label = "Dans les clous")
-
-        assertEquals("Semaine : Dans les clous. Aucune enveloppe.", ringDescription("Semaine", score))
     }
 
     // The curve
@@ -164,18 +105,14 @@ class ScoreRingsTest {
     @Test
     fun `the ceiling holds the tallest value and is never zero`() {
         assertEquals(93000, curveCeiling(Rhythm(curve = curve)))
-        assertEquals(150000, curveCeiling(Rhythm(budgetCents = 150000, curve = curve)))
-        assertEquals(1, curveCeiling(Rhythm()))
+                assertEquals(1, curveCeiling(Rhythm()))
     }
 
     @Test
-    fun `the curve says where the spending stands and which debits it carries`() {
-        val description = curveDescription("Mois", Rhythm(curve = curve, debits = listOf(rent)))
-
+    fun `the curve says the two figures it carries, never a verdict`() {
         assertEquals(
-            "Courbe du rythme, Mois : dépensé ${formatCents(92000)} au 6 mars, " +
-                "attendu ${formatCents(91000)}, prélèvements : Loyer le 5 mars",
-            description,
+            "Dépensé cumulé : ${formatCents(92000)} pour ${formatCents(91000)} attendus",
+            curveDescription(Rhythm(curve = curve, debits = listOf(rent))),
         )
     }
 
@@ -190,18 +127,11 @@ class ScoreRingsTest {
     }
 
     @Test
-    fun `while debits are unclassified the pace is called incomplete and carries no verdict colour`() {
-        val incomplete = onTrack.copy(status = "incomplete", unclassifiedCount = 3, unclassifiedCents = 200000)
-
-        assertEquals("Rythme incomplet", rhythmWord(incomplete))
-        assertEquals("neutral", rhythmMarkStatus(incomplete))
-        assertEquals("orange", rhythmMarkStatus(onTrack.copy(status = "above")))
-        assertEquals("green", rhythmMarkStatus(onTrack))
-    }
-
-    @Test
     fun `the unclassified line carries the amount, and only when a debit is left unclassified`() {
-        assertEquals("${ringAmount(200000)} non classés", unclassifiedLine(onTrack.copy(unclassifiedCount = 3, unclassifiedCents = 200000)))
-        assertNull(unclassifiedLine(onTrack))
+        assertEquals(
+            "${formatCents(200000)} non classés",
+            unclassifiedLine(rhythm.copy(unclassifiedCount = 3, unclassifiedCents = 200000)),
+        )
+        assertNull(unclassifiedLine(rhythm))
     }
 }

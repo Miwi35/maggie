@@ -13,7 +13,7 @@ import { formatCents } from './accountTypes'
 import { purchaseLabel } from './nextProject'
 import { reviewLink } from './reviewFilter'
 import { useFinanceCardState } from './useFinanceCardState'
-import { remainingShare, RHYTHM_META, rhythmStatusColour } from './useFinanceScores'
+import { ringShares } from './useFinanceScores'
 import type { FinanceHomeState, HomeNextProject, HomeRing } from './financeCardState'
 
 const SIZE = 96
@@ -23,7 +23,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 /**
  * The Finance tile of the Accueil (MAG-565): the week and the month as two rings
- * with their rhythm status, the lines still to qualify, and the next project.
+ * with what was spent, the lines still to qualify, and the next project.
  * Read from the Finance dashboard resource (MAG-592), so the same figures as the
  * Finance Dashboard; it does not follow « Demain ». Drawn as soon as there is an
  * account or an envelope, not before (MAG-594).
@@ -79,20 +79,20 @@ const Body = ({ state }: { state: FinanceHomeState }) => (
 
 const Ring = ({ period, title, ring }: { period: 'week' | 'month'; title: string; ring: HomeRing }) => {
   const theme = useTheme()
-  const meta = RHYTHM_META[ring.status]
-  const colour = rhythmStatusColour(ring.status, theme)
-  const hasBudget = ring.budgetCents > 0
-  const share = remainingShare(ring.remainingCents, ring.budgetCents)
-  const word = ring.label || meta.word
+  const colour = theme.palette.primary.main
+  const shares = ringShares(ring)
+  const hasPlan = ring.plannedCents > 0
   const centre = SIZE / 2
+  const angle = -Math.PI / 2 + (shares.expected ?? 0) * 2 * Math.PI
+  const inner = RADIUS - STROKE / 2 - 2
+  const outer = RADIUS + STROKE / 2 + 2
 
   return (
     <Box
       data-testid="home-finance-ring"
       data-period={period}
-      data-status={ring.status}
       role="group"
-      aria-label={`${title} : ${word}, ${hasBudget ? `${formatCents(ring.remainingCents)} restants` : 'aucune enveloppe'}`}
+      aria-label={`${title} : ${formatCents(ring.spentCents)} dépensés${hasPlan ? `, ${formatCents(ring.expectedSpentCents)} attendus` : ''}`}
       sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', minWidth: 0 }}
     >
       <Typography variant="caption" sx={{ fontWeight: 600 }}>
@@ -101,7 +101,7 @@ const Ring = ({ period, title, ring }: { period: 'week' | 'month'; title: string
       <Box sx={{ position: 'relative', width: SIZE, height: SIZE }}>
         <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true">
           <circle cx={centre} cy={centre} r={RADIUS} fill="none" stroke={theme.palette.action.disabledBackground} strokeWidth={STROKE} />
-          {share > 0 && (
+          {shares.spent > 0 && (
             <circle
               cx={centre}
               cy={centre}
@@ -110,47 +110,36 @@ const Ring = ({ period, title, ring }: { period: 'week' | 'month'; title: string
               stroke={colour}
               strokeWidth={STROKE}
               strokeLinecap="round"
-              strokeDasharray={`${share * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+              strokeDasharray={`${shares.spent * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
               transform={`rotate(-90 ${centre} ${centre})`}
+            />
+          )}
+          {shares.expected !== null && (
+            <line
+              data-testid="home-finance-tick"
+              x1={centre + inner * Math.cos(angle)}
+              y1={centre + inner * Math.sin(angle)}
+              x2={centre + outer * Math.cos(angle)}
+              y2={centre + outer * Math.sin(angle)}
+              stroke={theme.palette.text.primary}
+              strokeWidth={2.5}
+              strokeLinecap="round"
             />
           )}
         </svg>
         <Stack alignItems="center" justifyContent="center" sx={{ position: 'absolute', inset: 0 }}>
-          {hasBudget ? (
-            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.1 }} data-testid="home-finance-remaining">
-              {formatCents(ring.remainingCents)}
-            </Typography>
-          ) : (
-            <Typography variant="caption" color="text.secondary" align="center">
-              Aucune enveloppe
-            </Typography>
-          )}
-        </Stack>
-      </Box>
-      {hasBudget && (
-        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: colour }} data-testid="home-finance-status">
-          <Box
-            component="span"
-            aria-hidden="true"
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 16,
-              height: 16,
-              borderRadius: '50%',
-              fontSize: 10,
-              fontWeight: 700,
-              bgcolor: colour,
-              color: theme.palette.background.default,
-            }}
-          >
-            {meta.glyph}
-          </Box>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: 'inherit' }}>
-            {word}
+          <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.1 }} data-testid="home-finance-spent">
+            {formatCents(ring.spentCents)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            dépensés
           </Typography>
         </Stack>
+      </Box>
+      {hasPlan && (
+        <Typography variant="caption" color="text.secondary" data-testid="home-finance-expected">
+          Attendu {formatCents(ring.expectedSpentCents)}
+        </Typography>
       )}
     </Box>
   )

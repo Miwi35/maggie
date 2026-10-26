@@ -1,6 +1,5 @@
 package com.maggie.app.ui.screens.home
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -13,9 +12,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -28,11 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -46,18 +38,15 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.FinanceHomeProject
 import com.maggie.app.data.model.FinanceHomeRing
 import com.maggie.app.data.model.FinanceHomeState
-import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.progressLabel
-import com.maggie.app.data.model.rhythmStatus
 import com.maggie.app.data.model.toQualifyLabel
 import com.maggie.app.ui.UiTags
-import com.maggie.app.ui.components.NO_ENVELOPE_TEXT
-import com.maggie.app.ui.components.hasEnvelope
-import com.maggie.app.ui.components.rhythmMarkStatus
-import com.maggie.app.ui.components.rhythmWord
+import com.maggie.app.ui.components.SpentRingCanvas
+import com.maggie.app.ui.components.expectedLine
+import com.maggie.app.ui.components.ringDescription
 import com.maggie.app.ui.components.ringFill
-import com.maggie.app.ui.components.statusColor
+import com.maggie.app.ui.components.ringTick
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.screens.finance.ganttMonthLabel
 import com.maggie.app.ui.theme.MaggieTokens
@@ -66,7 +55,7 @@ import org.koin.androidx.compose.koinViewModel
 
 /**
  * The Finance card of the Accueil (MAG-565), as `accueil/Accueil-Tel` draws it: one compact row with the
- * week and the month as two small rings, one rhythm pill and the orange « n à qualifier » pill, then the
+ * week and the month as two small rings of what was spent (no verdict) and the orange « n à qualifier » pill, then the
  * next project under a rule. A tap anywhere opens Finance › Dashboard.
  * The card does not follow « Demain »: the figures are the same whatever the day.
  * It is drawn as soon as there is an account or an envelope, not before (MAG-594).
@@ -116,15 +105,6 @@ private fun FinanceHomeBody(state: FinanceHomeState, onOpen: () -> Unit) {
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            state.rhythmStatus()?.let { status ->
-                val color = financeRhythmColor(status, isDark())
-                FinanceHomePill(
-                    text = if (status == "above") "Au-dessus du rythme" else "Dans le rythme",
-                    color = color,
-                    tag = UiTags.HOME_FINANCE_RHYTHM,
-                    icon = if (status == "above") Icons.Filled.Warning else Icons.Filled.Check,
-                )
-            }
             if (state.toQualifyCount > 0) {
                 FinanceHomePill(
                     text = state.toQualifyLabel(),
@@ -141,7 +121,7 @@ private fun FinanceHomeBody(state: FinanceHomeState, onOpen: () -> Unit) {
 @Composable
 private fun isDark(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
-/** The charter's rhythm colours: mint in the rhythm, orange above it — never the accent violet. */
+/** The charter's orange, the one the « n à qualifier » pill wears — never the accent violet. */
 internal fun financeRhythmColor(status: String, dark: Boolean): Color {
     val pair = if (status == "above") MaggieTokens.Rhythm.above else MaggieTokens.Rhythm.onTrack
     return if (dark) pair.second else pair.first
@@ -171,17 +151,9 @@ private fun FinanceHomePill(text: String, color: Color, tag: String, icon: Image
 
 @Composable
 private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHomeRing) {
-    val rhythm = ring.toRhythm()
-    val status = rhythmMarkStatus(rhythm)
-    val color = if (status == "neutral") statusColor(status) else financeRhythmColor(ring.status, isDark())
-    // The charter's track the arc runs on: what is left of the budget is drawn, what is spent is the track.
-    val track = maggieSurface().track
-    val fill = ringFill(rhythm)
-    val description = if (hasEnvelope(rhythm)) {
-        "$title : ${rhythmWord(rhythm)}, ${formatCents(ring.remainingCents)} restants sur ${formatCents(ring.budgetCents)}"
-    } else {
-        "$title : $NO_ENVELOPE_TEXT"
-    }
+    val fill = ringFill(ring.spentCents, ring.plannedCents)
+    val tick = ringTick(ring.spentCents, ring.expectedSpentCents, ring.plannedCents)
+    val description = ringDescription(title, ring.spentCents, ring.expectedSpentCents, ring.plannedCents)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -190,19 +162,11 @@ private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHome
             .semantics(mergeDescendants = true) { contentDescription = description },
     ) {
         Box(modifier = Modifier.size(RING_SIZE), contentAlignment = Alignment.Center) {
-            Canvas(modifier = Modifier.size(RING_SIZE)) {
-                val stroke = RING_STROKE.toPx()
-                val topLeft = Offset(stroke / 2, stroke / 2)
-                val arc = Size(size.width - stroke, size.height - stroke)
-                drawArc(track, -90f, 360f, false, topLeft, arc, style = Stroke(stroke))
-                if (fill > 0f) {
-                    drawArc(color, -90f, 360f * fill, false, topLeft, arc, style = Stroke(stroke, cap = StrokeCap.Round))
-                }
-            }
+            SpentRingCanvas(fill, tick, RING_SIZE, RING_STROKE)
             Text(
-                text = if (hasEnvelope(rhythm)) formatCentsRounded(ring.remainingCents) else "—",
+                text = formatCentsRounded(ring.spentCents),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (ring.remainingCents < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
@@ -215,6 +179,9 @@ private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHome
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),
         )
+        expectedLine(ring.expectedSpentCents, ring.plannedCents)?.let {
+            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
