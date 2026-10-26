@@ -892,6 +892,18 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `once the request is on screen the screen is not asked again, whatever the rotation`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onDepartureSwitch(true)
+        viewModel.onDeparturePermissionsAsked()
+
+        assertEquals(DepartureUiState(enabled = false, askingPermissions = false), viewModel.uiState.value.departure)
+        coVerify(exactly = 0) { departureTracking.enable() }
+    }
+
+    @Test
     fun `refusing a permission leaves Partir à l'heure off and schedules nothing`() = runTest {
         val viewModel = viewModel()
         advanceUntilIdle()

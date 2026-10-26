@@ -15,6 +15,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
@@ -65,16 +66,37 @@ class AndroidLocationSchedulerTest {
     }
 
     @Test
+    fun `a position request from the push is planned at once`() {
+        scheduler.requestPositionNow()
+
+        assertEquals(WorkInfo.State.ENQUEUED, infos(AndroidLocationScheduler.POSITION_NOW).single().state)
+    }
+
+    @Test
+    fun `the transitions of a delivery are handed to WorkManager, in order, none lost`() {
+        val first = TransitionEvent(Movement.IN_VEHICLE, entering = false, at = Instant.parse("2026-10-26T21:29:00Z"))
+        val second = TransitionEvent(Movement.ON_FOOT, entering = true, at = Instant.parse("2026-10-26T21:29:20Z"))
+
+        scheduler.handleTransitions(listOf(first))
+        scheduler.handleTransitions(listOf(second))
+
+        assertEquals(2, infos(AndroidLocationScheduler.TRANSITIONS).size)
+        assertEquals(listOf(first, second), TransitionEvent.fromData(TransitionEvent.toData(listOf(first, second))))
+    }
+
+    @Test
     fun `stopping cancels the plan, the retries and the listening`() {
         scheduler.startTracking()
-        scheduler.retryPositionLater()
+        scheduler.requestPositionNow()
+        scheduler.handleTransitions(listOf(TransitionEvent(Movement.IN_VEHICLE, entering = false, at = Instant.parse("2026-10-26T21:29:00Z"))))
         scheduler.retryCarLater()
 
         scheduler.stopTracking()
 
         listOf(
             AndroidLocationScheduler.PERIODIC_POSITION,
-            AndroidLocationScheduler.RETRY_POSITION,
+            AndroidLocationScheduler.POSITION_NOW,
+            AndroidLocationScheduler.TRANSITIONS,
             AndroidLocationScheduler.RETRY_CAR,
         ).forEach { name -> assertTrue(name, infos(name).all { it.state == WorkInfo.State.CANCELLED }) }
         assertEquals(false, transitions.registered)
@@ -89,6 +111,20 @@ class AndroidLocationSchedulerTest {
 
         tracking.disable()
         assertEquals(WorkInfo.State.CANCELLED, infos(AndroidLocationScheduler.PERIODIC_POSITION).single().state)
+    }
+
+    @Test
+    fun `signing out turns the switch off and stops everything, signing in again resumes only a switch left on`() = runBlocking {
+        val scheduler = FakeScheduler()
+        val preferences = preferencesIn(folder.root)
+        preferences.setEnabled(true)
+        val tracking = DepartureTracking(preferences, scheduler, permissions)
+
+        tracking.follow(kotlinx.coroutines.flow.flowOf(true, false, true))
+
+        assertEquals(false, preferences.isEnabled())
+        assertEquals(1, scheduler.started)
+        assertEquals(1, scheduler.stopped)
     }
 
     @Test

@@ -22,7 +22,6 @@ class LocationReporterTest {
     private val api = RecordingApi()
     private val permissions = FakePermissions()
     private val source = FakePositionSource()
-    private val scheduler = FakeScheduler()
     private lateinit var preferences: LocationPreferences
     private lateinit var reporter: LocationReporter
 
@@ -38,7 +37,7 @@ class LocationReporterTest {
     fun `a position request with the switch on sends the fix, its precision and the instant it was taken`() = runTest {
         switchOn()
 
-        LocationRequestHandler(reporter, scheduler).handle()
+        assertEquals(ReportOutcome.SENT, reporter.reportPosition())
 
         assertEquals(1, api.calls.size)
         val call = api.calls.single()
@@ -48,16 +47,14 @@ class LocationReporterTest {
         assertEquals(2.3522, call.body.getValue("longitude").jsonPrimitive.double, 0.0)
         assertEquals(12.0, call.body.getValue("accuracy").jsonPrimitive.double, 0.0)
         assertEquals(JsonPrimitive("2026-10-26T21:30:00Z"), call.body.getValue("capturedAt"))
-        assertEquals(0, scheduler.positionRetries)
     }
 
     @Test
     fun `a position request with the switch off sends nothing and does not even look for a fix`() = runTest {
-        LocationRequestHandler(reporter, scheduler).handle()
+        reporter.reportPosition()
 
         assertTrue(api.calls.isEmpty())
         assertEquals(0, source.asked)
-        assertEquals(0, scheduler.positionRetries)
     }
 
     @Test
@@ -65,35 +62,33 @@ class LocationReporterTest {
         switchOn()
 
         permissions.fine = false
-        LocationRequestHandler(reporter, scheduler).handle()
+        reporter.reportPosition()
         permissions.fine = true
         permissions.background = false
-        LocationRequestHandler(reporter, scheduler).handle()
+        reporter.reportPosition()
 
         assertTrue(api.calls.isEmpty())
         assertEquals(0, source.asked)
     }
 
     @Test
-    fun `a network failure is retried later, never thrown`() = runTest {
+    fun `a network failure is not thrown, the work is told to try again`() = runTest {
         switchOn()
         api.status = HttpStatusCode.ServiceUnavailable
 
-        LocationRequestHandler(reporter, scheduler).handle()
+        assertEquals(ReportOutcome.RETRY, reporter.reportPosition())
 
         assertEquals(1, api.calls.size)
-        assertEquals(1, scheduler.positionRetries)
     }
 
     @Test
-    fun `no fix in time is retried later, nothing is sent`() = runTest {
+    fun `no fix in time sends nothing and the work is told to try again`() = runTest {
         switchOn()
         source.position = null
 
-        LocationRequestHandler(reporter, scheduler).handle()
+        assertEquals(ReportOutcome.RETRY, reporter.reportPosition())
 
         assertTrue(api.calls.isEmpty())
-        assertEquals(1, scheduler.positionRetries)
     }
 
     @Test

@@ -238,6 +238,7 @@ private fun SettingsList(
                 state = uiState.departure,
                 onSwitch = viewModel::onDepartureSwitch,
                 onPermissionsResult = viewModel::onDeparturePermissionsResult,
+                onAsked = viewModel::onDeparturePermissionsAsked,
             )
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
@@ -366,6 +367,7 @@ private fun DepartureSwitchRow(
     state: DepartureUiState,
     onSwitch: (Boolean) -> Unit,
     onPermissionsResult: (Boolean) -> Unit,
+    onAsked: () -> Unit,
 ) {
     val context = LocalContext.current
     val permissions = remember(context) { AndroidLocationPermissions(context.applicationContext) }
@@ -381,6 +383,7 @@ private fun DepartureSwitchRow(
     }
     LaunchedEffect(state.askingPermissions) {
         if (!state.askingPermissions) return@LaunchedEffect
+        onAsked()
         when {
             permissions.canTrack() -> onPermissionsResult(true)
             !permissions.hasFineLocation() || !permissions.hasActivityRecognition() ->

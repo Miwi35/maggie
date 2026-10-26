@@ -20,10 +20,6 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.GlobalContext
@@ -126,7 +122,7 @@ class ActivityTransitionRegistrar(private val context: Context) : TransitionRegi
     }
 }
 
-/** The system delivers the transitions here, even with the app closed. */
+/** The system delivers the transitions here, even with the app closed; the work is handed to WorkManager. */
 class ActivityTransitionReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -134,17 +130,10 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
         val result = ActivityTransitionResult.extractResult(intent) ?: return
         val koin = GlobalContext.getOrNull() ?: return
         val events = TransitionEvent.from(result, SystemClock.elapsedRealtimeNanos(), Instant.now())
-        val pending = goAsync()
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            try {
-                koin.get<ActivityTransitionHandler>().handle(events)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w(TAG, "Transition not handled: ${e.message}")
-            } finally {
-                pending.finish()
-            }
+        try {
+            koin.get<LocationScheduler>().handleTransitions(events)
+        } catch (e: Exception) {
+            Log.w(TAG, "Transition not handled: ${e.message}")
         }
     }
 }

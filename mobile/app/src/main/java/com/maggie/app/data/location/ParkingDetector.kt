@@ -3,8 +3,12 @@ package com.maggie.app.data.location
 import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.ActivityTransitionResult
 import com.google.android.gms.location.DetectedActivity
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import androidx.work.Data
 import java.time.Duration
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 /** The three movements the app listens for; any other is ignored. */
 enum class Movement {
@@ -37,9 +41,29 @@ data class TransitionEvent(val movement: Movement, val entering: Boolean, val at
                     TransitionEvent(
                         movement = Movement.of(it.activityType),
                         entering = it.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER,
-                        at = now.minusNanos(elapsedNowNanos - it.elapsedRealTimeNanos),
+                        at = now.minusNanos(elapsedNowNanos - it.elapsedRealTimeNanos).truncatedTo(ChronoUnit.MILLIS),
                     )
                 }
+
+        private const val MOVEMENTS = "movements"
+        private const val ENTERING = "entering"
+        private const val AT = "at"
+
+        /** WorkManager input: three parallel arrays, the instants in epoch milliseconds (what the API gets). */
+        fun toData(events: List<TransitionEvent>): Data = Data.Builder()
+            .putIntArray(MOVEMENTS, events.map { it.movement.ordinal }.toIntArray())
+            .putBooleanArray(ENTERING, events.map { it.entering }.toBooleanArray())
+            .putLongArray(AT, events.map { it.at.toEpochMilli() }.toLongArray())
+            .build()
+
+        fun fromData(data: Data): List<TransitionEvent> {
+            val movements = data.getIntArray(MOVEMENTS) ?: return emptyList()
+            val entering = data.getBooleanArray(ENTERING) ?: return emptyList()
+            val at = data.getLongArray(AT) ?: return emptyList()
+            return movements.indices.map {
+                TransitionEvent(Movement.entries[movements[it]], entering[it], Instant.ofEpochMilli(at[it]))
+            }
+        }
     }
 }
 
@@ -50,8 +74,10 @@ data class TransitionEvent(val movement: Movement, val entering: Boolean, val at
  */
 class ParkingDetector(private val preferences: LocationPreferences) {
 
+    private val lock = Mutex()
+
     /** When the car was left, if [events] complete a parking; null otherwise. */
-    suspend fun onTransitions(events: List<TransitionEvent>): Instant? {
+    suspend fun onTransitions(events: List<TransitionEvent>): Instant? = lock.withLock {
         var left = preferences.vehicleExit()
         var parkedAt: Instant? = null
         for (event in events) {
@@ -66,7 +92,7 @@ class ParkingDetector(private val preferences: LocationPreferences) {
             }
         }
         preferences.setVehicleExit(left)
-        return parkedAt
+        parkedAt
     }
 
     companion object {
@@ -84,15 +110,5 @@ class ActivityTransitionHandler(
     suspend fun handle(events: List<TransitionEvent>) {
         val parkedAt = detector.onTransitions(events) ?: return
         if (reporter.reportCar(parkedAt) == ReportOutcome.RETRY) scheduler.retryCarLater()
-    }
-}
-
-/** What the push `location_request` does: a fresh position, retried later when it could not be sent. */
-class LocationRequestHandler(
-    private val reporter: LocationReporter,
-    private val scheduler: LocationScheduler,
-) {
-    suspend fun handle() {
-        if (reporter.reportPosition() == ReportOutcome.RETRY) scheduler.retryPositionLater()
     }
 }

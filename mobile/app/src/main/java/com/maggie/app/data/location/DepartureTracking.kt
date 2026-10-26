@@ -1,6 +1,9 @@
 package com.maggie.app.data.location
 
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.withContext
 
 /** The « Partir à l'heure » switch of this phone and what it starts or stops (MAG-651). */
 class DepartureTracking(
@@ -15,7 +18,8 @@ class DepartureTracking(
         scheduler.startTracking()
     }
 
-    suspend fun disable() {
+    // NonCancellable: leaving the screen mid-call must not leave the flag off with the work still planned.
+    suspend fun disable() = withContext(NonCancellable) {
         preferences.setEnabled(false)
         preferences.setPendingCar(null)
         preferences.setVehicleExit(null)
@@ -29,5 +33,13 @@ class DepartureTracking(
     suspend fun resume() {
         if (!preferences.isEnabled()) return
         if (permissions.canTrack()) scheduler.startTracking() else disable()
+    }
+
+    /**
+     * Signed out, by the button or by a refused refresh token: the position is no one's any more, so the
+     * switch goes off and the next account starts from off. Signed in: back to [resume].
+     */
+    suspend fun follow(signedIn: Flow<Boolean>) {
+        signedIn.distinctUntilChanged().collect { if (it) resume() else disable() }
     }
 }

@@ -31,7 +31,6 @@ import com.maggie.app.data.location.FusedPositionSource
 import com.maggie.app.data.location.LocationPermissions
 import com.maggie.app.data.location.LocationPreferences
 import com.maggie.app.data.location.LocationReporter
-import com.maggie.app.data.location.LocationRequestHandler
 import com.maggie.app.data.location.LocationScheduler
 import com.maggie.app.data.location.ParkingDetector
 import com.maggie.app.data.location.PositionSource
@@ -313,7 +312,6 @@ class MaggieApp : Application() {
             single<TransitionRegistrar> { ActivityTransitionRegistrar(androidContext()) }
             single<LocationScheduler> { AndroidLocationScheduler(WorkManager.getInstance(androidContext()), get()) }
             single { LocationReporter(get(), get(), get(), get()) }
-            single { LocationRequestHandler(get(), get()) }
             single { ParkingDetector(get()) }
             single { ActivityTransitionHandler(get(), get(), get()) }
             single { DepartureTracking(get(), get(), get()) }
@@ -480,8 +478,9 @@ class MaggieApp : Application() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             registrar.keepRegistered(authRepository.isAuthenticated)
         }
-        // The transitions do not survive a reboot: registered again at every start while the switch is on.
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { get<DepartureTracking>().resume() }
+        // The transitions do not survive a reboot: registered again at every start while the switch is on;
+        // signed out, everything stops.
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { get<DepartureTracking>().follow(authRepository.isAuthenticated) }
         keepInterruptionsFed(get<InterruptionFeed>(), get<InterruptionCenter>(), authRepository)
         keepCalendarCacheFed(get<CalendarCacheFeed>(), authRepository)
         removeListeningLeftovers()

@@ -118,6 +118,11 @@ class SettingsViewModel(
         }
     }
 
+    /** The request is on screen: the flag is spent, so a rotation does not ask a second time. */
+    fun onDeparturePermissionsAsked() {
+        _uiState.update { it.copy(departure = it.departure.copy(askingPermissions = false)) }
+    }
+
     /** Granted: the switch is on and the work scheduled. Refused: it stays off, nothing is scheduled. */
     fun onDeparturePermissionsResult(granted: Boolean) {
         _uiState.update { it.copy(departure = it.departure.copy(askingPermissions = false)) }

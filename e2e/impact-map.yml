@@ -774,6 +774,8 @@ mobile:
     areas: [settings, calendar]
     paths:
       - mobile/app/src/main/java/com/maggie/app/data/location/**
+      - mobile/app/src/main/java/com/maggie/app/ui/screens/settings/**
+      - mobile/app/src/main/AndroidManifest.xml
   e2e/mobile/flows/15-mind-tab.yaml:
     areas: [chat, calendar, realtime]
     paths:

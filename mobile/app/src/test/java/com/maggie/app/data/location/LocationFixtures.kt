@@ -68,11 +68,13 @@ class FakePositionSource(var position: Position? = PARIS) : PositionSource {
 class FakeScheduler : LocationScheduler {
     var started = 0
     var stopped = 0
-    var positionRetries = 0
+    var positionRequests = 0
+    val handedTransitions = mutableListOf<List<TransitionEvent>>()
     var carRetries = 0
     override fun startTracking() { started++ }
     override fun stopTracking() { stopped++ }
-    override fun retryPositionLater() { positionRetries++ }
+    override fun requestPositionNow() { positionRequests++ }
+    override fun handleTransitions(events: List<TransitionEvent>) { handedTransitions.add(events) }
     override fun retryCarLater() { carRetries++ }
 }
 

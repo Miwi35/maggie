@@ -23,7 +23,11 @@ interface LocationScheduler {
     /** Everything above, and any retry still waiting. */
     fun stopTracking()
 
-    fun retryPositionLater()
+    /** A fresh position now (the push `location_request`): WorkManager runs it at once and tries again on failure. */
+    fun requestPositionNow()
+
+    /** The transitions of a delivery, handled off the receiver so the broadcast is released at once. */
+    fun handleTransitions(events: List<TransitionEvent>)
 
     fun retryCarLater()
 }
@@ -52,16 +56,25 @@ class AndroidLocationScheduler(
     }
 
     override fun stopTracking() {
-        listOf(PERIODIC_POSITION, RETRY_POSITION, RETRY_CAR).forEach(work::cancelUniqueWork)
+        listOf(PERIODIC_POSITION, POSITION_NOW, TRANSITIONS, RETRY_CAR).forEach(work::cancelUniqueWork)
         transitions.unregister()
     }
 
-    override fun retryPositionLater() {
+    // Not expedited: before Android 12 that needs a foreground notification, and nothing here may show one.
+    override fun requestPositionNow() {
         val request = OneTimeWorkRequestBuilder<PositionWorker>()
             .setConstraints(network)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_MINUTES, TimeUnit.MINUTES)
             .build()
-        work.enqueueUniqueWork(RETRY_POSITION, ExistingWorkPolicy.REPLACE, request)
+        work.enqueueUniqueWork(POSITION_NOW, ExistingWorkPolicy.REPLACE, request)
+    }
+
+    // APPEND: two deliveries close together are both handled, in order; the exit one leaves is read by the next.
+    override fun handleTransitions(events: List<TransitionEvent>) {
+        val request = OneTimeWorkRequestBuilder<TransitionsWorker>()
+            .setInputData(TransitionEvent.toData(events))
+            .build()
+        work.enqueueUniqueWork(TRANSITIONS, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 
     override fun retryCarLater() {
@@ -74,18 +87,28 @@ class AndroidLocationScheduler(
 
     companion object {
         const val PERIODIC_POSITION = "departure-position"
-        const val RETRY_POSITION = "departure-position-retry"
+        const val POSITION_NOW = "departure-position-now"
+        const val TRANSITIONS = "departure-transitions"
         const val RETRY_CAR = "departure-car-retry"
         const val PERIOD_MINUTES = 30L
         private const val BACKOFF_MINUTES = 1L
     }
 }
 
-/** The position every 30 minutes; a failed send is tried again by WorkManager with its backoff, never a crash. */
+/** The position every 30 minutes, and on the push `location_request`; a failed send is tried again by WorkManager with its backoff, never a crash. */
 class PositionWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val koin = GlobalContext.getOrNull() ?: return Result.retry()
         return koin.get<LocationReporter>().reportPosition().toWorkResult()
+    }
+}
+
+/** The transitions the receiver was handed: the parking they complete is sent, or kept for [CarPlaceWorker]. */
+class TransitionsWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val koin = GlobalContext.getOrNull() ?: return Result.retry()
+        koin.get<ActivityTransitionHandler>().handle(TransitionEvent.fromData(inputData))
+        return Result.success()
     }
 }
 
