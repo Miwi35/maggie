@@ -36,7 +36,7 @@ class GetFinanceDashboard
      * every key added, removed or renamed — FinanceDashboardProjectionTest
      * fingerprints the recorded payload to remind it.
      */
-    public const PAYLOAD_SHAPE = 2;
+    public const PAYLOAD_SHAPE = 3;
 
     public function __construct(
         private readonly GetDailyScore $getDailyScore,

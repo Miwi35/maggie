@@ -277,7 +277,7 @@ class FinanceDashboardProjectionTest extends WebTestCase
         $keys = self::keyPaths(json_decode($recorded, true, 512, \JSON_THROW_ON_ERROR));
 
         self::assertSame(
-            [GetFinanceDashboard::PAYLOAD_SHAPE, '1698b0aad82764d9ad99d6aaa3a55c2843246864'],
+            [GetFinanceDashboard::PAYLOAD_SHAPE, '34556cfc189ac2fe8d0e6a04cbd8049a569fe83b'],
             [GetFinanceDashboard::PAYLOAD_SHAPE, sha1(implode("\n", $keys))],
             "The dashboard's keys changed: bump GetFinanceDashboard::PAYLOAD_SHAPE and record this fingerprint.\n".implode("\n", $keys),
         );
