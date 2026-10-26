@@ -13,7 +13,11 @@ vi.mock('react-admin', async (importOriginal) => ({
   Loading: () => <p>page loading</p>,
 }))
 vi.mock('../chat/ChatWidget', () => ({
-  ChatWidget: ({ open }: { open: boolean }) => <div data-testid="chat-panel" data-open={String(open)} />,
+  ChatWidget: ({ open, onClose }: { open: boolean; onClose: () => void }) => (
+    <div data-testid="chat-panel" data-open={String(open)}>
+      <button onClick={onClose}>Fermer la conversation</button>
+    </div>
+  ),
 }))
 vi.mock('../maggie/MaggieInterruptionHost', () => ({ MaggieInterruptionHost: () => null }))
 vi.mock('./AppBar', () => ({ CustomAppBar: () => null }))
@@ -40,7 +44,7 @@ describe('Layout', () => {
     expect(screen.getByTestId('chat-panel')).toHaveAttribute('data-open', 'false')
   })
 
-  it('opens with the portrait alone: a click opens the conversation, another folds it away', async () => {
+  it('opens with the portrait alone: it opens the conversation and goes away; closing the chat brings it back', async () => {
     const user = userEvent.setup()
     render(
       <ThemeProvider theme={veilleuseDarkTheme}>
@@ -50,15 +54,16 @@ describe('Layout', () => {
       </ThemeProvider>,
     )
 
-    const portrait = screen.getByTestId('maggie-portrait')
     expect(screen.getByTestId('chat-panel')).toHaveAttribute('data-open', 'false')
+    const portrait = screen.getByTestId('maggie-portrait')
     expect(portrait).toHaveAccessibleName('Ouvrir la conversation avec Maggie')
 
     await user.click(portrait)
     expect(screen.getByTestId('chat-panel')).toHaveAttribute('data-open', 'true')
-    expect(portrait).toHaveAccessibleName('Replier la conversation avec Maggie')
+    expect(screen.queryByTestId('maggie-portrait')).not.toBeInTheDocument()
 
-    await user.click(portrait)
+    await user.click(screen.getByRole('button', { name: 'Fermer la conversation' }))
     expect(screen.getByTestId('chat-panel')).toHaveAttribute('data-open', 'false')
+    expect(screen.getByTestId('maggie-portrait')).toBeInTheDocument()
   })
 })

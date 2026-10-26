@@ -2,9 +2,8 @@ import { Suspense, useState, useCallback, useRef, useMemo } from 'react'
 import { Layout as RALayout, Loading, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
-import { SIDEBAR_WIDTH } from '../chat/panelSize'
 import { MaggieInterruptionHost } from '../maggie/MaggieInterruptionHost'
-import { MaggiePortrait, PORTRAIT_MARGIN } from '../maggie/MaggiePortrait'
+import { MaggiePortrait } from '../maggie/MaggiePortrait'
 import { CustomAppBar } from './AppBar'
 import { Breadcrumbs, PageHeading } from './Breadcrumbs'
 import { ThemePreferenceSync } from './ThemePreferenceSync'
@@ -66,14 +65,6 @@ export const Layout = (props: LayoutProps) => {
     setChatOpen(false)
     triggerResize()
   }, [triggerResize])
-
-  const handlePortraitClick = useCallback(() => {
-    if (chatOpen) {
-      handleChatClose()
-    } else {
-      handleChatToggle()
-    }
-  }, [chatOpen, handleChatClose, handleChatToggle])
 
   const handleUnread = useCallback(() => {
     setUnreadChat(true)
@@ -168,12 +159,7 @@ export const Layout = (props: LayoutProps) => {
             toolCalls={toolCalls}
             onToolCallsChange={setToolCalls}
           />
-          <MaggiePortrait
-            chatOpen={chatOpen}
-            unread={unreadChat}
-            right={chatOpen && !isNarrow ? SIDEBAR_WIDTH + PORTRAIT_MARGIN : PORTRAIT_MARGIN}
-            onClick={handlePortraitClick}
-          />
+          {!chatOpen && <MaggiePortrait unread={unreadChat} onClick={handleChatToggle} />}
           <MaggieInterruptionHost chatOpen={chatOpen} onOpenChat={handleOpenChatFromInterruption} />
         </Box>
       </RALayout>
