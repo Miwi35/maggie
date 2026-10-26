@@ -282,6 +282,7 @@ class FinanceSummaryViewModelTest {
         val alert = viewModel.blocks.value[SummaryBlock.OUTLOOK] as BlockState.Ready
         assertTrue(alert.needsAttention)
         assertEquals("Découvert prévu le 25 octobre", alert.lines.first())
+        assertEquals("−50\u00A0€ avant le salaire", alert.lines[1])
     }
 
     @Test
@@ -314,6 +315,13 @@ class FinanceSummaryViewModelTest {
     @Test
     fun `an unconfigured cushion says so instead of showing zeros`() {
         assertEquals(listOf("Pas encore réglé"), (cushionBlock(CushionStatus()) as BlockState.Ready).lines)
+    }
+
+    @Test
+    fun `a configured cushion is told in whole units, as the mock-ups write it`() {
+        val block = cushionBlock(CushionStatus(isConfigured = true, currentCents = 466_500, targetCents = 720_000)) as BlockState.Ready
+
+        assertEquals("4\u202F665\u00A0€ / 7\u202F200\u00A0€", block.lines.first())
     }
 
     @Test

@@ -157,7 +157,7 @@ internal fun cushionBlock(status: CushionStatus): BlockState {
 
     return BlockState.Ready(
         listOf(
-            "${formatCents(status.currentCents)} / ${formatCents(status.targetCents)}",
+            "${formatCentsRounded(status.currentCents)} / ${formatCentsRounded(status.targetCents)}",
             cushionStateLabel(status.state),
         ),
     )
@@ -183,7 +183,7 @@ internal fun outlookBlock(outlook: TreasuryOutlook): BlockState {
     return BlockState.Ready(
         listOf(
             "Découvert prévu le ${treasuryDate(banner.overdraftOn)}",
-            "${formatCents(banner.balanceBeforeSalaryCents)} avant le salaire",
+            "${formatCentsRounded(banner.balanceBeforeSalaryCents)} avant le salaire",
         ),
         needsAttention = true,
     )
