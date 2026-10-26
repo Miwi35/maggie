@@ -61,12 +61,6 @@ internal fun RecipeMethod(recipe: Recipe) {
                             modifier = Modifier.testTag(UiTags.RECIPE_STEP_WAITS),
                         )
                     }
-                    if (step.ingredients.isNotEmpty() || step.utensils.isNotEmpty()) {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            step.ingredients.forEach { AssistChip(onClick = {}, label = { Text(it.name) }) }
-                            step.utensils.forEach { AssistChip(onClick = {}, label = { Text(it.name) }) }
-                        }
-                    }
                 }
             }
         }

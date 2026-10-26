@@ -82,10 +82,19 @@ tags:
     element:
       id: "recipe_utensil"
     direction: UP
-- scrollUntilVisible:
-    element: "Modifier"
-    direction: UP
-- tapOn: "Modifier"
+# MAG-630: editing is in the ⋮ menu of the sheet's top bar, not a button in its body.
+- extendedWaitUntil:
+    visible:
+      id: "recipe_menu"
+    timeout: 10000
+- tapOn:
+    id: "recipe_menu"
+- extendedWaitUntil:
+    visible:
+      id: "recipe_edit"
+    timeout: 10000
+- tapOn:
+    id: "recipe_edit"
 # The edit form is its own screen: scrolling while the sheet is still leaving can land the swipe on an
 # ingredient field and open its search dialog (red then flaky on the 24 and 25 Oct. nights).
 - extendedWaitUntil:
