@@ -1,0 +1,42 @@
+# The places the matcher chooses from (MAG-652). The point the tests look from is
+# 48.1100, -1.6800; one degree of latitude is about 111.2 km, so 0.0009° ≈ 100 m.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Calendar\Entity\Place:
+  # Listed first, so the nearest wins on distance and not on order.
+  at_120m:
+    user: '@test_user'
+    name: À 120 m
+    address: '0 rue Fictive'
+    __calls:
+      - setCoordinates: [48.11108, -1.6800]
+  at_100m:
+    user: '@test_user'
+    name: À 100 m
+    address: '1 rue Fictive'
+    __calls:
+      - setCoordinates: [48.1109, -1.6800]
+  at_200m:
+    user: '@test_user'
+    name: À 200 m
+    address: '2 rue Fictive'
+    __calls:
+      - setCoordinates: [48.1082, -1.6800]
+  unlocated:
+    user: '@test_user'
+    name: Sans coordonnées
+    address: '3 rue Fictive'
+  others_at_10m:
+    user: '@other_user'
+    name: Chez le voisin
+    address: '4 rue Fictive'
+    __calls:
+      - setCoordinates: [48.11009, -1.6800]

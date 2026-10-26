@@ -40,6 +40,7 @@ framework:
             'Maggie\Calendar\Message\UpdateRoutineCommand': sync
             'Maggie\Calendar\Message\DeleteRoutineCommand': sync
             'Maggie\Calendar\Message\CheckRoutineCommand': sync
+            'Maggie\Calendar\Message\SavePlaceCommand': sync
             'Maggie\Calendar\Event\TaskCompleted': sync
             'Maggie\Calendar\Event\TaskReopened': sync
             'Maggie\Calendar\Message\GrantTaskRewardCommand': sync
