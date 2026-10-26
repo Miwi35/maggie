@@ -37,6 +37,7 @@ MAX_CLAIM = 600
 MAX_TITLE = 160
 
 _STAMP = re.compile(r"^\d{4}-\d{2}-\d{2} \d{1,2}h\d{2}$")
+_PERIOD = re.compile(r"sur la période du \d{4}-\d{2}-\d{2} au \d{4}-\d{2}-\d{2}$")
 _LINE = re.compile(
     r"^- (?:~~(?P<old>.+?)~~|(?P<now>.+?)) — (?P<prov>dit|observé|déduit) · (?P<source>.+?)"
     r"(?: · (?P<heure>\d{4}-\d{2}-\d{2} \d{1,2}h\d{2}))?"
@@ -126,9 +127,24 @@ def parse_body(text: str) -> Body:
     return body
 
 
+def period_source(where: str, start: date, end: date) -> str:
+    """The source of a regularity read in the app's data (MAG-18): which data, over which period."""
+    return f"{APP_SOURCE} {where}, sur la période du {start.isoformat()} au {end.isoformat()}"
+
+
+def is_observed_regularity(claim: Claim) -> bool:
+    """A claim drawn from the app's data over a period: seen in the data, but concluded by Maggie."""
+    return claim.provenance == "observé" and claim.source.startswith(APP_SOURCE) and bool(_PERIOD.search(claim.source))
+
+
+def announced(claim: Claim) -> bool:
+    """Said as deduced whenever Maggie uses it: her own deduction, or a regularity she read in the data."""
+    return claim.provenance == "déduit" or is_observed_regularity(claim)
+
+
 def to_announce(text: str) -> list[str]:
     """The claims of a fiche that Maggie deduced herself: said as such whenever she uses them."""
-    return [c.texte for c in parse_body(carte_mod.parse(text).body).known if c.provenance == "déduit"]
+    return [c.texte for c in parse_body(carte_mod.parse(text).body).known if announced(c)]
 
 
 def _clean_source(source: str) -> str:
@@ -359,5 +375,5 @@ async def write_fiche(
         "cree": not exists,
         "affirmations": len(known),
         "remplacees": len(moved),
-        "a_annoncer": [c.texte for c in known if c.provenance == "déduit"],
+        "a_annoncer": [c.texte for c in known if announced(c)],
     }

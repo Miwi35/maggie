@@ -21,6 +21,7 @@ from app.memory import carte as carte_mod
 from app.memory.encoder import PassageEncoder
 from app.memory.night import NightKeeper, messages_of, summary_line
 from tests.memory.conftest import USER_A, USER_B
+from tests.memory.fake_mcp import FakeMcp
 
 PARIS = ZoneInfo("Europe/Paris")
 NOW = datetime(2026, 10, 14, 10, 30, tzinfo=UTC)
@@ -35,6 +36,7 @@ STEPS = {
     "aurait dû revenir à l'esprit": "miss",
     "relis UNE conversation": "consolidate",
     "RÉGULARITÉS": "regularities",
+    "DONNÉES de l'application": "habits",
     "ranges les fiches": "tidy",
     "n'a plus à être évoqué": "forget",
     "n'a pas de carte": "carte",
@@ -45,6 +47,7 @@ EMPTY = {
     "miss_fiche": {"fiches": []},
     "consolidate": {"fiches": []},
     "regularities": {"regularites": []},
+    "habits": {"habitudes": [], "cessees": []},
     "tidy": {"operations": []},
     "forget": {"decisions": []},
     "carte": {"resume": "Une conversation du jour.", "moments": [], "personnes": [], "evoque": []},
@@ -108,7 +111,7 @@ def wired(chat_db, env):
 def keeper(env, model: NightModel, encoder_model=None) -> NightKeeper:
     encoder = PassageEncoder(service=env.service)
     encoder.client = encoder_model or NightModel()
-    night = NightKeeper(service=env.service, encoder=encoder)
+    night = NightKeeper(service=env.service, encoder=encoder, mcp=FakeMcp())
     night.client = model
     return night
 

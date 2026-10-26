@@ -1,0 +1,10 @@
+# The weekly look at the app's data (MAG-18) for any account whose data holds no habit: nothing is proven, so
+# nothing is written. It is here so that the night of every other journey is never left without a scenario.
+name: memory-night-habits-nothing
+description: The night finds no habit in the data of the app.
+
+match:
+  system_contains: "DONNÉES de l'application"
+
+turns:
+  - text: '{"habitudes": [], "cessees": []}'
