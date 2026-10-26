@@ -419,6 +419,8 @@ web:
     areas: [calendar, search]
   e2e/web/tests/proactions-agenda.spec.ts:
     areas: [calendar, notification]
+  e2e/web/tests/agenda-places.spec.ts:
+    areas: [calendar]
   e2e/web/tests/agenda-events.spec.ts:
     areas: [calendar, realtime]
     quarantine:
