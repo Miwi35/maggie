@@ -11,6 +11,7 @@ use Maggie\Cookbook\Message\CreateIngredientCommand;
 use Maggie\Cookbook\Message\CreateRecipeCommand;
 use Maggie\Cookbook\Message\UpdateIngredientCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
@@ -151,5 +152,35 @@ class RecipeLineNutritionTest extends KernelTestCase
 
         self::assertNull($this->courgette()->getKcalPer100g());
         self::assertSame(1.2, $this->courgette()->getProteinPer100g());
+    }
+
+    public function testAMacroClearedEarlierStaysClearedThroughALaterUnrelatedUpdate(): void
+    {
+        $this->bus()->dispatch(new CreateIngredientCommand(userId: $this->userId(), name: 'Courgette', category: 'produce', ciqualAlimCode: self::COURGETTE));
+        $id = (string) $this->courgette()->getId();
+        $this->bus()->dispatch(new UpdateIngredientCommand(ingredientId: $id, clearFields: ['kcalPer100g']));
+
+        $this->bus()->dispatch(new UpdateIngredientCommand(ingredientId: $id, name: 'Courgette verte'));
+
+        self::assertNull($this->courgette()->getKcalPer100g());
+    }
+
+    public function testALineCannotReachAnIngredientOfAnotherUser(): void
+    {
+        $this->bus()->dispatch(new CreateIngredientCommand(userId: (string) $this->getFixture('other_user')->getId(), name: 'Safran', category: 'other'));
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $foreign = $em->getRepository(Ingredient::class)->findOneBy(['name' => 'Safran']);
+
+        $this->expectException(HandlerFailedException::class);
+        try {
+            $this->bus()->dispatch(new CreateRecipeCommand(
+                userId: $this->userId(),
+                name: 'Paella',
+                ingredients: [['ingredientId' => (string) $foreign->getId(), 'quantity' => 1.0, 'unit' => 'g', 'pieceWeightGrams' => 3.0]],
+            ));
+        } finally {
+            $em->clear();
+            self::assertNull($em->getRepository(Ingredient::class)->findOneBy(['name' => 'Safran'])->getPieceWeightGrams());
+        }
     }
 }

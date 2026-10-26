@@ -85,7 +85,9 @@ class UpdateIngredientHandler
             $ingredient->setPieceWeightGrams(null);
         }
         // The Ciqual code alone computes nothing: the macros come with it, the ones already there stay.
-        $this->ciqualNutrients->fillMissing($ingredient, $command->clearFields);
+        if (null !== $command->ciqualAlimCode) {
+            $this->ciqualNutrients->fillMissing($ingredient, $command->clearFields);
+        }
         if (null !== $command->packagingUnit) {
             $ingredient->setPackagingUnit(Unit::from($command->packagingUnit));
         } elseif ($command->clears('packagingUnit')) {

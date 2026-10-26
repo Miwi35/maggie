@@ -38,7 +38,10 @@ class RecipeLineIngredient
             $ingredient->setPieceWeightGrams((float) $item['pieceWeightGrams']);
         }
 
-        $this->ciqualNutrients->fillMissing($ingredient);
+        // Only an ingredient with no value at all: a macro cleared on purpose beside others stays cleared.
+        if (null === $ingredient->getKcalPer100g() && null === $ingredient->getProteinPer100g() && null === $ingredient->getCarbsPer100g() && null === $ingredient->getFatPer100g()) {
+            $this->ciqualNutrients->fillMissing($ingredient);
+        }
 
         if (Unit::Piece->value === $item['unit'] && null === $ingredient->getPieceWeightGrams()) {
             $ingredient->setPieceWeightGrams($this->pieceWeights->gramsForProduct($ingredient));
@@ -55,8 +58,12 @@ class RecipeLineIngredient
         }
 
         if (isset($item['ingredientId'])) {
-            return $this->ingredientRepository->find($item['ingredientId'])
-                ?? throw new \DomainException("Ingredient not found: {$item['ingredientId']}");
+            $ingredient = $this->ingredientRepository->find($item['ingredientId']);
+            if (null === $ingredient || (string) $ingredient->getUser()->getId() !== (string) $user->getId()) {
+                throw new \DomainException("Ingredient not found: {$item['ingredientId']}");
+            }
+
+            return $ingredient;
         }
 
         throw new \DomainException('Each ingredient must have either ingredientId or ciqualAlimCode.');

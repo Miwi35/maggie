@@ -80,14 +80,25 @@ class BackfillRecipeNutritionCommandTest extends KernelTestCase
         self::assertStringContainsString('[dry-run]', $display);
         self::assertStringContainsString('Oignon', $display);
         self::assertStringContainsString('100 g per piece', $display);
-        self::assertStringContainsString('Ciqual 11000', $display);
+        self::assertStringContainsString('11000 « Herbes aromatiques, fraîches »', preg_replace('/\s+/', ' ', $display));
         self::assertNull($this->ingredient('Oignon')->getPieceWeightGrams());
         self::assertNull($this->ingredient('Bouquet garni')->getCiqualAlimCode());
     }
 
-    public function testItFillsTheMissingWeightsAndLinksWithoutOverwritingAnything(): void
+    public function testCiqualLinksAreOnlyProposedUnlessAskedFor(): void
     {
         $this->tester->execute([]);
+
+        $this->tester->assertCommandIsSuccessful();
+        self::assertNull($this->ingredient('Bouquet garni')->getCiqualAlimCode());
+        self::assertSame(10.0, $this->ingredient('Bouquet garni')->getPieceWeightGrams(), 'The weight is written.');
+        self::assertStringContainsString('Proposed Ciqual links', $this->tester->getDisplay());
+        self::assertStringContainsString('Herbes aromatiques', $this->tester->getDisplay());
+    }
+
+    public function testItFillsTheMissingWeightsAndLinksWithoutOverwritingAnything(): void
+    {
+        $this->tester->execute(['--link-ciqual' => true]);
 
         $this->tester->assertCommandIsSuccessful();
         self::assertSame(100.0, $this->ingredient('Oignon')->getPieceWeightGrams());
@@ -103,8 +114,8 @@ class BackfillRecipeNutritionCommandTest extends KernelTestCase
 
     public function testRunningItAgainChangesNothing(): void
     {
-        $this->tester->execute([]);
-        $this->tester->execute([]);
+        $this->tester->execute(['--link-ciqual' => true]);
+        $this->tester->execute(['--link-ciqual' => true]);
 
         self::assertStringContainsString('0 ingredient(s)', $this->tester->getDisplay());
     }

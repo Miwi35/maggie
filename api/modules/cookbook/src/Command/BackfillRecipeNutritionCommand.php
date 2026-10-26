@@ -21,8 +21,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * Gives the ingredients of the existing recipes what the nutrition per serving needs (MAG-647):
  * a weight per piece for those counted in pieces, the Ciqual macros for those linked to a code
- * without values, and the closest Ciqual food for those linked to nothing. Nothing already
- * there is overwritten; safe to run again.
+ * without values. The closest Ciqual food for an ingredient linked to nothing is only proposed:
+ * it is written with --link-ciqual, once the owner has read the list. Nothing already there is
+ * overwritten; safe to run again.
  */
 #[AsCommand(
     name: 'app:cookbook:backfill-recipe-nutrition',
@@ -42,12 +43,14 @@ final class BackfillRecipeNutritionCommand extends Command
     protected function configure(): void
     {
         $this->addOption('dry-run', null, InputOption::VALUE_NONE, 'List what would change and write nothing');
+        $this->addOption('link-ciqual', null, InputOption::VALUE_NONE, 'Write the proposed Ciqual links (they are only listed otherwise)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $dryRun = (bool) $input->getOption('dry-run');
+        $link = (bool) $input->getOption('link-ciqual') && !$dryRun;
 
         /** @var list<RecipeIngredient> $lines */
         $lines = $this->entityManager->createQueryBuilder()
@@ -68,6 +71,7 @@ final class BackfillRecipeNutritionCommand extends Command
 
         $rows = [];
         $byHand = [];
+        $proposed = [];
         $changed = 0;
         foreach ($used as ['ingredient' => $ingredient, 'pieces' => $pieces]) {
             $changes = [];
@@ -87,16 +91,16 @@ final class BackfillRecipeNutritionCommand extends Command
             if (null === $ingredient->getCiqualAlimCode()) {
                 $food = $this->closestFood($ingredient->getName());
                 if (null !== $food) {
-                    $changes[] = sprintf('Ciqual %s « %s »', $food['alim_code'], $food['alim_name_fr']);
-                    if (!$dryRun) {
+                    if ($link) {
+                        $changes[] = sprintf('Ciqual %s « %s »', $food['alim_code'], $food['alim_name_fr']);
                         $ingredient->setCiqualAlimCode($food['alim_code']);
+                    } else {
+                        $proposed[] = [$ingredient->getName(), sprintf('%s « %s »', $food['alim_code'], $food['alim_name_fr'])];
                     }
                 }
             }
 
-            if (!$dryRun && null !== $ingredient->getCiqualAlimCode() && $this->ciqualNutrients->fillMissing($ingredient)) {
-                $changes[] = 'macros from Ciqual';
-            } elseif ($dryRun && null !== $ingredient->getCiqualAlimCode() && null === $ingredient->getKcalPer100g()) {
+            if (null !== $ingredient->getCiqualAlimCode() && ($dryRun ? null === $ingredient->getKcalPer100g() : $this->ciqualNutrients->fillMissing($ingredient))) {
                 $changes[] = 'macros from Ciqual';
             }
 
@@ -112,6 +116,10 @@ final class BackfillRecipeNutritionCommand extends Command
 
         if ([] !== $rows) {
             $io->table(['Ingredient', $dryRun ? 'Would change' : 'Changed'], $rows);
+        }
+        if ([] !== $proposed) {
+            $io->section('Proposed Ciqual links (not written; --link-ciqual writes them)');
+            $io->table(['Ingredient', 'Closest Ciqual food'], $proposed);
         }
         if ([] !== $byHand) {
             $io->note('No weight per piece known, to set by hand: '.implode(', ', $byHand));

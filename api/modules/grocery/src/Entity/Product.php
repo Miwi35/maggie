@@ -724,6 +724,7 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'proteinPer100g' => $this->proteinPer100g,
             'carbsPer100g' => $this->carbsPer100g,
             'fatPer100g' => $this->fatPer100g,
+            'pieceWeightGrams' => $this->pieceWeightGrams,
             'preferredStoreId' => null !== $this->preferredStore ? (string) $this->preferredStore->getId() : null,
             'fallbackStoreId' => null !== $this->fallbackStore ? (string) $this->fallbackStore->getId() : null,
             'shelfLifeDays' => $this->shelfLifeDays,
