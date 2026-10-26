@@ -569,6 +569,19 @@ describe('ProjectsPage', () => {
 
     await waitFor(() => expect(fetchMock.mock.calls.length).toBe(reads + 1))
   })
+  describe('one page, no sub-tabs (MAG-633)', () => {
+    test('the projects, their planning and the scenarios are on the same page, with no Planning · Scénarios tabs nor help text', async () => {
+      stubApi([BIKE, MOVE], { planning: true, scenarios: [] })
+      render(<ProjectsPage />)
+      await loaded(2)
+
+      expect(screen.queryByRole('tab')).toBeNull()
+      expect(screen.queryByText(/Le premier passe avant les autres/)).toBeNull()
+      expect(await screen.findByTestId('scenarios-panel')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Scénarios' })).toBeInTheDocument()
+    })
+  })
+
   describe('planning Gantt (MAG-527)', () => {
     const ganttRows = () => screen.queryAllByTestId('gantt-row').map((node) => node.getAttribute('data-project'))
     const planningReads = (fetchMock: ReturnType<typeof stubApi>['fetchMock']) =>

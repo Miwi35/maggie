@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 import { Placeholder } from '../../components/list/ListEmpty'
 import { IndependenceProjectionBlock } from './IndependenceProjection'
 import { IndependenceSummary } from './IndependenceSummary'
-import { PlacementsSection } from './PlacementsSection'
+import { TimelinePanel } from './TimelinePanel'
 import { useFinanceDashboard } from './useFinanceDashboard'
 
 /**
@@ -14,7 +14,7 @@ import { useFinanceDashboard } from './useFinanceDashboard'
  * dashboard's Planification tile, as a page of its own, with the date N, the
  * coverage curve and the dated milestones (MAG-549). Without a rente
  * declared it offers to declare one instead of showing an empty counter.
- * Below it, the simulated placements (MAG-555): what they would give as a rente.
+ * Below it, the 20-year frise (MAG-554, MAG-633).
  */
 export const IndependencePanel = () => {
   const now = new Date()
@@ -57,7 +57,7 @@ export const IndependencePanel = () => {
           />
         ))}
 
-      <PlacementsSection />
+      <TimelinePanel />
     </>
   )
 }

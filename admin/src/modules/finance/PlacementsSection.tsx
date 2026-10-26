@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, MouseEvent } from 'react'
-import { useNotify } from 'react-admin'
+import { Title, useNotify } from 'react-admin'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -153,7 +153,7 @@ const SelectedPlacement = ({ placement }: { placement: Placement }) => {
 }
 
 /**
- * Finance › Planification › Indépendance › Placements (MAG-555): the simulated
+ * Finance › Planification › Placements (MAG-555, own sub-view since MAG-633): the simulated
  * placements, what each one would be worth at its end and the rente at 4 % it
  * would give, the curve of the one selected, created, changed and deleted here.
  */
@@ -263,7 +263,9 @@ export const PlacementsSection = () => {
   }
 
   return (
-    <Card component="section" aria-label="Placements" sx={{ mt: 3 }}>
+    <>
+    <Title title="Finance · Placements" />
+    <Card component="section" aria-label="Placements">
       <CardContent>
         <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 1, flexWrap: 'wrap' }}>
           <Typography variant="h6" component="h2">
@@ -389,5 +391,6 @@ export const PlacementsSection = () => {
         </DialogActions>
       </Dialog>
     </Card>
+    </>
   )
 }

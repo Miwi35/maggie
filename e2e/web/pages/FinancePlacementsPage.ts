@@ -4,8 +4,8 @@ import { AdminShell } from './AdminShell.js'
 import { ROUTES } from './routes.js'
 
 /**
- * Finance › Planification › Indépendance › Placements (MAG-555): the simulated
- * placements, under the independence counter of the Indépendance tab — a
+ * Finance › Planification › Placements (MAG-555, own tab since MAG-633): the simulated
+ * placements — a
  * table of what each one would be worth, and the curve of the one selected —
  * with and without the capital the projects of the plan take out of it
  * (MAG-556).
@@ -21,7 +21,7 @@ export class FinancePlacementsPage extends AdminShell {
   }
 
   async open(): Promise<void> {
-    await this.goto(ROUTES.financePlanningIndependence)
+    await this.goto(ROUTES.financePlanningPlacements)
     await expect(this.card.getByRole('heading', { name: 'Placements' })).toBeVisible()
   }
 
