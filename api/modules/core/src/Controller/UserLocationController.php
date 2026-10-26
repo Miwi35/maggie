@@ -114,7 +114,7 @@ final class UserLocationController
     {
         $value = $this->number($body, 'accuracy');
         if ($value < 0) {
-            throw new InvalidLocationField('accuracy', 'accuracy must be a positive number of metres');
+            throw new InvalidLocationField('accuracy', 'accuracy must be a non-negative number of metres');
         }
 
         return $value;
