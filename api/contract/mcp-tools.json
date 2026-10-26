@@ -894,6 +894,14 @@
         },
         "description": "Past errands (« courses passées »), most recent first: what the user bought, where and when — e.g. « qu'est-ce que j'ai acheté la dernière fois chez Carrefour ? » is store=\"Carrefour\", limit=1. Each errand is one store (storeName, null when the lines had none), endedAt (ISO 8601) and its items: label, quantity, unit, product (IRI, null for a free-text line) and the packaging the product had then (packagingUnit, packagingSize, packagingSizeUnit, null when unknown). store matches the store name in part, case-insensitively; limit is 1 to 20 (5 by default). An errand is archived by end_errand."
     },
+    "list_places": {
+        "name": "list_places",
+        "inputSchema": {
+            "type": "object",
+            "properties": []
+        },
+        "description": "Read the places the user goes to — home (« Maison ») first, then by name — as {places: [...]}. A place has id, name, address, latitude and longitude (null until the address is located), parkingAddress, parkingLatitude and parkingLongitude (where to leave the car, null when none), and isHome. Call it before save_place to change a place, or to know where « la maison » or « le dentiste » is."
+    },
     "list_proactions": {
         "name": "list_proactions",
         "inputSchema": {
@@ -3601,6 +3609,86 @@
             ]
         },
         "description": "Give a line of a recipe another product, without breaking its steps: the steps that used the old ingredient use the new one. ingredientId is the ingredient the recipe line has now; give the new one as withIngredientId or withCiqualAlimCode; quantity and unit are optional (kept when omitted). The text of the steps is never rewritten on a deduction: the answer lists textSuggestions ({position, before, after}) for the steps that cite the old name or quantity — pass rewriteText true only when the user asked for the texts to follow."
+    },
+    "save_place": {
+        "name": "save_place",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "address": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "latitude": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null,
+                    "minimum": -90,
+                    "maximum": 90
+                },
+                "longitude": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null,
+                    "minimum": -180,
+                    "maximum": 180
+                },
+                "parkingAddress": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "parkingLatitude": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null,
+                    "minimum": -90,
+                    "maximum": 90
+                },
+                "parkingLongitude": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null,
+                    "minimum": -180,
+                    "maximum": 180
+                },
+                "isHome": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Remember a place the user goes to — home, the dentist, the office — so a trip can start or end there. Without id: creates it. With id (list_places gives it): changes it. name and address are always required (send the current ones to keep them). latitude and longitude go together, in degrees; leave them out when you do not know them, never guess. parkingAddress is where the user leaves the car when going there by car, with parkingLatitude and parkingLongitude (together) when known; an empty parkingAddress removes the parking. isHome=true makes it the user's home (« Maison »): the previous home stops being one. With id, a field left out keeps its value — the coordinates excepted when the address changes. A refused call changes nothing and answers {error, field}. Returns {success, place} as list_places reads it. Deleting a place is not possible."
     },
     "save_routine": {
         "name": "save_routine",

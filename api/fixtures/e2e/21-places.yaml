@@ -1,0 +1,29 @@
+# Known places for the « Partir à l'heure » journeys (MAG-652, read by parts 4 to 10):
+# home, and the dentist with its parking. Addresses and coordinates are made up —
+# streets that do not exist, points in Rennes 1.3 km apart, the parking 120 m from
+# the dentist. The neighbour's home is here only so a journey can prove it never
+# reaches the signed-in user.
+
+Maggie\Calendar\Entity\Place:
+  e2e_place_home:
+    user: '@e2e_user'
+    name: Maison
+    address: '12 rue des Glycines Imaginaires, 35000 Rennes'
+    __calls:
+      - setCoordinates: [48.1100, -1.6800]
+    isHome: true
+  e2e_place_dentist:
+    user: '@e2e_user'
+    name: Dentiste
+    address: '5 allée du Sourire Fictif, 35000 Rennes'
+    parkingAddress: 'Parking du Square Inventé, 35000 Rennes'
+    __calls:
+      - setCoordinates: [48.1180, -1.6680]
+      - setParkingCoordinates: [48.1190, -1.6672]
+  e2e_other_place_home:
+    user: '@e2e_other_user'
+    name: Maison
+    address: '3 impasse du Voisin Fictif, 35000 Rennes'
+    __calls:
+      - setCoordinates: [48.1050, -1.6900]
+    isHome: true

@@ -10,6 +10,7 @@ use Fidry\AliceDataFixtures\LoaderInterface;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\DayPlan;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Place;
 use Maggie\Calendar\Entity\Reward;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Entity\TaskReminder;
@@ -214,6 +215,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Three since MAG-510: the nudge the reminders journey answers. Four since
         // MAG-570: the « Il manque : Parmesan » the shortage journey answers.
         self::assertSame(4, $this->rowsOf(Notification::class));
+        // MAG-652: the owner's « Maison » and « Dentiste », read by the trips, and the neighbour's « Maison ».
+        self::assertSame(3, $this->rowsOf(Place::class));
 
         // MAG-556: the PEA of the placement withdrawal journey, and the 1 500 € the
         // trip takes out of it the month it is bought.
@@ -243,6 +246,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(2, $this->rowsOf(Account::class, ['user' => $user]));
         self::assertSame(16, $this->rowsOf(Transaction::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Notification::class, ['user' => $user]));
+        self::assertSame(2, $this->rowsOf(Place::class, ['user' => $user]));
+        self::assertSame(1, $this->rowsOf(Place::class, ['user' => $user, 'isHome' => true]));
     }
 
     public function testTheNeighbourOwnsOnlyWhatTheIsolationJourneyNeeds(): void
@@ -279,6 +284,9 @@ final class E2eSeedCommandTest extends KernelTestCase
         // satisfy "this write published". 10-core.yaml spells the reasoning out.
         self::assertSame(2, $this->rowsOf(Store::class, ['user' => $neighbour]));
         self::assertSame(1, $this->rowsOf(RecurringGroceryItem::class, ['user' => $neighbour]));
+
+        // A home of their own (MAG-652): `list_places` must come back with the owner's alone.
+        self::assertSame(1, $this->rowsOf(Place::class, ['user' => $neighbour]));
 
         $list = $this->repository(GroceryList::class)->findOneBy(['user' => $neighbour]);
         self::assertNotNull($list, 'the shopper has no grocery list');
