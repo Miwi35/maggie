@@ -84,7 +84,7 @@ class HomeCardScreenTest {
     }
 
     @Test
-    fun `every module has a colour of its own, the accent for an unknown one`() {
+    fun `every module has a colour, Cuisine and Courses sharing the charter's blue, the accent for an unknown one`() {
         val colors = mutableMapOf<String, Long>()
         compose.setContent {
             (HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD) + "unknown").forEach { colors[it] = homeModuleColor(it).value.toLong() }
@@ -92,7 +92,7 @@ class HomeCardScreenTest {
         compose.waitForIdle()
 
         assertEquals(HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD).size + 1, colors.size)
-        assertEquals(HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD).size + 1, colors.values.toSet().size)
+        assertEquals(HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD).size, colors.values.toSet().size)
     }
 
     @Test
@@ -100,7 +100,7 @@ class HomeCardScreenTest {
         val colors = mutableMapOf<String, Color>()
         compose.setContent {
             MaggieTheme("dark") {
-                listOf(HomeModules.TASKS, HomeModules.GROCERY, HomeModules.AGENDA, HomeModules.FINANCE)
+                listOf(HomeModules.TASKS, HomeModules.GROCERY, HomeModules.NUTRITION, HomeModules.AGENDA, HomeModules.FINANCE)
                     .forEach { colors[it] = homeModuleColor(it) }
             }
         }
@@ -108,6 +108,7 @@ class HomeCardScreenTest {
 
         assertEquals(MaggieTokens.Module.taches.second, colors.getValue(HomeModules.TASKS))
         assertEquals(MaggieTokens.Module.cuisine.second, colors.getValue(HomeModules.GROCERY))
+        assertEquals(MaggieTokens.Module.cuisine.second, colors.getValue(HomeModules.NUTRITION))
         assertEquals(MaggieTokens.Module.agenda.second, colors.getValue(HomeModules.AGENDA))
         assertEquals(MaggieTokens.Module.finance.second, colors.getValue(HomeModules.FINANCE))
     }
