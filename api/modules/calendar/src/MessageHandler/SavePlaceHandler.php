@@ -15,7 +15,7 @@ use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 /**
- * Refusals are {@see \DomainException}s, the caller's to read. A new home takes
+ * Refusals are {@see InvalidPlaceException}s naming the field, the caller's to read. A new home takes
  * the flag from the old one in the same flush: one home per user.
  */
 #[AsMessageHandler]
