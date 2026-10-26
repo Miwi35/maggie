@@ -1,12 +1,9 @@
 package com.maggie.app.data.model
 
-import kotlinx.serialization.Serializable
-
 /**
- * The Finance card of the Accueil (MAG-565): `GET /api/home/finance`. The week and the month come from
- * the same rhythm as the Finance Dashboard's rings, so both tell the same figures.
+ * The Finance card of the Accueil (MAG-565), composed from `GET /api/finance/dashboard` (MAG-592): the week and
+ * the month are the Finance Dashboard's own rings, so both tell the same figures.
  */
-@Serializable
 data class FinanceHomeState(
     val week: FinanceHomeRing = FinanceHomeRing(),
     val month: FinanceHomeRing = FinanceHomeRing(),
@@ -19,9 +16,28 @@ data class FinanceHomeState(
     val envelopeCount: Int = 0,
 ) {
     val isEmpty: Boolean get() = accountCount == 0 && envelopeCount == 0
+
+    companion object {
+        /** The card from the dashboard of the current month; a dashboard sent without scores draws empty rings. */
+        fun from(dashboard: FinanceDashboard): FinanceHomeState = FinanceHomeState(
+            week = FinanceHomeRing.from(dashboard.scores?.week?.rhythm ?: Rhythm()),
+            month = FinanceHomeRing.from(dashboard.scores?.month?.rhythm ?: Rhythm()),
+            toQualifyCount = dashboard.todo.toSortCount,
+            nextProject = dashboard.nextProject?.let {
+                FinanceHomeProject(
+                    projectId = it.projectId,
+                    name = it.name,
+                    amountCents = it.amountCents,
+                    gatheredCents = it.gatheredCents,
+                    purchaseMonth = it.purchaseMonth,
+                )
+            },
+            accountCount = dashboard.tiles.accounts.accounts.size,
+            envelopeCount = dashboard.tiles.budget.envelopes.size,
+        )
+    }
 }
 
-@Serializable
 data class FinanceHomeRing(
     /** `on_track` or `above`. */
     val status: String = "on_track",
@@ -38,9 +54,18 @@ data class FinanceHomeRing(
         status = status,
         label = label,
     )
+
+    companion object {
+        fun from(rhythm: Rhythm) = FinanceHomeRing(
+            status = rhythm.status,
+            label = rhythm.label,
+            budgetCents = rhythm.budgetCents,
+            remainingCents = rhythm.remainingCents,
+            expectedRemainingCents = rhythm.expectedRemainingCents,
+        )
+    }
 }
 
-@Serializable
 data class FinanceHomeProject(
     val projectId: String,
     val name: String,

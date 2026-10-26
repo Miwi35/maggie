@@ -195,8 +195,8 @@ class MercureService(
         private const val TAG = "MercureService"
 
         fun streamDispatcher(): Dispatcher = Dispatcher().apply {
-            maxRequests = 64
-            maxRequestsPerHost = 32
+            maxRequests = 128
+            maxRequestsPerHost = 64
         }
 
         fun defaultClient(dispatcher: Dispatcher = streamDispatcher()): HttpClient = HttpClient(OkHttp) {

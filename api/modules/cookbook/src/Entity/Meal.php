@@ -343,14 +343,18 @@ class Meal extends Event implements MercurePublishable
     }
 
     /**
-     * The names of the recipes, as {@see MealTitle} reads them: what a summary card shows without a request per recipe.
+     * The names of the recipes, by name: what a summary card shows without a request per recipe. The database gives
+     * the recipes back in no set order, so the line would flip from one read to the next if it kept it.
      *
      * @return list<string>
      */
-    #[ApiProperty(writable: false, description: 'The names of the meal\'s recipes; the title is the owner\'s when he typed one.')]
+    #[ApiProperty(writable: false, description: 'The names of the meal\'s recipes, sorted by name; the title is the owner\'s when he typed one.')]
     public function getRecipeNames(): array
     {
-        return $this->getRecipes()->map(static fn (Recipe $recipe): string => $recipe->getName())->getValues();
+        $names = $this->getRecipes()->map(static fn (Recipe $recipe): string => $recipe->getName())->getValues();
+        usort($names, static fn (string $a, string $b): int => strcasecmp($a, $b) ?: strcmp($a, $b));
+
+        return $names;
     }
 
     public function addRecipe(Recipe $recipe): static

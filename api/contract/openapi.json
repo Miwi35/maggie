@@ -19159,7 +19159,7 @@
                     },
                     "recipeNames": {
                         "readOnly": true,
-                        "description": "The names of the meal's recipes; the title is the owner's when he typed one.",
+                        "description": "The names of the meal's recipes, sorted by name; the title is the owner's when he typed one.",
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -19360,7 +19360,7 @@
                     },
                     "recipeNames": {
                         "readOnly": true,
-                        "description": "The names of the meal's recipes; the title is the owner's when he typed one.",
+                        "description": "The names of the meal's recipes, sorted by name; the title is the owner's when he typed one.",
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -19557,7 +19557,7 @@
                     },
                     "recipeNames": {
                         "readOnly": true,
-                        "description": "The names of the meal's recipes; the title is the owner's when he typed one.",
+                        "description": "The names of the meal's recipes, sorted by name; the title is the owner's when he typed one.",
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -19763,7 +19763,7 @@
                             },
                             "recipeNames": {
                                 "readOnly": true,
-                                "description": "The names of the meal's recipes; the title is the owner's when he typed one.",
+                                "description": "The names of the meal's recipes, sorted by name; the title is the owner's when he typed one.",
                                 "type": "array",
                                 "items": {
                                     "type": "string"

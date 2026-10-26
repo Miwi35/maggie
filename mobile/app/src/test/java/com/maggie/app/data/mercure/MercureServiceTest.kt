@@ -25,6 +25,15 @@ import kotlin.concurrent.thread
 
 class MercureServiceTest {
 
+    // The Accueil's cards, the open screen and the chat each hold streams for good: 47 were open in the
+    // 17f-routines journey (25 Oct.) and the 33rd onward queued, so « Routines » never reloaded.
+    @Test
+    fun `the stream dispatcher holds every stream the app opens at once`() {
+        val dispatcher = MercureService.streamDispatcher()
+        assertTrue(dispatcher.maxRequestsPerHost >= 64)
+        assertTrue(dispatcher.maxRequests >= dispatcher.maxRequestsPerHost)
+    }
+
     // Through the real client: the limits must reach the engine, which Ktor
     // builds with a fresh dispatcher of its own (9 Oct.: one thread per
     // stream and 30 s, after two red CI runs on a loaded runner).

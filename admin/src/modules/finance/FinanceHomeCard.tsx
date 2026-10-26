@@ -10,32 +10,12 @@ import { rhythmColor } from '../../design/tokens'
 import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
-import type { HomeDay } from '../home/homeDay'
-import { useHomeCardState } from '../home/useHomeCardState'
 import { formatCents } from './accountTypes'
 import { purchaseLabel } from './nextProject'
 import { reviewLink } from './reviewFilter'
+import { useFinanceCardState } from './useFinanceCardState'
 import { remainingShare, RHYTHM_META } from './useFinanceScores'
-import type { Rhythm } from './useFinanceScores'
-
-type HomeRing = Pick<Rhythm, 'status' | 'label' | 'budgetCents' | 'remainingCents' | 'expectedRemainingCents'>
-
-interface HomeNextProject {
-  projectId: string
-  name: string
-  amountCents: number
-  gatheredCents: number
-  purchaseMonth: string
-}
-
-interface FinanceHomeState {
-  week: HomeRing
-  month: HomeRing
-  toQualifyCount: number
-  nextProject: HomeNextProject | null
-  accountCount: number
-  envelopeCount: number
-}
+import type { FinanceHomeState, HomeNextProject, HomeRing } from './financeCardState'
 
 const SIZE = 96
 const STROKE = 10
@@ -45,11 +25,12 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 /**
  * The Finance tile of the Accueil (MAG-565): the week and the month as two rings
  * with their rhythm status, the lines still to qualify, and the next project.
- * Same figures as the Finance Dashboard; it does not follow « Demain ». Drawn
- * as soon as there is an account or an envelope, not before (MAG-594).
+ * Read from the Finance dashboard resource (MAG-592), so the same figures as the
+ * Finance Dashboard; it does not follow « Demain ». Drawn as soon as there is an
+ * account or an envelope, not before (MAG-594).
  */
-export const FinanceHomeCard = ({ day }: { day: HomeDay }) => {
-  const { state, loading, error, retry } = useHomeCardState<FinanceHomeState>('finance', day)
+export const FinanceHomeCard = () => {
+  const { state, loading, error, retry } = useFinanceCardState()
   const status = homeCardStatus({ state, loading, error }, isEmpty)
   useReportHomeCard('finance', status)
 

@@ -454,6 +454,39 @@ class MealApiTest extends WebTestCase
         self::assertSame([], $bySlot['dinner']['recipeNames']);
     }
 
+    /**
+     * Without an order the database gave a meal's recipes back in the order of their ids, which is a new roll each time
+     * the recipes are created: the card's line flipped from one run to the next. They come back by name.
+     */
+    public function testTheRecipesOfAMealComeBackByName(): void
+    {
+        $this->authenticateFixtureUser();
+        [$smallerId, $largerId] = [$this->getFixture('pasta'), $this->getFixture('salad')];
+        if ((string) $smallerId->getId() > (string) $largerId->getId()) {
+            [$smallerId, $largerId] = [$largerId, $smallerId];
+        }
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $smallerId->setName('Zeste de citron');
+        $largerId->setName('Agneau rôti');
+        $em->flush();
+
+        $this->postMeal([
+            'date' => '2026-10-07',
+            'slot' => 'lunch',
+            'recipes' => ['/api/recipes/'.$smallerId->getId(), '/api/recipes/'.$largerId->getId()],
+        ]);
+        $em->clear();
+
+        $this->client->request('GET', '/api/meals?date%5Bafter%5D=2026-10-07&date%5Bbefore%5D=2026-10-07', [], [], array_merge(
+            ['HTTP_ACCEPT' => 'application/ld+json'],
+            $this->authHeaders(),
+        ));
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['Agneau rôti', 'Zeste de citron'], $data['member'][0]['recipeNames']);
+    }
+
     public function testRecipeNamesAreReadOnly(): void
     {
         $this->authenticateFixtureUser();

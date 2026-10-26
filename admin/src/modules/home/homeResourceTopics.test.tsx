@@ -7,6 +7,7 @@ import { AgendaCard } from './cards/AgendaCard'
 import { TasksCard } from './cards/TasksCard'
 import { GroceryHomeCard } from '../grocery/GroceryHomeCard'
 import { NutritionHomeCard } from '../cookbook/NutritionHomeCard'
+import { FinanceHomeCard } from '../finance/FinanceHomeCard'
 import { HOME_RESOURCE_TOPICS } from './homeResourceTopics'
 
 class FakeEventSource {
@@ -38,6 +39,7 @@ test('the cards on business resources share one Mercure stream, so the page keep
         <AgendaCard day="today" />
         <GroceryHomeCard />
         <NutritionHomeCard day="today" />
+        <FinanceHomeCard />
       </ThemeProvider>
     </MemoryRouter>,
   )
@@ -55,6 +57,19 @@ test('the Courses and Cuisine cards listen to every resource behind them', () =>
       '/api/aisles/{id}',
       '/api/meals/{id}',
       '/api/recipes/{id}',
+    ]),
+  )
+})
+
+test('the Finance card listens to the resources the dashboard is made of', () => {
+  expect(HOME_RESOURCE_TOPICS).toEqual(
+    expect.arrayContaining([
+      '/api/transactions/{id}',
+      '/api/accounts/{id}',
+      '/api/envelopes/{id}',
+      '/api/recurring_operations/{id}',
+      '/api/finance/projects/{id}',
+      '/api/finance/scenarios/{id}',
     ]),
   )
 })
