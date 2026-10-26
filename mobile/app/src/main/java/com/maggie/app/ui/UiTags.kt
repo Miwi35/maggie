@@ -121,6 +121,9 @@ object UiTags {
      */
     const val CHAT_OPEN = "chat_open"
 
+    /** Maggie's face inside the bar's field (MAG-624). */
+    const val CHAT_AVATAR = "chat_avatar"
+
     /** The microphone, which opens the chat sheet in voice mode. */
     const val CHAT_MIC = "chat_mic"
 

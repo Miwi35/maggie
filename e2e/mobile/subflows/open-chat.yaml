@@ -1,12 +1,11 @@
 appId: com.maggie.app.e2e
 name: get to the chat conversation
 ---
-# `chat_open` is the bar's button that raises the chat sheet; from 840 dp wide
-# (a tablet) the conversation is already open in a panel beside the content and the
-# button does not exist (MAG-35). The field is the same `chat_input` either way, so
-# a journey runs this and carries on from the field. A flow that taps `chat_open`
-# itself is red on the tablet: `task e2e:mobile:lint` refuses it outside of this
-# file.
+# `chat_open` is the bar's field that raises the chat sheet; from 840 dp wide (a tablet)
+# it is Maggie's portrait, which brings the conversation drawer (MAG-35, MAG-624). The
+# field is the same `chat_input` either way, so a journey runs this and carries on from
+# the field. A flow that taps `chat_open` itself is red on a window that has neither:
+# `task e2e:mobile:lint` refuses it outside of this file.
 #
 # `evalScript` first, for the reason given in `open-destination.yaml`.
 - evalScript: ${0}

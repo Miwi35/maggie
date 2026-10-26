@@ -2,7 +2,9 @@ import { Suspense, useState, useCallback, useRef, useMemo } from 'react'
 import { Layout as RALayout, Loading, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
+import { SIDEBAR_WIDTH } from '../chat/panelSize'
 import { MaggieInterruptionHost } from '../maggie/MaggieInterruptionHost'
+import { MaggiePortrait, PORTRAIT_MARGIN } from '../maggie/MaggiePortrait'
 import { CustomAppBar } from './AppBar'
 import { Breadcrumbs, PageHeading } from './Breadcrumbs'
 import { ThemePreferenceSync } from './ThemePreferenceSync'
@@ -15,10 +17,9 @@ import type { AgentState, ContextState, ToolCallState } from '../mind/types'
 
 export const Layout = (props: LayoutProps) => {
   const isNarrow = useNarrowScreen()
-  // Open beside the page on a desk, folded away on a phone or a tablet
-  // (MAG-38): below `md` the panel is a sheet over the whole window, and
-  // nobody arrives on the admin wanting the conversation on top of it.
-  const [chatOpen, setChatOpen] = useState(!isNarrow)
+  // Folded away everywhere: Maggie is a 64px portrait until someone asks for her
+  // (MAG-624). Used to be open beside the page on a desk (MAG-38).
+  const [chatOpen, setChatOpen] = useState(false)
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('chat')
   const [unreadChat, setUnreadChat] = useState(false)
   const [contexts, setContexts] = useState<ContextState[]>([])
@@ -26,14 +27,14 @@ export const Layout = (props: LayoutProps) => {
   const [agentState, setAgentState] = useState<AgentState>('idle')
   const chatRef = useRef<ChatWidgetRef>(null)
 
-  // Crossing the breakpoint re-decides it: a window narrowed past 900px with
+  // Crossing the breakpoint folds it back: a window narrowed past 900px with
   // the chat open would otherwise be a sheet over a page nobody asked to hide.
   // Adjusted while rendering rather than in an effect — React re-runs this pass
   // before painting, so the panel never flashes in the wrong shape.
   const [wasNarrow, setWasNarrow] = useState(isNarrow)
   if (wasNarrow !== isNarrow) {
     setWasNarrow(isNarrow)
-    setChatOpen(!isNarrow)
+    setChatOpen(false)
   }
 
   const triggerResize = useCallback(() => {
@@ -65,6 +66,14 @@ export const Layout = (props: LayoutProps) => {
     setChatOpen(false)
     triggerResize()
   }, [triggerResize])
+
+  const handlePortraitClick = useCallback(() => {
+    if (chatOpen) {
+      handleChatClose()
+    } else {
+      handleChatToggle()
+    }
+  }, [chatOpen, handleChatClose, handleChatToggle])
 
   const handleUnread = useCallback(() => {
     setUnreadChat(true)
@@ -158,6 +167,12 @@ export const Layout = (props: LayoutProps) => {
             onContextsChange={setContexts}
             toolCalls={toolCalls}
             onToolCallsChange={setToolCalls}
+          />
+          <MaggiePortrait
+            chatOpen={chatOpen}
+            unread={unreadChat}
+            right={chatOpen && !isNarrow ? SIDEBAR_WIDTH + PORTRAIT_MARGIN : PORTRAIT_MARGIN}
+            onClick={handlePortraitClick}
           />
           <MaggieInterruptionHost chatOpen={chatOpen} onOpenChat={handleOpenChatFromInterruption} />
         </Box>

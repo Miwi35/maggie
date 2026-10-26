@@ -50,8 +50,7 @@ tags:
     timeout: 40000
 
 # The microphone: the voice sheet.
-- tapOn:
-    id: "chat_mic"
+- runFlow: ../subflows/start-voice.yaml
 - extendedWaitUntil:
     visible:
       id: "voice_state"
@@ -67,8 +66,7 @@ tags:
     visible:
       id: "home_screen"
     timeout: 20000
-- tapOn:
-    id: "chat_mic"
+- runFlow: ../subflows/start-voice.yaml
 - extendedWaitUntil:
     visible:
       id: "voice_state"

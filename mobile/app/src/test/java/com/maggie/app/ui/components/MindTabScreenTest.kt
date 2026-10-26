@@ -1,6 +1,7 @@
 package com.maggie.app.ui.components
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
@@ -71,6 +72,21 @@ class MindTabScreenTest {
         compose.onNodeWithTag(UiTags.MIND_TAB).assertIsDisplayed()
         compose.onNodeWithText("Qu'est-ce qu'il me reste à acheter ?").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.MIND_CONTENT).assertDoesNotExist()
+    }
+
+    /** `Chat-Tel` (MAG-624): a pill with the selected half filled, not underlined tabs; a tap moves the selection. */
+    @Test
+    fun `the tabs are a pill whose selection follows the tap`() {
+        val chat = FakeChat()
+        compose.setContent { ChatPanel(viewModel = chat.viewModel) }
+
+        compose.onNodeWithTag(UiTags.CHAT_TAB).assertIsSelected()
+        compose.onNodeWithTag(UiTags.MIND_TAB).assertIsNotSelected()
+
+        openMind()
+
+        compose.onNodeWithTag(UiTags.MIND_TAB).assertIsSelected()
+        compose.onNodeWithTag(UiTags.CHAT_TAB).assertIsNotSelected()
     }
 
     @Test

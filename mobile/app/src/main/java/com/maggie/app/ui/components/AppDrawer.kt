@@ -1,6 +1,5 @@
 package com.maggie.app.ui.components
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -19,7 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.TaskAlt
@@ -37,12 +37,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import com.maggie.app.R
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.home.HomeModules
 import com.maggie.app.ui.screens.home.homeModuleColor
@@ -75,6 +72,15 @@ val DRAWER_DESTINATIONS = listOf(
     DrawerDestination("grocery", "Courses", Icons.Default.ShoppingCart, DrawerTint.GROCERY),
     DrawerDestination("cookbook", "Cuisine", Icons.Default.Restaurant, DrawerTint.CUISINE),
     DrawerDestination("finance_dashboard", "Finance", Icons.Default.Insights, DrawerTint.FINANCE),
+)
+
+/**
+ * What the top bar carried on a phone before it was cut down to the menu and the title (MAG-624):
+ * the search and the notifications, one tap from the drawer instead of two icons in every header.
+ */
+val DRAWER_UTILITIES = listOf(
+    DrawerDestination("search", "Rechercher", Icons.Default.Search, DrawerTint.NEUTRAL),
+    DrawerDestination("notifications", "Notifications", Icons.Default.Notifications, DrawerTint.NEUTRAL),
 )
 
 internal val SETTINGS_DESTINATION = DrawerDestination("settings", "Réglages", Icons.Default.Settings, DrawerTint.NEUTRAL)
@@ -119,6 +125,7 @@ fun AppDrawerContent(
     onNavigate: (String) -> Unit,
     onCloseDrawer: () -> Unit,
     today: LocalDate = LocalDate.now(),
+    unreadNotifications: Int = 0,
 ) {
     ModalDrawerSheet {
         DrawerHeader(today)
@@ -126,6 +133,11 @@ fun AppDrawerContent(
         DRAWER_DESTINATIONS.forEach { DrawerItem(it, currentRoute, onNavigate, onCloseDrawer) }
 
         Spacer(modifier = Modifier.weight(1f))
+
+        DRAWER_UTILITIES.forEach { utility ->
+            val badge = if (utility.route == "notifications") unreadNotifications else null
+            DrawerItem(utility, currentRoute, onNavigate, onCloseDrawer, badge = badge)
+        }
 
         DrawerItem(SETTINGS_DESTINATION, currentRoute, onNavigate, onCloseDrawer)
 
@@ -141,12 +153,7 @@ private fun DrawerHeader(today: LocalDate) {
             .padding(horizontal = 28.dp, vertical = 24.dp)
             .testTag(UiTags.DRAWER_HEADER),
     ) {
-        Image(
-            painter = painterResource(R.drawable.maggie),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.size(44.dp).clip(CircleShape),
-        )
+        MaggieAvatar(size = 44.dp)
         Column(modifier = Modifier.padding(start = 14.dp)) {
             Text(text = "Maggie", style = MaterialTheme.typography.titleLarge)
             Text(
@@ -236,11 +243,13 @@ private fun DrawerItem(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
     onCloseDrawer: () -> Unit,
+    badge: Int? = null,
 ) {
     val tint = destination.tint.color()
     NavigationDrawerItem(
         icon = { DestinationTile(destination) },
         label = { Text(destination.label) },
+        badge = badge?.takeIf { it > 0 }?.let { count -> { Text("$count") } },
         colors = NavigationDrawerItemDefaults.colors(
             selectedContainerColor = tint.copy(alpha = TINT_ALPHA),
             selectedTextColor = tint,

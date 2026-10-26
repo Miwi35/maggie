@@ -109,7 +109,10 @@ enum class ChatEntry {
 /** The rail: icons and short labels, no more. Material's own `NavigationRail` width. */
 val RAIL_WIDTH = 80.dp
 
-/** The permanent conversation panel. A narrower column truncates every bubble. */
+/** Maggie folded away on a wide window: her portrait (MAG-624). */
+val PORTRAIT_SIZE = 64.dp
+
+/** The conversation drawer. A narrower column truncates every bubble. */
 val CHAT_PANEL_WIDTH = 360.dp
 
 /** The narrowest a list or a detail can be drawn: the width of the phone the lists were designed for. */

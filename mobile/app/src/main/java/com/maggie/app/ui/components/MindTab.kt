@@ -1,12 +1,15 @@
 package com.maggie.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,15 +26,18 @@ import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material3.Badge
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Tab
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -46,7 +52,8 @@ import com.maggie.app.ui.screens.chat.toolActivityLabel
 enum class ChatTab { CHAT, MIND }
 
 /**
- * « Chat | Mind » at the top of the chatbox, as in the admin. The only door to the Mind tab —
+ * « Chat | Mind » at the top of the chatbox, as `Chat-Tel` draws it (MAG-624): a pill, the selected
+ * half filled white (the surface colour), not underlined tabs. The only door to the Mind tab —
  * no icon in the chat strip nor in the app bar. [awaitingCount] is the number of held actions
  * waiting for an answer; the tab says it in its label too, which is what a screen reader
  * and a journey read.
@@ -60,15 +67,22 @@ fun ChatTabs(
 ) {
     // A plain Row, not a TabRow: its subcomposition makes the list under it scroll to the
     // last message in the middle of a measure pass, which the framework refuses.
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            TabCell(
+    Box(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(4.dp)
+                .selectableGroup(),
+        ) {
+            SegmentCell(
                 selected = selected == ChatTab.CHAT,
                 onClick = { onSelect(ChatTab.CHAT) },
                 tag = UiTags.CHAT_TAB,
                 modifier = Modifier.weight(1f),
             ) { Text("Chat") }
-            TabCell(
+            SegmentCell(
                 selected = selected == ChatTab.MIND,
                 onClick = { onSelect(ChatTab.MIND) },
                 tag = UiTags.MIND_TAB,
@@ -88,12 +102,11 @@ fun ChatTabs(
                 }
             }
         }
-        HorizontalDivider()
     }
 }
 
 @Composable
-private fun TabCell(
+private fun SegmentCell(
     selected: Boolean,
     onClick: () -> Unit,
     tag: String,
@@ -101,26 +114,23 @@ private fun TabCell(
     description: String? = null,
     label: @Composable RowScope.() -> Unit,
 ) {
-    Column(modifier = modifier) {
-        Tab(
-            selected = selected,
-            onClick = onClick,
-            modifier = Modifier
-                .testTag(tag)
-                .semantics { description?.let { contentDescription = it } },
+    Row(
+        modifier = modifier
+            .heightIn(min = 40.dp)
+            .clip(CircleShape)
+            .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .testTag(tag)
+            .semantics { description?.let { contentDescription = it } },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CompositionLocalProvider(
+            LocalContentColor provides
+                if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         ) {
-            Row(
-                modifier = Modifier.padding(vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                content = label,
-            )
+            ProvideTextStyle(MaterialTheme.typography.labelLarge) { label() }
         }
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
-        )
     }
 }
 

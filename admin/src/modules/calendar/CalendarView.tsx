@@ -68,6 +68,7 @@ import type { PopoverEvent } from './EventDetailPopover'
 import { getCalendarThemeSx, getEventTextColor } from './calendarTheme'
 import { addUntilToRrule, expandRrule, expandRruleDays } from './recurrenceUtils'
 import { PROACTION_COLOR } from './proaction'
+import { PORTRAIT_MARGIN, PORTRAIT_SIZE } from '../../components/maggie/MaggiePortrait'
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
@@ -2335,7 +2336,8 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         sx={{
           display: { xs: 'flex', md: 'none' },
           position: 'fixed',
-          bottom: 24,
+          // Above Maggie's 64px portrait, which holds the corner (MAG-624).
+          bottom: PORTRAIT_MARGIN + PORTRAIT_SIZE + 16,
           right: 24,
           zIndex: (theme) => theme.zIndex.speedDial,
         }}

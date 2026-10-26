@@ -497,7 +497,9 @@ test('a thread is still there after a reload, and only once', async ({ page }) =
   // so five more inserted before this one would push the agenda question off
   // the page and turn these counts into zero — with a failure message blaming
   // persistence. Paginate the history if the file grows that far.
+  // Maggie opens folded into her portrait (MAG-624): the conversation is brought in first.
   const chat = new ChatPanel(page)
+  await chat.open()
   const agenda = agendaExchange(agendaRef)
   await expect(chat.bubbles(agenda.question)).toHaveCount(1)
   await expect(chat.bubbles(agenda.answer)).toHaveCount(1)
@@ -507,6 +509,7 @@ test('a thread is still there after a reload, and only once', async ({ page }) =
   // history would come back doubled.
   await page.reload()
   await dashboard.expectReady()
+  await chat.open()
   await expect(chat.bubbles(agenda.question)).toHaveCount(1)
   await expect(chat.bubbles(agenda.answer)).toHaveCount(1)
 })
@@ -1717,11 +1720,11 @@ test('a thread is deleted from the icon next to the search, with its messages', 
   await dashboard.open()
 
   const chat = new ChatPanel(page)
+  await chat.open()
   await expect(chat.bubbles(ONE_DISCUSSION.first)).toHaveCount(1)
   await expect(chat.bubbles(ONE_DISCUSSION.recall)).toHaveCount(1)
 
   // The icon is right beside the search, and the threads are in its dialog — not in the Mind tab.
-  await chat.open()
   const search = chat.panel.getByRole('button', { name: 'Rechercher dans la conversation' })
   await expect(chat.threadsButton).toBeVisible()
   await expect(chat.threadsButton.locator('xpath=following-sibling::*[1]')).toHaveAccessibleName(
@@ -1762,6 +1765,7 @@ test('a thread is deleted from the icon next to the search, with its messages', 
   // And it stays that way from a fresh tab.
   await page.reload()
   await dashboard.expectReady()
+  await chat.open()
   await expect(chat.bubbles(ONE_DISCUSSION.first)).toHaveCount(0)
   await chat.openThreads()
   await expect(chat.context(ONE_DISCUSSION.thread)).toHaveCount(0)

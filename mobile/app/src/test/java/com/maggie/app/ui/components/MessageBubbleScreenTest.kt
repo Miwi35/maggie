@@ -1,21 +1,24 @@
 package com.maggie.app.ui.components
 
 import android.graphics.Bitmap
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsOn
-import androidx.compose.ui.test.assertTouchHeightIsEqualTo
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -83,41 +86,65 @@ class MessageBubbleScreenTest {
         compose.onNodeWithTag(UiTags.CHAT_DECISION).assertDoesNotExist()
     }
 
-    // --- Thumbs on Maggie's answers (MAG-23) ---
+    // --- Thumbs on Maggie's answers (MAG-23), in the long-press menu (MAG-624) ---
 
     private val answer = ChatMessage(id = "a-1", role = "assistant", content = "Il fait beau.")
     private val ratings = mutableListOf<String?>()
     private val record: (String?) -> Unit = { rating -> ratings += rating }
 
+    private fun openMenu() {
+        compose.onNodeWithText("Il fait beau.").performTouchInput { longClick() }
+    }
+
     @Test
-    fun `an answer has both thumbs, none selected until rated`() {
+    fun `an answer shows no thumbs under it`() {
         compose.setContent { MessageBubble(answer, onRate = record) }
 
-        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_UP).assertIsDisplayed().assertIsOff()
-        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_DOWN).assertIsDisplayed().assertIsOff()
-        compose.onNodeWithContentDescription("Réponse utile").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Réponse à revoir").assertIsDisplayed()
+        compose.onNodeWithText("Il fait beau.").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_UP).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_DOWN).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a long press on an answer offers both thumbs, none selected until rated`() {
+        compose.setContent { MessageBubble(answer, onRate = record) }
+
+        openMenu()
+
+        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_UP).assertIsDisplayed().assertIsNotSelected()
+        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_DOWN).assertIsDisplayed().assertIsNotSelected()
+        compose.onNodeWithText("Réponse utile").assertIsDisplayed()
+        compose.onNodeWithText("Réponse à revoir").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a screen reader rates an answer through its actions, with no long press`() {
+        compose.setContent { MessageBubble(answer.copy(feedback = MessageFeedback.UP), onRate = record) }
+
+        val actions = compose.onNodeWithText("Il fait beau.").fetchSemanticsNode()
+            .config.getOrNull(SemanticsActions.CustomActions).orEmpty()
+        assertEquals(listOf("Réponse utile", "Réponse à revoir"), actions.map { it.label })
+
+        assertTrue(actions.first { it.label == "Réponse utile" }.action())
+        assertTrue(actions.first { it.label == "Réponse à revoir" }.action())
+        assertEquals(listOf<String?>(null, MessageFeedback.DOWN), ratings)
     }
 
     @Test
     fun `a question has no thumbs`() {
         compose.setContent { MessageBubble(question, onRate = record) }
 
+        compose.onNodeWithText("c'est quoi ce produit ?").performTouchInput { longClick() }
+
         compose.onNodeWithTag(UiTags.MESSAGE_THUMB_UP).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.MESSAGE_THUMB_DOWN).assertDoesNotExist()
-    }
-
-    @Test
-    fun `the thumbs are large enough to tap`() {
-        compose.setContent { MessageBubble(answer, onRate = record) }
-
-        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_UP).assertTouchHeightIsEqualTo(48.dp)
     }
 
     @Test
     fun `a thumb up is sent at once`() {
         compose.setContent { MessageBubble(answer, onRate = record) }
 
+        openMenu()
         compose.onNodeWithTag(UiTags.MESSAGE_THUMB_UP).performClick()
 
         assertEquals(listOf<String?>(MessageFeedback.UP), ratings)
@@ -127,26 +154,30 @@ class MessageBubbleScreenTest {
     fun `a thumb down is sent at once, before any word on why`() {
         compose.setContent { MessageBubble(answer, onRate = record) }
 
+        openMenu()
         compose.onNodeWithTag(UiTags.MESSAGE_THUMB_DOWN).performClick()
 
         assertEquals(listOf<String?>(MessageFeedback.DOWN), ratings)
     }
 
     @Test
-    fun `the selected thumb shows as on, and tapping it again takes it back`() {
+    fun `the selected thumb shows as selected, and choosing it again takes it back`() {
         compose.setContent { MessageBubble(answer.copy(feedback = MessageFeedback.UP), onRate = record) }
 
-        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_UP).assertIsOn().performClick()
-        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_DOWN).assertIsOff()
+        openMenu()
+        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_UP).assertIsSelected().performClick()
 
         assertEquals(listOf<String?>(null), ratings)
     }
 
     @Test
-    fun `a selected thumb down tapped again is taken back`() {
+    fun `a selected thumb down chosen again is taken back`() {
         compose.setContent { MessageBubble(answer.copy(feedback = MessageFeedback.DOWN), onRate = record) }
 
-        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_DOWN).assertIsOn().performClick()
+        openMenu()
+        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_DOWN).assertIsSelected()
+        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_UP).assertIsNotSelected()
+        compose.onNodeWithTag(UiTags.MESSAGE_THUMB_DOWN).performClick()
 
         assertEquals(listOf<String?>(null), ratings)
     }

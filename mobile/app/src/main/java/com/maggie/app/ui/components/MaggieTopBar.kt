@@ -25,6 +25,9 @@ private val DENSE_HEIGHT = 48.dp
  * @param onMenuClick `null` when a [MaggieNavigationRail] is on screen (MAG-35):
  *   the destinations are already visible, and a burger that opens a drawer over
  *   them would be a second way to the same six routes.
+ * @param actionsInBar `false` on a phone (MAG-624): the bar is the menu and the title, as in the mock-up,
+ *   and the search and the notifications are entries of the drawer. `true` where there is no burger
+ *   to a drawer — a window with a rail — so those two do not become unreachable.
  * @param dense `true` on a window under 480 dp tall (MAG-35): a title and two icons
  *   over 64 dp is 16 % of a phone in landscape, and the icons stay 48 dp wide, so
  *   nothing but the empty band above and below the title is lost.
@@ -38,6 +41,7 @@ fun MaggieTopBar(
     onNotificationsClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     dense: Boolean = false,
+    actionsInBar: Boolean = true,
 ) {
     TopAppBar(
         expandedHeight = if (dense) DENSE_HEIGHT else TopAppBarDefaults.TopAppBarExpandedHeight,
@@ -50,16 +54,18 @@ fun MaggieTopBar(
             }
         },
         actions = {
-            IconButton(onClick = onSearchClick) {
-                Icon(Icons.Default.Search, contentDescription = "Rechercher")
-            }
-            IconButton(onClick = onNotificationsClick) {
-                if (unreadCount > 0) {
-                    BadgedBox(badge = { Badge { Text("$unreadCount") } }) {
+            if (actionsInBar) {
+                IconButton(onClick = onSearchClick) {
+                    Icon(Icons.Default.Search, contentDescription = "Rechercher")
+                }
+                IconButton(onClick = onNotificationsClick) {
+                    if (unreadCount > 0) {
+                        BadgedBox(badge = { Badge { Text("$unreadCount") } }) {
+                            Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+                        }
+                    } else {
                         Icon(Icons.Default.Notifications, contentDescription = "Notifications")
                     }
-                } else {
-                    Icon(Icons.Default.Notifications, contentDescription = "Notifications")
                 }
             }
         },

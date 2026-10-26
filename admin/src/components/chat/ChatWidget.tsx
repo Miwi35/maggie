@@ -40,6 +40,7 @@ import { isAwaitingAnswer, useApprovals } from '../../hooks/useApprovals'
 import { ApprovalCard } from './ApprovalCard'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { MaggieAvatar } from '../maggie/MaggieAvatar'
+import { SIDEBAR_WIDTH } from './panelSize'
 import { ToolCallList } from '../mind/ToolCallList'
 import { ChatBubble, DecisionLine } from './ChatBubble'
 import { MessageFeedback } from './MessageFeedback'
@@ -89,7 +90,6 @@ const INTERRUPT_URL = '/agent/chat/interrupt'
 // it against the current origin — a bare `new URL()` throws and the subscription
 // dies, which is how b16916d reached production once already.
 const MERCURE_URL = import.meta.env.VITE_MERCURE_PUBLIC_URL || 'http://maggie.local/.well-known/mercure'
-const SIDEBAR_WIDTH = 380
 const PAGE_SIZE = 20
 const PANEL_RADIUS = 20
 const REDUCED_MOTION = '@media (prefers-reduced-motion: reduce)'
