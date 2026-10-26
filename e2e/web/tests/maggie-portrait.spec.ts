@@ -7,7 +7,8 @@ import { HomePage } from '../pages/HomePage.js'
  * Maggie, folded into her floating portrait (MAG-624, extends MAG-99).
  *
  * The admin opens on the page alone: only the 64px face, bottom right, says she is there.
- * A click brings the conversation in, a second one folds it away.
+ * A click brings the conversation in and the portrait goes away; the ✕ of the chat folds it back
+ * and the portrait returns.
  *
  * 82-greeting-reference.yaml repeats the reference, so the answer read is this run's alone.
  */
@@ -32,8 +33,10 @@ test('Maggie is a portrait until clicked, then answers a greeting', async ({ oth
   // …then the fake model answers in the conversation, once.
   await expect(chat.bubbles(ANSWER)).toHaveCount(1)
 
-  // And a second click on the portrait folds the conversation away.
-  await chat.portrait.click()
-  await expect(chat.panel).toBeHidden()
+  // The portrait made way for the conversation…
+  await expect(chat.portrait).toBeHidden()
+
+  // …and the ✕ of the chat header folds it away and brings the portrait back.
+  await chat.close()
   await expect(chat.portrait).toBeVisible()
 })

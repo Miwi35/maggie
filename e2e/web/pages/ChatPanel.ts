@@ -45,7 +45,7 @@ export class ChatPanel {
   readonly stopDictationButton: Locator
   /** « Arrêter », which takes the place of « Envoyer » while Maggie answers (MAG-320). */
   readonly stopButton: Locator
-  /** Maggie's 64px portrait, bottom right: opens the conversation, then folds it away. */
+  /** Maggie's 64px portrait, bottom right: opens the conversation and is gone while it is open. */
   readonly portrait: Locator
   /** The panel's own way out — the only one once it is a full-screen sheet. */
   readonly closeButton: Locator
@@ -78,10 +78,12 @@ export class ChatPanel {
     if (!(await this.input.isVisible())) {
       // Right after a reload the shell is not mounted yet, so the first read says « closed »
       // whatever the state; wait for the portrait (the shell mounted), read again, and click
-      // only if still closed — the portrait is a toggle, a second click would fold it away.
-      await expect(this.portrait).toBeVisible()
+      // only if the chat is still closed — an open chat has no portrait.
+      // Only the visible one counts: the folded panel keeps its (hidden) input in the DOM, ahead
+      // of the portrait, and both can be on screen for a frame while the panel mounts.
+      await expect(this.portrait.or(this.input).filter({ visible: true }).first()).toBeVisible()
 
-      if (!(await this.input.isVisible())) {
+      if (await this.portrait.isVisible()) {
         await this.portrait.click()
       }
 
