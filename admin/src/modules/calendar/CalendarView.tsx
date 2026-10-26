@@ -954,7 +954,9 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           }))
         } else {
           const dtstart = new Date(e.startAt ?? '')
-          const duration = new Date(e.endAt ?? '').getTime() - dtstart.getTime()
+          // No readable end: the occurrence has no length, instead of a NaN that makes toISOString throw.
+          const length = new Date(e.endAt ?? '').getTime() - dtstart.getTime()
+          const duration = Number.isNaN(length) ? 0 : length
           occurrences = expandRrule(e.rrule, dtstart, rangeStart, rangeEnd, e.timeZone).map((occ) => ({
             key: occ.getTime(),
             isoDate: occ.toISOString().slice(0, 10),
