@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { test, expect } from '../fixtures/index.js'
 import { assistantText, parseAgUiStream } from '../helpers/agui.js'
 import { withChatLock, withLock } from '../helpers/chatLock.js'
-import { DashboardPage } from '../pages/DashboardPage.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * The night's upkeep (MAG-159, extends MAG-99 and MAG-17).
@@ -82,7 +82,7 @@ test('the night corrects a fiche that a later conversation contradicts, keeps th
       })
 
     await call(api, 'delete', user)
-    await new DashboardPage(page).open()
+    await new HomePage(page).open()
 
     // Given two conversations of the day, the second contradicting a fiche the first gave birth to,
     expect(await say(RENNES_SENTENCE)).toContain('Rennes')
