@@ -28,8 +28,7 @@ import org.junit.Test
 import java.time.LocalDate
 
 /**
- * The reads of the Finance card (MAG-592): the dashboard of the current month, one request, never the home card
- * endpoint; the topics of the resources behind it wake the card.
+ * The reads of the Finance card (MAG-592): the dashboard of the current month, one request; the topics of the resources behind it wake the card.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class FinanceCardRepositoryTest {

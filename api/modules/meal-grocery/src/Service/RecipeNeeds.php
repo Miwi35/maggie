@@ -85,23 +85,6 @@ class RecipeNeeds implements RecipeDemandInterface
     }
 
     /**
-     * The ingredients the meals of `$days` days from `$from` need and the
-     * owner is low on or out of (MAG-563): one entry per product, at the
-     * first meal that asks for it, in the order the meals come.
-     *
-     * @return list<array{productId: string, name: string, date: string, slot: string, mealId: string, mealName: string}>
-     */
-    public function runningOut(User $user, \DateTimeImmutable $from, int $days = 2): array
-    {
-        $out = [];
-        foreach ($this->runningOutPerMeal($user, $from, $days) as $entry) {
-            $out[$entry['productId']] ??= $entry;
-        }
-
-        return array_values($out);
-    }
-
-    /**
      * Same ingredients, one entry per meal that asks for one (MAG-570): the
      * interruption speaks of a product for each meal, not only the first.
      *

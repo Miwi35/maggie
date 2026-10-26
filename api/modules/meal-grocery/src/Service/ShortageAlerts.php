@@ -32,7 +32,7 @@ use Symfony\Component\Uid\Ulid;
  * notification stays in the list until the product is bought or added, then
  * goes by itself.
  *
- * The missing set is the one of the Accueil card ({@see RecipeNeeds::runningOut()},
+ * The missing set is the one of the Accueil card ({@see RecipeNeeds::runningOutPerMeal()},
  * MAG-563), minus what the list already holds. Called every minute by
  * `maggie:notification:check-reminders`.
  */

@@ -40,13 +40,6 @@ interface RecipeDemandInterface
     public function hold(GroceryItem $item, Product $product, array $meals): void;
 
     /**
-     * The ingredients of the meals of today and tomorrow that the owner is low on.
-     *
-     * @return list<array{productId: string, name: string, date: string, slot: string, mealId: string, mealName: string}>
-     */
-    public function runningOut(User $user, \DateTimeImmutable $from): array;
-
-    /**
      * The meals of the next `$days` days whose recipes use the product, soonest first.
      *
      * @return list<array{date: string, slot: string, recipes: list<string>}>
