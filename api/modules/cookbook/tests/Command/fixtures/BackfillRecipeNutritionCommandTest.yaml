@@ -22,6 +22,26 @@ Maggie\Cookbook\Entity\Ingredient:
     name: Poudre de perlimpinpin
     category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
     user: '@test_user'
+  # Linked before the micronutrients existed (MAG-648).
+  linked:
+    name: Lentilles
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    ciqualAlimCode: '20504'
+    kcalPer100g: 116
+    proteinPer100g: 9
+    carbsPer100g: 16
+    fatPer100g: 0.4
+    user: '@test_user'
+  linked_complete:
+    name: Huile de colza
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Condiment)>'
+    ciqualAlimCode: '16130'
+    kcalPer100g: 900
+    proteinPer100g: 0
+    carbsPer100g: 0
+    fatPer100g: 100
+    micronutrientsPer100g: { omega3Ala: 9.0 }
+    user: '@test_user'
   unused:
     name: Oignon doux
     category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
@@ -54,3 +74,13 @@ Maggie\Cookbook\Entity\RecipeIngredient:
     ingredient: '@bouquet'
     quantity: 1
     unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  line_lentils:
+    recipe: '@bourguignon'
+    ingredient: '@linked'
+    quantity: 200
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  line_oil:
+    recipe: '@bourguignon'
+    ingredient: '@linked_complete'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Centiliter)>'

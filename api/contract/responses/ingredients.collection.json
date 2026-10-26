@@ -18,6 +18,10 @@
             "carbsPer100g": 71,
             "fatPer100g": 1.5,
             "pieceWeightGrams": 85,
+            "micronutrientsPer100g": {
+                "vitaminB1": 0.5,
+                "iron": 1.4
+            },
             "stockState": "in_stock",
             "autoRestock": false,
             "seasonMonths": [

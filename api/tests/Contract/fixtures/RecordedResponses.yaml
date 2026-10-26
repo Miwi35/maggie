@@ -227,6 +227,8 @@ Maggie\Cookbook\Entity\Ingredient:
     carbsPer100g: 71.0
     fatPer100g: 1.5
     pieceWeightGrams: 85
+    # The recipe answers them per serving: one vitamin, one mineral (MAG-648).
+    micronutrientsPer100g: { vitaminB1: 0.5, iron: 1.4 }
     user: '@recorded_user'
 
 Maggie\Grocery\Entity\Aisle:

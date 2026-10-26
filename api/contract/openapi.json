@@ -17599,6 +17599,15 @@
                             "null"
                         ]
                     },
+                    "micronutrientsPer100g": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "type": "number"
+                        }
+                    },
                     "preferredStore": {
                         "type": [
                             "string",
@@ -17818,6 +17827,15 @@
                             "number",
                             "null"
                         ]
+                    },
+                    "micronutrientsPer100g": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "type": "number"
+                        }
                     },
                     "preferredStore": {
                         "type": [
@@ -18039,6 +18057,15 @@
                             "null"
                         ]
                     },
+                    "micronutrientsPer100g": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "type": "number"
+                        }
+                    },
                     "preferredStore": {
                         "type": [
                             "string",
@@ -18259,6 +18286,15 @@
                                     "number",
                                     "null"
                                 ]
+                            },
+                            "micronutrientsPer100g": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "additionalProperties": {
+                                    "type": "number"
+                                }
                             },
                             "preferredStore": {
                                 "type": [
@@ -22656,6 +22692,17 @@
                             "null"
                         ]
                     },
+                    "micronutrientsPer100g": {
+                        "readOnly": true,
+                        "description": "Vitamins, minerals and fatty acids per 100 g from Ciqual, by key (vitaminC, iron, omega3Ala…); null until linked to Ciqual. A nutrient Ciqual does not know is absent.",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "type": "number"
+                        }
+                    },
                     "preferredStore": {
                         "type": [
                             "string",
@@ -22879,6 +22926,17 @@
                             "number",
                             "null"
                         ]
+                    },
+                    "micronutrientsPer100g": {
+                        "readOnly": true,
+                        "description": "Vitamins, minerals and fatty acids per 100 g from Ciqual, by key (vitaminC, iron, omega3Ala…); null until linked to Ciqual. A nutrient Ciqual does not know is absent.",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "type": "number"
+                        }
                     },
                     "preferredStore": {
                         "type": [
@@ -23104,6 +23162,17 @@
                             "null"
                         ]
                     },
+                    "micronutrientsPer100g": {
+                        "readOnly": true,
+                        "description": "Vitamins, minerals and fatty acids per 100 g from Ciqual, by key (vitaminC, iron, omega3Ala…); null until linked to Ciqual. A nutrient Ciqual does not know is absent.",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "type": "number"
+                        }
+                    },
                     "preferredStore": {
                         "type": [
                             "string",
@@ -23328,6 +23397,17 @@
                                     "number",
                                     "null"
                                 ]
+                            },
+                            "micronutrientsPer100g": {
+                                "readOnly": true,
+                                "description": "Vitamins, minerals and fatty acids per 100 g from Ciqual, by key (vitaminC, iron, omega3Ala…); null until linked to Ciqual. A nutrient Ciqual does not know is absent.",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "additionalProperties": {
+                                    "type": "number"
+                                }
                             },
                             "preferredStore": {
                                 "type": [
@@ -24702,6 +24782,30 @@
                     "updatedAt": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "micronutrientsPerServing": {
+                        "readOnly": true,
+                        "description": "Micronutrients of one serving, in the order of the sheet: key, label, group (vitamins, minerals, fattyAcids), amount in unit, referencePercent (share of the daily reference value, null without one). A micronutrient no counted ingredient gives is absent, never 0.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "anyOf": [
+                                    {
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "integer"
+                                    },
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
                     }
                 },
                 "required": [
@@ -24770,6 +24874,30 @@
                     "updatedAt": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "micronutrientsPerServing": {
+                        "readOnly": true,
+                        "description": "Micronutrients of one serving, in the order of the sheet: key, label, group (vitamins, minerals, fattyAcids), amount in unit, referencePercent (share of the daily reference value, null without one). A micronutrient no counted ingredient gives is absent, never 0.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "anyOf": [
+                                    {
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "integer"
+                                    },
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
                     }
                 },
                 "required": [
@@ -24841,6 +24969,30 @@
                     "updatedAt": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "micronutrientsPerServing": {
+                        "readOnly": true,
+                        "description": "Micronutrients of one serving, in the order of the sheet: key, label, group (vitamins, minerals, fattyAcids), amount in unit, referencePercent (share of the daily reference value, null without one). A micronutrient no counted ingredient gives is absent, never 0.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "anyOf": [
+                                    {
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "integer"
+                                    },
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
                     }
                 }
             },
@@ -24911,6 +25063,30 @@
                             "updatedAt": {
                                 "type": "string",
                                 "format": "date-time"
+                            },
+                            "micronutrientsPerServing": {
+                                "readOnly": true,
+                                "description": "Micronutrients of one serving, in the order of the sheet: key, label, group (vitamins, minerals, fattyAcids), amount in unit, referencePercent (share of the daily reference value, null without one). A micronutrient no counted ingredient gives is absent, never 0.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "anyOf": [
+                                            {
+                                                "type": "number"
+                                            },
+                                            {
+                                                "type": "integer"
+                                            },
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                }
                             }
                         },
                         "required": [

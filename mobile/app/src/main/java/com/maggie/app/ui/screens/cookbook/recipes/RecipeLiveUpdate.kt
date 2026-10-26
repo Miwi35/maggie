@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.cookbook.recipes
 
+import com.maggie.app.data.model.Micronutrient
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.RecipeIngredient
 import com.maggie.app.data.model.RecipeStep
@@ -43,6 +44,9 @@ class RecipePatch(private val fields: JsonObject) {
             ?: recipe.ingredients,
         utensils = fields["utensils"]?.let { json.decodeFromJsonElement(ListSerializer(Utensil.serializer()), it) } ?: recipe.utensils,
         steps = fields["steps"]?.let { json.decodeFromJsonElement(ListSerializer(RecipeStep.serializer()), it) } ?: recipe.steps,
+        micronutrientsPerServing = fields["micronutrientsPerServing"]
+            ?.let { json.decodeFromJsonElement(ListSerializer(Micronutrient.serializer()), it) }
+            ?: recipe.micronutrientsPerServing,
     )
 
     private companion object {

@@ -36,6 +36,10 @@
                         "carbsPer100g": 71,
                         "fatPer100g": 1.5,
                         "pieceWeightGrams": 85,
+                        "micronutrientsPer100g": {
+                            "vitaminB1": 0.5,
+                            "iron": 1.4
+                        },
                         "stockState": "in_stock",
                         "autoRestock": false,
                         "seasonMonths": [
@@ -100,7 +104,25 @@
                 }
             ],
             "createdAt": "2026-01-01T00:00:00+00:00",
-            "updatedAt": "2026-01-01T00:00:00+00:00"
+            "updatedAt": "2026-01-01T00:00:00+00:00",
+            "micronutrientsPerServing": [
+                {
+                    "key": "vitaminB1",
+                    "label": "Vitamine B1",
+                    "group": "vitamins",
+                    "amount": 0.5,
+                    "unit": "mg",
+                    "referencePercent": 45
+                },
+                {
+                    "key": "iron",
+                    "label": "Fer",
+                    "group": "minerals",
+                    "amount": 1.4,
+                    "unit": "mg",
+                    "referencePercent": 10
+                }
+            ]
         }
     ],
     "search": {

@@ -26,6 +26,9 @@ trait FakesCiqualTrait
                         ['const_code' => '25000', 'const_name_fr' => 'Protéines', 'const_unit' => 'g/100 g', 'value' => 1.2, 'confidence_code' => 'A', 'raw_value' => '1,2'],
                         ['const_code' => '31000', 'const_name_fr' => 'Glucides', 'const_unit' => 'g/100 g', 'value' => 2.3, 'confidence_code' => 'A', 'raw_value' => '2,3'],
                         ['const_code' => '40000', 'const_name_fr' => 'Lipides', 'const_unit' => 'g/100 g', 'value' => 0.4, 'confidence_code' => 'A', 'raw_value' => '0,4'],
+                        ['const_code' => '55100', 'const_name_fr' => 'Vitamine C', 'const_unit' => 'mg/100 g', 'value' => 18.0, 'confidence_code' => 'A', 'raw_value' => '18'],
+                        ['const_code' => '10260', 'const_name_fr' => 'Fer', 'const_unit' => 'mg/100 g', 'value' => 0.3, 'confidence_code' => 'A', 'raw_value' => '0,3'],
+                        ['const_code' => '52100', 'const_name_fr' => 'Vitamine D', 'const_unit' => 'µg/100 g', 'value' => null, 'confidence_code' => null, 'raw_value' => '-'],
                     ],
                 ];
             }

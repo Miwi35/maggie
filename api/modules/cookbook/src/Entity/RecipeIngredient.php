@@ -131,6 +131,24 @@ class RecipeIngredient implements SeasonalLine
         ];
     }
 
+    /**
+     * What the line weighs, as the recipe sheet counts it (MAG-647): weights and volumes as grams (a
+     * millilitre of food weighs about a gram), a piece by its ingredient's weight; null for any other
+     * count, or a piece of unknown weight — the line is then left out of the nutrition.
+     */
+    public function grams(): ?float
+    {
+        $perUnit = match ($this->unit) {
+            Unit::Gram, Unit::Milliliter => 1.0,
+            Unit::Kilogram, Unit::Liter => 1000.0,
+            Unit::Centiliter => 10.0,
+            Unit::Piece => $this->ingredient->getPieceWeightGrams(),
+            default => null,
+        };
+
+        return null === $perUnit || $perUnit <= 0 ? null : $this->quantity * $perUnit;
+    }
+
     public function getUnit(): Unit
     {
         return $this->unit;

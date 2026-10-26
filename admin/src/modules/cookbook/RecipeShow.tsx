@@ -29,7 +29,7 @@ import { useScaledQuantities } from './useScaledQuantities'
 const RECIPE_TOPICS = ['/api/recipes/{id}']
 
 // The parts of the sheet the API publishes when they change.
-const LIVE_FIELDS = ['name', 'servings', 'tags', 'notes', 'ingredients', 'utensils', 'steps'] as const
+const LIVE_FIELDS = ['name', 'servings', 'tags', 'notes', 'ingredients', 'utensils', 'steps', 'micronutrientsPerServing'] as const
 
 const liveOf = (source: Record<string, unknown> | undefined): Partial<RecipeRecord> => {
   const live: Record<string, unknown> = {}
@@ -307,7 +307,7 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
           onRemove={(index) => saveOrNotify({ steps: stepsPayload(removeStep(steps, index)) })}
         />
       </Box>
-      <NutritionBlock nutrition={nutrition} />
+      <NutritionBlock nutrition={nutrition} micronutrients={recipe.micronutrientsPerServing} />
 
       {dialog?.kind === 'header' && (
         <HeaderDialog recipe={recipe} creating={creating} onSave={creating ? createRecipe : save} onClose={closeHeader} />

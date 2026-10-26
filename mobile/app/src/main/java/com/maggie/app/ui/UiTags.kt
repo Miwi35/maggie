@@ -1313,6 +1313,7 @@ object UiTags {
     const val RECIPE_MENU = "recipe_menu"
     const val RECIPE_DELETE = "recipe_delete"
     const val RECIPE_NUTRITION = "recipe_nutrition"
+    const val RECIPE_MICRONUTRIENTS_TOGGLE = "recipe_micronutrients_toggle"
 
     /** The « de saison » / « hors saison » badge of a product, a grocery line or an ingredient (MAG-494), and the product's season chips. */
     const val SEASON_BADGE = "season_badge"

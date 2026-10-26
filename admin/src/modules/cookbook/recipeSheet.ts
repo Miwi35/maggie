@@ -27,6 +27,18 @@ export interface RecipeRecord {
   ingredients?: RecipeLine[]
   utensils?: NameRef[]
   steps?: RecipeStep[]
+  micronutrientsPerServing?: Micronutrient[]
+}
+
+/** A vitamin, mineral or fatty acid of one serving, as the API computes it from Ciqual (MAG-648). */
+export interface Micronutrient {
+  key: string
+  label: string
+  group: 'vitamins' | 'minerals' | 'fattyAcids'
+  amount: number
+  unit: string
+  /** Share of the daily reference value; null for a micronutrient without one. */
+  referencePercent: number | null
 }
 
 /** What the sheet knows of a product of the catalogue: its nutrition and how it is bought. */
@@ -186,4 +198,24 @@ export const nutritionPerServing = (lines: RecipeLine[], servings: number, produ
     fat: Math.round(total.fat / servings),
     skipped,
   }
+}
+
+/** The three groups of « Micronutriments », in the order of the sheet; a group with nothing known is left out. */
+export const MICRONUTRIENT_GROUPS = [
+  { group: 'vitamins', title: 'Vitamines' },
+  { group: 'minerals', title: 'Minéraux' },
+  { group: 'fattyAcids', title: 'Acides gras' },
+] as const
+
+export const micronutrientGroups = (micronutrients: Micronutrient[]) =>
+  MICRONUTRIENT_GROUPS.map(({ group, title }) => ({ title, items: micronutrients.filter((item) => item.group === group) })).filter(
+    ({ items }) => items.length > 0,
+  )
+
+/** « 75 mg », « 3,5 mg », « 0,05 g »: as many decimals as a small amount needs, written the French way. */
+export const micronutrientAmount = ({ amount, unit }: Pick<Micronutrient, 'amount' | 'unit'>): string => {
+  const decimals = amount >= 10 ? 0 : amount >= 1 ? 1 : 2
+  const figure = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: decimals }).format(amount)
+
+  return `${figure} ${unit}`
 }

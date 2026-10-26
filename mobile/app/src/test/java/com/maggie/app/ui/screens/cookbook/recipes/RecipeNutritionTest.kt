@@ -1,13 +1,17 @@
 package com.maggie.app.ui.screens.cookbook.recipes
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Ingredient
+import com.maggie.app.data.model.Micronutrient
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.RecipeIngredient
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.ui.UiTags
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
@@ -106,5 +110,56 @@ class RecipeNutritionTest {
 
         assertEquals("⏱ 2 h 45 · ≈ 800 kcal · 4 portions", recipeSummary(steps, RecipeNutrition(800, 0, 0, 0, 0), 4))
         assertEquals("1 portion", recipeSummary(emptyList(), null, 1))
+    }
+
+    private val micronutrients = listOf(
+        Micronutrient("vitaminC", "Vitamine C", "vitamins", 75f, "mg", 94),
+        Micronutrient("iron", "Fer", "minerals", 3.45f, "mg", 25),
+        Micronutrient("omega3Ala", "Oméga-3 ALA", "fattyAcids", 2.35f, "g", 106),
+        Micronutrient("omega6", "Oméga-6", "fattyAcids", 0.048f, "g", null),
+    )
+
+    @Test
+    fun `the micronutrients fold under the macros and count those known (MAG-648)`() {
+        compose.setContent { RecipeNutritionBlock(RecipeNutrition(800, 40, 90, 25, 0), dailyKcal = null, micronutrients = micronutrients) }
+
+        compose.onNodeWithText("Micronutriments · 4").assertIsDisplayed()
+        compose.onNodeWithText("Vitamine C").assertDoesNotExist()
+    }
+
+    @Test
+    fun `opened, they show the three groups with each share of its reference`() {
+        compose.setContent { RecipeNutritionBlock(RecipeNutrition(800, 40, 90, 25, 0), dailyKcal = null, micronutrients = micronutrients) }
+
+        compose.onNodeWithTag(UiTags.RECIPE_MICRONUTRIENTS_TOGGLE).performClick()
+
+        listOf("Vitamines", "Minéraux", "Acides gras", "Vitamine C", "75 mg", "94 %", "Fer", "3,5 mg", "25 %", "Oméga-3 ALA", "106 %", "Oméga-6", "0,05 g")
+            .forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+    }
+
+    @Test
+    fun `a group with nothing known is left out`() {
+        compose.setContent { RecipeNutritionBlock(null, dailyKcal = null, micronutrients = micronutrients.take(1)) }
+
+        compose.onNodeWithTag(UiTags.RECIPE_MICRONUTRIENTS_TOGGLE).performClick()
+
+        compose.onNodeWithText("Vitamines").assertIsDisplayed()
+        compose.onNodeWithText("Minéraux").assertDoesNotExist()
+        compose.onNodeWithText("≈", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `without a micronutrient known there is no line`() {
+        compose.setContent { RecipeNutritionBlock(RecipeNutrition(800, 40, 90, 25, 0), dailyKcal = null) }
+
+        compose.onNodeWithText("Micronutriments", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `an amount takes the decimals a small one needs`() {
+        assertEquals("80 mg", micronutrientAmount(Micronutrient("c", "C", "vitamins", 80f, "mg")))
+        assertEquals("1,4 mg", micronutrientAmount(Micronutrient("fe", "Fer", "minerals", 1.4f, "mg")))
+        assertEquals("0,25 g", micronutrientAmount(Micronutrient("dha", "DHA", "fattyAcids", 0.25f, "g")))
+        assertEquals("0 µg", micronutrientAmount(Micronutrient("d", "D", "vitamins", 0.001f, "µg")))
     }
 }

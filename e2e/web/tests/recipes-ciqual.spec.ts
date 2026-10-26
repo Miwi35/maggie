@@ -341,6 +341,29 @@ test('a sheet counts pieces, kg and cl in its values per person, and says what i
   await expect(shell.content.getByText('1 ingrédient non compté')).toBeVisible()
 })
 
+/**
+ * MAG-648: the seeded tomato is linked to Ciqual with its micronutrients; « Pâtes à la tomate »
+ * folds them under its macros and opens on the three groups, each line a share of its reference.
+ */
+test('a sheet unfolds the micronutrients of one serving as a share of their reference', async ({ page, api }) => {
+  const recipes = await getCollection<StoredRecipe>(api, '/api/recipes?itemsPerPage=100')
+  const pasta = recipes.find((recipe) => recipe.name === 'Pâtes à la tomate')
+  expect(pasta, 'the seeded recipe is missing').toBeDefined()
+
+  const shell = new AdminShell(page)
+  await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(pasta!['@id'])}/show`)
+
+  // 4 tomatoes of 120 g for 4 servings: 120 g each, 20.1 mg of vitamin C per 100 g = 24.12 mg, 30 % of 80 mg.
+  const toggle = shell.content.getByRole('button', { name: /^Micronutriments · \d+$/ })
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await toggle.click()
+
+  const vitamins = shell.content.getByRole('region', { name: 'Vitamines' })
+  await expect(vitamins.getByTestId('micronutrient-vitaminC')).toHaveText(/Vitamine C\s*24 mg\s*30 %/)
+  await expect(shell.content.getByRole('region', { name: 'Minéraux' })).toBeVisible()
+  await expect(shell.content.getByRole('region', { name: 'Acides gras' })).toBeVisible()
+})
+
 test('Maggie links an ingredient to the Ciqual food and sets what one piece weighs', async ({ otherUser }) => {
   const { api } = otherUser
   const shell = new AdminShell(otherUser.page)

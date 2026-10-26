@@ -35,6 +35,31 @@ Maggie\Cookbook\Entity\Ingredient:
     name: Tomate
     category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
     defaultUnit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    # « Tomate sans précision, crue », with the micronutrients Ciqual gives it (a « < X » read as X / 2, as
+    # the service does): the sheet of « Pâtes à la tomate » unfolds them (MAG-648). Not 20276, the food the
+    # recipes-ciqual journey picks and expects to be made from its own name.
+    ciqualAlimCode: '20385'
+    micronutrientsPer100g:
+      vitaminA: 72.9
+      vitaminB2: 0.0065
+      vitaminB3: 0.51
+      vitaminB5: 0.063
+      vitaminB6: 0.073
+      vitaminC: 20.1
+      calcium: 6.78
+      iron: 0.19
+      magnesium: 7.49
+      phosphorus: 21.3
+      potassium: 225.0
+      zinc: 0.092
+      copper: 0.024
+      manganese: 0.11
+      selenium: 10.0
+      iodine: 10.0
+      omega3Ala: 0.005
+      omega3Epa: 0.00495
+      omega3Dha: 0.00495
+      omega6: 0.005
     user: '@e2e_user'
     preferredStore: '@e2e_store_greengrocer'
     fallbackStore: '@e2e_store_supermarket'

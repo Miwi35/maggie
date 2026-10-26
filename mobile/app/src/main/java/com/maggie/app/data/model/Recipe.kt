@@ -14,6 +14,22 @@ data class Recipe(
     val steps: List<RecipeStep> = emptyList(),
     val createdAt: String? = null,
     val updatedAt: String? = null,
+    val micronutrientsPerServing: List<Micronutrient> = emptyList(),
+)
+
+/**
+ * A vitamin, mineral or fatty acid of one serving, computed by the API from Ciqual (MAG-648).
+ * [group] is vitamins, minerals or fattyAcids; [referencePercent] the share of the daily
+ * reference value, null for a micronutrient without one.
+ */
+@Serializable
+data class Micronutrient(
+    val key: String,
+    val label: String,
+    val group: String,
+    val amount: Float,
+    val unit: String,
+    val referencePercent: Int? = null,
 )
 
 /** A piece of equipment of the user's catalogue, on a recipe or on one of its steps. */

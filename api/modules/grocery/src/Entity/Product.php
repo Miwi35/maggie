@@ -109,6 +109,18 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
     #[Assert\Positive]
     private ?float $pieceWeightGrams = null;
 
+    /**
+     * Its vitamins, minerals and fatty acids per 100 g, by key, in the unit the cookbook's catalogue
+     * gives each one (MAG-648). Filled from Ciqual only, never typed in: null until the product is
+     * linked to a Ciqual food, an empty map when that food gives none. A nutrient Ciqual does not
+     * know is absent, never 0.
+     *
+     * @var array<string, float>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    #[ApiProperty(writable: false, description: 'Vitamins, minerals and fatty acids per 100 g from Ciqual, by key (vitaminC, iron, omega3Ala…); null until linked to Ciqual. A nutrient Ciqual does not know is absent.')]
+    private ?array $micronutrientsPer100g = null;
+
     #[ORM\ManyToOne(targetEntity: Store::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     #[IndexedRelation(targetEntity: Store::class, sourceField: 'preferredStoreId')]
@@ -382,6 +394,20 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
     public function setPieceWeightGrams(?float $pieceWeightGrams): static
     {
         $this->pieceWeightGrams = $pieceWeightGrams;
+
+        return $this;
+    }
+
+    /** @return array<string, float>|null */
+    public function getMicronutrientsPer100g(): ?array
+    {
+        return $this->micronutrientsPer100g;
+    }
+
+    /** @param array<string, float>|null $micronutrientsPer100g */
+    public function setMicronutrientsPer100g(?array $micronutrientsPer100g): static
+    {
+        $this->micronutrientsPer100g = $micronutrientsPer100g;
 
         return $this;
     }
@@ -687,6 +713,7 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'carbsPer100g' => $this->carbsPer100g,
             'fatPer100g' => $this->fatPer100g,
             'pieceWeightGrams' => $this->pieceWeightGrams,
+            'micronutrientsPer100g' => $this->micronutrientsPer100g,
             'preferredStoreId' => null !== $this->preferredStore ? (string) $this->preferredStore->getId() : null,
             'fallbackStoreId' => null !== $this->fallbackStore ? (string) $this->fallbackStore->getId() : null,
             'shelfLifeDays' => $this->shelfLifeDays,
@@ -725,6 +752,7 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'carbsPer100g' => $this->carbsPer100g,
             'fatPer100g' => $this->fatPer100g,
             'pieceWeightGrams' => $this->pieceWeightGrams,
+            'micronutrientsPer100g' => $this->micronutrientsPer100g,
             'preferredStoreId' => null !== $this->preferredStore ? (string) $this->preferredStore->getId() : null,
             'fallbackStoreId' => null !== $this->fallbackStore ? (string) $this->fallbackStore->getId() : null,
             'shelfLifeDays' => $this->shelfLifeDays,

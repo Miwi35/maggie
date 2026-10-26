@@ -387,9 +387,10 @@ internal fun RecipeSheetContent(
 
         RecipeMethod(r)
 
-        state.nutrition?.let {
+        val micronutrients = r.micronutrientsPerServing
+        if (state.nutrition != null || micronutrients.isNotEmpty()) {
             HorizontalDivider()
-            RecipeNutritionBlock(it, dailyKcal = null)
+            RecipeNutritionBlock(state.nutrition, dailyKcal = null, micronutrients = micronutrients)
         }
     }
 }
