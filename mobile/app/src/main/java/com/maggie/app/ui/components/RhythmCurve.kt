@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -104,7 +103,7 @@ fun RhythmCurvePanel(
     var period by rememberSaveable { mutableStateOf(MONTH) }
     val title = if (period == WEEK) "Semaine" else "Mois"
 
-    Card(modifier = modifier.fillMaxWidth()) {
+    MaggieCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Rythme", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(end = 8.dp))

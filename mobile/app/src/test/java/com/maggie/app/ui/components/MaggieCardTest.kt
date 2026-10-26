@@ -31,22 +31,29 @@ class MaggieCardTest {
 
     @Test
     fun `no finance screen draws a Material card or reads a surface role the theme leaves on its baseline`() {
-        val dir = listOf("src/main/java/com/maggie/app/ui/screens/finance", "app/src/main/java/com/maggie/app/ui/screens/finance")
+        val offenders = financeSources().flatMap(::offendingLines)
+
+        assertTrue("Use MaggieCard and the tokens in the Finance sources:\n" + offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    private fun financeSources(): List<File> {
+        val root = listOf("src/main/java/com/maggie/app/ui", "app/src/main/java/com/maggie/app/ui")
             .map(::File)
             .first { it.isDirectory }
+        val screens = File(root, "screens/finance").walkTopDown().filter { it.isFile && it.extension == "kt" }
+        // Shared components the Finance dashboard and month balance draw (MAG-579 recette: rings, rhythm, treasury).
+        val shared = listOf("ScoreRings.kt", "RhythmCurve.kt", "TreasuryBanner.kt").map { File(root, "components/$it") }
+
+        return (screens + shared).toList()
+    }
+
+    private fun offendingLines(file: File): List<String> {
         val card = Regex("""(^|[^A-Za-z.])(Outlined|Elevated)?Card\(""")
         val role = Regex("""\bsurfaceContainer\w*|\bsurfaceVariant\b""")
 
-        val offenders = dir.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .flatMap { file ->
-                file.readLines().mapIndexedNotNull { index, line ->
-                    val code = line.substringBefore("//")
-                    if (card.containsMatchIn(code) || role.containsMatchIn(code)) "${file.name}:${index + 1}: ${line.trim()}" else null
-                }
-            }
-            .toList()
-
-        assertTrue("Use MaggieCard and the tokens in ui/screens/finance:\n" + offenders.joinToString("\n"), offenders.isEmpty())
+        return file.readLines().mapIndexedNotNull { index, line ->
+            val code = line.substringBefore("//")
+            if (card.containsMatchIn(code) || role.containsMatchIn(code)) "${file.name}:${index + 1}: ${line.trim()}" else null
+        }
     }
 }
