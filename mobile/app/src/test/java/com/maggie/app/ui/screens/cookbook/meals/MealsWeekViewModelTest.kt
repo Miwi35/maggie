@@ -20,6 +20,7 @@ import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -57,6 +58,7 @@ class MealsWeekViewModelTest {
     private val mercureEvents = MutableSharedFlow<MercureEvent>()
     private lateinit var mercure: MercureService
     private lateinit var auth: AuthRepository
+    private val token = MutableStateFlow<String?>("jwt")
 
     @Before
     fun setUp() {
@@ -71,6 +73,7 @@ class MealsWeekViewModelTest {
         every { mercure.subscribe(any()) } returns mercureEvents
         auth = mockk()
         coEvery { auth.getUserId() } returns "user-1"
+        every { auth.token } returns token
     }
 
     private fun newViewModel() = MealsWeekViewModel(mealRepository, recipeRepository, ingredientRepository, mercure, auth)
@@ -91,6 +94,25 @@ class MealsWeekViewModelTest {
         val weekStart = viewModel.uiState.value.weekStart
 
         coVerify { mealRepository.getMeals(weekStart.toString(), weekStart.plusDays(6).toString()) }
+    }
+
+    @Test
+    fun `a screen built before the sign-in loads the week once signed in`() = runTest(testDispatcher) {
+        token.value = null
+        coEvery { auth.getUserId() } returns null
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(emptyList())
+        val viewModel = newViewModel()
+        advanceUntilIdle()
+        assertEquals(emptyMap<LocalDate, Map<MealSlot, List<Meal>>>(), viewModel.uiState.value.mealsByDaySlot)
+
+        val today = viewModel.uiState.value.weekStart.toString()
+        coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(listOf(aMeal(today)))
+        coEvery { auth.getUserId() } returns "user-1"
+        token.value = "jwt"
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.mealsByDaySlot.values.sumOf { it.values.sumOf(List<Meal>::size) })
+        io.mockk.verify { mercure.subscribe(any()) }
     }
 
     @Test

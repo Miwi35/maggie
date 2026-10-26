@@ -5,6 +5,7 @@
 // The recipes and the meal are the journey's own and gone after `remove`.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
+//   TODAY   the seed's anchor day, YYYY-MM-DD: the day the phone opens on (the host's clock is not the phone's)
 //   ACTION  create | expect-unchanged | remove
 //           expect-unchanged: the meal still holds 4 guests — the portions « − » of the card are a
 //           simulation on the screen and never a write
@@ -26,18 +27,6 @@ function pause(ms) {
   while (Date.now() < end) {
     // The script sandbox has no timers.
   }
-}
-
-// Today in Paris, which is where the API reads a meal's day: UTC+1, UTC+2 between the last Sundays of March and October.
-function parisToday() {
-  const now = new Date()
-  const year = now.getUTCFullYear()
-  function lastSunday(month) {
-    const last = new Date(Date.UTC(year, month + 1, 0, 1))
-    return Date.UTC(year, month, last.getUTCDate() - last.getUTCDay(), 1)
-  }
-  const summer = now.getTime() >= lastSunday(2) && now.getTime() < lastSunday(9)
-  return new Date(now.getTime() + (summer ? 2 : 1) * 3600 * 1000).toISOString().slice(0, 10)
 }
 
 const login = http.post(base + '/api/auth/e2e/login', {
@@ -100,7 +89,7 @@ if (ACTION === 'create') {
     })['@id']
   })
   const meal = post('/api/meals', {
-    date: parisToday(),
+    date: TODAY,
     slot: 'dinner',
     guests: 4,
     recipes: iris,

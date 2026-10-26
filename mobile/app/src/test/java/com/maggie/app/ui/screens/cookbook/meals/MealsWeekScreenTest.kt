@@ -33,6 +33,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -101,6 +102,7 @@ class MealsWeekScreenTest {
         every { mercure.subscribe(any()) } returns emptyFlow()
         val auth = mockk<AuthRepository>()
         coEvery { auth.getUserId() } returns "user-1"
+        every { auth.token } returns flowOf("jwt")
 
         compose.setContent {
             MealsWeekScreen(

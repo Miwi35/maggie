@@ -23,6 +23,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -80,10 +82,23 @@ class MealsWeekViewModel(
     // The convives the API holds for a meal being stepped: what a refused save goes back to.
     private val savedGuests = mutableMapOf<String, Int>()
 
+    private var mercureJob: Job? = null
+
     init {
-        refresh()
-        loadProducts()
-        subscribeToMercure()
+        // The screen is built before the sign-in: load once the token is there (and again on each login), not at construction.
+        viewModelScope.launch {
+            authRepository.token
+                .map { it != null }
+                .distinctUntilChanged()
+                .collect { signedIn ->
+                    if (signedIn) {
+                        refresh()
+                        loadProducts()
+                        mercureJob?.cancel()
+                        mercureJob = subscribeToMercure()
+                    }
+                }
+        }
     }
 
     fun previousWeek() {
@@ -303,7 +318,7 @@ class MealsWeekViewModel(
         }
     }
 
-    private fun subscribeToMercure() {
+    private fun subscribeToMercure(): Job =
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
             mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.MEALS))
@@ -311,7 +326,6 @@ class MealsWeekViewModel(
                 .catch { /* SSE reconnects automatically */ }
                 .collect { load(quiet = true) }
         }
-    }
 
     private fun Map<LocalDate, Map<MealSlot, List<Meal>>>.without(
         mealId: String,
