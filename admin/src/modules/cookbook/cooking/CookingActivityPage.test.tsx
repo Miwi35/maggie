@@ -295,6 +295,12 @@ describe('CookingActivityPage', () => {
   })
 
   describe('the status of the activity (MAG-615)', () => {
+    /** Only the status is unreachable: the meals and recipes still answer. */
+    const unreachableStatus = (): FakeStatusApi => ({
+      ...fakeStatusApi(),
+      handle: (url) => (url === '/api/activity-status/cuisine' ? Promise.resolve(new Response('', { status: 503 })) : null),
+    })
+
     const mealState = (overrides: Record<string, unknown> = {}) => ({
       origin: { kind: 'meal' as const, id: 'M3' },
       state: {
@@ -322,6 +328,66 @@ describe('CookingActivityPage', () => {
       expect(screen.getByTestId('cooking-steps-progress')).toHaveTextContent('1 / 4 faites')
       expect(status.deletes()).toHaveLength(0)
       expect(calls).not.toContain('/api/meals/M3')
+    })
+
+    describe('a copy kept by the tab never wins over the API', () => {
+      const stale = () =>
+        sessionStorage.setItem(
+          'maggie.cooking-session',
+          JSON.stringify({
+            origin: { kind: 'meal', id: 'M3' },
+            queue: [
+              { recipeId: 'A', servings: 4 },
+              { recipeId: 'B', servings: 4 },
+              { recipeId: 'C', servings: 4 },
+            ],
+            recipeIndex: 0,
+            step: 1,
+            doneSteps: {},
+            guests: 4,
+            phase: 'cooking',
+            startedAt: 1,
+          }),
+        )
+
+      test('a newer status is the one resumed', async () => {
+        stale()
+        status = fakeStatusApi(mealState())
+
+        renderActivity('/activites/cuisine?meal=M3')
+
+        expect(await screen.findByTestId('cooking-step-text')).toHaveTextContent('Monter le plat')
+      })
+
+      test('no status any more (finished or restarted elsewhere) starts again from the preparation', async () => {
+        stale()
+
+        renderActivity('/activites/cuisine?meal=M3')
+
+        expect(await screen.findByTestId('cooking-preparation')).toBeInTheDocument()
+      })
+
+      test('another launch in progress is asked about, not overwritten', async () => {
+        stale()
+        status = fakeStatusApi(mealState())
+
+        renderActivity('/activites/cuisine?meal=M3')
+        expect(await screen.findByTestId('cooking-step-text')).toBeInTheDocument()
+        status = fakeStatusApi({ origin: { kind: 'recipe', id: 'B' }, state: mealState().state })
+        renderActivity('/activites/cuisine?meal=M3')
+
+        expect(await screen.findByText('Une cuisine est déjà en cours')).toBeInTheDocument()
+        expect(status.writes()).toHaveLength(0)
+      })
+
+      test('the tab\'s copy stands in when the API cannot be read', async () => {
+        stale()
+        status = unreachableStatus()
+
+        renderActivity('/activites/cuisine?meal=M3')
+
+        expect(await screen.findByTestId('cooking-step-text')).toHaveTextContent('Faire la sauce')
+      })
     })
 
     test('the state is written at each change: guests, « C\'est parti », « Suivant »', async () => {
@@ -408,8 +474,7 @@ describe('CookingActivityPage', () => {
     })
 
     test('an unreachable status offers « Réessayer » instead of overwriting what may be in progress', async () => {
-      const unreachable = fakeStatusApi()
-      status = { ...unreachable, handle: () => Promise.resolve(new Response('', { status: 503 })) }
+      status = unreachableStatus()
 
       renderActivity('/activites/cuisine?meal=M3')
 

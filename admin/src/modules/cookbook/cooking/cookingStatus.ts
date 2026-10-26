@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMercure } from '../../../hooks/useMercure'
 import { launchPathOf, sessionFromState } from './cookingSession'
 import type { CookingSession } from './cookingSession'
-import { COOKING_STATUS_TOPICS, fetchCookingStatus } from './cookingStatusApi'
+import { COOKING_STATUS_TOPICS } from './cookingStatusApi'
 import type { CookingStatus } from './cookingStatusApi'
+import { readCookingStatus } from './cookingStatusWriter'
 import { fetchTimers } from './cookingTimersApi'
 import { isTicking, timersOfRecipe } from './cookingTimers'
 import type { CookingTimer } from './cookingTimers'
@@ -70,7 +71,7 @@ export const useCookingStatus = (): CookingStatusView => {
 
   const read = useCallback((signal?: AbortSignal) => {
     const attempt = ++asked.current
-    fetchCookingStatus(signal)
+    readCookingStatus(signal)
       .then((status) => {
         if (attempt === asked.current && !signal?.aborted) setView({ status, loaded: true })
       })

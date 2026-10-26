@@ -1,5 +1,6 @@
 import type { CookingOrigin } from './cookingSession'
-import { deleteCookingStatus, putCookingStatus } from './cookingStatusApi'
+import { deleteCookingStatus, fetchCookingStatus, putCookingStatus } from './cookingStatusApi'
+import type { CookingStatus } from './cookingStatusApi'
 
 interface Pending {
   origin: CookingOrigin
@@ -37,3 +38,12 @@ export const createStatusWriter = (put: typeof putCookingStatus = putCookingStat
 }
 
 export type StatusWriter = ReturnType<typeof createStatusWriter>
+
+/** The one writer of the page: a status read after leaving waits for what the activity just wrote. */
+export const statusWriter: StatusWriter = createStatusWriter()
+
+export const readCookingStatus = async (signal?: AbortSignal): Promise<CookingStatus | null> => {
+  await statusWriter.settled()
+
+  return fetchCookingStatus(signal)
+}

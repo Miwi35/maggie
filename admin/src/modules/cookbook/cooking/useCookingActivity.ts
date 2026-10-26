@@ -3,9 +3,8 @@ import type { RecipeRecord } from '../recipeSheet'
 import { fetchMeal, fetchRecipe, recipeIdsOf } from './cookingApi'
 import { clearSession, loadSession, mealSession, recipeSession, restartSession, saveSession, sessionFromState, stateOf } from './cookingSession'
 import type { CookingOrigin, CookingSession } from './cookingSession'
-import { fetchCookingStatus } from './cookingStatusApi'
 import type { CookingStatus } from './cookingStatusApi'
-import { createStatusWriter } from './cookingStatusWriter'
+import { readCookingStatus, statusWriter as writer } from './cookingStatusWriter'
 
 /** `conflict`: another meal or recipe is already being cooked, and the owner chooses what happens to it. */
 export type CookingLoad = 'loading' | 'error' | 'empty' | 'ready' | 'conflict'
@@ -33,7 +32,8 @@ export interface CookingActivity {
 /**
  * Reads what the activity cooks (`GET /api/meals/{id}`, `GET /api/recipes/{id}?guests=N`) and keeps
  * the session in `activity-status` (MAG-615), written at every change, so any device resumes where it
- * was. The tab keeps a copy in `sessionStorage` so reloading shows it at once.
+ * was. The API is read first, so another device's progress is never overwritten; the tab's copy in
+ * `sessionStorage` only stands in when the API cannot be reached.
  */
 export const useCookingActivity = (origin: CookingOrigin): CookingActivity => {
   const { kind, id } = origin
@@ -44,7 +44,7 @@ export const useCookingActivity = (origin: CookingOrigin): CookingActivity => {
   const [recipes, setRecipes] = useState<Record<string, RecipeRecord>>({})
   const [refreshing, setRefreshing] = useState(false)
   const sessionRef = useRef<CookingSession | null>(null)
-  const [writer] = useState(createStatusWriter)
+  const replacing = useRef<AbortController | null>(null)
 
   const apply = useCallback((next: CookingSession | null) => {
     sessionRef.current = next
@@ -82,14 +82,21 @@ export const useCookingActivity = (origin: CookingOrigin): CookingActivity => {
     setConflict(null)
 
     const bootstrap = async () => {
-      const cached = loadSession({ kind, id })
-      if (cached) {
+      let status: CookingStatus | null | undefined
+      try {
+        status = await readCookingStatus(signal)
+      } catch (error) {
+        if (signal.aborted) throw error
+        status = undefined
+      }
+      if (status === undefined) {
+        const cached = loadSession({ kind, id })
+        if (!cached) throw new Error('The activity in progress cannot be read')
         apply(cached)
         setLoad('ready')
 
         return
       }
-      const status = await fetchCookingStatus(signal)
       if (status && (status.origin.kind !== kind || status.origin.id !== id)) {
         setConflict(status)
         setLoad('conflict')
@@ -111,7 +118,10 @@ export const useCookingActivity = (origin: CookingOrigin): CookingActivity => {
       if (!signal.aborted) setLoad('error')
     })
 
-    return () => controller.abort()
+    return () => {
+      controller.abort()
+      replacing.current?.abort()
+    }
   }, [kind, id, attempt, apply, begin])
 
   // Before « Pour combien ? » is answered the recipe is read as it is; after, once per number of people.
@@ -162,7 +172,7 @@ export const useCookingActivity = (origin: CookingOrigin): CookingActivity => {
       if (next.phase === 'done') writer.clear()
       else writer.save(next.origin, stateOf(next))
     },
-    [apply, writer],
+    [apply],
   )
 
   const leave = useCallback(() => clearSession(), [])
@@ -174,19 +184,24 @@ export const useCookingActivity = (origin: CookingOrigin): CookingActivity => {
     apply(next)
     saveSession(next)
     writer.clear()
-  }, [apply, writer])
+  }, [apply])
 
   const replace = useCallback(() => {
     writer.clear()
     clearSession()
     setConflict(null)
     setLoad('loading')
-    begin(new AbortController().signal)
+    replacing.current?.abort()
+    const controller = new AbortController()
+    replacing.current = controller
+    begin(controller.signal)
       .then((started) => {
-        if (started) setLoad('ready')
+        if (started && !controller.signal.aborted) setLoad('ready')
       })
-      .catch(() => setLoad('error'))
-  }, [begin, writer])
+      .catch(() => {
+        if (!controller.signal.aborted) setLoad('error')
+      })
+  }, [begin])
 
   const retry = useCallback(() => setAttempt((count) => count + 1), [])
 
