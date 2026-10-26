@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import Typography from '@mui/material/Typography'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { localToday } from '../../grocery/groceryListLive'
 import { ActivityShell } from '../../../components/activity/ActivityShell'
 import { useActivityOrigin } from '../../../components/activity/activityOrigin'
 import {
@@ -17,12 +18,15 @@ import { orderedSteps } from '../recipeSheet'
 import type { RecipeRecord, RecipeStep } from '../recipeSheet'
 import { COOKING_COLOR, COOKING_FALLBACK_PATH, advance, back, confirmServings, goToStep, isStepDone, launchPathOf, progressOf, skipRecipe, withGuests } from './cookingSession'
 import type { CookingOrigin, CookingSession } from './cookingSession'
+import { CookingGroceryButton, CookingGroceryPanel } from './CookingGroceryPanel'
 import { CookingStepsColumn } from './CookingStepsColumn'
 import type { ColumnRecipe } from './CookingStepsColumn'
 import { MainTimer, TimerError } from './CookingTimers'
 import { lineTimer, stepSeconds, stepTimer, timerLabel, timersOfRecipe } from './cookingTimers'
 import type { TimerView } from './cookingTimers'
+import { cookingStores, mealNeeds, openCount } from './cookingGrocery'
 import { useCookingActivity } from './useCookingActivity'
+import { useCookingGrocery } from './useCookingGrocery'
 import { useCookingTimers } from './useCookingTimers'
 import type { CookingTimers } from './useCookingTimers'
 import { useStepKeys } from './useStepKeys'
@@ -43,6 +47,8 @@ const Cooking = ({ origin, goBack }: { origin: CookingOrigin; goBack: () => void
   const { cancelAll } = timers
   const navigate = useNavigate()
   const location = useLocation()
+  const grocery = useCookingGrocery()
+  const [groceryOpen, setGroceryOpen] = useState(false)
 
   // Leaving asks nothing: the status is already on the API and the timers keep running.
   const quit = useCallback(() => {
@@ -78,8 +84,21 @@ const Cooking = ({ origin, goBack }: { origin: CookingOrigin; goBack: () => void
       </Typography>
     ) : null
 
+  const queue = session?.queue
+  const needs = useMemo(() => mealNeeds(queue ?? [], recipes), [queue, recipes])
+  const today = localToday()
+  const stores = useMemo(() => cookingStores(grocery.items, needs, today), [grocery.items, needs, today])
+  const count = useMemo(() => openCount(grocery.items, today), [grocery.items, today])
+  const groceryShown = load === 'ready' && session !== null && session.phase !== 'done'
+
   return (
-    <ActivityShell color={COOKING_COLOR} name="Cuisine" onQuit={quit} progress={progress}>
+    <ActivityShell
+      color={COOKING_COLOR}
+      name="Cuisine"
+      onQuit={quit}
+      progress={progress}
+      actions={groceryShown && <CookingGroceryButton count={grocery.load === 'ready' ? count : null} open={groceryOpen} onClick={() => setGroceryOpen((open) => !open)} />}
+    >
       {timers.error && <TimerError message={timers.error} onClose={timers.clearError} />}
       <Body
         timers={timers}
@@ -99,6 +118,7 @@ const Cooking = ({ origin, goBack }: { origin: CookingOrigin; goBack: () => void
         onResume={resumeInProgress}
         onReplace={replaceInProgress}
       />
+      {groceryShown && <CookingGroceryPanel open={groceryOpen} onClose={() => setGroceryOpen(false)} grocery={grocery} stores={stores} needs={needs} count={count} />}
     </ActivityShell>
   )
 }

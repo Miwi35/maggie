@@ -80,11 +80,11 @@ internal fun progressText(done: Int, total: Int): String = "$done / $total faite
  * A tap on a row or the banner, without merging what is inside: the texts and marks of a row stay nodes of
  * their own, for the tests and for Maestro.
  */
-private fun Modifier.tapTarget(action: () -> Unit): Modifier = composed {
+internal fun Modifier.tapTarget(role: Role = Role.Button, action: () -> Unit): Modifier = composed {
     val current by rememberUpdatedState(action)
     this
         .semantics {
-            role = Role.Button
+            this.role = role
             onClick { current(); true }
         }
         .pointerInput(Unit) { detectTapGestures { current() } }
@@ -194,7 +194,7 @@ private fun StepRow(
         modifier = Modifier
             .fillMaxWidth()
             .bringIntoViewRequester(requester)
-            .tapTarget(onOpen)
+            .tapTarget(action = onOpen)
             .semantics { stateDescription = state }
             .testTag(UiTags.COOKING_STEP_ROW),
         // The pulse for a rung timer, a fine line for the step on screen.

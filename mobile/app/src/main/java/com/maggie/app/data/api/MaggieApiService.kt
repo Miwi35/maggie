@@ -1834,11 +1834,13 @@ class MaggieApiService(
     }
 
     suspend fun patchGroceryItem(itemId: String, checked: Boolean) {
-        client.patch("$baseUrl/api/grocery_items/$itemId") {
+        val response = client.patch("$baseUrl/api/grocery_items/$itemId") {
             contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))
             setBody(buildJsonObject { put("checked", checked) })
         }
+        // A refused tick must read as one: the Cuisine activity puts the box back (MAG-583).
+        if (!response.status.isSuccess()) throw IllegalStateException("PATCH grocery item $itemId: HTTP ${response.status.value}")
     }
 
     suspend fun deleteGroceryItem(itemId: String) {

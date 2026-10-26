@@ -40,6 +40,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -125,10 +126,12 @@ class CookingActions(
 @Composable
 fun CookingActivityScreen(
     viewModel: CookingViewModel,
+    groceryViewModel: CookingGroceryViewModel,
     onQuit: () -> Unit,
     onOpenMaggie: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
+    val grocery by groceryViewModel.uiState.collectAsState()
     val center: InterruptionCenter = koinInject()
     val ring: InterruptionAlert = koinInject()
 
@@ -158,6 +161,8 @@ fun CookingActivityScreen(
         actions = CookingActions.of(viewModel),
         onQuit = onQuit,
         onOpenMaggie = onOpenMaggie,
+        grocery = grocery,
+        groceryActions = CookingGroceryActions.of(groceryViewModel),
     )
 }
 
@@ -171,7 +176,10 @@ fun CookingActivityContent(
     onQuit: () -> Unit,
     onOpenMaggie: () -> Unit,
     immersion: ActivityImmersion = rememberWindowImmersion(),
+    grocery: CookingGroceryUiState = CookingGroceryUiState(),
+    groceryActions: CookingGroceryActions = CookingGroceryActions(),
 ) {
+    val cooking = state.load == CookingLoad.READY && state.session?.phase == CookingPhase.COOKING
     ActivityScaffold(
         name = "Cuisine",
         hue = ModuleHue.CUISINE,
@@ -179,8 +187,24 @@ fun CookingActivityContent(
         onOpenMaggie = onOpenMaggie,
         immersion = immersion,
         progress = { CookingProgress(state) },
+        actions = { if (cooking) CookingGroceryButton(grocery.remaining, groceryActions.open) },
     ) {
         CookingFrame(state, actions) { CookingBody(state, actions, onQuit) }
+        if (cooking && grocery.open) CookingGroceryOverlay(state, grocery, groceryActions)
+    }
+}
+
+/** The list over the step, closed or opened without the step moving: it lives beside the body, not in it. */
+@Composable
+private fun CookingGroceryOverlay(state: CookingUiState, grocery: CookingGroceryUiState, actions: CookingGroceryActions) {
+    val configuration = LocalConfiguration.current
+    val queue = state.session?.queue.orEmpty()
+    val stores = remember(grocery.list, state.recipes, queue) {
+        cookingGroceryStores(grocery.groups, mealNeeds(queue.mapNotNull { state.recipes[it.recipeId] }))
+    }
+    when (groceryPresentation(configuration.smallestScreenWidthDp, configuration.screenWidthDp > configuration.screenHeightDp)) {
+        GroceryPresentation.SHEET -> CookingGrocerySheet(grocery, stores, actions)
+        GroceryPresentation.PANEL -> CookingGroceryPanel(grocery, stores, actions)
     }
 }
 

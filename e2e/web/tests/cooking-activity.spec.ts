@@ -3,7 +3,7 @@ import { AdminShell } from '../pages/AdminShell.js'
 import { HomePage } from '../pages/HomePage.js'
 import { ROUTES } from '../pages/routes.js'
 import type { APIRequestContext } from '@playwright/test'
-import { waitForIndexed } from '../helpers/api.js'
+import { getCollection, waitForIndexed } from '../helpers/api.js'
 
 const JSON_HEADERS = { 'Content-Type': 'application/json', Accept: 'application/json' }
 
@@ -273,5 +273,78 @@ test('quitting at step 3 keeps the cook: the sheet says « Reprendre », the act
     for (const iri of created.filter(Boolean).reverse()) {
       await api.delete(iri).catch(() => undefined)
     }
+  }
+})
+
+/**
+ * The shopping list inside the activity (MAG-583, extends MAG-99): « Courses » in the header opens the list over
+ * the step, the lines of the meal first and marked, a tick reaches the API, and the activity never leaves full
+ * screen. The Vitest suite owns the states of the panel; this is the real route, the real browser and the API.
+ *
+ * The account of `65-nutrition-home.yaml`: tonight's dinner has « Pâtes au pesto », whose spaghetti the journey puts
+ * on the list.
+ */
+test('« Courses » opens the list over the activity, shows the spaghetti of the meal first, and ticking it reaches the list without leaving full screen', async ({
+  nutritionUser,
+}) => {
+  const { page, api } = nutritionUser
+  const home = new HomePage(page)
+  let itemId = ''
+
+  await clearStatus(api)
+  try {
+    // Given tonight's meal and « Spaghetti » to buy on the list.
+    const added = await api.post('/api/grocery/add-item', { headers: JSON_HEADERS, data: { label: 'Spaghetti', quantity: 100, unit: 'g' } })
+    expect(added.ok(), `the API refused the line: ${await added.text()}`).toBe(true)
+    itemId = ((await added.json()) as { itemId: string }).itemId
+
+    await home.open()
+    await home.card('nutrition').getByTestId('home-launch-nutrition').click()
+    const shell = page.getByTestId('activity-shell')
+    await expect(page.getByTestId('cooking-preparation')).toBeVisible()
+    await expect(shell).not.toHaveAttribute('data-mode', 'pending')
+    const mode = await shell.getAttribute('data-mode')
+
+    // When I open « Courses » in the header…
+    const button = page.getByRole('button', { name: /^Courses/ })
+    await expect(page.getByTestId('cooking-grocery-count')).toBeVisible()
+    const before = Number(await page.getByTestId('cooking-grocery-count').textContent())
+    await button.click()
+
+    // …the list opens over the step, inside the frame, with the spaghetti of the meal marked and first in its store.
+    const list = shell.getByRole('dialog', { name: 'Liste de courses' })
+    await expect(list).toBeVisible()
+    const spaghetti = list.getByTestId('cooking-grocery-item').filter({ hasText: 'Spaghetti' })
+    await expect(spaghetti).toHaveAttribute('data-meal', 'true')
+    await expect(spaghetti).toContainText('ce repas')
+    const store = list.getByTestId('cooking-grocery-store').filter({ has: spaghetti })
+    await expect(store.getByTestId('cooking-grocery-item').first()).toContainText('Spaghetti')
+
+    // When I tick it, the box stays ticked, the count drops and the list on the API has it ticked.
+    await list.getByRole('checkbox', { name: 'Spaghetti' }).click()
+    await expect(list.getByRole('checkbox', { name: 'Spaghetti' })).toBeChecked()
+    await expect(page.getByTestId('cooking-grocery-count')).toHaveText(String(before - 1))
+    await expect
+      .poll(
+        async () => {
+          const [stored] = await getCollection<{ items: { id: string; checked: boolean }[] }>(api, '/api/grocery_lists')
+
+          return stored?.items.find((item) => item.id === itemId)?.checked
+        },
+        { message: 'the tick never reached the list', timeout: 30_000 },
+      )
+      .toBe(true)
+
+    // When I close the list, the activity is where it was: still on its preparation, in the same mode, on the same page.
+    await list.getByRole('button', { name: 'Fermer la liste de courses' }).click()
+    await expect(list).toHaveCount(0)
+    await expect(shell).toBeVisible()
+    await expect(shell).toHaveAttribute('data-mode', mode ?? 'window')
+    await expect(page.getByTestId('cooking-preparation')).toBeVisible()
+    await expect(page).toHaveURL(/\/activites\/cuisine\?meal=/)
+    expect(await page.evaluate(() => document.fullscreenElement !== null)).toBe(mode === 'fullscreen')
+  } finally {
+    await clearStatus(api)
+    if (itemId) await api.delete(`/api/grocery_items/${itemId}`).catch(() => undefined)
   }
 })

@@ -19,6 +19,9 @@ onFlowComplete:
 #   l'étape 1 n'est pas cochée ; « Suivant » coche l'étape 2 : « 1 / 5 faites »
 # Et quand j'ouvre la feuille des étapes depuis le bandeau et touche l'étape 5, elle s'affiche sans être cochée
 #   et « Suivant » n'est jamais retenu
+# Et quand j'ouvre le panier de l'en-tête (MAG-583), la liste de courses s'ouvre sur l'étape avec « Pâtes » en
+#   premier, marquée « ce repas » ; une touche la coche, le compteur passe de 2 à 1, l'API la dit cochée, et
+#   la fermeture me laisse sur l'étape 1, toujours en plein écran
 # Et tourné, la colonne montre le minuteur de l'eau sur la ligne de l'étape 1 ; je touche l'étape 3, « Lancer et
 #   continuer » lance « Pâtes » : deux minuteurs sur leurs lignes
 # Et quand je reviens à l'étape 3 et tape ✕ (MAG-615), aucune question : je suis sur la fiche, qui dit « ▶ Reprendre »
@@ -105,6 +108,75 @@ onFlowComplete:
 - assertVisible:
     id: "cooking_steps_banner_progress"
     text: "0 / 5 faites"
+
+# The shopping list (MAG-583): two lines written from "the web", one of them the pasta this recipe uses. The cart
+# counts both; the list opens over the step with the pasta first and marked, one tap on it ticks it, the count
+# drops by one, the API has it ticked; closing leaves the step as it was, still full screen.
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      ACTION: add
+      LABEL: Sel MAG-583
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      ACTION: add
+      LABEL: Pâtes MAG-492
+- extendedWaitUntil:
+    visible:
+      id: "cooking_grocery_count"
+      text: "2"
+    timeout: 20000
+- tapOn:
+    id: "cooking_grocery_button"
+- extendedWaitUntil:
+    visible:
+      id: "cooking_grocery_sheet"
+    timeout: 20000
+- assertVisible:
+    id: "cooking_grocery_meal"
+    text: "ce repas"
+- assertVisible: "Sel MAG-583"
+- tapOn: "Pâtes MAG-492"
+- extendedWaitUntil:
+    visible: "cochée"
+    timeout: 10000
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      ACTION: expect
+      LABEL: Pâtes MAG-492
+      STATE: checked
+- tapOn:
+    id: "cooking_grocery_close"
+- extendedWaitUntil:
+    notVisible:
+      id: "cooking_grocery_sheet"
+    timeout: 10000
+- assertVisible:
+    id: "cooking_grocery_count"
+    text: "1"
+- assertVisible: "Étape 1 sur 5"
+- assertVisible:
+    id: "cooking_steps_banner_progress"
+    text: "0 / 5 faites"
+- assertNotVisible:
+    id: "chat_open"
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      ACTION: remove
+      LABEL: Pâtes MAG-492
+- runScript:
+    file: ../scripts/grocery-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      ACTION: remove
+      LABEL: Sel MAG-583
 
 # Turned: the same step, still full screen, the steps column at the left of it.
 - setOrientation: LANDSCAPE_LEFT

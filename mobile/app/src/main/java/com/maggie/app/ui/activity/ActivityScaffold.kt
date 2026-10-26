@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -31,12 +32,12 @@ import com.maggie.app.ui.theme.MaggieShapes
 import com.maggie.app.ui.theme.ModuleHue
 import com.maggie.app.ui.theme.inModule
 
-/** The header's two buttons: Maggie and ✕. */
-private val HEADER_BUTTON = 56.dp
+/** The header's buttons — the activity's own, Maggie, ✕ — are all this big. */
+internal val HEADER_BUTTON = 56.dp
 
 /**
  * The frame every activity shares (MAG-580): the whole screen, kept on, with no app chrome; a header with
- * the activity's own [progress], Maggie and ✕; the system's back, which does what ✕ does.
+ * the activity's own [progress] and [actions], Maggie and ✕; the system's back, which does what ✕ does.
  *
  * The background is the night with the module's colour as a radial halo (MAG-617); no activity draws its own.
  *
@@ -52,6 +53,7 @@ fun ActivityScaffold(
     modifier: Modifier = Modifier,
     immersion: ActivityImmersion = rememberWindowImmersion(),
     progress: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable BoxScope.() -> Unit,
 ) {
     DisposableEffect(immersion) {
@@ -74,6 +76,7 @@ fun ActivityScaffold(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(modifier = Modifier.weight(1f)) { progress() }
+                    actions()
                     FilledTonalIconButton(
                         onClick = onOpenMaggie,
                         modifier = Modifier.size(HEADER_BUTTON).testTag(UiTags.ACTIVITY_MAGGIE),

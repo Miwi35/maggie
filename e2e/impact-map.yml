@@ -488,7 +488,7 @@ web:
     areas: [cookbook, dashboard]
     paths: [api/fixtures/e2e/65-nutrition-home.yaml]
   e2e/web/tests/cooking-activity.spec.ts:
-    areas: [cookbook, dashboard]
+    areas: [cookbook, dashboard, grocery, realtime]
     paths: [api/fixtures/e2e/65-nutrition-home.yaml]
 
   e2e/web/tests/finance-accounts.spec.ts:

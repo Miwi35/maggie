@@ -37,6 +37,8 @@ interface ActivityShellProps {
   onQuit: () => void
   /** The activity's progress, drawn at the left of the top bar. */
   progress?: ReactNode
+  /** The activity's own buttons, drawn between the progress and Maggie (64 px high, like the shell's). */
+  actions?: ReactNode
   children: ReactNode
 }
 
@@ -47,7 +49,7 @@ interface ActivityShellProps {
  * tap away. The activity itself is its children. The background is the night with the activity's
  * [color] as a radial halo (MAG-617): no activity draws its own.
  */
-export const ActivityShell = ({ color, name, confirmQuit = false, confirmDetail, onQuit, progress, children }: ActivityShellProps) => {
+export const ActivityShell = ({ color, name, confirmQuit = false, confirmDetail, onQuit, progress, actions, children }: ActivityShellProps) => {
   const [frame, setFrame] = useState<HTMLElement | null>(null)
   const frameRef = useRef<HTMLElement | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -136,6 +138,7 @@ export const ActivityShell = ({ color, name, confirmQuit = false, confirmDetail,
       >
         <Box component="header" sx={{ display: 'flex', alignItems: 'center', gap: 1, px: { xs: 2, md: 4 }, pt: 2, pb: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>{progress}</Box>
+          {actions}
           <IconButton
             aria-label="Maggie"
             onClick={() => setChatOpen((open) => !open)}
