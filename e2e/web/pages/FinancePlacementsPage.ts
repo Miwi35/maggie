@@ -4,11 +4,10 @@ import { AdminShell } from './AdminShell.js'
 import { ROUTES } from './routes.js'
 
 /**
- * Finance › Planification › Placements (MAG-555, own tab since MAG-633): the simulated
- * placements — a
- * table of what each one would be worth, and the curve of the one selected —
- * with and without the capital the projects of the plan take out of it
- * (MAG-556).
+ * Finance › Planification › Placements (MAG-555, own tab since MAG-633): the
+ * simulated placements — a table of what each one would be worth, and the curve
+ * of the one selected — with and without the capital the projects of the plan
+ * take out of it (MAG-556).
  */
 export class FinancePlacementsPage extends AdminShell {
   readonly card: Locator

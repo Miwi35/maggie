@@ -1,4 +1,5 @@
 import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import LinearProgress from '@mui/material/LinearProgress'
 import { Title } from 'react-admin'
@@ -57,7 +58,9 @@ export const IndependencePanel = () => {
           />
         ))}
 
-      <TimelinePanel />
+      <Box sx={{ mt: 3 }}>
+        <TimelinePanel />
+      </Box>
     </>
   )
 }
