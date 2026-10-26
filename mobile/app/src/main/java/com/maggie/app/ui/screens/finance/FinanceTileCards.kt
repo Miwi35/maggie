@@ -47,6 +47,7 @@ import com.maggie.app.data.model.accountLabel
 import com.maggie.app.data.model.consumedFraction
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.owedPillText
 import com.maggie.app.data.model.independenceSummary
 import com.maggie.app.data.model.referenceSalarySourceLabel
@@ -113,11 +114,11 @@ internal fun AccountsTileCard(
 ) {
     FinanceTile("Comptes", UiTags.FINANCE_TILE_ACCOUNTS, onClick = { onOpen(Screen.AccountList.route) }) {
         Text(
-            text = formatCents(tile.totalCents),
+            text = formatCentsRounded(tile.totalCents),
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.padding(vertical = 4.dp),
         )
-        Hint("dont ${formatCents(tile.cushionCents)} de matelas — ${formatCents(tile.availableCents)} disponibles")
+        Hint("dont ${formatCentsRounded(tile.cushionCents)} de matelas — ${formatCentsRounded(tile.availableCents)} disponibles")
         tile.accounts.forEach { account ->
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
@@ -129,7 +130,7 @@ internal fun AccountsTileCard(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = formatCents(account.balanceCents, account.currency),
+                    text = formatCentsRounded(account.balanceCents, account.currency),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -175,7 +176,7 @@ internal fun BudgetTileCard(tile: BudgetTile, todo: FinanceTodo, onOpen: (String
             Text("Salaire attendu", style = MaterialTheme.typography.labelMedium)
             if (salary != null) {
                 Text(
-                    text = formatCents(salary.monthlyCents) +
+                    text = formatCentsRounded(salary.monthlyCents) +
                         (salary.expectedOn?.let { " · le ${treasuryDate(it)}" } ?: ""),
                     style = MaterialTheme.typography.bodyLarge,
                 )
@@ -199,7 +200,7 @@ internal fun BudgetTileCard(tile: BudgetTile, todo: FinanceTodo, onOpen: (String
             Text("Solde attendu avant le salaire", style = MaterialTheme.typography.labelMedium)
             if (before != null) {
                 Text(
-                    text = "${formatCents(before.balanceCents)} · le ${treasuryDate(before.onDate)}",
+                    text = "${formatCentsRounded(before.balanceCents)} · le ${treasuryDate(before.onDate)}",
                     style = MaterialTheme.typography.bodyLarge,
                     color = if (before.balanceCents < 0) {
                         MaterialTheme.colorScheme.error
@@ -285,7 +286,7 @@ private fun CushionLine(tile: BudgetTile) {
             modifier = Modifier.fillMaxWidth().height(6.dp).padding(top = 4.dp),
         )
         Hint(
-            "${formatCents(cushion.currentCents)} sur ${formatCents(cushion.targetCents)}",
+            "${formatCentsRounded(cushion.currentCents)} sur ${formatCentsRounded(cushion.targetCents)}",
             modifier = Modifier.padding(top = 4.dp),
         )
     }

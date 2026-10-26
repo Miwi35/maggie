@@ -31,6 +31,7 @@ import com.maggie.app.data.model.TileAccount
 import com.maggie.app.data.model.TileCushion
 import com.maggie.app.data.model.TileEnvelope
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeFinanceDashboard
@@ -160,12 +161,23 @@ class FinanceDashboardTilesScreenTest {
     fun `the accounts tile adds the accounts up, sets the cushion aside and marks it`() {
         open()
 
-        compose.onNodeWithText(formatCents(604550)).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("dont ${formatCents(420000)} de matelas — ${formatCents(184550)} disponibles")
+        compose.onNodeWithText(formatCentsRounded(604550)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("dont ${formatCentsRounded(420000)} de matelas — ${formatCentsRounded(184550)} disponibles")
             .performScrollTo()
             .assertIsDisplayed()
         compose.onNodeWithText("Boursorama · EUR · Compte courant").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("EUR · Livret A · matelas").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `the summary tiles round to whole units as the mock-ups do, the planning arithmetic stays exact`() {
+        open()
+
+        assertEquals("1\u202F846\u00A0€", formatCentsRounded(184550))
+        compose.onNodeWithText("1\u202F846\u00A0€").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("4\u202F200\u00A0€").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("4\u202F200\u00A0€ sur 7\u202F000\u00A0€").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("${formatCents(197334)} / mois").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -176,8 +188,8 @@ class FinanceDashboardTilesScreenTest {
             compose.onNodeWithTag(UiTags.financeTileEnvelope(id), useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         }
         compose.onNodeWithText("Matelas : en recharge · 60 %").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("${formatCents(235000)} · le 28 octobre").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("${formatCents(31000)} · le 27 octobre").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("${formatCentsRounded(235000)} · le 28 octobre").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("${formatCentsRounded(31000)} · le 27 octobre").performScrollTo().assertIsDisplayed()
     }
 
     @Test
