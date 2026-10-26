@@ -179,7 +179,7 @@ test('the dialog that creates an event edits it with the same fields', async ({ 
   const edited = await waitForIndexed<StoredEvent & { rrule?: string | null; location?: string }>(
     api,
     '/api/events?itemsPerPage=100',
-    (event) => event.summary === created.summary && String(event.rrule ?? '').includes('FREQ=WEEKLY'),
+    (event) => event.id === stored.id && /FREQ=WEEKLY/.test(event.rrule ?? ''),
     { what: 'The event made weekly' },
   )
   expect(edited.id).toBe(stored.id)
