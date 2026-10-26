@@ -52,10 +52,40 @@ describe('EventCreateDialog', () => {
     expect(screen.getByLabelText(/Fin/)).toHaveValue('2026-10-05T16:00')
   })
 
+  /** MAG-649: the creation holds a place and a description, as the edition does, and keeps them. */
+  test('creates an event with its place and its description', async () => {
+    await open()
+
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Atelier poterie' } })
+    fireEvent.change(screen.getByLabelText('Lieu'), { target: { value: 'Atelier des Lilas' } })
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Apporter un tablier' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        'events',
+        expect.objectContaining({
+          data: expect.objectContaining({ location: 'Atelier des Lilas', description: 'Apporter un tablier' }),
+        }),
+      ),
+    )
+  })
+
+  test('leaves the place and the description out when they are blank', async () => {
+    await open()
+
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Café' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('location')
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('description')
+  })
+
   test('posts the default agenda as the bare IRI the provider handed over', async () => {
     await open()
 
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Café avec Léa' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Café avec Léa' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() =>
@@ -78,7 +108,7 @@ describe('EventCreateDialog', () => {
     })
     await open()
 
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Concert' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Concert' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() =>
@@ -95,7 +125,7 @@ describe('EventCreateDialog', () => {
     mockGetList.mockReturnValue(new Promise((resolve) => (resolveAgendas = resolve)))
     await open()
 
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Concert' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Concert' } })
     expect(screen.getByRole('button', { name: 'Créer' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Créer' }))
     expect(mockCreate).not.toHaveBeenCalled()
@@ -127,7 +157,7 @@ describe('EventCreateDialog', () => {
     render(<EventCreateDialog open onClose={vi.fn()} onCreated={vi.fn()} defaultStart={start} defaultEnd={end} />)
     await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('agendas', expect.any(Object)))
 
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Café avec Léa' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Café avec Léa' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalled())
@@ -144,15 +174,15 @@ describe('EventCreateDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     expect(mockCreate).not.toHaveBeenCalled()
-    expect(screen.getByText('Le résumé est requis')).toBeInTheDocument()
+    expect(screen.getByText('Le titre est requis')).toBeInTheDocument()
   })
 
   // An all-day event is a pair of dates, the end excluded as in Google, and no instant (MAG-382).
   test('an all-day event is posted as its dates, without startAt or endAt', async () => {
     await open()
 
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Anniversaire' } })
-    await userEvent.click(screen.getByRole('switch', { name: 'Journée entière' }))
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Anniversaire' } })
+    await userEvent.click(screen.getByRole('switch', { name: 'Toute la journée' }))
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalled())
@@ -177,7 +207,7 @@ describe('EventCreateDialog', () => {
     await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('agendas', expect.any(Object)))
 
     expect(screen.getByLabelText(/Fin/)).toHaveValue('2037-01-28')
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Stage' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Stage' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() =>
@@ -198,7 +228,7 @@ describe('EventCreateDialog', () => {
     )
     await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('agendas', expect.any(Object)))
 
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Nouvel an' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Nouvel an' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() =>
@@ -217,7 +247,7 @@ describe('EventCreateDialog', () => {
   test('the reminder picker posts the delays, and nothing when none is added', async () => {
     await open()
 
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Dentiste' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Dentiste' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalled())
@@ -244,14 +274,14 @@ describe('EventCreateDialog', () => {
   test('the recurrence picker adds an RRULE, and leaves it out when set to never', async () => {
     await open()
 
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Cours de piano' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Cours de piano' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalled())
     expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('rrule')
 
     mockCreate.mockClear()
-    await userEvent.click(screen.getByRole('combobox', { name: 'Récurrence' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Répéter' }))
     await userEvent.click(screen.getByRole('option', { name: 'Toutes les semaines' }))
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
@@ -267,7 +297,7 @@ describe('EventCreateDialog', () => {
     await open()
 
     expect(screen.getByRole('combobox', { name: 'Statut' })).toHaveTextContent('Confirmé')
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Déjeuner' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Déjeuner' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() =>
@@ -281,7 +311,7 @@ describe('EventCreateDialog', () => {
   test('creates a tentative event when « Provisoire » is chosen', async () => {
     await open()
 
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Déjeuner' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Déjeuner' } })
     await userEvent.click(screen.getByRole('combobox', { name: 'Statut' }))
     await userEvent.click(screen.getByRole('option', { name: 'Provisoire' }))
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
@@ -298,7 +328,7 @@ describe('EventCreateDialog', () => {
     mockCreate.mockRejectedValue(new Error('Invalid status'))
     await open()
 
-    fireEvent.change(screen.getByLabelText(/Résumé/), { target: { value: 'Déjeuner' } })
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Déjeuner' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: Invalid status', { type: 'error' }))

@@ -143,16 +143,16 @@ describe('CalendarView — the handles the agenda journeys use', { timeout: 60_0
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Nouvel événement' })
-    expect(within(dialog).getByLabelText(/Résumé/)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/Titre/)).toBeInTheDocument()
     expect(within(dialog).getByLabelText(/Début/)).toBeInTheDocument()
     expect(within(dialog).getByLabelText(/Fin/)).toBeInTheDocument()
-    expect(within(dialog).getByRole('switch', { name: 'Journée entière' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('switch', { name: 'Toute la journée' })).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Créer' })).toBeInTheDocument()
 
     // The three selects `CalendarPage.choose()` drives, by role: MUI renders a
     // hidden input beside each `combobox`, and `getByLabelText` would find that
     // instead — clicking it opens nothing at all.
-    for (const label of ['Récurrence', 'Calendrier']) {
+    for (const label of ['Répéter', 'Agenda']) {
       expect(within(dialog).getByRole('combobox', { name: label })).toBeInTheDocument()
     }
   })
@@ -162,7 +162,7 @@ describe('CalendarView — the handles the agenda journeys use', { timeout: 60_0
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
     const dialog = await screen.findByRole('dialog', { name: 'Nouvel événement' })
 
-    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Récurrence' }))
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Répéter' }))
     await userEvent.click(await screen.findByRole('option', { name: 'Toutes les semaines' }))
 
     // "Se termine" only exists once a frequency is chosen, which is why

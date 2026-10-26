@@ -16,7 +16,7 @@ test.describe('A control that did nothing', () => {
 
     const dialog = page.getByRole('dialog', { name: "Modifier l'événement" })
     await expect(dialog).toBeVisible()
-    await dialog.getByLabel(/Résumé/).fill('Rendez-vous dentiste (contrôle)')
+    await dialog.getByLabel(/Titre/).fill('Rendez-vous dentiste (contrôle)')
     await dialog.getByRole('button', { name: 'Enregistrer' }).click()
 
     const stored = await waitForIndexed<{ summary: string }>(
