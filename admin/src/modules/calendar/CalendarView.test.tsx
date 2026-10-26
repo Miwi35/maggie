@@ -262,7 +262,7 @@ describe('CalendarView', () => {
 
       const dialog = await screen.findByRole('dialog')
       expect(within(dialog).getByText("Modifier l'événement")).toBeInTheDocument()
-      const summary = within(dialog).getByLabelText(/Résumé/)
+      const summary = within(dialog).getByLabelText(/Titre/)
       fireEvent.change(summary, { target: { value: 'Dentiste (contrôle)' } })
       await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
 
@@ -319,7 +319,7 @@ describe('CalendarView', () => {
       await userEvent.click(await screen.findByRole('button', { name: 'Modifier' }))
 
       const edit = await screen.findByRole('dialog')
-      const summary = within(edit).getByLabelText(/Résumé/)
+      const summary = within(edit).getByLabelText(/Titre/)
       fireEvent.change(summary, { target: { value: 'Sport (piscine)' } })
       await userEvent.click(within(edit).getByRole('button', { name: 'Enregistrer' }))
 
@@ -403,7 +403,7 @@ describe('CalendarView', () => {
       const newStart = new Date(occurrenceStart.getTime() + 2 * 3600_000)
       const newEnd = new Date(occurrenceStart.getTime() + 3 * 3600_000)
 
-      const summary = within(edit).getByLabelText(/Résumé/)
+      const summary = within(edit).getByLabelText(/Titre/)
       fireEvent.change(summary, { target: { value: 'Sport (piscine)' } })
       fireEvent.change(within(edit).getByLabelText(/Début/), { target: { value: localInput(newStart) } })
       fireEvent.change(within(edit).getByLabelText(/Fin/), { target: { value: localInput(newEnd) } })
@@ -502,7 +502,7 @@ describe('CalendarView', () => {
       await userEvent.click(await screen.findByRole('button', { name: action }))
       if (action === 'Modifier') {
         const edit = await screen.findByRole('dialog')
-        fireEvent.change(within(edit).getByLabelText(/Résumé/), { target: { value: 'Sport (piscine)' } })
+        fireEvent.change(within(edit).getByLabelText(/Titre/), { target: { value: 'Sport (piscine)' } })
         await userEvent.click(within(edit).getByRole('button', { name: 'Enregistrer' }))
       }
       const confirm = await screen.findByRole('dialog', { name: /l'événement récurrent$/ })

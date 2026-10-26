@@ -111,7 +111,7 @@ fun RecurrencePicker(
                 value = FREQ_OPTIONS.find { it.value == freq }?.label ?: "Ne se répète pas",
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Récurrence") },
+                label = { Text("Répéter") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = freqExpanded) },
                 modifier = Modifier
                     .fillMaxWidth()

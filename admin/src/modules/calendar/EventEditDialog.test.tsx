@@ -1,9 +1,21 @@
-import { describe, test, expect, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EventEditDialog } from './EventEditDialog'
 
+const mockGetList = vi.fn()
+vi.mock('react-admin', () => ({
+  useDataProvider: () => ({ getList: mockGetList }),
+  useNotify: () => vi.fn(),
+}))
+
+const AGENDAS = [
+  { id: '/api/agendas/01PERSO', name: 'Perso', default: true },
+  { id: '/api/agendas/01FAMILLE', name: 'Famille', default: false },
+]
+
 const event = {
+  agenda: '/api/agendas/01PERSO',
   summary: 'Dentiste',
   start: new Date(2026, 9, 5, 14, 30).toISOString(),
   end: new Date(2026, 9, 5, 15, 30).toISOString(),
@@ -13,10 +25,15 @@ const event = {
 }
 
 describe('EventEditDialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetList.mockResolvedValue({ data: AGENDAS, total: AGENDAS.length })
+  })
+
   test('pre-fills the form with the event', () => {
     render(<EventEditDialog open event={event} onClose={vi.fn()} onSubmit={vi.fn()} />)
 
-    expect(screen.getByLabelText(/Résumé/)).toHaveValue('Dentiste')
+    expect(screen.getByLabelText(/Titre/)).toHaveValue('Dentiste')
     expect(screen.getByLabelText(/Début/)).toHaveValue('2026-10-05T14:30')
     expect(screen.getByLabelText(/Fin/)).toHaveValue('2026-10-05T15:30')
     expect(screen.getByLabelText('Lieu')).toHaveValue('Cabinet')
@@ -27,7 +44,7 @@ describe('EventEditDialog', () => {
     const onSubmit = vi.fn()
     render(<EventEditDialog open event={event} onClose={vi.fn()} onSubmit={onSubmit} />)
 
-    const summary = screen.getByLabelText(/Résumé/)
+    const summary = screen.getByLabelText(/Titre/)
     await userEvent.clear(summary)
     await userEvent.type(summary, 'Dentiste (contrôle)')
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
@@ -43,7 +60,67 @@ describe('EventEditDialog', () => {
       location: 'Cabinet',
       reminders: null,
       status: 'confirmed',
+      agenda: '/api/agendas/01PERSO',
     })
+  })
+
+  /** MAG-649: the same fields as the creation, in the same order, under the same names. */
+  test('shows the fields of the creation dialog, in the same order', async () => {
+    render(<EventEditDialog open event={event} onClose={vi.fn()} onSubmit={vi.fn()} />)
+
+    const dialog = screen.getByRole('dialog', { name: "Modifier l'événement" })
+    const fields = [
+      screen.getByLabelText(/Titre/),
+      screen.getByRole('switch', { name: 'Toute la journée' }),
+      screen.getByLabelText(/Début/),
+      screen.getByLabelText(/Fin/),
+      screen.getByRole('combobox', { name: 'Répéter' }),
+      screen.getByRole('combobox', { name: 'Statut' }),
+      screen.getByRole('button', { name: 'Ajouter un rappel' }),
+      screen.getByRole('combobox', { name: 'Agenda' }),
+      screen.getByLabelText('Lieu'),
+      screen.getByLabelText('Description'),
+    ]
+    fields.slice(1).forEach((field, i) => {
+      expect(fields[i].compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+    expect(within(dialog).queryByText('Résumé')).not.toBeInTheDocument()
+    expect(within(dialog).queryByText('Calendrier')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Agenda' })).toHaveTextContent('Perso'))
+  })
+
+  test('makes a one-off event repeat and moves it to another agenda', async () => {
+    const onSubmit = vi.fn()
+    render(<EventEditDialog open event={event} onClose={vi.fn()} onSubmit={onSubmit} />)
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Agenda' })).toHaveTextContent('Perso'))
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Répéter' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Toutes les semaines' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Agenda' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Famille' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ agenda: '/api/agendas/01FAMILLE', rrule: expect.stringContaining('FREQ=WEEKLY') }),
+    )
+  })
+
+  test('an occurrence shows the rule of its series, and sends no rule of its own', async () => {
+    const onSubmit = vi.fn()
+    render(
+      <EventEditDialog
+        open
+        event={{ ...event, seriesRrule: 'FREQ=WEEKLY;BYDAY=MO' }}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    expect(screen.getByLabelText('Répéter')).toBeDisabled()
+    expect(screen.queryByRole('combobox', { name: 'Répéter' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('rrule')
   })
 
   /**
@@ -111,11 +188,11 @@ describe('EventEditDialog', () => {
     const onSubmit = vi.fn()
     render(<EventEditDialog open event={event} onClose={vi.fn()} onSubmit={onSubmit} />)
 
-    await userEvent.clear(screen.getByLabelText(/Résumé/))
+    await userEvent.clear(screen.getByLabelText(/Titre/))
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(onSubmit).not.toHaveBeenCalled()
-    expect(screen.getByText('Le résumé est requis')).toBeInTheDocument()
+    expect(screen.getByText('Le titre est requis')).toBeInTheDocument()
   })
 
   // An all-day event is a pair of dates, the end excluded as stored (MAG-382); the
@@ -162,7 +239,7 @@ describe('EventEditDialog', () => {
     const onSubmit = vi.fn()
     render(<EventEditDialog open event={event} onClose={vi.fn()} onSubmit={onSubmit} />)
 
-    await userEvent.click(screen.getByRole('switch', { name: 'Journée entière' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Toute la journée' }))
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(onSubmit).toHaveBeenCalledWith(
@@ -174,7 +251,7 @@ describe('EventEditDialog', () => {
     const onSubmit = vi.fn()
     render(<EventEditDialog open event={birthday} onClose={vi.fn()} onSubmit={onSubmit} />)
 
-    await userEvent.click(screen.getByRole('switch', { name: 'Journée entière' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Toute la journée' }))
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(onSubmit).toHaveBeenCalledWith(

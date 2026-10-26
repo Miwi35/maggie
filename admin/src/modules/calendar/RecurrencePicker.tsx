@@ -115,7 +115,7 @@ export const RecurrencePicker = ({ value, onChange, eventStartDate }: Recurrence
     <Box>
       {/* Frequency */}
       <TextField
-        label="Récurrence"
+        label="Répéter"
         value={freq}
         onChange={(e) => setFreq(Number(e.target.value))}
         select

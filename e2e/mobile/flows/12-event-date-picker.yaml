@@ -73,11 +73,7 @@ tags:
 - tapOn:
     id: "picker_confirm"
 
-# The button closes a form taller than the screen: Maestro does not scroll for a tap.
-- scrollUntilVisible:
-    element:
-      id: "event_save"
-
+# « Créer » is the pill of the header (MAG-649): always on screen, no scrolling.
 - tapOn:
     id: "event_save"
 

@@ -145,6 +145,52 @@ test('the pencil renames an event, and the bin removes it for good', async ({ pa
 })
 
 /**
+ * One dialog creates and edits an event, with the same fields (MAG-649).
+ *
+ * The creation carries a place and a description, the edition shows them back and
+ * adds what creation always had — a repetition and another agenda — so the row ends
+ * stored with all of it, and the week still draws it.
+ */
+test('the dialog that creates an event edits it with the same fields', async ({ page, api }) => {
+  const created = slot('Atelier poterie MAG-649')
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+
+  await calendar.createEvent({
+    ...created,
+    agenda: 'Perso',
+    location: 'Atelier des Lilas',
+    description: 'Apporter un tablier',
+  })
+  const stored = await storedEvent(api, created.summary)
+  expect(stored).toMatchObject({ location: 'Atelier des Lilas', description: 'Apporter un tablier' })
+
+  await calendar.openEvent(String(stored.id), created.summary)
+  await calendar.editFromPopover()
+  const dialog = calendar.editEventDialog
+  await expect(dialog.getByLabel('Titre')).toHaveValue(created.summary)
+  await expect(dialog.getByLabel('Lieu')).toHaveValue('Atelier des Lilas')
+  await expect(dialog.getByLabel('Description')).toHaveValue('Apporter un tablier')
+  await expect(dialog.getByRole('combobox', { name: 'Répéter' })).toBeVisible()
+  await expect(dialog.getByRole('combobox', { name: 'Agenda' })).toHaveText('Perso')
+
+  await calendar.submitEventEdit({ recurrence: 'Toutes les semaines', agenda: 'Famille' })
+
+  const edited = await waitForIndexed<StoredEvent & { rrule?: string | null; location?: string }>(
+    api,
+    '/api/events?itemsPerPage=100',
+    (event) => event.summary === created.summary && String(event.rrule ?? '').includes('FREQ=WEEKLY'),
+    { what: 'The event made weekly' },
+  )
+  expect(edited.id).toBe(stored.id)
+  expect(edited.agenda).toBe(`/api/agendas/${seedId('e2e_agenda_shared')}`)
+  expect(edited).toMatchObject({ location: 'Atelier des Lilas', description: 'Apporter un tablier' })
+
+  await calendar.chooseView('Jour')
+  await expect(calendar.chip(created.summary)).toHaveCount(1)
+})
+
+/**
  * A reminder set in the dialog is stored in the shape the cron reads (MAG-121).
  *
  * Reminders used to be filled by Google's import alone: the dialog had no field,

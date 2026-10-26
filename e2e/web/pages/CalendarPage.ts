@@ -17,7 +17,7 @@ export interface NewEvent {
   allDay?: boolean
   /** The agenda's name as the sidebar spells it — "Perso", "Famille". */
   agenda?: string
-  /** A label of the "Récurrence" select, e.g. "Toutes les semaines". */
+  /** A label of the "Répéter" select, e.g. "Toutes les semaines". */
   recurrence?: string
   /** How many occurrences, when `recurrence` is set. Leaves the series open when omitted. */
   occurrences?: number
@@ -25,6 +25,8 @@ export interface NewEvent {
   reminder?: string
   /** A label of the "Statut" select — "Provisoire". Confirmed when omitted. */
   status?: string
+  location?: string
+  description?: string
 }
 
 export interface NewTask {
@@ -324,19 +326,19 @@ export class CalendarPage extends AdminShell {
     const dialog = this.createEventDialog
     await expect(dialog).toBeVisible()
 
-    await dialog.getByLabel(/Résumé/).fill(event.summary)
+    await dialog.getByLabel(/Titre/).fill(event.summary)
 
     // Before the dates: flipping the switch rewrites both fields, and their
     // input type with them.
     if (event.allDay) {
-      await dialog.getByRole('switch', { name: 'Journée entière' }).check()
+      await dialog.getByRole('switch', { name: 'Toute la journée' }).check()
     }
 
     await dialog.getByLabel(/Début/).fill(event.start)
     await dialog.getByLabel(/Fin/).fill(event.end)
 
     if (event.recurrence) {
-      await this.choose(dialog, 'Récurrence', event.recurrence)
+      await this.choose(dialog, 'Répéter', event.recurrence)
 
       if (event.occurrences !== undefined) {
         await this.choose(dialog, 'Se termine', 'Après')
@@ -355,7 +357,15 @@ export class CalendarPage extends AdminShell {
     }
 
     if (event.agenda) {
-      await this.choose(dialog, 'Calendrier', event.agenda)
+      await this.choose(dialog, 'Agenda', event.agenda)
+    }
+
+    if (event.location) {
+      await dialog.getByLabel('Lieu').fill(event.location)
+    }
+
+    if (event.description) {
+      await dialog.getByLabel('Description').fill(event.description)
     }
 
     await dialog.getByRole('button', { name: 'Créer' }).click()
@@ -396,12 +406,16 @@ export class CalendarPage extends AdminShell {
     end?: string
     reminder?: string | null
     status?: string
+    /** A label of the "Répéter" select — only a one-off event can be made to repeat. */
+    recurrence?: string
+    /** The agenda's name as the sidebar spells it. */
+    agenda?: string
   }): Promise<void> {
     const dialog = this.editEventDialog
     await expect(dialog).toBeVisible()
 
     if (values.summary !== undefined) {
-      await dialog.getByLabel(/Résumé/).fill(values.summary)
+      await dialog.getByLabel(/Titre/).fill(values.summary)
     }
     if (values.start !== undefined) {
       await dialog.getByLabel(/Début/).fill(values.start)
@@ -418,6 +432,14 @@ export class CalendarPage extends AdminShell {
 
     if (values.status !== undefined) {
       await this.choose(dialog, 'Statut', values.status)
+    }
+
+    if (values.recurrence !== undefined) {
+      await this.choose(dialog, 'Répéter', values.recurrence)
+    }
+
+    if (values.agenda !== undefined) {
+      await this.choose(dialog, 'Agenda', values.agenda)
     }
 
     await dialog.getByRole('button', { name: 'Enregistrer' }).click()

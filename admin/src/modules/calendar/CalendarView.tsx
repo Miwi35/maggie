@@ -60,7 +60,7 @@ import { TaskEditDialog, type TaskData } from './TaskEditDialog'
 import { EventDetailPopover } from './EventDetailPopover'
 import { REVIEW_ACTIVITY, eventTitle } from '../finance/reviewActivity'
 import { EventEditDialog } from './EventEditDialog'
-import type { EventEditValues } from './EventEditDialog'
+import type { EditableEvent, EventEditValues } from './EventEditDialog'
 import { statusClassNames, toEventStatus } from './eventStatus'
 import type { EventStatus } from './eventStatus'
 import type { EventReminders } from './ReminderPicker'
@@ -231,6 +231,7 @@ interface RecurrenceConfirm {
     location: string | null
     reminders: EventReminders | null
     status: EventStatus
+    agenda: string
   }
 }
 
@@ -241,16 +242,7 @@ interface EditingEvent {
   calendarIri: string
   rrule: string
   recurring: boolean
-  event: {
-    summary: string
-    start: string
-    end: string
-    allDay: boolean
-    description?: string
-    location?: string
-    reminders?: EventReminders | null
-    status?: EventStatus
-  }
+  event: EditableEvent
 }
 
 interface CalendarData {
@@ -1396,6 +1388,8 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           location: current.location,
           reminders: current.reminders ?? null,
           status: current.status ?? 'confirmed',
+          agenda: current.calendarIri || master?.agenda || '',
+          seriesRrule: current.rrule || master?.rrule || null,
         },
       })
     },
@@ -1429,6 +1423,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             location: values.location,
             reminders: values.reminders,
             status: values.status,
+            agenda: values.agenda,
           },
         })
         return
@@ -1570,7 +1565,13 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         const { newStart, newEnd, newAllDay, edit } = recurrenceConfirm
         const masterStatus = toEventStatus(rawEvents.find((e) => e.id === masterEventId)?.status)
         const editFields = edit
-          ? { description: edit.description, location: edit.location, reminders: edit.reminders, status: edit.status }
+          ? {
+              description: edit.description,
+              location: edit.location,
+              reminders: edit.reminders,
+              status: edit.status,
+              agenda: edit.agenda,
+            }
           // A drag changes times only, and the exception or new series it writes is
           // a fresh row: without this it would be the one occurrence with no reminder.
           : { reminders: rawEvents.find((e) => e.id === masterEventId)?.reminders ?? null }
