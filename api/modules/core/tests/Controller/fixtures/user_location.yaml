@@ -1,0 +1,16 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: location-test@example.com
+    googleId: google-location-test
+    name: Location Test User
+  other_user:
+    email: location-other@example.com
+    googleId: google-location-other
+    name: Other Location User
+
+Maggie\Core\Entity\UserLocation:
+  other_location:
+    user: '@other_user'
+    __calls:
+      - moveTo: [45.75, 4.85, 20.0, '<(new \DateTimeImmutable("2026-10-26T07:00:00+00:00"))>']
+      - parkCar: [45.76, 4.86, '<(new \DateTimeImmutable("2026-10-25T18:00:00+00:00"))>']

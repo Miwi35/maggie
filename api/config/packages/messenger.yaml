@@ -57,6 +57,8 @@ framework:
             'Maggie\Core\Message\UpdateUserPreferenceCommand': sync
             'Maggie\Core\Message\SaveActivityStatusCommand': sync
             'Maggie\Core\Message\DeleteActivityStatusCommand': sync
+            'Maggie\Core\Message\ReportUserLocationCommand': sync
+            'Maggie\Core\Message\ParkCarCommand': sync
             'Maggie\Notification\Message\CreateNotificationCommand': sync
             'Maggie\Notification\Message\MarkNotificationReadCommand': sync
             'Maggie\Notification\Message\DeleteNotificationCommand': sync
@@ -89,6 +91,7 @@ framework:
             'Maggie\Cookbook\Event\MealGuestsChanged': sync
             'Maggie\Cookbook\Event\DefaultGuestsChanged': sync
             'Maggie\Core\Event\UserSignedInWithGoogle': sync
+            'Maggie\Core\Event\UserLocationChangedEvent': sync
             'Maggie\MealGrocery\Message\RescaleMealGroceriesCommand': sync
             'Maggie\Cookbook\Message\CreateMealSettingsCommand': sync
             'Maggie\Cookbook\Message\UpdateMealSettingsCommand': sync

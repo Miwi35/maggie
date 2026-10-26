@@ -1,0 +1,20 @@
+Maggie\Core\Entity\User:
+  driver:
+    email: driver@example.com
+    googleId: google-driver
+    name: Driver
+  other_user:
+    email: driver-other@example.com
+    googleId: google-driver-other
+    name: Other Driver
+
+Maggie\Notification\Entity\DeviceToken:
+  phone:
+    user: '@driver'
+    token: 'phone-token'
+  tablet:
+    user: '@driver'
+    token: 'tablet-token'
+  other_phone:
+    user: '@other_user'
+    token: 'other-token'
