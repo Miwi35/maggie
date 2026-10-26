@@ -296,6 +296,70 @@ test('the quantity of an ingredient already in a recipe can be changed', async (
   expect(stored.ingredients[0]).toMatchObject({ quantity: 300, ciqualAlimCode: COURGETTE.code })
 })
 
+/**
+ * MAG-647: the nutrition of a sheet counts what is weighed, not only what is in grams. Pieces
+ * go through the weight of one piece the ingredient carries, kg and cl through their unit,
+ * and a line with neither weight nor nutrition is said apart instead of weighing 0.
+ */
+test('a sheet counts pieces, kg and cl in its values per person, and says what it could not count', async ({ page, api }) => {
+  const headers = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+  const stamp = `${Date.now()}`
+  const ingredient = async (name: string, extra: Record<string, unknown>): Promise<string> => {
+    const made = await api.post('/api/ingredients', { headers, data: { name: `${name} MAG-647 ${stamp}`, category: 'other', ...extra } })
+    expect(made.status(), `POST /api/ingredients answered ${made.status()}: ${await made.text()}`).toBe(201)
+
+    return ((await made.json()) as { '@id': string })['@id']
+  }
+  const beef = await ingredient('Boeuf', { kcalPer100g: 250, proteinPer100g: 20, carbsPer100g: 0, fatPer100g: 17 })
+  const onion = await ingredient('Oignon', { kcalPer100g: 40, proteinPer100g: 1, carbsPer100g: 9, fatPer100g: 0.1, pieceWeightGrams: 100 })
+  const wine = await ingredient('Vin rouge', { kcalPer100g: 70, proteinPer100g: 0.1, carbsPer100g: 2.6, fatPer100g: 0 })
+  const bunch = await ingredient('Bouquet garni', {})
+
+  const name = `Bourguignon MAG-647 ${stamp}`
+  const created = await api.post('/api/recipes', {
+    headers,
+    data: {
+      name,
+      servings: 4,
+      ingredients: [
+        { ingredient: beef, quantity: 1, unit: 'kg' },
+        { ingredient: onion, quantity: 2, unit: 'piece' },
+        { ingredient: wine, quantity: 75, unit: 'cl' },
+        { ingredient: bunch, quantity: 1, unit: 'piece' },
+      ],
+    },
+  })
+  expect(created.status(), `POST /api/recipes answered ${created.status()}: ${await created.text()}`).toBe(201)
+  const iri = ((await created.json()) as { '@id': string })['@id']
+
+  const shell = new AdminShell(page)
+  await shell.goto(`${ROUTES.recipes}/${encodeURIComponent(iri)}/show`)
+
+  // 1 kg of beef + 2 × 100 g of onion + 750 g of wine = (2500 + 80 + 525) / 4 kcal and (200 + 2 + 0.75) / 4 g of protein
+  await expect(shell.content.getByTestId('nutrition-energy')).toContainText('≈ 776 kcal')
+  await expect(shell.content.getByText('Protéines 51 g')).toBeVisible()
+  await expect(shell.content.getByText('1 ingrédient non compté')).toBeVisible()
+})
+
+test('Maggie links an ingredient to the Ciqual food and sets what one piece weighs', async ({ otherUser }) => {
+  const { api } = otherUser
+  const shell = new AdminShell(otherUser.page)
+  await shell.goto(ROUTES.recipes)
+  await shell.expectLoaded()
+
+  const events = await new ChatPanel(otherUser.page).send('Rapproche mon oignon de Ciqual, il pèse 100 g la pièce')
+
+  expect(calledTools(events)).toEqual(['search_ciqual_foods', 'manage_ingredients'])
+  expect(toolResults(events)).toEqual(
+    expect.arrayContaining([expect.objectContaining({ toolName: 'manage_ingredients', status: 'success' })]),
+  )
+  const all = await getCollection<StoredIngredient & { pieceWeightGrams: number | null }>(api, '/api/ingredients?itemsPerPage=100')
+  const linked = all.find((candidate) => candidate.name === 'Oignon MAG-647')
+  expect(linked?.ciqualAlimCode).toBe('20034')
+  expect(linked?.pieceWeightGrams).toBe(100)
+  expect(linked?.kcalPer100g, 'the macros were not copied from the Ciqual food').not.toBeNull()
+})
+
 test('asking Maggie for a tag searches the recipes instead of crashing', async ({ otherUser }) => {
   // MAG-114 § 2: `searchByTags` used to run a `LIKE` against a JSON column, and
   // Postgres refuses that outright — so the call *failed*, it did not merely

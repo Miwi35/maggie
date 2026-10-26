@@ -10,10 +10,10 @@ use Maggie\Cookbook\State\RecipeStepsPayload;
 final readonly class CreateRecipeCommand
 {
     /**
-     * @param string[]                                                                                         $tags
-     * @param array<array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string}>|null $ingredients
-     * @param list<array{id: string}|array{name: string}>|null                                                 $utensils    by id or by name, the whole list
-     * @param list<StepInput>|null                                                                             $steps       the whole list, in order
+     * @param string[]                                                                                                                   $tags
+     * @param array<array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string, pieceWeightGrams?: float}>|null $ingredients
+     * @param list<array{id: string}|array{name: string}>|null                                                                           $utensils    by id or by name, the whole list
+     * @param list<StepInput>|null                                                                                                       $steps       the whole list, in order
      */
     public function __construct(
         public string $userId,

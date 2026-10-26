@@ -7,6 +7,7 @@ namespace Maggie\Cookbook\MessageHandler;
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Message\UpdateIngredientCommand;
 use Maggie\Cookbook\Repository\IngredientRepository;
+use Maggie\Cookbook\Service\CiqualNutrients;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Enum\ProductCategory;
@@ -20,6 +21,7 @@ class UpdateIngredientHandler
 {
     public function __construct(
         private readonly UpdateProduct $updateProduct,
+        private readonly CiqualNutrients $ciqualNutrients,
         private readonly IngredientRepository $ingredientRepository,
         private readonly StoreRepository $storeRepository,
     ) {
@@ -76,6 +78,15 @@ class UpdateIngredientHandler
             $ingredient->setFatPer100g($command->fatPer100g);
         } elseif ($command->clears('fatPer100g')) {
             $ingredient->setFatPer100g(null);
+        }
+        if (null !== $command->pieceWeightGrams) {
+            $ingredient->setPieceWeightGrams($command->pieceWeightGrams);
+        } elseif ($command->clears('pieceWeightGrams')) {
+            $ingredient->setPieceWeightGrams(null);
+        }
+        // The Ciqual code alone computes nothing: the macros come with it, the ones already there stay.
+        if (null !== $command->ciqualAlimCode) {
+            $this->ciqualNutrients->fillMissing($ingredient, $command->clearFields);
         }
         if (null !== $command->packagingUnit) {
             $ingredient->setPackagingUnit(Unit::from($command->packagingUnit));

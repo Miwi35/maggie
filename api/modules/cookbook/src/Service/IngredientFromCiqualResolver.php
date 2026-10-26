@@ -13,13 +13,6 @@ use Maggie\Grocery\Enum\Unit;
 
 class IngredientFromCiqualResolver
 {
-    private const NUTRIENT_CODES = [
-        '328' => 'kcalPer100g',
-        '25000' => 'proteinPer100g',
-        '31000' => 'carbsPer100g',
-        '40000' => 'fatPer100g',
-    ];
-
     private const CATEGORY_MAP = [
         'fruit' => ProductCategory::Produce,
         'légume' => ProductCategory::Produce,
@@ -36,6 +29,7 @@ class IngredientFromCiqualResolver
         private readonly IngredientRepository $ingredientRepository,
         private readonly EntityManagerInterface $em,
         private readonly CiqualClient $ciqualClient,
+        private readonly CiqualNutrients $ciqualNutrients,
     ) {
     }
 
@@ -58,18 +52,8 @@ class IngredientFromCiqualResolver
         $ingredient->setDefaultUnit(Unit::Gram);
         $ingredient->setCategory($this->mapCategory($foodData['alim_group_name_fr'] ?? null));
 
-        // Extract macros from nutrients
-        /** @var array<int|string, float|null> $nutrientMap */
-        $nutrientMap = [];
-        foreach ($foodData['nutrients'] as $n) {
-            $nutrientMap[$n['const_code']] = $n['value'];
-        }
-
-        foreach (self::NUTRIENT_CODES as $code => $field) {
-            if (isset($nutrientMap[$code])) {
-                $setter = 'set'.ucfirst($field);
-                $ingredient->$setter((float) $nutrientMap[$code]);
-            }
+        foreach ($this->ciqualNutrients->macrosFromFood($foodData) as $field => $value) {
+            $ingredient->{'set'.ucfirst($field)}($value);
         }
 
         $this->em->persist($ingredient);

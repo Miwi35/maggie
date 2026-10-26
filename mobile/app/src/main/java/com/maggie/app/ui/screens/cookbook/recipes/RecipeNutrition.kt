@@ -26,11 +26,13 @@ import kotlin.math.roundToInt
 /** What one serving brings, in whole kcal and grams; [skipped] lines could not be counted. */
 data class RecipeNutrition(val kcal: Int, val protein: Int, val carbs: Int, val fat: Int, val skipped: Int)
 
-// Weights and volumes read as grams (a millilitre of food weighs about a gram); a count has no weight the app knows.
-private fun CookbookUnit.grams(): Float? = when (this) {
-    CookbookUnit.G, CookbookUnit.ML -> 1f
-    CookbookUnit.KG, CookbookUnit.L -> 1000f
-    CookbookUnit.CL -> 10f
+// Weights and volumes read as grams (a millilitre of food weighs about a gram); a piece weighs what its
+// ingredient says (MAG-647); any other count has no weight the app knows.
+private fun gramsOf(line: RecipeIngredient, product: Ingredient?): Float? = when (line.unit) {
+    CookbookUnit.G, CookbookUnit.ML -> line.quantity
+    CookbookUnit.KG, CookbookUnit.L -> line.quantity * 1000f
+    CookbookUnit.CL -> line.quantity * 10f
+    CookbookUnit.PIECE -> product?.pieceWeightGrams?.takeIf { it > 0f }?.let { line.quantity * it }
     else -> null
 }
 
@@ -45,13 +47,13 @@ fun nutritionPerServing(lines: List<RecipeIngredient>, servings: Int, products: 
     var skipped = 0
     for (line in lines) {
         val product = products[line.ingredientId()]
-        val grams = line.unit.grams()
+        val grams = gramsOf(line, product)
         val perHundred = product?.kcalPer100g
         if (product == null || grams == null || perHundred == null) {
             skipped++
             continue
         }
-        val factor = line.quantity * grams / 100f
+        val factor = grams / 100f
         kcal += factor * perHundred
         protein += factor * (product.proteinPer100g ?: 0f)
         carbs += factor * (product.carbsPer100g ?: 0f)

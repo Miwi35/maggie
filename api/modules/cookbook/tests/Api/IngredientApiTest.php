@@ -261,6 +261,35 @@ class IngredientApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Ingredient::class);
     }
 
+    public function testPatchSetsThenClearsThePieceWeight(): void
+    {
+        $tomato = $this->loadTomato();
+
+        $this->patchIngredient($tomato, ['pieceWeightGrams' => 120]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(120.0, $this->reload($tomato)->getPieceWeightGrams());
+        self::assertSame(18.0, $this->reload($tomato)->getKcalPer100g(), 'Fields left out of the payload are untouched');
+
+        $this->patchIngredient($tomato, ['pieceWeightGrams' => null]);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->reload($tomato)->getPieceWeightGrams());
+        $this->assertMercureUpdatePublished('/ingredients/');
+        $this->assertElasticsearchIndexDispatched(Ingredient::class);
+    }
+
+    public function testPatchRefusesANonPositivePieceWeight(): void
+    {
+        $tomato = $this->loadTomato();
+        $before = $this->reload($tomato)->getPieceWeightGrams();
+
+        $this->patchIngredient($tomato, ['pieceWeightGrams' => -5]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame($before, $this->reload($tomato)->getPieceWeightGrams());
+    }
+
     public function testPatchWithNullDefaultUnitClearsIt(): void
     {
         $tomato = $this->loadTomato();

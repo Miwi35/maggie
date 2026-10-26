@@ -1,0 +1,24 @@
+# Maggie links an ingredient to the closest Ciqual food and gives the weight of one piece (MAG-647),
+# so a recipe line counted in pieces reaches the nutrition. The tools really run; the fake does not
+# read their answers, so the code and the weight are fixtures (Ciqual « Oignon, cru » is 20034).
+name: ingredient-ciqual-link
+description: Link an ingredient to Ciqual and set its weight per piece, instead of leaving it without nutrition.
+
+match:
+  user_contains:
+    - "rapproche"
+    - "oignon"
+
+turns:
+  - tools:
+      - name: search_ciqual_foods
+        input: {query: "oignon cru"}
+  - tools:
+      - name: manage_ingredients
+        input:
+          action: create
+          name: "Oignon MAG-647"
+          category: produce
+          ciqualAlimCode: "20034"
+          pieceWeightGrams: 100
+  - text: "C'est fait : « Oignon MAG-647 » est rapproché de « Oignon, cru » dans Ciqual, avec 100 g par pièce, donc 2 oignons comptent 200 g dans les valeurs nutritionnelles."

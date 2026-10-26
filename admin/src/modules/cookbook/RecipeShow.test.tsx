@@ -216,7 +216,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     expect(screen.getByText('Protéines 48 g')).toBeInTheDocument()
     expect(screen.getByText('Lipides 24 g')).toBeInTheDocument()
     expect(screen.getByText('Glucides 1 g')).toBeInTheDocument()
-    expect(screen.getByText(/1 ingrédient compté à la pièce/)).toBeInTheDocument()
+    expect(screen.getByText(/1 ingrédient non compté/)).toBeInTheDocument()
   })
 
   test('opens to read: none of the edit tools is there, the portions and the actions of the page are', async () => {

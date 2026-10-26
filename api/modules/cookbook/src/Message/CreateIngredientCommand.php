@@ -16,6 +16,7 @@ final readonly class CreateIngredientCommand
         public ?float $proteinPer100g = null,
         public ?float $carbsPer100g = null,
         public ?float $fatPer100g = null,
+        public ?float $pieceWeightGrams = null,
         public ?string $packagingUnit = null,
         public ?float $packagingSize = null,
         public ?string $packagingSizeUnit = null,

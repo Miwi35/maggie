@@ -37,6 +37,7 @@ export interface ProductInfo {
   proteinPer100g?: number | null
   carbsPer100g?: number | null
   fatPer100g?: number | null
+  pieceWeightGrams?: number | null
   packagingUnit?: string | null
   packagingSize?: number | null
   packagingSizeUnit?: string | null
@@ -137,15 +138,22 @@ export const productPackaging = (product: ProductInfo | undefined): string | nul
   product ? packagingLabel(product.packagingUnit, product.packagingSize, product.packagingSizeUnit) : null
 
 // The recipe's weights and volumes read as grams (a millilitre of food weighs about a gram); a
-// count (pieces, bunches) has no weight the app knows, so it is left out and the sheet says so.
+// piece weighs what its product says (MAG-647). Any other count (bunches, cans) has no weight the
+// app knows, so it is left out and the sheet says so.
 const GRAMS: Record<string, number> = { g: 1, kg: 1000, ml: 1, cl: 10, l: 1000 }
+
+const gramsOf = (line: RecipeLine, product: ProductInfo | undefined): number | undefined => {
+  if (line.unit === 'piece') return product?.pieceWeightGrams && product.pieceWeightGrams > 0 ? line.quantity * product.pieceWeightGrams : undefined
+  const perUnit = GRAMS[line.unit]
+  return perUnit === undefined ? undefined : line.quantity * perUnit
+}
 
 export interface Nutrition {
   kcal: number
   protein: number
   carbs: number
   fat: number
-  /** Lines the figures leave out: counted in pieces, or a product with no nutrition. */
+  /** Lines the figures leave out: a product with no nutrition, or counted in pieces / bunches with no weight. */
   skipped: number
 }
 
@@ -157,12 +165,12 @@ export const nutritionPerServing = (lines: RecipeLine[], servings: number, produ
   let counted = 0
   for (const line of lines) {
     const product = products.get(productIdOf(line) ?? '')
-    const grams = GRAMS[line.unit]
+    const grams = gramsOf(line, product)
     if (!product || grams === undefined || product.kcalPer100g == null) {
       skipped += 1
       continue
     }
-    const factor = (line.quantity * grams) / 100
+    const factor = grams / 100
     total.kcal += factor * product.kcalPer100g
     total.protein += factor * (product.proteinPer100g ?? 0)
     total.carbs += factor * (product.carbsPer100g ?? 0)

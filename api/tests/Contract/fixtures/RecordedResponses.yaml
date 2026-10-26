@@ -226,6 +226,7 @@ Maggie\Cookbook\Entity\Ingredient:
     proteinPer100g: 12.5
     carbsPer100g: 71.0
     fatPer100g: 1.5
+    pieceWeightGrams: 85
     user: '@recorded_user'
 
 Maggie\Grocery\Entity\Aisle:

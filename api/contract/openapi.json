@@ -17348,6 +17348,14 @@
                             "null"
                         ]
                     },
+                    "pieceWeightGrams": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
                     "preferredStore": {
                         "type": [
                             "string",
@@ -17555,6 +17563,14 @@
                         ]
                     },
                     "fatPer100g": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "pieceWeightGrams": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
                         "type": [
                             "number",
                             "null"
@@ -17772,6 +17788,14 @@
                             "null"
                         ]
                     },
+                    "pieceWeightGrams": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
                     "preferredStore": {
                         "type": [
                             "string",
@@ -17980,6 +18004,14 @@
                                 ]
                             },
                             "fatPer100g": {
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "pieceWeightGrams": {
+                                "minimum": 0,
+                                "exclusiveMinimum": 0,
                                 "type": [
                                     "number",
                                     "null"
@@ -22271,6 +22303,14 @@
                             "null"
                         ]
                     },
+                    "pieceWeightGrams": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
                     "preferredStore": {
                         "type": [
                             "string",
@@ -22482,6 +22522,14 @@
                         ]
                     },
                     "fatPer100g": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "pieceWeightGrams": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
                         "type": [
                             "number",
                             "null"
@@ -22703,6 +22751,14 @@
                             "null"
                         ]
                     },
+                    "pieceWeightGrams": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
                     "preferredStore": {
                         "type": [
                             "string",
@@ -22915,6 +22971,14 @@
                                 ]
                             },
                             "fatPer100g": {
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "pieceWeightGrams": {
+                                "minimum": 0,
+                                "exclusiveMinimum": 0,
                                 "type": [
                                     "number",
                                     "null"

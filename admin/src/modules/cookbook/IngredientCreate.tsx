@@ -49,6 +49,7 @@ export const IngredientCreate = () => (
         <NumberInput source="carbsPer100g" label="Glucides/100g" />
         <NumberInput source="fatPer100g" label="Lipides/100g" />
       </Box>
+      <NumberInput source="pieceWeightGrams" label="Poids d'une pièce (g)" min={0} />
     </SimpleForm>
   </Create>
 )
