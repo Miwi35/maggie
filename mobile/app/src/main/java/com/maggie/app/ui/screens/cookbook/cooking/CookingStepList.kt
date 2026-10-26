@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -89,6 +90,16 @@ private fun Modifier.tapTarget(action: () -> Unit): Modifier = composed {
         .pointerInput(Unit) { detectTapGestures { current() } }
 }
 
+/** « Recommencer »: discreet, at the head of the list — it ends the Cuisine in progress, so it is not a main button. */
+@Composable
+private fun RestartButton(onRestart: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        TextButton(onClick = onRestart, modifier = Modifier.testTag(UiTags.COOKING_RESTART)) {
+            Text("Recommencer", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 @Composable
 private fun ProgressHeader(state: CookingUiState, textTag: String) {
     val total = state.totalSteps
@@ -111,6 +122,7 @@ private fun ProgressHeader(state: CookingUiState, textTag: String) {
 internal fun StepsPanel(
     state: CookingUiState,
     onOpen: (recipeIndex: Int, position: Int) -> Unit,
+    onRestart: () -> Unit,
     modifier: Modifier = Modifier,
     progressTag: String = UiTags.COOKING_STEPS_PROGRESS,
     rowHeight: Dp = 48.dp,
@@ -120,6 +132,7 @@ internal fun StepsPanel(
         modifier = modifier.verticalScroll(rememberScrollState()).padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        RestartButton(onRestart)
         ProgressHeader(state, progressTag)
         session.queue.forEachIndexed { recipeIndex, entry ->
             val recipe = state.recipes[entry.recipeId]
@@ -271,7 +284,11 @@ private fun TimerOnRow(timer: CookingTimer, remaining: Int, ringing: Boolean) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun StepsBanner(state: CookingUiState, onOpen: (recipeIndex: Int, position: Int) -> Unit) {
+internal fun StepsBanner(
+    state: CookingUiState,
+    onOpen: (recipeIndex: Int, position: Int) -> Unit,
+    onRestart: () -> Unit,
+) {
     var open by rememberSaveable { mutableStateOf(false) }
     val ringing = state.ringing
     val total = state.totalSteps
@@ -334,6 +351,10 @@ internal fun StepsBanner(state: CookingUiState, onOpen: (recipeIndex: Int, posit
                 onOpen = { recipeIndex, position ->
                     open = false
                     onOpen(recipeIndex, position)
+                },
+                onRestart = {
+                    open = false
+                    onRestart()
                 },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag(UiTags.COOKING_STEPS_SHEET),
                 progressTag = UiTags.COOKING_STEPS_PROGRESS,

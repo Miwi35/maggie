@@ -97,14 +97,3 @@ export const lineTimer = <T extends CookingTimer>(timers: T[], position: number)
 
   return timer && timer.status !== 'dismissed' ? timer : undefined
 }
-
-/** « 2 minuteurs tournent encore (Pâtes, Légumes) : ils s'arrêteront. » */
-export const quitDetail = (timers: CookingTimer[]): string | undefined => {
-  const ticking = timers.filter(isTicking)
-  if (ticking.length === 0) return undefined
-  const labels = ticking.map((timer) => timer.label).join(', ')
-
-  return ticking.length === 1
-    ? `1 minuteur tourne encore (${labels}) : il s'arrêtera.`
-    : `${ticking.length} minuteurs tournent encore (${labels}) : ils s'arrêteront.`
-}

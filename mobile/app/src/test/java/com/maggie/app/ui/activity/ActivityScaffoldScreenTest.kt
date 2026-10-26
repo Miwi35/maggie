@@ -28,7 +28,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The frame every activity shares (MAG-580): immersion, leaving, confirming, Maggie. */
+/** The frame every activity shares (MAG-580): immersion, leaving, Maggie. */
 @RunWith(AndroidJUnit4::class)
 class ActivityScaffoldScreenTest {
 
@@ -53,7 +53,7 @@ class ActivityScaffoldScreenTest {
     private var shown by mutableStateOf(true)
     private lateinit var back: OnBackPressedDispatcher
 
-    private fun draw(confirmQuit: Boolean = false, detail: String? = null) = compose.setContent {
+    private fun draw() = compose.setContent {
         back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
         if (shown) {
             ActivityScaffold(
@@ -61,8 +61,6 @@ class ActivityScaffoldScreenTest {
                 hue = ModuleHue.CUISINE,
                 onQuit = { quits++ },
                 onOpenMaggie = { maggie++ },
-                confirmQuit = confirmQuit,
-                confirmDetail = detail,
                 immersion = immersion,
                 progress = { Text("Étape 1 sur 3") },
             ) {
@@ -140,44 +138,6 @@ class ActivityScaffoldScreenTest {
         compose.onNodeWithTag(UiTags.ACTIVITY_MAGGIE).performClick()
 
         assertEquals(1, maggie)
-        assertEquals(0, quits)
-    }
-
-    @Test
-    fun `with confirmQuit the cross asks first, and Rester keeps the activity`() {
-        draw(confirmQuit = true, detail = "Le minuteur sera annulé.")
-
-        compose.onNodeWithTag(UiTags.ACTIVITY_QUIT).performClick()
-
-        compose.onNodeWithText("Quitter l'activité ?").assertIsDisplayed()
-        compose.onNodeWithText("Le minuteur sera annulé.").assertIsDisplayed()
-        assertEquals(0, quits)
-
-        compose.onNodeWithTag(UiTags.ACTIVITY_QUIT_STAY).performClick()
-
-        compose.onNodeWithTag(UiTags.ACTIVITY_QUIT_CONFIRM).assertDoesNotExist()
-        assertEquals(0, quits)
-        assertEquals("the immersion stays", listOf("enter"), immersion.calls)
-    }
-
-    @Test
-    fun `with confirmQuit, Quitter leaves`() {
-        draw(confirmQuit = true)
-
-        compose.onNodeWithTag(UiTags.ACTIVITY_QUIT).performClick()
-        compose.onNodeWithTag(UiTags.ACTIVITY_QUIT_LEAVE).performClick()
-
-        assertEquals(1, quits)
-    }
-
-    @Test
-    fun `with confirmQuit the system back asks instead of leaving`() {
-        draw(confirmQuit = true)
-
-        systemBack()
-        compose.waitForIdle()
-
-        compose.onNodeWithText("Quitter l'activité ?").assertIsDisplayed()
         assertEquals(0, quits)
     }
 }

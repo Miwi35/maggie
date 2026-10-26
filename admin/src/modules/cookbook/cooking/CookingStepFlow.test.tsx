@@ -5,6 +5,8 @@ import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { veilleuseDarkTheme } from '../../../theme'
 import { CookingActivityPage } from './CookingActivityPage'
+import { fakeStatusApi } from './fakeStatusApi'
+import type { FakeStatusApi } from './fakeStatusApi'
 import { fakeTimersApi } from './fakeTimersApi'
 
 vi.mock('../../../components/chat/ChatWidget', () => ({ ChatWidget: () => null }))
@@ -57,9 +59,12 @@ const RECIPES: Record<string, { name: string; steps: unknown[] }> = {
 
 // The steps in the background start their timer (MAG-582): the API keeps them.
 let timersApi = fakeTimersApi()
+let statusApi: FakeStatusApi = fakeStatusApi()
 
 const fakeFetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input)
+  const saved = statusApi.handle(url, init)
+  if (saved) return saved
   const timers = timersApi.handle(url, init)
   if (timers) return timers
   const respond = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
@@ -112,6 +117,7 @@ describe('The steps of the Cuisine activity (MAG-581)', () => {
   beforeEach(() => {
     sessionStorage.clear()
     timersApi = fakeTimersApi()
+    statusApi = fakeStatusApi()
     vi.stubGlobal('fetch', vi.fn(fakeFetch))
     Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { configurable: true, writable: true, value: () => Promise.reject(new Error('refused')) })
   })
@@ -335,6 +341,7 @@ describe('The column of a meal with two recipes', () => {
   beforeEach(() => {
     sessionStorage.clear()
     timersApi = fakeTimersApi()
+    statusApi = fakeStatusApi()
     vi.stubGlobal('fetch', vi.fn(fakeFetch))
     Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { configurable: true, writable: true, value: () => Promise.reject(new Error('refused')) })
   })

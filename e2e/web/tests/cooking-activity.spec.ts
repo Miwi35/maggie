@@ -23,6 +23,11 @@ async function cancelTimers(api: APIRequestContext, recipeIris: string[]): Promi
   }
 }
 
+/** The activity in progress, erased: a journey starts without one and leaves none behind (MAG-615). */
+async function clearStatus(api: APIRequestContext): Promise<void> {
+  await api.delete('/api/activity-status/cuisine', { headers: { Accept: 'application/json' } }).catch(() => undefined)
+}
+
 /**
  * The Cuisine activity, launched from the Accueil (MAG-580, extends MAG-99): the full-screen frame, the
  * preparation of tonight's meal with its two recipes in order, and the way out.
@@ -92,6 +97,7 @@ test('the steps column ticks the steps as I go, jumps to a touched one without t
     return record
   }
 
+  await clearStatus(api)
   try {
     // Given a recipe of five steps, the third a 1 min boil in the background.
     const beef = await post('/api/ingredients', { name: ingredientName, category: 'grain' })
@@ -175,6 +181,94 @@ test('the steps column ticks the steps as I go, jumps to a touched one without t
     await expect(rows.nth(2)).toHaveAttribute('data-lit', 'false')
     await expect(rows.nth(2)).toHaveAttribute('data-done', 'false')
   } finally {
+    await clearStatus(api)
+    await cancelTimers(api, created)
+    for (const iri of created.filter(Boolean).reverse()) {
+      await api.delete(iri).catch(() => undefined)
+    }
+  }
+})
+
+/**
+ * Quitting and resuming (MAG-615, extends MAG-99): ✕ leaves without a question and the cook is saved in
+ * `activity-status`; the recipe's sheet then says « Reprendre · étape 3/4 », and the activity reopens at that step
+ * with the first two ticked — in a tab that never saw it, which is what another device is. « Recommencer » goes
+ * back to the preparation and the sheet offers « Cuisiner » again.
+ */
+test('quitting at step 3 keeps the cook: the sheet says « Reprendre », the activity reopens at step 3 with two ticked, « Recommencer » starts over', async ({
+  nutritionUser,
+}) => {
+  const { page, api } = nutritionUser
+  const LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+  const name = 'Blanquette MAG-615'
+  const created: string[] = []
+
+  const post = async (path: string, body: unknown): Promise<{ '@id': string; id: string }> => {
+    const response = await api.post(path, { headers: LD, data: body })
+    expect(response.ok(), `POST ${path} answered ${response.status()}: ${await response.text()}`).toBe(true)
+    const record = (await response.json()) as { '@id': string; id: string }
+    created.push(record['@id'])
+
+    return record
+  }
+
+  await clearStatus(api)
+  try {
+    // Given a recipe of four steps and nothing in progress.
+    const veal = await post('/api/ingredients', { name: 'Veau MAG-615', category: 'grain' })
+    const recipe = await post('/api/recipes', {
+      name,
+      servings: 2,
+      ingredients: [{ ingredient: veal['@id'], quantity: 500, unit: 'g' }],
+      steps: [{ text: 'Couper le veau' }, { text: 'Faire revenir' }, { text: 'Mouiller et laisser cuire' }, { text: 'Dresser' }],
+    })
+    await waitForIndexed(api, '/api/recipes?itemsPerPage=200', (row: { name?: string }) => row.name === name)
+    const sheet = `${ROUTES.recipes}/${encodeURIComponent(recipe['@id'])}/show`
+
+    // When I launch the recipe and go to step 3…
+    await new AdminShell(page).goto(sheet)
+    await expect(page.getByTestId('recipe-cook')).toHaveText(/Cuisiner/)
+    await page.getByTestId('recipe-cook').click()
+    await page.getByRole('button', { name: 'Continuer' }).click()
+    await page.getByRole('button', { name: "C'est parti" }).click()
+    await page.getByRole('button', { name: /Suivant/ }).click()
+    await page.getByRole('button', { name: /Suivant/ }).click()
+    await expect(page.getByTestId('cooking-step-text')).toHaveText('Mouiller et laisser cuire')
+
+    // …and quit with the ✕, nothing is asked and I am back on the sheet.
+    await page.getByRole('button', { name: 'Quitter Cuisine' }).click()
+    await expect(page.getByText("Quitter l'activité ?")).toHaveCount(0)
+    await expect(page).toHaveURL(/\/recipes\//)
+
+    // Then the sheet offers « Reprendre » with where I stand.
+    await expect(page.getByTestId('recipe-cook')).toHaveText(/Reprendre/)
+    await expect(page.getByTestId('recipe-cook-detail')).toHaveText('étape 3/4')
+
+    // When a tab that never saw the activity reopens it, it is at step 3 with the first two ticked. The first tab
+    // lets go of its Mercure streams first: on the stack's HTTP/1.1 the six connections of one origin are shared
+    // by the tabs, and a second tab would wait behind them.
+    await page.goto('about:blank')
+    const other = await page.context().newPage()
+    try {
+      await new AdminShell(other).goto(sheet)
+      await expect(other.getByTestId('recipe-cook-detail')).toHaveText('étape 3/4')
+      await other.getByTestId('recipe-cook').click()
+      await expect(other.getByTestId('cooking-step-text')).toHaveText('Mouiller et laisser cuire')
+      const rows = other.getByTestId('cooking-steps-column').getByTestId('cooking-step-row')
+      await expect(rows.nth(0)).toHaveAttribute('data-done', 'true')
+      await expect(rows.nth(1)).toHaveAttribute('data-done', 'true')
+      await expect(rows.nth(2)).toHaveAttribute('data-state', 'current')
+
+      // When I press « Recommencer », I am back on the preparation, and the sheet offers « Cuisiner » again.
+      await other.getByTestId('cooking-restart').click()
+      await expect(other.getByTestId('cooking-preparation')).toBeVisible()
+      await other.getByRole('button', { name: 'Quitter Cuisine' }).click()
+      await expect(other.getByTestId('recipe-cook')).toHaveText(/Cuisiner/)
+    } finally {
+      await other.close()
+    }
+  } finally {
+    await clearStatus(api)
     await cancelTimers(api, created)
     for (const iri of created.filter(Boolean).reverse()) {
       await api.delete(iri).catch(() => undefined)

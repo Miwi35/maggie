@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import ButtonBase from '@mui/material/ButtonBase'
 import LinearProgress from '@mui/material/LinearProgress'
 import Typography from '@mui/material/Typography'
@@ -32,13 +33,15 @@ interface Props {
   total: number
   /** A row touched: the screen goes to that step, and a rung timer is acknowledged. */
   onSelect: (recipeIndex: number, position: number, timer: TimerView | undefined) => void
+  /** « Recommencer »: the preparation again, nothing ticked, the timers stopped. */
+  onRestart: () => void
 }
 
 /**
  * The steps of the whole meal, recipe after recipe, at the left of the current step: ticked as the cook
  * goes, a progress bar, and the timers on the line of their step. Below `md` it folds into a bar.
  */
-export const CookingStepsColumn = ({ recipes, current, isDone, timerOf, done, total, onSelect }: Props) => {
+export const CookingStepsColumn = ({ recipes, current, isDone, timerOf, done, total, onSelect, onRestart }: Props) => {
   const [open, setOpen] = useState(false)
   const fraction = total > 0 ? (done / total) * 100 : 0
   const label = `${done} / ${total} faites`
@@ -60,9 +63,14 @@ export const CookingStepsColumn = ({ recipes, current, isDone, timerOf, done, to
       }}
     >
       <Box sx={{ px: 2, pt: 2, pb: 1.5 }}>
-        <Typography data-testid="cooking-steps-progress" sx={{ fontWeight: 600, mb: 1 }}>
-          {label}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+          <Typography data-testid="cooking-steps-progress" sx={{ fontWeight: 600 }}>
+            {label}
+          </Typography>
+          <Button size="small" color="inherit" onClick={onRestart} data-testid="cooking-restart" sx={{ color: 'text.secondary', minHeight: 44 }}>
+            Recommencer
+          </Button>
+        </Box>
         <LinearProgress variant="determinate" value={fraction} aria-label="Avancement des étapes" sx={{ height: 8, borderRadius: 4 }} />
       </Box>
 

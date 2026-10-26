@@ -1,77 +1,128 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RecipeRecord } from '../recipeSheet'
 import { fetchMeal, fetchRecipe, recipeIdsOf } from './cookingApi'
-import { clearSession, loadSession, mealSession, recipeSession, saveSession } from './cookingSession'
+import { clearSession, loadSession, mealSession, recipeSession, restartSession, saveSession, sessionFromState, stateOf } from './cookingSession'
 import type { CookingOrigin, CookingSession } from './cookingSession'
+import type { CookingStatus } from './cookingStatusApi'
+import { readCookingStatus, statusWriter as writer } from './cookingStatusWriter'
 
-export type CookingLoad = 'loading' | 'error' | 'empty' | 'ready'
+/** `conflict`: another meal or recipe is already being cooked, and the owner chooses what happens to it. */
+export type CookingLoad = 'loading' | 'error' | 'empty' | 'ready' | 'conflict'
 
 export interface CookingActivity {
   /** `empty` is a meal with no recipe; `error` an unreachable API, which never closes the activity. */
   load: CookingLoad
   session: CookingSession | null
+  /** The activity in progress when `load` is `conflict`. */
+  conflict: CookingStatus | null
   /** The recipes of the queue by id, scaled to the session's servings once the preparation is reached. */
   recipes: Record<string, RecipeRecord>
   /** True while the recipes of the current servings are still on their way. */
   refreshing: boolean
   retry: () => void
   update: (change: (session: CookingSession) => CookingSession) => void
-  /** Forgets the session: the activity is over. */
-  end: () => void
+  /** Leaves the activity: its status stays on the API, only this tab's copy goes. */
+  leave: () => void
+  /** « Recommencer »: the preparation again, the status erased. */
+  restart: () => void
+  /** The owner chose this launch over the one in progress: that one is erased and this one starts. */
+  replace: () => void
 }
 
 /**
  * Reads what the activity cooks (`GET /api/meals/{id}`, `GET /api/recipes/{id}?guests=N`) and keeps
- * the session: on the device, in `sessionStorage`, so reloading the page resumes where it was.
+ * the session in `activity-status` (MAG-615), written at every change, so any device resumes where it
+ * was. The API is read first, so another device's progress is never overwritten; the tab's copy in
+ * `sessionStorage` only stands in when the API cannot be reached.
  */
 export const useCookingActivity = (origin: CookingOrigin): CookingActivity => {
   const { kind, id } = origin
   const [attempt, setAttempt] = useState(0)
   const [load, setLoad] = useState<CookingLoad>('loading')
   const [session, setSession] = useState<CookingSession | null>(null)
+  const [conflict, setConflict] = useState<CookingStatus | null>(null)
   const [recipes, setRecipes] = useState<Record<string, RecipeRecord>>({})
   const [refreshing, setRefreshing] = useState(false)
+  const sessionRef = useRef<CookingSession | null>(null)
+  const replacing = useRef<AbortController | null>(null)
 
-  useEffect(() => {
-    const controller = new AbortController()
-    const { signal } = controller
-    setLoad('loading')
+  const apply = useCallback((next: CookingSession | null) => {
+    sessionRef.current = next
+    setSession(next)
+  }, [])
 
-    const bootstrap = async () => {
-      const stored = loadSession({ kind, id })
-      if (stored) {
-        setSession(stored)
-        setLoad('ready')
-
-        return
-      }
+  /** The launch as it begins: a meal at its preparation, a recipe at « Pour combien ? ». */
+  const begin = useCallback(
+    async (signal: AbortSignal): Promise<boolean> => {
       if (kind === 'meal') {
         const meal = await fetchMeal(id, signal)
         const recipeIds = recipeIdsOf(meal)
         if (recipeIds.length === 0) {
           setLoad('empty')
 
-          return
+          return false
         }
-        const started = mealSession(id, recipeIds, meal.guests)
-        saveSession(started)
-        setSession(started)
+        apply(mealSession(id, recipeIds, meal.guests))
       } else {
         const recipe = await fetchRecipe(id, null, signal)
-        const started = recipeSession(id, recipe.servings ?? 1)
-        saveSession(started)
-        setSession(started)
+        apply(recipeSession(id, recipe.servings ?? 1))
         setRecipes({ [id]: recipe })
       }
-      setLoad('ready')
+      if (sessionRef.current) saveSession(sessionRef.current)
+
+      return true
+    },
+    [apply, id, kind],
+  )
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const { signal } = controller
+    setLoad('loading')
+    setConflict(null)
+
+    const bootstrap = async () => {
+      let status: CookingStatus | null | undefined
+      try {
+        status = await readCookingStatus(signal)
+      } catch (error) {
+        if (signal.aborted) throw error
+        status = undefined
+      }
+      if (status === undefined) {
+        const cached = loadSession({ kind, id })
+        if (!cached) throw new Error('The activity in progress cannot be read')
+        apply(cached)
+        setLoad('ready')
+
+        return
+      }
+      if (status && (status.origin.kind !== kind || status.origin.id !== id)) {
+        setConflict(status)
+        setLoad('conflict')
+
+        return
+      }
+      const resumed = status ? sessionFromState({ kind, id }, status.state) : null
+      if (resumed) {
+        apply(resumed)
+        saveSession(resumed)
+        setLoad('ready')
+
+        return
+      }
+      if (await begin(signal)) setLoad('ready')
     }
 
     bootstrap().catch(() => {
       if (!signal.aborted) setLoad('error')
     })
 
-    return () => controller.abort()
-  }, [kind, id, attempt])
+    return () => {
+      controller.abort()
+      replacing.current?.abort()
+    }
+  }, [kind, id, attempt, apply, begin])
 
   // Before « Pour combien ? » is answered the recipe is read as it is; after, once per number of people.
   const phase = session?.phase
@@ -109,18 +160,50 @@ export const useCookingActivity = (origin: CookingOrigin): CookingActivity => {
     return () => controller.abort()
   }, [wanted, attempt])
 
-  const update = useCallback((change: (current: CookingSession) => CookingSession) => {
-    setSession((current) => {
-      if (!current) return current
+  const update = useCallback(
+    (change: (session: CookingSession) => CookingSession) => {
+      const current = sessionRef.current
+      if (!current) return
       const next = change(current)
+      if (next === current) return
+      apply(next)
       saveSession(next)
+      // Served: the activity is over, nothing to resume.
+      if (next.phase === 'done') writer.clear()
+      else writer.save(next.origin, stateOf(next))
+    },
+    [apply],
+  )
 
-      return next
-    })
-  }, [])
+  const leave = useCallback(() => clearSession(), [])
 
-  const end = useCallback(() => clearSession(), [])
+  const restart = useCallback(() => {
+    const current = sessionRef.current
+    if (!current) return
+    const next = restartSession(current)
+    apply(next)
+    saveSession(next)
+    writer.clear()
+  }, [apply])
+
+  const replace = useCallback(() => {
+    writer.clear()
+    clearSession()
+    setConflict(null)
+    setLoad('loading')
+    replacing.current?.abort()
+    const controller = new AbortController()
+    replacing.current = controller
+    begin(controller.signal)
+      .then((started) => {
+        if (started && !controller.signal.aborted) setLoad('ready')
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setLoad('error')
+      })
+  }, [begin])
+
   const retry = useCallback(() => setAttempt((count) => count + 1), [])
 
-  return { load, session, recipes, refreshing, retry, update, end }
+  return { load, session, conflict, recipes, refreshing, retry, update, leave, restart, replace }
 }

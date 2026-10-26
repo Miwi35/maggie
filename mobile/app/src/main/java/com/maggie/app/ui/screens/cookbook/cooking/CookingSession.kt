@@ -1,15 +1,20 @@
 package com.maggie.app.ui.screens.cookbook.cooking
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-
-/** The session's JSON in the saved state: a field this version no longer knows (an older session) is ignored. */
-internal val sessionJson = Json { ignoreUnknownKeys = true }
 
 /** What the activity cooks: a meal (`?meal=`) or one recipe (`?recipe=`). */
-@Serializable
 data class CookingOrigin(val kind: Kind, val id: String) {
-    enum class Kind { MEAL, RECIPE }
+    /** [wire] is how the activity status spells it (`origin.kind`). */
+    enum class Kind(val wire: String) {
+        MEAL("meal"),
+        RECIPE("recipe"),
+        ;
+
+        companion object {
+            fun of(wire: String): Kind? = entries.firstOrNull { it.wire == wire }
+        }
+    }
 }
 
 @Serializable
@@ -22,17 +27,19 @@ data class QueuedRecipe(
 @Serializable
 enum class CookingPhase {
     /** « Pour combien ? », asked when the activity is launched from a recipe. */
-    SERVINGS,
-    COOKING,
-    /** « Bon appétit ». */
-    DONE,
+    @SerialName("servings") SERVINGS,
+
+    @SerialName("cooking") COOKING,
+
+    /** « Bon appétit »: reached, never written — the status is deleted instead. */
+    @SerialName("done") DONE,
 }
 
 /**
- * Where the activity stands. It lives in the `SavedStateHandle`, so a rotation or a process death resumes
- * where the cook was; the steps' details (MAG-581) and the shopping list (MAG-583) read `servings` from it.
+ * Where the activity stands. Every change is written to the activity status (MAG-615), so leaving, a rotation or
+ * another device resumes where the cook was; the steps' details (MAG-581) and the shopping list (MAG-583) read
+ * `servings` from it.
  */
-@Serializable
 data class CookingSession(
     val origin: CookingOrigin,
     /** The recipes in the order they are cooked: a meal's, or the one recipe. */
@@ -44,10 +51,10 @@ data class CookingSession(
     val phase: CookingPhase,
     /**
      * The steps ticked off, by recipe id (positions as in `step`, 1-based, sorted): « Suivant » ticks the step
-     * it leaves. The admin keeps the same shape, so a resumed activity (MAG-613) reads either.
+     * it leaves. The admin keeps the same shape, so a resumed activity reads either.
      */
     val doneSteps: Map<String, List<Int>> = emptyMap(),
-    /** Epoch millis: when the session began, and when « Bon appétit » was reached (0 until then). */
+    /** Epoch millis: when the session began, and when « Bon appétit » was reached (0 until then, never written). */
     val startedAt: Long = 0L,
     val finishedAt: Long = 0L,
 ) {
@@ -60,10 +67,6 @@ data class CookingSession(
     /** Steps ticked off across the queue; [stepCounts] (by recipe id) leaves out positions a recipe no longer has. */
     fun doneCount(stepCounts: Map<String, Int>): Int =
         queue.sumOf { entry -> doneSteps[entry.recipeId].orEmpty().count { it in 1..(stepCounts[entry.recipeId] ?: 0) } }
-
-    /** A stored session worth resuming for [origin]: same launch, not finished, an index inside the queue. */
-    fun resumes(origin: CookingOrigin): Boolean =
-        this.origin == origin && phase != CookingPhase.DONE && queue.isNotEmpty() && recipeIndex in queue.indices
 }
 
 const val MIN_GUESTS = 1
@@ -148,3 +151,13 @@ val CookingSession.minutesCooked: Int
 /** « Précédent »: the step before, down to the preparation. */
 fun CookingSession.back(): CookingSession =
     if (phase == CookingPhase.COOKING && step > 0) copy(step = step - 1) else this
+
+/** « Recommencer »: the preparation of the first recipe again, for the same guests, nothing ticked. */
+fun CookingSession.restarted(now: Long = System.currentTimeMillis()): CookingSession = copy(
+    recipeIndex = 0,
+    step = 0,
+    phase = CookingPhase.COOKING,
+    doneSteps = emptyMap(),
+    startedAt = now,
+    finishedAt = 0L,
+)

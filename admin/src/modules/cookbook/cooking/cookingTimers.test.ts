@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { clockOf, lineTimer, quitDetail, stepTimer, timerLabel, timersOfRecipe } from './cookingTimers'
-import type { CookingTimer, TimerView } from './cookingTimers'
+import { clockOf, lineTimer, stepTimer, timerLabel, timersOfRecipe } from './cookingTimers'
+import type { TimerView } from './cookingTimers'
 
 const timer = (id: string, extra: Partial<TimerView> = {}): TimerView => ({
   id,
@@ -69,15 +69,5 @@ describe('the timers of a step', () => {
     expect(lineTimer([running, rung], 2)).toBe(rung)
     expect(lineTimer([timer('T3', { status: 'dismissed' })], 1)).toBeUndefined()
     expect(lineTimer([running], 4)).toBeUndefined()
-  })
-})
-
-describe('the words of the timers', () => {
-  test('quitting tells the ticking timers, singular or plural; none, nothing to ask', () => {
-    const pasta: CookingTimer = timer('T1', { label: 'Pâtes' })
-    const vegetables: CookingTimer = timer('T2', { label: 'Légumes', status: 'paused' })
-    expect(quitDetail([pasta, vegetables])).toBe("2 minuteurs tournent encore (Pâtes, Légumes) : ils s'arrêteront.")
-    expect(quitDetail([pasta])).toBe("1 minuteur tourne encore (Pâtes) : il s'arrêtera.")
-    expect(quitDetail([timer('T3', { status: 'done' })])).toBeUndefined()
   })
 })

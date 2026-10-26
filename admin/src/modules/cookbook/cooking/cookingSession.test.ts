@@ -12,6 +12,10 @@ import {
   mealSession,
   recipeLaunchPath,
   progressOf,
+  restartSession,
+  sessionFromState,
+  stateOf,
+  launchPathOf,
   recipeSession,
   saveSession,
   skipRecipe,
@@ -186,5 +190,63 @@ describe('cookingSession', () => {
     sessionStorage.setItem('maggie.cooking-session', JSON.stringify(old))
 
     expect(loadSession({ kind: 'meal', id: 'M1' })).toMatchObject({ doneSteps: {}, finishedAt: 0 })
+  })
+
+  describe('the status of the activity (MAG-615)', () => {
+    const origin = { kind: 'meal', id: 'M1' } as const
+    const started = (): ReturnType<typeof mealSession> => advance(advance(mealSession('M1', ['A', 'B'], 4, 1000), 3, 2000), 3, 2000)
+
+    test('launchPathOf gives back the address of the launch', () => {
+      expect(launchPathOf({ kind: 'meal', id: 'M1' })).toBe('/activites/cuisine?meal=M1')
+      expect(launchPathOf({ kind: 'recipe', id: 'R 1' })).toBe('/activites/cuisine?recipe=R%201')
+    })
+
+    test('the state keeps everything but the origin and the end', () => {
+      const session = { ...mealSession('M1', ['A', 'B'], 4, 1000), step: 2, doneSteps: { A: [1] } }
+
+      expect(stateOf(session)).toEqual({
+        queue: [
+          { recipeId: 'A', servings: 4 },
+          { recipeId: 'B', servings: 4 },
+        ],
+        recipeIndex: 0,
+        step: 2,
+        doneSteps: { A: [1] },
+        guests: 4,
+        phase: 'cooking',
+        startedAt: 1000,
+      })
+    })
+
+    test('a session comes back from its state, whichever device wrote it', () => {
+      const session = started()
+
+      expect(sessionFromState(origin, JSON.parse(JSON.stringify(stateOf(session))))).toEqual(session)
+    })
+
+    test.each([
+      ['nothing', null],
+      ['no queue', { recipeIndex: 0, phase: 'cooking' }],
+      ['an empty queue', { queue: [], recipeIndex: 0, phase: 'cooking' }],
+      ['a finished activity', { queue: [{ recipeId: 'A', servings: 2 }], recipeIndex: 0, phase: 'done' }],
+      ['a recipe index outside the queue', { queue: [{ recipeId: 'A', servings: 2 }], recipeIndex: 3, phase: 'cooking' }],
+      ['a queue entry without a recipe', { queue: [{ servings: 2 }], recipeIndex: 0, phase: 'cooking' }],
+    ])('%s cannot be resumed', (_name, raw) => {
+      expect(sessionFromState(origin, raw)).toBeNull()
+    })
+
+    test('fields that are off fall back instead of breaking the resume', () => {
+      const resumed = sessionFromState(origin, { queue: [{ recipeId: 'A', servings: 3 }], recipeIndex: 0, phase: 'servings', step: -2, guests: 'x', doneSteps: [1] })
+
+      expect(resumed).toMatchObject({ step: 0, guests: 3, doneSteps: {}, phase: 'servings', finishedAt: 0 })
+    })
+
+    test('« Recommencer » keeps recipes and servings, drops the steps ticked and goes back to the preparation', () => {
+      const session = { ...started(), recipeIndex: 1, step: 3, guests: 6 }
+
+      const restarted = restartSession(session, 5000)
+
+      expect(restarted).toMatchObject({ recipeIndex: 0, step: 0, phase: 'cooking', doneSteps: {}, startedAt: 5000, finishedAt: 0, guests: 6, queue: session.queue })
+    })
   })
 })

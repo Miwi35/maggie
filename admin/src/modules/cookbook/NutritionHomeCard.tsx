@@ -8,6 +8,8 @@ import { HomeCardError } from '../home/HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
 import type { HomeDay } from '../home/homeDay'
 import { mealLaunchPath } from './cooking/cookingSession'
+import { resumesMeal, useCookingStatus } from './cooking/cookingStatus'
+import type { CookingStatus } from './cooking/cookingStatusApi'
 import { useNutritionCardState } from './useNutritionCardState'
 import type { HomeMeal, HomeSlot, NutritionHomeState } from './nutritionCardState'
 
@@ -44,7 +46,10 @@ const Loading = () => (
   </Box>
 )
 
-const Body = ({ state, day }: { state: NutritionHomeState; day: HomeDay }) => (
+const Body = ({ state, day }: { state: NutritionHomeState; day: HomeDay }) => {
+  const { status } = useCookingStatus()
+
+  return (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
     {state.slots.map(({ slot, meals }) => (
       <Box key={slot} component="section" aria-label={SLOT_LABELS[slot]} data-testid={`home-nutrition-${slot}`}>
@@ -58,16 +63,17 @@ const Body = ({ state, day }: { state: NutritionHomeState; day: HomeDay }) => (
         ) : (
           <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
             {meals.map((meal) => (
-              <Meal key={meal.id} meal={meal} day={day} />
+              <Meal key={meal.id} meal={meal} day={day} status={status} />
             ))}
           </Box>
         )}
       </Box>
     ))}
   </Box>
-)
+  )
+}
 
-const Meal = ({ meal, day }: { meal: HomeMeal; day: HomeDay }) => {
+const Meal = ({ meal, day, status }: { meal: HomeMeal; day: HomeDay; status: CookingStatus | null }) => {
   const names = meal.recipes.length > 0 ? meal.recipes.join(' · ') : meal.title
 
   return (
@@ -79,7 +85,7 @@ const Meal = ({ meal, day }: { meal: HomeMeal; day: HomeDay }) => {
         <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }} data-testid="home-nutrition-guests">
           {`${meal.guests} pers.`}
         </Typography>
-        {meal.recipes.length > 0 && <ActivityLaunchButton module="nutrition" activity={`la cuisine de ${names}`} day={day} to={mealLaunchPath(meal.id)} />}
+        {meal.recipes.length > 0 && <ActivityLaunchButton module="nutrition" activity={`la cuisine de ${names}`} day={day} to={mealLaunchPath(meal.id)} resume={resumesMeal(status, meal.id)} />}
       </Box>
       {meal.missing.length > 0 && (
         <Typography

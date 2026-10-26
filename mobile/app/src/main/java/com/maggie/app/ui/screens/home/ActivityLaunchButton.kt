@@ -49,7 +49,8 @@ fun launchRouteFor(activity: String?): String? =
 /**
  * The discreet « ▶ Lancer » on an agenda line or a module card of the Accueil: a 28 dp pill on the
  * [module]'s colour at 12 % with a thin outline, a 14 dp ▶ and 13 sp text, in a 44 dp tap area. Spoken as
- * « Lancer [activity] ». Nothing for tomorrow.
+ * « Lancer [activity] ». Nothing for tomorrow. With [resume] the activity is already in progress (MAG-615):
+ * « ▶ Reprendre », spoken as « Reprendre [activity] ».
  */
 @Composable
 fun ActivityLaunchButton(
@@ -58,7 +59,9 @@ fun ActivityLaunchButton(
     day: HomeDay,
     onLaunch: () -> Unit,
     modifier: Modifier = Modifier,
+    resume: Boolean = false,
 ) {
+    val verb = if (resume) "Reprendre" else "Lancer"
     if (day != HomeDay.TODAY) return
 
     val color = homeModuleColor(module)
@@ -67,7 +70,7 @@ fun ActivityLaunchButton(
             .testTag(UiTags.homeLaunch(module))
             .defaultMinSize(minHeight = LAUNCH_TOUCH_TARGET)
             .clickable(role = Role.Button, onClick = onLaunch)
-            .semantics { contentDescription = "Lancer $activity" }
+            .semantics { contentDescription = "$verb $activity" }
             .padding(vertical = (LAUNCH_TOUCH_TARGET - LAUNCH_PILL_HEIGHT) / 2),
         contentAlignment = Alignment.Center,
     ) {
@@ -86,7 +89,7 @@ fun ActivityLaunchButton(
             ) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
                 Text(
-                    text = "Lancer",
+                    text = verb,
                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
                     color = color,
                     modifier = Modifier.padding(start = 4.dp),

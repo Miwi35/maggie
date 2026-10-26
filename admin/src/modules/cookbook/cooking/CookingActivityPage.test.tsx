@@ -5,6 +5,10 @@ import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { veilleuseDarkTheme } from '../../../theme'
 import { CookingActivityPage } from './CookingActivityPage'
+import { fakeStatusApi } from './fakeStatusApi'
+import type { FakeStatusApi } from './fakeStatusApi'
+import { fakeTimersApi } from './fakeTimersApi'
+import type { FakeTimersApi } from './fakeTimersApi'
 
 vi.mock('../../../components/chat/ChatWidget', () => ({ ChatWidget: () => null }))
 
@@ -34,14 +38,20 @@ const MEALS: Record<string, { guests: number; recipes: string[] }> = {
 }
 
 let failing = false
+let status: FakeStatusApi
+let timers: FakeTimersApi
 const calls: string[] = []
 
 const answer = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
 
-const fakeFetch = (input: RequestInfo | URL) => {
+const fakeFetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input)
   calls.push(url)
   if (failing) return Promise.resolve(new Response('', { status: 503 }))
+  const saved = status.handle(url, init)
+  if (saved) return saved
+  const running = timers.handle(url, init)
+  if (running) return running
   const meal = url.match(/^\/api\/meals\/(.+)$/)
   if (meal) {
     const found = MEALS[meal[1]]
@@ -80,6 +90,8 @@ describe('CookingActivityPage', () => {
   beforeEach(() => {
     failing = false
     calls.length = 0
+    status = fakeStatusApi()
+    timers = fakeTimersApi()
     sessionStorage.clear()
     vi.stubGlobal('fetch', vi.fn(fakeFetch))
     // The browser refuses full screen: the activity covers the window.
@@ -280,5 +292,193 @@ describe('CookingActivityPage', () => {
     await screen.findByTestId('cooking-preparation')
 
     expect(getComputedStyle(screen.getByRole('button', { name: "C'est parti" })).minHeight).toBe('64px')
+  })
+
+  describe('the status of the activity (MAG-615)', () => {
+    /** Only the status is unreachable: the meals and recipes still answer. */
+    const unreachableStatus = (): FakeStatusApi => ({
+      ...fakeStatusApi(),
+      handle: (url) => (url === '/api/activity-status/cuisine' ? Promise.resolve(new Response('', { status: 503 })) : null),
+    })
+
+    const mealState = (overrides: Record<string, unknown> = {}) => ({
+      origin: { kind: 'meal' as const, id: 'M3' },
+      state: {
+        queue: [
+          { recipeId: 'A', servings: 5 },
+          { recipeId: 'B', servings: 5 },
+          { recipeId: 'C', servings: 5 },
+        ],
+        recipeIndex: 0,
+        step: 2,
+        doneSteps: { A: [1] },
+        guests: 5,
+        phase: 'cooking',
+        startedAt: 1785000000000,
+        ...overrides,
+      },
+    })
+
+    test('a launch with a status of its own resumes at the step, ticked steps and guests included, on any device', async () => {
+      status = fakeStatusApi(mealState())
+
+      renderActivity('/activites/cuisine?meal=M3')
+
+      expect(await screen.findByTestId('cooking-step-text')).toHaveTextContent('Monter le plat')
+      expect(screen.getByTestId('cooking-steps-progress')).toHaveTextContent('1 / 4 faites')
+      expect(status.deletes()).toHaveLength(0)
+      expect(calls).not.toContain('/api/meals/M3')
+    })
+
+    describe('a copy kept by the tab never wins over the API', () => {
+      const stale = () =>
+        sessionStorage.setItem(
+          'maggie.cooking-session',
+          JSON.stringify({
+            origin: { kind: 'meal', id: 'M3' },
+            queue: [
+              { recipeId: 'A', servings: 4 },
+              { recipeId: 'B', servings: 4 },
+              { recipeId: 'C', servings: 4 },
+            ],
+            recipeIndex: 0,
+            step: 1,
+            doneSteps: {},
+            guests: 4,
+            phase: 'cooking',
+            startedAt: 1,
+          }),
+        )
+
+      test('a newer status is the one resumed', async () => {
+        stale()
+        status = fakeStatusApi(mealState())
+
+        renderActivity('/activites/cuisine?meal=M3')
+
+        expect(await screen.findByTestId('cooking-step-text')).toHaveTextContent('Monter le plat')
+      })
+
+      test('no status any more (finished or restarted elsewhere) starts again from the preparation', async () => {
+        stale()
+
+        renderActivity('/activites/cuisine?meal=M3')
+
+        expect(await screen.findByTestId('cooking-preparation')).toBeInTheDocument()
+      })
+
+      test('another launch in progress is asked about, not overwritten', async () => {
+        stale()
+        status = fakeStatusApi(mealState())
+
+        renderActivity('/activites/cuisine?meal=M3')
+        expect(await screen.findByTestId('cooking-step-text')).toBeInTheDocument()
+        status = fakeStatusApi({ origin: { kind: 'recipe', id: 'B' }, state: mealState().state })
+        renderActivity('/activites/cuisine?meal=M3')
+
+        expect(await screen.findByText('Une cuisine est déjà en cours')).toBeInTheDocument()
+        expect(status.writes()).toHaveLength(0)
+      })
+
+      test('the tab\'s copy stands in when the API cannot be read', async () => {
+        stale()
+        status = unreachableStatus()
+
+        renderActivity('/activites/cuisine?meal=M3')
+
+        expect(await screen.findByTestId('cooking-step-text')).toHaveTextContent('Faire la sauce')
+      })
+    })
+
+    test('the state is written at each change: guests, « C\'est parti », « Suivant »', async () => {
+      renderActivity('/activites/cuisine?meal=M3')
+      await screen.findByTestId('cooking-preparation')
+      await userEvent.click(screen.getByRole('button', { name: /Un de plus/ }))
+      await userEvent.click(screen.getByRole('button', { name: "C'est parti" }))
+      await userEvent.click(screen.getByRole('button', { name: /Suivant/ }))
+
+      await waitFor(() => expect(status.current()?.state).toMatchObject({ guests: 5, step: 2, recipeIndex: 0, doneSteps: { A: [1] }, phase: 'cooking' }))
+      expect(status.current()?.origin).toEqual({ kind: 'meal', id: 'M3' })
+      expect(status.writes().length).toBeGreaterThanOrEqual(3)
+    })
+
+    test('quitting asks nothing, keeps the status and only forgets the tab\'s copy', async () => {
+      renderActivity('/activites/cuisine?meal=M3', '/meals')
+      await screen.findByTestId('cooking-preparation')
+      await userEvent.click(screen.getByRole('button', { name: "C'est parti" }))
+      await userEvent.click(screen.getByRole('button', { name: /Suivant/ }))
+      await waitFor(() => expect(status.current()?.state).toMatchObject({ step: 2 }))
+
+      await userEvent.click(screen.getByRole('button', { name: 'Quitter Cuisine' }))
+
+      expect(await screen.findByTestId('where')).toHaveTextContent('/meals')
+      expect(status.deletes()).toHaveLength(0)
+      expect(status.current()?.state).toMatchObject({ step: 2 })
+      expect(sessionStorage.getItem('maggie.cooking-session')).toBeNull()
+    })
+
+    test('« Repas servi » ends the activity: the status is erased', async () => {
+      renderActivity('/activites/cuisine?meal=MS', '/')
+      await screen.findByTestId('cooking-preparation')
+      await userEvent.click(screen.getByRole('button', { name: 'Recette suivante' }))
+      await userEvent.click(await screen.findByRole('button', { name: "C'est parti" }))
+      await userEvent.click(await screen.findByRole('button', { name: /Repas servi/ }))
+
+      expect(await screen.findByText('Bon appétit')).toBeInTheDocument()
+      await waitFor(() => expect(status.deletes()).toHaveLength(1))
+      expect(status.current()).toBeNull()
+    })
+
+    test('« Recommencer » erases the status, ticks nothing and goes back to the preparation', async () => {
+      status = fakeStatusApi(mealState())
+      renderActivity('/activites/cuisine?meal=M3')
+      await screen.findByTestId('cooking-step-text')
+
+      await userEvent.click(screen.getByTestId('cooking-restart'))
+
+      expect(await screen.findByTestId('cooking-preparation')).toBeInTheDocument()
+      await waitFor(() => expect(status.deletes()).toHaveLength(1))
+      expect(status.current()).toBeNull()
+    })
+
+    test('another meal while one is in progress asks: nothing is lost silently', async () => {
+      status = fakeStatusApi(mealState())
+
+      renderActivity('/activites/cuisine?recipe=B', '/')
+
+      expect(await screen.findByText('Une cuisine est déjà en cours')).toBeInTheDocument()
+      expect(screen.queryByTestId('cooking-preparation')).not.toBeInTheDocument()
+      expect(status.deletes()).toHaveLength(0)
+      await waitFor(() => expect(screen.getByTestId('cooking-conflict-where')).toHaveTextContent('Lasagnes'))
+    })
+
+    test('« Reprendre » on that question opens the activity in progress', async () => {
+      status = fakeStatusApi(mealState())
+      renderActivity('/activites/cuisine?recipe=B', '/')
+      await screen.findByText('Une cuisine est déjà en cours')
+
+      await userEvent.click(screen.getByTestId('cooking-conflict-resume'))
+
+      expect(await screen.findByTestId('cooking-step-text')).toHaveTextContent('Monter le plat')
+    })
+
+    test('« Recommencer » on that question erases the one in progress and starts this launch', async () => {
+      status = fakeStatusApi(mealState())
+      renderActivity('/activites/cuisine?recipe=B', '/')
+      await screen.findByText('Une cuisine est déjà en cours')
+
+      await userEvent.click(screen.getByTestId('cooking-conflict-replace'))
+
+      expect(await screen.findByText('Pour combien ?')).toBeInTheDocument()
+      await waitFor(() => expect(status.deletes()).toHaveLength(1))
+    })
+
+    test('an unreachable status offers « Réessayer » instead of overwriting what may be in progress', async () => {
+      status = unreachableStatus()
+
+      renderActivity('/activites/cuisine?meal=M3')
+
+      expect(await screen.findByText(/n'a pas pu être chargée/)).toBeInTheDocument()
+    })
   })
 })

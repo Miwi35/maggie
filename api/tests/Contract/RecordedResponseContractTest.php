@@ -351,9 +351,10 @@ final class RecordedResponseContractTest extends WebTestCase
                 'queue' => [['recipeId' => $recipeId, 'servings' => 4]],
                 'recipeIndex' => 0,
                 'step' => 2,
-                'doneSteps' => [[0, 1]],
+                'doneSteps' => [$recipeId => [1]],
                 'guests' => 4,
                 'phase' => 'cooking',
+                'startedAt' => 1785000000000,
             ],
         ], \JSON_THROW_ON_ERROR));
         self::assertResponseStatusCodeSame(201);

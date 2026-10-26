@@ -51,6 +51,10 @@ import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.quantityLabel
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
+import com.maggie.app.ui.screens.cookbook.cooking.CookingResume
+import com.maggie.app.ui.screens.cookbook.cooking.detailFor
+import com.maggie.app.ui.screens.cookbook.cooking.resumesRecipe
 import com.maggie.app.ui.screens.grocery.SeasonBadge
 import com.maggie.app.ui.components.GuestsStepper
 import com.maggie.app.ui.uiTagRoot
@@ -155,6 +159,9 @@ fun RecipeDetailScreen(
     onEdit: (String) -> Unit,
     onCook: (String) -> Unit,
     onDelete: (String) -> Unit,
+    /** The Cuisine in progress (MAG-615): when it cooks this recipe, « Cuisiner » becomes « Reprendre ». */
+    resume: CookingResume? = null,
+    onResume: (CookingOrigin) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
     val recipe = state.recipe
@@ -263,6 +270,8 @@ fun RecipeDetailScreen(
                     recipe = recipe,
                     modifier = Modifier.fillMaxSize().padding(paddingValues),
                     onCook = { onCook(recipeId) },
+                    resume = resume,
+                    onResume = onResume,
                     onStepGuests = viewModel::stepGuests,
                     onResetGuests = viewModel::resetSimulation,
                 )
@@ -296,6 +305,8 @@ internal fun RecipeSheetContent(
     onCook: () -> Unit,
     onStepGuests: (Int) -> Unit,
     onResetGuests: () -> Unit,
+    resume: CookingResume? = null,
+    onResume: (CookingOrigin) -> Unit = {},
 ) {
     val r = recipe
     Column(
@@ -319,10 +330,23 @@ internal fun RecipeSheetContent(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = onCook, modifier = Modifier.testTag(UiTags.RECIPE_COOK)) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Cuisiner")
+            if (resume != null && resume.resumesRecipe(r.id)) {
+                Button(onClick = { onResume(resume.session.origin) }, modifier = Modifier.testTag(UiTags.RECIPE_COOK_RESUME)) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text("Reprendre")
+                        resume.detailFor(r.id, r.steps.size)?.let {
+                            Text(it, style = MaterialTheme.typography.labelSmall, modifier = Modifier.testTag(UiTags.RECIPE_COOK_RESUME_DETAIL))
+                        }
+                    }
+                }
+            } else {
+                Button(onClick = onCook, modifier = Modifier.testTag(UiTags.RECIPE_COOK)) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Cuisiner")
+                }
             }
         }
 

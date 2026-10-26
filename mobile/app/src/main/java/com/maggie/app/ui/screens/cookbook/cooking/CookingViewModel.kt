@@ -12,6 +12,7 @@ import com.maggie.app.data.model.CookingTimerAction
 import com.maggie.app.data.model.CookingTimerStatus
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.RecipeStep
+import com.maggie.app.data.repository.ActivityStatusRepository
 import com.maggie.app.data.repository.CookingTimerRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.RecipeRepository
@@ -36,12 +37,17 @@ enum class CookingLoad {
 
     /** A meal with no recipe, or an address that says nothing to cook. */
     EMPTY,
+
+    /** Another Cuisine is in progress: « Reprendre » it or « Recommencer » with this one — never lost silently. */
+    CONFLICT,
     READY,
 }
 
 data class CookingUiState(
     val load: CookingLoad = CookingLoad.LOADING,
     val session: CookingSession? = null,
+    /** The Cuisine in progress on another origin, while [load] is [CookingLoad.CONFLICT]. */
+    val conflict: CookingConflict? = null,
     /** The recipes of the queue by id, scaled to the session's servings once the preparation is reached. */
     val recipes: Map<String, Recipe> = emptyMap(),
     /** True while the recipes of the current servings are still on their way. */
@@ -102,28 +108,27 @@ data class CookingUiState(
         CookingTimerStatus.PAUSED -> timer.remainingSeconds
         else -> 0
     }
-
-    /** Leaving would stop a timer: « Quitter l'activité ? » first. */
-    val confirmQuit: Boolean get() = timers.any { it.status.isCounting }
 }
 
 /**
- * The Cuisine activity (MAG-580): reads what it cooks (`GET /api/meals/{id}`, `GET /api/recipes/{id}?guests=N`)
- * and keeps the [CookingSession] in the [SavedStateHandle], so a rotation resumes on the same recipe, step and guests.
- * The origin comes from the navigation arguments: `meal` or `recipe`.
+ * The Cuisine activity (MAG-580): reads what it cooks (`GET /api/meals/{id}`, `GET /api/recipes/{id}?guests=N`).
+ * The [CookingSession] lives in the activity status (MAG-615): read on opening, written at each change, so leaving
+ * loses nothing and another device resumes on the same recipe, step and guests. The origin comes from the
+ * navigation arguments: `meal` or `recipe`.
  */
 class CookingViewModel(
-    private val savedState: SavedStateHandle,
+    savedState: SavedStateHandle,
     private val mealRepository: MealRepository,
     private val recipeRepository: RecipeRepository,
     private val timerRepository: CookingTimerRepository,
+    private val statusRepository: ActivityStatusRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
     private val clock: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
     // Ids go into API paths: a link carrying anything else cooks nothing.
-    private val origin: CookingOrigin? = savedState.get<String>(DeepLinks.ARG_MEAL)?.takeIf(DeepLinks::isValidId)
+    private var origin: CookingOrigin? = savedState.get<String>(DeepLinks.ARG_MEAL)?.takeIf(DeepLinks::isValidId)
         ?.let { CookingOrigin(CookingOrigin.Kind.MEAL, it) }
         ?: savedState.get<String>(DeepLinks.ARG_RECIPE)?.takeIf(DeepLinks::isValidId)
             ?.let { CookingOrigin(CookingOrigin.Kind.RECIPE, it) }
@@ -162,13 +167,13 @@ class CookingViewModel(
 
     fun previous() = change { it.back() }
 
-    fun skipRecipe() = change { it.skipRecipe() }
+    fun skipRecipe() = change { it.skipRecipe(clock()) }
 
     /** « Suivant »: the step on screen is ticked off, then the next one. Nothing holds it back. */
     fun next() {
         val state = _uiState.value
         if (state.recipe == null) return
-        change { it.advance(state.steps.size) }
+        change { it.advance(state.steps.size, now = clock()) }
     }
 
     /**
@@ -195,7 +200,7 @@ class CookingViewModel(
             // The cook may have moved while the timer was on its way: go on only from the step it was started on.
             val session = _uiState.value.session
             if (session != null && session.recipeIndex to session.step == from) {
-                change { it.advance(_uiState.value.steps.size, validate = false) }
+                change { it.advance(_uiState.value.steps.size, validate = false, now = clock()) }
             }
         }
     }
@@ -231,12 +236,41 @@ class CookingViewModel(
     /** True once per rung timer: the sound and the vibration are not played again by a recomposition. */
     fun announce(id: String): Boolean = rung.add(id)
 
-    /** « Quitter »: every timer still on screen is cancelled, after the activity is gone if need be. */
-    fun quit() {
+    /** « Reprendre » on the choice: the Cuisine in progress, from where it stopped. */
+    fun resumeInProgress() {
+        val session = _uiState.value.conflict?.session ?: return
+        origin = session.origin
+        _uiState.update { it.copy(conflict = null) }
+        adopt(session)
+    }
+
+    /** « Recommencer avec cette recette / ce repas »: the one in progress ends, this one starts new. */
+    fun replaceInProgress() {
+        val launch = origin ?: return
+        if (_uiState.value.conflict == null) return
+        statusRepository.delete(COOKING_ACTIVITY)
+        cancelTimers()
+        _uiState.update { it.copy(conflict = null, load = CookingLoad.LOADING) }
+        startJob?.cancel()
+        startJob = viewModelScope.launch { begin(launch) }
+    }
+
+    /**
+     * « Recommencer »: the status ends, the timers stop, and the cook is back on the first preparation for the same
+     * guests. Nothing is written until the next change.
+     */
+    fun restart() {
+        val current = _uiState.value.session ?: return
+        statusRepository.delete(COOKING_ACTIVITY)
+        cancelTimers()
+        publish(current.restarted(now = clock()))
+        syncRecipes()
+    }
+
+    private fun cancelTimers() {
         val ids = _uiState.value.timers.map { it.id }
-        if (ids.isEmpty()) return
-        timerRepository.cancelInBackground(ids)
-        _uiState.update { it.copy(timers = emptyList(), deadlines = emptyMap()) }
+        if (ids.isNotEmpty()) timerRepository.cancelInBackground(ids)
+        _uiState.update { it.copy(timers = emptyList(), deadlines = emptyMap(), launched = emptySet()) }
     }
 
     /**
@@ -258,7 +292,7 @@ class CookingViewModel(
         startJob?.cancel()
         recipesJob?.cancel()
         loadedKey = ""
-        _uiState.update { it.copy(load = CookingLoad.LOADING, refreshing = false) }
+        _uiState.update { it.copy(load = CookingLoad.LOADING, refreshing = false, conflict = null) }
 
         startJob = viewModelScope.launch {
             val launch = origin
@@ -267,34 +301,56 @@ class CookingViewModel(
                 return@launch
             }
 
-            val stored = restore()?.takeIf { it.resumes(launch) }
-            if (stored != null) {
-                _uiState.update { it.copy(session = stored, load = CookingLoad.READY) }
-                syncRecipes()
-                return@launch
+            val status = statusRepository.get(COOKING_ACTIVITY).getOrElse { return@launch fail() }
+            val saved = status?.toCookingSession()
+            when {
+                saved == null -> begin(launch)
+                saved.origin == launch -> adopt(saved)
+                else -> conflict(launch, saved)
+            }
+        }
+    }
+
+    /** Nothing in progress: the preparation of a meal, « Pour combien ? » for a recipe. */
+    private suspend fun begin(launch: CookingOrigin) {
+        when (launch.kind) {
+            CookingOrigin.Kind.MEAL -> {
+                val meal = mealRepository.getMeal(launch.id).getOrElse { return fail() }
+                val ids = meal.recipeIds()
+                if (ids.isEmpty()) {
+                    _uiState.update { it.copy(load = CookingLoad.EMPTY) }
+                    return
+                }
+                publish(mealSession(launch.id, ids, meal.guests, clock()))
             }
 
-            when (launch.kind) {
-                CookingOrigin.Kind.MEAL -> {
-                    val meal = mealRepository.getMeal(launch.id).getOrElse { return@launch fail() }
-                    val ids = meal.recipeIds()
-                    if (ids.isEmpty()) {
-                        _uiState.update { it.copy(load = CookingLoad.EMPTY) }
-                        return@launch
-                    }
-                    publish(mealSession(launch.id, ids, meal.guests))
-                }
-
-                CookingOrigin.Kind.RECIPE -> {
-                    val recipe = recipeRepository.getRecipe(launch.id).getOrElse { return@launch fail() }
-                    val session = recipeSession(launch.id, recipe.servings)
-                    loadedKey = keyOf(session)
-                    _uiState.update { it.copy(recipes = mapOf(recipe.id to recipe)) }
-                    publish(session)
-                }
+            CookingOrigin.Kind.RECIPE -> {
+                val recipe = recipeRepository.getRecipe(launch.id).getOrElse { return fail() }
+                val session = recipeSession(launch.id, recipe.servings, clock())
+                loadedKey = keyOf(session)
+                _uiState.update { it.copy(recipes = mapOf(recipe.id to recipe)) }
+                publish(session)
             }
-            _uiState.update { it.copy(load = CookingLoad.READY) }
-            syncRecipes()
+        }
+        _uiState.update { it.copy(load = CookingLoad.READY) }
+        syncRecipes()
+    }
+
+    /** The Cuisine left in progress, as it was: its recipes are read for its guests. */
+    private fun adopt(session: CookingSession) {
+        recipesJob?.cancel()
+        loadedKey = ""
+        _uiState.update { it.copy(session = session, load = CookingLoad.READY) }
+        syncRecipes()
+    }
+
+    private suspend fun conflict(launch: CookingOrigin, saved: CookingSession) {
+        val recipe = saved.current?.let { recipeRepository.getRecipe(it.recipeId).getOrNull() }
+        _uiState.update {
+            it.copy(
+                load = CookingLoad.CONFLICT,
+                conflict = CookingConflict(saved, launch.kind, recipe?.name, recipe?.steps?.size),
+            )
         }
     }
 
@@ -383,7 +439,8 @@ class CookingViewModel(
                 timers = timers,
                 deadlines = deadlines,
                 now = now,
-                launched = timer.recipeId?.let { state.launched + (it to timer.stepPosition) } ?: state.launched,
+                // A timer ended since (cancelled by « Recommencer », acknowledged) does not mark its step launched again.
+                launched = timer.recipeId?.takeIf { timer.status.isActive }?.let { state.launched + (it to timer.stepPosition) } ?: state.launched,
             )
         }
     }
@@ -393,16 +450,17 @@ class CookingViewModel(
         val next = transform(current)
         if (next == current) return
         publish(next)
+        // « Repas servi » ends the Cuisine: nothing is left to resume.
+        if (next.phase == CookingPhase.DONE) {
+            statusRepository.delete(COOKING_ACTIVITY)
+        } else {
+            statusRepository.put(COOKING_ACTIVITY, next.statusOrigin(), next.statusState())
+        }
         syncRecipes()
     }
 
     private fun publish(session: CookingSession) {
-        savedState[KEY_SESSION] = sessionJson.encodeToString(CookingSession.serializer(), session)
         _uiState.update { it.copy(session = session) }
-    }
-
-    private fun restore(): CookingSession? = savedState.get<String>(KEY_SESSION)?.let { raw ->
-        runCatching { sessionJson.decodeFromString(CookingSession.serializer(), raw) }.getOrNull()
     }
 
     private fun fail() {
@@ -449,7 +507,6 @@ class CookingViewModel(
     }
 
     companion object {
-        private const val KEY_SESSION = "cooking-session"
         private const val SCALE_DEBOUNCE_MS = 200L
         const val POLL_MS = 2_000L
         const val START_FAILED = "Le minuteur n'a pas pu démarrer : vérifie la connexion, puis réessaie."

@@ -1,6 +1,8 @@
 package com.maggie.app.data.model
 
 import com.maggie.app.data.api.ApiCollection
+import com.maggie.app.ui.screens.cookbook.cooking.CookingPhase
+import com.maggie.app.ui.screens.cookbook.cooking.toCookingSession
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -329,6 +331,20 @@ class DtoContractTest {
     @Test
     fun `cooking timers deserialise from the recorded response`() =
         assertCollectionContract("cooking_timers", serializer<CookingTimer>(), "CookingTimer")
+
+    @Test
+    fun `the activity status deserialises from the recorded response, and Cuisine reads its state`() {
+        assertCollectionContract("activity_status", serializer<ActivityStatus>(), "ActivityStatus")
+
+        val status = json.decodeFromJsonElement(serializer<ActivityStatus>(), readRecording("activity_status.collection")["member"]!!.jsonArray.first())
+        val session = status.toCookingSession()
+
+        assertNotNull("Cuisine cannot read the recorded state", session)
+        assertEquals(CookingPhase.COOKING, session!!.phase)
+        assertEquals(2, session.step)
+        assertEquals(mapOf("01JB0000000000000000000001" to listOf(1)), session.doneSteps)
+        assertEquals(1785000000000L, session.startedAt)
+    }
 
     @Test
     fun `notifications deserialise from the recorded response`() =

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -14,8 +15,10 @@ import { quantityLabel } from '../../grocery/packaging'
 import { durationLabel, idOf } from '../recipeSheet'
 import type { RecipeLine, RecipeRecord, RecipeStep } from '../recipeSheet'
 import { nameOf } from '../recipeSteps'
-import { MAX_GUESTS, MIN_GUESTS } from './cookingSession'
-import type { QueuedRecipe } from './cookingSession'
+import { fetchRecipe } from './cookingApi'
+import { MAX_GUESTS, MIN_GUESTS, sessionFromState } from './cookingSession'
+import type { CookingOrigin, QueuedRecipe } from './cookingSession'
+import type { CookingStatus } from './cookingStatusApi'
 import { stepIngredients } from './cookingSteps'
 
 /** Every main button of the activity: readable from the counter, hit with a floury thumb. */
@@ -119,6 +122,65 @@ export const ErrorScreen = ({ onRetry }: { onRetry: () => void }) => (
     </Box>
   </Screen>
 )
+
+/**
+ * Another meal or recipe is being cooked: resume it, or start this one over its ashes (the timers stop).
+ * Nothing is lost without the owner saying so.
+ */
+export const ConflictScreen = ({
+  status,
+  launched,
+  onResume,
+  onReplace,
+}: {
+  status: CookingStatus
+  launched: CookingOrigin
+  onResume: () => void
+  onReplace: () => void
+}) => {
+  const [where, setWhere] = useState<string | null>(null)
+
+  useEffect(() => {
+    const session = sessionFromState(status.origin, status.state)
+    const current = session?.queue[session.recipeIndex]
+    if (!session || !current) return
+    const controller = new AbortController()
+    fetchRecipe(current.recipeId, null, controller.signal)
+      .then((recipe) => {
+        const place = session.phase === 'servings' || session.step === 0 ? 'préparation' : `étape ${session.step}/${recipe.steps?.length ?? '?'}`
+        setWhere(`${recipe.name} · ${place}`)
+      })
+      .catch(() => undefined)
+
+    return () => controller.abort()
+  }, [status])
+
+  return (
+    <Screen id="conflict">
+      <Box sx={{ m: 'auto', maxWidth: 560, textAlign: 'center' }}>
+        <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
+          Une cuisine est déjà en cours
+        </Typography>
+        {where && (
+          <Typography color="text.secondary" data-testid="cooking-conflict-where" sx={{ mb: 1 }}>
+            {where}
+          </Typography>
+        )}
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
+          {`La reprendre, ou recommencer avec ${launched.kind === 'meal' ? 'ce repas' : 'cette recette'} : ses minuteurs en cours seront arrêtés.`}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Button variant="outlined" onClick={onReplace} data-testid="cooking-conflict-replace" sx={{ minHeight: BUTTON_HEIGHT, px: 4 }}>
+            Recommencer
+          </Button>
+          <Button variant="contained" onClick={onResume} data-testid="cooking-conflict-resume" sx={{ minHeight: BUTTON_HEIGHT, px: 4 }}>
+            Reprendre
+          </Button>
+        </Box>
+      </Box>
+    </Screen>
+  )
+}
 
 export const EmptyMealScreen = ({ onQuit }: { onQuit: () => void }) => (
   <Screen id="empty">

@@ -33,14 +33,16 @@ interface ActivityLaunchButtonProps {
   day: HomeDay
   /** The route the activity (or, until it exists, the meal's or workout's sheet) opens at. */
   to: string
+  /** The activity was left and waits: the pill says « Reprendre » (MAG-615). */
+  resume?: boolean
 }
 
 /**
- * The discreet « ▶ Lancer » on an agenda line or a module card of the Accueil: a 28 px pill on the
+ * The discreet « ▶ Lancer » (« ▶ Reprendre » when the activity waits) on an agenda line or a module card of the Accueil: a 28 px pill on the
  * module's colour, a thin outline, 13 px text. Nothing for tomorrow. Quitting the activity comes
  * back to the Accueil as it was.
  */
-export const ActivityLaunchButton = ({ module, activity, day, to }: ActivityLaunchButtonProps) => {
+export const ActivityLaunchButton = ({ module, activity, day, to, resume = false }: ActivityLaunchButtonProps) => {
   const location = useLocation()
   if (day !== 'today') return null
 
@@ -51,7 +53,7 @@ export const ActivityLaunchButton = ({ module, activity, day, to }: ActivityLaun
       component={RouterLink}
       to={to}
       state={state}
-      aria-label={`Lancer ${activity}`}
+      aria-label={`${resume ? 'Reprendre' : 'Lancer'} ${activity}`}
       data-testid={`home-launch-${module}`}
       sx={(theme) => {
         const color = moduleColor(theme, module)
@@ -84,7 +86,7 @@ export const ActivityLaunchButton = ({ module, activity, day, to }: ActivityLaun
     >
       <span className="pill" aria-hidden>
         <PlayArrowIcon sx={{ fontSize: 14 }} />
-        Lancer
+        {resume ? 'Reprendre' : 'Lancer'}
       </span>
     </Box>
   )

@@ -51,6 +51,7 @@ object MercureTopics {
     const val APPROVALS = "approvals"
 
     const val ACCOUNTS = "accounts"
+    const val ACTIVITY_STATUS = "activity-status"
     const val AGENDAS = "agendas"
     const val AISLES = "aisles"
     const val CATEGORIES = "categories"
@@ -90,6 +91,7 @@ object MercureTopics {
      */
     val SUBSCRIBED: Set<String> = setOf(
         ACCOUNTS,
+        ACTIVITY_STATUS,
         AGENDAS,
         AISLES,
         CATEGORIES,

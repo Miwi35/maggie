@@ -6,12 +6,14 @@ import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
 import CheckIcon from '@mui/icons-material/Check'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import RestaurantIcon from '@mui/icons-material/Restaurant'
 import { Confirm, Show, useCreate, useCreatePath, useGetMany, useNotify, useRecordContext, useRedirect, useUpdate } from 'react-admin'
 import { Link as RouterLink, Navigate, useLocation, useParams } from 'react-router-dom'
 import { ReadingPage } from '../../components/layout/ReadingPage'
 import { useMercure } from '../../hooks/useMercure'
 import { recipeLaunchPath } from './cooking/cookingSession'
+import { useCookingResume } from './cooking/cookingStatus'
 import { GuestsStepper } from './GuestsStepper'
 import { ActionsMenu, EditButton, IngredientsBlock, NotesBlock, NutritionBlock, StepsBlock, UtensilsBlock } from './RecipeBlocks'
 import { RecipeDeleteConfirm } from './RecipeDeleteButton'
@@ -74,6 +76,7 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
   const servings = recipe.servings ?? 1
   const shownGuests = guests ?? servings
   const recipeId = creating ? null : idOf(record.id)
+  const resume = useCookingResume(recipeId, steps.length)
   const scaled = useScaledQuantities(recipeId, servings, shownGuests)
   const simulating = shownGuests !== servings
   const scaledLines = useMemo(
@@ -217,16 +220,21 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
         </Typography>
         {!creating && (
           <>
+            {resume?.detail && (
+              <Typography variant="caption" color="text.secondary" data-testid="recipe-cook-detail">
+                {resume.detail}
+              </Typography>
+            )}
             <Button
               component={RouterLink}
-              to={recipeLaunchPath(idOf(recipe.id))}
+              to={resume?.to ?? recipeLaunchPath(idOf(recipe.id))}
               state={{ from: `${location.pathname}${location.search}` }}
               variant="contained"
-              startIcon={<RestaurantIcon />}
+              startIcon={resume ? <PlayArrowIcon /> : <RestaurantIcon />}
               data-testid="recipe-cook"
               sx={{ minHeight: 48 }}
             >
-              Cuisiner
+              {resume ? 'Reprendre' : 'Cuisiner'}
             </Button>
             <Button
               variant="outlined"

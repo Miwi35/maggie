@@ -130,6 +130,7 @@ import com.maggie.app.ui.screens.finance.BlockState
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.SummaryBlock
 import com.maggie.app.ui.screens.cookbook.cooking.CookingActivityScreen
+import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
 import com.maggie.app.ui.screens.cookbook.cooking.CookingViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityRoute
 import com.maggie.app.ui.screens.finance.ReviewListScreen
@@ -178,9 +179,7 @@ import com.maggie.app.ui.screens.cookbook.meals.MealIngredientChoiceViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateViewModel
-import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditScreen
-import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.home.HomeScreen
@@ -309,6 +308,11 @@ sealed class Screen(val route: String, val label: String) {
         fun ofMeal(mealId: String): String = "activity/cooking?${DeepLinks.ARG_MEAL}=$mealId"
 
         fun ofRecipe(recipeId: String): String = "activity/cooking?${DeepLinks.ARG_RECIPE}=$recipeId"
+
+        fun of(origin: CookingOrigin): String = when (origin.kind) {
+            CookingOrigin.Kind.MEAL -> ofMeal(origin.id)
+            CookingOrigin.Kind.RECIPE -> ofRecipe(origin.id)
+        }
     }
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
     /** Planification · Indépendance (MAG-537): the independence counter and the net saving capacity, a sub-view of its own. */
@@ -1582,13 +1586,12 @@ fun NavGraph() {
                             detail = paneRecipeId?.let { id ->
                                 {
                                     key(id) {
-                                        RecipeDetailScreen(
+                                        RecipeDetailPage(
                                             recipeId = id,
                                             recipeRepository = recipeRepository,
-                                            viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
                                             onBack = null,
                                             onEdit = ::editRecipe,
-                                            onCook = { recipeId -> navController.navigate(Screen.CookingActivity.ofRecipe(recipeId)) { launchSingleTop = true } },
+                                            onCook = { route -> navController.navigate(route) { launchSingleTop = true } },
                                             onDelete = { recipeId -> deleteRecipe(recipeId) { detailRecipeId = null } },
                                         )
                                     }
@@ -2071,13 +2074,12 @@ fun NavGraph() {
                         }
                         BackHandler(onBack = { leave() })
                         if (id != null) {
-                            RecipeDetailScreen(
+                            RecipeDetailPage(
                                 recipeId = id,
                                 recipeRepository = recipeRepository,
-                                viewModel = koinViewModel<RecipeDetailViewModel>(key = id) { parametersOf(id) },
                                 onBack = { leave() },
                                 onEdit = ::editRecipe,
-                                onCook = { recipeId -> navController.navigate(Screen.CookingActivity.ofRecipe(recipeId)) { launchSingleTop = true } },
+                                onCook = { route -> navController.navigate(route) { launchSingleTop = true } },
                                 onDelete = { recipeId ->
                                     deleteRecipe(recipeId) {
                                         navController.popBackStack()
