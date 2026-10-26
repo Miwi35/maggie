@@ -28,6 +28,9 @@ import yaml
 
 FENCE = "---"
 PROVENANCES = ("dit", "observé", "déduit")
+# Keys the night sets on a fiche's carte (MAG-159). They stay in `extra`: the owner can read, edit or remove them.
+ARCHIVED_KEY = "archivee"
+QUESTION_KEY = "question"
 _KNOWN = ("id", "resume", "moments", "personnes", "evoque", "alias", "liens", "sources")
 _ID = re.compile(r"^[0-9a-zA-Z_-]{8,64}$")
 _FRONT = re.compile(r"\A---[ \t]*\r?\n(.*?)(?:\r?\n)?^---[ \t]*(?:\r?\n|\Z)", re.DOTALL | re.MULTILINE)
@@ -62,6 +65,15 @@ class ParsedFile:
     carte: Carte
     body: str
     has_frontmatter: bool = False
+
+
+def flags_of(carte: Carte) -> dict[str, str]:
+    """The night's marks on a carte (archived on a date, a question to ask), as the index keeps them."""
+    return {
+        key: str(carte.extra[key]).strip()
+        for key in (ARCHIVED_KEY, QUESTION_KEY)
+        if str(carte.extra.get(key) or "").strip()
+    }
 
 
 def new_id() -> str:

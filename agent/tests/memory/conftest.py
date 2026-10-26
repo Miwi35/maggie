@@ -43,22 +43,33 @@ class Env:
 
 @pytest.fixture()
 def memory_db():
-    """The five memory tables on SQLite behind the repositories (real queries, no mocks)."""
+    """The memory tables on SQLite behind the repositories (real queries, no mocks)."""
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import StaticPool
 
-    from app.db.memory_index_model import MemoryFile, MemoryLink, MemoryOutbox, MemoryTerm, MemoryUsage
+    from app.db.memory_index_model import (
+        MemoryFile,
+        MemoryLink,
+        MemoryNightRun,
+        MemoryNightSeen,
+        MemoryOutbox,
+        MemoryTerm,
+        MemoryUsage,
+    )
 
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
-    for model in (MemoryFile, MemoryTerm, MemoryLink, MemoryUsage, MemoryOutbox):
+    for model in (MemoryFile, MemoryTerm, MemoryLink, MemoryUsage, MemoryOutbox, MemoryNightRun, MemoryNightSeen):
         model.__table__.create(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
 
     def open_session():
         return _SyncSessionAsAsync(factory())
 
-    with patch("app.db.memory_index_repository.agent_session", open_session):
+    with (
+        patch("app.db.memory_index_repository.agent_session", open_session),
+        patch("app.db.memory_night_repository.agent_session", open_session),
+    ):
         yield factory
     engine.dispose()
 

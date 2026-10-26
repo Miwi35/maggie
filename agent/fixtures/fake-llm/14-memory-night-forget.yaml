@@ -1,0 +1,10 @@
+# The night judges what was only circumstance (MAG-159). A fiche from today is never old enough to be offered,
+# so the answer is empty; it is here so that no step of the night is ever left without a scenario.
+name: memory-night-forget
+description: The night sets nothing aside.
+
+match:
+  system_contains: "n'a plus à être évoqué spontanément"
+
+turns:
+  - text: '{"decisions": []}'

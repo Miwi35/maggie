@@ -1,0 +1,13 @@
+# The night tidies the fiches (MAG-159): the fiche now says Lyon but is still called after Rennes, so it is
+# renamed. The old title stays in the fiche as an alias, so searching for Rennes still finds it.
+name: memory-night-tidy
+description: The night renames the fiche whose name no longer says what it says.
+
+match:
+  system_contains: "tu ranges les fiches"
+  user_matches: '\* Lieu de vie/Le propriétaire habite à Rennes\.md'
+
+turns:
+  - text: |
+      {"operations": [{"op": "renommer", "chemin": "Lieu de vie/Le propriétaire habite à Rennes.md",
+        "titre": "Le propriétaire habite à Lyon", "motif": "le nom disait Rennes, la fiche dit Lyon"}]}

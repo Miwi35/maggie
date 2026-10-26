@@ -25,6 +25,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from app.config import settings
 from app.db.memory_index_model import OP_APPEND, OP_DELETE, OP_PUT
@@ -49,6 +50,7 @@ from app.memory.bucket import (
     PreconditionFailed,
     S3Bucket,
 )
+from app.memory.carte import ARCHIVED_KEY
 from app.memory.folder import Known, LocalFolder, local_users, sha
 from app.memory.indexer import index_file
 from app.memory.ulid import is_ulid
@@ -244,7 +246,7 @@ class MemoryService:
         self.schedule(user_id)
         return rel
 
-    async def delete(self, user_id: str, rel: str, *, reason: str = "") -> bool:
+    async def delete(self, user_id: str, rel: str, *, reason: str = "", journal: bool = True) -> bool:
         """Remove a file: gone locally and from the index now, from the bucket at the next push."""
         rel = paths.check_writable(rel, conversation=True)
         paths.check_user_id(user_id)
@@ -256,9 +258,34 @@ class MemoryService:
             folder.delete(rel)
             await memory_outbox_repo.enqueue(user_id, rel, OP_DELETE, None, known.etag if known else None)
         await memory_index_repo.remove(user_id, rel)
-        await self.journal(user_id, f"supprimé `{rel}`" + (f" — {reason}" if reason else ""))
+        if journal:
+            await self.journal(user_id, f"supprimé `{rel}`" + (f" — {reason}" if reason else ""))
         self.schedule(user_id)
         return True
+
+    async def move(self, user_id: str, old: str, new: str, *, reason: str = "") -> str:
+        """Rename or move a fiche, keeping its `id`: the new file is written before the old one goes.
+
+        The old row leaves the index first, so the card id never meets itself and keeps its identity
+        (the links and the usage counters follow the id, not the name).
+        """
+        old, new = paths.check_writable(old), paths.check_writable(new)
+        paths.check_user_id(user_id)
+        if paths.kind_of(old) != "fiche" or paths.kind_of(new) != "fiche":
+            raise paths.UnsafePath("only a fiche can be moved")
+        folder = self.folder(user_id)
+        text = folder.read(old)
+        if text is None:
+            raise paths.UnsafePath(f"{old!r} does not exist")
+        if old != new and new.casefold() in {f.casefold() for f in folder.files()}:
+            raise paths.UnsafePath(f"{new!r} already exists")
+        async with self._lock(self._index_locks, user_id):
+            await self._save_local_and_queue(user_id, new, text)
+            await memory_index_repo.remove(user_id, old)
+            await index_file(user_id, new, text)
+        await self.delete(user_id, old, journal=False)
+        await self.journal(user_id, f"déplacé `{old}` → `{new}`" + (f" — {reason}" if reason else ""))
+        return new
 
     async def journal(self, user_id: str, text: str) -> None:
         """Add a line to `journal.md`: appended locally, and merged onto the bucket's copy when pushed."""
@@ -736,7 +763,7 @@ class MemoryService:
         desired = {
             paths.README: generated.readme(),
             paths.AGENTS: generated.agents(),
-            paths.SUMMARY: generated.summary([(f.path, f.resume) for f in fiches]),
+            paths.SUMMARY: generated.summary([(f.path, _summary_label(f)) for f in fiches]),
         }
         for rel, text in desired.items():
             present = folder.read(rel) if rel in remote else None
@@ -807,6 +834,12 @@ class MemoryService:
                 with contextlib.suppress(BucketError):
                     await self.sync_user(user)
         return report
+
+
+def _summary_label(fiche: Any) -> str:
+    """What the summary says of a fiche: its résumé, and since when the night has set it aside."""
+    since = fiche.flags.get(ARCHIVED_KEY)
+    return f"{fiche.resume} _(mise de côté le {since})_".strip() if since else fiche.resume
 
 
 def build_service() -> MemoryService:
