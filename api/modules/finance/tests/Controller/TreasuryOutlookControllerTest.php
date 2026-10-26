@@ -52,7 +52,9 @@ class TreasuryOutlookControllerTest extends WebTestCase
         $data = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['salary']['isConfigured']);
         self::assertTrue($data['salary']['isLate']);
-        self::assertSame(495000, $data['salary']['shortfallCents']);
+        // Nothing is credited: the previous month is open, and the current one too once the 25th has passed.
+        $openMonths = (int) (new \DateTimeImmutable('today'))->format('j') > 25 ? 2 : 1;
+        self::assertSame(495000 * $openMonths, $data['salary']['shortfallCents']);
         self::assertSame(-12000, $data['balanceCents']);
         self::assertNotEmpty($data['projection']);
         self::assertTrue($data['overdraft']['isForecast']);
