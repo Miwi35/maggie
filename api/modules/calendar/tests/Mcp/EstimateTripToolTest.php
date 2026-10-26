@@ -44,6 +44,9 @@ class EstimateTripToolTest extends KernelTestCase
     private const array DENTIST = [48.118, -1.668];
     private const array PARKING = [48.119, -1.6672];
     private const array HOME = [48.11, -1.68];
+    private const array GYM = [48.14, -1.62];
+    private const array POOL = [48.1, -1.7];
+    private const array POOL_PARKING = [48.1005, -1.7008];
 
     /** @var list<array{method: string, url: string, body: array<string, mixed>}> */
     private array $requests = [];
@@ -127,7 +130,17 @@ class EstimateTripToolTest extends KernelTestCase
             $this->requests[] = ['method' => $method, 'url' => $url, 'body' => $body];
 
             if (str_contains($url, 'geocode')) {
-                return str_contains(urldecode($url), 'Introuvable')
+                $address = urldecode($url);
+                if (str_contains($address, 'Muscle')) {
+                    return self::json(['status' => 'OK', 'results' => [['geometry' => ['location' => ['lat' => self::GYM[0], 'lng' => self::GYM[1]]]]]]);
+                }
+                if (str_contains($address, 'Plongeon')) {
+                    return self::json(['status' => 'OK', 'results' => [['geometry' => ['location' => str_contains($address, 'Parking')
+                        ? ['lat' => self::POOL_PARKING[0], 'lng' => self::POOL_PARKING[1]]
+                        : ['lat' => self::POOL[0], 'lng' => self::POOL[1]]]]]]);
+                }
+
+                return str_contains($address, 'Introuvable')
                     ? self::json(['status' => 'ZERO_RESULTS', 'results' => []])
                     : self::json(['status' => 'OK', 'results' => [['geometry' => ['location' => ['lat' => self::DENTIST[0], 'lng' => self::DENTIST[1]]]]]]);
             }
@@ -294,6 +307,21 @@ class EstimateTripToolTest extends KernelTestCase
         self::assertSame('2026-11-03T13:36:00+01:00', $drive['departAt']);
     }
 
+    public function testADestinationSavedWithoutCoordinatesIsGeocodedAndItsParkingFound(): void
+    {
+        $this->at(self::HOME, car: self::HOME);
+
+        $drive = $this->estimate('swim')['estimates'][0];
+
+        self::assertTrue($drive['parkingKnown']);
+        self::assertSame(['drive', 'walk'], array_column(self::steps($drive), 'kind'));
+        self::assertSame('https://waze.com/ul?ll=48.1005,-1.7008&navigate=yes', $drive['navigationUrl']);
+        $this->em()->clear();
+        $pool = $this->em()->find(Place::class, $this->id('pool'));
+        self::assertSame(self::POOL, [$pool->getLatitude(), $pool->getLongitude()]);
+        self::assertSame(self::POOL_PARKING, [$pool->getParkingLatitude(), $pool->getParkingLongitude()]);
+    }
+
     public function testByTransitTheStepsAreGooglesWithTheirWalks(): void
     {
         $this->at(self::HOME);
@@ -367,7 +395,7 @@ class EstimateTripToolTest extends KernelTestCase
         self::assertSame('Salle de sport', $origin['label']);
         $this->em()->clear();
         $gym = $this->em()->find(Place::class, $this->id('gym'));
-        self::assertSame(self::DENTIST, [$gym->getLatitude(), $gym->getLongitude()]);
+        self::assertSame(self::GYM, [$gym->getLatitude(), $gym->getLongitude()]);
     }
 
     public function testFromAnEarlierEventTheOriginIsItsTitle(): void

@@ -40,7 +40,8 @@ class GeocodingClient
                 'timeout' => self::TIMEOUT_SECONDS,
             ])->toArray();
         } catch (ExceptionInterface $e) {
-            throw new RoutingException('Google Geocoding is unreachable or answered with an error.', 0, $e);
+            // Not chained: the HTTP client's message holds the URL, and the URL the key.
+            throw new RoutingException(sprintf('Google Geocoding is unreachable or answered with an error (%s).', $e::class));
         }
 
         $status = $data['status'] ?? null;

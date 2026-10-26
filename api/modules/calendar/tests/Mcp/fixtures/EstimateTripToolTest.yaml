@@ -40,6 +40,12 @@ Maggie\Calendar\Entity\Place:
     user: '@test_user'
     name: Salle de sport
     address: '8 rue du Muscle Fictif, 35000 Rennes'
+  # Saved without coordinates, as save_place does when Maggie does not know them.
+  pool:
+    user: '@test_user'
+    name: Piscine
+    address: '2 quai du Plongeon Fictif, 35000 Rennes'
+    parkingAddress: 'Parking du Plongeon Fictif, 35000 Rennes'
 
 # 14:00 in Paris on Tuesday 3 November 2026.
 Maggie\Calendar\Entity\Event:
@@ -59,6 +65,13 @@ Maggie\Calendar\Entity\Event:
     agenda: '@own_agenda'
     __calls:
       - locateAt: [48.1300, -1.6500]
+  swim:
+    summary: Natation
+    location: '2 quai du Plongeon Fictif, 35000 Rennes'
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("2026-11-03 13:00:00", new \DateTimeZone("UTC")))>'
+    endAt: '<(new \DateTimeImmutable("2026-11-03 14:00:00", new \DateTimeZone("UTC")))>'
+    agenda: '@own_agenda'
   nowhere:
     summary: Appel
     timeZone: Europe/Paris

@@ -75,9 +75,11 @@ class RoutingClient
         }
 
         $route = $data['routes'][0] ?? null;
-        if (!\is_array($route) || null === ($duration = self::seconds($route['duration'] ?? null))) {
+        if (!\is_array($route)) {
             throw new RoutingException(sprintf('Google Routes found no %s route between these two points.', $mode->value));
         }
+        // Google leaves the duration out of a route that goes nowhere: already there.
+        $duration = self::seconds($route['duration'] ?? null) ?? 0;
 
         $legs = TripMode::Transit === $mode ? self::transitLegs($route) : [];
 

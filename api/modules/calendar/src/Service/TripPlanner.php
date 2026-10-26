@@ -126,6 +126,7 @@ class TripPlanner
             $steps[] = $this->leg(TripMode::Walk, [$origin->latitude, $origin->longitude], $car);
         }
 
+        $this->locatePlaces($user);
         $place = $this->placeMatcher->match($user, $latitude, $longitude);
         $parking = null === $place ? null : $this->locations->ofParking($place);
         $leaveAround = $start->modify(sprintf('-%d minutes', self::DRIVE_TRAFFIC_LEAD_MINUTES));
@@ -167,6 +168,26 @@ class TripPlanner
         $route = $this->routing->route($mode, $from[0], $from[1], $to[0], $to[1], $departAt);
 
         return new RouteLeg($mode, $route->durationSeconds);
+    }
+
+    /**
+     * Geocodes the user's places saved without coordinates — save_place leaves
+     * them out rather than guess — so the matcher can recognise the event's.
+     * Each is geocoded once; one Google cannot find stays unmatched.
+     */
+    private function locatePlaces(User $user): void
+    {
+        foreach ($this->places->findByUser($user) as $place) {
+            if ($place->hasCoordinates()) {
+                continue;
+            }
+
+            try {
+                $this->locations->ofPlace($place, 'place');
+            } catch (InvalidTripException) {
+                continue;
+            }
+        }
     }
 
     /**
