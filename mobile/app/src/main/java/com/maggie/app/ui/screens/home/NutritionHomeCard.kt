@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
@@ -110,15 +111,12 @@ private fun NutritionHomeSlotRow(slot: NutritionHomeSlot, day: HomeDay, onLaunch
 @Composable
 private fun NutritionHomeMealRow(meal: NutritionHomeMeal, day: HomeDay, onLaunch: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().testTag(UiTags.HOME_NUTRITION_MEAL)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = meal.recipesLabel(),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
-            meal.guests.let {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The guests sit under the name: beside it they squeezed a long name until it broke inside a word.
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = meal.recipesLabel(), style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    text = "$it pers.",
+                    text = "${meal.guests} pers.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
