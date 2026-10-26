@@ -73,7 +73,9 @@ tags:
 - extendedWaitUntil:
     visible: "≈ 500 kcal"
     timeout: 10000
-- assertVisible: "Protéines 20 g"
+# One line below « ≈ 500 kcal », which can sit on the screen's bottom edge: scroll to it, as for every other line.
+- scrollUntilVisible:
+    element: "Protéines 20 g"
 
 # A utensil from the phone: the full-screen search, a name the catalogue lacks, created on the spot.
 - scrollUntilVisible:
@@ -118,6 +120,9 @@ tags:
     element:
       id: "recipe_save"
     timeout: 40000
+# The button can still be cut by the bottom bar once « visible »: a tap on its clipped centre does nothing
+# and the form stays open. One more swipe (a no-op at the end of the form) brings it whole.
+- scroll
 - tapOn:
     id: "recipe_save"
 - extendedWaitUntil:

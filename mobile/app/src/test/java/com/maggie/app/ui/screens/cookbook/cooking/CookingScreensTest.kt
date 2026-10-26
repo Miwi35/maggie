@@ -1,6 +1,14 @@
 package com.maggie.app.ui.screens.cookbook.cooking
 
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertHeightIsAtLeast
@@ -11,6 +19,8 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeLeft
@@ -32,6 +42,7 @@ import com.maggie.app.ui.activity.ActivityImmersion
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -58,13 +69,12 @@ class CookingScreensTest {
         confirmServings = { actionsLog += "confirm" },
         previous = { actionsLog += "previous" },
         next = { actionsLog += "next" },
-        ready = { actionsLog += "ready" },
         skipRecipe = { actionsLog += "skip" },
         retry = { actionsLog += "retry" },
         startAndNext = { actionsLog += "start-and-next" },
         toggleTimer = { actionsLog += "toggle" },
         addMinutes = { actionsLog += "add:$it" },
-        dismissTimer = { actionsLog += "dismiss:$it" },
+        openStep = { recipeIndex, position -> actionsLog += "open:$recipeIndex:$position" },
     )
 
     private fun recipe(id: String, name: String, steps: Int = 2) = Recipe(
@@ -300,9 +310,15 @@ class CookingScreensTest {
         ),
     )
 
-    private fun referenceState(step: Int, ready: List<Int> = emptyList(), lastRecipe: Boolean = false) = CookingUiState(
+    private fun referenceState(
+        step: Int,
+        done: Map<String, List<Int>> = emptyMap(),
+        lastRecipe: Boolean = false,
+        recipeIndex: Int = 0,
+    ) = CookingUiState(
         load = CookingLoad.READY,
-        session = mealSession("meal-1", if (lastRecipe) listOf("r-a") else listOf("r-a", "r-b"), 4).copy(step = step, ready = ready),
+        session = mealSession("meal-1", if (lastRecipe) listOf("r-a") else listOf("r-a", "r-b"), 4)
+            .copy(step = step, recipeIndex = recipeIndex, doneSteps = done),
         recipes = mapOf("r-a" to reference, "r-b" to recipe("r-b", "Salade verte")),
     )
 
@@ -314,20 +330,19 @@ class CookingScreensTest {
         compose.onNodeWithTag(UiTags.COOKING_STEP_TEXT).assertTextEquals("Mettre l'eau à bouillir")
         compose.onNodeWithTag(UiTags.COOKING_STEP_UTENSIL).assertTextEquals("Casserole")
         compose.onNodeWithTag(UiTags.COOKING_UPNEXT).assertTextEquals("Ensuite · Couper les légumes")
-        compose.onAllNodesWithTag(UiTags.COOKING_WAIT).assertCountEquals(0)
         compose.onNodeWithText("Recette 1 sur 2 · Étape 1 sur 5").assertIsDisplayed()
     }
 
     @Test
     fun `the ingredients of a step come with their scaled quantity`() {
-        draw(referenceState(step = 3, ready = listOf(1)))
+        draw(referenceState(step = 3))
 
         compose.onNodeWithTag(UiTags.COOKING_STEP_INGREDIENT).assertTextEquals("300 g Farine")
     }
 
     @Test
     fun `the segments tell the steps done, the current one and those to come`() {
-        draw(referenceState(step = 3))
+        draw(referenceState(step = 3, done = mapOf("r-a" to listOf(1, 2))))
 
         compose.onAllNodesWithTag(UiTags.COOKING_SEGMENT).assertCountEquals(5)
         compose.onAllNodesWithTag(UiTags.COOKING_SEGMENT)[0].assertContentDescriptionEquals("Étape 1 : faite")
@@ -336,32 +351,33 @@ class CookingScreensTest {
     }
 
     @Test
-    fun `step 3 waits for the water, holds Suivant, and Cest pret lifts it`() {
-        draw(referenceState(step = 3))
+    fun `Suivant stays enabled on a step that awaits another, nothing holds it back`() {
+        draw(referenceState(step = 5))
 
-        compose.onNodeWithTag(UiTags.COOKING_WAIT).assertIsDisplayed()
-        compose.onNodeWithText("Attend l'eau à bouillir · étape 1").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsNotEnabled()
-
-        compose.onNodeWithTag(UiTags.COOKING_READY).performClick()
-
-        assertEquals(listOf("ready"), actionsLog)
-    }
-
-    @Test
-    fun `step 5 waits for the pasta and the vegetables`() {
-        draw(referenceState(step = 5, ready = listOf(1)))
-
-        compose.onNodeWithText("Attend les pâtes et les légumes · étapes 3 et 4").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsNotEnabled()
-    }
-
-    @Test
-    fun `once forced, the wait is gone and Suivant is back`() {
-        draw(referenceState(step = 3, ready = listOf(1)))
-
-        compose.onAllNodesWithTag(UiTags.COOKING_WAIT).assertCountEquals(0)
         compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsEnabled()
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertTextEquals("Suivant →")
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).performClick()
+
+        assertEquals(listOf("next"), actionsLog)
+    }
+
+    @Test
+    fun `Suivant stays enabled on the step that awaits two timers, one of them still running`() {
+        draw(timedState(step = 5, water, timer("t-3", "Pâtes", 3, CookingTimerStatus.RUNNING, 552)))
+
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsEnabled()
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).performClick()
+
+        assertEquals(listOf("next"), actionsLog)
+    }
+
+    @Test
+    fun `no state of the screen offers a button to say a step is ready`() {
+        draw(timedState(step = 3, timer("t-1", "Eau", 1, CookingTimerStatus.RUNNING, 130)))
+
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsEnabled()
+        compose.onAllNodesWithText("C'est prêt").assertCountEquals(0)
+        compose.onAllNodesWithText("OK").assertCountEquals(0)
     }
 
     @Test
@@ -375,13 +391,13 @@ class CookingScreensTest {
     }
 
     @Test
-    fun `a swipe to the left does not go on while the step waits`() {
-        draw(referenceState(step = 3))
+    fun `a swipe to the left goes on from a step that awaits another too`() {
+        draw(referenceState(step = 5))
 
         compose.onNodeWithTag(UiTags.COOKING_STEP).performTouchInput { swipeLeft() }
         compose.onNodeWithTag(UiTags.COOKING_STEP).performTouchInput { swipeRight() }
 
-        assertEquals(listOf("previous"), actionsLog)
+        assertEquals(listOf("next", "previous"), actionsLog)
     }
 
     @Test
@@ -397,7 +413,7 @@ class CookingScreensTest {
 
     @Test
     fun `the last step of the last recipe reads Repas servi`() {
-        draw(referenceState(step = 5, ready = listOf(1, 3, 4), lastRecipe = true))
+        draw(referenceState(step = 5, done = mapOf("r-a" to listOf(1, 2, 3, 4)), lastRecipe = true))
 
         compose.onNodeWithTag(UiTags.COOKING_NEXT).assertTextEquals("Repas servi")
         compose.onAllNodesWithTag(UiTags.COOKING_UPNEXT).assertCountEquals(0)
@@ -405,7 +421,7 @@ class CookingScreensTest {
 
     @Test
     fun `the last step of a recipe that is not the last still reads Suivant`() {
-        draw(referenceState(step = 5, ready = listOf(1, 3, 4)))
+        draw(referenceState(step = 5, done = mapOf("r-a" to listOf(1, 2, 3, 4))))
 
         compose.onNodeWithTag(UiTags.COOKING_NEXT).assertTextEquals("Suivant →")
     }
@@ -432,7 +448,7 @@ class CookingScreensTest {
         draw(referenceState(step = 3))
 
         compose.onNodeWithTag(UiTags.COOKING_PREVIOUS).assertHeightIsAtLeast(64.dp)
-        compose.onNodeWithTag(UiTags.COOKING_READY).assertHeightIsAtLeast(64.dp)
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertHeightIsAtLeast(64.dp)
     }
 
     @Test
@@ -441,7 +457,6 @@ class CookingScreensTest {
         draw(referenceState(step = 3))
 
         compose.onNodeWithTag(UiTags.COOKING_STEP_NUMBER).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.COOKING_WAIT).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsDisplayed()
     }
 
@@ -477,7 +492,7 @@ class CookingScreensTest {
             finishedAt = finishedAt,
         )
 
-    private fun timedState(step: Int, vararg timers: CookingTimer, ready: List<Int> = emptyList()) = referenceState(step, ready).copy(
+    private fun timedState(step: Int, vararg timers: CookingTimer, done: Map<String, List<Int>> = emptyMap()) = referenceState(step, done).copy(
         timers = timers.toList(),
         deadlines = timers.filter { it.status == CookingTimerStatus.RUNNING }.associate { it.id to clock + it.remainingSeconds * 1000L },
         now = clock,
@@ -498,6 +513,16 @@ class CookingScreensTest {
         compose.onNodeWithTag(UiTags.COOKING_NEXT).performClick()
 
         assertEquals(listOf("start-and-next"), actionsLog)
+    }
+
+    @Test
+    fun `a background step whose timer was acknowledged reads Suivant, not Lancer et continuer`() {
+        draw(timedState(step = 1).copy(launched = setOf("r-a" to 1)))
+
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertTextEquals("Suivant →")
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).performClick()
+
+        assertEquals(listOf("next"), actionsLog)
     }
 
     @Test
@@ -527,7 +552,7 @@ class CookingScreensTest {
 
     @Test
     fun `a timed step that is not in the background has Demarrer, and Suivant as its main button`() {
-        draw(timedState(step = 4, ready = listOf(1)))
+        draw(timedState(step = 4))
 
         compose.onNodeWithTag(UiTags.COOKING_TIMER_TOGGLE).assertTextEquals("Démarrer")
         compose.onNodeWithTag(UiTags.COOKING_TIMER_MINUS).assertIsNotEnabled()
@@ -548,90 +573,196 @@ class CookingScreensTest {
         compose.onNodeWithTag(UiTags.COOKING_STEP_TIMER_SUB).assertTextEquals("en pause")
     }
 
-    @Test
-    fun `on a phone upright the timers are a strip of chips, the rung one saying so`() {
-        draw(timedState(step = 4, timer("t-3", "Pâtes", 3, CookingTimerStatus.RUNNING, 552), timer("t-4", "Légumes", 4, CookingTimerStatus.DONE, 0, "2026-10-25T10:00:00+00:00")))
+    // --- The steps of the meal (MAG-614)
 
-        compose.onNodeWithTag(UiTags.COOKING_TIMER_STRIP).assertIsDisplayed()
-        compose.onAllNodesWithTag(UiTags.COOKING_TIMER_CHIP).assertCountEquals(2)
-        compose.onNodeWithText("Pâtes · 09:12").assertIsDisplayed()
-        compose.onNodeWithText("Légumes · c'est prêt").assertIsDisplayed()
-        compose.onAllNodesWithTag(UiTags.COOKING_TIMERS_COLUMN).assertCountEquals(0)
-    }
+    private val landscape = "w800dp-h360dp-land-xhdpi"
+    private val tablet = "w800dp-h1280dp-xhdpi"
+
+    private fun stateOf(vararg expected: String) =
+        expected.map { SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, it) }
 
     @Test
-    fun `no timer, no strip`() {
-        draw(timedState(step = 2))
+    fun `a phone upright shows the banner with its progress, and no column`() {
+        draw(timedState(step = 2, done = mapOf("r-a" to listOf(1))))
 
-        compose.onAllNodesWithTag(UiTags.COOKING_TIMER_STRIP).assertCountEquals(0)
-    }
-
-    @Test
-    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
-    fun `a phone sideways shows the Minuteurs column with a row per timer`() {
-        draw(timedState(step = 2, water))
-
-        compose.onNodeWithTag(UiTags.COOKING_TIMERS_COLUMN).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.COOKING_TIMER_ROW).assertIsDisplayed()
-        compose.onNodeWithText("étape 1 · en fond").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.COOKING_TIMER_ROW_CLOCK).assertTextEquals("09:12")
-        compose.onAllNodesWithTag(UiTags.COOKING_TIMER_STRIP).assertCountEquals(0)
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_BANNER).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_BANNER_PROGRESS).assertTextEquals("1 / 7 faites")
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_COLUMN).assertCountEquals(0)
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_BANNER_RINGING).assertCountEquals(0)
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW).assertCountEquals(0)
         compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsDisplayed()
     }
 
     @Test
-    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
-    fun `the Minuteurs column says Aucun minuteur when none runs`() {
-        draw(timedState(step = 2))
+    fun `touching the banner opens the sheet with the steps of every recipe, and a row goes to its step`() {
+        draw(timedState(step = 2, done = mapOf("r-a" to listOf(1))))
 
-        compose.onNodeWithTag(UiTags.COOKING_TIMERS_EMPTY).assertIsDisplayed()
-        compose.onNodeWithText("Aucun minuteur").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_BANNER).performClick()
+
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_SHEET).assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW).assertCountEquals(7)
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_RECIPE).assertCountEquals(2)
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_PROGRESS).assertTextEquals("1 / 7 faites")
+
+        // The row's own click action: under Robolectric a synthetic touch does not reach a bottom sheet's window
+        // (the real tap does, Maestro's journey taps it on a device).
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW)[3].performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+
+        assertEquals(listOf("open:0:4"), actionsLog)
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_SHEET).assertCountEquals(0)
+    }
+
+    @Test
+    fun `the banner says a timer rang, since its line is out of sight`() {
+        draw(timedState(step = 4, timer("t-3", "Pâtes", 3, CookingTimerStatus.DONE, 0, "2026-10-25T10:00:00+00:00")))
+
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_BANNER_RINGING).assertTextEquals("Pâtes : c'est prêt")
+    }
+
+    @Test
+    fun `the banner counts the other timers that rang`() {
+        draw(
+            timedState(
+                step = 4,
+                timer("t-1", "Eau", 1, CookingTimerStatus.DONE, 0, "2026-10-25T10:00:00+00:00"),
+                timer("t-3", "Pâtes", 3, CookingTimerStatus.DONE, 0, "2026-10-25T10:01:00+00:00"),
+            ),
+        )
+
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_BANNER_RINGING).assertTextEquals("Eau : c'est prêt (+1)")
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `a phone sideways shows the steps column at the left, with the step and its buttons beside it`() {
+        draw(timedState(step = 3, done = mapOf("r-a" to listOf(1, 2))))
+
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_COLUMN).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_PROGRESS).assertTextEquals("2 / 7 faites")
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_BANNER).assertCountEquals(0)
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW).assertCountEquals(7)
+        compose.onNodeWithTag(UiTags.COOKING_STEP_TEXT).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsDisplayed()
+        val column = compose.onNodeWithTag(UiTags.COOKING_STEPS_COLUMN).fetchSemanticsNode().boundsInRoot
+        val step = compose.onNodeWithTag(UiTags.COOKING_STEP).fetchSemanticsNode().boundsInRoot
+        assertTrue("the column is left of the step", column.right <= step.left + 1f)
     }
 
     @Test
     @Config(qualifiers = "w800dp-h1280dp-xhdpi")
-    fun `a tablet upright shows the Minuteurs column under the step`() {
-        draw(timedState(step = 2, water))
+    fun `a tablet shows the steps column, upright too`() {
+        draw(timedState(step = 3))
 
-        compose.onNodeWithTag(UiTags.COOKING_TIMERS_COLUMN).assertIsDisplayed()
-        compose.onNodeWithText("Eau").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_COLUMN).assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_BANNER).assertCountEquals(0)
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_PROGRESS).assertTextEquals("0 / 7 faites")
         compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsDisplayed()
     }
 
     @Test
-    fun `a rung timer shows its alert over the step, and OK acknowledges it`() {
-        draw(timedState(step = 4, timer("t-3", "Pâtes", 3, CookingTimerStatus.DONE, 0, "2026-10-25T10:00:00+00:00"), ready = listOf(1)))
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `the column names the recipes when there are several, and lists their steps in order`() {
+        draw(timedState(step = 3))
 
-        compose.onNodeWithTag(UiTags.COOKING_TIMER_ALERT).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.COOKING_TIMER_ALERT_TITLE).assertTextEquals("Pâtes : c'est prêt")
-        compose.onNodeWithText("minuteur de l'étape 3").assertIsDisplayed()
-
-        compose.onNodeWithTag(UiTags.COOKING_TIMER_ALERT_OK).performClick()
-
-        assertEquals(listOf("dismiss:t-3"), actionsLog)
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_RECIPE).assertCountEquals(2)
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_RECIPE)[0].assertTextEquals("Pâtes aux légumes")
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_RECIPE)[1].assertTextEquals("Salade verte")
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW)[0].assert(hasAnyDescendant(hasText("Mettre l'eau à bouillir")))
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW)[5].assert(hasAnyDescendant(hasText("Faire l'étape 1 de Salade verte")))
     }
 
     @Test
-    fun `two rung timers, the first one's alert, the other waits`() {
-        draw(
-            timedState(
-                step = 2,
-                timer("t-3", "Pâtes", 3, CookingTimerStatus.DONE, 0, "2026-10-25T10:01:00+00:00"),
-                timer("t-1", "Eau", 1, CookingTimerStatus.DONE, 0, "2026-10-25T10:00:00+00:00"),
-            ),
-        )
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `a step done carries a check, the one on screen is marked, the others are to come`() {
+        draw(timedState(step = 3, done = mapOf("r-a" to listOf(1, 2))))
 
-        compose.onAllNodesWithTag(UiTags.COOKING_TIMER_ALERT).assertCountEquals(1)
-        compose.onNodeWithTag(UiTags.COOKING_TIMER_ALERT_TITLE).assertTextEquals("Eau : c'est prêt")
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_CHECK).assertCountEquals(2)
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_CURRENT).assertCountEquals(1)
+        val rows = compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW)
+        rows[0].assert(hasAnyDescendant(hasTestTag(UiTags.COOKING_STEP_CHECK)))
+        rows[1].assert(hasAnyDescendant(hasTestTag(UiTags.COOKING_STEP_CHECK)))
+        rows[2].assert(hasAnyDescendant(hasTestTag(UiTags.COOKING_STEP_CURRENT)))
+        rows[3].assert(!hasAnyDescendant(hasTestTag(UiTags.COOKING_STEP_CHECK)) and !hasAnyDescendant(hasTestTag(UiTags.COOKING_STEP_CURRENT)))
+        stateOf("faite", "faite", "en cours", "à venir", "à venir").forEachIndexed { index, matcher -> rows[index].assert(matcher) }
     }
 
     @Test
-    fun `a wait on a running timer says how long is left`() {
-        draw(timedState(step = 3, timer("t-1", "Eau", 1, CookingTimerStatus.RUNNING, 130)))
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `the step on screen is marked in its own recipe only`() {
+        draw(referenceState(step = 1, recipeIndex = 1))
 
-        compose.onNodeWithTag(UiTags.COOKING_WAIT_LABEL).assertTextEquals("Attend l'eau à bouillir · étape 1 · encore 02:10")
-        compose.onAllNodesWithTag(UiTags.COOKING_STEP_TIMER).assertCountEquals(0)
-        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsNotEnabled()
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_CURRENT).assertCountEquals(1)
+        val rows = compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW)
+        rows[0].assert(stateOf("à venir").single())
+        rows[5].assert(stateOf("en cours").single())
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `touching a row goes to its step, in its recipe`() {
+        draw(timedState(step = 3))
+
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW)[3].performScrollTo().performClick()
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW)[5].performScrollTo().performClick()
+
+        assertEquals(listOf("open:0:4", "open:1:1"), actionsLog)
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `a timer sits on its step's line with its rest, several at once`() {
+        draw(timedState(step = 4, water, timer("t-3", "Pâtes", 3, CookingTimerStatus.RUNNING, 130)))
+
+        val rows = compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW)
+        rows[0].assert(hasAnyDescendant(hasTestTag(UiTags.COOKING_TIMER_ROW_CLOCK) and hasText("09:12")))
+        rows[2].assert(hasAnyDescendant(hasTestTag(UiTags.COOKING_TIMER_ROW_CLOCK) and hasText("02:10")))
+        rows[1].assert(!hasAnyDescendant(hasTestTag(UiTags.COOKING_TIMER_ROW_CLOCK)))
+        compose.onAllNodesWithTag(UiTags.COOKING_TIMER_ROW_CLOCK).assertCountEquals(2)
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `a paused timer says so on its line and keeps its rest`() {
+        draw(timedState(step = 2, timer("t-1", "Eau", 1, CookingTimerStatus.PAUSED, 300)))
+
+        compose.onNodeWithTag(UiTags.COOKING_TIMER_ROW_CLOCK).assertTextEquals("05:00")
+        compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW)[0].assert(hasAnyDescendant(hasText("en pause")))
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `a timer that rang lights its line, says it is ready, and opens no modal`() {
+        draw(timedState(step = 4, timer("t-3", "Pâtes", 3, CookingTimerStatus.DONE, 0, "2026-10-25T10:00:00+00:00")))
+
+        compose.onNodeWithTag(UiTags.COOKING_STEP_RINGING).assertTextEquals("c'est prêt")
+        val rows = compose.onAllNodesWithTag(UiTags.COOKING_STEP_ROW)
+        rows[2].assert(hasAnyDescendant(hasTestTag(UiTags.COOKING_STEP_RINGING)))
+        rows[2].assert(stateOf("à venir, minuteur terminé").single())
+        rows[1].assert(!hasAnyDescendant(hasTestTag(UiTags.COOKING_STEP_RINGING)))
+        compose.onAllNodesWithText("OK").assertCountEquals(0)
+        compose.onNodeWithTag(UiTags.COOKING_NEXT).assertIsEnabled()
+
+        rows[2].performClick()
+
+        assertEquals(listOf("open:0:3"), actionsLog)
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h1280dp-xhdpi")
+    fun `a tablet shows the rung line too`() {
+        draw(timedState(step = 4, timer("t-1", "Eau", 1, CookingTimerStatus.DONE, 0, "2026-10-25T10:00:00+00:00")))
+
+        compose.onNodeWithTag(UiTags.COOKING_STEP_RINGING).assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_BANNER_RINGING).assertCountEquals(0)
+    }
+
+    @Test
+    fun `the steps column or banner does not show before the cooking starts`() {
+        draw(state(recipeSession("r-a", 4)))
+
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_BANNER).assertCountEquals(0)
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_COLUMN).assertCountEquals(0)
     }
 
     @Test

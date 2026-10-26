@@ -26,7 +26,7 @@ const step = (position: number, text: string, extra: Record<string, unknown> = {
   ...extra,
 })
 
-/** The reference example: water 10 min in the background, cut, pasta 12 min in the background (waits 1), vegetables 8 min, drain (waits 3 and 4). */
+/** The reference example: water 10 min in the background, cut, pasta 12 min in the background, vegetables 8 min, drain. */
 const REFERENCE = {
   id: 'REF',
   name: 'Pâtes aux légumes',
@@ -84,6 +84,8 @@ const goTo = async (position: number) => {
   }
 }
 
+const rowOf = (position: number) => screen.getAllByTestId('cooking-step-row').find((row) => row.dataset.position === String(position))!
+
 const posts = () => api.requests.filter((request) => request.method === 'POST')
 const patches = () => api.requests.filter((request) => request.method === 'PATCH').map((request) => request.body)
 
@@ -103,16 +105,16 @@ describe('The timers of the Cuisine activity (MAG-582)', () => {
     await startReference()
     expect(screen.getByTestId('cooking-main-timer-clock')).toHaveTextContent('10:00')
     expect(screen.getByTestId('cooking-main-timer-label')).toHaveTextContent('Eau')
-    expect(screen.getByTestId('cooking-timers-empty')).toHaveTextContent('Aucun minuteur')
+    expect(within(rowOf(1)).queryByTestId('cooking-step-timer')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Lancer et continuer' }))
 
     await waitFor(() => expect(stepNumber()).toBe('2'))
     expect(posts().map((request) => request.body)).toEqual([{ label: 'Eau', recipe: '/api/recipes/REF', stepPosition: 1, durationSeconds: 600 }])
-    const water = within(screen.getByTestId('cooking-timers')).getByTestId('cooking-timer')
-    expect(water).toHaveTextContent('Eau')
-    expect(water).toHaveTextContent('étape 1 · en fond')
+    const water = within(rowOf(1)).getByTestId('cooking-step-timer')
     expect(water).toHaveAttribute('data-status', 'running')
+    expect(water).toHaveAccessibleName(/^Eau : 09:5\d|10:00$/)
+    expect(rowOf(1)).toHaveAttribute('data-done', 'false')
     expect(screen.queryByTestId('cooking-main-timer')).not.toBeInTheDocument()
   })
 
@@ -142,8 +144,6 @@ describe('The timers of the Cuisine activity (MAG-582)', () => {
 
   test('a timed step not in the background: Démarrer, Pause, −1 and +1 drive its timer, « Suivant » goes on', async () => {
     await startReference()
-    await goTo(3)
-    await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
     await goTo(4)
     expect(screen.getByRole('button', { name: /Suivant/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ajouter une minute' })).toBeDisabled()
@@ -162,42 +162,57 @@ describe('The timers of the Cuisine activity (MAG-582)', () => {
     expect(stepNumber()).toBe('4')
   })
 
-  test('the step that waits says « encore mm:ss », unlocks when the timer rings, and « OK » takes the alert away', async () => {
+  test('nothing waits: step 3 is never held back, whatever its timers do', async () => {
     await startReference()
     await goTo(3)
 
-    expect(screen.getByTestId('cooking-wait')).toHaveTextContent(/Attend l'eau à bouillir · étape 1 · encore (10:00|09:5\d)/)
-    expect(screen.getByRole('button', { name: /Lancer et continuer/ })).toBeDisabled()
+    expect(screen.queryByTestId('cooking-wait')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: "C'est prêt" })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Lancer et continuer/ })).toBeEnabled()
+  })
+
+  test('a timer that rings lights the line of its step, without any window, and touching it goes there and acknowledges it', async () => {
+    await startReference()
+    await goTo(3)
 
     await emitMercure(TOPIC, api.ring('T1'))
 
-    expect(screen.queryByTestId('cooking-wait')).not.toBeInTheDocument()
-    const alert = screen.getByTestId('cooking-timer-alert')
-    expect(alert).toHaveTextContent("Eau : c'est prêt")
-    expect(alert).toHaveTextContent("minuteur de l'étape 1")
-    expect(within(screen.getByTestId('cooking-timers')).getByTestId('cooking-timer')).toHaveAttribute('data-status', 'done')
+    expect(screen.queryByTestId('cooking-timer-alert')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(rowOf(1)).toHaveAttribute('data-lit', 'true')
+    expect(within(rowOf(1)).getByTestId('cooking-step-timer')).toHaveAttribute('data-status', 'done')
+    expect(stepNumber()).toBe('3')
 
-    await userEvent.click(within(alert).getByRole('button', { name: 'OK' }))
+    await userEvent.click(rowOf(1))
 
-    await waitFor(() => expect(screen.queryByTestId('cooking-timer-alert')).not.toBeInTheDocument())
+    expect(stepNumber()).toBe('1')
+    await waitFor(() => expect(rowOf(1)).toHaveAttribute('data-lit', 'false'))
     expect(patches()).toEqual([{ action: 'dismiss' }])
-    expect(screen.getByTestId('cooking-timers-empty')).toBeInTheDocument()
-    expect(screen.queryByTestId('cooking-wait')).not.toBeInTheDocument()
+    expect(within(rowOf(1)).queryByTestId('cooking-step-timer')).not.toBeInTheDocument()
+    expect(rowOf(1)).toHaveAttribute('data-done', 'false')
   })
 
-  test('two timers ring: one alert at a time, the first rung first', async () => {
+  test('two timers ring: both lines are lit', async () => {
     await startReference()
-    await goTo(3)
-    await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
     await goTo(4)
 
     await emitMercure(TOPIC, api.ring('T2'))
     await emitMercure(TOPIC, api.ring('T1'))
 
-    expect(screen.getAllByTestId('cooking-timer-alert')).toHaveLength(1)
-    expect(screen.getByTestId('cooking-timer-alert')).toHaveTextContent("Pâtes : c'est prêt")
-    await userEvent.click(within(screen.getByTestId('cooking-timer-alert')).getByRole('button', { name: 'OK' }))
-    await waitFor(() => expect(screen.getByTestId('cooking-timer-alert')).toHaveTextContent("Eau : c'est prêt"))
+    expect(rowOf(1)).toHaveAttribute('data-lit', 'true')
+    expect(rowOf(3)).toHaveAttribute('data-lit', 'true')
+    expect(screen.queryByTestId('cooking-timer-alert')).not.toBeInTheDocument()
+  })
+
+  test('touching a running timer brings back to its step and acknowledges nothing', async () => {
+    await startReference()
+    await goTo(3)
+
+    await userEvent.click(within(rowOf(1)).getByTestId('cooking-step-timer'))
+
+    expect(stepNumber()).toBe('1')
+    expect(patches()).toEqual([])
+    expect(within(rowOf(1)).getByTestId('cooking-step-timer')).toHaveAttribute('data-status', 'running')
   })
 
   test('a reload reads the same timers back from GET, and posts nothing', async () => {
@@ -205,24 +220,23 @@ describe('The timers of the Cuisine activity (MAG-582)', () => {
     await screen.findByText('Pour combien ?')
     await userEvent.click(screen.getByRole('button', { name: 'Continuer' }))
     await userEvent.click(await screen.findByRole('button', { name: "C'est parti" }))
-    await goTo(3)
-    await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
     await goTo(4)
     first.unmount()
     api.requests.length = 0
 
     renderActivity()
 
-    await waitFor(() => expect(screen.getAllByTestId('cooking-timer')).toHaveLength(2))
-    expect(screen.getAllByTestId('cooking-timer').map((row) => row.textContent)).toEqual([expect.stringContaining('Eau'), expect.stringContaining('Pâtes')])
+    await waitFor(() => expect(screen.getAllByTestId('cooking-step-timer')).toHaveLength(2))
+    expect(screen.getAllByTestId('cooking-step-timer').map((timer) => timer.getAttribute('aria-label'))).toEqual([
+      expect.stringContaining('Eau'),
+      expect.stringContaining('Pâtes'),
+    ])
     expect(stepNumber()).toBe('4')
     expect(posts()).toHaveLength(0)
   })
 
   test('quitting with timers running asks first, says which, and « Quitter » stops them all', async () => {
     await startReference()
-    await goTo(3)
-    await userEvent.click(screen.getByRole('button', { name: "C'est prêt" }))
     await goTo(4)
 
     await userEvent.click(screen.getByRole('button', { name: 'Quitter Cuisine' }))

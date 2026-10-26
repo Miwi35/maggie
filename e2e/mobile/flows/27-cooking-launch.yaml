@@ -8,25 +8,28 @@ onFlowComplete:
   - setOrientation: PORTRAIT
 ---
 # The Cuisine activity, launched from a recipe (MAG-580, extends 12-recipe-steps and 14-rotation), then
-# followed step by step (MAG-581), with its timers (MAG-582).
+# followed step by step (MAG-581), with its timers (MAG-582) and the steps column (MAG-614).
 #
 # Étant donné une recette de deux portions avec ses étapes
 # Quand je tape « Cuisiner » sur sa fiche
 # Alors « Pour combien ? » est prérempli avec 2 ; « Continuer » ouvre la préparation, sans la barre de Maggie
-# Et quand je commence la recette puis tourne le téléphone, je reste sur la même étape
-# Et quand je tape « Lancer et continuer » sur l'étape 1 (en fond), le minuteur « Eau » tourne et l'étape 2 s'ouvre
-# Et quand j'avance, l'étape 3 attend l'eau « encore mm:ss », « C'est prêt » la libère, « Lancer et continuer »
-#   lance « Pâtes » ; l'étape 5 attend les pâtes et les légumes ; tourné, je reste sur l'étape 5 avec son
-#   attente et mes deux minuteurs, avec leur reste (relus de l'API, aucun relancé)
+# Et quand je commence la recette, le bandeau des étapes dit « 0 / 5 faites » ; tourné, la colonne des étapes
+#   est à gauche, même étape, même progression
+# Et quand je tape « Lancer et continuer » sur l'étape 1 (en fond), le minuteur « Eau » tourne et l'étape 2 s'ouvre,
+#   l'étape 1 n'est pas cochée ; « Suivant » coche l'étape 2 : « 1 / 5 faites »
+# Et quand j'ouvre la feuille des étapes depuis le bandeau et touche l'étape 5, elle s'affiche sans être cochée
+#   et « Suivant » n'est jamais retenu
+# Et tourné, la colonne montre le minuteur de l'eau sur la ligne de l'étape 1 ; je touche l'étape 3, « Lancer et
+#   continuer » lance « Pâtes » : deux minuteurs sur leurs lignes
 # Et quand je tape ✕, « Quitter l'activité ? » dit « 2 minuteurs tournent encore (Eau, Pâtes) : ils s'arrêteront. » ;
 #   « Quitter » les arrête et me ramène à la fiche de la recette
 #
 # What a JVM test cannot see is the real activity being recreated by a real rotation, the window's
-# immersive mode, and the back stack that brings ✕ back to the sheet. The recipe is this flow's own,
-# created over HTTP by `scripts/recipe-api.js` and deleted at the end. What is not here: each transition
-# of the session (`CookingSessionTest`, `CookingViewModelTest`), what the screens draw (`CookingScreensTest`),
-# the frame's confirmation (`ActivityScaffoldScreenTest`), the tablet's 64 dp buttons, a timer's end and its
-# alert (`CookingViewModelTest`, `CookingScreensTest`: ten minutes is too long for a journey).
+# immersive mode, the sheet's own window, and the back stack that brings ✕ back to the sheet. The recipe is
+# this flow's own, created over HTTP by `scripts/recipe-api.js` and deleted at the end. What is not here: each
+# transition of the session (`CookingSessionTest`, `CookingViewModelTest`), what the screens draw
+# (`CookingScreensTest`), the frame's confirmation (`ActivityScaffoldScreenTest`), the tablet's 64 dp buttons,
+# a timer's end and its lit line (`CookingViewModelTest`, `CookingScreensTest`: ten minutes is too long for a journey).
 
 - runFlow: ../subflows/new-user.yaml
 
@@ -91,20 +94,27 @@ onFlowComplete:
 - assertNotVisible:
     id: "chat_open"
 
-# First step.
+# First step: the banner (phone upright) tells nothing is done yet.
 - tapOn:
     id: "cooking_start"
 - extendedWaitUntil:
     visible: "Étape 1 sur 5"
     timeout: 20000
 - assertVisible: "Mettre l'eau à bouillir"
+- assertVisible:
+    id: "cooking_steps_banner_progress"
+    text: "0 / 5 faites"
 
-# Turned: the same step, still full screen.
+# Turned: the same step, still full screen, the steps column at the left of it.
 - setOrientation: LANDSCAPE_LEFT
 - extendedWaitUntil:
-    visible: "Étape 1 sur 5"
+    visible:
+      id: "cooking_steps_column"
     timeout: 20000
-- assertVisible: "Mettre l'eau à bouillir"
+- assertVisible: "Étape 1 sur 5"
+- assertVisible:
+    id: "cooking_steps_progress"
+    text: "0 / 5 faites"
 - assertNotVisible:
     id: "chat_open"
 
@@ -113,7 +123,7 @@ onFlowComplete:
     visible: "Étape 1 sur 5"
     timeout: 20000
 
-# Step 1 boils in the background: « Lancer et continuer » starts its timer and goes on (MAG-582).
+# Step 1 boils in the background: « Lancer et continuer » starts its timer and goes on, step 1 not ticked.
 - assertVisible: "Lancer et continuer"
 - tapOn:
     id: "cooking_next"
@@ -121,66 +131,81 @@ onFlowComplete:
     visible: "Étape 2 sur 5"
     timeout: 20000
 - assertVisible: "Couper les légumes"
-- extendedWaitUntil:
-    visible: "Eau · [0-9][0-9]:[0-9][0-9]"
-    timeout: 20000
+- assertVisible:
+    id: "cooking_steps_banner_progress"
+    text: "0 / 5 faites"
 
-# The reference example: step 3 waits for the water, still running; « C'est prêt » lifts it.
+# « Suivant » ticks step 2 and nothing holds step 3 back, whatever the water does.
 - tapOn:
     id: "cooking_next"
 - extendedWaitUntil:
-    visible: "Attend l'eau à bouillir · étape 1 · encore [0-9][0-9]:[0-9][0-9]"
+    visible: "Étape 3 sur 5"
     timeout: 20000
-- assertVisible: "Étape 3 sur 5"
+- assertVisible:
+    id: "cooking_steps_banner_progress"
+    text: "1 / 5 faites"
+
+# The banner opens the sheet of the steps; touching step 5 shows it, ticking nothing.
 - tapOn:
-    id: "cooking_ready"
+    id: "cooking_steps_banner"
 - extendedWaitUntil:
-    notVisible:
-      id: "cooking_wait"
+    visible:
+      id: "cooking_steps_sheet"
     timeout: 20000
-# The pasta cook in the background too: a second timer.
-- assertVisible: "Lancer et continuer"
+- assertVisible:
+    id: "cooking_steps_progress"
+    text: "1 / 5 faites"
+- tapOn: "Égoutter, mélanger"
+- extendedWaitUntil:
+    visible: "Étape 5 sur 5"
+    timeout: 20000
+- assertVisible:
+    id: "cooking_steps_banner_progress"
+    text: "1 / 5 faites"
+- assertVisible:
+    id: "cooking_next"
+    enabled: true
+
+# Turned: the water's timer runs on the line of step 1, read back from the API.
+- setOrientation: LANDSCAPE_LEFT
+- extendedWaitUntil:
+    visible:
+      id: "cooking_steps_column"
+    timeout: 20000
+- assertVisible: "Étape 5 sur 5"
+- assertVisible:
+    id: "cooking_steps_progress"
+    text: "1 / 5 faites"
+- extendedWaitUntil:
+    visible:
+      id: "cooking_timer_row_clock"
+      text: "[0-9][0-9]:[0-9][0-9]"
+    timeout: 20000
+
+# Back on step 3 by its line: « Lancer et continuer » starts « Pâtes », a second timer on its own line.
+- tapOn: "Cuire les pâtes"
+- extendedWaitUntil:
+    visible: "Étape 3 sur 5"
+    timeout: 20000
 - tapOn:
     id: "cooking_next"
 - extendedWaitUntil:
     visible: "Étape 4 sur 5"
     timeout: 20000
 - extendedWaitUntil:
-    visible: "Pâtes · [0-9][0-9]:[0-9][0-9]"
-    timeout: 20000
-- assertVisible: "Eau · [0-9][0-9]:[0-9][0-9]"
-
-# Step 5 waits for the pasta and the vegetables; turned, it is still step 5 and still waiting.
-- tapOn:
-    id: "cooking_next"
-- extendedWaitUntil:
-    visible: "Attend les pâtes et les légumes · étapes 3 et 4 · encore [0-9][0-9]:[0-9][0-9]"
-    timeout: 20000
-- assertVisible: "Étape 5 sur 5"
-
-# Turned: the two timers are read back from the API, in the « Minuteurs » column, each with its rest.
-- setOrientation: LANDSCAPE_LEFT
-- extendedWaitUntil:
-    visible: "Attend les pâtes et les légumes · étapes 3 et 4 · encore [0-9][0-9]:[0-9][0-9]"
-    timeout: 20000
-- assertVisible: "Étape 5 sur 5"
-- extendedWaitUntil:
     visible:
-      id: "cooking_timers_column"
+      id: "cooking_timer_row_clock"
+      text: "[0-9][0-9]:[0-9][0-9]"
+      index: 1
     timeout: 20000
-- assertVisible: "étape 1 · en fond"
-- assertVisible: "étape 3 · en fond"
-- assertVisible:
-    id: "cooking_timer_row_clock"
-    text: "[0-9][0-9]:[0-9][0-9]"
-    index: 1
 
 - setOrientation: PORTRAIT
 - extendedWaitUntil:
-    visible: "Attend les pâtes et les légumes · étapes 3 et 4 · encore [0-9][0-9]:[0-9][0-9]"
+    visible: "Étape 4 sur 5"
     timeout: 20000
-- assertVisible: "Eau · [0-9][0-9]:[0-9][0-9]"
-- assertVisible: "Pâtes · [0-9][0-9]:[0-9][0-9]"
+- assertVisible:
+    id: "cooking_steps_banner_progress"
+    text: "1 / 5 faites"
 
 # ✕ asks first while the timers run, says which stop; « Quitter » stops them and lands on the recipe.
 - tapOn:

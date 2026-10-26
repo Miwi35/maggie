@@ -34,7 +34,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -86,7 +85,6 @@ class CookingActions(
     val confirmServings: () -> Unit,
     val previous: () -> Unit,
     val next: () -> Unit,
-    val ready: () -> Unit,
     val skipRecipe: () -> Unit,
     val retry: () -> Unit,
     /** « Lancer et continuer »: the step's timer starts, then the next step (MAG-582). */
@@ -95,8 +93,8 @@ class CookingActions(
     val toggleTimer: () -> Unit = {},
     /** −1 / +1 min on the step's timer. */
     val addMinutes: (Int) -> Unit = {},
-    /** « OK » on a rung timer's alert. */
-    val dismissTimer: (String) -> Unit = {},
+    /** A step touched in the list (recipe index in the queue, position): shown, never ticked. */
+    val openStep: (Int, Int) -> Unit = { _, _ -> },
 ) {
     companion object {
         fun of(viewModel: CookingViewModel) = CookingActions(
@@ -104,13 +102,12 @@ class CookingActions(
             confirmServings = viewModel::confirmServings,
             previous = viewModel::previous,
             next = viewModel::next,
-            ready = viewModel::ready,
             skipRecipe = viewModel::skipRecipe,
             retry = viewModel::retry,
             startAndNext = viewModel::startAndNext,
             toggleTimer = viewModel::toggleTimer,
             addMinutes = viewModel::addMinutes,
-            dismissTimer = viewModel::dismiss,
+            openStep = viewModel::openStep,
         )
     }
 }
@@ -141,10 +138,10 @@ fun CookingActivityScreen(
         }
     }
 
-    // A sound and a buzz once per rung timer, not at each recomposition.
-    val alert = state.alert
-    LaunchedEffect(alert?.id) {
-        if (alert != null && viewModel.announce(alert.id)) ring.alert()
+    // A sound and a buzz once per rung timer, not at each recomposition; one ring for timers that end together.
+    val rungIds = state.ringing.map { it.id }
+    LaunchedEffect(rungIds) {
+        if (rungIds.map(viewModel::announce).any { it }) ring.alert()
     }
 
     CookingActivityContent(
@@ -184,46 +181,37 @@ fun CookingActivityContent(
 }
 
 /**
- * The timers around what is cooked (MAG-582): the strip above it on a phone upright, the « Minuteurs »
- * column beside or under it otherwise, and a rung timer's alert over it all.
+ * The steps of the meal around what is cooked (MAG-614): a column at the left on a tablet or a phone held
+ * sideways, a banner opening a sheet above it on a phone upright. The timers sit on their steps' lines.
  */
 @Composable
 private fun CookingFrame(state: CookingUiState, actions: CookingActions, content: @Composable () -> Unit) {
     val configuration = LocalConfiguration.current
     val cooking = state.load == CookingLoad.READY && state.session?.phase == CookingPhase.COOKING
-    val buttonHeight = rememberMainButtonHeight()
     val tablet = configuration.smallestScreenWidthDp >= 600
     Box(modifier = Modifier.fillMaxSize()) {
         if (!cooking) {
             content()
         } else {
-            when (timersLayout(configuration.smallestScreenWidthDp, configuration.screenWidthDp > configuration.screenHeightDp)) {
-                TimersLayout.STRIP -> Column(modifier = Modifier.fillMaxSize()) {
-                    TimerStrip(state)
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) { content() }
-                }
-                TimersLayout.SIDE -> Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(1f).fillMaxSize()) { content() }
-                    TimersColumn(
-                        state,
-                        Modifier.width(if (tablet) 380.dp else 280.dp).fillMaxHeight().padding(end = 16.dp),
-                        ring = if (tablet) 56.dp else 40.dp,
+            when (stepsLayout(configuration.smallestScreenWidthDp, configuration.screenWidthDp > configuration.screenHeightDp)) {
+                StepsLayout.COLUMN -> Row(modifier = Modifier.fillMaxSize()) {
+                    StepsPanel(
+                        state = state,
+                        onOpen = actions.openStep,
+                        modifier = Modifier
+                            .width(if (tablet) 360.dp else 260.dp)
+                            .fillMaxHeight()
+                            .padding(start = 16.dp, end = 8.dp)
+                            .testTag(UiTags.COOKING_STEPS_COLUMN),
+                        rowHeight = if (tablet) 56.dp else 48.dp,
                     )
+                    Box(modifier = Modifier.weight(1f).fillMaxSize()) { content() }
                 }
-                TimersLayout.BELOW -> Column(modifier = Modifier.fillMaxSize()) {
+                StepsLayout.BANNER -> Column(modifier = Modifier.fillMaxSize()) {
+                    StepsBanner(state, actions.openStep)
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) { content() }
-                    TimersColumn(state, Modifier.fillMaxWidth().heightIn(max = 280.dp).padding(horizontal = 24.dp), ring = 56.dp)
                 }
             }
-        }
-        // Over every screen of the activity, « Bon appétit » included: the sound rings wherever the cook is.
-        state.alert?.let { timer ->
-            TimerAlert(
-                timer = timer,
-                onOk = { actions.dismissTimer(timer.id) },
-                buttonHeight = buttonHeight,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
-            )
         }
     }
 }
@@ -264,7 +252,6 @@ private fun CookingBody(state: CookingUiState, actions: CookingActions, onQuit: 
                     step = session.step,
                     steps = steps,
                     lines = recipe.ingredients,
-                    pending = state.pending,
                     isLastOfAll = session.isLastRecipe && session.step == steps.size,
                     actions = actions,
                 )
@@ -552,23 +539,23 @@ private fun Modifier.swipeSteps(onPrevious: () -> Unit, onNext: () -> Unit): Mod
 }
 
 @Composable
-private fun SegmentBar(step: Int, count: Int) {
+private fun SegmentBar(step: Int, count: Int, isDone: (Int) -> Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth().testTag(UiTags.COOKING_SEGMENTS),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         (1..count).forEach { index ->
             val state = when {
-                index < step -> "faite"
                 index == step -> "en cours"
+                isDone(index) -> "faite"
                 else -> "à venir"
             }
-            val color = if (index > step) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary
+            val color = if (state == "à venir") MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(8.dp)
-                    .alpha(if (index < step) 0.5f else 1f)
+                    .alpha(if (state == "faite") 0.5f else 1f)
                     .background(color, RoundedCornerShape(4.dp))
                     .semantics { contentDescription = "Étape $index : $state" }
                     .testTag(UiTags.COOKING_SEGMENT),
@@ -602,41 +589,13 @@ private fun StepNeeds(step: RecipeStep, lines: List<RecipeIngredient>) {
     }
 }
 
-/** « Attend les pâtes · étape 3 », and « · encore 02:10 » while an awaited timer counts. */
-internal fun waitText(steps: List<RecipeStep>, pending: List<Int>, left: Int?): String =
-    waitLabel(steps, pending) + (left?.let { " · encore ${clockOf(it)}" } ?: "")
-
-/** What the step waits for, and « C'est prêt » to force it. */
-@Composable
-private fun WaitPanel(label: String, onReady: () -> Unit, buttonHeight: Dp) {
-    Surface(
-        color = MaterialTheme.colorScheme.tertiaryContainer,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth().testTag(UiTags.COOKING_WAIT),
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                label,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.testTag(UiTags.COOKING_WAIT_LABEL),
-            )
-            OutlinedButton(
-                onClick = onReady,
-                modifier = Modifier.heightIn(min = buttonHeight).testTag(UiTags.COOKING_READY),
-            ) { Text("C'est prêt") }
-        }
-    }
-}
-
-/** One step, one at a time (MAG-581): number, text, what it takes, what it waits for, what comes next. */
+/** One step, one at a time (MAG-581): number, text, what it takes, what comes next. */
 @Composable
 private fun StepScreen(
     state: CookingUiState,
     step: Int,
     steps: List<RecipeStep>,
     lines: List<RecipeIngredient>,
-    pending: List<Int>,
     isLastOfAll: Boolean,
     actions: CookingActions,
 ) {
@@ -645,10 +604,9 @@ private fun StepScreen(
     val sizes = stepSizes(configuration.smallestScreenWidthDp)
     val current = steps[step - 1]
     val following = steps.getOrNull(step)
-    val waiting = pending.isNotEmpty()
     val landscape = configuration.screenWidthDp > configuration.screenHeightDp
     // A step that cooks in the background starts its timer and goes on in one tap (MAG-582).
-    val launches = current.background && current.durationMinutes != null && state.timerOf(current.position) == null
+    val launches = current.background && current.durationMinutes != null && !state.hasLaunched(current.position)
     val main = if (launches) actions.startAndNext else actions.next
 
     val number: @Composable () -> Unit = {
@@ -671,21 +629,18 @@ private fun StepScreen(
                 modifier = Modifier.testTag(UiTags.COOKING_STEP_TEXT),
             )
             StepNeeds(current, lines)
-            if (waiting) {
-                WaitPanel(waitText(steps, pending, state.awaitedLeft), actions.ready, buttonHeight)
-            } else {
-                StepTimerCard(state, current, actions, buttonHeight)
-            }
+            StepTimerCard(state, current, actions, buttonHeight)
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .swipeSteps(onPrevious = actions.previous, onNext = { if (!waiting && !state.starting) main() })
+            .swipeSteps(onPrevious = actions.previous, onNext = main)
             .testTag(UiTags.COOKING_STEP),
     ) {
-        SegmentBar(step, steps.size)
+        val recipeId = state.session?.current?.recipeId.orEmpty()
+        SegmentBar(step, steps.size) { state.session?.isDone(recipeId, it) == true }
         Column(
             modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
@@ -728,7 +683,6 @@ private fun StepScreen(
             ) { Text("← Précédent") }
             Button(
                 onClick = main,
-                enabled = !waiting && !state.starting,
                 modifier = Modifier.weight(1f).heightIn(min = buttonHeight).testTag(UiTags.COOKING_NEXT),
             ) {
                 Text(

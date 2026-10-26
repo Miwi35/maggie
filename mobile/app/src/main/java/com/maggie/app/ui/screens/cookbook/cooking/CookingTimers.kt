@@ -64,7 +64,7 @@ fun quitDetail(timers: List<CookingTimer>): String? {
     }
 }
 
-/** The alert's title and the push's: any gender, any number. */
+/** A rung timer's sentence: any gender, any number. */
 fun doneTitle(timer: CookingTimer): String = "${timer.label} : c'est prêt"
 
 /** The line under a timer's name on the step. */
@@ -76,12 +76,10 @@ fun timerSubLine(timer: CookingTimer?, background: Boolean): String = when {
     else -> "en cours"
 }
 
-/** The line under a timer's name in the « Minuteurs » column: « étape 1 · en fond ». */
-fun timerRowLine(timer: CookingTimer, background: Boolean): String = "étape ${timer.stepPosition}" + when {
-    timer.status == CookingTimerStatus.DONE -> " · terminé"
-    timer.status == CookingTimerStatus.PAUSED -> " · en pause"
-    background -> " · en fond"
-    else -> ""
+/** A timer's rest on a step's line: `h:mm:ss` from the hour, `mm:ss` below. */
+fun lineClock(seconds: Int): String {
+    val left = seconds.coerceAtLeast(0)
+    return if (left >= 3600) "%d:%02d:%02d".format(left / 3600, left % 3600 / 60, left % 60) else clockOf(left)
 }
 
 private val payloadJson = Json { ignoreUnknownKeys = true; isLenient = true }

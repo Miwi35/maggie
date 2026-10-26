@@ -367,118 +367,173 @@ class CookingViewModelTest {
     }
 
     @Test
-    fun `a step that waits for a timed step is held until Cest pret`() = runTest(testDispatcher) {
+    fun `Suivant ticks the step it leaves, the preparation ticks nothing`() = runTest(testDispatcher) {
         val viewModel = newViewModel(referenceHandle())
         ready(viewModel)
 
-        repeat(3) { viewModel.next() }
-        assertEquals(3, viewModel.uiState.value.session?.step)
-        assertEquals(listOf(1), viewModel.uiState.value.pending)
+        viewModel.next()
+        assertEquals(1, viewModel.uiState.value.session?.step)
+        assertEquals(emptyMap<String, List<Int>>(), viewModel.uiState.value.session?.doneSteps)
 
         viewModel.next()
-        assertEquals("Suivant is held back while the step waits", 3, viewModel.uiState.value.session?.step)
+        viewModel.next()
 
-        viewModel.ready()
-        assertEquals(emptyList<Int>(), viewModel.uiState.value.pending)
-        assertEquals(listOf(1), viewModel.uiState.value.session?.ready)
+        assertEquals(3, viewModel.uiState.value.session?.step)
+        assertEquals(mapOf(REFERENCE to listOf(1, 2)), viewModel.uiState.value.session?.doneSteps)
+    }
+
+    @Test
+    fun `Suivant is never held back, whatever the steps awaited and their timers`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        repeat(3) { viewModel.next() }
+        assertEquals("step 3 awaits step 1, which has no timer running", 3, viewModel.uiState.value.session?.step)
 
         viewModel.next()
         assertEquals(4, viewModel.uiState.value.session?.step)
+
+        viewModel.next()
+        assertEquals("step 5 awaits steps 3 and 4, never finished", 5, viewModel.uiState.value.session?.step)
+
+        viewModel.next()
+        assertEquals("r-b", viewModel.uiState.value.session?.current?.recipeId)
+        assertEquals(0, viewModel.uiState.value.session?.step)
+        assertEquals(mapOf(REFERENCE to listOf(1, 2, 3, 4, 5)), viewModel.uiState.value.session?.doneSteps)
     }
 
     @Test
-    fun `the last step waits for the pasta and the vegetables, and Cest pret lifts both`() = runTest(testDispatcher) {
+    fun `Precedent goes back and leaves the ticks as they are`() = runTest(testDispatcher) {
         val viewModel = newViewModel(referenceHandle())
         ready(viewModel)
         repeat(3) { viewModel.next() }
-        viewModel.ready()
-        repeat(2) { viewModel.next() }
-
-        assertEquals(5, viewModel.uiState.value.session?.step)
-        assertEquals(listOf(3, 4), viewModel.uiState.value.pending)
-
-        viewModel.ready()
-
-        assertEquals(emptyList<Int>(), viewModel.uiState.value.pending)
-        assertEquals(listOf(1, 3, 4), viewModel.uiState.value.session?.ready)
-    }
-
-    @Test
-    fun `Precedent is never held back by a wait`() = runTest(testDispatcher) {
-        val viewModel = newViewModel(referenceHandle())
-        ready(viewModel)
-        repeat(3) { viewModel.next() }
+        val ticked = viewModel.uiState.value.session?.doneSteps
 
         viewModel.previous()
 
         assertEquals(2, viewModel.uiState.value.session?.step)
-        assertEquals(emptyList<Int>(), viewModel.uiState.value.pending)
+        assertEquals(ticked, viewModel.uiState.value.session?.doneSteps)
     }
 
     @Test
-    fun `Cest pret does nothing when nothing is awaited`() = runTest(testDispatcher) {
+    fun `a step touched in the list is shown, not ticked`() = runTest(testDispatcher) {
         val viewModel = newViewModel(referenceHandle())
         ready(viewModel)
+        viewModel.next()
+
+        viewModel.openStep(0, 4)
+
+        assertEquals(0, viewModel.uiState.value.session?.recipeIndex)
+        assertEquals(4, viewModel.uiState.value.session?.step)
+        assertEquals(emptyMap<String, List<Int>>(), viewModel.uiState.value.session?.doneSteps)
+
+        viewModel.openStep(0, 1)
+        assertEquals(1, viewModel.uiState.value.session?.step)
+        assertEquals(emptyMap<String, List<Int>>(), viewModel.uiState.value.session?.doneSteps)
+    }
+
+    @Test
+    fun `a step of another recipe of the queue is reached too, ticking nothing`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        viewModel.next()
+
+        viewModel.openStep(1, 2)
+        settle { viewModel.uiState.value.recipe?.id == "r-b" }
+
+        val session = viewModel.uiState.value.session!!
+        assertEquals(1, session.recipeIndex)
+        assertEquals(2, session.step)
+        assertEquals("r-b", viewModel.uiState.value.recipe?.id)
+        assertEquals(emptyMap<String, List<Int>>(), session.doneSteps)
+    }
+
+    @Test
+    fun `a step that does not exist is not opened`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        viewModel.next()
         val before = viewModel.uiState.value.session
 
-        viewModel.ready()
-        viewModel.next()
-        viewModel.ready()
+        viewModel.openStep(0, 9)
+        viewModel.openStep(5, 1)
+        viewModel.openStep(-1, 1)
 
-        assertEquals(before?.copy(step = 1), viewModel.uiState.value.session)
+        assertEquals(before, viewModel.uiState.value.session)
     }
 
     @Test
-    fun `the next recipe follows the last step with its preparation and nothing forced`() = runTest(testDispatcher) {
+    fun `the progress counts the ticked steps over every step of the meal`() = runTest(testDispatcher) {
         val viewModel = newViewModel(referenceHandle())
         ready(viewModel)
+        assertEquals(7, viewModel.uiState.value.totalSteps)
+        assertEquals(0, viewModel.uiState.value.doneCount)
+
         repeat(3) { viewModel.next() }
-        viewModel.ready()
-        repeat(2) { viewModel.next() }
-        viewModel.ready()
-        viewModel.next()
+
+        assertEquals(2, viewModel.uiState.value.doneCount)
+        assertEquals(7, viewModel.uiState.value.totalSteps)
+        assertEquals(mapOf(REFERENCE to 5, "r-b" to 2), viewModel.uiState.value.stepCounts)
+    }
+
+    @Test
+    fun `the next recipe follows the last step with its preparation`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        repeat(6) { viewModel.next() }
 
         val session = viewModel.uiState.value.session!!
         assertEquals(CookingPhase.COOKING, session.phase)
         assertEquals("r-b", session.current?.recipeId)
         assertEquals(0, session.step)
-        assertEquals(emptyList<Int>(), session.ready)
+        assertEquals(listOf(1, 2, 3, 4, 5), session.doneSteps[REFERENCE])
     }
 
     @Test
     fun `the last step of the last recipe closes on Bon appetit with the time spent`() = runTest(testDispatcher) {
         val viewModel = newViewModel(referenceHandle())
         ready(viewModel)
-        repeat(3) { viewModel.next() }
-        viewModel.ready()
-        repeat(2) { viewModel.next() }
-        viewModel.ready()
-        repeat(4) { viewModel.next() } // → B's preparation → its two steps → Bon appétit
+        repeat(6) { viewModel.next() }
+        repeat(3) { viewModel.next() } // → B's two steps → Bon appétit
         settle { viewModel.uiState.value.recipe != null }
 
         val session = viewModel.uiState.value.session!!
         assertEquals(CookingPhase.DONE, session.phase)
         assertEquals(true, session.finishedAt >= session.startedAt)
         assertEquals(1, session.minutesCooked)
+        assertEquals(listOf(1, 2), session.doneSteps["r-b"])
     }
 
     @Test
-    fun `a rotation resumes on the same step with its wait lifted`() = runTest(testDispatcher) {
+    fun `a rotation resumes on the same step with the same steps ticked`() = runTest(testDispatcher) {
         val handle = referenceHandle()
         val first = newViewModel(handle)
         ready(first)
-        repeat(3) { first.next() }
-        first.ready()
-        repeat(2) { first.next() }
+        repeat(4) { first.next() }
+        first.openStep(0, 5)
         assertEquals(5, first.uiState.value.session?.step)
+        assertEquals(mapOf(REFERENCE to listOf(1, 2, 3)), first.uiState.value.session?.doneSteps)
 
         val second = newViewModel(handle)
         ready(second)
 
         assertEquals(first.uiState.value.session, second.uiState.value.session)
         assertEquals(5, second.uiState.value.session?.step)
-        assertEquals("only the steps not yet forced still wait", listOf(3, 4), second.uiState.value.pending)
-        assertEquals(listOf(1), second.uiState.value.session?.ready)
+        assertEquals(mapOf(REFERENCE to listOf(1, 2, 3)), second.uiState.value.session?.doneSteps)
+        assertEquals(3, second.uiState.value.doneCount)
+    }
+
+    @Test
+    fun `a session saved by an older version, with its forced steps, is resumed and the field ignored`() = runTest(testDispatcher) {
+        mealJson = mealWith(listOf(REFERENCE, "r-b"), guests = 4)
+        val old = """{"origin":{"kind":"MEAL","id":"meal-1"},"queue":[{"recipeId":"$REFERENCE","servings":4},{"recipeId":"r-b","servings":4}],""" +
+            """"recipeIndex":0,"step":3,"guests":4,"phase":"COOKING","ready":[1]}"""
+        val viewModel = newViewModel(SavedStateHandle(mapOf("meal" to "meal-1", "cooking-session" to old)))
+        ready(viewModel)
+
+        val session = viewModel.uiState.value.session!!
+        assertEquals(3, session.step)
+        assertEquals(emptyMap<String, List<Int>>(), session.doneSteps)
+        assertEquals("the meal itself is not read again", 0, requests.count { it.url.encodedPath == "/api/meals/meal-1" })
     }
 
 
@@ -505,7 +560,6 @@ class CookingViewModelTest {
     private suspend fun TestScope.atStep4(viewModel: CookingViewModel) {
         waterStarted(viewModel)
         viewModel.next()
-        viewModel.ready()
         viewModel.startAndNext()
         settle { viewModel.state.session?.step == 4 }
     }
@@ -615,7 +669,7 @@ class CookingViewModelTest {
     }
 
     @Test
-    fun `minus one on the last minute rings it at once and its alert shows`() = runTest(testDispatcher) {
+    fun `minus one on the last minute rings it at once, its step's line lit and nothing else moved`() = runTest(testDispatcher) {
         val viewModel = newViewModel(referenceHandle())
         atStep4(viewModel)
         viewModel.toggleTimer()
@@ -624,44 +678,120 @@ class CookingViewModelTest {
         viewModel.tick()
 
         viewModel.addMinutes(-1)
-        settle { viewModel.state.alert != null }
+        settle { viewModel.state.ringing.isNotEmpty() }
 
-        assertEquals("Légumes", viewModel.state.alert?.label)
-        assertEquals("Légumes : c'est prêt", doneTitle(viewModel.state.alert!!))
-        assertTrue("its step is ready", 4 in viewModel.state.session!!.ready)
+        assertEquals("Légumes", viewModel.state.ringing.single().label)
+        assertEquals("Légumes : c'est prêt", doneTitle(viewModel.state.ringing.single()))
+        assertEquals(4, viewModel.state.session?.step)
+        assertFalse("ringing ticks nothing", viewModel.state.session!!.isDone(REFERENCE, 4))
     }
 
     @Test
-    fun `a wait says encore with the longest rest of what it waits for, nothing before it starts`() = runTest(testDispatcher) {
+    fun `Suivant is not held back while the timer of an awaited step runs`() = runTest(testDispatcher) {
         val viewModel = newViewModel(referenceHandle())
         waterStarted(viewModel)
         viewModel.next()
-        assertEquals(listOf(1), viewModel.state.pending)
-        nowMs += 10_000
-        viewModel.tick()
-        assertEquals(590, viewModel.state.awaitedLeft)
+        assertEquals(3, viewModel.state.session?.step)
+        assertEquals("the water still runs", 600, viewModel.state.remainingOf(viewModel.state.timers.single()))
 
-        viewModel.ready()
-        viewModel.startAndNext()
-        settle { viewModel.state.session?.step == 4 }
         viewModel.next()
-        assertEquals(listOf(3, 4), viewModel.state.pending)
-        assertEquals("the pasta runs, the vegetables are not started", 720, viewModel.state.awaitedLeft)
+
+        assertEquals(4, viewModel.state.session?.step)
+        assertEquals(1, viewModel.state.timers.size)
     }
 
     @Test
-    fun `a timer rung through Mercure shows its alert and frees the step that waits for it`() = runTest(testDispatcher) {
+    fun `Lancer et continuer goes on without ticking the step it started`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        waterStarted(viewModel)
+
+        assertEquals(2, viewModel.state.session?.step)
+        assertFalse(viewModel.state.session!!.isDone(REFERENCE, 1))
+        assertEquals(0, viewModel.state.doneCount)
+    }
+
+    @Test
+    fun `a timer rung through Mercure lights its step and changes nothing in the session`() = runTest(testDispatcher) {
         val viewModel = newViewModel(referenceHandle())
         waterStarted(viewModel)
         viewModel.next()
-        assertEquals(listOf(1), viewModel.state.pending)
+        val before = viewModel.state.session
 
         timerEvents.emit(event(server.ring(server.rows.values.single().id)))
-        settle { viewModel.state.alert != null }
+        settle { viewModel.state.ringing.isNotEmpty() }
 
-        assertEquals("Eau", viewModel.state.alert?.label)
-        assertEquals(emptyList<Int>(), viewModel.state.pending)
-        assertEquals(listOf(1), viewModel.state.session?.ready)
+        assertEquals("Eau", viewModel.state.ringing.single().label)
+        assertEquals(1, viewModel.state.timerFor(REFERENCE, 1)?.stepPosition)
+        assertEquals(before, viewModel.state.session)
+        assertEquals(3, viewModel.state.session?.step)
+        assertEquals("only step 2, left by Suivant, is ticked", 1, viewModel.state.doneCount)
+    }
+
+    @Test
+    fun `touching the line of a rung timer opens its step and acknowledges it`() = runTest(testDispatcher) {
+        val rung = server.seed("Eau", REFERENCE, 1, 600).also { nowMs += 1; server.ring(it.id) }
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        timersRead(viewModel, 1)
+        viewModel.next()
+        viewModel.next()
+        assertEquals(1, viewModel.state.ringing.size)
+        val ticked = viewModel.state.session?.doneSteps
+
+        viewModel.openStep(0, 1)
+
+        assertEquals(1, viewModel.state.session?.step)
+        assertEquals("the step is shown, nothing more is ticked", ticked, viewModel.state.session?.doneSteps)
+        assertTrue("gone from the screen at once", viewModel.state.ringing.isEmpty())
+        settle { server.patches.isNotEmpty() }
+        assertEquals(listOf(rung.id to "dismiss"), server.patches)
+        assertEquals("dismissed", server.rows.getValue(rung.id).status)
+    }
+
+    @Test
+    fun `a step whose rung timer was acknowledged does not offer Lancer et continuer again`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        waterStarted(viewModel)
+        nowMs += 1
+        timerEvents.emit(event(server.ring(server.rows.values.single().id)))
+        settle { viewModel.state.ringing.isNotEmpty() }
+        viewModel.openStep(0, 1)
+        settle { viewModel.state.timerFor(REFERENCE, 1) == null }
+        assertEquals(1, server.posts.size)
+
+        assertTrue("the step stays launched", viewModel.state.hasLaunched(1))
+        viewModel.startAndNext()
+        advanceUntilIdle()
+
+        assertEquals("no second timer", 1, server.posts.size)
+        assertEquals("the step is ticked and the cook goes on", 2, viewModel.state.session?.step)
+        assertTrue(1 in viewModel.state.session?.doneSteps?.get(REFERENCE).orEmpty())
+    }
+
+    @Test
+    fun `touching another step leaves a rung timer lit`() = runTest(testDispatcher) {
+        server.seed("Eau", REFERENCE, 1, 600).also { nowMs += 1; server.ring(it.id) }
+        val viewModel = newViewModel(referenceHandle())
+        ready(viewModel)
+        timersRead(viewModel, 1)
+
+        viewModel.openStep(0, 2)
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.state.session?.step)
+        assertEquals(1, viewModel.state.ringing.size)
+        assertTrue(server.patches.isEmpty())
+    }
+
+    @Test
+    fun `each timer is found by its recipe and step, several at once`() = runTest(testDispatcher) {
+        val viewModel = newViewModel(referenceHandle())
+        atStep4(viewModel)
+
+        assertEquals(600, viewModel.state.timerFor(REFERENCE, 1)?.let(viewModel.state::remainingOf))
+        assertEquals(720, viewModel.state.timerFor(REFERENCE, 3)?.let(viewModel.state::remainingOf))
+        assertNull(viewModel.state.timerFor(REFERENCE, 2))
+        assertNull(viewModel.state.timerFor("r-b", 1))
     }
 
     @Test
@@ -681,27 +811,27 @@ class CookingViewModelTest {
         server.ring(server.rows.values.single().id)
         nowMs += 1_000
         viewModel.tick()
-        settle { viewModel.state.alert != null }
+        settle { viewModel.state.ringing.isNotEmpty() }
 
         assertEquals(before + 2, server.gets)
-        assertEquals("Eau", viewModel.state.alert?.label)
+        assertEquals("Eau", viewModel.state.ringing.single().label)
     }
 
     @Test
-    fun `OK dismisses the timer, its alert leaves and the next one comes`() = runTest(testDispatcher) {
+    fun `dismissing a rung timer takes it off the screen and the next one stays lit`() = runTest(testDispatcher) {
         val first = server.seed("Eau", REFERENCE, 1, 600).also { nowMs += 1; server.ring(it.id) }
         nowMs += 1_000
         val second = server.seed("Pâtes", REFERENCE, 3, 720).also { server.ring(it.id) }
         val viewModel = newViewModel(referenceHandle())
         ready(viewModel)
         timersRead(viewModel, 2)
-        assertEquals(first.id, viewModel.state.alert?.id)
+        assertEquals(listOf(first.id, second.id), viewModel.state.ringing.map { it.id })
         assertTrue(viewModel.announce(first.id))
         assertFalse("rung once", viewModel.announce(first.id))
 
         viewModel.dismiss(first.id)
 
-        assertEquals(second.id, viewModel.state.alert?.id)
+        assertEquals(listOf(second.id), viewModel.state.ringing.map { it.id })
         settle { server.patches.isNotEmpty() }
         assertEquals(listOf(first.id to "dismiss"), server.patches)
         assertEquals("dismissed", server.rows.getValue(first.id).status)

@@ -16,8 +16,7 @@ import type { RecipeLine, RecipeRecord, RecipeStep } from '../recipeSheet'
 import { nameOf } from '../recipeSteps'
 import { MAX_GUESTS, MIN_GUESTS } from './cookingSession'
 import type { QueuedRecipe } from './cookingSession'
-import { stepIngredients, waitLabel } from './cookingSteps'
-import { clockOf } from './cookingTimers'
+import { stepIngredients } from './cookingSteps'
 
 /** Every main button of the activity: readable from the counter, hit with a floury thumb. */
 const BUTTON_HEIGHT = 64
@@ -338,91 +337,54 @@ const stepFade = keyframes`
   to { opacity: 1; transform: none; }
 `
 
-/** Faites / courante / à venir: one segment per step. */
-const SegmentBar = ({ step, count }: { step: number; count: number }) => (
-  <Box
-    role="progressbar"
-    aria-label="Avancement des étapes"
-    aria-valuemin={1}
-    aria-valuemax={count}
-    aria-valuenow={step}
-    aria-valuetext={`Étape ${step} sur ${count}`}
-    data-testid="cooking-segments"
-    sx={{ display: 'flex', gap: 0.75, width: '100%', maxWidth: 960 }}
-  >
-    {Array.from({ length: count }, (_, index) => {
-      const state = index + 1 < step ? 'done' : index + 1 === step ? 'current' : 'upcoming'
-
-      return (
-        <Box
-          key={index}
-          data-testid="cooking-segment"
-          data-state={state}
-          sx={{
-            flex: 1,
-            height: 8,
-            borderRadius: 4,
-            bgcolor: state === 'upcoming' ? 'action.disabledBackground' : 'primary.main',
-            opacity: state === 'done' ? 0.5 : 1,
-            transition: 'background-color 240ms, opacity 240ms',
-          }}
-        />
-      )
-    })}
-  </Box>
-)
-
 /**
- * A step, one at a time: its number, its text, what it takes, what comes next, and what it waits for;
- * at its side the timers (MAG-582). A step in the background starts its timer and goes on.
+ * A step, one at a time: its number, its text, what it takes and what comes next, with the column of
+ * the meal's steps at its left and its own timer at its right. « Suivant » ticks the step and never
+ * waits; a step in the background starts its timer and goes on.
  */
 export const StepScreen = ({
   step,
   steps,
   lines,
-  pending,
-  waitRemaining,
   isLastOfAll,
   launches,
   busy,
+  column,
   timers,
   onPrevious,
   onNext,
-  onReady,
 }: {
   step: number
   steps: RecipeStep[]
   lines: RecipeLine[]
-  pending: number[]
-  /** The longest rest of the awaited timers that run, in seconds; null when none was started. */
-  waitRemaining: number | null
   isLastOfAll: boolean
   /** The main button is « Lancer et continuer »: the step's timer starts, then the next step. */
   launches: boolean
-  /** A timer is being started: the main button waits for it. */
+  /** A timer is being started: « Suivant » waits for it without being disabled. */
   busy: boolean
-  /** The step's timer and the others, drawn at its side. */
+  /** The meal's steps, at the left. */
+  column: ReactNode
+  /** The step's own timer, at the right. */
   timers: ReactNode
   onPrevious: () => void
   onNext: () => void
-  onReady: () => void
 }) => {
   const current = steps[step - 1]
   const following = steps[step]
   const ingredients = stepIngredients(current, lines)
   const utensils = current.utensils.map(nameOf)
-  const waiting = pending.length > 0
 
   return (
     <>
-      <Screen id="step">
-        <SegmentBar step={step} count={steps.length} />
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
+        {column}
+        <Screen id="step">
         <Box
           sx={{
             flex: 1,
             display: 'grid',
-            gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1.25fr) minmax(0, 1fr)' },
-            gap: { xs: 3, md: 8 },
+            gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1.25fr) minmax(0, 1fr)' },
+            gap: { xs: 3, lg: 8 },
             alignItems: 'center',
           }}
         >
@@ -454,7 +416,7 @@ export const StepScreen = ({
             </Box>
             <Typography
               data-testid="cooking-step-text"
-              sx={{ fontSize: { xs: 28, md: 40, lg: 46 }, lineHeight: 1.25, fontWeight: 500, maxWidth: '36ch' }}
+              sx={{ fontSize: { xs: 28, md: 34, lg: 42 }, lineHeight: 1.25, fontWeight: 500, maxWidth: '36ch' }}
             >
               {current.text}
             </Typography>
@@ -474,23 +436,6 @@ export const StepScreen = ({
                 ))}
               </Box>
             )}
-
-            {waiting && (
-              <Alert
-                severity="warning"
-                icon={false}
-                data-testid="cooking-wait"
-                sx={{ alignItems: 'center', fontSize: '1.25rem', '& .MuiAlert-action': { pt: 0 } }}
-                action={
-                  <Button data-testid="cooking-ready" variant="outlined" color="inherit" onClick={onReady} sx={{ minHeight: BUTTON_HEIGHT, px: 3 }}>
-                    C'est prêt
-                  </Button>
-                }
-              >
-                {waitLabel(steps, pending)}
-                {waitRemaining !== null && ` · encore ${clockOf(waitRemaining)}`}
-              </Alert>
-            )}
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, py: 2 }}>{timers}</Box>
         </Box>
@@ -500,13 +445,14 @@ export const StepScreen = ({
             Ensuite · {following.text}
           </Typography>
         )}
-      </Screen>
+        </Screen>
+      </Box>
       <Footer>
         <Button onClick={onPrevious}>← Précédent</Button>
         <Button
           variant="contained"
           onClick={onNext}
-          disabled={waiting || busy}
+          aria-busy={busy}
           sx={{ minWidth: { xs: 0, md: 280 }, flex: { xs: 1, md: 'none' } }}
         >
           {launches ? 'Lancer et continuer' : isLastOfAll ? 'Repas servi' : 'Suivant →'}
