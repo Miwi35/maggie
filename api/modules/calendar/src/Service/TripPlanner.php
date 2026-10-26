@@ -173,7 +173,8 @@ class TripPlanner
     /**
      * Geocodes the user's places saved without coordinates — save_place leaves
      * them out rather than guess — so the matcher can recognise the event's.
-     * Each is geocoded once; one Google cannot find stays unmatched.
+     * A place geocoded is kept; one Google cannot find, or cannot answer for,
+     * stays unmatched and is tried again on the next drive.
      */
     private function locatePlaces(User $user): void
     {
@@ -184,7 +185,8 @@ class TripPlanner
 
             try {
                 $this->locations->ofPlace($place, 'place');
-            } catch (InvalidTripException) {
+            } catch (InvalidTripException|RoutingException) {
+                // Only a candidate for the parking: the drive goes on without it.
                 continue;
             }
         }
