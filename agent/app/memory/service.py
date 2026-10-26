@@ -216,6 +216,7 @@ class MemoryService:
         *,
         reason: str = "",
         conversation: bool = False,
+        miss: bool = False,
         journal: bool = True,
     ) -> str:
         """Write a file to the local copy and queue it for the bucket. Returns the path written.
@@ -224,7 +225,7 @@ class MemoryService:
         happens when the outbox is flushed, so an edit of the owner's made meanwhile still wins.
         `journal=False` is for the conversations, which have a file of their own to say what happened.
         """
-        rel = paths.check_writable(rel, conversation=conversation)
+        rel = paths.check_writable(rel, conversation=conversation, miss=miss)
         paths.check_user_id(user_id)
         if paths.kind_of(rel) == "conversation":
             current = self.folder(user_id).read(rel)
@@ -236,10 +237,11 @@ class MemoryService:
         # Held until the file is indexed: a sync pass reconciling the index meanwhile would index it a second time.
         async with self._lock(self._index_locks, user_id):
             existed = await self._save_local_and_queue(user_id, rel, text)
-            indexed = await index_file(user_id, rel, text)
-            if indexed.stamped is not None:
-                await self._save_local_and_queue(user_id, rel, indexed.stamped)
-                await index_file(user_id, rel, indexed.stamped)
+            if paths.is_indexable(rel):
+                indexed = await index_file(user_id, rel, text)
+                if indexed.stamped is not None:
+                    await self._save_local_and_queue(user_id, rel, indexed.stamped)
+                    await index_file(user_id, rel, indexed.stamped)
         if journal:
             verb = "modifié" if existed else "créé"
             await self.journal(user_id, f"{verb} `{rel}`" + (f" — {reason}" if reason else ""))
@@ -248,7 +250,7 @@ class MemoryService:
 
     async def delete(self, user_id: str, rel: str, *, reason: str = "", journal: bool = True) -> bool:
         """Remove a file: gone locally and from the index now, from the bucket at the next push."""
-        rel = paths.check_writable(rel, conversation=True)
+        rel = paths.check_writable(rel, conversation=True, miss=True)
         paths.check_user_id(user_id)
         folder = self.folder(user_id)
         async with self._lock(self._file_locks, user_id):

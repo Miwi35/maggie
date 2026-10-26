@@ -1,0 +1,10 @@
+# The night looks for what the roses fiche was missing to come back for the demand (MAG-228): the situations it is
+# for, in the owner's words. Nothing else in the fiche changes.
+name: memory-night-miss
+description: The night adds the missing associations to a fiche that did not come back.
+
+match:
+  system_contains: "aurait dû revenir à l'esprit"
+
+turns:
+  - text: '{"evoque": ["fête des mères", "offrir des fleurs"], "voisines": []}'

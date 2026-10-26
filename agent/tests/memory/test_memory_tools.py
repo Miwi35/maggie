@@ -38,7 +38,7 @@ async def save(env, source) -> dict:
 
 class TestToolList:
     def test_there_is_no_tool_to_delete_or_to_write_a_conversation(self):
-        assert sorted(tools.MEMORY_TOOL_NAMES) == ["memory_open", "memory_search", "memory_write_fiche"]
+        assert sorted(tools.MEMORY_TOOL_NAMES) == ["memory_log_miss", "memory_open", "memory_search", "memory_write_fiche"]
 
 
 class TestWriteFiche:

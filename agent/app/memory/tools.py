@@ -1,6 +1,6 @@
-"""The tools Maggie has on her memory folder: search, open, write a fiche.
+"""The tools Maggie has on her memory folder: search, open, write a fiche, log a missed recall.
 
-All three go through `MemoryService`, never the index directly. There is no tool to write a conversation
+All of them go through `MemoryService`, never the index directly. There is no tool to write a conversation
 (the code writes each exchange as it happens, `conversations.py`) and none to delete a fiche (what stops
 being true is marked replaced and dated, `fiches.py`): the owner deletes in the folder, with the files.
 """
@@ -12,7 +12,7 @@ from typing import Any
 
 from app.db.memory_index_repository import IndexedFile
 from app.memory import carte as carte_mod
-from app.memory import fiches, paths
+from app.memory import fiches, misses, paths
 from app.memory.service import memory_service
 from app.user_timezone import resolve_user_timezone
 
@@ -138,6 +138,37 @@ MEMORY_TOOLS = [
             "required": ["titre", "affirmations"],
         },
     },
+    {
+        "name": "memory_log_miss",
+        "description": (
+            "Call it when the owner tells you that you should have remembered something (« tu aurais dû t'en "
+            "souvenir », « je te l'avais dit », « tu ne te rappelles pas ? ») — without waiting for a command. "
+            "It keeps the miss as a case that is replayed every night against the memory, the cause is looked for "
+            "and fixed, and it is reported. First find the fiche with memory_search (or write it with "
+            "memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the "
+            "words the owner said when it should have come back (the sentence where you missed it, not the "
+            "reproach), `chemin` = the fiche that should have come back. Then tell him it is noted and that you "
+            "will look into why tonight."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "demande": {
+                    "type": "string",
+                    "description": "What the owner said when the fiche should have come back, as he said it",
+                },
+                "chemin": {
+                    "type": "string",
+                    "description": "Path of the fiche that should have come back (from memory_search), if it exists",
+                },
+                "souvenir": {
+                    "type": "string",
+                    "description": "What should have come back, in a few words (needed when there is no `chemin`)",
+                },
+            },
+            "required": ["demande"],
+        },
+    },
 ]
 
 MEMORY_TOOL_NAMES = frozenset(tool["name"] for tool in MEMORY_TOOLS)
@@ -251,7 +282,7 @@ async def handle_open(arguments: dict, user_id: str) -> str:
     content, info = _passage(text, arguments.get("debut"), arguments.get("fin"))
     result.update(info)
     result["contenu"] = content
-    if paths.kind_of(rel) == "fiche" and not paths.is_generated(rel):
+    if paths.kind_of(rel) == "fiche" and paths.is_indexable(rel):
         try:
             result["a_annoncer"] = fiches.to_announce(text)
         except carte_mod.UnreadableFile:
@@ -287,8 +318,27 @@ async def handle_write_fiche(arguments: dict, user_id: str) -> str:
     return _dump(written | {"enregistre": True})
 
 
+async def handle_log_miss(arguments: dict, user_id: str) -> str:
+    if (down := _unavailable()) is not None:
+        return down
+    tz = await resolve_user_timezone(user_id)
+    try:
+        logged = await misses.record(
+            memory_service,
+            user_id,
+            demande=arguments.get("demande", ""),
+            souvenir=arguments.get("souvenir", ""),
+            chemin=arguments.get("chemin", ""),
+            today=datetime.now(tz).date(),
+        )
+    except (misses.MissError, paths.UnsafePath) as e:
+        return _dump({"error": str(e), "enregistre": False})
+    return _dump(logged | {"enregistre": True})
+
+
 NATIVE_HANDLERS = {
     "memory_search": handle_search,
     "memory_open": handle_open,
     "memory_write_fiche": handle_write_fiche,
+    "memory_log_miss": handle_log_miss,
 }

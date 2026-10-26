@@ -69,6 +69,9 @@ avec n'importe quel éditeur. **Tes corrections font foi** : Maggie relit ce que
   `Françoise n'aime pas les roses.md`.
 - `{paths.CONFLICTS_DIR}/` — les versions de Maggie mises de côté quand tu avais modifié le même fichier
   avant elle. Rien n'y est perdu ; garde ce qui te convient.
+- `{paths.MISSES_DIR}/` — les fois où tu as dit à Maggie qu'elle aurait dû s'en souvenir : un fichier par cas. Elle les
+  rejoue chaque nuit pour vérifier que la fiche attendue ressort, et dit dans `{paths.JOURNAL}` ce qu'elle a corrigé.
+  Pour retirer un cas, supprime son fichier.
 
 ## Lire une fiche
 
@@ -119,6 +122,8 @@ Ce dossier est la mémoire d'une personne, en Markdown. Si tu es un agent, voici
 - Écris tout de suite ce que la personne demande de retenir : sans attendre une consolidation.
 - Ne touche pas aux fichiers de `{paths.CONVERSATIONS_DIR}/` : on n'y ajoute qu'à la suite, jamais de résumé ni de
   réécriture.
+- `{paths.MISSES_DIR}/` garde les cas de rappel manqué : ce ne sont pas des fiches, ne les lis pas comme des
+  connaissances et n'y écris pas.
 - Les fichiers `{paths.README}`, `{paths.AGENTS}`, `{paths.SUMMARY}` et `{paths.JOURNAL}` sont générés.
 - Ne mets dans ce dossier que ce qui est vrai de la personne : ni état de conversation, ni compteurs d'usage.
 

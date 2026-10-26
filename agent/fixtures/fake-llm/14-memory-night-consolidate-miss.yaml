@@ -1,0 +1,10 @@
+# The night rereads the conversation of the missed recall (MAG-228): the fiche exists already, nothing to add.
+name: memory-night-consolidate-miss
+description: The night finds nothing to write in the conversation where the owner points out a missed recall.
+
+match:
+  system_contains: "tu relis une conversation"
+  user_matches: '## (\d{4}-\d{2}-\d{2} \d{2}h\d{2}) — Propriétaire\s+Je t.avais demandé un bouquet'
+
+turns:
+  - text: '{"fiches": [], "carte": {"personnes": [], "evoque": []}}'

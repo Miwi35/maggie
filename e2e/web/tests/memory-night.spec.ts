@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test'
 import { test, expect } from '../fixtures/index.js'
-import { assistantText, parseAgUiStream } from '../helpers/agui.js'
+import { assistantText, calledTools, parseAgUiStream } from '../helpers/agui.js'
 import { withChatLock, withLock } from '../helpers/chatLock.js'
 import { HomePage } from '../pages/HomePage.js'
 
@@ -156,6 +156,139 @@ test('the night corrects a fiche that a later conversation contradicts, keeps th
     expect((await inBucket('journal.md')).match(/entretien nocturne du \d{4}-\d{2}-\d{2} \(/g)).toHaveLength(
       journal.match(/entretien nocturne du \d{4}-\d{2}-\d{2} \(/g)!.length,
     )
+
+    await call(api, 'delete', user)
+  })
+})
+
+/**
+ * « Tu aurais dû t'en souvenir » (MAG-228, extends MAG-99): the miss becomes a case the night replays.
+ *
+ * A fiche about roses exists but its carte evokes nothing, so a bouquet for mother's day does not bring it back.
+ * The owner says she should have; Maggie logs the case (a file of `Rappels manqués/`, never indexed). The night
+ * finds why — `evoque` too poor — adds the missing associations, says so in `journal.md`, and replays the case:
+ * green. A second night replays it again and writes nothing.
+ */
+
+const ROSES_FICHE = "Famille/Françoise n'aime pas les roses.md"
+const MISS_SAID =
+  "Je t'avais demandé un bouquet pour la fête des mères, tu aurais dû t'en souvenir : Françoise n'aime pas les roses."
+const CASE_PATH = /^Rappels manqués\/\d{4}-\d{2}-\d{2} — Un bouquet pour la fête des mères\.md$/
+
+interface MissNightAccount {
+  status: string
+  report: {
+    rappels_total: number
+    rappels_verts: string[]
+    rappels_rouges?: unknown[]
+    rappels_causes: { cas: string; cause: string; correction: string }[]
+  }
+}
+
+test('a missed recall becomes a case: the night finds why, enriches the carte, tells the journal, and the replay is green', async ({
+  otherUser,
+}) => {
+  await withLock(MEMORY_LOCK, async () => {
+    const { page, api, session } = otherUser
+    const user = session.user.id
+    const state = async (): Promise<{ local: string[]; indexed: string[] }> =>
+      call<{ local: string[]; indexed: string[] }>(api, 'get', `${user}/state`)
+    const inBucket = async (path: string): Promise<string> =>
+      (await call<{ text: string }>(api, 'get', `bucket/${user}/${encode(path)}`)).text
+    const push = async (): Promise<void> => {
+      expect((await call<{ ok: boolean }>(api, 'post', `${user}/sync`)).ok).toBe(true)
+    }
+    const say = async (message: string): Promise<{ text: string; tools: string[] }> =>
+      withChatLock(async () => {
+        const body = await page.evaluate(
+          async ({ text, token }) => {
+            const response = await fetch('/agent/chat/stream', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ message: text }),
+            })
+            return response.text()
+          },
+          { text: message, token: session.token },
+        )
+        const events = parseAgUiStream(body)
+        return { text: assistantText(events), tools: calledTools(events) }
+      })
+
+    await call(api, 'delete', user)
+    await new HomePage(page).open()
+
+    // Given a fiche whose carte evokes nothing, so that the bouquet does not bring it back,
+    const written = await api.post(`/agent/e2e/memory/${user}/write`, {
+      headers,
+      data: {
+        path: ROSES_FICHE,
+        text: "---\nresume: Françoise n'aime pas les roses\n---\n\nFrançoise n'aime pas les roses.\n",
+      },
+    })
+    expect(written.status()).toBe(200)
+
+    // When the owner says Maggie should have remembered it,
+    const answer = await say(MISS_SAID)
+
+    // Then the case exists: logged by the tool, a readable file, not in the index.
+    expect(answer.tools).toEqual(['memory_log_miss'])
+    expect(answer.text).toContain('Cette nuit')
+    const files = (await state()).local
+    const casePath = files.find((file) => CASE_PATH.test(file))
+    expect(casePath, 'a case file in Rappels manqués/').toBeDefined()
+    expect((await state()).indexed).not.toContain(casePath)
+    await push()
+    const opened = await inBucket(casePath!)
+    expect(opened).toContain('statut: ouvert')
+    expect(opened).toContain(`attendue: ${ROSES_FICHE}`)
+    expect(opened).toContain('Un bouquet pour la fête des mères')
+    expect(opened).toContain('supprime ce fichier')
+
+    // When the night passes (after the encoding of the conversation, as every night),
+    await expect
+      .poll(
+        async () => {
+          await call(api, 'post', `${user}/encode`)
+          await push()
+          return (await state()).local.some((file) => file.startsWith('Conversations/'))
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(true)
+    const account = await call<MissNightAccount>(api, 'post', `${user}/night`)
+    await push()
+
+    // Then it says why the fiche did not come back, and the replay is green.
+    expect(account.status).toBe('done')
+    expect(account.report.rappels_total).toBe(1)
+    expect(account.report.rappels_causes.map((c) => c.cause)).toEqual(['evoque_pauvre'])
+    expect(account.report.rappels_verts).toHaveLength(1)
+    expect(account.report.rappels_rouges ?? []).toEqual([])
+
+    // And the carte now evokes the situation, the fiche itself untouched.
+    const fiche = await inBucket(ROSES_FICHE)
+    expect(fiche).toMatch(/evoque:[\s\S]*fête des mères/)
+    expect(fiche).toContain("Françoise n'aime pas les roses.")
+
+    // And the case is green, with its history, and the journal says what was changed and why.
+    const green = await inBucket(casePath!)
+    expect(green).toContain('statut: vert')
+    expect(green).toContain('cause: evoque_pauvre')
+    expect(green).toMatch(/cause : `evoque` trop pauvre/)
+    expect(green).toContain('rejeu vert')
+    const journal = await inBucket('journal.md')
+    expect(journal).toContain('enrichi : fête des mères, offrir des fleurs')
+    expect(journal).toContain('1/1 rappel(s) manqué(s) rejoué(s) au vert')
+
+    // And a second night replays the case again and writes nothing new.
+    const lines = (text: string): number => (text.match(/entretien nocturne du \d{4}-\d{2}-\d{2} \(/g) ?? []).length
+    const second = await call<MissNightAccount>(api, 'post', `${user}/night`)
+    await push()
+    expect(second.status).toBe('done')
+    expect(second.report.rappels_verts).toHaveLength(1)
+    expect(await inBucket(casePath!)).toBe(green)
+    expect(lines(await inBucket('journal.md'))).toBe(lines(journal))
 
     await call(api, 'delete', user)
   })

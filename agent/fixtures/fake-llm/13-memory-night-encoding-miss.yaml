@@ -1,0 +1,17 @@
+# The carte of the conversation where the owner says « tu aurais dû t'en souvenir » (MAG-228): the encoder writes
+# its carte and no fiche (the fiche exists already), with nothing in `evoque` that could outrank the fiche in the replay.
+name: memory-night-encoding-miss
+description: The carte alone of a passage where the owner points out a missed recall.
+
+match:
+  system_contains: "tu écris la mémoire de maggie"
+  user_matches: '## (\d{4}-\d{2}-\d{2} \d{2}h\d{2}) — Propriétaire\s+Je t.avais demandé un bouquet'
+
+turns:
+  - text: |
+      {"carte": {"resume": "Le propriétaire reproche à Maggie d'avoir oublié une préférence.",
+        "moments": [{"heure": "\1", "texte": "Le propriétaire reproche à Maggie un oubli"}],
+        "personnes": [],
+        "evoque": []},
+       "fiches": [],
+       "doute": null}

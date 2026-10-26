@@ -31,6 +31,8 @@ LYON = "Le propriétaire habite à Lyon"
 FICHE_RENNES = f"Lieu de vie/{RENNES}.md"
 
 STEPS = {
+    "aucune fiche ne le disait": "miss_fiche",
+    "aurait dû revenir à l'esprit": "miss",
     "relis UNE conversation": "consolidate",
     "RÉGULARITÉS": "regularities",
     "ranges les fiches": "tidy",
@@ -39,6 +41,8 @@ STEPS = {
     "Tu écris la mémoire de Maggie": "encoder",
 }
 EMPTY = {
+    "miss": {"evoque": [], "voisines": []},
+    "miss_fiche": {"fiches": []},
     "consolidate": {"fiches": []},
     "regularities": {"regularites": []},
     "tidy": {"operations": []},

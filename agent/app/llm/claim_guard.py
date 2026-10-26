@@ -48,7 +48,7 @@ from app.llm.screen_context import split
 
 SCHEDULE_TOOL = "schedule_proaction"
 DELEGATE_TOOL = "delegate"
-LEARNING_TOOLS = ("add_instruction", "create_skill", "update_skill", "memory_write_fiche")
+LEARNING_TOOLS = ("add_instruction", "create_skill", "update_skill", "memory_write_fiche", "memory_log_miss")
 AGENDA_TOOLS = ("get_events_by_date", "get_upcoming_events")
 
 # Case-insensitive, and only the affirmative forms: « je ne vous rappellerai pas » and

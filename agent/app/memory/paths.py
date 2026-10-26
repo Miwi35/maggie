@@ -23,6 +23,7 @@ from app.memory.ulid import is_ulid
 MEMORY_DIR = "Mémoire"
 CONVERSATIONS_DIR = "Conversations"
 CONFLICTS_DIR = "Conflits"
+MISSES_DIR = "Rappels manqués"
 EXTENSION = ".md"
 
 README = "LISEZMOI.md"
@@ -39,6 +40,7 @@ RESERVED_ROOT = frozenset(
         *(file.removesuffix(EXTENSION) for file in GENERATED_FILES),
         CONVERSATIONS_DIR,
         CONFLICTS_DIR,
+        MISSES_DIR,
     )
 )
 
@@ -188,16 +190,28 @@ def is_syncable(rel: str) -> bool:
 
 
 def is_indexable(rel: str) -> bool:
-    """What the index reads: the fiches and the conversations, not the generated files nor the set-aside versions."""
-    return is_syncable(rel) and not is_generated(rel) and rel.split("/", 1)[0] != CONFLICTS_DIR
+    """What the index reads: the fiches and the conversations, not the generated files, the set-aside versions
+    nor the missed recalls (MAG-228: they are test cases for the recall, never something it should surface)."""
+    return is_syncable(rel) and not is_generated(rel) and rel.split("/", 1)[0] not in (CONFLICTS_DIR, MISSES_DIR)
+
+
+def is_miss(rel: str) -> bool:
+    return rel.split("/", 1)[0] == MISSES_DIR and is_syncable(rel)
+
+
+def miss_relative(day: str, demande: str, taken: Iterable[str]) -> str:
+    """`Rappels manqués/2026-10-14 — un bouquet pour la fête des mères.md`."""
+    stem = _bounded(f"{day} — {filename_for(demande)}", MAX_STEM_BYTES - 40).rstrip(" .")
+    return unique_relative(MISSES_DIR, stem, taken)
 
 
 def kind_of(rel: str) -> str:
     return "conversation" if rel.split("/", 1)[0] == CONVERSATIONS_DIR else "fiche"
 
 
-def check_writable(rel: str, *, generated: bool = False, conversation: bool = False) -> str:
-    """Refuse a write onto what is not Maggie's to write there: generated files, Conversations/ and Conflits/."""
+def check_writable(rel: str, *, generated: bool = False, conversation: bool = False, miss: bool = False) -> str:
+    """Refuse a write onto what is not Maggie's to write there: generated files, Conversations/, Conflits/ and
+    Rappels manqués/ (the last one only for the code that records a missed recall)."""
     rel = clean_relative(rel)
     if not is_syncable(rel):
         raise UnsafePath(f"{rel!r} is not a Markdown file")
@@ -213,4 +227,6 @@ def check_writable(rel: str, *, generated: bool = False, conversation: bool = Fa
             raise UnsafePath("Conflits/ is written by the synchronisation only")
     elif top == CONVERSATIONS_DIR.casefold() and not conversation:
         raise UnsafePath("Conversations/ holds conversations only")
+    elif top == MISSES_DIR.casefold() and not miss:
+        raise UnsafePath("Rappels manqués/ holds missed recalls only")
     return rel
