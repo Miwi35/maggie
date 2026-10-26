@@ -246,15 +246,6 @@ class GroceryCardRepositoryTest {
     }
 
     @Test
-    fun `the card never reads the home card endpoint`() = runTest {
-        answers()
-
-        repository.read(today).getOrThrow()
-
-        coVerify(exactly = 0) { api.getHomeCard(any(), any()) }
-    }
-
-    @Test
     fun `the list and the needs start together`() = runTest {
         val gate = CompletableDeferred<Unit>()
         coEvery { api.getGroceryLists() } coAnswers { gate.await(); emptyList() }

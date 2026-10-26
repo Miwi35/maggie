@@ -53,7 +53,7 @@ async function read(day: HomeDay): Promise<TasksHomeState> {
 
 /**
  * What the Tâches card shows, composed from the tasks and routines resources and read again when either
- * publishes. Same contract as `useHomeCardState`: a refresh keeps the previous state, the last read wins.
+ * publishes. A refresh keeps the previous state, the last read wins.
  */
 export function useTasksCardState(day: HomeDay) {
   const [state, setState] = useState<TasksHomeState | null>(null)

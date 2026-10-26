@@ -904,42 +904,6 @@ final class RecordedResponseContractTest extends WebTestCase
     }
 
     /**
-     * The Agenda card of the Accueil (MAG-562), as `/api/home/agenda` sends it on the day of the recorded
-     * event, whose reminder and activity the card carries. The events of the recorded whole-day event's
-     * day are appended: a whole-day event spells its days differently, and the mobile DTO must prove both.
-     */
-    public function testTheAgendaHomeRecordingIsCurrent(): void
-    {
-        $this->loadFixtures('RecordedResponses.yaml');
-
-        $user = $this->getFixture('recorded_user');
-        self::assertInstanceOf(User::class, $user);
-        $this->authenticateAsUser($user);
-
-        $read = function (string $at): array {
-            Clock::set(new MockClock($at));
-            $this->client->request('GET', '/api/home/agenda?day=today', [], [], $this->authHeaders());
-            self::assertResponseIsSuccessful();
-            $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
-            self::assertIsArray($body);
-
-            return $body;
-        };
-
-        $body = $read('2026-03-15 08:00:00 UTC');
-        $allDay = $read('2026-03-12 08:00:00 UTC');
-        self::assertNotSame([], $body['events'], 'The recorded day has no event, so the recording proves nothing.');
-        self::assertNotSame([], $allDay['events'], 'The recorded whole-day event is missing from its day.');
-        $body['events'] = array_merge($body['events'], $allDay['events']);
-
-        $this->assertMatchesContract(
-            'responses/home_agenda.read.json',
-            self::stabilise($body),
-            'GET /api/home/agenda no longer returns what it used to. The mobile DTOs (AgendaHome.kt) are written against this response.',
-        );
-    }
-
-    /**
      * The evening's review (MAG-500), as `/api/day-reviews/{date}` sends it
      * after « Bonne nuit »: what helped, and when it was done.
      */
@@ -1080,45 +1044,6 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/routines.day.json',
             self::stabilise($body),
             'GET /api/routines/day/{date} no longer returns what it used to. The mobile DTOs (RoutineDayView.kt) and the admin (routinesApi.ts) are written against this response.',
-        );
-    }
-
-    /**
-     * The Tâches card of the Accueil (MAG-561), as `/api/home/tasks` sends it:
-     * a task ticked today next to open ones, and a routine of the moment, ticked.
-     */
-    public function testTheHomeTasksRecordingIsCurrent(): void
-    {
-        // Between breakfast (08:30) and lunch (13:30), in UTC as in Paris.
-        Clock::set(new MockClock('2026-04-22 10:00:00 UTC'));
-        $this->loadFixtures('RecordedResponses.yaml');
-
-        $user = $this->getFixture('recorded_user');
-        self::assertInstanceOf(User::class, $user);
-        $this->authenticateAsUser($user);
-        $taskId = (string) $this->getFixture('recorded_open_task')->getId();
-
-        $headers = array_merge(['CONTENT_TYPE' => 'application/json'], $this->authHeaders());
-        $this->client->request('PATCH', '/api/tasks/'.$taskId, [], [], array_merge(['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()), json_encode(['completedAt' => '2026-04-22T10:00:00+00:00'], \JSON_THROW_ON_ERROR));
-        self::assertResponseIsSuccessful();
-        $this->client->request('POST', '/api/routines', [], [], $headers, json_encode(['title' => 'Prendre l\'air', 'anchor' => 'afterBreakfast'], \JSON_THROW_ON_ERROR));
-        self::assertResponseStatusCodeSame(201);
-        $created = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
-        $this->client->request('PUT', '/api/routines/'.$created['id'].'/checks/2026-04-22', [], [], $headers);
-        self::assertResponseIsSuccessful();
-
-        $this->client->request('GET', '/api/home/tasks', [], [], $this->authHeaders());
-        self::assertResponseIsSuccessful();
-        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
-        self::assertIsArray($body);
-        self::assertContains(true, array_column($body['tasks'], 'done'), 'No task ticked today, or the recording proves nothing about `done`.');
-        self::assertNotEmpty($body['routines'], 'No routine of the moment, or the recording proves nothing about them.');
-        self::assertTrue($body['routines'][0]['checked']);
-
-        $this->assertMatchesContract(
-            'responses/home_tasks.read.json',
-            self::stabilise($body),
-            'GET /api/home/tasks no longer returns what it used to. The mobile DTOs (HomeTasks.kt) and the admin (TasksCard.tsx) are written against this response.',
         );
     }
 

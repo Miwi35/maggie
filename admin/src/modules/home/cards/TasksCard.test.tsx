@@ -119,8 +119,6 @@ describe('TasksCard', () => {
     renderCard()
     await screen.findByTestId('home-tasks-ring')
 
-    expect(calls.some((c) => c.url.includes('/home/'))).toBe(false)
-    expect(calls.some((c) => c.url.includes('/api/home/tasks'))).toBe(false)
     expect(reads(calls, '/api/task-settings/me')).toHaveLength(1)
     expect(reads(calls, '/tasks/view/today')).toHaveLength(1)
     expect(reads(calls, '/routines/day/')).toHaveLength(1)

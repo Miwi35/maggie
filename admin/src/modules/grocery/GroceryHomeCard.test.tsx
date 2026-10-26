@@ -110,7 +110,7 @@ describe('GroceryHomeCard', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 
-  test('reads business resources only: three requests, none to /api/home', async () => {
+  test('reads business resources only: three requests', async () => {
     const fetchMock = reads({ items: SIX_AT_THE_SUPERMARKET, needs: NEEDS })
     vi.stubGlobal('fetch', fetchMock)
     renderCard()

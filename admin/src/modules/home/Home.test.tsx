@@ -293,7 +293,6 @@ describe('Home', () => {
       await user.click(screen.getByRole('button', { name: 'Demain' }))
 
       await waitFor(() => expect(mealsOf(addDays(today, 1))).toHaveLength(1))
-      expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/api/home/nutrition'))).toHaveLength(0)
     })
 
     test('a card empty today and full tomorrow appears on « Demain », and goes again on « Aujourd\'hui »', async () => {

@@ -42,8 +42,8 @@ async function read(): Promise<GroceryHomeState> {
 
 /**
  * What the Courses card shows, composed from the open list and the recipe needs and read again when any
- * resource behind them publishes. It does not follow the day selector. Same contract as `useHomeCardState`:
- * a refresh keeps the previous state, the last read wins.
+ * resource behind them publishes. It does not follow the day selector. A refresh keeps
+ * the previous state, the last read wins.
  */
 export function useGroceryCardState() {
   const [state, setState] = useState<GroceryHomeState | null>(null)

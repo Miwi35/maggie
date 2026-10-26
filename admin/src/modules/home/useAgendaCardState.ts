@@ -43,8 +43,7 @@ async function read(day: HomeDay): Promise<AgendaHomeState> {
 
 /**
  * What the Agenda card shows, composed from the events (series unfolded by the API) and the agendas,
- * and read again when either publishes. Same contract as `useHomeCardState`: a refresh keeps the previous
- * state, the last read wins.
+ * and read again when either publishes. A refresh keeps the previous state, the last read wins.
  */
 export function useAgendaCardState(day: HomeDay) {
   const [state, setState] = useState<AgendaHomeState | null>(null)

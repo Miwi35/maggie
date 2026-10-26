@@ -57,15 +57,6 @@ class FinanceCardRepositoryTest {
     }
 
     @Test
-    fun `the card never reads the home card endpoint`() = runTest {
-        coEvery { api.getFinanceDashboard(any(), any()) } returns dashboard()
-
-        repository.read().getOrThrow()
-
-        coVerify(exactly = 0) { api.getHomeCard(any(), any()) }
-    }
-
-    @Test
     fun `a failing read is a failure`() = runTest {
         coEvery { api.getFinanceDashboard(any(), any()) } throws RuntimeException("offline")
 

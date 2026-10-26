@@ -11,7 +11,7 @@ use Maggie\Grocery\Service\Needs;
 
 /**
  * What the planned meals ask of the products, as grocery sees it: the add flow,
- * the home card and the stock tool read it, and know nothing of meals. The
+ * the Accueil card and the stock tool read it, and know nothing of meals. The
  * module that does (meal-grocery) answers.
  *
  * @phpstan-import-type Need from Needs
@@ -52,11 +52,4 @@ interface RecipeDemandInterface
      * @return list<array{date: string, slot: string, recipes: list<string>}>
      */
     public function plannedMeals(User $user, Product $product, int $days): array;
-
-    /**
-     * The entities the demand is read from: a row changing in one of them moves the home card.
-     *
-     * @return list<class-string>
-     */
-    public function watchedEntities(): array;
 }

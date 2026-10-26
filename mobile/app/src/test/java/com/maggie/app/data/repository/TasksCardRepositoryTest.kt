@@ -173,16 +173,6 @@ class TasksCardRepositoryTest {
     }
 
     @Test
-    fun `the card never reads the home card endpoint`() = runTest {
-        answers()
-
-        repository.read(HomeDay.TODAY, today, noon).getOrThrow()
-        repository.read(HomeDay.TOMORROW, today, noon).getOrThrow()
-
-        coVerify(exactly = 0) { api.getHomeCard(any(), any()) }
-    }
-
-    @Test
     fun `the four reads of today start together`() = runTest {
         val gate = CompletableDeferred<Unit>()
         coEvery { api.getTodayTasks() } coAnswers { gate.await(); emptyList() }

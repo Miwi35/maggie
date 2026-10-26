@@ -97,7 +97,7 @@ describe('NutritionHomeCard', () => {
     expect(within(second).getByTestId('home-nutrition-guests')).toHaveTextContent('1 pers.')
   })
 
-  test('reads business resources only: two requests for the day and the activity in progress, none to /api/home', async () => {
+  test('reads business resources only: two requests for the day and the activity in progress', async () => {
     const fetchMock = reads()
     vi.stubGlobal('fetch', fetchMock)
     renderCard()

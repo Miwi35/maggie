@@ -72,7 +72,6 @@ import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.ScenarioRepository
 import com.maggie.app.data.repository.FinanceCardRepository
 import com.maggie.app.data.repository.FinanceDashboardRepository
-import com.maggie.app.data.repository.HomeCardRepository
 import com.maggie.app.data.repository.UpcomingRepository
 import com.maggie.app.data.repository.MonthBalanceRepository
 import com.maggie.app.data.repository.ReviewRepository
@@ -361,7 +360,6 @@ class MaggieApp : Application() {
             single { ReviewRepository(get()) }
             single { FinanceDashboardRepository(get()) }
             single { UpcomingRepository(get()) }
-            single { HomeCardRepository(get(), get(), get()) }
             single { TasksCardRepository(get(), get(), get(), get()) }
             single { AgendaCardRepository(get(), get(), get()) }
             single { GroceryCardRepository(get(), get(), get()) }

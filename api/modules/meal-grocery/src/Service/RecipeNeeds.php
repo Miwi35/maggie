@@ -208,9 +208,4 @@ class RecipeNeeds implements RecipeDemandInterface
             )),
         ], $this->mealRepository->findUpcomingUsingProduct($user, $product, $days));
     }
-
-    public function watchedEntities(): array
-    {
-        return [Meal::class, Recipe::class];
-    }
 }

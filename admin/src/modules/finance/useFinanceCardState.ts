@@ -15,8 +15,7 @@ async function read(): Promise<FinanceHomeState> {
 
 /**
  * What the Finance card shows, composed from the Finance dashboard of the current month (one request) and read
- * again when a resource behind it publishes. Same contract as `useHomeCardState`: a refresh keeps the previous
- * state, the last read wins.
+ * again when a resource behind it publishes. A refresh keeps the previous state, the last read wins.
  */
 export function useFinanceCardState() {
   const [state, setState] = useState<FinanceHomeState | null>(null)

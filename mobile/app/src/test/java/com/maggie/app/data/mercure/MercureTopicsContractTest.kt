@@ -129,8 +129,7 @@ class MercureTopicsContractTest {
 
         val offenders = subscriptions.filter { (_, argument) ->
             !argument.startsWith("MercureTopics.userScoped(") &&
-                !argument.startsWith("MercureTopics.agentScoped(") &&
-                !argument.startsWith("MercureTopics.homeScoped(")
+                !argument.startsWith("MercureTopics.agentScoped(")
         }
 
         assertTrue(

@@ -22,8 +22,3 @@ services:
     App\Tests\Support\SqlRecorder:
         tags:
             - { name: doctrine.middleware }
-
-    # A home card (MAG-560) so the generic contract of GET /api/home/{module} is tested without any module's card.
-    App\Tests\Support\FakeHomeCardProvider:
-        autowire: true
-        tags: ['maggie.home_card']
