@@ -6,7 +6,7 @@ import { veilleuseLightTheme } from '../../theme'
 import { AgendaCard } from './cards/AgendaCard'
 import { TasksCard } from './cards/TasksCard'
 import { GroceryHomeCard } from '../grocery/GroceryHomeCard'
-import { NutritionHomeCard } from '../cookbook/NutritionHomeCard'
+import { CuisineHomeCard } from '../cookbook/CuisineHomeCard'
 import { FinanceHomeCard } from '../finance/FinanceHomeCard'
 import { HOME_RESOURCE_TOPICS } from './homeResourceTopics'
 
@@ -38,7 +38,7 @@ test('the cards on business resources share one Mercure stream, so the page keep
         <TasksCard day="today" />
         <AgendaCard day="today" />
         <GroceryHomeCard />
-        <NutritionHomeCard day="today" />
+        <CuisineHomeCard day="today" />
         <FinanceHomeCard />
       </ThemeProvider>
     </MemoryRouter>,

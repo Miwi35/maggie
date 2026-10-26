@@ -21,7 +21,7 @@ import {
   STARS_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   MEALS_USER_EMAIL,
-  NUTRITION_USER_EMAIL,
+  CUISINE_USER_EMAIL,
   NEXT_PROJECT_USER_EMAIL,
   OTHER_USER_EMAIL,
   PACKAGINGS_USER_EMAIL,
@@ -73,7 +73,7 @@ export {
   HOME_USER_EMAIL,
   HOME_TASKS_USER_EMAIL,
   SHORTAGE_USER_EMAIL,
-  NUTRITION_USER_EMAIL,
+  CUISINE_USER_EMAIL,
   CUSHION_SHARE_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser, JourneyProfile } from './session.js'
@@ -243,8 +243,8 @@ export interface MaggieFixtures {
   homeTasksUser: OtherUser
   /** The twenty-seventh seeded account, for « Il manque » (MAG-570): a parmesan missing for tonight's dinner. */
   shortageUser: OtherUser
-  /** The twenty-eighth seeded account, for the Nutrition card of the Accueil (MAG-564). */
-  nutritionUser: OtherUser
+  /** The twenty-eighth seeded account, for the Cuisine card of the Accueil (MAG-564). */
+  cuisineUser: OtherUser
   /** The twenty-ninth seeded account, for the cushion's share of the capacity (MAG-669). */
   cushionShareUser: OtherUser
   /**
@@ -553,8 +553,8 @@ export const test = base.extend<MaggieFixtures>({
     await useSignedInUser(SHORTAGE_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
-  nutritionUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
-    await useSignedInUser(NUTRITION_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  cuisineUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(CUISINE_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   cushionShareUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {

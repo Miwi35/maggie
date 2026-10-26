@@ -79,7 +79,7 @@ executionOrder:
     - 27-cooking-launch
     - 24-home
     - 28-home-tasks
-    - 24-home-nutrition
+    - 24-home-cuisine
     - 24-home-agenda
     - 28-agenda-location-settings
     - 29-agenda-trips

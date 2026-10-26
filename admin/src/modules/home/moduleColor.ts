@@ -6,7 +6,7 @@ const HUES: Record<string, ModuleName> = {
   tasks: 'travail',
   agenda: 'travail',
   grocery: 'cuisine',
-  nutrition: 'cuisine',
+  cuisine: 'cuisine',
   health: 'sport',
   finance: 'comptes',
   leisure: 'sport',

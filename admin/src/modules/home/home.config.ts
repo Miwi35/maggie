@@ -20,7 +20,7 @@ const homeConfig: HomeConfig = {
     { key: 'tasks', column: 'left' },
     { key: 'agenda', column: 'left' },
     { key: 'grocery', column: 'grid' },
-    { key: 'nutrition', column: 'grid' },
+    { key: 'cuisine', column: 'grid' },
     { key: 'health', column: 'grid' },
     { key: 'finance', column: 'grid' },
     { key: 'leisure', column: 'grid' },

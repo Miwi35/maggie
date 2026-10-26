@@ -4,8 +4,8 @@ import { useMercure } from '../../hooks/useMercure'
 import { ApiStatusError, apiUrl, headers } from '../calendar/taskViews'
 import { HOME_RESOURCE_TOPICS } from '../home/homeResourceTopics'
 import type { HomeDay } from '../home/homeDay'
-import { composeNutritionState } from './nutritionCardState'
-import type { ApiMeal, ApiMealNeed, NutritionHomeState } from './nutritionCardState'
+import { composeCuisineState } from './cuisineCardState'
+import type { ApiMeal, ApiMealNeed, CuisineHomeState } from './cuisineCardState'
 
 async function members<T>(path: string, label: string): Promise<T[]> {
   const response = await fetch(`${apiUrl}${path}`, { headers: headers() })
@@ -17,7 +17,7 @@ async function members<T>(path: string, label: string): Promise<T[]> {
   return body?.member ?? []
 }
 
-async function read(day: HomeDay): Promise<NutritionHomeState> {
+async function read(day: HomeDay): Promise<CuisineHomeState> {
   const today = localDay(new Date())
   const date = day === 'today' ? today : addDays(today, 1)
   const meals = new URLSearchParams({ 'date[after]': date, 'date[before]': date, 'order[date]': 'asc', pagination: 'false' })
@@ -28,15 +28,15 @@ async function read(day: HomeDay): Promise<NutritionHomeState> {
     members<ApiMealNeed>(`/grocery/recipe-needs?${needs}`, 'Besoins des recettes'),
   ])
 
-  return composeNutritionState(planned, lacking)
+  return composeCuisineState(planned, lacking)
 }
 
 /**
  * What the Cuisine card shows for a day, composed from that day's meals and what their recipes lack, and read
  * again when any resource behind them publishes. A refresh keeps the previous state, the last read wins.
  */
-export function useNutritionCardState(day: HomeDay) {
-  const [state, setState] = useState<NutritionHomeState | null>(null)
+export function useCuisineCardState(day: HomeDay) {
+  const [state, setState] = useState<CuisineHomeState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const latest = useRef(0)

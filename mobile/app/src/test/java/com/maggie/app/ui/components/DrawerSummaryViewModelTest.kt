@@ -4,11 +4,11 @@ import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.FinanceHomeState
 import com.maggie.app.data.model.GroceryHomeState
 import com.maggie.app.data.model.HomeTasks
-import com.maggie.app.data.model.NutritionHomeState
+import com.maggie.app.data.model.CuisineHomeState
 import com.maggie.app.data.repository.AgendaCardRepository
 import com.maggie.app.data.repository.FinanceCardRepository
 import com.maggie.app.data.repository.GroceryCardRepository
-import com.maggie.app.data.repository.NutritionCardRepository
+import com.maggie.app.data.repository.CuisineCardRepository
 import com.maggie.app.data.repository.TasksCardRepository
 import io.mockk.coEvery
 import io.mockk.every
@@ -35,7 +35,7 @@ class DrawerSummaryViewModelTest {
     private val tasks = mockk<TasksCardRepository>()
     private val agenda = mockk<AgendaCardRepository>()
     private val grocery = mockk<GroceryCardRepository>()
-    private val meals = mockk<NutritionCardRepository>()
+    private val meals = mockk<CuisineCardRepository>()
     private val finance = mockk<FinanceCardRepository>()
     private val taskChanges = MutableSharedFlow<Unit>()
     private val now = Instant.parse("2026-10-25T09:00:00Z")
@@ -51,7 +51,7 @@ class DrawerSummaryViewModelTest {
         coEvery { tasks.read(any(), any(), any()) } returns Result.success(HomeTasks(done = 1, total = 4))
         coEvery { agenda.read(any(), any()) } returns Result.success(AgendaHomeState("2026-10-25"))
         coEvery { grocery.read(any()) } returns Result.success(GroceryHomeState(count = 3))
-        coEvery { meals.read(any()) } returns Result.success(NutritionHomeState())
+        coEvery { meals.read(any()) } returns Result.success(CuisineHomeState())
         coEvery { finance.read() } returns Result.success(FinanceHomeState(toQualifyCount = 2))
     }
 

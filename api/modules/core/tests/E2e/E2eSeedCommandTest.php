@@ -127,7 +127,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         // card's (MAG-561), web and mobile: its ring counts the day's tasks exactly,
         // and the journeys write theirs. The twenty-seventh is the « Il manque »'s (MAG-570):
         // answering it deletes the notification its journey reads. The twenty-eighth is the
-        // Accueil's Nutrition card's (MAG-564): a dinner tonight and a lunch tomorrow, which
+        // Accueil's Cuisine card's (MAG-564): a dinner tonight and a lunch tomorrow, which
         // would move what the calendar journeys count on the owner's account. The thirtieth is the packagings'
         // (MAG-573): its « Riz basmati » would match the stock journey's « Riz ». The thirty-first and
         // thirty-second are the cushion share's (MAG-669), web and mobile: both journeys write the share
@@ -161,7 +161,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-home-tasks@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-home-tasks-mobile@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-shortage@maggie.local']));
-        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-nutrition@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-cuisine@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-cushion-share@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-cushion-share-mobile@maggie.local']));
 
@@ -173,7 +173,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         // journeys watch an event be filed into. Six since MAG-6: the approval
         // cards journey deletes an event from an agenda of its own. Seven since
         // MAG-570: the « Il manque » account's « Repas ». Eight since MAG-564: the
-        // Nutrition card's.
+        // Cuisine card's.
         self::assertSame(8, $this->rowsOf(Agenda::class));
         // Events include the meals, which extend Event: 17 events + 5 meals. Four
         // of the original fifteen are the habits the deduction reads (MAG-150), one the

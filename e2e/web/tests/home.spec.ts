@@ -168,7 +168,7 @@ test('the Agenda card puts « maintenant » between the done and the coming even
 test.describe('an empty card is not drawn', () => {
   test.use({ journeyAccount: 'empty' })
 
-  const MODULES = ['tasks', 'agenda', 'grocery', 'nutrition', 'finance'] as const
+  const MODULES = ['tasks', 'agenda', 'grocery', 'cuisine', 'finance'] as const
 
   test('a user with nothing sees no card but one calm sentence, and a task brings only its card @responsive', async ({ page, api }) => {
     const home = new HomePage(page)

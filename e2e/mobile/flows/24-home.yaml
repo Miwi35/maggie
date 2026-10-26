@@ -15,7 +15,7 @@ tags:
 # six open lines at one shop (`64-grocery-home.yaml`). Then the card shows five of them and
 # « + 1 », and « Demain » leaves it as it was.
 #
-# The empty cards (MAG-594): the account has no meal, so the Nutrition card is not drawn and the cards
+# The empty cards (MAG-594): the account has no meal, so the Cuisine card is not drawn and the cards
 # that have something stay (`28-home-tasks.yaml` is the account with nothing but a task, on Aujourd'hui).
 #
 # The Finance card (MAG-565, extends MAG-102): the same account has a 1 000 € envelope and 10 €
@@ -105,11 +105,11 @@ tags:
       text: "Vélo"
     timeout: 5000
 
-# No meal on this account: the Nutrition card is gone once read (Demain is selected), the Courses and
+# No meal on this account: the Cuisine card is gone once read (Demain is selected), the Courses and
 # Finance cards stay, and the sentence « Rien de prévu » is not said. Aujourd'hui is `28-home-tasks.yaml`'s.
 - extendedWaitUntil:
     notVisible:
-      id: "home_card_nutrition"
+      id: "home_card_cuisine"
     timeout: 20000
 - assertNotVisible:
     id: "home_empty"

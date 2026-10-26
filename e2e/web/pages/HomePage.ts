@@ -35,7 +35,7 @@ export class HomePage extends AdminShell {
     await expect(this.daySelector).toBeVisible()
   }
 
-  /** The card of a module (`grocery`, `nutrition`, `tasks`, `agenda`, `finance`): absent from the page when it is empty. */
+  /** The card of a module (`grocery`, `cuisine`, `tasks`, `agenda`, `finance`): absent from the page when it is empty. */
   card(module: string): Locator {
     return this.content.getByTestId(`home-card-${module}`)
   }

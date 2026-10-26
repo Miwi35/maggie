@@ -29,14 +29,14 @@ export interface HomeSlot {
   meals: HomeMeal[]
 }
 
-export interface NutritionHomeState {
+export interface CuisineHomeState {
   slots: HomeSlot[]
 }
 
 const SLOTS: readonly MealSlotName[] = ['lunch', 'dinner']
 
 /** The card's state from the day's meals and what they lack. Both slots are always there, an empty one with no meal. */
-export function composeNutritionState(meals: ApiMeal[], needs: ApiMealNeed[]): NutritionHomeState {
+export function composeCuisineState(meals: ApiMeal[], needs: ApiMealNeed[]): CuisineHomeState {
   const missing = new Map<string, Map<string, string>>()
   for (const need of needs) {
     const products = missing.get(need.mealId) ?? new Map<string, string>()

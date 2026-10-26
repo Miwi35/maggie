@@ -36,7 +36,7 @@ object HomeLayout {
         HomeModules.TASKS,
         HomeModules.AGENDA,
         HomeModules.GROCERY,
-        HomeModules.NUTRITION,
+        HomeModules.CUISINE,
         HomeModules.HEALTH,
         HomeModules.FINANCE,
         HomeModules.LEISURE,

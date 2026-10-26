@@ -2,7 +2,7 @@ import type { ComponentType } from 'react'
 import { FinanceHomeCard } from '../finance/FinanceHomeCard'
 import { GroceryHomeCard } from '../grocery/GroceryHomeCard'
 import { TasksCard } from './cards/TasksCard'
-import { NutritionHomeCard } from '../cookbook/NutritionHomeCard'
+import { CuisineHomeCard } from '../cookbook/CuisineHomeCard'
 import { AgendaCard } from './cards/AgendaCard'
 import type { HomeDay } from './homeDay'
 
@@ -13,6 +13,6 @@ export const cardRegistry: CardRegistry = {
   tasks: TasksCard,
   agenda: AgendaCard,
   grocery: GroceryHomeCard,
-  nutrition: NutritionHomeCard,
+  cuisine: CuisineHomeCard,
   finance: FinanceHomeCard,
 }

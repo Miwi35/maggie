@@ -1,4 +1,4 @@
-# The Accueil's Nutrition card journeys (MAG-564, extends MAG-99).
+# The Accueil's Cuisine card journeys (MAG-564, extends MAG-99).
 #
 # Tonight's dinner has two recipes; tomorrow's lunch has one that asks for a
 # parmesan the user is out of, and tomorrow's dinner is left empty, so the card
@@ -8,88 +8,88 @@
 # the calendar journeys count, and the card reads one day only.
 
 Maggie\Core\Entity\User:
-  e2e_nutrition_user:
-    email: 'e2e-nutrition@maggie.local'
-    googleId: 'e2e-nutrition-google-id'
+  e2e_cuisine_user:
+    email: 'e2e-cuisine@maggie.local'
+    googleId: 'e2e-cuisine-google-id'
     name: 'Zoé Menu'
 
 Maggie\Calendar\Entity\Agenda:
-  e2e_nutrition_agenda:
+  e2e_cuisine_agenda:
     name: Repas
     isDefault: true
     color: '#43a047'
     timeZone: 'Europe/Paris'
-    user: '@e2e_nutrition_user'
+    user: '@e2e_cuisine_user'
 
 Maggie\Cookbook\Entity\Ingredient:
-  e2e_nutrition_ingredient_pasta:
+  e2e_cuisine_ingredient_pasta:
     name: Spaghetti
     category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
     defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
-    user: '@e2e_nutrition_user'
-  e2e_nutrition_ingredient_parmesan:
+    user: '@e2e_cuisine_user'
+  e2e_cuisine_ingredient_parmesan:
     name: Parmesan
     category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
     defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
     stockState: '<(Maggie\Grocery\Enum\ProductStockState::Out)>'
-    user: '@e2e_nutrition_user'
+    user: '@e2e_cuisine_user'
 
 Maggie\Cookbook\Entity\Recipe:
-  e2e_nutrition_recipe_pasta:
+  e2e_cuisine_recipe_pasta:
     name: Pâtes au pesto
     servings: 2
-    user: '@e2e_nutrition_user'
-  e2e_nutrition_recipe_salad:
+    user: '@e2e_cuisine_user'
+  e2e_cuisine_recipe_salad:
     name: Salade de saison
     servings: 2
-    user: '@e2e_nutrition_user'
-  e2e_nutrition_recipe_soup:
+    user: '@e2e_cuisine_user'
+  e2e_cuisine_recipe_soup:
     name: Soupe de potiron
     servings: 2
-    user: '@e2e_nutrition_user'
+    user: '@e2e_cuisine_user'
 
 Maggie\Cookbook\Entity\RecipeIngredient:
-  e2e_nutrition_line_pasta:
-    recipe: '@e2e_nutrition_recipe_pasta'
-    ingredient: '@e2e_nutrition_ingredient_pasta'
+  e2e_cuisine_line_pasta:
+    recipe: '@e2e_cuisine_recipe_pasta'
+    ingredient: '@e2e_cuisine_ingredient_pasta'
     quantity: 200
     unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
-  e2e_nutrition_line_soup_parmesan:
-    recipe: '@e2e_nutrition_recipe_soup'
-    ingredient: '@e2e_nutrition_ingredient_parmesan'
+  e2e_cuisine_line_soup_parmesan:
+    recipe: '@e2e_cuisine_recipe_soup'
+    ingredient: '@e2e_cuisine_ingredient_parmesan'
     quantity: 40
     unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
 
 # Tonight's two recipes have steps, so the Cuisine activity (MAG-580) has something to cook; no other
 # journey reads them.
 Maggie\Cookbook\Entity\RecipeStep:
-  e2e_nutrition_step_pasta_1:
-    recipe: '@e2e_nutrition_recipe_pasta'
+  e2e_cuisine_step_pasta_1:
+    recipe: '@e2e_cuisine_recipe_pasta'
     position: 1
     text: 'Cuire les pâtes'
-  e2e_nutrition_step_pasta_2:
-    recipe: '@e2e_nutrition_recipe_pasta'
+  e2e_cuisine_step_pasta_2:
+    recipe: '@e2e_cuisine_recipe_pasta'
     position: 2
     text: 'Mélanger au pesto'
-  e2e_nutrition_step_salad_1:
-    recipe: '@e2e_nutrition_recipe_salad'
+  e2e_cuisine_step_salad_1:
+    recipe: '@e2e_cuisine_recipe_salad'
     position: 1
     text: 'Laver la salade'
 
 Maggie\Cookbook\Entity\Meal:
-  e2e_nutrition_meal_dinner_today:
+  e2e_cuisine_meal_dinner_today:
     summary: Repas
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Dinner)>'
     date: '<e2eDate()>'
     timeZone: 'Europe/Paris'
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
-    agenda: '@e2e_nutrition_agenda'
-    recipes: ['@e2e_nutrition_recipe_pasta', '@e2e_nutrition_recipe_salad']
-  e2e_nutrition_meal_lunch_tomorrow:
+    agenda: '@e2e_cuisine_agenda'
+    recipes: ['@e2e_cuisine_recipe_pasta', '@e2e_cuisine_recipe_salad']
+  e2e_cuisine_meal_lunch_tomorrow:
     summary: Repas
     slot: '<(Maggie\Cookbook\Enum\MealSlot::Lunch)>'
     date: '<e2eDate("+1 day")>'
     timeZone: 'Europe/Paris'
     status: '<(Maggie\Calendar\Enum\EventStatus::Confirmed)>'
-    agenda: '@e2e_nutrition_agenda'
-    recipes: ['@e2e_nutrition_recipe_soup']
+    agenda: '@e2e_cuisine_agenda'
+    recipes: ['@e2e_cuisine_recipe_soup']

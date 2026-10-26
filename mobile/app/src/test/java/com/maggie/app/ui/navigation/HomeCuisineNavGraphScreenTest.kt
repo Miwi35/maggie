@@ -23,9 +23,9 @@ import org.koin.core.context.stopKoin
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
-/** The Accueil's Nutrition card opens Cuisine (MAG-564), which opens on « Repas » whichever way it is reached (MAG-628). */
+/** The Accueil's Cuisine card opens Cuisine (MAG-564), which opens on « Repas » whichever way it is reached (MAG-628). */
 @RunWith(AndroidJUnit4::class)
-class HomeNutritionNavGraphScreenTest {
+class HomeCuisineNavGraphScreenTest {
 
     @get:Rule
     val compose = createEmptyComposeRule()
@@ -50,7 +50,7 @@ class HomeNutritionNavGraphScreenTest {
     fun `a tap on the card opens Cuisine on Repas`() {
         launchOnHome()
 
-        compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.NUTRITION)).performClick()
+        compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.CUISINE)).performClick()
         compose.waitForIdle()
 
         compose.onNode(hasTestTag(UiTags.BREADCRUMB_SECTION) and hasText("Repas")).assertIsDisplayed()
@@ -61,7 +61,7 @@ class HomeNutritionNavGraphScreenTest {
     @Config(qualifiers = PHONE_PORTRAIT)
     fun `Cuisine opened from the menu starts on Repas, even after a visit to Recettes`() {
         launchOnHome()
-        compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.NUTRITION)).performClick()
+        compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.CUISINE)).performClick()
         compose.waitForIdle()
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
         compose.onNodeWithTag(UiTags.breadcrumbMenu("recipes")).performClick()

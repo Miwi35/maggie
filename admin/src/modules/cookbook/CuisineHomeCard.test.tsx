@@ -5,7 +5,7 @@ import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { veilleuseLightTheme } from '../../theme'
 import { emitMercure } from '../../test/mercure'
-import { NutritionHomeCard } from './NutritionHomeCard'
+import { CuisineHomeCard } from './CuisineHomeCard'
 import type { HomeDay } from '../home/homeDay'
 
 const NOW = '2026-10-14T14:12:00+02:00'
@@ -22,7 +22,7 @@ const renderCard = (day: HomeDay = 'today') =>
   render(
     <MemoryRouter initialEntries={['/']}>
       <ThemeProvider theme={veilleuseLightTheme}>
-        <NutritionHomeCard day={day} />
+        <CuisineHomeCard day={day} />
         <Where />
       </ThemeProvider>
     </MemoryRouter>,
@@ -72,7 +72,7 @@ const reads = (answers: Answers = {}) =>
 
 const callsTo = (mock: ReturnType<typeof vi.fn>, part: string) => mock.mock.calls.filter(([url]) => String(url).includes(part))
 
-describe('NutritionHomeCard', () => {
+describe('CuisineHomeCard', () => {
   beforeEach(() => {
     localStorage.setItem('token', 'test-jwt')
     vi.useFakeTimers({ toFake: ['Date'] })
@@ -87,21 +87,21 @@ describe('NutritionHomeCard', () => {
     vi.stubGlobal('fetch', reads())
     renderCard()
 
-    const dinner = await screen.findByTestId('home-nutrition-dinner')
+    const dinner = await screen.findByTestId('home-cuisine-dinner')
 
     expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Déjeuner', 'Dîner'])
-    const [first, second] = within(dinner).getAllByTestId('home-nutrition-meal')
-    expect(within(first).getByTestId('home-nutrition-recipes')).toHaveTextContent('Lasagnes · Salade verte · Tiramisu')
-    expect(within(first).getByTestId('home-nutrition-guests')).toHaveTextContent('4 pers.')
-    expect(within(second).getByTestId('home-nutrition-recipes')).toHaveTextContent('Soupe')
-    expect(within(second).getByTestId('home-nutrition-guests')).toHaveTextContent('1 pers.')
+    const [first, second] = within(dinner).getAllByTestId('home-cuisine-meal')
+    expect(within(first).getByTestId('home-cuisine-recipes')).toHaveTextContent('Lasagnes · Salade verte · Tiramisu')
+    expect(within(first).getByTestId('home-cuisine-guests')).toHaveTextContent('4 pers.')
+    expect(within(second).getByTestId('home-cuisine-recipes')).toHaveTextContent('Soupe')
+    expect(within(second).getByTestId('home-cuisine-guests')).toHaveTextContent('1 pers.')
   })
 
   test('reads business resources only: two requests for the day and the activity in progress', async () => {
     const fetchMock = reads()
     vi.stubGlobal('fetch', fetchMock)
     renderCard()
-    await screen.findByTestId('home-nutrition-dinner')
+    await screen.findByTestId('home-cuisine-dinner')
 
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(callsTo(fetchMock, '/activity-status/cuisine')).toHaveLength(1)
@@ -120,21 +120,21 @@ describe('NutritionHomeCard', () => {
     vi.stubGlobal('fetch', reads())
     renderCard()
 
-    const lunch = await screen.findByTestId('home-nutrition-lunch')
+    const lunch = await screen.findByTestId('home-cuisine-lunch')
 
-    expect(within(lunch).getByTestId('home-nutrition-empty')).toHaveTextContent('—')
-    expect(within(lunch).queryByTestId('home-nutrition-meal')).toBeNull()
-    expect(within(screen.getByTestId('home-nutrition-dinner')).queryByTestId('home-nutrition-empty')).toBeNull()
+    expect(within(lunch).getByTestId('home-cuisine-empty')).toHaveTextContent('—')
+    expect(within(lunch).queryByTestId('home-cuisine-meal')).toBeNull()
+    expect(within(screen.getByTestId('home-cuisine-dinner')).queryByTestId('home-cuisine-empty')).toBeNull()
   })
 
   test('is not drawn at all when no meal is planned for the day', async () => {
     vi.stubGlobal('fetch', reads({ meals: [], needs: [] }))
     renderCard()
-    expect(screen.getByTestId('home-nutrition-loading')).toBeInTheDocument()
+    expect(screen.getByTestId('home-cuisine-loading')).toBeInTheDocument()
 
-    await waitFor(() => expect(screen.queryByTestId('home-card-nutrition')).toBeNull())
+    await waitFor(() => expect(screen.queryByTestId('home-card-cuisine')).toBeNull())
     expect(screen.queryByText('Cuisine')).toBeNull()
-    expect(screen.queryByTestId('home-nutrition-empty')).toBeNull()
+    expect(screen.queryByTestId('home-cuisine-empty')).toBeNull()
   })
 
   test('stays drawn, with its error, when the read fails', async () => {
@@ -142,7 +142,7 @@ describe('NutritionHomeCard', () => {
     renderCard()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger cette carte.')
-    expect(screen.getByTestId('home-card-nutrition')).toBeInTheDocument()
+    expect(screen.getByTestId('home-card-cuisine')).toBeInTheDocument()
   })
 
   test('stays drawn, with its error, when only the needs fail', async () => {
@@ -156,18 +156,18 @@ describe('NutritionHomeCard', () => {
     vi.stubGlobal('fetch', reads())
     renderCard()
 
-    const [first, second] = await screen.findAllByTestId('home-nutrition-meal')
+    const [first, second] = await screen.findAllByTestId('home-cuisine-meal')
 
-    expect(within(first).getByTestId('home-nutrition-missing')).toHaveTextContent('manque : Parmesan, Basilic')
-    expect(within(second).queryByTestId('home-nutrition-missing')).toBeNull()
-    expect(screen.getAllByTestId('home-nutrition-missing')).toHaveLength(1)
+    expect(within(first).getByTestId('home-cuisine-missing')).toHaveTextContent('manque : Parmesan, Basilic')
+    expect(within(second).queryByTestId('home-cuisine-missing')).toBeNull()
+    expect(screen.getAllByTestId('home-cuisine-missing')).toHaveLength(1)
   })
 
   test('falls back to the title of a meal without recipe, and has nothing to launch for it', async () => {
     vi.stubGlobal('fetch', reads({ meals: [meal('m9', 'lunch', [], { summary: 'Restaurant' })], needs: [] }))
     renderCard()
 
-    expect(await screen.findByTestId('home-nutrition-recipes')).toHaveTextContent('Restaurant')
+    expect(await screen.findByTestId('home-cuisine-recipes')).toHaveTextContent('Restaurant')
     expect(screen.queryByRole('link', { name: /^Lancer/ })).toBeNull()
   })
 
@@ -175,7 +175,7 @@ describe('NutritionHomeCard', () => {
     vi.stubGlobal('fetch', reads({ meals: [meal('m8', 'dinner', ['Pâtes', 'Salade'], { summary: 'Repas de fête' })], needs: [] }))
     renderCard()
 
-    expect(await screen.findByTestId('home-nutrition-recipes')).toHaveTextContent('Pâtes · Salade')
+    expect(await screen.findByTestId('home-cuisine-recipes')).toHaveTextContent('Pâtes · Salade')
   })
 
   test('asks for tomorrow, the user’s day plus one, when the selector is on Demain', async () => {
@@ -183,7 +183,7 @@ describe('NutritionHomeCard', () => {
     vi.stubGlobal('fetch', fetchMock)
     renderCard('tomorrow')
 
-    await screen.findByTestId('home-nutrition-dinner')
+    await screen.findByTestId('home-cuisine-dinner')
 
     expect(new URL(String(callsTo(fetchMock, '/meals?')[0][0])).searchParams.get('date[after]')).toBe('2026-10-15')
     expect(new URL(String(callsTo(fetchMock, '/grocery/recipe-needs')[0][0])).searchParams.get('from')).toBe('2026-10-15')
@@ -193,7 +193,7 @@ describe('NutritionHomeCard', () => {
     const user = userEvent.setup()
     vi.stubGlobal('fetch', reads())
     renderCard()
-    const [first, second] = await screen.findAllByTestId('home-nutrition-meal')
+    const [first, second] = await screen.findAllByTestId('home-cuisine-meal')
 
     expect(within(first).getByRole('link', { name: 'Lancer la cuisine de Lasagnes · Salade verte · Tiramisu' })).toHaveAttribute('href', '/activites/cuisine?meal=m1')
     await user.click(within(second).getByRole('link', { name: /^Lancer/ }))
@@ -205,7 +205,7 @@ describe('NutritionHomeCard', () => {
     const user = userEvent.setup()
     vi.stubGlobal('fetch', reads({ status: { origin: { kind: 'meal', id: 'm2' }, state: {}, updatedAt: '2026-10-14T12:00:00+00:00' } }))
     renderCard()
-    const [first, second] = await screen.findAllByTestId('home-nutrition-meal')
+    const [first, second] = await screen.findAllByTestId('home-cuisine-meal')
 
     const resume = await within(second).findByRole('link', { name: /^Reprendre/ })
     expect(resume).toHaveTextContent('Reprendre')
@@ -218,7 +218,7 @@ describe('NutritionHomeCard', () => {
   test('a recipe\'s activity in progress does not turn a meal\'s pill into « Reprendre »', async () => {
     vi.stubGlobal('fetch', reads({ status: { origin: { kind: 'recipe', id: 'm2' }, state: {}, updatedAt: '2026-10-14T12:00:00+00:00' } }))
     renderCard()
-    const [, second] = await screen.findAllByTestId('home-nutrition-meal')
+    const [, second] = await screen.findAllByTestId('home-cuisine-meal')
 
     expect(within(second).getByRole('link', { name: /^Lancer/ })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /^Reprendre/ })).toBeNull()
@@ -227,15 +227,15 @@ describe('NutritionHomeCard', () => {
   test('there is nothing to launch for tomorrow', async () => {
     vi.stubGlobal('fetch', reads())
     renderCard('tomorrow')
-    await screen.findByTestId('home-nutrition-dinner')
-    expect(screen.queryByTestId('home-launch-nutrition')).toBeNull()
+    await screen.findByTestId('home-cuisine-dinner')
+    expect(screen.queryByTestId('home-launch-cuisine')).toBeNull()
   })
 
   test('opens the meals from its title', async () => {
     const user = userEvent.setup()
     vi.stubGlobal('fetch', reads())
     renderCard()
-    await screen.findByTestId('home-nutrition-dinner')
+    await screen.findByTestId('home-cuisine-dinner')
 
     await user.click(screen.getByRole('link', { name: 'Cuisine' }))
 
@@ -248,8 +248,8 @@ describe('NutritionHomeCard', () => {
       const fetchMock = reads()
       vi.stubGlobal('fetch', fetchMock)
       renderCard()
-      expect(screen.getByTestId('home-nutrition-loading')).toBeInTheDocument()
-      await screen.findByTestId('home-nutrition-dinner')
+      expect(screen.getByTestId('home-cuisine-loading')).toBeInTheDocument()
+      await screen.findByTestId('home-cuisine-dinner')
       fetchMock.mockImplementation(reads({ meals: [meal('m3', 'lunch', ['Quiche']), ...MEALS], needs: NEEDS }).getMockImplementation()!)
 
       await act(async () => {
@@ -257,7 +257,7 @@ describe('NutritionHomeCard', () => {
       })
 
       expect(await screen.findByText('Quiche')).toBeInTheDocument()
-      await waitFor(() => expect(screen.queryByTestId('home-nutrition-loading')).toBeNull())
+      await waitFor(() => expect(screen.queryByTestId('home-cuisine-loading')).toBeNull())
     },
   )
 
@@ -272,7 +272,7 @@ describe('NutritionHomeCard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Réessayer' }))
 
-    expect(await screen.findByTestId('home-nutrition-dinner')).toBeInTheDocument()
+    expect(await screen.findByTestId('home-cuisine-dinner')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).toBeNull()
   })
 })

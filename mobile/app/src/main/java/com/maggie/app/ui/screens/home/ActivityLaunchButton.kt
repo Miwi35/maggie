@@ -41,7 +41,7 @@ private const val LAUNCH_OUTLINE_ALPHA = 0.4f
 /**
  * The route the activity an agenda event launches opens, from its `activity` field; null for an event that
  * is not one. A meal's line launches Cuisine from its own id (MAG-580), which an agenda event does not carry,
- * so the Nutrition card wires it; Sport has no activity yet.
+ * so the Cuisine card wires it; Sport has no activity yet.
  */
 fun launchRouteFor(activity: String?): String? =
     if (activity == ACTIVITY_FINANCE_REVIEW) Screen.FinanceReviewActivity.route else null

@@ -54,7 +54,7 @@ onFlowComplete:
 
 - extendedWaitUntil:
     notVisible:
-      id: "home_card_nutrition"
+      id: "home_card_cuisine"
     timeout: 20000
 - extendedWaitUntil:
     notVisible:

@@ -9,7 +9,7 @@ object HomeModules {
     const val TASKS = "tasks"
     const val AGENDA = "agenda"
     const val GROCERY = "grocery"
-    const val NUTRITION = "nutrition"
+    const val CUISINE = "cuisine"
     const val HEALTH = "health"
     const val FINANCE = "finance"
     const val LEISURE = "leisure"
@@ -40,7 +40,7 @@ object HomeCardRegistry {
         HomeCardEntry(HomeModules.GROCERY) { GroceryHomeCard() },
         // MAG-561: today's tasks and the routines of the moment.
         HomeCardEntry(HomeModules.TASKS) { day -> TasksHomeCard(day) },
-        HomeCardEntry(HomeModules.NUTRITION) { day -> NutritionHomeCard(day) },
+        HomeCardEntry(HomeModules.CUISINE) { day -> CuisineHomeCard(day) },
         HomeCardEntry(HomeModules.FINANCE) { FinanceHomeCard() },
         HomeCardEntry(HomeModules.AGENDA) { day -> AgendaCard(day) },
     )

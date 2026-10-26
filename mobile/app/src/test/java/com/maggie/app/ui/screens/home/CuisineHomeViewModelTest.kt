@@ -1,10 +1,10 @@
 package com.maggie.app.ui.screens.home
 
 import com.maggie.app.data.model.HomeDay
-import com.maggie.app.data.model.NutritionHomeMeal
-import com.maggie.app.data.model.NutritionHomeSlot
-import com.maggie.app.data.model.NutritionHomeState
-import com.maggie.app.data.repository.NutritionCardRepository
+import com.maggie.app.data.model.CuisineHomeMeal
+import com.maggie.app.data.model.CuisineHomeSlot
+import com.maggie.app.data.model.CuisineHomeState
+import com.maggie.app.data.repository.CuisineCardRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -30,25 +30,25 @@ import java.time.LocalDate
 
 /** The Cuisine card of the Accueil (MAG-564, MAG-591): read for the selected day, again when it moves, one test per state. */
 @OptIn(ExperimentalCoroutinesApi::class)
-class NutritionHomeViewModelTest {
+class CuisineHomeViewModelTest {
     private val dispatcher = StandardTestDispatcher()
-    private val repository = mockk<NutritionCardRepository>()
+    private val repository = mockk<CuisineCardRepository>()
     private val changes = MutableSharedFlow<Unit>()
 
     private val today = LocalDate.of(2026, 10, 23)
     private val tomorrow = today.plusDays(1)
     private val clock = { Instant.parse("2026-10-23T10:00:00Z") }
 
-    private fun answer(dinner: String?) = NutritionHomeState(
+    private fun answer(dinner: String?) = CuisineHomeState(
         slots = listOf(
-            NutritionHomeSlot("lunch"),
-            NutritionHomeSlot("dinner", listOfNotNull(dinner?.let { NutritionHomeMeal(id = "m1", title = it, guests = 2, recipes = listOf(it)) })),
+            CuisineHomeSlot("lunch"),
+            CuisineHomeSlot("dinner", listOfNotNull(dinner?.let { CuisineHomeMeal(id = "m1", title = it, guests = 2, recipes = listOf(it)) })),
         ),
     )
 
-    private fun viewModel() = NutritionHomeViewModel(repository, clock)
+    private fun viewModel() = CuisineHomeViewModel(repository, clock)
 
-    private fun dinner(viewModel: NutritionHomeViewModel) =
+    private fun dinner(viewModel: CuisineHomeViewModel) =
         viewModel.uiState.value.state?.slots?.get(1)?.meals?.singleOrNull()?.title
 
     @Before

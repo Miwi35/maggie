@@ -520,12 +520,14 @@ web:
     areas: [cookbook, grocery]
   e2e/web/tests/meals-guests.spec.ts:
     areas: [cookbook, grocery, settings]
-  e2e/web/tests/home-nutrition.spec.ts:
+  e2e/web/tests/home-cuisine.spec.ts:
     areas: [cookbook, dashboard]
-    paths: [api/fixtures/e2e/65-nutrition-home.yaml]
+    paths: [api/fixtures/e2e/65-cuisine-home.yaml]
   e2e/web/tests/cooking-activity.spec.ts:
     areas: [cookbook, dashboard, grocery, realtime]
     paths: [api/fixtures/e2e/65-nutrition-home.yaml]
+    areas: [cookbook, dashboard]
+    paths: [api/fixtures/e2e/65-cuisine-home.yaml]
 
   e2e/web/tests/finance-accounts.spec.ts:
     areas: [finance]
@@ -791,9 +793,9 @@ mobile:
   e2e/mobile/flows/28-home-tasks.yaml:
     areas: [dashboard, calendar]
     paths: [e2e/mobile/scripts/home-tasks-api.js, api/fixtures/e2e/64-home-tasks.yaml]
-  e2e/mobile/flows/24-home-nutrition.yaml:
+  e2e/mobile/flows/24-home-cuisine.yaml:
     areas: [dashboard]
-    paths: [api/fixtures/e2e/65-nutrition-home.yaml]
+    paths: [api/fixtures/e2e/65-cuisine-home.yaml]
   e2e/mobile/flows/26-finance-timeline.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/timeline-api.js]
