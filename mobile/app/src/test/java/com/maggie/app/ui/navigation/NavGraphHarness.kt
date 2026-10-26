@@ -100,6 +100,9 @@ internal fun startNavGraphApp() {
         every { uiState } returns state(InterruptionUiState())
         every { events } returns kotlinx.coroutines.flow.emptyFlow()
     }
+    val cookingResume = mockk<com.maggie.app.ui.screens.cookbook.cooking.CookingResumeViewModel>(relaxed = true) {
+        every { resume } returns MutableStateFlow(null)
+    }
     val detail = mockk<RecipeDetailViewModel>(relaxed = true) {
         every { uiState } returns state(RecipeDetailUiState(recipe = Recipe(id = "r1", name = "Chili"), isLoading = false))
     }
@@ -124,6 +127,7 @@ internal fun startNavGraphApp() {
                 viewModel { groceryHome }
                 viewModel { tasksCard }
                 viewModel { nutritionHome }
+                viewModel { cookingResume }
                 viewModel { financeHome }
                 viewModel { agendaHome }
                 viewModel { cal }

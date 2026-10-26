@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -17,6 +18,11 @@ import com.maggie.app.data.model.NutritionHomeSlot
 import com.maggie.app.data.model.NutritionHomeState
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
+import com.maggie.app.ui.screens.cookbook.cooking.CookingPhase
+import com.maggie.app.ui.screens.cookbook.cooking.CookingResume
+import com.maggie.app.ui.screens.cookbook.cooking.CookingSession
+import com.maggie.app.ui.screens.cookbook.cooking.QueuedRecipe
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -38,8 +44,29 @@ class NutritionHomeCardScreenTest {
     private fun state(lunch: List<NutritionHomeMeal> = emptyList(), dinner: List<NutritionHomeMeal> = emptyList()) =
         NutritionHomeState(slots = listOf(NutritionHomeSlot("lunch", lunch), NutritionHomeSlot("dinner", dinner)))
 
-    private fun draw(ui: NutritionHomeUiState, onOpen: () -> Unit = {}, onRetry: () -> Unit = {}) =
-        compose.setContent { NutritionHomeCardContent(ui, onOpen, onRetry) }
+    private fun draw(ui: NutritionHomeUiState, onOpen: () -> Unit = {}, onRetry: () -> Unit = {}, resume: CookingResume? = null) =
+        compose.setContent { NutritionHomeCardContent(ui, onOpen, onRetry, resume = resume) }
+
+    private fun resuming(mealId: String) = CookingResume(
+        CookingSession(
+            origin = CookingOrigin(CookingOrigin.Kind.MEAL, mealId),
+            queue = listOf(QueuedRecipe("r-a", 4)),
+            guests = 4,
+            phase = CookingPhase.COOKING,
+            step = 2,
+        ),
+    )
+
+    @Test
+    fun `the pill of the meal in progress reads Reprendre, the other meal keeps Lancer`() {
+        draw(
+            NutritionHomeUiState(state(lunch = listOf(meal("m1", names("Soupe"))), dinner = listOf(meal("m2", names("Tarte")))), isLoading = false),
+            resume = resuming("m2"),
+        )
+
+        compose.onNodeWithContentDescription("Reprendre la cuisine de Tarte").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Lancer la cuisine de Soupe").assertIsDisplayed()
+    }
 
     @Test
     fun `lunch and dinner are two rows`() {

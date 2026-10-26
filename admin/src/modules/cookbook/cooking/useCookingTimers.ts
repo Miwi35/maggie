@@ -67,7 +67,7 @@ export interface CookingTimers {
   start: (start: TimerStart) => Promise<boolean>
   /** PATCH: pause, resume, ±seconds, cancel, dismiss (« OK »). */
   change: (id: string, action: TimerAction, seconds?: number) => Promise<boolean>
-  /** « Quitter »: every running, paused or rung timer stops. */
+  /** « Recommencer »: every running, paused or rung timer stops. */
   cancelAll: () => Promise<void>
 }
 
@@ -193,10 +193,15 @@ export const useCookingTimers = (): CookingTimers => {
   )
 
   const cancelAll = useCallback(async () => {
-    const active = Object.values(boardRef.current)
-      .map(({ timer }) => timer)
-      .filter((timer) => timer.status === 'running' || timer.status === 'paused' || timer.status === 'done')
-    await Promise.allSettled(active.map((timer) => changeTimer(timer.id, 'cancel').then(put)))
+    // The API is the authority: a timer started on another device, or not read yet, stops too.
+    const listed = await fetchTimers().catch(() => [] as CookingTimer[])
+    const active = new Map<string, CookingTimer>()
+    for (const timer of [...Object.values(boardRef.current).map(({ timer: known }) => known), ...listed]) active.set(timer.id, timer)
+    await Promise.allSettled(
+      [...active.values()]
+        .filter((timer) => timer.status === 'running' || timer.status === 'paused' || timer.status === 'done')
+        .map((timer) => changeTimer(timer.id, 'cancel').then(put)),
+    )
   }, [put])
 
   const clearError = useCallback(() => setError(null), [])

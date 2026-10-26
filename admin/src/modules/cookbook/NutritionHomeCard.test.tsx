@@ -56,11 +56,14 @@ interface Answers {
   /** A response overriding the read of the meals or of the needs. */
   mealsResponse?: unknown
   needsResponse?: unknown
+  /** The Cuisine activity in progress (`activity-status`); none by default. */
+  status?: unknown
 }
 
-/** The two reads of the card: the day's meals, what their recipes lack. */
+/** The reads of the card: the day's meals, what their recipes lack, the activity in progress. */
 const reads = (answers: Answers = {}) =>
   vi.fn((url: string) => {
+    if (url.includes('/activity-status/cuisine')) return Promise.resolve(answers.status ? ok(answers.status) : failing(404))
     if (url.includes('/grocery/recipe-needs')) return Promise.resolve(answers.needsResponse ?? ok({ member: answers.needs ?? NEEDS }))
     if (/\/meals\?/.test(url)) return Promise.resolve(answers.mealsResponse ?? ok({ member: answers.meals ?? MEALS }))
 
@@ -94,13 +97,14 @@ describe('NutritionHomeCard', () => {
     expect(within(second).getByTestId('home-nutrition-guests')).toHaveTextContent('1 pers.')
   })
 
-  test('reads business resources only: two requests for the day, none to /api/home', async () => {
+  test('reads business resources only: two requests for the day and the activity in progress, none to /api/home', async () => {
     const fetchMock = reads()
     vi.stubGlobal('fetch', fetchMock)
     renderCard()
     await screen.findByTestId('home-nutrition-dinner')
 
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(callsTo(fetchMock, '/activity-status/cuisine')).toHaveLength(1)
     expect(callsTo(fetchMock, '/home')).toHaveLength(0)
     const meals = new URL(String(callsTo(fetchMock, '/meals?')[0][0]))
     expect(meals.searchParams.get('date[after]')).toBe('2026-10-14')
@@ -195,6 +199,29 @@ describe('NutritionHomeCard', () => {
     await user.click(within(second).getByRole('link', { name: /^Lancer/ }))
 
     expect(screen.getByTestId('where')).toHaveTextContent('/activites/cuisine?meal=m2')
+  })
+
+  test('« ▶ Reprendre » replaces « Lancer » on the meal whose activity is in progress, and only on it', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', reads({ status: { origin: { kind: 'meal', id: 'm2' }, state: {}, updatedAt: '2026-10-14T12:00:00+00:00' } }))
+    renderCard()
+    const [first, second] = await screen.findAllByTestId('home-nutrition-meal')
+
+    const resume = await within(second).findByRole('link', { name: /^Reprendre/ })
+    expect(resume).toHaveTextContent('Reprendre')
+    expect(within(first).getByRole('link', { name: /^Lancer/ })).toHaveTextContent('Lancer')
+    await user.click(resume)
+
+    expect(screen.getByTestId('where')).toHaveTextContent('/activites/cuisine?meal=m2')
+  })
+
+  test('a recipe\'s activity in progress does not turn a meal\'s pill into « Reprendre »', async () => {
+    vi.stubGlobal('fetch', reads({ status: { origin: { kind: 'recipe', id: 'm2' }, state: {}, updatedAt: '2026-10-14T12:00:00+00:00' } }))
+    renderCard()
+    const [, second] = await screen.findAllByTestId('home-nutrition-meal')
+
+    expect(within(second).getByRole('link', { name: /^Lancer/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^Reprendre/ })).toBeNull()
   })
 
   test('there is nothing to launch for tomorrow', async () => {

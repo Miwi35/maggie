@@ -8,6 +8,8 @@ import { veilleuseDarkTheme } from '../../../theme'
 import { CookingActivityPage } from './CookingActivityPage'
 import { fakeTimersApi } from './fakeTimersApi'
 import type { FakeTimersApi } from './fakeTimersApi'
+import { fakeStatusApi } from './fakeStatusApi'
+import type { FakeStatusApi } from './fakeStatusApi'
 
 vi.mock('../../../components/chat/ChatWidget', () => ({ ChatWidget: () => null }))
 vi.mock('../../../hooks/useMercure', async () => (await import('../../../test/mercure')).mercureModule)
@@ -43,11 +45,14 @@ const REFERENCE = {
 }
 
 let api: FakeTimersApi
+let status: FakeStatusApi
 
 const fakeFetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input)
   const timers = api.handle(url, init)
   if (timers) return timers
+  const saved = status.handle(url, init)
+  if (saved) return saved
   if (/^\/api\/recipes\/REF(\?guests=\d+)?$/.test(url)) return Promise.resolve(new Response(JSON.stringify(REFERENCE), { status: 200 }))
 
   return Promise.resolve(new Response('', { status: 404 }))
@@ -93,6 +98,7 @@ describe('The timers of the Cuisine activity (MAG-582)', () => {
   beforeEach(() => {
     sessionStorage.clear()
     api = fakeTimersApi()
+    status = fakeStatusApi()
     vi.stubGlobal('fetch', vi.fn(fakeFetch))
     Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { configurable: true, writable: true, value: () => Promise.reject(new Error('refused')) })
   })
@@ -235,22 +241,30 @@ describe('The timers of the Cuisine activity (MAG-582)', () => {
     expect(posts()).toHaveLength(0)
   })
 
-  test('quitting with timers running asks first, says which, and « Quitter » stops them all', async () => {
+  test('quitting with timers running asks nothing and leaves them running', async () => {
     await startReference()
     await goTo(4)
 
     await userEvent.click(screen.getByRole('button', { name: 'Quitter Cuisine' }))
 
-    const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent("Quitter l'activité ?")
-    expect(dialog).toHaveTextContent("2 minuteurs tournent encore (Eau, Pâtes) : ils s'arrêteront.")
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Quitter' }))
-
     expect(await screen.findByTestId('where')).toBeInTheDocument()
-    await waitFor(() => expect(api.all().map((timer) => timer.status)).toEqual(['cancelled', 'cancelled']))
+    expect(screen.queryByText("Quitter l'activité ?")).not.toBeInTheDocument()
+    expect(api.all().map((timer) => timer.status)).toEqual(['running', 'running'])
+    expect(patches()).toEqual([])
   })
 
-  test('a rung timer alone does not ask before quitting, and it is stopped too', async () => {
+  test('« Recommencer » stops every timer, erases the status and goes back to the preparation', async () => {
+    await startReference()
+    await goTo(4)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Recommencer' }))
+
+    await screen.findByTestId('cooking-preparation')
+    await waitFor(() => expect(api.all().map((timer) => timer.status)).toEqual(['cancelled', 'cancelled']))
+    await waitFor(() => expect(status.deletes()).toHaveLength(1))
+  })
+
+  test('a rung timer does not hold the quitting either, and it keeps ringing', async () => {
     await startReference()
     await goTo(2)
     await emitMercure(TOPIC, api.ring('T1'))
@@ -258,7 +272,6 @@ describe('The timers of the Cuisine activity (MAG-582)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Quitter Cuisine' }))
 
     expect(await screen.findByTestId('where')).toBeInTheDocument()
-    expect(screen.queryByText("Quitter l'activité ?")).not.toBeInTheDocument()
-    await waitFor(() => expect(api.timer('T1').status).toBe('cancelled'))
+    expect(api.timer('T1').status).toBe('done')
   })
 })

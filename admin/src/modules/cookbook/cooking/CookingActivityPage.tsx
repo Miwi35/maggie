@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import Typography from '@mui/material/Typography'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ActivityShell } from '../../../components/activity/ActivityShell'
 import { useActivityOrigin } from '../../../components/activity/activityOrigin'
 import {
+  ConflictScreen,
   DoneScreen,
   EmptyMealScreen,
   ErrorScreen,
@@ -14,12 +15,12 @@ import {
 } from './CookingScreens'
 import { orderedSteps } from '../recipeSheet'
 import type { RecipeRecord, RecipeStep } from '../recipeSheet'
-import { COOKING_COLOR, COOKING_FALLBACK_PATH, advance, back, confirmServings, goToStep, isStepDone, progressOf, skipRecipe, withGuests } from './cookingSession'
+import { COOKING_COLOR, COOKING_FALLBACK_PATH, advance, back, confirmServings, goToStep, isStepDone, launchPathOf, progressOf, skipRecipe, withGuests } from './cookingSession'
 import type { CookingOrigin, CookingSession } from './cookingSession'
 import { CookingStepsColumn } from './CookingStepsColumn'
 import type { ColumnRecipe } from './CookingStepsColumn'
 import { MainTimer, TimerError } from './CookingTimers'
-import { lineTimer, quitDetail, stepSeconds, stepTimer, timerLabel, timersOfRecipe } from './cookingTimers'
+import { lineTimer, stepSeconds, stepTimer, timerLabel, timersOfRecipe } from './cookingTimers'
 import type { TimerView } from './cookingTimers'
 import { useCookingActivity } from './useCookingActivity'
 import { useCookingTimers } from './useCookingTimers'
@@ -37,16 +38,32 @@ const originOf = (params: URLSearchParams): CookingOrigin | null => {
 }
 
 const Cooking = ({ origin, goBack }: { origin: CookingOrigin; goBack: () => void }) => {
-  const { load, session, recipes, refreshing, retry, update, end } = useCookingActivity(origin)
+  const { load, session, conflict, recipes, refreshing, retry, update, leave, restart, replace } = useCookingActivity(origin)
   const timers = useCookingTimers()
   const { cancelAll } = timers
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  // Leaving stops every timer of the activity: they are sent, the activity does not wait for the answers.
+  // Leaving asks nothing: the status is already on the API and the timers keep running.
   const quit = useCallback(() => {
-    void cancelAll()
-    end()
+    leave()
     goBack()
-  }, [cancelAll, end, goBack])
+  }, [leave, goBack])
+
+  // The timers of the activity stop when it starts again, never when it is only left.
+  const startOver = useCallback(() => {
+    void cancelAll()
+    restart()
+  }, [cancelAll, restart])
+
+  const replaceInProgress = useCallback(() => {
+    void cancelAll()
+    replace()
+  }, [cancelAll, replace])
+
+  const resumeInProgress = useCallback(() => {
+    if (conflict) navigate(launchPathOf(conflict.origin), { replace: true, state: location.state })
+  }, [conflict, navigate, location.state])
 
   const names = useMemo(() => Object.fromEntries(Object.values(recipes).map((recipe) => [String(recipe.id), recipe.name])), [recipes])
 
@@ -61,15 +78,15 @@ const Cooking = ({ origin, goBack }: { origin: CookingOrigin; goBack: () => void
       </Typography>
     ) : null
 
-  const detail = quitDetail(timers.timers)
-
   return (
-    <ActivityShell color={COOKING_COLOR} name="Cuisine" confirmQuit={detail !== undefined} confirmDetail={detail} onQuit={quit} progress={progress}>
+    <ActivityShell color={COOKING_COLOR} name="Cuisine" onQuit={quit} progress={progress}>
       {timers.error && <TimerError message={timers.error} onClose={timers.clearError} />}
       <Body
         timers={timers}
         load={load}
         session={session}
+        conflict={conflict}
+        origin={origin}
         recipe={recipe}
         recipes={recipes}
         names={names}
@@ -78,6 +95,9 @@ const Cooking = ({ origin, goBack }: { origin: CookingOrigin; goBack: () => void
         retry={retry}
         update={update}
         quit={quit}
+        onRestart={startOver}
+        onResume={resumeInProgress}
+        onReplace={replaceInProgress}
       />
     </ActivityShell>
   )
@@ -87,6 +107,8 @@ type BodyProps = {
   timers: CookingTimers
   load: ReturnType<typeof useCookingActivity>['load']
   session: ReturnType<typeof useCookingActivity>['session']
+  conflict: ReturnType<typeof useCookingActivity>['conflict']
+  origin: CookingOrigin
   recipe: RecipeRecord | undefined
   recipes: Record<string, RecipeRecord>
   names: Record<string, string>
@@ -95,9 +117,12 @@ type BodyProps = {
   retry: () => void
   update: ReturnType<typeof useCookingActivity>['update']
   quit: () => void
+  onRestart: () => void
+  onResume: () => void
+  onReplace: () => void
 }
 
-const Body = ({ timers, load, session, recipe, recipes, names, steps, refreshing, retry, update, quit }: BodyProps) => {
+const Body = ({ timers, load, session, conflict, origin, recipe, recipes, names, steps, refreshing, retry, update, quit, onRestart, onResume, onReplace }: BodyProps) => {
   const [starting, setStarting] = useState(false)
   const cooking = load === 'ready' && session?.phase === 'cooking' && recipe !== undefined && steps.length > 0
   const position = session?.step ?? 0
@@ -157,6 +182,7 @@ const Body = ({ timers, load, session, recipe, recipes, names, steps, refreshing
 
   if (load === 'error') return <ErrorScreen onRetry={retry} />
   if (load === 'empty') return <EmptyMealScreen onQuit={quit} />
+  if (load === 'conflict' && conflict) return <ConflictScreen status={conflict} launched={origin} onResume={onResume} onReplace={onReplace} />
   if (load === 'loading' || !session) return <LoadingScreen />
   if (session.phase === 'done') return <DoneScreen minutes={minutesOf(session)} guests={session.guests} onQuit={quit} />
   if (!recipe) return <LoadingScreen />
@@ -207,6 +233,7 @@ const Body = ({ timers, load, session, recipe, recipes, names, steps, refreshing
           timerOf={(id, position) => lineTimer(timersOfRecipe(timers.timers, id), position)}
           {...progressOf(session, stepCounts)}
           onSelect={select}
+          onRestart={onRestart}
         />
       }
       timers={

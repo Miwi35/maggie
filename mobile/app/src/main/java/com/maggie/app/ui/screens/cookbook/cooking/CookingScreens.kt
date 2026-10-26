@@ -87,6 +87,12 @@ class CookingActions(
     val next: () -> Unit,
     val skipRecipe: () -> Unit,
     val retry: () -> Unit,
+    /** « Reprendre » on the choice: the Cuisine in progress. */
+    val resumeInProgress: () -> Unit = {},
+    /** « Recommencer avec cette recette / ce repas » on the choice. */
+    val replaceInProgress: () -> Unit = {},
+    /** « Recommencer » in the steps list: back to the preparation, the timers stopped. */
+    val restart: () -> Unit = {},
     /** « Lancer et continuer »: the step's timer starts, then the next step (MAG-582). */
     val startAndNext: () -> Unit = next,
     /** Démarrer / Pause / Reprendre on the step's timer. */
@@ -104,6 +110,9 @@ class CookingActions(
             next = viewModel::next,
             skipRecipe = viewModel::skipRecipe,
             retry = viewModel::retry,
+            resumeInProgress = viewModel::resumeInProgress,
+            replaceInProgress = viewModel::replaceInProgress,
+            restart = viewModel::restart,
             startAndNext = viewModel::startAndNext,
             toggleTimer = viewModel::toggleTimer,
             addMinutes = viewModel::addMinutes,
@@ -147,10 +156,7 @@ fun CookingActivityScreen(
     CookingActivityContent(
         state = state,
         actions = CookingActions.of(viewModel),
-        onQuit = {
-            viewModel.quit()
-            onQuit()
-        },
+        onQuit = onQuit,
         onOpenMaggie = onOpenMaggie,
     )
 }
@@ -172,8 +178,6 @@ fun CookingActivityContent(
         onQuit = onQuit,
         onOpenMaggie = onOpenMaggie,
         immersion = immersion,
-        confirmQuit = state.confirmQuit,
-        confirmDetail = quitDetail(state.timers),
         progress = { CookingProgress(state) },
     ) {
         CookingFrame(state, actions) { CookingBody(state, actions, onQuit) }
@@ -198,6 +202,7 @@ private fun CookingFrame(state: CookingUiState, actions: CookingActions, content
                     StepsPanel(
                         state = state,
                         onOpen = actions.openStep,
+                        onRestart = actions.restart,
                         modifier = Modifier
                             .width(if (tablet) 360.dp else 260.dp)
                             .fillMaxHeight()
@@ -208,7 +213,7 @@ private fun CookingFrame(state: CookingUiState, actions: CookingActions, content
                     Box(modifier = Modifier.weight(1f).fillMaxSize()) { content() }
                 }
                 StepsLayout.BANNER -> Column(modifier = Modifier.fillMaxSize()) {
-                    StepsBanner(state, actions.openStep)
+                    StepsBanner(state, actions.openStep, actions.restart)
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) { content() }
                 }
             }
@@ -239,6 +244,7 @@ private fun CookingBody(state: CookingUiState, actions: CookingActions, onQuit: 
     when {
         state.load == CookingLoad.ERROR -> ErrorScreen(actions.retry)
         state.load == CookingLoad.EMPTY -> EmptyScreen(onQuit)
+        state.load == CookingLoad.CONFLICT && state.conflict != null -> ConflictScreen(state.conflict, actions)
         state.load == CookingLoad.LOADING || session == null || recipe == null -> LoadingScreen()
         session.phase == CookingPhase.DONE -> DoneScreen(session, onQuit)
         session.phase == CookingPhase.SERVINGS -> ServingsScreen(recipe, session.guests, actions)
@@ -318,6 +324,34 @@ private fun EmptyScreen(onQuit: () -> Unit) = CenteredMessage(
     tag = UiTags.COOKING_EMPTY,
     actionTag = UiTags.COOKING_EMPTY_BACK,
 )
+
+/** Another Cuisine is in progress: the choice is the cook's, nothing is replaced silently. */
+@Composable
+private fun ConflictScreen(conflict: CookingConflict, actions: CookingActions) {
+    val buttonHeight = rememberMainButtonHeight()
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).testTag(UiTags.COOKING_CONFLICT),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("Une cuisine est déjà en cours", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+        Text(
+            conflict.detail,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.testTag(UiTags.COOKING_CONFLICT_DETAIL),
+        )
+        Button(
+            onClick = actions.resumeInProgress,
+            modifier = Modifier.widthIn(min = 240.dp).heightIn(min = buttonHeight).testTag(UiTags.COOKING_RESUME),
+        ) { Text("Reprendre", style = MaterialTheme.typography.titleMedium) }
+        OutlinedButton(
+            onClick = actions.replaceInProgress,
+            modifier = Modifier.widthIn(min = 240.dp).heightIn(min = buttonHeight).testTag(UiTags.COOKING_REPLACE),
+        ) { Text(conflict.replaceLabel) }
+    }
+}
 
 @Composable
 private fun DoneScreen(session: CookingSession, onQuit: () -> Unit) = CenteredMessage(

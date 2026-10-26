@@ -1,6 +1,5 @@
 package com.maggie.app.ui.screens.cookbook.cooking
 
-import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -95,27 +94,6 @@ class CookingSessionTest {
         assertEquals(asking, asking.advance(3))
         assertEquals(asking, asking.skipRecipe())
         assertEquals(asking, asking.back())
-    }
-
-    @Test
-    fun `it survives a round trip through the saved state`() {
-        val session = mealSession("M1", listOf("A", "B"), 3).advance(2)
-
-        val restored = Json.decodeFromString(CookingSession.serializer(), Json.encodeToString(CookingSession.serializer(), session))
-
-        assertEquals(session, restored)
-    }
-
-    @Test
-    fun `only the same unfinished launch is resumed`() {
-        val session = mealSession("M1", listOf("A"), 3)
-
-        assertTrue(session.resumes(meal))
-        assertFalse(session.resumes(CookingOrigin(CookingOrigin.Kind.MEAL, "M2")))
-        assertFalse(session.resumes(CookingOrigin(CookingOrigin.Kind.RECIPE, "M1")))
-        assertFalse(session.copy(phase = CookingPhase.DONE).resumes(meal))
-        assertFalse(session.copy(recipeIndex = 4).resumes(meal))
-        assertFalse(session.copy(queue = emptyList()).resumes(meal))
     }
 
     @Test
@@ -235,30 +213,30 @@ class CookingSessionTest {
     }
 
     @Test
-    fun `a session stored before the list existed is resumed with nothing ticked, its old fields ignored`() {
-        val old = """{"origin":{"kind":"MEAL","id":"M1"},"queue":[{"recipeId":"A","servings":2}],"step":2,"guests":2,"phase":"COOKING","ready":[1]}"""
+    fun `Recommencer is back on the first preparation for the same guests, with a clean start`() {
+        val session = mealSession("M1", listOf("A", "B"), 5, now = 100L)
+            .copy(recipeIndex = 1, step = 3, doneSteps = mapOf("A" to listOf(1, 2), "B" to listOf(1)), finishedAt = 7L)
 
-        val restored = sessionJson.decodeFromString(CookingSession.serializer(), old)
+        val restarted = session.restarted(now = 9_000L)
 
-        assertEquals(2, restored.step)
-        assertEquals(emptyMap<String, List<Int>>(), restored.doneSteps)
-        assertEquals(0L, restored.finishedAt)
+        assertEquals(CookingPhase.COOKING, restarted.phase)
+        assertEquals(0, restarted.recipeIndex)
+        assertEquals(0, restarted.step)
+        assertEquals(emptyMap<String, List<Int>>(), restarted.doneSteps)
+        assertEquals(5, restarted.guests)
+        assertEquals(session.queue, restarted.queue)
+        assertEquals(session.origin, restarted.origin)
+        assertEquals(9_000L, restarted.startedAt)
+        assertEquals(0L, restarted.finishedAt)
     }
 
     @Test
-    fun `the ticked steps survive a round trip through the saved state`() {
-        val session = mealSession("M1", listOf("A", "B"), 2).advance(5).advance(5).advance(5)
+    fun `Recommencer on a recipe cooks it again straight from the preparation, for the same guests`() {
+        val asking = recipeSession("R1", 4, now = 100L).copy(guests = 3)
 
-        val restored = sessionJson.decodeFromString(CookingSession.serializer(), sessionJson.encodeToString(CookingSession.serializer(), session))
+        val restarted = asking.restarted(now = 5L)
 
-        assertEquals(session, restored)
-        assertEquals(mapOf("A" to listOf(1, 2)), restored.doneSteps)
-    }
-
-    @Test
-    fun `the ticked steps are written as the admin writes them, positions by recipe id`() {
-        val session = mealSession("M1", listOf("A"), 2).copy(doneSteps = mapOf("A" to listOf(1, 3)))
-
-        assertTrue(Json { encodeDefaults = true }.encodeToString(CookingSession.serializer(), session).contains("\"doneSteps\":{\"A\":[1,3]}"))
+        assertEquals(CookingPhase.COOKING, restarted.phase)
+        assertEquals(3, restarted.guests)
     }
 }

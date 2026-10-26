@@ -52,18 +52,6 @@ fun clockOf(seconds: Int): String {
     return "%02d:%02d".format(left / 60, left % 60)
 }
 
-/** What « Quitter » would stop: « 2 minuteurs tournent encore (Pâtes, Légumes) : ils s'arrêteront. » */
-fun quitDetail(timers: List<CookingTimer>): String? {
-    val counting = timers.filter { it.status.isCounting }
-    if (counting.isEmpty()) return null
-    val labels = counting.joinToString(", ") { it.label }
-    return if (counting.size == 1) {
-        "1 minuteur tourne encore ($labels) : il s'arrêtera."
-    } else {
-        "${counting.size} minuteurs tournent encore ($labels) : ils s'arrêteront."
-    }
-}
-
 /** A rung timer's sentence: any gender, any number. */
 fun doneTitle(timer: CookingTimer): String = "${timer.label} : c'est prêt"
 

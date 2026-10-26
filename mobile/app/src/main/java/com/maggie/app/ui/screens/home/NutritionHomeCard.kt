@@ -31,6 +31,9 @@ import com.maggie.app.data.model.missingLabel
 import com.maggie.app.data.model.recipesLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.navigation.Screen
+import com.maggie.app.ui.screens.cookbook.cooking.CookingResume
+import com.maggie.app.ui.screens.cookbook.cooking.CookingResumeViewModel
+import com.maggie.app.ui.screens.cookbook.cooking.resumesMeal
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -38,8 +41,13 @@ import org.koin.androidx.compose.koinViewModel
  * all its recipes, its guests and what its recipes lack. A day with no meal draws no card (MAG-594). A tap anywhere opens Cuisine on « Repas ».
  */
 @Composable
-fun NutritionHomeCard(day: HomeDay, viewModel: NutritionHomeViewModel = koinViewModel()) {
+fun NutritionHomeCard(
+    day: HomeDay,
+    viewModel: NutritionHomeViewModel = koinViewModel(),
+    resumeViewModel: CookingResumeViewModel = koinViewModel(),
+) {
     val ui by viewModel.uiState.collectAsState()
+    val resume by resumeViewModel.resume.collectAsState()
     val open = LocalHomeNavigation.current
     LaunchedEffect(day) { viewModel.selectDay(day) }
     NutritionHomeCardContent(
@@ -47,6 +55,7 @@ fun NutritionHomeCard(day: HomeDay, viewModel: NutritionHomeViewModel = koinView
         onOpen = { open(Screen.CookbookMeals.route) },
         onRetry = viewModel::refresh,
         day = day,
+        resume = resume,
         onLaunch = { mealId -> open(Screen.CookingActivity.ofMeal(mealId)) },
     )
 }
@@ -57,6 +66,7 @@ internal fun NutritionHomeCardContent(
     onOpen: () -> Unit,
     onRetry: () -> Unit,
     day: HomeDay = HomeDay.TODAY,
+    resume: CookingResume? = null,
     onLaunch: (String) -> Unit = {},
 ) {
     ReportHomeCard(HomeModules.NUTRITION, ui.status)
@@ -71,7 +81,7 @@ internal fun NutritionHomeCardContent(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when {
-                state != null && !state.isEmpty -> NutritionHomeBody(state, day, onLaunch)
+                state != null && !state.isEmpty -> NutritionHomeBody(state, day, resume, onLaunch)
                 ui.failed && !ui.isLoading -> Unit
                 else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
@@ -81,12 +91,12 @@ internal fun NutritionHomeCardContent(
 }
 
 @Composable
-private fun NutritionHomeBody(state: NutritionHomeState, day: HomeDay, onLaunch: (String) -> Unit) {
-    state.slots.forEach { slot -> key(slot.slot) { NutritionHomeSlotRow(slot, day, onLaunch) } }
+private fun NutritionHomeBody(state: NutritionHomeState, day: HomeDay, resume: CookingResume?, onLaunch: (String) -> Unit) {
+    state.slots.forEach { slot -> key(slot.slot) { NutritionHomeSlotRow(slot, day, resume, onLaunch) } }
 }
 
 @Composable
-private fun NutritionHomeSlotRow(slot: NutritionHomeSlot, day: HomeDay, onLaunch: (String) -> Unit) {
+private fun NutritionHomeSlotRow(slot: NutritionHomeSlot, day: HomeDay, resume: CookingResume?, onLaunch: (String) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().testTag(UiTags.HOME_NUTRITION_SLOT)) {
         Text(
             text = slot.label(),
@@ -103,13 +113,13 @@ private fun NutritionHomeSlotRow(slot: NutritionHomeSlot, day: HomeDay, onLaunch
                     modifier = Modifier.testTag(UiTags.HOME_NUTRITION_EMPTY),
                 )
             }
-            slot.meals.forEach { meal -> key(meal.id) { NutritionHomeMealRow(meal, day, onLaunch) } }
+            slot.meals.forEach { meal -> key(meal.id) { NutritionHomeMealRow(meal, day, resume, onLaunch) } }
         }
     }
 }
 
 @Composable
-private fun NutritionHomeMealRow(meal: NutritionHomeMeal, day: HomeDay, onLaunch: (String) -> Unit) {
+private fun NutritionHomeMealRow(meal: NutritionHomeMeal, day: HomeDay, resume: CookingResume?, onLaunch: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().testTag(UiTags.HOME_NUTRITION_MEAL)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             // The guests sit under the name: beside it they squeezed a long name until it broke inside a word.
@@ -122,13 +132,15 @@ private fun NutritionHomeMealRow(meal: NutritionHomeMeal, day: HomeDay, onLaunch
                     maxLines = 1,
                 )
             }
-            // « ▶ Lancer » opens the Cuisine activity on this meal (MAG-580); nothing for tomorrow, nor for a meal with no recipe.
+            // « ▶ Lancer » opens the Cuisine activity on this meal (MAG-580), « ▶ Reprendre » when it is the one in progress
+            // (MAG-615); nothing for tomorrow, nor for a meal with no recipe.
             if (meal.recipes.isNotEmpty()) {
                 ActivityLaunchButton(
                     module = HomeModules.NUTRITION,
                     activity = "la cuisine de ${meal.recipesLabel()}",
                     day = day,
                     onLaunch = { onLaunch(meal.id) },
+                    resume = resume.resumesMeal(meal.id),
                 )
             }
         }

@@ -43,16 +43,6 @@ class CookingTimersTest {
         CookingTimer(id = label, label = label, stepPosition = 1, durationSeconds = 60, remainingSeconds = 30, status = status)
 
     @Test
-    fun `leaving says which timers will stop, in the singular or the plural`() {
-        assertEquals(
-            "2 minuteurs tournent encore (Pâtes, Légumes) : ils s'arrêteront.",
-            quitDetail(listOf(timer("Pâtes", CookingTimerStatus.RUNNING), timer("Légumes", CookingTimerStatus.PAUSED))),
-        )
-        assertEquals("1 minuteur tourne encore (Eau) : il s'arrêtera.", quitDetail(listOf(timer("Eau", CookingTimerStatus.RUNNING))))
-        assertNull("a rung one does not count", quitDetail(listOf(timer("Eau", CookingTimerStatus.DONE))))
-    }
-
-    @Test
     fun `the end reads the same for any name`() {
         assertEquals("Pâtes : c'est prêt", doneTitle(timer("Pâtes", CookingTimerStatus.DONE)))
     }

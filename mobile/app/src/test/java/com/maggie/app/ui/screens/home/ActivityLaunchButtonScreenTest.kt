@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -27,13 +28,25 @@ class ActivityLaunchButtonScreenTest {
     @get:Rule
     val compose = ScreenRule()
 
-    private fun draw(day: HomeDay, onLaunch: () -> Unit = {}) = compose.setContent {
+    private fun draw(day: HomeDay, onLaunch: () -> Unit = {}, resume: Boolean = false) = compose.setContent {
         ActivityLaunchButton(
             module = HomeModules.FINANCE,
             activity = "la revue d'octobre",
             day = day,
             onLaunch = onLaunch,
+            resume = resume,
         )
+    }
+
+    @Test
+    fun `an activity in progress reads Reprendre, spoken as such, and a tap still launches`() {
+        var launched = 0
+        draw(HomeDay.TODAY, onLaunch = { launched++ }, resume = true)
+
+        compose.onNodeWithText("Reprendre", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Lancer", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Reprendre la revue d'octobre").assertHasClickAction().performClick()
+        assertEquals(1, launched)
     }
 
     @Test
@@ -57,7 +70,7 @@ class ActivityLaunchButtonScreenTest {
     @Test
     fun `a tap launches`() {
         var launched = 0
-        draw(HomeDay.TODAY) { launched++ }
+        draw(HomeDay.TODAY, onLaunch = { launched++ })
 
         compose.onNodeWithTag(UiTags.homeLaunch(HomeModules.FINANCE)).performClick()
 

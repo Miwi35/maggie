@@ -7,6 +7,9 @@ export const COOKING_FALLBACK_PATH = '/meals'
 /** The Cuisine activity's colour. */
 export const COOKING_COLOR = '#8FB8FF'
 
+export const launchPathOf = (origin: CookingOrigin): string =>
+  origin.kind === 'meal' ? mealLaunchPath(origin.id) : recipeLaunchPath(origin.id)
+
 export const mealLaunchPath = (mealId: string): string => `${COOKING_ACTIVITY_PATH}?meal=${encodeURIComponent(mealId)}`
 export const recipeLaunchPath = (recipeId: string): string => `${COOKING_ACTIVITY_PATH}?recipe=${encodeURIComponent(recipeId)}`
 
@@ -147,7 +150,27 @@ export const progressOf = (session: CookingSession, stepCounts: Record<string, n
 export const back = (session: CookingSession): CookingSession =>
   session.phase === 'cooking' && session.step > 0 ? { ...session, step: session.step - 1 } : session
 
-const STORAGE_KEY = 'maggie.cooking-session'
+/** « Recommencer »: the same recipes and servings from the preparation, nothing ticked. */
+export const restartSession = (session: CookingSession, now: number = Date.now()): CookingSession => ({
+  ...session,
+  recipeIndex: 0,
+  step: 0,
+  phase: 'cooking',
+  doneSteps: {},
+  startedAt: now,
+  finishedAt: 0,
+})
+
+/** What `activity-status` keeps of a session: all of it but when it ended (an ended activity has no status). */
+export const stateOf = (session: CookingSession) => ({
+  queue: session.queue,
+  recipeIndex: session.recipeIndex,
+  step: session.step,
+  doneSteps: session.doneSteps,
+  guests: session.guests,
+  phase: session.phase,
+  startedAt: session.startedAt,
+})
 
 const readDoneSteps = (raw: unknown): Record<string, number[]> => {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
@@ -157,22 +180,40 @@ const readDoneSteps = (raw: unknown): Record<string, number[]> => {
   )
 }
 
+/** A session from what was stored or served (the status of the API, the cache of the tab); null when it cannot be resumed. */
+export const sessionFromState = (origin: CookingOrigin, raw: unknown): CookingSession | null => {
+  if (typeof raw !== 'object' || raw === null) return null
+  const stored = raw as Partial<CookingSession>
+  const { queue, recipeIndex, step, guests, phase } = stored
+  if (!Array.isArray(queue) || queue.length === 0 || (phase !== 'servings' && phase !== 'cooking')) return null
+  if (!queue.every((entry) => typeof entry?.recipeId === 'string' && Number.isFinite(entry.servings))) return null
+  if (typeof recipeIndex !== 'number' || !Number.isInteger(recipeIndex) || recipeIndex < 0 || recipeIndex >= queue.length) return null
+
+  return {
+    origin,
+    queue: queue.map((entry) => ({ recipeId: entry.recipeId, servings: entry.servings })),
+    recipeIndex,
+    step: typeof step === 'number' && Number.isInteger(step) && step >= 0 ? step : 0,
+    guests: clampGuests(typeof guests === 'number' ? guests : queue[0].servings),
+    phase,
+    doneSteps: readDoneSteps(stored.doneSteps),
+    startedAt: typeof stored.startedAt === 'number' ? stored.startedAt : Date.now(),
+    finishedAt: 0,
+  }
+}
+
+// The tab's cache of the session: a reload shows it at once. The truth is `activity-status`.
+const STORAGE_KEY = 'maggie.cooking-session'
+
 /** The session a reload of the page resumes: only when it is the same launch. */
 export const loadSession = (origin: CookingOrigin): CookingSession | null => {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (!raw) return null
-    const stored = JSON.parse(raw) as CookingSession
+    const stored = JSON.parse(raw) as { origin?: CookingOrigin }
     if (stored.origin?.kind !== origin.kind || stored.origin.id !== origin.id) return null
-    if (!Array.isArray(stored.queue) || stored.queue.length === 0 || stored.phase === 'done') return null
-    if (!Number.isInteger(stored.recipeIndex) || stored.recipeIndex < 0 || stored.recipeIndex >= stored.queue.length) return null
 
-    return {
-      ...stored,
-      doneSteps: readDoneSteps(stored.doneSteps),
-      startedAt: typeof stored.startedAt === 'number' ? stored.startedAt : Date.now(),
-      finishedAt: 0,
-    }
+    return sessionFromState(origin, stored)
   } catch {
     return null
   }
@@ -182,7 +223,7 @@ export const saveSession = (session: CookingSession): void => {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session))
   } catch {
-    // Storage full or refused: the activity still runs, it just does not survive a reload.
+    // Storage full or refused: the activity still runs, it just does not reload instantly.
   }
 }
 

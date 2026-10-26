@@ -70,6 +70,7 @@ import com.maggie.app.data.repository.ContextRepository
 import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.RecipeRepository
+import com.maggie.app.data.repository.ActivityStatusRepository
 import com.maggie.app.data.repository.CookingTimerRepository
 import com.maggie.app.data.repository.SearchRepository
 import com.maggie.app.data.repository.ErrandRepository
@@ -109,6 +110,7 @@ import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.TreasuryViewModel
 import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
+import com.maggie.app.ui.screens.cookbook.cooking.CookingResumeViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.CategoryViewModel
@@ -309,6 +311,7 @@ class MaggieApp : Application() {
             single { CalendarCacheFeed(get(), get(), get(), get()) }
             single { RecipeRepository(get(), get()) }
             single { CookingTimerRepository(get()) }
+            single { ActivityStatusRepository(get()) }
             single { IngredientRepository(get()) }
             single { MealRepository(get()) }
             single { GroceryListRepository(get()) }
@@ -423,7 +426,8 @@ class MaggieApp : Application() {
             viewModel { ScenarioViewModel(get(), get(), get()) }
             viewModel { FinanceTimelineViewModel(get()) }
             viewModel { PlacementViewModel(get(), get(), get()) }
-            viewModel { CookingViewModel(get(), get(), get(), get(), get(), get()) }
+            viewModel { CookingViewModel(get(), get(), get(), get(), get(), get(), get()) }
+            viewModel { CookingResumeViewModel(get(), get(), get(), get()) }
             viewModel { ReviewActivityViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { PeriodReviewViewModel(get()) }
             viewModel { FinanceDashboardViewModel(get(), get(), get(), get(), get()) }

@@ -519,6 +519,46 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     expect(link).toHaveAttribute('href', '/activites/cuisine?recipe=01R')
   })
 
+  describe('an activity in progress (MAG-615)', () => {
+    const inProgress = (recipeIds: string[], step: number, origin = { kind: 'meal', id: 'M1' }) =>
+      json({
+        origin,
+        state: { queue: recipeIds.map((recipeId) => ({ recipeId, servings: 4 })), recipeIndex: 0, step, doneSteps: {}, guests: 4, phase: 'cooking', startedAt: 1785000000000 },
+        updatedAt: '2026-10-25T12:00:00+00:00',
+      })
+    const simmering = { id: 'T1', label: 'Mijotage', recipe: '/api/recipes/01R', stepPosition: 4, durationSeconds: 9000, endsAt: null, remainingSeconds: 6420, status: 'paused', finishedAt: null }
+
+    test('« Reprendre » replaces « Cuisiner », says where the cook stands and reopens the launch it came from', async () => {
+      stubFetch({
+        '/activity-status/cuisine': () => inProgress(['01R', '02R'], 4),
+        '/cooking/timers': () => json({ member: [simmering] }),
+      })
+      renderSheet()
+
+      const link = await screen.findByRole('link', { name: 'Reprendre' })
+
+      expect(link).toHaveAttribute('href', '/activites/cuisine?meal=M1')
+      expect(screen.queryByRole('link', { name: 'Cuisiner' })).not.toBeInTheDocument()
+      expect(await screen.findByTestId('recipe-cook-detail')).toHaveTextContent('étape 4/6 · mijotage 1 h 47')
+    })
+
+    test('the detail is the step alone when no timer runs', async () => {
+      stubFetch({ '/activity-status/cuisine': () => inProgress(['01R'], 3, { kind: 'recipe', id: '01R' }), '/cooking/timers': () => json({ member: [] }) })
+      renderSheet()
+
+      expect(await screen.findByRole('link', { name: 'Reprendre' })).toHaveAttribute('href', '/activites/cuisine?recipe=01R')
+      expect(await screen.findByTestId('recipe-cook-detail')).toHaveTextContent(/^étape 3\/6$/)
+    })
+
+    test('an activity on other recipes leaves « Cuisiner » alone', async () => {
+      stubFetch({ '/activity-status/cuisine': () => inProgress(['02R'], 2) })
+      renderSheet()
+
+      expect(await screen.findByRole('link', { name: 'Cuisiner' })).toHaveAttribute('href', '/activites/cuisine?recipe=01R')
+      expect(screen.queryByTestId('recipe-cook-detail')).not.toBeInTheDocument()
+    })
+  })
+
   test('Dupliquer creates a copy from the sheet', async () => {
     const user = userEvent.setup()
     const { create } = renderSheet()

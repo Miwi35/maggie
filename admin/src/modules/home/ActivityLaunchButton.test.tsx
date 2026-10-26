@@ -19,11 +19,11 @@ const Where = () => {
   )
 }
 
-const renderButton = (day: HomeDay, entry = '/') =>
+const renderButton = (day: HomeDay, entry = '/', resume = false) =>
   render(
     <MemoryRouter initialEntries={[entry]}>
       <ThemeProvider theme={veilleuseLightTheme}>
-        <ActivityLaunchButton module="finance" activity="la revue d'octobre" day={day} to={REVIEW_ACTIVITY_PATH} />
+        <ActivityLaunchButton module="finance" activity="la revue d'octobre" day={day} to={REVIEW_ACTIVITY_PATH} resume={resume} />
         <Where />
       </ThemeProvider>
     </MemoryRouter>,
@@ -36,6 +36,15 @@ describe('ActivityLaunchButton', () => {
     const link = screen.getByRole('link', { name: "Lancer la revue d'octobre" })
     expect(link).toHaveAttribute('href', REVIEW_ACTIVITY_PATH)
     expect(link).toHaveTextContent('Lancer')
+  })
+
+  test('says « Reprendre » when the activity waits, and still opens it', () => {
+    renderButton('today', '/', true)
+
+    const link = screen.getByRole('link', { name: "Reprendre la revue d'octobre" })
+    expect(link).toHaveTextContent('Reprendre')
+    expect(link).toHaveAttribute('href', REVIEW_ACTIVITY_PATH)
+    expect(screen.queryByRole('link', { name: /^Lancer/ })).not.toBeInTheDocument()
   })
 
   test('keeps a 44 px touch target around a 28 px pill', () => {

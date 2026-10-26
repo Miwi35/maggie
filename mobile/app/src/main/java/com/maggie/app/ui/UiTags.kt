@@ -1246,6 +1246,8 @@ object UiTags {
     const val RECIPE_INGREDIENT_QUANTITY = "recipe_ingredient_quantity"
     /** « Cuisiner » on a recipe sheet: opens the Cuisine activity (MAG-580). */
     const val RECIPE_COOK = "recipe_cook"
+    const val RECIPE_COOK_RESUME = "recipe_cook_resume"
+    const val RECIPE_COOK_RESUME_DETAIL = "recipe_cook_resume_detail"
     const val RECIPE_EDIT = "recipe_edit"
     const val RECIPE_MENU = "recipe_menu"
     const val RECIPE_DELETE = "recipe_delete"
@@ -1339,18 +1341,21 @@ object UiTags {
     const val REVIEW_ACTIVITY_RESTART = "review_activity_restart"
     const val REVIEW_ACTIVITY_REMAINING = "review_activity_remaining"
 
-    // The frame every activity shares (MAG-580): the activity itself, Maggie, ✕ and « Quitter l'activité ? ».
+    // The frame every activity shares (MAG-580): the activity itself, Maggie and ✕.
     const val ACTIVITY_SCAFFOLD = "activity_scaffold"
     const val ACTIVITY_MAGGIE = "activity_maggie"
     const val ACTIVITY_QUIT = "activity_quit"
-    const val ACTIVITY_QUIT_CONFIRM = "activity_quit_confirm"
-    const val ACTIVITY_QUIT_STAY = "activity_quit_stay"
-    const val ACTIVITY_QUIT_LEAVE = "activity_quit_leave"
 
     // Activité Cuisine (MAG-580): « Pour combien ? », « On sort tout », a step, « Bon appétit » and the states between.
     const val COOKING_LOADING = "cooking_loading"
     const val COOKING_ERROR = "cooking_error"
     const val COOKING_RETRY = "cooking_retry"
+    // A Cuisine already in progress on another origin, and « Recommencer » (MAG-615).
+    const val COOKING_CONFLICT = "cooking_conflict"
+    const val COOKING_CONFLICT_DETAIL = "cooking_conflict_detail"
+    const val COOKING_RESUME = "cooking_resume"
+    const val COOKING_REPLACE = "cooking_replace"
+    const val COOKING_RESTART = "cooking_restart"
     const val COOKING_EMPTY = "cooking_empty"
     const val COOKING_EMPTY_BACK = "cooking_empty_back"
     const val COOKING_DONE = "cooking_done"

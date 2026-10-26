@@ -71,6 +71,9 @@ class CookingScreensTest {
         next = { actionsLog += "next" },
         skipRecipe = { actionsLog += "skip" },
         retry = { actionsLog += "retry" },
+        resumeInProgress = { actionsLog += "resume" },
+        replaceInProgress = { actionsLog += "replace" },
+        restart = { actionsLog += "restart" },
         startAndNext = { actionsLog += "start-and-next" },
         toggleTimer = { actionsLog += "toggle" },
         addMinutes = { actionsLog += "add:$it" },
@@ -773,18 +776,14 @@ class CookingScreensTest {
     }
 
     @Test
-    fun `with timers running the cross asks first, says which stop, and Quitter leaves`() {
+    fun `with timers running the cross leaves at once, asking nothing`() {
         draw(timedState(step = 4, timer("t-3", "Pâtes", 3, CookingTimerStatus.RUNNING, 552), timer("t-4", "Légumes", 4, CookingTimerStatus.PAUSED, 300)))
 
         compose.onNodeWithTag(UiTags.ACTIVITY_QUIT).performClick()
 
-        compose.onNodeWithText("Quitter l'activité ?").assertIsDisplayed()
-        compose.onNodeWithText("2 minuteurs tournent encore (Pâtes, Légumes) : ils s'arrêteront.").assertIsDisplayed()
-        assertEquals(0, quits)
-
-        compose.onNodeWithTag(UiTags.ACTIVITY_QUIT_LEAVE).performClick()
-
+        compose.onAllNodesWithText("Quitter l'activité ?").assertCountEquals(0)
         assertEquals(1, quits)
+        assertEquals(emptyList<String>(), actionsLog)
     }
 
     @Test
@@ -794,5 +793,63 @@ class CookingScreensTest {
         compose.onNodeWithTag(UiTags.ACTIVITY_QUIT).performClick()
 
         assertEquals(1, quits)
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun `Recommencer sits at the head of the steps column and asks the restart`() {
+        draw(timedState(step = 3, done = mapOf("r-a" to listOf(1, 2))))
+
+        compose.onNodeWithTag(UiTags.COOKING_RESTART).assertIsDisplayed()
+        compose.onNodeWithText("Recommencer").assertExists()
+        compose.onNodeWithTag(UiTags.COOKING_RESTART).performClick()
+
+        assertEquals(listOf("restart"), actionsLog)
+    }
+
+    @Test
+    fun `Recommencer is in the sheet on a phone upright, which it closes`() {
+        draw(timedState(step = 2))
+
+        compose.onNodeWithTag(UiTags.COOKING_STEPS_BANNER).performClick()
+        compose.onNodeWithTag(UiTags.COOKING_RESTART).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+
+        assertEquals(listOf("restart"), actionsLog)
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_SHEET).assertCountEquals(0)
+    }
+
+    private fun conflictState(launchKind: CookingOrigin.Kind = CookingOrigin.Kind.RECIPE) = CookingUiState(
+        load = CookingLoad.CONFLICT,
+        conflict = CookingConflict(session(step = 3), launchKind, recipeName = "Pâtes", stepCount = 5),
+    )
+
+    @Test
+    fun `another Cuisine in progress is a choice, with where it stands`() {
+        draw(conflictState())
+
+        compose.onNodeWithTag(UiTags.COOKING_CONFLICT).assertIsDisplayed()
+        compose.onNodeWithText("Une cuisine est déjà en cours").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.COOKING_CONFLICT_DETAIL).assertTextEquals("Pâtes · étape 3/5")
+        compose.onNodeWithTag(UiTags.COOKING_RESUME).assertTextEquals("Reprendre")
+        compose.onNodeWithTag(UiTags.COOKING_REPLACE).assertTextEquals("Recommencer avec cette recette")
+        compose.onAllNodesWithTag(UiTags.COOKING_STEPS_COLUMN).assertCountEquals(0)
+    }
+
+    @Test
+    fun `from a meal the choice says ce repas`() {
+        draw(conflictState(CookingOrigin.Kind.MEAL))
+
+        compose.onNodeWithTag(UiTags.COOKING_REPLACE).assertTextEquals("Recommencer avec ce repas")
+    }
+
+    @Test
+    fun `Reprendre and Recommencer on the choice call their actions`() {
+        draw(conflictState())
+
+        compose.onNodeWithTag(UiTags.COOKING_RESUME).performClick()
+        compose.onNodeWithTag(UiTags.COOKING_REPLACE).performClick()
+
+        assertEquals(listOf("resume", "replace"), actionsLog)
     }
 }

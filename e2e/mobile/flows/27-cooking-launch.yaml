@@ -21,14 +21,15 @@ onFlowComplete:
 #   et « Suivant » n'est jamais retenu
 # Et tourné, la colonne montre le minuteur de l'eau sur la ligne de l'étape 1 ; je touche l'étape 3, « Lancer et
 #   continuer » lance « Pâtes » : deux minuteurs sur leurs lignes
-# Et quand je tape ✕, « Quitter l'activité ? » dit « 2 minuteurs tournent encore (Eau, Pâtes) : ils s'arrêteront. » ;
-#   « Quitter » les arrête et me ramène à la fiche de la recette
+# Et quand je reviens à l'étape 3 et tape ✕ (MAG-615), aucune question : je suis sur la fiche, qui dit « ▶ Reprendre »
+#   et « étape 3/5 » ; « Reprendre » rouvre l'étape 3, « 1 / 5 faites » ; « Recommencer » (colonne tournée) me remet
+#   à la préparation
 #
 # What a JVM test cannot see is the real activity being recreated by a real rotation, the window's
 # immersive mode, the sheet's own window, and the back stack that brings ✕ back to the sheet. The recipe is
 # this flow's own, created over HTTP by `scripts/recipe-api.js` and deleted at the end. What is not here: each
 # transition of the session (`CookingSessionTest`, `CookingViewModelTest`), what the screens draw
-# (`CookingScreensTest`), the frame's confirmation (`ActivityScaffoldScreenTest`), the tablet's 64 dp buttons,
+# (`CookingScreensTest`), the tablet's 64 dp buttons,
 # a timer's end and its lit line (`CookingViewModelTest`, `CookingScreensTest`: ten minutes is too long for a journey).
 
 - runFlow: ../subflows/new-user.yaml
@@ -207,19 +208,65 @@ onFlowComplete:
     id: "cooking_steps_banner_progress"
     text: "1 / 5 faites"
 
-# ✕ asks first while the timers run, says which stop; « Quitter » stops them and lands on the recipe.
+# Back on step 3 by the sheet, then ✕: no question, the timers keep running, the recipe's sheet is back.
+- tapOn:
+    id: "cooking_steps_banner"
+- extendedWaitUntil:
+    visible:
+      id: "cooking_steps_sheet"
+    timeout: 20000
+- tapOn: "Cuire les pâtes"
+- extendedWaitUntil:
+    visible: "Étape 3 sur 5"
+    timeout: 20000
 - tapOn:
     id: "activity_quit"
-- extendedWaitUntil:
-    visible: "Quitter l'activité ?"
-    timeout: 15000
-- assertVisible: "2 minuteurs tournent encore .Eau, Pâtes. : ils s'arrêteront."
-- tapOn:
-    id: "activity_quit_leave"
+- assertNotVisible: "Quitter l'activité ?"
 - extendedWaitUntil:
     notVisible:
       id: "cooking_step"
     timeout: 15000
+- extendedWaitUntil:
+    visible: "Matériel"
+    timeout: 20000
+
+# The recipe's sheet now says where the cook stood; « Reprendre » opens step 3 again, nothing lost.
+- scrollUntilVisible:
+    element:
+      id: "recipe_cook_resume"
+    centerElement: true
+- extendedWaitUntil:
+    visible:
+      id: "recipe_cook_resume_detail"
+      text: "étape 3/5.*"
+    timeout: 20000
+- assertNotVisible:
+    id: "recipe_cook"
+- tapOn:
+    id: "recipe_cook_resume"
+- extendedWaitUntil:
+    visible: "Étape 3 sur 5"
+    timeout: 20000
+- assertVisible: "Cuire les pâtes"
+- assertVisible:
+    id: "cooking_steps_banner_progress"
+    text: "1 / 5 faites"
+
+# « Recommencer » at the head of the steps column: back to the preparation, the ticks gone.
+- setOrientation: LANDSCAPE_LEFT
+- extendedWaitUntil:
+    visible:
+      id: "cooking_steps_column"
+    timeout: 20000
+- tapOn:
+    id: "cooking_restart"
+- extendedWaitUntil:
+    visible:
+      id: "cooking_start"
+    timeout: 20000
+- setOrientation: PORTRAIT
+- tapOn:
+    id: "activity_quit"
 - extendedWaitUntil:
     visible: "Matériel"
     timeout: 20000

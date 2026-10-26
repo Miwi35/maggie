@@ -14,6 +14,8 @@ import com.maggie.app.data.model.ContactCounterpartyCreateRequest
 import com.maggie.app.data.model.ContactCreateRequest
 import com.maggie.app.data.model.CounterpartySuggestion
 import com.maggie.app.data.model.Context
+import com.maggie.app.data.model.ActivityStatus
+import com.maggie.app.data.model.ActivityStatusRequest
 import com.maggie.app.data.model.CookingTimer
 import com.maggie.app.data.model.CookingTimerChangeRequest
 import com.maggie.app.data.model.CookingTimerList
@@ -1650,6 +1652,30 @@ class MaggieApiService(
             throw CookingTimerRefusedException(response.status.value, refusalMessage(response.status.value, body), timer)
         }
         return response.body()
+    }
+
+    // Activity status (MAG-613): the activity in progress, addressed by its name.
+    /** `null` on 404: nothing in progress. */
+    suspend fun getActivityStatus(activity: String): ActivityStatus? {
+        val response = client.get("$baseUrl/api/activity-status/$activity") {
+            accept(ContentType.Application.Json)
+        }
+        if (response.status.value == 404) return null
+        return response.orRefusal().body()
+    }
+
+    suspend fun putActivityStatus(activity: String, request: ActivityStatusRequest) {
+        client.put("$baseUrl/api/activity-status/$activity") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal()
+    }
+
+    suspend fun deleteActivityStatus(activity: String) {
+        client.delete("$baseUrl/api/activity-status/$activity") {
+            accept(ContentType.Application.Json)
+        }.orRefusal()
     }
 
     /** The user's whole utensil catalogue, by name. */
