@@ -1,14 +1,14 @@
 package com.maggie.app.data.location
 
+import androidx.work.Data
 import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.ActivityTransitionResult
 import com.google.android.gms.location.DetectedActivity
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import androidx.work.Data
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** The three movements the app listens for; any other is ignored. */
 enum class Movement {
