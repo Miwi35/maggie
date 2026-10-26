@@ -64,6 +64,7 @@ import com.maggie.app.data.model.TransactionPrefill
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.qualificationProvenance
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatDay
 import com.maggie.app.data.model.idOfIri
 import com.maggie.app.data.model.transactionPills
 import com.maggie.app.data.model.incidentsTabTitle
@@ -113,8 +114,8 @@ fun TransactionListScreen(
             onPrefillConsumed()
         }
     }
-    LaunchedEffect(openTransactionId, uiState.transactions) {
-        if (openTransactionId != null && uiState.transactions.any { it.id == openTransactionId }) {
+    LaunchedEffect(openTransactionId) {
+        if (openTransactionId != null) {
             viewModel.openDetail(openTransactionId)
             onTransactionOpened()
         }
@@ -379,7 +380,7 @@ fun TransactionListScreen(
                                                 style = MaterialTheme.typography.bodyLarge,
                                             )
                                             val subtitle = buildString {
-                                                transaction.bookedAt?.let { append(it).append(" · ") }
+                                                transaction.bookedAt?.let { append(formatDay(it)).append(" · ") }
                                                 append(transactionStatusLabel(transaction.status, transaction.amountCents))
                                             }
                                             Text(

@@ -597,8 +597,22 @@ class TransactionViewModel(
         }
     }
 
+    /** The sheet of a line; one the list has not paged in yet (« Voir la fiche » of an older line) is read on its own. */
     fun openDetail(transactionId: String) {
-        val transaction = _uiState.value.transactions.firstOrNull { it.id == transactionId } ?: return
+        val listed = _uiState.value.transactions.firstOrNull { it.id == transactionId }
+        if (listed != null) {
+            showDetail(listed)
+            return
+        }
+        viewModelScope.launch {
+            transactionRepository.getTransaction(transactionId)
+                .onSuccess(::showDetail)
+                .onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message) }
+        }
+    }
+
+    private fun showDetail(transaction: Transaction) {
+        val transactionId = transaction.id
         _uiState.value = _uiState.value.copy(detail = TransferDetailState(transaction = transaction, isLoading = true))
         loadDetailInfo(transactionId)
         // The sheet names the event an attributed line belongs to.
