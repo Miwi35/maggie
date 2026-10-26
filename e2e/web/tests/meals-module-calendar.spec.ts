@@ -2,15 +2,18 @@ import { test, expect, seedDate } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
 import { waitForIndexed } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
+import { MealsPage } from '../pages/MealsPage.js'
+import { adminUrl, ROUTES } from '../pages/routes.js'
 
 /**
- * The meals' agenda stays out of the owner's list, and the module has a calendar
- * of its own — MAG-354.
+ * The meals' agenda stays out of the owner's list — MAG-354 — and the module no
+ * longer has a calendar of its own: Cuisine › Repas is the one page, and the
+ * old address lands on it — MAG-628.
  *
  * One planned meal and one ordinary event, both on the anchor's day and both under
  * a name the current attempt alone writes (CI retries once and nothing reseeds in
  * between). The general calendar shows the two with « Repas » once in its filters;
- * « Planning des repas », in the Cuisine menu, shows the meal and nothing else.
+ * `#/meals/calendar` opens the Repas page in its Menu view, the meal on its day.
  */
 
 const jsonLd = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
@@ -58,13 +61,14 @@ async function plan(api: APIRequestContext, agendaId: string): Promise<{ recipe:
   })
   expect(createdEvent.status(), `POST /api/events answered ${createdEvent.status()}`).toBe(201)
 
+  await waitForIndexed<Named>(api, '/api/recipes?itemsPerPage=200', (r) => r.name === recipe, { what: 'The recipe of the meal' })
   await waitForIndexed<{ id: string }>(api, '/api/meals?itemsPerPage=200', (m) => m.id === mealId, { what: 'The planned meal' })
   await waitForIndexed<Named>(api, '/api/events?itemsPerPage=200', (e) => e.summary === event, { what: 'The ordinary event' })
 
   return { recipe, event }
 }
 
-test('the general agenda shows the meal and the event with « Repas » once, the meals planning only the meal — MAG-354', async ({ page, api, journeyUser }) => {
+test('the general agenda shows the meal and the event with « Repas » once, and #/meals/calendar lands on the Repas page in Menu — MAG-354, MAG-628', async ({ page, api, journeyUser }) => {
   const { recipe, event } = await plan(api, journeyUser.ref('e2e_agenda_personal'))
   // The list carries the recipe's name as the meal's summary; anchored at the
   // end so a retry does not also match the first attempt's meal.
@@ -83,19 +87,13 @@ test('the general agenda shows the meal and the event with « Repas » once, the
   await expect(general.grid.getByText(mealChip)).toBeVisible()
   await expect(general.content.getByText('Repas', { exact: true })).toHaveCount(1)
 
-  // The menu entry, not a typed URL, is how the owner gets to the module's calendar.
-  await general.navigateTo('Planning des repas', 'Cuisine')
+  // The old address of the module's calendar, as a bookmark or a link still has it.
+  await page.goto(adminUrl(`${ROUTES.meals}/calendar`))
 
-  const module = page.getByTestId('module-calendar')
-  await expect(module).toBeVisible()
-  await expect(page.getByTestId('module-calendar-title')).toHaveText('Repas')
-  await expect(page.getByTestId('agenda-row')).toHaveCount(0)
-
-  await general.chooseView('Semaine')
-  await expect(general.grid.getByText(mealChip)).toBeVisible()
-  await expect(general.chip(event)).toHaveCount(0)
-
-  await general.chooseView('Mois')
-  await expect(general.grid.getByText(mealChip)).toBeVisible()
-  await expect(general.chip(event)).toHaveCount(0)
+  const meals = new MealsPage(page)
+  await meals.expectMenuView()
+  await expect(page).toHaveURL(new RegExp(`#${ROUTES.meals}$`))
+  await expect(page.getByTestId('module-calendar')).toHaveCount(0)
+  await expect(meals.cardWith(recipe)).toBeVisible()
+  await expect(meals.content.getByText(event)).toHaveCount(0)
 })

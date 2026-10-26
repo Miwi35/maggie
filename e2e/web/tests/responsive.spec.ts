@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test'
 import { waitForIndexed } from '../helpers/api.js'
 import { dayOfThisWeek } from '../helpers/week.js'
 import { AdminShell } from '../pages/AdminShell.js'
+import { MealsPage } from '../pages/MealsPage.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { HomePage } from '../pages/HomePage.js'
@@ -94,7 +95,7 @@ const PAGES = [
   ["l'accueil", ROUTES.home],
   ['le calendrier', ROUTES.calendar],
   ['les courses', ROUTES.grocery],
-  ['les repas de la semaine', ROUTES.meals],
+  ['les repas', ROUTES.meals],
   ["la vue d'ensemble finance", ROUTES.financeOverview],
   ['les comptes', ROUTES.accounts],
 ] as const
@@ -184,18 +185,16 @@ test.describe('Responsive @responsive', () => {
     expect(chatButton?.width ?? 0, 'the chat button is too narrow to tap').toBeGreaterThanOrEqual(shape.touchTarget)
   })
 
-  test('the week of meals keeps its fourteen slots', async ({ page }) => {
-    const shell = new AdminShell(page)
+  test('the week of meals keeps its seven days', async ({ page }) => {
+    const meals = new MealsPage(page)
 
-    await shell.goto(ROUTES.meals)
-    await shell.expectLoaded()
+    await meals.open()
 
-    // Seven columns across 393px give each day 42px, so below `md` the week
-    // reads downwards instead — same cells, one card per day.
-    for (const slot of ['lunch', 'dinner']) {
-      for (let day = 0; day < 7; day++) {
-        await expect(shell.content.getByTestId(`meal-cell-${slot}-${day}`)).toBeVisible()
-      }
+    // Menu is the default view: every day is a section of its own, one under
+    // the other at any width, and each has its « Ajouter un repas ».
+    for (let day = 0; day < 7; day++) {
+      await expect(meals.day(day)).toBeVisible()
+      await expect(meals.day(day).getByRole('button', { name: '+ Ajouter un repas' })).toBeVisible()
     }
   })
 
@@ -203,7 +202,7 @@ test.describe('Responsive @responsive', () => {
     // MAG-366: the grid's `1fr` columns grew to the widest word they held, so a
     // busy week pushed the page sideways — the CI run that merged MAG-366 failed
     // here on what other journeys had planted. Plant the word instead of hoping,
-    // on Wednesday dinner, a cell no other journey uses (meals-move owns Saturday).
+    // on Wednesday dinner, a slot no other journey uses.
     const jsonLd = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
     const name = `Velouté-MAG-366-${'x'.repeat(40)}`
     const recipe = await api.post('/api/recipes', { headers: jsonLd, data: { name, servings: 2 } })
@@ -220,11 +219,14 @@ test.describe('Responsive @responsive', () => {
       await waitForIndexed<{ id: string }>(api, '/api/meals', (m) => m.id === meal.id, {
         what: 'The meal with the long name',
       })
+      // The card names its recipes from the recipe list, which is the index too.
+      await waitForIndexed<{ id: string }>(api, '/api/recipes?itemsPerPage=200', (r) => r.id === planted.id, {
+        what: 'The recipe with the long name',
+      })
 
-      const shell = new AdminShell(page)
-      await shell.goto(ROUTES.meals)
-      await shell.expectLoaded()
-      await expect(shell.content.getByTestId('meal-cell-dinner-2')).toContainText(name)
+      const meals = new MealsPage(page)
+      await meals.open()
+      await expect(meals.day(2)).toContainText(name)
 
       expect(await sidewaysOverflow(page), 'a long meal name spills the week out of the window').toBeLessThanOrEqual(1)
     } finally {

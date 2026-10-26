@@ -38,7 +38,7 @@ import org.koin.androidx.compose.koinViewModel
 
 /**
  * The Nutrition card of the Accueil (MAG-564): the meals of the selected day, lunch then dinner, each with
- * all its recipes, its guests and what its recipes lack. A day with no meal draws no card (MAG-594). A tap anywhere opens Cuisine on « Repas ».
+ * all its recipes, its guests and what its recipes lack. A day with no meal draws no card (MAG-594). A tap anywhere opens Cuisine, which opens on « Repas ».
  */
 @Composable
 fun NutritionHomeCard(
@@ -52,7 +52,7 @@ fun NutritionHomeCard(
     LaunchedEffect(day) { viewModel.selectDay(day) }
     NutritionHomeCardContent(
         ui = ui,
-        onOpen = { open(Screen.CookbookMeals.route) },
+        onOpen = { open(Screen.Cookbook.route) },
         onRetry = viewModel::refresh,
         day = day,
         resume = resume,

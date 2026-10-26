@@ -62,6 +62,10 @@ class RotationNavGraphScreenTest {
             compose.onNodeWithTag(UiTags.drawerItem("cookbook")).performSemanticsAction(SemanticsActions.OnClick)
         }
         compose.waitForIdle()
+        // Cuisine opens on Repas (MAG-628): the recipes are one choice of its heading away.
+        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION).performClick()
+        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION_RECIPES).performClick()
+        compose.waitForIdle()
     }
 
     private fun openChili() {

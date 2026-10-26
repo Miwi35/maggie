@@ -175,8 +175,7 @@ export const NAVIGATION: NavModule[] = [
   {
     label: 'Cuisine',
     parts: [
-      { label: 'Repas de la semaine', path: '/meals' },
-      { label: 'Planning des repas', path: '/meals/calendar' },
+      { label: 'Repas', path: '/meals' },
       resourcePart('Recettes', 'recipes'),
     ],
   },

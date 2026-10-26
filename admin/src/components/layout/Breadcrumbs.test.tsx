@@ -293,7 +293,7 @@ describe('PageHeading — the h1 of every page', () => {
     ['/tasks', 'Tâches'],
     ['/grocery', 'Courses'],
     ['/products', 'Produits'],
-    ['/meals', 'Repas de la semaine'],
+    ['/meals', 'Repas'],
     ['/finance/dashboard', 'Finance'],
     ['/finance/summary/review', 'Revue'],
     ['/accounts', 'Comptes et transactions'],

@@ -51,12 +51,13 @@ tags:
     file: ../subflows/open-destination.yaml
     env:
       DEST: cookbook
-- tapOn: "Repas"
-- extendedWaitUntil:
-    visible: "Déjeuner"
-    timeout: 20000
+# Cuisine opens on Repas (MAG-628): the week's days, each with its « + Ajouter un repas ».
+- scrollUntilVisible:
+    element:
+      id: "meal_add_day_sunday"
+    timeout: 30000
 - tapOn:
-    id: "meal_slot_lunch_6"
+    id: "meal_add_day_sunday"
 - extendedWaitUntil:
     visible:
       id: "meal_menu_field"
@@ -160,16 +161,15 @@ tags:
     timeout: 30000
 
 # I tap the meal: its sheet opens, with the title field. I give it a title of my
-# own, save, and the week shows it instead of the recipe's name.
+# own, save, and the card's header shows it instead of the slot.
 - runFlow:
     file: ../subflows/open-destination.yaml
     env:
       DEST: cookbook
-- tapOn: "Repas"
-- extendedWaitUntil:
-    visible: "Riz au curry MAG-297"
-    timeout: 20000
-- tapOn: "Riz au curry MAG-297"
+- scrollUntilVisible:
+    element: "Déjeuner"
+    timeout: 30000
+- tapOn: "Déjeuner"
 - extendedWaitUntil:
     visible:
       id: "meal_detail_title"
@@ -180,12 +180,10 @@ tags:
 - runFlow: ../subflows/hide-keyboard.yaml
 - tapOn:
     id: "meal_detail_save"
-- extendedWaitUntil:
-    visible: "Dimanche en famille"
-    timeout: 20000
-- extendedWaitUntil:
-    notVisible: "Riz au curry MAG-297"
-    timeout: 20000
+# Sunday is the bottom of the week: the sheet closes on the top of it.
+- scrollUntilVisible:
+    element: "Dimanche en famille"
+    timeout: 30000
 - runScript:
     file: ../scripts/meal-api.js
     env:

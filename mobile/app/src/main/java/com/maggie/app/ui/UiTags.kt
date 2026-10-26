@@ -1,5 +1,6 @@
 package com.maggie.app.ui
 
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 /**
@@ -527,8 +528,8 @@ object UiTags {
     const val CALENDAR_MONTH_SLOT_PREFIX = "calendar_month_slot_"
     const val CALENDAR_MONTH_MORE_PREFIX = "calendar_month_more_"
 
-    /** Cuisine › Repas — one cell of the week: `meal_slot_<lunch|dinner>_<0 = Monday … 6 = Sunday>`. */
-    const val MEAL_SLOT_PREFIX = "meal_slot_"
+    /** Cuisine › Repas — « + Ajouter un repas » of a day: `meal_add_day_<monday … sunday>`. */
+    const val MEAL_ADD_DAY_PREFIX = "meal_add_day_"
 
     /**
      * Tasks screen (MAG-408) — the root, one tab per view suffixed by the view's key (`today`,
@@ -799,7 +800,8 @@ object UiTags {
 
     fun calendarMonthMore(date: LocalDate) = CALENDAR_MONTH_MORE_PREFIX + date
 
-    fun mealSlot(slot: String, dayIndex: Int) = "$MEAL_SLOT_PREFIX${slot}_$dayIndex"
+    /** [dayIndex]: 0 is Monday, 6 is Sunday. */
+    fun mealAddDay(dayIndex: Int) = MEAL_ADD_DAY_PREFIX + DayOfWeek.of(dayIndex + 1).name.lowercase()
 
     /**
      * The drawer entry the grocery journeys open. Covered by [DRAWER_ITEM_PREFIX]
@@ -1230,9 +1232,43 @@ object UiTags {
     const val MEAL_GUESTS_PLUS = "meal_guests_plus"
     const val MEAL_GUESTS_VALUE = "meal_guests_value"
 
-    /** The people a planned meal in the week view is cooked for, and « Quantités pour N convives » on the ingredient choice. */
-    const val MEAL_ROW_GUESTS = "meal_row_guests"
+    /** « Quantités pour N convives » on the ingredient choice. */
     const val MEAL_CHOICE_GUESTS = "meal_choice_guests"
+
+    /**
+     * Cuisine › Repas (MAG-628): the week's label and its arrows; a meal's card, its convives stepper
+     * (`meal_card_guests_minus`, `_value`, `_plus`) and « Ingrédients sur la liste »; each recipe of the card
+     * with its portions stepper (`meal_recipe_portions_minus`, `_value`, `_plus` — the simulation, nothing
+     * saved), its « Lancer » and what it brings per person.
+     */
+    const val MEALS_WEEK_LABEL = "meals_week_label"
+    const val MEALS_WEEK_PREVIOUS = "meals_week_previous"
+    const val MEALS_WEEK_NEXT = "meals_week_next"
+    const val MEAL_CARD = "meal_card"
+    const val MEAL_CARD_GUESTS = "meal_card_guests"
+    const val MEAL_CARD_GUESTS_MINUS = "meal_card_guests_minus"
+    const val MEAL_CARD_GUESTS_VALUE = "meal_card_guests_value"
+    const val MEAL_CARD_GUESTS_PLUS = "meal_card_guests_plus"
+    const val MEAL_CARD_INGREDIENTS = "meal_card_ingredients"
+    const val MEAL_RECIPE_PORTIONS = "meal_recipe_portions"
+    const val MEAL_RECIPE_PORTIONS_MINUS = "meal_recipe_portions_minus"
+    const val MEAL_RECIPE_PORTIONS_VALUE = "meal_recipe_portions_value"
+    const val MEAL_RECIPE_PORTIONS_PLUS = "meal_recipe_portions_plus"
+    const val MEAL_RECIPE_LAUNCH = "meal_recipe_launch"
+    const val MEAL_RECIPE_FACTS = "meal_recipe_facts"
+
+    /** The heading « Cuisine › Repas ▾ » (MAG-628): its dropdown, the two sections it switches, and the recipe FAB. */
+    const val COOKBOOK_SECTION = "cookbook_section"
+    const val COOKBOOK_SECTION_MEALS = "cookbook_section_meals"
+    const val COOKBOOK_SECTION_RECIPES = "cookbook_section_recipes"
+    const val COOKBOOK_RECIPE_CREATE = "cookbook_recipe_create"
+
+    /** The recipe list (MAG-628): the search field, the « Toutes » pill, a tag's pill, a row's avatar and its « 515 kcal · 35 min ». */
+    const val RECIPE_SEARCH_FIELD = "recipe_search_field"
+    const val RECIPE_FILTER_ALL = "recipe_filter_all"
+    const val RECIPE_FILTER_TAG = "recipe_filter_tag"
+    const val RECIPE_ROW_AVATAR = "recipe_row_avatar"
+    const val RECIPE_ROW_FACTS = "recipe_row_facts"
 
     /**
      * « Pour N personnes » on the recipe sheet (MAG-483): the stepper (`recipe_guests_minus`, `_value`,
@@ -1306,9 +1342,6 @@ object UiTags {
     /** The week view's meal (a long press asks to delete it) and the « Supprimer » of the confirmation. */
     const val MEAL_ROW = "meal_row"
     const val MEAL_DELETE_CONFIRM = "meal_delete_confirm"
-
-    /** « + » in a slot that already holds a meal: the only way to plan a second one there. */
-    const val MEAL_ADD = "meal_add"
 
     /** The meal's sheet (MAG-378): its title, « Enregistrer », « Supprimer » and the ingredients. */
     const val MEAL_DETAIL_TITLE = "meal_detail_title"
