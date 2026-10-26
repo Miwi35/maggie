@@ -79,7 +79,9 @@ export class ChatPanel {
       // Right after a reload the shell is not mounted yet, so the first read says « closed »
       // whatever the state; wait for the portrait (the shell mounted), read again, and click
       // only if the chat is still closed — an open chat has no portrait.
-      await expect(this.portrait.or(this.input)).toBeVisible()
+      // `.first()`: while the panel mounts, both can be on screen for a frame, and a strict
+      // locator would refuse the two.
+      await expect(this.portrait.or(this.input).first()).toBeVisible()
 
       if (await this.portrait.isVisible()) {
         await this.portrait.click()
