@@ -81,7 +81,7 @@ describe('BudgetTile', () => {
       tile.balanceBeforeSalary = { onDate: '2026-10-28', balanceCents: -5000 }
     })
 
-    expect(screen.getByTestId('balance-before-salary')).toHaveTextContent(/-50,00\s€/)
+    expect(screen.getByTestId('balance-before-salary')).toHaveTextContent(/\u221250,00\s€/)
   })
 
   test.each([

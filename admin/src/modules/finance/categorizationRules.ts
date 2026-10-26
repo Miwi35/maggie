@@ -1,3 +1,5 @@
+import { formatCents } from './accountTypes'
+
 export const MATCH_TYPE_CHOICES = [
   { id: 'contains', name: 'Contient' },
   { id: 'starts_with', name: 'Commence par' },
@@ -39,14 +41,12 @@ export function describeRuleScope(
     parts.push(DIRECTION_LABELS[direction] ?? direction)
   }
 
-  const euros = (cents: number) => (cents / 100).toFixed(2).replace('.', ',') + ' €'
-
   if (minAmountCents != null && maxAmountCents != null) {
-    parts.push(`entre ${euros(minAmountCents)} et ${euros(maxAmountCents)}`)
+    parts.push(`entre ${formatCents(minAmountCents)} et ${formatCents(maxAmountCents)}`)
   } else if (minAmountCents != null) {
-    parts.push(`à partir de ${euros(minAmountCents)}`)
+    parts.push(`à partir de ${formatCents(minAmountCents)}`)
   } else if (maxAmountCents != null) {
-    parts.push(`jusqu'à ${euros(maxAmountCents)}`)
+    parts.push(`jusqu'à ${formatCents(maxAmountCents)}`)
   }
 
   return parts.join(' · ')

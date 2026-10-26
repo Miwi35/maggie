@@ -111,7 +111,7 @@ class TransactionTransferScreenTest {
         compose.onAllNodesWithTag(UiTags.INCIDENT_ROW).assertCountEquals(1)
         compose.onNodeWithText("EDF").assertIsDisplayed()
         compose.onNodeWithText("2026-09-15 · Prélèvement rejeté").assertIsDisplayed()
-        compose.onNodeWithText("62.40 EUR").assertIsDisplayed()
+        compose.onNodeWithText("62,40\u00A0€").assertIsDisplayed()
     }
 
     @Test

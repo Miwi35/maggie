@@ -119,8 +119,8 @@ describe('TreasuryPage', () => {
     const days = await screen.findAllByTestId('treasury-day')
 
     expect(days).toHaveLength(4)
-    expect(days[2]).toHaveTextContent('Taxe foncière (récurrent) (-977,00')
-    expect(days[2]).toHaveTextContent('-1')
+    expect(days[2]).toHaveTextContent('Taxe foncière (récurrent) (\u2212977,00')
+    expect(days[2]).toHaveTextContent('\u22121')
     expect(days[3]).toHaveTextContent('Claude (récurrent)')
     expect(days[0]).not.toHaveTextContent('récurrent')
   })

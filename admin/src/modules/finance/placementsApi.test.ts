@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { emptyValues, percentToBasisPoints, toInput, validatePlacement, valuesOf } from './placementForm'
+import { formatCentsRounded } from './accountTypes'
 import {
   createPlacement,
   depositsLabel,
@@ -7,7 +8,6 @@ import {
   fetchSimulation,
   formatMonth,
   projectNames,
-  formatEuros,
   formatRate,
   isWholePlacement,
   NOTHING_PAID,
@@ -41,9 +41,9 @@ afterEach(() => {
 
 describe('placements, as the owner reads them', () => {
   test('euros are rounded to the euro, the French way', () => {
-    expect(plain(formatEuros(7443007))).toBe('74 430 €')
-    expect(plain(formatEuros(24810))).toBe('248 €')
-    expect(plain(formatEuros(0))).toBe('0 €')
+    expect(plain(formatCentsRounded(7443007))).toBe('74 430 €')
+    expect(plain(formatCentsRounded(24810))).toBe('248 €')
+    expect(plain(formatCentsRounded(0))).toBe('0 €')
   })
 
   test.each([

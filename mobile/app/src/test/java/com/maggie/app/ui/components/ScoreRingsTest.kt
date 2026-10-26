@@ -76,11 +76,11 @@ class ScoreRingsTest {
         val score = PeriodScore(status = "green", label = "Dans le vert", rhythm = onTrack)
 
         assertEquals(
-            "Mois : Dans le rythme, il reste ${ringAmount(12000)} sur ${ringAmount(20000)}, " +
-                "attendu aujourd'hui ${ringAmount(10000)}",
+            "Mois : Dans le rythme, il reste ${formatCents(12000)} sur ${formatCents(20000)}, " +
+                "attendu aujourd'hui ${formatCents(10000)}",
             ringDescription("Mois", score),
         )
-        assertTrue(ringAmount(12000).endsWith("€"))
+        assertTrue(formatCents(12000).endsWith("€"))
     }
 
     @Test
@@ -120,7 +120,7 @@ class ScoreRingsTest {
     fun `an overspent ring says by how much`() {
         val score = PeriodScore(status = "red", label = "Dépassement", rhythm = onTrack.copy(remainingCents = -9134))
 
-        assertTrue(ringDescription("Mois", score).contains("dépassé de ${ringAmount(9134)}"))
+        assertTrue(ringDescription("Mois", score).contains("dépassé de ${formatCents(9134)}"))
     }
 
     @Test

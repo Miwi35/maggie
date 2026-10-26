@@ -3,7 +3,8 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
 import { TOKENS } from '../../design/tokens'
-import { formatEuros, yearsLabel } from './placementsApi'
+import { formatCentsRounded } from './accountTypes'
+import { yearsLabel } from './placementsApi'
 import type { SimulationPoint } from './placementsApi'
 
 const WIDTH = 600
@@ -66,8 +67,8 @@ export const PlacementCurve = ({
         role="img"
         aria-label={
           withdrawal
-            ? `Courbe de ${name} sur ${yearsLabel(years)} : ${formatEuros(lastOf(withdrawal.curveWithout)?.capital ?? 0)} de capital à la fin sans retrait, ${formatEuros(lastOf(withdrawal.curveWith)?.capital ?? 0)} avec retrait`
-            : `Courbe de ${name} sur ${yearsLabel(years)} : ${formatEuros(last?.paid ?? 0)} versés, ${formatEuros(last?.capital ?? 0)} de capital à la fin`
+            ? `Courbe de ${name} sur ${yearsLabel(years)} : ${formatCentsRounded(lastOf(withdrawal.curveWithout)?.capital ?? 0)} de capital à la fin sans retrait, ${formatCentsRounded(lastOf(withdrawal.curveWith)?.capital ?? 0)} avec retrait`
+            : `Courbe de ${name} sur ${yearsLabel(years)} : ${formatCentsRounded(last?.paid ?? 0)} versés, ${formatCentsRounded(last?.capital ?? 0)} de capital à la fin`
         }
       >
         {withdrawal ? (

@@ -67,7 +67,7 @@ import com.maggie.app.data.model.PlacementFrequency
 import com.maggie.app.data.model.PlacementPoint
 import com.maggie.app.data.model.PlacementSimulation
 import com.maggie.app.data.model.independenceMonthLabel
-import com.maggie.app.data.model.formatEuros
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.formatPlacementRate
 import com.maggie.app.data.model.placementTerms
 import com.maggie.app.data.model.yearsLabel
@@ -218,17 +218,17 @@ private fun ProjectionCard(placement: Placement, state: PlacementUiState, onEdit
                 }
             }
             Text(
-                formatEuros(placement.finalCents),
+                formatCentsRounded(placement.finalCents),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Light,
             )
             ChartSlot(state, placement, height = 120.dp, axes = false)
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                LegendItem(colors.paid, "versements ${formatEuros(placement.paid)}")
-                LegendItem(colors.capital, "intérêts ${formatEuros(placement.interest)}")
+                LegendItem(colors.paid, "versements ${formatCentsRounded(placement.paid)}")
+                LegendItem(colors.capital, "intérêts ${formatCentsRounded(placement.interest)}")
             }
             Text(
-                "≈ ${formatEuros(placement.rent)} / mois de rente à 4 %",
+                "≈ ${formatCentsRounded(placement.rent)} / mois de rente à 4 %",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -252,12 +252,12 @@ private fun WithdrawalSummary(simulation: PlacementSimulation, showGap: Boolean)
         )
         Column(modifier = Modifier.testTag(UiTags.PLACEMENT_AFTER_WITHDRAWAL), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                "${formatEuros(simulation.finalWith)} après retrait",
+                "${formatCentsRounded(simulation.finalWith)} après retrait",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Light,
             )
             Text(
-                "≈ ${formatEuros(simulation.rentWith)} / mois de rente à 4 % après retrait",
+                "≈ ${formatCentsRounded(simulation.rentWith)} / mois de rente à 4 % après retrait",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -271,7 +271,7 @@ private fun WithdrawalSummary(simulation: PlacementSimulation, showGap: Boolean)
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                     )
-                    Text("− ${formatEuros(withdrawal.amountCents)}", style = MaterialTheme.typography.bodyMedium)
+                    Text("− ${formatCentsRounded(withdrawal.amountCents)}", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -282,7 +282,7 @@ private fun WithdrawalSummary(simulation: PlacementSimulation, showGap: Boolean)
 @Composable
 private fun GapText(simulation: PlacementSimulation) {
     Text(
-        "Écart à la fin de la durée : ${formatEuros(simulation.gapAtEnd)}",
+        "Écart à la fin de la durée : ${formatCentsRounded(simulation.gapAtEnd)}",
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.testTag(UiTags.PLACEMENT_GAP),
     )
@@ -324,7 +324,7 @@ private fun PlacementRow(placement: Placement, isSelected: Boolean, onClick: () 
         Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row {
                 Text(placement.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                Text(formatEuros(placement.finalCents), style = MaterialTheme.typography.titleMedium)
+                Text(formatCentsRounded(placement.finalCents), style = MaterialTheme.typography.titleMedium)
             }
             Text(
                 placementTerms(placement),
@@ -354,7 +354,7 @@ private fun PlacementColumns(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                "${formatEuros(state.monthlyDeposits)} par mois de versements en moyenne.",
+                "${formatCentsRounded(state.monthlyDeposits)} par mois de versements en moyenne.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -401,8 +401,8 @@ private fun SettingsPanel(
                 modifier = Modifier.padding(top = 8.dp),
             )
             FrequencyControl(PlacementFrequency.of(placement.frequency), onFrequency)
-            StepperField("Versement", formatEuros(placement.deposit.toLong()), PlacementStep.DEPOSIT, placement, onStep, "le versement")
-            SettingsField("Versement initial", formatEuros(placement.initial.toLong()))
+            StepperField("Versement", formatCentsRounded(placement.deposit.toLong()), PlacementStep.DEPOSIT, placement, onStep, "le versement")
+            SettingsField("Versement initial", formatCentsRounded(placement.initial.toLong()))
             StepperField("Rendement annuel", formatPlacementRate(placement.annualRate), PlacementStep.RATE, placement, onStep, "le rendement")
             StepperField("Durée", yearsLabel(placement.years), PlacementStep.YEARS, placement, onStep, "la durée")
             SettingsField("Intérêts", "composés, réinvestis", divider = false)
@@ -508,9 +508,9 @@ private fun ProjectionPanel(placement: Placement, state: PlacementUiState, modif
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FigureTile("Capital dans ${yearsLabel(placement.years)}", formatEuros(placement.finalCents), Modifier.weight(1f))
-            FigureTile("Dont versements", formatEuros(placement.paid), Modifier.weight(1f))
-            FigureTile("Dont intérêts composés", formatEuros(placement.interest), Modifier.weight(1f))
+            FigureTile("Capital dans ${yearsLabel(placement.years)}", formatCentsRounded(placement.finalCents), Modifier.weight(1f))
+            FigureTile("Dont versements", formatCentsRounded(placement.paid), Modifier.weight(1f))
+            FigureTile("Dont intérêts composés", formatCentsRounded(placement.interest), Modifier.weight(1f))
         }
         val withdrawals = state.simulation?.takeIf { it.hasWithdrawals }
         MaggieCard(modifier = Modifier.fillMaxWidth()) {
@@ -536,7 +536,7 @@ private fun ProjectionPanel(placement: Placement, state: PlacementUiState, modif
             }
         }
         Text(
-            "Retiré à 4 % par an, ce capital donnerait environ ${formatEuros(placement.rent)} par mois de rente.",
+            "Retiré à 4 % par an, ce capital donnerait environ ${formatCentsRounded(placement.rent)} par mois de rente.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -576,11 +576,11 @@ internal fun placementChartColors(): PlacementChartColors {
 
 /** What a screen reader says of the chart. */
 internal fun placementChartDescription(simulation: PlacementSimulation, years: Int): String =
-    "Capital projeté : ${formatEuros(simulation.finalCents)} dans ${yearsLabel(years)}, " +
-        "dont ${formatEuros(simulation.paid)} de versements et ${formatEuros(simulation.interest)} d'intérêts composés." +
+    "Capital projeté : ${formatCentsRounded(simulation.finalCents)} dans ${yearsLabel(years)}, " +
+        "dont ${formatCentsRounded(simulation.paid)} de versements et ${formatCentsRounded(simulation.interest)} d'intérêts composés." +
         if (simulation.hasWithdrawals) {
-            " Avec retrait pour ${simulation.withdrawalProjects} : ${formatEuros(simulation.finalWith)}, " +
-                "soit un écart de ${formatEuros(simulation.gapAtEnd)}."
+            " Avec retrait pour ${simulation.withdrawalProjects} : ${formatCentsRounded(simulation.finalWith)}, " +
+                "soit un écart de ${formatCentsRounded(simulation.gapAtEnd)}."
         } else {
             ""
         }
@@ -609,8 +609,8 @@ private fun PlacementChart(simulation: PlacementSimulation, years: Int, height: 
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.End,
                 ) {
-                    AxisLabel(formatEuros(top))
-                    AxisLabel(formatEuros(top / 2))
+                    AxisLabel(formatCentsRounded(top))
+                    AxisLabel(formatCentsRounded(top / 2))
                     AxisLabel("0")
                 }
             }

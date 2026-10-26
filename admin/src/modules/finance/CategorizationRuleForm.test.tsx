@@ -299,7 +299,7 @@ describe('CategorizationRuleForm', () => {
         await user.type(screen.getByLabelText(/Montant maximum/), '5225')
         await pickCategory(user)
 
-        expect(await screen.findByText(/Toute transaction \(Revenu · entre 4275,00 € et 5225,00 €\)/)).toBeInTheDocument()
+        expect(await screen.findByText(/Toute transaction \(Revenu · entre 4 275,00 € et 5 225,00 €\)/)).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
         await waitFor(() => expect(create).toHaveBeenCalledTimes(1))

@@ -3,7 +3,7 @@
  *
  * Every finance screen formats an integer number of cents through
  * `formatCents` (admin/src/modules/finance/accountTypes.ts), which is
- * `Intl.NumberFormat('fr-FR', { style: 'currency' })`. The finance journeys
+ * `Intl.NumberFormat('fr-FR')` with the symbol after the number and a real minus sign. The finance journeys
  * assert on computed amounts — that is what MAG-102 asks for — so they have to
  * build the same string rather than hard-code "1 845,50 €" and hope the two
  * runtimes agree.
@@ -16,16 +16,17 @@
  * spaces makes the expectation independent of either ICU build.
  */
 
-/** "1 845,50 €" from 184550. */
+/** "1 845,50 €" from 184550, "−120,00 €" from -12000: the admin's one formatter (MAG-621). */
 export function euros(cents: number, currency = 'EUR'): string {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency })
-    .format(cents / 100)
-    .replace(/\s/gu, ' ')
+  const digits = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(cents) / 100)
+  const symbol = currency === 'EUR' ? '€' : currency
+
+  return `${cents < 0 ? '\u2212' : ''}${digits} ${symbol}`.replace(/\s/gu, ' ')
 }
 
 /**
  * What the `Amount` component renders with `signed`: a credit carries its `+`,
- * a debit carries the `-` the formatter already gives it.
+ * a debit carries the `−` the formatter already gives it.
  */
 export function signedEuros(cents: number, currency = 'EUR'): string {
   return `${cents > 0 ? '+' : ''}${euros(cents, currency)}`

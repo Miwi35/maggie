@@ -192,15 +192,15 @@ private val RESALE_MONTH = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANC
 fun investmentMonthLabel(month: String): String =
     runCatching { YearMonth.parse(month.take(7)).format(RESALE_MONTH) }.getOrDefault(month)
 
-/** « Loyer perçu : 160,00 EUR par mois ». */
+/** « Loyer perçu : 160,00 € par mois ». */
 fun investmentRentLabel(investment: ProjectInvestment, currency: String = "EUR"): String =
     "Loyer perçu : ${formatCents(investment.monthlyRentCents, currency)} par mois"
 
-/** « Mensualité du prêt : 141,08 EUR par mois »; null without a loan. */
+/** « Mensualité du prêt : 141,08 € par mois »; null without a loan. */
 fun investmentLoanLabel(investment: ProjectInvestment, currency: String = "EUR"): String? =
     if (investment.loanPaymentCents > 0) "Mensualité du prêt : ${formatCents(investment.loanPaymentCents, currency)} par mois" else null
 
-/** « Solde : +18,92 EUR par mois » — the rent less the loan's payment; « −… » when the box costs more than it brings. */
+/** « Solde : +18,92 € par mois » — the rent less the loan's payment; « −… » when the box costs more than it brings. */
 fun investmentBalanceLabel(investment: ProjectInvestment, currency: String = "EUR"): String {
     val balance = investment.monthlyBalanceCents
     val sign = if (balance > 0) "+" else if (balance < 0) "−" else ""
@@ -208,7 +208,7 @@ fun investmentBalanceLabel(investment: ProjectInvestment, currency: String = "EU
 }
 
 /**
- * « Revendre en juin 2028 pour 10000,00 EUR net, pour l'apport de Japon » — or, with no target, « …, pour
+ * « Revendre en juin 2028 pour 10000,00 € net, pour l'apport de Japon » — or, with no target, « …, pour
  * avancer les projets suivants ». Null while no resale is planned. A target that is no longer in [all]
  * reads as no target.
  */

@@ -244,8 +244,8 @@ describe('RecurringOperationsPage — the list', () => {
     expect(within(flixo).getByText('Crédit Agricole · EUR · Courant')).toBeInTheDocument()
     expect(within(flixo).getByText('Le 12 de chaque mois')).toBeInTheDocument()
     expect(within(flixo).getByText('déclaré')).toBeInTheDocument()
-    expect(nbsp(within(flixo).getByText(/ \/ mois$/).textContent)).toBe('-13,49 € / mois')
-    expect(nbsp(within(flixo).getByText(/ \/ an$/).textContent)).toBe('-161,88 € / an')
+    expect(nbsp(within(flixo).getByText(/ \/ mois$/).textContent)).toBe('\u221213,49 € / mois')
+    expect(nbsp(within(flixo).getByText(/ \/ an$/).textContent)).toBe('\u2212161,88 € / an')
     expect(within(flixo).getByText('12/11/2026')).toBeInTheDocument()
 
     const loyer = rowOf('Loyer')
@@ -358,7 +358,7 @@ describe('RecurringOperationsPage — the list', () => {
     renderPage()
 
     const costs = (await screen.findByText('Dépenses par mois')).parentElement!
-    expect(nbsp(costs.textContent)).toContain('-813,49 €')
+    expect(nbsp(costs.textContent)).toContain('\u2212813,49 €')
     const incomes = screen.getByText('Recettes par mois').parentElement!
     expect(nbsp(incomes.textContent)).toContain('2 500,00 €')
     expect(screen.getByText('Séries actives').parentElement).toHaveTextContent('4')

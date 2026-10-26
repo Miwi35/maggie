@@ -97,12 +97,12 @@ class PlacementListScreenTest {
         waitForRows(3)
         compose.onNodeWithText("PEA · capital dans 20 ans").assertIsDisplayed()
         compose.onNodeWithText("≈ 248\u00A0€ / mois de rente à 4 %").assertIsDisplayed()
-        compose.onNodeWithText("versements 38\u00A0000\u00A0€").assertIsDisplayed()
-        compose.onNodeWithText("intérêts 36\u00A0430\u00A0€").assertIsDisplayed()
+        compose.onNodeWithText("versements 38\u202F000\u00A0€").assertIsDisplayed()
+        compose.onNodeWithText("intérêts 36\u202F430\u00A0€").assertIsDisplayed()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PLACEMENT_CHART).fetchSemanticsNodes().isNotEmpty() }
         assertTopToBottom(
             "PEA" to compose.onNodeWithText("150\u00A0€ par mois · 6\u00A0% · 20 ans"),
-            "Assurance-vie" to compose.onNodeWithText("1\u00A0200\u00A0€ par an · 3,5\u00A0% · 15 ans"),
+            "Assurance-vie" to compose.onNodeWithText("1\u202F200\u00A0€ par an · 3,5\u00A0% · 15 ans"),
             "Livret" to compose.onNodeWithText("500\u00A0€ une fois · 3\u00A0% · 10 ans"),
         )
     }
@@ -191,11 +191,11 @@ class PlacementListScreenTest {
         compose.onNodeWithText("PEA · capital dans 20 ans").assertIsDisplayed()
         compose.onNodeWithText("≈ 248\u00A0€ / mois de rente à 4 %").assertIsDisplayed()
         compose.onNodeWithText("Après retrait pour Voyage au Japon").assertExists()
-        compose.onNodeWithText("70\u00A0000\u00A0€ après retrait").assertExists()
+        compose.onNodeWithText("70\u202F000\u00A0€ après retrait").assertExists()
         compose.onNodeWithText("≈ 233\u00A0€ / mois de rente à 4 % après retrait").assertExists()
         compose.onNodeWithText("Voyage au Japon · avril 2027").assertExists()
-        compose.onNodeWithText("− 1\u00A0500\u00A0€").assertExists()
-        compose.onNodeWithText("Écart à la fin de la durée : 4\u00A0430\u00A0€").assertExists()
+        compose.onNodeWithText("− 1\u202F500\u00A0€").assertExists()
+        compose.onNodeWithText("Écart à la fin de la durée : 4\u202F430\u00A0€").assertExists()
     }
 
     @Test
@@ -208,7 +208,7 @@ class PlacementListScreenTest {
         compose.onNodeWithTag(UiTags.PLACEMENT_CHART_TITLE).assertIsDisplayed()
         compose.onNodeWithText("PEA · avec et sans retrait pour Voyage au Japon").assertIsDisplayed()
         compose.onNodeWithText("capital sans retrait (pointillés)").assertIsDisplayed()
-        compose.onNodeWithText("Écart à la fin de la durée : 4\u00A0430\u00A0€").assertIsDisplayed()
+        compose.onNodeWithText("Écart à la fin de la durée : 4\u202F430\u00A0€").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.PLACEMENT_CHART).assertIsDisplayed()
         // The tablet's figures are unchanged.
         compose.onNodeWithText("Capital dans 20 ans").assertIsDisplayed()

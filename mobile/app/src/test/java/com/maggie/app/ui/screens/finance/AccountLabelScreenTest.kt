@@ -50,7 +50,7 @@ class AccountLabelScreenTest {
         )
         compose.setContent { CushionSummaryCard(status = status) }
 
-        compose.onNodeWithText("Boursorama · EUR · Livret A — 5000.00 EUR").assertIsDisplayed()
-        compose.onNodeWithText("EUR · Livret — 10.00 EUR").assertIsDisplayed()
+        compose.onNodeWithText("Boursorama · EUR · Livret A — 5\u202F000,00\u00A0€").assertIsDisplayed()
+        compose.onNodeWithText("EUR · Livret — 10,00\u00A0€").assertIsDisplayed()
     }
 }

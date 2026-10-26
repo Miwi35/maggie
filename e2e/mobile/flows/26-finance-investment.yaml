@@ -21,8 +21,7 @@ tags:
 # the shard of 23, after it: the server is shared between shards, and a resale set aside for « Voiture »
 # would change its sources line.
 #
-# The amounts are matched loosely, as the app formats them in the device's locale (« 650,00 EUR »,
-# « 650.00 EUR »). The loan's payment and the balance depend on the interest the API computes: the
+# The amounts are matched loosely, as the app formats them (« 650,00 € »). The loan's payment and the balance depend on the interest the API computes: the
 # unit tests (`ProjectTest`) and the API's own pin the figures, so only their labels are asserted here.
 # The resale month is 30 months from today: any month of any year matches.
 #
@@ -58,19 +57,19 @@ tags:
 # The row is tall: on a tablet or a foldable the list stops with its title at the screen's edge, under the
 # chat band, and its lines below it. Each line is scrolled to the middle, top to bottom.
 - scrollUntilVisible:
-    element: ".*Loyer perçu : 650[,.]00 EUR par mois.*"
+    element: ".*Loyer perçu : 650,00.€ par mois.*"
     centerElement: true
     timeout: 30000
 - scrollUntilVisible:
-    element: ".*Mensualité du prêt : .* EUR par mois.*"
+    element: ".*Mensualité du prêt : .*.€ par mois.*"
     centerElement: true
     timeout: 10000
 - scrollUntilVisible:
-    element: ".*Solde : .* EUR par mois.*"
+    element: ".*Solde : .*.€ par mois.*"
     centerElement: true
     timeout: 10000
 - scrollUntilVisible:
-    element: ".*Revendre en .* 20[0-9]{2} pour 4000[,.]00 EUR net, pour l'apport de Studio.*"
+    element: ".*Revendre en .* 20[0-9]{2} pour 4.000,00.€ net, pour l'apport de Studio.*"
     centerElement: true
     timeout: 10000
 
@@ -85,10 +84,10 @@ tags:
       id: "project_investment"
     timeout: 20000
 - assertVisible: "Investissement locatif"
-- assertVisible: ".*650[,.]00 EUR par mois.*"
+- assertVisible: ".*650,00.€ par mois.*"
 - assertVisible: "Mensualité du prêt"
 - assertVisible: "Solde mensuel"
-- assertVisible: ".*Revendre en .* 20[0-9]{2} pour 4000[,.]00 EUR net, pour l'apport de Studio.*"
+- assertVisible: ".*Revendre en .* 20[0-9]{2} pour 4.000,00.€ net, pour l'apport de Studio.*"
 
 # The target of the resale names it among its sources.
 - openLink: "maggie-e2e://finance/projects"

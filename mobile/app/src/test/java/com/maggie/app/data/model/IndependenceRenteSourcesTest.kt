@@ -59,7 +59,7 @@ class IndependenceRenteSourcesTest {
 
         assertEquals(1, rows.size)
         assertEquals(IndependenceRenteSourceKind.PLACEMENTS, rows.single().kind)
-        assertEquals("Placements · 1 · ≈ ${formatEuros(23807)} / mois à terme", rows.single().text)
+        assertEquals("Placements · 1 · ≈ ${formatCentsRounded(23807)} / mois à terme", rows.single().text)
         assertEquals("Placements · 1 · ≈ 238 € / mois à terme", rows.single().text)
     }
 

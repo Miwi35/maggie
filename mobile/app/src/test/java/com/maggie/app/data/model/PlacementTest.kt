@@ -114,9 +114,9 @@ class PlacementTest {
 
     @Test
     fun `amounts are whole euros grouped by thousands, rates in French`() {
-        assertEquals("74\u00A0430\u00A0€", formatEuros(7443007))
-        assertEquals("248\u00A0€", formatEuros(24810))
-        assertEquals("0\u00A0€", formatEuros(0))
+        assertEquals("74\u202F430\u00A0€", formatCentsRounded(7443007))
+        assertEquals("248\u00A0€", formatCentsRounded(24810))
+        assertEquals("0\u00A0€", formatCentsRounded(0))
         assertEquals("6\u00A0%", formatPlacementRate(600))
         assertEquals("3,5\u00A0%", formatPlacementRate(350))
         assertEquals("3,25\u00A0%", formatPlacementRate(325))
@@ -132,7 +132,7 @@ class PlacementTest {
         val book = Placement(id = "d", name = "Livret jeune de Léo", initial = 50000, frequency = "once", annualRate = 300, years = 10)
 
         assertEquals("150\u00A0€ par mois · 6\u00A0% · 20 ans", placementTerms(pea))
-        assertEquals("1\u00A0200\u00A0€ par an · 3,5\u00A0% · 15 ans", placementTerms(life))
+        assertEquals("1\u202F200\u00A0€ par an · 3,5\u00A0% · 15 ans", placementTerms(life))
         assertEquals("300\u00A0€ par trimestre · 5\u00A0% · 1 an", placementTerms(quarter))
         assertEquals("500\u00A0€ une fois · 3\u00A0% · 10 ans", placementTerms(book))
     }

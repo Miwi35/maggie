@@ -29,7 +29,7 @@ import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
-import com.maggie.app.ui.components.ringAmount
+import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.navigation.DeepLinks
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
@@ -116,7 +116,7 @@ class MonthBalanceScreenTest {
 
         compose.onNodeWithTag(UiTags.financeScoreRing("month")).performScrollTo().assertIsDisplayed()
         compose.onAllNodesWithText("Au-dessus du rythme", substring = true).onFirst().performScrollTo().assertIsDisplayed()
-        compose.onAllNodesWithText(ringAmount(-15000), substring = true).onFirst().performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText(formatCents(-15000), substring = true).onFirst().performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.FINANCE_RHYTHM_CURVE).performScrollTo().assertIsDisplayed()
     }
 

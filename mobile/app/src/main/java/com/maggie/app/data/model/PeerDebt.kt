@@ -168,10 +168,10 @@ fun splitEqually(totalCents: Int, count: Int): List<Int> {
     return List(count) { index -> if (index == count - 1) total - each * (count - 1) else each }
 }
 
-/** « te doit 200,00 EUR »: what is left of one person's share. */
+/** « te doit 200,00 € »: what is left of one person's share. */
 fun owesYouLabel(remainingCents: Int, currency: String = "EUR"): String = "te doit ${formatCents(remainingCents, currency)}"
 
-/** « tu lui dois 280,00 EUR »: what the owner still has to give back to one person (MAG-452). */
+/** « tu lui dois 280,00 € »: what the owner still has to give back to one person (MAG-452). */
 fun youOweLabel(remainingCents: Int, currency: String = "EUR"): String = "tu lui dois ${formatCents(remainingCents, currency)}"
 
 /** One open créance of a contact, as their page lists it under « En cours ». */

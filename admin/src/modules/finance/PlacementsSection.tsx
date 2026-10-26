@@ -26,6 +26,7 @@ import { useMercure } from '../../hooks/useMercure'
 import { bareId } from './envelopeTree'
 import { PlacementCurve } from './PlacementCurve'
 import { PlacementDialog } from './PlacementDialog'
+import { formatCentsRounded } from './accountTypes'
 import {
   byName,
   createPlacement,
@@ -33,7 +34,6 @@ import {
   depositsLabel,
   fetchPlacements,
   fetchSimulation,
-  formatEuros,
   formatMonth,
   formatRate,
   isWholePlacement,
@@ -58,7 +58,7 @@ const Figure = ({ label, cents }: { label: string; cents: number }) => (
       {label}
     </Typography>
     <Typography variant="h6" sx={{ fontWeight: 300, ...numeric }}>
-      {formatEuros(cents)}
+      {formatCentsRounded(cents)}
     </Typography>
   </Box>
 )
@@ -111,7 +111,7 @@ const SelectedPlacement = ({ placement }: { placement: Placement }) => {
       {withdrawing && simulation && (
         <>
           <Typography variant="body1" sx={numeric} data-testid="placement-gap">
-            Écart à {duration} : {simulation.gapAtEnd > 0 ? `−${formatEuros(simulation.gapAtEnd)}` : formatEuros(0)}
+            Écart à {duration} : {simulation.gapAtEnd > 0 ? `−${formatCentsRounded(simulation.gapAtEnd)}` : formatCentsRounded(0)}
           </Typography>
           <Box component="ul" aria-label={`Retraits de ${placement.name}`} sx={{ m: 0, p: 0, listStyle: 'none' }}>
             {withdrawals.map((withdrawal) => (
@@ -126,7 +126,7 @@ const SelectedPlacement = ({ placement }: { placement: Placement }) => {
                 <Typography variant="body2" color="text.secondary">
                   {formatMonth(withdrawal.month)}
                 </Typography>
-                <Typography variant="body2">−{formatEuros(withdrawal.amountCents)}</Typography>
+                <Typography variant="body2">−{formatCentsRounded(withdrawal.amountCents)}</Typography>
               </Stack>
             ))}
           </Box>
@@ -140,12 +140,12 @@ const SelectedPlacement = ({ placement }: { placement: Placement }) => {
       </Stack>
       {withdrawing && simulation ? (
         <Typography variant="body2" color="text.secondary" data-testid="placement-rent-with">
-          Après ces retraits, retiré à 4 % par an, le capital donnerait environ {formatEuros(simulation.rentWith)} par mois de rente, contre{' '}
-          {formatEuros(placement.rent)} sans retrait (simulation).
+          Après ces retraits, retiré à 4 % par an, le capital donnerait environ {formatCentsRounded(simulation.rentWith)} par mois de rente, contre{' '}
+          {formatCentsRounded(placement.rent)} sans retrait (simulation).
         </Typography>
       ) : (
         <Typography variant="body2" color="text.secondary">
-          Retiré à 4 % par an, ce capital donnerait environ {formatEuros(placement.rent)} par mois de rente (simulation).
+          Retiré à 4 % par an, ce capital donnerait environ {formatCentsRounded(placement.rent)} par mois de rente (simulation).
         </Typography>
       )}
     </Stack>
@@ -272,7 +272,7 @@ export const PlacementsSection = () => {
           <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
             {status === 'ready' && placements.length > 0 && (
               <Typography variant="body2" color="text.secondary" sx={numeric} data-testid="placements-monthly">
-                {formatEuros(monthly)} / mois de versements
+                {formatCentsRounded(monthly)} / mois de versements
               </Typography>
             )}
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditing('new')}>
@@ -340,10 +340,10 @@ export const PlacementsSection = () => {
                         <TableCell>{formatRate(placement.annualRate)}</TableCell>
                         <TableCell>{yearsLabel(placement.years)}</TableCell>
                         <TableCell align="right" data-testid="placement-final">
-                          {formatEuros(placement.final)}
+                          {formatCentsRounded(placement.final)}
                         </TableCell>
                         <TableCell align="right" data-testid="placement-rent">
-                          {formatEuros(placement.rent)}
+                          {formatCentsRounded(placement.rent)}
                         </TableCell>
                         <TableCell padding="checkbox" sx={{ whiteSpace: 'nowrap' }}>
                           <IconButton

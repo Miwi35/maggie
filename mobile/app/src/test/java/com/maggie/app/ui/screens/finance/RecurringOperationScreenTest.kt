@@ -80,7 +80,7 @@ class RecurringOperationScreenTest {
     @Test
     fun `a series with nothing wrong has no badge`() {
         compose.setContent { SeriesCard(series = calm, record = null) }
-        compose.onNodeWithText("30.00 EUR par mois · 360.00 EUR par an").assertIsDisplayed()
+        compose.onNodeWithText("30,00\u00A0€ par mois · 360,00\u00A0€ par an").assertIsDisplayed()
 
         compose.onNodeWithText("Salle de sport").assertIsDisplayed()
         compose.onAllNodesWithTag(UiTags.RECURRING_MISSED_BADGE).assertCountEquals(0)
@@ -99,7 +99,7 @@ class RecurringOperationScreenTest {
         }
 
         compose.onNodeWithText("LOYER SCI VERDA").assertIsDisplayed()
-        compose.onNodeWithText("-900.00 EUR").assertIsDisplayed()
+        compose.onNodeWithText("\u2212900,00\u00A0€").assertIsDisplayed()
         compose.onNodeWithText("Le 12/04/2026 · échéance du 05/04/2026 · automatique").assertIsDisplayed()
     }
 

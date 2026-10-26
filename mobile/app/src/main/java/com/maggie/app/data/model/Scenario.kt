@@ -153,7 +153,7 @@ data class ScenarioWriteResult(
 fun repaymentTitle(figures: RepaymentFigures?): String =
     if (figures == null || figures.loanName.isBlank()) "Remboursement anticipé" else "${figures.loanName} · remboursement anticipé"
 
-/** « Total » or « Partiel 3000,00 EUR », with what a partial one shortens. */
+/** « Total » or « Partiel 3000,00 € », with what a partial one shortens. */
 fun repaymentKindLabel(repayment: ScenarioRepayment, figures: RepaymentFigures?): String {
     if (repayment.isTotal) return "Total"
     val effect = when (figures?.effect ?: repayment.effect) {
@@ -172,13 +172,10 @@ fun nImpactLabel(months: Int?): String = when {
     else -> "N + $months mois"
 }
 
-/** « −120,00 EUR » for a gain that is a loss. */
-fun signedCents(cents: Int): String = if (cents < 0) "−${formatCents(-cents)}" else formatCents(cents)
-
 /** The figures of a repayment on one line: immobilized capital, IRA, real gain, effect on N, freed payment. */
 fun repaymentFiguresLine(figures: RepaymentFigures): String =
     "Capital immobilisé ${formatCents(figures.immobilizedCents)} · IRA ${formatCents(figures.penaltyCents)} · " +
-        "Gain réel ${signedCents(figures.realGainCents)} · ${nImpactLabel(figures.nImpactMonths)} · " +
+        "Gain réel ${formatCents(figures.realGainCents)} · ${nImpactLabel(figures.nImpactMonths)} · " +
         "Mensualité libérée ${formatCents(figures.freedMonthlyCents)}"
 
 private val SCENARIO_MONTH = DateTimeFormatter.ofPattern("LLLL yyyy", Locale.FRENCH)

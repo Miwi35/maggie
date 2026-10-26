@@ -42,7 +42,7 @@ fun pillTag(kind: TransactionPillKind): String = when (kind) {
     TransactionPillKind.TO_SORT -> UiTags.PILL_TO_SORT
 }
 
-/** « À qualifier · 3 · 65.20 EUR »: the pile of the lines to qualify, one tap from its screen. */
+/** « À qualifier · 3 · 65,20 € »: the pile of the lines to qualify, one tap from its screen. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ToQualifyPill(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {

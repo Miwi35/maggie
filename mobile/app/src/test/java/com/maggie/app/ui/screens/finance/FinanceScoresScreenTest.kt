@@ -17,7 +17,7 @@ import com.maggie.app.data.model.RhythmDebit
 import com.maggie.app.data.model.RhythmPoint
 import com.maggie.app.data.model.ScoreReason
 import com.maggie.app.data.model.formatCents
-import com.maggie.app.ui.components.ringAmount
+import com.maggie.app.data.model.formatCents
 import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
@@ -105,8 +105,8 @@ class FinanceScoresScreenTest {
         compose.onNodeWithTag(UiTags.financeScoreRing("month")).assertIsDisplayed()
         compose.onNodeWithText("Dans le rythme", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Au-dessus du rythme", substring = true).assertIsDisplayed()
-        compose.onNodeWithText(ringAmount(17000), substring = true).assertIsDisplayed()
-        compose.onNodeWithText(ringAmount(30000), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(formatCents(17000), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(formatCents(30000), substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -138,7 +138,7 @@ class FinanceScoresScreenTest {
         )
         compose.setContent { ScoreRings(week = week, month = over) }
 
-        compose.onNodeWithText(ringAmount(-91349), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(formatCents(-91349), substring = true).assertIsDisplayed()
         compose.onNodeWithText("Au-dessus du rythme", substring = true).assertIsDisplayed()
         compose.onNodeWithText("dépassé").assertIsDisplayed()
     }

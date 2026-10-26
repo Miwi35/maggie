@@ -15,7 +15,7 @@ tags:
 # Alors le gîte et l'essence y sont, chacun avec son montant
 #
 # The data is set by `scripts/contacts-api.js` (`ACTION: peerdebts`) on the seed's second user, who holds
-# no other finance data. Amounts are matched loosely: the phone writes them « 80.00 EUR ».
+# no other finance data. Amounts are matched loosely: the phone writes them « 80,00 € ».
 #
 # What is not here: the empty state, the error and its retry, the tablet's list beside its detail
 # (`PeerDebtsScreenTest`, `PeerDebtsViewModelTest`), the history of a contact (`ContactScreenTest`),
@@ -45,7 +45,7 @@ tags:
 # to the label, which only exists once the pill is on screen.
 - scrollUntilVisible:
     element:
-      text: "Tu dois 80[.,]00 EUR"
+      text: "Tu dois 80,00.€"
     timeout: 30000
 - tapOn:
     id: "finance_pill_owed"
@@ -58,8 +58,8 @@ tags:
     id: "peer_debts_tile_owed_to_me"
 - assertVisible:
     id: "peer_debts_tile_i_owe"
-- assertVisible: ".*200[.,]00 EUR.*"
-- assertVisible: ".*280[.,]00 EUR.*"
+- assertVisible: ".*200,00.€.*"
+- assertVisible: ".*280,00.€.*"
 
 # « Par personne »: Tom, opened, says the two cancel out.
 - extendedWaitUntil:
@@ -73,7 +73,7 @@ tags:
     visible:
       id: "peer_debts_compensation"
     timeout: 10000
-- assertVisible: "Les deux se compensent : un seul virement de 80[.,]00 EUR à Tom solde tout"
+- assertVisible: "Les deux se compensent : un seul virement de 80,00.€ à Tom solde tout"
 
 # « Par objet »: each object with its amount.
 - tapOn:

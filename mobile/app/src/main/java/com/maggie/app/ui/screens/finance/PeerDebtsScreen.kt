@@ -337,10 +337,10 @@ private fun ObjectDetail(debt: PeerDebt) {
     }
 }
 
-/** « on te doit 400,00 EUR » / « tu dois 280,00 EUR »: what is left of the object. */
+/** « on te doit 400,00 € » / « tu dois 280,00 € »: what is left of the object. */
 internal fun owedSentence(debt: PeerDebt): String =
     if (debt.direction == PeerDebt.DIRECTION_I_OWE) "tu dois ${formatCents(debt.remainingCents)}" else "on te doit ${formatCents(debt.remainingCents)}"
 
-/** « Julie 200,00 EUR · Tom 200,00 EUR »: who still owes (or is owed) on one object. */
+/** « Julie 200,00 € · Tom 200,00 € »: who still owes (or is owed) on one object. */
 internal fun peopleSentence(debt: PeerDebt): String =
     debt.shares.filter { it.remainingCents > 0 }.joinToString(" · ") { "${it.contactName} ${formatCents(it.remainingCents)}" }

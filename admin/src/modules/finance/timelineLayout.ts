@@ -1,5 +1,5 @@
 import { formatMonth, monthsBetween } from './independenceDates'
-import { formatEuros } from './placementsApi'
+import { formatCentsRounded } from './accountTypes'
 import type { TimelineEvent } from './timelineApi'
 
 /** Markers closer than this many months share a lane's width: the next one is pushed to another lane. */
@@ -54,7 +54,7 @@ export const yearTicks = (startMonth: string, horizonMonths: number): YearTick[]
   return ticks
 }
 
-const euros = (amount: number): string => formatEuros(Math.round(amount * 100))
+const euros = (amount: number): string => formatCentsRounded(Math.round(amount * 100))
 
 /** The facts an event carries, said plainly: an amount, what it does to the monthly budget, what it does to N. */
 export const eventFacts = (event: TimelineEvent): string[] => {

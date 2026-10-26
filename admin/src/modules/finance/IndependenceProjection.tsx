@@ -2,7 +2,7 @@ import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
-import { formatEuros } from './placementsApi'
+import { formatCentsRounded } from './accountTypes'
 import { formatDuration, formatMonth, hasProjection, monthsBetween, nDateLabel } from './independenceDates'
 import type {
   IndependenceCounter,
@@ -130,12 +130,12 @@ export const RenteSourcesBlock = ({ counter }: { counter: IndependenceCounter })
       <Stack component="ul" sx={{ listStyle: 'none', p: 0, m: 0, mt: 1, fontVariantNumeric: 'tabular-nums' }} spacing={0.5}>
         {sources.placements.count > 0 && (
           <Typography component="li" variant="body2" data-testid="rente-source-placements">
-            Placements · {sources.placements.count} · ≈ {formatEuros(sources.placements.monthlyRentCents)} / mois à terme
+            Placements · {sources.placements.count} · ≈ {formatCentsRounded(sources.placements.monthlyRentCents)} / mois à terme
           </Typography>
         )}
         {sources.investments.count > 0 && (
           <Typography component="li" variant="body2" data-testid="rente-source-investments">
-            Investissements · {sources.investments.count} · ≈ {formatEuros(sources.investments.monthlyRentCents)} / mois de loyer
+            Investissements · {sources.investments.count} · ≈ {formatCentsRounded(sources.investments.monthlyRentCents)} / mois de loyer
           </Typography>
         )}
       </Stack>

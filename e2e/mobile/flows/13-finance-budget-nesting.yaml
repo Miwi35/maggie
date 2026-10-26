@@ -54,7 +54,7 @@ tags:
 - extendedWaitUntil:
     visible: "Loisirs"
     timeout: 30000
-- assertVisible: "40[.,]00 EUR / 300[.,]00 EUR"
+- assertVisible: "40,00.€ / 300,00.€"
 - assertNotVisible: "Bars › Obsydian"
 # The phone only reads the tree (no « Nouvelle enveloppe », no bin): from 600 dp the same screen has both,
 # so nothing is asserted here on a format the flow cannot tell — `BudgetTreeScreenTest` owns the phone's side.
@@ -72,7 +72,7 @@ tags:
       - extendedWaitUntil:
           visible: "Obsydian"
           timeout: 10000
-      - assertVisible: "40[.,]00 EUR / 100[.,]00 EUR"
+      - assertVisible: "40,00.€ / 100,00.€"
 - evalScript: ${0}
 - runFlow:
     when:
@@ -84,7 +84,7 @@ tags:
       - extendedWaitUntil:
           visible: "Bars › Obsydian"
           timeout: 10000
-      - assertVisible: "40[.,]00 EUR / 100[.,]00 EUR"
+      - assertVisible: "40,00.€ / 100,00.€"
       # Bars has no envelope: it only appears inside Obsydian's path.
       - assertNotVisible: "Bars"
       # Touching Loisirs lists the month's lines of the subtree, Obsydian's spend included.
@@ -125,14 +125,14 @@ tags:
         id: "budget_tree"
     commands:
       - extendedWaitUntil:
-          notVisible: "40[.,]00 EUR / 100[.,]00 EUR"
+          notVisible: "40,00.€ / 100,00.€"
           timeout: 30000
 - tapOn: "Mois suivant"
 
 - extendedWaitUntil:
-    visible: "65[.,]00 EUR / 300[.,]00 EUR"
+    visible: "65,00.€ / 300,00.€"
     timeout: 30000
-- assertVisible: "40[.,]00 EUR / 100[.,]00 EUR"
+- assertVisible: "40,00.€ / 100,00.€"
 
 # A one-off « Hellfest 2026 » of 400 €, and an 89 € ticket filed in Loisirs: 154 / 300 €.
 - runScript:
@@ -197,7 +197,7 @@ tags:
 # Hellfest 89 / 400 € apart from the month, Loisirs no longer counting the ticket.
 - openLink: "maggie-e2e://finance/budgets"
 - extendedWaitUntil:
-    visible: "65[.,]00 EUR / 300[.,]00 EUR"
+    visible: "65,00.€ / 300,00.€"
     timeout: 30000
 - tapOn:
     id: "subview_outside"
@@ -205,7 +205,7 @@ tags:
     element:
       id: "budget_outside_monthly"
 - scrollUntilVisible:
-    element: "89[.,]00 EUR / 400[.,]00 EUR"
+    element: "89,00.€ / 400,00.€"
 - extendedWaitUntil:
     visible: "Hellfest 2026"
     timeout: 10000
@@ -233,9 +233,9 @@ tags:
         id: "budget_tree"
     commands:
       - scrollUntilVisible:
-          element: ".*45[.,]00 EUR · saison.*"
+          element: ".*45,00.€ · saison.*"
       - extendedWaitUntil:
-          visible: ".*45[.,]00 EUR · saison.*"
+          visible: ".*45,00.€ · saison.*"
           timeout: 30000
 - evalScript: ${0}
 - runFlow:
@@ -244,7 +244,7 @@ tags:
         id: "budget_tree"
     commands:
       - extendedWaitUntil:
-          visible: ".*45[.,]00 EUR.*"
+          visible: ".*45,00.€.*"
           timeout: 30000
 
 # Left as found.

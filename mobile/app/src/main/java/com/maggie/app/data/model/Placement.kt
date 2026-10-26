@@ -3,10 +3,6 @@ package com.maggie.app.data.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
-import java.math.RoundingMode
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
-import java.util.Locale
 
 /**
  * A simulated placement of the owner (MAG-555): an initial payment, a deposit paid every month,
@@ -101,14 +97,8 @@ data class PlacementWithdrawal(
 const val PLACEMENT_MAX_YEARS = 60
 const val PLACEMENT_MAX_RATE = 10_000
 
-/** A non-breaking space: « 74 430 € » and « 6 % » never break across two lines. */
+/** A non-breaking space: « 6 % » never breaks across two lines. */
 private const val NBSP = '\u00A0'
-
-/** « 74 430 € »: whole euros, rounded — a projection is not precise to the cent. One format per call: DecimalFormat is not thread-safe. */
-fun formatEuros(cents: Long): String {
-    val format = DecimalFormat("#,##0", DecimalFormatSymbols(Locale.FRANCE).apply { groupingSeparator = NBSP })
-    return format.format(BigDecimal(cents).movePointLeft(2).setScale(0, RoundingMode.HALF_UP)) + "$NBSP€"
-}
 
 /** « 6 % », « 3,5 % », « 3,25 % » from basis points. */
 fun formatPlacementRate(basisPoints: Int): String =
@@ -128,6 +118,6 @@ fun placementPayment(placement: Placement): Int =
 /** « 150 € par mois · 6 % · 20 ans », « 500 € une fois · 3 % · 10 ans ». */
 fun placementTerms(placement: Placement): String {
     val frequency = PlacementFrequency.of(placement.frequency)
-    return "${formatEuros(placementPayment(placement).toLong())} ${frequency.per} · " +
+    return "${formatCentsRounded(placementPayment(placement))} ${frequency.per} · " +
         "${formatPlacementRate(placement.annualRate)} · ${yearsLabel(placement.years)}"
 }
