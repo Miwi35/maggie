@@ -207,6 +207,22 @@ class EventReadFiltersToolsTest extends KernelTestCase
         self::assertSame(['Dentiste'], $this->summaries($data));
     }
 
+    public function testAnEventIsFoundByItsPlaceTooEvenWhenTheNameIsMisheard(): void
+    {
+        $this->loginFixtureUser();
+
+        foreach (['Lubus', "à l'UBU", 'rennes'] as $query) {
+            self::assertSame(['Black Wizards'], $this->summaries($this->upcoming(null, null, $query)), $query);
+        }
+    }
+
+    public function testThePlaceDoesNotBringBackUnrelatedEvents(): void
+    {
+        $this->loginFixtureUser();
+
+        self::assertSame(0, $this->upcoming(null, null, 'bordeaux')['count']);
+    }
+
     public function testAnExplicitWindowStillBoundsATitleSearch(): void
     {
         $this->loginFixtureUser();
