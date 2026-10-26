@@ -6,6 +6,7 @@ namespace Maggie\Cookbook\MessageHandler;
 
 use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Message\CreateIngredientCommand;
+use Maggie\Cookbook\Service\CiqualNutrients;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Enum\ProductCategory;
@@ -19,6 +20,7 @@ class CreateIngredientHandler
     public function __construct(
         private readonly CreateProduct $createProduct,
         private readonly UserRepository $userRepository,
+        private readonly CiqualNutrients $ciqualNutrients,
     ) {
     }
 
@@ -43,6 +45,9 @@ class CreateIngredientHandler
         $ingredient->setProteinPer100g($command->proteinPer100g);
         $ingredient->setCarbsPer100g($command->carbsPer100g);
         $ingredient->setFatPer100g($command->fatPer100g);
+        $ingredient->setPieceWeightGrams($command->pieceWeightGrams);
+        // The Ciqual code alone computes nothing: the macros come with it, the ones the creator gave win.
+        $this->ciqualNutrients->fillMissing($ingredient);
         $ingredient->setPackagingUnit(null !== $command->packagingUnit ? Unit::from($command->packagingUnit) : null);
         $ingredient->setPackagingSize($command->packagingSize);
         $ingredient->setPackagingSizeUnit(null !== $command->packagingSizeUnit ? Unit::from($command->packagingSizeUnit) : null);

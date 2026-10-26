@@ -104,6 +104,11 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
     #[ORM\Column(type: 'float', nullable: true)]
     private ?float $fatPer100g = null;
 
+    // What one piece of it weighs, in grams: how a recipe line counted in pieces reaches the nutrition (MAG-647).
+    #[ORM\Column(type: 'float', nullable: true)]
+    #[Assert\Positive]
+    private ?float $pieceWeightGrams = null;
+
     #[ORM\ManyToOne(targetEntity: Store::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     #[IndexedRelation(targetEntity: Store::class, sourceField: 'preferredStoreId')]
@@ -365,6 +370,18 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
     public function setShelfLifeDays(?int $shelfLifeDays): static
     {
         $this->shelfLifeDays = $shelfLifeDays;
+
+        return $this;
+    }
+
+    public function getPieceWeightGrams(): ?float
+    {
+        return $this->pieceWeightGrams;
+    }
+
+    public function setPieceWeightGrams(?float $pieceWeightGrams): static
+    {
+        $this->pieceWeightGrams = $pieceWeightGrams;
 
         return $this;
     }
@@ -669,6 +686,7 @@ class Product implements MercurePublishable, OwnedByUserInterface, IndexableInte
             'proteinPer100g' => $this->proteinPer100g,
             'carbsPer100g' => $this->carbsPer100g,
             'fatPer100g' => $this->fatPer100g,
+            'pieceWeightGrams' => $this->pieceWeightGrams,
             'preferredStoreId' => null !== $this->preferredStore ? (string) $this->preferredStore->getId() : null,
             'fallbackStoreId' => null !== $this->fallbackStore ? (string) $this->fallbackStore->getId() : null,
             'shelfLifeDays' => $this->shelfLifeDays,

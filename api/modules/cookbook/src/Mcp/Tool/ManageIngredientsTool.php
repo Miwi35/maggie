@@ -15,10 +15,10 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_ingredients', description: 'Create, update, or delete food ingredients. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Call search_ciqual_foods first for nutrition data and pass the ciqualAlimCode; use search_ingredients to look one up. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. To empty an optional field on update, list its name in clear (defaultUnit, ciqualAlimCode, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity).')]
+#[McpTool(name: 'manage_ingredients', description: 'Create, update, or delete food ingredients. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Link every ingredient to the closest Ciqual food (raw or cooked as the recipe uses it — « bouquet garni » is aromatic herbs): call search_ciqual_foods and pass the ciqualAlimCode, the macros come with it; use search_ingredients to look one up. When a recipe counts the ingredient in pieces (piece), set pieceWeightGrams, the weight in grams of one piece (an onion ≈ 100, a garlic clove ≈ 5, a carrot ≈ 125, a stock cube ≈ 10): without it the pieces weigh nothing in the recipe nutrition. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. To empty an optional field on update, list its name in clear (defaultUnit, ciqualAlimCode, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g, pieceWeightGrams, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity).')]
 class ManageIngredientsTool
 {
-    private const CLEARABLE_FIELDS = ['defaultUnit', 'ciqualAlimCode', 'kcalPer100g', 'proteinPer100g', 'carbsPer100g', 'fatPer100g', 'packagingUnit', 'packagingSize', 'packagingSizeUnit', 'restockQuantity'];
+    private const CLEARABLE_FIELDS = ['defaultUnit', 'ciqualAlimCode', 'kcalPer100g', 'proteinPer100g', 'carbsPer100g', 'fatPer100g', 'pieceWeightGrams', 'packagingUnit', 'packagingSize', 'packagingSizeUnit', 'restockQuantity'];
 
     public function __construct(
         private readonly MessageBusInterface $bus,
@@ -38,6 +38,7 @@ class ManageIngredientsTool
         ?float $proteinPer100g = null,
         ?float $carbsPer100g = null,
         ?float $fatPer100g = null,
+        ?float $pieceWeightGrams = null,
         ?string $packagingUnit = null,
         ?float $packagingSize = null,
         ?string $packagingSizeUnit = null,
@@ -48,8 +49,8 @@ class ManageIngredientsTool
     ): string {
         try {
             return match ($action) {
-                'create' => $this->create($name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g, $packagingUnit, $packagingSize, $packagingSizeUnit, $stockState, $restockQuantity, $autoRestock),
-                'update' => $this->update($ingredientId, $name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g, $packagingUnit, $packagingSize, $packagingSizeUnit, $stockState, $restockQuantity, $autoRestock, $clear),
+                'create' => $this->create($name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g, $pieceWeightGrams, $packagingUnit, $packagingSize, $packagingSizeUnit, $stockState, $restockQuantity, $autoRestock),
+                'update' => $this->update($ingredientId, $name, $category, $defaultUnit, $ciqualAlimCode, $kcalPer100g, $proteinPer100g, $carbsPer100g, $fatPer100g, $pieceWeightGrams, $packagingUnit, $packagingSize, $packagingSizeUnit, $stockState, $restockQuantity, $autoRestock, $clear),
                 'delete' => $this->delete($ingredientId),
                 default => json_encode(['error' => "Unknown action: {$action}. Use create, update, or delete (search_ingredients lists them)."], JSON_THROW_ON_ERROR),
             };
@@ -71,6 +72,7 @@ class ManageIngredientsTool
         ?float $proteinPer100g,
         ?float $carbsPer100g,
         ?float $fatPer100g,
+        ?float $pieceWeightGrams,
         ?string $packagingUnit,
         ?float $packagingSize,
         ?string $packagingSizeUnit,
@@ -94,6 +96,7 @@ class ManageIngredientsTool
             proteinPer100g: $proteinPer100g,
             carbsPer100g: $carbsPer100g,
             fatPer100g: $fatPer100g,
+            pieceWeightGrams: $pieceWeightGrams,
             packagingUnit: $packagingUnit,
             packagingSize: $packagingSize,
             packagingSizeUnit: $packagingSizeUnit,
@@ -119,6 +122,7 @@ class ManageIngredientsTool
         ?float $proteinPer100g,
         ?float $carbsPer100g,
         ?float $fatPer100g,
+        ?float $pieceWeightGrams,
         ?string $packagingUnit,
         ?float $packagingSize,
         ?string $packagingSizeUnit,
@@ -141,6 +145,7 @@ class ManageIngredientsTool
             proteinPer100g: $proteinPer100g,
             carbsPer100g: $carbsPer100g,
             fatPer100g: $fatPer100g,
+            pieceWeightGrams: $pieceWeightGrams,
             packagingUnit: $packagingUnit,
             packagingSize: $packagingSize,
             packagingSizeUnit: $packagingSizeUnit,
@@ -176,6 +181,8 @@ class ManageIngredientsTool
             'category' => $ingredient->getCategory()->value,
             'defaultUnit' => $ingredient->getDefaultUnit()?->value,
             'kcalPer100g' => $ingredient->getKcalPer100g(),
+            'proteinPer100g' => $ingredient->getProteinPer100g(),
+            'pieceWeightGrams' => $ingredient->getPieceWeightGrams(),
             'packagingUnit' => $ingredient->getPackagingUnit()?->value,
             'packagingSize' => $ingredient->getPackagingSize(),
             'packagingSizeUnit' => $ingredient->getPackagingSizeUnit()?->value,

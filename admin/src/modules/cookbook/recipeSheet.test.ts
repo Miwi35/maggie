@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { canonicalRecordId, servingsLabel, shortName, stepRefLabel, stepsTitle } from './recipeSheet'
-import type { RecipeStep } from './recipeSheet'
+import { canonicalRecordId, nutritionPerServing, servingsLabel, shortName, stepRefLabel, stepsTitle } from './recipeSheet'
+import type { ProductInfo, RecipeLine, RecipeStep } from './recipeSheet'
 
 const step = (durationMinutes: number | null, background = false): RecipeStep => ({
   text: 'x',
@@ -79,5 +79,44 @@ describe('canonicalRecordId', () => {
     expect(canonicalRecordId(`/api/recipes/${ULID}`)).toBe(`/api/recipes/${ULID}`)
     expect(canonicalRecordId('01R')).toBe('01R')
     expect(canonicalRecordId('')).toBe('')
+  })
+})
+
+describe('nutritionPerServing (MAG-647)', () => {
+  const line = (id: string, quantity: number, unit: string): RecipeLine => ({ ingredient: { id, name: id }, ingredientName: id, quantity, unit })
+  const product = (id: string, extra: Partial<ProductInfo> = {}): [string, ProductInfo] => [id, { id, kcalPer100g: 100, proteinPer100g: 10, carbsPer100g: 0, fatPer100g: 0, ...extra }]
+
+  test('2 pieces of 100 g count as 200 g, 75 cl as 750 g, 1 kg as 1000 g', () => {
+    const products = new Map([product('onion', { pieceWeightGrams: 100 }), product('wine'), product('beef')])
+
+    expect(nutritionPerServing([line('onion', 2, 'piece')], 1, products)?.kcal).toBe(200)
+    expect(nutritionPerServing([line('wine', 75, 'cl')], 1, products)?.kcal).toBe(750)
+    expect(nutritionPerServing([line('beef', 1, 'kg')], 1, products)?.kcal).toBe(1000)
+  })
+
+  test('a line with no weight or no nutrition is counted apart, the others stay right', () => {
+    const products = new Map([product('beef'), product('onion', { pieceWeightGrams: null }), product('herbs', { kcalPer100g: null })])
+
+    const result = nutritionPerServing([line('beef', 1, 'kg'), line('onion', 2, 'piece'), line('herbs', 1, 'bunch')], 4, products)
+
+    expect(result).toMatchObject({ kcal: 250, protein: 25, skipped: 2 })
+  })
+
+  test('a bourguignon with beef in kg, onions in pieces and wine in cl brings protein and energy per person', () => {
+    const products = new Map([
+      product('beef', { kcalPer100g: 250, proteinPer100g: 20, fatPer100g: 17 }),
+      product('onion', { kcalPer100g: 40, proteinPer100g: 1, carbsPer100g: 9, pieceWeightGrams: 100 }),
+      product('wine', { kcalPer100g: 70, proteinPer100g: 0.1, carbsPer100g: 2.6 }),
+      product('bunch', { kcalPer100g: null, proteinPer100g: null }),
+    ])
+
+    const result = nutritionPerServing(
+      [line('beef', 1, 'kg'), line('onion', 2, 'piece'), line('wine', 75, 'cl'), line('bunch', 1, 'piece')],
+      4,
+      products,
+    )
+
+    expect(result).toMatchObject({ kcal: 776, protein: 51, skipped: 1 })
+    expect(result!.protein).toBeGreaterThanOrEqual(25)
   })
 })

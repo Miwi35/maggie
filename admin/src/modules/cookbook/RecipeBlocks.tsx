@@ -478,7 +478,7 @@ export const NutritionBlock = ({ nutrition, dailyKcal = null }: { nutrition: Nut
       </Box>
       {nutrition.skipped > 0 && (
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-          {nutrition.skipped === 1 ? '1 ingrédient compté à la pièce ou sans valeurs n’est pas inclus.' : `${nutrition.skipped} ingrédients comptés à la pièce ou sans valeurs ne sont pas inclus.`}
+          {nutrition.skipped === 1 ? '1 ingrédient non compté (sans poids ni valeurs nutritionnelles).' : `${nutrition.skipped} ingrédients non comptés (sans poids ni valeurs nutritionnelles).`}
         </Typography>
       )}
     </Section>

@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 namespace Maggie\Cookbook\MessageHandler;
 
-use Maggie\Cookbook\Entity\Ingredient;
 use Maggie\Cookbook\Entity\Recipe;
 use Maggie\Cookbook\Entity\RecipeIngredient;
 use Maggie\Cookbook\Message\CreateRecipeCommand;
-use Maggie\Cookbook\Repository\IngredientRepository;
-use Maggie\Cookbook\Service\IngredientFromCiqualResolver;
+use Maggie\Cookbook\Service\RecipeLineIngredient;
 use Maggie\Cookbook\Service\RecipeSteps;
 use Maggie\Cookbook\Service\RecipeUtensils;
 use Maggie\Cookbook\UseCase\CreateRecipe;
-use Maggie\Core\Entity\User;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Grocery\Enum\Unit;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -24,8 +21,7 @@ class CreateRecipeHandler
     public function __construct(
         private readonly CreateRecipe $createRecipe,
         private readonly UserRepository $userRepository,
-        private readonly IngredientRepository $ingredientRepository,
-        private readonly IngredientFromCiqualResolver $ciqualResolver,
+        private readonly RecipeLineIngredient $lineIngredient,
         private readonly RecipeUtensils $recipeUtensils,
         private readonly RecipeSteps $recipeSteps,
     ) {
@@ -48,7 +44,7 @@ class CreateRecipeHandler
 
         if (null !== $command->ingredients) {
             foreach ($command->ingredients as $item) {
-                $ingredient = $this->resolveIngredient($item, $user);
+                $ingredient = $this->lineIngredient->resolve($item, $user);
 
                 $ri = new RecipeIngredient();
                 $ri->setIngredient($ingredient);
@@ -69,20 +65,5 @@ class CreateRecipeHandler
         $this->recipeSteps->assertConsistent($recipe);
 
         return $this->createRecipe->execute($recipe);
-    }
-
-    /** @param array{quantity: float, unit: string, ingredientId?: string, ciqualAlimCode?: string} $item */
-    private function resolveIngredient(array $item, User $user): Ingredient
-    {
-        if (isset($item['ciqualAlimCode'])) {
-            return $this->ciqualResolver->resolve($item['ciqualAlimCode'], $user);
-        }
-
-        if (isset($item['ingredientId'])) {
-            return $this->ingredientRepository->find($item['ingredientId'])
-                ?? throw new \DomainException("Ingredient not found: {$item['ingredientId']}");
-        }
-
-        throw new \DomainException('Each ingredient must have either ingredientId or ciqualAlimCode.');
     }
 }

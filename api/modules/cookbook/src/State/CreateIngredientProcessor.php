@@ -40,6 +40,7 @@ class CreateIngredientProcessor implements ProcessorInterface
             proteinPer100g: $data->getProteinPer100g(),
             carbsPer100g: $data->getCarbsPer100g(),
             fatPer100g: $data->getFatPer100g(),
+            pieceWeightGrams: $data->getPieceWeightGrams(),
             packagingUnit: $data->getPackagingUnit()?->value,
             packagingSize: $data->getPackagingSize(),
             packagingSizeUnit: $data->getPackagingSizeUnit()?->value,

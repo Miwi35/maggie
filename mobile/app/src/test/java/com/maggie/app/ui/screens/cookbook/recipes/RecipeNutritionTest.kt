@@ -21,8 +21,8 @@ import org.junit.runner.RunWith
 class RecipeNutritionTest {
     @get:Rule val compose = ScreenRule()
 
-    private fun product(id: String, kcal: Float?, protein: Float? = null, carbs: Float? = null, fat: Float? = null) =
-        Ingredient(id, id, null, ProductCategory.MEAT, kcal, protein, carbs, fat)
+    private fun product(id: String, kcal: Float?, protein: Float? = null, carbs: Float? = null, fat: Float? = null, pieceWeight: Float? = null) =
+        Ingredient(id, id, null, ProductCategory.MEAT, kcal, protein, carbs, fat, pieceWeight)
 
     private fun line(product: String, quantity: Float, unit: CookbookUnit) = RecipeIngredient(
         ingredient = JsonObject(mapOf("id" to JsonPrimitive(product))),
@@ -41,7 +41,16 @@ class RecipeNutritionTest {
     }
 
     @Test
-    fun `a line counted in pieces or without values is left out and counted`() {
+    fun `a piece counts for the weight of its ingredient, a centilitre for ten grams`() {
+        val onion = product("onion", kcal = 100f, pieceWeight = 100f)
+        val wine = product("wine", kcal = 100f)
+
+        assertEquals(200, nutritionPerServing(listOf(line("onion", 2f, CookbookUnit.PIECE)), 1, mapOf("onion" to onion))!!.kcal)
+        assertEquals(750, nutritionPerServing(listOf(line("wine", 75f, CookbookUnit.CL)), 1, mapOf("wine" to wine))!!.kcal)
+    }
+
+    @Test
+    fun `a line counted in pieces with no weight or without values is left out and counted`() {
         val lines = listOf(line("beef", 500f, CookbookUnit.G), line("beef", 2f, CookbookUnit.PIECE), line("salt", 5f, CookbookUnit.G))
 
         val nutrition = nutritionPerServing(lines, 2, mapOf("beef" to beef, "salt" to salt))

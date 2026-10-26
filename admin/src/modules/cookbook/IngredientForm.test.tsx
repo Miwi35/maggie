@@ -65,6 +65,19 @@ describe('Ingredient forms', { timeout: 30_000 }, () => {
     expect(data.packagingSizeUnit).toBe('g')
   })
 
+  test('the weight of one piece is edited with the ingredient and sent back changed (MAG-647)', async () => {
+    const user = userEvent.setup()
+    const update = renderEdit()
+
+    const weight = await screen.findByLabelText(/Poids d'une pièce/)
+    expect(weight).toHaveValue(null)
+    await user.type(weight, '120')
+    await user.click(screen.getByRole('button', { name: /enregistrer|save/i }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    expect(update.mock.calls[0][1].data.pieceWeightGrams).toBe(120)
+  })
+
   test('the create form of an ingredient shows no packaging', () => {
     render(
       <MemoryRouter>

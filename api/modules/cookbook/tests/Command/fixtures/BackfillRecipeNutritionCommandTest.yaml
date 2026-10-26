@@ -1,0 +1,56 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: backfill-nutrition@example.com
+    googleId: google-backfill-nutrition
+    name: Backfill Nutrition User
+
+Maggie\Cookbook\Entity\Ingredient:
+  onion:
+    name: Oignon
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+  carrot_with_weight:
+    name: Carotte
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    pieceWeightGrams: 80
+    user: '@test_user'
+  bouquet:
+    name: Bouquet garni
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@test_user'
+  mystery:
+    name: Poudre de perlimpinpin
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Other)>'
+    user: '@test_user'
+  unused:
+    name: Oignon doux
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  bourguignon:
+    name: Bœuf bourguignon
+    servings: 4
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  line_onion:
+    recipe: '@bourguignon'
+    ingredient: '@onion'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  line_carrot:
+    recipe: '@bourguignon'
+    ingredient: '@carrot_with_weight'
+    quantity: 3
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  line_mystery:
+    recipe: '@bourguignon'
+    ingredient: '@mystery'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  line_bouquet:
+    recipe: '@bourguignon'
+    ingredient: '@bouquet'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
