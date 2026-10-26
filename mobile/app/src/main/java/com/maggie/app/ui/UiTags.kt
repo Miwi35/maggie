@@ -87,6 +87,7 @@ object UiTags {
     /** Accueil › Finance card (MAG-565): a ring by period, the « n à qualifier » pill, the next project, the error state. */
     const val HOME_FINANCE_RING_PREFIX = "home_finance_ring_"
     const val HOME_FINANCE_TO_QUALIFY = "home_finance_to_qualify"
+    const val HOME_FINANCE_RHYTHM = "home_finance_rhythm"
     const val HOME_FINANCE_NEXT_PROJECT = "home_finance_next_project"
     const val HOME_FINANCE_ERROR = "home_finance_error"
     const val HOME_FINANCE_RETRY = "home_finance_retry"

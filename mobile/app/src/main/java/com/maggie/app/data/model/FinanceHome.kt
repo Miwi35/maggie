@@ -87,3 +87,23 @@ data class FinanceHomeProject(
 
 /** « n à qualifier », the pill of the lines the review is waiting for. */
 fun FinanceHomeState.toQualifyLabel(): String = "$toQualifyCount à qualifier"
+
+/**
+ * The status of the card's one rhythm pill: `above` as soon as the week or the month runs above its rhythm,
+ * `on_track` otherwise; null when neither has an envelope (no pace to tell).
+ */
+fun FinanceHomeState.rhythmStatus(): String? {
+    val paced = listOf(week, month).filter { it.budgetCents > 0 }
+    if (paced.isEmpty()) return null
+    return if (paced.any { it.status == "above" }) "above" else "on_track"
+}
+
+/**
+ * The right of the next project's line, as the mock-up writes it: « 740 / 1 200 € · mars 2027 »; [monthLabel]
+ * names the purchase month, and a project beyond the horizon says so in its place.
+ */
+fun FinanceHomeProject.progressLabel(monthLabel: (String) -> String): String {
+    val gathered = formatCentsRounded(gatheredCents).substringBeforeLast('\u00A0')
+    val month = purchaseMonth?.let(monthLabel) ?: "au-delà de $horizonMonths mois"
+    return "$gathered / ${formatCentsRounded(amountCents)} · $month"
+}

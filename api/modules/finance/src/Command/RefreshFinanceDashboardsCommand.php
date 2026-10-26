@@ -7,6 +7,7 @@ namespace Maggie\Finance\Command;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Finance\Message\MarkFinanceDashboardStaleCommand;
 use Maggie\Finance\Repository\FinanceDashboardSnapshotRepository;
+use Maggie\Finance\UseCase\GetFinanceDashboard;
 use Maggie\Finance\UseCase\GetFinanceScores;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -17,7 +18,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsCommand(
     name: 'app:finance:refresh-dashboards',
-    description: 'Rebuild the Finance Dashboard read model of the users whose computed day is no longer their today or the server today',
+    description: 'Rebuild the Finance Dashboard read model of the users whose computed day is no longer their today or the server today, or whose payload an earlier release stored',
 )]
 class RefreshFinanceDashboardsCommand extends Command
 {
@@ -35,6 +36,8 @@ class RefreshFinanceDashboardsCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $marked = 0;
         $serverToday = (new \DateTimeImmutable('today'))->format('Y-m-d');
+        // A deploy that changed the payload's shape outdates every stored one.
+        $shape = (string) GetFinanceDashboard::PAYLOAD_SHAPE;
 
         foreach ($this->snapshots->computedDaysOfUsersWithAccounts() as $userId => $days) {
             $user = $this->users->find($userId);
@@ -43,7 +46,7 @@ class RefreshFinanceDashboardsCommand extends Command
             }
 
             $today = $this->getFinanceScores->resolveDate($user, null)->format('Y-m-d');
-            if ($days['computedOn'] === $today && $days['computedServerOn'] === $serverToday) {
+            if ($days['computedOn'] === $today && $days['computedServerOn'] === $serverToday && $days['shape'] === $shape) {
                 continue;
             }
 

@@ -94,6 +94,9 @@ tags:
     timeout: 20000
 - assertVisible:
     text: "Mois : Dans le rythme.*"
+# One rhythm pill beside the rings, as the mock-up draws it.
+- assertVisible:
+    text: "Dans le rythme"
 
 # No meal on this account: the Nutrition card is gone once read (Demain is selected), the Courses and
 # Finance cards stay, and the sentence « Rien de prévu » is not said. Aujourd'hui is `28-home-tasks.yaml`'s.

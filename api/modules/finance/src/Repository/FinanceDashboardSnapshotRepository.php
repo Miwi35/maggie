@@ -9,6 +9,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\FinanceDashboardSnapshot;
+use Maggie\Finance\UseCase\GetFinanceDashboard;
 use Symfony\Component\Uid\Ulid;
 
 /**
@@ -33,21 +34,22 @@ class FinanceDashboardSnapshotRepository extends ServiceEntityRepository
     /**
      * The body of the dashboard of this month, when the read model holds it
      * and nothing has changed since: the user's day and the server's day are the
-     * ones it was computed on, and no write marked it stale. One statement,
-     * nothing written.
+     * ones it was computed on, no write marked it stale, and it was stored in
+     * the payload shape this release answers. One statement, nothing written.
      */
     public function fetchFreshPayload(User $user, int $year, int $month, \DateTimeImmutable $today, \DateTimeImmutable $serverToday): ?string
     {
         $payload = $this->connection()->fetchOne(
             'SELECT payload FROM finance_dashboard_snapshot
              WHERE user_id = :user AND NOT stale AND year = :year AND month = :month AND computed_on = :today
-               AND computed_server_on = :serverToday',
+               AND computed_server_on = :serverToday AND payload::jsonb ->> \'shape\' = :shape',
             [
                 'user' => $this->uuid((string) $user->getId()),
                 'year' => $year,
                 'month' => $month,
                 'today' => $today->format('Y-m-d'),
                 'serverToday' => $serverToday->format('Y-m-d'),
+                'shape' => (string) GetFinanceDashboard::PAYLOAD_SHAPE,
             ],
         );
 
@@ -93,23 +95,29 @@ class FinanceDashboardSnapshotRepository extends ServiceEntityRepository
     }
 
     /**
-     * Who has finances, and the days their dashboard was computed on: the
-     * user's and the server's (null: never, marked stale before its first
-     * computation, or stored before the server's day was kept).
+     * Who has finances, the days their dashboard was computed on — the user's
+     * and the server's (null: never, marked stale before its first computation,
+     * or stored before the server's day was kept) — and the payload shape it was
+     * stored in (null: none, or stored before the shape was sent).
      *
-     * @return array<string, array{computedOn: string|null, computedServerOn: string|null}> the days as Y-m-d, by user id
+     * @return array<string, array{computedOn: string|null, computedServerOn: string|null, shape: string|null}> the days as Y-m-d, by user id
      */
     public function computedDaysOfUsersWithAccounts(): array
     {
         $rows = $this->connection()->fetchAllAssociative(
-            'SELECT DISTINCT a.user_id AS user_id, s.computed_on AS computed_on, s.computed_server_on AS computed_server_on
+            'SELECT DISTINCT a.user_id AS user_id, s.computed_on AS computed_on, s.computed_server_on AS computed_server_on,
+                    s.payload::jsonb ->> \'shape\' AS shape
              FROM account a
              LEFT JOIN finance_dashboard_snapshot s ON s.user_id = a.user_id',
         );
 
         $days = [];
         foreach ($rows as $row) {
-            $days[Ulid::fromString($row['user_id'])->toBase32()] = ['computedOn' => $row['computed_on'], 'computedServerOn' => $row['computed_server_on']];
+            $days[Ulid::fromString($row['user_id'])->toBase32()] = [
+                'computedOn' => $row['computed_on'],
+                'computedServerOn' => $row['computed_server_on'],
+                'shape' => $row['shape'],
+            ];
         }
 
         return $days;
