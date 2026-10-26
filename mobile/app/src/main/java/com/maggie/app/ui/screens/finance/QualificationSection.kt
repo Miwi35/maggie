@@ -29,7 +29,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryTree
-import com.maggie.app.data.model.QUALIFICATION_KIND_HELP
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.QualificationKind
 import com.maggie.app.ui.UiTags
@@ -146,11 +145,6 @@ fun QualificationFlags(
                     )
                 }
             }
-            Text(
-                QUALIFICATION_KIND_HELP,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
