@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,6 +42,7 @@ import com.maggie.app.data.model.Rhythm
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.reasonText
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.maggieSurface
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -173,7 +173,7 @@ fun ScoreRings(
     var opened by rememberSaveable { mutableStateOf<String?>(null) }
     val toggle = { period: String -> opened = if (opened == period) null else period }
 
-    Card(modifier = modifier.fillMaxWidth()) {
+    MaggieCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 ScoreRing("Semaine", WEEK, week, opened == WEEK) { toggle(WEEK) }
@@ -212,7 +212,7 @@ private fun ScoreRing(
     val rhythm = score.rhythm
     val status = ringStatus(score)
     val color = statusColor(status)
-    val track = MaterialTheme.colorScheme.surfaceVariant
+    val track = maggieSurface().track
     val tickColor = MaterialTheme.colorScheme.onSurface
     val fill = ringFill(rhythm)
     val tick = ringTick(rhythm)
