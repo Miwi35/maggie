@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
@@ -70,7 +71,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import android.Manifest
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.maggie.app.data.location.AndroidLocationPermissions
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -229,6 +234,13 @@ private fun SettingsList(
             )
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
+            DepartureSwitchRow(
+                state = uiState.departure,
+                onSwitch = viewModel::onDepartureSwitch,
+                onPermissionsResult = viewModel::onDeparturePermissionsResult,
+            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
             SettingsRow(
                 icon = Icons.Outlined.TaskAlt,
                 title = "Tâches",
@@ -340,6 +352,61 @@ private fun SettingsRow(
             Icons.Default.ChevronRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * « Partir à l'heure » (MAG-651): a switch, off until turned on. Turning it on asks for what Android
+ * wants for the position (precise, then in the background — Android takes the two apart) and for the
+ * activity recognition; one refusal and it stays off.
+ */
+@Composable
+private fun DepartureSwitchRow(
+    state: DepartureUiState,
+    onSwitch: (Boolean) -> Unit,
+    onPermissionsResult: (Boolean) -> Unit,
+) {
+    val context = LocalContext.current
+    val permissions = remember(context) { AndroidLocationPermissions(context.applicationContext) }
+    val background = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        onPermissionsResult(permissions.canTrack())
+    }
+    val foreground = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        if (permissions.hasFineLocation() && permissions.hasActivityRecognition()) {
+            background.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
+        } else {
+            onPermissionsResult(false)
+        }
+    }
+    LaunchedEffect(state.askingPermissions) {
+        if (!state.askingPermissions) return@LaunchedEffect
+        when {
+            permissions.canTrack() -> onPermissionsResult(true)
+            !permissions.hasFineLocation() || !permissions.hasActivityRecognition() ->
+                foreground.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACTIVITY_RECOGNITION))
+            else -> background.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.DirectionsCar,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text("Partir à l'heure", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Switch(
+            checked = state.enabled,
+            onCheckedChange = onSwitch,
+            modifier = Modifier.testTag(UiTags.SETTINGS_DEPARTURE),
         )
     }
 }

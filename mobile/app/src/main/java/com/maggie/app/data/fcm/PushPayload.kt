@@ -130,18 +130,22 @@ data class PushPayload(
         /** `PushMessageFactory::COOKING_TIMER_TAG`, followed by the timer's id. */
         const val COOKING_TIMER_TAG = "cooking-timer"
 
+        /** `PushMessageFactory::LOCATION_REQUEST_TYPE` (MAG-650): data-only, the phone answers with its position. */
+        const val LOCATION_REQUEST_TYPE = "location_request"
+
         /** The buttons Android shows on a notification, at most. */
         const val MAX_ACTIONS = 3
 
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-        /** Null when the message carries no notification id: nothing to dedupe, answer or close. */
+        /** Null when the message carries no notification id (nothing to dedupe, answer or close) or is a `location_request`, which is never shown. */
         fun from(
             data: Map<String, String>,
             notificationTitle: String? = null,
             notificationBody: String? = null,
             notificationChannel: String? = null,
         ): PushPayload? {
+            if (data["type"] == LOCATION_REQUEST_TYPE) return null
             val id = data["notificationId"]?.takeIf { it.isNotBlank() } ?: return null
             val type = data["type"]
             val text = (data["body"] ?: data["text"] ?: notificationBody)?.takeIf { it.isNotBlank() }

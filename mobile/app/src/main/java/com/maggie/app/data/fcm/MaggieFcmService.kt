@@ -2,6 +2,7 @@ package com.maggie.app.data.fcm
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.maggie.app.data.location.LocationRequestHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,6 +13,7 @@ class MaggieFcmService : FirebaseMessagingService() {
 
     private val registrar: PushTokenRegistrar by inject()
     private val delivery: PushDelivery by inject()
+    private val locationRequests: LocationRequestHandler by inject()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onNewToken(token: String) {
@@ -21,6 +23,12 @@ class MaggieFcmService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         if (message.data["type"] == WITHDRAW_TYPE) {
             message.data["tag"]?.let { delivery.withdraw(it, message.data["notificationId"]) }
+            return
+        }
+
+        // The API asks for a fresh position (MAG-650): answered silently, nothing to show.
+        if (message.data["type"] == PushPayload.LOCATION_REQUEST_TYPE) {
+            serviceScope.launch { locationRequests.handle() }
             return
         }
 

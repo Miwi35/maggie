@@ -4,6 +4,7 @@ import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.fcm.PushTokenRegistrar
+import com.maggie.app.data.location.DepartureTracking
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
@@ -59,6 +60,12 @@ class SettingsViewModelTest {
     private lateinit var pushTokenRegistrar: PushTokenRegistrar
     private lateinit var themeChoiceRepository: ThemeChoiceRepository
     private val themeChoice = MutableStateFlow(THEME_DEFAULT)
+    private val departureEnabled = MutableStateFlow(false)
+    private val departureTracking = mockk<DepartureTracking>().also {
+        every { it.enabled } returns departureEnabled
+        coEvery { it.enable() } coAnswers { departureEnabled.value = true }
+        coEvery { it.disable() } coAnswers { departureEnabled.value = false }
+    }
 
     private val perso = Agenda(id = "a1", name = "Perso", isDefault = true)
     private val concerts = Agenda(id = "a2", name = "Concerts")
@@ -149,6 +156,7 @@ class SettingsViewModelTest {
         mockk<VoiceManager>(relaxed = true),
         pushTokenRegistrar,
         themeChoiceRepository,
+        departureTracking,
     )
 
     @Test
@@ -857,5 +865,56 @@ class SettingsViewModelTest {
         advanceUntilIdle()
         assertEquals(7, viewModel.uiState.value.meals.settings?.defaultGuests)
         assertEquals(6, viewModel.uiState.value.meals.guests)
+    }
+
+    @Test
+    fun `Partir à l'heure is off by default`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(DepartureUiState(enabled = false, askingPermissions = false), viewModel.uiState.value.departure)
+    }
+
+    @Test
+    fun `turning Partir à l'heure on asks for the permissions, and granting them turns it on`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onDepartureSwitch(true)
+        assertEquals(DepartureUiState(enabled = false, askingPermissions = true), viewModel.uiState.value.departure)
+        coVerify(exactly = 0) { departureTracking.enable() }
+
+        viewModel.onDeparturePermissionsResult(true)
+        advanceUntilIdle()
+
+        assertEquals(DepartureUiState(enabled = true, askingPermissions = false), viewModel.uiState.value.departure)
+        coVerify(exactly = 1) { departureTracking.enable() }
+    }
+
+    @Test
+    fun `refusing a permission leaves Partir à l'heure off and schedules nothing`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onDepartureSwitch(true)
+        viewModel.onDeparturePermissionsResult(false)
+        advanceUntilIdle()
+
+        assertEquals(DepartureUiState(enabled = false, askingPermissions = false), viewModel.uiState.value.departure)
+        coVerify(exactly = 0) { departureTracking.enable() }
+    }
+
+    @Test
+    fun `turning Partir à l'heure off stops everything without asking for anything`() = runTest {
+        departureEnabled.value = true
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.departure.enabled)
+
+        viewModel.onDepartureSwitch(false)
+        advanceUntilIdle()
+
+        assertEquals(DepartureUiState(enabled = false, askingPermissions = false), viewModel.uiState.value.departure)
+        coVerify(exactly = 1) { departureTracking.disable() }
     }
 }

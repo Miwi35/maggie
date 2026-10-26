@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- « Partir à l'heure » (MAG-651): asked only when the owner turns the switch on. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
 
     <queries>
         <intent><action android:name="android.settings.VOICE_INPUT_SETTINGS" /></intent>
@@ -64,6 +68,11 @@
         <!-- The buttons of a push notification, and the alarm that brings a postponed one back (MAG-29). Never exported: only the app's own PendingIntents reach it. -->
         <receiver
             android:name=".data.fcm.PushActionReceiver"
+            android:exported="false" />
+
+        <!-- Leaving a car, then standing on one's feet (MAG-651). Never exported: only the app's own PendingIntent reaches it. -->
+        <receiver
+            android:name=".data.location.ActivityTransitionReceiver"
             android:exported="false" />
 
         <service

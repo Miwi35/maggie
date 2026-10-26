@@ -770,6 +770,10 @@ mobile:
     areas: [settings, calendar]
     paths:
       - e2e/mobile/scripts/task-settings-api.js
+  e2e/mobile/flows/28-agenda-location-settings.yaml:
+    areas: [settings, calendar]
+    paths:
+      - mobile/app/src/main/java/com/maggie/app/data/location/**
   e2e/mobile/flows/15-mind-tab.yaml:
     areas: [chat, calendar, realtime]
     paths:
