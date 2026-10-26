@@ -19,3 +19,15 @@ services:
             - '../src/Dto/'
             - '../src/Trait/'
             - '../src/MaggieCalendarBundle.php'
+
+    # Google Routes and Geocoding (« Partir à l'heure », MAG-653). Without a key
+    # both answer a RoutingException, which estimate_trip turns into an error.
+    Maggie\Calendar\Routing\RoutingClient:
+        arguments:
+            $routesUrl: '%env(GOOGLE_ROUTES_URL)%'
+            $googleMapsApiKey: '%env(GOOGLE_MAPS_API_KEY)%'
+
+    Maggie\Calendar\Routing\GeocodingClient:
+        arguments:
+            $geocodingUrl: '%env(GOOGLE_GEOCODING_URL)%'
+            $googleMapsApiKey: '%env(GOOGLE_MAPS_API_KEY)%'

@@ -20,6 +20,10 @@ data:
   # back to the example.com address of api/.env and nothing ever arrives.
   GOOGLE_WEBHOOK_URL: https://maggieai.fr/api/calendar/google/webhook
   ADMIN_URL: https://maggieai.fr/admin
+  # Google Routes and Geocoding, behind estimate_trip (MAG-653). The key,
+  # GOOGLE_MAPS_API_KEY, is in the maggie-env secret.
+  GOOGLE_ROUTES_URL: https://routes.googleapis.com/directions/v2:computeRoutes
+  GOOGLE_GEOCODING_URL: https://maps.googleapis.com/maps/api/geocode/json
   JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
   JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
   ANTHROPIC_MODEL: claude-haiku-4-5-20251001

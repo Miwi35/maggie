@@ -11,6 +11,8 @@ the one thing this stack exists to guarantee.
 | `mappings/google.json` | Google Calendar and Google Tasks | `GOOGLE_API_BASE_URL` |
 | `mappings/openai.json` | Whisper speech-to-text | `OPENAI_BASE_URL` (agent) |
 | `mappings/open-meteo.json` | Open-Meteo — city search and daily forecast (`get_weather`, MAG-156) | `OPEN_METEO_FORECAST_URL`, `OPEN_METEO_GEOCODING_URL` |
+| `mappings/google-routes.json` | Google Routes `computeRoutes` — walk, drive, transit, bicycle (`estimate_trip`, MAG-653) | `GOOGLE_ROUTES_URL` |
+| `mappings/google-geocoding.json` | Google Geocoding — an address to coordinates (`estimate_trip`, MAG-653) | `GOOGLE_GEOCODING_URL` (`GOOGLE_MAPS_API_KEY` is any string: WireMock does not read it) |
 | `mappings/web-pages.json` | Public web pages — a Marmiton recipe, an event, a product, each with its JSON-LD (`read_web_page`, MAG-597) | `READ_WEB_PAGE_ALLOWED_HOSTS=wiremock` (the tool refuses private hosts, so the stack's own WireMock is allowed by name) |
 
 `google.json` covers every call the agenda can make from the browser: list the
@@ -68,6 +70,16 @@ so it follows the clock without `{{now}}`): 18.5 °C at most and 9.5 °C at leas
 journey in `chat.spec.ts` drives both — change the figures in one place and
 change them in the other. The API caches a forecast for 30 minutes, so a stub
 edit may need `task e2e:down` before it shows.
+
+`google-routes.json` and `google-geocoding.json` are the trips of « Partir à
+l'heure » (MAG-653), read by the journeys of parts 4 to 10. Every address
+geocodes to the seeded « Dentiste » (48.118, -1.668, `api/fixtures/e2e/21-places.yaml`)
+except one containing « Introuvable », which finds nothing. Routes answers by
+`travelMode`: a walk is 4 min, a drive 14, a bicycle ride 10, a transit trip 25
+(walk 3, bus C4 12, walk 5) — except the walk **from the dentist's parking**
+(origin latitude 48.119), 3 min. So the car trip from home with the car 300 m
+away is 🚶 4 · 🚗 14 · 🚶 3, and an event at 14:00 is left for at 13:34
+(`agenda-trip-estimate.spec.ts`). Move the parking in the seed and move it here.
 
 One pairing to keep in mind: `mappings/openai.json` dictates a fixed sentence,
 and `agent/fixtures/fake-llm/20-transcription-cleanup.yaml` returns that sentence

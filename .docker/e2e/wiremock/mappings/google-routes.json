@@ -1,0 +1,97 @@
+{
+  "mappings": [
+    {
+      "name": "Google Routes — the walk from the dentist's parking (48.119, -1.6672), 3 min",
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPath": "/google-routes/directions/v2:computeRoutes",
+        "bodyPatterns": [
+          { "matchesJsonPath": { "expression": "$.travelMode", "equalTo": "WALK" } },
+          { "matchesJsonPath": { "expression": "$.origin.location.latLng.latitude", "equalTo": "48.119" } }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "routes": [{ "duration": "180s" }] }
+      }
+    },
+    {
+      "name": "Google Routes — any other walk, 4 min",
+      "priority": 5,
+      "request": {
+        "method": "POST",
+        "urlPath": "/google-routes/directions/v2:computeRoutes",
+        "bodyPatterns": [{ "matchesJsonPath": { "expression": "$.travelMode", "equalTo": "WALK" } }]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "routes": [{ "duration": "240s" }] }
+      }
+    },
+    {
+      "name": "Google Routes — any drive, 14 min",
+      "priority": 5,
+      "request": {
+        "method": "POST",
+        "urlPath": "/google-routes/directions/v2:computeRoutes",
+        "bodyPatterns": [{ "matchesJsonPath": { "expression": "$.travelMode", "equalTo": "DRIVE" } }]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "routes": [{ "duration": "840s" }] }
+      }
+    },
+    {
+      "name": "Google Routes — any bicycle ride, 10 min",
+      "priority": 5,
+      "request": {
+        "method": "POST",
+        "urlPath": "/google-routes/directions/v2:computeRoutes",
+        "bodyPatterns": [{ "matchesJsonPath": { "expression": "$.travelMode", "equalTo": "BICYCLE" } }]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "routes": [{ "duration": "600s" }] }
+      }
+    },
+    {
+      "name": "Google Routes — any transit trip, 25 min: walk 3, bus C4 12, walk 5",
+      "priority": 5,
+      "request": {
+        "method": "POST",
+        "urlPath": "/google-routes/directions/v2:computeRoutes",
+        "bodyPatterns": [{ "matchesJsonPath": { "expression": "$.travelMode", "equalTo": "TRANSIT" } }]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "routes": [
+            {
+              "duration": "1500s",
+              "legs": [
+                {
+                  "steps": [
+                    { "travelMode": "WALK", "staticDuration": "120s" },
+                    { "travelMode": "WALK", "staticDuration": "60s" },
+                    {
+                      "travelMode": "TRANSIT",
+                      "staticDuration": "720s",
+                      "transitDetails": { "transitLine": { "name": "Chronostar C4", "nameShort": "C4" } }
+                    },
+                    { "travelMode": "WALK", "staticDuration": "300s" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

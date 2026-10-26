@@ -15901,6 +15901,22 @@
                             "null"
                         ]
                     },
+                    "locationLat": {
+                        "readOnly": true,
+                        "description": "Latitude of the location, cached from its geocoding; null until a trip needs it.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "locationLon": {
+                        "readOnly": true,
+                        "description": "Longitude of the location, cached from its geocoding; null until a trip needs it.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
                     "allDay": {
                         "default": false,
                         "type": "boolean"
@@ -16057,6 +16073,22 @@
                     "location": {
                         "type": [
                             "string",
+                            "null"
+                        ]
+                    },
+                    "locationLat": {
+                        "readOnly": true,
+                        "description": "Latitude of the location, cached from its geocoding; null until a trip needs it.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "locationLon": {
+                        "readOnly": true,
+                        "description": "Longitude of the location, cached from its geocoding; null until a trip needs it.",
+                        "type": [
+                            "number",
                             "null"
                         ]
                     },
@@ -16219,6 +16251,22 @@
                             "null"
                         ]
                     },
+                    "locationLat": {
+                        "readOnly": true,
+                        "description": "Latitude of the location, cached from its geocoding; null until a trip needs it.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "locationLon": {
+                        "readOnly": true,
+                        "description": "Longitude of the location, cached from its geocoding; null until a trip needs it.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
                     "allDay": {
                         "default": false,
                         "type": "boolean"
@@ -16377,6 +16425,22 @@
                             "location": {
                                 "type": [
                                     "string",
+                                    "null"
+                                ]
+                            },
+                            "locationLat": {
+                                "readOnly": true,
+                                "description": "Latitude of the location, cached from its geocoding; null until a trip needs it.",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "locationLon": {
+                                "readOnly": true,
+                                "description": "Longitude of the location, cached from its geocoding; null until a trip needs it.",
+                                "type": [
+                                    "number",
                                     "null"
                                 ]
                             },
@@ -19216,6 +19280,20 @@
                             "null"
                         ]
                     },
+                    "locationLat": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "locationLon": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
                     "timeZone": {
                         "type": "string"
                     },
@@ -19417,6 +19495,20 @@
                             "null"
                         ]
                     },
+                    "locationLat": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "locationLon": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
                     "timeZone": {
                         "type": "string"
                     },
@@ -19611,6 +19703,20 @@
                     "location": {
                         "type": [
                             "string",
+                            "null"
+                        ]
+                    },
+                    "locationLat": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "locationLon": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
                             "null"
                         ]
                     },
@@ -19817,6 +19923,20 @@
                             "location": {
                                 "type": [
                                     "string",
+                                    "null"
+                                ]
+                            },
+                            "locationLat": {
+                                "readOnly": true,
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "locationLon": {
+                                "readOnly": true,
+                                "type": [
+                                    "number",
                                     "null"
                                 ]
                             },
@@ -21754,6 +21874,20 @@
                             "null"
                         ]
                     },
+                    "locationLat": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "locationLon": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
                     "allDay": {
                         "type": "boolean"
                     },
@@ -21932,6 +22066,20 @@
                     "location": {
                         "type": [
                             "string",
+                            "null"
+                        ]
+                    },
+                    "locationLat": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "locationLon": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
                             "null"
                         ]
                     },
@@ -22118,6 +22266,20 @@
                             "location": {
                                 "type": [
                                     "string",
+                                    "null"
+                                ]
+                            },
+                            "locationLat": {
+                                "readOnly": true,
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "locationLon": {
+                                "readOnly": true,
+                                "type": [
+                                    "number",
                                     "null"
                                 ]
                             },

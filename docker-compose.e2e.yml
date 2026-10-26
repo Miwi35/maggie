@@ -133,6 +133,9 @@ x-php-environment: &php-environment
   GOOGLE_API_BASE_URL: http://wiremock:8080/google/
   OPEN_METEO_FORECAST_URL: http://wiremock:8080/open-meteo/v1/forecast
   OPEN_METEO_GEOCODING_URL: http://wiremock:8080/open-meteo/v1/search
+  GOOGLE_ROUTES_URL: http://wiremock:8080/google-routes/directions/v2:computeRoutes
+  GOOGLE_GEOCODING_URL: http://wiremock:8080/google-geocoding/maps/api/geocode/json
+  GOOGLE_MAPS_API_KEY: e2e-google-maps-key
   READ_WEB_PAGE_ALLOWED_HOSTS: wiremock
   ENABLE_BANKING_APPLICATION_ID: e2e-application-id
   ENABLE_BANKING_PRIVATE_KEY: /var/www/api/config/bank/e2e.pem

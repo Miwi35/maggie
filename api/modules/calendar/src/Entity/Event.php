@@ -99,6 +99,16 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     #[IndexedField(type: 'text', keyword: true)]
     private ?string $location = null;
 
+    // Where `location` is, geocoded on demand by the trips (MAG-653) and kept as a cache:
+    // a new location clears both, the next trip geocodes it again.
+    #[ORM\Column(nullable: true)]
+    #[ApiProperty(writable: false, description: 'Latitude of the location, cached from its geocoding; null until a trip needs it.')]
+    private ?float $locationLat = null;
+
+    #[ORM\Column(nullable: true)]
+    #[ApiProperty(writable: false, description: 'Longitude of the location, cached from its geocoding; null until a trip needs it.')]
+    private ?float $locationLon = null;
+
     #[ORM\Column(options: ['default' => false])]
     #[IndexedField(type: 'boolean')]
     private bool $allDay = false;
@@ -276,7 +286,30 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
 
     public function setLocation(?string $location): static
     {
+        if ($location !== $this->location) {
+            $this->locationLat = null;
+            $this->locationLon = null;
+        }
         $this->location = $location;
+
+        return $this;
+    }
+
+    public function getLocationLat(): ?float
+    {
+        return $this->locationLat;
+    }
+
+    public function getLocationLon(): ?float
+    {
+        return $this->locationLon;
+    }
+
+    /** Both or neither, like a place's coordinates. Not a setter: the API never writes them. */
+    public function locateAt(?float $latitude, ?float $longitude): static
+    {
+        $this->locationLat = null === $longitude ? null : $latitude;
+        $this->locationLon = null === $latitude ? null : $longitude;
 
         return $this;
     }
