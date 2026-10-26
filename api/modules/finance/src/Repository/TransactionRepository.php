@@ -846,32 +846,20 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
-     * The debits of a half-open period no envelope counts because nothing
-     * classified them yet (MAG-643): spent or committed, without category, not
-     * attributed to a one-off envelope, and neither an internal movement nor a
-     * rejected payment. The spending rhythm only sums classified debits, so this
-     * is the money it silently leaves out.
+     * Among the debits « Dépensé » counts ({@see sumConsumedBetween}), those
+     * nothing classified yet (MAG-643): no category, not attributed to a
+     * one-off envelope. They are in the spent amount; this says how much of it
+     * can still be filed.
      *
      * @return array{count: int, cents: int}
      */
     public function summariseUnclassifiedDebitsBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $until): array
     {
         /** @var array{count: int|string, cents: int|string|null} $row */
-        $row = $this->createQueryBuilder('t')
-            ->select('COUNT(t.id) AS count', 'COALESCE(SUM(ABS(t.amountCents)), 0) AS cents')
-            ->andWhere('t.user = :user')
-            ->andWhere('t.transferKind = :noTransfer')
+        $row = $this->consumedQuery($user, $from, $until)
+            ->select('COUNT(t.id) AS count', 'COALESCE(SUM(ABS('.self::OWN_AMOUNT.')), 0) AS cents')
             ->andWhere('t.category IS NULL')
             ->andWhere('t.oneOffEnvelope IS NULL')
-            ->andWhere('t.amountCents < 0')
-            ->andWhere('t.status IN (:consumed)')
-            ->andWhere('t.bookedAt >= :from')
-            ->andWhere('t.bookedAt < :until')
-            ->setParameter('user', $user->getId(), 'ulid')
-            ->setParameter('noTransfer', TransferKind::None->value)
-            ->setParameter('consumed', [TransactionStatus::Spent->value, TransactionStatus::Committed->value])
-            ->setParameter('from', $from)
-            ->setParameter('until', $until)
             ->getQuery()
             ->getSingleResult();
 

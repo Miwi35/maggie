@@ -334,7 +334,7 @@ final class E2eSeedCommandTest extends KernelTestCase
 
     public function testTheFinanceCardAccountSpendsLessThanItsEnvelope(): void
     {
-        // MAG-565: the card says « Dans le rythme » — a 1 000 € envelope and 10 € spent, never the other way round.
+        // MAG-565: a 1 000 € envelope and 10 € spent, never the other way round.
         $this->seed();
 
         $home = $this->repository(User::class)->findOneBy(['email' => 'e2e-home@maggie.local']);
