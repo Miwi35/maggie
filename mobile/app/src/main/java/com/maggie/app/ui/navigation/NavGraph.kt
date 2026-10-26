@@ -73,6 +73,7 @@ import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.NotificationPermissionPrompt
 import com.maggie.app.ui.components.AppDrawerContent
+import com.maggie.app.ui.components.DrawerSummaryViewModel
 import com.maggie.app.data.model.Context
 import com.maggie.app.ui.components.ChatBottomBar
 import com.maggie.app.ui.components.ChatPanel
@@ -694,6 +695,7 @@ fun NavGraph() {
     val bravoViewModel: BravoViewModel = koinViewModel()
     val routinesViewModel: RoutinesViewModel = koinViewModel()
     val notificationViewModel: NotificationViewModel = koinViewModel()
+    val drawerSummaryViewModel: DrawerSummaryViewModel = koinViewModel()
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
     val mealCreateViewModel: MealCreateViewModel = koinViewModel()
@@ -720,6 +722,11 @@ fun NavGraph() {
 
     // Notification unread count
     val notificationUiState by notificationViewModel.uiState.collectAsState()
+    val drawerSummary by drawerSummaryViewModel.summary.collectAsState()
+    // The lines are read again as the drawer opens: « the next event » moves with the clock.
+    LaunchedEffect(drawerState.targetValue) {
+        if (drawerState.targetValue == DrawerValue.Open) drawerSummaryViewModel.refresh()
+    }
 
     // Context state
     val contextUiState by contextViewModel.uiState.collectAsState()
@@ -1052,6 +1059,7 @@ fun NavGraph() {
                     onNavigate = ::navigateTo,
                     onCloseDrawer = { scope.launch { drawerState.close() } },
                     unreadNotifications = notificationUiState.unreadCount,
+                    summary = drawerSummary,
                 )
             },
             rail = if (chrome.showsRail) {

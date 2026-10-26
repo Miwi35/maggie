@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.home.HomeModules
@@ -89,14 +91,14 @@ internal val SETTINGS_DESTINATION = DrawerDestination("settings", "Réglages", I
 val RAIL_DESTINATIONS = DRAWER_DESTINATIONS + SETTINGS_DESTINATION
 
 @Composable
-private fun DrawerTint.color(): Color {
+internal fun DrawerTint.color(): Color {
     val dark = isMaggieDark()
     fun pick(pair: Pair<Color, Color>) = if (dark) pair.second else pair.first
     return when (this) {
         DrawerTint.ACCENT -> MaterialTheme.colorScheme.primary
         DrawerTint.AGENDA -> homeModuleColor(HomeModules.AGENDA)
         DrawerTint.TASKS -> pick(MaggieTokens.Module.taches)
-        DrawerTint.GROCERY -> homeModuleColor(HomeModules.GROCERY)
+        DrawerTint.GROCERY -> pick(MaggieTokens.Module.cuisine)
         DrawerTint.CUISINE -> pick(MaggieTokens.Module.cuisine)
         DrawerTint.FINANCE -> pick(MaggieTokens.Module.finance)
         DrawerTint.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -112,12 +114,15 @@ private val dateFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FR
 internal fun drawerDateLabel(date: LocalDate): String =
     date.format(dateFormatter).replaceFirstChar { it.uppercase(Locale.FRENCH) }
 
+/** `charte/Tiroir`: 308 dp on a 390 dp phone, the rest being the page under the scrim that closes the drawer. */
+private const val SHEET_WIDTH_FRACTION = 308f / 390f
+
+private val SheetShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)
+
 /**
- * The drawer of `charte/Tiroir` (MAG-620): Maggie's avatar and the day, one tinted tile per module,
- * the selection in the module's hue, Réglages at the bottom.
- *
- * No « state of the day » line and no counter under the entries: the app holds no figure for them
- * outside the screens that read it, and a made-up one is worse than none.
+ * The drawer of `charte/Tiroir` (MAG-620): Maggie's avatar and the day, one tinted tile per module with its
+ * « state of the day » line and counter ([summary], from the data the app holds: an entry without one shows
+ * nothing, never a made-up figure), the selection in the module's hue, Réglages at the bottom.
  */
 @Composable
 fun AppDrawerContent(
@@ -126,11 +131,17 @@ fun AppDrawerContent(
     onCloseDrawer: () -> Unit,
     today: LocalDate = LocalDate.now(),
     unreadNotifications: Int = 0,
+    summary: DrawerSummary = DrawerSummary(),
 ) {
-    ModalDrawerSheet {
+    ModalDrawerSheet(
+        drawerShape = SheetShape,
+        modifier = Modifier.fillMaxWidth(SHEET_WIDTH_FRACTION).testTag(UiTags.DRAWER_SHEET),
+    ) {
         DrawerHeader(today)
 
-        DRAWER_DESTINATIONS.forEach { DrawerItem(it, currentRoute, onNavigate, onCloseDrawer) }
+        DRAWER_DESTINATIONS.forEach {
+            DrawerItem(it, currentRoute, onNavigate, onCloseDrawer, status = summary[it.route])
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -244,12 +255,28 @@ private fun DrawerItem(
     onNavigate: (String) -> Unit,
     onCloseDrawer: () -> Unit,
     badge: Int? = null,
+    status: DrawerEntryStatus? = null,
 ) {
     val tint = destination.tint.color()
+    val count = badge ?: status?.count
     NavigationDrawerItem(
         icon = { DestinationTile(destination) },
-        label = { Text(destination.label) },
-        badge = badge?.takeIf { it > 0 }?.let { count -> { Text("$count") } },
+        label = {
+            Column {
+                Text(destination.label)
+                status?.line?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag(UiTags.drawerLine(destination.route)),
+                    )
+                }
+            }
+        },
+        badge = count?.takeIf { it > 0 }?.let { n -> { Text("$n", modifier = Modifier.testTag(UiTags.drawerCount(destination.route))) } },
         colors = NavigationDrawerItemDefaults.colors(
             selectedContainerColor = tint.copy(alpha = TINT_ALPHA),
             selectedTextColor = tint,
