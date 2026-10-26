@@ -5,7 +5,7 @@ name: memory-night-habits-concerts
 description: The night draws the owner's musical tastes from the shows of his agenda « Concerts ».
 
 match:
-  system_contains: "DONNÉES de l'application"
+  system_contains: "cherches les habitudes observées"
   user_contains: "Black Wizards"
 
 turns:

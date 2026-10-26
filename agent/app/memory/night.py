@@ -917,7 +917,7 @@ class NightKeeper:
     ) -> None:
         if not isinstance(item, dict):
             return
-        title = _line(item.get("titre"))
+        title = habits.clean(_line(item.get("titre")), 160)
         if not title:
             return
         service, user_id = p.service, p.user_id
@@ -988,7 +988,9 @@ class NightKeeper:
             reason=p.reason(f"{len(proofs)} donnée(s) lue(s) dans l'application ({self._period_of(obs)})"),
         )
         if not exists:
-            await memory_night_repo.mark_seen(user_id, deleted_key, SCOPE_HABITS, written["chemin"])
+            await memory_night_repo.mark_seen(
+                user_id, deleted_key, SCOPE_HABITS, hashlib.sha1(written["chemin"].encode()).hexdigest()[:16]
+            )
         p.note("habitudes", {"chemin": written["chemin"], "preuves": len(proofs)})
 
     @staticmethod

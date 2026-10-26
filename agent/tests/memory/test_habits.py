@@ -295,6 +295,23 @@ class TestAHabitThatGrowsOrStops:
 
         assert SHOPPING not in [c.texte for c in body_of(env, SHOPPING_FICHE).known]
 
+    async def test_the_trace_of_a_long_title_fits_its_column_and_a_dash_in_it_does_not_split_the_claim(self, env):
+        long_title = "Le propriétaire fait ses courses le samedi matin — et jamais le dimanche, ni en semaine, " * 2
+        mcp = FakeMcp(errands=saturday_errands())
+        night, _ = await night_with(env, mcp, habits=[{"habitudes": [shopping() | {"titre": long_title}]}])
+
+        await run(night)
+
+        seen = await memory_night_repo.seen(USER_A, "habits")
+        assert seen and all(len(card) <= 64 and len(digest) <= 64 for card, digest in seen.items())
+        [path] = [p for p in env.service.folder(USER_A).files() if p.startswith("Habitudes/")]
+        first = body_of(env, path).known[0]
+        assert fiches.is_observed_regularity(first) and " — " not in first.texte
+
+        night.mcp = FakeMcp(errands=saturday_errands())
+        await run(night, NOW + timedelta(days=7))
+        assert len(body_of(env, path).known) == 5
+
 
 class TestTheMusicalTastesOfAnAgenda:
     async def test_the_concert_agenda_gives_a_tastes_fiche_citing_the_events_as_proofs(self, env):
@@ -374,6 +391,13 @@ class TestTheShippedScenarios:
         assert known[0].source.startswith("app : agenda « Concerts », sur la période du ")
         assert [c.source.rsplit(", ", 1)[1] for c in known[1:]] == list(days)
         assert fiches.announced(known[0]) and not fiches.announced(known[1])
+
+    async def test_the_chat_prompt_is_never_answered_by_the_night(self):
+        library = FakeAnthropicClient(fixtures_dir=self.SHIPPED).library
+        personality = (Path(__file__).resolve().parents[2] / "app" / "personality" / "default.yaml").read_text()
+        for scenario in library.scenarios:
+            if scenario.name.startswith("memory-night-habits"):
+                assert not scenario.matches("Qu'ai-je de prévu demain ?", personality)
 
     async def test_any_other_data_gives_no_habit(self, env):
         events = {day: [timed_event(day, "Dentiste")] for day in ("2026-09-01", "2026-09-02")}

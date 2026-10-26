@@ -4,7 +4,7 @@ name: memory-night-habits-nothing
 description: The night finds no habit in the data of the app.
 
 match:
-  system_contains: "DONNÉES de l'application"
+  system_contains: "cherches les habitudes observées"
 
 turns:
   - text: '{"habitudes": [], "cessees": []}'

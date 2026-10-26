@@ -309,7 +309,14 @@ def build_request(obs: Observation, existing: str, listed: str) -> str:
         "jours plus loin).",
         "Modules lus : "
         + (", ".join(sorted(obs.ok)) or "aucun")
-        + ("" if not obs.down else ". Illisibles cette nuit : " + ", ".join(sorted(obs.down))),
+        + ("" if not obs.down else ". Illisibles cette nuit : " + ", ".join(sorted(obs.down)))
+        + (
+            ""
+            if not obs.dropped
+            else ". Données tronquées (les plus récentes ou les plus proches sont gardées) : "
+            + ", ".join(f"{m} ({n} de moins)" for m, n in sorted(obs.dropped.items()))
+            + ". N'en tire aucune cessation."
+        ),
         "Données (clé | date | source | ce qui s'est passé) :\n" + "\n".join(i.line() for i in obs.items.values()),
         "Fiches d'habitudes existantes :\n" + (existing or "(aucune)"),
         "Autres fiches :\n" + (listed or "(aucune)"),
