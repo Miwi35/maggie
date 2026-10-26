@@ -275,7 +275,9 @@ fi
 
 code="$RANDOM$RANDOM"
 title="Rendez-vous smoke $RANDOM$RANDOM"
-QUESTION="Appelle l'outil get_upcoming_events, puis réponds en une phrase : quel est le titre exact de l'événement dont la description est « code $code » ?"
+# « sans query »: the query matches titles and places, not descriptions (MAG-16), and a
+# model that passed the code as query found nothing and rolled the release back (MAG-565).
+QUESTION="Appelle l'outil get_upcoming_events sans query, puis réponds en une phrase : quel est le titre exact de l'événement dont la description est « code $code » ?"
 
 # A POST is not retried: a timed-out one may still have written. It gets
 # WRITE_TIMEOUT instead of 15 s — on a cold pod the event's took longer, and the
