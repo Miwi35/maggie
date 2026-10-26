@@ -43,8 +43,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
-import com.maggie.app.ui.screens.home.HomeModules
-import com.maggie.app.ui.screens.home.homeModuleColor
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.isMaggieDark
 import java.time.LocalDate
@@ -96,7 +94,7 @@ internal fun DrawerTint.color(): Color {
     fun pick(pair: Pair<Color, Color>) = if (dark) pair.second else pair.first
     return when (this) {
         DrawerTint.ACCENT -> MaterialTheme.colorScheme.primary
-        DrawerTint.AGENDA -> homeModuleColor(HomeModules.AGENDA)
+        DrawerTint.AGENDA -> pick(MaggieTokens.Module.agenda)
         DrawerTint.TASKS -> pick(MaggieTokens.Module.taches)
         DrawerTint.GROCERY -> pick(MaggieTokens.Module.cuisine)
         DrawerTint.CUISINE -> pick(MaggieTokens.Module.cuisine)

@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.home
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
@@ -13,6 +14,8 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTheme
+import com.maggie.app.ui.theme.MaggieTokens
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -89,7 +92,23 @@ class HomeCardScreenTest {
         compose.waitForIdle()
 
         assertEquals(HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD).size + 1, colors.size)
-        assertEquals(colors.getValue("tasks"), colors.getValue("unknown"))
-        assertEquals(HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD).size, colors.values.toSet().size)
+        assertEquals(HomeLayout.cards(HomeFormat.PHONE, HomeSlot.CARD).size + 1, colors.values.toSet().size)
+    }
+
+    @Test
+    fun `the Accueil cards wear the charter's hue of their module on the dark Veilleuse`() {
+        val colors = mutableMapOf<String, Color>()
+        compose.setContent {
+            MaggieTheme("dark") {
+                listOf(HomeModules.TASKS, HomeModules.GROCERY, HomeModules.AGENDA, HomeModules.FINANCE)
+                    .forEach { colors[it] = homeModuleColor(it) }
+            }
+        }
+        compose.waitForIdle()
+
+        assertEquals(MaggieTokens.Module.taches.second, colors.getValue(HomeModules.TASKS))
+        assertEquals(MaggieTokens.Module.cuisine.second, colors.getValue(HomeModules.GROCERY))
+        assertEquals(MaggieTokens.Module.agenda.second, colors.getValue(HomeModules.AGENDA))
+        assertEquals(MaggieTokens.Module.finance.second, colors.getValue(HomeModules.FINANCE))
     }
 }
