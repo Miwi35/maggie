@@ -219,6 +219,17 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('high', $message['android']['priority']);
     }
 
+    /** Asking the phone where it is (MAG-650): nothing shown, delivered at once, useless after ten minutes. */
+    public function testALocationRequestIsDataOnlyAndUrgent(): void
+    {
+        $message = (new PushMessageFactory())->buildLocationRequest('t');
+
+        self::assertSame('t', $message['token']);
+        self::assertArrayNotHasKey('notification', $message);
+        self::assertSame(['type' => 'location_request'], $message['data']);
+        self::assertSame(['priority' => 'high', 'ttl' => '600s', 'collapse_key' => 'location_request'], $message['android']);
+    }
+
     public function testAnotherNotificationKeepsItsOwnTagAndNoTimerId(): void
     {
         $notification = $this->notification(NotificationType::Reminder, 'Rendez-vous', null, '/api/events/01JEVENT');

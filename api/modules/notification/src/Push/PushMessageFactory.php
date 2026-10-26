@@ -36,6 +36,12 @@ class PushMessageFactory
     /** The `type` of a data-only message that takes a notification down (MAG-582). */
     public const WITHDRAW_TYPE = 'withdraw';
 
+    /** The `type` of a data-only message that asks the phone for its position (MAG-650). */
+    public const LOCATION_REQUEST_TYPE = 'location_request';
+
+    /** A position asked for and not given by then is too old to plan a departure with. */
+    private const LOCATION_REQUEST_TTL = '600s';
+
     /**
      * FCM refuses a message over 4096 bytes, and title and text travel twice
      * (both blocks): 2 × (400 + 1200) leaves room for the rest of the data.
@@ -139,6 +145,27 @@ class PushMessageFactory
                 'tag' => $this->tag($notification),
             ],
             'android' => ['priority' => 'high'],
+        ];
+    }
+
+    /**
+     * The data-only message that asks a phone where it is (MAG-650): Android
+     * hands it to the app even in the background, which answers with
+     * `PUT /api/me/location`. Nothing is shown; a newer request replaces one
+     * still waiting on the device.
+     *
+     * @return array<string, mixed> the FCM v1 `message` object
+     */
+    public function buildLocationRequest(string $deviceToken): array
+    {
+        return [
+            'token' => $deviceToken,
+            'data' => ['type' => self::LOCATION_REQUEST_TYPE],
+            'android' => [
+                'priority' => 'high',
+                'ttl' => self::LOCATION_REQUEST_TTL,
+                'collapse_key' => self::LOCATION_REQUEST_TYPE,
+            ],
         ];
     }
 
