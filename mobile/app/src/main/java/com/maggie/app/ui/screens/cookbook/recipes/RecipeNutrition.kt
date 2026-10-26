@@ -1,12 +1,17 @@
 package com.maggie.app.ui.screens.cookbook.recipes
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -79,26 +84,28 @@ internal fun RecipeNutritionBlock(nutrition: RecipeNutrition, dailyKcal: Int?) {
     val share = dailyKcal?.takeIf { it > 0 }?.let { (nutrition.kcal * 100f / it).roundToInt() }
     Column(modifier = Modifier.testTag(UiTags.RECIPE_NUTRITION), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Par personne", style = MaterialTheme.typography.titleSmall)
-        Text(
-            text = "≈ ${nutrition.kcal} kcal" + (share?.let { " · $it % du besoin du jour" } ?: ""),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (share != null) {
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(progress = { (share / 100f).coerceIn(0f, 1f) }, modifier = Modifier.size(64.dp))
+                    Text("$share %", style = MaterialTheme.typography.labelLarge)
+                }
+            }
+            Column {
+                Text("≈ ${nutrition.kcal} kcal", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                if (share != null) {
+                    Text(
+                        "du besoin du jour",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             listOf("Protéines" to nutrition.protein, "Lipides" to nutrition.fat, "Glucides" to nutrition.carbs).forEach { (label, grams) ->
                 Text("$label $grams g", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-        if (nutrition.skipped > 0) {
-            Text(
-                text = if (nutrition.skipped == 1) {
-                    "1 ingrédient compté à la pièce ou sans valeurs n’est pas inclus."
-                } else {
-                    "${nutrition.skipped} ingrédients comptés à la pièce ou sans valeurs ne sont pas inclus."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

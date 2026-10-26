@@ -78,14 +78,17 @@ class RecipeNutritionTest {
     fun `with a reference the share of the day's need shows`() {
         compose.setContent { RecipeNutritionBlock(RecipeNutrition(800, 40, 90, 25, 0), dailyKcal = 2000) }
 
-        compose.onNodeWithText("≈ 800 kcal · 40 % du besoin du jour").assertIsDisplayed()
+        compose.onNodeWithText("≈ 800 kcal").assertIsDisplayed()
+        compose.onNodeWithText("40 %").assertIsDisplayed()
+        compose.onNodeWithText("du besoin", substring = true).assertIsDisplayed()
     }
 
     @Test
-    fun `the lines left out are said`() {
+    fun `the screen does not explain the lines left out`() {
         compose.setContent { RecipeNutritionBlock(RecipeNutrition(800, 40, 90, 25, 2), dailyKcal = null) }
 
-        compose.onNodeWithText("2 ingrédients comptés à la pièce ou sans valeurs ne sont pas inclus.").assertIsDisplayed()
+        compose.onNodeWithText("ne sont pas inclus", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("sans valeurs", substring = true).assertDoesNotExist()
     }
 
     @Test

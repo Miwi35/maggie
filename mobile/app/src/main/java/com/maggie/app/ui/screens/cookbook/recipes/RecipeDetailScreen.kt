@@ -29,7 +29,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +47,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.PlannedMealRef
 import com.maggie.app.data.api.RecipeDeletionImpact
+import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.quantityLabel
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.ui.UiTags
@@ -196,16 +196,18 @@ fun RecipeDetailScreen(
                         IconButton(onClick = { menuOpen = true }, modifier = Modifier.testTag(UiTags.RECIPE_MENU)) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Plus d’actions")
                         }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, modifier = Modifier.uiTagRoot()) {
-                            DropdownMenuItem(
-                                text = { Text("Supprimer") },
-                                onClick = {
-                                    menuOpen = false
-                                    confirmingDelete = true
-                                },
-                                modifier = Modifier.testTag(UiTags.RECIPE_DELETE),
-                            )
-                        }
+                        RecipeActionsMenu(
+                            expanded = menuOpen,
+                            onDismiss = { menuOpen = false },
+                            onEdit = {
+                                menuOpen = false
+                                onEdit(recipeId)
+                            },
+                            onDelete = {
+                                menuOpen = false
+                                confirmingDelete = true
+                            },
+                        )
                     }
                 },
             )
@@ -256,85 +258,114 @@ fun RecipeDetailScreen(
                 }
             }
             recipe != null -> {
-                val r = recipe
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues)
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(r.name, style = MaterialTheme.typography.headlineSmall)
-                        Text(
-                            text = recipeSummary(r.steps, state.nutrition, r.servings),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                RecipeSheetContent(
+                    state = state,
+                    recipe = recipe,
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    onCook = { onCook(recipeId) },
+                    onStepGuests = viewModel::stepGuests,
+                    onResetGuests = viewModel::resetSimulation,
+                )
+            }
+        }
+    }
+}
 
-                    // Activité Cuisine (MAG-580): « Pour combien ? » first, then the preparation.
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Button(onClick = { onCook(recipeId) }, modifier = Modifier.testTag(UiTags.RECIPE_COOK)) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Cuisiner")
-                        }
-                        OutlinedButton(onClick = { onEdit(recipeId) }, modifier = Modifier.testTag(UiTags.RECIPE_EDIT)) {
-                            Text("Modifier")
-                        }
-                    }
+@Composable
+internal fun RecipeActionsMenu(expanded: Boolean, onDismiss: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, modifier = Modifier.uiTagRoot()) {
+        DropdownMenuItem(
+            text = { Text("Modifier") },
+            onClick = onEdit,
+            modifier = Modifier.testTag(UiTags.RECIPE_EDIT),
+        )
+        DropdownMenuItem(
+            text = { Text("Supprimer") },
+            onClick = onDelete,
+            modifier = Modifier.testTag(UiTags.RECIPE_DELETE),
+        )
+    }
+}
 
-                    GuestsSimulation(
-                        servings = r.servings,
-                        simulation = state.simulation,
-                        onStep = viewModel::stepGuests,
-                        onReset = viewModel::resetSimulation,
-                    )
-
-                    if (r.tags.isNotEmpty()) {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            r.tags.forEach { tag ->
-                                AssistChip(onClick = {}, label = { Text(tag) })
-                            }
-                        }
-                    }
-
-                    r.notes?.let { notes ->
-                        Text(text = notes, style = MaterialTheme.typography.bodyMedium)
-                    }
-
-                    if (r.ingredients.isNotEmpty()) {
-                        HorizontalDivider()
-                        Text("Ingrédients", style = MaterialTheme.typography.titleSmall)
-                        state.ingredients.forEach { ing ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(text = ing.ingredientName.orEmpty())
-                                    SeasonBadge(ing.inSeason)
-                                }
-                                Text(
-                                    text = ing.quantityLabel(),
-                                    modifier = Modifier.testTag(UiTags.RECIPE_INGREDIENT_QUANTITY),
-                                )
-                            }
-                        }
-                    }
-
-                    RecipeMethod(r)
-
-                    state.nutrition?.let {
-                        HorizontalDivider()
-                        RecipeNutritionBlock(it, dailyKcal = null)
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun RecipeSheetContent(
+    state: RecipeDetailUiState,
+    recipe: Recipe,
+    modifier: Modifier,
+    onCook: () -> Unit,
+    onStepGuests: (Int) -> Unit,
+    onResetGuests: () -> Unit,
+) {
+    val r = recipe
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(r.name, style = MaterialTheme.typography.headlineSmall)
+            if (r.tags.isNotEmpty()) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    r.tags.forEach { tag ->
+                        AssistChip(onClick = {}, label = { Text(tag) })
                     }
                 }
             }
+            Text(
+                text = recipeSummary(r.steps, state.nutrition, r.servings),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = onCook, modifier = Modifier.testTag(UiTags.RECIPE_COOK)) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Cuisiner")
+            }
+        }
+
+        GuestsSimulation(
+            servings = r.servings,
+            simulation = state.simulation,
+            onStep = onStepGuests,
+            onReset = onResetGuests,
+        )
+
+        r.notes?.let { notes ->
+            Text(text = notes, style = MaterialTheme.typography.bodyMedium)
+        }
+
+        if (r.ingredients.isNotEmpty()) {
+            HorizontalDivider()
+            Text("Ingrédients", style = MaterialTheme.typography.titleSmall)
+            state.ingredients.forEach { ing ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(text = ing.ingredientName.orEmpty())
+                        SeasonBadge(ing.inSeason)
+                    }
+                    Text(
+                        text = ing.quantityLabel(),
+                        modifier = Modifier.testTag(UiTags.RECIPE_INGREDIENT_QUANTITY),
+                    )
+                }
+            }
+        }
+
+        RecipeMethod(r)
+
+        state.nutrition?.let {
+            HorizontalDivider()
+            RecipeNutritionBlock(it, dailyKcal = null)
         }
     }
 }
