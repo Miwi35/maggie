@@ -201,6 +201,7 @@ private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHome
                 style = MaterialTheme.typography.labelMedium,
                 color = if (ring.remainingCents < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = RING_STROKE),
             )

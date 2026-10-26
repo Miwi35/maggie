@@ -19,7 +19,8 @@ tags:
 # that have something stay (`28-home-tasks.yaml` is the account with nothing but a task, on Aujourd'hui).
 #
 # The Finance card (MAG-565, extends MAG-102): the same account has a 1 000 € envelope and 10 €
-# spent on the 1st (`65-finance-home.yaml`), so the card says « Dans le rythme » for the week and the month.
+# spent on the 1st (`65-finance-home.yaml`), so the card says « Dans le rythme » for the week and the month,
+# and one project, « Vélo », whose bar the card draws.
 
 - launchApp:
     clearState: true
@@ -94,9 +95,17 @@ tags:
     timeout: 20000
 - assertVisible:
     text: "Mois : Dans le rythme.*"
-# One rhythm pill beside the rings, as the mock-up draws it.
+# One rhythm pill beside the rings, as the mock-up draws it, and the next project under them.
 - assertVisible:
     text: "Dans le rythme"
+- scrollUntilVisible:
+    element:
+      id: "home_finance_next_project"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "Vélo"
+    timeout: 5000
 
 # No meal on this account: the Nutrition card is gone once read (Demain is selected), the Courses and
 # Finance cards stay, and the sentence « Rien de prévu » is not said. Aujourd'hui is `28-home-tasks.yaml`'s.

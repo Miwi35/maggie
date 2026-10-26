@@ -3,7 +3,8 @@
 #
 # On the Accueil's own account (`64-grocery-home.yaml`), nobody else signs in
 # there: one 1 000 € envelope and 10 € spent on the 1st, so the spending is
-# under the pace whatever the stack's day is.
+# under the pace whatever the stack's day is. One project, « Vélo », so the card
+# draws the next project's bar.
 
 Maggie\Finance\Entity\Account:
   e2e_home_checking:
@@ -12,6 +13,14 @@ Maggie\Finance\Entity\Account:
     currency: EUR
     balanceCents: 200000
     isCushion: false
+    user: '@e2e_home_user'
+
+Maggie\Finance\Entity\Project:
+  e2e_home_bike:
+    name: Vélo
+    amountCents: 120000
+    currency: EUR
+    position: 0
     user: '@e2e_home_user'
 
 Maggie\Finance\Entity\Category:
