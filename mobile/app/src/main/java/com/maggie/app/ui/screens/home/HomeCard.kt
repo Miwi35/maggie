@@ -32,7 +32,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.theme.MaggieTokens
-import com.maggie.app.ui.theme.chartColor
 import com.maggie.app.ui.theme.readableTextOn
 
 private val MIN_TOUCH_TARGET = 48.dp
@@ -42,16 +41,17 @@ private const val ACTION_TINT_ALPHA = 0.12f
 
 /**
  * The colour of [module]'s title, icon and pill on the Accueil, per mode, from the design tokens
- * (`MaggieTokens.Module` has four hues; the others borrow a role of the palette). An unknown module
- * reads in the accent.
+ * (`MaggieTokens.Module`; Courses shares the Cuisine's blue, Nutrition borrows Travail's). An unknown
+ * module reads in the accent.
  */
 @Composable
 fun homeModuleColor(module: String): Color {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     fun pick(pair: Pair<Color, Color>) = if (dark) pair.second else pair.first
     return when (module) {
-        HomeModules.AGENDA -> chartColor(4, dark)
-        HomeModules.GROCERY -> pick(MaggieTokens.Rhythm.above)
+        HomeModules.TASKS -> pick(MaggieTokens.Module.taches)
+        HomeModules.AGENDA -> pick(MaggieTokens.Module.agenda)
+        HomeModules.GROCERY -> pick(MaggieTokens.Module.cuisine)
         HomeModules.NUTRITION -> pick(MaggieTokens.Module.travail)
         HomeModules.HEALTH -> pick(MaggieTokens.Module.sport)
         HomeModules.FINANCE -> pick(MaggieTokens.Module.comptes)

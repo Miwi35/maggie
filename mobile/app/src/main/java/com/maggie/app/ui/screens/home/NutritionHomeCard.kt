@@ -148,7 +148,7 @@ private fun NutritionHomeMealRow(meal: NutritionHomeMeal, day: HomeDay, resume: 
             Text(
                 text = it,
                 style = MaterialTheme.typography.bodySmall,
-                color = homeModuleColor(HomeModules.GROCERY),
+                color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.testTag(UiTags.HOME_NUTRITION_MISSING),
             )
         }

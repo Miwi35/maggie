@@ -159,6 +159,7 @@ class TokensContractTest {
         assertEquals(hex(0xFF8A80), MaggieTokens.Module.sport.second)
         assertEquals(hex(0xB8DE6F), MaggieTokens.Module.travail.second)
         assertEquals(hex(0xF2C46D), MaggieTokens.Module.saga.second)
+        assertEquals(hex(0xC7B5FF), MaggieTokens.Module.agenda.second)
     }
 
     @Test
@@ -237,6 +238,7 @@ class TokensContractTest {
                 "sport" to sport,
                 "travail" to travail,
                 "taches" to taches,
+                "agenda" to agenda,
                 "saga" to saga,
             )) {
                 put("module.$name.light", pair.first.hex())
