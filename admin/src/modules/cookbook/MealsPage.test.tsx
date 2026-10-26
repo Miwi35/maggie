@@ -174,6 +174,17 @@ describe('MealsPage — one page, two views of the same week', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
+  test('a meal the data provider lists by its IRI is still found by its bare id, in the Menu and in the Liste', async () => {
+    const byIri = { ...lunch, id: lunch['@id'] }
+    mockGetList.mockImplementation(answer([byIri]))
+    const user = setupUser()
+    render(<MealsPage />)
+
+    expect(await screen.findByTestId('meal-01LUNCH')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Liste' }))
+    expect(screen.getByTestId('meal-row-01LUNCH')).toBeInTheDocument()
+  })
+
   test('writes the week « 13 → 19 avril », with the year only when it is not this one', async () => {
     const user = await renderPage()
     expect(screen.getByText('13 → 19 avril')).toBeInTheDocument()

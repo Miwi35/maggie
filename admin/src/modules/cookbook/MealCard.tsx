@@ -143,7 +143,7 @@ export function MealCard({
   }
 
   return (
-    <Paper data-testid={`meal-${meal.id}`} variant="outlined" sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Paper data-testid={`meal-${idOf(meal.id)}`} variant="outlined" sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
         <Typography variant="subtitle2" sx={{ flex: 1 }}>
           {slotLabel(meal.slot)}

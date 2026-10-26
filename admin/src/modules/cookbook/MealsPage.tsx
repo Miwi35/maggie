@@ -94,7 +94,7 @@ function MealRow({ meal, known, busy, actions }: { meal: Meal; known: Map<string
     .filter(Boolean)
 
   return (
-    <TableRow data-testid={`meal-row-${meal.id}`}>
+    <TableRow data-testid={`meal-row-${idOf(meal.id)}`}>
       <TableCell sx={{ whiteSpace: 'nowrap' }}>
         {dayName} {date.getDate()} {date.toLocaleDateString('fr-FR', { month: 'short' })}
       </TableCell>

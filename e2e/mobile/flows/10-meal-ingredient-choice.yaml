@@ -180,9 +180,10 @@ tags:
 - runFlow: ../subflows/hide-keyboard.yaml
 - tapOn:
     id: "meal_detail_save"
-- extendedWaitUntil:
-    visible: "Dimanche en famille"
-    timeout: 20000
+# Sunday is the bottom of the week: the sheet closes on the top of it.
+- scrollUntilVisible:
+    element: "Dimanche en famille"
+    timeout: 30000
 - runScript:
     file: ../scripts/meal-api.js
     env:

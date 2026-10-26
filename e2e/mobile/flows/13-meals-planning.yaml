@@ -56,11 +56,12 @@ tags:
     file: ../subflows/open-destination.yaml
     env:
       DEST: cookbook
+# The tag is on the selector and its text on a child: two nodes, two checks.
 - extendedWaitUntil:
     visible:
       id: "cookbook_section"
-      text: "Repas"
     timeout: 20000
+- assertVisible: "Repas"
 - assertNotVisible: "Planning"
 
 # 4 → 2 portions on the first recipe: its quantity halves, the second's does not.
