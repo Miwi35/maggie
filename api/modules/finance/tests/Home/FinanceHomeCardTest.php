@@ -117,6 +117,7 @@ class FinanceHomeCardTest extends WebTestCase
             'amountCents' => 100000,
             'gatheredCents' => 74000,
             'purchaseMonth' => '2026-10',
+            'horizonMonths' => 36,
         ], $card['nextProject']);
     }
 
@@ -127,6 +128,19 @@ class FinanceHomeCardTest extends WebTestCase
         self::assertNull($card['nextProject']);
         self::assertSame(1, $card['toQualifyCount']);
         self::assertSame(0, $card['month']['budgetCents']);
+    }
+
+    public function testTheNextProjectIsShownEvenWhenNoneLandsInsideTheHorizon(): void
+    {
+        $card = $this->get('/api/home/finance', 'beyond_user');
+        self::assertResponseIsSuccessful();
+
+        // No income, so no capacity: both projects fall beyond the 36 months, yet the first one is the next.
+        self::assertSame('Salle de bain', $card['nextProject']['name']);
+        self::assertSame(900000, $card['nextProject']['amountCents']);
+        self::assertSame(0, $card['nextProject']['gatheredCents']);
+        self::assertNull($card['nextProject']['purchaseMonth']);
+        self::assertSame(36, $card['nextProject']['horizonMonths']);
     }
 
     public function testTheCardSaysHowManyAccountsAndEnvelopesTheUserHas(): void

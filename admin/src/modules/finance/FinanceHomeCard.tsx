@@ -167,7 +167,7 @@ const NextProject = ({ project }: { project: HomeNextProject }) => {
           {project.name}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-          {purchaseLabel(project.purchaseMonth)}
+          {project.purchaseMonth ? purchaseLabel(project.purchaseMonth) : `au-delà de ${project.horizonMonths} mois`}
         </Typography>
       </Stack>
       <Typography variant="caption" color="text.secondary">

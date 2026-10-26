@@ -31,6 +31,15 @@ data class FinanceHomeState(
                     gatheredCents = it.gatheredCents,
                     purchaseMonth = it.purchaseMonth,
                 )
+            } ?: dashboard.projectBeyondHorizon?.let {
+                FinanceHomeProject(
+                    projectId = it.projectId,
+                    name = it.name,
+                    amountCents = it.amountCents,
+                    gatheredCents = it.gatheredCents,
+                    purchaseMonth = null,
+                    horizonMonths = it.horizonMonths,
+                )
             },
             accountCount = dashboard.tiles.accounts.accounts.size,
             envelopeCount = dashboard.tiles.budget.envelopes.size,
@@ -71,8 +80,9 @@ data class FinanceHomeProject(
     val name: String,
     val amountCents: Int,
     val gatheredCents: Int,
-    /** `YYYY-MM`. */
-    val purchaseMonth: String,
+    /** `YYYY-MM`; null when the planning lands it beyond [horizonMonths] (e.g. while the cushion is built). */
+    val purchaseMonth: String? = null,
+    val horizonMonths: Int = 36,
 )
 
 /** « n à qualifier », the pill of the lines the review is waiting for. */

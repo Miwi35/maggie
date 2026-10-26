@@ -55,6 +55,7 @@ class GetFinanceDashboard
         $accounts = $this->accountRepository->findByUser($user);
         $balance = $this->balance($accounts);
         $budgets = $this->getBudgetStatus->execute($user, $year, $month)['budgets'];
+        $planning = $this->getProjectPlanning->execute($user);
         $savingCapacity = $this->getDebtTimeline->execute($user)['savingCapacity'];
         // Not a figure of the month shown: the counter is measured over the
         // last complete months, like the saving capacity beside it.
@@ -73,7 +74,8 @@ class GetFinanceDashboard
                     'savingCapacity' => $savingCapacity,
                 ],
             ],
-            'nextProject' => $this->nextProject($user, $year, $month, $budgets),
+            'nextProject' => $this->nextProject($user, $year, $month, $budgets, $planning),
+            'projectBeyondHorizon' => $this->projectBeyondHorizon($planning),
             'todo' => $this->todo($user, $rejections),
             'score' => $this->getDailyScore->execute($user, $year, $month),
             'balance' => $balance,
@@ -95,12 +97,12 @@ class GetFinanceDashboard
      * month under way only, so a month shown that is not that one carries no delay.
      *
      * @param list<array<string, mixed>> $budgets
+     * @param array<string, mixed>       $planning
      *
      * @return array<string, mixed>|null
      */
-    private function nextProject(User $user, int $year, int $month, array $budgets): ?array
+    private function nextProject(User $user, int $year, int $month, array $budgets, array $planning): ?array
     {
-        $planning = $this->getProjectPlanning->execute($user);
         $planned = array_values(array_filter(
             $planning['projects'],
             static fn (array $project): bool => null !== $project['purchaseMonth'],
@@ -127,6 +129,36 @@ class GetFinanceDashboard
             'delay' => sprintf('%04d-%02d', $year, $month) === $planning['startMonth']
                 ? $this->delay($user, [$next, ...$following], $budgets)
                 : null,
+        ];
+    }
+
+    /**
+     * The first project of the planning when none lands inside the horizon (the
+     * safety cushion is still being built): the Dashboard hides its block then,
+     * the Accueil card still names it. Null with no project, or with one planned.
+     *
+     * @param array<string, mixed> $planning
+     *
+     * @return array<string, mixed>|null
+     */
+    private function projectBeyondHorizon(array $planning): ?array
+    {
+        $projects = $planning['projects'];
+        foreach ($projects as $project) {
+            if (null !== $project['purchaseMonth']) {
+                return null;
+            }
+        }
+        if ([] === $projects) {
+            return null;
+        }
+
+        return [
+            'projectId' => $projects[0]['projectId'],
+            'name' => $projects[0]['name'],
+            'amountCents' => $projects[0]['amountCents'],
+            'gatheredCents' => $projects[0]['gatheredCents'],
+            'horizonMonths' => $planning['horizonMonths'],
         ];
     }
 

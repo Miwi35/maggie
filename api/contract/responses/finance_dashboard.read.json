@@ -433,6 +433,7 @@
         ],
         "delay": null
     },
+    "projectBeyondHorizon": null,
     "todo": {
         "toSortCount": 0,
         "rejectionsToSettleCount": 0,

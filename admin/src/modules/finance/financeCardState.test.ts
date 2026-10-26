@@ -21,11 +21,18 @@ test('the card keeps only what it draws of the next project, and counts the line
   const state = composeFinanceState(dashboardFixture({ nextProject: nextProjectFixture({ name: 'Vélo', purchaseMonth: '2099-10' }) }))
 
   expect(state.toQualifyCount).toBe(3)
-  expect(state.nextProject).toEqual({ projectId: 'p1', name: 'Vélo', amountCents: 120000, gatheredCents: 74000, purchaseMonth: '2099-10' })
+  expect(state.nextProject).toEqual({ projectId: 'p1', name: 'Vélo', amountCents: 120000, gatheredCents: 74000, purchaseMonth: '2099-10', horizonMonths: 36 })
 })
 
 test('has no next project when the dashboard has none', () => {
   expect(composeFinanceState(dashboardFixture({ nextProject: null })).nextProject).toBeNull()
+})
+
+test('names the first project of the planning when none lands inside the horizon', () => {
+  const beyond = { projectId: 'p2', name: 'Salle de bain', amountCents: 900000, gatheredCents: 0, horizonMonths: 36 }
+  const state = composeFinanceState(dashboardFixture({ nextProject: null, projectBeyondHorizon: beyond }))
+
+  expect(state.nextProject).toEqual({ ...beyond, purchaseMonth: null })
 })
 
 test('counts the accounts and the envelopes of the month', () => {

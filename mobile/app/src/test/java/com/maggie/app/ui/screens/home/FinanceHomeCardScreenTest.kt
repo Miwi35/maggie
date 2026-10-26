@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.home
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -104,6 +105,27 @@ class FinanceHomeCardScreenTest {
 
         compose.onNodeWithTag(UiTags.HOME_FINANCE_NEXT_PROJECT).assertIsDisplayed()
         compose.onNodeWithText("Voyage").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a project beyond the horizon is still the next project, with its horizon in place of a date`() {
+        val beyond = FinanceHomeProject("p2", "Salle de bain", 900000, 0, null, 36)
+        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack, nextProject = beyond)))
+
+        compose.onNodeWithTag(UiTags.HOME_FINANCE_NEXT_PROJECT).assertIsDisplayed()
+        compose.onNodeWithText("Salle de bain").assertIsDisplayed()
+        compose.onNodeWithText("au-delà de 36 mois").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the rings read mint in the rhythm and orange above it, never the accent violet`() {
+        val mint = Color(0xFF1B7352) to Color(0xFF7FD1AE)
+        val orange = Color(0xFFA65500) to Color(0xFFF0A35E)
+
+        assertEquals(mint.first, financeRhythmColor("on_track", dark = false))
+        assertEquals(mint.second, financeRhythmColor("on_track", dark = true))
+        assertEquals(orange.first, financeRhythmColor("above", dark = false))
+        assertEquals(orange.second, financeRhythmColor("above", dark = true))
     }
 
     @Test
