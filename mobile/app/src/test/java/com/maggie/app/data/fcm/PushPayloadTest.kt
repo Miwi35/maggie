@@ -291,4 +291,10 @@ class PushPayloadTest {
 
         assertEquals("n-1", payload.systemTag)
     }
+
+    @Test
+    fun `a location request is never a notification, with or without an id`() {
+        assertNull(PushPayload.from(mapOf("type" to "location_request")))
+        assertNull(PushPayload.from(mapOf("type" to "location_request", "notificationId" to "n-1", "title" to "Maggie")))
+    }
 }

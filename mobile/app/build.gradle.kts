@@ -235,6 +235,10 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
 
+    // Position report every 30 minutes, and the place of the car (MAG-651)
+    implementation(libs.work.runtime)
+    implementation(libs.play.services.location)
+
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
@@ -277,6 +281,7 @@ dependencies {
     testImplementation(libs.koin.test)
     testImplementation(libs.koin.test.junit4)
     testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.work.testing)
 
     // Screen tests on the JVM (MAG-242): what used to need an emulator to read a
     // screen — the list a screen draws, the order it draws it in, a loading and an

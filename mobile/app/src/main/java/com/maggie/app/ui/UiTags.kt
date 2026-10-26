@@ -1149,6 +1149,9 @@ object UiTags {
     /** Settings > Notifications — the switch of the chime and the vibration that announce her. */
     const val SETTINGS_INTERRUPTION_SOUND = "settings_interruption_sound"
 
+    /** Réglages › « Partir à l'heure » switch (MAG-651). */
+    const val SETTINGS_DEPARTURE = "settings_departure"
+
     /**
      * The row named after the agent (« Maggie »): by id, because on a tablet the launcher's taskbar
      * also carries an app called « Maggie » and a tap by text lands on it.

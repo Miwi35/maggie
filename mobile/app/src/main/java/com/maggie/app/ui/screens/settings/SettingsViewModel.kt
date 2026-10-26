@@ -6,6 +6,7 @@ import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.fcm.PushTokenRegistrar
+import com.maggie.app.data.location.DepartureTracking
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -53,6 +55,13 @@ private const val TASK_SETTINGS_UNSAVED = "Impossible d'enregistrer les réglage
 private const val MEAL_SETTINGS_UNREADABLE = "Impossible de lire les réglages des repas."
 private const val MEAL_SETTINGS_UNSAVED = "Les réglages des repas n'ont pas été enregistrés."
 
+/** « Partir à l'heure » on this phone (MAG-651). */
+data class DepartureUiState(
+    val enabled: Boolean = false,
+    /** The screen is to ask Android for the permissions, then report back with [SettingsViewModel.onDeparturePermissionsResult]. */
+    val askingPermissions: Boolean = false,
+)
+
 data class SettingsUiState(
     val user: User? = null,
     val preferences: UserPreference? = null,
@@ -67,6 +76,7 @@ data class SettingsUiState(
     val tasks: TaskSettingsUiState = TaskSettingsUiState(),
     /** Réglages › Repas (MAG-483), loaded when the page opens and failing on its own. */
     val meals: MealSettingsUiState = MealSettingsUiState(),
+    val departure: DepartureUiState = DepartureUiState(),
 )
 
 class SettingsViewModel(
@@ -78,6 +88,7 @@ class SettingsViewModel(
     private val voiceManager: VoiceManager,
     private val pushTokenRegistrar: PushTokenRegistrar,
     private val themeChoiceRepository: ThemeChoiceRepository,
+    private val departureTracking: DepartureTracking,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -91,6 +102,31 @@ class SettingsViewModel(
         loadProfile()
         loadTaskSettings()
         subscribeToMercure()
+        viewModelScope.launch {
+            departureTracking.enabled.collect { enabled ->
+                _uiState.update { it.copy(departure = it.departure.copy(enabled = enabled)) }
+            }
+        }
+    }
+
+    /** The switch: on asks for the permissions first (the screen does, [DepartureUiState.askingPermissions]); off stops everything. */
+    fun onDepartureSwitch(on: Boolean) {
+        if (on) {
+            _uiState.update { it.copy(departure = it.departure.copy(askingPermissions = true)) }
+        } else {
+            viewModelScope.launch { departureTracking.disable() }
+        }
+    }
+
+    /** The request is on screen: the flag is spent, so a rotation does not ask a second time. */
+    fun onDeparturePermissionsAsked() {
+        _uiState.update { it.copy(departure = it.departure.copy(askingPermissions = false)) }
+    }
+
+    /** Granted: the switch is on and the work scheduled. Refused: it stays off, nothing is scheduled. */
+    fun onDeparturePermissionsResult(granted: Boolean) {
+        _uiState.update { it.copy(departure = it.departure.copy(askingPermissions = false)) }
+        if (granted) viewModelScope.launch { departureTracking.enable() }
     }
 
     private fun loadProfile() {

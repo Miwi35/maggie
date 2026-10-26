@@ -351,6 +351,23 @@ data class PersonalityResponse(
     val name: String = "",
 )
 
+/** `PUT /api/me/location` (MAG-650): `capturedAt` is ISO-8601 with its offset. */
+@Serializable
+data class MyLocationRequest(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracy: Double,
+    val capturedAt: String,
+)
+
+/** `PUT /api/me/car` (MAG-650): `parkedAt` is ISO-8601 with its offset. */
+@Serializable
+data class MyCarRequest(
+    val latitude: Double,
+    val longitude: Double,
+    val parkedAt: String,
+)
+
 @Serializable
 data class FcmTokenRequest(
     val token: String,
@@ -1581,6 +1598,32 @@ class MaggieApiService(
             setBody(FcmTokenRequest(token = token))
         }
         if (!response.status.isSuccess()) throw IllegalStateException("HTTP ${response.status.value}")
+    }
+
+    // Where the owner is and where the car is parked (MAG-650): the last value only, no history.
+    // A 4xx other than 408 / 429 is the API refusing this very report, which sending it again
+    // will not change: it is told apart from a network or server failure, which is worth a retry.
+    suspend fun putMyLocation(latitude: Double, longitude: Double, accuracy: Double, capturedAt: String) {
+        val response = client.put("$baseUrl/api/me/location") {
+            contentType(ContentType.Application.Json)
+            setBody(MyLocationRequest(latitude, longitude, accuracy, capturedAt))
+        }
+        response.requireReported()
+    }
+
+    suspend fun putMyCar(latitude: Double, longitude: Double, parkedAt: String) {
+        val response = client.put("$baseUrl/api/me/car") {
+            contentType(ContentType.Application.Json)
+            setBody(MyCarRequest(latitude, longitude, parkedAt))
+        }
+        response.requireReported()
+    }
+
+    private fun HttpResponse.requireReported() {
+        if (status.isSuccess()) return
+        val code = status.value
+        if (code in 400..499 && code != 408 && code != 429) throw ApiRefusalException(code, "HTTP $code")
+        throw IllegalStateException("HTTP $code")
     }
 
     // Recipes

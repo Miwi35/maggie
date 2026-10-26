@@ -1,0 +1,60 @@
+appId: com.maggie.app.e2e
+name: 28-agenda-location-settings
+tags:
+  - settings
+  - calendar
+---
+# « Partir à l'heure » (MAG-651): the switch in Réglages that lets the phone tell Maggie where
+# the owner and the car are. Off by default.
+#
+# The location permissions are granted by the launch, so turning the switch on opens no system
+# dialog: it is active, and stays active after the app is started again. What is sent (the
+# position, the car's place), the refusal of a permission, the worker and the transitions
+# are the JVM's business (`SettingsViewModelTest`, `LocationReporterTest`, `ParkingDetectorTest`,
+# `AndroidLocationSchedulerTest`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/28-agenda-location-settings.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: settings
+- extendedWaitUntil:
+    visible:
+      id: "settings_departure"
+      checked: false
+    timeout: 30000
+- tapOn:
+    id: "settings_departure"
+- extendedWaitUntil:
+    visible:
+      id: "settings_departure"
+      checked: true
+    timeout: 20000
+
+# Read back from the phone, not from the screen that changed it: the app starts again, still
+# signed in, and opens Réglages fresh.
+- stopApp
+- launchApp:
+    arguments:
+      e2e_journey: e2e/mobile/flows/28-agenda-location-settings.yaml
+- extendedWaitUntil:
+    visible:
+      id: "home_screen"
+    timeout: 40000
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: settings
+- extendedWaitUntil:
+    visible:
+      id: "settings_departure"
+      checked: true
+    timeout: 30000

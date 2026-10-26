@@ -21,6 +21,20 @@ import com.maggie.app.data.fcm.PushChannels
 import com.maggie.app.data.fcm.PushDelivery
 import com.maggie.app.data.fcm.PushNotifier
 import com.maggie.app.data.fcm.PushTokenRegistrar
+import androidx.work.WorkManager
+import com.maggie.app.data.location.ActivityTransitionHandler
+import com.maggie.app.data.location.ActivityTransitionRegistrar
+import com.maggie.app.data.location.AndroidLocationPermissions
+import com.maggie.app.data.location.AndroidLocationScheduler
+import com.maggie.app.data.location.DepartureTracking
+import com.maggie.app.data.location.FusedPositionSource
+import com.maggie.app.data.location.LocationPermissions
+import com.maggie.app.data.location.LocationPreferences
+import com.maggie.app.data.location.LocationReporter
+import com.maggie.app.data.location.LocationScheduler
+import com.maggie.app.data.location.ParkingDetector
+import com.maggie.app.data.location.PositionSource
+import com.maggie.app.data.location.TransitionRegistrar
 import com.maggie.app.data.interruption.AndroidInterruptionAlert
 import com.maggie.app.data.interruption.InterruptionAlert
 import com.maggie.app.data.interruption.InterruptionCenter
@@ -291,6 +305,17 @@ class MaggieApp : Application() {
             single { PushTokenRegistrar(get(), get()) }
             single { PushActionHandler(get()) }
 
+            // Partir à l'heure (MAG-651): the position every 30 minutes and the car's place
+            single { LocationPreferences(androidContext()) }
+            single<LocationPermissions> { AndroidLocationPermissions(androidContext()) }
+            single<PositionSource> { FusedPositionSource(androidContext()) }
+            single<TransitionRegistrar> { ActivityTransitionRegistrar(androidContext()) }
+            single<LocationScheduler> { AndroidLocationScheduler(WorkManager.getInstance(androidContext()), get()) }
+            single { LocationReporter(get(), get(), get(), get()) }
+            single { ParkingDetector(get()) }
+            single { ActivityTransitionHandler(get(), get(), get()) }
+            single { DepartureTracking(get(), get(), get()) }
+
             // Interruption (MAG-314): Maggie speaks inside the app while it is open
             single { InterruptionCenter() }
             single { InterruptionPreferences(androidContext()) }
@@ -380,7 +405,7 @@ class MaggieApp : Application() {
             viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
-            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
+            viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get(), get(), get()) }
             viewModel {
                 InterruptionViewModel(
@@ -453,6 +478,9 @@ class MaggieApp : Application() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             registrar.keepRegistered(authRepository.isAuthenticated)
         }
+        // The transitions do not survive a reboot: registered again at every start while the switch is on;
+        // signed out, everything stops.
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { get<DepartureTracking>().follow(authRepository.isAuthenticated) }
         keepInterruptionsFed(get<InterruptionFeed>(), get<InterruptionCenter>(), authRepository)
         keepCalendarCacheFed(get<CalendarCacheFeed>(), authRepository)
         removeListeningLeftovers()
