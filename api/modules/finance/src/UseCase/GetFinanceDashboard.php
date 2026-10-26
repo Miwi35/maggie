@@ -29,6 +29,15 @@ class GetFinanceDashboard
     private const TOP_POSTS = 5;
     private const FOLLOWING_PROJECTS = 2;
 
+    /**
+     * The version of the payload's shape, sent as `shape`: the read model only
+     * serves what was stored in the shape this release answers, so a field a
+     * deploy adds is there at once, not the next day (MAG-565). Bump it with
+     * every key added, removed or renamed — FinanceDashboardProjectionTest
+     * fingerprints the recorded payload to remind it.
+     */
+    public const PAYLOAD_SHAPE = 2;
+
     public function __construct(
         private readonly GetDailyScore $getDailyScore,
         private readonly GetFinanceScores $getFinanceScores,
@@ -63,6 +72,7 @@ class GetFinanceDashboard
         $rejections = $this->rejectionsToSettleByAccount($accounts);
 
         return [
+            'shape' => self::PAYLOAD_SHAPE,
             'year' => $year,
             'month' => $month,
             'scores' => $this->getFinanceScores->execute($user, $this->getFinanceScores->dateInMonth($user, $year, $month)),

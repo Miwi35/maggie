@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -19,7 +20,10 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The Finance card (MAG-565): two rings with their rhythm word, the « n à qualifier » pill, the next project. */
+/**
+ * The Finance card (MAG-565), as `accueil/Accueil-Tel` draws it: two small rings, one rhythm pill, the orange
+ * « n à qualifier » pill, the next project with « x / y € · mois » and its bar.
+ */
 @RunWith(AndroidJUnit4::class)
 class FinanceHomeCardScreenTest {
 
@@ -58,14 +62,38 @@ class FinanceHomeCardScreenTest {
     }
 
     @Test
-    fun `each ring says its rhythm and the card names Finance`() {
-        draw(loaded(FinanceHomeState(accountCount = 1, week = above, month = onTrack)))
+    fun `the two rings carry their period under them and one pill tells the rhythm`() {
+        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack)))
 
         compose.onNodeWithText("Finance").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.homeFinanceRing("month")).assertIsDisplayed()
-        compose.onNodeWithText("Au-dessus du rythme").assertIsDisplayed()
-        compose.onNodeWithText("Dans le rythme").assertIsDisplayed()
+        compose.onNodeWithText("Semaine", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Mois", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.HOME_FINANCE_RHYTHM, useUnmergedTree = true).assertIsDisplayed()
+        compose.onAllNodesWithText("Dans le rythme", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun `one period above its rhythm makes the pill say so`() {
+        draw(loaded(FinanceHomeState(accountCount = 1, week = above, month = onTrack)))
+
+        compose.onAllNodesWithText("Au-dessus du rythme", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Dans le rythme", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `the remaining amount sits in the ring, rounded to the euro`() {
+        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack)))
+
+        compose.onAllNodesWithText("242\u00A0€", useUnmergedTree = true).assertCountEquals(2)
+    }
+
+    @Test
+    fun `no envelope at all, no rhythm pill`() {
+        draw(loaded(FinanceHomeState(accountCount = 1, week = FinanceHomeRing(), month = FinanceHomeRing())))
+
+        compose.onAllNodesWithTag(UiTags.HOME_FINANCE_RHYTHM, useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test
@@ -80,7 +108,6 @@ class FinanceHomeCardScreenTest {
     fun `a ring without envelope says so and draws no amount`() {
         draw(loaded(FinanceHomeState(accountCount = 1, week = FinanceHomeRing(), month = onTrack)))
 
-        compose.onNodeWithText("Aucune enveloppe").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.homeFinanceRing("week")).assertContentDescriptionContains("Aucune enveloppe", substring = true)
     }
 
@@ -100,11 +127,12 @@ class FinanceHomeCardScreenTest {
     }
 
     @Test
-    fun `the next project shows its name and what is gathered`() {
+    fun `the next project shows its name, then what is gathered over its price and its month`() {
         draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = onTrack, nextProject = project)))
 
         compose.onNodeWithTag(UiTags.HOME_FINANCE_NEXT_PROJECT).assertIsDisplayed()
         compose.onNodeWithText("Voyage").assertIsDisplayed()
+        compose.onNodeWithText("250 / 1\u202F000\u00A0€ · mars 2027").assertIsDisplayed()
     }
 
     @Test
@@ -114,7 +142,7 @@ class FinanceHomeCardScreenTest {
 
         compose.onNodeWithTag(UiTags.HOME_FINANCE_NEXT_PROJECT).assertIsDisplayed()
         compose.onNodeWithText("Salle de bain").assertIsDisplayed()
-        compose.onNodeWithText("au-delà de 36 mois").assertIsDisplayed()
+        compose.onNodeWithText("0 / 9\u202F000\u00A0€ · au-delà de 36 mois").assertIsDisplayed()
     }
 
     @Test

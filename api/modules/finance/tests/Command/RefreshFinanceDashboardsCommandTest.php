@@ -81,6 +81,23 @@ class RefreshFinanceDashboardsCommandTest extends KernelTestCase
         );
     }
 
+    public function testAModelStoredByAnEarlierReleaseIsMarkedStaleAndRebuilt(): void
+    {
+        $connection = self::getContainer()->get('doctrine.orm.entity_manager')->getConnection();
+        $stored = json_decode((string) $connection->fetchOne('SELECT payload FROM finance_dashboard_snapshot'), true, 512, \JSON_THROW_ON_ERROR);
+        unset($stored['shape']);
+        $connection->executeStatement('UPDATE finance_dashboard_snapshot SET payload = :payload', ['payload' => json_encode($stored, \JSON_THROW_ON_ERROR)]);
+
+        $this->tester->execute([]);
+
+        self::assertStringContainsString('1 dashboard(s)', $this->tester->getDisplay());
+        self::assertTrue($this->stale());
+
+        $this->drainDashboardRefreshes();
+        self::assertFalse($this->stale());
+        self::assertStringContainsString('"shape":', (string) $connection->fetchOne('SELECT payload FROM finance_dashboard_snapshot'));
+    }
+
     public function testAModelStoredWithoutAServerDayIsRebuilt(): void
     {
         self::getContainer()->get('doctrine.orm.entity_manager')->getConnection()->executeStatement('UPDATE finance_dashboard_snapshot SET computed_server_on = NULL');

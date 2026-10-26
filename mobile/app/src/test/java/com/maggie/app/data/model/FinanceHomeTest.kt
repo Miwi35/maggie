@@ -96,4 +96,25 @@ class FinanceHomeTest {
     fun `the pill counts the lines to qualify`() {
         assertEquals("3 à qualifier", FinanceHomeState(toQualifyCount = 3).toQualifyLabel())
     }
+
+    @Test
+    fun `the one rhythm pill is above as soon as a period is, on track otherwise, absent without envelope`() {
+        val onTrack = FinanceHomeRing("on_track", "", 30000, 24200, 21000)
+        val above = FinanceHomeRing("above", "", 7000, 1000, 3000)
+
+        assertEquals("above", FinanceHomeState(week = above, month = onTrack).rhythmStatus())
+        assertEquals("above", FinanceHomeState(week = onTrack, month = above).rhythmStatus())
+        assertEquals("on_track", FinanceHomeState(week = onTrack, month = onTrack).rhythmStatus())
+        assertEquals("on_track", FinanceHomeState(week = FinanceHomeRing(status = "above"), month = onTrack).rhythmStatus())
+        assertNull(FinanceHomeState().rhythmStatus())
+    }
+
+    @Test
+    fun `the next project reads what is gathered over its price, then its month or the horizon`() {
+        val planned = FinanceHomeProject("p1", "Vélo", 120000, 74000, "2027-03")
+        val beyond = FinanceHomeProject("p2", "Salle de bain", 900000, 0, null, 36)
+
+        assertEquals("740 / 1\u202F200\u00A0€ · mars 2027", planned.progressLabel { "mars 2027" })
+        assertEquals("0 / 9\u202F000\u00A0€ · au-delà de 36 mois", beyond.progressLabel { error("no month") })
+    }
 }

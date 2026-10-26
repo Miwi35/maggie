@@ -237,6 +237,77 @@ class FinanceDashboardProjectionTest extends WebTestCase
         self::assertSame($before, $connection->fetchAssociative('SELECT version, stale, computed_server_on FROM finance_dashboard_snapshot'));
     }
 
+    /**
+     * MAG-565: a deploy that adds a field (here `projectBeyondHorizon`) left the
+     * model the previous release stored in place for the rest of the day, so the
+     * Accueil card read a dashboard without its next project.
+     */
+    public function testAPayloadStoredByAnEarlierReleaseIsNotServedAndTheReadStaysLive(): void
+    {
+        $this->drainDashboardRefreshes();
+        $connection = $this->em()->getConnection();
+        $stored = json_decode((string) $connection->fetchOne('SELECT payload FROM finance_dashboard_snapshot'), true, 512, \JSON_THROW_ON_ERROR);
+        unset($stored['projectBeyondHorizon'], $stored['shape']);
+        $connection->executeStatement('UPDATE finance_dashboard_snapshot SET payload = :payload', ['payload' => json_encode($stored, \JSON_THROW_ON_ERROR)]);
+
+        $today = self::getContainer()->get(GetFinanceScores::class)->resolveDate($this->user(), null);
+        self::assertNull(self::getContainer()->get(FinanceDashboardSnapshotRepository::class)->fetchFreshPayload(
+            $this->user(),
+            (int) $today->format('Y'),
+            (int) $today->format('n'),
+            $today,
+            new \DateTimeImmutable('today'),
+        ), 'the shape it was stored in is not the one this release answers');
+
+        $read = $this->read();
+
+        self::assertNoWrite($read['queries']);
+        self::assertSame($this->liveBody(), $read['body'], 'computed live');
+        self::assertArrayHasKey('projectBeyondHorizon', json_decode($read['body'], true, 512, \JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * The fingerprint of the recorded payload's keys (api/contract): when it moves,
+     * a model stored by the previous release must not be served — bump
+     * GetFinanceDashboard::PAYLOAD_SHAPE, then record the new fingerprint here.
+     */
+    public function testThePayloadShapeIsBumpedWhenItsKeysChange(): void
+    {
+        $recorded = (string) file_get_contents(self::getContainer()->getParameter('kernel.project_dir').'/contract/responses/finance_dashboard.read.json');
+        $keys = self::keyPaths(json_decode($recorded, true, 512, \JSON_THROW_ON_ERROR));
+
+        self::assertSame(
+            [GetFinanceDashboard::PAYLOAD_SHAPE, '1698b0aad82764d9ad99d6aaa3a55c2843246864'],
+            [GetFinanceDashboard::PAYLOAD_SHAPE, sha1(implode("\n", $keys))],
+            "The dashboard's keys changed: bump GetFinanceDashboard::PAYLOAD_SHAPE and record this fingerprint.\n".implode("\n", $keys),
+        );
+    }
+
+    /**
+     * Every key path of the payload, lists collapsed to their first item.
+     *
+     * @return list<string>
+     */
+    private static function keyPaths(mixed $value, string $prefix = ''): array
+    {
+        if (!\is_array($value)) {
+            return [];
+        }
+        if (array_is_list($value)) {
+            return [] === $value ? [] : self::keyPaths($value[0], $prefix.'[]');
+        }
+
+        $paths = [];
+        foreach ($value as $key => $child) {
+            $path = '' === $prefix ? (string) $key : $prefix.'.'.$key;
+            $paths[] = $path;
+            array_push($paths, ...self::keyPaths($child, $path));
+        }
+        sort($paths);
+
+        return $paths;
+    }
+
     public function testAQualificationIsAnnouncedOnMercureOnceTheModelIsRebuilt(): void
     {
         $this->drainDashboardRefreshes();
