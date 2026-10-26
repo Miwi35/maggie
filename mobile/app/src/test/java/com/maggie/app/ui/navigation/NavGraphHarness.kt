@@ -85,6 +85,9 @@ internal fun startNavGraphApp() {
     }
     val cal = mockk<FullCalendarViewModel>(relaxed = true) { every { uiState } returns state(FullCalendarUiState()) }
     val notif = mockk<NotificationViewModel>(relaxed = true) { every { uiState } returns state(NotificationUiState()) }
+    val drawerSummary = mockk<com.maggie.app.ui.components.DrawerSummaryViewModel>(relaxed = true) {
+        every { summary } returns state(com.maggie.app.ui.components.DrawerSummary())
+    }
     val recipes = mockk<RecipeListViewModel>(relaxed = true) {
         every { uiState } returns state(RecipeListUiState(recipes = listOf(Recipe(id = "r1", name = "Chili"), Recipe(id = "r2", name = "Risotto"))))
     }
@@ -125,6 +128,7 @@ internal fun startNavGraphApp() {
                 viewModel { agendaHome }
                 viewModel { cal }
                 viewModel { notif }
+                viewModel { drawerSummary }
                 viewModel { recipes }
                 viewModel { meals }
                 viewModel { mealCreate }

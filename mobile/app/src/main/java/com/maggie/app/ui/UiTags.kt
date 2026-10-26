@@ -207,6 +207,7 @@ object UiTags {
 
     /** Navigation drawer — the header: Maggie's avatar and the day (MAG-620). */
     const val DRAWER_HEADER = "drawer_header"
+    const val DRAWER_SHEET = "drawer_sheet"
 
     /** Navigation drawer — one entry per destination, suffixed by its route. */
     const val DRAWER_ITEM_PREFIX = "drawer_"
@@ -750,6 +751,8 @@ object UiTags {
     fun approvalDetails(id: String) = APPROVAL_DETAILS_PREFIX + id
 
     fun drawerItem(route: String) = DRAWER_ITEM_PREFIX + route
+    fun drawerLine(route: String) = "drawer_line_$route"
+    fun drawerCount(route: String) = "drawer_count_$route"
 
     fun railItem(route: String) = RAIL_ITEM_PREFIX + route
 
