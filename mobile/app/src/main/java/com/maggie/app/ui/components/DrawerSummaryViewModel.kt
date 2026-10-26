@@ -14,6 +14,7 @@ import com.maggie.app.data.repository.GroceryCardRepository
 import com.maggie.app.data.repository.NutritionCardRepository
 import com.maggie.app.data.repository.TasksCardRepository
 import com.maggie.app.util.DateRanges
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,28 +45,36 @@ class DrawerSummaryViewModel(
     private val clock: () -> Instant = { Instant.now() },
 ) : ViewModel() {
     private val answers = MutableStateFlow(Answers())
+    private val reads = mutableMapOf<String, Job>()
     private val _summary = MutableStateFlow(DrawerSummary())
     val summary: StateFlow<DrawerSummary> = _summary
 
     init {
-        watch(tasks.changes()) { readTasks() }
-        watch(agenda.changes()) { readAgenda() }
-        watch(grocery.changes()) { readGrocery() }
-        watch(meals.changes()) { readMeals() }
-        watch(finance.changes()) { readFinance() }
+        watch(tasks.changes()) { restart("tasks") { readTasks() } }
+        watch(agenda.changes()) { restart("calendar") { readAgenda() } }
+        watch(grocery.changes()) { restart("grocery") { readGrocery() } }
+        watch(meals.changes()) { restart("cookbook") { readMeals() } }
+        watch(finance.changes()) { restart("finance") { readFinance() } }
         refresh()
     }
 
-    /** Reads every module again and re-dates the lines (« next event » moves with the clock). */
+    /** Reads every module again and re-dates the lines (« next event » moves with the clock), even if a read fails. */
     fun refresh() {
-        viewModelScope.launch { readTasks() }
-        viewModelScope.launch { readAgenda() }
-        viewModelScope.launch { readGrocery() }
-        viewModelScope.launch { readMeals() }
-        viewModelScope.launch { readFinance() }
+        publish { it }
+        restart("tasks") { readTasks() }
+        restart("calendar") { readAgenda() }
+        restart("grocery") { readGrocery() }
+        restart("cookbook") { readMeals() }
+        restart("finance") { readFinance() }
     }
 
-    private fun watch(changes: Flow<Unit>, read: suspend () -> Unit) {
+    /** One read in flight per module: an older answer arriving late never overwrites a newer one. */
+    private fun restart(module: String, read: suspend () -> Unit) {
+        reads[module]?.cancel()
+        reads[module] = viewModelScope.launch { read() }
+    }
+
+    private fun watch(changes: Flow<Unit>, read: () -> Unit) {
         viewModelScope.launch { changes.collect { read() } }
     }
 
