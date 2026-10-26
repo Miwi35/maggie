@@ -667,6 +667,11 @@ test('« où j\'en suis ce mois-ci ? » reads the week and month scores through 
   const scores = (await response.json()) as Record<string, { status: string; label: string; reasons: unknown[] }>
   for (const period of ['week', 'month', 'global']) {
     expect(['green', 'neutral', 'orange', 'red']).toContain(scores[period].status)
+  }
+  // The week has no envelope to be judged on: neutral, no reason (MAG-643). The month and the global score keep theirs.
+  expect(scores.week.status).toBe('neutral')
+  expect(scores.week.reasons).toEqual([])
+  for (const period of ['month', 'global']) {
     expect(scores[period].reasons.length).toBeGreaterThan(0)
   }
 })
