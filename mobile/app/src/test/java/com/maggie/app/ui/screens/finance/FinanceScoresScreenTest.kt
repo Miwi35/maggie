@@ -5,11 +5,14 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.width
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.FinanceScores
@@ -27,8 +30,10 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.RhythmCurvePanel
 import com.maggie.app.ui.components.ScoreRings
 import com.maggie.app.ui.components.expectedLine
+import com.maggie.app.ui.components.ringRhythmStatus
 import com.maggie.app.ui.navigation.DeepLinks
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -114,6 +119,14 @@ class FinanceScoresScreenTest {
     }
 
     @Test
+    fun `a ring is above the rhythm once the spending passes what was expected, and on track otherwise`() {
+        assertEquals("above", ringRhythmStatus(Rhythm(spentCents = 250830, expectedSpentCents = 120299, plannedCents = 240000)))
+        assertEquals("on_track", ringRhythmStatus(Rhythm(spentCents = 3000, expectedSpentCents = 4500, plannedCents = 9000)))
+        assertEquals("on_track", ringRhythmStatus(Rhythm(spentCents = 4500, expectedSpentCents = 4500, plannedCents = 9000)))
+        assertEquals("on_track", ringRhythmStatus(Rhythm(spentCents = 1349)))
+    }
+
+    @Test
     fun `a period with nothing planned shows its spending and no expected line`() {
         val unplanned = week.copy(rhythm = Rhythm(spentCents = 1349))
         compose.setContent { ScoreRings(week = unplanned, month = unplanned) }
@@ -169,6 +182,18 @@ class FinanceScoresScreenTest {
         compose.onNodeWithTag(UiTags.financeScoreClassify("month")).performClick()
 
         assertEquals(1, classified)
+    }
+
+    @Test
+    fun `Classer keeps its line under a ring when the amount takes the width, never squeezed to one letter per line`() {
+        val wide = month.copy(rhythm = month.rhythm.copy(unclassifiedCount = 9, unclassifiedCents = 248231))
+        val busyWeek = week.copy(rhythm = week.rhythm.copy(unclassifiedCount = 3, unclassifiedCents = 51234))
+        compose.setContent { ScoreRings(week = busyWeek, month = wide) }
+
+        val classify = compose.onNodeWithTag(UiTags.financeScoreClassify("month"))
+        classify.assertIsDisplayed()
+        val width = classify.getBoundsInRoot().width
+        assertTrue("Classer is squeezed to $width", width > 40.dp)
     }
 
     @Test
