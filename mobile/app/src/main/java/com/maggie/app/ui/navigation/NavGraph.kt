@@ -1390,6 +1390,7 @@ fun NavGraph() {
                         val task = selectedTask
                         ListDetailPane(
                             showsDetailPane = paneShown,
+                            detailBelowStatusBar = true,
                             list = {
                                 TasksScreen(
                                     viewModel = tasksViewModel,
@@ -1587,6 +1588,7 @@ fun NavGraph() {
                         val paneRecipeId = detailRecipeId
                         ListDetailPane(
                             showsDetailPane = paneShown,
+                            detailBelowStatusBar = true,
                             list = {
                                 CookbookScreen(
                                     recipeListViewModel = recipeListViewModel,

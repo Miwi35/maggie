@@ -1,8 +1,12 @@
 package com.maggie.app.ui.screens.cookbook
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FloatingActionButton
@@ -49,6 +53,8 @@ fun CookbookScreen(
     var section by rememberSaveable { mutableStateOf(CookbookSection.Meals) }
 
     Scaffold(
+        // The breadcrumb pays the status bar, as the frame's bar did.
+        contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.statusBars),
         floatingActionButton = {
             if (section == CookbookSection.Recipes) {
                 FloatingActionButton(onClick = onCreateRecipe, modifier = Modifier.testTag(UiTags.COOKBOOK_RECIPE_CREATE)) {

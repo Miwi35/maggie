@@ -49,7 +49,7 @@ class NavigationBarInsetNavGraphScreenTest {
         stopKoin()
     }
 
-    private fun launchOnTasks() {
+    private fun launchOnTasks(rail: String = "tasks") {
         startNavGraphApp()
         val app = ApplicationProvider.getApplicationContext<Application>()
         shadowOf(app.packageManager).addActivityIfNotPresent(ComponentName(app, NavGraphHostActivity::class.java))
@@ -57,7 +57,7 @@ class NavigationBarInsetNavGraphScreenTest {
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(1000)
         compose.waitForIdle()
-        compose.onNodeWithTag(UiTags.railItem("tasks")).performClick()
+        compose.onNodeWithTag(UiTags.railItem(rail)).performClick()
         compose.waitForIdle()
     }
 
@@ -70,6 +70,24 @@ class NavigationBarInsetNavGraphScreenTest {
             ViewCompat.dispatchApplyWindowInsets(content, insets)
         }
         compose.waitForIdle()
+    }
+
+    private fun giveStatusBar() {
+        val insets = WindowInsetsCompat.Builder()
+            .setInsets(WindowInsetsCompat.Type.statusBars(), Insets.of(0, STATUS_BAR, 0, 0))
+            .build()
+        scenario.onActivity { activity ->
+            val content = activity.findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
+            ViewCompat.dispatchApplyWindowInsets(content, insets)
+        }
+        compose.waitForIdle()
+    }
+
+    // Padded once: under the status bar, not twice (the frame's bar is gone, the breadcrumb pays it).
+    private fun assertBreadcrumbPaysTheStatusBarOnce() {
+        val bounds = compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).getUnclippedBoundsInRoot()
+        assertTrue("the breadcrumb starts at ${bounds.top}, under the ${STATUS_BAR} dp status bar", bounds.top >= STATUS_BAR.dp)
+        assertTrue("the breadcrumb ends at ${bounds.bottom}: the status bar was paid twice", bounds.bottom <= (STATUS_BAR + 60).dp)
     }
 
     private fun assertAboveTheTaskbar(tag: String) {
@@ -97,7 +115,24 @@ class NavigationBarInsetNavGraphScreenTest {
         assertAboveTheTaskbar(UiTags.ROUTINES_ADD)
     }
 
+    @Test
+    fun `the Tâches breadcrumb pays the status bar once`() {
+        launchOnTasks()
+        giveStatusBar()
+
+        assertBreadcrumbPaysTheStatusBarOnce()
+    }
+
+    @Test
+    fun `the Cuisine breadcrumb pays the status bar once`() {
+        launchOnTasks(rail = "cookbook")
+        giveStatusBar()
+
+        assertBreadcrumbPaysTheStatusBarOnce()
+    }
+
     private companion object {
+        const val STATUS_BAR = 24
         const val TASKBAR = 48
     }
 }
