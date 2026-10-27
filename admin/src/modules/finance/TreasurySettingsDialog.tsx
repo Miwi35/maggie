@@ -7,8 +7,8 @@ import Typography from '@mui/material/Typography'
 import { useNotify } from 'react-admin'
 import { CushionSettingsForm } from './CushionPage'
 import { FinanceSettingsDialog } from './FinanceSettingsDialog'
-import { isValidSalaryDay } from './useTreasurySettings'
 import type { CushionConfig, CushionStatus } from './useCushionStatus'
+import { isValidSalaryDay } from './useTreasuryOutlook'
 import type { TreasurySaveResult, TreasurySettingsChange, TreasurySettingsState } from './useTreasuryOutlook'
 
 type Save = (change: TreasurySettingsChange) => Promise<TreasurySaveResult>

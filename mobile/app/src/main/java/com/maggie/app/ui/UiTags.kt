@@ -1129,6 +1129,8 @@ object UiTags {
     const val ACCOUNT_BALANCE = "account_balance"
     const val ACCOUNT_ADD_TRANSACTION = "account_add_transaction"
     const val ACCOUNT_CORRECT_BALANCE = "account_correct_balance"
+    /** The ⋮ of the phone's account bar (MAG-632): « Corriger le solde » of a hand-kept account lives in it. */
+    const val ACCOUNT_MENU = "account_menu"
     const val ACCOUNT_BALANCE_INPUT = "account_balance_input"
     const val ACCOUNT_BALANCE_SAVE = "account_balance_save"
     const val ACCOUNT_ALL_TRANSACTIONS = "account_all_transactions"

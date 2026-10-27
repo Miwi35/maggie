@@ -71,6 +71,17 @@ data class AccountTimelineActions(
     val onOpenTransaction: (accountId: String, accountName: String, transactionId: String?) -> Unit,
 )
 
+/**
+ * « Corriger le solde » of a hand-kept account, for a screen that is not the timeline (the phone's account bar):
+ * the balance the form starts from, what confirming does, and the failure to tell the owner about.
+ */
+data class BalanceCorrection(
+    val currentCents: Int,
+    val onCorrect: (cents: Int) -> Unit,
+    val error: String? = null,
+    val onErrorShown: () -> Unit = {},
+)
+
 /** The tablet's detail pane: the timeline of the account chosen in the list. */
 @Composable
 fun AccountTimelineDetail(
@@ -343,7 +354,7 @@ internal fun balanceInput(cents: Int): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BalanceCorrectionDialog(
+internal fun BalanceCorrectionDialog(
     currentCents: Int,
     onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit,

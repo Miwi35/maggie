@@ -220,11 +220,11 @@ to one test's data, so:
   the way `e2e/wiremock-today.sh` anchors Google's event if they ever need to
   move.
 
-`BudgetStatusPanel` carries a `data-testid="budget-gauge"` with a
-`data-category`, like the grocery list's lines: the gauges repeat, and the
-point of every assertion on them is that *this* category consumed *that* much
-— a `getByText('120,00 € / 200,00 €')` would be just as happy if two gauges
-swapped their categories.
+The budget tree's `envelope-node` and the adjustments' `adjustment-row` carry a
+`data-category`, like the grocery list's lines: the rows repeat, and the point
+of every assertion on them is that *this* category holds *that* amount — a
+`getByText('120,00 €')` would be just as happy if two rows swapped their
+categories.
 
 What the browser cannot reach is in `e2e/smoke/smoke.sh`: the bank consent
 round trip (step 12), which leaves for the bank's own origin and comes back

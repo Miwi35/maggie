@@ -105,6 +105,7 @@ import com.maggie.app.ui.screens.finance.AccountListScreen
 import com.maggie.app.ui.screens.finance.AccountTimelineActions
 import com.maggie.app.ui.screens.finance.AccountTimelineDetail
 import com.maggie.app.ui.screens.finance.AccountViewModel
+import com.maggie.app.ui.screens.finance.BalanceCorrection
 import com.maggie.app.ui.screens.finance.BankConnectionListScreen
 import com.maggie.app.ui.screens.finance.BankConnectionViewModel
 import com.maggie.app.ui.screens.finance.BudgetScreen
@@ -1771,6 +1772,7 @@ fun NavGraph() {
                                     if (accountDrillDown || transactionPrefill != null) {
                                         AccountTransactions(
                                             it,
+                                            accountViewModel = accountViewModel,
                                             onBack = {
                                                 accountDrillDown = false
                                                 transactionToOpen = null
@@ -2068,8 +2070,12 @@ fun NavGraph() {
                         }
                         BackHandler(onBack = leave)
                         if (account != null) {
+                            // The list's ViewModel when the list is below on the stack: a corrected balance shows there too.
+                            val listEntry = remember(entry) { runCatching { navController.getBackStackEntry(Screen.AccountList.route) }.getOrNull() }
+                            val accountViewModel: AccountViewModel = koinViewModel(viewModelStoreOwner = listEntry ?: entry)
                             AccountTransactions(
                                 account,
+                                accountViewModel = accountViewModel,
                                 onBack = leave,
                                 onMakeRecurring = openRecurringFrom,
                                 prefill = transactionPrefill,
@@ -2332,6 +2338,7 @@ fun NavGraph() {
 @Composable
 private fun AccountTransactions(
     account: Pair<String, String>,
+    accountViewModel: AccountViewModel,
     onBack: (() -> Unit)?,
     onMakeRecurring: (Transaction) -> Unit,
     prefill: TransactionPrefill?,
@@ -2344,9 +2351,21 @@ private fun AccountTransactions(
 ) {
     // Keyed by account: the pane keeps one nav entry while the selection changes under it.
     val transactionViewModel: TransactionViewModel = koinViewModel(key = account.first) { parametersOf(account.first) }
+    // « Corriger le solde » only exists for a hand-kept account, and the timeline's read says which it is (MAG-632).
+    val accounts by accountViewModel.uiState.collectAsState()
+    LaunchedEffect(account.first) { accountViewModel.selectAccount(account.first) }
+    val manual = accounts.timelines[account.first]?.account?.takeIf { it.isManual }
     TransactionListScreen(
         viewModel = transactionViewModel,
         accountName = account.second,
+        balanceCorrection = manual?.let {
+            BalanceCorrection(
+                currentCents = it.balanceCents,
+                onCorrect = { cents -> accountViewModel.correctBalance(account.first, cents) },
+                error = accounts.error,
+                onErrorShown = accountViewModel::clearError,
+            )
+        },
         onBack = onBack,
         onMakeRecurring = onMakeRecurring,
         prefill = prefill,

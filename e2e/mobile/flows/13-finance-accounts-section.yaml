@@ -21,6 +21,8 @@ tags:
 # by side whatever else the server holds. The amount is not round, for the same reason: the
 # pairing looks for the opposite amount on another account of the same user.
 #
+# On a phone the ⋮ of the account's bar also opens « Corriger le solde » (hand-kept accounts only).
+#
 # What is not here: the older month (« Mois précédent »), the late occurrence and the « +33 % »
 # of a series. They need history the seed does not hold; the API's `AccountTimelineControllerTest`
 # and the phone's `AccountViewModelTest` / `DtoContractTest` carry them.
@@ -103,6 +105,20 @@ tags:
       - assertVisible: "Retour"
       - assertNotVisible:
           id: "breadcrumb_section"
+      # The account was typed in by hand: its ⋮ offers « Corriger le solde » (cancelled, the balance stays).
+      - extendedWaitUntil:
+          visible:
+            id: "account_menu"
+          timeout: 20000
+      - tapOn:
+          id: "account_menu"
+      - tapOn:
+          id: "account_correct_balance"
+      - extendedWaitUntil:
+          visible:
+            id: "account_balance_input"
+          timeout: 10000
+      - tapOn: "Annuler"
       - tapOn: "Nouvelle transaction"
 - evalScript: ${0}
 - runFlow:

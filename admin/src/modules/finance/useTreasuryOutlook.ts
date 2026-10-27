@@ -76,6 +76,9 @@ export type TreasurySettingsChange = {
   salaryExpectedDay?: number | null
 }
 
+/** The day of the month the salary is expected: a whole day, 1 to 31. */
+export const isValidSalaryDay = (day: number): boolean => Number.isInteger(day) && day >= 1 && day <= 31
+
 export type TreasurySaveResult = { ok: true } | { ok: false; message: string }
 
 function authHeaders(extra: Record<string, string> = {}) {
