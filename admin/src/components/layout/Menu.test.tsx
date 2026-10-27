@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, memoryStore, testDataProvider } from 'react-admin'
 import { MemoryRouter } from 'react-router-dom'
@@ -106,6 +106,20 @@ describe('CustomMenu — the agent entry', () => {
     )
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Alfred' })).toBeInTheDocument()
+  })
+})
+
+describe('CustomMenu — the header', () => {
+  test("wears Maggie's face, 32 px, beside her name", async () => {
+    stubPersonality('Maggie')
+    await renderMenu()
+
+    const header = screen.getByTestId('menu-header')
+    const avatar = within(header).getByTestId('maggie-avatar')
+
+    expect(avatar).toHaveStyle({ width: '32px', height: '32px' })
+    expect(avatar.querySelector('img')).toHaveAttribute('src', '/admin/maggie.png')
+    expect(await within(header).findByText('Maggie')).toBeInTheDocument()
   })
 })
 

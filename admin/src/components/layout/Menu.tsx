@@ -12,6 +12,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import TaskAltIcon from '@mui/icons-material/TaskAlt'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import { ModuleIcon } from './ModuleIcon'
+import { MaggieAvatar } from '../maggie/MaggieAvatar'
 import type { ModuleName } from '../../theme'
 import { useAgentName } from '../../hooks/useAgentName'
 import {
@@ -58,16 +59,7 @@ const Header = () => {
 
   return (
     <Box data-testid="menu-header" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5 }}>
-      <Box
-        aria-hidden
-        sx={(theme) => ({
-          width: 32,
-          height: 32,
-          borderRadius: '50%',
-          flexShrink: 0,
-          background: `linear-gradient(135deg, ${theme.palette.maggie.avatarFrom}, ${theme.palette.maggie.avatarTo})`,
-        })}
-      />
+      <MaggieAvatar size={32} />
       <Typography component="span" sx={{ fontWeight: 600, fontSize: 18 }}>
         {agentName}
       </Typography>
