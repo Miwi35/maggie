@@ -199,6 +199,9 @@ object UiTags {
     /** Top bar — the burger that opens the navigation drawer. */
     const val NAV_MENU = "nav_menu"
 
+    /** Top bar — the title of the generic bar; a module whose screen wears its own breadcrumb has none (MAG-670). */
+    const val TOP_BAR_TITLE = "top_bar_title"
+
     /**
      * Settings > Voix — the row that makes Maggie the system assistant (MAG-30).
      * Addressed by its tag and not by its state, which is the point: the journey
@@ -545,20 +548,16 @@ object UiTags {
     const val MEAL_ADD_DAY_PREFIX = "meal_add_day_"
 
     /**
-     * Tasks screen (MAG-408) — the root, the header « Tâches › … ▾ » that opens the menu of views
-     * (MAG-626), one menu entry per view suffixed by the view's key (`today`, `upcoming`, `someday`,
-     * `done`, `routines`), the quick-add field and its button, the empty line, and the
-     * box that ticks a task, suffixed by the task's id.
+     * Tasks screen (MAG-408) — the root, the quick-add field and its button, the empty line, and the
+     * box that ticks a task, suffixed by the task's id. The header « Tâches › … ▾ » (MAG-626) is the
+     * module breadcrumb: `breadcrumb_section` opens the menu, one `breadcrumb_menu_<key>` entry per view
+     * (`today`, `upcoming`, `someday`, `done`, `routines`).
      */
     const val TASKS = "tasks"
-    const val TASKS_VIEW_MENU = "tasks_view_menu"
-    const val TASKS_TAB_PREFIX = "tasks_tab_"
     const val TASKS_ADD_INPUT = "tasks_add_input"
     const val TASKS_ADD_SUBMIT = "tasks_add_submit"
     const val TASKS_EMPTY = "tasks_empty"
     const val TASKS_CHECK_PREFIX = "tasks_check_"
-
-    fun tasksTab(key: String) = TASKS_TAB_PREFIX + key
 
     fun tasksCheck(id: String) = TASKS_CHECK_PREFIX + id
 
@@ -694,7 +693,7 @@ object UiTags {
     const val PALIER_DISMISS = "palier_dismiss"
 
     /**
-     * The « Routines » tab of the tasks (MAG-511, tab `tasks_tab_routines`): its list, « Nouvelle
+     * The « Routines » tab of the tasks (MAG-511, entry `breadcrumb_menu_routines`): its list, « Nouvelle
      * routine », a group (suffixed by its key: morning, afternoon, evening, weekly, monthly), a card,
      * its tick and its total (suffixed by the routine's id); then the sheet: the title, a moment
      * (suffixed by the anchor), the hour, a repeat (suffixed by the kind), a weekday (1-7), a day of
@@ -1278,10 +1277,7 @@ object UiTags {
     const val MEAL_RECIPE_LAUNCH = "meal_recipe_launch"
     const val MEAL_RECIPE_FACTS = "meal_recipe_facts"
 
-    /** The heading « Cuisine › Repas ▾ » (MAG-628): its dropdown, the two sections it switches, and the recipe FAB. */
-    const val COOKBOOK_SECTION = "cookbook_section"
-    const val COOKBOOK_SECTION_MEALS = "cookbook_section_meals"
-    const val COOKBOOK_SECTION_RECIPES = "cookbook_section_recipes"
+    /** The recipe FAB of « Cuisine › Recettes ▾ » (MAG-628), whose breadcrumb wears the `breadcrumb_*` tags (MAG-670). */
     const val COOKBOOK_RECIPE_CREATE = "cookbook_recipe_create"
 
     /** The recipe list (MAG-628): the search field, the « Toutes » pill, a tag's pill, a row's avatar and its « 515 kcal · 35 min ». */

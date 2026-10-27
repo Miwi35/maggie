@@ -60,8 +60,8 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.theme.MaggieTokens
 
-/** One entry of a module's sections menu. */
-data class BreadcrumbSection(val key: String, val label: String)
+/** One entry of a module's sections menu; [count], when known, follows its label in the menu only (« À venir (2) »). */
+data class BreadcrumbSection(val key: String, val label: String, val count: Int? = null)
 
 /** One pill of the row of sub-views; [count] is shown after the label when known. */
 data class SubviewItem(val key: String, val label: String, val count: Int? = null)
@@ -241,7 +241,7 @@ private fun SectionsMenu(
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
-                                text = section.label,
+                                text = section.count?.let { "${section.label} ($it)" } ?: section.label,
                                 color = if (selected) accent else MaterialTheme.colorScheme.onSurface,
                                 fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
                                 modifier = Modifier.weight(1f),

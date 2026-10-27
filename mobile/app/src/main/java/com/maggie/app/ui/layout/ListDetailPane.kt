@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +27,9 @@ import com.maggie.app.ui.UiTags
  * - `true` — the list at [PANE_MIN_WIDTH], the detail taking the rest. [detail] is
  *   `null` while nothing is selected, and [placeholder] says so: an empty right half
  *   reads as a bug.
+ *
+ * [detailBelowStatusBar] is for a screen whose list wears its own breadcrumb instead of the frame's bar (MAG-670): no
+ * bar spans the window, so the list pays the status bar and the detail has to as well.
  */
 @Composable
 fun ListDetailPane(
@@ -34,6 +38,7 @@ fun ListDetailPane(
     detail: (@Composable () -> Unit)?,
     placeholder: String,
     modifier: Modifier = Modifier,
+    detailBelowStatusBar: Boolean = false,
 ) {
     if (!showsDetailPane) {
         Box(modifier = modifier.fillMaxSize().testTag(UiTags.LIST_PANE)) { list() }
@@ -43,7 +48,13 @@ fun ListDetailPane(
     Row(modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.width(PANE_MIN_WIDTH).fillMaxSize().testTag(UiTags.LIST_PANE)) { list() }
         VerticalDivider()
-        Box(modifier = Modifier.weight(1f).fillMaxSize().testTag(UiTags.DETAIL_PANE)) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize()
+                .then(if (detailBelowStatusBar) Modifier.statusBarsPadding() else Modifier)
+                .testTag(UiTags.DETAIL_PANE),
+        ) {
             if (detail != null) detail() else DetailPanePlaceholder(placeholder)
         }
     }

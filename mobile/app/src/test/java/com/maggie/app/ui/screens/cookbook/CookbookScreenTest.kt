@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.cookbook
 
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -53,8 +54,8 @@ class CookbookScreenTest {
     fun `it opens on Repas, under the heading Cuisine › Repas`() {
         show()
 
-        compose.onNodeWithText("Cuisine › ").assertExists()
-        compose.onNode(hasTestTag(UiTags.COOKBOOK_SECTION) and hasText("Repas")).assertExists()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_MODULE).assertTextEquals("Cuisine")
+        compose.onNode(hasTestTag(UiTags.BREADCRUMB_SECTION) and hasText("Repas")).assertExists()
         compose.onNodeWithTag(UiTags.MEALS_WEEK_LABEL).assertExists()
         compose.onNodeWithText("Chili sin carne").assertDoesNotExist()
     }
@@ -71,11 +72,11 @@ class CookbookScreenTest {
     fun `the caret offers Repas and Recettes, and Recettes shows the list`() {
         show()
 
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION).performClick()
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION_MEALS).assertExists()
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION_RECIPES).performClick()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("meals")).assertExists()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("recipes")).performClick()
 
-        compose.onNode(hasTestTag(UiTags.COOKBOOK_SECTION) and hasText("Recettes")).assertExists()
+        compose.onNode(hasTestTag(UiTags.BREADCRUMB_SECTION) and hasText("Recettes")).assertExists()
         compose.onNodeWithText("Chili sin carne").assertExists()
         compose.onNodeWithTag(UiTags.MEALS_WEEK_LABEL).assertDoesNotExist()
     }
@@ -86,15 +87,15 @@ class CookbookScreenTest {
         show { created++ }
         compose.onNodeWithTag(UiTags.COOKBOOK_RECIPE_CREATE).assertDoesNotExist()
 
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION).performClick()
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION_RECIPES).performClick()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("recipes")).performClick()
         compose.onNodeWithContentDescription("Nouvelle recette").assertExists()
         compose.onNodeWithTag(UiTags.COOKBOOK_RECIPE_CREATE).performClick()
 
         assertEquals(1, created)
 
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION).performClick()
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION_MEALS).performClick()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("meals")).performClick()
         compose.onNodeWithTag(UiTags.COOKBOOK_RECIPE_CREATE).assertDoesNotExist()
     }
 }

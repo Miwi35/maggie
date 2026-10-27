@@ -63,8 +63,8 @@ class RotationNavGraphScreenTest {
         }
         compose.waitForIdle()
         // Cuisine opens on Repas (MAG-628): the recipes are one choice of its heading away.
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION).performClick()
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION_RECIPES).performClick()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("recipes")).performClick()
         compose.waitForIdle()
     }
 

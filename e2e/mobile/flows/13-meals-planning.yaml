@@ -56,12 +56,14 @@ tags:
     file: ../subflows/open-destination.yaml
     env:
       DEST: cookbook
-# The tag is on the selector and its text on a child: two nodes, two checks.
+# The breadcrumb « Cuisine › Repas ▾ » is the only header (MAG-670): « Cuisine » shows once.
 - extendedWaitUntil:
     visible:
-      id: "cookbook_section"
+      id: "breadcrumb_section"
     timeout: 20000
 - assertVisible: "Repas"
+- assertNotVisible:
+    id: "top_bar_title"
 - assertNotVisible: "Planning"
 
 # 4 → 2 portions on the first recipe: its quantity halves, the second's does not.

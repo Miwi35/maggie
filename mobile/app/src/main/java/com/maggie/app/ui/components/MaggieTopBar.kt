@@ -1,5 +1,6 @@
 package com.maggie.app.ui.components
 
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
@@ -45,7 +46,7 @@ fun MaggieTopBar(
 ) {
     TopAppBar(
         expandedHeight = if (dense) DENSE_HEIGHT else TopAppBarDefaults.TopAppBarExpandedHeight,
-        title = { Text(title) },
+        title = { Text(title, modifier = Modifier.testTag(UiTags.TOP_BAR_TITLE)) },
         navigationIcon = {
             if (onMenuClick != null) {
                 IconButton(onClick = onMenuClick, modifier = Modifier.testTag(UiTags.NAV_MENU)) {
@@ -54,20 +55,28 @@ fun MaggieTopBar(
             }
         },
         actions = {
-            if (actionsInBar) {
-                IconButton(onClick = onSearchClick) {
-                    Icon(Icons.Default.Search, contentDescription = "Rechercher")
-                }
-                IconButton(onClick = onNotificationsClick) {
-                    if (unreadCount > 0) {
-                        BadgedBox(badge = { Badge { Text("$unreadCount") } }) {
-                            Icon(Icons.Default.Notifications, contentDescription = "Notifications")
-                        }
-                    } else {
-                        Icon(Icons.Default.Notifications, contentDescription = "Notifications")
-                    }
-                }
-            }
+            if (actionsInBar) BarActions(unreadCount, onNotificationsClick, onSearchClick)
         },
     )
+}
+
+/** The search and the notifications at the right of a bar — of the generic one, or of a module's breadcrumb (MAG-670). */
+@Composable
+fun RowScope.BarActions(
+    unreadCount: Int,
+    onNotificationsClick: () -> Unit,
+    onSearchClick: () -> Unit,
+) {
+    IconButton(onClick = onSearchClick) {
+        Icon(Icons.Default.Search, contentDescription = "Rechercher")
+    }
+    IconButton(onClick = onNotificationsClick) {
+        if (unreadCount > 0) {
+            BadgedBox(badge = { Badge { Text("$unreadCount") } }) {
+                Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+            }
+        } else {
+            Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+        }
+    }
 }
