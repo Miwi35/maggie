@@ -519,6 +519,42 @@
         },
         "description": "Adjust the monthly envelopes to what was really spent (\"mes enveloppes sont-elles adaptées ?\"). month is YYYY-MM, the month read (defaults to the current one); the amounts proposed are for the month after it. The suggest action lists every monthly envelope of the month with its amountCents, what was really spent (actualCents), what the next month is budgeted at (targetAmountCents) and — only for the envelopes that do not fit — a suggestion {proposedCents, direction raise or lower, reason, seasonal}. An envelope fits, and has no suggestion, unless it was exceeded three months running with spending mostly judged worth keeping (raise), was left under three quarters of its amount three months running (lower), or the same month of the past years was far from next month's amount (a season: seasonal {fromMonth, toMonth} names the month, and the amount is for that month of every year). Spending mostly judged avoidable never raises an envelope. Give the reason as it is, in French, it says why. Nothing is written by suggest. The apply action writes next month's amounts for the suggestions of categoryIds (comma-separated category ids; all of them when omitted) — only after the owner agreed: never apply on your own. Amounts are integer cents, divide by 100 to speak them."
     },
+    "estimate_trip": {
+        "name": "estimate_trip",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "eventId": {
+                    "type": "string"
+                },
+                "modes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "drive",
+                            "transit",
+                            "walk",
+                            "bicycle"
+                        ]
+                    },
+                    "minItems": 1
+                },
+                "origin": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "eventId",
+                "modes"
+            ]
+        },
+        "description": "Estimate the trip to an event, door to door, for one or several modes in one call — compare them before choosing. modes: drive, transit, walk, bicycle. origin: position (where the phone last was, the default), place:<id> (list_places gives the ids, home included) or event:<id> (where an earlier event is). Returns {eventId, estimates: [{mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], locationRequested}. departAt is when to leave: the start minus the trip minus 5 minutes. By car the trip walks to the car when it is more than 200 m away, drives to the parking of the known place and walks from it; parkingKnown false means no parking is known and 5 minutes are counted to find a spot. locationRequested true means the position was older than 10 minutes: the phone was asked for a new one and the estimate uses the old one. The event needs a location. A refused call answers {error, field}; Google unreachable or not configured answers {error}."
+    },
     "generate_grocery_list": {
         "name": "generate_grocery_list",
         "inputSchema": {

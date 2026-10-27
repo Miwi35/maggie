@@ -1,0 +1,102 @@
+# Trips to an event (MAG-653). Addresses and coordinates are made up: points in
+# Rennes, the dentist's parking 120 m from the dentist, the office without one.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Calendar\Entity\Agenda:
+  own_agenda:
+    name: Own agenda
+    isDefault: true
+    user: '@test_user'
+  other_agenda:
+    name: Other agenda
+    isDefault: true
+    user: '@other_user'
+
+Maggie\Calendar\Entity\Place:
+  home:
+    user: '@test_user'
+    name: Maison
+    address: '12 rue des Glycines Imaginaires, 35000 Rennes'
+    __calls:
+      - setCoordinates: [48.1100, -1.6800]
+    isHome: true
+  dentist_place:
+    user: '@test_user'
+    name: Dentiste
+    address: '5 allée du Sourire Fictif, 35000 Rennes'
+    parkingAddress: 'Parking du Square Inventé, 35000 Rennes'
+    __calls:
+      - setCoordinates: [48.1180, -1.6680]
+      - setParkingCoordinates: [48.1190, -1.6672]
+  gym:
+    user: '@test_user'
+    name: Salle de sport
+    address: '8 rue du Muscle Fictif, 35000 Rennes'
+  # Saved without coordinates, as save_place does when Maggie does not know them.
+  pool:
+    user: '@test_user'
+    name: Piscine
+    address: '2 quai du Plongeon Fictif, 35000 Rennes'
+    parkingAddress: 'Parking du Plongeon Fictif, 35000 Rennes'
+
+# 14:00 in Paris on Tuesday 3 November 2026.
+Maggie\Calendar\Entity\Event:
+  dentist:
+    summary: Dentiste
+    location: '5 allée du Sourire Fictif, 35000 Rennes'
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("2026-11-03 13:00:00", new \DateTimeZone("UTC")))>'
+    endAt: '<(new \DateTimeImmutable("2026-11-03 14:00:00", new \DateTimeZone("UTC")))>'
+    agenda: '@own_agenda'
+  office:
+    summary: Réunion au bureau
+    location: '40 boulevard du Travail Fictif, 35000 Rennes'
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("2026-11-03 13:00:00", new \DateTimeZone("UTC")))>'
+    endAt: '<(new \DateTimeImmutable("2026-11-03 14:00:00", new \DateTimeZone("UTC")))>'
+    agenda: '@own_agenda'
+    __calls:
+      - locateAt: [48.1300, -1.6500]
+  swim:
+    summary: Natation
+    location: '2 quai du Plongeon Fictif, 35000 Rennes'
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("2026-11-03 13:00:00", new \DateTimeZone("UTC")))>'
+    endAt: '<(new \DateTimeImmutable("2026-11-03 14:00:00", new \DateTimeZone("UTC")))>'
+    agenda: '@own_agenda'
+  nowhere:
+    summary: Appel
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("2026-11-03 13:00:00", new \DateTimeZone("UTC")))>'
+    endAt: '<(new \DateTimeImmutable("2026-11-03 14:00:00", new \DateTimeZone("UTC")))>'
+    agenda: '@own_agenda'
+  lost:
+    summary: Rendez-vous perdu
+    location: 'Introuvable'
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("2026-11-03 13:00:00", new \DateTimeZone("UTC")))>'
+    endAt: '<(new \DateTimeImmutable("2026-11-03 14:00:00", new \DateTimeZone("UTC")))>'
+    agenda: '@own_agenda'
+  holiday:
+    summary: Vacances
+    location: '5 allée du Sourire Fictif, 35000 Rennes'
+    allDay: true
+    timeZone: Europe/Paris
+    startDate: '<(new \DateTimeImmutable("2026-11-03"))>'
+    endDate: '<(new \DateTimeImmutable("2026-11-04"))>'
+    agenda: '@own_agenda'
+  other_dentist:
+    summary: Dentiste du voisin
+    location: '5 allée du Sourire Fictif, 35000 Rennes'
+    timeZone: Europe/Paris
+    startAt: '<(new \DateTimeImmutable("2026-11-03 13:00:00", new \DateTimeZone("UTC")))>'
+    endAt: '<(new \DateTimeImmutable("2026-11-03 14:00:00", new \DateTimeZone("UTC")))>'
+    agenda: '@other_agenda'
