@@ -20,7 +20,6 @@ import com.maggie.app.data.model.RhythmDebit
 import com.maggie.app.data.model.RhythmPoint
 import com.maggie.app.data.model.ScoreReason
 import com.maggie.app.data.model.formatCents
-import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
@@ -186,7 +185,6 @@ class FinanceScoresScreenTest {
         val withUnclassified = scores.copy(month = unclassifiedMonth)
         compose.setContent {
             FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 3, scores = withUnclassified)).viewModel,
                 onOpen = { opened = it },
@@ -234,7 +232,6 @@ class FinanceScoresScreenTest {
     fun `the dashboard draws the rings and the curve in place of the old daily score`() {
         compose.setContent {
             FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(dashboardWithScores()).viewModel,
                 onOpen = {},
@@ -250,7 +247,6 @@ class FinanceScoresScreenTest {
     fun `a payload without scores draws no ring and the rest of the dashboard goes on`() {
         compose.setContent {
             FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 3)).viewModel,
                 onOpen = {},
@@ -266,7 +262,6 @@ class FinanceScoresScreenTest {
     fun `on a wide window the scores and the tiles are both on screen`() {
         compose.setContent {
             FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(
                     dashboardWithScores().copy(nextProject = NextProject("p1", "Vélo", 100_000, 74_000, "2026-12")),

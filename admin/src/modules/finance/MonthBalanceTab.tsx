@@ -82,7 +82,7 @@ const Cushion = ({ cushion }: { cushion: TileCushion }) => {
 }
 
 /**
- * Dashboard › État courant (a tab of the finance home): the balance of a month in charts — the month's
+ * The balance of a month in charts (the review activity's « balance » step) — the month's
  * ring and its curve against the rhythm, one bar per envelope, the
  * satisfaction ring, what was put aside, the cushion. Each figure has its
  * visual. The lines nobody qualified are reported apart: they belong to no

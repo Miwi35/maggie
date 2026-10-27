@@ -7,33 +7,26 @@ import { ProjectGantt } from './ProjectGantt'
 import type { PlanningTile as PlanningTileData, SavingCapacity } from './useFinanceDashboard'
 import { useProjectPlanning } from './useProjectPlanning'
 
-const CapacitySummary = ({ capacity }: { capacity: SavingCapacity }) => (
-  <Box data-testid="saving-capacity">
-    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-      Capacité d'épargne nette
-    </Typography>
-    {capacity.isIncomeKnown ? (
-      <>
-        <Typography variant="h5" sx={{ my: 0.5 }}>
-          {formatCents(capacity.netCapacityCents)}
-          <Typography component="span" variant="body2" color="text.secondary">
-            {' '}
-            / mois
-          </Typography>
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {formatCents(capacity.monthlyNetIncomeCents)} de revenu −{' '}
-          {formatCents(capacity.loanPaymentsCents)} de mensualités −{' '}
-          {formatCents(capacity.estimatedLifestyleCents)} de train de vie
-        </Typography>
-      </>
-    ) : (
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        Renseignez votre revenu net dans le matelas de sécurité pour l'obtenir.
+const CapacitySummary = ({ capacity }: { capacity: SavingCapacity }) =>
+  capacity.isIncomeKnown ? (
+    <Box data-testid="saving-capacity">
+      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+        Capacité d'épargne nette
       </Typography>
-    )}
-  </Box>
-)
+      <Typography variant="h5" sx={{ my: 0.5 }}>
+        {formatCents(capacity.netCapacityCents)}
+        <Typography component="span" variant="body2" color="text.secondary">
+          {' '}
+          / mois
+        </Typography>
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {formatCents(capacity.monthlyNetIncomeCents)} de revenu −{' '}
+        {formatCents(capacity.loanPaymentsCents)} de mensualités −{' '}
+        {formatCents(capacity.estimatedLifestyleCents)} de train de vie
+      </Typography>
+    </Box>
+  ) : null
 
 /**
  * « Planification » → the treasury outlook (`/finance/treasury`), the admin's
@@ -52,9 +45,11 @@ export const PlanningTile = ({ tile }: { tile: PlanningTileData }) => {
           <ProjectGantt planning={planning} variant="compact" />
         </Box>
       )}
-      <Box sx={{ mt: 2 }}>
-        <IndependenceSummary counter={tile.independence} />
-      </Box>
+      {tile.independence.hasPassiveIncomeCategories && tile.independence.isMeasurable && (
+        <Box sx={{ mt: 2 }}>
+          <IndependenceSummary counter={tile.independence} />
+        </Box>
+      )}
     </DashboardTile>
   )
 }

@@ -14,18 +14,22 @@ onFlowComplete:
 # Quand j'ouvre les finances
 # Alors la tuile Comptes affiche « 3 à trier » et « 1 rejet »
 # Et aucune pastille « On te doit / Tu dois » : ce compte n'a ni créance ni dette (MAG-455)
+# Et une revue du mois à faire (une dépense non évaluée le mois dernier, MAG-631)
+# Alors la carte « Revue d'<mois> · ce soir · 20 h » est en tête, avec « Lancer », et rien ne dit « Revue ce soir »
+# Quand je touche « Lancer »
+# Alors l'activité Comptes de la revue s'ouvre
 # Quand je touche « 3 à trier »
 # Alors la Revue s'ouvre filtrée sur À qualifier, sur la ligne la plus ancienne
 #
 # The data is set by `scripts/finance-todo-api.js` on the seed's second user, who holds no other
 # finance data: the pile is these three lines (the rejection pair is not one) and the rejection is
-# the one. It runs as that user, not as the owner of `finance-overview`, whose pile other flows
-# leave lines in. `onFlowComplete` removes it even when a step failed: left behind, the three lines
+# the one, plus a categorised debit of last month that makes the review due. It runs as that user,
+# not as the owner of `finance-overview`, whose pile other flows leave lines in. `onFlowComplete` removes it even when a step failed: left behind, the three lines
 # would head the pile of `19-finance-contacts`, next in the shard.
 #
 # What is not here: « rien à faire, aucune pastille » on a home with no data at all
-# (`FinanceDashboardTilesScreenTest`, and the admin's journey), the Budget tile's advance pill and « Revue ce soir » (their counts
-# are the API's, `GetFinanceDashboardTodoTest`).
+# (`FinanceDashboardTilesScreenTest`, and the admin's journey), the Budget tile's advance pill (its count is
+# the API's, `GetFinanceDashboardTodoTest`).
 
 - launchApp:
     clearState: true
@@ -64,6 +68,31 @@ onFlowComplete:
     visible:
       id: "finance_score_ring_week"
     timeout: 30000
+
+# The review is due: its card heads the home (MAG-631), « Lancer » opens the Comptes activity.
+# Not the mock-up's: no month navigator, no big « Revue ce soir » button.
+- extendedWaitUntil:
+    visible:
+      id: "finance_review_card"
+    timeout: 30000
+- assertVisible: "Revue d.*"
+- assertVisible: "ce soir · 20 h"
+- assertNotVisible: "Revue ce soir"
+- assertNotVisible: "Mois précédent"
+- assertNotVisible: "Mois suivant"
+- tapOn:
+    id: "finance_review_shortcut"
+- extendedWaitUntil:
+    visible:
+      id: "review_activity"
+    timeout: 30000
+- tapOn:
+    id: "review_activity_quit"
+- extendedWaitUntil:
+    visible:
+      id: "finance_score_ring_week"
+    timeout: 30000
+
 - scrollUntilVisible:
     element:
       id: "finance_pill_to_sort"

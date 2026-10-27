@@ -195,7 +195,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Ten since MAG-524: the stock user's « Livret jeune », the car's savings source.
         // Thirteen since MAG-529: the next project account's current account, Livret jeune and Livret A.
         // Fourteen since MAG-556: the placement withdrawal account's PEA. Fifteen since MAG-565: the Accueil account's current account.
-        self::assertSame(15, $this->rowsOf(Account::class));
+        // Sixteen since MAG-631: the balance account's Livret A, behind its project.
+        self::assertSame(16, $this->rowsOf(Account::class));
         // Thirteen and not twelve since MAG-46: the rent received last month is
         // what the independence counter reads as a rente, and the journey
         // asserts the 60 % it makes of the measured train de vie. Sixteen since
@@ -204,8 +205,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Twenty since MAG-417: the scores account's rent and groceries.
         // Twenty-two since MAG-457: the month balance account's groceries and train.
         // Twenty-four since MAG-456: the two spends the review activity walks.
-        // Twenty-six since MAG-529: the next project account's restaurants and Obsydian overruns. Twenty-seven since MAG-565: the Accueil account's bakery. Twenty-eight since MAG-643: the scores account's unclassified debit.
-        self::assertSame(28, $this->rowsOf(Transaction::class));
+        // Twenty-six since MAG-529: the next project account's restaurants and Obsydian overruns. Twenty-seven since MAG-565: the Accueil account's bakery. Twenty-eight since MAG-643: the scores account's unclassified debit. Twenty-nine since MAG-631: the balance account's unrated line of last month.
+        self::assertSame(29, $this->rowsOf(Transaction::class));
         // Four since MAG-49: each envelope alert account's « Loisirs ». Six since
         // MAG-417: the scores account's « Logement » and « Alimentation ». Nine
         // since MAG-463: the « À venir » account's current and next month's.

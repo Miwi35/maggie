@@ -215,7 +215,7 @@ export interface MaggieFixtures {
   adjustUser: OtherUser
   /** The fifteenth seeded account, for the « À venir » tab of the dashboard (MAG-463). */
   upcomingUser: OtherUser
-  /** The sixteenth seeded account, for Dashboard › État courant (MAG-457). */
+  /** The sixteenth seeded account: a review due and a project under way, for Dashboard › État courant (MAG-457, MAG-631). */
   balanceUser: OtherUser
   /** The seventeenth seeded account, for the bravo of a task done (MAG-508). */
   bravoUser: OtherUser

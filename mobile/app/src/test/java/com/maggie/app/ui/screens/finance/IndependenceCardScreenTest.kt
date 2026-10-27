@@ -1,6 +1,8 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
@@ -16,7 +18,6 @@ import com.maggie.app.data.model.PlacementRentes
 import com.maggie.app.data.model.RenteSources
 import com.maggie.app.data.model.PlanningTile
 import com.maggie.app.data.model.formatCents
-import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
@@ -49,7 +50,6 @@ class IndependenceCardScreenTest {
     private fun open(counter: IndependenceCounter) {
         compose.setContent {
             FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(dashboardWith(counter)).viewModel,
                 onOpen = {},
@@ -93,38 +93,27 @@ class IndependenceCardScreenTest {
         compose.onNodeWithText("Loyers perçus").performScrollTo().assertIsDisplayed()
     }
 
-    /**
-     * A rente declared and no month measured yet is a different state: the
-     * hint must say how the window works, not how to declare a rente again.
-     */
+    /** A rente declared and no month measured yet: the state is said by the summary alone, no sentence under it. */
     @Test
-    fun `with a rente but no history the card explains the window`() {
+    fun `with a rente but no history the card says so without explaining the window`() {
         open(IndependenceCounter(hasPassiveIncomeCategories = true))
 
         compose.onNodeWithText("Pas encore de train de vie mesuré")
             .performScrollTo()
             .assertIsDisplayed()
-        compose.onNodeWithText("Le compteur se calcule sur les 3 mois complets précédents.")
-            .performScrollTo()
-            .assertIsDisplayed()
+        compose.onAllNodesWithText("Le compteur se calcule", substring = true).assertCountEquals(0)
     }
 
-    /** No rente declared is something to do, not a 0 % to read. */
+    /** No rente declared is something to do: a plain link to the categories, no sentence. */
     @Test
-    fun `without a declared rente the card says where to start`() {
+    fun `without a declared rente the card offers the link and no explanation`() {
         open(IndependenceCounter(lifestyleCents = 10000, isMeasurable = true))
 
         compose.onNodeWithText("Aucune catégorie déclarée comme rente")
             .performScrollTo()
             .assertIsDisplayed()
-        // The declaration is possible on the phone now (MAG-257): the hint
-        // points at the screen that does it, not at the admin or Maggie.
-        compose.onNodeWithText(
-            "Une rente se déclare sur une catégorie de recette — loyers perçus, " +
-                "dividendes — en créant la catégorie dans Finance › Catégories.",
-        )
-            .performScrollTo()
-            .assertIsDisplayed()
+        compose.onAllNodesWithText("Une rente se déclare", substring = true).assertCountEquals(0)
+        compose.onNodeWithText("Déclarer une rente").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("0 % du train de vie — il manque ${formatCents(0)} par mois")
             .assertDoesNotExist()
     }

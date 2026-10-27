@@ -28,14 +28,12 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -181,15 +179,12 @@ class FinanceDashboardViewModelTest {
     }
 
     @Test
-    fun `shiftPeriod walks through the months`() = runTest {
+    fun `the dashboard is read for the current month only`() = runTest {
         viewModel = buildViewModel()
         advanceUntilIdle()
 
-        viewModel.shiftPeriod(-1)
-        advanceUntilIdle()
-
-        assertEquals(8, viewModel.uiState.value.month)
-        coVerify { dashboardRepository.getDashboard(2026, 8) }
+        assertEquals(9, viewModel.uiState.value.month)
+        coVerify(exactly = 1) { dashboardRepository.getDashboard(2026, 9) }
     }
 
     @Test
@@ -301,54 +296,6 @@ class FinanceDashboardViewModelTest {
 
         assertNull(viewModel.uiState.value.error)
         assertNotNull(viewModel.uiState.value.dashboard)
-    }
-
-    @Test
-    fun `the figures of the month left do not stay on screen while the new ones load`() = runTest {
-        viewModel = buildViewModel()
-        advanceUntilIdle()
-        val answer = CompletableDeferred<Result<FinanceDashboard>>()
-        coEvery { dashboardRepository.getDashboard(2026, 8) } coAnswers { answer.await() }
-
-        viewModel.shiftPeriod(-1)
-
-        val state = viewModel.uiState.value
-        assertEquals(8, state.month)
-        assertNull(state.dashboard)
-        assertTrue(state.isLoading)
-    }
-
-    @Test
-    fun `a failure on the new month does not keep the old month's figures`() = runTest {
-        viewModel = buildViewModel()
-        advanceUntilIdle()
-        coEvery { dashboardRepository.getDashboard(2026, 8) } returns Result.failure(RuntimeException("boom"))
-
-        viewModel.shiftPeriod(-1)
-        advanceUntilIdle()
-
-        assertNull(viewModel.uiState.value.dashboard)
-        assertEquals("boom", viewModel.uiState.value.error)
-    }
-
-    @Test
-    fun `a late answer for the month left does not overwrite the month now shown`() = runTest {
-        val late = CompletableDeferred<Result<FinanceDashboard>>()
-        val august = dashboard.copy(month = 8, tiles = FinanceTiles(accounts = AccountsTile(totalCents = 1)))
-        // An answer that ignores the cancellation: only the check on arrival can keep it out.
-        coEvery { dashboardRepository.getDashboard(2026, 9) } coAnswers { withContext(NonCancellable) { late.await() } }
-        coEvery { dashboardRepository.getDashboard(2026, 8) } returns Result.success(august)
-        viewModel = buildViewModel()
-        advanceUntilIdle()
-
-        viewModel.shiftPeriod(-1)
-        advanceUntilIdle()
-        late.complete(Result.success(dashboard))
-        advanceUntilIdle()
-
-        assertEquals(8, viewModel.uiState.value.month)
-        assertEquals(august, viewModel.uiState.value.dashboard)
-        assertFalse(viewModel.uiState.value.isLoading)
     }
 
     @Test

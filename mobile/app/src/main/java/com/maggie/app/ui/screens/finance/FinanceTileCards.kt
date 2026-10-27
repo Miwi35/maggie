@@ -13,11 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,7 +47,6 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.owedPillText
 import com.maggie.app.data.model.independenceSummary
-import com.maggie.app.data.model.referenceSalarySourceLabel
 import com.maggie.app.data.model.treasuryDate
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.MaggieCard
@@ -61,7 +57,7 @@ import com.maggie.app.ui.theme.maggieSurface
 /** The envelopes drawn as bars; the tile leads to the budget for the rest. */
 internal const val MAX_TILE_ENVELOPES = 6
 
-/** A tile: a card with its title and a chevron, leading to the menu it summarises. */
+/** A tile: a card with its title and « Ouvrir → », leading to the menu it summarises. */
 @Composable
 private fun FinanceTile(
     title: String,
@@ -77,7 +73,7 @@ private fun FinanceTile(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(title, style = MaterialTheme.typography.titleSmall)
-                Icon(Icons.Default.ChevronRight, contentDescription = null)
+                Text("Ouvrir →", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
             content()
         }
@@ -87,6 +83,12 @@ private fun FinanceTile(
 @Composable
 private fun Hint(text: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Text(text = text, style = MaterialTheme.typography.bodySmall, color = color, modifier = modifier)
+}
+
+/** An action a tile needs, said as a plain link: its own tap target, no sentence. */
+@Composable
+private fun TileLink(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = modifier) { Text(label) }
 }
 
 /** A pill of a tile: its own tap target. */
@@ -180,16 +182,10 @@ internal fun BudgetTileCard(tile: BudgetTile, todo: FinanceTodo, onOpen: (String
                         (salary.expectedOn?.let { " · le ${treasuryDate(it)}" } ?: ""),
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                Hint(referenceSalarySourceLabel(salary.source))
             } else {
                 // Never a 0 € salary: unknown is said, with the way to fill it in.
                 Text("salaire non déclaré", style = MaterialTheme.typography.bodyLarge)
-                TextButton(
-                    onClick = { onOpen(Screen.Cushion.route) },
-                    modifier = Modifier.testTag(UiTags.REFERENCE_SALARY_LINK),
-                ) {
-                    Text("Déclarer mon salaire net dans le matelas")
-                }
+                TileLink("Déclarer mon salaire net dans le matelas", Modifier.testTag(UiTags.REFERENCE_SALARY_LINK)) { onOpen(Screen.Cushion.route) }
             }
         }
 
@@ -295,15 +291,14 @@ private fun CushionLine(tile: BudgetTile) {
 /**
  * Planification: how far the rentes cover the way the owner lives (MAG-46), then the saving capacity.
  *
- * The independence line says what it compares, never a bare percentage: a ratio whose terms are
- * hidden cannot be checked. The date N, the curve and the dated milestones (MAG-549) sit under it,
- * stated plainly: « non atteinte d'ici 20 ans » is a fact of the projection, not a verdict. The same
+ * The independence line gives the terms of its ratio, never a bare percentage. The date N, the curve and
+ * the dated milestones (MAG-549) sit under it, stated plainly: « non atteinte d'ici 20 ans » is a fact of the projection, not a verdict. The same
  * card fills the right pane on a tablet.
  */
 @Composable
 internal fun PlanningTileCard(tile: PlanningTile, planning: ProjectPlanning?, onOpen: (String) -> Unit) {
     FinanceTile("Planification", UiTags.FINANCE_TILE_PLANNING, onClick = { onOpen(Screen.Treasury.route) }) {
-        IndependenceBody(tile, planning)
+        IndependenceBody(tile, planning, onOpen)
     }
 }
 
@@ -312,7 +307,7 @@ internal fun PlanningTileCard(tile: PlanningTile, planning: ProjectPlanning?, on
  * sub-view's. [planning] draws the first three projects (MAG-529) when it is read.
  */
 @Composable
-internal fun ColumnScope.IndependenceBody(tile: PlanningTile, planning: ProjectPlanning? = null) {
+internal fun ColumnScope.IndependenceBody(tile: PlanningTile, planning: ProjectPlanning? = null, onOpen: (String) -> Unit = {}) {
     val counter = tile.independence
     val capacity = tile.savingCapacity
 
@@ -327,15 +322,9 @@ internal fun ColumnScope.IndependenceBody(tile: PlanningTile, planning: ProjectP
     planning?.let { ProjectGantt(it, modifier = Modifier.padding(vertical = 8.dp), compact = true) }
 
     if (!counter.isMeasurable || !counter.hasPassiveIncomeCategories) {
-        // Two different states, two different things to say.
-        Hint(
-            if (counter.hasPassiveIncomeCategories) {
-                "Le compteur se calcule sur les ${counter.sampleMonths} mois complets précédents."
-            } else {
-                "Une rente se déclare sur une catégorie de recette — loyers perçus, " +
-                    "dividendes — en créant la catégorie dans Finance › Catégories."
-            },
-        )
+        if (!counter.hasPassiveIncomeCategories) {
+            TileLink("Déclarer une rente") { onOpen(Screen.CategoryList.route) }
+        }
         // Placements and investments exist whether or not a train de vie is measured.
         IndependenceRenteSources(counter.renteSources, modifier = Modifier.padding(top = 10.dp))
     } else {
@@ -382,6 +371,6 @@ internal fun ColumnScope.IndependenceBody(tile: PlanningTile, planning: ProjectP
                 "${formatCents(capacity.estimatedLifestyleCents)} de train de vie",
         )
     } else {
-        Hint("Renseignez votre revenu dans le matelas pour l'obtenir.", modifier = Modifier.padding(top = 4.dp))
+        TileLink("Déclarer mon revenu") { onOpen(Screen.Cushion.route) }
     }
 }

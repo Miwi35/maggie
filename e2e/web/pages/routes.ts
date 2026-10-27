@@ -42,7 +42,6 @@ export const ROUTES = {
   loans: '/loans',
   contacts: '/contacts',
   financeOverview: '/finance/dashboard',
-  financeMonthBalance: '/finance/dashboard/current',
   financeBanks: '/finance/banks',
   financeImport: '/finance/import',
   financePeerDebts: '/finance/peer-debts',

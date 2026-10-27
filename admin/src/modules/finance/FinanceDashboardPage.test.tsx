@@ -5,6 +5,7 @@ import { AdminContext, testDataProvider } from 'react-admin'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { dashboardFixture, nextProjectFixture } from './dashboardFixture'
 import { FinanceDashboardPage } from './FinanceDashboardPage'
+import { reviewTitle } from './reviewActivity'
 import { upcomingFixture } from './upcomingFixture'
 import type { FinanceDashboard } from './useFinanceDashboard'
 
@@ -74,11 +75,11 @@ describe('FinanceDashboardPage', () => {
     expect(screen.queryByTestId('next-project-negative')).not.toBeInTheDocument()
   })
 
-  test('lays out the rings, the curve, the next project and the three tiles', async () => {
+  test('lays out the rings, the month spending, the next project and the three tiles', async () => {
     stubApi(dashboardFixture())
     renderPage()
 
-    expect(await screen.findByTestId('finance-scores')).toBeInTheDocument()
+    expect(await screen.findByTestId('month-spending-card')).toBeInTheDocument()
     expect(screen.getAllByTestId('score-ring')).toHaveLength(2)
     expect(screen.getByTestId('rhythm-curve')).toBeInTheDocument()
     expect(screen.getByTestId('next-project-card')).toBeInTheDocument()
@@ -188,16 +189,98 @@ describe('FinanceDashboardPage', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/finance/peer-debts')
   })
 
-  test('« Revue ce soir » heads the page while the review is not done and launches the activity', async () => {
+  test('the review is an action card, not a pill: its title, its time, one « Lancer » that opens the activity', async () => {
     const user = userEvent.setup()
     const payload = dashboardFixture()
     payload.todo.reviewReady = true
     stubApi(payload)
     renderPage()
 
-    await user.click(await screen.findByRole('link', { name: 'Revue ce soir' }))
+    const card = await screen.findByTestId('review-action-card')
+    expect(card).toHaveTextContent(reviewTitle(new Date()))
+    expect(card).toHaveTextContent('ce soir · 20 h')
+    expect(screen.queryByText('Revue ce soir')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('review-shortcut')).not.toBeInTheDocument()
+
+    await user.click(within(card).getByRole('link', { name: 'Lancer' }))
 
     expect(screen.getByTestId('where')).toHaveTextContent('/finance/review/activity')
+  })
+
+  test('has no review card while the review is not due', async () => {
+    stubApi(dashboardFixture())
+    renderPage()
+    await screen.findByTestId('tile-budget')
+
+    expect(screen.queryByTestId('review-action-card')).not.toBeInTheDocument()
+  })
+
+  test('is headed by the day of the month, without any period picker', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 13, 10, 0))
+    try {
+      stubApi(dashboardFixture())
+      renderPage()
+
+      expect(await screen.findByTestId('dashboard-header')).toHaveTextContent('Octobre, jour 13 sur 31')
+      expect(screen.queryByLabelText('Année')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Mois')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('says when the banks were last synchronised, from the freshest connection', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-13T10:12:00Z'))
+    try {
+      const fetchMock = vi.fn((url: string) => {
+        if (url.includes('/api/finance/bank-connections')) {
+          return answer({
+            connections: [
+              { id: 'c1', bankName: 'A', lastSyncedAt: '2026-10-13T08:00:00Z' },
+              { id: 'c2', bankName: 'B', lastSyncedAt: '2026-10-13T10:00:00Z' },
+            ],
+          })
+        }
+
+        return url.includes('/api/finance/dashboard') ? answer(dashboardFixture()) : answer({}, false)
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      renderPage()
+
+      await waitFor(() => expect(screen.getByTestId('dashboard-header')).toHaveTextContent('Synchronisé il y a 12 min'))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('draws the month as the mock-up: ring cards, Prochain projet, the month\'s spending and the three cards that open', async () => {
+    stubApi(dashboardFixture())
+    renderPage()
+
+    expect(await screen.findAllByTestId('score-ring')).toHaveLength(2)
+    expect(screen.getByTestId('next-project-card')).toBeInTheDocument()
+    const spending = screen.getByTestId('month-spending-card')
+    expect(spending).toHaveTextContent(/^Dépenses d/)
+    expect(within(spending).getByTestId('rhythm-curve')).toBeInTheDocument()
+    for (const id of ['tile-accounts', 'tile-budget', 'tile-planning']) {
+      expect(within(screen.getByTestId(id)).getByText('Ouvrir →')).toBeInTheDocument()
+    }
+  })
+
+  test('says nothing the mock-up does not say', async () => {
+    const payload = dashboardFixture()
+    payload.tiles.planning.independence.hasPassiveIncomeCategories = false
+    payload.tiles.planning.savingCapacity.isIncomeKnown = false
+    stubApi(payload)
+    renderPage()
+    await screen.findByTestId('tile-planning')
+
+    expect(screen.queryByText(/Aucune catégorie n'est déclarée comme rente/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Renseignez votre revenu net/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Bilan du mois')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('month-balance')).not.toBeInTheDocument()
   })
 
   test('the pill follows the next read: settling the last rejection drops it', async () => {
@@ -229,7 +312,6 @@ describe('FinanceDashboardPage', () => {
     renderPage()
 
     expect(await screen.findByText("Le tableau de bord n'a pas pu être chargé.")).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: "Vue d'ensemble" })).toBeInTheDocument()
     expect(screen.queryByTestId('tile-budget')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Réessayer' }))
@@ -256,19 +338,20 @@ describe('FinanceDashboardPage', () => {
     expect(urls.filter((url) => url.includes('/api/finance/dashboard'))).toHaveLength(1)
   })
 
-  test("opens on « Vue d'ensemble » and offers « État courant » and « À venir » without reading the projection until asked", async () => {
+  test("opens on « État courant » and offers « À venir » alone beside it, without reading the projection until asked", async () => {
     const fetchMock = stubApi(dashboardFixture())
     renderPage()
 
     expect(await screen.findByTestId('tile-budget')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: "Vue d'ensemble" })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'État courant' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getAllByRole('tab')).toHaveLength(2)
+    expect(screen.queryByRole('tab', { name: "Vue d'ensemble" })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'État courant' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: 'À venir' })).toHaveAttribute('aria-selected', 'false')
     expect(screen.queryByTestId('upcoming-tab')).not.toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/finance/upcoming'))).toBe(false)
   })
 
-  test("switches to « À venir », the period picker belonging to « Vue d'ensemble » only", async () => {
+  test("switches to « À venir », which leaves the current state's cards behind", async () => {
     const user = userEvent.setup()
     const fetchMock = vi.fn((url: string) => {
       if (url.includes('/api/finance/upcoming')) return answer(upcomingFixture())
@@ -279,13 +362,11 @@ describe('FinanceDashboardPage', () => {
     vi.stubGlobal('fetch', fetchMock)
     renderPage()
     await screen.findByTestId('tile-budget')
-    expect(screen.getByLabelText('Année')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'À venir' }))
 
     expect(await screen.findByTestId('upcoming-month')).toBeInTheDocument()
     expect(screen.queryByTestId('tile-budget')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Année')).not.toBeInTheDocument()
     expect(screen.queryByTestId('next-project-card')).not.toBeInTheDocument()
   })
 })

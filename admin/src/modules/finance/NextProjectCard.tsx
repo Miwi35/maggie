@@ -4,6 +4,7 @@ import Chip from '@mui/material/Chip'
 import LinearProgress from '@mui/material/LinearProgress'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import type { SxProps, Theme } from '@mui/material/styles'
 import { formatCents } from './accountTypes'
 import { delayLabel, joinNames, purchaseLabel } from './nextProject'
 import { ganttMonthLabel } from './ProjectGantt'
@@ -14,12 +15,12 @@ import type { NextProject } from './useFinanceDashboard'
  * gathered, when it falls, the two after it, and — a fact, not a reproach — what
  * the month's overspending pushes back. Not clickable.
  */
-export const NextProjectCard = ({ project }: { project: NextProject }) => {
+export const NextProjectCard = ({ project, sx }: { project: NextProject; sx?: SxProps<Theme> }) => {
   const percent = Math.min(100, Math.round((project.gatheredCents / Math.max(1, project.amountCents)) * 100))
   const delay = project.delay
 
   return (
-    <Card sx={{ mb: 2 }} data-testid="next-project-card">
+    <Card sx={[{ mb: 2 }, ...(Array.isArray(sx) ? sx : [sx])]} data-testid="next-project-card">
       <CardContent>
         <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
           Prochain projet

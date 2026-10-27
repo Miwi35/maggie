@@ -541,8 +541,6 @@ web:
     paths: [api/fixtures/e2e/50-finance.yaml]
   e2e/web/tests/finance-overview.spec.ts:
     areas: [finance]
-  e2e/web/tests/finance-month-balance.spec.ts:
-    areas: [finance]
     paths: [api/fixtures/e2e/58-finance-month-balance.yaml]
   e2e/web/tests/finance-review.spec.ts:
     areas: [finance]

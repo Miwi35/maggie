@@ -13,6 +13,7 @@ tags:
 # Et la tuile Budget, avec le salaire attendu et le solde attendu avant le salaire
 # Et la tuile Planification
 # Et le bloc « Prochain projet » : le premier projet du planning (MAG-529), plus l'exemple figé, et rien à ouvrir
+# Et chaque tuile porte « Ouvrir → », sans navigateur de mois ni bloc « Bilan » (MAG-631)
 # Quand je touche la tuile Comptes
 # Alors la liste des comptes s'ouvre, en écran de détail (flèche retour + titre, pas de fil d'Ariane)
 # Quand je reviens puis touche « Dashboard ▾ » puis « Revue »
@@ -74,6 +75,10 @@ tags:
       id: "finance_next_project_date"
     timeout: 30000
 - assertNotVisible: ".*Vélo électrique.*"
+# The home is the current month only: no month navigator, no balance block (MAG-631).
+- assertNotVisible: "Mois précédent"
+- assertNotVisible: "Mois suivant"
+- assertNotVisible: "Bilan de.*"
 
 - scrollUntilVisible:
     element:
@@ -84,6 +89,9 @@ tags:
 - scrollUntilVisible:
     element:
       text: ".*matelas.*"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*Ouvrir →.*"
     timeout: 30000
 
 # The tile is taller than the screen: scroll to its lines, not to the card (50 % of it in view

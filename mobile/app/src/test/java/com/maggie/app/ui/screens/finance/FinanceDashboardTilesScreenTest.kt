@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -32,7 +33,6 @@ import com.maggie.app.data.model.TileCushion
 import com.maggie.app.data.model.TileEnvelope
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatCentsRounded
-import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeFinanceDashboard
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
@@ -41,10 +41,12 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.navigation.DeepLinks
 import com.maggie.app.ui.navigation.Screen
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import java.time.LocalDate
 
 /**
  * The three tiles of the finance dashboard (MAG-420): each carries its figures and leads to its menu.
@@ -123,16 +125,17 @@ class FinanceDashboardTilesScreenTest {
         todo: FinanceTodo = FinanceTodo(),
         nextProject: NextProject? = null,
         planning: ProjectPlanning? = null,
+        today: LocalDate = LocalDate.of(2026, 10, 27),
         onOpenIncidents: (TileAccount) -> Unit = {},
         onOpen: (String) -> Unit = {},
     ) {
         compose.setContent {
             FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(
                     FinanceDashboard(year = 2026, month = 10, tiles = tiles, todo = todo, nextProject = nextProject),
                     planning = planning,
+                    today = today,
                 ).viewModel,
                 onOpen = onOpen,
                 onOpenIncidents = onOpenIncidents,
@@ -236,9 +239,8 @@ class FinanceDashboardTilesScreenTest {
     fun `an unknown income asks to be declared instead of showing a capacity`() {
         open(FinanceTiles())
 
-        compose.onNodeWithText("Renseignez votre revenu dans le matelas pour l'obtenir.")
-            .performScrollTo()
-            .assertIsDisplayed()
+        compose.onAllNodesWithText("Renseignez votre revenu", substring = true).assertCountEquals(0)
+        compose.onNodeWithText("Déclarer mon revenu").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -311,7 +313,6 @@ class FinanceDashboardTilesScreenTest {
     fun `a month the server could not compute draws no tile and no example project`() {
         compose.setContent {
             FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard(error = "Service indisponible").viewModel,
                 onOpen = {},
@@ -433,5 +434,64 @@ class FinanceDashboardTilesScreenTest {
         open(tiles, FinanceTodo(owedToMeCents = 20000, iOweCents = 20000))
 
         compose.onNodeWithTag(UiTags.FINANCE_PILL_OWED).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the dashboard always shows the current month, with no month navigator and no balance block`() {
+        open()
+
+        compose.onNodeWithContentDescription("Mois précédent").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Mois suivant").assertDoesNotExist()
+        compose.onAllNodesWithText("Octobre 2026", substring = true).assertCountEquals(0)
+        listOf("Bilan", "Enveloppes", "Satisfaction", "Épargne").forEach { word ->
+            compose.onAllNodesWithText(word, substring = true).assertCountEquals(0)
+        }
+    }
+
+    @Test
+    fun `the review card names the current month and launches the review`() {
+        val opened = mutableListOf<String>()
+        open(tilesWithRejection, busy, today = LocalDate.of(2026, 3, 9)) { opened += it }
+
+        compose.onNodeWithTag(UiTags.FINANCE_REVIEW_CARD).assertIsDisplayed()
+        compose.onNodeWithText("Revue de mars").assertIsDisplayed()
+        compose.onNodeWithText("ce soir · 20 h").assertIsDisplayed()
+        compose.onAllNodesWithText("Revue ce soir", substring = true).assertCountEquals(0)
+        compose.onNodeWithTag(UiTags.FINANCE_REVIEW_SHORTCUT).performClick()
+
+        assertEquals(listOf(Screen.FinanceReviewActivity.route), opened)
+    }
+
+    @Test
+    fun `the review card is the first block, above the tiles`() {
+        open(tilesWithRejection, busy, nextProject = nextProject)
+
+        val review = compose.onNodeWithTag(UiTags.FINANCE_REVIEW_CARD).fetchSemanticsNode().positionInRoot.y
+        val project = compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT).fetchSemanticsNode().positionInRoot.y
+        val accounts = compose.onNodeWithTag(UiTags.FINANCE_TILE_ACCOUNTS).fetchSemanticsNode().positionInRoot.y
+        assertTrue("review $review above project $project", review < project)
+        assertTrue("project $project above the tiles $accounts", project < accounts)
+    }
+
+    @Test
+    fun `each tile carries an Ouvrir affordance and stays one tappable card`() {
+        val opened = mutableListOf<String>()
+        open { opened += it }
+
+        compose.onAllNodesWithText("Ouvrir →").assertCountEquals(3)
+        compose.onNodeWithTag(UiTags.FINANCE_TILE_BUDGET).performScrollTo().performClick()
+
+        assertEquals(listOf(Screen.BudgetList.route), opened)
+    }
+
+    @Test
+    fun `the planning tile gives an undeclared rente a plain link, not a sentence`() {
+        val opened = mutableListOf<String>()
+        open { opened += it }
+
+        compose.onAllNodesWithText("Une rente se déclare", substring = true).assertCountEquals(0)
+        compose.onNodeWithText("Déclarer une rente").performScrollTo().performClick()
+
+        assertEquals(listOf(Screen.CategoryList.route), opened)
     }
 }

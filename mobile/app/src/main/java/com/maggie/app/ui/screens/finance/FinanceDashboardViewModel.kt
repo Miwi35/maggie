@@ -99,7 +99,7 @@ class FinanceDashboardViewModel(
         }
     }
 
-    /** Loads the month shown; an answer that comes after a newer request, or after a month change, is dropped. */
+    /** Loads the current month; an answer that comes after a newer request is dropped. */
     fun refresh() {
         dashboardJob?.cancel()
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
@@ -115,19 +115,6 @@ class FinanceDashboardViewModel(
                     _uiState.value = _uiState.value.copy(error = e.message, isLoading = false)
                 }
         }
-    }
-
-    fun shiftPeriod(months: Long) {
-        val state = _uiState.value
-        val shifted = LocalDate.of(state.year, state.month, 1).plusMonths(months)
-        // The figures on screen belong to the month left: they must not stay while the new ones load.
-        _uiState.value = state.copy(
-            year = shifted.year,
-            month = shifted.monthValue,
-            dashboard = null,
-            error = null,
-        )
-        refresh()
     }
 
     fun clearError() {
