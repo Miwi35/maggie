@@ -984,6 +984,21 @@
         },
         "description": "Read the user's routines — small habits that come back (a glass of water at waking, the bins on Tuesday evening). Without date: every routine, active or not, in the order of the day, as {routines: [...]}. With date (YYYY-MM-DD): only the active routines due that day, grouped by moment of the day, as {date, moments: [{anchor, time, routines: [...]}]}, each with checked (ticked that day or not). A routine has id, title, anchor (wake, afterBreakfast, afterLunch, afterDinner or time), anchorTime (HH:MM, only with anchor time), time (the hour it falls at), recurrence ({kind: daily} | {kind: weekdays} | {kind: weekly, weekday: 1 Monday to 7 Sunday} | {kind: monthly, monthDay: 1 to 31}), active, remind, createdAt, checkedToday, dueToday, monthCount (ticks this month) and totalCount (ticks since the creation). Report what was done — the month's count, the total — never a streak, never days missed."
     },
+    "list_trips": {
+        "name": "list_trips",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "date"
+            ]
+        },
+        "description": "Read the trips kept with set_trip that leave on a day — date is YYYY-MM-DD, read in Paris — by departure time, as {date, trips: [...]}, each as set_trip returns it. Call it before planning the trips of a day, to know which events already have one and whether the user chose its origin (originDecidedBy user)."
+    },
     "manage_accounts": {
         "name": "manage_accounts",
         "inputSchema": {
@@ -3961,6 +3976,46 @@
             ]
         },
         "description": "Set the user's day: taskIds is the whole list of the day's tasks, in order, 5 at most — it replaces the slots, so to add one keep the others, and to put a task in place of another list it where the other was (the other goes back to the reserve). A task appears once. date is YYYY-MM-DD, today when left out; a future day can be written. confirm=false writes a proposal the user has not settled yet (confirmedAt stays null). Returns the day as get_day_plan does."
+    },
+    "set_trip": {
+        "name": "set_trip",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "eventId": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "drive",
+                        "transit",
+                        "walk",
+                        "bicycle"
+                    ]
+                },
+                "origin": {
+                    "type": "string"
+                },
+                "decidedBy": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "user",
+                        "maggie"
+                    ]
+                }
+            },
+            "required": [
+                "eventId",
+                "mode",
+                "origin"
+            ]
+        },
+        "description": "Keep the trip the user will take to an event, once you chose the mode and the origin (estimate_trip compares them first). The trip is computed again now and replaces the one the event had: an event has one trip at most, and the departure alert follows its departAt. mode: drive, transit, walk or bicycle. origin: position (where the phone last was), place:<id> (list_places gives the ids, home included) or event:<id> (where an earlier event is). decidedBy: user when the user chose the origin themselves (an answer the evening before) — it is then kept and only the durations are computed again; maggie (the default) when you chose it. Returns {success, trip: {id, eventId, event: {summary, startAt, location}, mode, origin: {kind, id, label, latitude, longitude}, originDecidedBy, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, computedAt, carLatitude?, carLongitude?}}, times in Paris. A refused call changes nothing and answers {error, field}; Google unreachable or not configured answers {error}."
     },
     "suggest_recurring_operations": {
         "name": "suggest_recurring_operations",

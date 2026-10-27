@@ -1,0 +1,57 @@
+{
+    "@context": "/api/contexts/Trip",
+    "@id": "/api/trips",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/trips/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Trip",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "event": "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "mode": "drive",
+            "steps": [
+                {
+                    "kind": "walk",
+                    "minutes": 4
+                },
+                {
+                    "kind": "drive",
+                    "minutes": 14
+                },
+                {
+                    "kind": "walk",
+                    "minutes": 3
+                }
+            ],
+            "durationMinutes": 21,
+            "departAt": "2026-03-15T09:34:00+00:00",
+            "navigationUrl": "https://waze.com/ul?ll=38.7,-9.1&navigate=yes",
+            "originKind": "position",
+            "originLabel": "ma position",
+            "originLatitude": 38.72,
+            "originLongitude": -9.14,
+            "carLatitude": 38.7227,
+            "carLongitude": -9.14,
+            "originDecidedBy": "maggie",
+            "computedAt": "2026-03-15T08:00:00+00:00"
+        }
+    ],
+    "view": {
+        "@id": "/api/trips?date=2026-03-15",
+        "@type": "PartialCollectionView"
+    },
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/trips{?date}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "date",
+                "property": "date",
+                "required": false
+            }
+        ]
+    }
+}

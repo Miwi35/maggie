@@ -270,7 +270,8 @@ class WorkCollector implements ResetInterface
             if ($entity instanceof OwnedThroughInterface) {
                 $parent = $entity->{'get'.ucfirst($entity::getOwnerRelation())}();
 
-                return $parent instanceof OwnedByUserInterface ? (string) $parent->getUser()->getId() : null;
+                // The parent may itself be owned through another: a trip's event's agenda.
+                return $parent instanceof OwnedByUserInterface || $parent instanceof OwnedThroughInterface ? self::ownerOf($parent) : null;
             }
         } catch (\Error) {
             // A relation not initialized yet: the row has no owner to publish to.
