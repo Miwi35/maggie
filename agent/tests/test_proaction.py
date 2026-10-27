@@ -350,7 +350,7 @@ class TestProactionConsumer:
         consumed = await _consume({"response": "C'est l'heure d'appeler le plombier !", "tool_calls": []})
 
         # Verify gateway.proaction called without silent (defaults to False)
-        consumed.gateway.proaction.assert_called_once_with("Rappelle-lui d'appeler le plombier", "user-1")
+        consumed.gateway.proaction.assert_called_once_with("Rappelle-lui d'appeler le plombier", "user-1", summary="Check calendar")
 
         consumed.messages.create.assert_called_once_with(
             user_id="user-1",
@@ -359,6 +359,18 @@ class TestProactionConsumer:
             context_id=None,
             blocks=None,
         )
+
+    async def test_a_trip_check_says_nothing_in_the_chat_and_is_recorded_completed(self):
+        """MAG-657: a « Check départ » works on the trips; the departure alert is the API's, not a chat message."""
+        claimed = API_PROACTION | {"id": "pro-9", "status": "running", "summary": "Check départ · Dentiste"}
+
+        consumed = await _consume(
+            {"response": "Le trajet tient.", "tool_calls": []}, body=json.dumps(claimed).encode()
+        )
+
+        consumed.gateway.proaction.assert_called_once_with(claimed["prompt"], "user-1", summary="Check départ · Dentiste")
+        consumed.messages.create.assert_not_called()
+        assert consumed.proactions.record.await_args.args[1] == "completed"
 
     async def test_consumer_skips_empty_response(self):
         """Consumer should NOT create a chat message when response is empty."""

@@ -21,6 +21,7 @@ from app.memory.night import memory_night
 from app.proactions import api as proactions_api
 from app.proactions.legacy import migrate_legacy_proactions
 from app.queue.proaction_publisher import publish_proaction
+from app.trips import planning_trips_rules
 from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
@@ -45,9 +46,10 @@ def daily_planning_prompt(today: date) -> str:
         f"2. Lis l'agenda de l'utilisateur pour ce jour (get_events_by_date, date={day}) : "
         "une consigne qui dépend de l'agenda (« les jours où j'ai Ael… ») ne vaut que les jours où il le dit. "
         f'3. Appelle list_proactions avec from="{day}" et to="{day}" pour voir les proactions déjà posées ce jour-là. '
-        "4. Pose avec schedule_proaction les proactions du jour que demandent les consignes, et seulement celles-là, "
-        "sans recréer celles qui existent déjà ce jour-là. "
-        "Respecte les contraintes horaires indiquées dans les consignes."
+        "4. Pose avec schedule_proaction les proactions du jour que demandent les consignes, et seulement celles-là "
+        "(les trajets de l'étape 5 ont les leurs), sans recréer celles qui existent déjà ce jour-là. "
+        "Respecte les contraintes horaires indiquées dans les consignes. "
+        f"{planning_trips_rules(day)}"
     )
 
 

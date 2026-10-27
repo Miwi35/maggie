@@ -25,7 +25,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
  */
 #[AsDoctrineListener(event: Events::preFlush)]
 #[AsDoctrineListener(event: Events::onFlush)]
-#[AsDoctrineListener(event: Events::postFlush)]
+// After the projection's WorkCollector has taken the flush's work: its effects flush again, which would make it forget it.
+#[AsDoctrineListener(event: Events::postFlush, priority: -10)]
 final class TodayEventListener implements FixtureEffectsInterface
 {
     /** @var list<array{Event, HasTodayEventChanged, EventTripsChangedEvent::*}> */

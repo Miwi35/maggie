@@ -1,0 +1,24 @@
+# « Replanifier les trajets » (MAG-656 files it, MAG-657 runs it): she reads the day's trips and
+# events, estimates the Dentiste's trip again from where the phone is and keeps it with set_trip.
+# The id comes from this run's own `get_events_by_date` (`results_matches`, see README.md).
+name: replan-trips
+description: The replan proaction recomputes the Dentiste's trip from the position and keeps it again.
+
+match:
+  user_matches: "Replanifier les trajets du (\\d{4}-\\d{2}-\\d{2})"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+summary\W+Dentiste'
+
+turns:
+  - tools:
+      - name: list_trips
+        input: {date: '\1'}
+      - name: get_events_by_date
+        input: {date: '\1'}
+  - tools:
+      - name: estimate_trip
+        input: {eventId: '\1', modes: [drive, walk], origin: position}
+  - tools:
+      - name: set_trip
+        input: {eventId: '\1', mode: drive, origin: position}
+  - text: "Trajets replanifiés."

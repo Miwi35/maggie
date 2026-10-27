@@ -1,0 +1,49 @@
+# The morning card of the trips (MAG-657): on a day with « Dentiste » in the agenda, the planning
+# compares the modes, keeps the car (set_trip) and posts the two checks before departure.
+#
+# Same trick as 06-planning-custody-day.yaml: the first two rounds are 07-planning-read.yaml's,
+# this one only matches once the agenda is in the history. The id of the Dentiste comes from the
+# `get_events_by_date` result of this very run (`results_matches`), and the day is today's — the
+# journey pins the clock. The checks are at departAt − 30 and − 10 min: the journey's WireMock
+# route puts departAt at 13:34 for a 14:00 start (walk 4, drive 14, walk 3, 5 minutes of margin).
+name: planning-trips
+description: The daily planning estimates the trip to the Dentiste, keeps it by car and posts the two departure checks.
+
+match:
+  user_matches: "C'est le début de la journée du (\\d{4}-\\d{2}-\\d{2})"
+  history_contains: "Dentiste"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+summary\W+Dentiste'
+
+turns:
+  - tools:
+      - name: list_instructions
+        input: {kind: planning}
+      - name: get_events_by_date
+        input: {date: "${today}"}
+      - name: list_proactions
+        input: {from: "${today}", to: "${today}"}
+  - tools:
+      - name: date_time
+        input: {action: now}
+  - tools:
+      - name: list_trips
+        input: {date: "${today}"}
+      - name: estimate_trip
+        input: {eventId: '\1', modes: [drive, walk], origin: position}
+  - tools:
+      - name: set_trip
+        input: {eventId: '\1', mode: drive, origin: position}
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Dentiste (événement \\1) : le départ approche, recalcule le trajet depuis la position réelle."
+          scheduled_at: "${today}T13:04:00"
+          summary: "Check départ · Dentiste"
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Dentiste (événement \\1) : le départ approche, recalcule le trajet depuis la position réelle."
+          scheduled_at: "${today}T13:24:00"
+          summary: "Check départ · Dentiste"
+  - text: "Trajet du Dentiste enregistré en voiture, départ à 13 h 34, deux checks posés."

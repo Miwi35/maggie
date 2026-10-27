@@ -23,6 +23,7 @@ import {
   NUTRITION_USER_EMAIL,
   NEXT_PROJECT_USER_EMAIL,
   OTHER_USER_EMAIL,
+  PACKAGINGS_USER_EMAIL,
   PERIOD_USER_EMAIL,
   PLACEMENT_WITHDRAWAL_USER_EMAIL,
   HOME_TASKS_USER_EMAIL,
@@ -51,6 +52,7 @@ export {
   SEED_USER_EMAIL,
   OTHER_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
+  PACKAGINGS_USER_EMAIL,
   STOCK_USER_EMAIL,
   APPROVALS_USER_EMAIL,
   TREASURY_USER_EMAIL,
@@ -184,6 +186,8 @@ export interface MaggieFixtures {
    * their own and read the API, never the chat history's length.
    */
   stockUser: OtherUser
+  /** The packagings journey's own account (MAG-573): its rice is not the stock journey's. */
+  packagingsUser: OtherUser
   /**
    * The fifth seeded account, for the approval cards journey (MAG-6): the chat
    * history, the held actions and their cards are that file's alone.
@@ -456,6 +460,10 @@ export const test = base.extend<MaggieFixtures>({
 
   stockUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(STOCK_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  packagingsUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(PACKAGINGS_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   approvalsUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {

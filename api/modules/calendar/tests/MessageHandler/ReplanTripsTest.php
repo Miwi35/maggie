@@ -2,7 +2,9 @@
 
 namespace Maggie\Calendar\Tests\MessageHandler;
 
+use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
+use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Proaction;
@@ -35,6 +37,8 @@ use Symfony\Component\Uid\Ulid;
 class ReplanTripsTest extends KernelTestCase
 {
     use FixtureLoaderTrait;
+    use ElasticsearchAssertionTrait;
+    use MercureAssertionTrait;
 
     protected function setUp(): void
     {
@@ -148,6 +152,22 @@ class ReplanTripsTest extends KernelTestCase
         $replans = $this->replans();
         self::assertCount(1, $replans);
         self::assertStringContainsString('vient d\'être supprimé', $replans[0]->getPrompt());
+    }
+
+    public function testRemovingATodayEventStillRemovesItFromTheIndexAndTellsTheScreens(): void
+    {
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->bus()->dispatch(new DeleteEventCommand($this->id('dentist')));
+
+        // The replan it filed flushed inside the removal's flush: the removal must not be forgotten.
+        self::assertCount(1, $this->replans());
+        $this->assertElasticsearchDeleteDispatched('events');
+        self::assertContains(
+            '/users/'.$this->id('test_user').'/api/events/'.$this->id('dentist'),
+            array_merge(...array_map(static fn ($update) => $update->getTopics(), $this->getMercureHub()->getUpdates())),
+        );
     }
 
     public function testCreatingATodayEventWithALocationFilesAReplanProaction(): void

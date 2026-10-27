@@ -128,9 +128,10 @@ final class E2eSeedCommandTest extends KernelTestCase
         // and the journeys write theirs. The twenty-seventh is the « Il manque »'s (MAG-570):
         // answering it deletes the notification its journey reads. The twenty-eighth is the
         // Accueil's Nutrition card's (MAG-564): a dinner tonight and a lunch tomorrow, which
-        // would move what the calendar journeys count on the owner's account. A twenty-ninth
+        // would move what the calendar journeys count on the owner's account. The thirtieth is the packagings'
+        // (MAG-573): its « Riz basmati » would match the stock journey's « Riz ». A thirty-first
         // would mean somebody added an account without saying why.
-        self::assertSame(29, $this->rowsOf(User::class));
+        self::assertSame(30, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -143,6 +144,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-envelope-alert@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-envelope-alert-mobile@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-season@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-packagings@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-scores@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-adjust@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-balance@maggie.local']));
@@ -522,11 +524,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(30, $this->rowsOf(User::class));
+        self::assertSame(31, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(29, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(30, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void
