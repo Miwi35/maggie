@@ -85,7 +85,7 @@ fun DepartureScreen(
                     modifier = Modifier
                         .size(64.dp)
                         .border(5.dp, brand.primary.copy(alpha = 0.25f), CircleShape)
-                        .background(Brush.radialGradient(listOf(brand.primaryHover, Color(0xFF6E55D9))), CircleShape),
+                        .background(Brush.radialGradient(listOf(brand.primaryHover, brand.primaryLight)), CircleShape),
                 )
                 Text("Maggie · ${now.format(CLOCK)}", fontSize = 14.sp, color = brand.primaryHover, modifier = Modifier.padding(bottom = 8.dp))
             }
@@ -117,7 +117,7 @@ fun DepartureScreen(
                         }
                         Pill(
                             modifier = Modifier.testTag(UiTags.DEPARTURE_DISMISS),
-                            background = Color.White.copy(alpha = 0.08f),
+                            background = night.text.copy(alpha = 0.08f),
                             content = MaggieTokens.surfaceDark.text,
                             onClick = onAlreadyOnTheWay,
                         ) {

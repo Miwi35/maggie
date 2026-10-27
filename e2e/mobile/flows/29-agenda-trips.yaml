@@ -16,7 +16,7 @@ tags:
 #
 # The line is « Parti à » once the departure has passed, hence the choice in the patterns: the
 # flow does not depend on the hour it runs at. The day view starts at midnight, so the line is
-# scrolled to.
+# scrolled to and centered: stopping at the screen's edge would leave the step chips below it.
 
 - runScript:
     file: ../scripts/trip-api.js
@@ -48,6 +48,7 @@ tags:
       id: "trip_line_${output.eventId}"
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - extendedWaitUntil:
     visible:
       id: "trip_line_${output.eventId}"
@@ -71,4 +72,5 @@ tags:
       text: "(Partir|Parti) à 14:34 · depuis la maison"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - assertNotVisible: "(Partir|Parti) à 13:34 · depuis la maison"
