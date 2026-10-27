@@ -187,6 +187,7 @@ class TestEntries:
     async def test_a_skill_created_now_is_given_in_full_at_its_moment(self):
         index = _index()
         index.repo.upsert = AsyncMock(return_value=DELIVER)
+        index.store = AsyncMock()
         index._publish = AsyncMock()
 
         await index.create(DELIVER.name, DELIVER.description, list(DELIVER.tags), DELIVER.content, "user-1")
@@ -236,3 +237,39 @@ class TestFakeLlmScenario:
         )
 
         assert "[fake-llm]" in await self._deliver(untagged)
+
+
+class TestFileCorrectedScenario:
+    """85-proaction-skill-file-corrected.yaml answers only with the corrected text, not the original one."""
+
+    def _skill(self, content: str) -> Skill:
+        return Skill(
+            name="delivrer-un-rappel-fichier-e2e",
+            description="Quand un rappel arrive",
+            tags=["rappel", "moment:proaction"],
+            content=content,
+        )
+
+    async def _deliver(self, skill: Skill) -> str:
+        from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
+
+        gateway = _gateway()
+        gateway.client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        with (
+            patch("app.llm.gateway.skill_index", _index(skill)),
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            result = await gateway.proaction("Rappel e2e de fichier à délivrer : appeler le garage", "user-1")
+        return result["response"]
+
+    async def test_the_corrected_text_is_answered(self):
+        answer = await self._deliver(self._skill("Consigne e2e corrigée : un SMS et rien d'autre."))
+
+        assert "[fake-llm]" not in answer
+
+    async def test_the_original_text_is_not(self):
+        answer = await self._deliver(self._skill("Consigne e2e : une notification push et rien dans le chat."))
+
+        assert "[fake-llm]" in answer

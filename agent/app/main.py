@@ -41,6 +41,7 @@ from app.queue import connection as queue_connection
 from app.queue.proaction_consumer import start_consumer
 from app.queue.scheduler import start_scheduler
 from app.skills.index import skill_index
+from app.skills.store import skill_files
 
 # Configure logging so app messages are visible
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
@@ -77,6 +78,13 @@ async def lifespan(app: FastAPI):
             logger.info(f"Imported {imported} legacy skill files into the agent database")
     except Exception as e:
         logger.warning(f"Could not import legacy skill files: {e}")
+
+    # The skills are files (MAG-218): take them from the bucket, move the table's skills there the first
+    # time, and bring the table in step with them. A bucket that is down leaves the table as it is.
+    try:
+        await skill_files.start_up()
+    except Exception as e:
+        logger.warning(f"Could not start the skills folder: {e}")
 
     try:
         await skill_index.rebuild()
@@ -129,6 +137,8 @@ async def lifespan(app: FastAPI):
     with contextlib.suppress(Exception):
         memory_service.notifier = None
         await memory_service.stop()
+    with contextlib.suppress(Exception):
+        await skill_files.stop()
     with contextlib.suppress(Exception):
         await turn_runner.shutdown()
     with contextlib.suppress(Exception):

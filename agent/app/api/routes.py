@@ -45,7 +45,8 @@ from app.policy.decision import CHANNELS, record_decision
 from app.proactions import api as proactions_api
 from app.queue.proaction_consumer import execute_proaction
 from app.queue.scheduler import generate_proactions
-from app.skills.index import render_markdown, skill_index
+from app.skills.document import render_markdown
+from app.skills.index import skill_index
 from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, SpeechUnavailableError, get_voices, synthesize_speech
 
 logger = logging.getLogger(__name__)

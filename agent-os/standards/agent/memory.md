@@ -59,5 +59,14 @@ The « Mémoire » tab of the « Maggie » settings reads and corrects the folde
 - **Sync state** (`GET /sync`): last success, pending writes with their paths, conflicts, and the bucket's outage with its age. The tab says it; an outage never blocks reading or correcting.
 - Not done: re-importing an edited archive.
 
+## The skills are files too (MAG-218)
+What the owner teaches Maggie follows the same rules as what she knows. Code: `agent/app/skills/` (`document.py`: the Markdown format; `store.py`: `SkillFiles`).
+- **A skill is a Markdown file** (frontmatter `name`, `description`, `tags`; body = the text) in `Compétences/` of the bucket — a folder of its own, **outside any user's folder**: the archive of the knowledge never holds a skill, and a skill never holds a user id (global until MAG-108). Identity = the frontmatter's `name`, never the file name; a frontmatter without `name` takes the file's stem; an unreadable file is left out of the index with a warning.
+- **One mechanism, a second scope.** `SkillFiles` is a `MemoryService` whose scope is `paths.SKILLS_SCOPE` (`"skills"`) instead of a user id: same bucket client, outbox (key `skills`), compare-before-push, pull, `Conflits/`, degraded mode, boot rehydration. `paths.bucket_prefix`, `local_base` and `check_scope` map a scope to its folder; `MemoryService` itself only accepts user ids and never lists `skills` among its users. Do not write a second sync.
+- **The `skill` table is a derived index.** Each pass that reached the bucket brings it in step with the files (`_reconcile_index`); rows whose file still waits in the outbox are kept. `SkillIndex.refresh()` catches up with the bucket (bounded wait, like a turn's) before loading the in-memory index from the table, so a file corrected by the owner reaches the next prompt. `SkillFiles.rebuild_table()` empties the table and rebuilds it from the files (never when there is no file to rebuild from).
+- **Writes go to the file first**: `create_skill`, `update_skill`, `delete_skill` and the `/skills` routes call `SkillIndex`, which saves the file locally, queues it, then upserts the row. An update starts from the file's current text.
+- **Migration.** On the first start (no skill file, nothing pending) the skills of the table are written as files, never over an existing file; afterwards the files rule — a skill deleted later does not come back from the table. A bucket that does not answer at boot leaves the table as it is.
+- Directives stay in the database (out of scope). E2E: `e2e/web/tests/chat.spec.ts` « a skill corrected in its file… » drives the fake bucket through `/e2e/skills/*`.
+
 ## Tests
 Use `FakeBucket` (`app.memory.bucket`), never a mock of the S3 client for behaviour; `agent/tests/memory/conftest.py` has the fixtures. SQLite stands in for Postgres in unit tests: search is `LIKE` there, FTS is covered by the e2e journey `e2e/web/tests/memory-folder.spec.ts`.

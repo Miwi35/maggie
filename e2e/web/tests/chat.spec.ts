@@ -12,6 +12,7 @@ import {
   toolResults,
 } from '../helpers/agui.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { withLock } from '../helpers/chatLock.js'
 import { expectRealtimeSync, openSubscribed } from '../helpers/mercure.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
@@ -1026,6 +1027,73 @@ test('a skill tagged for the proaction moment is in the proaction prompt in full
     // Skills are global: one left behind would reach every later prompt of the run.
     await api.delete(`/agent/skills/${skill.name}`)
   }
+})
+
+/** 85-proaction-skill-file-corrected.yaml — only answerable once the corrected file's text is in the prompt. */
+const FILE_SKILL = {
+  name: 'delivrer-un-rappel-fichier-e2e',
+  description: 'Quand un rappel arrive',
+  tags: ['rappel', 'moment:proaction'],
+  content: 'Consigne e2e : une notification push et rien dans le chat.',
+  corrected: "Consigne e2e corrigée : un SMS et rien d'autre.",
+  prompt: 'Rappel e2e de fichier à délivrer : appeler le garage',
+  message: "Il est l'heure d'appeler le garage, je vous l'envoie par SMS.",
+}
+
+/**
+ * MAG-218: the skills are Markdown files in a folder of their own, and the table is only their index.
+ *
+ * Given a skill Maggie created (so a file, pushed to the bucket), When the owner corrects its text in the
+ * bucket and the folder is synchronised, Then the proaction prompt carries the new text — the scenario
+ * cannot match otherwise — and `GET /agent/skills/{name}` (what `get_skill` reads) renders the new version.
+ * The bucket is the one the memory journeys share, so they take turns.
+ */
+test('a skill corrected in its file reaches the prompt at the next synchronisation', async ({ api }) => {
+  const headers = { 'X-E2E-Token': process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token', 'Content-Type': 'application/json' }
+  const { prompt, message, corrected, ...skill } = FILE_SKILL
+  const file = `${skill.name}.md`
+  const bucket = `/agent/e2e/skills/bucket/${encodeURIComponent(file)}`
+
+  await withLock('memory-folder', async () => {
+    const created = await api.post('/agent/skills', { data: skill })
+    expect(created.status(), `the skill was refused: ${await created.text()}`).toBe(201)
+
+    try {
+      const sync = async (): Promise<void> => {
+        const response = await api.post('/agent/e2e/skills/sync', { headers })
+        expect(await response.json(), 'the skills folder did not synchronise').toMatchObject({ ok: true })
+      }
+
+      // The file Maggie wrote reaches the bucket.
+      await sync()
+      const pushed = await api.get(bucket, { headers })
+      expect(pushed.status(), 'the skill never became a file in the bucket').toBe(200)
+      const original = ((await pushed.json()) as { text: string }).text
+      expect(original).toContain(skill.content)
+
+      // The owner corrects the text in the file.
+      const edited = original.replace(skill.content, corrected)
+      expect(edited).not.toBe(original)
+      expect((await api.put(bucket, { headers, data: { text: edited } })).status()).toBe(200)
+      await sync()
+
+      const read = await api.get(`/agent/skills/${skill.name}`)
+      expect(read.status()).toBe(200)
+      expect(JSON.stringify(await read.json())).toContain(corrected)
+
+      const fired = await api.post('/agent/proaction', { data: { message: prompt } })
+      expect(fired.status(), `the proaction failed: ${await fired.text()}`).toBe(200)
+      const body = (await fired.json()) as { response: string }
+      expect(isUnscripted(body.response), `the corrected file never reached the proaction — Maggie said: ${body.response}`).toBe(
+        false,
+      )
+      expect(body.response).toContain(message)
+    } finally {
+      // Skills are global: one left behind would reach every later prompt of the run.
+      await api.delete(`/agent/skills/${skill.name}`)
+      await api.delete(bucket, { headers })
+    }
+  })
 })
 
 /** 62-last-exchange-known.yaml — only answerable once the last conversation is in the system prompt. */

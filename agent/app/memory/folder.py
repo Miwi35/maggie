@@ -35,10 +35,12 @@ class Known:
 
 
 class LocalFolder:
+    """The folder of a user, or of the skills when `user_id` is `paths.SKILLS_SCOPE`."""
+
     def __init__(self, root: Path, user_id: str) -> None:
         self.root = root
-        self.user_id = paths.check_user_id(user_id)
-        self.base = root / self.user_id / paths.MEMORY_DIR
+        self.user_id = paths.check_scope(user_id)
+        self.base = paths.local_base(root, self.user_id)
 
     def _path(self, rel: str) -> Path:
         return paths.local_path(self.root, self.user_id, rel)
@@ -105,11 +107,11 @@ class LocalFolder:
         """Remove the local copy (and its sync state) of this user."""
         import shutil
 
-        shutil.rmtree(self.root / self.user_id, ignore_errors=True)
+        shutil.rmtree(paths.local_top(self.root, self.user_id), ignore_errors=True)
 
     @property
     def _state_path(self) -> Path:
-        return self.root / self.user_id / STATE_FILE
+        return paths.local_top(self.root, self.user_id) / STATE_FILE
 
     def load_state(self) -> dict[str, Known]:
         try:

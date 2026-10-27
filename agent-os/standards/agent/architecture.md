@@ -24,7 +24,7 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 - Template placeholders: `{name}`, `{language}`, `{tone}`
 
 ## Skills
-- A skill is a Markdown procedure the user taught Maggie: name, description, tags, body. Stored in the `skill` table; `skill_index` keeps the entries in memory
+- A skill is a Markdown procedure the user taught Maggie: name, description, tags, body. Stored as Markdown files in `Compétences/` of the bucket, outside every user's folder (MAG-218, `memory.md`); the `skill` table is the index derived from them and `skill_index` keeps the entries in memory
 - **On demand, never injected.** The system prompt carries only the index — `get_skills_index()` returns `- name: description` for every skill, sorted by name so the prefix is stable and cacheable. It does not depend on the message, so proactions and sub-agents with `get_skill` get it too
 - The body is loaded by the model itself with `get_skill(name)` **before** acting on a task the skill covers. The `COMPÉTENCES` line of `default.yaml` says so; do not reintroduce a keyword search that injects bodies
 - Create, update and delete go through the native tools `create_skill`, `update_skill`, `delete_skill` (the last one is held for approval by the policy)
@@ -61,7 +61,7 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 
 ## Data ownership
 - Memory (a folder per user, `MemoryService`) and instructions: every read or write is filtered by `user_id`; an id belonging to another user behaves like an unknown id (same "not found" error, no leak). New per-user data follows the same rule and ships a two-user isolation test. Pending actions follow it too
-- Skills live in the `skill` table of `maggie_agent` (MAG-187), saved with the rest of the agent's data; the in-memory index (`skill_index.rebuild()`) is reloaded from it at startup. They are **global**, shared by all users: accepted while Maggie has a single user. Multi-user means adding a `user_id` to that table first (MAG-108).
+- Skills are files in `Compétences/` (MAG-218), the `skill` table of `maggie_agent` (MAG-187) being the index derived from them; the in-memory index (`skill_index.rebuild()`) is reloaded from the table at startup, after `skill_files.start_up()` has brought it in step with the files. They are **global**, shared by all users: accepted while Maggie has a single user. Multi-user means adding a `user_id` to that table first (MAG-108).
 - Sub-agent definitions and the policy are files in the repository, not user data: global, versioned, reviewed like code
 
 ## Memory folder
