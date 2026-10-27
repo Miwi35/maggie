@@ -126,3 +126,45 @@ describe('a cooking timer that rang (MAG-582)', () => {
     expect(event).toEqual({ kind: 'withdraw', id: 'notification:/api/notifications/n12' })
   })
 })
+
+describe('a departure alert (MAG-659)', () => {
+  const departure = {
+    '@id': '/api/notifications/n14',
+    type: 'departure',
+    title: 'Pars maintenant pour Dentiste',
+    body: null,
+    relatedEntityIri: '/api/trips/01K0TRIP',
+    readAt: null,
+  }
+
+  test('carries the trip whose link « Y aller » opens', () => {
+    expect(readFeedMessage(JSON.stringify(departure))).toEqual({
+      kind: 'interrupt',
+      interruption: {
+        source: 'notification',
+        id: 'notification:/api/notifications/n14',
+        ref: '/api/notifications/n14',
+        title: 'Pars maintenant pour Dentiste',
+        message: '',
+        link: null,
+        departureTrip: '/api/trips/01K0TRIP',
+      },
+    })
+  })
+
+  test.each([null, '/api/events/e1', '/api/trips/a/b', 'https://example.com/api/trips/x'])(
+    'carries no trip when it points at %s',
+    (iri) => {
+      const event = readFeedMessage(JSON.stringify({ ...departure, relatedEntityIri: iri }))
+
+      expect(event).toMatchObject({ kind: 'interrupt' })
+      expect(event).not.toHaveProperty('interruption.departureTrip')
+    },
+  )
+
+  test('another type of notification pointing at a trip is no departure', () => {
+    const event = readFeedMessage(JSON.stringify({ ...departure, type: 'reminder' }))
+
+    expect(event).not.toHaveProperty('interruption.departureTrip')
+  })
+})

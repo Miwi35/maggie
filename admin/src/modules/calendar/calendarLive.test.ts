@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { ALL_LIVE_KINDS, touchedKinds } from './calendarLive'
 
 describe('touchedKinds', () => {
-  test.each(['events', 'tasks', 'meals', 'proactions'])('reads the kind from the IRI of a %s message', (kind) => {
+  test.each(['events', 'tasks', 'meals', 'proactions', 'trips'])('reads the kind from the IRI of a %s message', (kind) => {
     expect(touchedKinds(JSON.stringify({ '@id': `/api/${kind}/01A`, summary: 'x' }))).toEqual([kind])
   })
 

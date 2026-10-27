@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef } from 'react'
 
-export type LiveKind = 'events' | 'tasks' | 'meals' | 'proactions'
+export type LiveKind = 'events' | 'tasks' | 'meals' | 'proactions' | 'trips'
 
-export const ALL_LIVE_KINDS: LiveKind[] = ['events', 'tasks', 'meals', 'proactions']
+export const ALL_LIVE_KINDS: LiveKind[] = ['events', 'tasks', 'meals', 'proactions', 'trips']
 
 /** A burst of messages (a recurring series saved, a day planned) is read once, after the burst. */
 export const LIVE_DEBOUNCE_MS = 1000
 /** The read that found nothing new may have come before the worker indexed the row: one more. */
 export const LIVE_RETRY_MS = 4000
 
-const TOPIC = /^\/api\/(events|tasks|meals|proactions)\//
+const TOPIC = /^\/api\/(events|tasks|meals|proactions|trips)\//
 
 /** What a message touched, from the IRI it carries; everything when it names nothing. */
 export function touchedKinds(data?: string): LiveKind[] {

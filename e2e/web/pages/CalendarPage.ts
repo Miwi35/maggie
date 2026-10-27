@@ -245,6 +245,14 @@ export class CalendarPage extends AdminShell {
     return this.grid.locator('.fc-event').filter({ has: this.page.getByText(title, { exact: true }) })
   }
 
+  /**
+   * The trip line under the event `title` in the day view (MAG-659): « Partir à 13:34 · depuis la maison »
+   * and the legs. Scoped to the event's own bar, so another event's line is never taken for it.
+   */
+  tripLine(title: string): Locator {
+    return this.eventBar(title).locator('.trip-line')
+  }
+
   /** One day's cell in the month view. */
   monthCell(isoDate: string): Locator {
     return this.grid.locator(`td.fc-daygrid-day[data-date="${isoDate}"]`)
