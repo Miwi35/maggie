@@ -5,8 +5,6 @@ import { lazyPage } from '../../lazyPage'
 
 const ErrandList = lazyPage(() => import('./ErrandList'), 'ErrandList')
 const GroceryListView = lazyPage(() => import('./GroceryListView'), 'GroceryListView')
-const ProductCreate = lazyPage(() => import('./ProductCreate'), 'ProductCreate')
-const ProductEdit = lazyPage(() => import('./ProductEdit'), 'ProductEdit')
 const ProductList = lazyPage(() => import('./ProductList'), 'ProductList')
 const StoreCreate = lazyPage(() => import('./StoreCreate'), 'StoreCreate')
 const StoreEdit = lazyPage(() => import('./StoreEdit'), 'StoreEdit')
@@ -20,8 +18,8 @@ export const groceryResources = (
     <ResourceGuesser
       name="products"
       list={ProductList}
-      create={ProductCreate}
-      edit={ProductEdit}
+      create={ProductList}
+      edit={ProductList}
     />
     <ResourceGuesser
       name="stores"

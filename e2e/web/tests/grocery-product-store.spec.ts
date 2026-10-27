@@ -88,14 +88,14 @@ test('the usual shop chosen in the product form is saved and still there when th
     const shell = new AdminShell(page)
     await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
 
-    const shop = shell.content.getByLabel('Magasin habituel', { exact: true })
+    const shop = shell.productPanel.getByLabel('Magasin habituel', { exact: true })
     await shop.fill('Primeur')
     await page.getByRole('option', { name: 'Primeur du marché' }).click()
 
     const patched = page.waitForResponse(
       (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
     )
-    await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+    await shell.productPanel.getByRole('button', { name: 'Enregistrer' }).click()
     const response = await patched
     expect(response.status(), `the API refused the product: ${await response.text()}`).toBe(200)
 
@@ -110,7 +110,7 @@ test('the usual shop chosen in the product form is saved and still there when th
     )
 
     await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
-    await expect(shell.content.getByLabel('Magasin habituel', { exact: true })).toHaveValue('Primeur du marché')
+    await expect(shell.productPanel.getByLabel('Magasin habituel', { exact: true })).toHaveValue('Primeur du marché')
     const stored = await api.get(iri, { headers: { Accept: 'application/ld+json' } })
     expect(((await stored.json()) as ProductRow).preferredStore).toBe(greengrocer)
   } finally {
@@ -142,14 +142,14 @@ test('an ingredient opened as a product saves its usual shop from the product fo
     const shell = new AdminShell(page)
     await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
 
-    const shop = shell.content.getByLabel('Magasin habituel', { exact: true })
+    const shop = shell.productPanel.getByLabel('Magasin habituel', { exact: true })
     await shop.fill('Primeur')
     await page.getByRole('option', { name: 'Primeur du marché' }).click()
 
     const patched = page.waitForResponse(
       (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
     )
-    await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+    await shell.productPanel.getByRole('button', { name: 'Enregistrer' }).click()
     const response = await patched
     expect(response.status(), `the API refused the product: ${await response.text()}`).toBe(200)
 
@@ -210,16 +210,16 @@ for (const withStore of [false, true]) {
 
       const shell = new AdminShell(page)
       await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
-      await expect(shell.content.getByLabel('Nom')).toHaveValue(name)
+      await expect(shell.productPanel.getByLabel('Nom')).toHaveValue(name)
 
-      await shell.content.getByRole('combobox', { name: 'Conditionnement' }).click()
+      await shell.productPanel.getByRole('combobox', { name: 'Conditionnement' }).click()
       await page.getByRole('option', { name: 'bocal' }).click()
-      await shell.content.getByLabel('Contenu', { exact: true }).fill('750')
+      await shell.productPanel.getByLabel('Contenu', { exact: true }).fill('750')
 
       const patched = page.waitForResponse(
         (response) => response.url().includes(iri) && response.request().method() === 'PATCH',
       )
-      await shell.content.getByRole('button', { name: 'Enregistrer' }).click()
+      await shell.productPanel.getByRole('button', { name: 'Enregistrer' }).click()
       const response = await patched
       expect(response.status(), `the API refused the ingredient: ${await response.text()}`).toBe(200)
 
@@ -233,7 +233,7 @@ for (const withStore of [false, true]) {
       expect(stored.preferredStore ?? null).toBe(withStore ? greengrocer : null)
 
       await shell.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
-      await expect(shell.content.getByTestId('packaging-preview')).toContainText('bocal')
+      await expect(shell.productPanel.getByTestId('packaging-preview')).toContainText('bocal')
     } finally {
       await api.delete(iri)
     }

@@ -61,7 +61,7 @@ test('the product sheet sets the recurrence, and the Récurrents tab and the lis
     const written = page.waitForResponse(
       (response) => response.url().includes('/api/recurring_grocery_items') && response.request().method() === 'POST',
     )
-    await shell.content.getByRole('combobox', { name: 'Récurrent' }).click()
+    await shell.productPanel.getByRole('combobox', { name: 'Récurrent' }).click()
     await page.getByRole('option', { name: 'Toutes les 2 semaines' }).click()
     expect((await written).status()).toBe(201)
 
