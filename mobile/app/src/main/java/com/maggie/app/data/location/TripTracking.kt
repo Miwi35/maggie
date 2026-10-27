@@ -71,6 +71,7 @@ class TripTracker(
     private val updates: LocationUpdates,
     private val car: CarConnectionSource,
     private val battery: BatteryLevel,
+    private val scheduler: LocationScheduler,
 ) {
 
     private data class State(val mode: TrackingMode, val carConnected: Boolean)
@@ -89,7 +90,9 @@ class TripTracker(
         var connectedSince: Instant? = null
         states().firstOrNull { state ->
             val since = connectedSince
-            if (since != null && !state.carConnected) reporter.reportCarDisconnected(since)
+            if (since != null && !state.carConnected && reporter.reportCarDisconnected(since) == ReportOutcome.RETRY) {
+                scheduler.retryCarLater()
+            }
             connectedSince = if (state.carConnected) since ?: reporter.now() else null
             if (state.mode != mode) {
                 mode = state.mode

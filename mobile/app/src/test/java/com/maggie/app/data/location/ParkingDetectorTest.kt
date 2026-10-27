@@ -173,23 +173,30 @@ class ParkingDetectorTest {
     }
 
     @Test
+    fun `placing the car does not start the trip service, the receiver already did`() = runTest {
+        handler.handle(listOf(leaveCar(), standUp()))
+
+        assertEquals(0, launcher.starts)
+    }
+
+    @Test
     fun `every delivery remembers what the phone does and asks for the trip service`() = runTest {
-        handler.handle(listOf(standUp()))
+        handler.onDelivery(listOf(standUp()))
         assertEquals(Motion.MOVING, preferences.motion())
 
-        handler.handle(listOf(enterCar(t0.plusSeconds(100))))
+        handler.onDelivery(listOf(enterCar(t0.plusSeconds(100))))
         assertEquals(Motion.IN_VEHICLE, preferences.motion())
 
-        handler.handle(listOf(TransitionEvent(Movement.STILL, entering = true, at = t0.plusSeconds(200))))
+        handler.onDelivery(listOf(TransitionEvent(Movement.STILL, entering = true, at = t0.plusSeconds(200))))
         assertEquals(Motion.STILL, preferences.motion())
         assertEquals(3, launcher.starts)
     }
 
     @Test
     fun `leaving an activity that is not the current one changes nothing`() = runTest {
-        handler.handle(listOf(enterCar()))
+        handler.onDelivery(listOf(enterCar()))
 
-        handler.handle(listOf(TransitionEvent(Movement.ON_FOOT, entering = false, at = t0.plusSeconds(5))))
+        handler.onDelivery(listOf(TransitionEvent(Movement.ON_FOOT, entering = false, at = t0.plusSeconds(5))))
 
         assertEquals(Motion.IN_VEHICLE, preferences.motion())
     }

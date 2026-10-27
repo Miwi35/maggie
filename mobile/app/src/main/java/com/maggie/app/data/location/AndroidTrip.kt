@@ -22,10 +22,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "DepartureTrip"
 
@@ -50,16 +52,35 @@ class GmsLocationUpdates(private val context: Context) : LocationUpdates {
     }
 }
 
-/** Connected to Android Auto — `CarConnection`, which answers on the main thread; false until it says otherwise. */
+/**
+ * Connected to Android Auto — `CarConnection`, which answers on the main thread. Not connected only once it
+ * has said so, or stayed silent for [SILENCE_MS]: a `false` sent before its answer would end the trip service
+ * at the very moment the car connects.
+ */
 class AndroidCarConnection(private val context: Context) : CarConnectionSource {
 
     override val connected: Flow<Boolean> = callbackFlow {
         val main = Handler(Looper.getMainLooper())
         val connection = CarConnection(context.applicationContext)
-        val observer = Observer<Int> { trySend(it == CarConnection.CONNECTION_TYPE_PROJECTION) }
+        val answered = AtomicBoolean(false)
+        val observer = Observer<Int> {
+            answered.set(true)
+            trySend(it == CarConnection.CONNECTION_TYPE_PROJECTION)
+        }
         main.post { connection.type.observeForever(observer) }
-        awaitClose { main.post { connection.type.removeObserver(observer) } }
-    }.onStart { emit(false) }.distinctUntilChanged()
+        val silence = launch {
+            delay(SILENCE_MS)
+            if (answered.compareAndSet(false, true)) trySend(false)
+        }
+        awaitClose {
+            silence.cancel()
+            main.post { connection.type.removeObserver(observer) }
+        }
+    }.distinctUntilChanged()
+
+    private companion object {
+        const val SILENCE_MS = 3_000L
+    }
 }
 
 /** The battery's level, from the sticky `ACTION_BATTERY_CHANGED`. */
@@ -151,12 +172,19 @@ class PassiveLocationReceiver : BroadcastReceiver() {
     }
 }
 
-/** Starts [TripService] when [tracker] says there is a trip to follow; a start the system refuses is left for the next event. */
-class AndroidTripLauncher(private val context: Context, private val tracker: TripTracker) : TripLauncher {
+/**
+ * Starts [TripService] when [tracker] says there is a trip to follow and the permissions are there; a start the
+ * system refuses (Android 12+ lets only some contexts start a foreground service) is left for the next event.
+ */
+class AndroidTripLauncher(
+    private val context: Context,
+    private val tracker: TripTracker,
+    private val reporter: LocationReporter,
+) : TripLauncher {
 
     override suspend fun startIfNeeded() {
         try {
-            if (tracker.currentMode() == TrackingMode.IDLE) return
+            if (!reporter.mayListen() || tracker.currentMode() == TrackingMode.IDLE) return
             ContextCompat.startForegroundService(context, Intent(context, TripService::class.java))
         } catch (e: CancellationException) {
             throw e

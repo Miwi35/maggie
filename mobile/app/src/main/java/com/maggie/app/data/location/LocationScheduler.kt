@@ -131,6 +131,7 @@ class PositionWorker(context: Context, params: WorkerParameters) : CoroutineWork
         if (reporter.mayListen()) {
             koin.get<TransitionRegistrar>().register()
             koin.get<PassiveRegistrar>().register()
+            // Best effort: Android 12+ refuses a foreground service started from a worker unless the app is in view.
             koin.get<TripLauncher>().startIfNeeded()
         }
         val accuracy = if (inputData.getBoolean(PRECISE, false)) PositionAccuracy.HIGH else PositionAccuracy.BALANCED

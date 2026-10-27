@@ -20,6 +20,9 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.GlobalContext
@@ -150,7 +153,10 @@ class ActivityTransitionRegistrar(private val context: Context) : TransitionRegi
     }
 }
 
-/** The system delivers the transitions here, even with the app closed; the work is handed to WorkManager. */
+/**
+ * The system delivers the transitions here, even with the app closed. What the phone now does is kept and the
+ * trip service started on the spot (a foreground service may start from here); the parking is handed to WorkManager.
+ */
 class ActivityTransitionReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -163,5 +169,21 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             Log.w(TAG, "Transition not handled: ${e.message}")
         }
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.Default).launch {
+            try {
+                withTimeoutOrNull(DELIVERY_TIMEOUT_MS) { koin.get<ActivityTransitionHandler>().onDelivery(events) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Trip not started: ${e.message}")
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    private companion object {
+        const val DELIVERY_TIMEOUT_MS = 8_000L
     }
 }

@@ -330,8 +330,8 @@ class MaggieApp : Application() {
             single<LocationUpdates> { GmsLocationUpdates(androidContext()) }
             single<CarConnectionSource> { AndroidCarConnection(androidContext()) }
             single<BatteryLevel> { AndroidBatteryLevel(androidContext()) }
-            single { TripTracker(get(), get(), get(), get(), get()) }
-            single<TripLauncher> { AndroidTripLauncher(androidContext(), get()) }
+            single { TripTracker(get(), get(), get(), get(), get(), get()) }
+            single<TripLauncher> { AndroidTripLauncher(androidContext(), get(), get()) }
             single { TripWatcher(get(), get()) }
             single { ActivityTransitionHandler(get(), get(), get(), get(), get()) }
             single { DepartureTracking(get(), get(), get()) }

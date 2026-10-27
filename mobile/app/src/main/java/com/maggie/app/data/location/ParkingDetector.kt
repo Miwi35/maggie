@@ -105,8 +105,10 @@ class ParkingDetector(private val preferences: LocationPreferences) {
 }
 
 /**
- * What the transition receiver does with a delivery: remembers what the phone now does, places the car when
- * a parking is complete (sent now or retried later), and starts the trip service when the position is to be followed.
+ * What a delivery of transitions leads to. The receiver, in the instant the system grants it, remembers what
+ * the phone now does and starts the trip service ([onDelivery]): Android 12+ lets a foreground service start
+ * from there and not from a worker that runs later. WorkManager then places the car when a parking is
+ * complete, sent now or retried later ([handle]).
  */
 class ActivityTransitionHandler(
     private val detector: ParkingDetector,
@@ -115,11 +117,16 @@ class ActivityTransitionHandler(
     private val preferences: LocationPreferences,
     private val launcher: TripLauncher,
 ) {
+    private val deliveries = Mutex()
+
+    suspend fun onDelivery(events: List<TransitionEvent>) {
+        deliveries.withLock { remember(events) }
+        launcher.startIfNeeded()
+    }
+
     suspend fun handle(events: List<TransitionEvent>) {
-        remember(events)
         val parkedAt = detector.onTransitions(events)
         if (parkedAt != null && reporter.reportCar(parkedAt) == ReportOutcome.RETRY) scheduler.retryCarLater()
-        launcher.startIfNeeded()
     }
 
     private suspend fun remember(events: List<TransitionEvent>) {

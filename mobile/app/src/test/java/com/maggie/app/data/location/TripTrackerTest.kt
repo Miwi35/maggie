@@ -45,6 +45,7 @@ class TripTrackerTest {
     private val carConnected = MutableStateFlow(false)
     private val batteryPercent = MutableStateFlow(80)
     private val clock = FakeClock(t0)
+    private val scheduler = FakeScheduler()
     private lateinit var preferences: LocationPreferences
     private lateinit var tracker: TripTracker
 
@@ -58,6 +59,7 @@ class TripTrackerTest {
             updates,
             object : CarConnectionSource { override val connected = carConnected },
             object : BatteryLevel { override val percent = batteryPercent },
+            scheduler,
         )
     }
 
@@ -164,6 +166,24 @@ class TripTrackerTest {
         val call = api.calls.single { it.path == "/api/me/car" }
         assertEquals(48.5, call.body.getValue("latitude").jsonPrimitive.double, 0.0)
         assertEquals(JsonPrimitive(t0.plusSeconds(50).toString()), call.body.getValue("parkedAt"))
+    }
+
+    @Test
+    fun `a car place that could not be sent at the disconnection is tried again later`() = runTest {
+        carConnected.value = true
+        backgroundScope.launch { tracker.run() }
+        until { updates.active == 1 }
+        updates.fixes.emit(fix(0))
+        until { preferences.gpsLog().size == 1 }
+        api.status = io.ktor.http.HttpStatusCode.InternalServerError
+        api.calls.clear()
+
+        clock.now = t0.plusSeconds(50)
+        carConnected.value = false
+        until { scheduler.carRetries == 1 }
+
+        assertEquals(1, api.calls.count { it.path == "/api/me/car" })
+        assertEquals(48.0, preferences.pendingCar()?.latitude)
     }
 
     @Test
