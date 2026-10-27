@@ -33,8 +33,7 @@ async function read(day: HomeDay): Promise<NutritionHomeState> {
 
 /**
  * What the Cuisine card shows for a day, composed from that day's meals and what their recipes lack, and read
- * again when any resource behind them publishes. Same contract as `useHomeCardState`: a refresh keeps the previous
- * state, the last read wins.
+ * again when any resource behind them publishes. A refresh keeps the previous state, the last read wins.
  */
 export function useNutritionCardState(day: HomeDay) {
   const [state, setState] = useState<NutritionHomeState | null>(null)

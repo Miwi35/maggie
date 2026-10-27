@@ -10,7 +10,6 @@ use Maggie\Core\Contract\MercureActionPayload;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
-use Maggie\Core\Home\HomeCardPublisher;
 use Maggie\Core\Identifier\CanonicalId;
 use Maggie\Core\Mercure\MercureTopic;
 use Monolog\Attribute\WithMonologChannel;
@@ -47,7 +46,6 @@ final class ProjectionMiddleware implements MiddlewareInterface
         private readonly MessageBusInterface $bus,
         private readonly WorkCollector $collector,
         ?LoggerInterface $logger = null,
-        private readonly ?HomeCardPublisher $homeCards = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
     }
@@ -118,15 +116,6 @@ final class ProjectionMiddleware implements MiddlewareInterface
                     'message' => $message::class,
                 ]);
             }
-        }
-
-        try {
-            $this->homeCards?->publishAffected($work->changes(), $message::class);
-        } catch (\Throwable $e) {
-            $this->logger->error('Failed to publish home card refreshes: {error}', [
-                'error' => $e->getMessage(),
-                'message' => $message::class,
-            ]);
         }
     }
 

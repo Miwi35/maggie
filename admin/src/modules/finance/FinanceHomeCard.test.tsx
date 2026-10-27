@@ -52,7 +52,7 @@ describe('FinanceHomeCard', () => {
   beforeEach(() => localStorage.setItem('token', 'test-jwt'))
   afterEach(() => vi.unstubAllGlobals())
 
-  test('reads the Finance dashboard resource alone: one request, never /api/home', async () => {
+  test('reads the Finance dashboard resource alone: one request', async () => {
     const fetchMock = vi.fn().mockResolvedValue(ok(dashboard()))
     vi.stubGlobal('fetch', fetchMock)
     renderCard()

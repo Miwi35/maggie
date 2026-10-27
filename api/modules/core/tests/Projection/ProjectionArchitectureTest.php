@@ -23,8 +23,6 @@ class ProjectionArchitectureTest extends TestCase
         'modules/core/src/Elasticsearch/Message/IndexDocumentCommand.php',
         'modules/core/src/Elasticsearch/MessageHandler/IndexDocumentHandler.php',
         'modules/core/src/Mercure/EntityBroadcaster.php',
-        // A refresh signal for a home card: no row changed, so there is nothing for the middleware to project.
-        'modules/core/src/Home/HomeCardPublisher.php',
     ];
 
     /** Manual projection still to be replaced by the middleware (commands, imports and syncs outside the CRUD flow). */

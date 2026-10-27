@@ -28,8 +28,7 @@ import org.junit.Test
 import java.time.LocalDate
 
 /**
- * The reads of the Finance card (MAG-592): the dashboard of the current month, one request, never the home card
- * endpoint; the topics of the resources behind it wake the card.
+ * The reads of the Finance card (MAG-592): the dashboard of the current month, one request; the topics of the resources behind it wake the card.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class FinanceCardRepositoryTest {
@@ -54,15 +53,6 @@ class FinanceCardRepositoryTest {
         coVerify(exactly = 1) { api.getFinanceDashboard(2026, 10) }
         assertEquals(2, state.toQualifyCount)
         assertEquals(1, state.accountCount)
-    }
-
-    @Test
-    fun `the card never reads the home card endpoint`() = runTest {
-        coEvery { api.getFinanceDashboard(any(), any()) } returns dashboard()
-
-        repository.read().getOrThrow()
-
-        coVerify(exactly = 0) { api.getHomeCard(any(), any()) }
     }
 
     @Test

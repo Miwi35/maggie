@@ -1,8 +1,8 @@
 // The three tasks of the day of the Accueil's Tâches card, over HTTP (MAG-561).
 //
 // `setup` gives the account three tasks due today, none done. `expect-done` reads the first one
-// back from the API (by id, found through the card's own endpoint: the tasks collection is served
-// from an index that lags). `cleanup` deletes the tasks of the card; the account holds nothing else,
+// back from the API (by id, found through the « today » and « done » task views: the tasks collection is served
+// from an index that lags). `cleanup` deletes the tasks of the day; the account holds nothing else,
 // and `setup` runs it first, so a failed run leaves nothing behind.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
@@ -29,12 +29,17 @@ const token = JSON.parse(login.body).token
 const JSON_HEADERS = { Authorization: 'Bearer ' + token, Accept: 'application/json', 'Content-Type': 'application/json' }
 const LD_HEADERS = { Authorization: 'Bearer ' + token, Accept: 'application/ld+json', 'Content-Type': 'application/ld+json' }
 
-function cardTasks() {
-  const response = http.get(base + '/api/home/tasks?day=today', { headers: JSON_HEADERS })
+function view(name) {
+  const response = http.get(base + '/api/tasks/view/' + name + '?itemsPerPage=100', { headers: LD_HEADERS })
   if (!response.ok) {
-    fail('GET /api/home/tasks answered ' + response.status + ': ' + response.body)
+    fail('GET /api/tasks/view/' + name + ' answered ' + response.status + ': ' + response.body)
   }
-  return JSON.parse(response.body).tasks
+  return JSON.parse(response.body).member
+}
+
+// Open ones (« today ») and ticked ones (« done »): the card shows both.
+function cardTasks() {
+  return view('today').concat(view('done'))
 }
 
 function cleanup() {

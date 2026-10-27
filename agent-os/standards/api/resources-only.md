@@ -37,4 +37,4 @@ Un module absent répond 404 sur sa ressource : la carte correspondante n'est pa
 | Permis | `GET /api/events?expand=true&endAt[after]=…&startAt[before]=…` — les occurrences d'une période, séries dépliées une seule fois par l'API (RRULE), lues par tous les fronts |
 | Permis | `GET /api/grocery/recipe-needs?from=…&to=…&missing=true` — les ingrédients des repas d'une période, calculés à la volée par le pont `meal-grocery`, lus par la carte Courses et l'interruption « Il manque » |
 
-`/api/home` et ses cartes restent le temps de la migration des cartes (MAG-589 à 592), puis sont supprimés (MAG-593).
+`/api/home` et ses cartes ont été supprimés une fois toutes les cartes de l'Accueil migrées (MAG-589 à 592, MAG-593) : l'Accueil compose ses cartes côté client, à partir des ressources du domaine.

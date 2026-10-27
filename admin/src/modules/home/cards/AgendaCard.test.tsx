@@ -124,7 +124,6 @@ describe('AgendaCard', () => {
     expect(params.get('endAt[after]')).toBe(localMidnightIso('2026-10-14'))
     expect(params.get('startAt[before]')).toBe(localMidnightIso('2026-10-15'))
     expect(fetchMock.mock.calls.map(([u]) => String(u)).some((u) => u.includes('/agendas'))).toBe(true)
-    expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/home/'))).toBe(false)
   })
 
   test('dims the past rows but keeps them readable, and says « dans 48 min » on the next one', async () => {

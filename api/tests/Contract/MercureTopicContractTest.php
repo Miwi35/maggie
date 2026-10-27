@@ -105,19 +105,10 @@ final class MercureTopicContractTest extends WebTestCase
         );
     }
 
-    /**
-     * The updates that carry the entity itself. A card of the Accueil is told
-     * to re-read on its own `/home/{module}` topic (MAG-561): another signal,
-     * for another listener, not a second copy of the change.
-     *
-     * @return list<\Symfony\Component\Mercure\Update>
-     */
+    /** @return list<\Symfony\Component\Mercure\Update> */
     private function entityUpdates(): array
     {
-        return array_values(array_filter(
-            $this->getMercureHub()->getUpdates(),
-            static fn ($update): bool => !str_contains($update->getTopics()[0], '/home/'),
-        ));
+        return array_values($this->getMercureHub()->getUpdates());
     }
 
     /**

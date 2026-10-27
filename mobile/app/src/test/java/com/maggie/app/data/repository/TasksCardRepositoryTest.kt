@@ -36,7 +36,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 /**
- * The reads of the « Tâches » card (MAG-588): the task and routine resources, never the home card endpoint; a module
+ * The reads of the « Tâches » card (MAG-588): the task and routine resources; a module
  * absent (404) is an empty card; the topics of tasks and routines wake it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -170,16 +170,6 @@ class TasksCardRepositoryTest {
         coVerify(exactly = 0) { api.getTodayTasks() }
         coVerify(exactly = 0) { api.getTasksCompletedBetween(any(), any(), any()) }
         coVerify(exactly = 0) { api.getTaskSettings() }
-    }
-
-    @Test
-    fun `the card never reads the home card endpoint`() = runTest {
-        answers()
-
-        repository.read(HomeDay.TODAY, today, noon).getOrThrow()
-        repository.read(HomeDay.TOMORROW, today, noon).getOrThrow()
-
-        coVerify(exactly = 0) { api.getHomeCard(any(), any()) }
     }
 
     @Test

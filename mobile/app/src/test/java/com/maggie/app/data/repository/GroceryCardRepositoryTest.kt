@@ -35,7 +35,7 @@ import org.junit.Test
 import java.time.LocalDate
 
 /**
- * The reads of the Courses card (MAG-590): the grocery list and what the meals need, never the home card endpoint; a part
+ * The reads of the Courses card (MAG-590): the grocery list and what the meals need; a part
  * answered 404 is empty; the topics of the list, the shops, the products and the meals wake it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -243,15 +243,6 @@ class GroceryCardRepositoryTest {
 
         assertTrue(state.stores.isEmpty())
         coVerify(exactly = 0) { api.getGroceryList(any()) }
-    }
-
-    @Test
-    fun `the card never reads the home card endpoint`() = runTest {
-        answers()
-
-        repository.read(today).getOrThrow()
-
-        coVerify(exactly = 0) { api.getHomeCard(any(), any()) }
     }
 
     @Test
