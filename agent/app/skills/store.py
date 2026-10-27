@@ -29,9 +29,14 @@ from app.skills.document import SkillEntry, parse_markdown, render_markdown
 logger = logging.getLogger(__name__)
 
 SCOPE = paths.SKILLS_SCOPE
+# Not Markdown: it travels nowhere and is no skill, it only tells that the folder was filled once.
+MIGRATION_MARK = ".premier-remplissage"
 
 
 class SkillFiles(MemoryService):
+    # No generated file lives here: once the last skill is deleted the folder is truly empty.
+    guard_empty_listing = False
+
     def __init__(
         self,
         bucket: Bucket | None,
@@ -43,6 +48,7 @@ class SkillFiles(MemoryService):
     ) -> None:
         super().__init__(bucket, root, clock=clock, **kwargs)
         self.repo = repo or skill_repo
+        self._migrated = False
 
     def _check_scope(self, scope: str) -> str:
         if scope != SCOPE:
@@ -137,6 +143,8 @@ class SkillFiles(MemoryService):
                 await self._move_table_to_files(list(rows.values()))
                 report.again = True
                 documents = self.documents()
+            if documents:
+                await self._mark_migrated()
             pending = await self._pending_names()
             for name, (_, entry, body) in documents.items():
                 row = rows.get(name)
@@ -152,8 +160,44 @@ class SkillFiles(MemoryService):
                 report.reindexed += 1
 
     async def _first_run(self) -> bool:
-        """The folder holds no file and nothing waits to be pushed: it has never been filled."""
-        return not self.folder(SCOPE).files() and not await memory_outbox_repo.pending(SCOPE)
+        """The folder has never been filled: no file, nothing waiting to be pushed, and no mark left by a first fill.
+        An empty folder alone proves nothing — it is also what the owner leaves by deleting the last skill."""
+        if self.folder(SCOPE).files() or await memory_outbox_repo.pending(SCOPE):
+            return False
+        return not await self._is_marked()
+
+    def _local_mark(self) -> Path:
+        return paths.local_top(self.root, SCOPE) / MIGRATION_MARK
+
+    async def _is_marked(self) -> bool:
+        if self._migrated:
+            return True
+        if self.enabled:
+            assert self.bucket is not None
+            try:
+                found = await self.bucket.head(paths.bucket_prefix(SCOPE) + MIGRATION_MARK) is not None
+            except BucketError:
+                found = True  # not sure: better no move than a skill coming back from the dead
+        else:
+            found = self._local_mark().exists()
+        self._migrated = found
+        return found
+
+    async def _mark_migrated(self) -> None:
+        """Leave a mark, next to the files and not among them, that the folder has been filled once."""
+        if await self._is_marked():
+            return
+        try:
+            if self.enabled:
+                assert self.bucket is not None
+                await self.bucket.put(paths.bucket_prefix(SCOPE) + MIGRATION_MARK, b"")
+            else:
+                self._local_mark().parent.mkdir(parents=True, exist_ok=True)
+                self._local_mark().touch()
+        except (BucketError, OSError) as e:
+            logger.warning("Could not leave the mark of the skills' first fill: %s", e)
+            return
+        self._migrated = True
 
     async def _move_table_to_files(self, rows: list) -> None:
         """The skills of MAG-187 leave the table for files, never over a file that is already there."""
@@ -164,6 +208,7 @@ class SkillFiles(MemoryService):
                 continue
             text = render_markdown(row.name, row.description, list(row.tags or []), row.content or "")
             await self._save_local_and_queue(SCOPE, rel, text)
+        await self._mark_migrated()
         logger.info("Moved %d skill(s) from the table to the skills folder", len(rows))
 
     async def _pending_names(self) -> set[str]:
@@ -190,7 +235,8 @@ class SkillFiles(MemoryService):
                 logger.warning("Skills folder not reached at boot, the index stays as it is: %s", e)
                 if self.folder(SCOPE).files():
                     await self._reconcile_index(SCOPE, PassReport())
-            self.start()
+            finally:
+                self.start()
             return
         await self._reconcile_index(SCOPE, PassReport())
 

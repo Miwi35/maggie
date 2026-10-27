@@ -10,7 +10,7 @@ from app.db.skill_model import Skill
 from app.db.skill_repository import skill_repo
 from app.e2e import setup_e2e
 from app.memory import paths
-from app.memory.bucket import FakeBucket
+from app.memory.bucket import BucketUnavailable, FakeBucket
 from app.memory.service import MemoryService
 from app.skills.document import parse_markdown, render_markdown
 from app.skills.index import SkillIndex
@@ -100,6 +100,36 @@ class TestTheFilesAreTheSkills:
 
         assert await skills.names() == ["autre"]
 
+    async def test_the_last_skill_deleted_in_the_bucket_goes_without_an_outage(self, skills):
+        skills.bucket.seed(skills.key("seule.md"), render_markdown("seule", "D", [], "Texte."))
+        await skills.files.sync_user(SCOPE)
+        assert await skills.names() == ["seule"]
+
+        skills.bucket.remove(skills.key("seule.md"))
+        await skills.files.sync_user(SCOPE)
+
+        assert await skills.names() == []
+        assert skills.local("seule.md") is None
+        assert skills.files.degraded() is False
+
+    async def test_the_last_skill_deleted_by_maggie_stays_deleted_after_a_restart(self, skills):
+        await skills.index.create(*RAPPEL, user_id="u")
+        await skills.files.sync_user(SCOPE)
+
+        assert await skills.index.delete(RAPPEL[0]) is True
+        await skills.files.sync_user(SCOPE)
+        await skills.files.start_up()
+
+        assert await skills.names() == []
+        assert skills.remote("rappel-livraison.md") is None
+
+    async def test_a_dashes_line_inside_a_value_does_not_cut_the_frontmatter(self, skills):
+        await skills.index.create("tirets", "avant --- après", ["a---b"], "Corps.", user_id="u")
+        await skills.files.sync_user(SCOPE)
+
+        row = await skill_repo.get("tirets")
+        assert (row.description, list(row.tags), row.content) == ("avant --- après", ["a---b"], "Corps.")
+
     async def test_a_frontmatter_without_name_takes_the_file_name(self, skills):
         skills.bucket.seed(skills.key("sans-nom.md"), "---\ndescription: D\n---\n\nCorps.\n")
         await skills.files.sync_user(SCOPE)
@@ -152,7 +182,8 @@ class TestApartFromTheKnowledge:
         assert not (skills.root / USER_A).exists()
         assert await knowledge.users() == []
         assert not any(key.startswith(f"{USER_A}/") for key in skills.bucket.objects)
-        assert set(skills.bucket.objects) == {"Compétences/rappel-livraison.md"}
+        assert all(key.startswith("Compétences/") for key in skills.bucket.objects)
+        assert "Compétences/rappel-livraison.md" in skills.bucket.objects
 
     async def test_the_knowledge_service_never_syncs_the_skills_scope(self, skills):
         knowledge = MemoryService(skills.bucket, skills.root, clock=Clock(), push_after_write=False)
@@ -164,10 +195,15 @@ class TestApartFromTheKnowledge:
         with pytest.raises(paths.UnsafePath):
             await skills.files.sync_user(USER_A)
 
-    async def test_a_skill_written_here_does_not_raise_the_memory_degraded_gauge_up_front(self, skills):
+    async def test_an_outage_of_the_bucket_is_felt_by_the_skills_folder_too(self, skills):
+        skills.bucket.down = True
         await skills.index.create(*RAPPEL, user_id="u")
 
-        assert skills.files.degraded() is False
+        with pytest.raises(BucketUnavailable):
+            await skills.files.sync_user(SCOPE)
+
+        assert await skills.names() == ["rappel-livraison"]
+        assert await memory_outbox_repo.count(SCOPE) == 1
 
 
 class TestTheTableIsDerived:

@@ -163,6 +163,10 @@ class MemoryService:
         self._touched: dict[str, set[str]] = {}
         self._notify_tasks: dict[str, asyncio.Task] = {}
 
+    # An empty listing against a known folder is refused as an outage: the generated files of a user's
+    # folder are always there, so it cannot be a true answer. A folder that may really be empty turns it off.
+    guard_empty_listing = True
+
     @property
     def enabled(self) -> bool:
         return self.bucket is not None
@@ -609,7 +613,7 @@ class MemoryService:
             if rel is not None and paths.is_syncable(rel):
                 remote[rel] = item.etag
                 remote.raw_keys[rel] = item.key
-        if not remote and state:
+        if not remote and state and self.guard_empty_listing:
             raise BucketUnavailable(f"the listing came back empty although {len(state)} file(s) are known")
         return remote
 

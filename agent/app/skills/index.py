@@ -93,6 +93,7 @@ class SkillIndex:
 
     async def create(self, name: str, description: str, tags: list[str], content: str, user_id: str) -> SkillEntry:
         """Write a skill's file (replacing one of the same name), update the table and the index, publish to Mercure."""
+        content = content.strip()
         await self.store.save(name, description, tags, content)
         skill = await self.repo.upsert(name, description, tags, content)
         entry = _entry(skill)
@@ -117,7 +118,7 @@ class SkillIndex:
         entry, body = current
         new_description = entry.description if description is None else description
         new_tags = entry.tags if tags is None else tags
-        new_content = body if content is None else content
+        new_content = body if content is None else content.strip()
         await self.store.save(name, new_description, new_tags, new_content)
         skill = await self.repo.upsert(name, new_description, new_tags, new_content)
         entry = _entry(skill)
@@ -126,8 +127,10 @@ class SkillIndex:
         return entry
 
     async def delete(self, name: str, user_id: str = "default") -> bool:
+        # The row first: a pass that pushed the file's deletion must not find the row and take it for a table to move.
+        had_row = await self.repo.delete(name)
         removed = await self.store.remove(name)
-        if not await self.repo.delete(name) and not removed:
+        if not had_row and not removed:
             return False
         self.entries = [e for e in self.entries if e.name != name]
         await self._publish(user_id, {"name": name, "deleted": True})
