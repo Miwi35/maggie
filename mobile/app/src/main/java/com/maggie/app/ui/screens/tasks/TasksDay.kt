@@ -302,7 +302,7 @@ private fun ReserveHeader(count: Int, open: Boolean, onToggle: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Réserve ($count)",
+            text = "Réserve · $count",
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.weight(1f),
         )

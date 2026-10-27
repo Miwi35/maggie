@@ -9,9 +9,9 @@ onFlowComplete:
         ACTION: cleanup
         TODAY: ${TODAY}
 ---
-# The « Routines » tab of the tasks (MAG-511, extends MAG-100).
+# The « Routines » view of the tasks (MAG-511, extends MAG-100), reached from the header menu (MAG-626).
 #
-# Given the « Routines » tab, when « Sortir les poubelles » is created to repeat every week
+# Given the « Routines » view, when « Sortir les poubelles » is created to repeat every week
 # after dinner, then it shows in « Chaque semaine »; when it is ticked, then its total reads
 # « 1 fois » and the API counts it ticked today, once.
 #
@@ -53,8 +53,10 @@ onFlowComplete:
       id: "tasks"
     timeout: 20000
 
-- tapOn:
-    id: "tasks_tab_routines"
+- runFlow:
+    file: ../subflows/open-tasks-view.yaml
+    env:
+      VIEW: routines
 - extendedWaitUntil:
     visible:
       id: "routines_add"
@@ -132,8 +134,10 @@ onFlowComplete:
       TODAY: ${TODAY}
 
 # When « Aujourd'hui » is opened, then the pill is in « Routines · matin ».
-- tapOn:
-    id: "tasks_tab_today"
+- runFlow:
+    file: ../subflows/open-tasks-view.yaml
+    env:
+      VIEW: today
 # The seed's day is not confirmed: « Ta journée » may open first, « Plus tard » leaves it.
 - tapOn:
     id: "tasks_morning_later"
@@ -165,9 +169,11 @@ onFlowComplete:
       ACTION: expect-wake-checked
       TODAY: ${TODAY}
 
-# Back on the « Routines » tab (the home's routines are the Tâches card's, MAG-561).
-- tapOn:
-    id: "tasks_tab_routines"
+# Back on « Routines » (the home's routines are the Tâches card's, MAG-561).
+- runFlow:
+    file: ../subflows/open-tasks-view.yaml
+    env:
+      VIEW: routines
 - extendedWaitUntil:
     visible:
       id: "routines_add"

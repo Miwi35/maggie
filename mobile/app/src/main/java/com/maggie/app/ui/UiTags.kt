@@ -532,11 +532,13 @@ object UiTags {
     const val MEAL_ADD_DAY_PREFIX = "meal_add_day_"
 
     /**
-     * Tasks screen (MAG-408) — the root, one tab per view suffixed by the view's key (`today`,
-     * `upcoming`, `someday`, `done`), the quick-add field and its button, the empty line, and the
+     * Tasks screen (MAG-408) — the root, the header « Tâches › … ▾ » that opens the menu of views
+     * (MAG-626), one menu entry per view suffixed by the view's key (`today`, `upcoming`, `someday`,
+     * `done`, `routines`), the quick-add field and its button, the empty line, and the
      * box that ticks a task, suffixed by the task's id.
      */
     const val TASKS = "tasks"
+    const val TASKS_VIEW_MENU = "tasks_view_menu"
     const val TASKS_TAB_PREFIX = "tasks_tab_"
     const val TASKS_ADD_INPUT = "tasks_add_input"
     const val TASKS_ADD_SUBMIT = "tasks_add_submit"

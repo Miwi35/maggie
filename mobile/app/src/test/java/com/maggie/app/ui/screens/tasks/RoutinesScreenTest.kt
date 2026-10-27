@@ -40,7 +40,7 @@ class RoutinesScreenTest {
     )
 
     @Test
-    fun `the Routines tab sits next to Aujourd'hui, and only when the screen has it`() {
+    fun `the Routines entry sits next to Aujourd'hui in the menu, and only when the screen has it`() {
         assertEquals(listOf(TaskView.TODAY, null, TaskView.UPCOMING, TaskView.SOMEDAY, TaskView.DONE), tabsOf(withRoutines = true))
         assertEquals(TaskView.entries.toList(), tabsOf(withRoutines = false))
     }
