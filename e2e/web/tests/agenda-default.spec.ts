@@ -105,7 +105,8 @@ test('the agenda marked as default receives the events created without a calenda
             const rows = await agendas(api)
             return { defaults: rows.filter(isDefault).map((agenda) => agenda.name), deleted: !rows.some((agenda) => agenda.id === second.id) }
           },
-          { message: 'the neighbour should be back to its own default agenda' },
+          // The delete is a queued command: right after the seed it waits behind the index and dashboard backlog.
+          { message: 'the neighbour should be back to its own default agenda', timeout: 45_000 },
         )
         .toEqual({ defaults: [original.name], deleted: true })
     }
