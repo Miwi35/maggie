@@ -170,7 +170,6 @@ fun EventFormScreen(
                     readOnly = true,
                     enabled = false,
                     label = { Text("Répéter") },
-                    supportingText = { Text("La règle de la série ne se change pas depuis une occurrence.") },
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {

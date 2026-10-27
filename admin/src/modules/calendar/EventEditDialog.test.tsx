@@ -118,6 +118,7 @@ describe('EventEditDialog', () => {
 
     expect(screen.getByLabelText('Répéter')).toBeDisabled()
     expect(screen.queryByRole('combobox', { name: 'Répéter' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/ne se change pas depuis une occurrence/)).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('rrule')

@@ -78,4 +78,21 @@ class EventFormScreenTest {
         assertEquals("\"Rennes\"", patch?.get("location").toString())
         assertNull(patch?.get("rrule"))
     }
+
+    @Test
+    fun `editing an occurrence keeps Répéter read-only and shows no explanatory text`() {
+        val event = ExpandedEvent(
+            id = "e1_20261007",
+            summary = "Dentiste",
+            startAt = "2026-10-07T07:00:00Z",
+            endAt = "2026-10-07T08:00:00Z",
+            masterRrule = "FREQ=WEEKLY;BYDAY=WE",
+        )
+        compose.setContent {
+            EventEditScreen(event = event, agendas = agendas, onConfirm = {}, onBack = {})
+        }
+
+        compose.onNodeWithText("Répéter").assertIsDisplayed()
+        compose.onNodeWithText("La règle de la série ne se change pas depuis une occurrence.").assertDoesNotExist()
+    }
 }
