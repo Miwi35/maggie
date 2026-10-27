@@ -67,10 +67,9 @@ onFlowComplete:
 - assertVisible: ".*Jour 1 MAG-497.*"
 
 # Added from the day while the five are taken: it waits in the reserve.
-- scrollUntilVisible:
-    element:
-      id: "tasks_day_add_input"
-    timeout: 20000
+# `scroll-list-end`, not `scrollUntilVisible`: the field is at the foot of the list, below the
+# tablet's portrait band, and a swipe from the screen centre does not reach the list (MAG-571).
+- runFlow: ../subflows/scroll-list-end.yaml
 - tapOn:
     id: "tasks_day_add_input"
 - inputText: "Ajout MAG-497"

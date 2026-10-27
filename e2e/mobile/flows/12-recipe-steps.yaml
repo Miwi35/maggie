@@ -68,8 +68,9 @@ tags:
     element: "attend 3, 4"
 
 # MAG-630: the values of one serving close the sheet.
+# Scrolled to the line itself: its block's title can be on screen with the line under the tablet's pane foot.
 - scrollUntilVisible:
-    element: "Par personne"
+    element: "≈ 500 kcal"
 - extendedWaitUntil:
     visible: "≈ 500 kcal"
     timeout: 10000

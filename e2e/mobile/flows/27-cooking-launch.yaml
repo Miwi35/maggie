@@ -105,9 +105,7 @@ onFlowComplete:
     visible: "Étape 1 sur 5"
     timeout: 20000
 - assertVisible: "Mettre l'eau à bouillir"
-- assertVisible:
-    id: "cooking_steps_banner_progress"
-    text: "0 / 5 faites"
+- assertVisible: "0 / 5 faites"
 
 # The shopping list (MAG-583): two lines written from "the web", one of them the pasta this recipe uses. The cart
 # counts both; the list opens over the step with the pasta first and marked, one tap on it ticks it, the count
@@ -160,9 +158,7 @@ onFlowComplete:
     id: "cooking_grocery_count"
     text: "1"
 - assertVisible: "Étape 1 sur 5"
-- assertVisible:
-    id: "cooking_steps_banner_progress"
-    text: "0 / 5 faites"
+- assertVisible: "0 / 5 faites"
 - assertNotVisible:
     id: "chat_open"
 - runScript:
@@ -204,9 +200,7 @@ onFlowComplete:
     visible: "Étape 2 sur 5"
     timeout: 20000
 - assertVisible: "Couper les légumes"
-- assertVisible:
-    id: "cooking_steps_banner_progress"
-    text: "0 / 5 faites"
+- assertVisible: "0 / 5 faites"
 
 # « Suivant » ticks step 2 and nothing holds step 3 back, whatever the water does.
 - tapOn:
@@ -214,27 +208,29 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: "Étape 3 sur 5"
     timeout: 20000
-- assertVisible:
-    id: "cooking_steps_banner_progress"
-    text: "1 / 5 faites"
+- assertVisible: "1 / 5 faites"
 
 # The banner opens the sheet of the steps; touching step 5 shows it, ticking nothing.
-- tapOn:
-    id: "cooking_steps_banner"
+# A tablet or a foldable has no banner: its steps column is always there (`stepsLayout`).
+- runFlow:
+    when:
+      visible:
+        id: "cooking_steps_banner"
+    commands:
+      - tapOn:
+          id: "cooking_steps_banner"
+      - extendedWaitUntil:
+          visible:
+            id: "cooking_steps_sheet"
+          timeout: 20000
 - extendedWaitUntil:
-    visible:
-      id: "cooking_steps_sheet"
-    timeout: 20000
-- assertVisible:
-    id: "cooking_steps_progress"
-    text: "1 / 5 faites"
+    visible: "1 / 5 faites"
+    timeout: 10000
 - tapOn: "Égoutter, mélanger"
 - extendedWaitUntil:
     visible: "Étape 5 sur 5"
     timeout: 20000
-- assertVisible:
-    id: "cooking_steps_banner_progress"
-    text: "1 / 5 faites"
+- assertVisible: "1 / 5 faites"
 - assertVisible:
     id: "cooking_next"
     enabled: true
@@ -276,17 +272,20 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: "Étape 4 sur 5"
     timeout: 20000
-- assertVisible:
-    id: "cooking_steps_banner_progress"
-    text: "1 / 5 faites"
+- assertVisible: "1 / 5 faites"
 
 # Back on step 3 by the sheet, then ✕: no question, the timers keep running, the recipe's sheet is back.
-- tapOn:
-    id: "cooking_steps_banner"
-- extendedWaitUntil:
-    visible:
-      id: "cooking_steps_sheet"
-    timeout: 20000
+- runFlow:
+    when:
+      visible:
+        id: "cooking_steps_banner"
+    commands:
+      - tapOn:
+          id: "cooking_steps_banner"
+      - extendedWaitUntil:
+          visible:
+            id: "cooking_steps_sheet"
+          timeout: 20000
 - tapOn: "Cuire les pâtes"
 - extendedWaitUntil:
     visible: "Étape 3 sur 5"
@@ -320,9 +319,7 @@ onFlowComplete:
     visible: "Étape 3 sur 5"
     timeout: 20000
 - assertVisible: "Cuire les pâtes"
-- assertVisible:
-    id: "cooking_steps_banner_progress"
-    text: "1 / 5 faites"
+- assertVisible: "1 / 5 faites"
 
 # « Recommencer » at the head of the steps column: back to the preparation, the ticks gone.
 - setOrientation: LANDSCAPE_LEFT

@@ -1867,7 +1867,7 @@ fun NavGraph() {
                                     selectedAccount = accountId to (line.accountName?.takeIf { it.isNotBlank() } ?: DEFAULT_ACCOUNT_NAME)
                                     transactionToOpen = line.id
                                     accountDrillDown = true
-                                    navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
+                                    navController.navigate(accountRouteFor(paneFits)) { launchSingleTop = true }
                                 }
                             },
                             onOpenOperation = { line ->

@@ -6,8 +6,9 @@ tags:
 # Accounts in a swipe, day by day, with their real statuses (MAG-422, extends MAG-102).
 #
 # The phone and the foldable show one account per page of a pager, its dots below; the tablet (with the
-# chat panel beside) shows the accounts as a list and the selected one's lines in a pane, so the
-# swipe is a tap on the other account's card there (`chat_panel` tells the two). Each page lists the
+# detail pane beside) shows the accounts as a list and the selected one's lines in a pane, so the
+# swipe is a tap on the other account's card there (`detail_pane` tells the two; the chat panel is
+# folded by default from MAG-624 and no longer does). Each page lists the
 # month grouped by day (« Aujourd'hui »), every line with its status in words, and an
 # internal transfer names the account on its other side: « depuis X » on the credit,
 # « vers X » on the debit.
@@ -48,7 +49,7 @@ tags:
 - runFlow:
     when:
       notVisible:
-        id: "chat_panel"
+        id: "detail_pane"
     commands:
       - extendedWaitUntil:
           visible:
@@ -113,7 +114,7 @@ tags:
 - runFlow:
     when:
       notVisible:
-        id: "chat_panel"
+        id: "detail_pane"
     commands:
       - swipe:
           direction: LEFT
@@ -124,7 +125,7 @@ tags:
 - runFlow:
     when:
       visible:
-        id: "chat_panel"
+        id: "detail_pane"
     commands:
       - tapOn: "EUR · Compte courant MAG-422-${output.n} livret"
       - extendedWaitUntil:
@@ -185,7 +186,7 @@ tags:
 - runFlow:
     when:
       notVisible:
-        id: "chat_panel"
+        id: "detail_pane"
     commands:
       - swipe:
           start: 30%, 50%
@@ -194,7 +195,7 @@ tags:
 - runFlow:
     when:
       visible:
-        id: "chat_panel"
+        id: "detail_pane"
     commands:
       - tapOn: "EUR · Compte courant MAG-422-${output.n}"
 - extendedWaitUntil:

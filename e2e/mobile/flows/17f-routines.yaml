@@ -139,6 +139,12 @@ onFlowComplete:
     env:
       VIEW: today
 # The seed's day is not confirmed: « Ta journée » may open first, « Plus tard » leaves it.
+# « Plus tard » ends « Ta journée »: below the fold on a tablet (MAG-571).
+- runFlow:
+    when:
+      visible:
+        id: "detail_pane"
+    file: ../subflows/scroll-list-end.yaml
 - tapOn:
     id: "tasks_morning_later"
     optional: true

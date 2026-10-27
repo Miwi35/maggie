@@ -109,7 +109,7 @@ class RecurringGroceryViewModel(
             return
         }
         repository.createForProduct(productId, frequency)
-            .onSuccess { _uiState.value = _uiState.value.copy(items = sorted(_uiState.value.items + it), error = null) }
+            .onSuccess { _uiState.value = _uiState.value.copy(items = sorted(upserted(_uiState.value.items, it)), error = null) }
             .onFailure { fail(it, MESSAGE_SAVE) }
     }
 
@@ -137,6 +137,10 @@ class RecurringGroceryViewModel(
     }
 
     private fun sorted(items: List<RecurringGroceryItem>) = items.sortedBy { it.label.lowercase() }
+
+    // The stream may have brought the item in before the create answered: a second row with its id crashes the keyed list.
+    private fun upserted(items: List<RecurringGroceryItem>, item: RecurringGroceryItem) =
+        items.filter { it.id != item.id } + item
 
     private companion object {
         const val MESSAGE_LOAD = "Impossible de charger les articles récurrents"

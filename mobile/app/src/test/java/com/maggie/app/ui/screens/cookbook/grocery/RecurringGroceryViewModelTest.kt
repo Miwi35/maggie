@@ -13,6 +13,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
@@ -124,6 +125,32 @@ class RecurringGroceryViewModelTest {
         coVerify(exactly = 1) { repository.createForProduct("p-bread", RecurringFrequency.BIWEEKLY) }
         assertEquals(listOf("Lait", "Pain", "Savon"), viewModel.uiState.value.items.map { it.label })
         assertEquals(created, viewModel.uiState.value.forProduct("p-bread"))
+    }
+
+    @Test
+    fun `an item the stream already brought in is not added a second time when the create answers`() = runTest {
+        val created = RecurringGroceryItem(
+            id = "rec-bread",
+            product = "/api/products/p-bread",
+            label = "Pain",
+            frequency = RecurringFrequency.BIWEEKLY,
+        )
+        lateinit var viewModel: RecurringGroceryViewModel
+        // The server publishes the new item before the create's own answer reaches the phone: the re-read lands first.
+        coEvery { repository.createForProduct("p-bread", RecurringFrequency.BIWEEKLY) } coAnswers {
+            coEvery { repository.getRecurringItems() } returns Result.success(listOf(soap, milk, created))
+            viewModel.refresh()
+            delay(10)
+            Result.success(created)
+        }
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.setFrequency("p-bread", RecurringFrequency.BIWEEKLY)
+        advanceUntilIdle()
+
+        // Two rows with one id crash a LazyColumn keyed by id.
+        assertEquals(listOf("rec-milk", "rec-bread", "rec-soap"), viewModel.uiState.value.items.map { it.id })
     }
 
     @Test

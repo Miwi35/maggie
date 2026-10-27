@@ -129,7 +129,7 @@ private fun UpcomingContent(projection: UpcomingProjection, twoColumns: Boolean,
     if (twoColumns) {
         Column(modifier = Modifier.fillMaxSize()) {
             if (error != null) UpcomingError(error, onRetry)
-            Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxSize().testTag(UiTags.FINANCE_TWO_COLUMNS), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     contentPadding = PaddingValues(16.dp),

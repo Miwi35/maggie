@@ -38,8 +38,20 @@ tags:
       id: "finance_score_ring_week"
     timeout: 30000
 
-# With the chat panel the home has two columns, each its own list: the tile is looked for in the
-# one that holds it (see finance-overview.yaml).
+# On a wide window the home has two columns, each its own list, and a scroll from the screen's centre
+# lands between them: the tiles' column is scrolled from its own side (see finance-overview.yaml).
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "finance_two_columns"
+    commands:
+      - swipe:
+          start: 75%, 60%
+          end: 75%, 20%
+      - swipe:
+          start: 75%, 60%
+          end: 75%, 20%
 - scrollUntilVisible:
     element:
       text: ".*Sources des rentes à venir.*"

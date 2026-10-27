@@ -293,6 +293,9 @@ object UiTags {
     const val LIST_PANE = "list_pane"
     const val DETAIL_PANE = "detail_pane"
 
+    /** The Finance home and its « À venir » tab drawn as two lists side by side on a wide window: the chat panel is folded there, so it no longer tells (MAG-661). */
+    const val FINANCE_TWO_COLUMNS = "finance_two_columns"
+
     /** The « Découvert prévu » banner, wherever a screen draws it (MAG-280). */
     const val TREASURY_BANNER = "treasury_banner"
 

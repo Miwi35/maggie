@@ -48,13 +48,13 @@ tags:
     element:
       id: "finance_rhythm_curve"
     timeout: 30000
-# With the chat panel the home has two columns, each its own list: the next project is under the
+# On a wide window the home has two columns, each its own list: the next project is under the
 # rings and the curve on the left, and a scroll from the screen's centre lands in the right one.
 - evalScript: ${0}
 - runFlow:
     when:
       visible:
-        id: "chat_panel"
+        id: "finance_two_columns"
     commands:
       - swipe:
           from:
@@ -119,7 +119,7 @@ tags:
 - runFlow:
     when:
       notVisible:
-        id: "chat_panel"
+        id: "finance_two_columns"
     commands:
       - scrollUntilVisible:
           element:
@@ -136,7 +136,7 @@ tags:
 - runFlow:
     when:
       visible:
-        id: "chat_panel"
+        id: "finance_two_columns"
     commands:
       - scrollUntilVisible:
           element:
@@ -147,13 +147,13 @@ tags:
           timeout: 30000
 - tapOn:
     id: "finance_tile_accounts"
-# With the chat panel (a tablet) the accounts are a list beside a detail pane, under the breadcrumb: no pager,
+# On a wide window (a tablet) the accounts are a list beside a detail pane, under the breadcrumb: no pager,
 # no back arrow. The way back is the Finance home itself.
 - evalScript: ${0}
 - runFlow:
     when:
       notVisible:
-        id: "chat_panel"
+        id: "detail_pane"
     commands:
       - extendedWaitUntil:
           visible:
@@ -166,7 +166,7 @@ tags:
 - runFlow:
     when:
       visible:
-        id: "chat_panel"
+        id: "detail_pane"
     commands:
       - extendedWaitUntil:
           visible: ".*Touchez un compte pour voir ses transactions ici.*"
