@@ -23,11 +23,11 @@ const dataProvider = testDataProvider({
   delete: deleteOne as unknown as DataProvider['delete'],
 })
 
-const renderScreen = (status: BudgetStatus | null = STATUS) =>
+const renderScreen = (status: BudgetStatus | null = STATUS, view: 'month' | 'outside' = 'month') =>
   render(
     <AdminContext dataProvider={dataProvider}>
       <ResourceContextProvider value="envelopes">
-        <EnvelopeTreeScreen year={2026} month={10} status={status} loading={false} refresh={refresh} />
+        <EnvelopeTreeScreen year={2026} month={10} view={view} status={status} loading={false} refresh={refresh} />
       </ResourceContextProvider>
     </AdminContext>,
   )
@@ -83,11 +83,34 @@ describe('EnvelopeTreeScreen', () => {
     expect(within(await node('Bars')).queryByTestId('envelope-node-state')).toBeNull()
   })
 
-  test('lists the annual and one-off envelopes apart, under « Hors budget mensuel »', async () => {
+  test('Mois: the tree only, with no title, no caption and nothing of the envelopes outside the month', async () => {
     renderScreen()
+    await node('Obsydian')
+
+    expect(screen.queryByTestId('envelope-outside')).toBeNull()
+    expect(screen.queryByTestId('envelope-outside-node')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Nouvelle ponctuelle' })).toBeNull()
+    expect(screen.queryByText('Hors budget mensuel')).toBeNull()
+    expect(screen.queryByText('Enveloppes')).toBeNull()
+    expect(screen.queryByText(/catégorie par catégorie/)).toBeNull()
+  })
+
+  test('Mois: no pane, and no « Choisissez une catégorie », until a node is selected', async () => {
+    renderScreen()
+    await node('Obsydian')
+
+    expect(screen.queryByTestId('envelope-editor')).toBeNull()
+    expect(screen.queryByText('Choisissez une catégorie')).toBeNull()
+
+    await select('Cinéma')
+
+    expect(screen.getByTestId('envelope-editor')).toBeInTheDocument()
+  })
+
+  test('Hors budget: the annual and one-off envelopes, and no category tree', async () => {
+    renderScreen(STATUS, 'outside')
 
     const outside = await screen.findByTestId('envelope-outside')
-    expect(within(outside).getByRole('heading', { name: 'Hors budget mensuel' })).toBeInTheDocument()
     const entries = within(outside).getAllByTestId('envelope-outside-node')
     expect(entries.map((e) => [e.dataset.category, e.dataset.kind])).toEqual([
       ['Voyages', 'annual'],
@@ -95,15 +118,17 @@ describe('EnvelopeTreeScreen', () => {
     ])
     expect(entries[1]).toHaveTextContent(/89,00\s€\s\/\s400,00\s€/)
     expect(within(outside).getByRole('button', { name: 'Nouvelle ponctuelle' })).toBeInTheDocument()
+    expect(screen.queryByTestId('envelope-node')).toBeNull()
+    expect(screen.queryByText('Hors budget mensuel')).toBeNull()
+    expect(screen.queryByText(/Les annuelles de/)).toBeNull()
+    expect(screen.queryByText('Choisissez une catégorie')).toBeNull()
   })
 
-  test('invites to pick a category, or to create a first envelope when there is none', async () => {
-    const { unmount } = renderScreen()
-    expect(await screen.findByText('Choisissez une catégorie')).toBeInTheDocument()
-    unmount()
-
+  test('says so, in one line, when the month has no envelope at all', async () => {
     renderScreen({ ...STATUS, budgets: [], outsideMonthlyBudget: { annual: [], oneOff: [] } })
+
     expect(await screen.findByText("Aucune enveloppe pour l'instant")).toBeInTheDocument()
+    expect(screen.queryByText(/Une enveloppe fixe ce que vous vous autorisez/)).toBeNull()
   })
 
   test('highlights the selected node', async () => {
@@ -125,6 +150,15 @@ describe('EnvelopeTreeScreen', () => {
     await userEvent.keyboard('{Enter}')
 
     expect(bars).toHaveAttribute('aria-selected', 'true')
+  })
+
+  test('the pane explains nothing: no help text under the fields, none above the forms', async () => {
+    renderScreen()
+    await select('Obsydian')
+    await form()
+
+    expect(editor()).not.toHaveTextContent(/plafonne les dépenses/)
+    expect(screen.queryByText(/Ce que vous vous autorisez à dépenser/)).toBeNull()
   })
 
   test('creates the monthly envelope of a category without one', async () => {
@@ -313,7 +347,7 @@ describe('EnvelopeTreeScreen', () => {
   })
 
   test('edits an annual envelope listed apart, and offers no seasons', async () => {
-    renderScreen()
+    renderScreen(STATUS, 'outside')
     const entry = (await screen.findAllByTestId('envelope-outside-node')).find((e) => e.dataset.category === 'Voyages')!
     await userEvent.click(entry)
 
@@ -339,10 +373,12 @@ describe('EnvelopeTreeScreen', () => {
   })
 
   test('creates a one-off envelope: a name, an amount, no category nor threshold', async () => {
-    renderScreen()
+    renderScreen(STATUS, 'outside')
     await userEvent.click(await screen.findByRole('button', { name: 'Nouvelle ponctuelle' }))
 
     const f = await form()
+    expect(editor()).not.toHaveTextContent(/Un événement/)
+    expect(screen.queryByText(/Hellfest 2026, Vacances en Bretagne/)).toBeNull()
     expect(f.queryByLabelText(/Seuil d'alerte/)).toBeNull()
     expect(f.queryByLabelText(/Type d'enveloppe/)).toBeNull()
     await userEvent.type(f.getByLabelText(/Montant de l'enveloppe/), '400')
@@ -365,7 +401,7 @@ describe('EnvelopeTreeScreen', () => {
   })
 
   test('edits a one-off envelope by its name', async () => {
-    renderScreen()
+    renderScreen(STATUS, 'outside')
     const entry = (await screen.findAllByTestId('envelope-outside-node')).find((e) => e.dataset.kind === 'one_off')!
     await userEvent.click(entry)
 
@@ -380,7 +416,7 @@ describe('EnvelopeTreeScreen', () => {
   })
 
   test('says so when the envelope selected is gone from the period', async () => {
-    const { rerender } = renderScreen()
+    const { rerender } = renderScreen(STATUS, 'outside')
     const entry = (await screen.findAllByTestId('envelope-outside-node')).find((e) => e.dataset.category === 'Voyages')!
     await userEvent.click(entry)
     await form()
@@ -391,6 +427,7 @@ describe('EnvelopeTreeScreen', () => {
           <EnvelopeTreeScreen
             year={2027}
             month={10}
+            view="outside"
             status={{ ...STATUS, outsideMonthlyBudget: { annual: [], oneOff: [] } }}
             loading={false}
             refresh={refresh}

@@ -103,12 +103,24 @@ describe('FinanceSummaryPage', () => {
     },
   )
 
-  test('a menu with a single aspect has no tabs: the content, directly', async () => {
+  test.each([
+    ['accounts', 'accounts'],
+    ['treasury', 'treasury'],
+  ])('%s has no sub-view, so no tabs: the content, directly (MAG-632)', async (key, aspect) => {
+    stubApi()
+    renderPage(`/finance/summary/${key}`)
+
+    expect(await screen.findByText(`content:${aspect}`)).toBeInTheDocument()
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.queryByRole('tab')).toBeNull()
+  })
+
+  test('Budget opens on Mois, beside Hors budget, whatever the data (MAG-632)', async () => {
     stubApi()
     renderPage('/finance/summary/budget')
 
-    expect(await screen.findByText('content:envelopes')).toBeInTheDocument()
-    expect(screen.queryByRole('tablist')).toBeNull()
+    await opensOn('Mois', 'month')
+    expect((await screen.findAllByRole('tab')).map((tab) => tab.textContent)).toEqual(['Mois', 'Hors budget'])
   })
 
   test('opens on the first aspect when none has data', async () => {
@@ -147,13 +159,10 @@ describe('FinanceSummaryPage', () => {
   })
 
   test('an aspect whose read fails counts as empty and does not hold the menu back', async () => {
-    stubApi(
-      { '/api/finance/savings-advances': { advances: [], totalOutstandingCents: 100000 } },
-      ['/api/finance/cushion-status'],
-    )
-    renderPage('/finance/summary/treasury')
+    stubApi({ '/api/finance/dashboard': { independence: { hasPassiveIncomeCategories: true } } }, ['/api/finance/projects'])
+    renderPage('/finance/summary/planning')
 
-    await opensOn("Avances d'épargne", 'advances')
+    await opensOn('Indépendance', 'independence')
   })
 
   test('the tab named in the URL is the one shown, whatever has data', async () => {
@@ -167,14 +176,14 @@ describe('FinanceSummaryPage', () => {
   test('a tab is a link to its own address: it shows the aspect and the URL keeps it', async () => {
     stubApi()
     const user = userEvent.setup()
-    renderPage('/finance/summary/treasury/cushion')
+    renderPage('/finance/summary/budget/month')
 
-    const outlook = await screen.findByRole('tab', { name: 'Solde projeté' })
-    expect(outlook).toHaveAttribute('href', '/finance/summary/treasury/outlook')
+    const outside = await screen.findByRole('tab', { name: 'Hors budget' })
+    expect(outside).toHaveAttribute('href', '/finance/summary/budget/outside')
 
-    await user.click(outlook)
+    await user.click(outside)
 
-    await opensOn('Solde projeté', 'outlook')
+    await opensOn('Hors budget', 'outside')
   })
 
   test.each([['nowhere'], ['dashboard']])('the unknown menu « %s » says so and leads back to the Dashboard', (key) => {

@@ -271,6 +271,9 @@ object UiTags {
      * (suffixed by the category name), its suggestion and « Appliquer », « Tout appliquer » and « Enregistrer ».
      */
     const val BUDGET_ADJUST_OPEN = "budget_adjust_open"
+    /** The « ⋮ » of the Budget breadcrumb (MAG-632): « Ajuster les enveloppes » and « Reconduire le mois précédent ». */
+    const val BUDGET_MENU = "budget_menu"
+    const val BUDGET_ROLL_OVER = "budget_roll_over"
     const val BUDGET_ADJUST = "budget_adjust"
     const val BUDGET_ADJUST_ROW_PREFIX = "budget_adjust_row_"
     const val BUDGET_ADJUST_SUGGESTION_PREFIX = "budget_adjust_suggestion_"
@@ -1118,14 +1121,10 @@ object UiTags {
     const val TRANSACTIONS_LOADING_MORE = "transactions_loading_more"
 
     /**
-     * The phone's accounts (MAG-422): the pager, its row of dots (one per account, suffixed by the
-     * account's position and described by its label), the page of an account and its balance, the
-     * two actions and the balance form, then the timeline's day titles (suffixed by the date), lines,
-     * status words, missed occurrences, « +33 % » mark, « Mois précédent » and « Réessayer ».
+     * The tablet's account detail (MAG-422): the page of an account and its balance, the two actions and
+     * the balance form, then the timeline's day titles (suffixed by the date), lines, status words,
+     * missed occurrences, « +33 % » mark, « Mois précédent » and « Réessayer ».
      */
-    const val ACCOUNT_PAGER = "account_pager"
-    const val ACCOUNT_DOTS = "account_dots"
-    const val ACCOUNT_DOT_PREFIX = "account_dot_"
     const val ACCOUNT_PAGE = "account_page"
     const val ACCOUNT_BALANCE = "account_balance"
     const val ACCOUNT_ADD_TRANSACTION = "account_add_transaction"
@@ -1140,8 +1139,6 @@ object UiTags {
     const val TIMELINE_INCREASE = "timeline_increase"
     const val TIMELINE_PREVIOUS_MONTH = "timeline_previous_month"
     const val TIMELINE_RETRY = "timeline_retry"
-
-    fun accountDot(index: Int) = ACCOUNT_DOT_PREFIX + index
 
     fun timelineDay(date: String) = TIMELINE_DAY_PREFIX + date
 

@@ -1,7 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -24,7 +23,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The account pager and its days: statuses in words, transfer badges, increases, late occurrences (MAG-422). */
+/** The account's timeline, as the tablet's detail pane draws it: statuses in words, transfer badges, increases, late occurrences (MAG-422). */
 @RunWith(AndroidJUnit4::class)
 class AccountTimelineScreenTest {
 
@@ -47,7 +46,7 @@ class AccountTimelineScreenTest {
 
     private fun show(ui: AccountUiState, viewModel: AccountViewModel = mockk(relaxed = true)): AccountViewModel {
         every { viewModel.uiState } returns MutableStateFlow(ui)
-        compose.setContent { AccountPagerScreen(viewModel = viewModel, onBack = {}, actions = AccountTimelineActions { _, _, _ -> }) }
+        compose.setContent { AccountTimelineDetail(viewModel = viewModel, accountId = "a1", actions = AccountTimelineActions { _, _, _ -> }) }
         return viewModel
     }
 
@@ -135,29 +134,5 @@ class AccountTimelineScreenTest {
         org.junit.Assert.assertEquals("1250,00", balanceInput(125000))
         org.junit.Assert.assertEquals("-12,05", balanceInput(-1205))
         org.junit.Assert.assertEquals("0,07", balanceInput(7))
-    }
-
-    @Test
-    fun `an account created while the pager is open does not shift the account that is selected`() {
-        val viewModel = mockk<AccountViewModel>(relaxed = true)
-        val state = MutableStateFlow(ui(timeline()))
-        every { viewModel.uiState } returns state
-        compose.setContent { AccountPagerScreen(viewModel = viewModel, onBack = {}, actions = AccountTimelineActions { _, _, _ -> }) }
-        compose.waitForIdle()
-
-        // « Alpha » sorts before both: the pager keeps showing « Compte courant », now on page 1.
-        state.value = state.value.copy(accounts = listOf(Account(id = "a0", name = "Alpha"), checking, savings))
-        compose.waitForIdle()
-
-        verify(exactly = 0) { viewModel.selectAccount("a2") }
-        verify(exactly = 0) { viewModel.selectAccount("a0") }
-    }
-
-    @Test
-    fun `each dot is described by the account's full label`() {
-        show(ui(timeline()))
-
-        compose.onNodeWithContentDescription("Boursorama · EUR · Compte courant").assertIsDisplayed()
-        compose.onNodeWithContentDescription("EUR · Livret").assertIsDisplayed()
     }
 }

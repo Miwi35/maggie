@@ -108,53 +108,58 @@ describe('SavingsAdvancesPage', () => {
     fetchMock.mockReset()
   })
 
-  test('shows what is left to give back, in total and by source, with each advance', async () => {
+  test('shows what is left to give back in total, and each advance in one table', async () => {
     serve(WITH_ADVANCES)
     renderPage()
 
     expect(await screen.findByTestId('savings-total-outstanding')).toHaveTextContent('1 000,00')
-    const source = screen.getByTestId('savings-source')
-    expect(within(source).getByText(/Livret/)).toBeInTheDocument()
-    expect(within(source).getByText(/1 000,00/)).toBeInTheDocument()
 
     const [open, closed] = screen.getAllByTestId('savings-advance')
     expect(within(open).getByText('11/10/2026')).toBeInTheDocument()
+    expect(open).toHaveTextContent('Livret')
     expect(open).toHaveTextContent('1 500,00')
     expect(open).toHaveTextContent('500,00')
     expect(open).toHaveTextContent('1 000,00')
-    expect(screen.getAllByRole('columnheader', { name: 'Avancé' }).length).toBeGreaterThan(0)
-    expect(screen.getAllByRole('columnheader', { name: 'Rendu' }).length).toBeGreaterThan(0)
-    expect(screen.getAllByRole('columnheader', { name: 'Reste à rendre' }).length).toBeGreaterThan(0)
-    expect(screen.getByText('Avances soldées')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Avancé' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Rendu' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Reste à rendre' })).toBeInTheDocument()
     expect(within(closed).getByText('PEL')).toBeInTheDocument()
-    expect(screen.getByText(/Salaire en retard de 18 jours/)).toBeInTheDocument()
+    expect(screen.queryByText('Avances soldées')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('savings-source')).not.toBeInTheDocument()
   })
 
-  test('with no advance, says so instead of showing an empty screen', async () => {
+  test('has no salary day card and no teaching paragraph: the day is set in « Régler » of the treasury', async () => {
+    serve(WITH_ADVANCES)
+    renderPage()
+
+    await screen.findByTestId('savings-total-outstanding')
+    expect(screen.queryByLabelText('Jour du mois')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Salaire en retard/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Contre-virements proposés')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Faites le virement dans votre banque/)).not.toBeInTheDocument()
+  })
+
+  test('with no advance, says so in a few words', async () => {
     serve(EMPTY)
     renderPage()
 
-    expect(await screen.findByText(/Aucune avance en cours : rien à remettre/)).toBeInTheDocument()
+    expect(await screen.findByText('Aucune avance en cours.')).toBeInTheDocument()
     expect(screen.getByTestId('savings-total-outstanding')).toHaveTextContent(ZERO)
-    expect(screen.getByText('Aucune avance en cours.')).toBeInTheDocument()
-    expect(screen.queryByText('Contre-virements proposés')).not.toBeInTheDocument()
-    expect(screen.queryByText('Avances soldées')).not.toBeInTheDocument()
-    expect(screen.queryByText(/Salaire en retard/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/rien à remettre sur vos comptes/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remettre' })).not.toBeInTheDocument()
   })
 
-  test('without an expected day it asks for it and announces no delay', async () => {
-    serve({
-      ...WITH_ADVANCES,
-      salaryDelay: { ...DELAY, salaryExpectedDay: null, isConfigured: false, isLate: false, delayDays: 0, shortfallCents: 0 },
-    })
+  test('only an open advance with a proposal has a « Remettre » button', async () => {
+    serve(WITH_ADVANCES)
     renderPage()
 
-    expect(await screen.findByText(/Quel jour du mois attendez-vous votre salaire/)).toBeInTheDocument()
-    expect(screen.queryByText(/Salaire en retard/)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+    const [open, closed] = await screen.findAllByTestId('savings-advance')
+
+    expect(within(open).getByRole('button', { name: 'Remettre' })).toBeInTheDocument()
+    expect(within(closed).queryByRole('button', { name: 'Remettre' })).not.toBeInTheDocument()
   })
 
-  test('accepting a proposal records the transfer and shows the advance settled', async () => {
+  test('« Remettre » records the transfer and shows the advance settled', async () => {
     const settled: SavingsAdvancesData = {
       ...WITH_ADVANCES,
       advances: [{ ...OPEN, repaidCents: 150000, outstandingCents: 0, isClosed: true }, CLOSED],
@@ -175,26 +180,25 @@ describe('SavingsAdvancesPage', () => {
     })
     renderPage()
 
-    const proposal = await screen.findByTestId('savings-proposal')
-    expect(proposal).toHaveTextContent('1 000,00')
-    expect(proposal).toHaveTextContent('Livret')
-    await userEvent.click(within(proposal).getByRole('button', { name: /Je l'ai fait/ }))
+    const [open] = await screen.findAllByTestId('savings-advance')
+    await userEvent.click(within(open).getByRole('button', { name: 'Remettre' }))
 
     await waitFor(() => expect(screen.getByTestId('savings-total-outstanding')).toHaveTextContent(ZERO))
-    expect(screen.queryByTestId('savings-proposal')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remettre' })).not.toBeInTheDocument()
     expect(transfers).toBe(2)
     const posts = fetchMock.mock.calls.filter(([url]) => url === '/api/transactions').map(([, init]) => JSON.parse(init.body))
     expect(posts.map((post) => post.amountCents)).toEqual([-100000, 100000])
+    expect(await screen.findByText('Transaction enregistrée : l’avance est soldée')).toBeInTheDocument()
   })
 
-  test('a refused transaction is reported and the proposal stays', async () => {
+  test('a refused transaction is reported and the button stays', async () => {
     fetchMock.mockImplementation((url: string) => (url === '/api/transactions' ? json({}, false) : json(WITH_ADVANCES)))
     renderPage()
 
-    await userEvent.click(await screen.findByRole('button', { name: /Je l'ai fait/ }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Remettre' }))
 
     expect(await screen.findByText("Impossible d'enregistrer la transaction")).toBeInTheDocument()
-    expect(screen.getByTestId('savings-proposal')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remettre' })).toBeInTheDocument()
     expect(screen.getByTestId('savings-total-outstanding')).toHaveTextContent('1 000,00')
   })
 
@@ -208,69 +212,27 @@ describe('SavingsAdvancesPage', () => {
     })
     renderPage()
 
-    await userEvent.click(await screen.findByRole('button', { name: /Je l'ai fait/ }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Remettre' }))
 
     expect(await screen.findByText(/Le débit est enregistré, pas le crédit/)).toBeInTheDocument()
   })
 
-  test('a reduced proposal and what could not be proposed are said', async () => {
+  test('a reduced proposal shows the amount it gives back, and what could not be proposed shows its reason', async () => {
     serve({
       ...WITH_ADVANCES,
+      advances: [OPEN, { ...OPEN, id: 'adv-2', sourceAccountId: 'pea', sourceAccountName: 'PEA', openedOn: '2026-10-12' }],
       proposals: [{ ...WITH_ADVANCES.proposals[0], amountCents: 60000, isPartial: true }],
       unproposed: [
-        { advanceId: 'adv-1', sourceAccountId: 'livret', sourceAccountName: 'Livret', amountCents: 40000, reason: 'insufficient_balance' },
+        { advanceId: 'adv-2', sourceAccountId: 'pea', sourceAccountName: 'PEA', amountCents: 40000, reason: 'insufficient_balance' },
       ],
       unproposedCents: 40000,
     })
     renderPage()
 
-    expect(await screen.findByText(/réduit au solde disponible/)).toBeInTheDocument()
-    expect(screen.getByText(/ne peuvent pas être proposés/)).toBeInTheDocument()
-    expect(screen.getByText(/Le solde du compte courant ne suffit pas/)).toBeInTheDocument()
-  })
-
-  test('saving the expected day patches the settings and reads the screen again', async () => {
-    serve({ ...WITH_ADVANCES, salaryDelay: { ...DELAY, salaryExpectedDay: null, isConfigured: false, isLate: false } })
-    renderPage()
-
-    const input = await screen.findByLabelText('Jour du mois')
-    await userEvent.type(input, '25')
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/finance/treasury-settings',
-        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ salaryExpectedDay: 25 }) }),
-      ),
-    )
-    expect(await screen.findByText('Jour de salaire attendu enregistré')).toBeInTheDocument()
-    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/finance/savings-advances').length).toBeGreaterThan(1)
-  })
-
-  test('a day outside 1 to 31 cannot be saved', async () => {
-    serve(WITH_ADVANCES)
-    renderPage()
-
-    const input = await screen.findByLabelText('Jour du mois')
-    await userEvent.clear(input)
-    await userEvent.type(input, '32')
-
-    expect(screen.getByText('Un jour de 1 à 31.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
-  })
-
-  test('a refused setting is reported', async () => {
-    fetchMock.mockImplementation((url: string) =>
-      url === '/api/finance/treasury-settings' ? json({}, false) : json(WITH_ADVANCES),
-    )
-    renderPage()
-
-    const input = await screen.findByLabelText('Jour du mois')
-    await userEvent.clear(input)
-    await userEvent.type(input, '10')
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
-
-    expect(await screen.findByText("Impossible d'enregistrer le jour de salaire attendu")).toBeInTheDocument()
+    const [reduced, unproposed] = await screen.findAllByTestId('savings-advance')
+    expect(reduced).toHaveTextContent('Partiel : 600,00')
+    expect(within(unproposed).queryByRole('button', { name: 'Remettre' })).not.toBeInTheDocument()
+    expect(unproposed).toHaveTextContent('Le solde du compte courant ne suffit pas.')
   })
 
   test('an API error shows a message and a way to retry', async () => {

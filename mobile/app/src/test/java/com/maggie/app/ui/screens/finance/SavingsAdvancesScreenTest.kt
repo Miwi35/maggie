@@ -99,11 +99,13 @@ class SavingsAdvancesScreenTest {
     }
 
     @Test
-    fun `the help text says the button books a transaction and moves no money`() {
+    fun `no line of instructions explains the button, the page keeps its data`() {
         show(FakeSavingsAdvances(withAdvances))
 
-        scrollTo("aucun virement bancaire")
-        compose.onNodeWithText("aucun virement bancaire", substring = true).assertIsDisplayed()
+        scrollTo("Remettre")
+        compose.onNodeWithText("aucun virement bancaire", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("« Je l'ai fait » enregistre", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Remettre ${formatCents(50000)} sur Livret A").assertIsDisplayed()
     }
 
     @Test

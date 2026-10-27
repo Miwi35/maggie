@@ -56,13 +56,19 @@ tags:
     timeout: 30000
 - tapOn: "EUR · Compte MAG-424"
 
-# The phone's pager shows the account's days; the full list, with its tabs, is one touch further (MAG-422).
-- extendedWaitUntil:
-    visible:
-      id: "account_all_transactions"
-    timeout: 20000
-- tapOn:
-    id: "account_all_transactions"
+# On a phone the account opens on its full list; on a tablet it opens in the pane, one button from the list (MAG-632).
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "detail_pane"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "account_all_transactions"
+          timeout: 20000
+      - tapOn:
+          id: "account_all_transactions"
 
 # The two pairs are detected as their credits land.
 - extendedWaitUntil:

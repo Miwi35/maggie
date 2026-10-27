@@ -8,12 +8,14 @@ import { ROUTES } from './routes.js'
  *
  * The safety net is never stored as an amount: it is the balance of the
  * accounts flagged "matelas", against a target that is a number of months of
- * net income. The settings below it are what the target, the monthly effort
- * and the horizon are computed from — so saving them is the one way to check
- * the recomputation end to end.
+ * net income. The settings, behind « Régler » in a dialog, are what the target,
+ * the monthly effort and the horizon are computed from — so saving them is the
+ * one way to check the recomputation end to end.
  */
 export class FinanceCushionPage extends AdminShell {
   readonly summary: Locator
+  readonly settingsButton: Locator
+  /** « Réglages »: a dialog, mounted outside the page content. */
   readonly settings: Locator
   readonly stateChip: Locator
   readonly save: Locator
@@ -25,10 +27,11 @@ export class FinanceCushionPage extends AdminShell {
     this.summary = this.content
       .locator('.MuiCard-root')
       .filter({ has: page.getByRole('heading', { name: 'Matelas de sécurité' }) })
-    this.settings = this.content.locator('.MuiCard-root').filter({ hasText: 'Réglages' })
+    this.settingsButton = this.content.getByRole('button', { name: 'Régler' })
+    this.settings = page.getByRole('dialog', { name: 'Réglages' })
     this.stateChip = this.summary.locator('.MuiChip-label')
     this.peerClaims = this.summary.getByTestId('cushion-peer-claims')
-    this.save = this.settings.getByRole('button', { name: 'Enregistrer' })
+    this.save = this.settings.getByRole('button', { name: 'Enregistrer le matelas' })
   }
 
   async open(): Promise<void> {
@@ -36,15 +39,21 @@ export class FinanceCushionPage extends AdminShell {
     await expect(this.summary).toBeVisible()
   }
 
+  /** Opens « Régler »; the fields are seeded from the server's answer, the dialog being mounted on open. */
+  async openSettings(): Promise<void> {
+    await this.settingsButton.click()
+    await expect(this.settings).toBeVisible()
+  }
+
   /**
-   * Changes the target and saves.
+   * Opens « Régler », changes the target and saves; the dialog closes on success.
    *
-   * `CushionSettings` is remounted on a `key` built from the stored values, so
-   * the fields come back from the server rather than from local state — which
-   * is exactly what makes "the page now shows the recomputed target" a real
-   * assertion and not an echo of what was typed.
+   * It is mounted on open, so the fields come from the server rather than from
+   * local state — which is exactly what makes "the page now shows the recomputed
+   * target" a real assertion and not an echo of what was typed.
    */
   async setTargetMonths(months: number): Promise<void> {
+    await this.openSettings()
     await this.settings.getByLabel('Cible (mois de revenu)').fill(String(months))
     // Waiting on the write itself, not on the summary changing: a save that
     // sets the target it already had changes nothing on screen, and that is
@@ -57,10 +66,12 @@ export class FinanceCushionPage extends AdminShell {
       ),
       this.save.click(),
     ])
-    // The settings card is keyed on the stored values, so it is remounted once
-    // the fresh status has come back — which is when the summary above it is
-    // the server's answer rather than the previous one.
+    await expect(this.settings).toBeHidden()
+    // Reopened, the fields are the server's answer.
+    await this.openSettings()
     await expect(this.settings.getByLabel('Cible (mois de revenu)')).toHaveValue(String(months))
+    await this.settings.getByRole('button', { name: 'Fermer' }).click()
+    await expect(this.settings).toBeHidden()
   }
 
   /** The line that says where the savings go, by the critical threshold and the share (MAG-669). */

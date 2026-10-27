@@ -12,7 +12,7 @@ import { FinanceCategoriesPage } from '../pages/FinanceCategoriesPage.js'
  * (MAG-102).
  *
  * What this file asserts of the current month is deliberately limited to the
- * **annual** envelope and to the score's wording. The monthly "Courses" figure
+ * **annual** envelope and to the page's shape. The monthly "Courses" figure
  * belongs to `finance-rules.spec.ts`, which moves it by filing an
  * uncategorised operation — and the two files can land on the same shard, so
  * anything read here has to hold before and after that pass. "Loisirs" is
@@ -78,57 +78,50 @@ test('the annual envelope is consumed by the whole year, the monthly one by its 
   const budget = new FinanceBudgetPage(page)
   await budget.open()
 
-  // The month's budget first, then the annual envelope apart under « Hors
-  // budget mensuel » (MAG-414): a yearly budget and a monthly one on the same
-  // screen without them being confused, nor added up.
+  // « Mois » first: the month's budget, as the tree of its envelopes (MAG-632).
   expect(await budget.gaugedCategories()).toEqual(['Courses', 'Loisirs'])
+  await expect(budget.node('Courses')).toHaveAttribute('data-has-envelope', 'true')
+  await expect(budget.node('Courses')).toContainText(`/ ${euros(COURSES_BUDGET_CENTS)}`)
+  await expect(
+    budget.content.getByTestId('envelope-outside'),
+    'the annual envelope is not on the month: it has a tab of its own',
+  ).toHaveCount(0)
 
-  const leisure = budget.outsideGauge('Loisirs')
+  // Then « Hors budget » (MAG-414): a yearly budget and a monthly one without
+  // them being confused, nor added up.
+  await budget.openOutside()
+  const leisure = budget.outsideNode('Loisirs')
+  await expect(leisure).toHaveAttribute('data-kind', 'annual')
   await expect(leisure).toContainText(periodLabel('annual', ANCHOR_YEAR))
   await expect(
     leisure,
     'the cinema this month and the FNAC last month both fall inside the year',
   ).toContainText(overBudget(LEISURE_SPENT_CENTS, LEISURE_BUDGET_CENTS))
-  await expect(leisure).toContainText(
-    `Reste ${euros(LEISURE_BUDGET_CENTS - LEISURE_SPENT_CENTS)}`,
-  )
-
-  // The tree below the gauges says what each envelope budgets: the monthly one on its
-  // category's node, the annual one apart (it is not the month's budget).
-  await expect(budget.node('Courses')).toHaveAttribute('data-has-envelope', 'true')
-  await expect(budget.node('Courses')).toContainText(`/ ${euros(COURSES_BUDGET_CENTS)}`)
-
-  const leisureEntry = budget.outsideNode('Loisirs')
-  await expect(leisureEntry).toHaveAttribute('data-kind', 'annual')
-  await expect(leisureEntry).toContainText(periodLabel('annual', ANCHOR_YEAR))
-  await expect(leisureEntry).toContainText(`/ ${euros(LEISURE_BUDGET_CENTS)}`)
+  await expect(leisure).toContainText(`/ ${euros(LEISURE_BUDGET_CENTS)}`)
 })
 
 /**
- * The score, and the reason it is not green.
- *
- * `GetDailyScore` only ever turns red or orange on the budget; an incomplete
- * safety net cannot make the month bad, it can only hold green back. The
- * seeded net covers 1,8 months out of 3, so the month ring names the cushion
- * as a reason — and a ring that showed its status without its cause would be
- * a verdict, which is why touching it opens the reasons.
- *
- * The status word is not pinned here: the ring gives no verdict (MAG-643);
- * what it counts is asserted in `finance-overview.spec.ts`. The deficit's
- * amount is asserted in `finance-cushion.spec.ts`, which owns the target it
- * is computed from.
+ * The shape of Budget (MAG-632): two tabs, « Mois » then « Hors budget », and
+ * nothing of the Dashboard repeated — no ring, no « Budgets » title, no total.
+ * The score and what holds it back are asserted on the Dashboard, in
+ * `finance-overview.spec.ts`.
  */
-test('the month score is held back by the safety net, and says so', async ({ page }) => {
+test('Budget has two tabs, Mois and Hors budget, and repeats nothing of the Dashboard', async ({ page }) => {
   const budget = new FinanceBudgetPage(page)
-  await budget.open()
+  await budget.goto('/finance/summary/budget')
 
-  await expect(budget.scoreRing('month')).toContainText('dépensés')
-  const reasons = await budget.scoreReasons('month')
-  await expect(reasons).toContainText('Matelas incomplet')
-  await expect(
-    reasons,
-    'no envelope is overspent, so nothing is reported as exceeded',
-  ).not.toContainText('dépassée')
+  await expect(budget.tabs()).toHaveText(['Mois', 'Hors budget'])
+  await expect(budget.content.getByRole('tab', { name: 'Mois' })).toHaveAttribute('aria-selected', 'true')
+  await expect(budget.tree()).toBeVisible()
+  await expect(budget.content.getByTestId('score-ring')).toHaveCount(0)
+  await expect(budget.content.getByRole('heading', { name: 'Budgets' })).toHaveCount(0)
+  await expect(budget.content.getByText(/^Total :/)).toHaveCount(0)
+  await expect(budget.content.getByText('Choisissez une catégorie')).toHaveCount(0)
+  await expect(budget.editor(), 'the detail opens once a node is selected').toHaveCount(0)
+
+  await budget.content.getByRole('tab', { name: 'Hors budget' }).click()
+  await expect(budget.content.getByTestId('envelope-outside')).toBeVisible()
+  await expect(budget.tree()).toHaveCount(0)
 })
 
 test('a monthly envelope is carried into the next month, once and no more', async ({
@@ -147,14 +140,10 @@ test('a monthly envelope is carried into the next month, once and no more', asyn
   // the roll-over promises: running it twice changes nothing.
   await budget.rollOver()
 
-  // The gauge is computed by the API from the envelope that is now there, so
+  // The node is computed by the API from the envelope that is now there, so
   // it is the proof the write landed: the same 200,00 € budget, and a month
   // with nothing spent in it yet.
   await expect(budget.gauge('Courses')).toContainText(overBudget(0, COURSES_BUDGET_CENTS))
-  await expect(budget.gauge('Courses')).toContainText(`Reste ${euros(COURSES_BUDGET_CENTS)}`)
-  await expect(budget.gauge('Courses')).toContainText(
-    periodLabel('monthly', NEXT.year, NEXT.month),
-  )
 
   const carried = await waitForIndexed<StoredEnvelope>(
     api,
@@ -279,7 +268,7 @@ test.describe('categories on three levels', () => {
     await expect(accounts.row(label)).toContainText(OBSYDIAN_PATH)
   })
 
-  test('a spend counts in the envelope of its category and in its mother\'s, and the total counts it once', async ({
+  test('a spend counts in the envelope of its category and in its mother\'s, nested in the tree', async ({
     otherUser,
   }) => {
     const { api, page } = otherUser
@@ -334,15 +323,14 @@ test.describe('categories on three levels', () => {
     await expect(budget.gauge('Obsydian')).toContainText(overBudget(4000, 10000))
     await expect(budget.gauge('Loisirs')).toContainText(overBudget(4000, 30000))
     expect(await budget.gaugedCategories()).toEqual(['Loisirs', 'Obsydian'])
-    await expect(budget.gauge('Obsydian')).toHaveAttribute('data-depth', '2')
-    await expect(budget.gauge('Obsydian')).toContainText('Bars › Obsydian')
-    await expect(budget.gauge('Bars'), 'a category with no envelope is not shown as one').toHaveCount(0)
-    await expect(budget.totalLine, 'the total is Loisirs\' 300 €, not 400 €').toContainText(
-      `${euros(4000)} consommés sur ${euros(30000)}`,
+    await expect(budget.gauge('Obsydian')).toHaveAttribute('data-depth', '3')
+    await expect(budget.node('Bars'), 'a category with no envelope is not shown as one').toHaveAttribute(
+      'data-has-envelope',
+      'false',
     )
   })
 
-  test('a spend attributed to a one-off envelope leaves its category for « Hors budget mensuel » (MAG-414)', async ({
+  test('a spend attributed to a one-off envelope leaves its category for « Hors budget » (MAG-414)', async ({
     otherUser,
   }) => {
     const { api, page } = otherUser
@@ -396,14 +384,14 @@ test.describe('categories on three levels', () => {
     ])
     expect(saved.status(), await saved.text()).toBe(200)
 
-    // Then « Hors budget mensuel » shows Hellfest 89 / 400 €, and Loisirs no longer counts these 89 €.
+    // Then « Hors budget » shows Hellfest 89 / 400 €, and Loisirs no longer counts these 89 €.
     const budget = new FinanceBudgetPage(page)
+    await budget.openOutside()
+    await expect(budget.outsideNode(HELLFEST)).toContainText(overBudget(8900, 40000))
+    await expect(budget.outsideNode(HELLFEST)).toContainText('Ponctuelle')
     await budget.open()
-    await expect(budget.outsideGauge(HELLFEST)).toContainText(overBudget(8900, 40000))
-    await expect(budget.outsideGauge(HELLFEST)).toContainText('Ponctuelle')
-    await expect(budget.gauge('Loisirs')).toContainText(overBudget(0, 30000))
-    await expect(budget.totalLine, 'the event counts in none of the month\'s totals').toContainText(
-      `${euros(0)} consommés sur ${euros(30000)}`,
+    await expect(budget.gauge('Loisirs'), 'the event counts in none of the month\'s figures').toContainText(
+      overBudget(0, 30000),
     )
   })
 
@@ -438,9 +426,8 @@ test.describe('categories on three levels', () => {
 
     // Then next month's envelope is worth 45 €, and says which season sets it.
     await expect(budget.gauge('Cinéma')).toContainText(overBudget(0, 4500))
-    await expect(budget.gauge('Cinéma')).toContainText(
-      `${periodLabel('monthly', NEXT.year, NEXT.month)} · saison`,
-    )
+    await budget.selectNode('Cinéma')
+    await expect(budget.editor()).toContainText(`${periodLabel('monthly', NEXT.year, NEXT.month)} · saison`)
     const carried = await waitForIndexed<StoredEnvelope & { seasonalAmounts?: unknown[] }>(
       api,
       '/api/envelopes',

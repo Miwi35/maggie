@@ -6,9 +6,10 @@ import { ROUTES } from './routes.js'
 /**
  * Finance → Trésorerie (`/finance/treasury`, MAG-280).
  *
- * The treasury over the horizon chosen (MAG-506): the delay, the projected balance with its
- * overdraft zone, the advance to make and the two settings that shape them.
- * Nothing here is stored; every figure is the outlook of the day.
+ * One page, no tabs (MAG-632): the projected balance over the horizon chosen (MAG-506) with its
+ * delay, overdraft zone and advice, the cushion, the savings advances, the créances and dettes,
+ * then the day-by-day movements. The settings that shape them are behind « Régler », in a
+ * dialog. Nothing here is stored; every figure is the outlook of the day.
  */
 export class FinanceTreasuryPage extends AdminShell {
   readonly delay: Locator
@@ -20,8 +21,17 @@ export class FinanceTreasuryPage extends AdminShell {
   readonly days: Locator
   readonly advice: Locator
   readonly prepareAdvance: Locator
+  readonly settingsButton: Locator
+  /** « Réglages »: a dialog, mounted outside the page content. */
+  readonly settingsDialog: Locator
   readonly limitField: Locator
   readonly saveLimit: Locator
+  readonly tabs: Locator
+  readonly chartSection: Locator
+  readonly cushionSection: Locator
+  readonly advancesSection: Locator
+  readonly debtsSection: Locator
+  readonly movementsSection: Locator
 
   constructor(page: Page) {
     super(page)
@@ -34,8 +44,16 @@ export class FinanceTreasuryPage extends AdminShell {
     this.days = this.content.getByTestId('treasury-day')
     this.advice = this.content.getByTestId('advice')
     this.prepareAdvance = this.content.getByRole('link', { name: "Préparer l'avance" })
-    this.limitField = this.content.getByLabel('Découvert autorisé (€)')
-    this.saveLimit = this.content.getByRole('button', { name: 'Enregistrer le découvert' })
+    this.settingsButton = this.content.getByRole('button', { name: 'Régler' })
+    this.settingsDialog = page.getByRole('dialog', { name: 'Réglages' })
+    this.limitField = this.settingsDialog.getByLabel('Découvert autorisé (€)')
+    this.saveLimit = this.settingsDialog.getByRole('button', { name: 'Enregistrer le découvert' })
+    this.tabs = this.content.getByRole('tab')
+    this.chartSection = this.content.getByTestId('treasury-section-chart')
+    this.cushionSection = this.content.getByTestId('treasury-section-cushion')
+    this.advancesSection = this.content.getByTestId('treasury-section-advances')
+    this.debtsSection = this.content.getByTestId('treasury-section-debts')
+    this.movementsSection = this.content.getByTestId('treasury-section-movements')
   }
 
   async open(): Promise<void> {
@@ -51,8 +69,23 @@ export class FinanceTreasuryPage extends AdminShell {
     ])
   }
 
-  /** Types the limit in euros and saves; resolves once the API has answered. */
+  /** The open advance of a savings account, by the account's name. */
+  advance(sourceName: string): Locator {
+    return this.advancesSection.getByTestId('savings-advance').filter({ hasText: sourceName })
+  }
+
+  /** Opens « Régler ». */
+  async openSettings(): Promise<void> {
+    await this.settingsButton.click()
+    await expect(this.settingsDialog).toBeVisible()
+  }
+
+  /**
+   * Opens « Régler », types the limit in euros and saves; resolves once the API has answered
+   * and the dialog, which closes on a successful save, is gone.
+   */
   async setLimit(euros: string): Promise<void> {
+    await this.openSettings()
     await this.limitField.fill(euros)
     await Promise.all([
       this.page.waitForResponse(
@@ -61,5 +94,6 @@ export class FinanceTreasuryPage extends AdminShell {
       ),
       this.saveLimit.click(),
     ])
+    await expect(this.settingsDialog).toBeHidden()
   }
 }

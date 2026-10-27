@@ -9,6 +9,9 @@ import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -55,5 +58,18 @@ class CushionScreenTest {
         compose.setContent { CushionSummaryCard(status = lent.copy(peerClaimsCents = 0, peerClaimObjects = emptyList())) }
 
         compose.onNodeWithTag(UiTags.CUSHION_PEER_CLAIMS).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the page carries no line of instructions, the figures and the settings stay`() {
+        val viewModel = mockk<CushionViewModel>(relaxed = true) {
+            every { uiState } returns MutableStateFlow(CushionUiState(status = lent.copy(isCappedByRechargeCap = true)))
+        }
+        compose.setContent { CushionScreen(viewModel = viewModel, onBack = {}) }
+
+        compose.onNodeWithText("Le plafond mensuel allonge", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("La cible est un nombre de mois", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Matelas de sécurité").assertIsDisplayed()
+        compose.onNodeWithText("Réglages").assertIsDisplayed()
     }
 }

@@ -22,7 +22,6 @@ import {
   useUpdate,
 } from 'react-admin'
 import type { RaRecord } from 'react-admin'
-import { Placeholder } from '../../components/list/ListEmpty'
 import { formatCents } from './accountTypes'
 import { ONE_OFF, formatPeriod, formatSeason } from './budgetModes'
 import { AlertThresholdInput, AmountInput, SeasonsInput } from './EnvelopeForm'
@@ -67,19 +66,13 @@ const EditorToolbar = ({ alwaysEnable, onDelete }: { alwaysEnable?: boolean; onD
 const EnvelopeFields = ({ oneOff }: { oneOff: boolean }) =>
   oneOff ? (
     <>
-      <TextInput
-        source="name"
-        label="Nom de l'événement"
-        validate={required()}
-        fullWidth
-        helperText="Hellfest 2026, Vacances en Bretagne…"
-      />
+      <TextInput source="name" label="Nom de l'événement" validate={required()} fullWidth />
       <AmountInput />
     </>
   ) : (
     <>
       <SelectInput source="mode" label="Type d'enveloppe" choices={TYPE_CHOICES} validate={required()} fullWidth />
-      <AmountInput helperText="Ce que vous vous autorisez à dépenser sur toute la période." />
+      <AmountInput />
       <AlertThresholdInput />
       <FormDataConsumer>{({ formData }) => formData.mode === 'monthly' && <SeasonsInput />}</FormDataConsumer>
     </>
@@ -239,9 +232,6 @@ const EditEnvelopeForm = ({ line, status, year, month, onSaved, onDeleted, onSpl
           <Typography variant="subtitle2" component="h3" sx={{ fontWeight: 600 }}>
             Répartir
           </Typography>
-          <Typography variant="caption" color="text.secondary" component="p">
-            Partagez le montant entre les sous-catégories : le reste demeure libre.
-          </Typography>
           <EnvelopeSplitSlider
             key={`${line.amountCents}:${daughters.map((d) => d.amountCents).join(',')}`}
             mother={line as BudgetLine}
@@ -284,7 +274,7 @@ const EditEnvelopeForm = ({ line, status, year, month, onSaved, onDeleted, onSpl
 }
 
 export interface EnvelopeNodePaneProps {
-  selection: Selection | null
+  selection: Selection
   status: BudgetStatus | null
   loading: boolean
   categories: Array<CategoryNode>
@@ -297,13 +287,7 @@ export interface EnvelopeNodePaneProps {
   onSplitSaved: () => void
 }
 
-const hasNoEnvelope = (status: BudgetStatus | null): boolean =>
-  status != null &&
-  status.budgets.length === 0 &&
-  (status.outsideMonthlyBudget?.annual.length ?? 0) === 0 &&
-  (status.outsideMonthlyBudget?.oneOff.length ?? 0) === 0
-
-/** The right pane: the editor of the node selected in the tree. */
+/** The right pane: the editor of the node selected in the tree, mounted once there is one. */
 export const EnvelopeNodePane = ({
   selection,
   status,
@@ -316,29 +300,11 @@ export const EnvelopeNodePane = ({
   onSplitSaved,
 }: EnvelopeNodePaneProps) => {
   const body = () => {
-    if (!selection) {
-      return hasNoEnvelope(status) ? (
-        <Placeholder
-          title="Aucune enveloppe pour l'instant"
-          description="Une enveloppe fixe ce que vous vous autorisez sur une catégorie, et les dépenses s'en déduisent au fil du mois. Choisissez une catégorie dans l'arbre pour lui en donner une, ou créez une enveloppe ponctuelle pour un événement."
-        />
-      ) : (
-        <Placeholder
-          title="Choisissez une catégorie"
-          description="Sélectionnez une catégorie de l'arbre pour voir, créer ou modifier son enveloppe."
-        />
-      )
-    }
-
     if (selection.kind === 'new-one-off') {
       return (
         <>
-          <Typography variant="h6" sx={{ mb: 0.5 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
             Nouvelle enveloppe ponctuelle
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Un événement (Hellfest 2026, des vacances) : ni catégorie ni période. Vous y attribuez les dépenses à la
-            main depuis la transaction.
           </Typography>
           <CreateEnvelopeForm key="new-one-off" oneOff year={year} month={month} onSaved={onSaved} />
         </>
@@ -369,10 +335,7 @@ export const EnvelopeNodePane = ({
       return loading || !status ? (
         <LinearProgress />
       ) : (
-        <Placeholder
-          title="Enveloppe introuvable"
-          description="Elle n'existe pas sur cette période : choisissez-en une autre dans l'arbre."
-        />
+        <Typography variant="subtitle1">Enveloppe introuvable</Typography>
       )
     }
 
@@ -383,8 +346,7 @@ export const EnvelopeNodePane = ({
       <>
         <Typography variant="h6">{categoryLabel(category)}</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }} data-testid="envelope-none">
-          Sans enveloppe en {formatPeriod('monthly', year, month)}. Une enveloppe plafonne les dépenses de la catégorie
-          sur la période ; une annuelle couvre toute l&apos;année {year}, à part du budget du mois.
+          Sans enveloppe en {formatPeriod('monthly', year, month)}
         </Typography>
         <Typography variant="subtitle2" component="h3" sx={{ fontWeight: 600, mb: 1 }}>
           Créer une enveloppe

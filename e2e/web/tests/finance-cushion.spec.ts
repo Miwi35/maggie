@@ -63,22 +63,15 @@ test('the net is read off the accounts, the recharge is capped, and the target d
   await expect(cushion.summary).toContainText(
     `à ${euros(RECHARGE_CAP_CENTS)} par mois, le matelas est reconstitué en 19 mois`,
   )
-  await expect(cushion.summary).toContainText('le plafond mensuel allonge la durée')
-
-  // Why the day's score cannot be green — the same rule `finance-budget.spec.ts`
-  // reads from the other side.
-  await expect(cushion.summary).toContainText(
-    "Tant que le matelas n'est pas complet, le score global ne peut pas passer au vert.",
-  )
 
   // And which accounts the net is made of: the savings one is flagged, the
   // current account is not.
   await expect(cushion.summary).toContainText(`Livret A — ${euros(HELD_CENTS)}`)
   await expect(cushion.summary).not.toContainText('Compte courant')
 
-  // Raising the target recomputes everything downstream of it. `CushionSettings`
-  // is keyed on the stored values, so it is remounted from the server's answer:
-  // what the page shows now is what the API computed, not what was typed.
+  // Raising the target recomputes everything downstream of it. The settings
+  // dialog is mounted on open, so it is seeded from the server's answer: what
+  // the page shows now is what the API computed, not what was typed.
   await cushion.setTargetMonths(4)
 
   const raised = 4 * INCOME_CENTS

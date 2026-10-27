@@ -147,8 +147,9 @@ tags:
           timeout: 30000
 - tapOn:
     id: "finance_tile_accounts"
-# On a wide window (a tablet) the accounts are a list beside a detail pane, under the breadcrumb: no pager,
-# no back arrow. The way back is the Finance home itself.
+# Comptes is a section page on the phone (MAG-632): the breadcrumb, a card per account, no back arrow and no
+# pager. On a wide window (a tablet) the accounts stay a list beside a detail pane. The way back is the Finance
+# home itself.
 - evalScript: ${0}
 - runFlow:
     when:
@@ -157,12 +158,12 @@ tags:
     commands:
       - extendedWaitUntil:
           visible:
-            id: "account_pager"
+            id: "breadcrumb_section"
+            containsChild:
+              text: "Comptes"
           timeout: 20000
-      # A detail screen: back arrow and title, no section menu.
-      - assertNotVisible:
-          id: "breadcrumb_section"
-      - tapOn: "Retour"
+      - assertNotVisible: "Retour"
+      - openLink: "maggie-e2e://finance"
 - runFlow:
     when:
       visible:

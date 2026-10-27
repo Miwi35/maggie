@@ -39,6 +39,8 @@ export const ROUTES = {
   accounts: '/accounts',
   categories: '/categories',
   envelopes: '/envelopes',
+  // The « Hors budget » tab of Budget (MAG-632): the annual and one-off envelopes.
+  financeBudgetOutside: '/finance/summary/budget/outside',
   loans: '/loans',
   contacts: '/contacts',
   financeOverview: '/finance/dashboard',

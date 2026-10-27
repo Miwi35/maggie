@@ -14,17 +14,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QuestionMark
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -35,26 +28,18 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -62,7 +47,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Account
@@ -77,11 +61,8 @@ import com.maggie.app.data.model.timelineMonthTitle
 import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.data.model.transferBadge
 import com.maggie.app.ui.UiTags
-import com.maggie.app.ui.components.EmptyState
-import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.uiTagRoot
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /** What a timeline can ask of its screen: the rest it does through the [AccountViewModel]. */
@@ -90,173 +71,7 @@ data class AccountTimelineActions(
     val onOpenTransaction: (accountId: String, accountName: String, transactionId: String?) -> Unit,
 )
 
-/**
- * The phone's accounts (MAG-422): one account per page, the position in a row of dots, and under
- * the header of the page the account's transactions by day. A touch on a dot goes to its account.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AccountPagerScreen(
-    viewModel: AccountViewModel,
-    onBack: () -> Unit,
-    actions: AccountTimelineActions,
-    onOpenContacts: () -> Unit = {},
-) {
-    val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    var showCreateDialog by remember { mutableStateOf(false) }
-
-    ErrorSnackbar(
-        error = uiState.error,
-        snackbarHostState = snackbarHostState,
-        onDismiss = viewModel::clearError,
-        onRetry = viewModel::refresh,
-    )
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Comptes") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-                actions = {
-                    // The people behind the transfers live with the accounts (MAG-450).
-                    IconButton(onClick = onOpenContacts, modifier = Modifier.testTag(UiTags.ACCOUNTS_CONTACTS)) {
-                        Icon(Icons.Default.Person, contentDescription = "Contacts")
-                    }
-                    IconButton(onClick = { showCreateDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Nouveau compte")
-                    }
-                },
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { paddingValues ->
-        val accounts = uiState.accounts
-        when {
-            uiState.isLoading && accounts.isEmpty() -> Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentAlignment = Alignment.Center,
-            ) { CircularProgressIndicator() }
-
-            accounts.isEmpty() -> EmptyState(
-                modifier = Modifier.padding(paddingValues),
-                title = "Aucun compte pour l'instant",
-                description = "Ajoutez vos comptes courants et vos livrets : c'est d'eux que partent les transactions et le matelas.",
-                actionLabel = "Ajouter un compte",
-                onAction = { showCreateDialog = true },
-            )
-
-            else -> AccountPager(
-                viewModel = viewModel,
-                uiState = uiState,
-                actions = actions,
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-            )
-        }
-    }
-
-    if (showCreateDialog) {
-        AccountCreateDialog(
-            onConfirm = { request ->
-                viewModel.createAccount(request)
-                showCreateDialog = false
-            },
-            onDismiss = { showCreateDialog = false },
-        )
-    }
-}
-
-@Composable
-private fun AccountPager(
-    viewModel: AccountViewModel,
-    uiState: AccountUiState,
-    actions: AccountTimelineActions,
-    modifier: Modifier = Modifier,
-) {
-    val accounts = uiState.accounts
-    val pagerState = rememberPagerState(initialPage = uiState.selectedIndex) { uiState.accounts.size }
-    val scope = rememberCoroutineScope()
-
-    // The account on screen follows the page, as soon as it is the nearest one: its month is read while it settles.
-    val latestAccounts by rememberUpdatedState(accounts)
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { index ->
-            latestAccounts.getOrNull(index)?.let { viewModel.selectAccount(it.id) }
-        }
-    }
-
-    Column(modifier = modifier) {
-        AccountDots(
-            accounts = accounts,
-            current = pagerState.currentPage,
-            onSelect = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
-        )
-        HorizontalPager(
-            state = pagerState,
-            key = { accounts.getOrNull(it)?.id ?: it },
-            modifier = Modifier.fillMaxSize().testTag(UiTags.ACCOUNT_PAGER),
-        ) { page ->
-            val account = accounts.getOrNull(page)
-            if (account != null) {
-                AccountTimelineContent(
-                    account = account,
-                    timeline = uiState.timelines[account.id],
-                    ui = uiState,
-                    viewModel = viewModel,
-                    actions = actions,
-                )
-            }
-        }
-    }
-}
-
-/**
- * One dot per account, the current one filled. Each dot is described by the account's full label
- * (« Boursorama · EUR · Compte courant »): that is what a screen reader says, and what a journey taps to go there.
- */
-@Composable
-fun AccountDots(
-    accounts: List<Account>,
-    current: Int,
-    onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth().padding(top = 8.dp).testTag(UiTags.ACCOUNT_DOTS),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        accounts.forEachIndexed { index, account ->
-            val isCurrent = index == current
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .testTag(UiTags.accountDot(index))
-                    .semantics {
-                        contentDescription = account.label()
-                        selected = isCurrent
-                    }
-                    .clickable { onSelect(index) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(if (isCurrent) 10.dp else 8.dp)
-                        .background(
-                            if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                            CircleShape,
-                        ),
-                )
-            }
-        }
-    }
-}
-
-/** The tablet's detail pane: the timeline of the account chosen in the list, with no pager. */
+/** The tablet's detail pane: the timeline of the account chosen in the list. */
 @Composable
 fun AccountTimelineDetail(
     viewModel: AccountViewModel,

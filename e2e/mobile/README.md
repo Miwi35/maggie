@@ -115,7 +115,7 @@ against an app nobody launched.
    opens the voice mode. Lint refuses a direct tap.
    **A screen is not laid out the same on every format** (MAG-611): from 600 dp a list can put a panel
    above its rows (Projets: the scenarios, then the rows, the Gantt last), from 840 dp the detail pane turns
-   Comptes into a master-detail with no pager, and an 800 dp tall screen pushes a block under the fold. So
+   Comptes into a master-detail (on a phone an account opens its transactions on a screen of its own), and an 800 dp tall screen pushes a block under the fold. So
    reach what you assert with `scrollUntilVisible` (`extendedWaitUntil` does not scroll), and branch on
    `finance_two_columns`, `detail_pane` (not `chat_panel`: it is folded by default on a tablet since MAG-624) or on
    the phone-only id with `evalScript: ${0}` + `runFlow: when:` rather than assume the phone's order. A phone-only rule belongs in a screen test, not in the journey.

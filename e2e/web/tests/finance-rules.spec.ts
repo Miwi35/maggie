@@ -95,9 +95,6 @@ test.describe('Filing the history', () => {
     await expect(budget.gauge('Courses')).toContainText(
       overBudget(COURSES_SPENT_CENTS, COURSES_BUDGET_CENTS),
     )
-    await expect(budget.gauge('Courses')).toContainText(
-      `Reste ${euros(COURSES_BUDGET_CENTS - COURSES_SPENT_CENTS)}`,
-    )
 
     const categories = new FinanceCategoriesPage(page)
     await categories.open()
@@ -133,13 +130,6 @@ test.describe('Filing the history', () => {
     await expect(budget.gauge('Courses')).toContainText(
       overBudget(consumed, COURSES_BUDGET_CENTS),
     )
-    await expect(budget.gauge('Courses')).toContainText(
-      `Reste ${euros(COURSES_BUDGET_CENTS - consumed)}`,
-    )
-    await expect(
-      budget.gauge('Courses'),
-      'the breakdown names where the money went, not just how much',
-    ).toContainText(`${euros(consumed)} dépensés`)
   })
 
   /**

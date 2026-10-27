@@ -21,7 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ExpandLess
@@ -33,6 +33,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -164,13 +166,11 @@ private fun BudgetContent(
 
     val topBar: @Composable () -> Unit = {
         FinanceTopBar(Screen.BudgetList.route, actions = {
-            AdjustAction(onAdjust)
-            IconButton(
-                onClick = { viewModel.rollOverPreviousPeriod() },
-                enabled = !uiState.isRollingOver,
-            ) {
-                Icon(Icons.Default.ContentCopy, contentDescription = "Reconduire le mois précédent")
-            }
+            BudgetMenu(
+                onAdjust = onAdjust,
+                onRollOver = { viewModel.rollOverPreviousPeriod() },
+                rollOverEnabled = !uiState.isRollingOver,
+            )
         })
     }
 
@@ -292,16 +292,6 @@ private fun BudgetContent(
                                 onOpen = { line -> viewModel.openDetail(line, line.categoryPath.ifEmpty { line.categoryName }) },
                                 onDelete = if (editsSeasons) viewModel::deleteEnvelope else null,
                             )
-                        }
-                        if (!editsSeasons && !showsOutside) {
-                            item(key = "edit-elsewhere") {
-                                Text(
-                                    "Les enveloppes se règlent sur la tablette ou le web.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 8.dp),
-                                )
-                            }
                         }
                     }
                 }
@@ -893,9 +883,37 @@ internal fun ToQualifyRow(pile: ToSortPile?, onOpen: () -> Unit) {
     ToQualifyPill(label, onClick = onOpen, modifier = Modifier.padding(horizontal = 16.dp))
 }
 
-/** The top bar's entry to « Ajuster » (MAG-461); nothing where the mode is not mounted. */
+/**
+ * The breadcrumb's « ⋮ » menu (MAG-632): what used to sit in the head of the page, « Ajuster » (MAG-461, nothing where
+ * the mode is not mounted) and the roll-over of the previous month.
+ */
 @Composable
-internal fun AdjustAction(onAdjust: (() -> Unit)?) {
-    if (onAdjust == null) return
-    TextButton(onClick = onAdjust, modifier = Modifier.testTag(UiTags.BUDGET_ADJUST_OPEN)) { Text("Ajuster") }
+internal fun BudgetMenu(onAdjust: (() -> Unit)?, onRollOver: () -> Unit, rollOverEnabled: Boolean) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { expanded = true }, modifier = Modifier.testTag(UiTags.BUDGET_MENU)) {
+            Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.uiTagRoot()) {
+            if (onAdjust != null) {
+                DropdownMenuItem(
+                    text = { Text("Ajuster les enveloppes") },
+                    onClick = {
+                        expanded = false
+                        onAdjust()
+                    },
+                    modifier = Modifier.testTag(UiTags.BUDGET_ADJUST_OPEN),
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Reconduire le mois précédent") },
+                enabled = rollOverEnabled,
+                onClick = {
+                    expanded = false
+                    onRollOver()
+                },
+                modifier = Modifier.testTag(UiTags.BUDGET_ROLL_OVER),
+            )
+        }
+    }
 }

@@ -13,7 +13,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { useGetList, useNotify } from 'react-admin'
 import type { RaRecord } from 'react-admin'
 import { formatCents } from './accountTypes'
-import { consumedPercent, formatPeriod } from './budgetModes'
+import { consumedPercent } from './budgetModes'
 import type { CategoryNode } from './categoryTree'
 import { EnvelopeNodePane } from './EnvelopeNodePane'
 import { bareId, buildEnvelopeTree, consumptionState, outsideEntries, sameSelection } from './envelopeTree'
@@ -88,21 +88,32 @@ const onActivate = (select: () => void) => (event: KeyboardEvent<HTMLElement>) =
   }
 }
 
+export type BudgetView = 'month' | 'outside'
+
 interface EnvelopeTreeScreenProps {
   year: number
   month: number
+  /** « Mois »: the category tree. « Hors budget »: the annual and one-off envelopes, apart from the month. */
+  view?: BudgetView
   status: BudgetStatus | null
   loading: boolean
   /** Reads the budget status again. */
   refresh: () => void | Promise<void>
 }
 
+const hasNoEnvelope = (status: BudgetStatus | null): boolean =>
+  status != null &&
+  status.budgets.length === 0 &&
+  (status.outsideMonthlyBudget?.annual.length ?? 0) === 0 &&
+  (status.outsideMonthlyBudget?.oneOff.length ?? 0) === 0
+
 /**
- * The envelopes of a period as a tree of categories, and the editor of the one
- * selected. Nothing here is a rule of its own: the figures are the budget
- * status', the writes are the envelopes' ordinary ones.
+ * The envelopes of a period as a tree of categories (or, apart, the annual and
+ * one-off ones), and the editor of the one selected — shown only once one is.
+ * Nothing here is a rule of its own: the figures are the budget status', the
+ * writes are the envelopes' ordinary ones.
  */
-export const EnvelopeTreeScreen = ({ year, month, status, loading, refresh }: EnvelopeTreeScreenProps) => {
+export const EnvelopeTreeScreen = ({ year, month, view = 'month', status, loading, refresh }: EnvelopeTreeScreenProps) => {
   const [selection, setSelection] = useState<Selection | null>(null)
   const notify = useNotify()
   const { data: categories = [] } = useGetList<CategoryNode & RaRecord>('categories', {
@@ -131,130 +142,133 @@ export const EnvelopeTreeScreen = ({ year, month, status, loading, refresh }: En
       sx={{
         display: 'grid',
         gap: 2,
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(320px, 2fr) 3fr' },
+        gridTemplateColumns: { xs: '1fr', md: selection ? 'minmax(320px, 2fr) 3fr' : '1fr' },
         alignItems: 'start',
       }}
       data-testid="envelope-tree-screen"
     >
       <Card>
         <CardContent>
-          <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600 }}>
-            Enveloppes
-          </Typography>
-          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }}>
-            Le budget de {formatPeriod('monthly', year, month)}, catégorie par catégorie.
-          </Typography>
-
           {loading && !status && <LinearProgress sx={{ mb: 1 }} />}
 
-          <Box role="tree" aria-label="Catégories et enveloppes" data-testid="envelope-tree">
-            {rows.map(({ category, depth, line }) => {
-              const candidate: Selection = { kind: 'category', categoryId: bareId(category.id) }
-              const selected = isSelected(candidate)
-              const select = () => setSelection(candidate)
-
-              return (
-                <Box
-                  key={category.id}
-                  role="treeitem"
-                  aria-level={depth}
-                  aria-selected={selected}
-                  tabIndex={0}
-                  data-testid="envelope-node"
-                  data-category={category.name}
-                  data-depth={depth}
-                  data-has-envelope={line ? 'true' : 'false'}
-                  onClick={select}
-                  onKeyDown={onActivate(select)}
-                  sx={rowSx(selected, depth - 1)}
-                >
-                  <Typography variant="body2" sx={{ fontWeight: line ? 600 : 400 }}>
-                    {category.name}
-                  </Typography>
-                  {line ? (
-                    <NodeConsumption line={line} />
-                  ) : (
-                    <Typography variant="caption" color="text.secondary">
-                      Sans enveloppe
-                    </Typography>
-                  )}
-                </Box>
-              )
-            })}
-            {rows.length === 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                Aucune catégorie : créez-en depuis la page Catégories pour leur donner une enveloppe.
-              </Typography>
-            )}
-          </Box>
-
-          <Box component="section" aria-labelledby="envelope-outside-title" sx={{ mt: 3 }} data-testid="envelope-outside">
-            <Typography id="envelope-outside-title" variant="subtitle2" component="h3" sx={{ fontWeight: 600 }}>
-              Hors budget mensuel
-            </Typography>
-            <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }}>
-              Les annuelles de {year} et les événements ponctuels.
-            </Typography>
-            <Box role="tree" aria-labelledby="envelope-outside-title">
-              {outside.map((entry) => {
-                const candidate: Selection = { kind: 'envelope', envelopeId: entry.id }
+          {view === 'month' && (
+            <Box role="tree" aria-label="Catégories et enveloppes" data-testid="envelope-tree">
+              {rows.map(({ category, depth, line }) => {
+                const candidate: Selection = { kind: 'category', categoryId: bareId(category.id) }
                 const selected = isSelected(candidate)
                 const select = () => setSelection(candidate)
 
                 return (
                   <Box
-                    key={entry.id}
+                    key={category.id}
                     role="treeitem"
+                    aria-level={depth}
                     aria-selected={selected}
                     tabIndex={0}
-                    data-testid="envelope-outside-node"
-                    data-category={entry.label}
-                    data-kind={entry.kind}
+                    data-testid="envelope-node"
+                    data-category={category.name}
+                    data-depth={depth}
+                    data-has-envelope={line ? 'true' : 'false'}
                     onClick={select}
                     onKeyDown={onActivate(select)}
-                    sx={rowSx(selected, 0)}
+                    sx={rowSx(selected, depth - 1)}
                   >
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {entry.label}
-                      <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                        {entry.kind === 'annual' ? `Année ${year}` : 'Ponctuelle'}
-                      </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: line ? 600 : 400 }}>
+                      {category.name}
                     </Typography>
-                    <NodeConsumption line={entry.line} />
+                    {line ? (
+                      <NodeConsumption line={line} />
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">
+                        Sans enveloppe
+                      </Typography>
+                    )}
                   </Box>
                 )
               })}
+              {rows.length === 0 && !hasNoEnvelope(status) && (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                  Aucune catégorie
+                </Typography>
+              )}
+              {hasNoEnvelope(status) && (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                  Aucune enveloppe pour l&apos;instant
+                </Typography>
+              )}
             </Box>
-            <Button
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => setSelection({ kind: 'new-one-off' })}
-              sx={{ mt: 0.5 }}
-            >
-              Nouvelle ponctuelle
-            </Button>
-          </Box>
+          )}
+
+          {view === 'outside' && (
+            <Box data-testid="envelope-outside">
+              <Box role="tree" aria-label="Enveloppes hors budget mensuel">
+                {outside.map((entry) => {
+                  const candidate: Selection = { kind: 'envelope', envelopeId: entry.id }
+                  const selected = isSelected(candidate)
+                  const select = () => setSelection(candidate)
+
+                  return (
+                    <Box
+                      key={entry.id}
+                      role="treeitem"
+                      aria-selected={selected}
+                      tabIndex={0}
+                      data-testid="envelope-outside-node"
+                      data-category={entry.label}
+                      data-kind={entry.kind}
+                      onClick={select}
+                      onKeyDown={onActivate(select)}
+                      sx={rowSx(selected, 0)}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {entry.label}
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                          {entry.kind === 'annual' ? `Année ${year}` : 'Ponctuelle'}
+                        </Typography>
+                      </Typography>
+                      <NodeConsumption line={entry.line} />
+                    </Box>
+                  )
+                })}
+                {outside.length === 0 && status && (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                    Aucune enveloppe pour l&apos;instant
+                  </Typography>
+                )}
+              </Box>
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setSelection({ kind: 'new-one-off' })}
+                sx={{ mt: 0.5 }}
+              >
+                Nouvelle ponctuelle
+              </Button>
+            </Box>
+          )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent>
-          <EnvelopeNodePane
-            selection={selection}
-            status={status}
-            loading={loading}
-            categories={categories}
-            year={year}
-            month={month}
-            onSaved={onSaved}
-            onDeleted={onDeleted}
-            onSplitSaved={() => {
-              notify('Répartition enregistrée', { type: 'info' })
-              refresh()
-            }}
-          />
-        </CardContent>
-      </Card>
+      {selection && (
+        <Card>
+          <CardContent>
+            <EnvelopeNodePane
+              selection={selection}
+              status={status}
+              loading={loading}
+              categories={categories}
+              year={year}
+              month={month}
+              onSaved={onSaved}
+              onDeleted={onDeleted}
+              onSplitSaved={() => {
+                notify('Répartition enregistrée', { type: 'info' })
+                refresh()
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
     </Box>
   )
 }

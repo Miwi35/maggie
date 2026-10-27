@@ -102,7 +102,6 @@ import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsScreen
 import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountListScreen
-import com.maggie.app.ui.screens.finance.AccountPagerScreen
 import com.maggie.app.ui.screens.finance.AccountTimelineActions
 import com.maggie.app.ui.screens.finance.AccountTimelineDetail
 import com.maggie.app.ui.screens.finance.AccountViewModel
@@ -1743,66 +1742,59 @@ fun NavGraph() {
                                 selectedAccount = accountId to accountName
                                 transactionToOpen = transactionId
                                 accountDrillDown = true
-                                if (!paneShown) {
-                                    navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
-                                }
                             },
                         )
-                        if (!paneShown) {
-                            // One account at a time, swiped (MAG-422); a touch on a line goes on to its sheet.
-                            AccountPagerScreen(
-                                viewModel = accountViewModel,
-                                onBack = { navController.backInFinance() },
-                                actions = timelineActions,
-                                onOpenContacts = openContacts,
-                            )
-                        } else {
-                            ListDetailPane(
-                                showsDetailPane = paneShown,
-                                list = {
-                                    AccountListScreen(
-                                        viewModel = accountViewModel,
-                                        onBack = { navController.backInFinance() },
-                                        onOpenContacts = openContacts,
-                                        lastSync = (summaryBlocks[SummaryBlock.LAST_SYNC] as? BlockState.Ready)?.lines?.firstOrNull(),
-                                        onOpenAccount = { accountId, accountName ->
-                                            selectedAccount = accountId to accountName
+                        ListDetailPane(
+                            showsDetailPane = paneShown,
+                            list = {
+                                AccountListScreen(
+                                    viewModel = accountViewModel,
+                                    onBack = { navController.backInFinance() },
+                                    onOpenContacts = openContacts,
+                                    lastSync = (summaryBlocks[SummaryBlock.LAST_SYNC] as? BlockState.Ready)?.lines?.firstOrNull(),
+                                    onOpenAccount = { accountId, accountName ->
+                                        selectedAccount = accountId to accountName
+                                        transactionToOpen = null
+                                        accountViewModel.selectAccount(accountId)
+                                        if (paneShown) {
                                             accountDrillDown = false
-                                            transactionToOpen = null
-                                            accountViewModel.selectAccount(accountId)
-                                        },
-                                    )
-                                },
-                                detail = account?.let {
-                                    {
-                                        if (accountDrillDown || transactionPrefill != null) {
-                                            AccountTransactions(
-                                                it,
-                                                onBack = {
-                                                    accountDrillDown = false
-                                                    transactionToOpen = null
-                                                },
-                                                onMakeRecurring = openRecurringFrom,
-                                                prefill = transactionPrefill,
-                                                onPrefillConsumed = { transactionPrefill = null },
-                                                openTransactionId = transactionToOpen,
-                                                onTransactionOpened = { transactionToOpen = null },
-                                                onOpenPeerDebts = { navController.navigate(Screen.PeerDebts.route) { launchSingleTop = true } },
-                                                openIncidents = incidentsToOpen,
-                                                onIncidentsOpened = { incidentsToOpen = false },
-                                            )
                                         } else {
-                                            AccountTimelineDetail(
-                                                viewModel = accountViewModel,
-                                                accountId = it.first,
-                                                actions = timelineActions,
-                                            )
+                                            // Comptes is a section page: an account opens its transactions, a screen with the arrow.
+                                            accountDrillDown = true
+                                            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
                                         }
+                                    },
+                                )
+                            },
+                            detail = account?.let {
+                                {
+                                    if (accountDrillDown || transactionPrefill != null) {
+                                        AccountTransactions(
+                                            it,
+                                            onBack = {
+                                                accountDrillDown = false
+                                                transactionToOpen = null
+                                            },
+                                            onMakeRecurring = openRecurringFrom,
+                                            prefill = transactionPrefill,
+                                            onPrefillConsumed = { transactionPrefill = null },
+                                            openTransactionId = transactionToOpen,
+                                            onTransactionOpened = { transactionToOpen = null },
+                                            onOpenPeerDebts = { navController.navigate(Screen.PeerDebts.route) { launchSingleTop = true } },
+                                            openIncidents = incidentsToOpen,
+                                            onIncidentsOpened = { incidentsToOpen = false },
+                                        )
+                                    } else {
+                                        AccountTimelineDetail(
+                                            viewModel = accountViewModel,
+                                            accountId = it.first,
+                                            actions = timelineActions,
+                                        )
                                     }
-                                },
-                                placeholder = "Touchez un compte pour voir ses transactions ici.",
-                            )
-                        }
+                                }
+                            },
+                            placeholder = "Touchez un compte pour voir ses transactions ici.",
+                        )
                     }
                     composable(Screen.Contacts.route, deepLinks = DeepLinks.forRoute(Screen.Contacts.route)) {
                         val contactViewModel: ContactViewModel = koinViewModel()

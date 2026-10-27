@@ -165,16 +165,14 @@ fun TreasuryChart(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(
-            text = picked?.let { days[it].balanceDetail() } ?: "Touchez un jour pour le détail.",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.testTag(UiTags.TREASURY_CHART_DETAIL),
-        )
-        Text(
-            text = "Zone de découvert : solde sous ${formatCents(-limitCents)} (trait en pointillés, jours en carrés)",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // The day under the finger, once there is one: no line of instructions before it.
+        picked?.let {
+            Text(
+                text = days[it].balanceDetail(),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag(UiTags.TREASURY_CHART_DETAIL),
+            )
+        }
     }
 }
 
@@ -252,11 +250,13 @@ fun TreasuryFlowsChart(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(
-            text = picked?.let { days[it].flowsDetail() } ?: "Touchez un jour pour le détail.",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.testTag(UiTags.TREASURY_FLOWS_DETAIL),
-        )
+        picked?.let {
+            Text(
+                text = days[it].flowsDetail(),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag(UiTags.TREASURY_FLOWS_DETAIL),
+            )
+        }
         Text(
             text = "Entrées cumulées (trait plein) · Sorties cumulées (pointillés)",
             style = MaterialTheme.typography.labelSmall,

@@ -201,7 +201,7 @@ describe('Breadcrumbs', () => {
     renderAt('/accounts/01ABC/transactions', testDataProvider({ getOne: getOne({ name: 'Compte joint' }) }))
 
     expect(await screen.findByText('Compte joint')).toBeInTheDocument()
-    expect(labels()).toEqual(['Finance', 'Comptes', 'Comptes et transactions', 'Compte joint'])
+    expect(labels()).toEqual(['Finance', 'Comptes', 'Compte joint'])
   })
 
   test('clicking a level goes there: the part, then the module dashboard', async () => {
@@ -283,9 +283,13 @@ describe('the menu and the breadcrumb agree', () => {
     for (const module of NAVIGATION) {
       for (const part of module.parts.filter((candidate) => candidate.path !== module.dashboard)) {
         const trail = resolveTrail(part.path)
-        expect(trail.map((crumb) => crumb.label)).toEqual(
-          part.menu ? [module.label, part.menu.label, part.label] : [module.label, part.label],
-        )
+        // The only page of its menu is the menu itself: one crumb, not two.
+        const expected = !part.menu
+          ? [module.label, part.label]
+          : part.menu.label === part.label
+            ? [module.label, part.menu.label]
+            : [module.label, part.menu.label, part.label]
+        expect(trail.map((crumb) => crumb.label)).toEqual(expected)
       }
     }
   })
@@ -309,7 +313,7 @@ describe('PageHeading — the h1 of every page', () => {
     ['/meals', 'Repas'],
     ['/finance/dashboard', 'Finance'],
     ['/finance/summary/review', 'Revue'],
-    ['/accounts', 'Comptes et transactions'],
+    ['/accounts', 'Comptes'],
     ['/settings/preferences', 'Préférences'],
     ['/agendas', 'Agendas'],
   ])('%s has the h1 « %s »', (path, title) => {

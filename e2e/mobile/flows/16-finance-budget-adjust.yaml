@@ -6,7 +6,7 @@ tags:
 # Adjusting the envelopes to what was really spent, from the phone (MAG-461, extends MAG-102).
 #
 # Given Loisirs at 100 € and 140 € spent in the month under way and in the two before it,
-# when Budgets > Ajuster is opened, then Loisirs shows its actual (140 € against 100 €), next
+# when Budgets ⋮ > Ajuster les enveloppes is opened, then Loisirs shows its actual (140 € against 100 €), next
 # month at 100 € and a suggestion with its reason; applying the suggestion sets next month's
 # Loisirs to the proposed 140 € (the 140 € spent, already a multiple of 5 €), and the suggestion is gone once the list is read again.
 # Nothing is written before the tap on « Appliquer ».
@@ -39,6 +39,9 @@ tags:
     visible: "Loisirs"
     timeout: 30000
 
+# « Ajuster » lives in the page's ⋮ menu (MAG-632).
+- tapOn:
+    id: "budget_menu"
 - tapOn:
     id: "budget_adjust_open"
 - extendedWaitUntil:

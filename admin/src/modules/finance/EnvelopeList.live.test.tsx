@@ -5,21 +5,18 @@ import type { DataProvider } from 'react-admin'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { emitMercure } from '../../test/mercure'
-import { EnvelopeList } from './EnvelopeList'
+import { EnvelopeList, EnvelopeOutside } from './EnvelopeList'
 import { CATEGORIES, STATUS, line } from './envelopeTreeFixtures'
 import type { BudgetStatus } from './useBudgetStatus'
 
 vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
-vi.mock('./FinanceScoresSection', () => ({
-  FinanceScoresSection: ({ refreshToken }: { refreshToken?: number }) => <span data-testid="scores-token">{refreshToken}</span>,
-}))
 
 let served: BudgetStatus = STATUS
 const getList = vi.fn(() => Promise.resolve({ data: CATEGORIES, total: CATEGORIES.length }))
 const statusReads = () =>
   (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) => String(url).includes('/api/finance/budget-status'))
 
-const renderScreen = () =>
+const renderScreen = (Screen: () => React.JSX.Element = EnvelopeList) =>
   render(
     <MemoryRouter>
       <AdminContext
@@ -30,7 +27,7 @@ const renderScreen = () =>
         })}
       >
         <ResourceContextProvider value="envelopes">
-          <EnvelopeList />
+          <Screen />
         </ResourceContextProvider>
       </AdminContext>
     </MemoryRouter>,
@@ -61,14 +58,45 @@ describe('EnvelopeList — live updates from Mercure', () => {
   const treeNode = async (name: string) =>
     (await screen.findAllByTestId('envelope-node')).find((n) => n.dataset.category === name) as HTMLElement
 
-  test('draws the gauges and the tree of the same period', async () => {
+  test('draws the tree of the period, with one read of the status', async () => {
     renderScreen()
 
-    expect(await screen.findAllByTestId('budget-gauge')).not.toHaveLength(0)
     expect(await treeNode('Obsydian')).toHaveAttribute('data-has-envelope', 'false')
     expect(statusReads()[0][0]).toMatch(/year=\d{4}&month=\d{1,2}/)
-    // One read feeds both: the panel and the tree.
     expect(statusReads()).toHaveLength(1)
+  })
+
+  test('Mois repeats nothing of the dashboard: no « Budgets » title, no gauges above the tree, no total, no rings', async () => {
+    renderScreen()
+    await treeNode('Obsydian')
+
+    expect(screen.queryByRole('heading', { name: 'Budgets' })).toBeNull()
+    expect(screen.queryByTestId('budget-gauge')).toBeNull()
+    expect(screen.queryByText(/^Total :/)).toBeNull()
+    expect(screen.queryByTestId('outside-monthly-budget')).toBeNull()
+    expect(screen.queryByTestId('scores-token')).toBeNull()
+    expect(screen.queryByText('Hors budget mensuel')).toBeNull()
+  })
+
+  test('Mois keeps the compact toolbar: month selector, roll-over, « Ajuster » and the lines to qualify', async () => {
+    renderScreen()
+    await treeNode('Obsydian')
+
+    expect(screen.getByLabelText('Mois')).toBeInTheDocument()
+    expect(screen.getByLabelText('Année')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reconduire le mois précédent' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ajuster' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /À qualifier/ })).toBeInTheDocument()
+  })
+
+  test('Hors budget lists the annual and one-off envelopes of the budget status, and no tree', async () => {
+    renderScreen(EnvelopeOutside)
+
+    const entries = await screen.findAllByTestId('envelope-outside-node')
+    expect(entries.map((entry) => entry.dataset.category)).toEqual(['Voyages', 'Hellfest 2026'])
+    expect(screen.queryByTestId('envelope-node')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Ajuster' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reconduire le mois précédent' })).toBeNull()
   })
 
   test('the budget links to the lines still waiting for a qualification', async () => {
@@ -79,7 +107,7 @@ describe('EnvelopeList — live updates from Mercure', () => {
 
   test('« Ajuster » opens the adjustments of the period on screen, and only then', async () => {
     renderScreen()
-    await screen.findAllByTestId('budget-gauge')
+    await treeNode('Obsydian')
     expect(screen.queryByTestId('envelope-adjustments')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Ajuster' }))
@@ -94,7 +122,7 @@ describe('EnvelopeList — live updates from Mercure', () => {
     )
   })
 
-  test('an envelope created elsewhere appears in the tree and in the gauges', async () => {
+  test('an envelope created elsewhere appears in the tree', async () => {
     renderScreen()
     const obsydian = await treeNode('Obsydian')
     expect(within(obsydian).getByText('Sans enveloppe')).toBeInTheDocument()
@@ -110,7 +138,6 @@ describe('EnvelopeList — live updates from Mercure', () => {
 
     await waitFor(async () => expect(await treeNode('Obsydian')).toHaveAttribute('data-has-envelope', 'true'))
     expect(within(await treeNode('Obsydian')).getByTestId('envelope-node-amount')).toHaveTextContent(/0,00\s€\s\/\s100,00\s€/)
-    expect(screen.getAllByTestId('budget-gauge').map((g) => g.dataset.category)).toContain('Obsydian')
   })
 
   test('a spend moves the consumption shown in the tree', async () => {
@@ -121,13 +148,11 @@ describe('EnvelopeList — live updates from Mercure', () => {
       ...STATUS,
       budgets: STATUS.budgets.map((l) => (l.id === 'e-loisirs' ? { ...l, consumedCents: 9000 } : l)),
     }
-    expect(screen.getByTestId('scores-token')).toHaveTextContent('0')
     await emitMercure('/api/transactions/{id}', { '@id': '/api/transactions/t1' })
 
     await waitFor(async () =>
       expect(within(await treeNode('Loisirs')).getByTestId('envelope-node-amount')).toHaveTextContent(/90,00\s€\s\/\s300,00\s€/),
     )
-    expect(screen.getByTestId('scores-token')).toHaveTextContent('1')
   })
 
   test('a category created elsewhere is read again for the tree', async () => {

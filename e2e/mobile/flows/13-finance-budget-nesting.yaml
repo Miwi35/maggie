@@ -148,24 +148,19 @@ tags:
     visible: "EUR · Compte MAG-412"
     timeout: 20000
 - tapOn: "EUR · Compte MAG-412"
-# The accounts are a pager now (MAG-422): the dot moves to the account, whose page opens on its
-# days; the full list of lines (and its sheet) is one button away. With a detail pane there is no
-# pager, the card opens the account in a pane beside the list.
+# On a phone the account opens on its full list; on a tablet it opens in the pane, one button from the list (MAG-632).
 - evalScript: ${0}
 - runFlow:
     when:
-      notVisible:
+      visible:
         id: "detail_pane"
     commands:
       - extendedWaitUntil:
-          visible: "Compte MAG-412"
+          visible:
+            id: "account_all_transactions"
           timeout: 20000
-- extendedWaitUntil:
-    visible:
-      id: "account_all_transactions"
-    timeout: 20000
-- tapOn:
-    id: "account_all_transactions"
+      - tapOn:
+          id: "account_all_transactions"
 - extendedWaitUntil:
     visible: "BILLET HELLFEST MAG-414"
     timeout: 30000
@@ -221,7 +216,11 @@ tags:
       ACTION: cinema
       TODAY: ${TODAY}
 - tapOn: "Mois suivant"
-- tapOn: "Reconduire le mois précédent"
+# The roll-over sits in the page's ⋮ menu (MAG-632).
+- tapOn:
+    id: "budget_menu"
+- tapOn:
+    id: "budget_roll_over"
 - extendedWaitUntil:
     visible: "Cinéma"
     timeout: 30000

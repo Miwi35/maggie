@@ -51,13 +51,42 @@ test.describe('the owner\'s seeded world', () => {
     const accounts = new FinanceAccountsPage(page)
     await accounts.open()
 
-    const checking = accounts.row('Compte courant')
+    const checking = accounts.card('Compte courant')
     await expect(checking).toContainText('Crédit Mutuel')
     await expect(checking).toContainText(euros(184550))
 
-    const savings = accounts.row('Livret A')
+    const savings = accounts.card('Livret A')
     await expect(savings).toContainText('Épargne')
     await expect(savings).toContainText(euros(420000))
+  })
+
+  /**
+   * Comptes as the mock-ups draw it (MAG-632): one card per account, a
+   * « Dernier import » card, an add button, and nothing like a sub-view — the
+   * statements import and the contacts sit in the ⋮ of the page.
+   */
+  test('Comptes is a page of cards with the last import, and no tabs', async ({ page }) => {
+    // Given two accounts, when I open Finance › Comptes.
+    const accounts = new FinanceAccountsPage(page)
+    await accounts.open()
+
+    // Then one card each, the last import beside them, and no tab nor table.
+    await expect(accounts.card('Compte courant')).toHaveCount(1)
+    await expect(accounts.card('Livret A')).toHaveCount(1)
+    await expect(accounts.lastImport).toContainText('Dernier import')
+    await expect(accounts.content.getByRole('tab')).toHaveCount(0)
+    await expect(accounts.content.getByRole('table')).toHaveCount(0)
+    await expect(accounts.createAccount).toHaveAttribute('href', /#\/accounts\/create$/)
+
+    // And the two other screens of the menu are one ⋮ away.
+    await accounts.pageMenu.click()
+    await expect(page.getByRole('menuitem', { name: 'Import de relevés' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Contacts' })).toBeVisible()
+
+    // A card opens the transactions of its account.
+    await page.keyboard.press('Escape')
+    await accounts.card('Compte courant').getByRole('link', { name: 'Compte courant' }).click()
+    await expect(accounts.content.getByRole('combobox', { name: 'Compte' })).toBeVisible()
   })
 
   /**
@@ -99,13 +128,9 @@ test('a finance module with nothing in it invites rather than breaks', async ({ 
   await budget.open()
   await expect(budget.content.getByText("Aucune enveloppe pour l'instant")).toBeVisible()
   await expect(
-    budget.content.getByTestId('budget-gauge'),
+    budget.content.getByTestId('envelope-node'),
     'no envelope, no gauge — and no gauge of somebody else either',
   ).toHaveCount(0)
-  await expect(
-    await budget.scoreReasons('month'),
-    'the score has nothing to compare against, and says so',
-  ).toContainText('Aucune enveloppe sur cette période')
 
   const categories = new FinanceCategoriesPage(page)
   await categories.open()
@@ -162,7 +187,7 @@ test('a new account and its first transaction are created from the screens that 
   expect(stored.bank).toBe('Banque de test')
 
   await accounts.expectAccountEventually(accountName)
-  await expect(accounts.row(accountName)).toContainText(euros(123450))
+  await expect(accounts.card(accountName)).toContainText(euros(123450))
 
   // Through the account, which is the only way in: the transaction resource is
   // deliberately absent from the menu.

@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { AdminContext, Notification, testDataProvider } from 'react-admin'
 import { CushionPage } from './CushionPage'
 
@@ -131,21 +132,63 @@ describe('CushionPage', () => {
     )
   })
 
-  test('sends the threshold and the share with the other settings', async () => {
+  test('says nothing the owner has to be taught: no green-score alert, no cap remark, no help line', async () => {
+    stubStatus({ ...withClaims, isCappedByRechargeCap: true })
+    renderPage()
+
+    await screen.findByTestId('cushion-peer-claims')
+    expect(screen.queryByText(/le score global ne peut pas passer au vert/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/le plafond mensuel allonge la durée/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/La cible est un nombre de mois de revenu net/)).not.toBeInTheDocument()
+  })
+
+  test('an empty cushion says so in a few words', async () => {
+    stubStatus({ ...STATUS, accounts: [] })
+    renderPage()
+
+    expect(await screen.findByText('Aucun compte matelas')).toBeInTheDocument()
+    expect(screen.queryByText(/Cochez-le sur les comptes concernés/)).not.toBeInTheDocument()
+  })
+
+  test('the settings are not on the page: « Régler » opens them, and saving sends the config', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(STATUS) })
     vi.stubGlobal('fetch', fetchMock)
     renderPage()
 
-    fireEvent.change(await screen.findByLabelText('Seuil critique (mois de dépenses)'), { target: { value: '3' } })
-    fireEvent.change(screen.getByLabelText('Part du matelas (%)'), { target: { value: '100' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    await screen.findByText(/^Boursorama · EUR · Livret A —/)
+    expect(screen.queryByLabelText('Cible (mois de revenu)')).not.toBeInTheDocument()
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/finance/cushion-config', expect.anything()))
-    const [, init] = fetchMock.mock.calls.find(([url]) => url === '/api/finance/cushion-config')!
-    expect(JSON.parse(init.body)).toMatchObject({ criticalMonths: 3, cushionSharePercent: 100 })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Régler' }))
+    const dialog = await screen.findByRole('dialog')
+    const target = within(dialog).getByLabelText('Cible (mois de revenu)')
+    await user.clear(target)
+    await user.type(target, '5')
+    const share = within(dialog).getByLabelText('Part du matelas (%)')
+    await user.clear(share)
+    await user.type(share, '100')
+    await user.click(within(dialog).getByRole('button', { name: 'Enregistrer le matelas' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/finance/cushion-config',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            targetMonths: 5,
+            monthlyNetIncomeCents: 250000,
+            rechargeCapCents: 15000,
+            rechargeTargetMonths: 6,
+            criticalMonths: 2,
+            cushionSharePercent: 100,
+          }),
+        }),
+      ),
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
-  test('tells when the settings are refused', async () => {
+  test('tells when the settings are refused, and keeps the dialog open', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(STATUS) })
@@ -158,9 +201,15 @@ describe('CushionPage', () => {
       </AdminContext>,
     )
 
-    fireEvent.change(await screen.findByLabelText('Part du matelas (%)'), { target: { value: '150' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Régler' }))
+    const dialog = await screen.findByRole('dialog')
+    const share = within(dialog).getByLabelText('Part du matelas (%)')
+    await user.clear(share)
+    await user.type(share, '150')
+    await user.click(within(dialog).getByRole('button', { name: 'Enregistrer le matelas' }))
 
     expect(await screen.findByText('Impossible de mettre à jour le matelas')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 })
