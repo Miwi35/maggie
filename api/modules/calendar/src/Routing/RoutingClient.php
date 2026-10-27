@@ -32,6 +32,7 @@ class RoutingClient
      * $departAt is only sent by car (the traffic of that hour), $arriveBy only
      * by transit (the timetable); a past instant is never sent, Google refuses it.
      *
+     * @throws NoRouteException Google answered without a route
      * @throws RoutingException
      */
     public function route(
@@ -76,7 +77,7 @@ class RoutingClient
 
         $route = $data['routes'][0] ?? null;
         if (!\is_array($route)) {
-            throw new RoutingException(sprintf('Google Routes found no %s route between these two points.', $mode->value));
+            throw new NoRouteException(sprintf('Google Routes found no %s route between these two points.', $mode->value));
         }
         // Google leaves the duration out of a route that goes nowhere: already there.
         $duration = self::seconds($route['duration'] ?? null) ?? 0;

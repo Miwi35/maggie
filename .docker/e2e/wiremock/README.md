@@ -80,6 +80,9 @@ except one containing « Introuvable », which finds nothing. Routes answers by
 (origin latitude 48.119), 3 min. So the car trip from home with the car 300 m
 away is 🚶 4 · 🚗 14 · 🚶 3, and an event at 14:00 is left for at 13:34
 (`agenda-trip-estimate.spec.ts`). Move the parking in the seed and move it here.
+An address containing « Campagne » geocodes to 48.2, -1.5, where Routes has no
+transit route (it answers `{}`, as Google does): `estimate_trip` then reports
+`transit` in `unavailable` and keeps the other modes (MAG-665).
 
 One pairing to keep in mind: `mappings/openai.json` dictates a fixed sentence,
 and `agent/fixtures/fake-llm/20-transcription-cleanup.yaml` returns that sentence

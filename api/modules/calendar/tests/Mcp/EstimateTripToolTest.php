@@ -497,13 +497,67 @@ class EstimateTripToolTest extends KernelTestCase
         self::assertStringStartsWith('The trip cannot be estimated: Google Routes', $result['error']);
     }
 
-    public function testNoRouteFoundAnswersAnError(): void
+    public function testNoRouteFoundForTheOnlyModeAnswersAnError(): void
     {
         $this->routes = static fn (array $body): ResponseInterface => self::json([]);
         $this->at(self::HOME);
 
         $result = $this->estimate('dentist', ['transit']);
 
+        self::assertArrayNotHasKey('field', $result);
+        self::assertArrayNotHasKey('estimates', $result);
+        self::assertStringStartsWith('The trip cannot be estimated: ', $result['error']);
         self::assertStringContainsString('found no transit route', $result['error']);
+    }
+
+    public function testAModeWithoutARouteIsUnavailableAndTheOthersAreKept(): void
+    {
+        $this->routes = fn (array $body): ResponseInterface => 'TRANSIT' === $body['travelMode'] ? self::json([]) : $this->defaultRoute($body);
+        $this->at(self::HOME, car: self::HOME);
+
+        $result = $this->estimate('dentist', ['drive', 'transit', 'bicycle']);
+
+        self::assertArrayNotHasKey('error', $result, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertSame(['drive', 'bicycle'], array_column($result['estimates'], 'mode'));
+        self::assertCount(1, $result['unavailable']);
+        self::assertSame('transit', $result['unavailable'][0]['mode']);
+        self::assertStringContainsString('found no transit route', $result['unavailable'][0]['reason']);
+        self::assertFalse($result['locationRequested']);
+    }
+
+    public function testEveryModeComputedLeavesNothingUnavailable(): void
+    {
+        $this->at(self::HOME);
+
+        $result = $this->estimate('dentist', ['walk', 'bicycle']);
+
+        self::assertSame([], $result['unavailable']);
+    }
+
+    public function testEveryModeWithoutARouteAnswersAnErrorNamingThem(): void
+    {
+        $this->routes = static fn (array $body): ResponseInterface => self::json([]);
+        $this->at(self::HOME, car: self::HOME);
+
+        $result = $this->estimate('dentist', ['transit', 'walk']);
+
+        self::assertArrayNotHasKey('estimates', $result);
+        self::assertArrayNotHasKey('field', $result);
+        self::assertStringStartsWith('The trip cannot be estimated: ', $result['error']);
+        self::assertStringContainsString('found no transit route', $result['error']);
+        self::assertStringContainsString('found no walk route', $result['error']);
+    }
+
+    public function testGoogleDownWhileAnotherModeHasNoRouteStillAnswersAnError(): void
+    {
+        $this->routes = static fn (array $body): ResponseInterface => 'TRANSIT' === $body['travelMode']
+            ? self::json([])
+            : self::json(['error' => ['code' => 500, 'message' => 'boom']], 500);
+        $this->at(self::HOME);
+
+        $result = $this->estimate('dentist', ['transit', 'walk']);
+
+        self::assertArrayNotHasKey('unavailable', $result);
+        self::assertStringStartsWith('The trip cannot be estimated: Google Routes is unreachable', $result['error']);
     }
 }
