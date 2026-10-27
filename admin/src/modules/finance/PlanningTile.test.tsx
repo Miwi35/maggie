@@ -45,12 +45,13 @@ describe('PlanningTile', () => {
     expect(capacity).toHaveTextContent(/166,66\s€ de train de vie/)
   })
 
-  test('asks for the net income when it is unknown, rather than showing 0 €', () => {
+  test('draws no capacity block, and no 0 €, when the net income is unknown', () => {
     const tile = dashboardFixture().tiles.planning
     tile.savingCapacity = { ...tile.savingCapacity, isIncomeKnown: false }
     renderTile(tile)
 
-    expect(screen.getByTestId('saving-capacity')).toHaveTextContent('Renseignez votre revenu net')
+    expect(screen.queryByTestId('saving-capacity')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Renseignez/)).not.toBeInTheDocument()
   })
 
   test('shows the independence and the rentes breakdown', () => {

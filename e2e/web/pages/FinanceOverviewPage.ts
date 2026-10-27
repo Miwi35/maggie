@@ -1,14 +1,14 @@
 import { expect } from '@playwright/test'
-import type { Locator, Page } from '@playwright/test'
+import type { Locator } from '@playwright/test'
 import { AdminShell } from './AdminShell.js'
-import { MONTH_LABELS } from './financeLabels.js'
 import { ROUTES } from './routes.js'
 
 /**
- * Finance → Vue d'ensemble (`/finance/dashboard`), the finance home (MAG-420).
+ * Finance → État courant (`/finance/dashboard`), the finance home (MAG-420, MAG-631).
  *
- * One read of `GetFinanceDashboard`, drawn top to bottom as the two rings, the
- * month's curve against its rhythm, the « Prochain projet » card, then
+ * One read of `GetFinanceDashboard`, drawn top to bottom as the dated header,
+ * the review's action card when it is due, the two rings beside the
+ * « Prochain projet » card, the month's spending against its rhythm, then
  * three tiles — Comptes, Budget, Planification — each opening its menu.
  * Nothing here is stored: the total is the sum of the accounts, the saving
  * capacity is income minus loan payments minus a measured lifestyle. So the
@@ -22,16 +22,9 @@ import { ROUTES } from './routes.js'
  * `tile-planning`); the cards inside them by their own.
  */
 export class FinanceOverviewPage extends AdminShell {
-  readonly heading: Locator
-
-  constructor(page: Page) {
-    super(page)
-    this.heading = this.content.getByRole('heading', { name: "Vue d'ensemble" })
-  }
-
   async open(): Promise<void> {
     await this.goto(ROUTES.financeOverview)
-    // Not the heading: it renders before the fetch answers, so waiting on it
+    // Not the tabs: they render before the fetch answers, so waiting on them
     // would let an assertion run against a screen that has no data yet.
     await expect(this.accountsTile).toBeVisible()
   }
@@ -78,9 +71,19 @@ export class FinanceOverviewPage extends AdminShell {
     return this.budgetTile.getByTestId('pill-advance')
   }
 
-  /** « Revue ce soir », above the tiles while the month just ended is not reviewed. */
-  get reviewShortcut(): Locator {
-    return this.content.getByTestId('review-shortcut')
+  /** « Revue d'octobre · ce soir · Lancer », above the rings while the month just ended is not reviewed. */
+  get reviewActionCard(): Locator {
+    return this.content.getByTestId('review-action-card')
+  }
+
+  /** « Octobre, jour 13 sur 31 · Synchronisé il y a 12 min ». */
+  get header(): Locator {
+    return this.content.getByTestId('dashboard-header')
+  }
+
+  /** « Dépenses d'octobre »: what is spent against the month's rhythm, the direct debits marked on it. */
+  get monthSpendingCard(): Locator {
+    return this.content.getByTestId('month-spending-card')
   }
 
   /** The « Prochain projet » card (MAG-529): the first project of the planning, absent with none. */
@@ -148,9 +151,9 @@ export class FinanceOverviewPage extends AdminShell {
     return this.content.getByRole('tab', { name: 'À venir' })
   }
 
-  /** The « Vue d'ensemble » tab: everything the home shows, and the default. */
-  get overviewTab(): Locator {
-    return this.content.getByRole('tab', { name: "Vue d'ensemble" })
+  /** The « État courant » tab: everything the home shows, and the default. */
+  get currentTab(): Locator {
+    return this.content.getByRole('tab', { name: 'État courant' })
   }
 
   /** Opens the home, then its « À venir » tab, and waits for the projection to have answered. */
@@ -188,12 +191,5 @@ export class FinanceOverviewPage extends AdminShell {
   /** « Reste vers les projets »: the headline figure and its split. */
   get upcomingRemaining(): Locator {
     return this.content.getByTestId('upcoming-remaining')
-  }
-
-  async selectPeriod(year: number, month: number): Promise<void> {
-    await this.content.getByLabel('Année', { exact: true }).fill(String(year))
-    await this.content.getByLabel('Mois', { exact: true }).click()
-    await this.page.getByRole('option', { name: MONTH_LABELS[month] }).click()
-    await expect(this.content.getByLabel('Mois', { exact: true })).toHaveText(MONTH_LABELS[month])
   }
 }

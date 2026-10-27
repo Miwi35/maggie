@@ -10,11 +10,12 @@ import { FinanceReviewPage } from '../pages/FinanceReviewPage.js'
 import { FinanceTransfersPage } from '../pages/FinanceTransfersPage.js'
 
 /**
- * The finance home (MAG-102, rebuilt by MAG-420).
+ * The finance home (MAG-102, rebuilt by MAG-420, drawn to the mockup by MAG-631).
  *
- * Top to bottom: the two rings, the month's curve against its rhythm, the
- * « Prochain projet » card, then three tiles — Comptes, Budget,
- * Planification — each a card that opens its menu.
+ * Top to bottom: the dated header, the two rings beside the « Prochain
+ * projet » card, the month's spending against its rhythm, then three tiles —
+ * Comptes, Budget, Planification — each a card that opens its menu with
+ * « Ouvrir → ». No month or year picker: the home is the current month.
  *
  * Every figure on this screen is computed on the fly by
  * `GetFinanceDashboard`, which composes the other use cases rather than
@@ -60,23 +61,63 @@ const monthLabel = (offset: number): string =>
  * When I open the finance home, Then I see the two rings, the curve, and the
  * Comptes, Budget and Planification tiles.
  */
-test('the home shows the rings, the curve, the next project and the three tiles', async ({
+test('the home shows the rings, the month spending, the next project and the three tiles', async ({
   page,
 }) => {
   const overview = new FinanceOverviewPage(page)
   await overview.open()
 
+  // The dated header, and no period picker.
+  await expect(overview.header).toContainText(/, jour \d+ sur \d+/)
+  await expect(overview.content.getByLabel('Mois', { exact: true })).toHaveCount(0)
+  await expect(overview.content.getByLabel('Année', { exact: true })).toHaveCount(0)
+  await expect(overview.content.getByRole('tab', { name: "Vue d'ensemble" })).toHaveCount(0)
+  await expect(overview.currentTab).toHaveAttribute('aria-selected', 'true')
+
   await expect(overview.scoreRing('week')).toBeVisible()
   await expect(overview.scoreRing('month')).toBeVisible()
-  await expect(overview.rhythmCurve).toBeVisible()
   await expect(overview.nextProject).toBeVisible()
+  await expect(overview.monthSpendingCard).toContainText('Dépenses d')
+  await expect(overview.monthSpendingCard.getByTestId('rhythm-curve')).toBeVisible()
   await expect(overview.budgetTile).toBeVisible()
   await expect(overview.planningTile).toBeVisible()
+  for (const tile of [overview.accountsTile, overview.budgetTile, overview.planningTile]) {
+    await expect(tile).toContainText('Ouvrir →')
+  }
 
   // The blocks the tiles replaced are gone.
   await expect(overview.content.getByText('Solde de tous les comptes')).toHaveCount(0)
   await expect(overview.content.getByText('Principaux postes du mois')).toHaveCount(0)
   await expect(overview.content.getByText('Recettes et dépenses sur douze mois')).toHaveCount(0)
+})
+
+/**
+ * Given a month just ended that is not reviewed and a project under way, When
+ * I open the finance home, Then the review's action card « Revue d'… · ce soir »
+ * stands above the rings (and no « Revue ce soir » pill), the « Prochain projet »
+ * card shows the project, and « Lancer » opens the review activity (MAG-631).
+ * `e2e-balance@maggie.local` (58-finance-month-balance.yaml): a line of last
+ * month nobody rated, a 1 000 € « Vélo » and a complete matelas.
+ */
+test('a review due draws its action card beside the next project, and Lancer opens the review activity', async ({
+  balanceUser,
+}) => {
+  const { page } = balanceUser
+  const overview = new FinanceOverviewPage(page)
+  await overview.open()
+
+  const card = overview.reviewActionCard
+  await expect(card).toBeVisible()
+  await expect(card).toContainText(/Revue d/)
+  await expect(card).toContainText('ce soir')
+  await expect(overview.content.getByText('Revue ce soir', { exact: true })).toHaveCount(0)
+
+  await expect(overview.nextProject).toContainText('Vélo')
+  await expect(overview.scoreRing('week')).toBeVisible()
+  await expect(overview.scoreRing('month')).toBeVisible()
+
+  await card.getByRole('link', { name: 'Lancer' }).click()
+  await expect(page).toHaveURL(/#\/finance\/review\/activity$/)
 })
 
 test('the Comptes tile adds the accounts up and sets the safety net aside', async ({ page }) => {
@@ -215,29 +256,6 @@ test('a spending post links to its category resource', async ({ api }) => {
 })
 
 /**
- * Moving the period controls is the one past regression MAG-93 found here
- * (`e05e52f`): the picker and the empty states. A month the seed never touched
- * must come back empty and say so, rather than keeping the month before it on
- * screen.
- */
-test('a month with nothing in it is shown as empty, not as the month before', async ({ page }) => {
-  const overview = new FinanceOverviewPage(page)
-  await overview.open()
-
-  await expect(overview.envelopeBar('Courses')).toBeVisible()
-
-  // Two years back: outside every window the dashboard reads, and outside what
-  // any other journey writes into.
-  await overview.selectPeriod(ANCHOR_YEAR - 2, ANCHOR_MONTH)
-
-  await expect(overview.budgetTile).toContainText('Aucune enveloppe sur ce mois.')
-  await expect(overview.envelopeBar('Courses')).toHaveCount(0)
-  // The balance is not a period figure: it is what the accounts hold today,
-  // and it must not empty itself along with the month.
-  await expect(overview.accountsTile).toContainText(euros(CHECKING_CENTS + SAVINGS_CENTS))
-})
-
-/**
  * The rings and the rhythm curve (MAG-417, extends MAG-102 — they replace the
  * daily score; MAG-643 — « Dépensé » counts every debit).
  *
@@ -359,16 +377,16 @@ test.describe('what is to do', () => {
   /**
    * Given an account with nothing to sort, no rejection, no advance and no
    * month to review, When I open the finance home, Then no pill and no
-   * shortcut is drawn, and the account's tile is not an empty block either.
+   * review card is drawn, and the account's tile is not an empty block either.
    */
-  test('nothing to do draws no pill and no shortcut', async ({ seasonUser }) => {
+  test('nothing to do draws no pill and no review card', async ({ seasonUser }) => {
     const overview = new FinanceOverviewPage(seasonUser.page)
     await overview.open()
 
     await expect(overview.toSortPill).toHaveCount(0)
     await expect(overview.rejectionsPill).toHaveCount(0)
     await expect(overview.advancePill).toHaveCount(0)
-    await expect(overview.reviewShortcut).toHaveCount(0)
+    await expect(overview.reviewActionCard).toHaveCount(0)
   })
 
   /**
@@ -415,7 +433,7 @@ test.describe('what is to do', () => {
     await expect(overview.toSortPill).toHaveText('3 à trier')
     await expect(overview.rejectionsPill).toHaveText('1 rejet')
     await expect(overview.advancePill).toHaveCount(0)
-    await expect(overview.reviewShortcut).toHaveCount(0)
+    await expect(overview.reviewActionCard).toHaveCount(0)
 
     // « 1 rejet » opens the incidents of the account that holds it.
     await overview.rejectionsPill.click()

@@ -2032,7 +2032,6 @@ fun NavGraph() {
                         val dashboardViewModel: FinanceDashboardViewModel = koinViewModel()
                         FinanceDashboardScreen(
                             viewModel = dashboardViewModel,
-                            monthBalanceViewModel = koinViewModel<MonthBalanceViewModel>(),
                             upcomingViewModel = koinViewModel<UpcomingViewModel>(),
                             onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
                             onOpenIncidents = { account ->

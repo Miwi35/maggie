@@ -156,51 +156,6 @@ private fun ColumnScope.MonthBalanceCards(balance: MonthBalance, onOpenToQualify
     CushionCard(balance.cushion)
 }
 
-/**
- * The month's balance (MAG-457) as the lower part of « État courant » (MAG-537): the same cards as
- * [MonthBalanceTab], in the dashboard's own scroll instead of a scroll of their own. The dashboard's month header drives the
- * month; errors go to the dashboard's snackbar.
- */
-@Composable
-fun MonthBalanceSection(
-    viewModel: MonthBalanceViewModel,
-    onOpen: (String) -> Unit,
-    snackbarHostState: SnackbarHostState,
-) {
-    val uiState by viewModel.uiState.collectAsState()
-    val balance = uiState.balance
-
-    ErrorSnackbar(
-        error = uiState.error,
-        snackbarHostState = snackbarHostState,
-        onDismiss = viewModel::clearError,
-        onRetry = viewModel::refresh,
-    )
-
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = "Bilan de ${monthLabel(uiState.month).lowercase()} ${uiState.year}",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        if (balance == null) {
-            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator()
-                } else {
-                    Text(
-                        uiState.error ?: "Bilan indisponible",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.testTag(UiTags.MONTH_BALANCE_EMPTY),
-                    )
-                }
-            }
-        } else {
-            MonthBalanceCards(balance, onOpenToQualify = { onOpen(DeepLinks.REVIEW_TO_SORT_ROUTE) })
-        }
-    }
-}
-
 @Composable
 internal fun BalanceCard(title: String, tag: String, content: @Composable () -> Unit) {
     MaggieCard(modifier = Modifier.fillMaxWidth().testTag(tag)) {

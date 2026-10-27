@@ -5,7 +5,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeFinanceDashboard
 import com.maggie.app.screentest.ScreenRule
@@ -66,7 +65,6 @@ class FinanceHubScreenTest {
     fun `the dashboard wears the breadcrumb and its two sub-views, and no list of accesses`() {
         compose.setContent {
             FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard().viewModel,
                 onOpen = {},
@@ -84,7 +82,6 @@ class FinanceHubScreenTest {
     fun `a month the server could not compute says so instead of staying empty`() {
         compose.setContent {
             FinanceDashboardScreen(
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeFinanceDashboard(error = "Service indisponible").viewModel,
                 onOpen = {},

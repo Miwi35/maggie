@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Button
 import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.theme.MaggieTokens
@@ -26,8 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -58,14 +53,13 @@ import com.maggie.app.ui.navigation.Screen
 @Composable
 fun FinanceDashboardScreen(
     viewModel: FinanceDashboardViewModel,
-    monthBalanceViewModel: MonthBalanceViewModel,
     upcomingViewModel: UpcomingViewModel,
     onOpen: (String) -> Unit,
     // The account whose rejections the « N rejets » pill opens, on its Incidents tab.
     onOpenIncidents: (TileAccount) -> Unit = {},
 ) {
     ProvideFinanceNav {
-        FinanceDashboardContent(viewModel, monthBalanceViewModel, upcomingViewModel, onOpen, onOpenIncidents)
+        FinanceDashboardContent(viewModel, upcomingViewModel, onOpen, onOpenIncidents)
     }
 }
 
@@ -73,7 +67,6 @@ fun FinanceDashboardScreen(
 @Composable
 private fun FinanceDashboardContent(
     viewModel: FinanceDashboardViewModel,
-    monthBalanceViewModel: MonthBalanceViewModel,
     upcomingViewModel: UpcomingViewModel,
     onOpen: (String) -> Unit,
     onOpenIncidents: (TileAccount) -> Unit,
@@ -100,7 +93,7 @@ private fun FinanceDashboardContent(
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             when (subview.key) {
                 SUBVIEW_UPCOMING -> UpcomingTab(upcomingViewModel, twoColumns)
-                else -> CurrentTab(viewModel, uiState, monthBalanceViewModel, snackbarHostState, twoColumns, onOpen, onOpenIncidents)
+                else -> CurrentTab(uiState, twoColumns, onOpen, onOpenIncidents)
             }
         }
     }
@@ -108,44 +101,16 @@ private fun FinanceDashboardContent(
 
 private const val SUBVIEW_UPCOMING = "upcoming"
 
-/**
- * « État courant » (MAG-537): what the dashboard showed as its overview — the review card when one is due, the scores, the
- * tiles — and, below, the month's balance (MAG-457).
- */
+/** « État courant » (MAG-537): the current month only — the review card when one is due, the rings, the next project, the tiles. */
 @Composable
 private fun CurrentTab(
-    viewModel: FinanceDashboardViewModel,
     uiState: FinanceDashboardUiState,
-    monthBalanceViewModel: MonthBalanceViewModel,
-    snackbarHostState: SnackbarHostState,
     twoColumns: Boolean,
     onOpen: (String) -> Unit,
     onOpenIncidents: (TileAccount) -> Unit,
 ) {
     val dashboard = uiState.dashboard
-    // One month header for the figures and the balance under them.
-    val shiftMonth = { months: Long ->
-        viewModel.shiftPeriod(months)
-        monthBalanceViewModel.shiftPeriod(months)
-    }
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = { shiftMonth(-1) }) {
-                Icon(Icons.Default.ChevronLeft, contentDescription = "Mois précédent")
-            }
-            Text(
-                text = "${monthLabel(uiState.month)} ${uiState.year}",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            IconButton(onClick = { shiftMonth(1) }) {
-                Icon(Icons.Default.ChevronRight, contentDescription = "Mois suivant")
-            }
-        }
-
         val head: LazyListScope.() -> Unit = {
             if (dashboard?.todo?.reviewReady == true) {
                 item {
@@ -198,7 +163,6 @@ private fun CurrentTab(
                 item { BudgetTileCard(dashboard.tiles.budget, dashboard.todo, onOpen) }
                 item { PlanningTileCard(dashboard.tiles.planning, uiState.planning, onOpen) }
             }
-            item { MonthBalanceSection(monthBalanceViewModel, onOpen, snackbarHostState) }
         }
 
         if (twoColumns) {

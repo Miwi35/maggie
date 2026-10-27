@@ -19,7 +19,6 @@ import com.maggie.app.data.model.UpcomingMonth
 import com.maggie.app.data.model.UpcomingWeek
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
-import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.upcomingFixture
@@ -45,7 +44,6 @@ class UpcomingScreenTest {
         compose.setContent {
             FinanceDashboardScreen(
                 viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 10)).viewModel,
-                monthBalanceViewModel = FakeMonthBalance().viewModel,
                 upcomingViewModel = upcoming.viewModel,
                 onOpen = {},
             )

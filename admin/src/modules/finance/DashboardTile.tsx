@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Link from '@mui/material/Link'
+import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { Link as RouterLink } from 'react-router-dom'
 
@@ -33,20 +34,25 @@ export const DashboardTile = ({ title, to, testId, children }: DashboardTileProp
     }}
   >
     <CardContent>
-      <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600, mb: 1 }}>
-        <Link
-          component={RouterLink}
-          to={to}
-          color="inherit"
-          underline="none"
-          sx={{
-            '&::after': { content: '""', position: 'absolute', inset: 0 },
-            '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
-          }}
-        >
-          {title}
-        </Link>
-      </Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 1 }}>
+        <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600 }}>
+          <Link
+            component={RouterLink}
+            to={to}
+            color="inherit"
+            underline="none"
+            sx={{
+              '&::after': { content: '""', position: 'absolute', inset: 0 },
+              '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
+            }}
+          >
+            {title}
+          </Link>
+        </Typography>
+        <Typography variant="body2" color="primary" aria-hidden="true">
+          Ouvrir →
+        </Typography>
+      </Stack>
       {children}
     </CardContent>
   </Card>

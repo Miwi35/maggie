@@ -13,7 +13,8 @@
 // `create` leaves once the pairing is findable: the home reads the rejections as it opens, and a pair
 // still being recognised would not be counted.
 //
-// Everything is the journey's own, named after the ticket, and gone after `remove`.
+// Everything is the journey's own, named after the ticket, and gone after `remove`. MAG-631 adds a categorised
+// debit of last month, which makes the review due without adding a line to sort.
 
 (function () {
 const base = E2E_BASE_URL
@@ -21,6 +22,8 @@ const email = 'e2e-other@maggie.local'
 const accountName = 'Compte MAG-421'
 const debitLabel = 'PRELEVEMENT EDF MAG-421'
 const creditLabel = 'REJET PRLV EDF MAG-421'
+const categoryName = 'Divers MAG-631'
+const lastMonthLabel = 'DEPENSE MOIS PRECEDENT MAG-631'
 
 function fail(message) {
   throw new Error('[finance-todo-api] ' + ACTION + ': ' + message)
@@ -68,16 +71,36 @@ function daysBefore(back) {
   return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] - back)).toISOString().substring(0, 10)
 }
 
+// The first day of the month before TODAY, YYYY-MM-DD.
+function lastMonthStart() {
+  const parts = TODAY.split('-').map(function (part) { return parseInt(part, 10) })
+  return new Date(Date.UTC(parts[0], parts[1] - 2, 1)).toISOString().substring(0, 10)
+}
+
 // Deleting the account takes its lines with it.
 function removeLeftovers() {
   collection('/api/accounts?itemsPerPage=200')
     .filter(function (account) { return account.name === accountName })
     .forEach(function (account) { http.request(base + account['@id'], { method: 'DELETE', headers: authorized() }) })
+  collection('/api/categories?itemsPerPage=200')
+    .filter(function (category) { return category.name === categoryName })
+    .forEach(function (category) { http.request(base + category['@id'], { method: 'DELETE', headers: authorized() }) })
 }
 
 if (ACTION === 'create') {
   removeLeftovers() // a retried run starts from nothing
   const account = post('/api/accounts', { name: accountName, type: 'checking', currency: 'EUR', balanceCents: 100000 })
+  // A categorised debit of last month: unrated, so the review of the month is due (MAG-631), and not a line to sort.
+  const category = post('/api/categories', { name: categoryName, obligation: 'optional' })
+  post('/api/transactions', {
+    account: account['@id'],
+    category: category['@id'],
+    label: lastMonthLabel,
+    amountCents: -2500,
+    currency: 'EUR',
+    bookedAt: lastMonthStart(),
+    status: 'spent',
+  })
   ;[
     { label: 'A TRIER MAG-421 A', cents: -1200, day: daysBefore(2) },
     { label: 'A TRIER MAG-421 B', cents: -1300, day: daysBefore(1) },
