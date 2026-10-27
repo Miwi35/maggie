@@ -66,11 +66,11 @@ class TransactionSheetScreenTest {
     }
 
     @Test
-    fun `the list writes a line's day as dd-MM-yyyy, not the raw date-time`() {
+    fun `the list writes a line's day in French, not the raw date-time`() {
         val dated = coffee.copy(bookedAt = "2026-10-20T00:00:00+00:00")
         show(FakeTransactionTransfers(transactions = listOf(dated)))
 
-        compose.onNodeWithText("20/10/2026", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("mar. 20 oct. 2026", substring = true).assertIsDisplayed()
         compose.onAllNodesWithText("T00:00:00", substring = true).assertCountEquals(0)
     }
 
@@ -168,7 +168,7 @@ class TransactionSheetScreenTest {
 
         open("Café du coin")
         compose.onNodeWithTag(UiTags.RECURRING_ATTACHED).performScrollTo().assertTextContains("Série", substring = true)
-        compose.onNodeWithText("Échéance : 2026-09-14").assertExists()
+        compose.onNodeWithText("Échéance : lun. 14 sept. 2026").assertExists()
 
         compose.onNodeWithTag(UiTags.RECURRING_DETACH).performScrollTo().performClick()
         compose.waitForIdle()

@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.bookedDate
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
 import java.time.Instant
@@ -50,6 +51,10 @@ private val FRENCH_TIME = DateTimeFormatter.ofPattern("HH:mm", Locale.FRENCH)
 
 /** « mer. 8 oct. 2026 » — what a form shows for a date, whatever the phone's language. */
 fun formatFrenchDate(date: LocalDate): String = FRENCH_DATE.format(date)
+
+/** The day a line is booked, from the API's date or date-time, as [formatFrenchDate]; null without a date, the text itself when it is not one. */
+fun formatBookedDay(bookedAt: String?): String? =
+    bookedAt?.let { raw -> bookedDate(raw)?.let(::formatFrenchDate) ?: raw }
 
 /** « 19:00 » — 24 h, as the pickers do. */
 fun formatFrenchTime(time: LocalTime): String = FRENCH_TIME.format(time)
