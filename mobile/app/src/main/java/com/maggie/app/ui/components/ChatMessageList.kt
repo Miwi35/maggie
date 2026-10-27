@@ -3,7 +3,6 @@ package com.maggie.app.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,9 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -77,154 +75,142 @@ fun ChatMessageList(
         }
     }
     val streamedLength = (displayItems.lastOrNull() as? ChatListItem.StreamingMessage)?.text?.length
-    LaunchedEffect(displayItems.size, streamedLength) {
+    LaunchedEffect(displayItems.size, streamedLength, approvals.size) {
         if (!listState.following) listState.unseenBelow = true
     }
 
-    // The held actions sit under the conversation, right above the input field:
-    // they are what Maggie is waiting on, so they stay in view while the history scrolls.
-    Column(modifier = modifier) {
-        Box(modifier = Modifier.weight(1f)) {
-            LazyColumn(
-                state = lazy,
-                modifier = Modifier.fillMaxSize().testTag(UiTags.CHAT_MESSAGES),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (isLoadingHistory) {
-                    item(key = "loading_history") {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                        }
-                    }
-                }
-
-                itemsIndexed(
-                    items = displayItems,
-                    key = { index, item ->
-                        when (item) {
-                            is ChatListItem.DateSeparator -> "sep_${index}_${item.label}"
-                            is ChatListItem.UnreadDivider -> "unread_divider"
-                            is ChatListItem.MessageItem -> "msg_${item.message.id}"
-                            is ChatListItem.StreamingMessage -> "streaming_message"
-                            is ChatListItem.LoadingIndicator -> "loading_indicator"
-                            is ChatListItem.Failure -> "failure"
-                        }
-                    },
-                ) { _, item ->
-                    when (item) {
-                        is ChatListItem.DateSeparator -> {
-                            Text(
-                                text = item.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                            )
-                        }
-                        is ChatListItem.UnreadDivider -> {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                HorizontalDivider(
-                                    modifier = Modifier.weight(1f),
-                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                                )
-                                Text(
-                                    text = "Messages non lus",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.padding(horizontal = 8.dp),
-                                )
-                                HorizontalDivider(
-                                    modifier = Modifier.weight(1f),
-                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                                )
-                            }
-                        }
-                        is ChatListItem.MessageItem -> {
-                            MessageBubble(
-                                message = item.message,
-                                onClick = { onMessageTapped(item.message.id) },
-                                isHighlighted = item.isHighlighted,
-                                thumbnail = item.thumbnail,
-                                onDelete = { onDeleteMessage(item.message.id) },
-                                onEdit = if (item.message.id == editableMessageId) {
-                                    { onEditMessage(item.message.id) }
-                                } else {
-                                    null
-                                },
-                                // Thumbs on every answer of Maggie's here; ChatViewModel.rateMessage ignores
-                                // one still being written (its `pending_` id), so only a stored answer is rated.
-                                onRate = onRateMessage?.takeIf { item.message.role == "assistant" }?.let { rate ->
-                                    { rating -> rate(item.message.id, rating) }
-                                },
-                            )
-                        }
-                        is ChatListItem.StreamingMessage -> {
-                            MessageBubble(
-                                message = com.maggie.app.data.model.ChatMessage(
-                                    id = "streaming",
-                                    role = "assistant",
-                                    content = item.text,
-                                ),
-                                onClick = {},
-                                isHighlighted = false,
-                            )
-                        }
-                        is ChatListItem.LoadingIndicator -> {
-                            Text(
-                                text = "Maggie réfléchit...",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 8.dp),
-                            )
-                        }
-                        is ChatListItem.Failure -> ChatFailureNotice(item.text, onRetry)
+    Box(modifier = modifier) {
+        LazyColumn(
+            state = lazy,
+            modifier = Modifier.fillMaxSize().testTag(UiTags.CHAT_MESSAGES),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (isLoadingHistory) {
+                item(key = "loading_history") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     }
                 }
             }
 
-            if (listState.unseenBelow && !listState.following) {
-                FilledTonalButton(
-                    onClick = { scope.launch { listState.scrollToLatest(animate = true) } },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp)
-                        .testTag(UiTags.CHAT_JUMP_TO_LATEST),
-                ) {
-                    Text("↓ nouvelle réponse")
+            itemsIndexed(
+                items = displayItems,
+                key = { index, item ->
+                    when (item) {
+                        is ChatListItem.DateSeparator -> "sep_${index}_${item.label}"
+                        is ChatListItem.UnreadDivider -> "unread_divider"
+                        is ChatListItem.MessageItem -> "msg_${item.message.id}"
+                        is ChatListItem.StreamingMessage -> "streaming_message"
+                        is ChatListItem.LoadingIndicator -> "loading_indicator"
+                        is ChatListItem.Failure -> "failure"
+                    }
+                },
+            ) { _, item ->
+                when (item) {
+                    is ChatListItem.DateSeparator -> {
+                        Text(
+                            text = item.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                        )
+                    }
+                    is ChatListItem.UnreadDivider -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            HorizontalDivider(
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                            )
+                            Text(
+                                text = "Messages non lus",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                            )
+                        }
+                    }
+                    is ChatListItem.MessageItem -> {
+                        MessageBubble(
+                            message = item.message,
+                            onClick = { onMessageTapped(item.message.id) },
+                            isHighlighted = item.isHighlighted,
+                            thumbnail = item.thumbnail,
+                            onDelete = { onDeleteMessage(item.message.id) },
+                            onEdit = if (item.message.id == editableMessageId) {
+                                { onEditMessage(item.message.id) }
+                            } else {
+                                null
+                            },
+                            // Thumbs on every answer of Maggie's here; ChatViewModel.rateMessage ignores
+                            // one still being written (its `pending_` id), so only a stored answer is rated.
+                            onRate = onRateMessage?.takeIf { item.message.role == "assistant" }?.let { rate ->
+                                { rating -> rate(item.message.id, rating) }
+                            },
+                        )
+                    }
+                    is ChatListItem.StreamingMessage -> {
+                        MessageBubble(
+                            message = com.maggie.app.data.model.ChatMessage(
+                                id = "streaming",
+                                role = "assistant",
+                                content = item.text,
+                            ),
+                            onClick = {},
+                            isHighlighted = false,
+                        )
+                    }
+                    is ChatListItem.LoadingIndicator -> {
+                        Text(
+                            text = "Maggie réfléchit...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                    is ChatListItem.Failure -> ChatFailureNotice(item.text, onRetry)
                 }
+            }
+
+            // What Maggie is waiting on closes the thread: with the keyboard open the list may
+            // be a few lines high, and a card pinned under it would be cut (MAG-672). Inside
+            // the list it is followed like any new message, and scrolled to its last button.
+            items(items = approvals, key = { "approval_${it.approval.id}" }) { item ->
+                ApprovalCard(
+                    item = item,
+                    onApprove = { onApprove(item.approval.id) },
+                    onDeny = { onDeny(item.approval.id) },
+                    onDismiss = { onDismissApproval(item.approval.id) },
+                )
             }
         }
 
-        if (approvals.isNotEmpty()) {
-            Column(
+        if (listState.unseenBelow && !listState.following) {
+            FilledTonalButton(
+                onClick = { scope.launch { listState.scrollToLatest(animate = true) } },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 280.dp)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp)
+                    .testTag(UiTags.CHAT_JUMP_TO_LATEST),
             ) {
-                approvals.forEach { item ->
-                    ApprovalCard(
-                        item = item,
-                        onApprove = { onApprove(item.approval.id) },
-                        onDeny = { onDeny(item.approval.id) },
-                        onDismiss = { onDismissApproval(item.approval.id) },
-                    )
-                }
+                Text("↓ nouvelle réponse")
             }
         }
     }

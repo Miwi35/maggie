@@ -159,20 +159,6 @@ fun MindContent(
     ) {
         MaggieState(agentState)
 
-        SectionTitle("Activité")
-        if (toolCalls.isEmpty()) {
-            Text(
-                text = "Aucune activité",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp).testTag(UiTags.MIND_ACTIVITY),
-            )
-        } else {
-            Column(modifier = Modifier.testTag(UiTags.MIND_ACTIVITY)) {
-                toolCalls.forEach { ToolCallRow(it) }
-            }
-        }
-
         SectionTitle("Validations en attente")
         if (approvals.isEmpty()) {
             Text(
@@ -194,6 +180,20 @@ fun MindContent(
                         onDismiss = { onDismissApproval(item.approval.id) },
                     )
                 }
+            }
+        }
+
+        SectionTitle("Activité")
+        if (toolCalls.isEmpty()) {
+            Text(
+                text = "Aucune activité",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp).testTag(UiTags.MIND_ACTIVITY),
+            )
+        } else {
+            Column(modifier = Modifier.testTag(UiTags.MIND_ACTIVITY)) {
+                toolCalls.forEach { ToolCallRow(it) }
             }
         }
     }
