@@ -454,6 +454,8 @@ web:
     areas: [calendar, google]
   e2e/web/tests/agenda-isolation.spec.ts:
     areas: [calendar, dashboard]
+  e2e/web/tests/agenda-replan.spec.ts:
+    areas: [calendar, notification]
   e2e/web/tests/agenda-recurrence.spec.ts:
     areas: [calendar]
   e2e/web/tests/agenda-tasks.spec.ts:

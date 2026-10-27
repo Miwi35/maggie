@@ -66,6 +66,23 @@ class ProactionRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** Whether the user has a proaction with this summary still waiting for its run. */
+    public function hasPendingWithSummary(User $user, string $summary): bool
+    {
+        return null !== $this->createQueryBuilder('p')
+            ->select('p.id')
+            ->join('p.agenda', 'a')
+            ->where('a.user = :user')
+            ->andWhere('p.summary = :summary')
+            ->andWhere('p.executionStatus = :pending')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('summary', $summary)
+            ->setParameter('pending', ProactionStatus::Pending->value)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** The proaction, if it is the user's — or anyone's when no user is named: another user's is not found. */
     public function findOneForUser(string $id, ?User $user): ?Proaction
     {
