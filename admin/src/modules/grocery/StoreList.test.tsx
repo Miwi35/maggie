@@ -6,9 +6,15 @@ import type { DataProvider } from 'react-admin'
 import { MemoryRouter } from 'react-router-dom'
 import { stubAislesApi } from '../../test/aislesApi'
 import type { StubAisle } from '../../test/aislesApi'
+import { STORES_PAGE_TOPICS } from './aislesApi'
 import { StoreList } from './StoreList'
 
-vi.mock('../../hooks/useMercure', () => ({ useMercure: () => {} }))
+const streams = new Set<string>()
+vi.mock('../../hooks/useMercure', () => ({
+  useMercure: (topics: string[]) => {
+    streams.add(JSON.stringify(topics))
+  },
+}))
 
 const STORES = [
   { id: '/api/stores/biocoop', name: 'Biocoop', description: null, visitOrder: 2 },
@@ -59,6 +65,7 @@ const aisleNames = () => screen.getAllByTestId('store-aisle').map((row) => row.g
 
 describe('StoreList — the stores page', () => {
   beforeEach(() => {
+    streams.clear()
     vi.restoreAllMocks()
     localStorage.setItem('token', 'test-jwt')
   })
@@ -150,5 +157,14 @@ describe('StoreList — the stores page', () => {
     expect(await screen.findByText("Aucun magasin pour l'instant")).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '+ Magasin' })).toBeInTheDocument()
     expect(screen.queryByTestId('store-detail')).not.toBeInTheDocument()
+  })
+
+  test('the whole page listens on one Mercure stream: a browser has six connections and the shell holds four', async () => {
+    const user = userEvent.setup()
+    renderStores()
+    await waitFor(() => expect(aisleNames()).toHaveLength(3))
+    await user.click(screen.getAllByTestId('store-row')[1])
+
+    expect([...streams]).toEqual([JSON.stringify(STORES_PAGE_TOPICS)])
   })
 })

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import type { DndContextProps } from '@dnd-kit/core'
 import { stubAislesApi } from '../../test/aislesApi'
 import type { StubAisle } from '../../test/aislesApi'
+import { STORES_PAGE_TOPICS } from './aislesApi'
 import { StoreAisles } from './StoreAisles'
 
 const mockNotify = vi.fn()
@@ -161,7 +162,7 @@ describe('StoreAisles', () => {
     const { aisles } = stubAislesApi(CARREFOUR)
     render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
-    expect(mercure.topics).toEqual(['/api/aisles/{id}'])
+    expect(mercure.topics).toEqual(STORES_PAGE_TOPICS)
 
     aisles.find((a) => a.id === 'fruits')!.position = 4
     await act(async () => mercure.onMessage?.(JSON.stringify({ name: 'Fruits et légumes', position: 4, storeId: 'carrefour' })))

@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMercure } from '../../hooks/useMercure'
-import { AISLE_TOPIC, fetchAisleCounts, fetchStoreProductCount } from './aislesApi'
+import { STORES_PAGE_TOPICS, fetchStoreAisleCount, fetchStoreProductCount } from './aislesApi'
 import { bareId } from './recurring'
 
 export interface StoreCount {
   aisles: number
   products: number
 }
-
-const AISLE_TOPICS = [AISLE_TOPIC]
-const PRODUCT_TOPICS = ['/api/products/{id}']
 
 // Products are counted from the search index, which the worker updates after the event left.
 const INDEX_DELAY_MS = 3000
@@ -23,18 +20,25 @@ export const useStoreCounts = (storeIds: string[]): Record<string, StoreCount> =
   const [counts, setCounts] = useState<Record<string, StoreCount>>({})
   const key = storeIds.map(bareId).join('|')
 
+  const latest = useRef(0)
+
   const reload = useCallback(async () => {
     const ids = key ? key.split('|') : []
     if (ids.length === 0) return
-    try {
-      const [aisles, products] = await Promise.all([
-        fetchAisleCounts(),
-        Promise.all(ids.map((id) => fetchStoreProductCount(id))),
-      ])
-      setCounts(Object.fromEntries(ids.map((id, i) => [id, { aisles: aisles[id] ?? 0, products: products[i] }])))
-    } catch {
-      // The counters stay as they were: the page does not depend on them.
-    }
+    const request = ++latest.current
+    const read = await Promise.all(
+      ids.map(async (id): Promise<[string, StoreCount] | null> => {
+        try {
+          const [aisles, products] = await Promise.all([fetchStoreAisleCount(id), fetchStoreProductCount(id)])
+          return [id, { aisles, products }]
+        } catch {
+          return null // This store keeps its last counters: the page does not depend on them.
+        }
+      }),
+    )
+    if (request !== latest.current) return // a newer read is under way and will answer
+    const fresh = Object.fromEntries(read.filter((entry): entry is [string, StoreCount] => entry !== null))
+    setCounts((previous) => ({ ...previous, ...fresh }))
   }, [key])
 
   useEffect(() => {
@@ -44,8 +48,7 @@ export const useStoreCounts = (storeIds: string[]): Record<string, StoreCount> =
   const later = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(later.current), [])
 
-  useMercure(AISLE_TOPICS, reload)
-  useMercure(PRODUCT_TOPICS, () => {
+  useMercure(STORES_PAGE_TOPICS, () => {
     reload()
     clearTimeout(later.current)
     later.current = setTimeout(reload, INDEX_DELAY_MS)

@@ -26,11 +26,10 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import { useMercure } from '../../hooks/useMercure'
-import { AISLE_TOPIC, AisleError, createAisle, deleteAisle, fetchAisles, updateAisle } from './aislesApi'
+import { STORES_PAGE_TOPICS, AisleError, createAisle, deleteAisle, fetchAisles, updateAisle } from './aislesApi'
 import type { Aisle } from './aislesApi'
 import { bareId } from './recurring'
 
-const AISLE_TOPICS = [AISLE_TOPIC]
 
 const errorText = (error: unknown, fallback: string) => (error instanceof AisleError ? error.message : fallback)
 
@@ -127,7 +126,7 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
   }, [reload])
 
   useMercure(
-    AISLE_TOPICS,
+    STORES_PAGE_TOPICS,
     useCallback(
       (data?: string) => {
         try {

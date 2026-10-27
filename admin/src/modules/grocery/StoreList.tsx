@@ -17,14 +17,16 @@ import Typography from '@mui/material/Typography'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { LiveList } from '../../components/list/LiveList'
 import type { LiveConfig } from '../../hooks/liveList'
+import { STORES_PAGE_TOPICS } from './aislesApi'
 import { StoreAisles } from './StoreAisles'
 import { useStoreCounts } from './useStoreCounts'
 import type { StoreCount } from './useStoreCounts'
 import { bareId } from './recurring'
 
 const STORE_LIVE: LiveConfig = {
-  topics: ['/api/stores/{id}'],
+  topics: STORES_PAGE_TOPICS,
   required: ['name', 'visitOrder'],
+  accept: (row) => row.id.startsWith('/api/stores/'),
 }
 
 interface StoreRecord {
