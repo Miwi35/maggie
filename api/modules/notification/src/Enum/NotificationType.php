@@ -25,4 +25,6 @@ enum NotificationType: string
     case Finance = 'finance';
     /** A timer of the Cuisine activity reached its end (MAG-582). */
     case CookingTimer = 'cooking_timer';
+    /** Time to leave for an event: one per `departAt` of its trip (MAG-655). */
+    case Departure = 'departure';
 }

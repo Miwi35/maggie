@@ -7,6 +7,7 @@ namespace Maggie\Notification\Tests\Push;
 use Maggie\Core\Entity\User;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
+use Maggie\Notification\Push\NavigationLinkProvider;
 use Maggie\Notification\Push\PushMessageFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -192,6 +193,7 @@ final class PushMessageFactoryTest extends TestCase
         yield 'proaction' => [NotificationType::Proaction, 'chat_v2'];
         yield 'grocery' => [NotificationType::Grocery, 'chat_v2'];
         yield 'cooking timer' => [NotificationType::CookingTimer, 'reminders_v2'];
+        yield 'departure' => [NotificationType::Departure, 'departure'];
     }
 
     public function testACookingTimersEndIsTaggedOncePerTimerAndCarriesItsId(): void
@@ -245,6 +247,47 @@ final class PushMessageFactoryTest extends TestCase
         $message = (new PushMessageFactory())->build($this->notification($type, 'Titre'), 't');
 
         self::assertSame($channel, $message['android']['notification']['channel_id']);
+    }
+
+    /** Time to leave (MAG-655): « Y aller » opens the trip's navigation URL, at high priority, in the departure channel. */
+    public function testADepartureOpensTheNavigationUrlOfItsTrip(): void
+    {
+        $factory = new PushMessageFactory('maggie', [$this->navigationLinks(['/api/trips/01JTRIP' => 'https://waze.com/ul?ll=48.119,-1.6672&navigate=yes'])]);
+
+        $message = $factory->build($this->notification(NotificationType::Departure, 'Pars maintenant pour Dentiste', null, '/api/trips/01JTRIP'), 't');
+
+        self::assertSame('departure', $message['data']['type']);
+        self::assertSame('https://waze.com/ul?ll=48.119,-1.6672&navigate=yes', $message['data']['link']);
+        self::assertSame('Y aller', $message['data']['actionLabel']);
+        self::assertSame('high', $message['android']['priority']);
+        self::assertSame('departure', $message['android']['notification']['channel_id']);
+        self::assertSame('Pars maintenant pour Dentiste', $message['notification']['title']);
+    }
+
+    public function testADepartureWhoseTripNobodyKnowsAnymoreCarriesNoLink(): void
+    {
+        $factory = new PushMessageFactory('maggie', [$this->navigationLinks([])]);
+
+        $message = $factory->build($this->notification(NotificationType::Departure, 'Pars maintenant pour Dentiste', null, '/api/trips/01JTRIP'), 't');
+
+        self::assertArrayNotHasKey('link', $message['data']);
+        self::assertArrayNotHasKey('actionLabel', $message['data']);
+    }
+
+    /** @param array<string, string> $urls related IRI → URL */
+    private function navigationLinks(array $urls): NavigationLinkProvider
+    {
+        return new class($urls) implements NavigationLinkProvider {
+            /** @param array<string, string> $urls */
+            public function __construct(private readonly array $urls)
+            {
+            }
+
+            public function navigationUrl(string $relatedEntityIri): ?string
+            {
+                return $this->urls[$relatedEntityIri] ?? null;
+            }
+        };
     }
 
     private function notification(NotificationType $type, string $title, ?string $body = null, ?string $iri = null): Notification

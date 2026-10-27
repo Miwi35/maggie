@@ -6,6 +6,7 @@ namespace Maggie\Notification\Push;
 
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
  * Turns a stored notification into the FCM message one device receives.
@@ -29,6 +30,8 @@ class PushMessageFactory
     public const CHANNEL_REMINDERS = 'reminders_v2';
     public const CHANNEL_APPROVALS = 'approvals_v2';
     public const CHANNEL_FINANCE = 'finance_v2';
+    /** Time to leave (MAG-655): strong importance, for the app's hard interruption. */
+    public const CHANNEL_DEPARTURE = 'departure';
 
     /** The Android tag of a cooking timer's end, followed by the timer's id (MAG-582). */
     public const COOKING_TIMER_TAG = 'cooking-timer';
@@ -66,9 +69,12 @@ class PushMessageFactory
         'recipes' => ['recipe', 'Voir la recette'],
     ];
 
+    /** @param iterable<NavigationLinkProvider> $navigationLinks the modules whose entities carry their own link */
     public function __construct(
         // `maggie` in prod; the dev and e2e builds answer to their own scheme.
         private readonly string $deepLinkScheme = 'maggie',
+        #[AutowireIterator(NavigationLinkProvider::TAG)]
+        private readonly iterable $navigationLinks = [],
     ) {
     }
 
@@ -201,6 +207,7 @@ class PushMessageFactory
             NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge, NotificationType::Routine, NotificationType::CookingTimer => self::CHANNEL_REMINDERS,
             NotificationType::Approval => self::CHANNEL_APPROVALS,
             NotificationType::ConsentExpiring, NotificationType::Finance => self::CHANNEL_FINANCE,
+            NotificationType::Departure => self::CHANNEL_DEPARTURE,
             NotificationType::Proaction, NotificationType::Grocery => self::CHANNEL_CHAT,
         };
     }
@@ -251,6 +258,18 @@ class PushMessageFactory
             [$host, $label] = self::ENTITY_LINKS[$m[1]];
 
             return ['link' => sprintf('%s://%s/%s', $this->deepLinkScheme, $host, $m[2]), 'label' => $label];
+        }
+
+        // Time to leave (MAG-655): « Y aller » opens the navigation URL kept on the trip.
+        if (1 === preg_match('#^/api/trips/[0-9A-Za-z-]{1,64}$#', $path)) {
+            foreach ($this->navigationLinks as $provider) {
+                $url = $provider->navigationUrl($path);
+                if (null !== $url) {
+                    return ['link' => $url, 'label' => 'Y aller'];
+                }
+            }
+
+            return null;
         }
 
         // The routines of the day (MAG-512): « Aujourd'hui » of the tasks.

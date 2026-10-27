@@ -1,6 +1,7 @@
 [
     "approvals_v2",
     "chat_v2",
+    "departure",
     "finance_v2",
     "reminders_v2"
 ]
