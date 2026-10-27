@@ -64,12 +64,13 @@ internal fun addHintOf(view: TaskView): String = when (view) {
  * « Aujourd'hui (3) », a menu entry: the count comes with every read of a view, so the other views stay true.
  * « Aujourd'hui » counts what is left of the day (MAG-497), not every task due.
  */
-internal fun tabLabelOf(view: TaskView, state: TasksUiState): String {
-    val count = if (view == TaskView.TODAY) state.day?.left else state.counts?.get(view)
-    return count?.let { "${view.label} ($it)" } ?: view.label
-}
+internal fun tabCountOf(view: TaskView, state: TasksUiState): Int? =
+    if (view == TaskView.TODAY) state.day?.left else state.counts?.get(view)
 
-/** The key of the « Routines » entry (MAG-511), beside the four views: `tasks_tab_routines`. */
+internal fun tabLabelOf(view: TaskView, state: TasksUiState): String =
+    tabCountOf(view, state)?.let { "${view.label} ($it)" } ?: view.label
+
+/** The key of the « Routines » entry (MAG-511), beside the four views: `breadcrumb_menu_routines`. */
 internal const val ROUTINES_TAB = "routines"
 
 /**
@@ -134,7 +135,7 @@ fun TasksScreen(
         TasksHeader(
             current = if (routinesShown) null else state.view,
             entries = tabsOf(withRoutines = routines != null),
-            labelOf = { view -> if (view == null) ROUTINES_LABEL else tabLabelOf(view, state) },
+            countOf = { view -> view?.let { tabCountOf(it, state) } },
             onPick = { view ->
                 showRoutines = view == null
                 if (view != null) viewModel.selectView(view)

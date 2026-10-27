@@ -53,7 +53,7 @@ class HomeNutritionNavGraphScreenTest {
         compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.NUTRITION)).performClick()
         compose.waitForIdle()
 
-        compose.onNode(hasTestTag(UiTags.COOKBOOK_SECTION) and hasText("Repas")).assertIsDisplayed()
+        compose.onNode(hasTestTag(UiTags.BREADCRUMB_SECTION) and hasText("Repas")).assertIsDisplayed()
         scenario.close()
     }
 
@@ -63,8 +63,8 @@ class HomeNutritionNavGraphScreenTest {
         launchOnHome()
         compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.NUTRITION)).performClick()
         compose.waitForIdle()
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION).performClick()
-        compose.onNodeWithTag(UiTags.COOKBOOK_SECTION_RECIPES).performClick()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("recipes")).performClick()
         compose.waitForIdle()
 
         compose.onNodeWithTag(UiTags.drawerItem("home")).performSemanticsAction(SemanticsActions.OnClick)
@@ -72,7 +72,7 @@ class HomeNutritionNavGraphScreenTest {
         compose.onNodeWithTag(UiTags.drawerItem("cookbook")).performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
 
-        compose.onNode(hasTestTag(UiTags.COOKBOOK_SECTION) and hasText("Repas")).assertIsDisplayed()
+        compose.onNode(hasTestTag(UiTags.BREADCRUMB_SECTION) and hasText("Repas")).assertIsDisplayed()
         scenario.close()
     }
 

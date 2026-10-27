@@ -84,6 +84,7 @@ import com.maggie.app.ui.components.MaggiePortrait
 import com.maggie.app.ui.interruption.InterruptionHost
 import com.maggie.app.ui.components.ContextListSheet
 import com.maggie.app.ui.components.MaggieNavigationRail
+import com.maggie.app.ui.components.BarActions
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.layout.AppLayout
 import com.maggie.app.ui.layout.AppShell
@@ -335,6 +336,9 @@ private val MAIN_SCREENS = setOf(
     Screen.Cookbook.route,
     Screen.Grocery.route,
 )
+
+// The screens whose content opens with the module's breadcrumb: the generic bar and its title would stack on it.
+private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route)
 
 // The full-screen chat has its own input: a second way in would duplicate it
 // The Finance screens keep it too: the bottom of the screen is Maggie's; Finance has no rail to hold her buttons.
@@ -861,9 +865,7 @@ fun NavGraph() {
     val title = when (currentRoute) {
         Screen.Home.route -> Screen.Home.label
         Screen.Calendar.route -> Screen.Calendar.label
-        Screen.Tasks.route -> Screen.Tasks.label
         Screen.Chat.route -> Screen.Chat.label
-        Screen.Cookbook.route -> Screen.Cookbook.label
         else -> "Maggie"
     }
 
@@ -1070,7 +1072,24 @@ fun NavGraph() {
         onSelectSection = ::selectGrocerySection,
         onOpenDrawer = if (chrome.showsRail) null else ({ scope.launch { drawerState.open() } }),
     )
-    CompositionLocalProvider(LocalFinanceNav provides financeNav, LocalGroceryNav provides groceryNav) {
+    // Tâches and Cuisine draw their breadcrumb in place of the bar's title (MAG-670): same burger, same actions.
+    val moduleBar = ModuleBar(
+        onOpenDrawer = if (chrome.showsRail) null else ({ scope.launch { drawerState.open() } }),
+        actions = {
+            if (chrome.showsRail) {
+                BarActions(
+                    unreadCount = notificationUiState.unreadCount,
+                    onNotificationsClick = { navigateTo(Screen.Notifications.route) },
+                    onSearchClick = { navigateTo(Screen.Search.route) },
+                )
+            }
+        },
+    )
+    CompositionLocalProvider(
+        LocalFinanceNav provides financeNav,
+        LocalGroceryNav provides groceryNav,
+        LocalModuleBar provides moduleBar,
+    ) {
         AppShell(
             drawerState = drawerState,
             drawerGesturesEnabled = isMainScreen,
@@ -1131,8 +1150,8 @@ fun NavGraph() {
                 // the gesture bar twice.
                 contentWindowInsets = WindowInsets(0),
                 topBar = {
-                    // Courses draws its own breadcrumb (MAG-627), like the Finance pages.
-                    if (isMainScreen && currentRoute != Screen.Grocery.route) {
+                    // Courses, Tâches and Cuisine draw their own breadcrumb (MAG-627, MAG-670), like the Finance pages.
+                    if (isMainScreen && currentRoute !in OWN_BREADCRUMB_ROUTES) {
                         MaggieTopBar(
                             title = title,
                             onMenuClick = if (chrome.showsRail) {

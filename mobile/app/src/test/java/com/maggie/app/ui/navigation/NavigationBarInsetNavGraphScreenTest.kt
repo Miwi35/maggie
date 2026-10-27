@@ -89,8 +89,8 @@ class NavigationBarInsetNavGraphScreenTest {
     @Test
     fun `the button to add a routine stays above the taskbar`() {
         launchOnTasks()
-        compose.onNodeWithTag(UiTags.TASKS_VIEW_MENU).performClick()
-        compose.onNodeWithTag(UiTags.tasksTab("routines")).performClick()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("routines")).performClick()
         compose.waitForIdle()
         giveTaskbar()
 

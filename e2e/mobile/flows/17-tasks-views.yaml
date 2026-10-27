@@ -38,6 +38,15 @@ tags:
     visible:
       id: "tasks"
     timeout: 20000
+# One header (MAG-670): the breadcrumb « Tâches › Aujourd'hui ▾ » in the top bar, and no bar title above it.
+- assertVisible:
+    id: "breadcrumb_module"
+    text: "Tâches"
+- assertVisible:
+    id: "breadcrumb_section"
+    text: "Aujourd'hui"
+- assertNotVisible:
+    id: "top_bar_title"
 
 # The seed's day is not confirmed and the clock is past the morning time: « Ta journée »
 # opens first (MAG-498, `17b-tasks-day` plays it). « Plus tard » leaves it as it is.
