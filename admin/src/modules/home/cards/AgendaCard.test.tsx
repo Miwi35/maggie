@@ -220,6 +220,42 @@ describe('AgendaCard', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/finance/review/activity|{"from":"/"}')
   })
 
+  test('the review line carries its own « ▶ Lancer », which opens the activity; the other lines do not', async () => {
+    const review = event('review', 'Revue', '2026-10-14T23:00:00+02:00', '2026-10-14T23:30:00+02:00', { activity: 'finance-review' })
+    vi.stubGlobal('fetch', vi.fn(reads([review, upcoming])))
+    const user = userEvent.setup()
+
+    renderCard()
+    await screen.findByText('Dentiste')
+
+    const launches = screen.getAllByTestId('home-launch-finance')
+    expect(launches).toHaveLength(1)
+    expect(launches[0]).toHaveAccessibleName('Lancer Revue')
+    // Beside the row's button, not inside it: a link in a button is not valid.
+    expect(within(screen.getAllByTestId('agenda-row')[0]).queryByTestId('home-launch-finance')).not.toBeInTheDocument()
+
+    await user.click(launches[0])
+    expect(screen.getByTestId('where')).toHaveTextContent('/finance/review/activity|{"from":"/"}')
+  })
+
+  test('has no « ▶ Lancer » on « Demain »', async () => {
+    const review = event('review', 'Revue', '2026-10-15T18:00:00+02:00', '2026-10-15T19:00:00+02:00', { activity: 'finance-review' })
+    vi.stubGlobal('fetch', vi.fn(reads([review])))
+
+    renderCard('tomorrow')
+    await screen.findByTestId('agenda-row')
+
+    expect(screen.queryByTestId('home-launch-finance')).not.toBeInTheDocument()
+  })
+
+  test('« Voir la journée › » opens the Agenda', async () => {
+    vi.stubGlobal('fetch', vi.fn(reads([upcoming])))
+
+    renderCard()
+
+    expect(await screen.findByRole('link', { name: 'Voir la journée ›' })).toHaveAttribute('href', '/calendar')
+  })
+
   test('the fiche of a whole-day event shows its days', async () => {
     vi.useRealTimers()
     vi.stubGlobal('fetch', vi.fn(reads([stay])))

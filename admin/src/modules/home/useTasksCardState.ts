@@ -32,6 +32,9 @@ async function fetchDayMoments(): Promise<Partial<Record<string, string>>> {
   return body?.dayMoments ?? {}
 }
 
+// Routines and day moments only add chips to the card: when either fails, the tasks are still shown.
+const orNone = <T>(read: Promise<T>, none: T): Promise<T> => read.catch(() => none)
+
 async function read(day: HomeDay): Promise<TasksHomeState> {
   const now = new Date()
   const today = localDay(now)
@@ -40,10 +43,10 @@ async function read(day: HomeDay): Promise<TasksHomeState> {
   const [open, done, routines, dayMoments] = await Promise.all([
     orAbsent(day === 'today' ? fetchTaskView('today').then((view) => view.member) : fetchOpenDueOn(tomorrow)),
     orAbsent(day === 'today' ? fetchCompletedBetween(localMidnightIso(today), localMidnightIso(tomorrow), DONE_LINES) : Promise.resolve([])),
-    orAbsent(fetchRoutinesDay(day === 'today' ? today : tomorrow)),
-    orAbsent(day === 'today' ? fetchDayMoments() : Promise.resolve(undefined)),
+    orNone(fetchRoutinesDay(day === 'today' ? today : tomorrow), { date: day === 'today' ? today : tomorrow, moments: [] }),
+    orNone(day === 'today' ? fetchDayMoments() : Promise.resolve(undefined), undefined),
   ])
-  if (open === ABSENT || done === ABSENT || routines === ABSENT || dayMoments === ABSENT) return emptyTasksState(day)
+  if (open === ABSENT || done === ABSENT) return emptyTasksState(day)
 
   return composeTasksState(day, { open, done, routines, dayMoments }, hhmm(now))
 }

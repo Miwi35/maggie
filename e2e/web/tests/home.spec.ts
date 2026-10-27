@@ -25,6 +25,46 @@ test('the Accueil shows its trail and a day selector that switches to « Demain 
   await expect(home.day('Demain')).toHaveAttribute('aria-pressed', 'true')
 })
 
+/**
+ * The Accueil to the letter of the mockup (MAG-625): the page is titled with the day it shows,
+ * and the left column (Agenda here) comes before the grid of the other modules.
+ */
+test('the Accueil is titled with the date of the day, « Demain » with tomorrow, and the Agenda card comes before the grid', async ({ homeUser }) => {
+  const { page } = homeUser
+  const home = new HomePage(page)
+  await home.open()
+
+  const title = page.getByRole('heading', { level: 1, name: /^Accueil · / })
+  await expect(title).toHaveText(/^Accueil · \p{L}+ \d{1,2}(er)? \p{L}+$/u)
+  const today = await title.textContent()
+
+  await home.day('Demain').click()
+  await expect(title).not.toHaveText(String(today))
+  await expect(title).toHaveText(/^Accueil · \p{L}+ \d{1,2}(er)? \p{L}+$/u)
+
+  await home.day("Aujourd'hui").click()
+  await expect(title).toHaveText(String(today))
+
+  const [agenda, grocery, pageBox] = await Promise.all([
+    home.card('agenda').boundingBox(),
+    home.groceryCard.boundingBox(),
+    page.getByTestId('home-page').boundingBox(),
+  ])
+  expect(agenda && grocery && pageBox, 'the cards and the page are drawn').toBeTruthy()
+  if (pageBox!.width >= 760) {
+    // The page is wide enough (1440px with the menu and the chat open leaves ~820px): the left column
+    // sits beside the grid, whose cards come two by two.
+    expect(agenda!.x + agenda!.width, 'Agenda is left of the grid').toBeLessThanOrEqual(grocery!.x + 1)
+    const columns = await home.groceryCard.evaluate((card) => {
+      const grid = card.parentElement?.parentElement
+      return grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : 0
+    })
+    expect(columns, 'the grid of the other modules has two columns').toBe(2)
+  } else {
+    expect(agenda!.y, 'Agenda is above the grid on a narrow page').toBeLessThan(grocery!.y)
+  }
+})
+
 test('a link to « Demain » opens the Accueil on it', async ({ page }) => {
   const home = new HomePage(page)
   await home.open('tomorrow')
