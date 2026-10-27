@@ -183,5 +183,8 @@ class PushIntentsTest {
         assertEquals(PushIntents.ACTION_DEPARTURE_GO, go.action)
         assertEquals(payload, PushIntents.payloadOf(screen))
         assertEquals(payload, PushIntents.payloadOf(go))
+        // Every alert opens its own screen: reusing the open one would show the previous alert's payload.
+        assertEquals(0, screen.flags and android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        assertEquals(0, go.flags and android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
     }
 }

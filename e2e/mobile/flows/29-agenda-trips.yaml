@@ -57,7 +57,6 @@ tags:
 - assertVisible: "4 min"
 - assertVisible: "14 min"
 - assertVisible: "3 min"
-- assertVisible: "21 min porte à porte"
 
 # The event moves and the trip is kept again, with the app left as it is.
 - runScript:

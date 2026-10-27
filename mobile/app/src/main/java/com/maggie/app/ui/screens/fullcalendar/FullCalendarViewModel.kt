@@ -400,7 +400,9 @@ class FullCalendarViewModel(
         }
         val result = tripRepository.getTrips(day)
         if (_uiState.value.currentDate != day || _uiState.value.viewType != CalendarViewType.DAY) return
-        _uiState.value = _uiState.value.copy(trips = result.getOrDefault(emptyList()))
+        // A failed read keeps the lines already shown: they are matched by event id, so none of another day can appear.
+        val trips = result.getOrNull() ?: return
+        _uiState.value = _uiState.value.copy(trips = trips)
     }
 
     private fun onRangeChanged() {

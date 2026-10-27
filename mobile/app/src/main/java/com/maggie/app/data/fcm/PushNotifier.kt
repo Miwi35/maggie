@@ -229,10 +229,13 @@ object PushIntents {
     fun navigate(payload: PushPayload): Intent? =
         navigationOf(payload.link)?.let { Intent(Intent.ACTION_VIEW, it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
 
-    /** The departure activity: « Pars maintenant » full screen, or with [go] straight to the navigation link. */
+    /**
+     * The departure activity: « Pars maintenant » full screen, or with [go] straight to the navigation link.
+     * Never reused (no CLEAR_TOP, standard launch mode): each alert reads its own payload.
+     */
     fun departure(context: Context, payload: PushPayload, go: Boolean): Intent =
         Intent(context, DepartureActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
             if (go) action = ACTION_DEPARTURE_GO
             put(this, payload)
         }

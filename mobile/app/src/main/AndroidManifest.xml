@@ -64,7 +64,6 @@
             android:name=".ui.screens.departure.DepartureActivity"
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:launchMode="singleTop"
             android:taskAffinity="com.maggie.app.departure"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
