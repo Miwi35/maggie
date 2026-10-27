@@ -281,13 +281,13 @@ test('quitting at step 3 keeps the cook: the sheet says « Reprendre », the act
  * the step, the lines of the meal first and marked, a tick reaches the API, and the activity never leaves full
  * screen. The Vitest suite owns the states of the panel; this is the real route, the real browser and the API.
  *
- * The account of `65-nutrition-home.yaml`: tonight's dinner has « Pâtes au pesto », whose spaghetti the journey puts
+ * The account of `65-cuisine-home.yaml`: tonight's dinner has « Pâtes au pesto », whose spaghetti the journey puts
  * on the list.
  */
 test('« Courses » opens the list over the activity, shows the spaghetti of the meal first, and ticking it reaches the list without leaving full screen', async ({
-  nutritionUser,
+  cuisineUser,
 }) => {
-  const { page, api } = nutritionUser
+  const { page, api } = cuisineUser
   const home = new HomePage(page)
   let itemId = ''
 
@@ -299,7 +299,7 @@ test('« Courses » opens the list over the activity, shows the spaghetti of the
     itemId = ((await added.json()) as { itemId: string }).itemId
 
     await home.open()
-    await home.card('nutrition').getByTestId('home-launch-nutrition').click()
+    await home.card('cuisine').getByTestId('home-launch-cuisine').click()
     const shell = page.getByTestId('activity-shell')
     await expect(page.getByTestId('cooking-preparation')).toBeVisible()
     await expect(shell).not.toHaveAttribute('data-mode', 'pending')
