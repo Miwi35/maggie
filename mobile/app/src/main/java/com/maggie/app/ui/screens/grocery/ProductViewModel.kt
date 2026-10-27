@@ -146,7 +146,14 @@ class ProductViewModel(
                     editor = _uiState.value.editor?.takeUnless { it.original.id == id },
                 )
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message)
+                val message = e.message ?: "La suppression a échoué."
+                val editor = _uiState.value.editor
+                // The open sheet covers the list: the reason goes where the owner is looking.
+                _uiState.value = if (editor?.original?.id == id) {
+                    _uiState.value.copy(editor = editor.copy(error = message))
+                } else {
+                    _uiState.value.copy(error = message)
+                }
             }
         }
     }

@@ -268,7 +268,7 @@ class ProductViewModelEditorTest {
     }
 
     @Test
-    fun `a refused deletion keeps the sheet open`() = runTest {
+    fun `a refused deletion keeps the sheet open and says why in it`() = runTest {
         val viewModel = viewModel(pasta)
         coEvery { productRepository.deleteProduct("p1") } returns Result.failure(RuntimeException("Refusé"))
         viewModel.openProduct("p1")
@@ -278,6 +278,17 @@ class ProductViewModelEditorTest {
 
         assertNotNull(viewModel.uiState.value.editor)
         assertEquals(listOf(pasta), viewModel.uiState.value.products)
+        assertEquals("Refusé", viewModel.uiState.value.editor!!.error)
+    }
+
+    @Test
+    fun `a refused deletion from the list says why on the list`() = runTest {
+        val viewModel = viewModel(pasta)
+        coEvery { productRepository.deleteProduct("p1") } returns Result.failure(RuntimeException("Refusé"))
+
+        viewModel.deleteProduct("p1")
+        advanceUntilIdle()
+
         assertEquals("Refusé", viewModel.uiState.value.error)
     }
 }
