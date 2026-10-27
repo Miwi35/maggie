@@ -429,6 +429,12 @@ web:
       - 'api/modules/calendar/src/Routing/**'
       - '.docker/e2e/wiremock/mappings/google-routes.json'
       - '.docker/e2e/wiremock/mappings/google-geocoding.json'
+  e2e/web/tests/agenda-trips.spec.ts:
+    areas: [calendar]
+    paths:
+      - 'api/modules/calendar/src/Routing/**'
+      - '.docker/e2e/wiremock/mappings/google-routes.json'
+      - '.docker/e2e/wiremock/mappings/google-geocoding.json'
   e2e/web/tests/agenda-events.spec.ts:
     areas: [calendar, realtime]
     quarantine:

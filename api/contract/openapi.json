@@ -11752,6 +11752,185 @@
                 }
             }
         },
+        "/api/trips": {
+            "get": {
+                "operationId": "api_trips_get_collection",
+                "tags": [
+                    "Trip"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trip collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "Trip.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Trip.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Trip"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Trip.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of Trip resources.",
+                "description": "Retrieves the collection of Trip resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "The trips leaving that day, YYYY-MM-DD read in Europe/Paris; any other value is refused with a 400.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/trips/{id}": {
+            "get": {
+                "operationId": "api_trips_id_get",
+                "tags": [
+                    "Trip"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trip resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Trip.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Trip"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Trip.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Trip resource.",
+                "description": "Retrieves a Trip resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Trip identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/users/me": {
             "get": {
                 "operationId": "me",
@@ -28408,6 +28587,340 @@
                     }
                 ]
             },
+            "Trip": {
+                "type": "object",
+                "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "event": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "mode": {
+                        "readOnly": true,
+                        "type": "string",
+                        "enum": [
+                            "drive",
+                            "transit",
+                            "walk",
+                            "bicycle"
+                        ]
+                    },
+                    "steps": {
+                        "readOnly": true,
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "anyOf": [
+                                    {
+                                        "type": "integer"
+                                    },
+                                    {
+                                        "type": "string"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "durationMinutes": {
+                        "readOnly": true,
+                        "type": "integer"
+                    },
+                    "departAt": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "navigationUrl": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "originKind": {
+                        "readOnly": true,
+                        "description": "`position`, `place` or `event`, as {@see \\Maggie\\Calendar\\Service\\TripOrigin::$kind}.",
+                        "type": "string"
+                    },
+                    "originRef": {
+                        "readOnly": true,
+                        "description": "The place or the event the trip starts from; null from the position.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "originLabel": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "originLatitude": {
+                        "readOnly": true,
+                        "type": "number"
+                    },
+                    "originLongitude": {
+                        "readOnly": true,
+                        "type": "number"
+                    },
+                    "carLatitude": {
+                        "readOnly": true,
+                        "description": "Where the car was taken from, by car only.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "carLongitude": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "originDecidedBy": {
+                        "readOnly": true,
+                        "type": "string",
+                        "enum": [
+                            "user",
+                            "maggie"
+                        ]
+                    },
+                    "computedAt": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "Trip.html": {
+                "type": "object",
+                "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed.",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "event": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "mode": {
+                        "readOnly": true,
+                        "type": "string",
+                        "enum": [
+                            "drive",
+                            "transit",
+                            "walk",
+                            "bicycle"
+                        ]
+                    },
+                    "steps": {
+                        "readOnly": true,
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "anyOf": [
+                                    {
+                                        "type": "integer"
+                                    },
+                                    {
+                                        "type": "string"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "durationMinutes": {
+                        "readOnly": true,
+                        "type": "integer"
+                    },
+                    "departAt": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "navigationUrl": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "originKind": {
+                        "readOnly": true,
+                        "description": "`position`, `place` or `event`, as {@see \\Maggie\\Calendar\\Service\\TripOrigin::$kind}.",
+                        "type": "string"
+                    },
+                    "originRef": {
+                        "readOnly": true,
+                        "description": "The place or the event the trip starts from; null from the position.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "originLabel": {
+                        "readOnly": true,
+                        "type": "string"
+                    },
+                    "originLatitude": {
+                        "readOnly": true,
+                        "type": "number"
+                    },
+                    "originLongitude": {
+                        "readOnly": true,
+                        "type": "number"
+                    },
+                    "carLatitude": {
+                        "readOnly": true,
+                        "description": "Where the car was taken from, by car only.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "carLongitude": {
+                        "readOnly": true,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "originDecidedBy": {
+                        "readOnly": true,
+                        "type": "string",
+                        "enum": [
+                            "user",
+                            "maggie"
+                        ]
+                    },
+                    "computedAt": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "Trip.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "event": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "mode": {
+                                "readOnly": true,
+                                "type": "string",
+                                "enum": [
+                                    "drive",
+                                    "transit",
+                                    "walk",
+                                    "bicycle"
+                                ]
+                            },
+                            "steps": {
+                                "readOnly": true,
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "anyOf": [
+                                            {
+                                                "type": "integer"
+                                            },
+                                            {
+                                                "type": "string"
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            "durationMinutes": {
+                                "readOnly": true,
+                                "type": "integer"
+                            },
+                            "departAt": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "navigationUrl": {
+                                "readOnly": true,
+                                "type": "string"
+                            },
+                            "originKind": {
+                                "readOnly": true,
+                                "description": "`position`, `place` or `event`, as {@see \\Maggie\\Calendar\\Service\\TripOrigin::$kind}.",
+                                "type": "string"
+                            },
+                            "originRef": {
+                                "readOnly": true,
+                                "description": "The place or the event the trip starts from; null from the position.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "originLabel": {
+                                "readOnly": true,
+                                "type": "string"
+                            },
+                            "originLatitude": {
+                                "readOnly": true,
+                                "type": "number"
+                            },
+                            "originLongitude": {
+                                "readOnly": true,
+                                "type": "number"
+                            },
+                            "carLatitude": {
+                                "readOnly": true,
+                                "description": "Where the car was taken from, by car only.",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "carLongitude": {
+                                "readOnly": true,
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "originDecidedBy": {
+                                "readOnly": true,
+                                "type": "string",
+                                "enum": [
+                                    "user",
+                                    "maggie"
+                                ]
+                            },
+                            "computedAt": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "date-time"
+                            }
+                        }
+                    }
+                ],
+                "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed."
+            },
             "User": {
                 "type": "object",
                 "properties": {
@@ -28821,6 +29334,10 @@
         {
             "name": "Task",
             "description": "Resource 'Task' operations."
+        },
+        {
+            "name": "Trip",
+            "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed."
         },
         {
             "name": "Ingredient",

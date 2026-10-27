@@ -7,10 +7,17 @@ namespace App\Tests\Contract;
 use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Reward;
 use Maggie\Calendar\Entity\TaskReminder;
+use Maggie\Calendar\Entity\Trip;
+use Maggie\Calendar\Enum\TripDecider;
+use Maggie\Calendar\Enum\TripMode;
+use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Service\RewardGranter;
 use Maggie\Calendar\Service\RewardMessages;
+use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Scenario;
@@ -995,6 +1002,47 @@ final class RecordedResponseContractTest extends WebTestCase
             'responses/routines.collection.json',
             self::stabilise($body),
             'GET /api/routines no longer returns what it used to. The mobile DTOs (Routine.kt) and the admin (routinesApi.ts) are written against this response.',
+        );
+    }
+
+    /**
+     * The trips of a day (MAG-654), as set_trip keeps them: by car, with the
+     * car's place, so every optional field is there.
+     */
+    public function testTheTripsRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $event = $em->find(Event::class, $this->getFixture('recorded_event')->getId());
+        self::assertInstanceOf(Event::class, $event);
+        $em->persist((new Trip($event))->apply(new TripEstimate(
+            mode: TripMode::Drive,
+            origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', 38.72, -9.14),
+            steps: [new RouteLeg(TripMode::Walk, 240), new RouteLeg(TripMode::Drive, 840), new RouteLeg(TripMode::Walk, 180)],
+            durationMinutes: 21,
+            departAt: new \DateTimeImmutable('2026-03-15 09:34:00 UTC'),
+            navigationUrl: 'https://waze.com/ul?ll=38.7,-9.1&navigate=yes',
+            parkingKnown: true,
+            carLatitude: 38.7227,
+            carLongitude: -9.14,
+        ), TripDecider::Maggie, new \DateTimeImmutable('2026-03-15 08:00:00 UTC')));
+        $em->flush();
+
+        $this->client->request('GET', '/api/trips?date=2026-03-15', [], [], array_merge(['HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertCount(1, $body['member']);
+
+        $this->assertMatchesContract(
+            'responses/trips.collection.json',
+            self::stabilise($body),
+            'GET /api/trips no longer returns what it used to. The screens of « Partir à l\'heure » are written against this response.',
         );
     }
 

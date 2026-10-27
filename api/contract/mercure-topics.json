@@ -40,6 +40,7 @@
     "TaskSettings": "/users/{userId}/api/task_settings/{id}",
     "Transaction": "/users/{userId}/api/transactions/{id}",
     "TreasurySettings": "/users/{userId}/api/treasury_settings/{id}",
+    "Trip": "/users/{userId}/api/trips/{id}",
     "User": "/users/{userId}/api/users/{id}",
     "UserPreference": "/users/{userId}/api/user_preferences/{id}",
     "Utensil": "/users/{userId}/api/utensils/{id}"
