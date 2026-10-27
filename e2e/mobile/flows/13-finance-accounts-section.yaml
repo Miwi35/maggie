@@ -12,7 +12,7 @@ tags:
 # card per account;
 # When I touch an account,
 # Then on a phone its transactions open on a detail screen (back arrow, no breadcrumb), where the
-# debit is booked and listed, and the arrow brings the section back; on the tablet (with the chat panel
+# debit is booked and listed, and the arrow brings the section back; on the tablet (with the detail pane
 # beside) they open in the pane next to the list, as days with the status in words, and an internal
 # transfer names the account on its other side: « depuis X » on the credit, « vers X » on the debit.
 #

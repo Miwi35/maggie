@@ -59,7 +59,7 @@ tags:
 # The phone only reads the tree (no « Nouvelle enveloppe », no bin): from 600 dp the same screen has both,
 # so nothing is asserted here on a format the flow cannot tell — `BudgetTreeScreenTest` owns the phone's side.
 
-# The phone folds the tree and opens a detail screen. From 840 dp (the tablet, with its chat panel) the
+# The phone folds the tree and opens a detail screen. From 840 dp (the tablet, with its detail pane) the
 # screen is the configuration pane: a flat tree, always open, its detail beside it, no « Déplier » and no
 # « Bars › Obsydian » path. `budget_tree` exists only there.
 - evalScript: ${0}
