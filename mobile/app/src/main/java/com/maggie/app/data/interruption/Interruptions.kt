@@ -63,7 +63,8 @@ object Interruptions {
      * [again] is the owner asking to see it once more, so having read it does not matter.
      */
     fun of(notification: Notification, again: Boolean = false, scheme: String = DeepLinks.SCHEME): PushPayload? {
-        if ((notification.isRead && !again) || notification.type == "approval" || notification.title.isBlank()) return null
+        // A departure alert is raised by the system, with its full screen (MAG-658): the toaster would say it twice.
+        if ((notification.isRead && !again) || notification.type == "approval" || notification.type == PushPayload.DEPARTURE_TYPE || notification.title.isBlank()) return null
         val (link, label) = linkOf(notification.relatedEntityIri, scheme)
         return PushPayload(
             notificationId = notification.id,

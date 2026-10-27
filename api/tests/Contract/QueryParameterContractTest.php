@@ -155,6 +155,9 @@ final class QueryParameterContractTest extends WebTestCase
         '/api/aisles' => [
             'store' => 'admin StoreAisles and GroceryListView, mobile StoreAislesViewModel and GroceryViewModel, the aisles of one store (MAG-493)',
         ],
+        '/api/trips' => [
+            'date' => 'mobile getTrips, the trips kept for the events of one day (MAG-658)',
+        ],
     ];
 
     private KernelBrowser $client;
@@ -208,8 +211,19 @@ final class QueryParameterContractTest extends WebTestCase
     #[DataProvider('clientCollections')]
     public function testEveryParameterTheClientsSendSurvivesElasticsearchTranslation(string $path, array $parameters): void
     {
+        $entityClass = $this->entityClassFor($path);
+
+        $reader = self::getContainer()->get(IndexMetadataReader::class);
+        self::assertInstanceOf(IndexMetadataReader::class, $reader);
+        if (null === $reader->read($entityClass)) {
+            // Not an indexed entity: Doctrine serves the collection, there is no translation to check.
+            self::assertTrue(true);
+
+            return;
+        }
+
         $translator = new ElasticsearchFilterTranslator();
-        $domain = $this->domainFilterFor($this->entityClassFor($path));
+        $domain = $this->domainFilterFor($entityClass);
 
         foreach ($parameters as $name => $sender) {
             // A parameter of the resource's own (`store`, `aisle`, `order[aisle]`) is read together with its

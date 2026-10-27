@@ -81,6 +81,7 @@ import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.ContextRepository
 import com.maggie.app.data.repository.ProactionRepository
+import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.data.repository.ActivityStatusRepository
@@ -373,6 +374,7 @@ class MaggieApp : Application() {
             single { SearchRepository(get()) }
             single { ContextRepository(get()) }
             single { ProactionRepository(get()) }
+            single { TripRepository(get()) }
             single { UserPreferenceRepository(get()) }
             single { ThemeChoiceRepository(androidContext()) }
 
@@ -401,7 +403,7 @@ class MaggieApp : Application() {
             viewModel { FocusViewModel(get()) }
             viewModel { BravoViewModel(get(), get()) }
             viewModel { RoutinesViewModel(get(), get(), get(), get(), get()) }
-            viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
+            viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }

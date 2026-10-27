@@ -155,6 +155,19 @@ class DtoContractTest {
         assertCollectionContract("proactions", serializer<Proaction>(), "Proaction")
 
     @Test
+    fun `trips deserialise from the recorded response`() =
+        assertCollectionContract("trips", serializer<Trip>(), "Trip")
+
+    @Test
+    fun `a trip reads the event it leads to, its steps and its departure from the recorded response`() {
+        val trip = json.decodeFromJsonElement(serializer<ApiCollection<Trip>>(), readRecording("trips.collection")).member.single()
+
+        assertEquals("01ARZ3NDEKTSV4RRFFQ69G5FAV", trip.eventId)
+        assertEquals(listOf("walk" to 4, "drive" to 14, "walk" to 3), trip.steps.map { it.kind to it.minutes })
+        assertEquals("Partir à 10:34 · depuis ma position", trip.headline(java.time.ZoneId.of("Europe/Paris"), java.time.Instant.parse("2026-03-15T08:00:00Z")))
+    }
+
+    @Test
     fun `meals deserialise from the recorded response`() =
         assertCollectionContract("meals", serializer<Meal>(), "Meal")
 

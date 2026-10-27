@@ -193,7 +193,6 @@ final class PushMessageFactoryTest extends TestCase
         yield 'proaction' => [NotificationType::Proaction, 'chat_v2'];
         yield 'grocery' => [NotificationType::Grocery, 'chat_v2'];
         yield 'cooking timer' => [NotificationType::CookingTimer, 'reminders_v2'];
-        yield 'departure' => [NotificationType::Departure, 'departure'];
     }
 
     public function testACookingTimersEndIsTaggedOncePerTimerAndCarriesItsId(): void
@@ -260,8 +259,11 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('https://waze.com/ul?ll=48.119,-1.6672&navigate=yes', $message['data']['link']);
         self::assertSame('Y aller', $message['data']['actionLabel']);
         self::assertSame('high', $message['android']['priority']);
-        self::assertSame('departure', $message['android']['notification']['channel_id']);
-        self::assertSame('Pars maintenant pour Dentiste', $message['notification']['title']);
+        // Data alone (MAG-658): the app raises it, with its buttons and its full-screen « Pars maintenant »,
+        // in the departure channel its type maps to.
+        self::assertArrayNotHasKey('notification', $message);
+        self::assertArrayNotHasKey('notification', $message['android']);
+        self::assertSame('Pars maintenant pour Dentiste', $message['data']['title']);
     }
 
     public function testADepartureWhoseTripNobodyKnowsAnymoreCarriesNoLink(): void

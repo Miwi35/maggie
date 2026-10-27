@@ -14,6 +14,7 @@ import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.ProactionRepository
+import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.fullcalendar.CalendarViewType
@@ -78,6 +79,8 @@ class CalendarPeriodCacheScreenTest {
         coEvery { meals.getMeals(any(), any()) } returns Result.success(emptyList())
         val proactions = mockk<ProactionRepository>()
         coEvery { proactions.getProactions(any(), any()) } returns Result.success(emptyList())
+        val trips = mockk<TripRepository>()
+        coEvery { trips.getTrips(any()) } returns Result.success(emptyList())
         val tasks = mockk<TaskRepository>()
         coEvery { tasks.refreshTasks() } returns Result.success(emptyList())
         coEvery { tasks.getUndoneTasks(any()) } returns emptyList()
@@ -90,6 +93,7 @@ class CalendarPeriodCacheScreenTest {
             preferences,
             meals,
             proactions,
+            trips,
         )
     }
 

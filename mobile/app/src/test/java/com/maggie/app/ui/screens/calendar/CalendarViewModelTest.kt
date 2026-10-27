@@ -14,7 +14,10 @@ import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
+import com.maggie.app.data.model.Trip
+import com.maggie.app.data.model.TripStep
 import com.maggie.app.data.repository.ProactionRepository
+import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.ui.screens.fullcalendar.CalendarViewType
@@ -57,6 +60,7 @@ class CalendarViewModelTest {
     private lateinit var agendaRepository: AgendaRepository
     private lateinit var mealRepository: MealRepository
     private lateinit var proactionRepository: ProactionRepository
+    private lateinit var tripRepository: TripRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private lateinit var userPreferenceRepository: UserPreferenceRepository
@@ -76,6 +80,8 @@ class CalendarViewModelTest {
         coEvery { mealRepository.getMeals(any(), any()) } returns Result.success(emptyList())
         proactionRepository = mockk()
         coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(emptyList())
+        tripRepository = mockk()
+        coEvery { tripRepository.getTrips(any()) } returns Result.success(emptyList())
         every { eventRepository.observeEvents() } returns cachedEvents
         every { agendaRepository.observeAgendas() } returns cachedAgendas
         mercureService = mockk()
@@ -97,6 +103,7 @@ class CalendarViewModelTest {
         userPreferenceRepository,
         mealRepository,
         proactionRepository,
+        tripRepository,
         module,
         clock,
     )
@@ -163,6 +170,105 @@ class CalendarViewModelTest {
         viewModel.navigateToDate(target)
 
         assertEquals(target, viewModel.uiState.value.currentDate)
+    }
+
+    private fun trip(id: String = "t1", event: String = "e1", departAt: String = "2026-06-15T13:34:00+02:00") = Trip(
+        id = id,
+        event = "/api/events/$event",
+        mode = "drive",
+        steps = listOf(TripStep("walk", 4), TripStep("drive", 14), TripStep("walk", 3)),
+        durationMinutes = 21,
+        departAt = departAt,
+        originLabel = "la maison",
+    )
+
+    private fun TestScope.openDayView(): FullCalendarViewModel {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.navigateToDate(june15)
+        viewModel.setViewType(CalendarViewType.DAY)
+        advanceUntilIdle()
+        return viewModel
+    }
+
+    private fun tripsTopic(): MutableSharedFlow<MercureEvent> {
+        coEvery { authRepository.getUserId() } returns "u1"
+        return MutableSharedFlow<MercureEvent>().also {
+            every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TRIPS)) } returns it
+        }
+    }
+
+    @Test
+    fun `the day view reads the trips of the day on screen`() = runTest {
+        stubRepositories()
+        coEvery { tripRepository.getTrips(june15) } returns Result.success(listOf(trip()))
+
+        val viewModel = openDayView()
+
+        assertEquals(listOf(trip()), viewModel.uiState.value.trips)
+    }
+
+    @Test
+    fun `the trips are not read outside the day view`() = runTest {
+        stubRepositories()
+
+        createViewModel()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { tripRepository.getTrips(any()) }
+    }
+
+    @Test
+    fun `a trip written by Maggie moves the line to its new time`() = runTest {
+        stubRepositories()
+        val topic = tripsTopic()
+        coEvery { tripRepository.getTrips(june15) } returns Result.success(listOf(trip()))
+        val viewModel = openDayView()
+
+        coEvery { tripRepository.getTrips(june15) } returns Result.success(listOf(trip(departAt = "2026-06-15T14:34:00+02:00")))
+        topic.emit(MercureEvent())
+        advanceUntilIdle()
+
+        assertEquals(listOf("2026-06-15T14:34:00+02:00"), viewModel.uiState.value.trips.map { it.departAt })
+    }
+
+    @Test
+    fun `a deleted trip takes its line away`() = runTest {
+        stubRepositories()
+        val topic = tripsTopic()
+        coEvery { tripRepository.getTrips(june15) } returns Result.success(listOf(trip()))
+        val viewModel = openDayView()
+
+        coEvery { tripRepository.getTrips(june15) } returns Result.success(emptyList())
+        topic.emit(MercureEvent(data = "{\"deleted\": true}"))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.trips.isEmpty())
+    }
+
+    @Test
+    fun `a failing trips read leaves the agenda without lines, and without an error`() = runTest {
+        stubRepositories(events = listOf(Event(id = "e1", summary = "Dentiste", startAt = "2026-06-15T12:00:00Z", endAt = "2026-06-15T13:00:00Z")))
+        coEvery { tripRepository.getTrips(any()) } returns Result.failure(RuntimeException("Network error"))
+
+        val viewModel = openDayView()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.trips.isEmpty())
+        assertNull(state.error)
+        assertEquals(listOf("Dentiste"), state.expandedEvents.map { it.summary })
+    }
+
+    @Test
+    fun `leaving the day view drops the lines`() = runTest {
+        stubRepositories()
+        coEvery { tripRepository.getTrips(june15) } returns Result.success(listOf(trip()))
+        val viewModel = openDayView()
+
+        viewModel.setViewType(CalendarViewType.WEEK)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.trips.isEmpty())
     }
 
     @Test

@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ExpandedEvent
@@ -70,6 +71,7 @@ fun FullCalendarScreen(
     moduleTitle: String? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var fabExpanded by remember { mutableStateOf(false) }
     var showAgendaCreate by remember { mutableStateOf(false) }
     var showGoogleImport by remember { mutableStateOf(false) }
@@ -375,6 +377,8 @@ fun FullCalendarScreen(
                             onNavigateForward = { viewModel.navigateForward() },
                             onNavigateBackward = { viewModel.navigateBackward() },
                             onEventClick = onEventClick,
+                            trips = uiState.trips,
+                            onTripGo = { openNavigation(context, it) },
                         )
                     }
                 }

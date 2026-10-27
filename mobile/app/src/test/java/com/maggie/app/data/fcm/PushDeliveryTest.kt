@@ -59,4 +59,14 @@ class PushDeliveryTest {
 
         verify(exactly = 1) { notifier.close("cooking-timer-t-1") }
     }
+
+    @Test
+    fun `a departure alert is the system's strong interruption, the app open or not (MAG-658)`() {
+        val departure = PushPayload.from(mapOf("notificationId" to "n-2", "title" to "Pars maintenant pour Dentiste", "type" to "departure"))!!
+
+        PushDelivery(center, { notifier }, isForeground = { true }).deliver(departure)
+
+        assertNull("the toaster cannot say a link to Waze", center.current.value)
+        verify(exactly = 1) { notifier.show(departure, any(), any()) }
+    }
 }

@@ -7,6 +7,7 @@ import com.maggie.app.data.api.GoogleCalendarImportRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
@@ -16,6 +17,7 @@ import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealSlot
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.Trip
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.model.endDateAfter
 import com.maggie.app.data.repository.AgendaRepository
@@ -23,6 +25,7 @@ import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.util.DateRanges
 import com.maggie.app.util.DayPeriod
@@ -65,6 +68,8 @@ data class FullCalendarUiState(
     // The « Maggie » line: her proactions are events of an internal agenda, not one of the user's (MAG-328).
     val proactions: List<Proaction> = emptyList(),
     val proactionsEnabled: Boolean = true,
+    // The trips Maggie chose for the events of the day on screen (MAG-658): read for the day view only.
+    val trips: List<Trip> = emptyList(),
 )
 
 /** The id of the one « Repas » line, and of the meals' [ExpandedEvent.agendaIri]. */
@@ -84,6 +89,7 @@ class FullCalendarViewModel(
     private val userPreferenceRepository: UserPreferenceRepository,
     private val mealRepository: MealRepository,
     private val proactionRepository: ProactionRepository,
+    private val tripRepository: TripRepository,
     // A module's own view (MAG-354): only what that module files, nothing of the user's
     // agendas, events or tasks. `null` is the general calendar.
     private val module: String? = null,
@@ -100,6 +106,7 @@ class FullCalendarViewModel(
     private val loader = SingleFlight(viewModelScope) { load() }
     private var forceNext = false
     private var periodJob: Job? = null
+    private var tripsJob: Job? = null
 
     // Saved preferences only seed the initial state (MAG-120): once the user has picked a view or
     // toggled an agenda, or the seed was applied, they are not consulted again.
@@ -137,6 +144,7 @@ class FullCalendarViewModel(
             agendaRepository.observeAgendas().collect { applyAgendas(it) }
         }
         subscribeToMercure()
+        subscribeToTrips()
     }
 
     // The request can fail or be slow: the defaults stay until (and unless) it lands.
@@ -263,6 +271,7 @@ class FullCalendarViewModel(
             // Best effort: the meals failing must not blank the user's own calendar.
             val mealsFailure = loadMeals()
             val proactionsFailure = loadProactions()
+            loadTrips()
 
             _uiState.value = _uiState.value.copy(
                 tasks = tasks,
@@ -380,8 +389,24 @@ class FullCalendarViewModel(
         return result.exceptionOrNull()
     }
 
+    // Best effort and silent: the trip lines are an extra under the events, so a failure leaves the
+    // agenda without them rather than with an error. A reply that lands after the user has left the
+    // day is dropped, like the meals'.
+    private suspend fun loadTrips() {
+        val day = _uiState.value.currentDate
+        if (module != null || _uiState.value.viewType != CalendarViewType.DAY) {
+            if (_uiState.value.trips.isNotEmpty()) _uiState.value = _uiState.value.copy(trips = emptyList())
+            return
+        }
+        val result = tripRepository.getTrips(day)
+        if (_uiState.value.currentDate != day || _uiState.value.viewType != CalendarViewType.DAY) return
+        _uiState.value = _uiState.value.copy(trips = result.getOrDefault(emptyList()))
+    }
+
     private fun onRangeChanged() {
         expandForCurrentRange()
+        tripsJob?.cancel()
+        tripsJob = viewModelScope.launch { loadTrips() }
         loadVisiblePeriod()
         viewModelScope.launch {
             val failure = loadMeals()
@@ -549,6 +574,23 @@ class FullCalendarViewModel(
                     )
                         .coalescedAndRechecked()
                         .collect { reloadSideData() }
+                }
+        }
+    }
+
+    // A trip is created, moved or removed by Maggie alone: the day's trips are read again.
+    private fun subscribeToTrips() {
+        viewModelScope.launch {
+            authRepository.token
+                .map { it != null }
+                .distinctUntilChanged()
+                .collectLatest { authenticated ->
+                    if (!authenticated) return@collectLatest
+                    val userId = authRepository.getUserId() ?: return@collectLatest
+                    mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.TRIPS))
+                        .catch { /* SSE reconnects automatically */ }
+                        .coalesced()
+                        .collect { loadTrips() }
                 }
         }
     }

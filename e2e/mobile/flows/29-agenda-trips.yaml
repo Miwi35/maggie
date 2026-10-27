@@ -1,0 +1,75 @@
+appId: com.maggie.app.e2e
+name: 29-agenda-trips
+tags:
+  - calendar
+  - trips
+---
+# « Partir à l'heure » (MAG-658): the line of the trip Maggie keeps, under its event in the
+# day view, and its live update.
+#
+# Given a Dentiste today at 14:00 and the drive from home kept for it (`set_trip` played by
+# `scripts/trip-api.js`; Google is WireMock: walk 4 min, drive 14, walk 3 from the parking),
+# the day view reads « Partir à 13:34 · depuis la maison » under Dentiste, with the three
+# steps. The event moves to 15:00 and the trip is kept again: the line reads 14:34 without
+# reloading anything (Mercure). The alert « Pars maintenant », its buttons and the navigation
+# link are the JVM's business (`PushNotifierTest`, `DepartureScreenTest`, `PushActionHandlerTest`).
+#
+# The line is « Parti à » once the departure has passed, hence the choice in the patterns: the
+# flow does not depend on the hour it runs at. The day view starts at midnight, so the line is
+# scrolled to.
+
+- runScript:
+    file: ../scripts/trip-api.js
+    env:
+      ACTION: create
+      SUMMARY: "Dentiste"
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/29-agenda-trips.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow: ../subflows/open-calendar.yaml
+
+# The day, from its header in the week.
+- tapOn:
+    id: "calendar_day_${TODAY}"
+- extendedWaitUntil:
+    visible:
+      id: "calendar_day_view_${TODAY}"
+    timeout: 20000
+
+- scrollUntilVisible:
+    element:
+      id: "trip_line_${output.eventId}"
+    direction: DOWN
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "trip_line_${output.eventId}"
+      text: "(Partir|Parti) à 13:34 · depuis la maison"
+      below: ".*Dentiste.*"
+    timeout: 10000
+- assertVisible: "4 min"
+- assertVisible: "14 min"
+- assertVisible: "3 min"
+- assertVisible: "21 min porte à porte"
+
+# The event moves and the trip is kept again, with the app left as it is.
+- runScript:
+    file: ../scripts/trip-api.js
+    env:
+      ACTION: move
+      EVENT_ID: ${output.eventId}
+
+- scrollUntilVisible:
+    element:
+      id: "trip_line_${output.eventId}"
+      text: "(Partir|Parti) à 14:34 · depuis la maison"
+    direction: DOWN
+    timeout: 40000
+- assertNotVisible: "(Partir|Parti) à 13:34 · depuis la maison"

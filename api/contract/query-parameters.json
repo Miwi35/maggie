@@ -77,5 +77,8 @@
     },
     "/api/aisles": {
         "store": "admin StoreAisles and GroceryListView, mobile StoreAislesViewModel and GroceryViewModel, the aisles of one store (MAG-493)"
+    },
+    "/api/trips": {
+        "date": "mobile getTrips, the trips kept for the events of one day (MAG-658)"
     }
 }
