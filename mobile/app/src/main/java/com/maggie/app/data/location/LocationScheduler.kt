@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ListenableWorker
@@ -63,6 +64,7 @@ class AndroidLocationScheduler(
     // Not expedited: before Android 12 that needs a foreground notification, and nothing here may show one.
     override fun requestPositionNow() {
         val request = OneTimeWorkRequestBuilder<PositionWorker>()
+            .setInputData(Data.Builder().putBoolean(PositionWorker.PRECISE, true).build())
             .setConstraints(network)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_MINUTES, TimeUnit.MINUTES)
             .build()
@@ -95,11 +97,19 @@ class AndroidLocationScheduler(
     }
 }
 
-/** The position every 30 minutes, and on the push `location_request`; a failed send is tried again by WorkManager with its backoff, never a crash. */
+/**
+ * The position every 30 minutes (cheap sources), and on the push `location_request` (the GPS, flagged [PRECISE]);
+ * a failed send is tried again by WorkManager with its backoff, never a crash.
+ */
 class PositionWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val koin = GlobalContext.getOrNull() ?: return Result.retry()
-        return koin.get<LocationReporter>().reportPosition().toWorkResult()
+        val accuracy = if (inputData.getBoolean(PRECISE, false)) PositionAccuracy.HIGH else PositionAccuracy.BALANCED
+        return koin.get<LocationReporter>().reportPosition(accuracy).toWorkResult()
+    }
+
+    companion object {
+        const val PRECISE = "precise"
     }
 }
 
