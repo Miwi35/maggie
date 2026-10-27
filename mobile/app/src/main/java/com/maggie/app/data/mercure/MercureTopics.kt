@@ -73,6 +73,7 @@ object MercureTopics {
     const val TASKS = "tasks"
     const val TASK_SETTINGS = "task_settings"
     const val TRANSACTIONS = "transactions"
+    const val TRIPS = "trips"
     const val USER_PREFERENCES = "user_preferences"
 
     /**
@@ -113,6 +114,7 @@ object MercureTopics {
         TASKS,
         TASK_SETTINGS,
         TRANSACTIONS,
+        TRIPS,
         USER_PREFERENCES,
     )
 

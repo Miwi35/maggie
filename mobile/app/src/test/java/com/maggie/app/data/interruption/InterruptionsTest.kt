@@ -215,4 +215,9 @@ class InterruptionsTest {
             Interruptions.readNotification("""{"@id":"/api/notifications/n-7","readAt":"2026-10-25T10:00:00+00:00"}"""),
         )
     }
+
+    @Test
+    fun `a departure alert is not said twice, the system raises it with its full screen (MAG-658)`() {
+        assertNull(Interruptions.of(Notification(id = "n", type = "departure", title = "Pars maintenant pour Dentiste", relatedEntityIri = "/api/trips/t-1")))
+    }
 }

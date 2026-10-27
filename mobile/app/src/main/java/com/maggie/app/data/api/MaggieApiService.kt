@@ -44,6 +44,7 @@ import com.maggie.app.data.model.MealSettingsValues
 import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.Proaction
+import com.maggie.app.data.model.Trip
 import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.AisleFilter
 import com.maggie.app.data.model.Product
@@ -3110,6 +3111,15 @@ class MaggieApiService(
             from?.let { url.parameters.append("startAt[after]", it) }
             to?.let { url.parameters.append("startAt[before]", it) }
         }.body<ApiCollection<Proaction>>().member
+    }
+
+    // Trips — the way Maggie chose to an event (MAG-654); [date] is `YYYY-MM-DD`, read in Paris
+    suspend fun getTrips(date: String): List<Trip> {
+        return client.get("$baseUrl/api/trips") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("date", date)
+        }.body<ApiCollection<Trip>>().member
     }
 
     // Approvals — agent endpoints

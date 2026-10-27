@@ -17,6 +17,12 @@ class PushDelivery(
 
     /** [reshow]: the alarm of a « Plus tard » coming back, so the postponement is over. */
     fun deliver(payload: PushPayload, reshow: Boolean = false) {
+        // « Pars maintenant » (MAG-658) is the system's strong interruption, open or not: its full screen and
+        // its « Y aller » (a link to Waze or Maps) are not something the in-app toaster can say.
+        if (payload.isDeparture) {
+            notifier().show(payload)
+            return
+        }
         if (isForeground()) center.offer(payload, reshow) else notifier().show(payload)
     }
 

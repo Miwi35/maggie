@@ -14,6 +14,7 @@ import androidx.core.app.RemoteInput
 import com.maggie.app.MainActivity
 import com.maggie.app.R
 import com.maggie.app.ui.navigation.DeepLinks
+import com.maggie.app.ui.screens.departure.DepartureActivity
 
 /**
  * Raises, updates and closes the system notification of a push, with its buttons.
@@ -42,6 +43,16 @@ class PushNotifier(private val context: Context) {
             .setStyle(NotificationCompat.BigTextStyle().bigText(note ?: payload.text))
             .setAutoCancel(true)
             .setContentIntent(openIntent(payload, toLink = false))
+
+        // « Pars maintenant » (MAG-658): a strong interruption, the full screen over the lock screen.
+        if (payload.isDeparture && withActions) {
+            val screen = departureScreen(payload, go = false)
+            builder
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(screen)
+                .setFullScreenIntent(screen, true)
+        }
 
         if (withActions) {
             payload.actions().forEach { builder.addAction(action(it, payload)) }
@@ -75,6 +86,10 @@ class PushNotifier(private val context: Context) {
     }
 
     private fun action(kind: PushActionKind, payload: PushPayload): NotificationCompat.Action {
+        // « Y aller » of a departure hands the navigation link to Waze or Maps; the activity that does it also closes the notification.
+        if (kind == PushActionKind.GO && payload.isDeparture) {
+            return NotificationCompat.Action.Builder(0, kind.label, departureScreen(payload, go = true)).build()
+        }
         if (kind == PushActionKind.GO) {
             return NotificationCompat.Action.Builder(0, kind.label, openIntent(payload, toLink = true)).build()
         }
@@ -135,6 +150,13 @@ class PushNotifier(private val context: Context) {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
+    private fun departureScreen(payload: PushPayload, go: Boolean): PendingIntent = PendingIntent.getActivity(
+        context,
+        requestCode(payload, if (go) "departure-go" else "departure-screen"),
+        PushIntents.departure(context, payload, go),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
     private fun requestCode(payload: PushPayload, what: String): Int = (payload.notificationId + what).hashCode()
 
     companion object {
@@ -190,6 +212,33 @@ object PushIntents {
             .toMap(),
         notificationChannel = intent.getStringExtra(EXTRA_CHANNEL),
     )
+
+    /** What « Y aller » of a departure asks the departure activity to do: open the navigation link, then close. */
+    const val ACTION_DEPARTURE_GO = "com.maggie.app.push.DEPARTURE_GO"
+
+    /** The navigation link of a departure alert: https only, whoever sent the message — Waze and Maps answer to it. */
+    fun navigationOf(raw: String?): Uri? = raw?.takeIf(::isNavigable)?.let(Uri::parse)
+
+    /** [navigationOf] without Android, for what only needs to know whether there is a link to open. */
+    fun isNavigable(raw: String?): Boolean {
+        val uri = raw?.let { runCatching { java.net.URI(it) }.getOrNull() } ?: return false
+        return uri.scheme == "https" && !uri.host.isNullOrBlank()
+    }
+
+    /** « Y aller » of a departure: the link handed to whatever navigates; null without a valid one. */
+    fun navigate(payload: PushPayload): Intent? =
+        navigationOf(payload.link)?.let { Intent(Intent.ACTION_VIEW, it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+
+    /**
+     * The departure activity: « Pars maintenant » full screen, or with [go] straight to the navigation link.
+     * Never reused (no CLEAR_TOP, standard launch mode): each alert reads its own payload.
+     */
+    fun departure(context: Context, payload: PushPayload, go: Boolean): Intent =
+        Intent(context, DepartureActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            if (go) action = ACTION_DEPARTURE_GO
+            put(this, payload)
+        }
 
     /** The app link a push points at: only the app's own scheme, whoever sent the message. */
     fun linkOf(raw: String?): Uri? = raw?.let(Uri::parse)?.takeIf { it.scheme == DeepLinks.SCHEME }

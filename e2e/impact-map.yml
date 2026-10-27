@@ -798,6 +798,16 @@ mobile:
       - mobile/app/src/main/java/com/maggie/app/data/location/**
       - mobile/app/src/main/java/com/maggie/app/ui/screens/settings/**
       - mobile/app/src/main/AndroidManifest.xml
+  e2e/mobile/flows/29-agenda-trips.yaml:
+    areas: [calendar, realtime]
+    paths:
+      - e2e/mobile/scripts/trip-api.js
+      - 'api/modules/calendar/src/Routing/**'
+      - mobile/app/src/main/java/com/maggie/app/data/model/Trip.kt
+      - mobile/app/src/main/java/com/maggie/app/data/repository/TripRepository.kt
+      - mobile/app/src/main/java/com/maggie/app/ui/screens/fullcalendar/**
+      - '.docker/e2e/wiremock/mappings/google-routes.json'
+      - '.docker/e2e/wiremock/mappings/google-geocoding.json'
   e2e/mobile/flows/15-mind-tab.yaml:
     areas: [chat, calendar, realtime]
     paths:

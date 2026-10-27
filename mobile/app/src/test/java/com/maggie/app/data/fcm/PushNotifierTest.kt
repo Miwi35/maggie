@@ -265,4 +265,51 @@ class PushNotifierTest {
 
         assertNull(shadowOf(manager).getNotification("cooking-timer-t-1", PushNotifier.NOTIFICATION_ID))
     }
+
+    private fun departure(link: String? = "https://waze.com/ul?navigate=yes") = PushPayload.from(
+        data = buildMap {
+            put("notificationId", "n-5")
+            put("type", "departure")
+            put("title", "Pars maintenant pour Dentiste")
+            link?.let { put("link", it) }
+        },
+    )!!
+
+    @Test
+    fun `a departure alert is a strong interruption, with its channel, its full screen and its two buttons (MAG-658)`() {
+        shadowOf(manager).setNotificationsEnabled(true)
+
+        assertTrue(notifier.show(departure()))
+
+        val notification = shadowOf(manager).getNotification("n-5", PushNotifier.NOTIFICATION_ID)
+        assertEquals(PushChannels.DEPARTURE, notification.channelId)
+        assertEquals(listOf("Y aller", "Déjà en route"), notification.actions.map { it.title.toString() })
+        val fullScreen = notification.fullScreenIntent
+        assertNotNull("the screen « Pars maintenant » opens over the lock screen", fullScreen)
+        val screen = shadowOf(fullScreen).savedIntent
+        assertEquals(com.maggie.app.ui.screens.departure.DepartureActivity::class.java.name, screen.component?.className)
+        assertNull(screen.action)
+    }
+
+    @Test
+    fun `Y aller of a departure goes through the departure activity, which hands the link over and closes the notification`() {
+        shadowOf(manager).setNotificationsEnabled(true)
+        notifier.show(departure())
+
+        val go = shadowOf(shadowOf(manager).getNotification("n-5", PushNotifier.NOTIFICATION_ID).actions[0].actionIntent).savedIntent
+
+        assertEquals(com.maggie.app.ui.screens.departure.DepartureActivity::class.java.name, go.component?.className)
+        assertEquals(PushIntents.ACTION_DEPARTURE_GO, go.action)
+    }
+
+    @Test
+    fun `a departure alert with nothing left to press has no full screen`() {
+        shadowOf(manager).setNotificationsEnabled(true)
+
+        notifier.show(departure(), note = "Maggie est injoignable.", withActions = false)
+
+        val notification = shadowOf(manager).getNotification("n-5", PushNotifier.NOTIFICATION_ID)
+        assertNull(notification.fullScreenIntent)
+        assertTrue(notification.actions.isNullOrEmpty())
+    }
 }

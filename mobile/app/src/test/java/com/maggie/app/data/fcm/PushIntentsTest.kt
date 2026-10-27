@@ -150,4 +150,41 @@ class PushIntentsTest {
         assertEquals(payload, back)
         assertEquals("01HZX3K9P2M7Q4R8S5T6V0W1AB", back?.shortageId)
     }
+
+    @Test
+    fun `a departure's navigation link is https only, whoever sent the message (MAG-658)`() {
+        assertEquals("https://waze.com/ul?navigate=yes", PushIntents.navigationOf("https://waze.com/ul?navigate=yes").toString())
+        assertNull(PushIntents.navigationOf("http://waze.com/ul"))
+        assertNull(PushIntents.navigationOf("javascript:alert(1)"))
+        assertNull(PushIntents.navigationOf("$scheme://finance/banks"))
+        assertNull(PushIntents.navigationOf(null))
+    }
+
+    @Test
+    fun `Y aller of a departure views the link in whatever navigates, outside the app`() {
+        val payload = PushPayload.from(mapOf("notificationId" to "n-1", "type" to "departure", "link" to "https://waze.com/ul?navigate=yes"))!!
+
+        val go = PushIntents.navigate(payload)!!
+
+        assertEquals(Intent.ACTION_VIEW, go.action)
+        assertEquals("https://waze.com/ul?navigate=yes", go.dataString)
+        assertNull("no component: Waze, Maps or the browser answers", go.component)
+        assertNull(PushIntents.navigate(payload.copy(link = null)))
+    }
+
+    @Test
+    fun `the departure screen intent carries the push, and Y aller asks it to navigate at once`() {
+        val payload = PushPayload.from(mapOf("notificationId" to "n-1", "type" to "departure", "title" to "Pars maintenant pour Dentiste", "link" to "https://waze.com/ul?navigate=yes"))!!
+
+        val screen = PushIntents.departure(context, payload, go = false)
+        val go = PushIntents.departure(context, payload, go = true)
+
+        assertNull(screen.action)
+        assertEquals(PushIntents.ACTION_DEPARTURE_GO, go.action)
+        assertEquals(payload, PushIntents.payloadOf(screen))
+        assertEquals(payload, PushIntents.payloadOf(go))
+        // Every alert opens its own screen: reusing the open one would show the previous alert's payload.
+        assertEquals(0, screen.flags and android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        assertEquals(0, go.flags and android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    }
 }

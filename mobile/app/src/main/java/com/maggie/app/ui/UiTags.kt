@@ -519,6 +519,15 @@ object UiTags {
     const val CALENDAR_DAY_VIEW_PREFIX = "calendar_day_view_"
     const val CALENDAR_ALL_DAY_PREFIX = "calendar_all_day_"
 
+    /** Day view — the trip line under an event (MAG-658), suffixed by the event's id; the « Y aller » of the next one has its own tag. */
+    const val TRIP_LINE_PREFIX = "trip_line_"
+    const val TRIP_GO = "trip_go"
+
+    /** The full-screen « Pars maintenant » (MAG-658): the screen, its « Y aller » and its « Déjà en route ». */
+    const val DEPARTURE_SCREEN = "departure_screen"
+    const val DEPARTURE_GO = "departure_go"
+    const val DEPARTURE_DISMISS = "departure_dismiss"
+
     /**
      * Month view — a day's cell, one slot of its column (a bar or the blank that keeps
      * the bars of its neighbours aligned) and its « +N » counter, suffixed by the ISO
@@ -799,6 +808,8 @@ object UiTags {
     fun calendarMonthDay(date: LocalDate) = CALENDAR_MONTH_DAY_PREFIX + date
 
     fun calendarMonthDate(date: LocalDate) = CALENDAR_MONTH_DATE_PREFIX + date
+
+    fun tripLine(eventId: String) = TRIP_LINE_PREFIX + eventId
 
     fun calendarDayView(date: LocalDate) = CALENDAR_DAY_VIEW_PREFIX + date
 

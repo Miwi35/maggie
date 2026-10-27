@@ -35,6 +35,11 @@ class UiTagsTest {
     }
 
     @Test
+    fun `a trip line is addressed by the id of its event`() {
+        assertEquals("trip_line_01ARZ3NDEKTSV4RRFFQ69G5FAV", UiTags.tripLine("01ARZ3NDEKTSV4RRFFQ69G5FAV"))
+    }
+
+    @Test
     fun `a drawer entry and a Google import button are suffixed by their key`() {
         assertEquals("drawer_calendar", UiTags.drawerItem("calendar"))
         assertEquals("google_import_e2e@maggie.local", UiTags.googleImport("e2e@maggie.local"))

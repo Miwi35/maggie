@@ -385,4 +385,14 @@ class PushActionHandlerTest {
 
         coVerify(exactly = 0) { api.answerShortageAlert(any(), any()) }
     }
+
+    @Test
+    fun `Déjà en route closes the departure alert and opens nothing (MAG-658)`() = runBlocking {
+        val departure = payload().copy(type = "departure", link = "https://waze.com/ul?navigate=yes")
+
+        assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.ALREADY_ON_THE_WAY, departure))
+        assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.GO, departure))
+
+        coVerify(exactly = 0) { api.markNotificationRead(any()) }
+    }
 }

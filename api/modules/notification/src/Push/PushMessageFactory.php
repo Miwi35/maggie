@@ -12,7 +12,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
  * Turns a stored notification into the FCM message one device receives.
  *
  * Both blocks, never data alone (owner's rule, 7 Oct.) — but for a task
- * reminder with buttons (MAG-510), see {@see self::build()}: with a `notification`
+ * reminder with buttons (MAG-510) and the departure alert (MAG-658), see {@see self::build()}: with a `notification`
  * block Android shows the push itself while the app is closed, killed or in
  * the background; in the foreground it shows nothing and hands the message to
  * `onMessageReceived`, where the app raises its interruption (MAG-314). The
@@ -106,8 +106,10 @@ class PushMessageFactory
 
         // A task reminder (MAG-510) goes as data alone: a `notification` block would be shown by
         // Android itself in the background, without the buttons it exists for. The app posts it
-        // with them (`PushNotifier`), in the reminders channel its type maps to.
-        if ([] !== $notification->getActions()) {
+        // with them (`PushNotifier`), in the reminders channel its type maps to. So does the
+        // departure alert (MAG-658): « Y aller », « Déjà en route » and the full-screen
+        // « Pars maintenant » exist only if the app builds the notification.
+        if ([] !== $notification->getActions() || NotificationType::Departure === $notification->getType()) {
             return [
                 'token' => $deviceToken,
                 'data' => $data,

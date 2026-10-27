@@ -94,7 +94,7 @@ final class DepartureReminderSourceTest extends KernelTestCase
         self::assertSame(self::NAVIGATION_URL, $message['data']['link']);
         self::assertSame('Y aller', $message['data']['actionLabel']);
         self::assertSame('high', $message['android']['priority']);
-        self::assertSame('departure', $message['android']['notification']['channel_id']);
+        self::assertArrayNotHasKey('notification', $message['android']);
     }
 
     public function testASecondPassAtTheSameDepartAtAlertsNobodyAgain(): void

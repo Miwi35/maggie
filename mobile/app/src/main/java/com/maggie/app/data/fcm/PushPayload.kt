@@ -47,6 +47,9 @@ enum class PushActionKind(val label: String, val reminderKey: String? = null) {
 
     /** « Ajouter à la liste » of a shortage alert (MAG-570): the missing product goes on the shopping list. */
     ADD_TO_LIST("Ajouter à la liste", "add"),
+
+    /** « Déjà en route » of a departure alert (MAG-658): the notification goes, nothing opens. */
+    ALREADY_ON_THE_WAY("Déjà en route"),
     ;
 
     companion object {
@@ -80,6 +83,9 @@ data class PushPayload(
     /** The cooking timer that rang (MAG-582): one notification per timer, cleared once it is seen elsewhere. */
     val cookingTimerId: String? = null,
 ) {
+    /** « Pars maintenant » (MAG-655): the alert that opens a full-screen interruption and a navigation app. */
+    val isDeparture: Boolean get() = type == DEPARTURE_TYPE
+
     /** The system tag it is shown under — the server's own, so the app's and the system's are one notification. */
     val systemTag: String get() = cookingTimerId?.let(::cookingTimerTag) ?: notificationId
 
@@ -98,12 +104,15 @@ data class PushPayload(
      * first Android shows; a key the app does not know is skipped, and none listed is none shown.
      *
      * A shortage alert (MAG-570) carries « Ajouter à la liste » and « Plus tard ».
+     *
+     * A departure alert (MAG-658) carries « Y aller » when it has a navigation link, then « Déjà en route ».
      */
     fun actions(): List<PushActionKind> {
         val kind = interaction?.kind
         return when {
             reminderId != null -> reminderActions.mapNotNull(PushActionKind::ofReminderKey).distinct().take(MAX_ACTIONS)
             shortageId != null -> listOf(PushActionKind.ADD_TO_LIST, PushActionKind.LATER)
+            isDeparture -> listOfNotNull(PushActionKind.GO.takeIf { PushIntents.isNavigable(link) }, PushActionKind.ALREADY_ON_THE_WAY)
             kind == "ack" -> if (interaction?.completable == true) listOf(PushActionKind.DONE, PushActionKind.LATER) else listOf(PushActionKind.OK)
             kind == "action" -> seenOrOpened()
             kind == "confirm" -> approvalButtons()
@@ -132,6 +141,9 @@ data class PushPayload(
 
         /** `PushMessageFactory::LOCATION_REQUEST_TYPE` (MAG-650): data-only, the phone answers with its position. */
         const val LOCATION_REQUEST_TYPE = "location_request"
+
+        /** `NotificationType::Departure`. */
+        const val DEPARTURE_TYPE = "departure"
 
         /** The buttons Android shows on a notification, at most. */
         const val MAX_ACTIONS = 3
