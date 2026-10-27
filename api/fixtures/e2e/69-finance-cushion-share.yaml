@@ -1,0 +1,172 @@
+# The cushion's share past its critical threshold (MAG-669, extends MAG-102): the
+# planning gives the cushion a share of the capacity, and the projects the rest.
+#
+# Two accounts with the same data, one for the web and one for the phone, because
+# the two suites may share a stack and both journeys write the share:
+#   income      3 000 €/month, declared on the cushion
+#   spending    1 000 €/month over the three complete months before this one,
+#               booked on the 15th so no edge of the measured window moves it
+#   capacity    3 000 € − 1 000 € = 2 000 €/month, no loan
+#   cushion     3 000 € on a Livret A, target 3 × 3 000 € = 9 000 €: 6 000 € missing;
+#               critical threshold 2 × 1 000 € = 2 000 €, already passed
+#   project     « Moto », 1 500 €, the only one; no savings outside the cushion,
+#               so nothing is gathered for it today
+#
+# Share 60 % (the default): 1 200 € to the cushion, 800 € to Moto each month
+# → Moto bought the month after this one (M1).
+# Share 100 %: 2 000 € to the cushion in M0, M1 and M2, complete in M2
+# → Moto bought in M3, the month after the cushion is complete.
+#
+# The journeys put the share back to 60 % when they end.
+
+Maggie\Core\Entity\User:
+  e2e_cushion_share_user:
+    email: 'e2e-cushion-share@maggie.local'
+    googleId: 'e2e-cushion-share-google-id'
+    name: 'Inès Matelas'
+  e2e_cushion_share_mobile_user:
+    email: 'e2e-cushion-share-mobile@maggie.local'
+    googleId: 'e2e-cushion-share-mobile-google-id'
+    name: 'Hugo Matelas'
+
+Maggie\Finance\Entity\SafetyCushion:
+  e2e_cushion_share_cushion:
+    user: '@e2e_cushion_share_user'
+    targetMonths: 3
+    monthlyNetIncomeCents: 300000
+    rechargeCapCents: 0
+    rechargeTargetMonths: 6
+    criticalMonths: 2
+    cushionSharePercent: 60
+  e2e_cushion_share_mobile_cushion:
+    user: '@e2e_cushion_share_mobile_user'
+    targetMonths: 3
+    monthlyNetIncomeCents: 300000
+    rechargeCapCents: 0
+    rechargeTargetMonths: 6
+    criticalMonths: 2
+    cushionSharePercent: 60
+
+Maggie\Finance\Entity\Account:
+  e2e_cushion_share_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 150000
+    isCushion: false
+    user: '@e2e_cushion_share_user'
+  e2e_cushion_share_livret_a:
+    name: Livret A
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 300000
+    isCushion: true
+    user: '@e2e_cushion_share_user'
+  e2e_cushion_share_mobile_checking:
+    name: Compte courant
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 150000
+    isCushion: false
+    user: '@e2e_cushion_share_mobile_user'
+  e2e_cushion_share_mobile_livret_a:
+    name: Livret A
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 300000
+    isCushion: true
+    user: '@e2e_cushion_share_mobile_user'
+
+Maggie\Finance\Entity\Project:
+  e2e_cushion_share_moto:
+    name: Moto
+    amountCents: 150000
+    currency: EUR
+    position: 0
+    user: '@e2e_cushion_share_user'
+  e2e_cushion_share_mobile_moto:
+    name: Moto
+    amountCents: 150000
+    currency: EUR
+    position: 0
+    user: '@e2e_cushion_share_mobile_user'
+
+Maggie\Finance\Entity\Category:
+  e2e_cushion_share_groceries:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@e2e_cushion_share_user'
+  e2e_cushion_share_mobile_groceries:
+    name: Alimentation
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Mandatory)>'
+    user: '@e2e_cushion_share_mobile_user'
+
+# 1 000 € spent on the 15th of each of the three months before this one: the train
+# de vie (MeasureMonthlyLifestyle) is their average, 1 000 €.
+Maggie\Finance\Entity\Transaction:
+  e2e_cushion_share_spend_1:
+    account: '@e2e_cushion_share_checking'
+    category: '@e2e_cushion_share_groceries'
+    amountCents: -100000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month", "-1 month", "+14 days")>'
+    label: 'COURSES DU MOIS'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month", "-1 month", "+14 days")>'
+    user: '@e2e_cushion_share_user'
+  e2e_cushion_share_spend_2:
+    account: '@e2e_cushion_share_checking'
+    category: '@e2e_cushion_share_groceries'
+    amountCents: -100000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month", "-2 months", "+14 days")>'
+    label: 'COURSES DU MOIS'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month", "-2 months", "+14 days")>'
+    user: '@e2e_cushion_share_user'
+  e2e_cushion_share_spend_3:
+    account: '@e2e_cushion_share_checking'
+    category: '@e2e_cushion_share_groceries'
+    amountCents: -100000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month", "-3 months", "+14 days")>'
+    label: 'COURSES DU MOIS'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month", "-3 months", "+14 days")>'
+    user: '@e2e_cushion_share_user'
+  e2e_cushion_share_mobile_spend_1:
+    account: '@e2e_cushion_share_mobile_checking'
+    category: '@e2e_cushion_share_mobile_groceries'
+    amountCents: -100000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month", "-1 month", "+14 days")>'
+    label: 'COURSES DU MOIS'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month", "-1 month", "+14 days")>'
+    user: '@e2e_cushion_share_mobile_user'
+  e2e_cushion_share_mobile_spend_2:
+    account: '@e2e_cushion_share_mobile_checking'
+    category: '@e2e_cushion_share_mobile_groceries'
+    amountCents: -100000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month", "-2 months", "+14 days")>'
+    label: 'COURSES DU MOIS'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month", "-2 months", "+14 days")>'
+    user: '@e2e_cushion_share_mobile_user'
+  e2e_cushion_share_mobile_spend_3:
+    account: '@e2e_cushion_share_mobile_checking'
+    category: '@e2e_cushion_share_mobile_groceries'
+    amountCents: -100000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month", "-3 months", "+14 days")>'
+    label: 'COURSES DU MOIS'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
+    categorizedAt: '<e2eDate("first day of this month", "-3 months", "+14 days")>'
+    user: '@e2e_cushion_share_mobile_user'

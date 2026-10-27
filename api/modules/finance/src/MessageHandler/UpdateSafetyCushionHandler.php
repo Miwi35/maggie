@@ -48,6 +48,18 @@ class UpdateSafetyCushionHandler
             }
             $cushion->setRechargeTargetMonths($command->rechargeTargetMonths);
         }
+        if (null !== $command->criticalMonths) {
+            if ($command->criticalMonths < 0 || $command->criticalMonths > 24) {
+                throw new \DomainException('The critical threshold must be between 0 and 24 months of spending.');
+            }
+            $cushion->setCriticalMonths($command->criticalMonths);
+        }
+        if (null !== $command->cushionSharePercent) {
+            if ($command->cushionSharePercent < 0 || $command->cushionSharePercent > 100) {
+                throw new \DomainException('The cushion share must be between 0 and 100 percent.');
+            }
+            $cushion->setCushionSharePercent($command->cushionSharePercent);
+        }
 
         return $this->updateSafetyCushion->execute($cushion);
     }

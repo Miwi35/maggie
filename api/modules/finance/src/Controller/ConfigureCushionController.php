@@ -23,6 +23,8 @@ final class ConfigureCushionController
         'monthlyNetIncomeCents',
         'rechargeCapCents',
         'rechargeTargetMonths',
+        'criticalMonths',
+        'cushionSharePercent',
     ];
 
     public function __construct(
@@ -71,6 +73,8 @@ final class ConfigureCushionController
                 monthlyNetIncomeCents: $given['monthlyNetIncomeCents'] ?? null,
                 rechargeCapCents: $given['rechargeCapCents'] ?? null,
                 rechargeTargetMonths: $given['rechargeTargetMonths'] ?? null,
+                criticalMonths: $given['criticalMonths'] ?? null,
+                cushionSharePercent: $given['cushionSharePercent'] ?? null,
             ));
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;

@@ -56,7 +56,7 @@ class ScenarioCalculatorTest extends KernelTestCase
             new \DateTimeImmutable('2026-10-21 12:00:00'),
             100000,
             true,
-            ['state' => 'complete', 'deficitCents' => 0, 'monthlyRechargeCents' => 0],
+            ['state' => 'complete', 'deficitCents' => 0, 'criticalDeficitCents' => 0, 'sharePercent' => 60],
             0,
             $projects,
             $loans,

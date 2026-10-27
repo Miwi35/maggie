@@ -556,6 +556,9 @@ web:
     areas: [finance, realtime]
   e2e/web/tests/finance-projects.spec.ts:
     areas: [finance]
+  e2e/web/tests/finance-cushion-share.spec.ts:
+    areas: [finance]
+    paths: [api/fixtures/e2e/69-finance-cushion-share.yaml]
   e2e/web/tests/finance-scenarios.spec.ts:
     areas: [finance]
     paths: [api/fixtures/e2e/50-finance.yaml]
@@ -751,6 +754,9 @@ mobile:
   e2e/mobile/flows/21-finance-peer-debts.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/contacts-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
+  e2e/mobile/flows/29-finance-cushion-share.yaml:
+    areas: [finance]
+    paths: [e2e/mobile/scripts/cushion-share-api.js, api/fixtures/e2e/69-finance-cushion-share.yaml]
   e2e/mobile/flows/23-finance-projects.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/projects-api.js, api/fixtures/e2e/50-finance.yaml]

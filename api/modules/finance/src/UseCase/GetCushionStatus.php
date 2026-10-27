@@ -23,7 +23,10 @@ use Maggie\Finance\Repository\SafetyCushionRepository;
  * back up with every repayment. A treasury advance is not lent to a person: it
  * already lowered the account's balance, and a dette never raises the net.
  * The target follows the reference salary — declared on the cushion, or
- * measured from the recurring « Salaire » — not the raw field alone.
+ * measured from the recurring « Salaire » — not the raw field alone. The
+ * critical threshold is counted in months of spending, the measured train de
+ * vie (MAG-669): below it the planning gives the cushion the whole capacity,
+ * above it `cushionSharePercent` of it until the target is reached.
  *
  * A pure read: it writes nothing, neither the default row of a user who never
  * configured the cushion nor the first time it was full
@@ -36,6 +39,7 @@ class GetCushionStatus
         private readonly AccountRepository $accountRepository,
         private readonly GetReferenceSalary $getReferenceSalary,
         private readonly PeerDebtRepository $peerDebtRepository,
+        private readonly MeasureMonthlyLifestyle $measureMonthlyLifestyle,
     ) {
     }
 
@@ -66,6 +70,7 @@ class GetCushionStatus
 
         $targetCents = $cushion->getTargetMonths() * $monthlyIncomeCents;
         $deficitCents = max(0, $targetCents - $currentCents);
+        $criticalCents = $cushion->getCriticalMonths() * max(0, $this->measureMonthlyLifestyle->execute($user));
         $isComplete = $targetCents > 0 && $currentCents >= $targetCents;
 
         $state = match (true) {
@@ -92,6 +97,10 @@ class GetCushionStatus
             'monthsCovered' => $monthlyIncomeCents > 0
                 ? round(max(0, $currentCents) / $monthlyIncomeCents, 1)
                 : 0.0,
+            'criticalMonths' => $cushion->getCriticalMonths(),
+            'criticalCents' => $criticalCents,
+            'criticalDeficitCents' => max(0, min($deficitCents, $criticalCents - $currentCents)),
+            'cushionSharePercent' => $cushion->getCushionSharePercent(),
             'rechargeCapCents' => $cushion->getRechargeCapCents(),
             'rechargeTargetMonths' => $cushion->getRechargeTargetMonths(),
             'monthlyRechargeCents' => $plan['monthlyRechargeCents'],

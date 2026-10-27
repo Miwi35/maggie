@@ -717,7 +717,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Read when the projects can be bought (\"quand pourrai-je acheter le canapé ?\", \"dans quel ordre mes projets passent ?\"): the next 36 months, computed from the net saving capacity, never stored. The safety cushion comes first: while it is being built nothing is bought, and while it recharges the capacity is lower. The capacity is then given to the projects in priority order; a project with a fixed date keeps it and takes its even share first. No arguments. startMonth and every month are YYYY-MM; amounts are integer cents, divide by 100 to speak them. netCapacityCents is the saving capacity per month, isIncomeKnown false when there is no known income (the capacity is then 0: say so, do not guess). cushion is {state building, recharging or complete, completeMonth: the month its deficit is covered, null when already complete or not within 36 months}. projects[] in priority order: {projectId, name, position, wellbeing, amountCents, dateMode none, fixed or deadline, targetOn, savingFromMonth, purchaseMonth (null when beyond the horizon), gatheredCents (the savings outside the cushion set aside for it today), loan {startMonth, endMonth, monthlyPaymentCents} when a loan is projected (it starts the month after the purchase), isBeyondHorizon, isDeadlineMissed, delayMonths (months after the deadline; at least that when beyond the horizon), unmetDependencies}. A project is never bought before the ones it depends on. months[] {month, capacityCents (what the salary can give the projects that month), cushionCents, salaryCents, savingsCents, capitalCents (what funds the projects, by source), loanPaymentsCents (projected loans running), isOverCapacity (salaryCents above capacityCents: a fixed date asks more than the month can give — a fact, not a fault)}. To change the order, dates or funding use manage_projects and manage_project_funding. A pure read."
+        "description": "Read when the projects can be bought (\"quand pourrai-je acheter le canapé ?\", \"dans quel ordre mes projets passent ?\"): the next 36 months, computed from the net saving capacity, never stored. The safety cushion comes first, building or recharging alike: below its critical threshold (criticalMonths months of spending) it takes the whole capacity and nothing is bought; past it, it takes cushionSharePercent % of the capacity until full and the projects share the rest (manage_safety_cushion sets both). The capacity is then given to the projects in priority order; a project with a fixed date keeps it and takes its even share first. No arguments. startMonth and every month are YYYY-MM; amounts are integer cents, divide by 100 to speak them. netCapacityCents is the saving capacity per month, isIncomeKnown false when there is no known income (the capacity is then 0: say so, do not guess). cushion is {state building, recharging or complete, completeMonth: the month its deficit is covered, null when already complete or not within 36 months}. projects[] in priority order: {projectId, name, position, wellbeing, amountCents, dateMode none, fixed or deadline, targetOn, savingFromMonth, purchaseMonth (null when beyond the horizon), gatheredCents (the savings outside the cushion set aside for it today), loan {startMonth, endMonth, monthlyPaymentCents} when a loan is projected (it starts the month after the purchase), isBeyondHorizon, isDeadlineMissed, delayMonths (months after the deadline; at least that when beyond the horizon), unmetDependencies}. A project is never bought before the ones it depends on. months[] {month, capacityCents (what the salary can give the projects that month), cushionCents, salaryCents, savingsCents, capitalCents (what funds the projects, by source), loanPaymentsCents (projected loans running), isOverCapacity (salaryCents above capacityCents: a fixed date asks more than the month can give — a fact, not a fault)}. To change the order, dates or funding use manage_projects and manage_project_funding. A pure read."
     },
     "get_purchase_suggestions": {
         "name": "get_purchase_suggestions",
@@ -2964,13 +2964,27 @@
                         "integer"
                     ],
                     "default": null
+                },
+                "criticalMonths": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "cushionSharePercent": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "action"
             ]
         },
-        "description": "Read or configure the safety cushion — the emergency fund that must be full before any investment or project starts. The status action reports its state (building, complete, recharging), its target (targetMonths x monthly net income), what the cushion currently holds (the balance of the cushion accounts less peerClaimsCents, what friends and family still owe the owner — it fills back up with every repayment; a debt the owner owes never raises it), the deficit, and the monthly recharge plan. Its current amount is never set by hand: it is the balance of the accounts flagged as cushion. The configure action sets targetMonths, monthlyNetIncomeCents, rechargeCapCents (the most that may go back in per month) and rechargeTargetMonths (the wished-for recharge horizon; when the cap is lower, the recharge simply takes longer). All amounts are integer cents."
+        "description": "Read or configure the safety cushion — the emergency fund the saving fills before the projects and investments. The status action reports its state (building, complete, recharging), its target (targetMonths x monthly net income), what the cushion currently holds (the balance of the cushion accounts less peerClaimsCents, what friends and family still owe the owner — it fills back up with every repayment; a debt the owner owes never raises it), the deficit, and the monthly recharge plan. Its current amount is never set by hand: it is the balance of the accounts flagged as cushion. How the planning fills it, building or recharging alike: while it holds less than criticalMonths months of spending (criticalCents, the train de vie measured over three months), the whole saving capacity goes to it and no project is funded; past that threshold, cushionSharePercent % of the capacity goes to it (never more than the deficit) and the rest to the projects, placements and investments; once full, everything goes to them. The configure action sets targetMonths (months of net income), monthlyNetIncomeCents, criticalMonths (0 to 24, default 2), cushionSharePercent (0 to 100, default 60; 100 = cushion first), rechargeCapCents and rechargeTargetMonths (the indicative recharge plan of the status, no longer read by the planning). Only the fields given change; never deduce one the user did not give. All amounts are integer cents."
     },
     "manage_scenarios": {
         "name": "manage_scenarios",

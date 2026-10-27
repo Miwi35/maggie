@@ -17,6 +17,7 @@ import {
   SCORES_USER_EMAIL,
   BALANCE_USER_EMAIL,
   BRAVO_USER_EMAIL,
+  CUSHION_SHARE_USER_EMAIL,
   STARS_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   MEALS_USER_EMAIL,
@@ -73,6 +74,7 @@ export {
   HOME_TASKS_USER_EMAIL,
   SHORTAGE_USER_EMAIL,
   NUTRITION_USER_EMAIL,
+  CUSHION_SHARE_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser, JourneyProfile } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -243,6 +245,8 @@ export interface MaggieFixtures {
   shortageUser: OtherUser
   /** The twenty-eighth seeded account, for the Nutrition card of the Accueil (MAG-564). */
   nutritionUser: OtherUser
+  /** The twenty-ninth seeded account, for the cushion's share of the capacity (MAG-669). */
+  cushionShareUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -551,6 +555,10 @@ export const test = base.extend<MaggieFixtures>({
 
   nutritionUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(NUTRITION_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  cushionShareUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(CUSHION_SHARE_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

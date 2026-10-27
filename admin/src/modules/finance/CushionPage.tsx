@@ -84,6 +84,14 @@ const CushionSummary = ({ status }: { status: CushionStatus }) => (
         </Typography>
       )}
 
+      <Typography variant="body2" sx={{ mt: 1 }} data-testid="cushion-share-rule">
+        {status.criticalDeficitCents > 0
+          ? `Sous le seuil critique (${status.criticalMonths} mois de dépenses, ${formatCents(status.criticalCents)}) : toute l'épargne va au matelas.`
+          : status.deficitCents > 0
+            ? `Seuil critique atteint : ${status.cushionSharePercent} % de l'épargne va au matelas, le reste aux projets.`
+            : "Matelas complet : toute l'épargne va aux projets."}
+      </Typography>
+
       {status.blocksGreenScore && (
         <Alert severity="info" variant="outlined" sx={{ mt: 2 }}>
           Tant que le matelas n'est pas complet, le score global ne peut pas passer au vert.
@@ -138,12 +146,16 @@ const CushionSettings = ({
     monthlyNetIncomeCents: number
     rechargeCapCents: number
     rechargeTargetMonths: number
+    criticalMonths: number
+    cushionSharePercent: number
   }) => void
 }) => {
   const [targetMonths, setTargetMonths] = useState(status.targetMonths)
   const [incomeCents, setIncomeCents] = useState(status.monthlyNetIncomeCents)
   const [capCents, setCapCents] = useState(status.rechargeCapCents)
   const [horizonMonths, setHorizonMonths] = useState(status.rechargeTargetMonths)
+  const [criticalMonths, setCriticalMonths] = useState(status.criticalMonths)
+  const [sharePercent, setSharePercent] = useState(status.cushionSharePercent)
 
   return (
       <Card>
@@ -172,6 +184,26 @@ const CushionSettings = ({
               onChange={setIncomeCents}
               helperText="Sert uniquement à calculer la cible."
             />
+            <TextField
+              type="number"
+              size="small"
+              label="Seuil critique (mois de dépenses)"
+              value={criticalMonths}
+              onChange={(e) => setCriticalMonths(Number(e.target.value))}
+              helperText="En dessous, toute l'épargne va au matelas (0 à 24)."
+              slotProps={{ htmlInput: { min: 0, max: 24 } }}
+              sx={{ flex: '1 1 220px' }}
+            />
+            <TextField
+              type="number"
+              size="small"
+              label="Part du matelas (%)"
+              value={sharePercent}
+              onChange={(e) => setSharePercent(Number(e.target.value))}
+              helperText="Au-delà du seuil, jusqu'à la cible ; le reste va aux projets. 100 % = matelas d'abord."
+              slotProps={{ htmlInput: { min: 0, max: 100 } }}
+              sx={{ flex: '1 1 220px' }}
+            />
             <CentsField
               label="Plafond de recharge (€/mois)"
               cents={capCents}
@@ -197,6 +229,8 @@ const CushionSettings = ({
                 monthlyNetIncomeCents: incomeCents,
                 rechargeCapCents: capCents,
                 rechargeTargetMonths: horizonMonths,
+                criticalMonths,
+                cushionSharePercent: sharePercent,
               })
             }
             sx={{ mt: 2 }}
@@ -230,7 +264,7 @@ export const CushionPage = () => {
         <>
           <CushionSummary status={status} />
           <CushionSettings
-            key={`${status.targetMonths}-${status.monthlyNetIncomeCents}-${status.rechargeCapCents}-${status.rechargeTargetMonths}`}
+            key={`${status.targetMonths}-${status.monthlyNetIncomeCents}-${status.rechargeCapCents}-${status.rechargeTargetMonths}-${status.criticalMonths}-${status.cushionSharePercent}`}
             status={status}
             onSave={onSave}
           />

@@ -62,4 +62,23 @@ export class FinanceCushionPage extends AdminShell {
     // the server's answer rather than the previous one.
     await expect(this.settings.getByLabel('Cible (mois de revenu)')).toHaveValue(String(months))
   }
+
+  /** The line that says where the savings go, by the critical threshold and the share (MAG-669). */
+  get shareRule(): Locator {
+    return this.summary.getByTestId('cushion-share-rule')
+  }
+
+  /** Sets « Part du matelas (%) » and saves, waiting for the write and the remount (see {@link setTargetMonths}). */
+  async setSharePercent(percent: number): Promise<void> {
+    await this.settings.getByLabel('Part du matelas (%)').fill(String(percent))
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/finance/cushion-config') &&
+          'PATCH' === response.request().method(),
+      ),
+      this.save.click(),
+    ])
+    await expect(this.settings.getByLabel('Part du matelas (%)')).toHaveValue(String(percent))
+  }
 }

@@ -60,6 +60,19 @@ class SafetyCushion implements MercurePublishable, OwnedByUserInterface
     #[Assert\Range(min: 1, max: 60)]
     private int $rechargeTargetMonths = 6;
 
+    /**
+     * Months of spending (the train de vie) the cushion must hold before any
+     * saving goes elsewhere: below it, the whole capacity goes to the cushion.
+     */
+    #[ORM\Column(type: 'integer', options: ['default' => 2])]
+    #[Assert\Range(min: 0, max: 24)]
+    private int $criticalMonths = 2;
+
+    /** Part of the capacity, in percent, the cushion takes past the critical threshold until it is full. */
+    #[ORM\Column(type: 'integer', options: ['default' => 60])]
+    #[Assert\Range(min: 0, max: 100)]
+    private int $cushionSharePercent = 60;
+
     /** First time the target was ever reached — tells building from recharging. */
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $completedAt = null;
@@ -134,6 +147,30 @@ class SafetyCushion implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getCriticalMonths(): int
+    {
+        return $this->criticalMonths;
+    }
+
+    public function setCriticalMonths(int $criticalMonths): static
+    {
+        $this->criticalMonths = $criticalMonths;
+
+        return $this;
+    }
+
+    public function getCushionSharePercent(): int
+    {
+        return $this->cushionSharePercent;
+    }
+
+    public function setCushionSharePercent(int $cushionSharePercent): static
+    {
+        $this->cushionSharePercent = $cushionSharePercent;
+
+        return $this;
+    }
+
     public function getCompletedAt(): ?\DateTimeImmutable
     {
         return $this->completedAt;
@@ -161,6 +198,8 @@ class SafetyCushion implements MercurePublishable, OwnedByUserInterface
             'targetCents' => $this->getTargetCents(),
             'rechargeCapCents' => $this->rechargeCapCents,
             'rechargeTargetMonths' => $this->rechargeTargetMonths,
+            'criticalMonths' => $this->criticalMonths,
+            'cushionSharePercent' => $this->cushionSharePercent,
             'completedAt' => $this->completedAt?->format(\DateTimeInterface::ATOM),
         ], $changedProperties);
     }
