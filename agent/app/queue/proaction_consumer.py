@@ -12,6 +12,7 @@ from app.mercure.publisher import MercurePublisher
 from app.proactions import api as proactions_api
 from app.proactions.api import Proaction
 from app.queue.connection import PROACTION_QUEUE, get_channel
+from app.trips import is_silent_trip_run
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
     proaction_id = proaction.id
 
     if dry_run:
-        result = await gateway.proaction(proaction.prompt, proaction.user_id, dry_run=True)
+        result = await gateway.proaction(proaction.prompt, proaction.user_id, dry_run=True, summary=proaction.summary)
         return {
             "status": proaction.status,
             "message": result["response"],
@@ -59,8 +60,9 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
         }
 
     try:
-        result = await gateway.proaction(proaction.prompt, proaction.user_id)
-        if result["response"]:
+        result = await gateway.proaction(proaction.prompt, proaction.user_id, summary=proaction.summary)
+        # A trip check or replan (MAG-657) is a log, not a message: the departure alert is the API's.
+        if result["response"] and not is_silent_trip_run(proaction.summary):
             # Stored in the thread the gateway routed it to. Without a thread the
             # message is an orphan: the reply it invites is routed against a
             # conversation that never mentions it, and the summary of the thread

@@ -25,6 +25,9 @@ class FakeProactionApi:
         self.down = False
         # `get_events_by_date`'s answer, by day: the agenda the planning reads.
         self.agenda: dict[str, list[dict]] = {}
+        # The trips kept with `set_trip` (MAG-657), by event id; `estimate_trip` answers departAt from `depart_at`.
+        self.trips: dict[str, dict] = {}
+        self.depart_at = {"drive": "13:34", "walk": "13:20"}
         self._ids = (f"01JPROACTION{n:014d}" for n in itertools.count(1))
 
     # What `McpClient` offers the code under test.
@@ -46,12 +49,20 @@ class FakeProactionApi:
 
     # Test helpers.
 
-    def seed(self, user_id: str, *, prompt: str = "Rappelle-moi le plombier", at: str = "2030-11-13T12:30:00+01:00", status: str = "pending") -> str:
+    def seed(
+        self,
+        user_id: str,
+        *,
+        prompt: str = "Rappelle-moi le plombier",
+        at: str = "2030-11-13T12:30:00+01:00",
+        status: str = "pending",
+        summary: str | None = None,
+    ) -> str:
         proaction_id = next(self._ids)
         self.proactions[proaction_id] = {
             "id": proaction_id,
             "prompt": prompt,
-            "summary": prompt[:60],
+            "summary": summary if summary is not None else prompt[:60],
             "scheduledAt": at,
             "status": status,
             "response": None,
@@ -90,7 +101,7 @@ class FakeProactionApi:
         for twin in self.of(user_id):
             if twin["status"] == "pending" and twin["prompt"] == prompt and self._instant(twin["scheduledAt"]) == at:
                 return {"success": True, "proaction": twin, "agenda": "Maggie"}
-        proaction_id = self.seed(user_id, prompt=prompt, at=at.isoformat())
+        proaction_id = self.seed(user_id, prompt=prompt, at=at.isoformat(), summary=arguments.get("summary"))
         return {"success": True, "proaction": self.proactions[proaction_id], "agenda": "Maggie"}
 
     def _list_proactions(self, arguments: dict, user_id: str | None) -> dict:
@@ -108,6 +119,40 @@ class FakeProactionApi:
     def _get_events_by_date(self, arguments: dict, user_id: str | None) -> dict:
         events = self.agenda.get(str(arguments.get("date")), [])
         return {"date": arguments.get("date"), "events": events, "count": len(events)}
+
+    def _event(self, event_id: str) -> dict | None:
+        return next((e for events in self.agenda.values() for e in events if e["id"] == event_id), None)
+
+    def _estimate_trip(self, arguments: dict, user_id: str | None) -> dict:
+        event = self._event(str(arguments.get("eventId")))
+        if event is None:
+            return {"error": f"no event of yours has the id {arguments.get('eventId')}.", "field": "eventId"}
+        day = event["startDate"][:10]
+        estimates = [
+            {"mode": mode, "origin": {"kind": "position"}, "departAt": f"{day}T{self.depart_at[mode]}:00+01:00", "parkingKnown": True}
+            for mode in arguments.get("modes", [])
+            if mode in self.depart_at
+        ]
+        return {"eventId": event["id"], "estimates": estimates, "unavailable": [], "locationRequested": False}
+
+    def _set_trip(self, arguments: dict, user_id: str | None) -> dict:
+        event = self._event(str(arguments.get("eventId")))
+        if event is None:
+            return {"error": f"no event of yours has the id {arguments.get('eventId')}.", "field": "eventId"}
+        day = event["startDate"][:10]
+        trip = {
+            "eventId": event["id"],
+            "mode": arguments["mode"],
+            "origin": {"kind": arguments["origin"]},
+            "originDecidedBy": arguments.get("decidedBy", "maggie"),
+            "departAt": f"{day}T{self.depart_at[arguments['mode']]}:00+01:00",
+        }
+        self.trips[event["id"]] = trip
+        return {"success": True, "trip": trip}
+
+    def _list_trips(self, arguments: dict, user_id: str | None) -> dict:
+        trips = [t for t in self.trips.values() if t["departAt"][:10] == arguments.get("date")]
+        return {"date": arguments.get("date"), "trips": trips}
 
     def _cancel_proaction(self, arguments: dict, user_id: str | None) -> dict:
         proaction = self.proactions.get(str(arguments.get("id")))

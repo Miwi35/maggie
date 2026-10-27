@@ -21,6 +21,7 @@ from app.memory.agent_memory import AgentMemory
 from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.policy.engine import A2A_SOURCE
 from app.skills.index import MOMENT_CHAT, MOMENT_PLANNING, MOMENT_PROACTION, skill_index
+from app.trips import is_silent_trip_run, trip_run_rules
 from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,10 @@ logger = logging.getLogger(__name__)
 # of the conversation — the same sentence the streamed path has always stored.
 API_ERROR_MESSAGE = "Désolé, une erreur est survenue. Réessaie."
 UNREACHABLE_MESSAGE = "Je n'arrive pas à joindre le service d'IA pour l'instant. Réessaie dans un moment."
+
+# The morning card plans one trip per event with a place — read, estimate, keep, two checks each: five rounds
+# (the chat's limit) would cut a busy day short (MAG-657).
+PROACTION_MAX_ITERATIONS = 20
 
 PLANNING_PREAMBLE = (
     "\n\nTu es en mode planification autonome. "
@@ -103,7 +108,14 @@ class LLMGateway:
         return build_system(base + skill_context, volatile, moment_skills, memory.profile, memory.recalled)
 
     async def proaction(
-        self, prompt: str, user_id: str, *, silent: bool = False, dry_run: bool = False, about: str | None = None
+        self,
+        prompt: str,
+        user_id: str,
+        *,
+        silent: bool = False,
+        dry_run: bool = False,
+        about: str | None = None,
+        summary: str | None = None,
     ) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
 
@@ -121,6 +133,8 @@ class LLMGateway:
                      listed under `simulated_tools`, and no thread is opened for the message.
             about: What the memory is asked to recall for (MAG-16). The prompt itself by default; the daily
                    planning gives the day's events, which its prompt only says how to read.
+            summary: The proaction's summary. A trip check or replan (MAG-657) works on the trips and
+                     says nothing in the chat: it runs with its own preamble and gets no thread.
         """
         if self.client is None:
             return {
@@ -130,7 +144,8 @@ class LLMGateway:
 
         tools = await self.tool_router.get_tool_definitions()
 
-        preamble = PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
+        trip_run = not silent and summary is not None and is_silent_trip_run(summary)
+        preamble = trip_run_rules(summary) if trip_run else PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
 
         system_prompt = await self._build_system_prompt(
             user_id,
@@ -156,6 +171,7 @@ class LLMGateway:
                 model=settings.anthropic_model,
                 call_type="proaction",
                 source="proaction",
+                max_iterations=PROACTION_MAX_ITERATIONS,
             )
         except anthropic.APIStatusError as e:
             logger.error(f"Proaction API error: {e.message}")
@@ -169,7 +185,7 @@ class LLMGateway:
         if dry_run:
             result["dry_run"] = True
             result["simulated_tools"] = tool_router.simulated
-        elif not silent:
+        elif not silent and not trip_run:
             result["context_id"] = await self._resolve_proaction_context(result.get("response", ""), user_id)
         return result
 

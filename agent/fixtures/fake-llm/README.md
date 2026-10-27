@@ -239,6 +239,12 @@ pure read that takes no argument.
 at 3,9 %, 160 € rent, resale in 2036-06) through `manage_investments` set: one round lists the projects,
 `results_matches` captures the Box's id from it. The figures said are the scenario's own: the fake does not read the result.
 
+**Trips** (MAG-657). `06-planning-trips.yaml` is the morning card on a day with a « Dentiste »: like the custody day it
+only matches once the agenda is in the history, and takes the event's id from this run's own `get_events_by_date`
+(`results_matches`); it estimates, keeps the trip by car and posts the two « Check départ · Dentiste » at 13:04 and 13:24.
+`06-replan-trips.yaml` answers the « Replanifier les trajets du … » proaction: estimate again from the position, `set_trip`.
+A proaction run has 20 rounds (`PROACTION_MAX_ITERATIONS`), not the chat's 5.
+
 ## Adding a scenario
 
 1. Pick a file name whose prefix puts it where you want in the matching order.
