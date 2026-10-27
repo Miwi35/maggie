@@ -31,7 +31,8 @@ class AndroidLocationSchedulerTest {
 
     private class FakeTransitions : TransitionRegistrar {
         var registered = false
-        override fun register() { registered = true }
+        var registrations = 0
+        override fun register() { registered = true; registrations++ }
         override fun unregister() { registered = false }
     }
 
@@ -87,7 +88,7 @@ class AndroidLocationSchedulerTest {
         preferences.setEnabled(true)
         val reporter = LocationReporter(RecordingApi().service, preferences, permissions, source)
         stopKoin()
-        startKoin { modules(module { single { reporter } }) }
+        startKoin { modules(module { single { reporter }; single<TransitionRegistrar> { transitions } }) }
         val id = infos(name).single().id
         val driver = WorkManagerTestInitHelper.getTestDriver(ApplicationProvider.getApplicationContext())!!
         driver.setAllConstraintsMet(id)
@@ -108,6 +109,16 @@ class AndroidLocationSchedulerTest {
         scheduler.startTracking()
 
         assertEquals(listOf(PositionAccuracy.BALANCED), accuraciesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true))
+    }
+
+    @Test
+    fun `every run of the 30-minute position listens for the car again, a reboot or an update having dropped it`() {
+        scheduler.startTracking()
+        val registrations = transitions.registrations
+
+        accuraciesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true)
+
+        assertEquals(registrations + 1, transitions.registrations)
     }
 
     @Test

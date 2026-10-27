@@ -104,6 +104,8 @@ class AndroidLocationScheduler(
 class PositionWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val koin = GlobalContext.getOrNull() ?: return Result.retry()
+        // The listening for the car is dropped by a reboot or an app update, and only a launch brought it back.
+        koin.get<TransitionRegistrar>().register()
         val accuracy = if (inputData.getBoolean(PRECISE, false)) PositionAccuracy.HIGH else PositionAccuracy.BALANCED
         return koin.get<LocationReporter>().reportPosition(accuracy).toWorkResult()
     }
