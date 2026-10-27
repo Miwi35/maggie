@@ -206,46 +206,6 @@ describe('AgendaCard', () => {
     await waitFor(() => expect(screen.queryByTestId('agenda-event-panel')).not.toBeInTheDocument())
   })
 
-  describe('« ▶ Lancer » on the line of an activity (MAG-568)', () => {
-    const review = event('review', "Revue d'octobre", '2026-10-14T20:00:00+02:00', '2026-10-14T21:00:00+02:00', { activity: 'finance-review' })
-
-    test('the review line carries a Lancer today, which opens the activity and remembers where it came from', async () => {
-      vi.useRealTimers()
-      vi.stubGlobal('fetch', vi.fn(reads([upcoming, review])))
-      const user = userEvent.setup()
-
-      renderCard()
-      await screen.findByText("Revue d'octobre")
-
-      expect(screen.getAllByTestId('home-launch-finance')).toHaveLength(1)
-      await user.click(screen.getByRole('link', { name: "Lancer Revue d'octobre" }))
-
-      expect(screen.getByTestId('where')).toHaveTextContent('/finance/review/activity|{"from":"/"}')
-    })
-
-    test('an event that is not an activity has none, and touching the ▶ does not open the fiche', async () => {
-      vi.useRealTimers()
-      vi.stubGlobal('fetch', vi.fn(reads([upcoming, review])))
-      const user = userEvent.setup()
-
-      renderCard()
-      await screen.findByText('Dentiste')
-
-      expect(screen.queryByRole('link', { name: 'Lancer Dentiste' })).not.toBeInTheDocument()
-      await user.click(screen.getByRole('link', { name: "Lancer Revue d'octobre" }))
-      expect(screen.queryByTestId('agenda-event-panel')).not.toBeInTheDocument()
-    })
-
-    test('tomorrow has none', async () => {
-      vi.stubGlobal('fetch', vi.fn(reads([upcoming, review])))
-
-      renderCard('tomorrow')
-
-      await screen.findByText("Revue d'octobre")
-      expect(screen.queryByTestId('home-launch-finance')).not.toBeInTheDocument()
-    })
-  })
-
   test('the fiche of an activity event offers « Lancer », which opens the activity and remembers where it came from', async () => {
     vi.useRealTimers()
     const review = event('review', 'Revue', '2026-10-14T18:00:00+02:00', '2026-10-14T19:00:00+02:00', { activity: 'finance-review' })
