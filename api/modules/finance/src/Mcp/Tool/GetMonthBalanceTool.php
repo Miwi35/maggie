@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\UseCase\GetMonthBalance;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_month_balance', description: 'Read the balance of a month (YYYY-MM, defaults to the current one): `spending` (the month status with its budget, what was spent, the expected rhythm and the daily curve), `envelopes` (each root envelope with consumed against budgeted and its status held, close or over), `satisfaction` (what was judged worth keeping against avoidable, and the kept share in percent, null while nothing is judged), `savings` (what was put aside against the planned saving capacity, null when no income is known), `cushion`, and `toQualify` (the count and weight of the lines of the month nobody qualified yet — they belong to no envelope). All amounts are integer cents.')]
+#[McpTool(name: 'get_month_balance', description: 'Read the balance of a month (YYYY-MM, defaults to the current one): `spending` (the month status, what was spent — every debit, classified or not —, what was planned ahead — the recurring operations — and the daily curve of both; spending more than planned is normal), `envelopes` (each root envelope with consumed against budgeted and its status held, close or over), `satisfaction` (what was judged worth keeping against avoidable, and the kept share in percent, null while nothing is judged), `savings` (what was put aside against the planned saving capacity, null when no income is known), `cushion`, and `toQualify` (the count and weight of the lines of the month nobody qualified yet — they belong to no envelope). All amounts are integer cents.')]
 class GetMonthBalanceTool
 {
     public function __construct(

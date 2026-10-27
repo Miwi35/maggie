@@ -1,5 +1,6 @@
 import { test, expect, e2eNow, parisTime, parisDay } from '../fixtures/index.js'
 import { HomePage } from '../pages/HomePage.js'
+import { euros } from '../helpers/money.js'
 
 /**
  * The Accueil (MAG-560): the trail says where we are and a selector picks the
@@ -95,17 +96,17 @@ test('the Courses card shows five lines of a six-line list and « + 1 »', async
 
 /**
  * The Finance card (MAG-565, extends MAG-102): the week and the month as rings with their
- * rhythm. The Accueil's account has a 1 000 € envelope and 10 € spent on the 1st, under the pace
- * whatever the day. Touching the card opens Finance › Dashboard.
+ * spent. The Accueil's account has a 1 000 € envelope and 10 € spent on the 1st. Touching the card opens Finance › Dashboard.
  */
-test('the Finance card says « Dans le rythme » and opens the Dashboard', async ({ homeUser }) => {
+test('the Finance card says what was spent, without a verdict, and opens the Dashboard', async ({ homeUser }) => {
   const home = new HomePage(homeUser.page)
   await home.open()
 
   const card = home.financeCard
   await expect(card.getByTestId('home-finance-ring')).toHaveCount(2)
-  await expect(card.getByTestId('home-finance-status').first()).toContainText('Dans le rythme')
-  await expect(card.getByTestId('home-finance-status').last()).toContainText('Dans le rythme')
+  const month = card.locator('[data-testid="home-finance-ring"][data-period="month"]')
+  await expect(month.getByTestId('home-finance-spent')).toContainText(euros(1000))
+  await expect(card).not.toContainText(/rythme|restants/)
 
   // It does not follow the selector.
   await home.day('Demain').click()

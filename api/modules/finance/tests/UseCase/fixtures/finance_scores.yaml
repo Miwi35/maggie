@@ -1,8 +1,10 @@
 # October 2026 for the week and month scores (MAG-416): a 1 500 € monthly budget
-# (rent 700 €, energy 80 €, groceries 720 € — so a variable part of 720 €), the
-# rent and the energy as recurring series (the 5th and the 10th) and as paid,
-# a complete cushion and 3 000 € of groceries a year earlier — so, but for the
-# rhythm, a month spending less than that is green. Tests add the groceries.
+# (rent 700 €, energy 80 €, groceries 720 €), the rent, the energy and a 30 €
+# gym — a category with no envelope — as recurring series (the 5th, the 10th and
+# the 20th), the rent and the energy as paid, a complete cushion and 3 000 € of
+# groceries a year earlier — so a month spending less than that is green. The
+# rhythm expects the three recurring debits, 810 €, whatever the envelopes.
+# Tests add the groceries.
 # Nothing in 2026 is on the real clock: the tests ask for a date.
 
 Maggie\Core\Entity\User:
@@ -55,6 +57,11 @@ Maggie\Finance\Entity\Category:
     name: Voyages
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
     user: '@scores_user'
+  # No envelope at all: its debits still count in the rhythm (MAG-643).
+  scores_sport:
+    name: Sport
+    obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
+    user: '@scores_user'
   other_food:
     name: Alimentation
     obligation: '<(Maggie\Finance\Enum\ObligationFlag::Optional)>'
@@ -87,6 +94,17 @@ Maggie\Finance\Entity\RecurringOperation:
     period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
     anchorOn: '<(new \DateTimeImmutable("2026-01-10"))>'
     referenceAmountCents: -8000
+    referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
+    user: '@scores_user'
+
+  scores_gym:
+    label: Salle de sport
+    counterpartyName: GYM
+    category: '@scores_sport'
+    account: '@scores_checking'
+    period: '<(Maggie\Finance\Enum\RecurrencePeriod::Monthly)>'
+    anchorOn: '<(new \DateTimeImmutable("2026-01-20"))>'
+    referenceAmountCents: -3000
     referenceSource: '<(Maggie\Finance\Enum\ReferenceAmountSource::Declared)>'
     user: '@scores_user'
 

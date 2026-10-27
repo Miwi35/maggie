@@ -52,11 +52,11 @@ class FinanceScoresToolTest extends KernelTestCase
 
         self::assertSame('2026-10-13', $scores['date']);
         self::assertSame(100000, $scores['month']['rhythm']['spentCents']);
-        self::assertSame(108194, $scores['month']['rhythm']['expectedSpentCents']);
-        self::assertSame('Dans le rythme', $scores['month']['rhythm']['label']);
-        self::assertSame('neutral', $scores['month']['status']);
+        self::assertSame(78000, $scores['month']['rhythm']['expectedSpentCents']);
+        self::assertSame(81000, $scores['month']['rhythm']['plannedCents']);
+        self::assertSame('green', $scores['month']['status']);
         self::assertCount(31, $scores['month']['rhythm']['curve']);
-        self::assertSame(16258, $scores['week']['rhythm']['budgetCents']);
+        self::assertSame(0, $scores['week']['rhythm']['plannedCents']);
     }
 
     public function testOnlyTheUsersOwnData(): void

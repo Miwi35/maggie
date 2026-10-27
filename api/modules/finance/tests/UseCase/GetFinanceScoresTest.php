@@ -5,12 +5,16 @@ namespace Maggie\Finance\Tests\UseCase;
 use App\Tests\Support\FixtureLoaderTrait;
 use Maggie\Core\Entity\User;
 use Maggie\Finance\Enum\TransactionStatus;
+use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\UseCase\GetFinanceScores;
+use Maggie\Finance\UseCase\GetPeriodBalance;
+use Maggie\Finance\UseCase\PlanningPeriod;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
- * The week and month scores and their non-linear rhythm (MAG-416), on the
- * October 2026 of `FinanceScoresWorld`. A pure read: no Mercure update and no
+ * The week and month scores and their rhythm — every debit spent, the recurring
+ * ones expected, no verdict (MAG-416, MAG-643) — on the October 2026 of
+ * `FinanceScoresWorld`. A pure read: no Mercure update and no
  * index to assert.
  */
 class GetFinanceScoresTest extends KernelTestCase
@@ -43,76 +47,106 @@ class GetFinanceScoresTest extends KernelTestCase
         return array_column($score['reasons'], 'code');
     }
 
-    public function testThePaceIsNotLinear(): void
+    public function testSpentIsEveryRealDebitAndExpectedOnlyTheRecurringOnes(): void
     {
         $this->spendGroceries('2026-10-03', 22000);
+        // A category with no envelope and a line no category claims: both are money gone.
+        $this->spendGroceries('2026-10-04', 5000, 'scores_sport');
+        $this->leaveUnclassified('2026-10-06', -7000);
+
+        $rhythm = $this->scores('2026-10-13')['month']['rhythm'];
+
+        // 780 € paid + 220 € + 50 € + 70 €.
+        self::assertSame(112000, $rhythm['spentCents']);
+        // The rent (5th) and the energy (10th) are due; the gym (20th) is not yet.
+        self::assertSame(78000, $rhythm['expectedSpentCents']);
+        self::assertSame(81000, $rhythm['plannedCents']);
+    }
+
+    public function testSpentIsTheSameFigureAsThePeriodBalance(): void
+    {
+        $this->spendGroceries('2026-10-03', 22000);
+        $this->spendGroceries('2026-10-04', 5000, 'scores_sport');
+        $this->leaveUnclassified('2026-10-06', -7000);
+        $this->leaveUnclassified('2026-10-07', -50000, TransferKind::Internal);
+        $this->leaveUnclassified('2026-10-08', -4000, TransferKind::Rejected);
+        $this->leaveUnclassified('2026-10-09', 90000);
+
+        /** @var User $user */
+        $user = $this->getFixture('scores_user');
+        $balance = self::getContainer()->get(GetPeriodBalance::class)->execute($user, PlanningPeriod::parse('2026-Q4'));
+
+        $rhythm = $this->scores('2026-10-31')['month']['rhythm'];
+
+        self::assertSame(112000, $rhythm['spentCents']);
+        self::assertSame($balance['months'][0]['spentCents'], $rhythm['spentCents']);
+        self::assertSame(112000, $rhythm['curve'][30]['spentCents']);
+    }
+
+    public function testInternalTransfersRejectionsCreditsAndPlannedLinesAreNotSpent(): void
+    {
+        $this->leaveUnclassified('2026-10-03', -50000, TransferKind::Internal);
+        $this->leaveUnclassified('2026-10-04', -4000, TransferKind::Rejected);
+        $this->leaveUnclassified('2026-10-05', 90000);
+        $this->leaveUnclassified('2026-10-06', -7000, status: TransactionStatus::Planned);
+        $this->leaveUnclassified('2026-10-07', -3000, as: 'other_user');
+        $this->spendGroceries('2026-10-14', 90000, status: TransactionStatus::Planned);
+
+        $month = $this->scores('2026-10-13')['month']['rhythm'];
+
+        self::assertSame(78000, $month['spentCents']);
+        self::assertSame(0, $month['unclassifiedCount']);
+        self::assertSame(0, $month['unclassifiedCents']);
+    }
+
+    public function testTheRhythmGivesNoVerdictWhateverIsSpent(): void
+    {
+        $this->spendGroceries('2026-10-03', 60000);
+        $this->spendGroceries('2026-10-04', 55000, 'scores_sport');
+
+        $scores = $this->scores('2026-10-13');
+
+        foreach (['week', 'month'] as $period) {
+            foreach (['status', 'label', 'budgetCents', 'remainingCents', 'expectedRemainingCents'] as $key) {
+                self::assertArrayNotHasKey($key, $scores[$period]['rhythm']);
+            }
+        }
+        // 1 490 € spent against 780 € expected: normal, and no reason says otherwise.
+        self::assertSame(193000, $scores['month']['rhythm']['spentCents']);
+        $codes = self::codes($scores['month']);
+        self::assertSame([], array_intersect($codes, ['above_rhythm', 'below_rhythm', 'on_rhythm', 'total_budget_exceeded', 'week_budget_exceeded']));
+    }
+
+    public function testMoreSpentThanTheEnvelopesTotalIsNotRedWhenEveryEnvelopeHolds(): void
+    {
+        // 1 800 € spent in all against 1 500 € of envelopes, but the food envelope holds
+        // and the rest has no envelope: the colour only reads the envelopes.
+        $this->spendGroceries('2026-10-03', 60000);
+        $this->spendGroceries('2026-10-04', 90000, 'scores_sport');
 
         $month = $this->scores('2026-10-13')['month'];
 
-        // 1 500 € - (700 + 80) = 720 € to spread; on the 13th: 780 + 720 × 13 / 31.
-        self::assertSame(150000, $month['rhythm']['budgetCents']);
-        self::assertSame(108194, $month['rhythm']['expectedSpentCents']);
-        self::assertSame(100000, $month['rhythm']['spentCents']);
-        self::assertSame(50000, $month['rhythm']['remainingCents']);
-        self::assertSame(150000 - 108194, $month['rhythm']['expectedRemainingCents']);
-        self::assertSame('on_track', $month['rhythm']['status']);
-        self::assertSame('Dans le rythme', $month['rhythm']['label']);
-        self::assertSame('neutral', $month['status']);
-        self::assertSame('Dans les clous', $month['label']);
-    }
-
-    public function testSpendingMoreThanThePaceIsAboveTheRhythmAndOrange(): void
-    {
-        $this->spendGroceries('2026-10-03', 42000);
-
-        $month = $this->scores('2026-10-13')['month'];
-
-        self::assertSame(120000, $month['rhythm']['spentCents']);
-        self::assertSame('above', $month['rhythm']['status']);
-        self::assertSame('Au-dessus du rythme', $month['rhythm']['label']);
-        self::assertSame('orange', $month['status']);
-        self::assertSame('Attention', $month['label']);
-        self::assertContains('above_rhythm', self::codes($month));
-        $reason = $month['reasons'][array_search('above_rhythm', self::codes($month), true)];
-        self::assertSame(120000 - 108194, $reason['amountCents']);
-    }
-
-    public function testNinetyFivePercentOfThePaceIsTheOrangeLine(): void
-    {
-        // 95 % of 108 194 = 102 784,3: one cent under is on track, one over is above.
-        $this->spendGroceries('2026-10-03', 102784 - 78000);
-        self::assertSame('on_track', $this->scores('2026-10-13')['month']['rhythm']['status']);
-
-        $this->spendGroceries('2026-10-04', 1);
-        self::assertSame('above', $this->scores('2026-10-13')['month']['rhythm']['status']);
-    }
-
-    public function testAMonthUnderEightyPercentOfThePaceAndBetterThanLastYearIsGreen(): void
-    {
-        // Only the rent and the energy: 780 € against 1 081,94 € expected, 72 %.
-        $month = $this->scores('2026-10-13')['month'];
-
+        self::assertSame(228000, $month['rhythm']['spentCents']);
         self::assertSame('green', $month['status']);
-        self::assertSame('Dans le vert', $month['label']);
+        self::assertNotContains('total_budget_exceeded', self::codes($month));
     }
 
-    public function testAMonthBetweenEightyAndNinetyFivePercentLosesItsGreen(): void
-    {
-        // 780 + 120 = 900 € is 83 % of 1 081,94 €: in the nails, not in the green.
-        $this->spendGroceries('2026-10-03', 12000);
-
-        self::assertSame('neutral', $this->scores('2026-10-13')['month']['status']);
-    }
-
-    public function testAnExceededMonthBudgetIsRedWhateverTheRhythm(): void
+    public function testAnExceededEnvelopeStillMakesTheMonthOrange(): void
     {
         $this->spendGroceries('2026-10-03', 80000);
 
         $month = $this->scores('2026-10-13')['month'];
 
-        self::assertSame('red', $month['status']);
-        self::assertSame('Dépassement', $month['label']);
-        self::assertContains('total_budget_exceeded', self::codes($month));
+        self::assertSame('orange', $month['status']);
+        self::assertContains('optional_category_exceeded', self::codes($month));
+    }
+
+    public function testTheMonthIsGreenWhenItsEnvelopesAreAndLastYearWasMore(): void
+    {
+        $month = $this->scores('2026-10-13')['month'];
+
+        self::assertSame('green', $month['status']);
+        self::assertSame('Dans le vert', $month['label']);
     }
 
     public function testTheCurveHasOnePointPerDayAndTheDebitsAtTheirDate(): void
@@ -125,11 +159,14 @@ class GetFinanceScoresTest extends KernelTestCase
         self::assertSame('2026-10-01', $rhythm['curve'][0]['date']);
         self::assertSame('2026-10-31', $rhythm['curve'][30]['date']);
 
-        // Debits weigh on the day they fall: the 5th jumps by 700 € plus a day of the rest.
-        $fourth = $rhythm['curve'][3]['expectedCents'];
-        $fifth = $rhythm['curve'][4]['expectedCents'];
-        self::assertSame(70000 + (int) round(72000 * 5 / 31) - (int) round(72000 * 4 / 31), $fifth - $fourth);
-        self::assertSame(150000, $rhythm['curve'][30]['expectedCents']);
+        // Planned debits step the expected curve on the day they fall, and nothing in between.
+        self::assertSame(0, $rhythm['curve'][3]['expectedCents']);
+        self::assertSame(70000, $rhythm['curve'][4]['expectedCents']);
+        self::assertSame(70000, $rhythm['curve'][8]['expectedCents']);
+        self::assertSame(78000, $rhythm['curve'][9]['expectedCents']);
+        self::assertSame(78000, $rhythm['curve'][18]['expectedCents']);
+        self::assertSame(81000, $rhythm['curve'][19]['expectedCents']);
+        self::assertSame(81000, $rhythm['curve'][30]['expectedCents']);
 
         // The spending is known up to the day asked for, and nothing after it.
         self::assertSame(22000, $rhythm['curve'][3]['spentCents']);
@@ -141,6 +178,7 @@ class GetFinanceScoresTest extends KernelTestCase
             [
                 ['date' => '2026-10-05', 'label' => 'Loyer', 'amountCents' => 70000],
                 ['date' => '2026-10-10', 'label' => 'Énergie', 'amountCents' => 8000],
+                ['date' => '2026-10-20', 'label' => 'Salle de sport', 'amountCents' => 3000],
             ],
             array_map(
                 static fn (array $debit): array => array_diff_key($debit, ['recurringOperationId' => true]),
@@ -150,74 +188,49 @@ class GetFinanceScoresTest extends KernelTestCase
         self::assertNotSame('', $rhythm['debits'][0]['recurringOperationId']);
     }
 
-    public function testTheWeekHoldsOnlyItsOwnDebitsAndDaysOfTheVariablePart(): void
+    public function testTheWeekHoldsOnlyItsOwnSpendingAndDebits(): void
     {
-        // Monday 12 to Sunday 18: the rent and the energy fell earlier.
+        // Monday 12 to Sunday 18: the rent and the energy fell earlier, the gym is next week.
+        $this->spendGroceries('2026-10-12', 4000);
+        $this->spendGroceries('2026-10-13', 500);
+        $this->spendGroceries('2026-10-14', 900);
+
         $week = $this->scores('2026-10-13')['week'];
 
         self::assertSame([], $week['rhythm']['debits']);
         self::assertCount(7, $week['rhythm']['curve']);
         self::assertSame('2026-10-12', $week['rhythm']['curve'][0]['date']);
         self::assertSame('2026-10-18', $week['rhythm']['curve'][6]['date']);
-        // 7 days of 720 € / 31, and two of them elapsed on the 13th.
-        self::assertSame(16258, $week['rhythm']['budgetCents']);
-        self::assertSame(4645, $week['rhythm']['expectedSpentCents']);
+        self::assertSame(4500, $week['rhythm']['spentCents']);
+        self::assertSame(0, $week['rhythm']['expectedSpentCents']);
+        self::assertSame(0, $week['rhythm']['plannedCents']);
 
         // The week of the 5th holds the rent and the energy (the 10th).
         $first = $this->scores('2026-10-07')['week']['rhythm'];
         self::assertSame(['2026-10-05', '2026-10-10'], array_column($first['debits'], 'date'));
-        self::assertSame(70000 + 8000 + (int) round(72000 * 7 / 31), $first['budgetCents']);
+        self::assertSame(70000, $first['expectedSpentCents']);
+        self::assertSame(78000, $first['plannedCents']);
+        self::assertSame(70000, $first['spentCents']);
     }
 
-    public function testTheWeekIsRedWhenItsOwnBudgetIsExceeded(): void
+    public function testTheWeekIsNeutralWithNoReasonWhateverIsSpent(): void
     {
-        $this->spendGroceries('2026-10-12', 20000);
+        $this->spendGroceries('2026-10-12', 200000);
 
         $week = $this->scores('2026-10-13')['week'];
 
-        self::assertSame('red', $week['status']);
-        self::assertSame(['week_budget_exceeded'], self::codes($week));
-        self::assertSame(20000 - 16258, $week['reasons'][0]['amountCents']);
-        // The month, with 980 € spent, is not.
-        self::assertNotSame('red', $this->scores('2026-10-13')['month']['status']);
+        self::assertSame('neutral', $week['status']);
+        self::assertSame([], $week['reasons']);
+        self::assertSame(200000, $week['rhythm']['spentCents']);
     }
 
-    public function testTheWeekFollowsItsPaceWhenItsBudgetHolds(): void
-    {
-        // Expected on the 13th: 46,45 €. 80 % is 37,16 €, 95 % is 44,13 €.
-        self::assertSame('green', $this->scores('2026-10-13')['week']['status']);
-
-        $this->spendGroceries('2026-10-12', 4000);
-        $neutral = $this->scores('2026-10-13')['week'];
-        self::assertSame('neutral', $neutral['status']);
-        self::assertSame('on_track', $neutral['rhythm']['status']);
-
-        $this->spendGroceries('2026-10-13', 500);
-        $orange = $this->scores('2026-10-13')['week'];
-        self::assertSame('orange', $orange['status']);
-        self::assertSame('above', $orange['rhythm']['status']);
-        self::assertSame('Au-dessus du rythme', $orange['rhythm']['label']);
-        self::assertContains('above_rhythm', self::codes($orange));
-    }
-
-    public function testNotSpendingBringsTheWeekBackDownTheScale(): void
-    {
-        $this->spendGroceries('2026-10-12', 5000);
-        self::assertSame('orange', $this->scores('2026-10-13')['week']['status']);
-
-        // The same spending, three days later: the pace has caught up and gone past it.
-        self::assertSame('green', $this->scores('2026-10-16')['week']['status']);
-    }
-
-    public function testAWeekOverTwoMonthsReadsBothBudgets(): void
+    public function testAWeekOverTwoMonthsReadsBothMonths(): void
     {
         $week = $this->scores('2026-10-28')['week'];
 
         self::assertCount(7, $week['rhythm']['curve']);
         self::assertSame('2026-10-26', $week['rhythm']['curve'][0]['date']);
         self::assertSame('2026-11-01', $week['rhythm']['curve'][6]['date']);
-        // 6 days of October's variable part; November has no envelope.
-        self::assertSame((int) round(72000 * 6 / 31), $week['rhythm']['budgetCents']);
     }
 
     public function testAnExceededAnnualEnvelopeMakesTheGlobalRedEvenWhenTheMonthIsGood(): void
@@ -246,12 +259,12 @@ class GetFinanceScoresTest extends KernelTestCase
     {
         $scores = $this->scores('2026-10-13', 'other_user');
 
-        foreach (['week', 'month', 'global'] as $period) {
+        foreach (['month', 'global'] as $period) {
             self::assertSame('neutral', $scores[$period]['status']);
             self::assertSame('no_budget', $scores[$period]['reasons'][0]['code']);
         }
-        self::assertSame(0, $scores['month']['rhythm']['budgetCents']);
-        self::assertSame('on_track', $scores['month']['rhythm']['status']);
+        self::assertSame(0, $scores['month']['rhythm']['spentCents']);
+        self::assertSame(0, $scores['month']['rhythm']['plannedCents']);
     }
 
     public function testAnotherUsersSpendingIsNotCounted(): void
@@ -261,11 +274,28 @@ class GetFinanceScoresTest extends KernelTestCase
         self::assertSame(0, $this->scores('2026-10-13', 'other_user')['month']['rhythm']['spentCents']);
     }
 
-    public function testAPlannedSpendWeighsNothingOnThePaceYet(): void
+    public function testUnclassifiedDebitsAreCountedPerPeriodAndStayInWhatWasSpent(): void
     {
-        $this->spendGroceries('2026-10-14', 90000, status: TransactionStatus::Planned);
+        $this->leaveUnclassified('2026-10-03', -150000);
+        $this->leaveUnclassified('2026-10-13', -20000);
 
-        self::assertSame(78000, $this->scores('2026-10-13')['month']['rhythm']['spentCents']);
+        $scores = $this->scores('2026-10-13');
+
+        self::assertSame(2, $scores['month']['rhythm']['unclassifiedCount']);
+        self::assertSame(170000, $scores['month']['rhythm']['unclassifiedCents']);
+        self::assertSame(78000 + 170000, $scores['month']['rhythm']['spentCents']);
+        // The week of the 12th only holds the second one.
+        self::assertSame(1, $scores['week']['rhythm']['unclassifiedCount']);
+        self::assertSame(20000, $scores['week']['rhythm']['unclassifiedCents']);
+        self::assertSame(20000, $scores['week']['rhythm']['spentCents']);
+    }
+
+    public function testAnUnclassifiedDebitAfterTheDayAskedIsNotCounted(): void
+    {
+        $this->leaveUnclassified('2026-10-20', -9000);
+
+        self::assertSame(0, $this->scores('2026-10-13')['month']['rhythm']['unclassifiedCount']);
+        self::assertSame(1, $this->scores('2026-10-20')['month']['rhythm']['unclassifiedCount']);
     }
 
     public function testTheDateIsEchoedBack(): void

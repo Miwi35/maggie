@@ -86,10 +86,9 @@ class MonthBalanceControllerTest extends WebTestCase
 
         self::assertSame('2026-09', $balance['month']);
         self::assertFalse($balance['isCurrentMonth']);
-        // 200 + 170 + 150 € spent in the envelopes against 700 € of budgets, read to the month's last day.
-        // The unqualified purchase and the saving belong to no envelope.
-        self::assertSame(70000, $balance['spending']['rhythm']['budgetCents']);
-        self::assertSame(52000, $balance['spending']['rhythm']['spentCents']);
+        // 200 + 170 + 150 € in the envelopes plus the 40 € unqualified purchase: every real debit counts, the saving does not.
+        self::assertArrayNotHasKey('budgetCents', $balance['spending']['rhythm']);
+        self::assertSame(56000, $balance['spending']['rhythm']['spentCents']);
         self::assertCount(30, $balance['spending']['rhythm']['curve']);
     }
 

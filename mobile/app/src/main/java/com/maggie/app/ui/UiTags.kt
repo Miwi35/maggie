@@ -88,7 +88,6 @@ object UiTags {
     /** Accueil › Finance card (MAG-565): a ring by period, the « n à qualifier » pill, the next project, the error state. */
     const val HOME_FINANCE_RING_PREFIX = "home_finance_ring_"
     const val HOME_FINANCE_TO_QUALIFY = "home_finance_to_qualify"
-    const val HOME_FINANCE_RHYTHM = "home_finance_rhythm"
     const val HOME_FINANCE_NEXT_PROJECT = "home_finance_next_project"
     const val HOME_FINANCE_ERROR = "home_finance_error"
     const val HOME_FINANCE_RETRY = "home_finance_retry"
@@ -335,6 +334,8 @@ object UiTags {
      */
     const val FINANCE_SCORE_RING_PREFIX = "finance_score_ring_"
     const val FINANCE_SCORE_REASONS = "finance_score_reasons"
+    const val FINANCE_SCORE_UNCLASSIFIED_PREFIX = "finance_score_unclassified_"
+    const val FINANCE_SCORE_CLASSIFY_PREFIX = "finance_score_classify_"
     const val FINANCE_RHYTHM_CURVE = "finance_rhythm_curve"
     const val FINANCE_RHYTHM_PERIOD_PREFIX = "finance_rhythm_period_"
     const val FINANCE_RHYTHM_DEBIT_PREFIX = "finance_rhythm_debit_"
@@ -765,6 +766,8 @@ object UiTags {
     fun subview(key: String) = SUBVIEW_PREFIX + key
 
     fun financeScoreRing(period: String) = FINANCE_SCORE_RING_PREFIX + period
+    fun financeScoreUnclassified(period: String) = FINANCE_SCORE_UNCLASSIFIED_PREFIX + period
+    fun financeScoreClassify(period: String) = FINANCE_SCORE_CLASSIFY_PREFIX + period
 
     fun financeRhythmPeriod(period: String) = FINANCE_RHYTHM_PERIOD_PREFIX + period
 

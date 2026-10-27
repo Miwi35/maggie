@@ -63,16 +63,6 @@ class GetDailyScore
             }
         }
 
-        $totalOverspent = $budget['totalBudgetedCents'] > 0
-            && $budget['totalConsumedCents'] > $budget['totalBudgetedCents'];
-
-        if ($totalOverspent) {
-            $reasons[] = [
-                'code' => 'total_budget_exceeded',
-                'amountCents' => $budget['totalConsumedCents'] - $budget['totalBudgetedCents'],
-            ];
-        }
-
         if ($cushion['blocksGreenScore']) {
             $reasons[] = [
                 'code' => 'cushion_incomplete',
@@ -97,7 +87,6 @@ class GetDailyScore
 
         $score = $this->decide(
             hasBudget: [] !== $budget['budgets'],
-            totalOverspent: $totalOverspent,
             overspentMandatory: [] !== $overspentMandatory,
             overspentOptional: [] !== $overspentOptional,
             overcommitted: [] !== $overcommitted,
@@ -152,14 +141,14 @@ class GetDailyScore
     }
 
     /**
-     * Red and orange are about the budget alone. The cushion can only hold
-     * green back — building one is a normal state, not a fault — and so can
-     * spending more than last year, or more than the reference salary, which
-     * are often perfectly legitimate.
+     * Red and orange are about the envelopes alone: each one held or not, never
+     * the sum of all spending against their total (MAG-643). The cushion can
+     * only hold green back — building one is a normal state, not a fault — and
+     * so can spending more than last year, or more than the reference salary,
+     * which are often perfectly legitimate.
      */
     private function decide(
         bool $hasBudget,
-        bool $totalOverspent,
         bool $overspentMandatory,
         bool $overspentOptional,
         bool $overcommitted,
@@ -171,7 +160,7 @@ class GetDailyScore
             return DailyScore::Neutral;
         }
 
-        if ($totalOverspent || $overspentMandatory) {
+        if ($overspentMandatory) {
             return DailyScore::Red;
         }
 

@@ -3,8 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import { veilleuseDarkTheme, veilleuseLightTheme } from '../../theme'
-import { TOKENS } from '../../design/tokens'
+import { veilleuseLightTheme } from '../../theme'
 import { emitMercure } from '../../test/mercure'
 import { FinanceHomeCard } from './FinanceHomeCard'
 import { dashboardFixture, nextProjectFixture } from './dashboardFixture'
@@ -30,12 +29,12 @@ const renderCard = (theme = veilleuseLightTheme) =>
   )
 
 const ring = (extra: Record<string, unknown> = {}) =>
-  rhythm({ status: 'on_track', label: 'Dans le rythme', budgetCents: 30000, remainingCents: 21000, expectedRemainingCents: 18000, ...extra })
+  rhythm({ spentCents: 21000, expectedSpentCents: 18000, plannedCents: 30000, ...extra })
 
 const dashboard = (overrides: Partial<FinanceDashboard> = {}) =>
   dashboardFixture({
     scores: scores({
-      week: period({ rhythm: ring({ budgetCents: 7000, remainingCents: 4500, expectedRemainingCents: 4000 }) }),
+      week: period({ rhythm: ring({ spentCents: 4500, expectedSpentCents: 4000, plannedCents: 7000 }) }),
       month: period({ rhythm: ring() }),
     }),
     nextProject: nextProjectFixture({ name: 'Vélo', amountCents: 100000, gatheredCents: 74000, purchaseMonth: '2099-10' }),
@@ -43,7 +42,6 @@ const dashboard = (overrides: Partial<FinanceDashboard> = {}) =>
   })
 
 const withTodo = (toSortCount: number) => ({ ...dashboardFixture().todo, toSortCount })
-const withMonth = (month: Parameters<typeof period>[0]) => scores({ week: dashboard().scores.week, month: period(month) })
 
 const ok = (body: unknown) => ({ ok: true, status: 200, json: () => Promise.resolve(body) })
 const failing = (status: number) => ({ ok: false, status, json: () => Promise.resolve({}) })
@@ -66,15 +64,16 @@ describe('FinanceHomeCard', () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/home'))).toBe(false)
   })
 
-  test('shows the week and the month rings with what is left, in €', async () => {
+  test('shows the week and the month rings with what was spent and what is expected, in €', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(dashboard())))
     renderCard()
 
     await screen.findAllByTestId('home-finance-ring')
 
-    expect(within(ringOf('week')).getByTestId('home-finance-remaining').textContent).toMatch(/45,00\s€/)
-    expect(within(ringOf('month')).getByTestId('home-finance-remaining').textContent).toMatch(/210,00\s€/)
-    expect(ringOf('week')).toHaveAccessibleName(/Semaine : Dans le rythme/)
+    expect(within(ringOf('week')).getByTestId('home-finance-spent').textContent).toMatch(/45,00\s€/)
+    expect(within(ringOf('month')).getByTestId('home-finance-spent').textContent).toMatch(/210,00\s€/)
+    expect(within(ringOf('month')).getByTestId('home-finance-expected').textContent).toMatch(/Attendu 180,00\s€/)
+    expect(ringOf('week')).toHaveAccessibleName(/Semaine : 45,00\s€ dépensés, 40,00\s€ attendus/)
   })
 
   test('is not drawn at all with no account and no envelope', async () => {
@@ -117,43 +116,32 @@ describe('FinanceHomeCard', () => {
     expect(screen.getByTestId('home-card-finance')).toBeInTheDocument()
   })
 
-  test('says « Dans le rythme » on track, in the on-track colour of the charter', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(dashboard())))
-    renderCard()
-    await screen.findAllByTestId('home-finance-ring')
-
-    const status = within(ringOf('month')).getByTestId('home-finance-status')
-
-    expect(ringOf('month')).toHaveAttribute('data-status', 'on_track')
-    expect(status).toHaveTextContent('Dans le rythme')
-    expect(status).toHaveStyle({ color: TOKENS.rhythm.onTrack.light })
-  })
-
-  test('says « Au-dessus du rythme » above it, in the above colour, in dark mode too', async () => {
-    const above = dashboard({ scores: withMonth({ rhythm: ring({ status: 'above', label: 'Au-dessus du rythme', remainingCents: -5800 }) }) })
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(above)))
-    renderCard(veilleuseDarkTheme)
-    await screen.findAllByTestId('home-finance-ring')
-
-    const status = within(ringOf('month')).getByTestId('home-finance-status')
-
-    expect(ringOf('month')).toHaveAttribute('data-status', 'above')
-    expect(status).toHaveTextContent('Au-dessus du rythme')
-    expect(status).toHaveStyle({ color: TOKENS.rhythm.above.dark })
-    expect(within(ringOf('week')).getByTestId('home-finance-status')).toHaveTextContent('Dans le rythme')
-  })
-
-  test('a ring with no envelope says so instead of an amount', async () => {
-    const noWeek = dashboard({
-      scores: scores({ week: period({ rhythm: ring({ budgetCents: 0, remainingCents: 0, expectedRemainingCents: 0 }) }), month: period({ rhythm: ring() }) }),
+  test('gives no verdict: spending more than expected is normal, so no word, no glyph, no status', async () => {
+    const above = dashboard({
+      scores: scores({ week: period({ rhythm: ring() }), month: period({ rhythm: ring({ spentCents: 120000, expectedSpentCents: 78000, plannedCents: 81000 }) }) }),
     })
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(noWeek)))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(above)))
     renderCard()
     await screen.findAllByTestId('home-finance-ring')
 
-    expect(within(ringOf('week')).getByText('Aucune enveloppe')).toBeInTheDocument()
-    expect(within(ringOf('week')).queryByTestId('home-finance-status')).not.toBeInTheDocument()
-    expect(within(ringOf('week')).queryByTestId('home-finance-remaining')).toBeNull()
+    const month = ringOf('month')
+
+    expect(month).not.toHaveAttribute('data-status')
+    expect(month).not.toHaveTextContent(/rythme|restants|Attention|Dépassement/)
+    expect(within(month).getByTestId('home-finance-tick')).toBeInTheDocument()
+  })
+
+  test('a ring with nothing planned draws no tick and no « Attendu »', async () => {
+    const noPlan = dashboard({
+      scores: scores({ week: period({ rhythm: ring({ spentCents: 4500, expectedSpentCents: 0, plannedCents: 0 }) }), month: period({ rhythm: ring() }) }),
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(noPlan)))
+    renderCard()
+    await screen.findAllByTestId('home-finance-ring')
+
+    expect(within(ringOf('week')).getByTestId('home-finance-spent').textContent).toMatch(/45,00\s€/)
+    expect(within(ringOf('week')).queryByTestId('home-finance-tick')).toBeNull()
+    expect(within(ringOf('week')).queryByTestId('home-finance-expected')).toBeNull()
   })
 
   test('tells how many lines are left to qualify and opens the review on them', async () => {

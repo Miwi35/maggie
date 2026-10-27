@@ -13,4 +13,4 @@ turns:
   - tools:
       - name: get_finance_scores
         input: {}
-  - text: "Ce mois-ci, vous êtes au-dessus du rythme : vous avez dépensé plus que ce que votre budget prévoit à cette date, loyer compris."
+  - text: "Ce mois-ci, vous avez dépensé 1 250 € pour 700 € de dépenses récurrentes attendues à cette date, loyer compris."

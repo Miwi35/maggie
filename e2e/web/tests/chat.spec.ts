@@ -642,13 +642,13 @@ test('asking for the weather runs get_weather against the simulated Open-Meteo',
 /**
  * 53-finance-scores.yaml — « Où j'en suis ce mois-ci ? » reads the week and month scores through
  * `get_finance_scores` (MAG-416). The fake does not read the result: what is asserted is the tool that
- * ran and the document the same endpoint gives; the figures of each case (rent on the 5th, above or in
- * the rhythm) are `GetFinanceScoresTest`'s. The screens that show it are MAG-417's.
+ * ran and the document the same endpoint gives; the figures of each case (rent on the 5th, spent against
+ * the recurring debits expected) are `GetFinanceScoresTest`'s. The screens that show it are MAG-417's.
  */
 const FINANCE_SCORES = {
   question: "Où j'en suis ce mois-ci ?",
   answer:
-    'Ce mois-ci, vous êtes au-dessus du rythme : vous avez dépensé plus que ce que votre budget prévoit à cette date, loyer compris.',
+    'Ce mois-ci, vous avez dépensé 1 250 € pour 700 € de dépenses récurrentes attendues à cette date, loyer compris.',
 }
 
 test('« où j\'en suis ce mois-ci ? » reads the week and month scores through get_finance_scores', async ({ page, api }) => {
@@ -667,6 +667,11 @@ test('« où j\'en suis ce mois-ci ? » reads the week and month scores through 
   const scores = (await response.json()) as Record<string, { status: string; label: string; reasons: unknown[] }>
   for (const period of ['week', 'month', 'global']) {
     expect(['green', 'neutral', 'orange', 'red']).toContain(scores[period].status)
+  }
+  // The week has no envelope to be judged on: neutral, no reason (MAG-643). The month and the global score keep theirs.
+  expect(scores.week.status).toBe('neutral')
+  expect(scores.week.reasons).toEqual([])
+  for (const period of ['month', 'global']) {
     expect(scores[period].reasons.length).toBeGreaterThan(0)
   }
 })

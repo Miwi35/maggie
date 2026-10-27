@@ -4,7 +4,7 @@
 # and one overrun, so the page can be told to draw both.
 #   Alimentation  300 € budget, 100 € spent  → held
 #   Transport     100 € budget, 150 € spent  → over
-# 400 € of budget, 250 € spent, 150 € left, whatever the month. Both spends are
+# 400 € of budget, 250 € spent whatever the month. Both spends are
 # booked on the 1st, so they are in the past whatever the stack's day is.
 #
 # No other journey signs in here: the owner's account carries no overrun, and

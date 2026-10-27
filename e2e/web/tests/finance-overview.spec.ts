@@ -239,16 +239,16 @@ test('a month with nothing in it is shown as empty, not as the month before', as
 
 /**
  * The rings and the rhythm curve (MAG-417, extends MAG-102 — they replace the
- * daily score).
+ * daily score; MAG-643 — « Dépensé » counts every debit).
  *
  * An account of its own, `e2e-scores@maggie.local`: a rent of 700 € debited on
- * the 5th and 300 € of groceries, against 700 € + 720 € of budget — 1 000 €
- * spent, 420 € left. CI pins the day to the 13th, where the pace says rent
- * and a share of the groceries are due: the remainder is exact whatever the
- * day, the status is read as a word and never as a colour alone, and the rent
- * is marked on the curve on the 5th (see 57-finance-scores.yaml).
+ * the 5th (the only recurring operation), 300 € of groceries and 250 € debited
+ * and filed nowhere. CI pins the day to the 13th: 1 250 € spent, whatever the
+ * envelopes say, against 700 € expected — more spent than expected is normal,
+ * so the ring gives no verdict, no word and no colour of one. The rent is
+ * marked on the curve on the 5th (see 57-finance-scores.yaml).
  */
-test('the rings say what is left and in which state, and the curve marks the rent on the 5th', async ({
+test('the rings count every debit and expect the recurring ones, and the curve marks the rent on the 5th', async ({
   scoresUser,
 }) => {
   const overview = new FinanceOverviewPage(scoresUser.page)
@@ -256,15 +256,10 @@ test('the rings say what is left and in which state, and the curve marks the ren
 
   const month = overview.scoreRing('month')
   await expect(month).toBeVisible()
-  await expect(month.getByTestId('ring-remaining')).toContainText(euros(42000))
-  await expect(month.getByTestId('ring-expected')).toContainText('Devrait rester')
+  await expect(month.getByTestId('ring-spent')).toContainText(euros(125000))
+  await expect(month.getByTestId('ring-expected')).toContainText(`Attendu ${euros(70000)}`)
   await expect(month.getByTestId('rhythm-tick')).toBeVisible()
-  // The ring says where the pace stands, never the daily score (MAG-538). The
-  // month's answer moves with the day the journey runs: 1 000 € spent is
-  // « in the rhythm » early in the month and « above » around the 13th.
-  expect(['on_track', 'above']).toContain(await month.getAttribute('data-status'))
-  await expect(month).toContainText(/Dans le rythme|Au-dessus du rythme/)
-  await expect(month).not.toContainText(/Dans le vert|Dans les clous|Attention|Dépassement/)
+  await expect(month).not.toContainText(/rythme|restants|Dans le vert|Dans les clous|Attention|Dépassement/)
 
   // A touch gives the reasons, and another one hides them.
   const reasons = await overview.scoreReasons('month')
@@ -274,13 +269,26 @@ test('the rings say what is left and in which state, and the curve marks the ren
   await expect(reasons).toBeHidden()
 
   // Nothing was booked in the pinned day's week (the rent is on the 5th, the
-  // groceries on the 1st): its pace is held.
+  // groceries on the 1st, the unclassified line on the 2nd): nothing spent,
+  // nothing expected, so no tick.
   const week = overview.scoreRing('week')
   await expect(week).toBeVisible()
-  await expect(week).toHaveAttribute('data-status', 'on_track')
-  await expect(week).toContainText('Dans le rythme')
-  await expect(week).not.toContainText(/Dans le vert|Dans les clous|Attention|Dépassement/)
+  await expect(week.getByTestId('ring-spent')).toContainText(euros(0))
+  await expect(week.getByTestId('rhythm-tick')).toHaveCount(0)
+  await expect(week).not.toContainText(/rythme|restants|Dans le vert|Dans les clous|Attention|Dépassement/)
 
+  // What is not classed is said under the ring, sober, and one tap from the
+  // review of those very lines (MAG-643). The week holds none of them.
+  const unclassified = month.getByTestId('ring-unclassified')
+  await expect(unclassified).toContainText(`${euros(25000)} non classés`)
+  await expect(week.getByTestId('ring-unclassified')).toHaveCount(0)
+  await month.getByTestId('ring-unclassified-link').click()
+  await expect(scoresUser.page).toHaveURL(/\/finance\/review\?.*state=unrecognised/)
+  const review = new FinanceReviewPage(scoresUser.page)
+  await expect(review.row('CARTE INCONNUE')).toBeVisible()
+  await expect(review.row('LOYER')).toHaveCount(0)
+
+  await overview.open()
   const [year, monthNumber] = seedAnchorDate().split('-')
   const rent = overview.debitMarker('Loyer')
   await expect(rent).toHaveCount(1)

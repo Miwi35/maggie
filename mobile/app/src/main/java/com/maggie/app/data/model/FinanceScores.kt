@@ -38,17 +38,20 @@ data class ScoreReason(
     val amountCents: Int? = null,
 )
 
-/** What a period was meant to spend by a date, and what it has spent. */
+/**
+ * What a period has spent against what was planned ahead, two figures to read and never a verdict (MAG-643).
+ *
+ * [spentCents] is every real debit of the period to date, classified or not; [expectedSpentCents] the
+ * recurring planned debits due by then; [plannedCents] the same over the whole period.
+ */
 @Serializable
 data class Rhythm(
-    val budgetCents: Int = 0,
     val spentCents: Int = 0,
     val expectedSpentCents: Int = 0,
-    val remainingCents: Int = 0,
-    val expectedRemainingCents: Int = 0,
-    // `on_track` or `above`.
-    val status: String = "on_track",
-    val label: String = "",
+    val plannedCents: Int = 0,
+    // The period's debits no category claims: they are in [spentCents], and worth inviting to classify.
+    val unclassifiedCount: Int = 0,
+    val unclassifiedCents: Int = 0,
     val curve: List<RhythmPoint> = emptyList(),
     val debits: List<RhythmDebit> = emptyList(),
 )
@@ -82,11 +85,6 @@ fun reasonText(reason: ScoreReason): String {
         "annual_category_exceeded" -> "$category (annuelle) dépassée de $amount"
         "plans_exceed_annual_category_budget" ->
             "Les dépenses planifiées feraient dépasser $category (annuelle) de $amount"
-        "total_budget_exceeded" -> "Budget du mois dépassé de $amount"
-        "week_budget_exceeded" -> "Budget de la semaine dépassé de $amount"
-        "above_rhythm" -> "$amount de plus que le rythme attendu"
-        "below_rhythm" -> "$amount de moins que le rythme attendu"
-        "on_rhythm" -> "Dans le rythme : $amount sous l'attendu"
         "cushion_incomplete" -> "Matelas incomplet : il manque $amount"
         "below_last_year" -> "$amount de moins qu'à la même période l'an dernier"
         "above_last_year" -> "$amount de plus qu'à la même période l'an dernier"

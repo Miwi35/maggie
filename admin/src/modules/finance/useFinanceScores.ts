@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { TOKENS } from '../../design/tokens'
 import { formatCents } from './accountTypes'
 
 export type ScoreStatus = 'green' | 'neutral' | 'orange' | 'red'
@@ -24,14 +23,20 @@ export interface RhythmDebit {
   recurringOperationId: string
 }
 
+/**
+ * Spent is every real debit of the period, classified or not; expected is the
+ * recurring debits planned for it. Spending more than expected is normal, so
+ * nothing here is a verdict (MAG-643).
+ */
 export interface Rhythm {
-  budgetCents: number
   spentCents: number
+  /** The recurring debits planned up to the scored day. */
   expectedSpentCents: number
-  remainingCents: number
-  expectedRemainingCents: number
-  status: 'on_track' | 'above'
-  label: string
+  /** The recurring debits planned for the whole period. */
+  plannedCents: number
+  /** Debits no category claims: counted in `spentCents`, said apart so they can be filed. */
+  unclassifiedCount: number
+  unclassifiedCents: number
   curve: RhythmPoint[]
   debits: RhythmDebit[]
 }
@@ -50,19 +55,6 @@ export interface FinanceScores {
   global: { status: ScoreStatus; label: string; reasons: ScoreReason[] }
 }
 
-export type RhythmStatus = Rhythm['status']
-
-/**
- * How a ring writes where the spending stands against its pace: a glyph and a
- * word beside the colour, so the status reads without it. The word is the
- * API's own `rhythm.label` when it sends one. The ring says this — never the
- * daily score (`PeriodScore.status`), which Maggie reads and the reasons explain.
- */
-export const RHYTHM_META: Record<RhythmStatus, { word: string; glyph: string; color: keyof typeof TOKENS.rhythm }> = {
-  on_track: { word: 'Dans le rythme', glyph: '✓', color: 'onTrack' },
-  above: { word: 'Au-dessus du rythme', glyph: '!', color: 'above' },
-}
-
 /** Turns a reason code into the sentence a person reads. */
 export function reasonText(reason: ScoreReason): string {
   const amount = formatCents(reason.amountCents ?? 0)
@@ -74,16 +66,6 @@ export function reasonText(reason: ScoreReason): string {
       return `${reason.categoryName} dépassée de ${amount}`
     case 'plans_exceed_category_budget':
       return `Les dépenses planifiées feraient dépasser ${reason.categoryName} de ${amount}`
-    case 'total_budget_exceeded':
-      return `Budget du mois dépassé de ${amount}`
-    case 'week_budget_exceeded':
-      return `Budget de la semaine dépassé de ${amount}`
-    case 'above_rhythm':
-      return `${amount} de plus que le rythme attendu à ce jour`
-    case 'below_rhythm':
-      return `${amount} de moins que le rythme attendu à ce jour`
-    case 'on_rhythm':
-      return `Dans le rythme attendu à ce jour (${amount} de marge)`
     case 'annual_category_exceeded':
       return `${reason.categoryName} (annuelle) dépassée de ${amount}`
     case 'plans_exceed_annual_category_budget':
@@ -103,9 +85,19 @@ export function reasonText(reason: ScoreReason): string {
   }
 }
 
-/** The share of the budget that is left; an overspent or empty budget has none. */
-export const remainingShare = (remainingCents: number, budgetCents: number): number =>
-  budgetCents > 0 ? Math.min(1, Math.max(0, remainingCents / budgetCents)) : 0
+/**
+ * Where a ring's arc and tick sit, as shares of its circle. The scale is the
+ * larger of what was spent and what is planned, so the arc never overflows and
+ * the tick (the recurring debits expected so far) only exists with a plan.
+ */
+export const ringShares = ({ spentCents, expectedSpentCents, plannedCents }: Pick<Rhythm, 'spentCents' | 'expectedSpentCents' | 'plannedCents'>) => {
+  const scale = Math.max(spentCents, plannedCents, expectedSpentCents, 0)
+
+  return {
+    spent: scale > 0 ? Math.min(1, Math.max(0, spentCents / scale)) : 0,
+    expected: plannedCents > 0 && scale > 0 ? Math.min(1, Math.max(0, expectedSpentCents / scale)) : null,
+  }
+}
 
 const pad = (n: number) => String(n).padStart(2, '0')
 

@@ -19,7 +19,7 @@ tags:
 # that have something stay (`28-home-tasks.yaml` is the account with nothing but a task, on Aujourd'hui).
 #
 # The Finance card (MAG-565, extends MAG-102): the same account has a 1 000 € envelope and 10 €
-# spent on the 1st (`65-finance-home.yaml`), so the card says « Dans le rythme » for the week and the month,
+# spent on the 1st (`65-finance-home.yaml`), so the card says what was spent for the week and the month,
 # and one project, « Vélo », whose bar the card draws.
 
 - launchApp:
@@ -84,20 +84,18 @@ tags:
 - assertVisible: "Article 5"
 - assertNotVisible: "Article 6"
 
-# The Finance card: both rings under the pace, whatever the day (the ring's accessibility text carries the word: the id sits on a parent node without text).
+# The Finance card: both rings say what was spent, with no verdict (the ring's accessibility text carries it: the id sits on a parent node without text).
 - scrollUntilVisible:
     element:
       id: "home_finance_ring_month"
     timeout: 20000
 - extendedWaitUntil:
     visible:
-      text: "Semaine : Dans le rythme.*"
+      text: "Semaine : .*dépensés.*"
     timeout: 20000
 - assertVisible:
-    text: "Mois : Dans le rythme.*"
-# One rhythm pill beside the rings, as the mock-up draws it, and the next project under them.
-- assertVisible:
-    text: "Dans le rythme"
+    text: "Mois : .*dépensés.*"
+# The next project under the rings, as the mock-up draws it.
 - scrollUntilVisible:
     element:
       id: "home_finance_next_project"

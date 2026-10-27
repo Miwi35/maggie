@@ -1,12 +1,14 @@
 import { useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import ButtonBase from '@mui/material/ButtonBase'
+import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
-import { rhythmColor } from '../../design/tokens'
 import { formatCents } from './accountTypes'
-import { reasonText, remainingShare, RHYTHM_META } from './useFinanceScores'
+import { reviewLink } from './reviewFilter'
+import { reasonText, ringShares } from './useFinanceScores'
 import type { FinanceScores, PeriodScore } from './useFinanceScores'
 
 const SIZE = 148
@@ -18,20 +20,20 @@ interface ScoreRingProps {
   period: 'week' | 'month'
   title: string
   score: PeriodScore
+  /** `YYYY-MM` the « Classer » link opens the review on; the current month when absent. */
+  reviewMonth?: string
 }
 
-export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
+export const ScoreRing = ({ period, title, score, reviewMonth }: ScoreRingProps) => {
   const theme = useTheme()
   const [open, setOpen] = useState(false)
   const { rhythm } = score
-  const meta = RHYTHM_META[rhythm.status]
-  const colour = rhythmColor(meta.color, theme.palette.mode)
-  const hasBudget = rhythm.budgetCents > 0
-  const share = remainingShare(rhythm.remainingCents, rhythm.budgetCents)
-  const expectedShare = remainingShare(rhythm.expectedRemainingCents, rhythm.budgetCents)
+  const colour = theme.palette.primary.main
+  const hasPlan = rhythm.plannedCents > 0
+  const shares = ringShares(rhythm)
 
-  // The tick sits where the arc would end if the pace had been kept to the day.
-  const angle = -Math.PI / 2 + expectedShare * 2 * Math.PI
+  // The tick sits where the recurring debits expected so far would end the arc.
+  const angle = -Math.PI / 2 + (shares.expected ?? 0) * 2 * Math.PI
   const centre = SIZE / 2
   const tick = {
     x1: centre + (RADIUS - STROKE / 2 - 3) * Math.cos(angle),
@@ -40,19 +42,16 @@ export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
     y2: centre + (RADIUS + STROKE / 2 + 3) * Math.sin(angle),
   }
 
-  const word = rhythm.label || meta.word
-
   return (
     <Box
       data-testid="score-ring"
       data-period={period}
-      data-status={rhythm.status}
       sx={{ flex: '1 1 200px', textAlign: 'center' }}
     >
       <ButtonBase
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        aria-label={`${title} : ${word}, ${hasBudget ? `${formatCents(rhythm.remainingCents)} restants` : 'aucune enveloppe'}. Afficher les raisons`}
+        aria-label={`${title} : ${formatCents(rhythm.spentCents)} dépensés${hasPlan ? `, ${formatCents(rhythm.expectedSpentCents)} attendus` : ''}. Afficher les raisons`}
         sx={{ display: 'flex', flexDirection: 'column', width: '100%', borderRadius: 2, p: 1 }}
       >
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -69,7 +68,7 @@ export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
               stroke={theme.palette.action.disabledBackground}
               strokeWidth={STROKE}
             />
-            {share > 0 && (
+            {shares.spent > 0 && (
               <circle
                 cx={centre}
                 cy={centre}
@@ -78,11 +77,11 @@ export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
                 stroke={colour}
                 strokeWidth={STROKE}
                 strokeLinecap="round"
-                strokeDasharray={`${share * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+                strokeDasharray={`${shares.spent * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
                 transform={`rotate(-90 ${centre} ${centre})`}
               />
             )}
-            {hasBudget && (
+            {shares.expected !== null && (
               <line
                 data-testid="rhythm-tick"
                 {...tick}
@@ -98,54 +97,34 @@ export const ScoreRing = ({ period, title, score }: ScoreRingProps) => {
             justifyContent="center"
             sx={{ position: 'absolute', inset: 0 }}
           >
-            {hasBudget ? (
-              <>
-                <Typography variant="h6" sx={{ lineHeight: 1.1 }} data-testid="ring-remaining">
-                  {formatCents(rhythm.remainingCents)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  restants
-                </Typography>
-              </>
-            ) : (
-              <Typography variant="caption" color="text.secondary">
-                Aucune enveloppe
-              </Typography>
-            )}
+            <Typography variant="h6" sx={{ lineHeight: 1.1 }} data-testid="ring-spent">
+              {formatCents(rhythm.spentCents)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              dépensés
+            </Typography>
           </Stack>
         </Box>
 
-        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ color: colour }}>
-          <Box
-            component="span"
-            aria-hidden="true"
-            data-testid="ring-pastille"
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 18,
-              height: 18,
-              borderRadius: '50%',
-              fontSize: 11,
-              fontWeight: 700,
-              bgcolor: colour,
-              color: theme.palette.background.default,
-            }}
-          >
-            {meta.glyph}
-          </Box>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: 'inherit' }}>
-            {word}
-          </Typography>
-        </Stack>
-
-        {hasBudget && (
+        {hasPlan && (
           <Typography variant="caption" color="text.secondary" data-testid="ring-expected">
-            Devrait rester {formatCents(rhythm.expectedRemainingCents)}
+            Attendu {formatCents(rhythm.expectedSpentCents)}
           </Typography>
         )}
       </ButtonBase>
+
+      {rhythm.unclassifiedCount > 0 && (
+        <Typography variant="caption" color="text.secondary" component="p" sx={{ m: 0 }} data-testid="ring-unclassified">
+          {formatCents(rhythm.unclassifiedCents)} non classés ·{' '}
+          <Link
+            component={RouterLink}
+            to={reviewLink({ state: 'unrecognised', month: reviewMonth })}
+            data-testid="ring-unclassified-link"
+          >
+            Classer
+          </Link>
+        </Typography>
+      )}
 
       {open && (
         <Box component="ul" data-testid="score-reasons" sx={{ m: 0, mt: 1, pl: 2, textAlign: 'left' }}>
@@ -174,13 +153,14 @@ interface ScoreRingsProps {
 }
 
 /**
- * The week and the month as two rings: what is left of the budget, and a tick
- * where the pace says it should be today. Touching a ring gives the reasons of
- * its status. Stand-alone on purpose — the home screen reuses it.
+ * The week and the month as two rings: what was spent, every debit counted, and
+ * a tick where the recurring debits expected so far end. Spending more than
+ * expected is normal, so the ring gives no verdict. Touching a ring gives the
+ * reasons of its daily score. Stand-alone on purpose — the home screen reuses it.
  */
 export const ScoreRings = ({ scores }: ScoreRingsProps) => (
   <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2 }} justifyContent="space-around">
-    <ScoreRing period="week" title="Semaine" score={scores.week} />
-    <ScoreRing period="month" title="Mois" score={scores.month} />
+    <ScoreRing period="week" title="Semaine" score={scores.week} reviewMonth={scores.date.slice(0, 7)} />
+    <ScoreRing period="month" title="Mois" score={scores.month} reviewMonth={scores.date.slice(0, 7)} />
   </Stack>
 )

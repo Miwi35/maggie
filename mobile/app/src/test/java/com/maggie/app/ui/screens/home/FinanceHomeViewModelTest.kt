@@ -33,8 +33,8 @@ class FinanceHomeViewModelTest {
     private val changes = MutableSharedFlow<Unit>()
 
     private fun answer(toQualify: Int, projectName: String = "Voyage") = FinanceHomeState(
-        week = FinanceHomeRing("on_track", "Dans le rythme", 7000, 5000, 4000),
-        month = FinanceHomeRing("above", "Au-dessus du rythme", 30000, 1000, 9000),
+        week = FinanceHomeRing(2000, 4000, 7000),
+        month = FinanceHomeRing(29000, 9000, 30000),
         toQualifyCount = toQualify,
         nextProject = FinanceHomeProject("p1", projectName, 100000, 25000, "2027-03"),
         accountCount = 2,
@@ -65,8 +65,8 @@ class FinanceHomeViewModelTest {
         val ui = viewModel.uiState.value
         assertFalse(ui.isLoading)
         assertFalse(ui.failed)
-        assertEquals("on_track", ui.state?.week?.status)
-        assertEquals("above", ui.state?.month?.status)
+        assertEquals(2000, ui.state?.week?.spentCents)
+        assertEquals(29000, ui.state?.month?.spentCents)
         assertEquals(1, ui.state?.toQualifyCount)
         assertEquals("Voyage", ui.state?.nextProject?.name)
     }

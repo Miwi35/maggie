@@ -7,40 +7,37 @@ namespace Maggie\Finance\UseCase;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Repository\UserPreferenceRepository;
 use Maggie\Finance\Enum\DailyScore;
-use Maggie\Finance\Enum\RhythmStatus;
-use Maggie\Finance\Repository\CategoryRepository;
+use Maggie\Finance\Enum\QualificationKind;
 use Maggie\Finance\Repository\RecurringOperationRepository;
 use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\RecurrenceSchedule;
-use Symfony\Component\Uid\Ulid;
 
 /**
  * Two scores, the week and the month, and the global one — the most degraded
  * of the month and the year (the annual envelopes). Each period carries its
- * spending rhythm.
+ * spending rhythm: two curves to read, never a verdict (MAG-643).
  *
- * The rhythm is not linear. What is expected to be spent at a date is the
- * known debits already due (the recurring expenses of the month: rent,
- * energy, subscriptions, mostly at the start of it) plus the variable part of
- * the budget — the budget less those debits — spread evenly over the days.
- * The week only holds its own debits and its own days of the variable part.
+ * « Dépensé » is every real debit of the period, classified or not, with or
+ * without an envelope — the same definition as the period balance
+ * ({@see TransactionRepository::sumConsumedBetween()}). « Attendu » is what was
+ * planned ahead: the recurring debits of the period, whatever their category.
+ * Envelopes sort where the money goes; they play no part in the rhythm, and
+ * spending more than expected is normal: no colour, no word is drawn from the
+ * gap. The rhythm carries the debits nobody classified (`unclassifiedCount`,
+ * `unclassifiedCents`) as an invitation to classify them, not as an exclusion.
  *
- * Colour, for the week and the month alike: red once the period's budget is
- * exceeded; otherwise it follows the rhythm — 95 % of the expected spending
- * or more is orange, under 80 % is green, in between is neutral. The month
- * keeps its own rules on top (an envelope overrun caused by mandatory transactions is red,
- * a planned overrun orange, and green still needs what MAG-274 asks of it).
+ * The month's colour comes from its envelopes alone (an overrun caused by
+ * mandatory transactions is red, a planned overrun orange, and green still
+ * needs what MAG-274 asks of it) and the annual ones; the week has none.
  * A pure read: it publishes nothing and indexes nothing.
  */
 class GetFinanceScores
 {
-    private const int ABOVE_RHYTHM_PERCENT = 95;
-    private const int GREEN_BELOW_PERCENT = 80;
+    private const array OUTSIDE_LIFESTYLE = [QualificationKind::Repayment, QualificationKind::Saving, QualificationKind::Investment];
 
     public function __construct(
         private readonly GetDailyScore $getDailyScore,
         private readonly GetBudgetStatus $getBudgetStatus,
-        private readonly CategoryRepository $categoryRepository,
         private readonly RecurringOperationRepository $operationRepository,
         private readonly TransactionRepository $transactionRepository,
         private readonly UserPreferenceRepository $preferenceRepository,
@@ -99,7 +96,6 @@ class GetFinanceScores
     {
         $today = $date->format('Y-m-d');
         $operations = $this->operationRepository->findSeriesByUser($user);
-        $childrenByParent = $this->childrenByParent($user);
 
         $monday = $date->modify('monday this week');
         $weekDays = [];
@@ -110,7 +106,7 @@ class GetFinanceScores
         $plans = [];
         foreach ([...$weekDays, $today] as $day) {
             $key = substr($day, 0, 7);
-            $plans[$key] ??= $this->plan($user, (int) substr($day, 0, 4), (int) substr($day, 5, 2), $operations, $childrenByParent);
+            $plans[$key] ??= $this->plan($user, (int) substr($day, 0, 4), (int) substr($day, 5, 2), $operations);
         }
 
         $monthKey = substr($today, 0, 7);
@@ -120,8 +116,12 @@ class GetFinanceScores
             $monthDays[] = sprintf('%s-%02d', $monthKey, $i);
         }
 
-        $month = $this->monthScore($user, $monthPlan, $this->rhythm($monthDays, $plans, $today, $monthPlan['budgetCents']));
-        $week = $this->weekScore($plans, $this->rhythm($weekDays, $plans, $today, null));
+        $tomorrow = $date->modify('+1 day');
+        $monthUnclassified = $this->transactionRepository->summariseUnclassifiedDebitsBetween($user, new \DateTimeImmutable($monthKey.'-01'), $tomorrow);
+        $weekUnclassified = $this->transactionRepository->summariseUnclassifiedDebitsBetween($user, $monday, $tomorrow);
+
+        $month = $this->monthScore($user, $monthPlan, $this->rhythm($monthDays, $plans, $today, $monthUnclassified));
+        $week = $this->weekScore($this->rhythm($weekDays, $plans, $today, $weekUnclassified));
         $year = $this->yearScore($monthPlan['annual']);
 
         $global = $month['status'];
@@ -142,36 +142,27 @@ class GetFinanceScores
     }
 
     /**
-     * Everything one month contributes: its budget, its debits, what its
-     * envelopes consumed each day, and the annual envelopes covering it.
+     * Everything one month contributes: its envelopes (for the score), its
+     * planned recurring debits — every category — what was really spent each
+     * day, and the annual envelopes covering it.
      *
      * @param list<\Maggie\Finance\Entity\RecurringOperation> $operations
-     * @param array<string, list<string>>                     $childrenByParent
      *
      * @return array<string, mixed>
      */
-    private function plan(User $user, int $year, int $month, array $operations, array $childrenByParent): array
+    private function plan(User $user, int $year, int $month, array $operations): array
     {
         $budget = $this->getBudgetStatus->execute($user, $year, $month);
         $start = new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month));
         $next = $start->modify('+1 month');
 
-        $categoryIds = [];
-        foreach ($budget['budgets'] as $line) {
-            if (null === $line['parentEnvelopeId']) {
-                foreach ($this->selfAndDescendants($line['categoryId'], $childrenByParent) as $id) {
-                    $categoryIds[$id] = true;
-                }
-            }
-        }
-
         $debits = [];
         $debitsByDay = [];
-        $debitsCents = 0;
         foreach ($operations as $operation) {
+            // What « Dépensé » leaves out is not expected either: saving and repayments.
             if ($operation->getReferenceAmountCents() >= 0
                 || $operation->getAccount()->isClosed()
-                || !isset($categoryIds[(string) $operation->getCategory()->getId()])) {
+                || \in_array($operation->getQualification()->getKind(), self::OUTSIDE_LIFESTYLE, true)) {
                 continue;
             }
 
@@ -185,7 +176,6 @@ class GetFinanceScores
                     'recurringOperationId' => (string) $operation->getId(),
                 ];
                 $debitsByDay[$day] = ($debitsByDay[$day] ?? 0) + $amount;
-                $debitsCents += $amount;
             }
         }
 
@@ -196,57 +186,41 @@ class GetFinanceScores
             'month' => $month,
             'daysInMonth' => (int) $start->format('t'),
             'budget' => $budget,
-            'budgetCents' => $budget['totalBudgetedCents'],
-            'variableCents' => max(0, $budget['totalBudgetedCents'] - $debitsCents),
             'debits' => $debits,
             'debitsByDay' => $debitsByDay,
-            'spentByDay' => $this->transactionRepository->sumConsumedPerDayForCategoriesBetween(
-                $user,
-                array_map(static fn (string $id): Ulid => Ulid::fromString($id), array_keys($categoryIds)),
-                $start,
-                $next,
-            ),
+            'spentByDay' => $this->transactionRepository->sumConsumedPerDayBetween($user, $start, $next),
             'annual' => $budget['outsideMonthlyBudget']['annual'],
         ];
     }
 
     /**
-     * The rhythm over a run of days, which may straddle two months.
+     * The rhythm over a run of days, which may straddle two months: what was
+     * spent and what was planned, both cumulated day by day.
      *
-     * @param list<string>                        $days   Y-m-d, in order
-     * @param array<string, array<string, mixed>> $plans  per Y-m
-     * @param int|null                            $budget the period's budget, or null to take what its pace sums to
+     * @param list<string>                        $days         Y-m-d, in order
+     * @param array<string, array<string, mixed>> $plans        per Y-m
+     * @param array{count: int, cents: int}       $unclassified the period's debits no category claims, up to today
      *
      * @return array<string, mixed>
      */
-    private function rhythm(array $days, array $plans, string $today, ?int $budget): array
+    private function rhythm(array $days, array $plans, string $today, array $unclassified): array
     {
         $spentCumulative = 0;
-        $debitsCumulative = 0;
-        $counted = [];
+        $expectedCumulative = 0;
         $curve = [];
         $debits = [];
         $spentToDate = 0;
         $expectedToDate = 0;
-        $expected = 0;
 
         foreach ($days as $day) {
-            $key = substr($day, 0, 7);
-            $plan = $plans[$key];
-            $counted[$key] = ($counted[$key] ?? 0) + 1;
+            $plan = $plans[substr($day, 0, 7)];
 
-            $debitsCumulative += $plan['debitsByDay'][$day] ?? 0;
+            $expectedCumulative += $plan['debitsByDay'][$day] ?? 0;
             foreach ($plan['debits'] as $debit) {
                 if ($debit['date'] === $day) {
                     $debits[] = $debit;
                 }
             }
-
-            $variable = 0.0;
-            foreach ($counted as $countedKey => $n) {
-                $variable += $plans[$countedKey]['variableCents'] * $n / $plans[$countedKey]['daysInMonth'];
-            }
-            $expected = (int) round($debitsCumulative + $variable);
 
             $isPast = $day <= $today;
             if ($isPast) {
@@ -256,32 +230,29 @@ class GetFinanceScores
             $curve[] = [
                 'date' => $day,
                 'spentCents' => $isPast ? $spentCumulative : null,
-                'expectedCents' => $expected,
+                'expectedCents' => $expectedCumulative,
             ];
 
             if ($day === $today) {
                 $spentToDate = $spentCumulative;
-                $expectedToDate = $expected;
+                $expectedToDate = $expectedCumulative;
             }
         }
 
-        $budget ??= $expected;
-        $status = $this->isAbove($spentToDate, $expectedToDate) ? RhythmStatus::Above : RhythmStatus::OnTrack;
-
         return [
-            'budgetCents' => $budget,
             'spentCents' => $spentToDate,
             'expectedSpentCents' => $expectedToDate,
-            'remainingCents' => $budget - $spentToDate,
-            'expectedRemainingCents' => $budget - $expectedToDate,
-            'status' => $status->value,
-            'label' => $status->label(),
+            'plannedCents' => $expectedCumulative,
+            'unclassifiedCount' => $unclassified['count'],
+            'unclassifiedCents' => $unclassified['cents'],
             'curve' => $curve,
             'debits' => $debits,
         ];
     }
 
     /**
+     * The month is judged on its envelopes alone: the rhythm is shown, not graded.
+     *
      * @param array<string, mixed> $plan
      * @param array<string, mixed> $rhythm
      *
@@ -290,77 +261,21 @@ class GetFinanceScores
     private function monthScore(User $user, array $plan, array $rhythm): array
     {
         $daily = $this->getDailyScore->execute($user, $plan['year'], $plan['month']);
-        $status = DailyScore::from($daily['score']);
-        $reasons = $daily['reasons'];
 
-        if ([] === $plan['budget']['budgets'] || DailyScore::Red === $status) {
-            return ['status' => $status, 'reasons' => $reasons, 'rhythm' => $rhythm];
-        }
-
-        if ($this->isAbove($rhythm['spentCents'], $rhythm['expectedSpentCents'])) {
-            $reasons[] = ['code' => 'above_rhythm', 'amountCents' => $rhythm['spentCents'] - $rhythm['expectedSpentCents']];
-            if ($status->severity() < DailyScore::Orange->severity()) {
-                $status = DailyScore::Orange;
-            }
-        } elseif (DailyScore::Green === $status && !$this->isBelowGreenLine($rhythm['spentCents'], $rhythm['expectedSpentCents'])) {
-            $status = DailyScore::Neutral;
-        }
-
-        return ['status' => $status, 'reasons' => $reasons, 'rhythm' => $rhythm];
+        return ['status' => DailyScore::from($daily['score']), 'reasons' => $daily['reasons'], 'rhythm' => $rhythm];
     }
 
     /**
-     * The week is judged on its own budget — its days of the variable part
-     * and the debits falling in it — and on its pace.
+     * The week has no envelope of its own to be judged on: neutral, with
+     * its rhythm to read.
      *
-     * @param array<string, array<string, mixed>> $plans
-     * @param array<string, mixed>                $rhythm
+     * @param array<string, mixed> $rhythm
      *
      * @return array{status: DailyScore, reasons: list<array<string, mixed>>, rhythm: array<string, mixed>}
      */
-    private function weekScore(array $plans, array $rhythm): array
+    private function weekScore(array $rhythm): array
     {
-        $hasBudget = false;
-        foreach ($plans as $plan) {
-            $hasBudget = $hasBudget || [] !== $plan['budget']['budgets'];
-        }
-
-        if (!$hasBudget) {
-            return ['status' => DailyScore::Neutral, 'reasons' => [['code' => 'no_budget']], 'rhythm' => $rhythm];
-        }
-
-        $spent = $rhythm['spentCents'];
-        $expected = $rhythm['expectedSpentCents'];
-
-        if ($spent > $rhythm['budgetCents']) {
-            return [
-                'status' => DailyScore::Red,
-                'reasons' => [['code' => 'week_budget_exceeded', 'amountCents' => $spent - $rhythm['budgetCents']]],
-                'rhythm' => $rhythm,
-            ];
-        }
-
-        if ($this->isAbove($spent, $expected)) {
-            return [
-                'status' => DailyScore::Orange,
-                'reasons' => [['code' => 'above_rhythm', 'amountCents' => $spent - $expected]],
-                'rhythm' => $rhythm,
-            ];
-        }
-
-        if ($this->isBelowGreenLine($spent, $expected)) {
-            return [
-                'status' => DailyScore::Green,
-                'reasons' => [['code' => 'below_rhythm', 'amountCents' => $expected - $spent]],
-                'rhythm' => $rhythm,
-            ];
-        }
-
-        return [
-            'status' => DailyScore::Neutral,
-            'reasons' => [['code' => 'on_rhythm', 'amountCents' => $expected - $spent]],
-            'rhythm' => $rhythm,
-        ];
+        return ['status' => DailyScore::Neutral, 'reasons' => [], 'rhythm' => $rhythm];
     }
 
     /**
@@ -407,47 +322,5 @@ class GetFinanceScores
             'reasons' => $score['reasons'],
             'rhythm' => $score['rhythm'],
         ];
-    }
-
-    private function isAbove(int $spentCents, int $expectedCents): bool
-    {
-        return $spentCents > 0 && $spentCents * 100 >= $expectedCents * self::ABOVE_RHYTHM_PERCENT;
-    }
-
-    private function isBelowGreenLine(int $spentCents, int $expectedCents): bool
-    {
-        return $spentCents * 100 < $expectedCents * self::GREEN_BELOW_PERCENT;
-    }
-
-    /** @return array<string, list<string>> */
-    private function childrenByParent(User $user): array
-    {
-        $children = [];
-        foreach ($this->categoryRepository->findByUser($user) as $category) {
-            if (null !== $category->getParent()) {
-                $children[(string) $category->getParent()->getId()][] = (string) $category->getId();
-            }
-        }
-
-        return $children;
-    }
-
-    /**
-     * @param array<string, list<string>> $childrenByParent
-     *
-     * @return list<string>
-     */
-    private function selfAndDescendants(string $categoryId, array $childrenByParent): array
-    {
-        $ids = [$categoryId];
-        $queue = [$categoryId];
-        while ([] !== $queue) {
-            foreach ($childrenByParent[array_shift($queue)] ?? [] as $childId) {
-                $ids[] = $childId;
-                $queue[] = $childId;
-            }
-        }
-
-        return $ids;
     }
 }

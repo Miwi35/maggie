@@ -1,8 +1,11 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.test.assertContentDescriptionContains
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -17,7 +20,6 @@ import com.maggie.app.data.model.RhythmDebit
 import com.maggie.app.data.model.RhythmPoint
 import com.maggie.app.data.model.ScoreReason
 import com.maggie.app.data.model.formatCents
-import com.maggie.app.data.model.formatCents
 import com.maggie.app.screentest.FakeMonthBalance
 import com.maggie.app.screentest.FakeUpcoming
 import com.maggie.app.screentest.FakeLoadedFinanceDashboard
@@ -25,6 +27,9 @@ import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.RhythmCurvePanel
 import com.maggie.app.ui.components.ScoreRings
+import com.maggie.app.ui.components.expectedLine
+import com.maggie.app.ui.navigation.DeepLinks
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,33 +65,26 @@ class FinanceScoresScreenTest {
         status = "orange",
         label = "Attention",
         reasons = listOf(
-            ScoreReason(code = "above_rhythm", amountCents = 21000),
+            ScoreReason(code = "plans_exceed_category_budget", categoryName = "Voyages", amountCents = 21000),
             ScoreReason(code = "optional_category_exceeded", categoryName = "Loisirs", amountCents = 4500),
         ),
         rhythm = Rhythm(
-            budgetCents = 150000,
             spentCents = 120000,
             expectedSpentCents = 99000,
-            remainingCents = 30000,
-            expectedRemainingCents = 51000,
-            status = "above",
-            label = "Au-dessus du rythme",
+            plannedCents = 120000,
             curve = monthCurve,
             debits = listOf(RhythmDebit(date = "2026-03-05", label = "Loyer", amountCents = 90000)),
         ),
     )
 
     private val week = PeriodScore(
-        status = "green",
-        label = "Dans le vert",
-        reasons = listOf(ScoreReason(code = "below_rhythm", amountCents = 1500)),
+        status = "neutral",
+        label = "Dans les clous",
+        reasons = emptyList(),
         rhythm = Rhythm(
-            budgetCents = 20000,
             spentCents = 3000,
             expectedSpentCents = 4500,
-            remainingCents = 17000,
-            expectedRemainingCents = 15500,
-            label = "Dans le rythme",
+            plannedCents = 9000,
             curve = listOf(
                 RhythmPoint("2026-03-09", spentCents = 0, expectedCents = 0),
                 RhythmPoint("2026-03-10", spentCents = 3000, expectedCents = 4500),
@@ -98,15 +96,31 @@ class FinanceScoresScreenTest {
     private val scores = FinanceScores(date = "2026-03-15", week = week, month = month)
 
     @Test
-    fun `each ring says its status in words and its amounts in clear`() {
+    fun `each ring says what was spent and what is expected, in clear and without a verdict`() {
         compose.setContent { ScoreRings(week = week, month = month) }
 
         compose.onNodeWithTag(UiTags.financeScoreRing("week")).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.financeScoreRing("month")).assertIsDisplayed()
-        compose.onNodeWithText("Dans le rythme", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Au-dessus du rythme", substring = true).assertIsDisplayed()
-        compose.onNodeWithText(formatCents(17000), substring = true).assertIsDisplayed()
-        compose.onNodeWithText(formatCents(30000), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(formatCents(3000), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(formatCents(120000), substring = true).assertIsDisplayed()
+        compose.onAllNodesWithText("dépensés").assertCountEquals(2)
+        compose.onNodeWithText(expectedLine(week.rhythm)!!).assertIsDisplayed()
+        compose.onNodeWithText(expectedLine(month.rhythm)!!).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.financeScoreRing("month")).assertContentDescriptionContains(
+            "Mois : ${formatCents(120000)} dépensés, ${formatCents(99000)} attendus. Afficher les raisons",
+        )
+        for (word in listOf("Dans le rythme", "Au-dessus du rythme", "Rythme incomplet", "restant", "dépassé")) {
+            compose.onAllNodesWithText(word, substring = true).assertCountEquals(0)
+        }
+    }
+
+    @Test
+    fun `a period with nothing planned shows its spending and no expected line`() {
+        val unplanned = week.copy(rhythm = Rhythm(spentCents = 1349))
+        compose.setContent { ScoreRings(week = unplanned, month = unplanned) }
+
+        compose.onAllNodesWithText(formatCents(1349), substring = true).assertCountEquals(2)
+        compose.onAllNodesWithText("Attendu", substring = true).assertCountEquals(0)
     }
 
     @Test
@@ -116,31 +130,17 @@ class FinanceScoresScreenTest {
 
         compose.onNodeWithTag(UiTags.financeScoreRing("month")).performClick()
 
-        compose.onNodeWithText("• ${formatCents(21000)} de plus que le rythme attendu").assertIsDisplayed()
+        compose.onNodeWithText("• Les dépenses planifiées feraient dépasser Voyages de ${formatCents(21000)}").assertIsDisplayed()
         compose.onNodeWithText("• Loisirs dépassée de ${formatCents(4500)}").assertIsDisplayed()
 
         compose.onNodeWithTag(UiTags.financeScoreRing("week")).performClick()
 
-        compose.onNodeWithText("• ${formatCents(1500)} de moins que le rythme attendu").assertIsDisplayed()
+        compose.onNodeWithText("Rien à signaler.").assertIsDisplayed()
         compose.onNodeWithText("• Loisirs dépassée de ${formatCents(4500)}").assertDoesNotExist()
 
         compose.onNodeWithTag(UiTags.financeScoreRing("week")).performClick()
 
         compose.onNodeWithTag(UiTags.FINANCE_SCORE_REASONS).assertDoesNotExist()
-    }
-
-    @Test
-    fun `an overspent month shows a negative amount and says it is exceeded`() {
-        val over = month.copy(
-            status = "red",
-            label = "Dépassement",
-            rhythm = month.rhythm.copy(remainingCents = -91349),
-        )
-        compose.setContent { ScoreRings(week = week, month = over) }
-
-        compose.onNodeWithText(formatCents(-91349), substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Au-dessus du rythme", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("dépassé").assertIsDisplayed()
     }
 
     @Test
@@ -153,6 +153,51 @@ class FinanceScoresScreenTest {
         compose.onNodeWithText("• Aucune enveloppe sur cette période : rien à comparer").assertIsDisplayed()
     }
 
+    private val unclassifiedMonth = month.copy(
+        rhythm = month.rhythm.copy(unclassifiedCount = 4, unclassifiedCents = 200000),
+    )
+
+    @Test
+    fun `debits left unclassified are said under their ring, in the secondary style, and Classer opens the review`() {
+        var classified = 0
+        compose.setContent { ScoreRings(week = week, month = unclassifiedMonth, onClassify = { classified++ }) }
+
+        compose.onNodeWithTag(UiTags.financeScoreUnclassified("month")).assertIsDisplayed()
+        compose.onNodeWithText("${formatCents(200000)} non classés", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.financeScoreUnclassified("week")).assertDoesNotExist()
+        compose.onAllNodesWithText("Rythme incomplet", substring = true).assertCountEquals(0)
+
+        compose.onNodeWithTag(UiTags.financeScoreClassify("month")).performClick()
+
+        assertEquals(1, classified)
+    }
+
+    @Test
+    fun `no unclassified line when every debit has a category`() {
+        compose.setContent { ScoreRings(week = week, month = month) }
+
+        compose.onNodeWithTag(UiTags.financeScoreUnclassified("month")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.financeScoreUnclassified("week")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the dashboard sends Classer to the lines to sort`() {
+        var opened: String? = null
+        val withUnclassified = scores.copy(month = unclassifiedMonth)
+        compose.setContent {
+            FinanceDashboardScreen(
+                monthBalanceViewModel = FakeMonthBalance().viewModel,
+                upcomingViewModel = FakeUpcoming().viewModel,
+                viewModel = FakeLoadedFinanceDashboard(FinanceDashboard(year = 2026, month = 3, scores = withUnclassified)).viewModel,
+                onOpen = { opened = it },
+            )
+        }
+
+        compose.onNodeWithTag(UiTags.financeScoreClassify("month")).performScrollTo().performClick()
+
+        assertEquals(DeepLinks.REVIEW_TO_SORT_ROUTE, opened)
+    }
+
     @Test
     fun `the curve of the month marks the rent on its day`() {
         compose.setContent { RhythmCurvePanel(week = week.rhythm, month = month.rhythm) }
@@ -160,7 +205,8 @@ class FinanceScoresScreenTest {
         compose.onNodeWithTag(UiTags.FINANCE_RHYTHM_CURVE).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.financeRhythmDebit("2026-03-05")).assertIsDisplayed()
         compose.onNodeWithText("Loyer · 5").assertIsDisplayed()
-        compose.onNodeWithText("Au-dessus du rythme", substring = true).assertIsDisplayed()
+        compose.onAllNodesWithText("Au-dessus du rythme", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Rythme incomplet", substring = true).assertCountEquals(0)
     }
 
     @Test
@@ -172,7 +218,6 @@ class FinanceScoresScreenTest {
         compose.onNodeWithTag(UiTags.financeRhythmPeriod("week")).performClick()
 
         compose.onNodeWithTag(UiTags.financeRhythmPeriod("week")).assertIsSelected()
-        compose.onNodeWithText("Dans le rythme", substring = true).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.financeRhythmDebit("2026-03-05")).assertDoesNotExist()
     }
 

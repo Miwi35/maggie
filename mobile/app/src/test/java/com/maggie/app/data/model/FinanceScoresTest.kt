@@ -54,16 +54,24 @@ class FinanceScoresTest {
     }
 
     @Test
-    fun `the rhythm reasons say where the spending stands against what was expected`() {
-        assertEquals("${formatCents(1500)} de plus que le rythme attendu", text("above_rhythm", cents = 1500))
-        assertEquals("${formatCents(1500)} de moins que le rythme attendu", text("below_rhythm", cents = 1500))
-        assertEquals("Dans le rythme : ${formatCents(700)} sous l'attendu", text("on_rhythm", cents = 700))
+    fun `the reason codes the API dropped read as they are`() {
+        for (code in listOf("total_budget_exceeded", "week_budget_exceeded", "above_rhythm", "below_rhythm", "on_rhythm", "unclassified_debits")) {
+            assertEquals(code, text(code, cents = 1500))
+        }
     }
 
     @Test
-    fun `the budget of the period exceeded names the period`() {
-        assertEquals("Budget de la semaine dépassé de ${formatCents(1349)}", text("week_budget_exceeded", cents = 1349))
-        assertEquals("Budget du mois dépassé de ${formatCents(9)}", text("total_budget_exceeded", cents = 9))
+    fun `the rhythm keeps the three figures and what no category claims, zero when the API says nothing`() {
+        val rhythm = json.decodeFromString<Rhythm>(
+            """{"spentCents":600,"expectedSpentCents":400,"plannedCents":1000,"unclassifiedCount":3,"unclassifiedCents":200000}""",
+        )
+
+        assertEquals(600, rhythm.spentCents)
+        assertEquals(400, rhythm.expectedSpentCents)
+        assertEquals(1000, rhythm.plannedCents)
+        assertEquals(3, rhythm.unclassifiedCount)
+        assertEquals(200000, rhythm.unclassifiedCents)
+        assertEquals(0, json.decodeFromString<Rhythm>("{}").unclassifiedCount)
     }
 
     @Test
@@ -86,7 +94,7 @@ class FinanceScoresTest {
         val scores = json.decodeFromString<FinanceScores>("""{"date":"2026-03-15","week":{"status":"green"}}""")
 
         assertEquals("green", scores.week.status)
-        assertEquals(0, scores.week.rhythm.budgetCents)
+        assertEquals(0, scores.week.rhythm.plannedCents)
         assertTrue(scores.week.rhythm.curve.isEmpty())
         assertEquals("neutral", scores.month.status)
     }

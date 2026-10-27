@@ -9,10 +9,10 @@ import org.junit.Test
 class FinanceHomeTest {
     private fun scores() = FinanceScores(
         week = PeriodScore(
-            rhythm = Rhythm(budgetCents = 7000, remainingCents = 1000, expectedRemainingCents = 3000, status = "above", label = "Au-dessus du rythme"),
+            rhythm = Rhythm(spentCents = 6000, expectedSpentCents = 4000, plannedCents = 9000),
         ),
         month = PeriodScore(
-            rhythm = Rhythm(budgetCents = 30000, remainingCents = 24200, expectedRemainingCents = 21000, status = "on_track", label = "Dans le rythme"),
+            rhythm = Rhythm(spentCents = 5800, expectedSpentCents = 9000, plannedCents = 93000),
         ),
     )
 
@@ -37,8 +37,8 @@ class FinanceHomeTest {
     fun `the rings are the rhythm of the week and of the month of the dashboard`() {
         val state = FinanceHomeState.from(dashboard())
 
-        assertEquals(FinanceHomeRing("above", "Au-dessus du rythme", 7000, 1000, 3000), state.week)
-        assertEquals(FinanceHomeRing("on_track", "Dans le rythme", 30000, 24200, 21000), state.month)
+        assertEquals(FinanceHomeRing(6000, 4000, 9000), state.week)
+        assertEquals(FinanceHomeRing(5800, 9000, 93000), state.month)
     }
 
     @Test
@@ -66,8 +66,8 @@ class FinanceHomeTest {
     fun `a dashboard sent without scores draws empty rings`() {
         val state = FinanceHomeState.from(dashboard().copy(scores = null))
 
-        assertEquals(0, state.week.budgetCents)
-        assertEquals(0, state.month.budgetCents)
+        assertEquals(0, state.week.spentCents)
+        assertEquals(0, state.month.spentCents)
     }
 
     @Test
@@ -83,30 +83,8 @@ class FinanceHomeTest {
     }
 
     @Test
-    fun `a ring is read as the rhythm the dashboard draws`() {
-        val rhythm = FinanceHomeRing("above", "Au-dessus du rythme", 7000, 1000, 3000).toRhythm()
-
-        assertEquals(7000, rhythm.budgetCents)
-        assertEquals(1000, rhythm.remainingCents)
-        assertEquals(3000, rhythm.expectedRemainingCents)
-        assertEquals("above", rhythm.status)
-    }
-
-    @Test
     fun `the pill counts the lines to qualify`() {
         assertEquals("3 à qualifier", FinanceHomeState(toQualifyCount = 3).toQualifyLabel())
-    }
-
-    @Test
-    fun `the one rhythm pill is above as soon as a period is, on track otherwise, absent without envelope`() {
-        val onTrack = FinanceHomeRing("on_track", "", 30000, 24200, 21000)
-        val above = FinanceHomeRing("above", "", 7000, 1000, 3000)
-
-        assertEquals("above", FinanceHomeState(week = above, month = onTrack).rhythmStatus())
-        assertEquals("above", FinanceHomeState(week = onTrack, month = above).rhythmStatus())
-        assertEquals("on_track", FinanceHomeState(week = onTrack, month = onTrack).rhythmStatus())
-        assertEquals("on_track", FinanceHomeState(week = FinanceHomeRing(status = "above"), month = onTrack).rhythmStatus())
-        assertNull(FinanceHomeState().rhythmStatus())
     }
 
     @Test

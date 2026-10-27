@@ -1,13 +1,11 @@
 import type { FinanceScores, PeriodScore, Rhythm } from './useFinanceScores'
 
 export const rhythm = (overrides: Partial<Rhythm> = {}): Rhythm => ({
-  budgetCents: 100000,
   spentCents: 50000,
   expectedSpentCents: 60000,
-  remainingCents: 50000,
-  expectedRemainingCents: 40000,
-  status: 'on_track',
-  label: 'Dans le rythme',
+  plannedCents: 100000,
+  unclassifiedCount: 0,
+  unclassifiedCents: 0,
   curve: [
     { date: '2026-10-04', spentCents: 0, expectedCents: 0 },
     { date: '2026-10-05', spentCents: 20000, expectedCents: 50000 },
@@ -23,7 +21,7 @@ export const rhythm = (overrides: Partial<Rhythm> = {}): Rhythm => ({
 export const period = (overrides: Partial<PeriodScore> = {}): PeriodScore => ({
   status: 'green',
   label: 'Dans le vert',
-  reasons: [{ code: 'below_rhythm', amountCents: 10000 }],
+  reasons: [{ code: 'below_last_year', amountCents: 10000 }],
   rhythm: rhythm(),
   ...overrides,
 })
@@ -33,7 +31,7 @@ export const scores = (overrides: Partial<FinanceScores> = {}): FinanceScores =>
   week: period({
     status: 'neutral',
     label: 'Dans les clous',
-    reasons: [{ code: 'on_rhythm', amountCents: 2000 }],
+    reasons: [],
   }),
   month: period(),
   global: { status: 'green', label: 'Dans le vert', reasons: [] },

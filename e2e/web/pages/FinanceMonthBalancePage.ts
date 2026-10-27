@@ -23,7 +23,7 @@ export class FinanceMonthBalancePage extends AdminShell {
     return this.content.getByTestId('month-balance')
   }
 
-  /** The month ring: what is left of the month's budget and in which state. */
+  /** The month ring: everything spent this month, and the recurring debits expected. */
   get monthRing(): Locator {
     return this.content.getByTestId('balance-spending').getByTestId('score-ring')
   }

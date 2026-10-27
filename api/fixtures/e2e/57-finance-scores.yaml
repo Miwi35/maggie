@@ -5,7 +5,7 @@
 # to be told from a straight line: a rent of 700 € debited on the 5th (a
 # monthly series, so the curve steps there and the debit is marked) and
 # 300 € of groceries on the 1st, against a 1 420 € budget — 700 € of rent and
-# 720 € of groceries. 1 000 € spent, 420 € left, whatever the month.
+# 720 € of groceries (the envelopes sort the money, they do not set the pace).
 #
 # The rent is booked on the 5th: the journeys assume the stack's day is the 5th
 # or later, which CI guarantees (it pins the 13th, `e2e/clock.sh`).
@@ -90,4 +90,19 @@ Maggie\Finance\Entity\Transaction:
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     categorySource: '<(Maggie\Finance\Enum\CategorySource::Manual)>'
     categorizedAt: '<e2eDate("first day of this month")>'
+    user: '@e2e_scores_user'
+
+  # Debited on the 2nd and filed nowhere (MAG-643): « Dépensé » counts every
+  # debit, so the month's ring reads 1 250 € (rent, groceries, this one) against
+  # 700 € expected — only the rent is recurring. The « 250 € non classés ·
+  # Classer » line leads to the Review. The week of the pinned 13th (Monday the
+  # 7th at the earliest) holds nothing unclassified.
+  e2e_scores_unclassified:
+    account: '@e2e_scores_checking'
+    amountCents: -25000
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month", "+1 day")>'
+    label: 'CARTE INCONNUE'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    categorySource: '<(Maggie\Finance\Enum\CategorySource::None)>'
     user: '@e2e_scores_user'

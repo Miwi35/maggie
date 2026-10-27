@@ -204,8 +204,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Twenty since MAG-417: the scores account's rent and groceries.
         // Twenty-two since MAG-457: the month balance account's groceries and train.
         // Twenty-four since MAG-456: the two spends the review activity walks.
-        // Twenty-six since MAG-529: the next project account's restaurants and Obsydian overruns. Twenty-seven since MAG-565: the Accueil account's bakery.
-        self::assertSame(27, $this->rowsOf(Transaction::class));
+        // Twenty-six since MAG-529: the next project account's restaurants and Obsydian overruns. Twenty-seven since MAG-565: the Accueil account's bakery. Twenty-eight since MAG-643: the scores account's unclassified debit.
+        self::assertSame(28, $this->rowsOf(Transaction::class));
         // Four since MAG-49: each envelope alert account's « Loisirs ». Six since
         // MAG-417: the scores account's « Logement » and « Alimentation ». Nine
         // since MAG-463: the « À venir » account's current and next month's.
@@ -334,7 +334,7 @@ final class E2eSeedCommandTest extends KernelTestCase
 
     public function testTheFinanceCardAccountSpendsLessThanItsEnvelope(): void
     {
-        // MAG-565: the card says « Dans le rythme » — a 1 000 € envelope and 10 € spent, never the other way round.
+        // MAG-565: a 1 000 € envelope and 10 € spent, never the other way round.
         $this->seed();
 
         $home = $this->repository(User::class)->findOneBy(['email' => 'e2e-home@maggie.local']);
