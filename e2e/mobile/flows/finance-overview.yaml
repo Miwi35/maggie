@@ -90,7 +90,9 @@ tags:
     element:
       text: ".*matelas.*"
     timeout: 30000
-- assertVisible: ".*Ouvrir →.*"
+- extendedWaitUntil:
+    visible: ".*Ouvrir →.*"
+    timeout: 30000
 
 # The tile is taller than the screen: scroll to its lines, not to the card (50 % of it in view
 # says nothing about its bottom half).

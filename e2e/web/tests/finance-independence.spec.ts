@@ -171,8 +171,14 @@ test('a rente is declared from the category form, and the counter picks it up', 
 
   const overview = new FinanceOverviewPage(otherUser.page)
   await overview.open()
+  await expect(
+    overview.independence(),
+    'the home draws no counter it cannot measure (MAG-631)',
+  ).toHaveCount(0)
 
-  const counter = overview.independence()
+  const shell = new AdminShell(otherUser.page)
+  await shell.goto(ROUTES.financePlanningIndependence)
+  const counter = shell.content.getByTestId('independence-card')
   await expect(counter).toContainText('Pas encore de train de vie mesuré')
   await expect(counter, 'no denominator, no percentage').not.toContainText('0 %')
 })
