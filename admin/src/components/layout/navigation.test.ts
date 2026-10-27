@@ -89,10 +89,10 @@ describe('the seven Finance menus', () => {
     expect(labels('/finance/banks')).toEqual(['Finance', 'Configuration', 'Banques'])
   })
 
-  test('open Planification on Projets, before Prêts (MAG-519)', () => {
+  test('open Planification on Projets, in the mock-ups\' single row: Projets · Prêts · Placements · Indépendance (MAG-519, MAG-633)', () => {
     const planning = FINANCE_MENUS.find((menu) => menu.key === 'planning')
 
-    expect(planning?.aspects.map((aspect) => aspect.id)).toEqual(['projects', 'loans', 'independence', 'timeline'])
+    expect(planning?.aspects.map((aspect) => aspect.id)).toEqual(['projects', 'loans', 'placements', 'independence'])
     expect(labels('/finance/projects')).toEqual(['Finance', 'Planification', 'Projets'])
   })
 })

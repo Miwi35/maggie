@@ -16,7 +16,18 @@ vi.mock('react-admin', async (importOriginal) => ({
   Title: () => null,
 }))
 
-vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
+const subscribed = vi.hoisted(() => new Set<string>())
+
+vi.mock('../../hooks/useMercure', async () => {
+  const stand = (await import('../../test/mercure')).mercureModule
+
+  return {
+    useMercure: (topics: string[], onMessage: (data?: string) => void) => {
+      subscribed.add(topics.join('|'))
+      stand.useMercure(topics, onMessage)
+    },
+  }
+})
 
 // The drag itself needs a layout engine jsdom does not have, so a mouse drag is
 // finished the way dnd-kit would: by calling the `onDragEnd` the page gave the
@@ -254,6 +265,16 @@ describe('ProjectsPage', () => {
     expect(within(row('Vélo')).getByText(/au plus tard le 31 août 2027/)).toBeInTheDocument()
     expect(within(row('Vélo')).getByText('Élevé · 3')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  test('holds two Mercure streams for the projects, the planning and the scenarios, not three: a browser keeps six connections per origin', async () => {
+    subscribed.clear()
+    stubApi([MOVE, SOFA])
+    render(<ProjectsPage />)
+    await loaded(2)
+    await screen.findByTestId('scenarios-panel')
+
+    expect(subscribed.size).toBeLessThanOrEqual(2)
   })
 
   test('says when there is no project yet', async () => {
@@ -569,6 +590,19 @@ describe('ProjectsPage', () => {
 
     await waitFor(() => expect(fetchMock.mock.calls.length).toBe(reads + 1))
   })
+  describe('one page, no sub-tabs (MAG-633)', () => {
+    test('the projects, their planning and the scenarios are on the same page, with no Planning · Scénarios tabs nor help text', async () => {
+      stubApi([BIKE, MOVE], { planning: true, scenarios: [] })
+      render(<ProjectsPage />)
+      await loaded(2)
+
+      expect(screen.queryByRole('tab')).toBeNull()
+      expect(screen.queryByText(/Le premier passe avant les autres/)).toBeNull()
+      expect(await screen.findByTestId('scenarios-panel')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Scénarios' })).toBeInTheDocument()
+    })
+  })
+
   describe('planning Gantt (MAG-527)', () => {
     const ganttRows = () => screen.queryAllByTestId('gantt-row').map((node) => node.getAttribute('data-project'))
     const planningReads = (fetchMock: ReturnType<typeof stubApi>['fetchMock']) =>

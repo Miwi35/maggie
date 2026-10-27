@@ -7,7 +7,6 @@ import LinearProgress from '@mui/material/LinearProgress'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { Title } from 'react-admin'
 import { TimelineRow } from './TimelineRow'
 import { useFinanceTimeline } from './useFinanceTimeline'
 import type { ScenarioChoice, TimelineCategory } from './timelineApi'
@@ -126,8 +125,6 @@ export const TimelinePanel = () => {
 
   return (
     <Box data-testid="timeline-panel" aria-busy={fetching}>
-      <Title title="Frise 20 ans" />
-
       {failed && (
         <Alert
           severity="error"

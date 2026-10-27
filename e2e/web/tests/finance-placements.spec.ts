@@ -5,7 +5,7 @@ import { FinancePlacementsPage } from '../pages/FinancePlacementsPage.js'
 
 /**
  * The simulated placements (MAG-555, extends MAG-102), in Finance ›
- * Planification › Indépendance.
+ * Planification › Placements (own tab since MAG-633).
  *
  * Seeded: « PEA » (2 000 € then 150 € a month at 6 % over 20 years),
  * « Assurance-vie » (1 200 € a year at 3,5 % over 15 years) and « Livret jeune
@@ -117,7 +117,7 @@ interface SimulationAnswer {
 
 /**
  * Given a trip of 5 000 € paid 1 500 € from the PEA and 3 500 € from the salary,
- * When I open the PEA in Finance › Planification › Indépendance,
+ * When I open the PEA in Finance › Planification › Placements,
  * Then the capital is drawn with and without the withdrawal, the gap at the end
  * of the 20 years is told, and the trip is listed as the 1 500 € taken out the
  * month it is bought.
@@ -162,4 +162,29 @@ test('a trip paid in part by the PEA is drawn with and without the 1 500 € it 
   await expect(screen.gap()).toHaveText(`Écart à 20 ans : −${wholeEuros(answer.gapAtEnd)}`)
   await expect(simulation.getByText('Capital après retrait').locator('xpath=following-sibling::*[1]')).toHaveText(wholeEuros(answer.finalWith))
   await expect(simulation).toContainText('Après ces retraits, retiré à 4 % par an')
+})
+
+/**
+ * Given the seeded PEA (MAG-633, the mock-ups' Planification),
+ * When I open Finance › Planification,
+ * Then one row offers Projets · Prêts · Placements · Indépendance — no Frise 20 ans nor
+ * Planning · Scénarios tab —, Placements draws the PEA with its curve, and
+ * Indépendance holds the 20-year frise.
+ */
+test('Planification is one row of sub-views: Placements draws the PEA, Indépendance holds the frise', async ({ page }) => {
+  const screen = new FinancePlacementsPage(page)
+
+  await screen.open()
+  const row = page.getByRole('tablist', { name: 'Planification' })
+  await expect(row.getByRole('tab')).toHaveText(['Projets', 'Prêts', 'Placements', 'Indépendance'])
+  await expect(page.getByRole('tab', { name: 'Frise 20 ans' })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Scénarios' })).toHaveCount(0)
+
+  await screen.row('PEA').click()
+  await expect(screen.row('PEA')).toHaveAttribute('aria-selected', 'true')
+  await expect(screen.simulation().getByRole('img', { name: /^Courbe de PEA sur 20 ans/ })).toBeVisible()
+
+  await row.getByRole('tab', { name: 'Indépendance' }).click()
+  await expect(screen.content.getByTestId('timeline-panel')).toBeVisible()
+  await expect(screen.card).toHaveCount(0)
 })

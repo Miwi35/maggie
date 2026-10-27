@@ -114,9 +114,9 @@ const PROBES: Record<string, Probe> = {
   outlook: useOutlookProbe,
   projects: useProjectsProbe,
   loans: useLoansProbe,
+  // Placements are read by the page itself: not a tab a menu opens on.
+  placements: useNoDataProbe,
   independence: useIndependenceProbe,
-  // Never the tab a menu opens on: it reads the plan the other tabs build.
-  timeline: useNoDataProbe,
   banks: useBanksProbe,
   categories: useCategoriesProbe,
 }

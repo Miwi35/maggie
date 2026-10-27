@@ -10,9 +10,9 @@ import { EnvelopeList } from './EnvelopeList'
 import { IndependencePanel } from './IndependencePanel'
 import { LoanList } from './LoanList'
 import { PeerDebtsPage } from './PeerDebtsPage'
+import { PlacementsSection } from './PlacementsSection'
 import { ProjectsPage } from './ProjectsPage'
 import { ReviewPage } from './ReviewPage'
-import { TimelinePanel } from './TimelinePanel'
 import { RecurringOperationsPage } from './RecurringOperationsPage'
 import { SavingsAdvancesPage } from './SavingsAdvancesPage'
 import { StatementImportPage } from './StatementImportPage'
@@ -48,8 +48,8 @@ export const ASPECT_CONTENT: Record<string, ComponentType> = {
   outlook: TreasuryPage,
   projects: ProjectsPage,
   loans: inResource('loans', LoanList),
+  placements: PlacementsSection,
   independence: IndependencePanel,
-  timeline: TimelinePanel,
   banks: BankConnectionsPage,
   categories: inResource('categories', CategoryList),
 }

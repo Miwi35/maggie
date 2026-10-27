@@ -121,8 +121,8 @@ export const FINANCE_MENUS: NavMenu[] = [
     aspects: [
       { id: 'projects', label: 'Projets', path: '/finance/projects' },
       { id: 'loans', label: 'Prêts', path: '/loans', resource: 'loans' },
+      { id: 'placements', label: 'Placements' },
       { id: 'independence', label: 'Indépendance' },
-      { id: 'timeline', label: 'Frise 20 ans' },
     ],
   },
   {

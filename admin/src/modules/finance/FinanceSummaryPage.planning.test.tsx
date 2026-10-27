@@ -178,14 +178,34 @@ describe('Finance › Planification, with its real screens', () => {
     expect(screen.getByRole('link', { name: 'Déclarer une rente' })).toHaveAttribute('href', '/categories')
   })
 
-  test('the Indépendance tab shows the placements under the counter, a rente declared or not (MAG-555)', async () => {
+  test('Planification is one row of sub-views, in the mock-ups\' order, with no Frise 20 ans nor Planning · Scénarios tab (MAG-633)', async () => {
+    stubApi({}, true)
+    renderPlanning(true)
+
+    const row = await screen.findByRole('tablist', { name: 'Planification' })
+    expect(within(row).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Projets', 'Prêts', 'Placements', 'Indépendance'])
+    expect(screen.queryByRole('tab', { name: 'Frise 20 ans' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Scénarios' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Planning' })).toBeNull()
+  })
+
+  test('the Placements tab shows the placements of the user, and Indépendance no longer does (MAG-633)', async () => {
+    stubApi({}, false)
+    renderPlanning(false, '/finance/summary/planning/placements')
+
+    const placements = await screen.findByRole('region', { name: 'Placements' })
+    expect(await within(placements).findByText('PEA')).toBeInTheDocument()
+    expect(within(placements).getByText(/^Retiré à 4 % par an/)).toBeInTheDocument()
+    expect(screen.queryByText('Aucune rente déclarée')).toBeNull()
+  })
+
+  test('the Indépendance tab holds the 20-year frise, not the placements (MAG-633)', async () => {
     stubApi({}, false)
     renderPlanning(false, '/finance/summary/planning/independence')
 
     expect(await screen.findByText('Aucune rente déclarée')).toBeInTheDocument()
-    const placements = await screen.findByRole('region', { name: 'Placements' })
-    expect(await within(placements).findByText('PEA')).toBeInTheDocument()
-    expect(within(placements).getByText(/^Retiré à 4 % par an/)).toBeInTheDocument()
+    expect(await screen.findByTestId('timeline-panel')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Placements' })).toBeNull()
   })
 
   test('with rentes declared but no loan, the menu opens on Indépendance', async () => {

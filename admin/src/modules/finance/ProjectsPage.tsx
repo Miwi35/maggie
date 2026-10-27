@@ -18,8 +18,6 @@ import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
@@ -428,10 +426,6 @@ const ProjectsView = () => {
             Nouveau projet
           </Button>
         </Stack>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Le premier passe avant les autres. Glissez un projet par sa poignée pour changer sa priorité, ou, au
-          clavier, Espace sur la poignée puis les flèches.
-        </Typography>
 
         <Box role="status" aria-live="polite" sx={visuallyHidden}>
           {announcement}
@@ -562,20 +556,14 @@ const ProjectsView = () => {
 
 /**
  * Finance › Planification › Projets: the projects and their Gantt (MAG-519),
- * and the scenarios built on them (MAG-551), in a tab of their own.
+ * then the scenarios built on them (MAG-551) on the same page, as the mock-ups
+ * draw it (MAG-633).
  */
-export const ProjectsPage = () => {
-  const [tab, setTab] = useState<'projects' | 'scenarios'>('projects')
-
-  return (
-    <>
-      <Tabs value={tab} onChange={(_, next) => setTab(next)} aria-label="Projets et scénarios" sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
-        <Tab value="projects" label="Planning" id="projects-tab" aria-controls="projects-panel" />
-        <Tab value="scenarios" label="Scénarios" id="scenarios-tab" aria-controls="scenarios-panel" />
-      </Tabs>
-      <Box role="tabpanel" id={`${tab}-panel`} aria-labelledby={`${tab}-tab`}>
-        {tab === 'projects' ? <ProjectsView /> : <ScenariosPanel />}
-      </Box>
-    </>
-  )
-}
+export const ProjectsPage = () => (
+  <>
+    <ProjectsView />
+    <Box sx={{ mt: 4 }}>
+      <ScenariosPanel />
+    </Box>
+  </>
+)
