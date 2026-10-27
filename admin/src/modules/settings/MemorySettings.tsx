@@ -16,6 +16,7 @@ import { ancestors } from './memoryPaths'
 import {
   ago,
   downloadMemoryArchive,
+  MemoryApiError,
   memoryApi,
   type MemoryFile,
   type MemoryJournalEntry,
@@ -158,10 +159,15 @@ export const MemorySettings = ({ notify, subscribe }: MemorySettingsProps) => {
         if (viewRef.current === 'misses') void loadMisses()
         const open = selectedRef.current
         if (open && (changed === null || changed.includes(open))) {
+          // Only a file that is really gone clears the view: a network blip must not cost the owner their draft.
           memoryApi
             .open(open)
-            .then(setFile)
-            .catch(() => setFile(null))
+            .then((fresh) => {
+              if (selectedRef.current === open) setFile(fresh)
+            })
+            .catch((error) => {
+              if (error instanceof MemoryApiError && error.status === 404 && selectedRef.current === open) setFile(null)
+            })
         }
       }, LIVE_REFRESH_DELAY_MS)
     })

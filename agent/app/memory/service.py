@@ -190,15 +190,19 @@ class MemoryService:
                 )
 
     async def _notify(self, user_id: str) -> None:
-        await asyncio.sleep(NOTIFY_DELAY_SECONDS)
-        changed = sorted(self._touched.pop(user_id, set()))
-        if self.notifier is None:
-            return
-        payload: dict[str, Any] = {"paths": changed if len(changed) <= NOTIFY_MAX_PATHS else None}
-        try:
-            await self.notifier(user_id, payload)
-        except Exception:
-            logger.warning("Could not tell the web view that the memory of %s changed", user_id, exc_info=True)
+        # What is touched while a message is on its way goes in the next one: the loop ends only on an empty set.
+        while True:
+            await asyncio.sleep(NOTIFY_DELAY_SECONDS)
+            changed = sorted(self._touched.pop(user_id, set()))
+            if self.notifier is None:
+                return
+            payload: dict[str, Any] = {"paths": changed if len(changed) <= NOTIFY_MAX_PATHS else None}
+            try:
+                await self.notifier(user_id, payload)
+            except Exception:
+                logger.warning("Could not tell the web view that the memory of %s changed", user_id, exc_info=True)
+            if not self._touched.get(user_id):
+                return
 
     def _lock(self, locks: dict[str, asyncio.Lock], user_id: str) -> asyncio.Lock:
         # Locks bind to the event loop that contended for them: one per user, created on demand.
@@ -311,7 +315,9 @@ class MemoryService:
         text = folder.read(old)
         if text is None:
             raise paths.UnsafePath(f"{old!r} does not exist")
-        if old != new and new.casefold() in {f.casefold() for f in folder.files()}:
+        if old == new:
+            return new
+        if new.casefold() in {f.casefold() for f in folder.files() if f != old}:
             raise paths.UnsafePath(f"{new!r} already exists")
         async with self._lock(self._index_locks, user_id):
             await self._save_local_and_queue(user_id, new, text)

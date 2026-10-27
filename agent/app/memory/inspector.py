@@ -183,13 +183,16 @@ async def save_file(service: MemoryService, user_id: str, rel: str, text: str, b
     if base_hash is not None and base_hash != carte_mod.content_hash(current):
         raise Conflict(rel)
     try:
-        before = carte_mod.parse(current).carte
         after = carte_mod.parse(text).carte
     except UnreadableFile as e:
         raise Invalid(f"la carte de la fiche n'est pas lisible : {e}") from e
+    try:
+        before_id = carte_mod.parse(current).carte.id
+    except UnreadableFile:
+        before_id = ""  # a broken file has no identity to keep: the owner's repair is what is wanted
     # The id is the fiche's identity: a version that lost or changed it keeps the original, so links follow.
-    if before.id and after.id != before.id:
-        text = carte_mod.with_id(text, before.id)
+    if before_id and after.id != before_id:
+        text = carte_mod.with_id(text, before_id)
     if text == current:
         return await open_file(service, user_id, rel)
     try:
@@ -205,7 +208,9 @@ async def move_file(service: MemoryService, user_id: str, old: str, new: str) ->
     if classify(old) != KIND_FICHE:
         raise Refused(f"{old!r} is not a fiche: only a fiche is moved")
     folder = service.folder(user_id)
-    if old != new and new.casefold() in {f.casefold() for f in folder.files()}:
+    if old == new:
+        return await open_file(service, user_id, old)
+    if new.casefold() in {f.casefold() for f in folder.files() if f != old}:
         raise Conflict(new)
     try:
         moved = await service.move(user_id, old, new, reason=MOVE_REASON)

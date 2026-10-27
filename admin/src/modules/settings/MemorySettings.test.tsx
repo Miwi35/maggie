@@ -434,6 +434,40 @@ describe('MemorySettings', () => {
     expect(screen.getByLabelText('Markdown')).toHaveValue(fiche.text)
   })
 
+  test('keeps the open file and the owner’s text when the refresh fails on the network', async () => {
+    let down = false
+    stub({
+      [`GET /agent/memory/file?path=${encodeURIComponent(ROSES)}`]: () => {
+        if (down) throw new TypeError('network')
+        return json(FICHE)
+      },
+    })
+    await openRoses()
+    await userEvent.type(screen.getByLabelText('Markdown'), ' ajout')
+    const typed = (screen.getByLabelText('Markdown') as HTMLTextAreaElement).value
+
+    down = true
+    emit([ROSES])
+
+    await waitFor(() => expect(subscribe).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(screen.getByLabelText('Markdown')).toHaveValue(typed)
+  })
+
+  test('closes the view when the open file is gone', async () => {
+    let gone = false
+    stub({
+      [`GET /agent/memory/file?path=${encodeURIComponent(ROSES)}`]: () =>
+        gone ? json({ detail: 'unknown' }, 404) : json(FICHE),
+    })
+    await openRoses()
+
+    gone = true
+    emit([ROSES])
+
+    expect(await screen.findByText('Choisissez un fichier pour le lire ou le corriger.')).toBeInTheDocument()
+  })
+
   test('stops following the memory when the tab goes away', async () => {
     stub()
     const { unmount } = render(<MemorySettings notify={notify} subscribe={subscribe} />)

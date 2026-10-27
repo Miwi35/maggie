@@ -292,6 +292,17 @@ class TestCorrectingAFiche:
         assert "carte" in response.json()["detail"]
         assert "Ce que Françoise pense" in env.local(ROSES)
 
+    async def test_a_fiche_whose_carte_is_broken_can_be_repaired_from_here(self, env, owner):
+        env.service.folder(USER_A).write("Famille/Cassée.md", "---\nresume: [pas fermé\n---\n\nTexte.\n")
+        repaired = fiche("Réparée", resume="Une carte lisible")
+
+        response = owner.put(URL, params=encode("Famille/Cassée.md"), json={"text": repaired})
+
+        assert response.status_code == 200
+        assert response.json()["unreadable"] is None
+        assert response.json()["carte"]["resume"] == "Une carte lisible"
+        assert "corrigé par le propriétaire" in env.local("journal.md")
+
     async def test_a_conversation_and_a_generated_file_are_not_rewritten_from_here(self, env, owner):
         source = await seed_roses(env)
         before = env.local(source)
@@ -336,6 +347,26 @@ class TestMovingAndDeleting:
         assert owner.post("/memory/file/move", params=encode(ROSES), json={"to": "Conversations/x.md"}).status_code == 400
         assert owner.post("/memory/file/move", params=encode(ROSES), json={"to": "../x.md"}).status_code == 400
         assert env.local(ROSES) is not None
+
+    async def test_a_move_onto_itself_changes_nothing_and_loses_nothing(self, env, owner):
+        await seed_roses(env)
+        before = env.local(ROSES)
+
+        response = owner.post("/memory/file/move", params=encode(ROSES), json={"to": ROSES})
+
+        assert response.status_code == 200
+        assert env.local(ROSES) == before
+        assert "déplacé" not in (env.local("journal.md") or "")
+        assert owner.get(URL, params=encode(ROSES)).status_code == 200
+
+    async def test_a_name_that_differs_only_by_its_case_is_a_rename_not_a_clash(self, env, owner):
+        await seed_roses(env)
+        renamed = ROSES.replace("Famille/", "famille/", 1)
+
+        response = owner.post("/memory/file/move", params=encode(ROSES), json={"to": renamed})
+
+        assert response.status_code == 200
+        assert env.local(renamed) is not None
 
     async def test_a_conversation_is_not_moved(self, env, owner):
         source = await seed_roses(env)
@@ -547,6 +578,27 @@ class TestTheWebFollowsLive:
         await asyncio.sleep(0.6)
 
         assert any("Maison/A.md" in (p["paths"] or []) for p in told)
+
+    async def test_a_write_during_a_slow_announcement_is_announced_too(self, env):
+        told: list[list[str]] = []
+        release = asyncio.Event()
+
+        async def notifier(user_id: str, payload: dict) -> None:
+            told.append(payload["paths"])
+            if len(told) == 1:
+                await release.wait()
+
+        env.service.notifier = notifier
+        await env.service.write(USER_A, "Maison/A.md", fiche("a", resume="a"))
+        await asyncio.sleep(0.6)
+        assert len(told) == 1
+
+        await env.service.write(USER_A, "Maison/B.md", fiche("b", resume="b"))
+        release.set()
+        await asyncio.sleep(0.9)
+
+        assert len(told) == 2
+        assert "Maison/B.md" in told[1]
 
     async def test_a_broken_hub_does_not_break_a_write(self, env):
         async def notifier(user_id: str, payload: dict) -> None:
