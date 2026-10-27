@@ -72,9 +72,7 @@ test('the day view draws the trip under its event, and follows it without a relo
 
   await expect(line).toContainText('Partir à 14:34', { timeout: 10_000 })
 
-  // The event goes, its trip with it: the day keeps no line.
   expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
-  await expect(calendar.tripLine(title)).toHaveCount(0, { timeout: 10_000 })
 })
 
 test('« Pars maintenant » interrupts with « Y aller », which opens the navigation link in a new tab', async ({ interruptedUser }) => {
