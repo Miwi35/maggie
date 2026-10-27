@@ -35,6 +35,8 @@ from app.error_tracking import init_error_tracking
 from app.llm.turns import turn_runner
 from app.mcp.client import mcp_client
 from app.memory.service import memory_service
+from app.mercure import topics as mercure_topics
+from app.mercure.publisher import MercurePublisher
 from app.queue import connection as queue_connection
 from app.queue.proaction_consumer import start_consumer
 from app.queue.scheduler import start_scheduler
@@ -113,12 +115,19 @@ async def lifespan(app: FastAPI):
 
     # The memory folder: the first pass rehydrates the local copy from the bucket (the pod has no
     # disk to keep), then it keeps both in step. A bucket that is down is not a reason not to start.
+    memory_publisher = MercurePublisher()
+
+    async def tell_the_web(user_id: str, payload: dict) -> None:
+        await memory_publisher.publish(mercure_topics.for_user(mercure_topics.MEMORY, user_id), payload)
+
+    memory_service.notifier = tell_the_web
     memory_service.start()
 
     yield
 
     # Shutdown
     with contextlib.suppress(Exception):
+        memory_service.notifier = None
         await memory_service.stop()
     with contextlib.suppress(Exception):
         await turn_runner.shutdown()

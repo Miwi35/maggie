@@ -4,5 +4,6 @@
     "proactions": "/proactions/{userId}",
     "instructions": "/instructions/{userId}",
     "skills": "/skills/{userId}",
-    "approvals": "/approvals/{userId}"
+    "approvals": "/approvals/{userId}",
+    "memory": "/memory/{userId}"
 }

@@ -49,5 +49,15 @@ Resumable and idempotent: `memory_night_run` keeps the status, the steps done an
 - A fiche with a case is **not offered to the forgetting** (the owner expects it); a case follows its fiche through a rename (by id) and a merge. The case file is rewritten only when its content changes, so a quiet night writes nothing.
 - The project's measure: the cases that no longer reproduce (`vert`), in the night's report and journal line.
 
+## The web inspector (MAG-20)
+The « Mémoire » tab of the « Maggie » settings reads and corrects the folder; no browser ever talks to the bucket. `app/api/memory_routes.py` (prefix `/memory`, bearer JWT, the folder of the token's user only: a path outside it is an unknown path, 404) over `app/memory/inspector.py`.
+- **Routes**: `GET /tree` · `GET|PUT|DELETE /file?path=` · `POST /file/move?path=` · `GET /journal` · `GET|POST /sync` (state / relaunch) · `POST /rebuild` · `GET /misses` · `GET /export` (zip of the whole folder under `Mémoire/`, readable without the app).
+- **The tree is the folder's** (the local copy mirrors the bucket), nothing regrouped. A file is a `fiche`, a `conversation`, a `generated` file (`LISEZMOI`, `AGENTS`, `sommaire`, `journal`) or a missed-recall `miss`.
+- **What may change**: only fiches are edited, renamed, moved (the carte must stay readable: 400 otherwise; the `id` is kept, so recall and links follow). Conversations are append-only and generated files are Maggie's: both 409. Only fiches and missed-recall cases are deleted.
+- **Every change goes through `MemoryService`** (`write` / `move` / `delete`): file, then index, then a `journal.md` line (« corrigé par le propriétaire depuis l'onglet Mémoire »), then the outbox. A PUT carries the `hash` it started from: 409 if the file moved on (Maggie, the night, the sync) — nothing is overwritten.
+- **Live**: the service tells the web on the Mercure stream `memory` (`/memory/{userId}`, payload `{paths}`), coalesced over 0.4 s. The admin takes it from the Maggie settings page's own connection — a browser allows six per origin over HTTP/1.1, a seventh request waits forever; never open one more.
+- **Sync state** (`GET /sync`): last success, pending writes with their paths, conflicts, and the bucket's outage with its age. The tab says it; an outage never blocks reading or correcting.
+- Not done: re-importing an edited archive.
+
 ## Tests
 Use `FakeBucket` (`app.memory.bucket`), never a mock of the S3 client for behaviour; `agent/tests/memory/conftest.py` has the fixtures. SQLite stands in for Postgres in unit tests: search is `LIKE` there, FTS is covered by the e2e journey `e2e/web/tests/memory-folder.spec.ts`.

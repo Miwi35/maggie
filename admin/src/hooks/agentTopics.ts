@@ -14,6 +14,7 @@ export const AGENT_STREAMS = {
   skills: 'skills',
   /** Actions the policy holds back until the user answers them (MAG-4); the chat cards follow it (MAG-6). */
   approvals: 'approvals',
+  memory: 'memory',
 } as const
 
 export type AgentStream = (typeof AGENT_STREAMS)[keyof typeof AGENT_STREAMS]
