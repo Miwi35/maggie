@@ -6,18 +6,20 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { formatCents } from './accountTypes'
-import { delayLabel, joinNames, purchaseLabel } from './nextProject'
+import { delayLabel, durationLabel, joinNames, purchaseLabel } from './nextProject'
 import { ganttMonthLabel } from './ProjectGantt'
-import type { NextProject } from './useFinanceDashboard'
+import type { NextProject, ProjectBeyondHorizon } from './useFinanceDashboard'
 
 /**
  * « Prochain projet » (MAG-529): the first project of the planning, what is
  * gathered, when it falls, the two after it, and — a fact, not a reproach — what
- * the month's overspending pushes back. Not clickable.
+ * the month's overspending pushes back. Not clickable. With nothing planned inside the horizon
+ * (MAG-667), it names the first project « au-delà de 3 ans » and shows nothing else: nothing is planned.
  */
-export const NextProjectCard = ({ project, sx }: { project: NextProject; sx?: SxProps<Theme> }) => {
+export const NextProjectCard = ({ project, sx }: { project: NextProject | ProjectBeyondHorizon; sx?: SxProps<Theme> }) => {
   const percent = Math.min(100, Math.round((project.gatheredCents / Math.max(1, project.amountCents)) * 100))
-  const delay = project.delay
+  const planned = 'purchaseMonth' in project ? project : null
+  const delay = planned?.delay ?? null
 
   return (
     <Card sx={[{ mb: 2 }, ...(Array.isArray(sx) ? sx : [sx])]} data-testid="next-project-card">
@@ -28,7 +30,7 @@ export const NextProjectCard = ({ project, sx }: { project: NextProject; sx?: Sx
         <Stack direction="row" justifyContent="space-between" alignItems="baseline">
           <Typography variant="h6">{project.name}</Typography>
           <Typography variant="body2" color="text.secondary" data-testid="next-project-date">
-            {purchaseLabel(project.purchaseMonth)}
+            {'purchaseMonth' in project ? purchaseLabel(project.purchaseMonth) : `au-delà de ${durationLabel(project.horizonMonths)}`}
           </Typography>
         </Stack>
         <Typography variant="body2" sx={{ mb: 0.5 }}>
@@ -41,9 +43,9 @@ export const NextProjectCard = ({ project, sx }: { project: NextProject; sx?: Sx
           sx={{ height: 6, borderRadius: 3, mb: 1.5 }}
         />
 
-        {project.following.length > 0 && (
+        {planned && planned.following.length > 0 && (
           <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-            {project.following.map((next) => (
+            {planned.following.map((next) => (
               <Chip
                 key={next.projectId}
                 data-testid="next-project-following"

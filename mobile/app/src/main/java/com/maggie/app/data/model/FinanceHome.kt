@@ -72,6 +72,15 @@ data class FinanceHomeProject(
     val horizonMonths: Int = 36,
 )
 
+/** « 3 ans », « 1 an et 4 mois », « 8 mois »: a duration is said in years and months, never « 36 mois ». */
+fun durationLabel(months: Int): String {
+    val years = months / 12
+    val rest = months % 12
+    val yearPart = if (years == 0) null else "$years ${if (years == 1) "an" else "ans"}"
+    val monthPart = if (rest == 0 && years > 0) null else "$rest mois"
+    return listOfNotNull(yearPart, monthPart).joinToString(" et ")
+}
+
 /** « n à qualifier », the pill of the lines the review is waiting for. */
 fun FinanceHomeState.toQualifyLabel(): String = "$toQualifyCount à qualifier"
 
@@ -81,6 +90,6 @@ fun FinanceHomeState.toQualifyLabel(): String = "$toQualifyCount à qualifier"
  */
 fun FinanceHomeProject.progressLabel(monthLabel: (String) -> String): String {
     val gathered = formatCentsRounded(gatheredCents).substringBeforeLast('\u00A0')
-    val month = purchaseMonth?.let(monthLabel) ?: "au-delà de $horizonMonths mois"
+    val month = purchaseMonth?.let(monthLabel) ?: "au-delà de ${durationLabel(horizonMonths)}"
     return "$gathered / ${formatCentsRounded(amountCents)} · $month"
 }

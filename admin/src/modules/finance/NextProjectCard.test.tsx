@@ -58,4 +58,27 @@ describe('NextProjectCard', () => {
     expect(screen.queryByTestId('next-project-following')).not.toBeInTheDocument()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
+
+  test('names the project beyond the horizon, in years and months, with no following pill nor delay', () => {
+    const beyond = { projectId: 'p9', name: 'Salle de bain', amountCents: 900000, gatheredCents: 0, horizonMonths: 36 }
+    render(<NextProjectCard project={beyond} />)
+
+    const card = screen.getByTestId('next-project-card')
+    expect(card).toHaveTextContent('Prochain projet')
+    expect(card).toHaveTextContent('Salle de bain')
+    expect(card).toHaveTextContent(/0,00\s€ sur 9\s000,00\s€/)
+    expect(screen.getByTestId('next-project-date')).toHaveTextContent('au-delà de 3 ans')
+    expect(card).not.toHaveTextContent('36 mois')
+    expect(screen.queryByTestId('next-project-following')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('next-project-negative')).not.toBeInTheDocument()
+  })
+
+  test('says the wait in years and months for a project that falls in more than a year', () => {
+    const now = new Date()
+    const purchase = new Date(now.getFullYear(), now.getMonth() + 16, 1)
+    const month = `${purchase.getFullYear()}-${String(purchase.getMonth() + 1).padStart(2, '0')}`
+    render(<NextProjectCard project={nextProjectFixture({ purchaseMonth: month })} />)
+
+    expect(screen.getByTestId('next-project-date')).toHaveTextContent(/^dans 1 an et 4 mois · /)
+  })
 })

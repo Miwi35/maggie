@@ -97,6 +97,8 @@ test('the Courses card shows five lines of a six-line list and « + 1 »', async
 /**
  * The Finance card (MAG-565, extends MAG-102): the week and the month as rings with their
  * spent. The Accueil's account has a 1 000 € envelope and 10 € spent on the 1st. Touching the card opens Finance › Dashboard.
+ * Its only project, « Vélo », saves nothing (no income, no savings): the planning lands it beyond the horizon, so the
+ * card and the Dashboard both name it « au-delà de 3 ans », never « 36 mois » (MAG-667).
  */
 test('the Finance card says what was spent, without a verdict, and opens the Dashboard', async ({ homeUser }) => {
   const home = new HomePage(homeUser.page)
@@ -107,6 +109,10 @@ test('the Finance card says what was spent, without a verdict, and opens the Das
   const month = card.locator('[data-testid="home-finance-ring"][data-period="month"]')
   await expect(month.getByTestId('home-finance-spent')).toContainText(euros(1000))
   await expect(card).not.toContainText(/rythme|restants/)
+  const project = card.getByTestId('home-finance-next-project')
+  await expect(project).toContainText('Vélo')
+  await expect(project).toContainText('au-delà de 3 ans')
+  await expect(project).not.toContainText('36 mois')
 
   // It does not follow the selector.
   await home.day('Demain').click()
@@ -114,6 +120,9 @@ test('the Finance card says what was spent, without a verdict, and opens the Das
 
   await card.getByRole('link', { name: 'Finance' }).first().click()
   await expect(homeUser.page).toHaveURL(/\/finance\/dashboard/)
+  const dashboardProject = homeUser.page.getByTestId('next-project-card')
+  await expect(dashboardProject).toContainText('Vélo')
+  await expect(dashboardProject.getByTestId('next-project-date')).toContainText('au-delà de 3 ans')
 })
 
 /**

@@ -376,7 +376,7 @@ data class NextProject(
     val delay: NextProjectDelay? = null,
 )
 
-/** The first project when none lands inside the horizon (cushion being built): only the Accueil card shows it. */
+/** The first project when none lands inside the horizon (cushion being built): the Accueil and Dashboard cards name it « au-delà de 3 ans ». */
 @Serializable
 data class ProjectBeyondHorizon(
     val projectId: String,

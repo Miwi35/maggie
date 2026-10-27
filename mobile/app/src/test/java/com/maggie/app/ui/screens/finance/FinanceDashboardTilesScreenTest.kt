@@ -24,6 +24,7 @@ import com.maggie.app.data.model.FinanceTodo
 import com.maggie.app.data.model.NextProject
 import com.maggie.app.data.model.NextProjectDelay
 import com.maggie.app.data.model.NextProjectFollowing
+import com.maggie.app.data.model.ProjectBeyondHorizon
 import com.maggie.app.data.model.PlannedProject
 import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.PlanningTile
@@ -124,6 +125,7 @@ class FinanceDashboardTilesScreenTest {
         tiles: FinanceTiles = this.tiles,
         todo: FinanceTodo = FinanceTodo(),
         nextProject: NextProject? = null,
+        projectBeyondHorizon: ProjectBeyondHorizon? = null,
         planning: ProjectPlanning? = null,
         today: LocalDate = LocalDate.of(2026, 10, 27),
         onOpenIncidents: (TileAccount) -> Unit = {},
@@ -133,7 +135,7 @@ class FinanceDashboardTilesScreenTest {
             FinanceDashboardScreen(
                 upcomingViewModel = FakeUpcoming().viewModel,
                 viewModel = FakeLoadedFinanceDashboard(
-                    FinanceDashboard(year = 2026, month = 10, tiles = tiles, todo = todo, nextProject = nextProject),
+                    FinanceDashboard(year = 2026, month = 10, tiles = tiles, todo = todo, nextProject = nextProject, projectBeyondHorizon = projectBeyondHorizon),
                     planning = planning,
                     today = today,
                 ).viewModel,
@@ -283,6 +285,27 @@ class FinanceDashboardTilesScreenTest {
         compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT).performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT_NEGATIVE, useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT_FOLLOWING, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `with nothing planned inside the horizon the card names the first project beyond it, in years`() {
+        open(projectBeyondHorizon = ProjectBeyondHorizon("p9", "Salle de bain", 900_000, 0, 36))
+
+        compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Prochain projet").assertIsDisplayed()
+        compose.onNodeWithText("Salle de bain").assertIsDisplayed()
+        compose.onNodeWithText("au-delà de 3 ans").assertIsDisplayed()
+        compose.onNodeWithText("${formatCents(0)} sur ${formatCents(900_000)}").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT_FOLLOWING, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.FINANCE_NEXT_PROJECT_NEGATIVE, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a planned project wins over the one beyond the horizon`() {
+        open(nextProject = nextProject, projectBeyondHorizon = ProjectBeyondHorizon("p9", "Salle de bain", 900_000, 0, 36))
+
+        compose.onNodeWithText("Vélo").assertIsDisplayed()
+        compose.onNodeWithText("Salle de bain").assertDoesNotExist()
     }
 
     @Test

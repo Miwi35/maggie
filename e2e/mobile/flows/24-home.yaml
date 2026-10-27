@@ -20,7 +20,7 @@ tags:
 #
 # The Finance card (MAG-565, extends MAG-102): the same account has a 1 000 € envelope and 10 €
 # spent on the 1st (`65-finance-home.yaml`), so the card says what was spent for the week and the month,
-# and one project, « Vélo », whose bar the card draws.
+# and one project, « Vélo », whose bar the card draws — beyond the horizon, so « au-delà de 3 ans » (MAG-667).
 
 - launchApp:
     clearState: true
@@ -104,6 +104,8 @@ tags:
     visible:
       text: "Vélo"
     timeout: 5000
+- assertVisible:
+    text: ".*au-delà de 3 ans"
 
 # No meal on this account: the Cuisine card is gone once read (Demain is selected), the Courses and
 # Finance cards stay, and the sentence « Rien de prévu » is not said. Aujourd'hui is `28-home-tasks.yaml`'s.

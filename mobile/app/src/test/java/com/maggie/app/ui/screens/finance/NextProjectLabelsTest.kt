@@ -18,6 +18,12 @@ class NextProjectLabelsTest {
     }
 
     @Test
+    fun `a purchase more than a year away says it in years and months`() {
+        assertEquals("dans 1 an et 4 mois · févr. 2028", purchaseLabel("2028-02", today))
+        assertEquals("dans 3 ans · oct. 2029", purchaseLabel("2029-10", today))
+    }
+
+    @Test
     fun `a purchase this month says so, and never counts below zero`() {
         assertEquals("ce mois-ci · oct. 2026", purchaseLabel("2026-10", today))
         assertEquals(0, monthsUntil("2026-03", today))
@@ -35,6 +41,8 @@ class NextProjectLabelsTest {
     fun `a delay of one month reads d'un mois, more reads de n mois`() {
         assertEquals("d'un mois", delayLabel(1))
         assertEquals("de 3 mois", delayLabel(3))
+        assertEquals("d'un an", delayLabel(12))
+        assertEquals("de 1 an et 2 mois", delayLabel(14))
     }
 
     @Test
