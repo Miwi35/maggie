@@ -1,0 +1,32 @@
+{
+  "mappings": [
+    {
+      "name": "Google People — the account's addresses: a work one, then the fictional home (MAG-664)",
+      "request": {
+        "method": "GET",
+        "urlPath": "/google/v1/people/me",
+        "queryParameters": {
+          "personFields": { "equalTo": "addresses" }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "resourceName": "people/e2e",
+          "addresses": [
+            {
+              "type": "work",
+              "formattedValue": "40 boulevard du Travail Fictif, 35000 Rennes, France",
+              "metadata": { "primary": true }
+            },
+            {
+              "type": "home",
+              "formattedValue": "3 rue de la Maison Fictive, 35000 Rennes, France"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

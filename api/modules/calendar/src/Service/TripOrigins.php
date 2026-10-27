@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Calendar\Service;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Place;
 use Maggie\Calendar\Exception\InvalidTripException;
 use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Repository\PlaceRepository;
@@ -17,7 +18,8 @@ use Symfony\Component\Uid\Ulid;
 
 /**
  * Reads a trip's origin (MAG-653): `position` (the last one the phone gave),
- * `place:<ulid>` (home included) or `event:<ulid>` (where an earlier event is).
+ * `home` (the « Maison », taken from the Google account when none is saved),
+ * `place:<ulid>` or `event:<ulid>` (where an earlier event is).
  *
  * « Origine fraîche »: a position older than {@see self::FRESH_POSITION_MINUTES}
  * makes the phones report a new one, and the trip is computed on the old one
@@ -26,6 +28,7 @@ use Symfony\Component\Uid\Ulid;
 class TripOrigins
 {
     public const int FRESH_POSITION_MINUTES = 10;
+    public const string HOME = 'home';
 
     public function __construct(
         private readonly UserLocationRepository $userLocations,
@@ -34,6 +37,7 @@ class TripOrigins
         private readonly TripLocations $locations,
         private readonly LocationRequester $locationRequester,
         private readonly ClockInterface $clock,
+        private readonly HomeFromGoogle $homeFromGoogle,
     ) {
     }
 
@@ -47,9 +51,13 @@ class TripOrigins
             return $this->position($user);
         }
 
+        if (self::HOME === $origin) {
+            return $this->home($user);
+        }
+
         [$kind, $id] = array_pad(explode(':', $origin, 2), 2, '');
         if (!Ulid::isValid($id) || !\in_array($kind, [TripOrigin::PLACE, TripOrigin::EVENT], true)) {
-            throw new InvalidTripException('origin', "« {$origin} » is not an origin: send position, place:<id> (list_places gives the ids) or event:<id>.");
+            throw new InvalidTripException('origin', "« {$origin} » is not an origin: send position, home, place:<id> (list_places gives the ids) or event:<id>.");
         }
 
         return TripOrigin::PLACE === $kind ? $this->place($user, $id) : $this->event($user, $id);
@@ -75,6 +83,16 @@ class TripOrigins
         return new TripOrigin(TripOrigin::POSITION, null, 'ma position', $latitude, $longitude, $capturedAt, $requested);
     }
 
+    private function home(User $user): TripOrigin
+    {
+        $home = $this->places->findHomes($user)[0] ?? $this->homeFromGoogle->importIfDue($user);
+        if (null === $home) {
+            throw new InvalidTripException('origin', 'no home is known: ask the user for their home address, then save_place it with isHome=true.');
+        }
+
+        return $this->fromPlace($home);
+    }
+
     private function place(User $user, string $id): TripOrigin
     {
         $place = $this->places->findOwned($user, $id);
@@ -82,9 +100,14 @@ class TripOrigins
             throw new InvalidTripException('origin', "no place of yours has the id {$id}: list_places gives the ids.");
         }
 
+        return $this->fromPlace($place);
+    }
+
+    private function fromPlace(Place $place): TripOrigin
+    {
         [$latitude, $longitude] = $this->locations->ofPlace($place);
 
-        return new TripOrigin(TripOrigin::PLACE, $id, $place->isHome() ? 'la maison' : $place->getName(), $latitude, $longitude);
+        return new TripOrigin(TripOrigin::PLACE, (string) $place->getId(), $place->isHome() ? 'la maison' : $place->getName(), $latitude, $longitude);
     }
 
     private function event(User $user, string $id): TripOrigin

@@ -96,6 +96,18 @@ final class GoogleAuthControllerTest extends KernelTestCase
         self::assertStringNotContainsString('refresh', (string) $response->headers->get('Location'));
     }
 
+    public function testRedirectAsksGoogleForTheAddressesOfTheAccount(): void
+    {
+        $response = $this->controller()->redirect();
+
+        parse_str((string) parse_url((string) $response->headers->get('Location'), PHP_URL_QUERY), $query);
+        $scopes = explode(' ', $query['scope']);
+
+        self::assertContains('https://www.googleapis.com/auth/user.addresses.read', $scopes);
+        self::assertContains('https://www.googleapis.com/auth/calendar', $scopes);
+        self::assertContains('https://www.googleapis.com/auth/tasks', $scopes);
+    }
+
     public function testFailedExchangeLeavesNoCookieAndNoToken(): void
     {
         $response = $this->controller(failExchange: true)->callback(Request::create('/api/auth/google/callback', 'GET', ['code' => 'a-code']));

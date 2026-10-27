@@ -9,6 +9,7 @@ the one thing this stack exists to guarantee.
 |---|---|---|
 | `mappings/enablebanking.json` | Enable Banking — banks, consent, session, balances, transactions | `ENABLE_BANKING_BASE_URL` |
 | `mappings/google.json` | Google Calendar and Google Tasks | `GOOGLE_API_BASE_URL` |
+| `mappings/google-people.json` | Google People — the account's addresses, « Domicile » included (the « Maison » imported by `list_places`, MAG-664) | `GOOGLE_API_BASE_URL` |
 | `mappings/openai.json` | Whisper speech-to-text | `OPENAI_BASE_URL` (agent) |
 | `mappings/open-meteo.json` | Open-Meteo — city search and daily forecast (`get_weather`, MAG-156) | `OPEN_METEO_FORECAST_URL`, `OPEN_METEO_GEOCODING_URL` |
 | `mappings/google-routes.json` | Google Routes `computeRoutes` — walk, drive, transit, bicycle (`estimate_trip`, MAG-653) | `GOOGLE_ROUTES_URL` |

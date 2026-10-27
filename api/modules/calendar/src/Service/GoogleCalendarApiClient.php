@@ -54,6 +54,18 @@ class GoogleCalendarApiClient
         return new GoogleCalendarService($client, '' !== $this->googleApiBaseUrl ? $this->googleApiBaseUrl : null);
     }
 
+    /** The user's Google access token, renewed first when it has expired; null without a token. */
+    public function freshAccessToken(User $user): ?string
+    {
+        if (!$user->hasGoogleCalendarTokens()) {
+            return null;
+        }
+
+        $token = $this->buildClient($user)->getAccessToken();
+
+        return \is_array($token) && \is_string($token['access_token'] ?? null) ? $token['access_token'] : null;
+    }
+
     /**
      * @return CalendarListEntry[]
      */
