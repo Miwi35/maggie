@@ -6,14 +6,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.screentest.FakeChat
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import io.mockk.coVerify
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertTrue
@@ -83,6 +86,32 @@ class ChatApprovalKeyboardScreenTest {
     }
 
     @Test
+    fun `the buttons stay in view while the answer above the card keeps growing`() {
+        val reply = MutableSharedFlow<AgUiEvent>(extraBufferCapacity = 256)
+        val chat = FakeChat(history = history, pending = listOf(held), reply = reply)
+        compose.setContent {
+            Box(modifier = Modifier.height(ROOMY_HEIGHT)) { ChatPanel(viewModel = chat.viewModel) }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.CHAT_INPUT).performTextInput("Supprime")
+        compose.onNodeWithTag(UiTags.CHAT_SEND).performClick()
+        compose.waitForIdle()
+
+        reply.tryEmit(AgUiEvent.TextMessageStart(messageId = "answer"))
+        reply.tryEmit(AgUiEvent.TextMessageContent(messageId = "answer", delta = "Ligne 1"))
+        compose.waitForIdle()
+        for (n in 2..6) {
+            reply.tryEmit(AgUiEvent.TextMessageContent(messageId = "answer", delta = "\nLigne $n"))
+            compose.waitForIdle()
+        }
+
+        compose.onNodeWithTag(UiTags.approvalAllow("ap-1")).assertIsDisplayed()
+        val input = compose.onNodeWithTag(UiTags.CHAT_INPUT).fetchSemanticsNode().boundsInRoot
+        val allow = compose.onNodeWithTag(UiTags.approvalAllow("ap-1")).fetchSemanticsNode().boundsInRoot
+        assertTrue("Autoriser is hidden under the input field", allow.bottom <= input.top)
+    }
+
+    @Test
     fun `the Mind tab leads with the held action, its buttons in view`() {
         val chat = FakeChat(history = history, pending = listOf(held))
         compose.setContent {
@@ -96,6 +125,7 @@ class ChatApprovalKeyboardScreenTest {
     }
 
     private companion object {
+        val ROOMY_HEIGHT = 560.dp
         val MIND_KEYBOARD_OPEN_HEIGHT = 380.dp
         val KEYBOARD_OPEN_HEIGHT = 240.dp
     }

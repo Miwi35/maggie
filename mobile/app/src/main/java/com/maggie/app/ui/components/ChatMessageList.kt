@@ -20,6 +20,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -69,14 +73,21 @@ fun ChatMessageList(
     LaunchedEffect(listState) {
         snapshotFlow {
             val info = lazy.layoutInfo
-            Triple(info.totalItemsCount, info.visibleItemsInfo.lastOrNull()?.size, info.viewportSize.height)
+            // `canScrollForward`: an answer growing above the closing card moves neither the item
+            // count nor the card's size, only the end of the thread.
+            listOf(info.totalItemsCount, info.visibleItemsInfo.lastOrNull()?.size, info.viewportSize.height, lazy.canScrollForward)
         }.collect {
             if (listState.following && !listState.dragging) listState.scrollToLatest(animate = false)
         }
     }
     val streamedLength = (displayItems.lastOrNull() as? ChatListItem.StreamingMessage)?.text?.length
-    LaunchedEffect(displayItems.size, streamedLength, approvals.size) {
+    LaunchedEffect(displayItems.size, streamedLength) {
         if (!listState.following) listState.unseenBelow = true
+    }
+    var heldCount by remember { mutableIntStateOf(approvals.size) }
+    LaunchedEffect(approvals.size) {
+        if (approvals.size > heldCount && !listState.following) listState.unseenBelow = true
+        heldCount = approvals.size
     }
 
     Box(modifier = modifier) {
