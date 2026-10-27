@@ -180,7 +180,8 @@ test('Planification is one row of sub-views: Placements draws the PEA, Indépend
   await expect(page.getByRole('tab', { name: 'Frise 20 ans' })).toHaveCount(0)
   await expect(page.getByRole('tab', { name: 'Scénarios' })).toHaveCount(0)
 
-  await expect(screen.row('PEA')).toBeVisible()
+  await screen.row('PEA').click()
+  await expect(screen.row('PEA')).toHaveAttribute('aria-selected', 'true')
   await expect(screen.simulation().getByRole('img', { name: /^Courbe de PEA sur 20 ans/ })).toBeVisible()
 
   await row.getByRole('tab', { name: 'Indépendance' }).click()

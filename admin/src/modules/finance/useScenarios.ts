@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMercure } from '../../hooks/useMercure'
-import { fetchComparison, fetchScenarios, SCENARIO_TOPIC } from './scenariosApi'
+import { PLANNING_TOPICS } from './useProjectPlanning'
+import { fetchComparison, fetchScenarios } from './scenariosApi'
 import type { Comparison, Scenario } from './scenariosApi'
-
-const SCENARIO_TOPICS = [SCENARIO_TOPIC]
 
 /** A write publishes several updates at once (the old current one, the new): one read answers them all. */
 const SETTLE_MS = 300
@@ -42,7 +41,7 @@ export function useScenarios() {
   }, [reload])
 
   useMercure(
-    SCENARIO_TOPICS,
+    PLANNING_TOPICS,
     useCallback(() => {
       if (timer.current) clearTimeout(timer.current)
       timer.current = setTimeout(reload, SETTLE_MS)

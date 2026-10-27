@@ -2,9 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMercure } from '../../hooks/useMercure'
 import { fetchProjectPlanning, PROJECT_TOPIC } from './projectsApi'
 import type { ProjectPlanning } from './projectsApi'
+import { SCENARIO_TOPIC } from './scenariosApi'
 
-/** What moves the planning: the projects, their loans, the safety cushion, the accounts it draws on. */
-const PLANNING_TOPICS = [PROJECT_TOPIC, '/api/loans/{id}', '/api/safety_cushions/{id}', '/api/accounts/{id}']
+/**
+ * What moves the planning and the scenarios drawn on it: the projects, their loans, the safety
+ * cushion, the accounts, the scenarios. One list for both, so the Projets page, which shows them
+ * together, holds one Mercure stream for them and not two (a browser keeps six connections per origin).
+ */
+export const PLANNING_TOPICS = [PROJECT_TOPIC, '/api/loans/{id}', '/api/safety_cushions/{id}', '/api/accounts/{id}', SCENARIO_TOPIC]
 
 /** A write publishes several updates at once: one read answers them all. */
 const SETTLE_MS = 300
