@@ -188,6 +188,20 @@ class CookingGroceryViewModelTest {
     }
 
     @Test
+    fun `a Mercure update while there is no list yet reads the list, which the first line has created`() = runTest {
+        coEvery { repository.getGroceryList() } returns Result.success(null)
+        val vm = viewModel()
+        advanceUntilIdle()
+        assertNull(vm.uiState.value.list)
+
+        coEvery { repository.getGroceryList() } returns Result.success(list)
+        stream.emit(MercureEvent(data = """{"action":"add","itemId":"i-1"}"""))
+        advanceUntilIdle()
+
+        assertEquals(1, vm.uiState.value.remaining)
+    }
+
+    @Test
     fun `a Mercure payload that says too little reads the list again`() = runTest {
         val vm = viewModel()
         advanceUntilIdle()

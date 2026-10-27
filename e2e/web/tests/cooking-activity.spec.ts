@@ -317,7 +317,7 @@ test('« Courses » opens the list over the activity, shows the spaghetti of the
     const spaghetti = list.getByTestId('cooking-grocery-item').filter({ hasText: 'Spaghetti' })
     await expect(spaghetti).toHaveAttribute('data-meal', 'true')
     await expect(spaghetti).toContainText('ce repas')
-    const store = list.getByTestId('cooking-grocery-store').filter({ has: spaghetti })
+    const store = list.getByTestId('cooking-grocery-store').filter({ has: page.getByTestId('cooking-grocery-item').filter({ hasText: 'Spaghetti' }) })
     await expect(store.getByTestId('cooking-grocery-item').first()).toContainText('Spaghetti')
 
     // When I tick it, the box stays ticked, the count drops and the list on the API has it ticked.

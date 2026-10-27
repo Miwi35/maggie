@@ -112,12 +112,12 @@ class CookingGroceryViewModel(
     private fun follow() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
-            val topic = MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS)
-            launch { mercureService.reconnections(topic).catch { }.collect { load(quiet = true) } }
-            mercureService.subscribe(topic)
+            launch { mercureService.reconnections(MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS)).catch { }.collect { load(quiet = true) } }
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.GROCERY_LISTS))
                 .catch { /* SSE reconnects automatically */ }
                 .collect { event ->
-                    val list = _uiState.value.list ?: return@collect
+                    // No list yet (a new account): the first line written creates it, so there is nothing to patch.
+                    val list = _uiState.value.list ?: return@collect load(quiet = true)
                     val updated = runCatching { list.withMercureUpdate(json.parseToJsonElement(event.data).jsonObject, json) }.getOrNull()
                     if (updated == null) load(quiet = true) else _uiState.update { it.copy(list = updated) }
                 }
