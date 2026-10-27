@@ -33,6 +33,9 @@ data class Qualification(
     }
 }
 
+const val QUALIFICATION_KIND_HELP =
+    "Le sens vient du montant. Remboursement : « je rembourse » sur une dépense, « on me rembourse » sur une recette."
+
 /** « Obligatoire · Remboursement »; null while the qualification says nothing. */
 fun qualificationSummary(qualification: Qualification): String? =
     listOfNotNull(
