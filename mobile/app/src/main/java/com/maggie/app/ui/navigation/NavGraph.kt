@@ -864,7 +864,6 @@ fun NavGraph() {
         Screen.Tasks.route -> Screen.Tasks.label
         Screen.Chat.route -> Screen.Chat.label
         Screen.Cookbook.route -> Screen.Cookbook.label
-        Screen.Grocery.route -> Screen.Grocery.label
         else -> "Maggie"
     }
 
@@ -886,6 +885,21 @@ fun NavGraph() {
         navController.navigate(action.route) {
             if (action.popToDashboard) {
                 popUpTo(Screen.FinanceDashboard.route) { inclusive = false }
+            } else if (currentId != null) {
+                popUpTo(currentId) { inclusive = true }
+            }
+            launchSingleTop = true
+        }
+    }
+
+    // Liste, Produits and Magasins are siblings: from Magasins, back goes to the Liste, not through Produits.
+    fun selectGrocerySection(section: GrocerySection) {
+        val listInBackStack = runCatching { navController.getBackStackEntry(Screen.Grocery.route) }.isSuccess
+        val action = grocerySectionAction(section, listInBackStack)
+        val currentId = navController.currentBackStackEntry?.destination?.id
+        navController.navigate(action.route) {
+            if (action.popToList) {
+                popUpTo(Screen.Grocery.route) { inclusive = false }
             } else if (currentId != null) {
                 popUpTo(currentId) { inclusive = true }
             }
@@ -1051,7 +1065,12 @@ fun NavGraph() {
         onSelectSubview = ::selectFinanceSubview,
         onOpenDrawer = { scope.launch { drawerState.open() } },
     )
-    CompositionLocalProvider(LocalFinanceNav provides financeNav) {
+    // The rail already shows the destinations: no burger beside the breadcrumb, as for the generic top bar.
+    val groceryNav = GroceryNav(
+        onSelectSection = ::selectGrocerySection,
+        onOpenDrawer = if (chrome.showsRail) null else ({ scope.launch { drawerState.open() } }),
+    )
+    CompositionLocalProvider(LocalFinanceNav provides financeNav, LocalGroceryNav provides groceryNav) {
         AppShell(
             drawerState = drawerState,
             drawerGesturesEnabled = isMainScreen,
@@ -1112,7 +1131,8 @@ fun NavGraph() {
                 // the gesture bar twice.
                 contentWindowInsets = WindowInsets(0),
                 topBar = {
-                    if (isMainScreen) {
+                    // Courses draws its own breadcrumb (MAG-627), like the Finance pages.
+                    if (isMainScreen && currentRoute != Screen.Grocery.route) {
                         MaggieTopBar(
                             title = title,
                             onMenuClick = if (chrome.showsRail) {
@@ -1611,12 +1631,6 @@ fun NavGraph() {
                                         recurringViewModel = recurringGroceryViewModel,
                                         openItemId = groceryItemToOpen,
                                         onOpenItemHandled = { groceryItemToOpen = null },
-                                        onNavigateToProducts = {
-                                            navController.navigate(Screen.ProductList.route) { launchSingleTop = true }
-                                        },
-                                        onNavigateToStores = {
-                                            navController.navigate(Screen.StoreList.route) { launchSingleTop = true }
-                                        },
                                         onNavigateToPastErrands = {
                                             navController.navigate(Screen.PastErrands.route) { launchSingleTop = true }
                                         },
@@ -1662,7 +1676,6 @@ fun NavGraph() {
                         ProductListScreen(
                             viewModel = productViewModel,
                             recurringViewModel = recurringGroceryViewModel,
-                            onBack = { navController.popBackStack() },
                             onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
                         )
                     }
@@ -1670,7 +1683,6 @@ fun NavGraph() {
                         val storeViewModel: StoreViewModel = koinViewModel()
                         StoreListScreen(
                             viewModel = storeViewModel,
-                            onBack = { navController.popBackStack() },
                             onOpenAisles = { store ->
                                 aislesStoreId = store.id
                                 aislesStoreName = store.name

@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { GroceryListView } from './GroceryListView'
 
 // Mock EventSource for Mercure
@@ -63,6 +64,11 @@ const sampleList = {
   ],
 }
 
+const finishErrand = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole('button', { name: "Plus d'actions" }))
+  await user.click(await screen.findByRole('menuitem', { name: 'Terminer les courses' }))
+}
+
 describe('GroceryListView', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -73,7 +79,7 @@ describe('GroceryListView', () => {
   })
 
   test('renders drag handles for each item', async () => {
-    render(<GroceryListView />)
+    render(<GroceryListView />, { wrapper: MemoryRouter })
 
     await waitFor(() => {
       expect(screen.getByText('Tomates')).toBeInTheDocument()
@@ -84,7 +90,7 @@ describe('GroceryListView', () => {
   })
 
   test('items sorted by position within store groups', async () => {
-    render(<GroceryListView />)
+    render(<GroceryListView />, { wrapper: MemoryRouter })
 
     await waitFor(() => {
       expect(screen.getByText('Tomates')).toBeInTheDocument()
@@ -106,7 +112,7 @@ describe('GroceryListView', () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ success: true }) })
     vi.stubGlobal('fetch', mockFetch)
 
-    render(<GroceryListView />)
+    render(<GroceryListView />, { wrapper: MemoryRouter })
 
     await waitFor(() => {
       expect(screen.getByText('Tomates')).toBeInTheDocument()
@@ -152,7 +158,7 @@ describe('GroceryListView', () => {
         line('c', 'Liquide vaisselle', day(5)),
         line('d', 'Beurre', day(-2)),
       ])
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
 
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
       const group = screen.getByTestId('grocery-store-group')
@@ -163,7 +169,7 @@ describe('GroceryListView', () => {
 
     test('the checked/total counter ignores the deferred lines', async () => {
       listWith([line('a', 'Lait'), line('b', 'Pain'), line('c', 'Liquide vaisselle', day(5))])
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
 
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
       // the list header and the store group both carry it
@@ -178,7 +184,7 @@ describe('GroceryListView', () => {
         line('c', 'Liquide vaisselle', day(5, false)),
         line('d', 'Yaourts', day(9)),
       ])
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
 
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
       const later = screen.getByTestId('grocery-later')
@@ -196,7 +202,7 @@ describe('GroceryListView', () => {
 
     test('no « Plus tard » section when nothing is deferred', async () => {
       listWith([line('a', 'Lait'), line('b', 'Pain', day(-1))])
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
 
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
       expect(screen.queryByTestId('grocery-later')).not.toBeInTheDocument()
@@ -204,7 +210,7 @@ describe('GroceryListView', () => {
 
     test('a list holding only deferred lines still says so', async () => {
       listWith([line('c', 'Liquide vaisselle', day(5))])
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
 
       await waitFor(() => expect(screen.getByTestId('grocery-later')).toBeInTheDocument())
       expect(screen.getByText('Cette liste est vide.')).toBeInTheDocument()
@@ -243,7 +249,7 @@ describe('GroceryListView', () => {
 
     test('ticking a line patches /api/grocery_items/{id}, not its anonymous @id', async () => {
       const mockFetch = mockApi()
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Tomates')).toBeInTheDocument())
 
       const user = userEvent.setup()
@@ -257,10 +263,10 @@ describe('GroceryListView', () => {
 
     test('ending the errand posts to /api/grocery/end-errand and deletes no line itself', async () => {
       const mockFetch = mockApi()
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
 
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Terminer les courses' }))
+      await finishErrand(userEvent.setup())
 
       await waitFor(() => expect(callsTo(mockFetch, 'POST')).toHaveLength(1))
       expect(callsTo(mockFetch, 'POST')[0].url).toMatch(/\/api\/grocery\/end-errand$/)
@@ -274,10 +280,10 @@ describe('GroceryListView', () => {
         status: 200,
         json: () => Promise.resolve({ restockedProducts: [{ id: 'p1', name: 'Riz', stockState: 'in_stock' }] }),
       })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
 
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Terminer les courses' }))
+      await finishErrand(userEvent.setup())
 
       const dialog = await screen.findByRole('dialog')
       expect(within(dialog).getByText('1 produit repassé en stock')).toBeInTheDocument()
@@ -285,10 +291,10 @@ describe('GroceryListView', () => {
 
     test('ending the errand announces nothing when no product was restocked', async () => {
       mockApi()
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
 
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Terminer les courses' }))
+      await finishErrand(userEvent.setup())
 
       const dialog = await screen.findByRole('dialog')
       expect(within(dialog).queryByText(/repassé/)).not.toBeInTheDocument()
@@ -296,11 +302,11 @@ describe('GroceryListView', () => {
 
     test('dropping a line left over deletes it at /api/grocery_items/{id}', async () => {
       const mockFetch = mockApi()
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
 
       const user = userEvent.setup()
-      await user.click(screen.getByRole('button', { name: 'Terminer les courses' }))
+      await finishErrand(user)
       const dialog = await screen.findByRole('dialog')
       await user.click(within(within(dialog).getByText('Lait').closest('li') as HTMLElement).getByRole('button', { name: 'Retirer' }))
 
@@ -311,7 +317,7 @@ describe('GroceryListView', () => {
     test('an API refusal on ticking shows an error instead of passing silently', async () => {
       mockNotify.mockClear()
       mockApi({ ok: false, status: 403 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Tomates')).toBeInTheDocument())
 
       const user = userEvent.setup()
@@ -323,10 +329,10 @@ describe('GroceryListView', () => {
     test('an API refusal on ending the errand shows an error and does not offer the leftovers', async () => {
       mockNotify.mockClear()
       mockApi({ ok: false, status: 403 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
 
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Terminer les courses' }))
+      await finishErrand(userEvent.setup())
 
       await waitFor(() => expect(mockNotify).toHaveBeenCalledWith(expect.any(String), { type: 'error' }))
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -348,7 +354,7 @@ describe('GroceryListView', () => {
     beforeEach(() => mockNotify.mockClear())
 
     test('every line has a delete button named after it', async () => {
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
 
       for (const label of ['Tomates', 'Lait', 'Pommes']) {
@@ -358,7 +364,7 @@ describe('GroceryListView', () => {
 
     test('asks first, in the page, and deletes nothing until confirmed', async () => {
       const fetchMock = mockFetch({ ok: true, status: 200 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
 
       const user = userEvent.setup()
@@ -376,7 +382,7 @@ describe('GroceryListView', () => {
 
     test('confirming deletes the line at /api/grocery_items/{id} and removes it from the list', async () => {
       const fetchMock = mockFetch({ ok: true, status: 200 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
 
       const user = userEvent.setup()
@@ -392,7 +398,7 @@ describe('GroceryListView', () => {
 
     test('the line comes back with an error when the API refuses', async () => {
       mockFetch({ ok: false, status: 403 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
 
       const user = userEvent.setup()
@@ -407,7 +413,7 @@ describe('GroceryListView', () => {
 
     test('the line comes back with an error when the request fails', async () => {
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
 
       const user = userEvent.setup()
@@ -422,7 +428,7 @@ describe('GroceryListView', () => {
 
     test('a line already deleted from another window is not brought back', async () => {
       mockFetch({ ok: false, status: 404 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
 
       const user = userEvent.setup()
@@ -434,7 +440,7 @@ describe('GroceryListView', () => {
     })
 
     test('a line that came from a meal says it returns if the meal changes', async () => {
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Pommes')).toBeInTheDocument())
 
       await userEvent.setup().click(deleteButton('Pommes'))
@@ -445,7 +451,7 @@ describe('GroceryListView', () => {
     })
 
     test('a hand-written line does not mention meals', async () => {
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Lait')).toBeInTheDocument())
 
       await userEvent.setup().click(deleteButton('Lait'))
@@ -468,7 +474,7 @@ describe('GroceryListView', () => {
       mockGetList.mockResolvedValue({ data: [withLater], total: 1 })
       mockGetOne.mockResolvedValue({ data: withLater })
       const fetchMock = mockFetch({ ok: true, status: 200 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       const user = userEvent.setup()
       await user.click(await screen.findByText(/Plus tard/))
 
@@ -514,11 +520,11 @@ describe('GroceryListView', () => {
 
     test('adding an item sends the store ULID, not its IRI', async () => {
       const mockFetch = mockApi({ ok: true, status: 200 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Tomates')).toBeInTheDocument())
 
       const user = userEvent.setup()
-      await user.click(screen.getByRole('button', { name: 'Ajouter' }))
+      await user.click(screen.getByRole('button', { name: '+ Article' }))
       const dialog = await screen.findByRole('dialog')
       await user.click(within(dialog).getByLabelText('Article'))
       await user.paste('Câpres')
@@ -531,7 +537,7 @@ describe('GroceryListView', () => {
 
     test('editing an item sends the store ULID, not its IRI', async () => {
       const mockFetch = mockApi({ ok: true, status: 200 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Tomates')).toBeInTheDocument())
 
       const user = userEvent.setup()
@@ -561,11 +567,11 @@ describe('GroceryListView', () => {
               : { data: [sampleList], total: 1 },
         ),
       )
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Tomates')).toBeInTheDocument())
 
       const user = userEvent.setup()
-      await user.click(screen.getByRole('button', { name: 'Ajouter' }))
+      await user.click(screen.getByRole('button', { name: '+ Article' }))
       const dialog = await screen.findByRole('dialog')
       await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('products', expect.anything()))
       await user.click(within(dialog).getByLabelText('Article'))
@@ -582,11 +588,11 @@ describe('GroceryListView', () => {
     test('an API refusal on add shows an error and keeps the dialog open', async () => {
       mockNotify.mockClear()
       mockApi({ ok: false, status: 500 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Tomates')).toBeInTheDocument())
 
       const user = userEvent.setup()
-      await user.click(screen.getByRole('button', { name: 'Ajouter' }))
+      await user.click(screen.getByRole('button', { name: '+ Article' }))
       const dialog = await screen.findByRole('dialog')
       await user.click(within(dialog).getByLabelText('Article'))
       await user.paste('Câpres')
@@ -601,7 +607,7 @@ describe('GroceryListView', () => {
     test('an API refusal on edit shows an error and keeps the dialog open', async () => {
       mockNotify.mockClear()
       mockApi({ ok: false, status: 500 })
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Tomates')).toBeInTheDocument())
 
       const user = userEvent.setup()

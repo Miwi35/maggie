@@ -53,6 +53,20 @@ describe('Breadcrumbs', () => {
     expect(screen.getByText('Catégories')).toHaveAttribute('aria-current', 'page')
   })
 
+  test('the grocery list reads « Courses › Liste », the list being the current page', () => {
+    renderAt('/grocery')
+
+    expect(labels()).toEqual(['Courses', 'Liste'])
+    expect(screen.getByRole('link', { name: 'Courses' })).toHaveAttribute('href', '/grocery')
+    expect(screen.getByText('Liste')).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('the past errands, no longer in the menu, still read « Courses › Courses passées »', () => {
+    renderAt('/errands')
+
+    expect(labels()).toEqual(['Courses', 'Courses passées'])
+  })
+
   test('a record shows its name, then the action on its edit page', async () => {
     const dataProvider = testDataProvider({ getOne: getOne({ id: '/api/transactions/01', label: 'Prélèvement EDF' }) })
 
@@ -257,7 +271,7 @@ describe('the menu and the breadcrumb agree', () => {
     }
   })
 
-  test('the recurring grocery items are a tab of the list, not an entry of the menu', async () => {
+  test('the recurring grocery items are a dialog of the list, not an entry of the menu', async () => {
     const hrefs = await openWholeMenu()
 
     expect(hrefs.some((href) => href.includes('recurring_grocery_items'))).toBe(false)
@@ -290,7 +304,7 @@ describe('PageHeading — the h1 of every page', () => {
   test.each([
     ['/calendar', 'Agenda'],
     ['/tasks', 'Tâches'],
-    ['/grocery', 'Courses'],
+    ['/grocery', 'Liste'],
     ['/products', 'Produits'],
     ['/meals', 'Repas'],
     ['/finance/dashboard', 'Finance'],

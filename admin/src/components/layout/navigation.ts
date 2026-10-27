@@ -15,6 +15,8 @@ export interface NavPart {
   resource?: string
   /** The menu the part is reached from, when the module has menus: one more level in the trail. */
   menu?: { label: string; path: string }
+  /** Not an entry of the sidebar: the part is reached from a page (« Courses passées » from the list), its trail and routes stay. */
+  reachedFromPage?: boolean
 }
 
 /**
@@ -43,7 +45,7 @@ export interface NavModule {
   label: string
   /** The module's dashboard, when it has one: its page is the module itself. */
   dashboard?: string
-  /** What the sidebar calls the dashboard when the module has other entries under it (« Liste de courses »). */
+  /** What the sidebar calls the dashboard when the module has other entries under it (« Liste »): the trail of the dashboard then reads module › that label. */
   dashboardLabel?: string
   /** The sidebar's entries under the module, when it has more than a flat list of parts. */
   menus?: NavMenu[]
@@ -165,11 +167,11 @@ export const NAVIGATION: NavModule[] = [
   {
     label: 'Courses',
     dashboard: '/grocery',
-    dashboardLabel: 'Liste de courses',
+    dashboardLabel: 'Liste',
     parts: [
       resourcePart('Produits', 'products'),
       resourcePart('Magasins', 'stores'),
-      resourcePart('Courses passées', 'errands'),
+      { ...resourcePart('Courses passées', 'errands'), reachedFromPage: true },
     ],
   },
   {
@@ -303,7 +305,9 @@ export function resolveTrail(pathname: string): TrailCrumb[] {
 
   for (const module of NAVIGATION) {
     if (module.dashboard === path) {
-      return [moduleCrumb(module)]
+      return module.dashboardLabel
+        ? [moduleCrumb(module), { label: module.dashboardLabel, to: path }]
+        : [moduleCrumb(module)]
     }
     if (module.dashboard && path === `${module.dashboard}/current`) {
       return [moduleCrumb(module), { label: CURRENT_STATE_LABEL, to: path }]
@@ -371,7 +375,7 @@ const sidebarEntries = (module: NavModule): SidebarEntry[] => {
   const entries = [
     ...(module.dashboard ? [{ key: 'home', label: module.dashboardLabel ?? module.label, path: module.dashboard }] : []),
     ...module.parts
-      .filter((part) => part.path !== module.dashboard)
+      .filter((part) => part.path !== module.dashboard && !part.reachedFromPage)
       .map((part) => ({ key: part.path, label: part.label, path: part.path })),
   ]
 

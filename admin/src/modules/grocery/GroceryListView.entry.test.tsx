@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { GroceryListView } from './GroceryListView'
 
 // MAG-573 — the add and edit dialogs take either a quantity or a number of packagings.
@@ -98,9 +99,9 @@ describe('GroceryListView — quantity or packagings (MAG-573)', () => {
 
   const openAdd = async (label: string) => {
     const user = userEvent.setup()
-    render(<GroceryListView />)
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Ajouter' })).toBeInTheDocument())
-    await user.click(screen.getByRole('button', { name: 'Ajouter' }))
+    render(<GroceryListView />, { wrapper: MemoryRouter })
+    await waitFor(() => expect(screen.getByRole('button', { name: '+ Article' })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: '+ Article' }))
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText('Article'), label)
 
@@ -333,7 +334,7 @@ describe('GroceryListView — quantity or packagings (MAG-573)', () => {
       })
       mockGetOne.mockResolvedValue({ data: withDesired })
       const user = userEvent.setup()
-      render(<GroceryListView />)
+      render(<GroceryListView />, { wrapper: MemoryRouter })
       await waitFor(() => expect(screen.getByText('Riz')).toBeInTheDocument())
       expect(screen.getByTestId('needed-reminder')).toHaveTextContent('1,4 kg')
       await user.click(screen.getByText('Riz'))
@@ -348,7 +349,7 @@ describe('GroceryListView — quantity or packagings (MAG-573)', () => {
 
   test('editing a packaged line in Quantité sends the quantity and its unit alone', async () => {
     const user = userEvent.setup()
-    render(<GroceryListView />)
+    render(<GroceryListView />, { wrapper: MemoryRouter })
     await waitFor(() => expect(screen.getByText('Riz')).toBeInTheDocument())
     await user.click(screen.getByText('Riz'))
     const dialog = await screen.findByRole('dialog')
@@ -369,7 +370,7 @@ describe('GroceryListView — quantity or packagings (MAG-573)', () => {
 
   test('saving an edit without touching the quantity sends none', async () => {
     const user = userEvent.setup()
-    render(<GroceryListView />)
+    render(<GroceryListView />, { wrapper: MemoryRouter })
     await waitFor(() => expect(screen.getByText('Riz')).toBeInTheDocument())
     await user.click(screen.getByText('Riz'))
     const dialog = await screen.findByRole('dialog')

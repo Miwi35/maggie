@@ -7,8 +7,8 @@ tags:
 # The owner can make a product come back by itself, from the phone (MAG-369, refused
 # recette: the engine existed and the app had no way to reach it). Two ways in, both
 # played here: the « Récurrent » setting in the detail of a list line, and the
-# « Récurrents » tab with its product search. The tab reads the frequency and the next
-# due date the API computes.
+# « + Produit récurrent » sheet with its product search. The sheet reads the frequency
+# and the next due date the API computes.
 #
 # Signed in as the neighbour, like `08`: the owner's « Lait » is already recurring and
 # ticked, so a journey on it would rewrite the seed other suites rely on. « Timbres du
@@ -17,7 +17,7 @@ tags:
 # unticked and untouched.
 #
 # The JVM tests (`RecurringGroceryViewModelTest`, `RecurringGroceryScreenTest`) own the
-# cases (no second item, the errors, the empty tab); this is the one run against the
+# cases (no second item, the errors, the empty sheet); this is the one run against the
 # real API that the request bodies and the Mercure refresh are right.
 
 - launchApp:
@@ -75,11 +75,14 @@ tags:
     timeout: 30000
 
 # ---------------------------------------------------------------------------
-# The tab: label, frequency, next due date. The date is the API's (`nextDueAt`), so
-# only its shape is asserted, not a day that moves with the clock.
+# The sheet at the end of the list: label, frequency, next due date. The date is the
+# API's (`nextDueAt`), so only its shape is asserted, not a day that moves with the clock.
 # ---------------------------------------------------------------------------
+- scrollUntilVisible:
+    element:
+      id: "grocery_recurring_open"
 - tapOn:
-    id: "grocery_tab_recurring"
+    id: "grocery_recurring_open"
 - extendedWaitUntil:
     visible:
       text: "Prochain ajout.*"
@@ -89,14 +92,15 @@ tags:
     visible: "Toutes les semaines"
     timeout: 10000
 
-# Removed from the tab.
+# Removed from the sheet.
+# The list stays behind the sheet: the row's own button is what must go.
 - tapOn: "Retirer Timbres du voisin"
 - extendedWaitUntil:
-    notVisible: "Timbres du voisin"
+    notVisible: "Retirer Timbres du voisin"
     timeout: 30000
 
 # ---------------------------------------------------------------------------
-# The tab's « Ajouter un produit »: a full-screen search, then the frequency (weekly
+# The sheet's « Ajouter un produit »: a full-screen search, then the frequency (weekly
 # offered first), then « Ajouter ».
 # ---------------------------------------------------------------------------
 - tapOn:
@@ -114,7 +118,7 @@ tags:
     timeout: 20000
 - tapOn: "Timbres du voisin"
 
-# Weekly is the default of the add dialog; the tab's row below proves it.
+# Weekly is the default of the add dialog; the sheet's row below proves it.
 - extendedWaitUntil:
     visible:
       id: "recurring_option_weekly"
@@ -131,15 +135,16 @@ tags:
     timeout: 10000
 
 # ---------------------------------------------------------------------------
-# Left as found: removed from the tab, and the list shows the line without indicator.
+# Left as found: removed from the sheet, and the list shows the line without indicator.
 # ---------------------------------------------------------------------------
+# The list stays behind the sheet: the row's own button is what must go.
 - tapOn: "Retirer Timbres du voisin"
 - extendedWaitUntil:
-    notVisible: "Timbres du voisin"
+    notVisible: "Retirer Timbres du voisin"
     timeout: 30000
 
-- tapOn:
-    id: "grocery_tab_list"
+# Back to the list: the sheet is closed with the system back.
+- pressKey: back
 - extendedWaitUntil:
     visible:
       text: ".*Timbres du voisin.*"

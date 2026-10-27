@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -32,7 +31,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,6 +49,8 @@ import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.packagingLabel
+import com.maggie.app.ui.components.GroceryTopBar
+import com.maggie.app.ui.navigation.GrocerySection
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringSetting
 
@@ -59,7 +59,6 @@ import com.maggie.app.ui.screens.cookbook.grocery.RecurringSetting
 fun ProductListScreen(
     viewModel: ProductViewModel,
     recurringViewModel: RecurringGroceryViewModel,
-    onBack: () -> Unit,
     onSearchCiqual: suspend (String) -> List<CiqualFood> = { emptyList() },
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -68,14 +67,7 @@ fun ProductListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Produits") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            GroceryTopBar(GrocerySection.PRODUCTS)
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreateDialog = true }) {

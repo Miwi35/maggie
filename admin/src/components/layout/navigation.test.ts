@@ -157,6 +157,22 @@ describe('resolveTrail on the Finance menus', () => {
   })
 })
 
+describe('the Courses module', () => {
+  test('the dashboard is « Courses › Liste »', () => {
+    expect(labels('/grocery')).toEqual(['Courses', 'Liste'])
+    expect(resolveTrail('/grocery').map((crumb) => crumb.to)).toEqual(['/grocery', '/grocery'])
+  })
+
+  test('« Courses passées » keeps its trail and routes but is not in the sidebar', () => {
+    expect(labels('/errands')).toEqual(['Courses', 'Courses passées'])
+    expect(labels('/errands/abc/show')).toEqual(['Courses', 'Courses passées', undefined])
+
+    const courses = SIDEBAR.find((module) => module.label === 'Courses')
+    expect(courses?.entries.map((entry) => entry.label)).toEqual(['Liste', 'Produits', 'Magasins'])
+    expect(sidebarEntryOf('/errands')).toBe('/grocery')
+  })
+})
+
 describe('financeMenuOf', () => {
   test.each([
     ['/finance/dashboard', 'dashboard'],

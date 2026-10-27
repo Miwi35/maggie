@@ -1,11 +1,12 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { GroceryListView } from './GroceryListView'
 import { stubRecurringApi } from '../../test/recurringApi'
 import type { StubMember } from '../../test/recurringApi'
 
-// MAG-369 — recurring items: the « Récurrents » tab and the repeat control on a line.
+// MAG-369 — recurring items: the « Produit récurrent » dialog and the repeat control on a line.
 
 const eventSources: MockEventSource[] = []
 class MockEventSource {
@@ -64,14 +65,20 @@ const row = (label: string) => screen.getByText(label, { selector: '[data-testid
 
 const open = async (initial: StubMember[] = [], options: Parameters<typeof stubRecurringApi>[1] = {}) => {
   const api = stubRecurringApi(initial, options)
-  render(<GroceryListView />)
+  render(<GroceryListView />, { wrapper: MemoryRouter })
   await screen.findByText('Lait')
   return api
 }
 
 const openTab = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.click(screen.getByRole('tab', { name: 'Récurrents' }))
+  await user.click(screen.getByRole('button', { name: "Plus d'actions" }))
+  await user.click(await screen.findByRole('menuitem', { name: 'Produit récurrent' }))
   return screen.findByTestId('recurring-tab')
+}
+
+const closeDialog = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole('button', { name: 'Fermer' }))
+  await waitFor(() => expect(screen.queryByTestId('recurring-tab')).toBeNull())
 }
 
 describe('GroceryListView — recurring items', () => {
@@ -90,14 +97,19 @@ describe('GroceryListView — recurring items', () => {
     mockGetOne.mockResolvedValue({ data: sampleList })
   })
 
-  describe('the « Récurrents » tab', () => {
-    test('opens on the list, with the tab next to it', async () => {
+  describe('the « Produit récurrent » dialog', () => {
+    test('the page is the list alone: no tab, the dialog is one entry of the ⋮ menu', async () => {
+      const user = userEvent.setup()
       await open([lait])
 
-      expect(screen.getByRole('tab', { name: 'Liste' })).toHaveAttribute('aria-selected', 'true')
-      expect(screen.getByRole('tab', { name: 'Récurrents' })).toHaveAttribute('aria-selected', 'false')
+      expect(screen.queryByRole('tab')).toBeNull()
       expect(screen.queryByTestId('recurring-tab')).toBeNull()
-      expect(screen.getByText('Ma liste de courses')).toBeInTheDocument()
+
+      const tab = await openTab(user)
+
+      expect(screen.getByRole('dialog', { name: 'Produits récurrents' })).toContainElement(tab)
+      await closeDialog(user)
+      expect(screen.getByText('Lait', { selector: '[data-testid="grocery-item"] *' })).toBeInTheDocument()
     })
 
     test('lists every recurring item with its frequency and its next due date', async () => {
@@ -114,7 +126,6 @@ describe('GroceryListView — recurring items', () => {
       expect(within(second).getByText('Beurre')).toBeInTheDocument()
       expect(within(second).getByText('Prochaine échéance : 01/02/2099')).toBeInTheDocument()
       expect(within(second).getByRole('combobox', { name: 'Fréquence de Beurre' })).toHaveTextContent('Tous les mois')
-      expect(screen.queryByText('Ma liste de courses')).toBeNull()
     })
 
     test('says so when nothing is recurring', async () => {
@@ -311,7 +322,7 @@ describe('GroceryListView — recurring items', () => {
       const tab = await openTab(user)
       await user.click(await within(tab).findByRole('button', { name: 'Retirer Lait des articles récurrents' }))
       await waitFor(() => expect(within(tab).queryByText('Prochaine échéance : 08/01/2099')).toBeNull())
-      await user.click(screen.getByRole('tab', { name: 'Liste' }))
+      await closeDialog(user)
 
       expect(await within(row('Lait')).findByRole('button', { name: 'Rendre Lait récurrent' })).toBeInTheDocument()
     })
@@ -388,7 +399,7 @@ describe('GroceryListView — recurring items', () => {
       })
 
       expect(await within(tab).findByText('Prochaine échéance : 08/01/2099')).toBeInTheDocument()
-      await user.click(screen.getByRole('tab', { name: 'Liste' }))
+      await closeDialog(user)
       expect(await within(row('Lait')).findByRole('button', { name: /Récurrence de Lait/ })).toBeInTheDocument()
     })
 

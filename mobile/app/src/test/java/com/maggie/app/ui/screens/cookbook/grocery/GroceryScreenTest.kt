@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
@@ -25,6 +26,7 @@ import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.Seed
 import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.screentest.tap
+import com.maggie.app.ui.UiTags
 import android.os.Looper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -196,7 +198,7 @@ class GroceryScreenTest {
         compose.setContent { GroceryScreen(viewModel = fake.viewModel, recurringViewModel = fake.recurring.viewModel) }
 
         compose.onNodeWithText("Aucun article dans la liste").assertIsDisplayed()
-        compose.onNodeWithText("Liste de courses").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).assertIsDisplayed()
     }
 
     // --- MAG-291: − quantity + on the line ---

@@ -1,6 +1,8 @@
 import { test, expect, seedAnchorDate } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
+import { AdminShell } from '../pages/AdminShell.js'
 import { GroceryListPage } from '../pages/GroceryListPage.js'
+import { ROUTES } from '../pages/routes.js'
 
 /**
  * Which lines belong on today's list at all.
@@ -44,6 +46,50 @@ test("the owner's list loads, with the lines the seed put on it", async ({ page 
 
   await expect(grocery.line('Pâtes complètes')).toBeVisible()
   await expect(grocery.line('Pile LR03')).toBeVisible()
+})
+
+/**
+ * Courses › Liste to the letter of the mockup (MAG-627): the page is a full-width
+ * list of store blocks, one aisle level inside each, with the quantities; the
+ * actions are « + Article » and a ⋮ menu — « Courses passées » lives there and
+ * no longer in the sidebar. Read-only, so it fits the owner's shared list: the
+ * seed puts the tomatoes at the greengrocer's and the pasta at the supermarket's.
+ */
+test('the list opened from the menu groups the lines by shop then aisle, with the actions in « + Article » and ⋮ — MAG-627', async ({
+  page,
+}) => {
+  // Given two lines from two shops (the seed), when I open Courses › Liste from the sidebar
+  const shell = new AdminShell(page)
+  await shell.goto(ROUTES.home)
+  await shell.expectLoaded()
+  await shell.navigateTo('Liste', 'Courses')
+  await shell.openMenu()
+  await expect(shell.menuItem('Courses passées')).toHaveCount(0)
+
+  const grocery = new GroceryListPage(page)
+  await expect(grocery.heading).toBeVisible()
+  await expect(grocery.addButton).toBeVisible()
+  await expect(page.getByRole('navigation', { name: "Fil d'Ariane" })).toContainText('Courses')
+  await expect(page.getByRole('navigation', { name: "Fil d'Ariane" })).toContainText('Liste')
+
+  // Then each shop is a block holding its lines under an aisle, quantity beside the name
+  const supermarket = grocery.content.locator('[data-testid="grocery-store-group"][data-store="Supermarché Leclerc"]')
+  const greengrocer = grocery.content.locator('[data-testid="grocery-store-group"][data-store="Primeur du marché"]')
+  await expect(supermarket.getByTestId('grocery-aisle').getByTestId('grocery-item').filter({ hasText: 'Pâtes complètes' })).toContainText('500')
+  await expect(greengrocer.getByTestId('grocery-aisle').getByTestId('grocery-item').filter({ hasText: 'Tomate' })).toContainText('6')
+  await expect(supermarket.getByTestId('grocery-item').filter({ hasText: 'Tomate' })).toHaveCount(0)
+
+  // And the page uses the room it has: a block is wider than the old 800px card allowed, when the window is that wide
+  const blockWidth = (await supermarket.boundingBox())?.width ?? 0
+  expect(blockWidth).toBeGreaterThan(300)
+
+  // And no tab: the ⋮ menu holds the other actions, « Courses passées » among them
+  await expect(grocery.content.getByRole('tab')).toHaveCount(0)
+  await grocery.actionsButton.click()
+  const actions = page.getByRole('menu')
+  await expect(actions.getByRole('menuitem')).toHaveText(['Produit récurrent', 'Terminer les courses', 'Courses passées'])
+  await actions.getByRole('menuitem', { name: 'Courses passées', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`#${ROUTES.pastErrands}$`))
 })
 
 interface Suggestion {

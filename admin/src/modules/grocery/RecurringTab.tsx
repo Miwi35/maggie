@@ -24,7 +24,7 @@ interface ProductOption {
   name: string
 }
 
-/** « Récurrents » tab of the grocery list: what comes back on its own, how often, and when next. */
+/** « Produit récurrent » dialog of the grocery list: what comes back on its own, how often, and when next. */
 export const RecurringTab = ({ recurring }: { recurring: RecurringItems }) => {
   const dataProvider = useDataProvider()
   const [products, setProducts] = useState<ProductOption[]>([])
