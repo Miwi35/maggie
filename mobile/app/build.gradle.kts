@@ -238,6 +238,7 @@ dependencies {
     // Position report every 30 minutes, and the place of the car (MAG-651)
     implementation(libs.work.runtime)
     implementation(libs.play.services.location)
+    implementation(libs.car.app)
 
     // Room
     implementation(libs.room.runtime)

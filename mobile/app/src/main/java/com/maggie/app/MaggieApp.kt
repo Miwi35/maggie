@@ -23,6 +23,18 @@ import com.maggie.app.data.fcm.PushNotifier
 import com.maggie.app.data.fcm.PushTokenRegistrar
 import androidx.work.WorkManager
 import com.maggie.app.data.location.ActivityTransitionHandler
+import com.maggie.app.data.location.AndroidBatteryLevel
+import com.maggie.app.data.location.AndroidCarConnection
+import com.maggie.app.data.location.AndroidTripLauncher
+import com.maggie.app.data.location.BatteryLevel
+import com.maggie.app.data.location.CarConnectionSource
+import com.maggie.app.data.location.GmsLocationUpdates
+import com.maggie.app.data.location.LocationUpdates
+import com.maggie.app.data.location.PassiveLocationRegistrar
+import com.maggie.app.data.location.PassiveRegistrar
+import com.maggie.app.data.location.TripLauncher
+import com.maggie.app.data.location.TripTracker
+import com.maggie.app.data.location.TripWatcher
 import com.maggie.app.data.location.ActivityTransitionRegistrar
 import com.maggie.app.data.location.AndroidLocationPermissions
 import com.maggie.app.data.location.AndroidLocationScheduler
@@ -311,10 +323,17 @@ class MaggieApp : Application() {
             single<LocationPermissions> { AndroidLocationPermissions(androidContext()) }
             single<PositionSource> { FusedPositionSource(androidContext()) }
             single<TransitionRegistrar> { ActivityTransitionRegistrar(androidContext()) }
-            single<LocationScheduler> { AndroidLocationScheduler(WorkManager.getInstance(androidContext()), get()) }
+            single<PassiveRegistrar> { PassiveLocationRegistrar(androidContext()) }
+            single<LocationScheduler> { AndroidLocationScheduler(WorkManager.getInstance(androidContext()), get(), get()) }
             single { LocationReporter(get(), get(), get(), get()) }
             single { ParkingDetector(get()) }
-            single { ActivityTransitionHandler(get(), get(), get()) }
+            single<LocationUpdates> { GmsLocationUpdates(androidContext()) }
+            single<CarConnectionSource> { AndroidCarConnection(androidContext()) }
+            single<BatteryLevel> { AndroidBatteryLevel(androidContext()) }
+            single { TripTracker(get(), get(), get(), get(), get()) }
+            single<TripLauncher> { AndroidTripLauncher(androidContext(), get()) }
+            single { TripWatcher(get(), get()) }
+            single { ActivityTransitionHandler(get(), get(), get(), get(), get()) }
             single { DepartureTracking(get(), get(), get()) }
 
             // Interruption (MAG-314): Maggie speaks inside the app while it is open
@@ -483,6 +502,8 @@ class MaggieApp : Application() {
         // The transitions do not survive a reboot: registered again at every start while the switch is on;
         // signed out, everything stops.
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { get<DepartureTracking>().follow(authRepository.isAuthenticated) }
+        // A trip under way when the app starts, or a car that connects while it lives, brings the GPS service up.
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { get<TripWatcher>().watch() }
         keepInterruptionsFed(get<InterruptionFeed>(), get<InterruptionCenter>(), authRepository)
         keepCalendarCacheFed(get<CalendarCacheFeed>(), authRepository)
         removeListeningLeftovers()

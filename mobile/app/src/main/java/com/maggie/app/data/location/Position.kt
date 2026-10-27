@@ -9,7 +9,14 @@ data class Position(
     /** Metres; may be zero. */
     val accuracy: Double,
     val capturedAt: Instant,
-)
+) {
+    /** Precise enough to stand for where the car is: a GPS fix, or any fix as good as one. */
+    val isGpsGrade: Boolean get() = accuracy > 0.0 && accuracy <= GPS_GRADE_METERS
+
+    companion object {
+        const val GPS_GRADE_METERS = 50.0
+    }
+}
 
 /** How a fix is read: [HIGH] is the GPS (a position the API acts on), [BALANCED] Wi-Fi and cell towers (±500 m, easy on the battery). */
 enum class PositionAccuracy { BALANCED, HIGH }

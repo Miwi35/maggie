@@ -101,7 +101,7 @@ class GmsFixProvider(private val context: Context) : FixProvider {
         }
 }
 
-/** Leaving a vehicle, and standing on one's feet — the two transitions [ParkingDetector] reads. */
+/** Leaving a vehicle and standing on one's feet ([ParkingDetector]), and what the phone does: still, moving, in a vehicle (the tracking mode). */
 class ActivityTransitionRegistrar(private val context: Context) : TransitionRegistrar {
 
     @SuppressLint("MissingPermission")
@@ -111,6 +111,9 @@ class ActivityTransitionRegistrar(private val context: Context) : TransitionRegi
             transition(DetectedActivity.IN_VEHICLE, ActivityTransition.ACTIVITY_TRANSITION_EXIT),
             transition(DetectedActivity.ON_FOOT, ActivityTransition.ACTIVITY_TRANSITION_ENTER),
             transition(DetectedActivity.WALKING, ActivityTransition.ACTIVITY_TRANSITION_ENTER),
+            transition(DetectedActivity.RUNNING, ActivityTransition.ACTIVITY_TRANSITION_ENTER),
+            transition(DetectedActivity.ON_BICYCLE, ActivityTransition.ACTIVITY_TRANSITION_ENTER),
+            transition(DetectedActivity.STILL, ActivityTransition.ACTIVITY_TRANSITION_ENTER),
         )
         guarded("register") {
             ActivityRecognition.getClient(context)

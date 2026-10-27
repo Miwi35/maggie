@@ -23,6 +23,7 @@ class DepartureTracking(
         preferences.setEnabled(false)
         preferences.setPendingCar(null)
         preferences.setVehicleExit(null)
+        preferences.forgetPositions()
         scheduler.stopTracking()
     }
 
