@@ -932,8 +932,10 @@ step "11d. A trip whose time to leave has come becomes a « Pars maintenant » n
 #
 # The event starts twenty-five minutes after the stack's clock; the trip by car
 # (Google Routes is WireMock: 4 + 14 + 3 minutes, as in agenda-trips.spec.ts) plus
-# the planner's margin leaves a quarter of an hour before that, so `departAt` is
-# already behind the clock whatever hour the run starts at.
+# the planner's five-minute margin leaves at start - 26 min, a minute behind the
+# clock, so `departAt` is already due whatever hour the run starts at. The
+# notification API does not serve `occurrenceStartAt`: the departAt dedup is
+# proved by DepartureReminderSourceTest.
 trip_start_epoch=$((now_epoch + 1500))
 trip_day="$(TZ=Europe/Paris date -d "@$trip_start_epoch" +%F)"
 trip_time="$(TZ=Europe/Paris date -d "@$trip_start_epoch" +%H:%M)"
@@ -1003,9 +1005,6 @@ else
 fi
 assert_eq "Pars maintenant pour $trip_title" "$(printf '%s' "$departures" | jq -r '.[0].title // empty')" \
   "the alert tells the owner to leave, for the event"
-assert_eq "$(date -u -d "$(printf '%s' "$trip" | jq -r '.departAt')" +%s)" \
-  "$(date -u -d "$(printf '%s' "$departures" | jq -r '.[0].occurrenceStartAt')" +%s)" \
-  "the alert is filed against the trip's departAt"
 
 # Same departAt, same alert: the cron runs every minute.
 "${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
