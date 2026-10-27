@@ -27,15 +27,19 @@ object PushChannels {
     const val APPROVALS = "approvals_v2"
     const val FINANCE = "finance_v2"
 
+    /** Time to leave (MAG-655): strong importance, for the hard interruption of the departure alert. */
+    const val DEPARTURE = "departure"
+
     /** The channels of the default-sound generation, removed from the phone's settings. */
     val LEGACY: List<String> = listOf("chat", "reminders", "approvals", "finance")
 
-    val ALL: List<String> = listOf(CHAT, REMINDERS, APPROVALS, FINANCE)
+    val ALL: List<String> = listOf(CHAT, REMINDERS, APPROVALS, FINANCE, DEPARTURE)
 
     /** The channel the server picks for a notification type (`PushMessageFactory::channel`). */
     fun forType(type: String?): String = when (type) {
         "reminder", "task_due", "task_nudge", "routine", "cooking_timer" -> REMINDERS
         "approval" -> APPROVALS
+        "departure" -> DEPARTURE
         "consent_expiring", "finance" -> FINANCE
         else -> CHAT
     }
@@ -60,6 +64,9 @@ object PushChannels {
             },
             NotificationChannel(FINANCE, "Finances", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Alertes sur vos comptes et vos banques"
+            },
+            NotificationChannel(DEPARTURE, "Départs", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "L'heure de partir pour un événement"
             },
         ).forEach { channel ->
             channel.setSound(chime, attributes)

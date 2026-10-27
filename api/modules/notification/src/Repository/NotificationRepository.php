@@ -93,6 +93,28 @@ class NotificationRepository extends ServiceEntityRepository
     }
 
     /**
+     * Whether the departure alert of a trip was already sent for this `departAt`.
+     *
+     * The `departAt` is the key: a trip moved to another time is a new alert, the
+     * same time never alerts twice (MAG-655).
+     */
+    public function departureExists(string $tripIri, \DateTimeImmutable $departAt): bool
+    {
+        $result = $this->createQueryBuilder('n')
+            ->select('COUNT(n.id)')
+            ->where('n.relatedEntityIri = :iri')
+            ->andWhere('n.type = :type')
+            ->andWhere('n.occurrenceStartAt = :departAt')
+            ->setParameter('iri', $tripIri)
+            ->setParameter('type', NotificationType::Departure)
+            ->setParameter('departAt', $departAt, Types::DATETIMETZ_IMMUTABLE)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $result > 0;
+    }
+
+    /**
      * The user's unread notifications of one kind about one entity: a cooking
      * timer's end, read once it is seen on any device (MAG-582).
      *

@@ -65,6 +65,7 @@ class PushChannelsTest {
         assertEquals(PushChannels.REMINDERS, PushChannels.forType("task_due"))
         assertEquals(PushChannels.REMINDERS, PushChannels.forType("cooking_timer"))
         assertEquals(PushChannels.APPROVALS, PushChannels.forType("approval"))
+        assertEquals(PushChannels.DEPARTURE, PushChannels.forType("departure"))
         assertEquals(PushChannels.FINANCE, PushChannels.forType("finance"))
         assertEquals(PushChannels.FINANCE, PushChannels.forType("consent_expiring"))
         assertEquals(PushChannels.CHAT, PushChannels.forType("proaction"))

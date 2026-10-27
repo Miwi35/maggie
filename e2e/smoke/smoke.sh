@@ -925,6 +925,97 @@ curl -sS -o /dev/null -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
 assert_eq 204 "$(status_of -X DELETE "${AUTH[@]}" "$BASE_URL/api/tasks/$nudge_task_id")" "the nudged task is deleted"
 
 # ---------------------------------------------------------------------------
+step "11d. A trip whose time to leave has come becomes a « Pars maintenant » notification"
+# ---------------------------------------------------------------------------
+# MAG-655 (« Partir à l'heure »). Maggie plans with `set_trip`, the API alerts: the
+# producer is the cron, which no browser can run, so it is fired from here.
+#
+# The event starts twenty-five minutes after the stack's clock; the trip by car
+# (Google Routes is WireMock: 4 + 14 + 3 minutes, as in agenda-trips.spec.ts) plus
+# the planner's margin leaves a quarter of an hour before that, so `departAt` is
+# already behind the clock whatever hour the run starts at.
+trip_start_epoch=$((now_epoch + 1500))
+trip_day="$(TZ=Europe/Paris date -d "@$trip_start_epoch" +%F)"
+trip_time="$(TZ=Europe/Paris date -d "@$trip_start_epoch" +%H:%M)"
+trip_end_time="$(TZ=Europe/Paris date -d "@$((trip_start_epoch + 3600))" +%H:%M)"
+trip_end_day="$(TZ=Europe/Paris date -d "@$((trip_start_epoch + 3600))" +%F)"
+trip_title="Départ smoke $(date -u -d "@$now_epoch" +%H%M%S)"
+trip_now="$(date -u -d "@$now_epoch" +%FT%T+00:00)"
+
+mcp_tool trip_event create_event "$(jq -nc --arg t "$trip_title" --arg d "$trip_day" --arg s "$trip_time" \
+  --arg ed "$trip_end_day" --arg e "$trip_end_time" \
+  '{title: $t, start_date: $d, start_time: $s, end_date: $ed, end_time: $e,
+    location: "5 allée du Sourire Fictif, 35000 Rennes"}')"
+trip_event_id="$(printf '%s' "$trip_event" | jq -r '.event.id // empty')"
+if [ -n "$trip_event_id" ]; then
+  pass "the event the trip goes to was created"
+else
+  fail "could not create the event — response: $(printf '%s' "$trip_event" | head -c 300)"
+fi
+
+# Where the phone is, and where the car stands: the trip starts from the first
+# and takes the second.
+curl -sS -o /dev/null -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d "$(jq -nc --arg t "$trip_now" '{latitude: 48.11, longitude: -1.68, accuracy: 10, capturedAt: $t}')" \
+  "$BASE_URL/api/me/location"
+curl -sS -o /dev/null -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
+  -d "$(jq -nc --arg t "$trip_now" '{latitude: 48.1127, longitude: -1.68, parkedAt: $t}')" \
+  "$BASE_URL/api/me/car"
+
+mcp_tool trip_kept set_trip "$(jq -nc --arg id "$trip_event_id" '{eventId: $id, mode: "drive", origin: "position"}')"
+assert_eq "" "$(printf '%s' "$trip_kept" | jq -r '.error // empty')" "Maggie kept the trip"
+
+trip_of() {
+  curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/trips?date=$trip_day" \
+    | jq -c --arg e "/api/events/$trip_event_id" '[.member[] | select(.event == $e)][0] // empty'
+}
+trip="$(trip_of)"
+trip_iri="$(printf '%s' "$trip" | jq -r '.["@id"] // empty')"
+if [ -n "$trip_iri" ]; then
+  pass "the trip is served at /api/trips"
+else
+  fail "no trip for '$trip_title' — response: $(curl -sS "${AUTH[@]}" "$BASE_URL/api/trips?date=$trip_day" | head -c 300)"
+fi
+assert_eq yes "$(printf '%s' "$trip" | jq -r '.navigationUrl | if startswith("https://waze.com/ul") then "yes" else . end')" \
+  "the trip carries its navigation link (the parking, in Waze)"
+
+"${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
+
+departures_of() {
+  curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/notifications?itemsPerPage=100" \
+    | jq -c --arg iri "$trip_iri" '[.member[] | select(.type == "departure" and .relatedEntityIri == $iri)]'
+}
+
+departed=""
+for _ in $(seq 1 60); do
+  departures="$(departures_of)"
+  if [ "$(printf '%s' "$departures" | jq -r 'length')" -gt 0 ]; then
+    departed=yes
+    break
+  fi
+  sleep 1
+done
+
+if [ -n "$departed" ]; then
+  pass "the cron produced the departure alert"
+else
+  fail "the cron wrote no departure notification for '$trip_title' — is the trip due and its event not started?"
+fi
+assert_eq "Pars maintenant pour $trip_title" "$(printf '%s' "$departures" | jq -r '.[0].title // empty')" \
+  "the alert tells the owner to leave, for the event"
+assert_eq "$(date -u -d "$(printf '%s' "$trip" | jq -r '.departAt')" +%s)" \
+  "$(date -u -d "$(printf '%s' "$departures" | jq -r '.[0].occurrenceStartAt')" +%s)" \
+  "the alert is filed against the trip's departAt"
+
+# Same departAt, same alert: the cron runs every minute.
+"${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
+sleep 5
+assert_eq 1 "$(departures_of | jq -r 'length')" "a second run of the cron alerts nobody twice"
+
+# The account is shared with the journeys that follow: the event goes, its trip with it.
+assert_eq 204 "$(status_of -X DELETE "${AUTH[@]}" "$BASE_URL/api/events/$trip_event_id")" "the event is deleted"
+
+# ---------------------------------------------------------------------------
 step "12. A bank consent runs from the picker to the callback"
 # ---------------------------------------------------------------------------
 # MAG-102. The browser harness cannot drive this one: `connect()` hands the
