@@ -165,6 +165,34 @@ class MealRepository extends ServiceEntityRepository
     }
 
     /**
+     * The day of the latest meal already eaten that served each recipe of the user, by recipe id.
+     * A recipe never served is not in the answer.
+     *
+     * @return array<string, \DateTimeImmutable>
+     */
+    public function findLastEatenDatesByRecipeForUser(User $user): array
+    {
+        $rows = $this->createQueryBuilder('m')
+            ->select('r.id AS recipeId', 'MAX(m.date) AS lastDate')
+            ->join('m.agenda', 'a')
+            ->join('m.recipes', 'r')
+            ->where('a.user = :user')
+            ->andWhere('m.date < :today')
+            ->groupBy('r.id')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('today', $this->today(), Types::DATE_IMMUTABLE)
+            ->getQuery()
+            ->getArrayResult();
+
+        $dates = [];
+        foreach ($rows as $row) {
+            $dates[(string) $row['recipeId']] = new \DateTimeImmutable((string) $row['lastDate']);
+        }
+
+        return $dates;
+    }
+
+    /**
      * The meals still to be eaten — today included — that serve the recipe.
      *
      * @return Meal[]

@@ -23,6 +23,24 @@ class RecipeRepository extends ServiceEntityRepository
         return $this->findOneBy(['id' => $id, 'user' => $user]);
     }
 
+    /**
+     * Every recipe of the user with its lines and their products, in one query: the table of
+     * recipes reads what each one brings per serving.
+     *
+     * @return Recipe[]
+     */
+    public function findAllWithIngredientsForUser(User $user): array
+    {
+        return $this->createQueryBuilder('r')
+            ->leftJoin('r.ingredients', 'ri')->addSelect('ri')
+            ->leftJoin('ri.ingredient', 'p')->addSelect('p')
+            ->where('r.user = :user')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->orderBy('r.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /** @return Recipe[] */
     public function searchByName(User $user, string $query): array
     {
