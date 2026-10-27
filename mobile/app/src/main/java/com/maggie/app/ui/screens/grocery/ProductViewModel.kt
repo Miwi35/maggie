@@ -143,6 +143,7 @@ class ProductViewModel(
                 productRepository.deleteProduct(id).getOrThrow()
                 _uiState.value = _uiState.value.copy(
                     products = _uiState.value.products.filter { it.id != id },
+                    editor = _uiState.value.editor?.takeUnless { it.original.id == id },
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)

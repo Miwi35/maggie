@@ -80,4 +80,19 @@ class ProductShelfTest {
     fun `no product gives no section`() {
         assertTrue(groupByAisle(emptyList(), "s1", listOf(frais)).isEmpty())
     }
+
+    @Test
+    fun `the categories come in their usual order, Autre last, with no header for an empty one`() {
+        val products = listOf(
+            Product(id = "1", name = "Beurre", category = ProductCategory.OTHER),
+            Product(id = "2", name = "Lait", category = ProductCategory.DAIRY),
+            Product(id = "3", name = "Ail", category = ProductCategory.PRODUCE),
+            Product(id = "4", name = "Poireau", category = ProductCategory.PRODUCE),
+        )
+
+        val sections = groupByCategory(products)
+
+        assertEquals(listOf("Fruits et légumes", "Produits laitiers", "Autre"), sections.map { it.title })
+        assertEquals(listOf("Ail", "Poireau"), sections[0].products.map { it.name })
+    }
 }

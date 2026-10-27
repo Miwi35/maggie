@@ -13,9 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,7 +21,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
@@ -47,12 +45,10 @@ import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.ProductStockState
-import com.maggie.app.data.model.RecurringFrequency
-import com.maggie.app.data.model.packagingLabel
+import com.maggie.app.data.model.frenchName
 import com.maggie.app.ui.components.GroceryTopBar
 import com.maggie.app.ui.navigation.GrocerySection
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
-import com.maggie.app.ui.screens.cookbook.grocery.RecurringSetting
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,32 +108,18 @@ fun ProductListScreen(
                     }
                 }
                 else -> {
-                    val card: @Composable (Product) -> Unit = { product ->
-                        ProductCard(
-                            product = product,
-                            onDelete = { viewModel.deleteProduct(product.id) },
-                            recurring = recurringState.forProduct(product.id)?.frequency,
-                            onRecurringChange = { recurringViewModel.setFrequency(product.id, it) },
-                            onSeasonMonthsChange = { viewModel.updateSeasonMonths(product.id, it) },
-                            onOpen = { viewModel.openProduct(product.id) },
-                            storeLine = storeAisleLabel(product.preferredStore, product, uiState.stores, uiState.aislesByStore),
-                            fallbackLine = storeAisleLabel(product.fallbackStore, product, uiState.stores, uiState.aislesByStore),
-                        )
+                    val row: @Composable (Product) -> Unit = { product ->
+                        ProductRow(product = product, onOpen = { viewModel.openProduct(product.id) })
                     }
+                    // A chosen store groups by its aisles; otherwise by category, as the Produits mockup does.
+                    val groups = sections ?: groupByCategory(uiState.products)
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     ) {
-                        if (sections == null) {
-                            items(uiState.products, key = { it.id }) { card(it) }
-                        } else {
-                            sections.forEach { section ->
-                                item(key = "aisle-${section.aisleId ?: "none"}") {
-                                    AisleHeader(section)
-                                }
-                                items(section.products, key = { it.id }) { card(it) }
-                            }
+                        groups.forEachIndexed { index, section ->
+                            item(key = "section-$index") { SectionHeader(section) }
+                            items(section.products, key = { it.id }) { row(it) }
                         }
                     }
                 }
@@ -155,6 +137,9 @@ fun ProductListScreen(
             onSelectAisle = viewModel::selectAisle,
             onPickCiqual = viewModel::pickCiqual,
             onSearchCiqual = onSearchCiqual,
+            recurring = recurringState.forProduct(editor.original.id)?.frequency,
+            onRecurringChange = { recurringViewModel.setFrequency(editor.original.id, it) },
+            onDelete = { viewModel.deleteProduct(editor.original.id) },
             onSave = viewModel::saveProduct,
             onDismiss = viewModel::closeProduct,
         )
@@ -172,11 +157,11 @@ fun ProductListScreen(
     }
 }
 
-/** The title of an aisle of the chosen store, and how many products it holds. */
+/** The title of a group — a category, or an aisle of the chosen store — and how many products it holds. */
 @Composable
-private fun AisleHeader(section: ProductSection) {
+private fun SectionHeader(section: ProductSection) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(text = section.title, style = MaterialTheme.typography.titleSmall)
@@ -222,104 +207,19 @@ internal fun StockStateChip(state: ProductStockState) {
     }
 }
 
-/** A product of the list, with what it is bought in when the owner said it. */
+/** One line of the list: the product, its category and its unit in French; everything else is in the detail. */
 @Composable
-internal fun ProductCard(
-    product: Product,
-    onDelete: () -> Unit,
-    recurring: RecurringFrequency? = null,
-    onRecurringChange: ((RecurringFrequency?) -> Unit)? = null,
-    onSeasonMonthsChange: ((List<Int>) -> Unit)? = null,
-    onOpen: (() -> Unit)? = null,
-    storeLine: String? = null,
-    fallbackLine: String? = null,
-) {
-    var editingSeason by remember { mutableStateOf(false) }
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier)
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = product.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = product.category.name.lowercase(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    product.defaultUnit?.let {
-                        Text(
-                            text = it.name.lowercase(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    StockStateChip(product.stockState)
-                    SeasonBadge(product.inSeason)
-                }
-                storeLine?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                fallbackLine?.let {
-                    Text(
-                        text = "À défaut : $it",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                product.packagingLabel()?.let {
-                    Text(
-                        text = "S'achète en : $it",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                onSeasonMonthsChange?.let {
-                    SeasonMonthsButton(product.seasonMonths, onClick = { editingSeason = true })
-                }
-                onRecurringChange?.let {
-                    RecurringSetting(
-                        recurring = recurring,
-                        onChange = it,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Supprimer",
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            }
+internal fun ProductRow(product: Product, onOpen: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+            Text(text = product.name, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = listOfNotNull(product.category.label(), product.defaultUnit?.frenchName).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-    }
-
-    if (editingSeason && onSeasonMonthsChange != null) {
-        SeasonMonthsDialog(
-            productName = product.name,
-            months = product.seasonMonths,
-            onConfirm = {
-                onSeasonMonthsChange(it)
-                editingSeason = false
-            },
-            onDismiss = { editingSeason = false },
-        )
+        HorizontalDivider()
     }
 }
 
@@ -358,7 +258,7 @@ private fun ProductCreateDialog(
                     onExpandedChange = { categoryExpanded = it },
                 ) {
                     OutlinedTextField(
-                        value = selectedCategory.name.lowercase(),
+                        value = selectedCategory.label(),
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Catégorie") },
@@ -373,7 +273,7 @@ private fun ProductCreateDialog(
                     ) {
                         ProductCategory.entries.forEach { cat ->
                             DropdownMenuItem(
-                                text = { Text(cat.name.lowercase()) },
+                                text = { Text(cat.label()) },
                                 onClick = {
                                     selectedCategory = cat
                                     categoryExpanded = false
@@ -389,7 +289,7 @@ private fun ProductCreateDialog(
                     onExpandedChange = { unitExpanded = it },
                 ) {
                     OutlinedTextField(
-                        value = selectedUnit?.name?.lowercase() ?: "",
+                        value = selectedUnit?.frenchName ?: "",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Unité par défaut") },
@@ -411,7 +311,7 @@ private fun ProductCreateDialog(
                         )
                         CookbookUnit.entries.forEach { unit ->
                             DropdownMenuItem(
-                                text = { Text(unit.name.lowercase()) },
+                                text = { Text(unit.frenchName) },
                                 onClick = {
                                     selectedUnit = unit
                                     unitExpanded = false

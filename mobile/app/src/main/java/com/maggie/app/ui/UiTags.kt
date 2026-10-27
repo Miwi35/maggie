@@ -1311,10 +1311,9 @@ object UiTags {
     const val RECIPE_DELETE = "recipe_delete"
     const val RECIPE_NUTRITION = "recipe_nutrition"
 
-    /** The « de saison » / « hors saison » badge of a product, a grocery line or an ingredient (MAG-494), the product's season chips, and its button. */
+    /** The « de saison » / « hors saison » badge of a product, a grocery line or an ingredient (MAG-494), and the product's season chips. */
     const val SEASON_BADGE = "season_badge"
     const val SEASON_MONTHS = "season_months"
-    const val PRODUCT_SEASON_EDIT = "product_season_edit"
 
     /**
      * The product sheet of Courses › Produits (MAG-605): the sheet itself, its error line, « Enregistrer »,
@@ -1325,6 +1324,9 @@ object UiTags {
     const val GROCERY_MENU = "grocery_menu"
     const val PRODUCT_SHEET_ERROR = "product_sheet_error"
     const val PRODUCT_SHEET_SAVE = "product_sheet_save"
+    /** « Supprimer le produit » at the foot of the sheet, and the « Supprimer » of its confirmation (MAG-671). */
+    const val PRODUCT_SHEET_DELETE = "product_sheet_delete"
+    const val PRODUCT_SHEET_DELETE_CONFIRM = "product_sheet_delete_confirm"
     const val PRODUCT_SHEET_STORE = "product_sheet_store"
     const val PRODUCT_SHEET_AISLE = "product_sheet_aisle"
     const val PRODUCT_SHEET_FALLBACK_STORE = "product_sheet_fallback_store"
