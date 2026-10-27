@@ -140,8 +140,8 @@ internal fun SpentRingCanvas(
  *
  * Plain values only, no ViewModel: the finance dashboard draws it today and the home will draw
  * it from its own state. Each ring says the amount spent; the arc is its share of the larger of the
- * spending and the plan, the tick marks what was expected by today. No verdict: spending more than
- * expected is normal. A tap on a ring lists the reasons of its score.
+ * spending and the plan, the tick marks what was expected by today. The arc is mint in the rhythm and
+ * orange above it, in colour only, never in words. A tap on a ring lists the reasons of its score.
  */
 @Composable
 fun ScoreRings(
