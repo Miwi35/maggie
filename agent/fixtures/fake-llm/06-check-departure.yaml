@@ -1,0 +1,47 @@
+# « Check départ · Dentiste » (MAG-657): the departure approaches, she recomputes the trip from the
+# real position, keeps it with set_trip, cancels the two checks that are no longer at the right
+# time and posts them again, at the new departAt − 30 and − 10 min.
+#
+# (The tool results are JSON, accents escaped: « événement » is matched as `\S+v\S+nement`.)
+#
+# Two sources of `\1`, one per phase (see README.md): until `list_proactions` has answered, the id of
+# the event comes from the prompt of the check (`user_matches`); then `results_matches` takes over and
+# reads the two checks posted by the planning — `\1` and `\3` their ids, `\2` the event id their prompt
+# cites. Scripted for a trip moved to 14:34 (an event pushed to 15:00): the new checks are at 14:04 and 14:24.
+name: check-departure
+
+match:
+  user_matches: "\\(événement ([0-9A-HJKMNP-TV-Z]{26})\\) : le départ approche"
+
+results_matches: 'id\W+(\w{26})\W+prompt\W+Dentiste \(\S{1,8}v\S{1,8}nement ([0-9A-HJKMNP-TV-Z]{26})\)[\s\S]*?id\W+(\w{26})\W+prompt\W+Dentiste \(\S{1,8}v\S{1,8}nement'
+
+turns:
+  - tools:
+      - name: list_trips
+        input: {date: "${today}"}
+  - tools:
+      - name: estimate_trip
+        input: {eventId: '\1', modes: [drive], origin: position}
+  - tools:
+      - name: set_trip
+        input: {eventId: '\1', mode: drive, origin: position}
+  - tools:
+      - name: list_proactions
+        input: {from: "${today}", to: "${today}"}
+  - tools:
+      - name: cancel_proaction
+        input: {id: '\1'}
+      - name: cancel_proaction
+        input: {id: '\3'}
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Dentiste (événement \\2) : le départ approche, recalcule le trajet depuis la position réelle."
+          scheduled_at: "${today}T14:04:00"
+          summary: "Check départ · Dentiste"
+      - name: schedule_proaction
+        input:
+          prompt: "Dentiste (événement \\2) : le départ approche, recalcule le trajet depuis la position réelle."
+          scheduled_at: "${today}T14:24:00"
+          summary: "Check départ · Dentiste"
+  - text: "Trajet du Dentiste recalculé, départ à 14 h 34, checks reprogrammés."

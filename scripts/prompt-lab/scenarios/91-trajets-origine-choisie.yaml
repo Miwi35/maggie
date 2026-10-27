@@ -2,7 +2,8 @@
 #
 # The replan recomputes from where the phone is, except when the user decided the origin
 # (`originDecidedBy: user`): then set_trip keeps it and only the durations move. A model that
-# recomputes everything from `position` silently overwrites what the user answered.
+# recomputes everything from `position`, or calls set_trip without `decidedBy: user`, silently
+# overwrites what the user answered.
 name: trajets-origine-choisie
 description: Told to replan the trips of the day, she keeps the origin the user chose the evening before and recomputes the rest from the position.
 channel: chat
@@ -15,6 +16,8 @@ steps:
     expected_tools: [list_trips]
     expected_behavior: >
       Elle lit les trajets du jour avant de recalculer. Pour un trajet marqué originDecidedBy « user »,
-      elle recalcule avec la même origine (jamais « position ») ; pour les autres elle part de la
+      elle recalcule avec la même origine (jamais « position ») et, si elle appelle set_trip, le fait avec
+      cette même origine (position, place:<id> ou event:<id>, convertie depuis le kind et l'id de list_trips)
+      et decidedBy=user, sans quoi le choix de l'utilisateur serait perdu ; pour les autres elle part de la
       position réelle, et n'appelle set_trip que si l'heure de départ a bougé de plus de 2 minutes.
       Elle n'écrit rien d'autre qu'un compte rendu bref.

@@ -13,6 +13,7 @@ from app.trips import (
     REPLAN_SUMMARY,
     check_summary,
     is_silent_trip_run,
+    planning_trips_rules,
     trip_run_rules,
 )
 
@@ -36,7 +37,7 @@ class TestTheDailyPlanningPrompt:
         assert "au moins 30 minutes" in self.prompt
 
     def test_the_modes_are_estimated_then_the_choice_is_kept(self):
-        assert self.prompt.index("estimate_trip") < self.prompt.index("set_trip")
+        assert self.prompt.index("estimate_trip") < self.prompt.index("c) Enregistre le choix avec set_trip")
         assert "decidedBy=user" in self.prompt
 
     def test_an_unknown_parking_is_asked_and_saved(self):
@@ -70,6 +71,16 @@ class TestTheTripRuns:
         assert "plus de 2 minutes" in rules
         assert "set_trip" in rules
         assert "originDecidedBy=user" in rules
+
+    @pytest.mark.parametrize("summary", [check_summary("Dentiste"), REPLAN_SUMMARY])
+    def test_a_kept_origin_is_saved_again_as_the_user_s(self, summary):
+        rules = trip_run_rules(summary)
+
+        assert "decidedBy=user" in rules
+        assert "place:<id>" in rules and "event:<id>" in rules
+
+    def test_the_modes_are_named_as_the_api_spells_them(self):
+        assert all(mode in planning_trips_rules("2030-11-14") for mode in ("drive", "transit", "walk", "bicycle"))
 
     def test_obsolete_checks_are_cancelled_then_posted_again(self):
         rules = trip_run_rules(check_summary("Dentiste"))
