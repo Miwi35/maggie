@@ -53,7 +53,7 @@ class FusedPositionSource(private val provider: FixProvider) : PositionSource {
     override suspend fun current(accuracy: PositionAccuracy): Position? = try {
         when (accuracy) {
             PositionAccuracy.HIGH ->
-                provider.fix(Priority.PRIORITY_HIGH_ACCURACY, GPS_TIMEOUT_MS, MAX_AGE_MS)
+                provider.fix(Priority.PRIORITY_HIGH_ACCURACY, GPS_TIMEOUT_MS, GPS_MAX_AGE_MS)
                     ?: provider.fix(Priority.PRIORITY_BALANCED_POWER_ACCURACY, FALLBACK_TIMEOUT_MS, MAX_AGE_MS)
             PositionAccuracy.BALANCED ->
                 provider.fix(Priority.PRIORITY_BALANCED_POWER_ACCURACY, BALANCED_TIMEOUT_MS, MAX_AGE_MS)
@@ -69,6 +69,7 @@ class FusedPositionSource(private val provider: FixProvider) : PositionSource {
         const val GPS_TIMEOUT_MS = 30_000L
         const val FALLBACK_TIMEOUT_MS = 10_000L
         const val BALANCED_TIMEOUT_MS = 20_000L
+        const val GPS_MAX_AGE_MS = 10_000L
         const val MAX_AGE_MS = 60_000L
     }
 }

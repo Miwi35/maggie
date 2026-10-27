@@ -86,6 +86,7 @@ class AndroidLocationSchedulerTest {
         val preferences = preferencesIn(folder.root)
         preferences.setEnabled(true)
         val reporter = LocationReporter(RecordingApi().service, preferences, permissions, source)
+        stopKoin()
         startKoin { modules(module { single { reporter } }) }
         val id = infos(name).single().id
         val driver = WorkManagerTestInitHelper.getTestDriver(ApplicationProvider.getApplicationContext())!!
