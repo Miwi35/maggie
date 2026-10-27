@@ -31,6 +31,8 @@ LYON = "Le propriétaire habite à Lyon"
 FICHE_RENNES = f"Lieu de vie/{RENNES}.md"
 
 STEPS = {
+    "aucune fiche ne le disait": "miss_fiche",
+    "aurait dû revenir à l'esprit": "miss",
     "relis UNE conversation": "consolidate",
     "RÉGULARITÉS": "regularities",
     "ranges les fiches": "tidy",
@@ -39,6 +41,8 @@ STEPS = {
     "Tu écris la mémoire de Maggie": "encoder",
 }
 EMPTY = {
+    "miss": {"evoque": [], "voisines": []},
+    "miss_fiche": {"fiches": []},
     "consolidate": {"fiches": []},
     "regularities": {"regularites": []},
     "tidy": {"operations": []},
@@ -1055,6 +1059,16 @@ class TestTheReport:
         line = journal(env).strip().splitlines()[-1]
         assert f"entretien nocturne du {TODAY} ({model.calls} appel(s) au modèle)" in line
         assert "1 conversation(s) relue(s)" in line and "1 fiche(s) créée(s)" in line
+
+    async def test_the_last_pass_of_a_night_is_the_most_recent_one(self, env):
+        first = await memory_night_repo.start(USER_A, TODAY)
+        first.status, first.report = "done", {"appels": 1}
+        await memory_night_repo.save(first)
+        second = await memory_night_repo.start(USER_A, TODAY)
+        second.status, second.report = "done", {"appels": 2}
+        await memory_night_repo.save(second)
+
+        assert (await memory_night_repo.last_done(USER_A)).id == second.id
 
     async def test_what_the_night_writes_says_in_the_journal_that_it_was_the_night(self, env, chat_db):
         when = NOW - timedelta(hours=3)

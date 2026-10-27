@@ -1,0 +1,16 @@
+# « Tu aurais dû t'en souvenir » (MAG-228): Maggie finds the fiche, logs the miss with the words the owner said when
+# it should have come back, and tells him the night will look into it. A scripted model cannot search, so the
+# scenario names the fiche the journey wrote; `memory_log_miss` really checks it is in the index.
+name: memory-miss-logged
+description: Log a missed recall of the roses fiche, then say the night will find out why.
+
+match:
+  user_matches: "tu aurais dû t.en souvenir.*Françoise n.aime pas les roses"
+
+turns:
+  - tools:
+      - name: memory_log_miss
+        input:
+          demande: "Un bouquet pour la fête des mères"
+          chemin: "Famille/Françoise n'aime pas les roses.md"
+  - text: "C'est noté : je n'ai pas repensé à Françoise et ses roses. Cette nuit, je cherche pourquoi et je corrige."

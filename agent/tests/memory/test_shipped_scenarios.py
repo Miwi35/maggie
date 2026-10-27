@@ -15,6 +15,7 @@ from app.llm.tools import ToolRouter
 from app.memory import conversations, tools
 from app.memory.tools import MEMORY_TOOLS
 from tests.memory.conftest import USER_A
+from tests.memory.test_night import wired  # noqa: F401  (the night's wiring, used by name below)
 
 SHIPPED = Path(__file__).resolve().parents[2] / "fixtures" / "fake-llm"
 PARIS = ZoneInfo("Europe/Paris")
@@ -95,3 +96,36 @@ async def test_a_carte_brought_back_by_the_recall_is_answered_from_without_a_sea
     assert answered["tool_calls"] == []
     assert "Évite les roses" in answered["response"]
     assert "aucun scénario" in unanswered["response"]
+
+
+MISS_SAID = (
+    "Je t'avais demandé un bouquet pour la fête des mères, tu aurais dû t'en souvenir : Françoise n'aime pas les roses."
+)
+ROSES = "Famille/Françoise n'aime pas les roses.md"
+
+
+@pytest.mark.usefixtures("wired")
+async def test_a_missed_recall_is_logged_by_the_shipped_scenario_and_the_night_then_enriches_the_fiche(env):
+    from datetime import date
+
+    from app.memory import carte as carte_mod
+    from app.memory import misses, recall
+    from tests.memory.conftest import fiche
+    from tests.memory.test_night import NOW, keeper
+
+    await env.service.write(USER_A, ROSES, fiche("Françoise n'aime pas les roses.", resume="Françoise n'aime pas les roses"))
+
+    said = await turn(MISS_SAID)
+
+    assert [call["name"] for call in said["tool_calls"]] == ["memory_log_miss"]
+    assert "Cette nuit" in said["response"]
+    [logged] = await misses.cases(env.service, USER_A)
+    assert logged.attendue == ROSES and logged.demande == "Un bouquet pour la fête des mères"
+    assert recall.rank(await env.service.cards(USER_A), logged.demande, date.today()) == []
+
+    night = keeper(env, FakeAnthropicClient(fixtures_dir=SHIPPED))
+    run_ = await night.run(USER_A, NOW, force=True)
+
+    assert run_ is not None and run_.report["rappels_verts"] == [logged.stem]
+    assert carte_mod.parse(env.local(ROSES)).carte.evoque == ["fête des mères", "offrir des fleurs"]
+    assert (await misses.cases(env.service, USER_A))[0].statut == misses.GREEN

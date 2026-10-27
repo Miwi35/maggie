@@ -67,7 +67,7 @@ class MemoryNightRepository:
                 await session.execute(
                     select(MemoryNightRun)
                     .where(MemoryNightRun.user_id == user_id, MemoryNightRun.status == DONE)
-                    .order_by(MemoryNightRun.night.desc())
+                    .order_by(MemoryNightRun.night.desc(), MemoryNightRun.started_at.desc())
                     .limit(1)
                 )
             ).scalar_one_or_none()
