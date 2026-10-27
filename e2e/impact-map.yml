@@ -456,6 +456,12 @@ web:
     areas: [calendar, dashboard]
   e2e/web/tests/agenda-replan.spec.ts:
     areas: [calendar, notification]
+  e2e/web/tests/agenda-daily-trips.spec.ts:
+    areas: [calendar, notification]
+    paths:
+      - 'agent/app/trips.py'
+      - 'agent/app/queue/**'
+      - 'agent/fixtures/fake-llm/06-*.yaml'
   e2e/web/tests/agenda-recurrence.spec.ts:
     areas: [calendar]
   e2e/web/tests/agenda-tasks.spec.ts:

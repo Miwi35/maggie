@@ -19,7 +19,7 @@ import { GroceryListPage } from '../pages/GroceryListPage.js'
  * it, and when a third meal makes the restock fall short it warns and offers
  * « Ajuster à 3 paquets ».
  *
- * Signed in as the stock account, which owns its data (see grocery-stock-chat):
+ * Signed in as its own account (`e2e-packagings`), so the rice it plants never reaches grocery-stock-chat:
  * the product is created here and the lines are cleaned up at the end of each
  * test, so a retry starts clean — hence `retries: 0` like its neighbour.
  */
@@ -95,8 +95,8 @@ async function expectWeekNeed(api: APIRequestContext, productId: string, grams: 
     .toEqual({ quantity: grams, unit: 'g' })
 }
 
-test.beforeEach(async ({ stockUser }) => {
-  const { api } = stockUser
+test.beforeEach(async ({ packagingsUser }) => {
+  const { api } = packagingsUser
 
   const known = await getCollection<ProductRow>(api, '/api/products?itemsPerPage=200')
   if (!known.some((row) => PASTA === row.name)) {
@@ -118,7 +118,7 @@ test.beforeEach(async ({ stockUser }) => {
   await waitForIndexed<ProductRow>(api, '/api/products?itemsPerPage=200', (row) => PASTA === row.name, {
     what: 'The packaged pasta',
   })
-  // The stock account owns no list until a line reaches it, and the page only draws « + Article » once there is one.
+  // The packagings account owns no list until a line reaches it, and the page only draws « + Article » once there is one.
   const anchored = await api.post('/api/grocery/add-item', { headers: { 'Content-Type': 'application/json' }, data: { label: ANCHOR } })
   expect(anchored.status(), `the list was not started: ${await anchored.text()}`).toBe(200)
   await waitForIndexed<StoredList>(api, '/api/grocery_lists', (list) => list.items.some((line) => ANCHOR === line.label), {
@@ -127,9 +127,9 @@ test.beforeEach(async ({ stockUser }) => {
 })
 
 test('the add dialog offers the restock in packs, and a quantity in grams becomes one pack with 300 g kept — MAG-573', async ({
-  stockUser,
+  packagingsUser,
 }) => {
-  const { api, page } = stockUser
+  const { api, page } = packagingsUser
   const grocery = new GroceryListPage(page)
   await grocery.open()
 
@@ -168,9 +168,9 @@ test('the add dialog offers the restock in packs, and a quantity in grams become
 })
 
 test('« ajoute 2 paquets de pâtes » puts two packs on the list through add_grocery_item — MAG-573', async ({
-  stockUser,
+  packagingsUser,
 }) => {
-  const { api, page } = stockUser
+  const { api, page } = packagingsUser
   const grocery = new GroceryListPage(page)
   await grocery.open()
 
@@ -193,9 +193,9 @@ test('« ajoute 2 paquets de pâtes » puts two packs on the list through add_gr
 })
 
 test('the dialog reads the recipes of the week, adds the restock, and warns once a third meal falls short — MAG-573', async ({
-  stockUser,
+  packagingsUser,
 }) => {
-  const { api, page } = stockUser
+  const { api, page } = packagingsUser
   const grocery = new GroceryListPage(page)
   const planned: Array<{ meal: string; recipe: string }> = []
 
@@ -275,8 +275,8 @@ test('the dialog reads the recipes of the week, adds the restock, and warns once
   }
 })
 
-test('« ajoute du riz basmati » takes the restock, and says so when the week needs more — MAG-573', async ({ stockUser }) => {
-  const { api, page } = stockUser
+test('« ajoute du riz basmati » takes the restock, and says so when the week needs more — MAG-573', async ({ packagingsUser }) => {
+  const { api, page } = packagingsUser
   const grocery = new GroceryListPage(page)
   const planned: Array<{ meal: string; recipe: string }> = []
 

@@ -105,6 +105,13 @@ export const ENVELOPE_ALERT_USER_EMAIL = 'e2e-envelope-alert@maggie.local'
 export const SEASON_USER_EMAIL = 'e2e-season@maggie.local'
 
 /**
+ * The account of the packagings journey (MAG-573): it plants « Riz basmati » on
+ * its list, which the stock journey's « Riz » filter would match if the two files
+ * shared an account and ran side by side in one Playwright lot.
+ */
+export const PACKAGINGS_USER_EMAIL = 'e2e-packagings@maggie.local'
+
+/**
  * The thirteenth seeded account, for the scores journeys (MAG-417): a rent series
  * and a month of spending that only the rings and the rhythm curve read. The
  * owner's account has no recurring operation, and giving it one would move

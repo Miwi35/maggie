@@ -149,6 +149,14 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-season-google-id'
         name: 'Max Primeur'
 
+    # The packagings journey (MAG-573). It plants « Riz basmati » on the list and
+    # in the week's meals; on the stock account that lands inside the stock
+    # journey, which counts the lines named « Riz » when both share a lot.
+    e2e_packagings_user:
+        email: 'e2e-packagings@maggie.local'
+        googleId: 'e2e-packagings-google-id'
+        name: 'Paul Paquet'
+
     # The envelope adjustments journey (MAG-461). It spends in the three months
     # up to the clock's day, two of them complete: on the neighbour that moves
     # the lifestyle the independence counter divides by.
