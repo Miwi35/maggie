@@ -131,6 +131,7 @@ import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.SummaryBlock
 import com.maggie.app.ui.screens.cookbook.cooking.CookingActivityScreen
 import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
+import com.maggie.app.ui.screens.cookbook.cooking.CookingGroceryViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityRoute
 import com.maggie.app.ui.screens.finance.ReviewListScreen
@@ -662,6 +663,7 @@ private fun ReviewActivityPage(navController: NavController, onOpenMaggie: () ->
 private fun CookingActivityPage(navController: NavController, onOpenMaggie: () -> Unit) {
     CookingActivityScreen(
         viewModel = koinViewModel<CookingViewModel>(),
+        groceryViewModel = koinViewModel<CookingGroceryViewModel>(),
         onQuit = { navController.popBackStack() },
         onOpenMaggie = onOpenMaggie,
     )

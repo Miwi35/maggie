@@ -58,7 +58,7 @@ private val BASE_FACTORS = mapOf(
 )
 
 /** The quantity in the base unit of its family (g, ml), as the API keeps what was asked. */
-private fun toBase(quantity: Double, unit: CookbookUnit): Pair<Double, CookbookUnit> =
+internal fun toBase(quantity: Double, unit: CookbookUnit): Pair<Double, CookbookUnit> =
     BASE_FACTORS[unit]?.let { (base, factor) -> quantity * factor to base } ?: (quantity to unit)
 
 /** What one packaging holds, in base units: 500 g for a 500 g pack; null when the product does not say. */

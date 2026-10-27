@@ -1448,6 +1448,22 @@ object UiTags {
     const val COOKING_TIMER_PLUS = "cooking_timer_plus"
     const val COOKING_TIMER_ERROR = "cooking_timer_error"
 
+    // La liste de courses dans l'activité Cuisine (MAG-583).
+    const val COOKING_GROCERY_BUTTON = "cooking_grocery_button"
+    const val COOKING_GROCERY_COUNT = "cooking_grocery_count"
+    const val COOKING_GROCERY_SHEET = "cooking_grocery_sheet"
+    const val COOKING_GROCERY_CLOSE = "cooking_grocery_close"
+    const val COOKING_GROCERY_LOADING = "cooking_grocery_loading"
+    const val COOKING_GROCERY_ERROR = "cooking_grocery_error"
+    const val COOKING_GROCERY_RETRY = "cooking_grocery_retry"
+    const val COOKING_GROCERY_EMPTY = "cooking_grocery_empty"
+    const val COOKING_GROCERY_STORE = "cooking_grocery_store"
+    const val COOKING_GROCERY_ITEM = "cooking_grocery_item"
+    const val COOKING_GROCERY_CHECK = "cooking_grocery_check"
+    const val COOKING_GROCERY_MEAL = "cooking_grocery_meal"
+    const val COOKING_GROCERY_SHORT = "cooking_grocery_short"
+    const val COOKING_GROCERY_MESSAGE = "cooking_grocery_message"
+
     // The two steps that close a quarter, a semester or a year (MAG-462).
     const val PERIOD_BALANCE = "review_period_balance"
     const val PERIOD_BALANCE_MONTHS = "review_period_balance_months"

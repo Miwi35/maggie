@@ -46,12 +46,13 @@ import { LineRecurrence } from './LineRecurrence'
 import { SeasonBadge } from './SeasonBadge'
 import { RecurringTab } from './RecurringTab'
 import { formatBuyAfter } from './groceryDates'
-import { RECURRING_TOPIC, bareId, isRecurringUpdate } from './recurring'
+import { bareId, isRecurringUpdate } from './recurring'
 import type { Frequency } from './recurring'
 import { useRecurringItems } from './useRecurringItems'
 import { usePurchaseSuggestions } from './usePurchaseSuggestions'
 import { SuggestionsBanner } from './SuggestionsBanner'
-import { ERRAND_TOPIC, PRODUCT_TOPIC, isSuggestionOnlyUpdate, suggestionItem } from './purchaseSuggestions'
+import { isSuggestionOnlyUpdate, suggestionItem } from './purchaseSuggestions'
+import { GROCERY_LIST_TOPICS, isDeferred, localToday } from './groceryListLive'
 import type { PurchaseSuggestion } from './purchaseSuggestions'
 import { desiredLabel, isPackaged, lineUnit, packagingContent, quantityHint, neededLabel } from './groceryQuantity'
 import type { NeededEntry } from './groceryQuantity'
@@ -123,21 +124,9 @@ const categoryChoices = [
   { id: 'other', name: 'Autre' },
 ]
 
-// The REST API sends `buyAfter` as a date-time, Mercure as a plain date: the
-// first ten characters are the day in both, compared with the local today.
-const localToday = () => {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-const isDeferred = (item: GroceryItem, today: string) => !!item.buyAfter && item.buyAfter.slice(0, 10) > today
-
 // Taps on − / + within this delay become one request.
 const QUANTITY_SAVE_DELAY_MS = 400
 
-// One stream for all: the page already holds five, and a browser allows six per origin.
-// Products and errands are there for « Souvent pris » only (MAG-495).
-const GROCERY_LIST_TOPICS = ['/api/grocery_lists/{id}', RECURRING_TOPIC, PRODUCT_TOPIC, ERRAND_TOPIC]
 const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 
 const requestAddItem = (payload: Record<string, unknown>) =>

@@ -1846,6 +1846,23 @@ class MaggieApiServiceTest {
     }
 
     @Test
+    fun `ticking a grocery item patches its checked flag`() = runBlocking {
+        val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
+
+        loanService(onRequest = { seen += it }).patchGroceryItem("i1", true)
+
+        assertEquals(HttpMethod.Patch, seen.single().method)
+        assertEquals("/api/grocery_items/i1", seen.single().url.encodedPath)
+    }
+
+    @Test
+    fun `a refused tick on a grocery item fails instead of reading as done`() = runBlocking {
+        val failure = runCatching { loanService(status = HttpStatusCode.InternalServerError).patchGroceryItem("i1", true) }.exceptionOrNull()
+
+        assertTrue(failure is IllegalStateException)
+    }
+
+    @Test
     fun `one transaction is read by its id, with the qualification an operation set`() = runBlocking {
         val seen = mutableListOf<io.ktor.client.request.HttpRequestData>()
         val client = errandClient(
