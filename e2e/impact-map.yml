@@ -451,6 +451,8 @@ web:
     areas: [grocery]
   e2e/web/tests/product-store-aisle.spec.ts:
     areas: [grocery]
+  e2e/web/tests/grocery-products-page.spec.ts:
+    areas: [grocery]
   e2e/web/tests/grocery-aisles.spec.ts:
     areas: [grocery, realtime]
   e2e/web/tests/grocery-recurring.spec.ts:
