@@ -37,19 +37,55 @@ class AndroidLocationPermissions(private val context: Context) : LocationPermiss
         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 }
 
-/** A fix of the fused provider, at most a minute old, within [TIMEOUT_MS]. */
-class FusedPositionSource(private val context: Context) : PositionSource {
+/** One request to the fused provider: the best fix of [priority] within [timeoutMs], not older than [maxAgeMs]. Null when there is none. */
+interface FixProvider {
+    suspend fun fix(priority: Int, timeoutMs: Long, maxAgeMs: Long): Position?
+}
+
+/**
+ * A fix of the fused provider. [PositionAccuracy.HIGH] asks the GPS and waits up to [GPS_TIMEOUT_MS]; with no
+ * fix by then, the best position the cheap sources have is sent with its true precision rather than nothing.
+ */
+class FusedPositionSource(private val provider: FixProvider) : PositionSource {
+
+    constructor(context: Context) : this(GmsFixProvider(context))
+
+    override suspend fun current(accuracy: PositionAccuracy): Position? = try {
+        when (accuracy) {
+            PositionAccuracy.HIGH ->
+                provider.fix(Priority.PRIORITY_HIGH_ACCURACY, GPS_TIMEOUT_MS, GPS_MAX_AGE_MS)
+                    ?: provider.fix(Priority.PRIORITY_BALANCED_POWER_ACCURACY, FALLBACK_TIMEOUT_MS, MAX_AGE_MS)
+            PositionAccuracy.BALANCED ->
+                provider.fix(Priority.PRIORITY_BALANCED_POWER_ACCURACY, BALANCED_TIMEOUT_MS, MAX_AGE_MS)
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "No position: ${e.message}")
+        null
+    }
+
+    private companion object {
+        const val GPS_TIMEOUT_MS = 30_000L
+        const val FALLBACK_TIMEOUT_MS = 10_000L
+        const val BALANCED_TIMEOUT_MS = 20_000L
+        const val GPS_MAX_AGE_MS = 10_000L
+        const val MAX_AGE_MS = 60_000L
+    }
+}
+
+class GmsFixProvider(private val context: Context) : FixProvider {
 
     @SuppressLint("MissingPermission")
-    override suspend fun current(): Position? = try {
-        withTimeoutOrNull(TIMEOUT_MS) {
+    override suspend fun fix(priority: Int, timeoutMs: Long, maxAgeMs: Long): Position? =
+        withTimeoutOrNull(timeoutMs) {
             suspendCancellableCoroutine { continuation ->
                 val cancellation = CancellationTokenSource()
                 continuation.invokeOnCancellation { cancellation.cancel() }
                 val request = CurrentLocationRequest.Builder()
-                    .setPriority(Priority.PRIORITY_BALANCED_POWER_ACCURACY)
-                    .setMaxUpdateAgeMillis(MAX_AGE_MS)
-                    .setDurationMillis(TIMEOUT_MS)
+                    .setPriority(priority)
+                    .setMaxUpdateAgeMillis(maxAgeMs)
+                    .setDurationMillis(timeoutMs)
                     .build()
                 LocationServices.getFusedLocationProviderClient(context)
                     .getCurrentLocation(request, cancellation.token)
@@ -63,17 +99,6 @@ class FusedPositionSource(private val context: Context) : PositionSource {
                     .addOnFailureListener { continuation.resume(null) }
             }
         }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Log.w(TAG, "No position: ${e.message}")
-        null
-    }
-
-    private companion object {
-        const val TIMEOUT_MS = 20_000L
-        const val MAX_AGE_MS = 60_000L
-    }
 }
 
 /** Leaving a vehicle, and standing on one's feet — the two transitions [ParkingDetector] reads. */

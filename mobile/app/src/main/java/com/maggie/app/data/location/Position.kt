@@ -11,9 +11,12 @@ data class Position(
     val capturedAt: Instant,
 )
 
+/** How a fix is read: [HIGH] is the GPS (a position the API acts on), [BALANCED] Wi-Fi and cell towers (±500 m, easy on the battery). */
+enum class PositionAccuracy { BALANCED, HIGH }
+
 /** Where a fresh fix comes from — the fused provider, or a fake in tests. Null when none could be had in time. */
 fun interface PositionSource {
-    suspend fun current(): Position?
+    suspend fun current(accuracy: PositionAccuracy): Position?
 }
 
 /** What the owner granted. Position needs the fine and the background permissions; parking detection, the activity one. */

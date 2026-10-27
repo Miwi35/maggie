@@ -6,15 +6,20 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.work.Configuration
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import kotlinx.coroutines.delay
 import androidx.work.testing.WorkManagerTestInitHelper
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
+import org.koin.dsl.module
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
@@ -43,6 +48,9 @@ class AndroidLocationSchedulerTest {
         scheduler = AndroidLocationScheduler(work, transitions)
     }
 
+    @After
+    fun tearDown() = stopKoin()
+
     private fun infos(name: String) = work.getWorkInfosForUniqueWork(name).get()
 
     @Test
@@ -70,6 +78,36 @@ class AndroidLocationSchedulerTest {
         scheduler.requestPositionNow()
 
         assertEquals(WorkInfo.State.ENQUEUED, infos(AndroidLocationScheduler.POSITION_NOW).single().state)
+    }
+
+    /** Runs the work the way WorkManager does once its constraints are met, with the reporter's position source recorded. */
+    private fun accuraciesAskedBy(name: String, periodic: Boolean): List<PositionAccuracy> = runBlocking {
+        val source = FakePositionSource()
+        val preferences = preferencesIn(folder.root)
+        preferences.setEnabled(true)
+        val reporter = LocationReporter(RecordingApi().service, preferences, permissions, source)
+        stopKoin()
+        startKoin { modules(module { single { reporter } }) }
+        val id = infos(name).single().id
+        val driver = WorkManagerTestInitHelper.getTestDriver(ApplicationProvider.getApplicationContext())!!
+        driver.setAllConstraintsMet(id)
+        if (periodic) driver.setPeriodDelayMet(id)
+        repeat(100) { if (source.requested.isEmpty()) delay(50) }
+        source.requested.toList()
+    }
+
+    @Test
+    fun `the position asked for by the push is read from the GPS`() {
+        scheduler.requestPositionNow()
+
+        assertEquals(listOf(PositionAccuracy.HIGH), accuraciesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false))
+    }
+
+    @Test
+    fun `the position every 30 minutes is read from the cheap sources`() {
+        scheduler.startTracking()
+
+        assertEquals(listOf(PositionAccuracy.BALANCED), accuraciesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true))
     }
 
     @Test

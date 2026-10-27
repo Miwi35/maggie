@@ -50,6 +50,43 @@ class LocationReporterTest {
     }
 
     @Test
+    fun `the position asked for before a departure is read from the GPS`() = runTest {
+        switchOn()
+
+        reporter.reportPosition(PositionAccuracy.HIGH)
+
+        assertEquals(listOf(PositionAccuracy.HIGH), source.requested)
+    }
+
+    @Test
+    fun `the periodic position is read from the cheap sources`() = runTest {
+        switchOn()
+
+        reporter.reportPosition()
+
+        assertEquals(listOf(PositionAccuracy.BALANCED), source.requested)
+    }
+
+    @Test
+    fun `a position with a poor precision is sent as it is, with its real precision`() = runTest {
+        switchOn()
+        source.position = FakePositionSource.PARIS.copy(accuracy = 500.0)
+
+        assertEquals(ReportOutcome.SENT, reporter.reportPosition(PositionAccuracy.HIGH))
+
+        assertEquals(500.0, api.calls.single().body.getValue("accuracy").jsonPrimitive.double, 0.0)
+    }
+
+    @Test
+    fun `the car is placed from the GPS`() = runTest {
+        switchOn()
+
+        reporter.reportCar(Instant.parse("2026-10-26T21:29:40Z"))
+
+        assertEquals(listOf(PositionAccuracy.HIGH), source.requested)
+    }
+
+    @Test
     fun `a position request with the switch off sends nothing and does not even look for a fix`() = runTest {
         reporter.reportPosition()
 

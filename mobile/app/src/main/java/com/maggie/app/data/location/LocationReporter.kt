@@ -31,10 +31,10 @@ class LocationReporter(
     private val source: PositionSource,
 ) {
 
-    /** A fresh fix, sent as the owner's position. */
-    suspend fun reportPosition(): ReportOutcome {
+    /** A fresh fix, sent as the owner's position; the GPS when the API is waiting for it ([PositionAccuracy.HIGH]), else the cheap sources. */
+    suspend fun reportPosition(accuracy: PositionAccuracy = PositionAccuracy.BALANCED): ReportOutcome {
         if (!preferences.isEnabled() || !permissions.canReadPosition()) return ReportOutcome.SKIPPED
-        val position = source.current() ?: return ReportOutcome.RETRY
+        val position = source.current(accuracy) ?: return ReportOutcome.RETRY
         return send { api.putMyLocation(position.latitude, position.longitude, position.accuracy, position.capturedAt.toString()) }
     }
 
@@ -45,7 +45,7 @@ class LocationReporter(
     suspend fun reportCar(parkedAt: Instant): ReportOutcome {
         if (!preferences.isEnabled() || !permissions.canReadPosition()) return ReportOutcome.SKIPPED
         // No fix: the owner is already elsewhere, a later one would put the car in the wrong place.
-        val position = source.current() ?: return ReportOutcome.DROPPED
+        val position = source.current(PositionAccuracy.HIGH) ?: return ReportOutcome.DROPPED
         preferences.setPendingCar(PendingCar(position.latitude, position.longitude, parkedAt))
         return sendPendingCar()
     }

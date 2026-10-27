@@ -54,9 +54,11 @@ class FakePermissions(
 }
 
 class FakePositionSource(var position: Position? = PARIS) : PositionSource {
-    var asked = 0
-    override suspend fun current(): Position? {
-        asked++
+    val requested = java.util.concurrent.CopyOnWriteArrayList<PositionAccuracy>()
+    val asked get() = requested.size
+
+    override suspend fun current(accuracy: PositionAccuracy): Position? {
+        requested += accuracy
         return position
     }
 
