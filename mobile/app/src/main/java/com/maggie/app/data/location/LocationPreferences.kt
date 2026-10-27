@@ -40,6 +40,7 @@ class LocationPreferences(private val store: DataStore<Preferences>) {
     private val gpsLogKey = stringPreferencesKey("gps_log")
     private val movedKey = booleanPreferencesKey("moved_since_gps_point")
     private val lastSentKey = stringPreferencesKey("last_sent")
+    private val carReportedKey = longPreferencesKey("car_reported_parked_at_ms")
 
     val enabled: Flow<Boolean> = store.data.map { it[enabledKey] ?: false }
 
@@ -123,6 +124,13 @@ class LocationPreferences(private val store: DataStore<Preferences>) {
         store.edit { it[lastSentKey] = encode(listOf(position)) }
     }
 
+    /** When the owner last stepped out of the car, as the last car report had it. */
+    suspend fun lastCarParkedAt(): Instant? = store.data.first()[carReportedKey]?.let(Instant::ofEpochMilli)
+
+    suspend fun setLastCarParkedAt(at: Instant) {
+        store.edit { it[carReportedKey] = at.toEpochMilli() }
+    }
+
     /** The owner is signed out or turned the switch off: nothing about where they were stays on the phone. */
     suspend fun forgetPositions() {
         store.edit {
@@ -130,6 +138,7 @@ class LocationPreferences(private val store: DataStore<Preferences>) {
             it.remove(gpsLogKey)
             it.remove(movedKey)
             it.remove(lastSentKey)
+            it.remove(carReportedKey)
         }
     }
 

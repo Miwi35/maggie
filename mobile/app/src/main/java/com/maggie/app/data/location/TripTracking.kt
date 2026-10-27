@@ -86,10 +86,11 @@ class TripTracker(
     suspend fun run() = coroutineScope {
         var job: Job? = null
         var mode: TrackingMode? = null
-        var wasConnected = false
+        var connectedSince: Instant? = null
         states().firstOrNull { state ->
-            if (wasConnected && !state.carConnected) reporter.reportCarNow()
-            wasConnected = state.carConnected
+            val since = connectedSince
+            if (since != null && !state.carConnected) reporter.reportCarDisconnected(since)
+            connectedSince = if (state.carConnected) since ?: reporter.now() else null
             if (state.mode != mode) {
                 mode = state.mode
                 job?.cancel()

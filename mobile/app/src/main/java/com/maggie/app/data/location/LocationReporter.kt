@@ -46,12 +46,18 @@ class LocationReporter(
     suspend fun reportPosition(accuracy: PositionAccuracy = PositionAccuracy.BALANCED): ReportOutcome {
         if (!canReport()) return ReportOutcome.SKIPPED
         val fresh = source.current(accuracy)
-        val kept = preferences.keptGpsPoint()
+        val kept = preferences.keptGpsPoint()?.takeIf { stillStands(it, fresh) }
         return when {
             fresh != null && (kept == null || (fresh.accuracy > 0.0 && fresh.accuracy <= kept.accuracy)) -> deliver(fresh)
             kept != null -> deliver(kept.copy(capturedAt = clock.instant()), record = false)
             else -> ReportOutcome.RETRY
         }
+    }
+
+    /** The phone's own claim of not having moved is not enough: the kept point is young, and the fresh fix agrees with it. */
+    private fun stillStands(kept: Position, fresh: Position?): Boolean {
+        if (Duration.between(kept.capturedAt, clock.instant()) > KEPT_MAX_AGE) return false
+        return fresh == null || kept.distanceTo(fresh) <= fresh.accuracy + kept.accuracy
     }
 
     /** A fix of the trip service (GPS while the owner moves or drives): sent as the position, and kept. */
@@ -87,17 +93,28 @@ class LocationReporter(
      */
     suspend fun reportCar(parkedAt: Instant): ReportOutcome {
         if (!canReport()) return ReportOutcome.SKIPPED
-        val place = preferences.gpsLog().lastOrNull { !it.capturedAt.isAfter(parkedAt.plus(PARKING_GRACE)) }
+        val logged = preferences.gpsLog().lastOrNull { !it.capturedAt.isAfter(parkedAt.plus(PARKING_GRACE)) }
             ?.takeIf { !it.capturedAt.isBefore(parkedAt.minus(MAX_POINT_AGE)) }
-            // No point: the owner is already elsewhere, a later fix would put the car in the wrong place if it fails.
-            ?: source.current(PositionAccuracy.HIGH)
-            ?: return ReportOutcome.DROPPED
+        // No point: the fix of now is the car's place only if the owner has not had time to walk away.
+        val recent = Duration.between(parkedAt, clock.instant()) <= MAX_FIX_DELAY
+        val place = logged ?: (if (recent) source.current(PositionAccuracy.HIGH) else null) ?: return ReportOutcome.DROPPED
         preferences.setPendingCar(PendingCar(place.latitude, place.longitude, parkedAt))
+        preferences.setLastCarParkedAt(parkedAt)
         return sendPendingCar()
     }
 
-    /** The AA connection ended: the owner is at the car now. */
-    suspend fun reportCarNow(): ReportOutcome = reportCar(clock.instant())
+    /** The moment of now, on the clock the points are compared with. */
+    fun now(): Instant = clock.instant()
+
+    /**
+     * The Android Auto connection that began at [connectedSince] ended: the owner is at the car now — unless
+     * stepping out of it was already reported during this connection, which saw the car's place first.
+     */
+    suspend fun reportCarDisconnected(connectedSince: Instant): ReportOutcome {
+        val reported = preferences.lastCarParkedAt()
+        if (reported != null && !reported.isBefore(connectedSince)) return ReportOutcome.SKIPPED
+        return reportCar(clock.instant())
+    }
 
     private suspend fun canReport() = preferences.isEnabled() && permissions.canReadPosition()
 
@@ -124,6 +141,12 @@ class LocationReporter(
         /** An exit is stamped a little before the points that follow it still stand at the car. */
         val PARKING_GRACE: Duration = Duration.ofSeconds(30)
         val MAX_POINT_AGE: Duration = Duration.ofMinutes(10)
+
+        /** A kept point older than this is no longer where the phone is, whatever the sensors said. */
+        val KEPT_MAX_AGE: Duration = Duration.ofHours(1)
+
+        /** Past this, a fix taken for a car left that long ago says where the owner went (~400 m on foot), not where the car is. */
+        val MAX_FIX_DELAY: Duration = Duration.ofMinutes(5)
     }
 
     private suspend fun send(call: suspend () -> Unit): ReportOutcome = try {

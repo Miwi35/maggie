@@ -167,6 +167,24 @@ class TripTrackerTest {
     }
 
     @Test
+    fun `the car disconnecting after the owner's exit was reported places nothing a second time`() = runTest {
+        carConnected.value = true
+        backgroundScope.launch { tracker.run() }
+        until { updates.active == 1 }
+        updates.fixes.emit(fix(0))
+        until { preferences.gpsLog().size == 1 }
+        preferences.setLastCarParkedAt(t0.plusSeconds(30))
+        api.calls.clear()
+
+        clock.now = t0.plusSeconds(60)
+        carConnected.value = false
+        until { updates.active == 0 }
+        quiet()
+
+        assertTrue(api.calls.none { it.path == "/api/me/car" })
+    }
+
+    @Test
     fun `a car that was never connected leaves nothing to place when the service starts`() = runTest {
         preferences.recordMotion(Motion.IN_VEHICLE, moved = true)
 

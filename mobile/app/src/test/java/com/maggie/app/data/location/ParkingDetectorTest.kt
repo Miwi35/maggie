@@ -29,6 +29,7 @@ class ParkingDetectorTest {
     private lateinit var handler: ActivityTransitionHandler
 
     private val t0 = Instant.parse("2026-10-26T21:29:00Z")
+    private val clock = FakeClock(t0.plusSeconds(60))
 
     private fun leaveCar(at: Instant = t0) = TransitionEvent(Movement.IN_VEHICLE, entering = false, at = at)
     private fun enterCar(at: Instant = t0) = TransitionEvent(Movement.IN_VEHICLE, entering = true, at = at)
@@ -41,7 +42,7 @@ class ParkingDetectorTest {
         detector = ParkingDetector(preferences)
         handler = ActivityTransitionHandler(
             detector,
-            LocationReporter(api.service, preferences, FakePermissions(), FakePositionSource()),
+            LocationReporter(api.service, preferences, FakePermissions(), FakePositionSource(), clock),
             scheduler,
             preferences,
             launcher,
@@ -161,7 +162,7 @@ class ParkingDetectorTest {
         val walkedTo = Position(45.80, 4.90, 30.0, t0.plusSeconds(120))
         preferences.addGpsPoint(lyon.copy(latitude = 45.70, capturedAt = t0.minusSeconds(300)))
         preferences.addGpsPoint(lyon)
-        val here = LocationReporter(api.service, preferences, FakePermissions(), FakePositionSource(walkedTo))
+        val here = LocationReporter(api.service, preferences, FakePermissions(), FakePositionSource(walkedTo), clock)
         val walking = ActivityTransitionHandler(detector, here, scheduler, preferences, launcher)
 
         walking.handle(listOf(leaveCar(), standUp()))
