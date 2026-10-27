@@ -11,6 +11,7 @@ use Doctrine\ORM\Events;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Event\EventTripsChangedEvent;
 use Maggie\Calendar\Specification\HasTodayEventChanged;
+use Maggie\Core\E2e\Fixture\FixtureEffectsInterface;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -25,10 +26,12 @@ use Symfony\Component\Messenger\MessageBusInterface;
 #[AsDoctrineListener(event: Events::preFlush)]
 #[AsDoctrineListener(event: Events::onFlush)]
 #[AsDoctrineListener(event: Events::postFlush)]
-final class TodayEventListener
+final class TodayEventListener implements FixtureEffectsInterface
 {
     /** @var list<array{Event, HasTodayEventChanged, EventTripsChangedEvent::*}> */
     private array $changes = [];
+
+    private bool $suspended = false;
 
     public function __construct(
         #[Autowire(service: 'event.bus')]
@@ -36,6 +39,17 @@ final class TodayEventListener
         private readonly ClockInterface $clock,
         private readonly LoggerInterface $logger,
     ) {
+    }
+
+    /** Runs work whose flushes store history as it is — fixtures, the e2e seed — and raise no event. */
+    public function withoutEffects(\Closure $work): mixed
+    {
+        $this->suspended = true;
+        try {
+            return $work();
+        } finally {
+            $this->suspended = false;
+        }
     }
 
     /** A flush that failed after onFlush never reached postFlush: its changes must not outlive it. */
@@ -46,6 +60,10 @@ final class TodayEventListener
 
     public function onFlush(OnFlushEventArgs $args): void
     {
+        if ($this->suspended) {
+            return;
+        }
+
         $uow = $args->getObjectManager()->getUnitOfWork();
         $now = $this->clock->now();
 

@@ -7,6 +7,7 @@ namespace Maggie\Core\Tests\E2e;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Fidry\AliceDataFixtures\LoaderInterface;
+use Maggie\Calendar\Doctrine\TodayEventListener;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Cookbook\Entity\Meal;
 use Maggie\Cookbook\Entity\Recipe;
@@ -233,7 +234,7 @@ final class E2eUserControllerTest extends KernelTestCase
                 $this->entityManager(),
                 $container->get(E2eDateProvider::class),
                 $loader,
-                new FixtureEffects([$container->get(TransactionListener::class)]),
+                new FixtureEffects([$container->get(TransactionListener::class), $container->get(TodayEventListener::class)]),
                 new E2eFixtureCatalog($projectDir),
                 $indexer,
                 $projectDir,

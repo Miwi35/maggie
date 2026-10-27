@@ -26,6 +26,7 @@ class TodayEventListenerTest extends KernelTestCase
     private array $dispatched = [];
     /** @var list<bool> */
     private array $transactionOpenWhenSent = [];
+    private TodayEventListener $listener;
 
     protected function setUp(): void
     {
@@ -47,10 +48,8 @@ class TodayEventListenerTest extends KernelTestCase
                 }
             }
         }
-        $manager->addEventListener(
-            [Events::preFlush, Events::onFlush, Events::postFlush],
-            new TodayEventListener($this->spyBus(), Clock::get(), new NullLogger()),
-        );
+        $this->listener = new TodayEventListener($this->spyBus(), Clock::get(), new NullLogger());
+        $manager->addEventListener([Events::preFlush, Events::onFlush, Events::postFlush], $this->listener);
     }
 
     protected function tearDown(): void
@@ -140,6 +139,22 @@ class TodayEventListenerTest extends KernelTestCase
         $this->em()->flush();
 
         self::assertEquals([new EventTripsChangedEvent($id, $this->userId(), EventTripsChangedEvent::DELETED)], $this->dispatched);
+    }
+
+    public function testFixturesLoadedWithoutEffectsSendNothingAndTheNextFlushSendsAgain(): void
+    {
+        $dentist = $this->event('dentist');
+        $this->listener->withoutEffects(function () use ($dentist): void {
+            $dentist->setLocation('12 rue du Nouveau Cabinet Fictif');
+            $this->em()->flush();
+        });
+
+        self::assertSame([], $this->dispatched);
+
+        $dentist->setLocation('1 rue du Retour Fictive');
+        $this->em()->flush();
+
+        self::assertCount(1, $this->dispatched);
     }
 
     public function testChangingOnlyTheTitleSendsNothing(): void
