@@ -423,6 +423,12 @@ web:
     areas: [calendar, notification]
   e2e/web/tests/agenda-places.spec.ts:
     areas: [calendar]
+  e2e/web/tests/agenda-home-google.spec.ts:
+    areas: [calendar]
+    paths:
+      - 'api/modules/calendar/src/Google/**'
+      - '.docker/e2e/wiremock/mappings/google-people.json'
+      - '.docker/e2e/wiremock/mappings/google-geocoding.json'
   e2e/web/tests/agenda-trip-estimate.spec.ts:
     areas: [calendar]
     paths:
