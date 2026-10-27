@@ -82,6 +82,11 @@ class ParkingDetectorTest {
     }
 
     @Test
+    fun `the exit and the foot event stamped the same instant park the car whatever their order`() = runTest {
+        assertEquals(t0, detector.onTransitions(listOf(standUp(t0), leaveCar(t0))))
+    }
+
+    @Test
     fun `an unrelated transition leaves the exit waiting`() = runTest {
         handler.handle(listOf(leaveCar(), TransitionEvent(Movement.OTHER, entering = true, at = t0.plusSeconds(3)), standUp()))
 

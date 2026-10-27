@@ -31,6 +31,9 @@ class LocationReporter(
     private val source: PositionSource,
 ) {
 
+    /** The switch is on and every permission is there: the car may be listened for. */
+    suspend fun mayListen(): Boolean = preferences.isEnabled() && permissions.canTrack()
+
     /** A fresh fix, sent as the owner's position; the GPS when the API is waiting for it ([PositionAccuracy.HIGH]), else the cheap sources. */
     suspend fun reportPosition(accuracy: PositionAccuracy = PositionAccuracy.BALANCED): ReportOutcome {
         if (!preferences.isEnabled() || !permissions.canReadPosition()) return ReportOutcome.SKIPPED

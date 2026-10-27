@@ -80,7 +80,8 @@ class ParkingDetector(private val preferences: LocationPreferences) {
     suspend fun onTransitions(events: List<TransitionEvent>): Instant? = lock.withLock {
         var left = preferences.vehicleExit()
         var parkedAt: Instant? = null
-        for (event in events) {
+        // Play services may stamp the exit and the walk with the same instant, in either order: the exit comes first.
+        for (event in events.sortedWith(compareBy({ it.at }, { it.entering }))) {
             when {
                 event.movement == Movement.IN_VEHICLE && !event.entering -> left = event.at
                 event.movement == Movement.IN_VEHICLE -> left = null
