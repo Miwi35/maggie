@@ -1,5 +1,8 @@
 package com.maggie.app.ui.screens.grocery
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -10,11 +13,14 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.RecurringFrequency
+import com.maggie.app.data.model.frenchName
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
@@ -41,7 +47,7 @@ class ProductListMockupScreenTest {
 
     private val recurring = FakeRecurring(products = listOf(ail, beurre))
 
-    private fun show(vararg products: Product, deleted: MutableList<String> = mutableListOf()) {
+    private fun show(vararg products: Product, deleted: MutableList<String> = mutableListOf(), height: Dp? = null) {
         val productRepository = mockk<ProductRepository>()
         val storeRepository = mockk<StoreRepository>()
         coEvery { storeRepository.getStores() } returns Result.success(listOf(Store(id = "s1", name = "Super U")))
@@ -53,7 +59,9 @@ class ProductListMockupScreenTest {
         }
         val viewModel = ProductViewModel(productRepository, storeRepository)
         compose.setContent {
-            ProductListScreen(viewModel = viewModel, recurringViewModel = recurring.viewModel)
+            Box(if (height == null) Modifier else Modifier.requiredSize(411.dp, height)) {
+                ProductListScreen(viewModel = viewModel, recurringViewModel = recurring.viewModel)
+            }
         }
         compose.waitForIdle()
     }
@@ -77,11 +85,14 @@ class ProductListMockupScreenTest {
         val products = ProductCategory.entries.mapIndexed { index, category ->
             Product(id = "p-$index", name = "Produit $index", category = category, defaultUnit = units[index % units.size])
         }
-        show(*products.toTypedArray())
+        show(*products.toTypedArray(), height = 4000.dp)
 
         assertNoRawValue()
-        compose.onNodeWithText("Fruits et légumes").assertIsDisplayed()
-        compose.onNodeWithText("Fruits et légumes · g").assertIsDisplayed()
+        products.forEach { product ->
+            val expected = "${product.category.label()} · ${product.defaultUnit!!.frenchName}"
+            compose.onNodeWithText(expected).assertExists()
+        }
+        assertEquals(CookbookUnit.entries.toSet(), products.mapNotNull { it.defaultUnit }.toSet())
     }
 
     @Test
