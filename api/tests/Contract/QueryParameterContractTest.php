@@ -156,7 +156,7 @@ final class QueryParameterContractTest extends WebTestCase
             'store' => 'admin StoreAisles and GroceryListView, mobile StoreAislesViewModel and GroceryViewModel, the aisles of one store (MAG-493)',
         ],
         '/api/trips' => [
-            'date' => 'mobile getTrips, the trips kept for the events of one day (MAG-658)',
+            'date' => 'mobile getTrips and admin CalendarView, the trips kept for the events of one day (MAG-658, MAG-659)',
         ],
     ];
 
@@ -383,7 +383,7 @@ final class QueryParameterContractTest extends WebTestCase
      * row the filter must keep and a row it must drop, and asserts on which
      * rows came back rather than on how many.
      *
-     * Eleven of the twenty-six parameters in the contract get a case of
+     * Eleven of the twenty-seven parameters in the contract get a case of
      * their own: one per filter *kind* per resource — an exists, a date
      * operator, a relation, a sort — rather than one per parameter. The
      * remainder are the same kind on another field (`startAt[before]` beside

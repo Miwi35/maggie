@@ -24,10 +24,27 @@ const HOME = { latitude: 48.11, longitude: -1.68 }
 const CAR = { latitude: 48.1127, longitude: -1.68 }
 const DENTIST = '5 allée du Sourire Fictif, 35000 Rennes'
 
-async function keepTrip(api: APIRequestContext, title: string, start: string, end: string): Promise<{ eventId: string }> {
+async function createAgenda(api: APIRequestContext, name: string): Promise<string> {
+  const response = await api.post('/api/agendas', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: { name, color: '#ff9800', timeZone: 'Europe/Paris' },
+  })
+  expect(response.status()).toBe(201)
+
+  return ((await response.json()) as { id: string }).id
+}
+
+async function keepTrip(
+  api: APIRequestContext,
+  title: string,
+  start: string,
+  end: string,
+  agendaId?: string,
+): Promise<{ eventId: string }> {
   const day = parisDay()
   const created = await callMcpTool(api, 'create_event', {
     title,
+    ...(agendaId ? { agenda_id: agendaId } : {}),
     start_date: day,
     start_time: start,
     end_date: day,
@@ -78,7 +95,9 @@ test('the day view draws the trip under its event, and follows it without a relo
 test('« Pars maintenant » interrupts with « Y aller », which opens the navigation link in a new tab', async ({ interruptedUser }) => {
   const { page, api, session } = interruptedUser
   const title = `Dentiste, départ ${test.info().retry}`
-  const { eventId } = await keepTrip(api, title, '14:00', '15:00')
+  // The account seeded for the interruptions has no agenda yet: an event needs one.
+  const agendaId = await createAgenda(api, `Agenda départ ${test.info().retry}`)
+  const { eventId } = await keepTrip(api, title, '14:00', '15:00', agendaId)
 
   const listed = await api.get(`/api/trips?date=${parisDay()}`, { headers: { Accept: 'application/ld+json' } })
   const trip = ((await listed.json()) as { member: { '@id': string; event: string }[] }).member.find(
@@ -120,4 +139,5 @@ test('« Pars maintenant » interrupts with « Y aller », which opens the navig
   expect(opened[0][1]).toBe('_blank')
 
   expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
+  await api.delete(`/api/agendas/${agendaId}`)
 })
