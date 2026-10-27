@@ -101,6 +101,11 @@ class HomeFromGoogle
                 $this->logger->info('Google home address not located.', ['exception' => $e::class]);
             }
 
+            // The calls above can take seconds: a home saved meanwhile must win.
+            if ($this->hasHome($user)) {
+                return null;
+            }
+
             $place = $this->bus->dispatch(new SavePlaceCommand((string) $user->getId(), null, $fields))
                 ->last(HandledStamp::class)?->getResult();
 

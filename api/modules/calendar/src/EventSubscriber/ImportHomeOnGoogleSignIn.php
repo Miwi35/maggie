@@ -7,6 +7,7 @@ namespace Maggie\Calendar\EventSubscriber;
 use Maggie\Calendar\Service\HomeFromGoogle;
 use Maggie\Core\Event\UserSignedInWithGoogle;
 use Maggie\Core\Repository\UserRepository;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 /**
@@ -19,14 +20,20 @@ final class ImportHomeOnGoogleSignIn
     public function __construct(
         private readonly UserRepository $users,
         private readonly HomeFromGoogle $homeFromGoogle,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
     public function __invoke(UserSignedInWithGoogle $event): void
     {
-        $user = $this->users->find($event->userId);
-        if (null !== $user) {
-            $this->homeFromGoogle->import($user);
+        // The sign-in must complete whatever happens here.
+        try {
+            $user = $this->users->find($event->userId);
+            if (null !== $user) {
+                $this->homeFromGoogle->import($user);
+            }
+        } catch (\Throwable $e) {
+            $this->logger->warning('Home import at sign-in failed.', ['exception' => $e::class]);
         }
     }
 }
