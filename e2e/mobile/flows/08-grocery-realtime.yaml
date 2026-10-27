@@ -198,10 +198,13 @@ tags:
 
 # A swipe left on a ticked line unticks it and asks nothing (MAG-381): the line
 # keeps its swipe state when ticked, which once made it offer the deletion.
+# Maestro stops at 10 % of the width, short of the row's 56 % threshold: only the release
+# speed (125 dp/s) dismisses it, and the default 400 ms sits too close to it on a loaded emulator.
 - swipe:
     from:
       text: "Tisane MAG-178"
     direction: LEFT
+    duration: 150
 - extendedWaitUntil:
     notVisible: "Cette action est irréversible."
     timeout: 10000

@@ -52,10 +52,9 @@ tags:
     env:
       DEST: cookbook
 # Cuisine opens on Repas (MAG-628): the week's days, each with its « + Ajouter un repas ».
-- scrollUntilVisible:
-    element:
-      id: "meal_add_day_sunday"
-    timeout: 30000
+# `scrollUntilVisible` swipes from the screen's centre: the tablet's detail pane, not the
+# week (MAG-571, `subflows/scroll-list-end.yaml`).
+- runFlow: ../subflows/scroll-list-end.yaml
 - tapOn:
     id: "meal_add_day_sunday"
 - extendedWaitUntil:
@@ -166,9 +165,7 @@ tags:
     file: ../subflows/open-destination.yaml
     env:
       DEST: cookbook
-- scrollUntilVisible:
-    element: "Déjeuner"
-    timeout: 30000
+- runFlow: ../subflows/scroll-list-end.yaml
 - tapOn: "Déjeuner"
 - extendedWaitUntil:
     visible:
@@ -181,8 +178,9 @@ tags:
 - tapOn:
     id: "meal_detail_save"
 # Sunday is the bottom of the week: the sheet closes on the top of it.
-- scrollUntilVisible:
-    element: "Dimanche en famille"
+- runFlow: ../subflows/scroll-list-end.yaml
+- extendedWaitUntil:
+    visible: "Dimanche en famille"
     timeout: 30000
 - runScript:
     file: ../scripts/meal-api.js

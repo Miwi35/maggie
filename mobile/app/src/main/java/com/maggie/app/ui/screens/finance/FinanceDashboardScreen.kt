@@ -167,7 +167,7 @@ private fun CurrentTab(
 
         if (twoColumns) {
             // Room for two panes: the scores and the next project on the left, the tiles on the right.
-            Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxSize().testTag(UiTags.FINANCE_TWO_COLUMNS), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     contentPadding = PaddingValues(16.dp),

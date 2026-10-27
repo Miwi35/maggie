@@ -49,13 +49,13 @@ tags:
     visible: ".*La semaine suivante.*"
     timeout: 10000
 
-# With the chat panel the tab has two columns, each its own list: a scroll from the screen's centre
+# On a wide window the tab has two columns, each its own list: a scroll from the screen's centre
 # lands in the right one, which holds no rent. The swipe starts on the week's card, in the left one.
 - evalScript: ${0}
 - runFlow:
     when:
       visible:
-        id: "chat_panel"
+        id: "finance_two_columns"
     commands:
       - swipe:
           from:

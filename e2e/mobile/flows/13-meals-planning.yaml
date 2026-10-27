@@ -84,7 +84,14 @@ tags:
     id: "meal_recipe_portions_value"
     text: "2"
     below: "Soupe MAG-628"
-- assertVisible: ".*Farine MAG-628 400 g.*"
+# The title of the second card is on screen, its ingredients under the tablet's pane foot or
+# the foldable's chat bar: a short fling brings them up (nothing moves when they already show).
+- swipe:
+    start: 25%, 55%
+    end: 25%, 35%
+- extendedWaitUntil:
+    visible: ".*Farine MAG-628 400 g.*"
+    timeout: 10000
 - runScript:
     file: ../scripts/meal-week-api.js
     env:
