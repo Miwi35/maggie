@@ -87,7 +87,9 @@ const CushionSummary = ({ status }: { status: CushionStatus }) => (
       <Typography variant="body2" sx={{ mt: 1 }} data-testid="cushion-share-rule">
         {status.criticalDeficitCents > 0
           ? `Sous le seuil critique (${status.criticalMonths} mois de dépenses, ${formatCents(status.criticalCents)}) : toute l'épargne va au matelas.`
-          : status.deficitCents > 0
+          : status.deficitCents > 0 && status.cushionSharePercent >= 100
+            ? "Matelas d'abord : toute l'épargne va au matelas, les projets attendent qu'il soit complet."
+            : status.deficitCents > 0
             ? `Seuil critique atteint : ${status.cushionSharePercent} % de l'épargne va au matelas, le reste aux projets.`
             : "Matelas complet : toute l'épargne va aux projets."}
       </Typography>

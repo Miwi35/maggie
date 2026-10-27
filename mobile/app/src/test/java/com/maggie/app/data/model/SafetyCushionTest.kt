@@ -84,6 +84,10 @@ class SafetyCushionTest {
             cushionShareRuleLabel(CushionStatus(deficitCents = 300000, cushionSharePercent = 80)),
         )
         assertEquals(
+            "Matelas d'abord : toute l'épargne va au matelas, les projets attendent qu'il soit complet.",
+            cushionShareRuleLabel(CushionStatus(deficitCents = 300000, cushionSharePercent = 100)),
+        )
+        assertEquals(
             "Matelas complet : toute l'épargne va aux projets.",
             cushionShareRuleLabel(CushionStatus(state = "complete", deficitCents = 0)),
         )

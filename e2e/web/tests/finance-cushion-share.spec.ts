@@ -59,7 +59,7 @@ test('a 100 % share gives the cushion the whole capacity and moves the project a
     )
     await cushion.setSharePercent(100)
     await expect(cushion.shareRule).toHaveText(
-      "Seuil critique atteint : 100 % de l'épargne va au matelas, le reste aux projets.",
+      "Matelas d'abord : toute l'épargne va au matelas, les projets attendent qu'il soit complet.",
     )
 
     // --- Then: Moto comes the month after the cushion is complete -------------

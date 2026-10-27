@@ -152,6 +152,17 @@ class ProjectPlannerTest extends TestCase
         self::assertSame(self::m(3), self::row($plan, 'Vélo')['purchaseMonth']);
     }
 
+    public function testAMonthThatStartsBelowTheThresholdBuysNothing(): void
+    {
+        $trip = $this->project('Week-end', 20000);
+        $this->source($trip, FundingSourceKind::Capital, 20000);
+
+        $plan = $this->plan([$trip], ['state' => 'building', 'deficitCents' => 200000, 'criticalDeficitCents' => 50000, 'sharePercent' => 60]);
+
+        self::assertSame(50000, $plan['months'][0]['cushionCents']);
+        self::assertSame(self::m(1), self::row($plan, 'Week-end')['purchaseMonth']);
+    }
+
     public function testPastTheThresholdTheCushionTakesItsShareThenOnlyItsDeficit(): void
     {
         $plan = $this->plan(

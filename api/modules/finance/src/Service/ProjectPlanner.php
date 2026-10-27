@@ -205,6 +205,8 @@ final class ProjectPlanner
             $repaid = min($pendingOutlay, $available);
             $pendingOutlay -= $repaid;
             $available -= $repaid;
+            // Read before the cushion's turn: a month that starts below the threshold funds no project.
+            $belowCritical = $critical > 0;
             if ($deficit > 0) {
                 // Below the critical threshold the cushion takes everything; past it, its share.
                 $toCushion[$m] = $critical > 0
@@ -247,7 +249,7 @@ final class ProjectPlanner
                 }
             }
 
-            $open = 0 === $deficit || (0 === $critical && $cushionShare < 100);
+            $open = 0 === $deficit || (!$belowCritical && $cushionShare < 100);
             do {
                 $bought = false;
                 foreach ($projects as $i => $project) {

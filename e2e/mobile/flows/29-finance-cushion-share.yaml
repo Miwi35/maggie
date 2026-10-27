@@ -121,9 +121,9 @@ tags:
     env:
       ACTION: expect-share
       SHARE: "100"
-# The screen reads the saved status back: the rule above the settings says 100 %.
+# The screen reads the saved status back: the rule above the settings says cushion first.
 - scrollUntilVisible:
-    element: ".*Seuil critique atteint : 100 % de l'épargne va au matelas.*"
+    element: "Matelas d'abord : toute l'épargne va au matelas.*"
     direction: UP
     timeout: 20000
 

@@ -123,6 +123,14 @@ describe('CushionPage', () => {
     )
   })
 
+  test('says cushion first at a 100 % share', async () => {
+    stubStatus({ ...withClaims, cushionSharePercent: 100 })
+    renderPage()
+    expect(plain((await screen.findByTestId('cushion-share-rule')).textContent)).toBe(
+      "Matelas d'abord : toute l'épargne va au matelas, les projets attendent qu'il soit complet.",
+    )
+  })
+
   test('sends the threshold and the share with the other settings', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(STATUS) })
     vi.stubGlobal('fetch', fetchMock)
