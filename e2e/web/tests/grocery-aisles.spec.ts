@@ -11,7 +11,7 @@ import { ROUTES } from '../pages/routes.js'
  *
  * The owner walks through Carrefour fruit first, then the dairy, then the
  * bakery; the list has to read in that order whatever order the lines were
- * added in, and when the store is rearranged — an aisle dragged on the store
+ * added in, and when the store is rearranged — an aisle dragged on the stores
  * page — the list follows without anything else to do.
  *
  * Written on the owner's list: nothing makes a publication or a count claim on
@@ -65,7 +65,7 @@ async function dragOnto(page: Page, handle: Locator, target: Locator): Promise<v
   await page.mouse.up()
 }
 
-test('the grocery list follows the aisles reordered on the store page — MAG-493', async ({ page, api }) => {
+test('the grocery list follows the aisles reordered on the stores page — MAG-493, MAG-623', async ({ page, api }) => {
   const stamp = Date.now()
   const storeName = `Carrefour MAG-493 ${stamp}`
   const apples = `Pommes MAG-493 ${stamp}`
@@ -124,9 +124,21 @@ test('the grocery list follows the aisles reordered on the store page — MAG-49
     await grocery.open()
     await expect(linesOfStore).toHaveText([new RegExp(apples), new RegExp(milk), new RegExp(bread)])
 
-    // --- When: the bakery is dragged before the dairy on the store page ------
+    // --- When: the bakery is dragged to the head of the store's aisles ------
     const shell = new AdminShell(page)
-    await shell.goto(`${ROUTES.stores}/${encodeURIComponent(store['@id'])}`)
+    await expect
+      .poll(
+        async () => {
+          const found = await api.get(`/api/products?store=${store.id}&itemsPerPage=1`, { headers: { Accept: 'application/ld+json' } })
+          return ((await found.json()) as { totalItems?: number }).totalItems
+        },
+        { message: 'the three products never reached the index', timeout: 30_000 },
+      )
+      .toBe(3)
+    await shell.goto(ROUTES.stores)
+    const storeRow = shell.content.getByTestId('store-row').filter({ hasText: storeName })
+    await expect(storeRow).toContainText('3 rayons · 3 produits')
+    await storeRow.click()
     const aisles = shell.content.getByTestId('store-aisles').getByTestId('store-aisle')
     await expect(aisles).toHaveText(['Fruits et légumes', 'Crèmerie', 'Boulangerie'])
 
@@ -136,24 +148,24 @@ test('the grocery list follows the aisles reordered on the store page — MAG-49
     await dragOnto(
       page,
       shell.content.getByRole('button', { name: 'Déplacer Boulangerie' }),
-      aisles.filter({ hasText: 'Crèmerie' }),
+      aisles.filter({ hasText: 'Fruits et légumes' }),
     )
     const response = await moved
     expect(response.status(), `the API refused the move: ${await response.text()}`).toBe(200)
-    expect(response.request().postDataJSON()).toEqual({ position: 2 })
-    await expect(aisles).toHaveText(['Fruits et légumes', 'Boulangerie', 'Crèmerie'])
+    expect(response.request().postDataJSON()).toEqual({ position: 1 })
+    await expect(aisles).toHaveText(['Boulangerie', 'Fruits et légumes', 'Crèmerie'])
 
-    // --- Then: the list reads fruit, bakery, dairy ---------------------------
+    // --- Then: the list reads bakery, fruit, dairy --------------------------
     await expect
       .poll(
         async () =>
           (await linesOnList(api, labels)).find((line) => line.label === bread)?.aisle?.position,
         { message: 'the list never learnt the new place of the bakery', timeout: 30_000 },
       )
-      .toBe(2)
+      .toBe(1)
 
     await grocery.open()
-    await expect(linesOfStore).toHaveText([new RegExp(apples), new RegExp(bread), new RegExp(milk)])
+    await expect(linesOfStore).toHaveText([new RegExp(bread), new RegExp(apples), new RegExp(milk)])
   } finally {
     for (const line of await linesOnList(api, labels)) await api.delete(`/api/grocery_items/${line.id}`)
     for (const iri of cleanup) await api.delete(iri)

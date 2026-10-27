@@ -20,6 +20,11 @@ const entrypoint = import.meta.env.VITE_API_URL || 'http://localhost/api'
 // Every Mercure payload of an aisle — a change, a move, a deletion — goes out on this topic.
 export const AISLE_TOPIC = '/api/aisles/{id}'
 
+// One stream for everything the stores page listens to: over HTTP/1.1 a browser keeps six connections
+// per origin and every open stream holds one for good (MAG-473) — a stream per list, per aisle panel
+// and per counter left the page without a connection for its own requests.
+export const STORES_PAGE_TOPICS = ['/api/stores/{id}', AISLE_TOPIC, '/api/products/{id}']
+
 /** A write the API refused: `message` is its Hydra `detail` when it gave one. */
 export class AisleError extends Error {}
 
@@ -50,6 +55,7 @@ const refused = async (response: Response, fallback: string): Promise<AisleError
 interface AisleMember {
   '@id'?: string
   id?: string
+  store?: string | { '@id'?: string }
   name: string
   position: number
 }
@@ -67,6 +73,24 @@ export async function fetchAisles(storeId: string): Promise<Aisle[]> {
   if (!response.ok) throw new AisleError(`aisles: ${response.status}`)
   const body = await response.json()
   return ((body?.member ?? []) as AisleMember[]).map(toAisle).sort((a, b) => a.position - b.position)
+}
+
+/** How many aisles a store has — the total of the API, not the first page. */
+export async function fetchStoreAisleCount(storeId: string): Promise<number> {
+  const query = new URLSearchParams({ store: bareId(storeId), itemsPerPage: '1' })
+  const response = await call(`/aisles?${query}`, 'GET')
+  if (!response.ok) throw new AisleError(`aisles: ${response.status}`)
+  const body = await response.json()
+  return Number(body?.totalItems ?? body?.member?.length ?? 0)
+}
+
+/** How many products a store has: the ones the product list filtered on that store shows. */
+export async function fetchStoreProductCount(storeId: string): Promise<number> {
+  const query = new URLSearchParams({ store: bareId(storeId), itemsPerPage: '1' })
+  const response = await call(`/products?${query}`, 'GET')
+  if (!response.ok) throw new AisleError(`products: ${response.status}`)
+  const body = await response.json()
+  return Number(body?.totalItems ?? body?.member?.length ?? 0)
 }
 
 /** Adds an aisle at the end of the store's way. */
