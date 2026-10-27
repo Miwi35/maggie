@@ -21,6 +21,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { useMercure } from '../../hooks/useMercure'
 import { getToken } from '../../auth/session'
 import { notificationLink, shortageAlertId } from '../maggie/interruptions'
+import { fetchNavigationUrl, isTripIri, openNavigation } from '../../modules/calendar/trips'
 
 const NOTIFICATION_TOPICS = ['/api/notifications/{id}']
 
@@ -161,8 +162,35 @@ export const NotificationBell = () => {
     setError(null)
   }
 
+  // « Pars maintenant » (MAG-655) opens the trip's navigation link. It is read when the bell
+  // opens, so that the click opens the tab at once: a tab opened after a wait is blocked.
+  const [navigation, setNavigation] = useState<Record<string, string>>({})
+  const departureTrips = useMemo(
+    () => notifications.flatMap((n) => (n.type === 'departure' && isTripIri(n.relatedEntityIri) ? [n.relatedEntityIri] : [])),
+    [notifications],
+  )
+  const departureKey = departureTrips.join(',')
+  const bellOpen = Boolean(anchorEl)
+  useEffect(() => {
+    if (!bellOpen || !departureKey) return
+    let live = true
+    for (const iri of departureKey.split(',')) {
+      void fetchNavigationUrl(iri).then((url) => {
+        if (live && url) setNavigation((known) => (known[iri] === url ? known : { ...known, [iri]: url }))
+      })
+    }
+
+    return () => {
+      live = false
+    }
+  }, [bellOpen, departureKey])
+
   const handleNotificationClick = useCallback(
     async (notification: Notification) => {
+      const tripIri = notification.type === 'departure' && isTripIri(notification.relatedEntityIri) ? notification.relatedEntityIri : null
+      const knownUrl = tripIri ? navigation[tripIri] : undefined
+      if (knownUrl) openNavigation(knownUrl)
+
       if (!notification.readAt) {
         try {
           const { data } = await dataProvider.update('notifications', {
@@ -176,13 +204,19 @@ export const NotificationBell = () => {
         }
       }
 
+      if (tripIri && !knownUrl) {
+        const url = await fetchNavigationUrl(tripIri)
+        if (url) openNavigation(url)
+      }
+      if (tripIri) setAnchorEl(null)
+
       const link = notificationLink(notification.relatedEntityIri)
       if (link) {
         setAnchorEl(null)
         redirect(link.path)
       }
     },
-    [apply, dataProvider, redirect],
+    [apply, dataProvider, navigation, redirect],
   )
 
   const handleMarkAllRead = useCallback(async () => {

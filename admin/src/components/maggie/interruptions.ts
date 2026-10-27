@@ -1,4 +1,5 @@
 import { SEARCH_INDEX_CONFIG } from '../../modules/search/searchConfig'
+import { isTripIri } from '../../modules/calendar/trips'
 
 /** Where an interruption comes from — what its action does depends on it. */
 export type InterruptionSource = 'proaction' | 'notification' | 'approval'
@@ -19,7 +20,7 @@ interface Common {
 
 export type Interruption =
   | (Common & { source: 'proaction' })
-  | (Common & { source: 'notification'; link: NotificationLink | null; shortageId?: string })
+  | (Common & { source: 'notification'; link: NotificationLink | null; shortageId?: string; departureTrip?: string })
   | (Common & { source: 'approval' })
 
 /** What one message of the shared feed means for the interruption queue. */
@@ -132,6 +133,8 @@ export function readFeedMessage(raw: string): FeedEvent | null {
     const type = typeof data.type === 'string' ? data.type : ''
     const iri = typeof data.relatedEntityIri === 'string' ? data.relatedEntityIri : null
     const shortageId = Array.isArray(data.actions) && data.actions.includes('add') ? shortageAlertId(iri) : null
+    // « Pars maintenant » (MAG-655): its answer is the trip's navigation link, "Y aller".
+    const departureTrip = type === 'departure' && isTripIri(iri) ? iri : null
     return {
       kind: 'interrupt',
       interruption: {
@@ -142,6 +145,7 @@ export function readFeedMessage(raw: string): FeedEvent | null {
         message: notificationMessage(type, data.body),
         link: notificationLink(iri),
         ...(shortageId && { shortageId }),
+        ...(departureTrip && { departureTrip }),
       },
     }
   }

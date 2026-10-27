@@ -53,7 +53,9 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { EventClickArg, EventDropArg } from '@fullcalendar/core'
 import type { EventResizeDoneArg } from '@fullcalendar/interaction'
 import frLocale from '@fullcalendar/core/locales/fr'
-import type { DatesSetArg, EventInput } from '@fullcalendar/core'
+import type { DatesSetArg, EventContentArg, EventInput } from '@fullcalendar/core'
+import { TripLine } from './TripLine'
+import { tripsByEvent, type Trip } from './trips'
 import { EventCreateDialog } from './EventCreateDialog'
 import { TaskCreateDialog } from './TaskCreateDialog'
 import { TaskEditDialog, type TaskData } from './TaskEditDialog'
@@ -141,7 +143,9 @@ interface GoogleCalendar {
   backgroundColor?: string
 }
 
-const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}', '/api/meals/{id}', '/api/proactions/{id}']
+const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}', '/api/meals/{id}', '/api/proactions/{id}', '/api/trips/{id}']
+/** A trip is read for one day at a time: the day view's range is a day, give or take the clock change. */
+const DAY_RANGE_MS = 25 * 3600 * 1000
 const AGENDA_TOPICS = ['/api/agendas/{id}']
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -559,7 +563,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const calendarRef = useRef<FullCalendar>(null)
   const calendarBoxRef = useRef<HTMLDivElement>(null)
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null)
-  const fetchSeqRef = useRef<Record<LiveKind, number>>({ events: 0, tasks: 0, meals: 0, proactions: 0 })
+  const fetchSeqRef = useRef<Record<LiveKind, number>>({ events: 0, tasks: 0, meals: 0, proactions: 0, trips: 0 })
   const appliedRef = useRef<Partial<Record<LiveKind | 'agendas', string>>>({})
   const seriesRef = useRef<{ id: string }[]>([])
   const lastMouseYRef = useRef(0)
@@ -570,6 +574,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const [rawTasks, setRawTasks] = useState<CalendarTask[]>([])
   const [rawMeals, setRawMeals] = useState<CalendarMeal[]>([])
   const [rawProactions, setRawProactions] = useState<CalendarProaction[]>([])
+  const [rawTrips, setRawTrips] = useState<Trip[]>([])
   const [calendars, setCalendars] = useState<CalendarData[]>([])
   const [enabledCalendars, setEnabledCalendars] = useState<Set<string> | null>(null)
   const [miniCalDate, setMiniCalDate] = useState(new Date())
@@ -845,12 +850,26 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           moduleCalendar
             ? nothing.then((r) => r.data)
             : list('proactions', 'startAt', { 'startAt[after]': start, 'startAt[before]': end }).then((r) => r.data),
+        // The trips leaving on the day shown; no other view draws them. A trip that cannot be
+        // read leaves the day without its line, never without its events.
+        trips: () =>
+          moduleCalendar || Date.parse(end) - Date.parse(start) > DAY_RANGE_MS
+            ? nothing.then((r) => r.data)
+            : dataProvider
+                .getList('trips', { pagination: { page: 1, perPage: 100 }, filter: { date: day.after } })
+                .then((r) => r.data)
+                .catch((error) => {
+                  console.error(error)
+
+                  return []
+                }),
       }
       const setters: Record<LiveKind, (data: unknown[]) => void> = {
         events: (data) => setRawEvents(data as CalendarEvent[]),
         tasks: (data) => setRawTasks(data as CalendarTask[]),
         meals: (data) => setRawMeals(data as CalendarMeal[]),
         proactions: (data) => setRawProactions(data as CalendarProaction[]),
+        trips: (data) => setRawTrips(data as Trip[]),
       }
 
       const seqs = Object.fromEntries(kinds.map((kind) => [kind, ++fetchSeqRef.current[kind]]))
@@ -1156,6 +1175,31 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       ...(proactionsVisible ? proactionEvents : []),
     ]
   }, [coloredEvents, enabledCalendars, calendars, taskEvents, mealEvents, proactionEvents])
+
+  // --- The trip line under an event of the day view (« Partir à l'heure ») ---
+  const tripOfEvent = useMemo(() => tripsByEvent(rawTrips), [rawTrips])
+  // FullCalendar's own markup, plus the line, in the day view only — the other views keep the
+  // default rendering. Kept for the whole day view: taking the option back when the last trip
+  // goes would leave the old line drawn.
+  const renderEventContent = useMemo(
+    () =>
+      currentView === 'timeGridDay'
+        ? (arg: EventContentArg) => {
+            const trip = tripOfEvent.get(arg.event.id)
+
+            return (
+              <div className="fc-event-main-frame">
+                {arg.timeText && <div className="fc-event-time">{arg.timeText}</div>}
+                <div className="fc-event-title-container">
+                  <div className="fc-event-title fc-sticky">{arg.event.title || ' '}</div>
+                </div>
+                {trip && !arg.event.allDay && <TripLine trip={trip} />}
+              </div>
+            )
+          }
+        : undefined,
+    [currentView, tripOfEvent],
+  )
 
   // --- FullCalendar callbacks ---
   const handleDatesSet = useCallback(
@@ -2301,6 +2345,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             initialView="dayGridMonth"
             locale={frLocale}
             events={filteredEvents}
+            eventContent={renderEventContent}
             datesSet={handleDatesSet}
             selectable={!moduleCalendar}
             selectMirror={true}

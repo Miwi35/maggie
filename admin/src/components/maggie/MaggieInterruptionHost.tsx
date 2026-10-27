@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDataProvider } from 'react-admin'
 import { useNavigate } from 'react-router-dom'
+import { fetchNavigationUrl, openNavigation } from '../../modules/calendar/trips'
 import { MaggieInterruption } from './MaggieInterruption'
 import { useMaggieInterruption } from './useMaggieInterruption'
 
@@ -55,6 +56,22 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
     setError(null)
   }
 
+  // The « Y aller » link is read as soon as the alert shows, so that the click opens the tab at once:
+  // a tab opened after a wait is taken for a popup and blocked.
+  const departureTrip = current?.source === 'notification' ? current.departureTrip : undefined
+  const navigation = useRef<{ id: string; url?: string | null; promise: Promise<string | null> } | null>(null)
+  useEffect(() => {
+    if (!currentId || !departureTrip) {
+      navigation.current = null
+      return
+    }
+    const entry: NonNullable<typeof navigation.current> = { id: currentId, promise: fetchNavigationUrl(departureTrip) }
+    entry.promise.then((url) => {
+      entry.url = url
+    })
+    navigation.current = entry
+  }, [currentId, departureTrip])
+
   const send = useCallback(
     async (post: () => Promise<boolean>) => {
       if (!current) return
@@ -104,13 +121,27 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
     dismiss(false)
   }, [current, dataProvider, dismiss])
 
+  const goToDeparture = useCallback(async () => {
+    const entry = navigation.current
+    if (!current || !entry || entry.id !== current.id) return
+    const url = entry.url !== undefined ? entry.url : await entry.promise
+    if (currentIdRef.current !== current.id) return
+    if (!url) {
+      setError("L'itinéraire est introuvable : ouvre l'agenda pour le retrouver.")
+      return
+    }
+    openNavigation(url)
+    markRead()
+  }, [current, markRead])
+
   const act = useCallback(() => {
     if (!current) return
+    if (current.source === 'notification' && current.departureTrip) return void goToDeparture()
     if (current.source === 'proaction') return openChat()
     if (current.source === 'approval') return void answer('approve')
     if (current.source === 'notification' && current.shortageId) return void addToList()
     markRead()
-  }, [addToList, answer, current, markRead, openChat])
+  }, [addToList, answer, current, goToDeparture, markRead, openChat])
 
   const openLink = useCallback(() => {
     if (current?.source === 'approval') return void answer('deny')
@@ -126,9 +157,11 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
       : current?.source === 'notification'
         ? current.shortageId
           ? 'Ajouter à la liste'
-          : link
-            ? "C'est noté"
-            : 'Compris'
+          : current.departureTrip
+            ? 'Y aller'
+            : link
+              ? "C'est noté"
+              : 'Compris'
         : 'Ouvrir le chat'
   const secondaryLabel = current?.source === 'approval' ? 'Refuser' : link?.label
 
