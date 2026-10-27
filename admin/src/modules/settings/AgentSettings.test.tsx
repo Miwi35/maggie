@@ -259,3 +259,82 @@ describe('AgentSettings — proactions', () => {
     expect(await screen.findByText('Appeler la crèche')).toBeInTheDocument()
   })
 })
+
+describe('AgentSettings — Mémoire tab (MAG-20)', () => {
+  test('is the fifth tab of the « Maggie » settings and loads the memory tree', async () => {
+    const fetchMock = stubAgentApi([], {
+      'GET /agent/memory/tree': new Response(JSON.stringify({ files: [] })),
+      'GET /agent/memory/sync': new Response(
+        JSON.stringify({
+          enabled: true,
+          degraded: false,
+          degradedSince: null,
+          lastError: null,
+          lastSyncAt: null,
+          pending: 0,
+          pendingPaths: [],
+          conflicts: [],
+        }),
+      ),
+    })
+    render(<AgentSettings />)
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Mémoire' }))
+
+    expect(await screen.findByText('La mémoire est vide pour le moment.')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toContain('/agent/memory/tree')
+  })
+
+  test('follows the memory live through the page’s own Mercure connection, not a sixth one', async () => {
+    const sources: { url: string; onmessage: ((event: MessageEvent) => void) | null }[] = []
+    vi.stubGlobal(
+      'EventSource',
+      class {
+        onmessage: ((event: MessageEvent) => void) | null = null
+        close = vi.fn()
+        constructor(public url: string) {
+          sources.push(this)
+        }
+      },
+    )
+    localStorage.setItem('user', JSON.stringify({ id: 'u1' }))
+    let files: unknown[] = []
+    const base = stubAgentApi([])
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url === '/agent/memory/tree') return new Response(JSON.stringify({ files }))
+        if (url === '/agent/memory/sync') {
+          return new Response(
+            JSON.stringify({
+              enabled: true,
+              degraded: false,
+              degradedSince: null,
+              lastError: null,
+              lastSyncAt: null,
+              pending: 0,
+              pendingPaths: [],
+              conflicts: [],
+            }),
+          )
+        }
+        return base(input, init)
+      }),
+    )
+    render(<AgentSettings />)
+    await userEvent.click(await screen.findByRole('tab', { name: 'Mémoire' }))
+    await screen.findByText('La mémoire est vide pour le moment.')
+
+    const memoryStreams = sources.filter((s) => decodeURIComponent(s.url).includes('match=/memory/u1'))
+    expect(memoryStreams).toHaveLength(1)
+    expect(decodeURIComponent(memoryStreams[0].url)).toContain('match=/instructions/u1')
+
+    files = [{ path: 'Famille/Roses.md', title: 'Roses', kind: 'fiche', resume: '', archived: false, question: '', editable: true }]
+    memoryStreams[0].onmessage?.({ data: JSON.stringify({ paths: ['Famille/Roses.md'] }) } as MessageEvent)
+
+    expect(await screen.findByRole('button', { name: /Famille/ })).toBeInTheDocument()
+    vi.unstubAllGlobals()
+    vi.stubGlobal('EventSource', SilentEventSource)
+  })
+})

@@ -5,6 +5,7 @@ import { mercureUrl } from '../../hooks/mercureUrl'
 import { announceAgentName } from '../../hooks/useAgentName'
 import { agentFetch } from './agentFetch'
 import { StyleProposals } from './StyleProposals'
+import { MemorySettings, type MemoryNotice } from './MemorySettings'
 import { useMercure } from '../../hooks/useMercure'
 import { PROACTION_STATUS_LABELS } from '../calendar/proaction'
 import Box from '@mui/material/Box'
@@ -198,6 +199,14 @@ export const AgentSettings = () => {
   useEffect(() => () => proactionTimers.current.forEach(clearTimeout), [])
   useMercure(PROACTION_TOPICS, onProactionUpdate)
 
+  const memoryListeners = useRef(new Set<(paths: MemoryNotice) => void>())
+  const subscribeMemory = useCallback((listener: (paths: MemoryNotice) => void) => {
+    memoryListeners.current.add(listener)
+    return () => {
+      memoryListeners.current.delete(listener)
+    }
+  }, [])
+
   // Mercure subscriptions for live updates
   useEffect(() => {
     const userId = getStoredUserId()
@@ -206,6 +215,7 @@ export const AgentSettings = () => {
     const url = mercureUrl(MERCURE_URL, [
       agentTopic(AGENT_STREAMS.instructions, userId),
       agentTopic(AGENT_STREAMS.skills, userId),
+      agentTopic(AGENT_STREAMS.memory, userId),
     ])
     const eventSource = new EventSource(url.toString(), { withCredentials: true })
 
@@ -214,7 +224,10 @@ export const AgentSettings = () => {
         const data = JSON.parse(event.data)
 
         // Detect type by shape
-        if ('tags' in data || (data.deleted && 'name' in data)) {
+        if ('paths' in data) {
+          // Memory notice
+          memoryListeners.current.forEach((listener) => listener(data.paths ?? null))
+        } else if ('tags' in data || (data.deleted && 'name' in data)) {
           // Skill
           if (data.deleted) {
             setSkills((prev) => prev.filter((s) => s.name !== data.name))
@@ -450,13 +463,14 @@ export const AgentSettings = () => {
   }
 
   return (
-    <Box maxWidth={900} mx="auto" mt={2}>
+    <Box maxWidth={tab === 4 ? 1400 : 900} mx="auto" mt={2}>
       <Card>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tab label="Personnalité" />
           <Tab label="Instructions" />
           <Tab label="Compétences" />
           <Tab label="Proactions" />
+          <Tab label="Mémoire" />
         </Tabs>
 
         {/* Personality tab */}
@@ -787,6 +801,13 @@ export const AgentSettings = () => {
                 </Table>
               </TableContainer>
             )}
+          </CardContent>
+        )}
+
+        {/* Memory tab */}
+        {tab === 4 && (
+          <CardContent>
+            <MemorySettings notify={notify} subscribe={subscribeMemory} />
           </CardContent>
         )}
       </Card>

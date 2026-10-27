@@ -1,0 +1,14 @@
+# Same question after the owner's correction: the next turn's recall carries the corrected carte, so
+# she answers from it. The journey fails on « aucun scénario » if the correction did not reach the prompt.
+name: memory-correction-after
+description: Answer a mothers day question from the carte the owner corrected.
+
+match:
+  user_contains: "quelles fleurs pour françoise"
+  system_contains:
+    - "Souvenirs revenus"
+    - "Famille/Roses de Françoise.md"
+    - "Françoise adore les roses"
+
+turns:
+  - text: "Des roses pour Françoise : elle les adore, comme tu me l'as corrigé."

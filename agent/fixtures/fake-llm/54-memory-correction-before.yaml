@@ -1,0 +1,14 @@
+# The owner corrects a false fact in the Mémoire tab (MAG-20). Before the correction the recalled carte
+# still says « n'aime pas les roses »: she follows it.
+name: memory-correction-before
+description: Answer a mothers day question from the carte as it was before the owner corrected it.
+
+match:
+  user_contains: "quelles fleurs pour françoise"
+  system_contains:
+    - "Souvenirs revenus"
+    - "Famille/Roses de Françoise.md"
+    - "Françoise n'aime pas les roses"
+
+turns:
+  - text: "Pas de roses pour Françoise : elle ne les aime pas."

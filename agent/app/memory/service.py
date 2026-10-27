@@ -21,7 +21,7 @@ import asyncio
 import contextlib
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -59,6 +59,10 @@ from app.metrics import MEMORY_DEGRADED, MEMORY_OUTBOX_PENDING, MEMORY_SYNC_FAIL
 logger = logging.getLogger(__name__)
 
 MAX_PASSES = 3
+NOTIFY_DELAY_SECONDS = 0.4
+NOTIFY_MAX_PATHS = 50
+
+Notifier = Callable[[str, dict[str, Any]], Awaitable[None]]
 
 
 @dataclass
@@ -154,6 +158,10 @@ class MemoryService:
         self._tasks: dict[str, asyncio.Task] = {}
         self._known: set[str] = set()
         self._loop_task: asyncio.Task | None = None
+        # Told what changed in a user's folder, to let a screen follow it live (Mercure). None: nobody listens.
+        self.notifier: Notifier | None = None
+        self._touched: dict[str, set[str]] = {}
+        self._notify_tasks: dict[str, asyncio.Task] = {}
 
     @property
     def enabled(self) -> bool:
@@ -168,6 +176,33 @@ class MemoryService:
     def reset_status(self, user_id: str) -> None:
         self._status.pop(user_id, None)
         MEMORY_DEGRADED.set(1 if self.degraded() else 0)
+
+    def touched(self, user_id: str, *rels: str) -> None:
+        """Remember that these files changed (and say so shortly, in one message): the web view follows by Mercure."""
+        if self.notifier is None:
+            return
+        self._touched.setdefault(user_id, set()).update(rels)
+        running = self._notify_tasks.get(user_id)
+        if running is None or running.done():
+            with contextlib.suppress(RuntimeError):  # no running loop: nobody to tell
+                self._notify_tasks[user_id] = asyncio.create_task(
+                    self._notify(user_id), name=f"memory-notify-{user_id}"
+                )
+
+    async def _notify(self, user_id: str) -> None:
+        # What is touched while a message is on its way goes in the next one: the loop ends only on an empty set.
+        while True:
+            await asyncio.sleep(NOTIFY_DELAY_SECONDS)
+            changed = sorted(self._touched.pop(user_id, set()))
+            if self.notifier is None:
+                return
+            payload: dict[str, Any] = {"paths": changed if len(changed) <= NOTIFY_MAX_PATHS else None}
+            try:
+                await self.notifier(user_id, payload)
+            except Exception:
+                logger.warning("Could not tell the web view that the memory of %s changed", user_id, exc_info=True)
+            if not self._touched.get(user_id):
+                return
 
     def _lock(self, locks: dict[str, asyncio.Lock], user_id: str) -> asyncio.Lock:
         # Locks bind to the event loop that contended for them: one per user, created on demand.
@@ -260,6 +295,7 @@ class MemoryService:
             folder.delete(rel)
             await memory_outbox_repo.enqueue(user_id, rel, OP_DELETE, None, known.etag if known else None)
         await memory_index_repo.remove(user_id, rel)
+        self.touched(user_id, rel)
         if journal:
             await self.journal(user_id, f"supprimé `{rel}`" + (f" — {reason}" if reason else ""))
         self.schedule(user_id)
@@ -279,7 +315,9 @@ class MemoryService:
         text = folder.read(old)
         if text is None:
             raise paths.UnsafePath(f"{old!r} does not exist")
-        if old != new and new.casefold() in {f.casefold() for f in folder.files()}:
+        if old == new:
+            return new
+        if new.casefold() in {f.casefold() for f in folder.files() if f != old}:
             raise paths.UnsafePath(f"{new!r} already exists")
         async with self._lock(self._index_locks, user_id):
             await self._save_local_and_queue(user_id, new, text)
@@ -297,6 +335,7 @@ class MemoryService:
             current = folder.read(paths.JOURNAL)
             folder.write(paths.JOURNAL, (current if current is not None else generated.journal_header()) + line)
             await memory_outbox_repo.enqueue(user_id, paths.JOURNAL, OP_APPEND, line, None)
+        self.touched(user_id, paths.JOURNAL)
 
     async def record_use(self, user_id: str, card_id: str) -> None:
         await memory_usage_repo.record(user_id, card_id, self._clock())
@@ -313,6 +352,7 @@ class MemoryService:
             known = folder.load_state().get(rel)
             await memory_outbox_repo.enqueue(user_id, rel, OP_PUT, text, known.etag if known else None)
             folder.write(rel, text)
+        self.touched(user_id, rel)
         return existed
 
     # ------------------------------------------------------------------ degraded mode
@@ -456,6 +496,7 @@ class MemoryService:
         first = status.degraded_since is None
         if first:
             status.degraded_since = self._clock()
+            self.touched(user_id)
         status.last_error = str(error)[:300]
         MEMORY_SYNC_FAILURES.labels(reason=type(error).__name__).inc()
         MEMORY_DEGRADED.set(1)
@@ -473,6 +514,7 @@ class MemoryService:
         status = self.status(user_id)
         if status.degraded_since is not None:
             logger.warning("Memory bucket answers again for user %s; degraded since %s", user_id, status.degraded_since)
+            self.touched(user_id)
         status.degraded_since = None
         status.last_error = ""
         status.last_ok = time.monotonic()
@@ -513,6 +555,7 @@ class MemoryService:
                 state.pop(rel, None)
                 report.removed.add(rel)
                 report.deleted += 1
+                self.touched(user_id, rel)
                 MEMORY_SYNC_FILES.labels(direction="deleted").inc()
             for rel in sorted(remote):
                 if rel in waiting:
@@ -531,6 +574,7 @@ class MemoryService:
                     folder.write(rel, text)
                 state[rel] = Known(data.etag, sha(text))
                 report.pulled += 1
+                self.touched(user_id, rel)
                 MEMORY_SYNC_FILES.labels(direction="pulled").inc()
         finally:
             folder.save_state(state)

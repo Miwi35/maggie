@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
+from app.api.memory_routes import router as memory_router
 from app.auth import (
     get_current_user_id,
     get_smoke_account_id,
@@ -50,6 +51,7 @@ from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, SpeechUnavailableError, 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+router.include_router(memory_router)
 
 llm_gateway = LLMGateway()
 streaming_gateway = StreamingGateway()
