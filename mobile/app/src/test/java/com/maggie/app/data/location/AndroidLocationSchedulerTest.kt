@@ -82,10 +82,10 @@ class AndroidLocationSchedulerTest {
     }
 
     /** Runs the work the way WorkManager does once its constraints are met, with the reporter's position source recorded. */
-    private fun accuraciesAskedBy(name: String, periodic: Boolean): List<PositionAccuracy> = runBlocking {
+    private fun accuraciesAskedBy(name: String, periodic: Boolean, enabled: Boolean = true): List<PositionAccuracy> = runBlocking {
         val source = FakePositionSource()
         val preferences = preferencesIn(folder.root)
-        preferences.setEnabled(true)
+        preferences.setEnabled(enabled)
         val reporter = LocationReporter(RecordingApi().service, preferences, permissions, source)
         stopKoin()
         startKoin { modules(module { single { reporter }; single<TransitionRegistrar> { transitions } }) }
@@ -93,7 +93,10 @@ class AndroidLocationSchedulerTest {
         val driver = WorkManagerTestInitHelper.getTestDriver(ApplicationProvider.getApplicationContext())!!
         driver.setAllConstraintsMet(id)
         if (periodic) driver.setPeriodDelayMet(id)
-        repeat(100) { if (source.requested.isEmpty()) delay(50) }
+        repeat(100) {
+            val finished = infos(name).single().state == WorkInfo.State.SUCCEEDED
+            if (source.requested.isEmpty() && !finished) delay(50)
+        }
         source.requested.toList()
     }
 
@@ -119,6 +122,25 @@ class AndroidLocationSchedulerTest {
         accuraciesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true)
 
         assertEquals(registrations + 1, transitions.registrations)
+    }
+
+    @Test
+    fun `a push after the switch went off does not bring the listening back`() {
+        scheduler.requestPositionNow()
+
+        accuraciesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false, enabled = false)
+
+        assertEquals(0, transitions.registrations)
+    }
+
+    @Test
+    fun `a push without the activity permission does not bring the listening back`() {
+        permissions.activity = false
+        scheduler.requestPositionNow()
+
+        accuraciesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false)
+
+        assertEquals(0, transitions.registrations)
     }
 
     @Test
