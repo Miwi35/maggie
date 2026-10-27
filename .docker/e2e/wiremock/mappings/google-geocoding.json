@@ -17,6 +17,30 @@
       }
     },
     {
+      "name": "Google Geocoding — an address in the countryside (48.2, -1.5), where Routes finds no transit",
+      "priority": 2,
+      "request": {
+        "method": "GET",
+        "urlPath": "/google-geocoding/maps/api/geocode/json",
+        "queryParameters": {
+          "address": { "matches": ".*Campagne.*" }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "status": "OK",
+          "results": [
+            {
+              "formatted_address": "Lieu-dit de la Campagne Fictive, 35000 Rennes, France",
+              "geometry": { "location": { "lat": 48.2, "lng": -1.5 } }
+            }
+          ]
+        }
+      }
+    },
+    {
       "name": "Google Geocoding — every other address is the seeded dentist (48.118, -1.668)",
       "priority": 5,
       "request": {

@@ -28,6 +28,11 @@ interface TripEstimate {
   parkingKnown: boolean
 }
 
+interface UnavailableMode {
+  mode: string
+  reason: string
+}
+
 const HOME = { latitude: 48.11, longitude: -1.68 }
 /** 300 m north of home: far enough to walk to. */
 const CAR = { latitude: 48.1127, longitude: -1.68 }
@@ -87,4 +92,30 @@ test('an event without a location is refused, naming the event', async ({ api })
 
   expect(refused.field).toBe('eventId')
   expect(String(refused.error)).toMatch(/has no location/)
+})
+
+test('a mode without a route is unavailable and the car trip is kept — MAG-665', async ({ api }) => {
+  const day = parisDay()
+  const created = await callMcpTool(api, 'create_event', {
+    title: 'Déjeuner à la campagne',
+    start_date: day,
+    start_time: '12:30',
+    end_date: day,
+    end_time: '14:00',
+    location: 'Lieu-dit de la Campagne Fictive, 35000 Rennes',
+  })
+  expect(created.error, JSON.stringify(created)).toBeUndefined()
+  const eventId = (created.event as { id: string }).id
+
+  const now = e2eNow().toISOString()
+  expect((await api.put('/api/me/location', { data: { ...HOME, accuracy: 10, capturedAt: now } })).status()).toBe(204)
+  expect((await api.put('/api/me/car', { data: { ...HOME, parkedAt: now } })).status()).toBe(204)
+
+  const trip = await callMcpTool(api, 'estimate_trip', { eventId, modes: ['drive', 'transit'], origin: 'position' })
+
+  expect(trip.error, JSON.stringify(trip)).toBeUndefined()
+  expect((trip.estimates as TripEstimate[]).map((estimate) => estimate.mode)).toEqual(['drive'])
+  const unavailable = trip.unavailable as UnavailableMode[]
+  expect(unavailable.map((mode) => mode.mode)).toEqual(['transit'])
+  expect(unavailable[0].reason).toMatch(/no transit route/)
 })
