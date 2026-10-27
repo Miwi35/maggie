@@ -224,7 +224,7 @@ function SortableGroceryItem({
       >
         <DragIndicatorIcon fontSize="small" sx={{ color: 'action.disabled' }} />
       </IconButton>
-      <ListItemButton onClick={isRemoving ? undefined : () => onViewDetail(item)} dense sx={{ minWidth: 0, ...(compact && { flex: '1 1 0' }) }}>
+      <ListItemButton onClick={isRemoving ? undefined : () => onViewDetail(item)} dense sx={{ minWidth: 0, flex: '1 1 0' }}>
         <ListItemIcon>
           <Checkbox
             edge="start"
@@ -240,7 +240,7 @@ function SortableGroceryItem({
         <ListItemText
           primary={label}
           secondary={packagedLine && lineDetail ? <span data-testid="needed-reminder">{lineDetail}</span> : null}
-          primaryTypographyProps={{ noWrap: compact, title: label }}
+          primaryTypographyProps={{ noWrap: true, title: label }}
           sx={{
             textDecoration: item.checked ? 'line-through' : 'none',
             opacity: item.checked ? 0.5 : 1,

@@ -94,14 +94,14 @@ describe('GroceryListView line, 390px wide', () => {
     expect(getComputedStyle(badge).flexShrink).toBe('0')
   })
 
-  test('on a desk the line stays on one row and the name may wrap', async () => {
+  test('on a desk the line stays on one row, and so does the name inside a store column', async () => {
     windowOf(1440)
     render(<GroceryListView />)
     const item = await row(LONG)
     const name = within(item).getByText(LONG)
 
     expect(item).toHaveStyle({ flexWrap: 'nowrap' })
-    expect(name).not.toHaveStyle({ whiteSpace: 'nowrap' })
+    expect(name).toHaveStyle({ whiteSpace: 'nowrap' })
     expect(within(item).getByTestId('grocery-item-controls')).not.toHaveStyle({ flexBasis: '100%' })
   })
 })
