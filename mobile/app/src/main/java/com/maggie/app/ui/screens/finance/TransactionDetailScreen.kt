@@ -49,6 +49,7 @@ import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionSheetSection
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatDay
 import com.maggie.app.data.model.incidentRegularisationLabel
 import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.data.model.transferBadgeLabel
@@ -126,7 +127,7 @@ fun TransactionDetailScreen(
             )
             Text(
                 text = listOfNotNull(
-                    transaction.bookedAt?.take(10),
+                    transaction.bookedAt?.let(::formatDay),
                     transactionStatusLabel(transaction.status, transaction.amountCents),
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
@@ -300,7 +301,7 @@ private fun RecurrenceSection(state: TransferDetailState, actions: TransactionSh
             modifier = Modifier.testTag(UiTags.RECURRING_ATTACHED),
         )
         transaction.recurringOccurrenceOn?.let {
-            Text("Échéance : ${it.take(10)}", style = MaterialTheme.typography.bodyMedium)
+            Text("Échéance : ${formatDay(it)}", style = MaterialTheme.typography.bodyMedium)
         }
         OutlinedButton(
             onClick = actions.onDetach,
@@ -354,7 +355,6 @@ private fun OneOffEnvelopeField(name: String?, enabled: Boolean, onClick: () -> 
             readOnly = true,
             label = { Text("Enveloppe ponctuelle") },
             placeholder = { Text("Aucune") },
-            supportingText = { Text("Hellfest, vacances… La dépense sort alors des enveloppes du mois.") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )

@@ -75,6 +75,27 @@ class TransactionSheetScreenTest {
     }
 
     @Test
+    fun `the sheet header writes the day as dd-MM-yyyy, like the list`() {
+        val dated = coffee.copy(bookedAt = "2026-10-20T00:00:00+00:00")
+        show(FakeTransactionTransfers(transactions = listOf(dated)))
+
+        open("Café du coin")
+
+        compose.onNodeWithText("20/10/2026 · Dépensée").assertIsDisplayed()
+        compose.onAllNodesWithText("2026-10-20", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `the sheet carries no explanatory text under its fields`() {
+        show(FakeTransactionTransfers(transactions = listOf(coffee)))
+
+        open("Café du coin")
+
+        compose.onAllNodesWithText("La dépense sort alors des enveloppes du mois", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Le sens vient du montant", substring = true).assertCountEquals(0)
+    }
+
+    @Test
     fun `« Voir la fiche » of a line the list has not loaded opens that line's sheet`() {
         val old = Transaction(id = "tx-old", label = "PRELEVEMENT PACIFICA", amountCents = -4200, bookedAt = "2026-10-01")
         val server = FakeTransactionTransfers(transactions = listOf(coffee, old), unlistedIds = setOf("tx-old"))
@@ -168,7 +189,7 @@ class TransactionSheetScreenTest {
 
         open("Café du coin")
         compose.onNodeWithTag(UiTags.RECURRING_ATTACHED).performScrollTo().assertTextContains("Série", substring = true)
-        compose.onNodeWithText("Échéance : 2026-09-14").assertExists()
+        compose.onNodeWithText("Échéance : 14/09/2026").assertExists()
 
         compose.onNodeWithTag(UiTags.RECURRING_DETACH).performScrollTo().performClick()
         compose.waitForIdle()
