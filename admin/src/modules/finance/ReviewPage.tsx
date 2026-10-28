@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -9,8 +10,6 @@ import IconButton from '@mui/material/IconButton'
 import LinearProgress from '@mui/material/LinearProgress'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import ToggleButton from '@mui/material/ToggleButton'
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import CheckIcon from '@mui/icons-material/Check'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
@@ -31,7 +30,7 @@ import { useSequenceCursor } from './reviewSequence'
 import { AVOIDABLE_LABEL, KEEP_LABEL } from './satisfaction'
 import { formatDay } from './recurringOperations'
 import { byDate, useReviewQueue } from './useReviewQueue'
-import type { ReviewItem, ReviewPeriod, ReviewState } from './useReviewQueue'
+import type { ReviewItem } from './useReviewQueue'
 
 const REVIEW_TOPICS = ['/api/transactions/{id}']
 
@@ -43,6 +42,23 @@ const ALL_DATES_LABEL = 'Toutes les dates'
 
 /** The group a line was listed in when the list was read: it keeps it while the owner works on it. */
 const listedRecognised = (item: ReviewItem): boolean => item.listedRecognised ?? item.recognised
+
+const Pill = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
+  <Chip
+    component="button"
+    label={label}
+    aria-pressed={active}
+    color={active ? 'primary' : 'default'}
+    variant={active ? 'filled' : 'outlined'}
+    onClick={onClick}
+  />
+)
+
+const Heading = ({ children }: { children: ReactNode }) => (
+  <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
+    {children}
+  </Typography>
+)
 
 const SATISFACTION_CHIP: Record<string, string> = { keep: KEEP_LABEL, avoidable: AVOIDABLE_LABEL }
 
@@ -222,6 +238,7 @@ export const ReviewPage = () => {
     return (
       <>
         <Title title="Revue" />
+        <Heading>Revue</Heading>
         <LinearProgress aria-label="Chargement" />
       </>
     )
@@ -231,6 +248,7 @@ export const ReviewPage = () => {
     return (
       <>
         <Title title="Revue" />
+        <Heading>Revue</Heading>
         <Alert severity="error" action={<Button onClick={retry}>Réessayer</Button>}>
           {error}
         </Alert>
@@ -258,21 +276,24 @@ export const ReviewPage = () => {
 
   return (
     <>
-      <Title title="Revue" />
+      <Title title={`Revue · ${counts.all}`} />
+      <Heading>Revue · {counts.all}</Heading>
 
       <Stack spacing={2} sx={{ mb: 2 }}>
         <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', rowGap: 1 }} alignItems="center">
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            aria-label="État"
-            value={filter.state}
-            onChange={(_, next: ReviewState | null) => next && change({ state: next })}
-          >
-            <ToggleButton value="all">Toutes · {counts.all}</ToggleButton>
-            <ToggleButton value="unrecognised">À qualifier · {counts.unrecognised}</ToggleButton>
-            <ToggleButton value="recognised">Reconnues · {counts.recognised}</ToggleButton>
-          </ToggleButtonGroup>
+          <Stack direction="row" spacing={1} role="group" aria-label="État">
+            <Pill label={`Toutes · ${counts.all}`} active={filter.state === 'all'} onClick={() => change({ state: 'all' })} />
+            <Pill
+              label={`À qualifier · ${counts.unrecognised}`}
+              active={filter.state === 'unrecognised'}
+              onClick={() => change({ state: 'unrecognised' })}
+            />
+            <Pill
+              label={`Reconnues · ${counts.recognised}`}
+              active={filter.state === 'recognised'}
+              onClick={() => change({ state: 'recognised' })}
+            />
+          </Stack>
 
           <TextField
             size="small"
@@ -294,17 +315,11 @@ export const ReviewPage = () => {
               <ChevronLeftIcon />
             </IconButton>
           )}
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            aria-label="Période"
-            value={filter.period}
-            onChange={(_, next: ReviewPeriod | null) => next && change({ period: next })}
-          >
-            <ToggleButton value="month">{monthLabel(filter.month)}</ToggleButton>
-            <ToggleButton value="since_review">{SINCE_REVIEW_LABEL}</ToggleButton>
-            <ToggleButton value="all">{ALL_DATES_LABEL}</ToggleButton>
-          </ToggleButtonGroup>
+          <Stack direction="row" spacing={1} role="group" aria-label="Période">
+            <Pill label={monthLabel(filter.month)} active={filter.period === 'month'} onClick={() => change({ period: 'month' })} />
+            <Pill label={SINCE_REVIEW_LABEL} active={filter.period === 'since_review'} onClick={() => change({ period: 'since_review' })} />
+            <Pill label={ALL_DATES_LABEL} active={filter.period === 'all'} onClick={() => change({ period: 'all' })} />
+          </Stack>
           {filter.period === 'month' && (
             <IconButton
               size="small"

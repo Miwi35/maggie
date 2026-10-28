@@ -45,7 +45,6 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
         <FormSection
           first
           title="Ce que la règle reconnaît"
-          description="La règle lit le libellé de chaque transaction. La casse et les accents n'ont pas d'importance. Le libellé est facultatif si vous choisissez un sens et un montant ci-dessous."
         />
 
         <Box sx={rowSx}>
@@ -56,19 +55,16 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
             defaultValue={withDefaults ? 'contains' : undefined}
             validate={required()}
             sx={halfSx}
-            helperText="Comment comparer le libellé au texte ci-contre."
           />
           <TextInput
             source="labelPattern"
             label="…ce texte"
             sx={halfSx}
-            helperText="Le nom du commerçant suffit : CARREFOUR, SNCF, NETFLIX… Facultatif avec un sens et un montant."
           />
         </Box>
 
         <FormSection
           title="Où la classer"
-          description="La catégorie posée sur les transactions reconnues."
         />
 
         <FormDataConsumer>
@@ -76,7 +72,6 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
             <QualificationInput
               required
               sense={senseOfDirection(formData.direction as string | undefined)}
-              categoryHelperText="Une qualification posée à la main ne sera jamais écrasée par cette règle."
             />
           )}
         </FormDataConsumer>
@@ -84,7 +79,6 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
 
         <FormSection
           title="Restreindre (facultatif)"
-          description="Pour distinguer deux dépenses au même libellé — par exemple un plein d'essence d'un café dans la même station. Sans libellé, un sens (dépense ou revenu) et un montant minimum ou maximum reconnaissent à eux seuls la transaction."
         />
 
         <SelectInput
@@ -94,7 +88,6 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
           defaultValue={withDefaults ? 'any' : undefined}
           validate={required()}
           fullWidth
-          helperText="Dépense pour les débits, Revenu pour les crédits."
         />
 
         <Box sx={rowSx}>
@@ -103,20 +96,17 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
             label="Montant minimum (€)"
             {...centsInput}
             sx={halfSx}
-            helperText="Laissez vide pour ne pas fixer de plancher."
           />
           <NumberInput
             source="maxAmountCents"
             label="Montant maximum (€)"
             {...centsInput}
             sx={halfSx}
-            helperText="Montants hors signe : une dépense de 15,99 € vaut 15,99."
           />
         </Box>
 
         <FormSection
           title="Arbitrage"
-          description="Quand plusieurs règles reconnaissent la même transaction, celle de plus haute priorité l'emporte."
         />
 
         <Box sx={rowSx}>
@@ -125,14 +115,12 @@ export const CategorizationRuleForm = ({ withDefaults = false }: CategorizationR
             label="Priorité"
             defaultValue={withDefaults ? 0 : undefined}
             sx={halfSx}
-            helperText="Plus le nombre est grand, plus la règle passe en premier. 0 par défaut."
           />
           <BooleanInput
             source="isActive"
             label="Règle active"
             defaultValue={withDefaults ? true : undefined}
             sx={halfSx}
-            helperText="Désactivez-la pour la mettre de côté sans la supprimer."
           />
         </Box>
 

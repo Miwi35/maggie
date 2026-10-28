@@ -49,10 +49,7 @@ export const ContactCounterpartiesSection = ({ contactId, contactName }: { conta
 
   return (
     <Box component="section" aria-label="Ses comptes" sx={{ px: 2, pb: 2, maxWidth: 680 }}>
-      <FormSection
-        title="Ses comptes"
-        description="Les libellés sous lesquels ses virements apparaissent sur vos relevés : chaque virement qui en porte un lui est rattaché."
-      />
+      <FormSection title="Ses comptes" />
 
       {error && <Alert severity="error">{error}</Alert>}
       {!counterparties && !error && <LinearProgress aria-label="Chargement" />}

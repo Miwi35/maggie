@@ -181,7 +181,6 @@ describe('RecurringOperationDialog', () => {
     await pick(/Catégorie/, 'Abonnements')
     await userEvent.click(screen.getByRole('switch', { name: 'Obligatoire' }))
     await pick('Type', 'Remboursement')
-    expect(screen.getByText(/Remboursement : ici, je rembourse/)).toBeInTheDocument()
     await userEvent.type(screen.getByLabelText(/Date d’une échéance/), '2026-10-05')
     await userEvent.click(screen.getByRole('button', { name: 'Créer la série' }))
 
@@ -199,7 +198,7 @@ describe('RecurringOperationDialog', () => {
     await userEvent.type(screen.getByLabelText(/Montant de référence/), '40')
     await pick('Type', 'Remboursement')
 
-    expect(screen.getByText(/Remboursement : ici, on me rembourse/)).toBeInTheDocument()
+    expect(screen.queryByText(/Remboursement : ici/)).toBeNull()
   })
 
   test('editing says how many attached lines will be requalified, once the qualification changes', async () => {
@@ -276,11 +275,11 @@ describe('RecurringOperationDialog', () => {
     expect(onSaved).not.toHaveBeenCalled()
   })
 
-  test('shows the label pattern field with a one-line help', () => {
+  test('shows the label pattern field, without a help text (MAG-634)', () => {
     renderDialog()
 
     expect(screen.getByLabelText(/Motif du libellé/)).toBeInTheDocument()
-    expect(screen.getByText(/reconnaît les transactions dont le libellé contient/i)).toBeInTheDocument()
+    expect(screen.queryByText(/reconnaît les transactions dont le libellé contient/i)).toBeNull()
   })
 
   test('with neither a payee nor a label pattern, the amount and its sign are enough', async () => {
@@ -295,7 +294,6 @@ describe('RecurringOperationDialog', () => {
       },
     })
 
-    expect(screen.getByText(/Sans contrepartie ni libellé, la série est reconnue par son montant ± tolérance et son sens/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Créer la série' }))
 
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1))

@@ -14,7 +14,6 @@ export const ContactList = () => (
     empty={
       <ListEmpty
         title="Aucun contact"
-        description="Ajoutez les personnes à qui vous prêtez ou qui vous prêtent : leurs virements leur seront rattachés."
         action="Nouveau contact"
       />
     }

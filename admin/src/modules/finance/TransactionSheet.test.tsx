@@ -391,7 +391,7 @@ describe('TransactionSheet', () => {
     expect(await screen.findByText(/posée par la série Crédit auto/)).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: 'Obligatoire' })).toBeChecked()
     expect(screen.getByRole('combobox', { name: 'Type' })).toHaveTextContent('Remboursement')
-    expect(screen.getByText(/Remboursement : ici, je rembourse/)).toBeInTheDocument()
+    expect(screen.queryByText(/ici, je rembourse/)).toBeNull()
   })
 
   // A line the API returns qualified by hand reads « à la main »: tested above. The sheet itself goes

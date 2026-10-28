@@ -12,7 +12,6 @@ interface RecurrenceSelectProps {
   required?: boolean
   size?: 'small' | 'medium'
   disabled?: boolean
-  helperText?: string
   /** The accessible name when there is no visible `label` (a row of a list). */
   inputLabel?: string
 }
@@ -24,7 +23,6 @@ export const RecurrenceSelect = ({
   required = false,
   size,
   disabled,
-  helperText,
   inputLabel,
 }: RecurrenceSelectProps) => (
   <TextField
@@ -33,7 +31,6 @@ export const RecurrenceSelect = ({
     value={value}
     size={size}
     disabled={disabled}
-    helperText={helperText}
     onChange={(e) => onChange(e.target.value as Frequency | '')}
     // `displayEmpty`: « Non » is the empty value, and must read as « Non », not as a blank field.
     slotProps={{ htmlInput: { 'aria-label': inputLabel }, select: { displayEmpty: true }, inputLabel: { shrink: true } }}

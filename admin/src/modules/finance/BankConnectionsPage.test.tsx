@@ -51,6 +51,15 @@ describe('BankConnectionsPage', () => {
     expect(screen.getByRole('button', { name: 'Reprendre' })).toBeInTheDocument()
   })
 
+  test('carries no help text under « Connecter une banque » (MAG-634)', async () => {
+    renderPage()
+
+    await screen.findByText('Revolut')
+    expect(screen.getByText('Connecter une banque')).toBeInTheDocument()
+    expect(screen.queryByText(/Vous serez redirigé vers votre banque/)).toBeNull()
+    expect(screen.queryByText(/caisse régionale/)).toBeNull()
+  })
+
   test('resuming sends the user back to their bank', async () => {
     const assign = vi.fn()
     vi.stubGlobal('location', { ...window.location, assign })

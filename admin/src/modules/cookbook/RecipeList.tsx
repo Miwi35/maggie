@@ -195,7 +195,6 @@ export const RecipeList = () => (
     empty={
       <ListEmpty
         title="Aucune recette pour l'instant"
-        description="Enregistrez vos recettes pour les retrouver et les planifier dans les repas de la semaine."
         action="Ajouter une recette"
       />
     }

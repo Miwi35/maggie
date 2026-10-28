@@ -159,7 +159,7 @@ describe('CreateFilterDialog', () => {
     await waitFor(() => expect(within(dialog).getByLabelText('Catégorie')).toHaveValue('Alimentation'))
     const mandatory = within(dialog).getByRole('switch', { name: 'Obligatoire' })
     expect(mandatory).toBeChecked()
-    expect(within(dialog).getByText(/je rembourse/)).toBeInTheDocument()
+    expect(within(dialog).queryByText(/je rembourse/)).toBeNull()
 
     await user.click(mandatory)
     await user.click(within(dialog).getByRole('button', { name: 'Créer le filtre' }))

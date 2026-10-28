@@ -301,14 +301,11 @@ private fun Helper(text: String) {
 }
 
 @Composable
-private fun SectionTitle(title: String, description: String? = null) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        description?.let { Helper(it) }
-    }
+private fun SectionTitle(title: String) {
+    Text(title, style = MaterialTheme.typography.titleMedium)
 }
 
-/** The fields in the order the admin asks them, a helper line under each. */
+/** The fields in the order the admin asks them; a line under one only to say what is wrong with it. */
 @Composable
 internal fun CategoryFormFields(
     form: CategoryFormState,
@@ -320,10 +317,7 @@ internal fun CategoryFormFields(
         modifier = Modifier.uiTagRoot(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SectionTitle(
-            "La catégorie",
-            "Les catégories classent vos transactions : elles portent les budgets, les règles automatiques et la revue mensuelle.",
-        )
+        SectionTitle("La catégorie")
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             OutlinedTextField(
@@ -334,7 +328,7 @@ internal fun CategoryFormFields(
                 singleLine = true,
                 isError = form.nameError != null,
             )
-            Helper(form.nameError ?: "Alimentation, Loisirs, Transport…")
+            form.nameError?.let { Helper(it) }
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -358,7 +352,6 @@ internal fun CategoryFormFields(
                         .clickable(role = Role.Button, onClick = onPickParent),
                 )
             }
-            Helper("Laissez vide pour une catégorie principale. Trois niveaux au maximum : Loisirs › Bars › Obsydian.")
         }
 
         Row(
@@ -373,21 +366,15 @@ internal fun CategoryFormFields(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Rente")
-                Helper(
-                    "Un revenu qui rentre sans être travaillé — loyers perçus, dividendes, intérêts, redevances. C'est ce que le compteur d'indépendance compare à votre train de vie.",
-                )
-            }
+            Text("Rente", modifier = Modifier.weight(1f))
             Switch(checked = form.passiveIncome, onCheckedChange = null)
         }
 
-        SectionTitle("Repères visuels", "Facultatif, pour repérer la catégorie d'un coup d'œil.")
+        SectionTitle("Repères visuels")
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Couleur", style = MaterialTheme.typography.bodyLarge)
             CategoryColorPicker(value = form.color, onChange = { form.color = it })
-            Helper("Touchez une couleur, ou « Autre couleur » pour la composer.")
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -413,7 +400,6 @@ internal fun CategoryFormFields(
                         .clickable(role = Role.Button, onClick = onPickIcon),
                 )
             }
-            Helper("Choisissez une icône dans la grille, ou cherchez-la par son nom : courses, voiture, restaurant…")
         }
     }
 }

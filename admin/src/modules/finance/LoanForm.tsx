@@ -16,11 +16,7 @@ interface LoanFormProps {
 
 export const LoanForm = ({ withDefaults = false, endsOn }: LoanFormProps) => (
   <SimpleForm sx={formSx}>
-    <FormSection
-      first
-      title="Le prêt"
-      description="Les trois chiffres ci-dessous suffisent : la date de fin se déduit de l'amortissement, elle n'est pas à saisir."
-    />
+    <FormSection first title="Le prêt" />
 
     <Box sx={rowSx}>
       <TextInput source="name" label="Nom" validate={required()} sx={halfSx} />
@@ -28,7 +24,6 @@ export const LoanForm = ({ withDefaults = false, endsOn }: LoanFormProps) => (
         source="lender"
         label="Organisme prêteur"
         sx={halfSx}
-        helperText="Facultatif — pour vous y retrouver."
       />
     </Box>
 
@@ -39,7 +34,6 @@ export const LoanForm = ({ withDefaults = false, endsOn }: LoanFormProps) => (
         validate={required()}
         {...centsInput}
         sx={halfSx}
-        helperText="Ce qu'il reste à rembourser aujourd'hui."
       />
       <NumberInput
         source="monthlyPaymentCents"
@@ -47,7 +41,6 @@ export const LoanForm = ({ withDefaults = false, endsOn }: LoanFormProps) => (
         validate={required()}
         {...centsInput}
         sx={halfSx}
-        helperText="Doit couvrir les intérêts du mois, sinon le prêt ne s'éteint jamais."
       />
     </Box>
 
@@ -58,30 +51,24 @@ export const LoanForm = ({ withDefaults = false, endsOn }: LoanFormProps) => (
         defaultValue={withDefaults ? 0 : undefined}
         {...basisPointsInput}
         sx={halfSx}
-        helperText="0 pour un prêt sans intérêt."
       />
       <TextInput
         source="currency"
         label="Devise"
         defaultValue={withDefaults ? 'EUR' : undefined}
         sx={halfSx}
-        helperText="Code ISO 4217."
       />
     </Box>
 
     <LoanTermsFields endsOn={endsOn} withDefaults={withDefaults} />
 
-    <FormSection
-      title="Ordre de libération"
-      description="Sert à trier vos prêts quand vous arbitrez lequel solder en premier."
-    />
+    <FormSection title="Ordre de libération" />
 
     <NumberInput
       source="priority"
       label="Priorité"
       defaultValue={withDefaults ? 0 : undefined}
       sx={halfSx}
-      helperText="Plus le nombre est grand, plus le prêt remonte dans la liste."
     />
   </SimpleForm>
 )

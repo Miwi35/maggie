@@ -136,17 +136,13 @@ describe('CategorizationRuleForm', () => {
     expect(screen.getByText('Arbitrage')).toBeInTheDocument()
   })
 
-  test('spells out the two rules a person cannot guess', async () => {
+  test('carries no explanatory text: the sections are titled, the why lives in the spec (MAG-634)', async () => {
     renderForm()
 
-    // Amounts are stored unsigned, and a manual category wins over the engine.
-    expect(
-      await screen.findByText(/une dépense de 15,99 € vaut 15,99/i),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(/ne sera jamais écrasée par cette règle/i),
-    ).toBeInTheDocument()
-    expect(screen.getByText(/Plus le nombre est grand/i)).toBeInTheDocument()
+    await screen.findByText('Arbitrage')
+    for (const help of [/une dépense de 15,99 € vaut 15,99/i, /ne sera jamais écrasée/i, /Plus le nombre est grand/i, /La règle lit le libellé/i]) {
+      expect(screen.queryByText(help)).toBeNull()
+    }
   })
 
   test('prompts for the missing pieces before anything is filled in', async () => {

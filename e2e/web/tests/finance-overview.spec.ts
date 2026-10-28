@@ -467,7 +467,7 @@ test('Finance › Configuration: one tab per aspect, the banks tab is the banks 
 
   await overview.navigateTo('Configuration', 'Finance')
 
-  await expect(overview.content.getByRole('tab')).toHaveText(['Banques', 'Catégories'])
+  await expect(overview.content.getByRole('tab')).toHaveText(['Catégories', 'Banques'])
   await expect(overview.content.getByTestId('summary-block')).toHaveCount(0)
 
   await overview.content.getByRole('tab', { name: 'Banques' }).click()

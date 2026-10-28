@@ -167,7 +167,7 @@ describe('Breadcrumbs', () => {
   test('the recurring operations page sits under Finance', () => {
     renderAt('/finance/recurring-operations')
 
-    expect(labels()).toEqual(['Finance', 'Revue', 'Opérations récurrentes'])
+    expect(labels()).toEqual(['Finance', 'Configuration', 'Opérations récurrentes'])
     expect(screen.getByText('Opérations récurrentes')).toHaveAttribute('aria-current', 'page')
   })
 
@@ -312,7 +312,6 @@ describe('PageHeading — the h1 of every page', () => {
     ['/products', 'Produits'],
     ['/meals', 'Repas'],
     ['/finance/dashboard', 'Finance'],
-    ['/finance/summary/review', 'Revue'],
     ['/accounts', 'Comptes'],
     ['/settings/preferences', 'Préférences'],
     ['/agendas', 'Agendas'],
@@ -359,6 +358,12 @@ describe('PageHeading — the h1 of every page', () => {
     renderHeading('/events/create')
 
     expect(screen.getByRole('heading', { level: 1, name: 'Nouveau · Événements' })).toBeInTheDocument()
+  })
+
+  test.each(['/finance/review', '/finance/summary/review'])('the Revue %s draws its own h1, which carries its count', (path) => {
+    renderHeading(path)
+
+    expect(screen.queryByRole('heading')).toBeNull()
   })
 
   test.each(['/recipes/create', `/recipes/${encodeURIComponent('/api/recipes/01')}/show`])(

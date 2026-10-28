@@ -10,7 +10,6 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
-import Typography from '@mui/material/Typography'
 import { useCreate, useGetList, useUpdate } from 'react-admin'
 import { signedAmountCents, natureOfAmount } from './transactionStatuses'
 import {
@@ -186,7 +185,7 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
             value={values.label}
             onChange={(e) => set('label', e.target.value)}
             error={Boolean(shown('label'))}
-            helperText={shown('label') ?? 'Le nom que vous lirez dans la liste — « Abonnement Flixo », « Loyer ».'}
+            helperText={shown('label')}
             required
             fullWidth
           />
@@ -194,26 +193,21 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
             label="Contrepartie attendue"
             value={values.counterpartyName}
             onChange={(e) => set('counterpartyName', e.target.value)}
-            helperText="Facultatif. Qui est payé (ou qui paie), tel que la banque le nomme : c’est ce qui rattache les transactions."
             fullWidth
           />
           <TextField
             label="Motif du libellé"
             value={values.labelPattern}
             onChange={(e) => set('labelPattern', e.target.value)}
-            helperText="Facultatif. Reconnaît les transactions dont le libellé contient… (si la banque ne nomme pas la contrepartie)."
             fullWidth
           />
-          <Typography variant="caption" color="text.secondary">
-            Sans contrepartie ni libellé, la série est reconnue par son montant ± tolérance et son sens.
-          </Typography>
           <TextField
             label="Montant de référence (€)"
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             error={Boolean(shown('amount'))}
-            helperText={shown('amount') ?? 'Toujours positif : le choix Dépense / Recette donne le sens.'}
+            helperText={shown('amount')}
             slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
             required
             fullWidth
@@ -245,7 +239,6 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
             sense={senseOfAmount(signedAmountCents(cents, nature))}
             error={shown('category')}
             onChange={(next) => setValues((v) => ({ ...v, category: next.category ?? '', qualification: next.qualification }))}
-            categoryHelperText="Toutes les catégories sont proposées : le sens vient du montant."
           />
           <RequalifiedNotice count={requalified} />
 
@@ -286,7 +279,7 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
               value={values.anchorOn}
               onChange={(e) => set('anchorOn', e.target.value)}
               error={Boolean(shown('anchorOn'))}
-              helperText={shown('anchorOn') ?? 'La série se compte à partir d’elle.'}
+              helperText={shown('anchorOn')}
               slotProps={{ inputLabel: { shrink: true } }}
               required
               fullWidth
@@ -296,7 +289,6 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
               type="date"
               value={values.endsOn}
               onChange={(e) => set('endsOn', e.target.value)}
-              helperText="Facultatif : laissez vide tant que la série continue."
               slotProps={{ inputLabel: { shrink: true } }}
               fullWidth
             />
@@ -309,7 +301,6 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
               value={values.amountTolerancePercent}
               onChange={(e) => set('amountTolerancePercent', Number(e.target.value))}
               slotProps={{ htmlInput: { min: 0, max: 100 } }}
-              helperText="Au-delà, la transaction est proposée, pas rattachée."
               fullWidth
             />
             <TextField
@@ -318,7 +309,6 @@ export const RecurringOperationDialog = ({ recordId, initial, onClose, onSaved }
               value={values.dateToleranceDays}
               onChange={(e) => set('dateToleranceDays', Number(e.target.value))}
               slotProps={{ htmlInput: { min: 0, max: 31 } }}
-              helperText="Écart accepté autour de l’échéance."
               fullWidth
             />
           </Stack>

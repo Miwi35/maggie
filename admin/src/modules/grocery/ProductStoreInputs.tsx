@@ -137,7 +137,6 @@ const AisleChoice = ({
 const StoreWithAisle = ({
   source,
   label,
-  helperText,
   aisleLabel,
   storeId,
   otherStoreId,
@@ -145,7 +144,6 @@ const StoreWithAisle = ({
 }: {
   source: 'preferredStore' | 'fallbackStore'
   label: string
-  helperText: string
   aisleLabel: string
   storeId: string | null
   otherStoreId: string | null
@@ -157,7 +155,6 @@ const StoreWithAisle = ({
         label={label}
         optionText="name"
         sx={halfSx}
-        helperText={helperText}
         onChange={(value: unknown) => {
           const next = typeof value === 'string' && value ? bareId(value) : null
           if (control && storeId && next !== storeId && storeId !== otherStoreId) control.setAisles(withAisleIn(control.aisles, storeId, null))
@@ -220,14 +217,10 @@ const OtherStoreAisles = ({ excluded, control }: { excluded: (string | null)[]; 
 
 const StoreInputs = ({ control, preferred, fallback }: { control?: AisleControl; preferred: string | null; fallback: string | null }) => (
   <>
-    <FormSection
-      title="Où l'acheter"
-      description="Quand un magasin est indiqué, l'article part directement dans la bonne liste, rangé dans son rayon."
-    />
+    <FormSection title="Où l'acheter" />
     <StoreWithAisle
       source="preferredStore"
       label="Magasin habituel"
-      helperText="Facultatif."
       aisleLabel="Rayon du magasin habituel"
       storeId={preferred}
       otherStoreId={fallback}
@@ -236,7 +229,6 @@ const StoreInputs = ({ control, preferred, fallback }: { control?: AisleControl;
     <StoreWithAisle
       source="fallbackStore"
       label="À défaut"
-      helperText="Le magasin de repli quand le premier ne l'a pas."
       aisleLabel="Rayon du magasin à défaut"
       storeId={fallback}
       otherStoreId={preferred}

@@ -37,7 +37,6 @@ const RenteInput = () => {
     <BooleanInput
       source="passiveIncome"
       label="Rente"
-      helperText="Un revenu qui rentre sans être travaillé — loyers perçus, dividendes, intérêts, redevances. C'est ce que le compteur d'indépendance compare à votre train de vie."
     />
   )
 }
@@ -62,7 +61,6 @@ const ParentInput = () => {
       choices={choices}
       optionText={categoryLabel}
       fullWidth
-      helperText="Laissez vide pour une catégorie principale. Trois niveaux au maximum : Loisirs › Bars › Obsydian."
     />
   )
 }
@@ -72,7 +70,6 @@ export const CategoryForm = () => (
     <FormSection
       first
       title="La catégorie"
-      description="Les catégories classent vos transactions : elles portent les budgets, les règles automatiques et la revue mensuelle."
     />
 
     <TextInput
@@ -80,25 +77,22 @@ export const CategoryForm = () => (
       label="Nom"
       validate={required()}
       fullWidth
-      helperText="Alimentation, Loisirs, Transport…"
     />
 
     <ParentInput />
 
     <RenteInput />
 
-    <FormSection title="Repères visuels" description="Facultatif, pour repérer la catégorie d'un coup d'œil." />
+    <FormSection title="Repères visuels" />
 
     <ColorInput
       source="color"
       label="Couleur"
-      helperText="Cliquez sur une couleur, ou sur la pastille de droite pour en choisir une autre."
     />
 
     <CategoryIconPicker
       source="icon"
       label="Icône"
-      helperText="Choisissez une icône dans la grille, ou cherchez-la par son nom : courses, voiture, restaurant…"
     />
   </SimpleForm>
 )

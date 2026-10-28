@@ -4,7 +4,6 @@ import { useGetList } from 'react-admin'
 import { useBankConnections } from './useBankConnections'
 import { useFinanceDashboard } from './useFinanceDashboard'
 import { fetchProjects } from './projectsApi'
-import { useRecurringOverview } from './useRecurringOperations'
 
 /** `undefined` while the answer is not known; a failed read counts as « no data », it must not hold the page back. */
 type Probe = () => boolean | undefined
@@ -24,18 +23,11 @@ const useListHasRows = (resource: string): boolean | undefined => {
 }
 
 const useAccountsProbe: Probe = () => useListHasRows('accounts')
-const useRulesProbe: Probe = () => useListHasRows('categorization_rules')
 const useLoansProbe: Probe = () => useListHasRows('loans')
 const useCategoriesProbe: Probe = () => useListHasRows('categories')
 
 /** The list of the transactions is always worth opening, empty or not: the menu lands on it first. */
 const useReviewProbe: Probe = () => true
-
-const useRecurringProbe: Probe = () => {
-  const { overview, error } = useRecurringOverview()
-
-  return settled((overview?.totals.activeCount ?? 0) > 0, !overview && !error)
-}
 
 const useProjectsProbe: Probe = () => {
   const [any, setAny] = useState<boolean | undefined>(undefined)
@@ -68,8 +60,6 @@ const useNoDataProbe: Probe = () => false
 const PROBES: Record<string, Probe> = {
   accounts: useAccountsProbe,
   review: useReviewProbe,
-  rules: useRulesProbe,
-  recurring: useRecurringProbe,
   // Budget opens on Mois; the treasury is a single page: nothing to choose between.
   month: useNoDataProbe,
   outside: useNoDataProbe,

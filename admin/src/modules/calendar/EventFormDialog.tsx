@@ -198,7 +198,6 @@ export const EventFormDialog = ({
               label="Répéter"
               value={rruleToFrenchText(seriesRrule)}
               disabled
-              helperText="La règle de la série ne se change pas depuis une occurrence."
             />
           ) : (
             <RecurrencePicker

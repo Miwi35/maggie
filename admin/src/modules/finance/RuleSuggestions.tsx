@@ -156,10 +156,7 @@ export const RuleSuggestions = () => {
     return (
       <Card>
         <CardContent>
-          <Placeholder
-            title="Rien à proposer pour l'instant"
-            description="Les suggestions viennent des transactions déjà importées : un commerçant qui revient au moins deux fois et qu'aucune règle ne couvre encore."
-          />
+          <Placeholder title="Rien à proposer pour l'instant" />
         </CardContent>
       </Card>
     )
@@ -168,13 +165,8 @@ export const RuleSuggestions = () => {
   return (
     <Card>
       <CardContent>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
           Règles déduites de vos transactions
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Chaque ligne est un commerçant qui revient dans vos relevés. Vérifiez la catégorie,
-          décochez ce que vous ne voulez pas, et les règles retenues seront appliquées à
-          l'historique dans la foulée.
         </Typography>
 
         {kept.length === 0 && (

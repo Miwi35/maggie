@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
@@ -131,6 +132,13 @@ class CookingScreensTest {
         compose.onNodeWithText("Pâtes").assertExists()
         compose.onNodeWithText("Tarte").assertExists()
         compose.onNodeWithText("Recette 2 sur 3 · Préparation").assertIsDisplayed()
+    }
+
+    @Test
+    fun `C'est parti is a centred pill of its own width, not a bar across the screen`() {
+        draw(state())
+
+        compose.onNodeWithTag(UiTags.COOKING_START).assertWidthIsEqualTo(240.dp)
     }
 
     @Test

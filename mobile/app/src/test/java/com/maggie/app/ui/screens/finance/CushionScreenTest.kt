@@ -69,6 +69,8 @@ class CushionScreenTest {
 
         compose.onNodeWithText("Le plafond mensuel allonge", substring = true).assertDoesNotExist()
         compose.onNodeWithText("La cible est un nombre de mois", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("En dessous, toute l'épargne", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Au-delà du seuil", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Matelas de sécurité").assertIsDisplayed()
         compose.onNodeWithText("Réglages").assertIsDisplayed()
     }

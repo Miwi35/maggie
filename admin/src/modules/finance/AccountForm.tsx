@@ -21,11 +21,7 @@ interface AccountFormProps {
 
 export const AccountForm = ({ withDefaults = false }: AccountFormProps) => (
   <SimpleForm sx={formSx}>
-    <FormSection
-      first
-      title="Le compte"
-      description="Le nom est celui que vous utiliserez partout ailleurs : dans les transactions, le matelas, la vue d'ensemble."
-    />
+    <FormSection first title="Le compte" />
 
     <Box sx={rowSx}>
       <TextInput
@@ -33,13 +29,11 @@ export const AccountForm = ({ withDefaults = false }: AccountFormProps) => (
         label="Nom"
         validate={required()}
         sx={halfSx}
-        helperText="Compte courant, Livret A, Revolut…"
       />
       <TextInput
         source="bank"
         label="Banque"
         sx={halfSx}
-        helperText="Facultatif — utile quand deux comptes portent le même nom."
       />
     </Box>
 
@@ -50,13 +44,9 @@ export const AccountForm = ({ withDefaults = false }: AccountFormProps) => (
       defaultValue={withDefaults ? 'checking' : undefined}
       validate={required()}
       fullWidth
-      helperText="Sert à regrouper vos comptes dans la vue d'ensemble."
     />
 
-    <FormSection
-      title="Solde"
-      description="Le solde est saisi à la main : les transactions que vous ajoutez ne le modifient pas automatiquement."
-    />
+    <FormSection title="Solde" />
 
     <Box sx={rowSx}>
       <NumberInput
@@ -65,14 +55,12 @@ export const AccountForm = ({ withDefaults = false }: AccountFormProps) => (
         defaultValue={withDefaults ? 0 : undefined}
         {...centsInput}
         sx={halfSx}
-        helperText="Négatif pour un découvert."
       />
       <TextInput
         source="currency"
         label="Devise"
         defaultValue={withDefaults ? 'EUR' : undefined}
         sx={halfSx}
-        helperText="Code ISO 4217 : EUR, CHF, USD…"
       />
     </Box>
 
@@ -80,7 +68,6 @@ export const AccountForm = ({ withDefaults = false }: AccountFormProps) => (
       source="isCushion"
       label="Ce compte fait partie du matelas de sécurité"
       defaultValue={withDefaults ? false : undefined}
-      helperText="Son solde sera compté dans votre filet de sécurité."
     />
   </SimpleForm>
 )

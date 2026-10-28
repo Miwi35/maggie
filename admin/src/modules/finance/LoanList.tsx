@@ -74,7 +74,6 @@ export const LoanList = () => (
       empty={
         <ListEmpty
           title="Aucun prêt enregistré"
-          description="Renseignez vos crédits en cours pour savoir quand chaque mensualité se libère, et ce qu'il vous reste vraiment à épargner."
           action="Ajouter un prêt"
         />
       }

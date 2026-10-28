@@ -49,7 +49,6 @@ export const IndependencePanel = () => {
         ) : (
           <Placeholder
             title="Aucune rente déclarée"
-            description="Cochez « Rente » sur une catégorie de recette — loyers perçus, dividendes, intérêts — pour suivre la part du train de vie qu'elles couvrent."
             action={
               <Button component={Link} to="/categories" variant="contained">
                 Déclarer une rente

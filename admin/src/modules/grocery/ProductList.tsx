@@ -303,7 +303,6 @@ export const ProductList = () => {
         empty={
           <ListEmpty
             title="Aucun produit pour l'instant"
-            description="Les produits sont ce que vous ajoutez à votre liste de courses : enregistrez ceux que vous rachetez souvent."
             action="Ajouter un produit"
           />
         }

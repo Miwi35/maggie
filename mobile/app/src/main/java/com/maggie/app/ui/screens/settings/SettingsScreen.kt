@@ -52,6 +52,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -294,14 +295,12 @@ private fun SettingsList(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
+            TextButton(
                 onClick = { viewModel.logout() },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                ),
+                    .padding(horizontal = 8.dp)
+                    .testTag(UiTags.SETTINGS_LOGOUT),
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
             ) {
                 Icon(
                     Icons.Outlined.Logout,

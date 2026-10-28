@@ -112,11 +112,7 @@ export const StatementImportPage = () => {
 
       <Card sx={{ mb: 2 }}>
         <CardContent>
-          <FormSection
-            first
-            title="Déposer un relevé"
-            description="Le fichier CSV exporté depuis votre banque, quel qu'en soit le format. Rien n'est écrit avant que vous ayez lu le rapport et confirmé."
-          />
+          <FormSection first title="Déposer un relevé" />
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
             <TextField
@@ -142,10 +138,6 @@ export const StatementImportPage = () => {
               type="file"
               size="small"
               label="Fichier"
-              // The ceiling the API enforces, said before the upload rather
-              // than only in its refusal: a year of movements is a few tens of
-              // kilobytes, so meeting it is a sign the wrong file was picked.
-              helperText="CSV, 2 Mo au maximum"
               inputRef={fileInput}
               slotProps={{
                 inputLabel: { shrink: true },

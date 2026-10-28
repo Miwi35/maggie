@@ -24,10 +24,7 @@ const StoredEnvelopeSplit = ({ id, year, month }: { id: string; year: number; mo
 
   return (
     <>
-      <FormSection
-        title="Répartition entre les sous-catégories"
-        description="Glissez une poignée pour déplacer la frontière entre deux sous-catégories ; le reste est libre. Elle s'enregistre à part, sans toucher au reste du formulaire."
-      />
+      <FormSection title="Répartition entre les sous-catégories" />
       <EnvelopeSplitSlider
         key={`${mother.amountCents}:${daughters.map((daughter) => daughter.amountCents).join(',')}`}
         mother={mother}

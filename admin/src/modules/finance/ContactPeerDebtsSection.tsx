@@ -54,7 +54,7 @@ export const ContactPeerDebtsSection = ({ contactId }: { contactId: string }) =>
   return (
     <>
       <Box component="section" aria-label="En cours" sx={{ px: 2, pb: 2, maxWidth: 680 }}>
-        <FormSection title="En cours" description="Les créances et les dettes dont sa part n’est pas encore soldée." />
+        <FormSection title="En cours" />
 
         {error && <Alert severity="error">{error}</Alert>}
         {!debts && !error && <LinearProgress aria-label="Chargement des créances" />}
@@ -80,7 +80,7 @@ export const ContactPeerDebtsSection = ({ contactId }: { contactId: string }) =>
 
       {debts && (
         <Box component="section" aria-label="Virements affectés" sx={{ px: 2, pb: 2, maxWidth: 680 }}>
-          <FormSection title="Virements affectés" description="Les virements qui ont soldé une partie de ses créances ou de ses dettes." />
+          <FormSection title="Virements affectés" />
           {history.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               Aucun virement affecté.

@@ -80,15 +80,22 @@ class CategoryListScreenTest {
     }
 
     @Test
-    fun `the form asks the six fields with a line under each`() {
+    fun `the form asks the six fields with no explanation under them`() {
         form()
 
         compose.onNodeWithText("Nom").assertIsDisplayed()
-        compose.onNodeWithText("Alimentation, Loisirs, Transport…").assertIsDisplayed()
         compose.onNodeWithText("Rattacher à une catégorie").assertIsDisplayed()
         compose.onNodeWithText("Couleur").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Touchez une couleur, ou « Autre couleur » pour la composer.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Icône").performScrollTo().assertIsDisplayed()
+        listOf(
+            "Alimentation, Loisirs, Transport…",
+            "Touchez une couleur, ou « Autre couleur » pour la composer.",
+            "Laissez vide pour une catégorie principale",
+            "Un revenu qui rentre sans être travaillé",
+            "Facultatif, pour repérer",
+            "Les catégories classent vos transactions",
+            "Choisissez une icône dans la grille",
+        ).forEach { compose.onNodeWithText(it, substring = true).assertDoesNotExist() }
     }
 
     @Test

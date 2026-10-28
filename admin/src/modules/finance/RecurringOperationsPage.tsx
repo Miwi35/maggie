@@ -319,7 +319,6 @@ export const RecurringOperationsPage = () => {
       {overview && operations.length === 0 && (
         <Placeholder
           title="Aucune opération récurrente pour l’instant"
-          description="Une opération récurrente est un loyer, un abonnement, un salaire : Maggie rattache ses transactions, en lit le coût et prévient quand une échéance manque ou qu’un prix bouge."
           action={
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialog({})}>
               Créer une opération récurrente

@@ -17,10 +17,8 @@ import { useController, useFormContext, useWatch } from 'react-hook-form'
 import { FormSection } from '../../components/form/FormSection'
 import { centsInput } from './categorizationRules'
 import {
-  EXCEPTIONAL_HELP,
   EXCEPTIONAL_LABEL,
   STATUS_CHOICES,
-  STATUS_HELP,
   STATUS_SECTION_TITLE,
   natureOfAmount,
   signedAmountCents,
@@ -65,11 +63,6 @@ export const absoluteCentsInput = {
   },
 }
 
-const NATURE_HELP: Record<TransactionNature, string> = {
-  expense: 'De l’argent qui sort du compte.',
-  income: 'De l’argent qui entre sur le compte — un salaire, une rente, un remboursement.',
-}
-
 export const NatureInput = () => {
   const { setValue, getValues } = useFormContext()
   const { field } = useController({ name: 'nature' })
@@ -100,7 +93,6 @@ export const NatureInput = () => {
         <ToggleButton value="expense">Dépense</ToggleButton>
         <ToggleButton value="income">Recette</ToggleButton>
       </ToggleButtonGroup>
-      <Box sx={{ mt: 0.5, typography: 'caption', color: 'text.secondary' }}>{NATURE_HELP[nature]}</Box>
     </Box>
   )
 }
@@ -114,7 +106,6 @@ export const TransactionHeaderFields = ({ withCurrency = false }: { withCurrency
         optionText={accountLabel}
         validate={required()}
         fullWidth
-        helperText="Le compte sur lequel la transaction est passée."
       />
     </ReferenceInput>
 
@@ -123,7 +114,6 @@ export const TransactionHeaderFields = ({ withCurrency = false }: { withCurrency
       label="Libellé"
       validate={required()}
       fullWidth
-      helperText="Ce que vous lirez sur votre relevé — c'est aussi ce que lisent les règles de catégorisation."
     />
 
     <Box sx={rowSx}>
@@ -136,14 +126,12 @@ export const TransactionHeaderFields = ({ withCurrency = false }: { withCurrency
         ]}
         {...absoluteCentsInput}
         sx={halfSx}
-        helperText="Toujours positif : le choix Dépense / Recette donne le sens."
       />
       <DateInput
         source="bookedAt"
         label="Date"
         validate={required()}
         sx={halfSx}
-        helperText="La date à laquelle l'argent bouge, pas celle de l'événement."
       />
       {withCurrency && <CurrencyInput sx={halfSx} />}
     </Box>
@@ -165,7 +153,6 @@ export const CategoryChoiceInput = ({ sx }: { sx?: object }) => {
       optionText={categoryLabel}
       sx={sx}
       fullWidth={sx === undefined}
-      helperText="Facultatif. Toutes les catégories sont proposées, quel que soit le sens du montant."
     />
   )
 }
@@ -176,7 +163,6 @@ export const CurrencyInput = ({ withDefaults, sx }: { withDefaults?: boolean; sx
     label="Devise"
     defaultValue={withDefaults ? 'EUR' : undefined}
     sx={sx}
-    helperText="Code ISO 4217."
   />
 )
 
@@ -198,7 +184,6 @@ export const StatusInput = ({ withDefaults }: { withDefaults?: boolean }) => {
       defaultValue={withDefaults ? 'spent' : undefined}
       validate={required()}
       fullWidth
-      helperText={STATUS_HELP[nature]}
     />
   )
 }
@@ -211,7 +196,6 @@ export const ExceptionalInput = ({ withDefaults }: { withDefaults?: boolean }) =
       source="isExceptional"
       label={EXCEPTIONAL_LABEL[nature]}
       defaultValue={withDefaults ? false : undefined}
-      helperText={EXCEPTIONAL_HELP[nature]}
     />
   )
 }
@@ -225,20 +209,14 @@ const TransactionFields = ({ withDefaults }: TransactionFormProps) => {
 
       <TransactionHeaderFields />
 
-      <FormSection
-        title="Classement"
-        description="Sans catégorie, les règles automatiques s'en chargeront — et sinon, la revue mensuelle vous la proposera."
-      />
+      <FormSection title="Classement" />
 
       <Box sx={rowSx}>
         <CategoryChoiceInput sx={halfSx} />
         <CurrencyInput withDefaults={withDefaults} sx={halfSx} />
       </Box>
 
-      <FormSection
-        title={STATUS_SECTION_TITLE[nature]}
-        description={`C'est ce qui décide du poids de la ${nature === 'income' ? 'recette' : 'dépense'} sur l'enveloppe de sa catégorie.`}
-      />
+      <FormSection title={STATUS_SECTION_TITLE[nature]} />
 
       <StatusInput withDefaults={withDefaults} />
 
@@ -255,11 +233,7 @@ export const TransactionForm = ({ withDefaults = false }: TransactionFormProps) 
       nature: natureOfAmount(record?.amountCents as number | undefined),
     })}
   >
-    <FormSection
-      first
-      title="La transaction"
-      description="Dépense ou recette d'abord : c'est ce qui décide des états proposés."
-    />
+    <FormSection first title="La transaction" />
     <TransactionFields withDefaults={withDefaults} />
   </SimpleForm>
 )

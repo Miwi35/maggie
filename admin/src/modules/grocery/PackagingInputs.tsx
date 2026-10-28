@@ -36,24 +36,19 @@ const PackagingPreview = () => {
 /** The « Comment on l'achète » section of the product form (Courses only: the cookbook never shows it). */
 export const PackagingInputs = () => (
   <>
-    <FormSection
-      title="Comment on l'achète"
-      description="Un ingrédient de recette part sur la liste en conditionnements, arrondi au-dessus : 300 g de riz, c'est 1 paquet de 500 g."
-    />
+    <FormSection title="Comment on l'achète" />
     <Box sx={rowSx}>
       <SelectInput
         source="packagingUnit"
         label="Conditionnement"
         choices={UNIT_CHOICES}
         sx={thirdSx}
-        helperText="Paquet, bocal, bouteille…"
       />
       <NumberInput
         source="packagingSize"
         label="Contenu"
         validate={[positive, sizeGoesWithItsUnit]}
         sx={thirdSx}
-        helperText="Facultatif — 500 pour 500 g."
       />
       <SelectInput
         source="packagingSizeUnit"

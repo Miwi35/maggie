@@ -61,12 +61,10 @@ const AddTransactionButton = ({ accountIri }: { accountIri: string }) => (
 export const AccountTransactionsEmpty = ({
   accountIri,
   title = 'Aucune transaction sur ce compte',
-  description = 'Ajoutez-en une, ou attendez la prochaine synchronisation si ce compte est alimenté automatiquement.',
 }: {
   accountIri: string
   title?: string
-  description?: string
-}) => <Placeholder title={title} description={description} action={<AddTransactionButton accountIri={accountIri} />} />
+}) => <Placeholder title={title} action={<AddTransactionButton accountIri={accountIri} />} />
 
 /** Switching account keeps the screen: only the id of the route changes. */
 const AccountSelect = ({ accountId, fallbackName }: { accountId: string; fallbackName?: string }) => {
@@ -266,7 +264,6 @@ export const AccountTransactionsView = () => {
             accountIri={accountIri}
             {...(previousMonth !== null && {
               title: 'Aucune transaction ce mois-ci',
-              description: 'Le mois précédent en compte encore.',
             })}
           />
         )}

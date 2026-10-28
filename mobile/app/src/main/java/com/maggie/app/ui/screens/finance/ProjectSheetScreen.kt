@@ -297,11 +297,6 @@ private fun InvestmentCard(project: Project, investment: ProjectInvestment, proj
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.testTag(UiTags.PROJECT_INVESTMENT_RESALE),
         )
-        Text(
-            "Se modifie depuis l'administration, ou en le demandant à Maggie.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

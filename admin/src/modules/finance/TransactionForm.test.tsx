@@ -134,7 +134,7 @@ describe('TransactionForm', () => {
 
     expect(screen.getByText('État de la recette')).toBeInTheDocument()
     expect(screen.getByLabelText('Recette exceptionnelle')).toBeInTheDocument()
-    expect(screen.getByText(/une prime, un remboursement/)).toBeInTheDocument()
+    expect(screen.queryByText(/une prime, un remboursement/)).toBeNull()
 
     await user.click(screen.getByRole('combobox', { name: /Statut/ }))
     const listbox = await screen.findByRole('listbox')

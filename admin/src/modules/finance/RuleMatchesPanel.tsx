@@ -81,10 +81,7 @@ export const RuleMatchesPanel = ({ criteria, onChangeCount }: RuleMatchesPanelPr
 
   return (
     <Box sx={{ width: '100%' }} aria-busy={status === 'loading'}>
-      <FormSection
-        title="Transactions trouvées"
-        description="Mises à jour pendant la saisie, sans rien modifier."
-      />
+      <FormSection title="Transactions trouvées" />
 
       {status === 'idle' && (
         <Alert severity="info" variant="outlined">
