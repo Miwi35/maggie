@@ -27,8 +27,9 @@ import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.RingArcColorKey
 import com.maggie.app.ui.theme.MaggieTokens
+import kotlin.math.ceil
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -210,6 +211,11 @@ class FinanceHomeCardScreenTest {
         val layout = mutableListOf<TextLayoutResult>()
         compose.onNodeWithText("365 à qualifier", useUnmergedTree = true).fetchSemanticsNode()
             .config[SemanticsActions.GetTextLayoutResult].action?.invoke(layout)
-        assertFalse("« 365 à qualifier » is clipped", layout.single().hasVisualOverflow)
+        // hasVisualOverflow compares with the width the paragraph was offered, which is the whole line: it is
+        // true for any text that does not fill it. Cut text is a node narrower than its natural width.
+        val text = layout.single()
+        val natural = ceil(text.multiParagraph.maxIntrinsicWidth).toInt()
+        assertTrue("« 365 à qualifier » is clipped: ${text.size.width} px of $natural", text.size.width >= natural)
+        assertEquals("« 365 à qualifier » is wrapped", 1, text.lineCount)
     }
 }
