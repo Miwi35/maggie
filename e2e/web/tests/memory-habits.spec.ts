@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test'
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, e2eNow } from '../fixtures/index.js'
 import { withLock } from '../helpers/chatLock.js'
 import { HomePage } from '../pages/HomePage.js'
 
@@ -39,7 +39,7 @@ async function call<T>(api: APIRequestContext, method: 'get' | 'post' | 'delete'
   return (await response.json()) as T
 }
 
-const daysAgo = (days: number): string => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+const daysAgo = (days: number): string => new Date(e2eNow().getTime() - days * 86_400_000).toISOString().slice(0, 10)
 
 test('the night reads the concerts of the agenda and writes the musical tastes as an observed fiche, with its proofs', async ({
   page,
