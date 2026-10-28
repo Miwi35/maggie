@@ -121,4 +121,28 @@ class TaskItemScreenTest {
 
         compose.onNodeWithTag(UiTags.TASK_URGENCY, useUnmergedTree = true).assertDoesNotExist()
     }
+
+    /** MAG-636: the criticality chip said the API's word (« low ») beside the urgency's « basse ». */
+    @Test
+    fun `a task never shows an English criticality, only its French word`() {
+        compose.setContent {
+            TaskItem(
+                task = Task(id = "t", title = "Sortir les poubelles", criticality = "low", urgency = "low"),
+                onToggleDone = {},
+            )
+        }
+
+        compose.onNodeWithText("Faible", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("basse", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("low", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a criticality the app does not know draws no chip`() {
+        compose.setContent {
+            TaskItem(task = Task(id = "t", title = "Arroser", criticality = "whatever-comes-next"), onToggleDone = {})
+        }
+
+        compose.onNodeWithText("whatever-comes-next", useUnmergedTree = true).assertDoesNotExist()
+    }
 }
