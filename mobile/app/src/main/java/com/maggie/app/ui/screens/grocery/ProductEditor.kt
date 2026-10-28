@@ -1,12 +1,10 @@
 package com.maggie.app.ui.screens.grocery
 
-import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.ProductStockState
-import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.formatQuantity
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -173,18 +171,4 @@ internal fun ProductDraft.aislesToSend(original: Product): List<ProductAisle>? {
     val before = original.aisles.filter { it.aisle != null }.toSet()
     val creates = listOfNotNull(preferredAisle, fallbackAisle).any { it.isNew }
     return if (creates || after.toSet() != before) after else null
-}
-
-/** The store IRIs of a product's list line: « Super U · Épicerie », the aisle only when it has one. */
-internal fun storeAisleLabel(
-    storeIri: String?,
-    product: Product,
-    stores: List<Store>,
-    aislesByStore: Map<String, List<Aisle>>,
-): String? {
-    val storeId = storeIri?.bareId() ?: return null
-    val store = stores.firstOrNull { it.id == storeId } ?: return null
-    val aisleId = product.aisles.firstOrNull { it.store == storeId }?.aisle
-    val aisle = aisleId?.let { id -> aislesByStore[storeId].orEmpty().firstOrNull { it.id == id }?.name }
-    return if (aisle != null) "${store.name} · $aisle" else store.name
 }

@@ -5,7 +5,10 @@ tags:
 ---
 # A product of the catalogue is edited from its own sheet (MAG-605): Courses › Produits, a touch on
 # the product opens a full-screen sheet; the owner chooses « Magasin habituel », then its rayon (the
-# aisles of that shop only), saves, and the list shows « Magasin · Rayon » under the product.
+# aisles of that shop only), saves, and the sheet closes on the list.
+#
+# MAG-671: the list reads in French, one line a product (« Féculents », never « grain »), and the
+# recurrence, the season and the deletion are in the sheet, not on the line.
 #
 # The JVM tests (`ProductViewModelEditorTest`, `ProductEditorTest`, `ProductDetailScreenTest`) own the
 # cases — the patch, the cascade, the new aisle, the refused save; this is the one run against the
@@ -61,12 +64,21 @@ tags:
     element: "Pâtes sèches MAG-605"
     timeout: 60000
 
+# One line a product, in French: its category, never the API's value; the detail is behind the touch.
+- extendedWaitUntil:
+    visible: "Féculents"
+    timeout: 10000
+- assertNotVisible: "grain"
+- assertNotVisible: "Récurrent"
+
 # The sheet, then the cascade: the shop, then its rayon.
 - tapOn: "Pâtes sèches MAG-605"
 - extendedWaitUntil:
     visible:
       id: "product_sheet"
     timeout: 10000
+- scrollUntilVisible:
+    element: "Récurrent"
 - scrollUntilVisible:
     element:
       id: "product_sheet_store"
@@ -82,8 +94,12 @@ tags:
 - tapOn:
     id: "product_sheet_save"
 
+- extendedWaitUntil:
+    notVisible:
+      id: "product_sheet"
+    timeout: 30000
 - scrollUntilVisible:
-    element: "Épicerie du coin · Rayon MAG-605"
+    element: "Pâtes sèches MAG-605"
     timeout: 30000
 
 # What the phone saved is what the API holds.

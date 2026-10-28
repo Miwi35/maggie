@@ -7,6 +7,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Aisle
+import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.Store
@@ -44,6 +45,9 @@ class ProductDetailScreenTest {
                 onSelectAisle = onSelectAisle,
                 onPickCiqual = {},
                 onSearchCiqual = { emptyList() },
+                recurring = null,
+                onRecurringChange = {},
+                onDelete = {},
                 onSave = onSave,
                 onDismiss = {},
             )
@@ -114,20 +118,11 @@ class ProductDetailScreenTest {
     }
 
     @Test
-    fun `a product card shows its store and aisle and opens the sheet when touched`() {
+    fun `a product row reads category and unit in French and opens the sheet when touched`() {
         var opened = 0
-        compose.setContent {
-            ProductCard(
-                product = pasta,
-                onDelete = {},
-                onOpen = { opened++ },
-                storeLine = "Super U · Épicerie",
-                fallbackLine = "Biocoop",
-            )
-        }
+        compose.setContent { ProductRow(product = pasta.copy(defaultUnit = CookbookUnit.PACK), onOpen = { opened++ }) }
 
-        compose.onNodeWithText("Super U · Épicerie").assertIsDisplayed()
-        compose.onNodeWithText("À défaut : Biocoop").assertIsDisplayed()
+        compose.onNodeWithText("Féculents · paquet").assertIsDisplayed()
         compose.onNodeWithText("Pâtes sèches").performClick()
         assertEquals(1, opened)
     }

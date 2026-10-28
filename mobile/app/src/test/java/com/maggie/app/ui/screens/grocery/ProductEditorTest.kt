@@ -138,19 +138,4 @@ class ProductEditorTest {
         )
         assertNull(ProductDraft.from(pasta).copy(packagingSize = "1,5").problem())
     }
-
-    @Test
-    fun `the list line reads store then aisle`() {
-        val product = pasta.copy(preferredStore = "/api/stores/s1", aisles = listOf(ProductAisle("s1", "a1")))
-
-        assertEquals("Super U · Épicerie", storeAisleLabel(product.preferredStore, product, listOf(superU), aisles))
-    }
-
-    @Test
-    fun `the list line is the store alone without an aisle, nothing without a store`() {
-        val product = pasta.copy(preferredStore = "/api/stores/s1")
-
-        assertEquals("Super U", storeAisleLabel(product.preferredStore, product, listOf(superU), aisles))
-        assertNull(storeAisleLabel(null, product, listOf(superU), aisles))
-    }
 }

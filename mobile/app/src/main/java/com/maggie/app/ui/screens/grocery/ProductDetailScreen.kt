@@ -18,7 +18,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -34,6 +36,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -56,10 +59,12 @@ import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.ProductStockState
+import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.frenchName
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.cookbook.grocery.AislePickerDialog
+import com.maggie.app.ui.screens.cookbook.grocery.RecurringSetting
 import com.maggie.app.ui.uiTagRoot
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
@@ -68,7 +73,7 @@ import kotlinx.coroutines.flow.filter
 
 /**
  * The product sheet (MAG-605): every field of a catalogue product in one full-screen sheet, saved
- * together. « Magasin habituel » and « À défaut » each open a full-screen store picker, then their
+ * together, then the recurrence (applied on tap) and the deletion (asked first). « Magasin habituel » and « À défaut » each open a full-screen store picker, then their
  * rayon — the aisles of that store only, hidden until a store is chosen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,10 +87,14 @@ fun ProductDetailScreen(
     onSelectAisle: (StoreSlot, AisleChoice?) -> Unit,
     onPickCiqual: (CiqualFood?) -> Unit,
     onSearchCiqual: suspend (String) -> List<CiqualFood>,
+    recurring: RecurringFrequency?,
+    onRecurringChange: (RecurringFrequency?) -> Unit,
+    onDelete: () -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val draft = editor.draft
+    var confirmingDelete by remember { mutableStateOf(false) }
     var pickingStore by remember { mutableStateOf<StoreSlot?>(null) }
     var pickingAisle by remember { mutableStateOf<StoreSlot?>(null) }
     var searchingCiqual by remember { mutableStateOf(false) }
@@ -252,8 +261,36 @@ fun ProductDetailScreen(
                     months = draft.seasonMonths,
                     onChange = { months -> onDraftChange { it.copy(seasonMonths = months) } },
                 )
+
+                SectionTitle("Récurrence")
+                RecurringSetting(recurring = recurring, onChange = onRecurringChange)
+
+                OutlinedButton(
+                    onClick = { confirmingDelete = true },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag(UiTags.PRODUCT_SHEET_DELETE),
+                ) { Text("Supprimer le produit") }
             }
         }
+    }
+
+    if (confirmingDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            modifier = Modifier.uiTagRoot(),
+            title = { Text("Supprimer ${editor.original.name} ?") },
+            text = { Text("Le produit disparaît du catalogue.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingDelete = false
+                        onDelete()
+                    },
+                    modifier = Modifier.testTag(UiTags.PRODUCT_SHEET_DELETE_CONFIRM),
+                ) { Text("Supprimer", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text("Annuler") } },
+        )
     }
 
     pickingStore?.let { slot ->
