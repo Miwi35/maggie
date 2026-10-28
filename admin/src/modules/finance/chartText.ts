@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useLayoutEffect, useState } from 'react'
 
 /** Chart text is drawn in CSS pixels whatever the width: the `viewBox` zoom is undone label by label. */
 export const LABEL_PX = 11
@@ -14,7 +14,7 @@ export const useUnitsPerPixel = (viewBoxWidth: number) => {
   const [width, setWidth] = useState(0)
   const ref = useCallback((node: SVGSVGElement | null) => setElement(node), [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!element) {
       return undefined
     }
@@ -68,7 +68,7 @@ export const placeLabels = (slots: LabelSlot[], containerPx: number, gapPx: numb
     if (row < 0) {
       row = Math.min(rowEnds.length, maxRows - 1)
     }
-    rowEnds[row] = xPx + half
+    rowEnds[row] = Math.max(rowEnds[row] ?? 0, xPx + half)
     placed[index] = { xPx, row }
   }
 
