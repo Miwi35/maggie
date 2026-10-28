@@ -77,3 +77,33 @@ mobile:
     description: Where a mobile verification lives — Compose on the JVM (Robolectric, ScreenRule, faked repositories) for screen logic, Maestro on an emulator only for what needs a real Android
   testing:
     description: JUnit + MockK — one test per ViewModel state transition, DTO deserialization, coroutine testing, backtick names, run command
+
+recipes:
+  api-write-use-case:
+    description: Recipe — a write on the API, Command → Handler (ownership) → UseCase (+ Service), sync routing, projection by the middleware
+  api-operation:
+    description: Recipe — expose a resource or action over HTTP, API Platform operation (default, with an id) or dedicated controller (/me, non-CRUD, computed reads), contract regeneration
+  api-mcp-tool:
+    description: Recipe — one #[McpTool] class, McpUserContext, write via bus, read via repository filtered by user, scan_dirs, agent approval policy for destructive tools
+  api-entity-field:
+    description: Recipe — a field end to end on the API, entity → Mercure payload → Elasticsearch → commands and tools → migration → contract → client recipes
+  api-domain-effect:
+    description: Recipe — a business effect on a state change, specification → event → listener → event handler → command, routing and deptrac direction
+  api-entity:
+    description: Recipe — a new entity, order of steps over the new-entity skill and the API recipes
+  admin-screen:
+    description: Recipe — an admin screen from a mockup, LiveList or data hook, lazyPage and resources, menu and breadcrumb, Veilleuse, liveListSuite and Mercure tests
+  admin-api-field:
+    description: Recipe — consume a new or changed API field in the admin, types, hooks, tests reading api/contract/
+  mobile-screen:
+    description: Recipe — an Android screen, ApiService → Repository → ViewModel → Screen, Koin, NavGraph, DeepLinks, UiTags, ScreenRule vs ViewModel tests
+  mobile-api-field:
+    description: Recipe — consume a new or changed API field on Android, @SerialName and defaults, DtoContractTest, recorded fixtures, live updates
+  agent-fake-llm-scenario:
+    description: Recipe — a fake-LLM scenario for an e2e step, matching, ids, README line, impact map, scenario pytest
+  agent-behaviour-change:
+    description: Recipe — change what Maggie does (prompt rule, skill, sub-agent, policy, guard), the pytest each owes, prompt judged by hand with task e2e:eval
+  e2e-web-journey:
+    description: Recipe — a Playwright journey, fixtures and journey account, seed anchors, page objects and testids, impact map, worktree run
+  e2e-mobile-journey:
+    description: Recipe — a Maestro journey, new-user flow, scripts, subflows, UiTags, config and shards, impact map, task e2e:mobile:lint only
