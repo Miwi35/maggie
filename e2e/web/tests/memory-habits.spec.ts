@@ -46,8 +46,6 @@ test('the night reads the concerts of the agenda and writes the musical tastes a
   api,
   session,
 }) => {
-  // The night reads eighty-five days of agenda, one MCP call each, in the e2e stack's cold PHP.
-  test.slow()
   await withLock(MEMORY_LOCK, async () => {
     const user = session.user.id
     const inBucket = async (path: string): Promise<string> =>

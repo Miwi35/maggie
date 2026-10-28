@@ -63,12 +63,6 @@ class McpClient:
         else:
             logger.error("MCP tools/list failed — no response from server")
 
-    async def fork(self) -> "McpClient":
-        """A client with a session of its own, for parallel calls: one session mixes up their replies."""
-        other = McpClient()
-        await other.connect()
-        return other
-
     async def disconnect(self) -> None:
         """Close the HTTP client."""
         if self._http_client:

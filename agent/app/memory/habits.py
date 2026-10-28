@@ -8,7 +8,6 @@ claim per proof. Without enough proofs, on different days, nothing is written. T
 judgement is the model's and the writing goes through the night (`night.py`).
 """
 
-import asyncio
 import json
 import logging
 import re
@@ -30,7 +29,7 @@ FINANCES = "finances"
 MODULES = (AGENDA, COURSES, REPAS, FINANCES)
 PREFIX = {AGENDA: "A", COURSES: "C", REPAS: "R", FINANCES: "F"}
 CAPS = {AGENDA: 200, COURSES: 20, REPAS: 120, FINANCES: 100}
-SESSIONS = 8
+STRETCH_DAYS = 31
 MAX_PROOFS = 12
 MAX_LABEL = 160
 WEEKDAYS = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
@@ -160,30 +159,15 @@ def agenda_item(event: Any) -> tuple[date, str, str, str, str] | None:
 
 
 async def _read_agenda(mcp: Any, user_id: str, today: date, start: date, future_days: int) -> list[Item]:
+    # One call at a time: a single MCP session mixes up the replies of parallel calls. The past is read in stretches
+    # of days, not day by day, so the pass costs a handful of calls and not eighty-five.
     calls: list[tuple[str, dict[str, Any]]] = [("get_upcoming_events", {"days": future_days})]
-    calls += [
-        ("get_events_by_date", {"date": (start + timedelta(days=n)).isoformat()})
-        for n in range((today - start).days + 1)
-    ]
-    pages: list[Any] = []
-    failure: list[SourceDown] = []
-
-    async def worker(session: Any) -> None:
-        while calls and not failure:
-            name, arguments = calls.pop()
-            try:
-                pages.append((await _call(session, name, arguments, user_id)).get("events"))
-            except SourceDown as e:
-                failure.append(e)
-
-    sessions = [await mcp.fork() for _ in range(SESSIONS)]
-    try:
-        await asyncio.gather(*(worker(session) for session in sessions))
-    finally:
-        for session in sessions:
-            await session.disconnect()
-    if failure:
-        raise failure[0]
+    first = start
+    while first <= today:
+        last = min(first + timedelta(days=STRETCH_DAYS - 1), today)
+        calls.append(("get_events_by_date", {"date": first.isoformat(), "endDate": last.isoformat()}))
+        first = last + timedelta(days=1)
+    pages = [(await _call(mcp, name, arguments, user_id)).get("events") for name, arguments in calls]
     found: dict[tuple[str, date], Item] = {}
     for event in (e for page in pages if isinstance(page, list) for e in page):
         parsed = agenda_item(event)

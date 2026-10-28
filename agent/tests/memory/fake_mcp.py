@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from datetime import date, timedelta
 from typing import Any
 
 HABITS_TOOLS = ("get_events_by_date", "get_upcoming_events", "list_past_errands", "manage_meals", "manage_transactions")
@@ -29,20 +30,6 @@ class FakeMcp:
         self.calls: list[tuple[str, dict[str, Any], str | None]] = []
         self.in_flight = 0
         self.overlapped = False
-        self.forks: list[FakeMcp] = []
-
-    async def fork(self) -> "FakeMcp":
-        other = FakeMcp(
-            events=self.events,
-            upcoming=self.upcoming,
-            errands=self.errands,
-            meals=self.meals,
-            transactions=self.transactions,
-            down=tuple(self.down),
-        )
-        other.calls = self.calls
-        self.forks.append(other)
-        return other
 
     async def disconnect(self) -> None:
         return None
@@ -64,8 +51,15 @@ class FakeMcp:
         if name in self.down:
             return json.dumps({"error": "No response from MCP server"})
         if name == "get_events_by_date":
-            day = arguments["date"]
-            return json.dumps({"date": day, "events": self.events.get(day, [])})
+            first = date.fromisoformat(arguments["date"])
+            last = date.fromisoformat(arguments.get("endDate") or arguments["date"])
+            assert (last - first).days < 31, "the API refuses a stretch of more than 31 days"
+            found = [
+                event
+                for n in range((last - first).days + 1)
+                for event in self.events.get((first + timedelta(days=n)).isoformat(), [])
+            ]
+            return json.dumps({"date": arguments["date"], "events": found})
         if name == "get_upcoming_events":
             return json.dumps({"events": self.upcoming, "count": len(self.upcoming)})
         if name == "list_past_errands":

@@ -110,7 +110,12 @@ class TestAHabitIsWrittenWithItsProof:
         await run(night)
 
         assert {user for _, _, user in mcp.calls} == {USER_A}
-        assert mcp.called("get_events_by_date") == 85
+        reads = [arguments for name, arguments, _ in mcp.calls if name == "get_events_by_date"]
+        assert [(r["date"], r["endDate"]) for r in reads] == [
+            ("2026-07-22", "2026-08-21"),
+            ("2026-08-22", "2026-09-21"),
+            ("2026-09-22", "2026-10-14"),
+        ]
         assert mcp.called("get_upcoming_events") == 1
         assert ("get_upcoming_events", {"days": settings.memory_habits_future_days}, USER_A) in mcp.calls
 
@@ -407,13 +412,21 @@ class TestTheShippedScenarios:
         assert [p for p in env.service.folder(USER_A).files() if p.startswith("Goûts/")] == []
 
 
-async def test_the_agenda_is_read_on_sessions_of_its_own_and_never_twice_on_one():
-    # One MCP session answers parallel calls with empty or swapped replies: a session takes one call at a time.
+async def test_the_agenda_is_read_in_stretches_one_call_at_a_time():
+    # One MCP session answers parallel calls with empty or swapped replies: the pass takes one call at a time.
     mcp = FakeMcp(errands=saturday_errands(), upcoming=[timed_event("2026-10-20", "Kadavar")])
 
     obs = await habits.observe(mcp, USER_A, TODAY, PARIS)
 
     assert obs.ok == set(habits.MODULES)
-    assert mcp.called("get_events_by_date") == settings.memory_habits_past_days + 1
-    assert len(mcp.forks) == habits.SESSIONS
-    assert not any(session.overlapped for session in [mcp, *mcp.forks])
+    assert mcp.called("get_events_by_date") == 3
+    assert not mcp.overlapped
+
+
+async def test_an_event_of_any_stretch_is_read():
+    first, middle, last = "2026-07-22", "2026-08-30", "2026-10-14"
+    mcp = FakeMcp(events={day: [timed_event(day, "Kadavar")] for day in (first, middle, last)})
+
+    obs = await habits.observe(mcp, USER_A, TODAY, PARIS)
+
+    assert [i.day.isoformat() for i in obs.items.values() if i.module == habits.AGENDA] == [first, middle, last]
