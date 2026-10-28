@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
-import { claimEvening, claimMorning, deferOnDay, eveningDue, formatMinutes, morningDue, resetMorningOffer, swapProposal } from './dayPlan'
-import type { DayProposal, ProposalEntry } from './dayPlan'
+import { claimEvening, claimMorning, dayTasks, deferOnDay, eveningDue, formatMinutes, morningDue, openOnDay, resetMorningOffer, swapProposal } from './dayPlan'
+import type { DayPlan, DayProposal, ProposalEntry } from './dayPlan'
 
 const entry = (id: string, minutes: number, reason: ProposalEntry['reason'] = 'whenever'): ProposalEntry => ({
   reason,
@@ -156,5 +156,43 @@ describe('eveningDue — when the evening opens by itself (MAG-500)', () => {
     resetMorningOffer()
     expect(claimEvening()).toBe(true)
     resetMorningOffer()
+  })
+})
+
+describe('dayTasks, openOnDay — what « Aujourd\'hui » lists and counts (MAG-644)', () => {
+  const task = (id: string, extra: Partial<ProposalEntry['task']> = {}) => ({ ...entry(id, 10).task, ...extra })
+  const day = (slots: ProposalEntry['task'][], reserve: ProposalEntry['task'][]): DayPlan => ({
+    id: 'D',
+    date: '2026-10-15',
+    confirmedAt: null,
+    slots: slots.map((t, i) => ({ position: i + 1, type: 'task', task: t })),
+    now: null,
+    reserve,
+    done: slots.filter((t) => t.completedAt != null).length,
+    total: slots.length,
+  })
+
+  test('keeps the slots whatever their day, and the reserve tasks due today or before', () => {
+    const plan = day(
+      [task('S1'), task('S2', { dueDate: '2026-10-20' })],
+      [task('LATE', { dueDate: '2026-10-10' }), task('TODAY', { dueDate: '2026-10-15' }), task('TOMORROW', { dueDate: '2026-10-16' }), task('NONE')],
+    )
+
+    expect(dayTasks(plan, '2026-10-15').map((t) => t.id)).toEqual(['S1', 'S2', 'LATE', 'TODAY'])
+  })
+
+  test('reads a due day sent with its time', () => {
+    const plan = day([], [task('TODAY', { dueDate: '2026-10-15T00:00:00+00:00' }), task('TOMORROW', { dueDate: '2026-10-16T00:00:00+00:00' })])
+
+    expect(dayTasks(plan, '2026-10-15').map((t) => t.id)).toEqual(['TODAY'])
+  })
+
+  test('counts what is left: the open slots and the open tasks of the reserve listed', () => {
+    const plan = day(
+      [task('S1', { completedAt: '2026-10-15T07:00:00+00:00' }), task('S2')],
+      [task('TODAY', { dueDate: '2026-10-15' }), task('TOMORROW', { dueDate: '2026-10-16' }), task('NONE')],
+    )
+
+    expect(openOnDay(plan, '2026-10-15')).toBe(2)
   })
 })

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
-import { fetchDayPlan } from './dayPlan'
+import { fetchDayPlan, openOnDay } from './dayPlan'
 import { fetchTaskView, TASK_TOPICS } from './taskViews'
 import type { TaskCounts } from './taskViews'
 
 const NO_TOPICS: string[] = []
 
 /**
- * The numbers of the menu's « Tâches » views (MAG-644): « Aujourd'hui » is what is left to do of the day,
+ * The numbers of the menu's « Tâches » views (MAG-644): « Aujourd'hui » is what is left to do of the list the page draws,
  * the others the size of their view. Read only while `enabled` — the menu draws them under the module
  * the page belongs to — and again when a task or the day changes. Null until the first answer, or when
  * the API does not answer: the entries are then drawn without a number.
@@ -20,9 +20,10 @@ export function useTaskCounts(enabled: boolean): TaskCounts | null {
   const load = useCallback(() => {
     const current = ++request.current
     // « Faites » is the one view the API pages: its first page is the lightest answer that carries every count.
-    Promise.all([fetchTaskView('done'), fetchDayPlan(localDay(new Date()))])
+    const today = localDay(new Date())
+    Promise.all([fetchTaskView('done'), fetchDayPlan(today)])
       .then(([view, day]) => {
-        if (current === request.current) setCounts({ ...view.counts, today: day.total - day.done })
+        if (current === request.current) setCounts({ ...view.counts, today: openOnDay(day, today) })
       })
       .catch(() => {
         if (current === request.current) setCounts(null)

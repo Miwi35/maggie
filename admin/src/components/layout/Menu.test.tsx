@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { CustomMenu } from './Menu'
 import { Breadcrumbs, PageHeading } from './Breadcrumbs'
 import { announceAgentName } from '../../hooks/useAgentName'
+import { addDays, localDay } from '../../dates'
 import { veilleuseLightTheme } from '../../theme'
 
 const stubPersonality = (name: string | null) =>
@@ -348,7 +349,18 @@ describe('CustomMenu — the modules of the mockup', () => {
 })
 
 describe('CustomMenu — the Tâches views (MAG-644)', () => {
-  const stubTasks = (counts = { today: 9, upcoming: 4, someday: 2, done: 7 }, day = { total: 5, done: 2 }) =>
+  const dueOn = (offset: number) => addDays(localDay(new Date()), offset)
+  const dayTask = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: id, completedAt: null, dueDate: null, ...extra })
+  // Five slots, two of them done, and a reserve that holds every open task, whatever its day.
+  const slots = ['S1', 'S2', 'S3', 'S4', 'S5'].map((id, i) => ({
+    position: i + 1,
+    type: 'task',
+    task: dayTask(id, i < 2 ? { completedAt: '2026-10-15T07:00:00+00:00' } : {}),
+  }))
+  const stubTasks = (
+    counts = { today: 9, upcoming: 4, someday: 2, done: 7 },
+    day: { slots: unknown[]; reserve: unknown[]; total: number; done: number } = { slots, reserve: [], total: 5, done: 2 },
+  ) =>
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
@@ -356,7 +368,7 @@ describe('CustomMenu — the Tâches views (MAG-644)', () => {
           return new Response(JSON.stringify({ member: [], counts, totalItems: 0 }))
         }
         if (url.includes('/day-plans/')) {
-          return new Response(JSON.stringify({ slots: [], now: null, reserve: [], ...day }))
+          return new Response(JSON.stringify({ now: null, ...day }))
         }
 
         return new Response(JSON.stringify({ name: 'Maggie', language: 'fr', backstory: '' }))
@@ -382,6 +394,18 @@ describe('CustomMenu — the Tâches views (MAG-644)', () => {
     expect(screen.getByRole('menuitem', { name: 'À venir 4' })).toHaveClass('Mui-selected')
     expect(screen.getByRole('menuitem', { name: 'Un jour 2' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Faites 7' })).toBeInTheDocument()
+  })
+
+  test('counts the list of the day: a reserve task due later or without a day is not in Aujourd\'hui', async () => {
+    stubTasks(undefined, {
+      slots: [],
+      reserve: [dayTask('LATE', { dueDate: dueOn(-2) }), dayTask('TODAY', { dueDate: dueOn(0) }), dayTask('TOMORROW', { dueDate: dueOn(1) }), dayTask('NONE')],
+      total: 0,
+      done: 0,
+    })
+    renderMenuAt('/tasks')
+
+    expect(await screen.findByRole('menuitem', { name: "Aujourd'hui 2" })).toBeInTheDocument()
   })
 
   test('keeps Aujourd\'hui lit on the Routines page, which no entry names', async () => {
