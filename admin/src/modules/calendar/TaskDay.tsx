@@ -1,58 +1,26 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { KeyboardEvent, ReactNode } from 'react'
+import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useNotify } from 'react-admin'
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  pointerWithin,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import type { CollisionDetection, DragEndEvent } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Checkbox from '@mui/material/Checkbox'
-import Collapse from '@mui/material/Collapse'
-import IconButton from '@mui/material/IconButton'
-import List from '@mui/material/List'
-import ListItem from '@mui/material/ListItem'
-import Menu from '@mui/material/Menu'
-import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
-import AddIcon from '@mui/icons-material/Add'
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import CheckIcon from '@mui/icons-material/Check'
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
-import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
-import StarIcon from '@mui/icons-material/Star'
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined'
-import UpdateIcon from '@mui/icons-material/Update'
 import { RoutinesBand } from './RoutinesBand'
-import { UrgencyBadge } from './UrgencyBadge'
 import { TaskBravo } from './TaskBravo'
 import { TaskFocus } from './TaskFocus'
-import { DAY_SLOTS, deferOnDay, placeOnDay, saveDayPlan } from './dayPlan'
-import type { DayPlan, DayTarget, DayTask } from './dayPlan'
-import { STAR_COLOR } from './Constellation'
+import { isLate, TaskList } from './TaskList'
+import type { ListedTask, TaskGroup } from './TaskList'
+import { deferOnDay, saveDayPlan } from './dayPlan'
+import type { DayPlan, DayTask } from './dayPlan'
 import { DEFAULT_CHEER, fetchReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
 import { fetchStars } from './stars'
 import type { Stars } from './stars'
-import { createTask, postponedLabel, setTaskDone } from './taskViews'
+import { setTaskDone } from './taskViews'
 
 interface TaskDayProps {
   day: DayPlan
@@ -62,57 +30,18 @@ interface TaskDayProps {
   onDay: (day: DayPlan) => void
   /** Reads the day and the counts again. */
   onReload: () => void
-  /** Opens the edit form of a task, by id. */
+  /** Opens the sheet of a task, by id. */
   onEdit: (taskId: string) => void
-  /** The task a link points at (MAG-640): marked, scrolled to, its reserve unfolded. */
+  /** The task a link points at (MAG-640): marked and scrolled to. */
   highlightId?: string | null
+  /** The task whose sheet is open. */
+  selectedId?: string | null
   /** Opens the morning's proposal again (MAG-498). */
   onChange?: () => void
   /** Opens the evening's review on demand (MAG-500). */
   onEvening?: () => void
   /** How a task done is cheered (MAG-508). */
   cheer?: RewardCheer
-}
-
-const FREE = 'place:free'
-
-const placeId = (index: number): string => `place:${index}`
-
-const parsePlace = (id: unknown): DayTarget | null => {
-  if (id === FREE) return 'free'
-  const match = /^place:(\d)$/.exec(String(id))
-
-  return match ? Number(match[1]) : null
-}
-
-/** The pointer drops where it is; the keyboard, which has none, on the nearest place. */
-const collision: CollisionDetection = (args) => (args.pointerCoordinates ? pointerWithin(args) : closestCenter(args))
-
-/**
- * « reportée depuis … » in a neutral colour, never red; a critical task keeps
- * its own mark instead (MAG-497). And its minutes, when it has some.
- */
-const TaskMarks = ({ task, today }: { task: DayTask; today: string }) => {
-  const critical = task.urgency === 'critical'
-  const postponed = critical ? null : postponedLabel(task.postponedSince, today)
-
-  return (
-    <>
-      {critical && <UrgencyBadge urgency={task.urgency} />}
-      {postponed && (
-        <Typography
-          component="span"
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-        >
-          <UpdateIcon aria-hidden fontSize="inherit" />
-          {postponed}
-        </Typography>
-      )}
-      {task.estimatedMinutes != null && <Minutes value={task.estimatedMinutes} />}
-    </>
-  )
 }
 
 const Minutes = ({ value }: { value: number }) => (
@@ -172,236 +101,10 @@ export const DayRing = ({ done, total }: { done: number; total: number }) => {
   )
 }
 
-interface SlotRowProps {
-  task: DayTask
-  index: number
-  count: number
-  today: string
-  busy: boolean
-  highlighted: boolean
-  onToggle: () => void
-  onEdit: () => void
-  onFocus: () => void
-  onMove: (offset: -1 | 1) => void
-  onRemove: () => void
-}
-
-/** A slot of the day: a place a reserve task can be dropped on, and a task that can be dragged elsewhere. */
-const scrolled = new WeakSet<Element>()
-
-/** Brings the row a link points at into view — once per row, whatever the re-renders. */
-export const scrollToRow = (node: HTMLElement | null) => {
-  if (!node || scrolled.has(node)) return
-  scrolled.add(node)
-  node.scrollIntoView?.({ block: 'center' })
-}
-
-const SlotRow = ({ task, index, count, today, busy, highlighted, onToggle, onEdit, onFocus, onMove, onRemove }: SlotRowProps) => {
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: placeId(index) })
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({
-    id: `slot:${task.id}`,
-    data: { taskId: task.id },
-    disabled: busy,
-    attributes: { roleDescription: 'tâche déplaçable' },
-  })
-  const done = task.completedAt != null
-
-  return (
-    <ListItem
-      ref={(node) => {
-        setDropRef(node)
-        setNodeRef(node)
-        if (highlighted) scrollToRow(node)
-      }}
-      aria-current={highlighted ? 'true' : undefined}
-      disablePadding
-      style={{ transform: CSS.Translate.toString(transform) }}
-      sx={{
-        gap: 0.5,
-        borderRadius: 1,
-        border: 1,
-        borderColor: isOver ? 'primary.main' : 'divider',
-        mb: 0.5,
-        pr: 0.5,
-        ...(highlighted && { bgcolor: 'action.selected' }),
-        ...(isDragging && { zIndex: 10, boxShadow: 3, bgcolor: 'background.paper' }),
-      }}
-    >
-      <IconButton
-        size="small"
-        ref={setActivatorNodeRef}
-        {...attributes}
-        {...listeners}
-        aria-label={`Déplacer ${task.title}`}
-        sx={{ cursor: busy ? 'default' : 'grab', touchAction: 'none' }}
-      >
-        <DragIndicatorIcon fontSize="small" />
-      </IconButton>
-      <Checkbox
-        size="small"
-        checked={done}
-        onChange={onToggle}
-        slotProps={{ input: { 'aria-label': `${done ? 'Rouvrir' : 'Terminer'} ${task.title}` } }}
-      />
-      <Box
-        onClick={onEdit}
-        sx={{ flex: 1, minWidth: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, cursor: 'pointer', py: 1 }}
-      >
-        <Typography
-          variant="body2"
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            textDecoration: done ? 'line-through' : 'none',
-            color: done ? 'text.disabled' : 'text.primary',
-          }}
-        >
-          {task.title}
-        </Typography>
-        <TaskMarks task={task} today={today} />
-      </Box>
-      {done && <StarIcon data-testid="task-star" titleAccess="Étoile gagnée" sx={{ color: STAR_COLOR, fontSize: 22 }} />}
-      {!done && (
-        <IconButton size="small" aria-label={`Se concentrer sur ${task.title}`} title="Focus" onClick={onFocus}>
-          <CenterFocusStrongIcon fontSize="small" />
-        </IconButton>
-      )}
-      <IconButton size="small" aria-label={`Monter ${task.title}`} disabled={busy || index === 0} onClick={() => onMove(-1)}>
-        <ArrowUpwardIcon fontSize="small" />
-      </IconButton>
-      <IconButton
-        size="small"
-        aria-label={`Descendre ${task.title}`}
-        disabled={busy || index === count - 1}
-        onClick={() => onMove(1)}
-      >
-        <ArrowDownwardIcon fontSize="small" />
-      </IconButton>
-      <IconButton
-        size="small"
-        aria-label={`Remettre ${task.title} dans la réserve`}
-        title="Remettre dans la réserve"
-        disabled={busy}
-        onClick={onRemove}
-      >
-        <RemoveCircleOutlineIcon fontSize="small" />
-      </IconButton>
-    </ListItem>
-  )
-}
-
-/** The room left in the day: one dashed place per free slot, where a reserve task can be dropped. */
-const FreePlaces = ({ count }: { count: number }) => {
-  const { setNodeRef, isOver } = useDroppable({ id: FREE })
-
-  return (
-    <Box ref={setNodeRef} data-testid="day-free" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      {Array.from({ length: count }, (_, i) => (
-        <Box
-          key={i}
-          aria-hidden
-          sx={{ height: 36, borderRadius: 1, border: '1px dashed', borderColor: isOver ? 'primary.main' : 'divider' }}
-        />
-      ))}
-    </Box>
-  )
-}
-
-interface ReserveRowProps {
-  task: DayTask
-  today: string
-  slots: DayTask[]
-  busy: boolean
-  highlighted: boolean
-  onEdit: () => void
-  onPlace: (target: DayTarget) => void
-}
-
-const ReserveRow = ({ task, today, slots, busy, highlighted, onEdit, onPlace }: ReserveRowProps) => {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({
-    id: `reserve:${task.id}`,
-    data: { taskId: task.id },
-    disabled: busy,
-    attributes: { roleDescription: 'tâche déplaçable' },
-  })
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
-  const full = slots.length >= DAY_SLOTS
-
-  return (
-    <ListItem
-      ref={(node) => {
-        setNodeRef(node)
-        if (highlighted) scrollToRow(node)
-      }}
-      aria-current={highlighted ? 'true' : undefined}
-      disablePadding
-      style={{ transform: CSS.Translate.toString(transform) }}
-      sx={{ gap: 0.5, pr: 0.5, ...(highlighted && { bgcolor: 'action.selected' }), ...(isDragging && { zIndex: 10, boxShadow: 3, bgcolor: 'background.paper' }) }}
-    >
-      <IconButton
-        size="small"
-        ref={setActivatorNodeRef}
-        {...attributes}
-        {...listeners}
-        aria-label={`Déplacer ${task.title}`}
-        sx={{ cursor: busy ? 'default' : 'grab', touchAction: 'none' }}
-      >
-        <DragIndicatorIcon fontSize="small" />
-      </IconButton>
-      <Box
-        onClick={onEdit}
-        sx={{ flex: 1, minWidth: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, cursor: 'pointer', py: 1 }}
-      >
-        <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-          {task.title}
-        </Typography>
-        <TaskMarks task={task} today={today} />
-      </Box>
-      {full ? (
-        <>
-          <IconButton
-            size="small"
-            aria-label={`Mettre ${task.title} à la place de…`}
-            title="À la place de…"
-            aria-haspopup="menu"
-            disabled={busy}
-            onClick={(e) => setAnchor(e.currentTarget)}
-          >
-            <SwapHorizIcon fontSize="small" />
-          </IconButton>
-          <Menu anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
-            {slots.map((slot, index) => (
-              <MenuItem
-                key={slot.id}
-                onClick={() => {
-                  setAnchor(null)
-                  onPlace(index)
-                }}
-              >
-                À la place de {slot.title}
-              </MenuItem>
-            ))}
-          </Menu>
-        </>
-      ) : (
-        <IconButton
-          size="small"
-          aria-label={`Ajouter ${task.title} à la journée`}
-          title="Ajouter à la journée"
-          disabled={busy}
-          onClick={() => onPlace('free')}
-        >
-          <AddIcon fontSize="small" />
-        </IconButton>
-      )}
-    </ListItem>
-  )
-}
-
 /**
- * The « Aujourd'hui » tab (MAG-497): five tasks at most, « Maintenant » — the
- * first not done — on top, and the reserve folded away below. Every change
- * sends the whole list to the API, which answers the day as it stands.
+ * The « Aujourd'hui » view (MAG-497, MAG-644): « Maintenant » — the first slot not done — on top,
+ * then every task of the day in the full width, « En retard » apart from « Aujourd'hui ». The five
+ * slots are the API's (and the morning's) to choose; the list draws them first, then the reserve.
  */
 export const TaskDay = ({
   day,
@@ -410,44 +113,29 @@ export const TaskDay = ({
   onReload,
   onEdit,
   highlightId = null,
+  selectedId = null,
   onChange,
   onEvening,
   cheer = DEFAULT_CHEER,
 }: TaskDayProps) => {
   const notify = useNotify()
-  const [busy, setBusy] = useState(false)
-  const [reserveOpen, setReserveOpen] = useState(false)
-  const [title, setTitle] = useState('')
   const [focusId, setFocusId] = useState<string | null>(null)
   const [bravo, setBravo] = useState<{ task: DayTask; reward: Reward; stars: Stars | null } | null>(null)
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor),
-  )
-
-  useEffect(() => {
-    if (highlightId && day.reserve.some((task) => task.id === highlightId)) setReserveOpen(true)
-  }, [highlightId, day.reserve])
-
   const slotTasks = useMemo(() => day.slots.map((slot) => slot.task), [day.slots])
-  const ids = slotTasks.map((task) => task.id)
+  const dayTasks = useMemo(() => [...slotTasks, ...day.reserve], [slotTasks, day.reserve])
+
+  const groups = useMemo((): TaskGroup[] => {
+    const late = dayTasks.filter((task) => isLate(task, today))
+    const rest = dayTasks.filter((task) => !isLate(task, today))
+
+    return [
+      ...(late.length > 0 ? [{ label: 'En retard', tasks: late }] : []),
+      ...(rest.length > 0 ? [{ label: "Aujourd'hui", tasks: rest }] : []),
+    ]
+  }, [dayTasks, today])
 
   const fail = (error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' })
-
-  const save = (next: string[] | null) => {
-    if (!next || busy) return
-    setBusy(true)
-    saveDayPlan(today, next)
-      .then(onDay)
-      .catch((error: Error) => {
-        fail(error)
-        onReload()
-      })
-      .finally(() => setBusy(false))
-  }
-
-  const place = (taskId: string, target: DayTarget) => save(placeOnDay(ids, taskId, target))
 
   // The tick laid down its reward (MAG-508): the bravo shows it, the plain notice only when it cannot be read.
   const celebrate = (task: DayTask) => {
@@ -465,7 +153,9 @@ export const TaskDay = ({
       })
   }
 
-  const toggle = (task: DayTask) => {
+  const toggle = (listed: ListedTask) => {
+    const task = dayTasks.find((candidate) => candidate.id === listed.id)
+    if (!task) return
     const done = task.completedAt == null
     setTaskDone(task.id, done)
       .then(() => {
@@ -474,36 +164,6 @@ export const TaskDay = ({
         onReload()
       })
       .catch(fail)
-  }
-
-  // A new task takes a free slot; with the five taken it waits in the reserve.
-  const create = () => {
-    const value = title.trim()
-    if (!value || busy) return
-    setBusy(true)
-    createTask(value)
-      .then((id) => {
-        setTitle('')
-        if (id && ids.length < DAY_SLOTS) return saveDayPlan(today, [...ids, id]).then(onDay)
-        onReload()
-      })
-      .catch((error: Error) => {
-        fail(error)
-        onReload()
-      })
-      .finally(() => setBusy(false))
-  }
-
-  const onTitleKey = (event: KeyboardEvent) => {
-    if (event.key !== 'Enter') return
-    event.preventDefault()
-    create()
-  }
-
-  const onDragEnd = ({ active, over }: DragEndEvent) => {
-    const taskId = active.data.current?.taskId as string | undefined
-    const target = parsePlace(over?.id)
-    if (taskId && target !== null) place(taskId, target)
   }
 
   // « Plus tard, sans souci »: the task goes after the other slots not done, and the day shows the next one.
@@ -542,7 +202,7 @@ export const TaskDay = ({
     )
   }
 
-  const focused = focusId ? slotTasks.find((task) => task.id === focusId && task.completedAt == null) : undefined
+  const focused = focusId ? dayTasks.find((task) => task.id === focusId && task.completedAt == null) : undefined
   if (focused && !bravo) {
     return (
       <TaskFocus
@@ -588,86 +248,41 @@ export const TaskDay = ({
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd}>
+    <>
       {overlay}
       <RoutinesBand />
       {card}
 
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <Typography variant="subtitle1" component="h2">
-          Mes 5
-        </Typography>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          {onChange && (
-            <Button size="small" color="inherit" onClick={onChange} disabled={busy}>
-              Changer
-            </Button>
-          )}
-          {onEvening && day.total > 0 && (
-            <Button size="small" color="inherit" onClick={onEvening} disabled={busy}>
-              Le soir
-            </Button>
-          )}
-          <DayRing done={day.done} total={day.total} />
-        </Stack>
+      <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={1} sx={{ mb: 1 }}>
+        {onChange && (
+          <Button size="small" color="inherit" onClick={onChange}>
+            Changer
+          </Button>
+        )}
+        {onEvening && day.total > 0 && (
+          <Button size="small" color="inherit" onClick={onEvening}>
+            Le soir
+          </Button>
+        )}
+        <DayRing done={day.done} total={day.total} />
       </Stack>
 
-      <List disablePadding aria-label="Mes 5">
-        {slotTasks.map((task, index) => (
-          <SlotRow
-            key={task.id}
-            task={task}
-            index={index}
-            count={slotTasks.length}
-            today={today}
-            busy={busy}
-            highlighted={task.id === highlightId}
-            onToggle={() => toggle(task)}
-            onEdit={() => onEdit(task.id)}
-            onFocus={() => setFocusId(task.id)}
-            onMove={(offset) => place(task.id, index + offset)}
-            onRemove={() => save(ids.filter((id) => id !== task.id))}
-          />
-        ))}
-      </List>
-      {slotTasks.length < DAY_SLOTS && <FreePlaces count={DAY_SLOTS - slotTasks.length} />}
-
-      <TextField
-        label="Ajouter une tâche"
-        size="small"
-        fullWidth
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={onTitleKey}
-        disabled={busy}
-        sx={{ mt: 2, mb: 3 }}
-      />
-
-      <Button
-        onClick={() => setReserveOpen((open) => !open)}
-        aria-expanded={reserveOpen}
-        aria-controls="day-reserve"
-        endIcon={reserveOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-        color="inherit"
-      >
-        Réserve ({day.reserve.length})
-      </Button>
-      <Collapse in={reserveOpen} unmountOnExit>
-        <List id="day-reserve" disablePadding aria-label="Réserve">
-          {day.reserve.map((task) => (
-            <ReserveRow
-              key={task.id}
-              task={task}
-              today={today}
-              slots={slotTasks}
-              busy={busy}
-              highlighted={task.id === highlightId}
-              onEdit={() => onEdit(task.id)}
-              onPlace={(target) => place(task.id, target)}
-            />
-          ))}
-        </List>
-      </Collapse>
-    </DndContext>
+      {groups.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          Rien à faire aujourd'hui
+        </Typography>
+      ) : (
+        <TaskList
+          groups={groups}
+          today={today}
+          label="Tâches du jour"
+          highlightId={highlightId}
+          selectedId={selectedId}
+          onToggle={toggle}
+          onOpen={(task) => onEdit(task.id)}
+          onFocus={(task) => setFocusId(task.id)}
+        />
+      )}
+    </>
   )
 }

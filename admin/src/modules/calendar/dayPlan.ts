@@ -70,37 +70,6 @@ export async function saveDayPlan(date: string, taskIds: string[], confirm = tru
   return (await response.json()) as DayPlan
 }
 
-/** Where a task is put: on the slot at that index, or in the free room after the last one. */
-export type DayTarget = number | 'free'
-
-/**
- * The day's list once `taskId` is put on `target`, or null when nothing changes.
- *
- * A task of the day moves there (the others shift); a task of the reserve takes
- * that slot, whose task goes back to the reserve, or fills the free room when
- * there is some.
- */
-export function placeOnDay(slots: string[], taskId: string, target: DayTarget): string[] | null {
-  const from = slots.indexOf(taskId)
-
-  if (from >= 0) {
-    const to = target === 'free' ? slots.length - 1 : Math.min(target, slots.length - 1)
-    if (to === from) return null
-    const next = slots.filter((id) => id !== taskId)
-    next.splice(to, 0, taskId)
-
-    return next
-  }
-
-  if (target === 'free' || target >= slots.length) {
-    return slots.length < DAY_SLOTS ? [...slots, taskId] : null
-  }
-  const next = [...slots]
-  next[target] = taskId
-
-  return next
-}
-
 /** Why a task is proposed, in the order of the rule's tiers (MAG-498). */
 export type ProposalReason = 'postponed' | 'dueToday' | 'urgent' | 'dueTomorrow' | 'quick' | 'whenever'
 

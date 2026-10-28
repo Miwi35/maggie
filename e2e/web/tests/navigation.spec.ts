@@ -30,7 +30,7 @@ test('the menu lists the modules of the mockup and « Tâches » opens the Tâch
   await shell.navigateTo('Tâches')
 
   await expect(page).toHaveURL(new RegExp(`#${ROUTES.tasks}$`))
-  await expect(shell.content.getByRole('heading', { level: 1, name: 'Tâches', exact: true })).toBeVisible()
+  await expect(shell.content.getByRole('heading', { level: 1, name: "Aujourd'hui", exact: true })).toBeVisible()
   await expect(page.getByRole('navigation', { name: "Fil d'Ariane" })).toContainText('Tâches')
 })
 

@@ -14,12 +14,14 @@ import Link from '@mui/material/Link'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import MenuItem from '@mui/material/MenuItem'
+import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import CloseIcon from '@mui/icons-material/Close'
 import { UrgencyBadge } from './UrgencyBadge'
 
 /** A link Google Tasks attached to the task (an email, mostly). Read only (MAG-404). */
@@ -69,6 +71,8 @@ interface TaskEditDialogProps {
   task: TaskData | null
   onClose: () => void
   onUpdated: () => void
+  /** `panel`: the sheet beside the list, 420 px wide (MAG-644); `dialog`: over the page. */
+  variant?: 'dialog' | 'panel'
 }
 
 interface EstimateFieldsProps {
@@ -117,7 +121,7 @@ export const bySiblingOrder = (a: TaskData, b: TaskData): number => {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
 }
 
-export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialogProps) => {
+export const TaskEditDialog = ({ open, task, onClose, onUpdated, variant = 'dialog' }: TaskEditDialogProps) => {
   const dataProvider = useDataProvider()
   const notify = useNotify()
 
@@ -264,10 +268,7 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
 
   const links = task?.links ?? []
 
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Modifier la tâche</DialogTitle>
-      <DialogContent>
+  const fields = (
         <Stack spacing={2} sx={{ mt: 1 }}>
           {task?.urgency && (
             <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -409,13 +410,48 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated }: TaskEditDialo
             </Box>
           )}
         </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Annuler</Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={submitting}>
-          Enregistrer
-        </Button>
-      </DialogActions>
+  )
+
+  const actions = (
+    <>
+      <Button onClick={onClose}>Annuler</Button>
+      <Button onClick={handleSubmit} variant="contained" disabled={submitting}>
+        Enregistrer
+      </Button>
+    </>
+  )
+
+  if (variant === 'panel') {
+    if (!open || !task) return null
+
+    return (
+      <Paper
+        component="aside"
+        aria-label="Fiche de la tâche"
+        variant="outlined"
+        sx={{ width: 420, maxWidth: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', alignSelf: 'flex-start' }}
+      >
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, pt: 1.5 }}>
+          <Typography variant="h6" component="h2">
+            Modifier la tâche
+          </Typography>
+          <IconButton size="small" aria-label="Fermer la fiche" onClick={onClose}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+        <Box sx={{ px: 2, pb: 1 }}>{fields}</Box>
+        <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ px: 2, py: 1.5 }}>
+          {actions}
+        </Stack>
+      </Paper>
+    )
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Modifier la tâche</DialogTitle>
+      <DialogContent>{fields}</DialogContent>
+      <DialogActions>{actions}</DialogActions>
     </Dialog>
   )
 }

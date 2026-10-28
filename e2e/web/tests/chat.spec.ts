@@ -1359,12 +1359,12 @@ test('the day is read late task first, one undated task is offered, and it gets 
     .poll(dueDateOf, { timeout: 30_000, message: `the task should be due ${tomorrow}` })
     .toBe(tomorrow)
 
-  // And it is in « À venir », no longer in « À faire un jour ».
+  // And it is in « À venir », no longer in « Un jour ».
   const board = new TasksPage(page)
   await board.open()
   await board.select('À venir')
   await expect(board.row(TASKS_OF_THE_DAY.someday)).toHaveCount(1)
-  await board.select('À faire un jour')
+  await board.select('Un jour')
   await expect(board.row(TASKS_OF_THE_DAY.someday)).toHaveCount(0)
 })
 

@@ -150,9 +150,8 @@ test('the routines of the morning ride above the day; a tick there is ticked in 
     await expect(board.now).toHaveCount(hadNow)
     await expect.poll(() => dayCounts(api)).toEqual({ done: before.done + 1, due: before.due })
 
-    // When I open the « Routines » tab, the routine reads ticked there too.
-    await board.tab('Routines').click()
-    await expect(board.tab('Routines')).toHaveAttribute('aria-selected', 'true')
+    // When I open « Routines » from the page, the routine reads ticked there too.
+    await board.select('Routines')
     await expect(board.routineCheck(title)).toBeChecked()
   } finally {
     await removeRoutines(api, title)

@@ -55,8 +55,9 @@ const dayTask = (id: string, title: string, extra: Partial<DayTask> = {}): DayTa
 
 const COUNTS = { today: 3, upcoming: 2, someday: 2, done: 1 }
 
+const LATE = dayTask('01LATE', 'Rappeler le plombier', { dueDate: '2026-10-10' })
+
 const VIEWS: Record<string, ViewTask[]> = {
-  // Read on « Aujourd'hui » for the other tabs' counts only.
   today: [],
   upcoming: [
     task('01MOVING', 'Préparer le déménagement', { dueDate: '2026-10-20' }),
@@ -202,10 +203,9 @@ const putBodies = () =>
     .filter(([, init]) => init?.method === 'PUT')
     .map(([, init]) => (JSON.parse(init!.body as string) as { slots: { taskId: string }[] }).slots.map((s) => s.taskId))
 
-const slotTitles = () =>
-  within(screen.getByRole('list', { name: 'Mes 5' }))
-    .getAllByRole('listitem')
-    .map((li) => li.textContent)
+const dayList = () => screen.getByRole('list', { name: "Aujourd'hui" })
+
+const rowTitles = (list: HTMLElement = dayList()) => within(list).getAllByRole('listitem').map((li) => li.textContent)
 
 const nowCard = () => screen.getByRole('region', { name: 'Maintenant' })
 
@@ -261,17 +261,45 @@ describe('TaskBoard', () => {
     localStorage.clear()
   })
 
-  describe('« Aujourd\'hui » — the day of five (MAG-497)', () => {
-    test('draws the four tabs, « Aujourd\'hui » first and counting what is left of the day', async () => {
+  describe('the page (MAG-644)', () => {
+    test('is headed « Tâches · <day> », with the quick add and the way to « Routines »', async () => {
       render(<TaskBoard />)
 
-      expect(await screen.findByRole('tab', { name: "Aujourd'hui (3)" })).toHaveAttribute('aria-selected', 'true')
-      expect(screen.getByRole('tab', { name: 'À venir (2)' })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: 'À faire un jour (2)' })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: 'Faites (1)' })).toBeInTheDocument()
-      expect(dayCalls()).toEqual(['http://localhost/api/day-plans/2026-10-15'])
+      expect(await screen.findByText('Tâches · jeudi 15 octobre')).toBeInTheDocument()
+      expect(screen.getByRole('textbox', { name: 'Ajouter une tâche' })).toHaveAttribute('placeholder', 'Appeler le garage demain')
+      expect(screen.getByRole('link', { name: 'Routines' })).toHaveAttribute('href', '/tasks/routines')
     })
 
+    test.each([
+      ['/tasks/upcoming', 'upcoming'],
+      ['/tasks/someday', 'someday'],
+      ['/tasks/done', 'done'],
+    ])('%s reads the « %s » view only, not the day', async (path, view) => {
+      boardUrl = path
+      render(<TaskBoard />)
+
+      await waitFor(() => expect(viewCalls()).toHaveLength(1))
+      expect(viewCalls()[0]).toContain(`/tasks/view/${view}`)
+      expect(dayCalls()).toEqual([])
+    })
+
+    test('« Faites » asks for its first page', async () => {
+      boardUrl = '/tasks/done'
+      render(<TaskBoard />)
+
+      expect(await screen.findByText('Sortir les poubelles')).toBeInTheDocument()
+      expect(viewCalls()).toEqual(['http://localhost/api/tasks/view/done?page=1&itemsPerPage=30'])
+    })
+
+    test('a path the page does not know is the day', async () => {
+      boardUrl = '/tasks/unknown'
+      render(<TaskBoard />)
+
+      expect(await screen.findByRole('list', { name: "Aujourd'hui" })).toBeInTheDocument()
+    })
+  })
+
+  describe('« Aujourd\'hui » — the day of five (MAG-497)', () => {
     test('« Maintenant » holds the first task not done, with its first step and its minutes', async () => {
       render(<TaskBoard />)
 
@@ -291,40 +319,48 @@ describe('TaskBoard', () => {
       expect(ring.querySelectorAll('path')).toHaveLength(3)
     })
 
-    test('« Mes 5 » lists the slots in order: « reportée » in words, the critical mark instead, the minutes', async () => {
+    test('the list takes the slots in order, then the reserve: « reportée » in words, the critical mark instead, the minutes', async () => {
       render(<TaskBoard />)
-      await screen.findByRole('list', { name: 'Mes 5' })
+      await screen.findByRole('list', { name: "Aujourd'hui" })
 
-      expect(slotTitles()).toEqual([
+      expect(rowTitles()).toEqual([
         expect.stringContaining('Appeler la banque'),
         expect.stringContaining('Payer la cantine'),
         expect.stringContaining('Arroser'),
+        expect.stringContaining('Rendre le livre'),
+        expect.stringContaining('Trier les photos'),
       ])
-      const [bank, canteen, water] = within(screen.getByRole('list', { name: 'Mes 5' })).getAllByRole('listitem')
+      const [bank, canteen, water, book] = within(dayList()).getAllByRole('listitem')
       expect(bank).toHaveTextContent('reportée depuis lundi')
       expect(bank).toHaveTextContent('10 min')
       expect(bank).not.toHaveTextContent(/retard/i)
       expect(within(canteen).getByTestId('urgency-badge')).toHaveAttribute('data-urgency', 'critical')
       expect(canteen).not.toHaveTextContent('reportée')
-      expect(within(water).queryByTestId('urgency-badge')).toBeNull()
-      expect(screen.getByTestId('day-free').children).toHaveLength(2)
+      expect(within(water).getByTestId('urgency-badge')).toHaveAttribute('data-urgency', 'normal')
+      expect(book).toHaveTextContent('reportée depuis hier')
+      expect(screen.getByRole('heading', { name: "Aujourd'hui · 5" })).toBeInTheDocument()
     })
 
-    test('the reserve is folded, says its size, and opens on a click', async () => {
-      const user = setup()
+    test('draws the Urgence and Échéance columns, a day in the « Échéance » one', async () => {
+      state = { slots: [{ ...BANK, dueDate: '2026-10-15' }, CANTEEN, WATER], reserve: [] }
+      render(<TaskBoard />)
+      await screen.findByRole('list', { name: "Aujourd'hui" })
+
+      expect(screen.getByText('Urgence')).toBeInTheDocument()
+      expect(screen.getByText('Échéance')).toBeInTheDocument()
+      expect(within(dayList()).getAllByRole('listitem')[0]).toHaveTextContent('15 oct.')
+    })
+
+    test('the tasks due before today are apart, under « En retard »', async () => {
+      state = { slots: [BANK, CANTEEN, WATER], reserve: [BOOK, LATE] }
       render(<TaskBoard />)
 
-      const toggle = await screen.findByRole('button', { name: 'Réserve (2)' })
-      expect(toggle).toHaveAttribute('aria-expanded', 'false')
-      expect(screen.queryByRole('list', { name: 'Réserve' })).toBeNull()
-      expect(screen.queryByText('Rendre le livre')).toBeNull()
-
-      await user.click(toggle)
-
-      expect(toggle).toHaveAttribute('aria-expanded', 'true')
-      const reserve = screen.getByRole('list', { name: 'Réserve' })
-      expect(within(reserve).getByText('Rendre le livre').closest('li')).toHaveTextContent('reportée depuis hier')
-      expect(within(reserve).getByText('Trier les photos')).toBeInTheDocument()
+      const late = await screen.findByRole('list', { name: 'En retard' })
+      expect(screen.getByRole('heading', { name: 'En retard · 1' })).toBeInTheDocument()
+      expect(rowTitles(late)).toEqual([expect.stringContaining('Rappeler le plombier')])
+      expect(within(late).getByRole('listitem')).toHaveTextContent('prévue le 10 oct.')
+      expect(rowTitles()).toHaveLength(4)
+      expect(screen.getByRole('heading', { name: "Aujourd'hui · 4" })).toBeInTheDocument()
     })
 
     test('ticking « Maintenant » sends the merge-patch, then the next task takes its place', async () => {
@@ -340,12 +376,11 @@ describe('TaskBoard', () => {
       expect((init!.headers as Record<string, string>)['Content-Type']).toBe('application/merge-patch+json')
       expect(JSON.parse(init!.body as string)).toEqual({ completedAt: '2026-10-15T08:00:00.000Z' })
       expect(screen.getByRole('img', { name: '1 sur 3' })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: "Aujourd'hui (2)" })).toBeInTheDocument()
       expect(screen.getByRole('checkbox', { name: 'Rouvrir Appeler la banque' })).toBeChecked()
       expect(mockNotify).toHaveBeenCalledWith('Tâche terminée', { type: 'success' })
     })
 
-    test('a slot is ticked in one gesture from its checkbox', async () => {
+    test('a task is ticked in one gesture from its checkbox, the reserve ones too', async () => {
       const user = setup()
       render(<TaskBoard />)
 
@@ -353,124 +388,129 @@ describe('TaskBoard', () => {
 
       await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Rouvrir Arroser' })).toBeChecked())
       expect(nowCard()).toHaveTextContent('Appeler la banque')
+
+      await user.click(screen.getByRole('checkbox', { name: 'Terminer Rendre le livre' }))
+      expect(mockFetch.mock.calls.filter(([, i]) => i?.method === 'PATCH').map(([url]) => url)).toContain('http://localhost/api/tasks/01BOOK')
     })
 
-    test('with room left, a reserve task is added after the last slot', async () => {
+    test('a task done is unticked from the same checkbox', async () => {
       const user = setup()
+      state = { slots: [{ ...BANK, completedAt: '2026-10-15T07:00:00+00:00' }, CANTEEN, WATER], reserve: [] }
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('button', { name: 'Réserve (2)' }))
 
-      await user.click(screen.getByRole('button', { name: 'Ajouter Rendre le livre à la journée' }))
+      await user.click(await screen.findByRole('checkbox', { name: 'Rouvrir Appeler la banque' }))
 
-      await waitFor(() => expect(slotTitles()).toHaveLength(4))
-      expect(putBodies()).toEqual([['01BANK', '01CANTEEN', '01WATER', '01BOOK']])
-      expect(mockFetch.mock.calls.find(([, i]) => i?.method === 'PUT')![0]).toBe('http://localhost/api/day-plans/2026-10-15')
-      expect(screen.getByRole('button', { name: 'Réserve (1)' })).toBeInTheDocument()
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Tâche rouverte', { type: 'success' }))
+      const [, init] = mockFetch.mock.calls.find(([, i]) => i?.method === 'PATCH')!
+      expect(JSON.parse(init!.body as string)).toEqual({ completedAt: null })
     })
 
-    test('with the five taken, a reserve task goes « à la place de » the slot chosen, which goes back to the reserve', async () => {
-      const user = setup()
-      const ERRAND = dayTask('01ERRAND', 'Faire les courses')
-      const MAIL = dayTask('01MAIL', 'Poster la lettre')
-      state = { slots: [BANK, CANTEEN, WATER, ERRAND, MAIL], reserve: [BOOK, PHOTOS] }
-      render(<TaskBoard />)
-      await user.click(await screen.findByRole('button', { name: 'Réserve (2)' }))
-      expect(screen.queryByRole('button', { name: 'Ajouter Rendre le livre à la journée' })).toBeNull()
-
-      await user.click(screen.getByRole('button', { name: 'Mettre Rendre le livre à la place de…' }))
-      await user.click(screen.getByRole('menuitem', { name: 'À la place de Arroser' }))
-
-      await waitFor(() => expect(putBodies()).toEqual([['01BANK', '01CANTEEN', '01BOOK', '01ERRAND', '01MAIL']]))
-      await waitFor(() => expect(slotTitles()[2]).toContain('Rendre le livre'))
-      expect(within(screen.getByRole('list', { name: 'Réserve' })).getByText('Arroser')).toBeInTheDocument()
-    })
-
-    test('« Remettre dans la réserve » sends the day without it', async () => {
+    test('a click on a row opens its sheet in a panel beside the list; the cross closes it', async () => {
       const user = setup()
       render(<TaskBoard />)
 
-      await user.click(await screen.findByRole('button', { name: 'Remettre Arroser dans la réserve' }))
+      await user.click(await screen.findByRole('button', { name: 'Ouvrir Appeler la banque' }))
 
-      await waitFor(() => expect(slotTitles()).toHaveLength(2))
-      expect(putBodies()).toEqual([['01BANK', '01CANTEEN']])
-      expect(screen.getByRole('button', { name: 'Réserve (3)' })).toBeInTheDocument()
+      const panel = await screen.findByRole('complementary', { name: 'Fiche de la tâche' })
+      expect(within(panel).getByRole('heading', { name: 'Modifier la tâche' })).toBeInTheDocument()
+      expect(within(panel).getByLabelText(/Titre/)).toHaveValue('Appeler la banque')
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(dayList()).toBeInTheDocument()
+
+      await user.click(within(panel).getByRole('button', { name: 'Fermer la fiche' }))
+
+      expect(screen.queryByRole('complementary', { name: 'Fiche de la tâche' })).toBeNull()
     })
 
-    test('the five are reordered from the keyboard', async () => {
-      const user = setup()
-      render(<TaskBoard />)
-      const down = await screen.findByRole('button', { name: 'Descendre Appeler la banque' })
-      expect(screen.getByRole('button', { name: 'Monter Appeler la banque' })).toBeDisabled()
-
-      down.focus()
-      await user.keyboard('{Enter}')
-
-      await waitFor(() => expect(slotTitles()[0]).toContain('Payer la cantine'))
-      expect(putBodies()).toEqual([['01CANTEEN', '01BANK', '01WATER']])
-      expect(slotTitles()[1]).toContain('Appeler la banque')
-      expect(nowCard()).toHaveTextContent('Payer la cantine')
-
-      screen.getByRole('button', { name: 'Monter Appeler la banque' }).focus()
-      await user.keyboard(' ')
-
-      await waitFor(() => expect(putBodies()).toHaveLength(2))
-      expect(putBodies()[1]).toEqual(['01BANK', '01CANTEEN', '01WATER'])
-    })
-
-    test('a refused day says why and reads the day again', async () => {
+    test('a task that cannot be read says so and opens nothing', async () => {
       const user = setup()
       mockFetch.mockImplementation((url, init) =>
-        Promise.resolve(
-          init?.method === 'PUT' ? json({ error: 'A task takes one slot of the day, not two.' }, 400) : respond(String(url), init),
-        ),
+        Promise.resolve(/\/tasks\/01WATER$/.test(String(url)) && !init?.method ? json({}, 500) : respond(String(url), init)),
       )
       render(<TaskBoard />)
 
-      await user.click(await screen.findByRole('button', { name: 'Remettre Arroser dans la réserve' }))
+      await user.click(await screen.findByRole('button', { name: 'Ouvrir Arroser' }))
 
-      await waitFor(() =>
-        expect(mockNotify).toHaveBeenCalledWith('Erreur: A task takes one slot of the day, not two.', { type: 'error' }),
-      )
-      await waitFor(() => expect(dayCalls()).toHaveLength(2))
-      expect(slotTitles()).toHaveLength(3)
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: Tâche : 500', { type: 'error' }))
+      expect(screen.queryByRole('complementary', { name: 'Fiche de la tâche' })).toBeNull()
     })
 
-    test('« Ajouter une tâche » with room creates it, then puts it in the day', async () => {
-      const user = setup()
-      render(<TaskBoard />)
+    describe('the quick add (MAG-644)', () => {
+      const bodies = () => mockFetch.mock.calls.filter(([, i]) => i?.method === 'POST').map(([, i]) => JSON.parse(i!.body as string))
+      const field = () => screen.findByRole('textbox', { name: 'Ajouter une tâche' })
 
-      await user.type(await screen.findByRole('textbox', { name: 'Ajouter une tâche' }), 'Acheter du pain{Enter}')
+      test('a task without a day takes the first free place of the day', async () => {
+        const user = setup()
+        render(<TaskBoard />)
 
-      await waitFor(() => expect(putBodies()).toEqual([['01BANK', '01CANTEEN', '01WATER', '01NEW']]))
-      const [, init] = mockFetch.mock.calls.find(([, i]) => i?.method === 'POST')!
-      expect(JSON.parse(init!.body as string)).toEqual({ title: 'Acheter du pain' })
-      await waitFor(() => expect(slotTitles()[3]).toContain('Acheter du pain'))
-      expect(screen.getByRole('textbox', { name: 'Ajouter une tâche' })).toHaveValue('')
-    })
+        await user.type(await field(), 'Acheter du pain{Enter}')
 
-    test('« Ajouter une tâche » with the five taken leaves it in the reserve', async () => {
-      const user = setup()
-      state = {
-        slots: [BANK, CANTEEN, WATER, dayTask('01ERRAND', 'Faire les courses'), dayTask('01MAIL', 'Poster la lettre')],
-        reserve: [BOOK],
-      }
-      render(<TaskBoard />)
+        await waitFor(() => expect(putBodies()).toEqual([['01BANK', '01CANTEEN', '01WATER', '01NEW']]))
+        expect(bodies()).toEqual([{ title: 'Acheter du pain' }])
+        await waitFor(() => expect(rowTitles()[3]).toContain('Acheter du pain'))
+        expect(screen.getByRole('textbox', { name: 'Ajouter une tâche' })).toHaveValue('')
+      })
 
-      await user.type(await screen.findByRole('textbox', { name: 'Ajouter une tâche' }), 'Acheter du pain{Enter}')
+      test('« Appeler le garage demain » is the task « Appeler le garage », due tomorrow, and not in today', async () => {
+        const user = setup()
+        render(<TaskBoard />)
 
-      expect(await screen.findByRole('button', { name: 'Réserve (2)' })).toBeInTheDocument()
-      expect(calls('POST')).toHaveLength(1)
-      expect(calls('PUT')).toHaveLength(0)
-      expect(screen.queryByTestId('day-free')).toBeNull()
-    })
+        await user.type(await field(), 'Appeler le garage demain{Enter}')
 
-    test('a blank title creates nothing', async () => {
-      const user = setup()
-      render(<TaskBoard />)
+        await waitFor(() => expect(bodies()).toEqual([{ title: 'Appeler le garage', dueDate: '2026-10-16' }]))
+        await waitFor(() =>
+          expect(mockNotify).toHaveBeenCalledWith('Tâche ajoutée pour le vendredi 16 octobre', { type: 'success' }),
+        )
+        expect(calls('PUT')).toHaveLength(0)
+        expect(screen.getByRole('textbox', { name: 'Ajouter une tâche' })).toHaveValue('')
+      })
 
-      await user.type(await screen.findByRole('textbox', { name: 'Ajouter une tâche' }), '   {Enter}')
+      test('« aujourd\'hui » is a day of the day: the task is put in it', async () => {
+        const user = setup()
+        render(<TaskBoard />)
 
-      expect(calls('POST')).toHaveLength(0)
+        await user.type(await field(), 'Poster le colis aujourd\'hui{Enter}')
+
+        await waitFor(() => expect(putBodies()).toHaveLength(1))
+        expect(bodies()).toEqual([{ title: 'Poster le colis', dueDate: '2026-10-15' }])
+      })
+
+      test('with the five taken, the task stays out of the day and shows in the list', async () => {
+        const user = setup()
+        state = {
+          slots: [BANK, CANTEEN, WATER, dayTask('01ERRAND', 'Faire les courses'), dayTask('01MAIL', 'Poster la lettre')],
+          reserve: [BOOK],
+        }
+        render(<TaskBoard />)
+
+        await user.type(await field(), 'Acheter du pain{Enter}')
+
+        expect(await screen.findByText('Acheter du pain')).toBeInTheDocument()
+        expect(calls('POST')).toHaveLength(1)
+        expect(calls('PUT')).toHaveLength(0)
+      })
+
+      test('a blank title creates nothing', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+
+        await user.type(await field(), '   {Enter}')
+
+        expect(calls('POST')).toHaveLength(0)
+      })
+
+      test('a refused creation says why and keeps what was typed', async () => {
+        const user = setup()
+        mockFetch.mockImplementation((url, init) =>
+          Promise.resolve(init?.method === 'POST' ? json({}, 500) : respond(String(url), init)),
+        )
+        render(<TaskBoard />)
+
+        await user.type(await field(), 'Acheter du pain{Enter}')
+
+        await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: Tâche : 500', { type: 'error' }))
+        expect(screen.getByRole('textbox', { name: 'Ajouter une tâche' })).toHaveValue('Acheter du pain')
+      })
     })
 
     describe('the Focus (MAG-499)', () => {
@@ -486,12 +526,12 @@ describe('TaskBoard', () => {
         expect(focus()).toHaveTextContent('Trouver le RIB')
         expect(focus()).toHaveTextContent('2 min')
         expect(screen.getByRole('timer', { name: 'Minuteur' })).toHaveTextContent('10:00')
-        expect(screen.queryByRole('list', { name: 'Mes 5' })).toBeNull()
+        expect(screen.queryByRole('list', { name: "Aujourd'hui" })).toBeNull()
         expect(dataProvider.getList).toHaveBeenCalledWith('tasks', expect.objectContaining({ filter: { parent: '/api/tasks/01BANK' } }))
 
         await user.click(screen.getByRole('button', { name: 'Retour à la journée' }))
 
-        expect(screen.getByRole('list', { name: 'Mes 5' })).toBeInTheDocument()
+        expect(dayList()).toBeInTheDocument()
         expect(calls('PUT')).toHaveLength(0)
       })
 
@@ -499,7 +539,7 @@ describe('TaskBoard', () => {
         const user = setup()
         state = { slots: [{ ...BANK, completedAt: '2026-10-15T07:00:00+00:00' }, CANTEEN, WATER], reserve: [] }
         render(<TaskBoard />)
-        await screen.findByRole('list', { name: 'Mes 5' })
+        await screen.findByRole('list', { name: "Aujourd'hui" })
         expect(screen.queryByRole('button', { name: 'Se concentrer sur Appeler la banque' })).toBeNull()
 
         await user.click(screen.getByRole('button', { name: 'Se concentrer sur Arroser' }))
@@ -518,7 +558,7 @@ describe('TaskBoard', () => {
 
         await waitFor(() => expect(nowCard()).toHaveTextContent('Payer la cantine'))
         expect(putBodies()).toEqual([['01CANTEEN', '01WATER', '01BANK']])
-        expect(slotTitles()[2]).toContain('Appeler la banque')
+        expect(rowTitles()[2]).toContain('Appeler la banque')
         expect(screen.queryByRole('region', { name: 'Appeler la banque' })).toBeNull()
         expect(document.body).not.toHaveTextContent(/retard|en retard|reproche/i)
       })
@@ -545,7 +585,7 @@ describe('TaskBoard', () => {
 
         await user.click(screen.getByRole('button', { name: 'Plus tard, sans souci' }))
 
-        await waitFor(() => expect(screen.getByRole('list', { name: 'Mes 5' })).toBeInTheDocument())
+        await waitFor(() => expect(dayList()).toBeInTheDocument())
         expect(calls('PUT')).toHaveLength(0)
       })
 
@@ -598,15 +638,21 @@ describe('TaskBoard', () => {
       })
     })
 
-    test('an empty day shows no « Maintenant » and no ring, only the free places', async () => {
+    test('an empty slot list shows no « Maintenant » and no ring; the reserve is still listed', async () => {
       state = { slots: [], reserve: [BOOK] }
       render(<TaskBoard />)
 
-      expect(await screen.findByRole('tab', { name: "Aujourd'hui (0)" })).toBeInTheDocument()
-      expect(await screen.findByRole('button', { name: 'Réserve (1)' })).toBeInTheDocument()
+      expect(await screen.findByRole('list', { name: "Aujourd'hui" })).toHaveTextContent('Rendre le livre')
       expect(screen.queryByRole('region', { name: 'Maintenant' })).toBeNull()
       expect(screen.queryByRole('img')).toBeNull()
-      expect(screen.getByTestId('day-free').children).toHaveLength(5)
+    })
+
+    test('a day with nothing at all says so', async () => {
+      state = { slots: [], reserve: [] }
+      render(<TaskBoard />)
+
+      expect(await screen.findByText("Rien à faire aujourd'hui")).toBeInTheDocument()
+      expect(screen.queryByRole('list', { name: "Aujourd'hui" })).toBeNull()
     })
 
     test('shows an error, not a crash, when the day cannot be read', async () => {
@@ -617,12 +663,12 @@ describe('TaskBoard', () => {
       render(<TaskBoard />)
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Tâches indisponibles')
-      expect(screen.getByRole('tab', { name: "Aujourd'hui" })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Routines' })).toBeInTheDocument()
     })
 
-    test('listens to the tasks and to the day, and reads both again on an update', async () => {
+    test('listens to the tasks and to the day, and reads the day again on an update', async () => {
       render(<TaskBoard />)
-      await screen.findByRole('list', { name: 'Mes 5' })
+      await screen.findByRole('list', { name: "Aujourd'hui" })
       const url = decodeURIComponent(MockEventSource.last!.url)
       expect(url).toContain('/users/U1/api/tasks/:id')
       expect(url).toContain('/users/U1/api/day_plans/:id')
@@ -630,32 +676,12 @@ describe('TaskBoard', () => {
       MockEventSource.last!.onmessage!({ data: '{}' } as MessageEvent)
 
       await waitFor(() => expect(dayCalls()).toHaveLength(2))
-      expect(viewCalls()).toHaveLength(2)
+      expect(viewCalls()).toHaveLength(0)
     })
   })
 
-  describe('the other three views (MAG-408)', () => {
-    test('switching tab fetches that view, and « Faites » asks for its first page', async () => {
-      const user = setup()
-      render(<TaskBoard />)
-      await screen.findByRole('list', { name: 'Mes 5' })
-
-      await user.click(screen.getByRole('tab', { name: 'À venir (2)' }))
-      expect(await screen.findByText('Préparer le déménagement')).toBeInTheDocument()
-      expect(screen.queryByRole('list', { name: 'Mes 5' })).not.toBeInTheDocument()
-
-      await user.click(screen.getByRole('tab', { name: 'À faire un jour (2)' }))
-      expect(await screen.findByText('Renvoyer le formulaire')).toBeInTheDocument()
-
-      await user.click(screen.getByRole('tab', { name: 'Faites (1)' }))
-      expect(await screen.findByText('Sortir les poubelles')).toBeInTheDocument()
-      expect(viewCalls()).toEqual([
-        'http://localhost/api/tasks/view/today',
-        'http://localhost/api/tasks/view/upcoming',
-        'http://localhost/api/tasks/view/someday',
-        'http://localhost/api/tasks/view/done?page=1&itemsPerPage=30',
-      ])
-    })
+  describe('the other views (MAG-408, MAG-644)', () => {
+    const bodies = () => mockFetch.mock.calls.filter(([, i]) => i?.method === 'POST').map(([, i]) => JSON.parse(i!.body as string))
 
     test('the routines of the moment ride above the day without touching its ring or « Maintenant » (MAG-512)', async () => {
       routinesDay = {
@@ -674,53 +700,35 @@ describe('TaskBoard', () => {
       expect(within(band).getByRole('button', { name: "Grand verre d'eau" })).toHaveAttribute('aria-pressed', 'false')
       expect(screen.getByRole('img', { name: '0 sur 3' })).toBeInTheDocument()
       expect(within(nowCard()).getByText('Appeler la banque')).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: "Aujourd'hui (3)" })).toBeInTheDocument()
     })
 
-    test('« Routines » comes right after « Aujourd\'hui »: it reads the routines, not a view of the tasks (MAG-511)', async () => {
-      const user = setup()
+    test('« Routines » reads the routines, not a view of the tasks, and has neither quick add nor its own link (MAG-511)', async () => {
+      boardUrl = '/tasks/routines'
       render(<TaskBoard />)
-      await screen.findByRole('list', { name: 'Mes 5' })
-      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-        "Aujourd'hui (3)",
-        'Routines',
-        'À venir (2)',
-        'À faire un jour (2)',
-        'Faites (1)',
-      ])
 
-      await user.click(screen.getByRole('tab', { name: 'Routines' }))
       expect(await screen.findByRole('button', { name: 'Nouvelle routine' })).toBeInTheDocument()
-      expect(screen.queryByRole('textbox', { name: 'Nouvelle tâche' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('textbox', { name: 'Ajouter une tâche' })).toBeNull()
+      expect(screen.queryByRole('link', { name: 'Routines' })).toBeNull()
       await waitFor(() => expect(calls()).toContain('http://localhost/api/routines'))
-      expect(viewCalls()).toEqual(['http://localhost/api/tasks/view/today'])
-
-      await user.click(screen.getByRole('tab', { name: 'À venir (2)' }))
-      expect(await screen.findByText('Préparer le déménagement')).toBeInTheDocument()
+      expect(viewCalls()).toEqual([])
+      expect(dayCalls()).toEqual([])
     })
 
-    test('« Routines » opens first when the link says so (the home widget, MAG-512)', async () => {
-      window.location.hash = '#/tasks?tab=routines'
+    test('the list of a view is full width, named after the view, a subtask under its task', async () => {
+      boardUrl = '/tasks/upcoming'
       render(<TaskBoard />)
-
-      expect(await screen.findByRole('button', { name: 'Nouvelle routine' })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: 'Routines' })).toHaveAttribute('aria-selected', 'true')
-    })
-
-    test('a subtask goes under its task', async () => {
-      const user = setup()
-      render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
       await screen.findByText('Préparer le déménagement')
 
+      expect(screen.getByRole('list', { name: 'À venir' })).toBeInTheDocument()
+      expect(screen.getByText('Urgence')).toBeInTheDocument()
       expect(screen.getByText('Réserver le camion').closest('li')).toHaveStyle({ paddingLeft: '32px' })
       expect(screen.getByText('Préparer le déménagement').closest('li')).not.toHaveStyle({ paddingLeft: '32px' })
+      expect(screen.getByText('Préparer le déménagement').closest('li')).toHaveTextContent('20 oct.')
     })
 
     test('a put-off task reads « reportée », never late in red; a critical one keeps its mark', async () => {
-      const user = setup()
+      boardUrl = '/tasks/someday'
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'À faire un jour (2)' }))
 
       const form = (await screen.findByText('Renvoyer le formulaire')).closest('li')!
       expect(form).toHaveTextContent('reportée depuis le 1 oct.')
@@ -735,8 +743,8 @@ describe('TaskBoard', () => {
 
     test('ticking a task sends a merge-patch on completedAt and refetches the view', async () => {
       const user = setup()
+      boardUrl = '/tasks/upcoming'
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
       await screen.findByText('Préparer le déménagement')
 
       await user.click(screen.getByRole('checkbox', { name: 'Terminer Préparer le déménagement' }))
@@ -750,8 +758,8 @@ describe('TaskBoard', () => {
 
     test('unticking a done task sends completedAt null', async () => {
       const user = setup()
+      boardUrl = '/tasks/done'
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'Faites (1)' }))
 
       const box = await screen.findByRole('checkbox', { name: 'Rouvrir Sortir les poubelles' })
       expect(box).toBeChecked()
@@ -764,11 +772,11 @@ describe('TaskBoard', () => {
 
     test('a failing tick says so and leaves the list as it was', async () => {
       const user = setup()
+      boardUrl = '/tasks/upcoming'
       mockFetch.mockImplementation((url, init) =>
         Promise.resolve(init?.method === 'PATCH' ? json({}, 500) : respond(String(url), init)),
       )
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
       await screen.findByText('Préparer le déménagement')
 
       await user.click(screen.getByRole('checkbox', { name: 'Terminer Préparer le déménagement' }))
@@ -777,76 +785,82 @@ describe('TaskBoard', () => {
       expect(screen.getByText('Préparer le déménagement')).toBeInTheDocument()
     })
 
-    test('the quick create defaults to tomorrow in « À venir » and to no date in « À faire un jour »', async () => {
+    test('the quick add defaults to tomorrow in « À venir » and to no date in « Un jour »', async () => {
       const user = setup()
-      render(<TaskBoard />)
-      await screen.findByRole('list', { name: 'Mes 5' })
+      boardUrl = '/tasks/upcoming'
+      const first = render(<TaskBoard />)
+      await user.type(await screen.findByRole('textbox', { name: 'Ajouter une tâche' }), 'Réserver le train{Enter}')
+      await waitFor(() => expect(calls('POST')).toHaveLength(1))
+      first.unmount()
 
-      await user.click(screen.getByRole('tab', { name: 'À venir (2)' }))
-      await user.type(await screen.findByRole('textbox', { name: 'Nouvelle tâche' }), 'Réserver le train{Enter}')
-      await user.click(screen.getByRole('tab', { name: /À faire un jour/ }))
-      await user.type(await screen.findByRole('textbox', { name: 'Nouvelle tâche' }), 'Ranger le garage{Enter}')
+      boardUrl = '/tasks/someday'
+      render(<TaskBoard />)
+      await user.type(await screen.findByRole('textbox', { name: 'Ajouter une tâche' }), 'Ranger le garage{Enter}')
 
       await waitFor(() => expect(calls('POST')).toHaveLength(2))
-      const bodies = mockFetch.mock.calls.filter(([, i]) => i?.method === 'POST').map(([, i]) => JSON.parse(i!.body as string))
-      expect(bodies).toEqual([
-        { title: 'Réserver le train', dueDate: '2026-10-16' },
-        { title: 'Ranger le garage' },
-      ])
+      expect(bodies()).toEqual([{ title: 'Réserver le train', dueDate: '2026-10-16' }, { title: 'Ranger le garage' }])
       expect(calls('PUT')).toHaveLength(0)
     })
 
-    test('a blank title creates nothing, and « Faites » has no quick create', async () => {
+    test('a day word of the title wins over the default of the view', async () => {
       const user = setup()
+      boardUrl = '/tasks/someday'
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
 
-      await user.type(await screen.findByRole('textbox', { name: 'Nouvelle tâche' }), '   {Enter}')
-      expect(calls('POST')).toHaveLength(0)
+      await user.type(await screen.findByRole('textbox', { name: 'Ajouter une tâche' }), 'Appeler le garage lundi{Enter}')
 
-      await user.click(screen.getByRole('tab', { name: 'Faites (1)' }))
-      await screen.findByText('Sortir les poubelles')
-      expect(screen.queryByRole('textbox', { name: 'Nouvelle tâche' })).not.toBeInTheDocument()
+      await waitFor(() => expect(bodies()).toEqual([{ title: 'Appeler le garage', dueDate: '2026-10-19' }]))
+      expect(mockNotify).toHaveBeenCalledWith('Tâche ajoutée pour le lundi 19 octobre', { type: 'success' })
     })
 
-    test('opens the detail of a task in the edit form', async () => {
+    test('a blank title creates nothing, and « Faites » has no quick add', async () => {
       const user = setup()
+      boardUrl = '/tasks/upcoming'
+      const first = render(<TaskBoard />)
+
+      await user.type(await screen.findByRole('textbox', { name: 'Ajouter une tâche' }), '   {Enter}')
+      expect(calls('POST')).toHaveLength(0)
+      first.unmount()
+
+      boardUrl = '/tasks/done'
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
+      await screen.findByText('Sortir les poubelles')
+      expect(screen.queryByRole('textbox', { name: 'Ajouter une tâche' })).not.toBeInTheDocument()
+    })
 
-      await user.click(await screen.findByText('Préparer le déménagement'))
+    test('opens the detail of a task in the panel, without a refetch', async () => {
+      const user = setup()
+      boardUrl = '/tasks/upcoming'
+      render(<TaskBoard />)
 
-      const dialog = await screen.findByRole('dialog')
-      expect(within(dialog).getByRole('heading', { name: 'Modifier la tâche' })).toBeInTheDocument()
-      expect(within(dialog).getByLabelText(/Titre/)).toHaveValue('Préparer le déménagement')
+      await user.click(await screen.findByRole('button', { name: 'Ouvrir Préparer le déménagement' }))
+
+      const panel = await screen.findByRole('complementary', { name: 'Fiche de la tâche' })
+      expect(within(panel).getByRole('heading', { name: 'Modifier la tâche' })).toBeInTheDocument()
+      expect(within(panel).getByLabelText(/Titre/)).toHaveValue('Préparer le déménagement')
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(screen.getByRole('list', { name: 'À venir' })).toBeInTheDocument()
     })
 
     test.each([
-      ['upcoming', 'À venir', 'Aucune tâche à venir'],
-      ['someday', 'À faire un jour', 'Aucune tâche pour plus tard'],
-      ['done', 'Faites', 'Aucune tâche terminée'],
-    ])('says so when the « %s » view is empty', async (view, label, message) => {
-      const user = setup()
+      ['upcoming', 'Aucune tâche à venir'],
+      ['someday', 'Aucune tâche pour plus tard'],
+      ['done', 'Aucune tâche terminée'],
+    ])('says so when the « %s » view is empty', async (view, message) => {
+      boardUrl = `/tasks/${view}`
       mockFetch.mockImplementation((url, init) => {
         const name = /view\/(\w+)/.exec(String(url))?.[1]
         if (!name) return Promise.resolve(respond(String(url), init))
-        return Promise.resolve(viewResponse(name, name === view ? [] : VIEWS[name], { ...COUNTS, [view]: 0 }))
+        return Promise.resolve(viewResponse(name, [], { ...COUNTS, [view]: 0 }))
       })
       render(<TaskBoard />)
-      await screen.findByRole('list', { name: 'Mes 5' })
-
-      await user.click(screen.getByRole('tab', { name: new RegExp(label) }))
 
       expect(await screen.findByText(message)).toBeInTheDocument()
     })
 
-    test('a network failure on another tab shows the error too, and the next tab recovers', async () => {
-      const user = setup()
+    test('a network failure shows the error, and the next update recovers', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
-      render(<TaskBoard />)
-      await screen.findByRole('list', { name: 'Mes 5' })
-
-      // Aimed at the « À venir » view: a one-shot rejection is eaten by whichever background read (routines, stars…) comes first.
+      boardUrl = '/tasks/upcoming'
       let failed = false
       mockFetch.mockImplementation((url, init) => {
         if (!failed && /\/tasks\/view\/upcoming/.test(String(url))) {
@@ -855,23 +869,24 @@ describe('TaskBoard', () => {
         }
         return Promise.resolve(respond(String(url), init))
       })
-      await user.click(screen.getByRole('tab', { name: 'À venir (2)' }))
+      render(<TaskBoard />)
       expect(await screen.findByRole('alert')).toHaveTextContent('Tâches indisponibles')
 
-      await user.click(screen.getByRole('tab', { name: 'À faire un jour (2)' }))
-      expect(await screen.findByText('Renvoyer le formulaire')).toBeInTheDocument()
+      MockEventSource.last!.onmessage!({ data: '{}' } as MessageEvent)
+
+      expect(await screen.findByText('Préparer le déménagement')).toBeInTheDocument()
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     })
 
     test('« Faites » is paged: a second page is asked for from the pager', async () => {
       const user = setup()
+      boardUrl = '/tasks/done'
       mockFetch.mockImplementation((url, init) => {
         const name = /view\/(\w+)/.exec(String(url))?.[1]
         if (name !== 'done') return Promise.resolve(respond(String(url), init))
         return Promise.resolve(json({ totalItems: 45, counts: COUNTS, page: 1, itemsPerPage: 30, member: VIEWS.done }))
       })
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'Faites (1)' }))
       await screen.findByText('Sortir les poubelles')
 
       await user.click(screen.getByRole('button', { name: /page 2/i }))
@@ -879,8 +894,22 @@ describe('TaskBoard', () => {
       await waitFor(() => expect(calls()).toContain('http://localhost/api/tasks/view/done?page=2&itemsPerPage=30'))
     })
 
+    test('« Faites » opens on the page the address says', async () => {
+      boardUrl = '/tasks/done?page=2'
+      mockFetch.mockImplementation((url, init) => {
+        const name = /view\/(\w+)/.exec(String(url))?.[1]
+        if (name !== 'done') return Promise.resolve(respond(String(url), init))
+        return Promise.resolve(json({ totalItems: 45, counts: COUNTS, member: VIEWS.done }))
+      })
+      render(<TaskBoard />)
+
+      await screen.findByText('Sortir les poubelles')
+      expect(viewCalls()).toEqual(['http://localhost/api/tasks/view/done?page=2&itemsPerPage=30'])
+    })
+
     test('« Faites » goes back a page when the last one is emptied', async () => {
       const user = setup()
+      boardUrl = '/tasks/done'
       let doneTotal = 31
       mockFetch.mockImplementation((url, init) => {
         const match = /view\/(\w+)(\?page=(\d+))?/.exec(String(url))
@@ -890,7 +919,6 @@ describe('TaskBoard', () => {
         return Promise.resolve(json({ totalItems: doneTotal, counts: COUNTS, member }))
       })
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'Faites (1)' }))
       await screen.findByText('Sortir les poubelles')
       await user.click(screen.getByRole('button', { name: /page 2/i }))
       await screen.findByText('Dernière faite')
@@ -902,23 +930,32 @@ describe('TaskBoard', () => {
       expect(screen.queryByText('Aucune tâche terminée')).toBeNull()
     })
 
-    test('a tick answered after a tab switch reloads the tab shown, not the one ticked on', async () => {
+    test('a tick answered after leaving the view does not draw on the view shown', async () => {
       const user = setup()
       let release: (response: Response) => void = () => {}
       mockFetch.mockImplementation((url, init) => {
         if (init?.method === 'PATCH') return new Promise<Response>((resolve) => (release = resolve))
         return Promise.resolve(respond(String(url), init))
       })
-      render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
+      const Go = () => {
+        const navigate = useNavigate()
+
+        return <button onClick={() => navigate('/tasks/someday')}>Un jour</button>
+      }
+      renderInto(
+        <MemoryRouter initialEntries={['/tasks/upcoming']}>
+          <Go />
+          <TaskBoard />
+        </MemoryRouter>,
+      )
       await screen.findByText('Préparer le déménagement')
       await user.click(within(screen.getByText('Préparer le déménagement').closest('li') as HTMLElement).getByRole('checkbox'))
-      await user.click(screen.getByRole('tab', { name: /À faire un jour/ }))
+      await user.click(screen.getByRole('button', { name: 'Un jour' }))
       await screen.findByText('Renvoyer le formulaire')
 
       release(json({}))
 
-      await waitFor(() => expect(viewCalls().filter((url) => url.includes('/view/someday')).length).toBeGreaterThan(1))
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Tâche terminée', { type: 'success' }))
       expect(screen.getByText('Renvoyer le formulaire')).toBeTruthy()
       expect(screen.queryByText('Préparer le déménagement')).toBeNull()
     })
@@ -985,6 +1022,15 @@ describe('TaskBoard', () => {
 
       expect(await screen.findByRole('region', { name: 'Ta journée' })).toBeInTheDocument()
     })
+
+    test('does not open on the other views', async () => {
+      morningTime = '08:00'
+      boardUrl = '/tasks/upcoming'
+      render(<TaskBoard />)
+
+      await screen.findByText('Préparer le déménagement')
+      expect(screen.queryByRole('region', { name: 'Ta journée' })).toBeNull()
+    })
   })
 
   describe('« Le soir » — the review (MAG-500)', () => {
@@ -1033,7 +1079,7 @@ describe('TaskBoard', () => {
       state = { slots: [], reserve: [BOOK, PHOTOS] }
       render(<TaskBoard />)
 
-      await screen.findByRole('list', { name: 'Mes 5' })
+      await screen.findByRole('list', { name: "Aujourd'hui" })
       expect(screen.queryByRole('region', { name: 'Le soir' })).toBeNull()
     })
 
@@ -1064,6 +1110,7 @@ describe('TaskBoard', () => {
       expect(await screen.findByRole('region', { name: 'Le soir' })).toBeInTheDocument()
     })
   })
+
   describe('a task opened from a link (MAG-640)', () => {
     const marked = () => document.querySelectorAll('[aria-current="true"]')
 
@@ -1081,20 +1128,20 @@ describe('TaskBoard', () => {
       expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
     })
 
-    test('a task of the reserve unfolds it', async () => {
+    test('a task of the reserve is marked in the same list', async () => {
       boardUrl = '/tasks?task=01PHOTOS'
       render(<TaskBoard />)
 
       const row = (await screen.findByText('Trier les photos')).closest('li')!
       await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
-      expect(screen.getByRole('button', { name: 'Réserve (2)' })).toHaveAttribute('aria-expanded', 'true')
+      expect(within(dayList()).getByText('Trier les photos')).toBeInTheDocument()
     })
 
-    test('a task of another view opens that view', async () => {
+    test('a task of another view opens that view\'s route', async () => {
       boardUrl = '/tasks?task=01FINE'
       render(<TaskBoard />)
 
-      expect(await screen.findByRole('tab', { name: 'À faire un jour (2)', selected: true })).toBeInTheDocument()
+      expect(await screen.findByRole('list', { name: 'Un jour' })).toBeInTheDocument()
       const row = (await screen.findByText("Payer l'amende")).closest('li')!
       await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
       expect(marked()).toHaveLength(1)
@@ -1104,7 +1151,7 @@ describe('TaskBoard', () => {
       boardUrl = '/tasks?task=01DONE'
       render(<TaskBoard />)
 
-      expect(await screen.findByRole('tab', { name: /^Faites/, selected: true })).toBeInTheDocument()
+      expect(await screen.findByRole('list', { name: 'Faites' })).toBeInTheDocument()
       const row = (await screen.findByText('Sortir les poubelles')).closest('li')!
       await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
     })
@@ -1119,19 +1166,19 @@ describe('TaskBoard', () => {
       expect(screen.queryByRole('region', { name: 'Ta journée' })).toBeNull()
     })
 
-    test('an unknown task leaves the board as it is, with no error', async () => {
+    test('an unknown task leaves the day as it is, with no error', async () => {
       boardUrl = '/tasks?task=01NOBODY'
       render(<TaskBoard />)
 
-      expect(await screen.findByRole('list', { name: 'Mes 5' })).toBeInTheDocument()
+      expect(await screen.findByRole('list', { name: "Aujourd'hui" })).toBeInTheDocument()
       await waitFor(() => expect(viewCalls().some((url) => url.includes('/view/done'))).toBe(true))
-      expect(screen.getByRole('tab', { name: /^Aujourd'hui/, selected: true })).toBeInTheDocument()
+      expect(screen.queryByRole('list', { name: 'Un jour' })).toBeNull()
       expect(marked()).toHaveLength(0)
       expect(screen.queryByRole('alert')).toBeNull()
       expect(mockNotify).not.toHaveBeenCalled()
     })
 
-    test('a link followed while the board is open moves to the task', async () => {
+    test('a link followed while the page is open moves to the task', async () => {
       const Link = () => {
         const navigate = useNavigate()
 
@@ -1143,19 +1190,20 @@ describe('TaskBoard', () => {
           <TaskBoard />
         </MemoryRouter>,
       )
-      await screen.findByRole('list', { name: 'Mes 5' })
+      await screen.findByRole('list', { name: "Aujourd'hui" })
       expect(marked()).toHaveLength(0)
 
       await userEvent.click(screen.getByRole('button', { name: 'Suivre le lien' }))
 
-      expect(await screen.findByRole('tab', { name: 'À venir (2)', selected: true })).toBeInTheDocument()
+      expect(await screen.findByRole('list', { name: 'À venir' })).toBeInTheDocument()
       const row = (await screen.findByText('Préparer le déménagement')).closest('li')!
       await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
     })
   })
 
-  describe('a link followed from the view that holds the task (MAG-640)', () => {
-    test('stays on the list and marks the other task', async () => {
+  describe('a link followed from another view (MAG-640)', () => {
+    test('lands on the view that holds the task and marks it', async () => {
+      Element.prototype.scrollIntoView = vi.fn()
       const Link = () => {
         const navigate = useNavigate()
 
@@ -1163,18 +1211,18 @@ describe('TaskBoard', () => {
       }
       const user = setup()
       renderInto(
-        <MemoryRouter initialEntries={['/tasks']}>
+        <MemoryRouter initialEntries={['/tasks/upcoming']}>
           <Link />
           <TaskBoard />
         </MemoryRouter>,
       )
-      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
       await screen.findByText('Préparer le déménagement')
 
       await user.click(screen.getByRole('button', { name: 'Suivre le lien' }))
 
       const row = (await screen.findByText('Réserver le camion')).closest('li')!
       await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
+      expect(screen.getByRole('list', { name: 'À venir' })).toBeInTheDocument()
     })
   })
 
@@ -1288,17 +1336,17 @@ describe('TaskBoard', () => {
       expect(screen.queryByTestId('constellation')).toBeNull()
     })
 
-    test('a task done carries its star in « Mes 5 », an open one does not (MAG-509)', async () => {
+    test('a task done carries its star in the list, an open one does not (MAG-509)', async () => {
       const user = setup()
       render(<TaskBoard />)
-      const list = await screen.findByRole('list', { name: 'Mes 5' })
+      const list = await screen.findByRole('list', { name: "Aujourd'hui" })
       expect(within(list).queryAllByTestId('task-star')).toHaveLength(0)
 
       await user.click(within(await screen.findByRole('region', { name: 'Maintenant' })).getByRole('button', { name: "C'est fait" }))
       await user.click(await screen.findByRole('button', { name: 'Pause méritée' }))
 
-      await waitFor(() => expect(within(screen.getByRole('list', { name: 'Mes 5' })).getAllByTestId('task-star')).toHaveLength(1))
-      const done = within(screen.getByRole('list', { name: 'Mes 5' }))
+      await waitFor(() => expect(within(screen.getByRole('list', { name: "Aujourd'hui" })).getAllByTestId('task-star')).toHaveLength(1))
+      const done = within(screen.getByRole('list', { name: "Aujourd'hui" }))
         .getAllByRole('listitem')
         .find((li) => li.textContent?.includes('Appeler la banque'))!
       expect(within(done).getByRole('img', { name: 'Étoile gagnée' })).toBeInTheDocument()
@@ -1306,7 +1354,7 @@ describe('TaskBoard', () => {
 
     test('a palier reaching the page by Mercure opens the gold bravo, with the sound (MAG-509)', async () => {
       render(<TaskBoard />)
-      await screen.findByRole('list', { name: 'Mes 5' })
+      await screen.findByRole('list', { name: "Aujourd'hui" })
       expect(decodeURIComponent(MockEventSource.last!.url)).toContain('/users/U1/api/rewards/:id')
 
       MockEventSource.last!.onmessage!({
@@ -1332,7 +1380,7 @@ describe('TaskBoard', () => {
     test('a palier is silent when the sound is off, and a standard reward does not open it (MAG-509)', async () => {
       cheerSettings = { rewardSound: false }
       render(<TaskBoard />)
-      await screen.findByRole('list', { name: 'Mes 5' })
+      await screen.findByRole('list', { name: "Aujourd'hui" })
       const send = (data: object) => MockEventSource.last!.onmessage!({ data: JSON.stringify(data) } as MessageEvent)
 
       send({ '@id': '/api/rewards/01RW', level: 'standard', message: 'Réglé.', star: true })
@@ -1349,8 +1397,8 @@ describe('TaskBoard', () => {
 
     test('away from the day, the bravo is a short banner', async () => {
       const user = setup()
+      boardUrl = '/tasks/upcoming'
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('tab', { name: 'À venir (2)' }))
 
       await user.click(await screen.findByRole('checkbox', { name: 'Terminer Préparer le déménagement' }))
 
