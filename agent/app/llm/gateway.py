@@ -79,9 +79,14 @@ class LLMGateway:
         moment: str | None = None,
         about: str = "",
         source: str = "chat",
+        spoken: bool = False,
     ) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skills), the full skills of `moment`
-        (MAG-345), the memory (profile, then what `about` calls back: MAG-16), then directives, date, preamble."""
+        (MAG-345), the memory (profile, then what `about` calls back: MAG-16), then directives, date, preamble.
+
+        `spoken`: the reply will be read aloud (live voice, voice message, car), so it is asked for as a
+        spoken text. In the volatile part, never in the cached prefix, which stays the same for the written chat.
+        """
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
         await skill_index.refresh()
@@ -103,6 +108,8 @@ class LLMGateway:
         # How long since the chat last moved, so a proaction or an answer can greet by the gap (MAG-10).
         last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
         now = current_datetime_line(tz=tz)
+        if spoken:
+            preamble = f"{preamble}\n\n{self.personality.get_spoken_prompt()}"
         volatile = f"{memory.notice}{directives}{context_section}\n\n{now}{last_exchange}{preamble}"
         moment_skills = skill_index.skills_for_moment(moment) if moment else ""
         return build_system(base + skill_context, volatile, moment_skills, memory.profile, memory.recalled)
@@ -116,6 +123,7 @@ class LLMGateway:
         dry_run: bool = False,
         about: str | None = None,
         summary: str | None = None,
+        spoken: bool = False,
     ) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
 
@@ -133,6 +141,7 @@ class LLMGateway:
                      listed under `simulated_tools`, and no thread is opened for the message.
             about: What the memory is asked to recall for (MAG-16). The prompt itself by default; the daily
                    planning gives the day's events, which its prompt only says how to read.
+            spoken: The message will be read aloud (the digest's voice message, the car): written for the ear.
             summary: The proaction's summary. A trip check or replan (MAG-657) works on the trips and
                      says nothing in the chat: it runs with its own preamble and gets no thread.
         """
@@ -154,6 +163,7 @@ class LLMGateway:
             moment=MOMENT_PLANNING if silent else MOMENT_PROACTION,
             about=about if about is not None else prompt,
             source="planning" if silent else "proaction",
+            spoken=spoken,
         )
 
         content = prompt if silent else f"[Proaction due maintenant] {prompt}"
@@ -216,8 +226,11 @@ class LLMGateway:
         exclude_message_id: str | None = None,
         screen_context: str | None = None,
         image: ChatImage | None = None,
+        spoken: bool = False,
     ) -> dict:
         """Process a chat message through Claude with MCP tool support.
+
+        `spoken` says the answer will be read aloud: it is asked for as a spoken text (ADR-014).
 
         `screen_context` is what the screen behind the assistant overlay was showing
         (MAG-30). It reaches the model through the history, on the turn being answered, and
@@ -285,6 +298,7 @@ class LLMGateway:
                 current_context_id=context_id,
                 moment=MOMENT_CHAT,
                 about=message,
+                spoken=spoken,
             )
             result = await run_tool_loop(
                 system_prompt,

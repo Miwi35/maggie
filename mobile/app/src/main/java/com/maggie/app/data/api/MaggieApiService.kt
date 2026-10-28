@@ -288,6 +288,8 @@ data class AgentChatRequest(
     val image: ChatImage? = null,
     /** The last message of the user, which this one corrects: the agent removes it and its answer (MAG-320). */
     val replaces: String? = null,
+    /** The answer will be read aloud (voice overlay): Maggie writes for the ear (MAG-689). */
+    val spoken: Boolean = false,
 )
 
 /** An image as the agent takes it: standard base64, no `data:` prefix. */
@@ -1426,11 +1428,20 @@ class MaggieApiService(
         screenContext: String? = null,
         userId: String = "default",
         image: ChatImage? = null,
+        spoken: Boolean = false,
     ): AgentChatResponse {
         return client.post("$baseUrl/agent/chat") {
             waitForAgentReply()
             contentType(ContentType.Application.Json)
-            setBody(AgentChatRequest(message = message, user_id = userId, screen_context = screenContext, image = image))
+            setBody(
+                AgentChatRequest(
+                    message = message,
+                    user_id = userId,
+                    screen_context = screenContext,
+                    image = image,
+                    spoken = spoken,
+                ),
+            )
         }.body()
     }
 
@@ -1523,6 +1534,7 @@ class MaggieApiService(
         idempotencyKey: String = java.util.UUID.randomUUID().toString(),
         image: ChatImage? = null,
         replaces: String? = null,
+        spoken: Boolean = false,
     ): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
         try {
             val response = client.post("$baseUrl/agent/chat/stream") {
@@ -1535,6 +1547,7 @@ class MaggieApiService(
                         idempotency_key = idempotencyKey,
                         image = image,
                         replaces = replaces,
+                        spoken = spoken,
                     ),
                 )
             }

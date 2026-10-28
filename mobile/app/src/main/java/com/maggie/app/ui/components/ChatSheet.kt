@@ -124,7 +124,7 @@ fun ChatSheet(
                     )
                 }
 
-                VoiceControlBar(voiceManager = voiceManager, onResult = { viewModel.sendMessage(it) })
+                VoiceControlBar(voiceManager = voiceManager, onResult = { viewModel.sendMessage(it, spoken = true) })
             }
         }
     } else {

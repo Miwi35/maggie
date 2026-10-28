@@ -186,8 +186,8 @@ class TestAnExpectedOutageIsNotAnError:
                 yield
 
         monkeypatch.setattr("app.tts.synthesis.settings.tts_provider", "edge")
-        monkeypatch.setattr("app.tts.synthesis.asyncio.sleep", AsyncMock())
-        monkeypatch.setattr("app.tts.synthesis.edge_tts.Communicate", Refusing)
+        monkeypatch.setattr("app.tts.providers.asyncio.sleep", AsyncMock())
+        monkeypatch.setattr("app.tts.providers.edge_tts.Communicate", Refusing)
 
         response = authed_client.post("/tts/synthesize", json={"text": "Bonjour."})
 

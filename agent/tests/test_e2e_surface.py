@@ -106,7 +106,7 @@ class TestOnTheE2eStack:
             async def stream(self):
                 yield {"type": "audio", "data": b"x"}
 
-        monkeypatch.setattr("app.tts.synthesis.edge_tts.Communicate", lambda *_: Stream())
+        monkeypatch.setattr("app.tts.providers.edge_tts.Communicate", lambda *_: Stream())
         async for _ in synthesize_speech("Bonjour."):
             pass
 

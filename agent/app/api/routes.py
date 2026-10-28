@@ -82,6 +82,10 @@ class ChatRequest(BaseModel):
     # message and its answer are taken back, from the thread and from the model's history.
     replaces: str | None = Field(default=None, min_length=1, max_length=26)
 
+    # The answer will be read aloud (the voice overlay, ADR-014): Maggie writes it for the ear, with
+    # the voice's delivery tags. A turn taken up again after a restart is answered as written text.
+    spoken: bool = False
+
 
 MAX_MESSAGE_ID_CHARS = 26
 MAX_INTERRUPT_CHARS = 20000
@@ -203,7 +207,12 @@ async def _answer_chat(request: ChatRequest, user_id: str, said: str, screen: st
     )
 
     result = await llm_gateway.chat(
-        said, user_id, exclude_message_id=user_msg.id, screen_context=screen, image=request.image
+        said,
+        user_id,
+        exclude_message_id=user_msg.id,
+        screen_context=screen,
+        image=request.image,
+        spoken=request.spoken,
     )
 
     # Both halves in the thread the question was routed into (MAG-13), and the thread
@@ -291,6 +300,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
                     screen_context=screen,
                     image=request.image,
                     carried_over=carried_over,
+                    spoken=request.spoken,
                 )
     if received is not None:
         events = turn_runner.replay(user_id, received)
@@ -404,7 +414,7 @@ async def proaction(request: ChatRequest, user_id: str = Depends(get_current_use
     """Execute a proaction prompt autonomously, reading the open threads but no message history."""
     logger.info(f"Proaction request for user {user_id}: {request.message[:100]}")
 
-    result = await llm_gateway.proaction(request.message, user_id)
+    result = await llm_gateway.proaction(request.message, user_id, spoken=request.spoken)
 
     # Stored in the thread the gateway routed it to, so a reply to it stays in the same
     # one — and that thread is re-summarized, since the reply will be routed against its
@@ -819,6 +829,8 @@ MAX_TTS_CHARS = 5000
 class TtsRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=MAX_TTS_CHARS)
     voice: str = DEFAULT_VOICE
+    # `live` streams to the phone as Maggie answers; `file` is a voice message made ahead of time.
+    usage: Literal["live", "file"] = "live"
 
 
 @router.get("/tts/voices")
@@ -829,11 +841,11 @@ async def tts_voices(_user_id: str = Depends(get_current_user_id)):
 
 @router.post("/tts/synthesize")
 async def tts_synthesize(request: TtsRequest, _user_id: str = Depends(get_current_user_id)):
-    """Synthesize text to MP3 audio via Edge TTS."""
+    """Synthesize text to MP3 audio in the chosen voice (Claire by ElevenLabs, Edge as the safety net)."""
     if request.voice not in VOICE_IDS:
         raise HTTPException(status_code=400, detail=f"Unknown voice: {request.voice}")
 
-    audio = synthesize_speech(request.text, request.voice)
+    audio = synthesize_speech(request.text, request.voice, usage=request.usage)
     # Pull the first chunk before answering: once StreamingResponse has sent its 200,
     # a failing provider can only cut the body short.
     try:

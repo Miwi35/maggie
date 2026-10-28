@@ -84,6 +84,18 @@ LLM_REQUEST_DURATION = Histogram(
 )
 
 
+ELEVENLABS_CREDITS = Counter(
+    "maggie_elevenlabs_credits_total",
+    "ElevenLabs credits consumed by speech synthesis (the character cost the API reports)",
+    ["model"],
+)
+
+TTS_FALLBACKS = Counter(
+    "maggie_tts_fallbacks_total",
+    "Sentences spoken by Edge because the chosen provider failed",
+    ["provider", "reason"],
+)
+
 # ---------------------------------------------------------------------------
 # Memory folder (MAG-195): an outage of the bucket must never look normal
 # ---------------------------------------------------------------------------

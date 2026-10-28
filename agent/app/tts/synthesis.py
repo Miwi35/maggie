@@ -1,202 +1,129 @@
-"""Speech synthesis — Edge TTS in real life, a fixed clip under e2e."""
+"""Speech synthesis (ADR-014): one voice for Maggie, Edge as the safety net.
 
-import asyncio
+`synthesize_speech` streams MP3 for the live voice; `synthesize_file` returns it whole for a
+voice message. The provider follows the voice: Claire is ElevenLabs, the others are Edge. When
+ElevenLabs fails to start a sentence — error, timeout, quota — that sentence is spoken by Edge,
+with a log and a GlitchTip signal: Maggie is never mute.
+"""
+
 import logging
-import re
 from collections.abc import AsyncGenerator
-
-import edge_tts
-from aiohttp import WSServerHandshakeError
+from contextlib import aclosing
 
 from app.config import settings
+from app.error_tracking import TTS_FALLBACK, capture_signal
+from app.metrics import TTS_FALLBACKS
+from app.tts.providers import (
+    SILENT_MP3_FRAME,
+    EdgeProvider,
+    ElevenLabsProvider,
+    FakeProvider,
+    ProviderFailedError,
+    SpeechUnavailableError,
+    TtsProvider,
+    Usage,
+)
+from app.tts.text import prepare_text_for_tts
+
+__all__ = [
+    "DEFAULT_VOICE",
+    "SILENT_MP3_FRAME",
+    "VOICE_IDS",
+    "SpeechUnavailableError",
+    "fake_synthesis_requests",
+    "get_voices",
+    "reset_fake_synthesis_requests",
+    "synthesize_file",
+    "synthesize_speech",
+]
 
 logger = logging.getLogger(__name__)
 
-# A valid, silent MP3 frame. The e2e provider streams this instead of calling
-# Microsoft: journeys assert that audio arrived and that the player handles it,
-# never what it sounds like, so a real voice would only add latency and a
-# dependency on a service that can be down.
-SILENT_MP3_FRAME = bytes.fromhex("fffb90c4" + "00" * 100)
+CLAIRE_VOICE = "6vTyAgAT8PncODBcLjRf"
+EDGE_FALLBACK_VOICE = "fr-FR-DeniseNeural"
+DEFAULT_VOICE = CLAIRE_VOICE
 
-# How many syntheses the fake provider was asked for since the last reset. The e2e
-# journeys read it to prove an absence (« opening the voice overlay speaks nothing »,
-# MAG-205) — a durable server-side record, where a screen label lives a few hundred
-# milliseconds. Only ever moved under the fake provider, so it stays 0 in dev and prod.
-_fake_synthesis_requests = 0
+# Claire first, then the curated Edge French voices (fr-FR, fr-BE, fr-CA).
+VOICES = [
+    {"id": CLAIRE_VOICE, "name": "Claire", "gender": "female", "locale": "fr-FR", "provider": "elevenlabs"},
+    {"id": "fr-FR-DeniseNeural", "name": "Denise", "gender": "female", "locale": "fr-FR", "provider": "edge"},
+    {"id": "fr-FR-EloiseNeural", "name": "Eloise", "gender": "female", "locale": "fr-FR", "provider": "edge"},
+    {"id": "fr-FR-HenriNeural", "name": "Henri", "gender": "male", "locale": "fr-FR", "provider": "edge"},
+    {"id": "fr-BE-CharlineNeural", "name": "Charline", "gender": "female", "locale": "fr-BE", "provider": "edge"},
+    {"id": "fr-BE-GerardNeural", "name": "Gerard", "gender": "male", "locale": "fr-BE", "provider": "edge"},
+    {"id": "fr-CA-SylvieNeural", "name": "Sylvie", "gender": "female", "locale": "fr-CA", "provider": "edge"},
+    {"id": "fr-CA-AntoineNeural", "name": "Antoine", "gender": "male", "locale": "fr-CA", "provider": "edge"},
+]
+
+VOICE_IDS = {v["id"] for v in VOICES}
+_PROVIDER_OF_VOICE = {v["id"]: v["provider"] for v in VOICES}
+
+_edge = EdgeProvider()
+_elevenlabs = ElevenLabsProvider()
+_fake = FakeProvider()
 
 
 def fake_synthesis_requests() -> int:
-    return _fake_synthesis_requests
+    return FakeProvider.requests
 
 
 def reset_fake_synthesis_requests() -> None:
-    global _fake_synthesis_requests
-    _fake_synthesis_requests = 0
-
-
-# Curated French voices (fr-FR, fr-BE, fr-CA)
-VOICES = [
-    {"id": "fr-FR-DeniseNeural", "name": "Denise", "gender": "female", "locale": "fr-FR"},
-    {"id": "fr-FR-EloiseNeural", "name": "Eloise", "gender": "female", "locale": "fr-FR"},
-    {"id": "fr-FR-HenriNeural", "name": "Henri", "gender": "male", "locale": "fr-FR"},
-    {"id": "fr-BE-CharlineNeural", "name": "Charline", "gender": "female", "locale": "fr-BE"},
-    {"id": "fr-BE-GerardNeural", "name": "Gerard", "gender": "male", "locale": "fr-BE"},
-    {"id": "fr-CA-SylvieNeural", "name": "Sylvie", "gender": "female", "locale": "fr-CA"},
-    {"id": "fr-CA-AntoineNeural", "name": "Antoine", "gender": "male", "locale": "fr-CA"},
-]
-
-DEFAULT_VOICE = "fr-FR-DeniseNeural"
-
-
-VOICE_IDS = {v["id"] for v in VOICES}
-
-
-# Microsoft's endpoint refuses the WebSocket upgrade now and then (MAG-401). One retry
-# rides out a blip; a second refusal means the service is down, not that we were unlucky.
-HANDSHAKE_ATTEMPTS = 2
-HANDSHAKE_RETRY_DELAY_SECONDS = 0.5
-
-
-class SpeechUnavailableError(Exception):
-    """Edge TTS refused to start a synthesis: nothing was streamed yet."""
-
-
-# ---------------------------------------------------------------------------
-# Emoji → natural interjection mapping (French)
-# The TTS will *act out* these emojis instead of ignoring or describing them.
-# ---------------------------------------------------------------------------
-EMOJI_INTERJECTIONS: dict[str, str] = {
-    # Laughter / joy
-    "😂": " ha ha ha ! ",
-    "🤣": " ah ah ah ! ",
-    "😆": " hé hé ! ",
-    "😄": " ha ha ! ",
-    "😁": " hé hé ! ",
-    "😅": " hé hé, bon… ",
-    "🙂": "",
-    "😊": "",
-    "☺️": "",
-    # Surprise / shock
-    "😮": " oh ! ",
-    "😲": " oh là là ! ",
-    "😱": " aah ! ",
-    "🤯": " woh ! ",
-    "😳": " oh ! ",
-    # Sadness
-    "😢": " … ",
-    "😭": " ooh… ",
-    "🥺": " … ",
-    "😞": " pfff… ",
-    "😔": " … ",
-    # Thinking / doubt
-    "🤔": " hmm… ",
-    "🧐": " hmm… ",
-    # Love / affection
-    "❤️": "",
-    "🥰": "",
-    "😍": " oh ! ",
-    "💕": "",
-    "💖": "",
-    "😘": "",
-    # Anger / frustration
-    "😡": " roh ! ",
-    "😤": " pfff ! ",
-    "🤬": "",
-    # Relief / cool
-    "😌": " aah… ",
-    "😎": "",
-    "🤗": "",
-    # Disgust / meh
-    "🤢": " beurk ! ",
-    "🤮": " beurk ! ",
-    "😒": " mouais… ",
-    "🙄": " pfff… ",
-    # Greeting / celebration
-    "👋": "",
-    "🎉": " yeah ! ",
-    "🥳": " ouais ! ",
-    "🎊": "",
-    # Misc
-    "🤷": " bof… ",
-    "👍": "",
-    "👎": "",
-    "🤞": "",
-    "💪": "",
-    "🔥": "",
-    "✨": "",
-}
-
-# Regex to strip any remaining emojis not in the map
-_EMOJI_RE = re.compile(
-    "[\U0001f600-\U0001f64f"  # emoticons
-    "\U0001f300-\U0001f5ff"  # symbols & pictographs
-    "\U0001f680-\U0001f6ff"  # transport & map
-    "\U0001f900-\U0001f9ff"  # supplemental symbols
-    "\U0001fa00-\U0001fa6f"  # chess symbols
-    "\U0001fa70-\U0001faff"  # symbols extended-A
-    "\U00002702-\U000027b0"  # dingbats
-    "\U0000fe00-\U0000fe0f"  # variation selectors
-    "\U0000200d"  # ZWJ
-    "\U000020e3"  # combining enclosing keycap
-    "]+",
-    flags=re.UNICODE,
-)
-
-
-def prepare_text_for_tts(text: str) -> str:
-    """Replace emojis with natural interjections, strip the rest."""
-    for emoji, interjection in EMOJI_INTERJECTIONS.items():
-        text = text.replace(emoji, interjection)
-
-    # Remove any leftover emojis
-    text = _EMOJI_RE.sub("", text)
-
-    # Collapse multiple spaces / clean up
-    text = re.sub(r"  +", " ", text).strip()
-
-    return text
+    FakeProvider.requests = 0
 
 
 def get_voices() -> list[dict]:
     return VOICES
 
 
-async def _synthesize_fake(text: str) -> AsyncGenerator[bytes, None]:
-    """Stream a silent clip, one chunk per 50 characters of prepared text.
-
-    Chunked rather than returned whole so the streaming path — the part that
-    actually breaks — is the same one the journeys exercise.
-    """
-    chunks = max(1, (len(text) + 49) // 50)
-    for _ in range(chunks):
-        yield SILENT_MP3_FRAME
-
-
-async def synthesize_speech(text: str, voice: str = DEFAULT_VOICE) -> AsyncGenerator[bytes, None]:
-    """Stream MP3 chunks: from Edge TTS, or from the fake provider under e2e."""
-    text = prepare_text_for_tts(text)
-
+def _provider_for(voice: str) -> TtsProvider:
+    """`TTS_PROVIDER` can force Edge or the fake one; otherwise the voice says who speaks it."""
     if settings.tts_provider == "fake":
-        global _fake_synthesis_requests
-        _fake_synthesis_requests += 1
-        async for chunk in _synthesize_fake(text):
-            yield chunk
+        return _fake
+    if settings.tts_provider == "edge" or _PROVIDER_OF_VOICE.get(voice) != "elevenlabs":
+        return _edge
+    return _elevenlabs
+
+
+def _edge_voice(voice: str) -> str:
+    return voice if _PROVIDER_OF_VOICE.get(voice) == "edge" else EDGE_FALLBACK_VOICE
+
+
+async def synthesize_speech(
+    text: str, voice: str = DEFAULT_VOICE, *, usage: Usage = "live"
+) -> AsyncGenerator[bytes, None]:
+    """Stream MP3 chunks of `text` in `voice`. Edge speaks the sentence if the chosen provider cannot start it."""
+    text = prepare_text_for_tts(text)
+    provider = _provider_for(voice)
+    if provider is _edge:
+        voice = _edge_voice(voice)
+
+    if provider is not _elevenlabs:
+        async with aclosing(provider.stream(text, voice, usage)) as chunks:
+            async for chunk in chunks:
+                yield chunk
         return
 
-    for attempt in range(1, HANDSHAKE_ATTEMPTS + 1):
-        communicate = edge_tts.Communicate(text, voice)
-        started = False
-        try:
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    started = True
-                    yield chunk["data"]
-            return
-        except WSServerHandshakeError as exc:
-            # Mid-stream the response is already on its way: nothing to retry or to report.
-            if started:
-                raise
-            logger.warning("Edge TTS refused the handshake (status %s), attempt %d", exc.status, attempt)
-            if attempt == HANDSHAKE_ATTEMPTS:
-                raise SpeechUnavailableError from exc
-            await asyncio.sleep(HANDSHAKE_RETRY_DELAY_SECONDS)
+    started = False
+    try:
+        async with aclosing(provider.stream(text, voice, usage)) as chunks:
+            async for chunk in chunks:
+                started = True
+                yield chunk
+        return
+    except Exception as exc:
+        # Mid-stream the audio is already on its way: the sentence cannot be started over.
+        if started:
+            raise
+        reason = exc.reason if isinstance(exc, ProviderFailedError) else "error"
+        logger.warning("TTS provider %s failed (%s): Edge speaks this sentence", provider.name, exc)
+    TTS_FALLBACKS.labels(provider=provider.name, reason=reason).inc()
+    capture_signal(TTS_FALLBACK, provider=provider.name, reason=reason)
+
+    async with aclosing(_edge.stream(text, _edge_voice(voice), usage)) as chunks:
+        async for chunk in chunks:
+            yield chunk
+
+
+async def synthesize_file(text: str, voice: str = DEFAULT_VOICE) -> bytes:
+    """A whole MP3, at the quality tier of a voice message (the digest's voice tool, the car)."""
+    return b"".join([chunk async for chunk in synthesize_speech(text, voice, usage="file")])

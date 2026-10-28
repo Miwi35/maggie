@@ -40,8 +40,17 @@ class VoiceResultRouterTest {
         val contextUsed = routeVoiceResult("oui mais attends", chat, voice, null)
 
         assertTrue(contextUsed)
-        verify(exactly = 1) { chat.sendMessage("oui mais attends", null) }
+        verify(exactly = 1) { chat.sendMessage("oui mais attends", null, null, true) }
         verify(exactly = 0) { voice.answerHandled() }
+    }
+
+    @Test
+    fun `a sentence said aloud asks for an answer written for the ear (MAG-689)`() {
+        every { chat.answerApprovalByVoice("quoi de neuf ?") } returns false
+
+        routeVoiceResult("quoi de neuf ?", chat, voice, null)
+
+        verify(exactly = 1) { chat.sendMessage("quoi de neuf ?", null, null, spoken = true) }
     }
 
     @Test
@@ -51,7 +60,7 @@ class VoiceResultRouterTest {
 
         routeVoiceResult("c'est quoi ?", chat, voice, null) { image }
 
-        verify(exactly = 1) { chat.sendMessage("c'est quoi ?", null, image) }
+        verify(exactly = 1) { chat.sendMessage("c'est quoi ?", null, image, true) }
     }
 
     /**
@@ -85,6 +94,7 @@ class VoiceResultRouterTest {
                 "c'est quoi ce produit ?",
                 screen?.toPromptBlock(imageAttached = true),
                 match { it.contentEquals(byteArrayOf(4, 5, 6)) },
+                true,
             )
         }
         assertFalse("sent, then gone", file.exists())

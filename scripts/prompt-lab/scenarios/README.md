@@ -21,6 +21,8 @@ name: agenda-du-jour            # required
 description: …                  # for humans
 channel: chat                   # chat (default) or stream — stream is the only
                                 # one that exercises context routing
+spoken: false                   # true: the answer is for the voice (live voice, voice
+                                # message, car) — the request carries `spoken` (MAG-689)
 steps:
   - user_message: "Qu'est-ce que j'ai de prévu aujourd'hui ?"
     expected_tools: [get_upcoming_events]     # each has to be called

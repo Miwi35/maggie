@@ -104,9 +104,13 @@ class StreamingGateway:
         exclude_message_id: str | None = None,
         current_context_id: str | None = None,
         about: str = "",
+        spoken: bool = False,
     ) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skills), the memory (the profile, then what
-        `about` calls back: MAG-16), then directives, contexts, date."""
+        `about` calls back: MAG-16), then directives, contexts, date.
+
+        `spoken`: the answer will be read aloud, so it is asked for as a spoken text (ADR-014). In the
+        volatile part, never in the cached prefix, which stays the same for the written chat."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
         await skill_index.refresh()
@@ -131,6 +135,8 @@ class StreamingGateway:
 
         date_line = current_datetime_line(tz=tz)
         volatile = f"{memory.notice}{directives}{context_section}\n\n{date_line}{last_exchange}"
+        if spoken:
+            volatile = f"{volatile}\n\n{self.personality.get_spoken_prompt()}"
         # The skills learnt for the chat, in full (MAG-345).
         return build_system(
             base + skill_context, volatile, skill_index.skills_for_moment(MOMENT_CHAT), memory.profile, memory.recalled
@@ -146,12 +152,15 @@ class StreamingGateway:
         image: ChatImage | None = None,
         carried_over: str | None = None,
         stopped: Callable[[], bool] | None = None,
+        spoken: bool = False,
     ) -> AsyncGenerator[dict, None]:
         """Stream AG-UI events for a chat message.
 
         `carried_over` is what the turn this message replaces had already done (MAG-320), told to
         the model on this turn. `stopped` says whether a cancellation is the user's stop: only
         then is what the turn did kept, a shutdown hands the turn over untouched.
+
+        `spoken`: the answer will be read aloud (the voice overlay): written for the ear (ADR-014).
 
         `screen_context` is what the screen behind the assistant overlay was showing
         (MAG-30). It joins the conversation in `build_history`, on the turn being answered,
@@ -205,7 +214,12 @@ class StreamingGateway:
         tools = with_web_search(tools, await resolve_user_timezone(user_id))
 
         system_prompt = await self._build_system_prompt(
-            user_id, tools=tools, exclude_message_id=user_msg_id, current_context_id=current_context_id, about=message
+            user_id,
+            tools=tools,
+            exclude_message_id=user_msg_id,
+            current_context_id=current_context_id,
+            about=message,
+            spoken=spoken,
         )
         cached_tools = cache_tools(tools)
 

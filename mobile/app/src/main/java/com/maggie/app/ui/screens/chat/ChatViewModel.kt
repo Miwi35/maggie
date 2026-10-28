@@ -156,6 +156,7 @@ class ChatViewModel(
         val pendingId: String,
         val image: ChatImage?,
         val replaces: String?,
+        val spoken: Boolean,
     )
 
     private var unanswered: Attempt? = null
@@ -303,8 +304,11 @@ class ChatViewModel(
      *
      * [image] is the screenshot that goes with it, as JPEG bytes (MAG-214): sent for
      * this turn, and kept here only to draw the bubble's thumbnail.
+     *
+     * [spoken]: the question was said aloud and the answer will be read aloud, so the agent
+     * writes it for the ear (MAG-689).
      */
-    fun sendMessage(text: String, screenContext: String? = null, image: ByteArray? = null) {
+    fun sendMessage(text: String, screenContext: String? = null, image: ByteArray? = null, spoken: Boolean = false) {
         if (text.isBlank()) return
         awaitingReply = true
         val key = java.util.UUID.randomUUID().toString()
@@ -352,7 +356,7 @@ class ChatViewModel(
             interruptJob?.join()
 
             val attached = image?.let { ChatImage.jpeg(it) }
-            deliver(Attempt(text, screenContext?.takeIf { it.isNotBlank() }, key, anchor, userMessage.id, attached, replaces))
+            deliver(Attempt(text, screenContext?.takeIf { it.isNotBlank() }, key, anchor, userMessage.id, attached, replaces, spoken))
         }
     }
 
@@ -401,10 +405,10 @@ class ChatViewModel(
 
     private suspend fun deliver(attempt: Attempt) {
         unanswered = attempt
-        val (text, screen, key, anchor, pendingId, image, replaces) = attempt
+        val (text, screen, key, anchor, pendingId, image, replaces, spoken) = attempt
         try {
             var streamError: String? = null
-            repository.sendMessageStream(text, screen, key, image, replaces)
+            repository.sendMessageStream(text, screen, key, image, replaces, spoken)
                 .collect { event ->
                     if (event is AgUiEvent.Error) streamError = event.message
                     handleStreamEvent(event)
@@ -419,7 +423,7 @@ class ChatViewModel(
             Log.w(TAG, "Stream failed, falling back to non-streaming: ${e::class.simpleName}: ${e.message}")
             // Fallback to non-streaming
             try {
-                val newMessages = repository.sendMessage(text, screen, image).asSaid()
+                val newMessages = repository.sendMessage(text, screen, image, spoken).asSaid()
                 if (newMessages.isNotEmpty()) {
                     // Replace optimistic user message with server response
                     val current = _uiState.value.messages.dropLast(1)

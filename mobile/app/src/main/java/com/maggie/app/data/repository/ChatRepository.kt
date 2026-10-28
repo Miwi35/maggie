@@ -40,8 +40,13 @@ class ChatRepository(
      * its own field, so what the agent stores and returns is the question alone. [image]
      * is the screenshot that goes with it, for this turn only (MAG-214).
      */
-    suspend fun sendMessage(content: String, screenContext: String? = null, image: ChatImage? = null): List<ChatMessage> {
-        val response = apiService.sendChat(message = content, screenContext = screenContext, image = image)
+    suspend fun sendMessage(
+        content: String,
+        screenContext: String? = null,
+        image: ChatImage? = null,
+        spoken: Boolean = false,
+    ): List<ChatMessage> {
+        val response = apiService.sendChat(message = content, screenContext = screenContext, image = image, spoken = spoken)
         if (response.messages.isNotEmpty()) {
             chatMessageDao.upsertAll(response.messages.map { ChatMessageEntity.fromModel(it) })
         }
@@ -132,6 +137,7 @@ class ChatRepository(
         idempotencyKey: String = java.util.UUID.randomUUID().toString(),
         image: ChatImage? = null,
         replaces: String? = null,
+        spoken: Boolean = false,
     ): Flow<AgUiEvent> {
         return apiService.sendChatStream(
             message = content,
@@ -139,6 +145,7 @@ class ChatRepository(
             idempotencyKey = idempotencyKey,
             image = image,
             replaces = replaces,
+            spoken = spoken,
         )
     }
 

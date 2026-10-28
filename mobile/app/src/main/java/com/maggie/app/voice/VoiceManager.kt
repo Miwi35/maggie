@@ -43,7 +43,7 @@ enum class VoiceHint {
     NOTHING_HEARD,
 }
 
-private const val DEFAULT_VOICE = "fr-FR-DeniseNeural"
+private const val DEFAULT_VOICE = "6vTyAgAT8PncODBcLjRf" // Claire (ADR-014)
 
 /**
  * The voice path: the phone's own recognition first, Whisper in reserve (MAG-222).

@@ -69,7 +69,7 @@ STEP_KEYS = (
 # Claude Code subagent and can stub a tool's answer. This runner drives the real
 # stack, where the tools really run — so it accepts the key and ignores it rather
 # than rejecting a file the other consumer needs.
-SCENARIO_KEYS = ("name", "description", "channel", "steps", "mock_tool_results", *STEP_KEYS)
+SCENARIO_KEYS = ("name", "description", "channel", "spoken", "steps", "mock_tool_results", *STEP_KEYS)
 
 
 @dataclass
@@ -89,6 +89,7 @@ class Scenario:
     steps: list[Step]
     channel: str = "chat"
     description: str = ""
+    spoken: bool = False
 
 
 def plural(count: int, word: str) -> str:
@@ -163,6 +164,7 @@ def parse_scenario(raw: dict, source: str) -> Scenario:
         steps=steps,
         channel=channel,
         description=str(raw.get("description") or ""),
+        spoken=bool(raw.get("spoken", False)),
     )
 
 
@@ -225,15 +227,18 @@ class Stack:
                 )
             )
 
-    async def chat(self, message: str) -> Answer:
+    async def chat(self, message: str, spoken: bool = False) -> Answer:
         response = await self.http.post(
-            f"{self.agent_url}/chat", headers=self._auth, json={"message": message}, timeout=REQUEST_TIMEOUT
+            f"{self.agent_url}/chat",
+            headers=self._auth,
+            json={"message": message, "spoken": spoken},
+            timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
         body = response.json()
         return Answer(text=body["response"], tools=[call["name"] for call in body.get("tool_calls", [])])
 
-    async def stream(self, message: str) -> Answer:
+    async def stream(self, message: str, spoken: bool = False) -> Answer:
         deltas: list[str] = []
         tools: list[str] = []
         context_action = None
@@ -242,7 +247,7 @@ class Stack:
             "POST",
             f"{self.agent_url}/chat/stream",
             headers={**self._auth, "Accept": "text/event-stream"},
-            json={"message": message},
+            json={"message": message, "spoken": spoken},
             timeout=REQUEST_TIMEOUT,
         ) as response:
             response.raise_for_status()
@@ -365,7 +370,7 @@ async def run_scenario(scenario: Scenario, stack: Stack, judge: Judge) -> list[F
     for position, step in enumerate(scenario.steps, start=1):
         ask = stack.stream if scenario.channel == "stream" else stack.chat
         try:
-            answer = await ask(step.user_message)
+            answer = await ask(step.user_message, scenario.spoken)
         except httpx.HTTPError as exc:
             failures.append(Failure(scenario.name, position, f"the agent call failed: {exc}"))
             break

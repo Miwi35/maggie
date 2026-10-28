@@ -141,6 +141,10 @@ class PersonalityEngine:
         row = await personality_repo.upsert(user_id, current)
         return {"name": row.name, "language": row.language, "backstory": row.backstory}
 
+    def get_spoken_prompt(self) -> str:
+        """The instruction added when the reply is read aloud: spoken text, Maggie's tone, delivery tags."""
+        return str(self._yaml.get("spoken_prompt", "")).strip()
+
     async def get_system_prompt(self, user_id: str, capabilities: str = "") -> str:
         """Build the stable system prompt: template from YAML, values from DB (no date, it would break caching)."""
         config = await self.get_config(user_id)
