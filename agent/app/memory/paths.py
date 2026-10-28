@@ -10,6 +10,10 @@
 space. The bucket key of a file is `<user>/Mémoire/<relative path>`, its local path
 `<root>/<user>/Mémoire/<relative path>`. A relative path is validated before it is used for anything,
 and the local one is resolved and checked once more against the folder it must stay in.
+
+The skills (MAG-218) are a second *scope* of the same machinery: one folder, global, outside every user's
+(`Compétences/<name>.md` in the bucket, `<root>/Compétences/` on disk). It is named `SKILLS_SCOPE` where a
+user id would be, so that the archive of the knowledge never holds a skill.
 """
 
 import re
@@ -25,6 +29,9 @@ CONVERSATIONS_DIR = "Conversations"
 CONFLICTS_DIR = "Conflits"
 MISSES_DIR = "Rappels manqués"
 EXTENSION = ".md"
+
+SKILLS_SCOPE = "skills"
+SKILLS_DIR = "Compétences"
 
 README = "LISEZMOI.md"
 AGENTS = "AGENTS.md"
@@ -67,8 +74,24 @@ def check_user_id(user_id: str) -> str:
     return user_id
 
 
-def bucket_prefix(user_id: str) -> str:
-    return f"{check_user_id(user_id)}/{MEMORY_DIR}/"
+def check_scope(scope: str) -> str:
+    """A user id, or the scope of the skills: the two places a folder of files can live."""
+    return scope if scope == SKILLS_SCOPE else check_user_id(scope)
+
+
+def bucket_prefix(scope: str) -> str:
+    if scope == SKILLS_SCOPE:
+        return f"{SKILLS_DIR}/"
+    return f"{check_user_id(scope)}/{MEMORY_DIR}/"
+
+
+def local_top(root: Path, scope: str) -> Path:
+    """What a scope owns on disk: its folder and its sync state sit under it."""
+    return root / (SKILLS_DIR if scope == SKILLS_SCOPE else check_user_id(scope))
+
+
+def local_base(root: Path, scope: str) -> Path:
+    return local_top(root, scope) if scope == SKILLS_SCOPE else local_top(root, scope) / MEMORY_DIR
 
 
 def bucket_key(user_id: str, rel: str) -> str:
@@ -114,12 +137,12 @@ def clean_relative(rel: str) -> str:
     return rel
 
 
-def local_path(root: Path, user_id: str, rel: str) -> Path:
-    """Where the file sits on disk, proven to be inside this user's folder."""
-    folder = (root / check_user_id(user_id) / MEMORY_DIR).resolve()
+def local_path(root: Path, scope: str, rel: str) -> Path:
+    """Where the file sits on disk, proven to be inside this scope's folder."""
+    folder = local_base(root, scope).resolve()
     target = (folder / clean_relative(rel)).resolve()
     if not target.is_relative_to(folder) or target == folder:
-        raise UnsafePath(f"{rel!r} leaves the folder of {user_id}")
+        raise UnsafePath(f"{rel!r} leaves the folder of {scope}")
     return target
 
 

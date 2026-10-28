@@ -21,6 +21,7 @@ from app.memory.bucket import BucketError, FakeBucket
 from app.memory.night import memory_night
 from app.memory.service import memory_service
 from app.queue import scheduler
+from app.skills.store import skill_files
 from app.tts.synthesis import fake_synthesis_requests, reset_fake_synthesis_requests
 
 
@@ -128,6 +129,40 @@ async def memory_bucket_get(user_id: str, path: str) -> dict[str, str]:
 async def memory_bucket_delete(user_id: str, path: str) -> dict[str, bool]:
     _fake_bucket().remove(_key(user_id, path))
     return {"deleted": True}
+
+
+def _skill_key(path: str) -> str:
+    return _key(memory_paths.SKILLS_SCOPE, path)
+
+
+@router.put("/skills/bucket/{path:path}")
+async def skills_bucket_put(path: str, body: MemoryText) -> dict[str, str]:
+    """The owner edits a skill file in the bucket, with his own tools (MAG-218)."""
+    return {"etag": _fake_bucket().seed(_skill_key(path), body.text)}
+
+
+@router.get("/skills/bucket/{path:path}")
+async def skills_bucket_get(path: str) -> dict[str, str]:
+    obj = _fake_bucket().objects.get(_skill_key(path))
+    if obj is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="not in the bucket")
+    return {"text": obj.body.decode("utf-8"), "etag": obj.etag}
+
+
+@router.delete("/skills/bucket/{path:path}")
+async def skills_bucket_delete(path: str) -> dict[str, bool]:
+    _fake_bucket().remove(_skill_key(path))
+    return {"deleted": True}
+
+
+@router.post("/skills/sync")
+async def skills_sync() -> dict[str, object]:
+    """Run one pass of the skills folder now: push, pull, and the table brought in step with the files."""
+    try:
+        report = await skill_files.sync_user(memory_paths.SKILLS_SCOPE)
+    except BucketError as e:
+        return {"ok": False, "error": str(e)}
+    return {"ok": True, "pulled": report.pulled, "pushed": report.pushed, "reindexed": report.reindexed}
 
 
 @router.put("/memory/outage")

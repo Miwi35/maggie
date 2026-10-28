@@ -163,9 +163,23 @@ class MemoryService:
         self._touched: dict[str, set[str]] = {}
         self._notify_tasks: dict[str, asyncio.Task] = {}
 
+    # An empty listing against a known folder is refused as an outage: the generated files of a user's
+    # folder are always there, so it cannot be a true answer. A folder that may really be empty turns it off.
+    guard_empty_listing = True
+
     @property
     def enabled(self) -> bool:
         return self.bucket is not None
+
+    def _check_scope(self, scope: str) -> str:
+        """The folders this service keeps in step with the bucket: users' (the skills have a service of their own)."""
+        return paths.check_user_id(scope)
+
+    def _is_scope(self, scope: str) -> bool:
+        return is_ulid(scope)
+
+    def _publish_degraded(self) -> None:
+        MEMORY_DEGRADED.set(1 if self.degraded() else 0)
 
     def folder(self, user_id: str) -> LocalFolder:
         return LocalFolder(self.root, user_id)
@@ -175,7 +189,7 @@ class MemoryService:
 
     def reset_status(self, user_id: str) -> None:
         self._status.pop(user_id, None)
-        MEMORY_DEGRADED.set(1 if self.degraded() else 0)
+        self._publish_degraded()
 
     def touched(self, user_id: str, *rels: str) -> None:
         """Remember that these files changed (and say so shortly, in one message): the web view follows by Mercure."""
@@ -388,7 +402,7 @@ class MemoryService:
 
     async def before_turn(self, user_id: str) -> None:
         """Catch up with the bucket before a turn, without ever making the turn wait long for it."""
-        if not self.enabled or not is_ulid(user_id):
+        if not self.enabled or not self._is_scope(user_id):
             return
         self._known.add(user_id)
         status = self.status(user_id)
@@ -456,7 +470,9 @@ class MemoryService:
             await asyncio.sleep(delay)
 
     async def users(self) -> list[str]:
-        found = set(self._known) | set(local_users(self.root)) | set(await memory_outbox_repo.users())
+        found = (
+            set(self._known) | set(local_users(self.root)) | {u for u in await memory_outbox_repo.users() if is_ulid(u)}
+        )
         if self.bucket is not None:
             with contextlib.suppress(BucketUnavailable):
                 found |= {p for p in await self.bucket.list_prefixes() if is_ulid(p)}
@@ -474,7 +490,7 @@ class MemoryService:
 
     async def sync_user(self, user_id: str) -> PassReport:
         """Bring the bucket, the local copy and the index of one user in step. Raises `BucketUnavailable`."""
-        paths.check_user_id(user_id)
+        self._check_scope(user_id)
         assert self.bucket is not None
         total = PassReport()
         async with self._lock(self._pass_locks, user_id):
@@ -519,7 +535,7 @@ class MemoryService:
         status.last_error = ""
         status.last_ok = time.monotonic()
         status.last_ok_at = self._clock()
-        MEMORY_DEGRADED.set(1 if self.degraded() else 0)
+        self._publish_degraded()
         MEMORY_OUTBOX_PENDING.set(await memory_outbox_repo.count())
 
     async def _one_pass(self, user_id: str) -> PassReport:
@@ -597,7 +613,7 @@ class MemoryService:
             if rel is not None and paths.is_syncable(rel):
                 remote[rel] = item.etag
                 remote.raw_keys[rel] = item.key
-        if not remote and state:
+        if not remote and state and self.guard_empty_listing:
             raise BucketUnavailable(f"the listing came back empty although {len(state)} file(s) are known")
         return remote
 

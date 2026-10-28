@@ -210,20 +210,24 @@ def pending_db():
 
 
 @pytest.fixture()
-def agent_db():
-    """In-memory database behind the memory, instruction and skill repositories (real queries, no mocks)."""
+def agent_db(tmp_path):
+    """In-memory database behind the memory, instruction and skill repositories (real queries, no mocks).
+    The skills' files go to a folder of the test, with no bucket."""
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import StaticPool
 
     from app.db.instruction_model import Instruction
+    from app.db.memory_index_model import MemoryOutbox
     from app.db.memory_model import Memory
     from app.db.skill_model import Skill
+    from app.skills.store import skill_files
 
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     Memory.__table__.create(engine)
     Instruction.__table__.create(engine)
     Skill.__table__.create(engine)
+    MemoryOutbox.__table__.create(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
 
     def open_session():
@@ -233,6 +237,9 @@ def agent_db():
         patch("app.db.memory_repository.agent_session", open_session),
         patch("app.db.instruction_repository.agent_session", open_session),
         patch("app.db.skill_repository.agent_session", open_session),
+        patch("app.db.memory_index_repository.agent_session", open_session),
+        patch.object(skill_files, "root", tmp_path / "skills-root"),
+        patch.object(skill_files, "bucket", None),
         patch("app.db.instruction_repository.instruction_repo.publisher.publish", new=AsyncMock()),
     ):
         yield factory

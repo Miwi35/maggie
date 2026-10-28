@@ -2,13 +2,12 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
-
-from app.common.frontmatter import parse_frontmatter
 from app.db.skill_model import Skill
 from app.db.skill_repository import SkillRepository, skill_repo
 from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
+from app.skills.document import SkillEntry, parse_markdown, render_markdown
+from app.skills.store import SkillFiles, skill_files
 
 logger = logging.getLogger(__name__)
 
@@ -26,59 +25,34 @@ MOMENT_SKILLS_MAX_CHARS = 8000
 
 
 @dataclass
-class SkillEntry:
-    name: str
-    description: str
-    tags: list[str]
-    content: str = field(default="", repr=False, compare=False)
-
-
-def render_markdown(name: str, description: str, tags: list[str], content: str) -> str:
-    """A skill as a Markdown file with YAML frontmatter — what get_skill returns and the Markdown mirror carries."""
-    frontmatter = yaml.dump(
-        {"name": name, "description": description, "tags": tags}, allow_unicode=True, default_flow_style=False
-    )
-    return f"---\n{frontmatter}---\n\n{content}\n"
-
-
-def parse_markdown(path: Path) -> tuple[SkillEntry, str] | None:
-    """Parse a legacy skill file (YAML frontmatter + body); None if it has no valid frontmatter."""
-    parsed = parse_frontmatter(path.read_text(encoding="utf-8"))
-    if parsed is None:
-        return None
-    frontmatter, body = parsed
-    entry = SkillEntry(
-        name=str(frontmatter.get("name", path.stem)),
-        description=frontmatter.get("description") or "",
-        tags=frontmatter.get("tags") or [],
-    )
-    return entry, body
-
-
-@dataclass
 class SkillIndex:
-    """In-memory index (name, description, tags) of the skills stored in `maggie_agent`; bodies stay in the database."""
+    """In-memory index of the skills. They are Markdown files (`SkillFiles`); the `skill` table in `maggie_agent`
+    is the index derived from them, which this one is loaded from."""
 
     repo: SkillRepository = field(default_factory=lambda: skill_repo)
+    store: SkillFiles = field(default_factory=lambda: skill_files)
     entries: list[SkillEntry] = field(default_factory=list)
     _publisher: MercurePublisher = field(default_factory=MercurePublisher)
 
     async def rebuild(self) -> None:
-        """Reload the index from the database. Errors propagate: an unreadable store must not look like no skills."""
+        """Reload the index from the table. Errors propagate: an unreadable store must not look like no skills."""
         skills = await self.repo.list_all()
         self.entries = [_entry(s) for s in skills]
 
     async def refresh(self) -> None:
-        """Reload before building a prompt. Each worker process holds its own copy, so a skill created
-        through another one is only seen after a reload. A failed reload keeps the last index: a passing
-        database hiccup must not take the chat down."""
+        """Reload before building a prompt: first take what the owner changed in the skill files (a bounded
+        wait, like the memory's), then read the table they feed. Each worker process holds its own copy, so a
+        skill created through another one is only seen after a reload. A failed reload keeps the last index:
+        a passing hiccup must not take the chat down."""
         try:
+            await self.store.catch_up()
             await self.rebuild()
         except Exception as e:
             logger.warning(f"Could not refresh the skill index, keeping the last one: {e}")
 
     async def import_legacy_files(self, directory: Path = LEGACY_SKILLS_DIR) -> int:
-        """Move skill files left in the old container directory into the database, never overwriting a stored skill."""
+        """Move skill files left in the old container directory into the table, never overwriting a stored skill.
+        The skills folder takes them from there when it is first filled."""
         if not directory.is_dir():
             return 0
         imported = 0
@@ -118,7 +92,9 @@ class SkillIndex:
             logger.warning(f"Failed to publish skill event: {e}")
 
     async def create(self, name: str, description: str, tags: list[str], content: str, user_id: str) -> SkillEntry:
-        """Store a skill (replacing one of the same name), update the index, publish to Mercure."""
+        """Write a skill's file (replacing one of the same name), update the table and the index, publish to Mercure."""
+        content = content.strip()
+        await self.store.save(name, description, tags, content)
         skill = await self.repo.upsert(name, description, tags, content)
         entry = _entry(skill)
         self._remember(entry)
@@ -133,16 +109,28 @@ class SkillIndex:
         content: str | None = None,
         user_id: str = "default",
     ) -> SkillEntry | None:
-        skill = await self.repo.update(name, description=description, tags=tags, content=content)
-        if skill is None:
-            return None
+        current = self.store.load(name)
+        if current is None:
+            stored = await self.repo.get(name)
+            if stored is None:
+                return None
+            current = (_entry(stored), stored.content or "")
+        entry, body = current
+        new_description = entry.description if description is None else description
+        new_tags = entry.tags if tags is None else tags
+        new_content = body if content is None else content.strip()
+        await self.store.save(name, new_description, new_tags, new_content)
+        skill = await self.repo.upsert(name, new_description, new_tags, new_content)
         entry = _entry(skill)
         self._remember(entry)
         await self._publish(user_id, {"name": entry.name, "description": entry.description, "tags": entry.tags})
         return entry
 
     async def delete(self, name: str, user_id: str = "default") -> bool:
-        if not await self.repo.delete(name):
+        # The row first: a pass that pushed the file's deletion must not find the row and take it for a table to move.
+        had_row = await self.repo.delete(name)
+        removed = await self.store.remove(name)
+        if not had_row and not removed:
             return False
         self.entries = [e for e in self.entries if e.name != name]
         await self._publish(user_id, {"name": name, "deleted": True})

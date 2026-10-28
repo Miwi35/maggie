@@ -1,0 +1,17 @@
+# Unreachable unless the skill's file, as the owner corrected it in the bucket, is in the
+# proaction's prompt in full (MAG-218).
+#
+# Skills are Markdown files; the `skill` table is only the index derived from them. A text
+# edited in the file and not yet taken back leaves the old one in the prompt, and this
+# scenario unanswered: `system_contains` is matched on the system prompt the gateway sends.
+name: proaction-skill-file-corrected
+description: A reminder delivered the way the corrected skill file says.
+
+match:
+  user_contains: "rappel e2e de fichier à délivrer"
+  system_contains:
+    - "compétences à appliquer maintenant"
+    - "consigne e2e corrigée : un sms et rien d'autre"
+
+turns:
+  - text: "Il est l'heure d'appeler le garage, je vous l'envoie par SMS."
