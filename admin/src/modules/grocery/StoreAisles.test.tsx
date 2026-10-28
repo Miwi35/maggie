@@ -254,6 +254,25 @@ describe('StoreAisles', () => {
     expect(shown()).toHaveLength(3)
   })
 
+  test('a burst of the store left does not read in the store now shown (MAG-676)', async () => {
+    stubAislesApi([...CARREFOUR, OTHER_STORE])
+    const { rerender } = render(<StoreAisles storeId="carrefour" />)
+    await waitFor(() => expect(shown()).toHaveLength(3))
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await act(async () => mercure.onMessage?.(JSON.stringify({ position: 1, storeId: 'carrefour' })))
+      rerender(<StoreAisles storeId="biocoop" />)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+
+    await waitFor(() => expect(shown()).toEqual(['Vrac']))
+  })
+
   test("another store's aisle changing leaves this list alone", async () => {
     const { fetchMock } = stubAislesApi(CARREFOUR)
     render(<StoreAisles storeId="carrefour" />)

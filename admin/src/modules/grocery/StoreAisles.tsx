@@ -135,14 +135,16 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
     }
   }, [storeId, notify, cancelReading])
 
-  useEffect(() => {
-    reload()
-    return cancelReading
-  }, [reload, cancelReading])
-
   // A move renumbers the store's aisles and each publishes its update: one read once the burst is over.
   const burst = useRef<ReturnType<typeof setTimeout>>(undefined)
-  useEffect(() => () => clearTimeout(burst.current), [])
+
+  useEffect(() => {
+    reload()
+    return () => {
+      clearTimeout(burst.current) // a burst of the store left must not read in the one shown now
+      cancelReading()
+    }
+  }, [reload, cancelReading])
 
   useMercure(
     STORES_PAGE_TOPICS,
@@ -173,7 +175,8 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
     const newIndex = aisles.findIndex((a) => a.id === over.id)
     if (oldIndex === -1 || newIndex === -1) return
 
-    cancelReading() // a read begun before the move would bring back the old order
+    clearTimeout(burst.current) // a read begun before the move would bring back the old order
+    cancelReading()
     setAisles(arrayMove(aisles, oldIndex, newIndex).map((a, i) => ({ ...a, position: i + 1 })))
     try {
       await updateAisle(String(active.id), { position: newIndex + 1 })

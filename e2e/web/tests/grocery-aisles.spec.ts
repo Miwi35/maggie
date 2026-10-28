@@ -200,10 +200,20 @@ test('dragging the last aisle first is saved in order and shows no error — MAG
     const moved = page.waitForResponse(
       (response) => response.url().includes(`/api/aisles/${last?.id}`) && response.request().method() === 'PATCH',
     )
-    const echo = page.waitForResponse(
-      (response) =>
-        response.url().includes(`/api/aisles?store=${store.id}`) && response.request().method() === 'GET',
-    )
+    // The read that follows the burst of Mercure messages: the list itself, not a counter (`itemsPerPage=1`).
+    const echo = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return (
+        url.pathname === '/api/aisles' &&
+        url.searchParams.get('store') === store.id &&
+        !url.searchParams.has('itemsPerPage') &&
+        response.request().method() === 'GET'
+      )
+    })
+    const patches: string[] = []
+    page.on('request', (request) => {
+      if (request.method() === 'PATCH' && request.url().includes('/api/aisles/')) patches.push(request.url())
+    })
     await dragOnto(
       page,
       shell.content.getByRole('button', { name: 'Déplacer Rayon 8' }),
@@ -213,7 +223,8 @@ test('dragging the last aisle first is saved in order and shows no error — MAG
 
     // --- Then: the order is saved, and what shows is the API's, with no error ----
     const expected = ['Rayon 8', ...names.slice(0, 7)]
-    await echo
+    expect((await echo).status()).toBe(200)
+    expect(patches).toHaveLength(1)
     await expect(aisles).toHaveText(expected)
     await expect(page.getByText(/^Erreur : /)).toHaveCount(0)
     const stored = await getCollection<{ name: string; position: number }>(api, `/api/aisles?store=${store.id}`)
