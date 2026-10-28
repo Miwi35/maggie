@@ -101,19 +101,39 @@ tags:
 
 # The seeded meal is there, the event that is not a meal is not. The week's header stays on
 # screen while the days scroll, so « › » is always at hand.
-- scrollUntilVisible:
-    element: ".*Pâtes à la tomate.*"
+#
+# The days are scrolled by flings in the list's own quarter of the screen, not by `scrollUntilVisible`: it
+# swipes from the screen's centre, which on a tablet is the detail pane, so nothing moved and the meal
+# was never reached (nightly of 28 Oct., `scroll-list-end.yaml`).
+- extendedWaitUntil:
+    visible: ".*Pâtes à la tomate.*"
     timeout: 10000
     optional: true
+- repeat:
+    while:
+      notVisible: ".*Pâtes à la tomate.*"
+    times: 6
+    commands:
+      - swipe:
+          start: 25%, 60%
+          end: 25%, 35%
 - runFlow:
     when:
       notVisible: ".*Pâtes à la tomate.*"
     commands:
       - tapOn:
           id: "meals_week_next"
-- scrollUntilVisible:
-    element: ".*Pâtes à la tomate.*"
-    timeout: 30000
+      - repeat:
+          while:
+            notVisible: ".*Pâtes à la tomate.*"
+          times: 6
+          commands:
+            - swipe:
+                start: 25%, 60%
+                end: 25%, 35%
+- extendedWaitUntil:
+    visible: ".*Pâtes à la tomate.*"
+    timeout: 20000
 - assertNotVisible: ".*Stage de voile MAG-288.*"
 
 # Left as found.

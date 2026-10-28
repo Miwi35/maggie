@@ -83,6 +83,11 @@ tags:
 - scrollUntilVisible:
     element:
       id: "recipe_micronutrients_toggle"
+# On a tablet the toggle is « visible » by its bounds while its row is half under the pane's foot (the portrait
+# band, MAG-624) and its text is not on screen: a short fling in the detail pane brings the row up.
+- swipe:
+    start: 70%, 55%
+    end: 70%, 35%
 - extendedWaitUntil:
     visible: "Micronutriments · .*"
     timeout: 10000
