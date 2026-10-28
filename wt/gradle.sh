@@ -13,11 +13,15 @@
 #   2. The load guard runs once the lock is held, so it measures a machine no
 #      other Gradle is using.
 #   3. Fast, but bounded (wt/limits.env): the Gradle daemon is kept for the
-#      next run, with a 1.5 GB heap and a 30-minute idle timeout; the Kotlin
-#      daemon gets 1 GB; the test JVM keeps the 2 GB app/build.gradle.kts gives
-#      it. On the command line, because a ~/.gradle/gradle.properties wins over
-#      mobile/gradle.properties — and since a daemon is reused only by a build
-#      asking for the same options, every run of this command shares one.
+#      next run, with a 2.5 GB heap and a 3-hour idle timeout; Kotlin compiles
+#      inside it (kotlin.compiler.execution.strategy=in-process), so no Kotlin
+#      daemon exists to outlive the build (28 Oct 2026: three
+#      kotlin-compiler-embeddable of 1.2 GB+ at once, a new one starting
+#      whenever the options differed); the test JVM keeps the 2 GB
+#      app/build.gradle.kts gives it. On the command line, because a
+#      ~/.gradle/gradle.properties wins over mobile/gradle.properties — and
+#      since a daemon is reused only by a build asking for the same options,
+#      every run of this command shares one.
 #   4. No cold build. The build cache (org.gradle.caching) is per user, so a
 #      worktree loads what another one already compiled. And a fresh worktree —
 #      no mobile/app/build, no mobile/.gradle — is first seeded from the warmest
@@ -89,7 +93,7 @@ EOF
     echo "Verrou Gradle obtenu." >&2
 fi
 
-# Rule 2. A unit test run is the Gradle daemon, the Kotlin daemon and the test JVM.
+# Rule 2. A unit test run is the Gradle daemon (Kotlin compiles in it) and the test JVM.
 WT_MIN_AVAILABLE_MB="${WT_MOBILE_MIN_AVAILABLE_MB:-5120}" "$here/guard.sh" 9>&-
 
 # Rule 4. Copying build outputs from other code is safe because Gradle decides
@@ -162,10 +166,10 @@ if [ -z "${WT_GRADLE_NO_SCOPE:-}" ] && command -v systemd-run >/dev/null 2>&1 \
          -p "CPUQuota=${WT_GRADLE_CPU_QUOTA:-400%}" --)
 fi
 # Rule 3. Every build of this command asks for the same JVM options, so they all
-# reuse one warm daemon pair.
+# reuse one warm Gradle daemon, which also holds the Kotlin compiler.
 ${scope[@]+"${scope[@]}"} ./gradlew --console=plain \
-    "-Dorg.gradle.jvmargs=${WT_GRADLE_JVMARGS:--Xmx1536m -XX:MaxMetaspaceSize=512m -XX:ActiveProcessorCount=4}" \
-    "-Pkotlin.daemon.jvmargs=${WT_KOTLIN_DAEMON_JVMARGS:--Xmx1g -XX:ActiveProcessorCount=4}" \
+    "-Dorg.gradle.jvmargs=${WT_GRADLE_JVMARGS:--Xmx2560m -XX:MaxMetaspaceSize=512m -XX:ActiveProcessorCount=4}" \
+    "-Pkotlin.compiler.execution.strategy=in-process" \
     "-Dorg.gradle.daemon.idletimeout=${WT_GRADLE_IDLE_TIMEOUT_MS:-10800000}" \
     "--max-workers=${WT_GRADLE_MAX_WORKERS:-4}" \
     "$task_name" "$@" 9>&-

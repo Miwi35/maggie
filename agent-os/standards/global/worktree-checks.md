@@ -91,10 +91,12 @@ What `wt/gradle.sh` does:
   `WT_GRADLE_CPU_QUOTA`). systemd-oomd then kills the build, never Cyrus and its
   sessions. Skipped where `systemd-run --user` is unavailable, or with
   `WT_GRADLE_NO_SCOPE=1`.
-- **Warm but bounded daemons**: the Gradle daemon is kept between runs
-  (1.5 GB heap, leaves after 3 idle hours), the Kotlin daemon gets 1 GB, the
-  test JVM its 2 GB from `app/build.gradle.kts`. Passed on the command line
-  (`WT_GRADLE_JVMARGS`, `WT_KOTLIN_DAEMON_JVMARGS` in `wt/limits.env`), because a
+- **One warm daemon, no Kotlin daemon**: the Gradle daemon is kept between runs
+  (2.5 GB heap, leaves after 3 idle hours) and Kotlin compiles inside it
+  (`-Pkotlin.compiler.execution.strategy=in-process`, 28 Oct.: separate Kotlin
+  daemons survived their build, 1.2 GB+ each); the test JVM has its 2 GB from
+  `app/build.gradle.kts`. Passed on the command line
+  (`WT_GRADLE_JVMARGS` in `wt/limits.env`), because a
   `~/.gradle/gradle.properties` wins over `mobile/gradle.properties`; and since a
   daemon is reused only by a build asking for the same options, every run shares
   one.
