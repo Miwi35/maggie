@@ -32,15 +32,10 @@ class MaggieFcmService : FirebaseMessagingService() {
             return
         }
 
-        val payload = PushPayload.from(
-            data = message.data,
-            notificationTitle = message.notification?.title,
-            notificationBody = message.notification?.body,
-            notificationChannel = message.notification?.channelId,
-        ) ?: return
+        val payload = PushPayload.from(message.data) ?: return
 
-        // Android calls this in the foreground only (a message with a `notification` block is
-        // shown by the system otherwise): the delivery raises the interruption, not a notification.
+        // Every push is data alone (MAG-681): Android calls this app open or closed, and the
+        // delivery builds the notification, or raises the interruption when the app is in front.
         delivery.deliver(payload)
     }
 

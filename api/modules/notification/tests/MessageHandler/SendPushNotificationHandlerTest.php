@@ -115,7 +115,7 @@ final class SendPushNotificationHandlerTest extends KernelTestCase
         $this->handle('unread');
 
         self::assertEqualsCanonicalizing(['phone-token', 'tablet-token'], array_column($this->sent, 'token'));
-        self::assertSame('J\'ai déplacé ton rendez-vous', $this->sent[0]['notification']['title']);
+        self::assertSame('J\'ai déplacé ton rendez-vous', $this->sent[0]['data']['title']);
         self::assertSame((string) $this->getFixture('unread')->getId(), $this->sent[0]['data']['notificationId']);
         self::assertSame('maggie://event/01JEVENT', $this->sent[0]['data']['link']);
     }

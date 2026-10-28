@@ -16,9 +16,9 @@ class PushPayloadTest {
         data = buildMap {
             put("notificationId", "n-1")
             type?.let { put("type", it) }
+            channel?.let { put("channel", it) }
             putAll(extra)
         },
-        notificationChannel = channel,
     )!!
 
     @Test
@@ -33,9 +33,8 @@ class PushPayloadTest {
     }
 
     @Test
-    fun `the title falls back to the notification block and then to Maggie`() {
-        val fromBlock = PushPayload.from(mapOf("notificationId" to "n-1"), notificationTitle = "Rappel")!!
-        assertEquals("Rappel", fromBlock.title)
+    fun `the title falls back to Maggie`() {
+        assertEquals("Rappel", payload("reminder", "title" to "Rappel").title)
         assertEquals("Maggie", payload().title)
     }
 
