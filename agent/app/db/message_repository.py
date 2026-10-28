@@ -370,13 +370,17 @@ class MessageRepository:
             return result.scalars().first()
 
     async def find_answer_to(self, user_id: str, question: Message) -> Message | None:
-        """The first answer stored after a question — `POST /chat` stores its answer under no fixed id."""
+        """The first answer stored after a question — `POST /chat` stores its answer under no fixed id.
+
+        A voice message the turn sent on its way (MAG-685) is not the answer: it is stored before it.
+        """
         async with agent_session() as session:
             result = await session.execute(
                 select(Message)
                 .where(
                     Message.user_id == user_id,
                     Message.role == "assistant",
+                    Message.audio.is_(None),
                     Message.created_at >= question.created_at,
                 )
                 .order_by(Message.created_at.asc())

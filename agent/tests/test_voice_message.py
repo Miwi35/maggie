@@ -288,3 +288,25 @@ class TestRetention:
 
     async def test_no_bucket_nothing_to_purge(self, no_bucket):
         assert await purge_voice_messages() == {"objects": 0, "messages": 0}
+
+
+class TestTheAnswerOfATurn:
+    async def test_a_vocal_sent_on_the_way_is_not_taken_for_the_answer(self, chat_db, bucket):
+        """A duplicate `POST /chat` returns the turn's answer, not the vocal stored just before it."""
+        from app.db.message_repository import message_repo
+
+        question = await message_repo.create(OWNER, "user", "Envoie-moi un vocal")
+        await send()
+        answer = await message_repo.create(OWNER, "assistant", "Je t'ai envoyé un vocal.")
+
+        assert (await message_repo.find_answer_to(OWNER, question)).id == answer.id
+
+
+def test_the_fake_bucket_serves_nothing_but_audio(bucket):
+    bucket.seed(f"{OWNER}/Mémoire/a.md", "fiche")
+    key = f"{OWNER}/Mémoire/a.md"
+    expires = 9999999999
+
+    response = client_as(None).get(f"/fake-bucket/{key}?expires={expires}&signature={bucket._signature(key, expires)}")
+
+    assert response.status_code == 404

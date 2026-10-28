@@ -69,7 +69,8 @@ class Message(AgentBase):
     # A voice message of Maggie's (MAG-685): `type`, `durationMs`, `size` and `transcript` of the
     # MP3 kept in the bucket under `audio/<userId>/<id>.mp3`. Null on every other message, and
     # again once the retention purge has taken the audio away: the transcript stays as `content`.
-    audio = Column(JSONB, nullable=True)
+    # `none_as_null`: None is SQL NULL, not JSON `null`, so « has no audio » is `IS NULL`.
+    audio = Column(JSONB(none_as_null=True), nullable=True)
 
     def audio_attachment(self) -> dict | None:
         """The attachment the clients read: what is stored, and where to ask for a signed URL to play it."""

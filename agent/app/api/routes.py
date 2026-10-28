@@ -51,7 +51,7 @@ from app.queue.scheduler import generate_proactions
 from app.skills.document import render_markdown
 from app.skills.index import skill_index
 from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, SpeechUnavailableError, get_voices, synthesize_speech
-from app.tts.voice_message import VoiceMessageError, signed_audio_url
+from app.tts.voice_message import AUDIO_PREFIX, VoiceMessageError, signed_audio_url
 
 logger = logging.getLogger(__name__)
 
@@ -650,7 +650,8 @@ async def get_message_audio(message_id: str, user_id: str = Depends(get_current_
 async def read_fake_bucket(key: str, expires: int = Query(...), signature: str = Query(...)):
     """What a signed URL of the in-memory bucket points at (dev, e2e): S3's presigned GET, played by the agent."""
     bucket = memory_service.bucket
-    if not isinstance(bucket, FakeBucket):
+    # Only the voice messages' audio is ever signed: nothing else of the bucket is served here.
+    if not isinstance(bucket, FakeBucket) or not key.startswith(AUDIO_PREFIX):
         raise HTTPException(status_code=404, detail="Not found")
     if not bucket.check_signature(key, expires, signature):
         raise HTTPException(status_code=403, detail="Invalid or expired signature")
