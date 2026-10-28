@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { useNotify } from 'react-admin'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
@@ -30,6 +30,8 @@ import { STORES_PAGE_TOPICS, AisleError, createAisle, deleteAisle, fetchAisles, 
 import type { Aisle } from './aislesApi'
 import { bareId } from './recurring'
 
+// How long a burst of Mercure messages is waited out before the aisles are read again.
+const BURST_MS = 300
 
 const errorText = (error: unknown, fallback: string) => (error instanceof AisleError ? error.message : fallback)
 
@@ -113,17 +115,36 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
   const [newName, setNewName] = useState('')
   const [toDelete, setToDelete] = useState<Aisle | null>(null)
 
+  // Only the last read answers: an older one still under way is cut, and neither its result nor its failure counts.
+  const reading = useRef<AbortController | null>(null)
+
+  const cancelReading = useCallback(() => {
+    reading.current?.abort()
+    reading.current = null
+  }, [])
+
   const reload = useCallback(async () => {
+    cancelReading()
+    const own = new AbortController()
+    reading.current = own
     try {
-      setAisles(await fetchAisles(storeId))
+      const read = await fetchAisles(storeId, own.signal)
+      if (!own.signal.aborted) setAisles(read)
     } catch {
-      notify("Erreur : les rayons n'ont pas été chargés", { type: 'error' })
+      if (!own.signal.aborted) notify("Erreur : les rayons n'ont pas été chargés", { type: 'error' })
     }
-  }, [storeId, notify])
+  }, [storeId, notify, cancelReading])
+
+  // A move renumbers the store's aisles and each publishes its update: one read once the burst is over.
+  const burst = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
     reload()
-  }, [reload])
+    return () => {
+      clearTimeout(burst.current) // a burst of the store left must not read in the one shown now
+      cancelReading()
+    }
+  }, [reload, cancelReading])
 
   useMercure(
     STORES_PAGE_TOPICS,
@@ -136,7 +157,8 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
         } catch {
           // Unreadable: read the aisles again.
         }
-        reload()
+        clearTimeout(burst.current)
+        burst.current = setTimeout(reload, BURST_MS)
       },
       [reload, storeId],
     ),
@@ -153,6 +175,8 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
     const newIndex = aisles.findIndex((a) => a.id === over.id)
     if (oldIndex === -1 || newIndex === -1) return
 
+    clearTimeout(burst.current) // a read begun before the move would bring back the old order
+    cancelReading()
     setAisles(arrayMove(aisles, oldIndex, newIndex).map((a, i) => ({ ...a, position: i + 1 })))
     try {
       await updateAisle(String(active.id), { position: newIndex + 1 })

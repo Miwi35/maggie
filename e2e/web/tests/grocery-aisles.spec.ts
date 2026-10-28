@@ -171,3 +171,65 @@ test('the grocery list follows the aisles reordered on the stores page — MAG-4
     for (const iri of cleanup) await api.delete(iri)
   }
 })
+
+test('dragging the last aisle first is saved in order and shows no error — MAG-676', async ({ page, api }) => {
+  const stamp = Date.now()
+  const storeName = `Carrefour MAG-676 ${stamp}`
+  const names = Array.from({ length: 8 }, (_, i) => `Rayon ${i + 1}`)
+
+  const cleanup: string[] = []
+  const created = async (path: string, data: Record<string, unknown>) => {
+    const row = await create(api, path, data)
+    cleanup.unshift(row['@id'])
+    return row
+  }
+
+  try {
+    // --- Given: a store of 8 aisles ----------------------------------------
+    const store = await created('/api/stores', { name: storeName, visitOrder: 0 })
+    let last: Created | undefined
+    for (const name of names) last = await created('/api/aisles', { store: store['@id'], name })
+
+    const shell = new AdminShell(page)
+    await shell.goto(ROUTES.stores)
+    await shell.content.getByTestId('store-row').filter({ hasText: storeName }).click()
+    const aisles = shell.content.getByTestId('store-aisles').getByTestId('store-aisle')
+    await expect(aisles).toHaveText(names)
+
+    // --- When: the last one is dragged to the head -------------------------
+    const moved = page.waitForResponse(
+      (response) => response.url().includes(`/api/aisles/${last?.id}`) && response.request().method() === 'PATCH',
+    )
+    // The read that follows the burst of Mercure messages: the list itself, not a counter (`itemsPerPage=1`).
+    const echo = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return (
+        url.pathname === '/api/aisles' &&
+        url.searchParams.get('store') === store.id &&
+        !url.searchParams.has('itemsPerPage') &&
+        response.request().method() === 'GET'
+      )
+    })
+    const patches: string[] = []
+    page.on('request', (request) => {
+      if (request.method() === 'PATCH' && request.url().includes('/api/aisles/')) patches.push(request.url())
+    })
+    await dragOnto(
+      page,
+      shell.content.getByRole('button', { name: 'Déplacer Rayon 8' }),
+      aisles.filter({ hasText: 'Rayon 1' }).first(),
+    )
+    expect((await moved).status()).toBe(200)
+
+    // --- Then: the order is saved, and what shows is the API's, with no error ----
+    const expected = ['Rayon 8', ...names.slice(0, 7)]
+    expect((await echo).status()).toBe(200)
+    expect(patches).toHaveLength(1)
+    await expect(aisles).toHaveText(expected)
+    await expect(page.getByText(/^Erreur : /)).toHaveCount(0)
+    const stored = await getCollection<{ name: string; position: number }>(api, `/api/aisles?store=${store.id}`)
+    expect(stored.sort((a, b) => a.position - b.position).map((a) => a.name)).toEqual(expected)
+  } finally {
+    for (const iri of cleanup) await api.delete(iri)
+  }
+})

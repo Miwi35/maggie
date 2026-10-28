@@ -170,6 +170,109 @@ describe('StoreAisles', () => {
     await waitFor(() => expect(shown()).toEqual(['Crèmerie', 'Boulangerie', 'Fruits et légumes']))
   })
 
+  const aisleReads = (fetchMock: ReturnType<typeof stubAislesApi>['fetchMock']) =>
+    fetchMock.mock.calls.filter(([url, init]) => String(url).includes('/aisles?') && (init?.method ?? 'GET') === 'GET').length
+
+  test('a burst of Mercure messages is one read of the aisles (MAG-676)', async () => {
+    const { fetchMock } = stubAislesApi(CARREFOUR)
+    render(<StoreAisles storeId="carrefour" />)
+    await waitFor(() => expect(shown()).toHaveLength(3))
+    const reads = aisleReads(fetchMock)
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      for (let i = 1; i <= 10; i++) {
+        await act(async () => mercure.onMessage?.(JSON.stringify({ position: i, storeId: 'carrefour' })))
+      }
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+
+    expect(aisleReads(fetchMock) - reads).toBe(1)
+  })
+
+  test('a move is one PATCH, and once its echo came the aisles read are the API\'s, with no error shown (MAG-676)', async () => {
+    const { fetchMock, writes } = stubAislesApi(CARREFOUR)
+    render(<StoreAisles storeId="carrefour" />)
+    await waitFor(() => expect(shown()).toHaveLength(3))
+
+    await drag('bakery', 'fruits')
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      // The API renumbered the three aisles: one Mercure message each.
+      for (const [position, name] of [[1, 'Boulangerie'], [2, 'Fruits et légumes'], [3, 'Crèmerie']] as const) {
+        await act(async () => mercure.onMessage?.(JSON.stringify({ name, position })))
+      }
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+
+    expect(writes).toHaveLength(1)
+    expect(shown()).toEqual(['Boulangerie', 'Fruits et légumes', 'Crèmerie'])
+    expect(aisleReads(fetchMock)).toBe(2)
+    expect(mockNotify).not.toHaveBeenCalled()
+  })
+
+  test('a read the browser cut because a newer one replaced it shows no error (MAG-676)', async () => {
+    const { fetchMock } = stubAislesApi(CARREFOUR)
+    render(<StoreAisles storeId="carrefour" />)
+    await waitFor(() => expect(shown()).toHaveLength(3))
+    const answer = fetchMock.getMockImplementation()!
+
+    // The next read hangs until the browser cuts it; the one after answers.
+    let cut: (error: Error) => void = () => {}
+    fetchMock.mockImplementationOnce(
+      (_input, init) =>
+        new Promise<Response>((_, reject) => {
+          cut = reject
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+        }),
+    )
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await act(async () => mercure.onMessage?.(JSON.stringify({ position: 1 })))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000)
+      })
+      fetchMock.mockImplementation(answer)
+      await act(async () => mercure.onMessage?.(JSON.stringify({ position: 2 })))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000)
+      })
+      await act(async () => cut(new TypeError('Failed to fetch'))) // the cut read ends in failure, late
+    } finally {
+      vi.useRealTimers()
+    }
+
+    expect(mockNotify).not.toHaveBeenCalled()
+    expect(shown()).toHaveLength(3)
+  })
+
+  test('a burst of the store left does not read in the store now shown (MAG-676)', async () => {
+    stubAislesApi([...CARREFOUR, OTHER_STORE])
+    const { rerender } = render(<StoreAisles storeId="carrefour" />)
+    await waitFor(() => expect(shown()).toHaveLength(3))
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await act(async () => mercure.onMessage?.(JSON.stringify({ position: 1, storeId: 'carrefour' })))
+      rerender(<StoreAisles storeId="biocoop" />)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+
+    await waitFor(() => expect(shown()).toEqual(['Vrac']))
+  })
+
   test("another store's aisle changing leaves this list alone", async () => {
     const { fetchMock } = stubAislesApi(CARREFOUR)
     render(<StoreAisles storeId="carrefour" />)

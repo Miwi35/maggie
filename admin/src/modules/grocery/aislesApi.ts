@@ -28,7 +28,7 @@ export const STORES_PAGE_TOPICS = ['/api/stores/{id}', AISLE_TOPIC, '/api/produc
 /** A write the API refused: `message` is its Hydra `detail` when it gave one. */
 export class AisleError extends Error {}
 
-const call = (path: string, method: string, body?: unknown) => {
+const call = (path: string, method: string, body?: unknown, signal?: AbortSignal) => {
   const token = localStorage.getItem('token')
   const contentType = method === 'PATCH' ? 'application/merge-patch+json' : 'application/ld+json'
   return fetch(`${entrypoint}${path}`, {
@@ -39,6 +39,7 @@ const call = (path: string, method: string, body?: unknown) => {
       ...(body !== undefined ? { 'Content-Type': contentType } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    ...(signal ? { signal } : {}),
   })
 }
 
@@ -66,10 +67,10 @@ const toAisle = (m: AisleMember): Aisle => ({
   position: m.position,
 })
 
-/** The aisles of one store, first aisle first. */
-export async function fetchAisles(storeId: string): Promise<Aisle[]> {
+/** The aisles of one store, first aisle first. `signal` cuts the read when a newer one replaces it. */
+export async function fetchAisles(storeId: string, signal?: AbortSignal): Promise<Aisle[]> {
   const query = new URLSearchParams({ store: bareId(storeId) })
-  const response = await call(`/aisles?${query}`, 'GET')
+  const response = await call(`/aisles?${query}`, 'GET', undefined, signal)
   if (!response.ok) throw new AisleError(`aisles: ${response.status}`)
   const body = await response.json()
   return ((body?.member ?? []) as AisleMember[]).map(toAisle).sort((a, b) => a.position - b.position)
