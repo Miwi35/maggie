@@ -327,6 +327,34 @@ class RecipeApiTest extends WebTestCase
         self::assertSame(['Pâtes' => [200.0, 'g'], 'Tomate' => [3.0, 'piece']], $this->lines($pasta));
     }
 
+    public function testCreateRejectsALineWithoutIngredientNorCiqualCode(): void
+    {
+        $this->loadPasta();
+
+        $this->client->request('POST', '/api/recipes', [], [], array_merge([
+            'CONTENT_TYPE' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $this->authHeaders()), json_encode([
+            'name' => 'Sans ingrédient identifié',
+            'ingredients' => [['quantity' => 100, 'unit' => 'g']],
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(400);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        self::assertNull($em->getRepository(Recipe::class)->findOneBy(['name' => 'Sans ingrédient identifié']));
+    }
+
+    public function testPatchRejectsALineWithoutIngredientNorCiqualCodeAndKeepsTheRecipe(): void
+    {
+        $pasta = $this->loadPasta();
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
+
+        $this->patchRecipe($pasta, ['ingredients' => [['quantity' => 100, 'unit' => 'g']]]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(['Pâtes' => [200.0, 'g'], 'Tomate' => [3.0, 'piece']], $this->lines($pasta));
+    }
+
     public function testDeleteRecipeRequiresAuthentication(): void
     {
         $this->loadFixtures('RecipeApiTest.yaml');
