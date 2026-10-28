@@ -226,6 +226,20 @@ class LocationReporterTest {
     }
 
     @Test
+    fun `a network fix claiming 30 m is sent as network and never kept as a GPS point`() = runTest {
+        switchOn()
+        val wifi = Position(45.76, 4.83, 30.0, t0.plusSeconds(100), FixSource.NETWORK)
+        source.position = wifi
+
+        reporter.reportPosition()
+        reporter.keepFix(wifi)
+
+        assertEquals(JsonPrimitive("network"), api.calls.single().body.getValue("source"))
+        assertTrue(preferences.gpsLog().isEmpty())
+        assertNull(preferences.keptGpsPoint())
+    }
+
+    @Test
     fun `28 Oct - a network fix 3 km from the car is sent as network, the GPS point at the car is never resent as a vague one`() = runTest {
         switchOn()
         source.position = Position(45.76, 4.83, 20.0, t0.plusSeconds(100), FixSource.GPS)

@@ -12,8 +12,8 @@ data class Position(
     /** How the fix was acquired; the API keeps the last GPS and the last network position apart (MAG-666). */
     val source: FixSource = FixSource.fromAccuracy(accuracy),
 ) {
-    /** Precise enough to stand for where the car is: a GPS fix, or any fix as good as one. */
-    val isGpsGrade: Boolean get() = accuracy > 0.0 && accuracy <= GPS_GRADE_METERS
+    /** Precise enough to stand for where the car is: a GPS fix at 50 m or better. A network fix never is: kept points lose their source. */
+    val isGpsGrade: Boolean get() = source == FixSource.GPS && accuracy > 0.0 && accuracy <= GPS_GRADE_METERS
 
     /** Metres to [other], great-circle. */
     fun distanceTo(other: Position): Double {
