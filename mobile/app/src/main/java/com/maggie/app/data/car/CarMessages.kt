@@ -53,6 +53,7 @@ class CarMessages(
     fun forget(tag: String) {
         val payload = waiting.values.firstOrNull { it.systemTag == tag } ?: return
         waiting.remove(payload.key)
+        nudged.remove(payload.key)
         cancelNudge(payload)
     }
 

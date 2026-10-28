@@ -40,11 +40,9 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
         val pending = goAsync()
         scope.launch {
             try {
-                when (val outcome = handler.handle(kind, payload, reply) { late -> notifier.show(payload, note = late.message) }) {
-                    PushOutcome.Closed -> {
-                        notifier.close(payload.systemTag)
-                        car.forget(payload.systemTag)
-                    }
+                val outcome = handler.handle(kind, payload, reply) { late -> notifier.show(payload, note = late.message) }
+                when (outcome) {
+                    PushOutcome.Closed -> notifier.close(payload.systemTag)
                     PushOutcome.Postponed -> notifier.postpone(payload)
                     // The car presses « Marquer comme lu » by itself: a failure must not turn the message into an error note.
                     is PushOutcome.Retry -> if (kind != PushActionKind.MARK_AS_READ) notifier.show(payload, note = outcome.message)
@@ -52,6 +50,8 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
                     // The same notification, now the bravo: its words in place of the reminder's, nothing to press.
                     is PushOutcome.Rewarded -> notifier.show(payload.copy(title = outcome.message, text = null), withActions = false)
                 }
+                // Answered, whatever it became in the tray: the car's one reminder has nothing left to say.
+                if (outcome !is PushOutcome.Retry) car.forget(payload.systemTag)
             } finally {
                 pending.finish()
             }
