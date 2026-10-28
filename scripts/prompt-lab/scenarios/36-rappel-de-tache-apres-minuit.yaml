@@ -1,0 +1,18 @@
+# « Rappelle-moi d'aller faire X » is a task due that day, not a proaction nor a promise
+# (MAG-703). In production, at 00 h 26, Maggie called add_grocery_item and date_time,
+# announced « je vous notifie vendredi matin à neuf heures vingt-sept », created nothing,
+# and took « demain » for the day after the one starting.
+name: rappel-de-tache-apres-minuit
+description: Said at 00 h 26, « demain matin » is the day that starts; the errand becomes a task due that day.
+channel: stream
+
+steps:
+  - user_message: "Ajoute jambon à la liste des courses demain et rappelle-moi d'aller faire les courses dans la matinée s'il te plaît."
+    expected_tools: [add_grocery_item, create_task]
+    forbidden_tools: [schedule_proaction]
+    expected_absent: ["je vous notifie"]
+    expected_behavior: >
+      Il est 00 h 26 : « demain » désigne le jour qui commence. Elle crée une tâche
+      « Faire les courses » dont dueDate est la date du jour qui commence, et dit en une
+      phrase qu'elle l'a mise dans les tâches de ce jour et la rappellera le matin. Elle
+      n'annonce aucun rappel qu'aucun outil ne porte.

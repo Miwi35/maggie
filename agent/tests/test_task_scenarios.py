@@ -19,7 +19,10 @@ from app.llm.tools import ToolRouter
 USER = "user-1"
 TASK_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7W"
 OTHER_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7X"
-OFFERED = [{"name": name, "input_schema": {}} for name in ("get_events_by_date", "get_tasks", "update_task")]
+OFFERED = [
+    {"name": name, "input_schema": {}}
+    for name in ("get_events_by_date", "get_tasks", "update_task", "add_grocery_item", "create_task")
+]
 
 
 class FakeTaskApi:
@@ -127,3 +130,17 @@ class TestRelativeDays:
 
     def test_a_text_without_a_placeholder_is_untouched(self):
         assert expand_days("rien à changer $5") == "rien à changer $5"
+
+
+class TestTaskReminder:
+    """MAG-703: « rappelle-moi d'aller faire X » files a task due that day, never an unbacked promise."""
+
+    async def test_the_errand_becomes_a_task_due_tomorrow_and_no_proaction(self, api):
+        result = await ask(
+            [{"role": "user", "content": "Ajoute jambon à la liste des courses demain et rappelle-moi d'aller faire les courses demain matin"}]
+        )
+
+        assert called(result) == ["add_grocery_item", "create_task"]
+        assert ("create_task", {"title": "Faire les courses", "dueDate": expand_days("${tomorrow}")}) in api.calls
+        assert "schedule_proaction" not in called(result)
+        assert "tâches de demain" in result["response"]

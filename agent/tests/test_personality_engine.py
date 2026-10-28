@@ -371,3 +371,20 @@ class TestLastExchangeLine:
     def test_a_timestamp_in_the_future_does_not_go_negative(self):
         """Clock skew between the two services must not print « il y a -3 min »."""
         assert "(à l'instant)" in last_exchange_line(NOW + timedelta(minutes=3), None, NOW)
+
+
+@pytest.mark.asyncio
+async def test_the_shipped_prompt_files_a_remind_me_to_do_as_a_task():
+    """MAG-703: no fake LLM reads the prompt, so the rules are pinned here."""
+    engine = PersonalityEngine()
+
+    with patch("app.personality.engine.personality_repo") as mock_repo:
+        mock_repo.get = AsyncMock(return_value=None)
+        prompt = await engine.get_system_prompt("user-1")
+
+    errand = next(line for line in prompt.splitlines() if "d'aller FAIRE X" in line)
+    assert "create_task" in errand and "dueDate" in errand and "entre minuit et 5 h" in errand
+    assert "ce matin ou vendredi" in errand
+    assert "schedule_proaction" in next(line for line in prompt.splitlines() if "ce que MAGGIE doit faire" in line)
+    mandatory = next(line for line in prompt.splitlines() if "n'est permise qu'après l'appel réussi" in line)
+    assert "create_task à échéance ou schedule_proaction" in mandatory and "date_time" in mandatory
