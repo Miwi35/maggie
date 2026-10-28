@@ -116,7 +116,8 @@ const isText = (value: unknown): value is string => typeof value === 'string' &&
  * Reads one message of the shared feed. Each source is recognised by its shape —
  * the feed also carries the chat's contexts, which are none of these.
  *
- * - a finished proaction with an answer (`/proactions/{userId}`);
+ * - a finished proaction with an answer (`/proactions/{userId}`), unless the agent flags it `silent`
+ *   (MAG-680): a trip replan or check is a log, the departure alert is the API's;
  * - a notification just created and still unread (`/users/{userId}/api/notifications/{id}`):
  *   a reminder, a proaction, a task due, anything Maggie or the API raises on its own.
  *   The `approval` type is left to the approval itself, which can be answered;
@@ -176,7 +177,7 @@ export function readFeedMessage(raw: string): FeedEvent | null {
     }
   }
 
-  if (data.status === 'completed' && isText(data.response) && typeof data.id === 'string') {
+  if (data.status === 'completed' && data.silent !== true && isText(data.response) && typeof data.id === 'string') {
     return {
       kind: 'interrupt',
       interruption: { source: 'proaction', id: `proaction:${data.id}`, ref: data.id, message: data.response },

@@ -63,6 +63,29 @@ test('a proaction that completes interrupts the open admin, and « Plus tard » 
   await expect(interruption).toBeHidden()
 })
 
+test('the answer of a silent run (replan, departure check) never interrupts (MAG-680)', async ({ interruptedUser }) => {
+  const { page, session } = interruptedUser
+  const dashboard = new HomePage(page)
+  await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+  await new ChatPanel(page).ensureClosed()
+
+  const topic = `/proactions/${session.user.id}`
+  await publishOnHub(page, topic, {
+    ...proaction(session.user.id, 'e2e-interruption-silent'),
+    summary: 'Replanifier les trajets',
+    response: 'La replanification est terminée : rien à recalculer, monsieur.',
+    silent: true,
+  })
+  // An ordinary one right behind: the feed is live, and it is the first and only thing said.
+  await publishOnHub(page, topic, { ...proaction(session.user.id, 'e2e-interruption-ordinary'), silent: false })
+
+  const interruption = page.getByRole('alertdialog')
+  await expect(interruption).toContainText(MESSAGE)
+  await expect(interruption).not.toContainText('rien à recalculer')
+  await interruption.getByRole('button', { name: 'Plus tard' }).click()
+  await expect(interruption).toBeHidden()
+})
+
 test('Esc is « Plus tard »', async ({ interruptedUser }) => {
   const { page, session } = interruptedUser
   const dashboard = new HomePage(page)
