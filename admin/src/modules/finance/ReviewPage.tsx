@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -51,6 +52,12 @@ const Pill = ({ label, active, onClick }: { label: string; active: boolean; onCl
     variant={active ? 'filled' : 'outlined'}
     onClick={onClick}
   />
+)
+
+const Heading = ({ children }: { children: ReactNode }) => (
+  <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
+    {children}
+  </Typography>
 )
 
 const SATISFACTION_CHIP: Record<string, string> = { keep: KEEP_LABEL, avoidable: AVOIDABLE_LABEL }
@@ -231,6 +238,7 @@ export const ReviewPage = () => {
     return (
       <>
         <Title title="Revue" />
+        <Heading>Revue</Heading>
         <LinearProgress aria-label="Chargement" />
       </>
     )
@@ -240,6 +248,7 @@ export const ReviewPage = () => {
     return (
       <>
         <Title title="Revue" />
+        <Heading>Revue</Heading>
         <Alert severity="error" action={<Button onClick={retry}>Réessayer</Button>}>
           {error}
         </Alert>
@@ -268,9 +277,7 @@ export const ReviewPage = () => {
   return (
     <>
       <Title title={`Revue · ${counts.all}`} />
-      <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
-        Revue · {counts.all}
-      </Typography>
+      <Heading>Revue · {counts.all}</Heading>
 
       <Stack spacing={2} sx={{ mb: 2 }}>
         <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', rowGap: 1 }} alignItems="center">

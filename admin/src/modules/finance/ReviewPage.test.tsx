@@ -249,6 +249,7 @@ describe('ReviewPage', () => {
       renderPage()
 
       expect(await screen.findByRole('heading', { level: 1, name: 'Revue · 4' })).toBeInTheDocument()
+      expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     })
 
     test('filters with pills, never with segmented buttons', async () => {
@@ -256,7 +257,13 @@ describe('ReviewPage', () => {
       await screen.findByRole('region', { name: 'Non reconnues' })
 
       expect(container.querySelector('.MuiToggleButtonGroup-root, .MuiToggleButton-root')).toBeNull()
-      expect(container.querySelectorAll('.MuiChip-root').length).toBeGreaterThanOrEqual(6)
+      const states = screen.getByRole('group', { name: 'État' })
+      expect(within(states).getAllByRole('button').map((button) => button.getAttribute('aria-pressed'))).toEqual([
+        'true',
+        'false',
+        'false',
+      ])
+      expect(within(screen.getByRole('group', { name: 'Période' })).getAllByRole('button').length).toBeGreaterThan(1)
     })
   })
 
