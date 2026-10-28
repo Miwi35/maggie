@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GroceryListView } from './GroceryListView'
 
@@ -159,11 +159,11 @@ describe('GroceryListView — quantity on the line', () => {
 
   test('two taps on + show 3 at once and send a single request with 3', async () => {
     await open()
-    const user = userEvent.setup()
     const plus = within(row('Riz')).getByRole('button', { name: 'Augmenter la quantité de Riz' })
 
-    await user.click(plus)
-    await user.click(plus)
+    // Synchronous taps: on a loaded runner, userEvent's awaits between clicks can outlast the save delay.
+    act(() => fireEvent.click(plus))
+    act(() => fireEvent.click(plus))
 
     expect(within(row('Riz')).getByText('3 paquets')).toBeInTheDocument()
     expect(patches(mockFetch)).toHaveLength(0)
@@ -176,11 +176,10 @@ describe('GroceryListView — quantity on the line', () => {
 
   test('taps on + and − are one request carrying the net quantity', async () => {
     await open()
-    const user = userEvent.setup()
 
-    await user.click(within(row('Riz')).getByRole('button', { name: 'Augmenter la quantité de Riz' }))
-    await user.click(within(row('Riz')).getByRole('button', { name: 'Augmenter la quantité de Riz' }))
-    await user.click(within(row('Riz')).getByRole('button', { name: 'Diminuer la quantité de Riz' }))
+    act(() => fireEvent.click(within(row('Riz')).getByRole('button', { name: 'Augmenter la quantité de Riz' })))
+    act(() => fireEvent.click(within(row('Riz')).getByRole('button', { name: 'Augmenter la quantité de Riz' })))
+    act(() => fireEvent.click(within(row('Riz')).getByRole('button', { name: 'Diminuer la quantité de Riz' })))
 
     await waitFor(() => expect(patches(mockFetch)).toHaveLength(1))
     expect(patches(mockFetch)[0].body).toEqual({ packagings: 2 })
