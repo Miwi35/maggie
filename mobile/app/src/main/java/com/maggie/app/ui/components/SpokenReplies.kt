@@ -27,6 +27,12 @@ fun SpokenReplies(viewModel: ChatViewModel, voiceManager: VoiceManager) {
         onDispose { viewModel.dropPendingReply() }
     }
 
+    // A request that ends with nothing to read (it failed): nobody will call `speak`,
+    // so the voice must not stay on « Maggie réfléchit… » (MAG-534).
+    LaunchedEffect(viewModel) {
+        viewModel.noReplyToSpeak.collect { voiceManager.answerHandled() }
+    }
+
     LaunchedEffect(reply) {
         if (reply == null) return@LaunchedEffect
         val message = viewModel.uiState.value.replyToSpeak ?: return@LaunchedEffect

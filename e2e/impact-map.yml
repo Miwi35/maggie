@@ -622,9 +622,11 @@ mobile:
     quarantine:
       since: 2026-10-08
       reason: >-
-        Red on every night since 18 Oct., all formats, retry included: the second
-        long press on `voice_mic` leaves « Maggie réfléchit… » after a TTS
-        `Prepare failed`, so « Il était une fois » never shows (MAG-534). Before: hung 17 minutes once on a CI emulator.
+        Red on every night since 15 Oct., all formats, retry included: the second
+        dictation repeated the first one's words, which the agent takes for the same
+        message and answers by replaying the first answer (MAG-386), so « Maggie réfléchit… »
+        never ended and « Il était une fois » never showed. Cause and fix: MAG-534; lift
+        after one green week. Before: hung 17 minutes once on a CI emulator.
   e2e/mobile/flows/04-calendar-import.yaml:
     areas: [calendar, google, realtime]
   e2e/mobile/flows/05-deep-links.yaml:
