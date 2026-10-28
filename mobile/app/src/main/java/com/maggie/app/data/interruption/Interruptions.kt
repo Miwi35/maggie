@@ -105,10 +105,12 @@ object Interruptions {
     }
 
     /** One message of `/users/{userId}/api/notifications/{id}`: a creation, a change, or `deleted`. */
-    fun readNotification(raw: String): FeedEvent? {
+    fun readNotification(raw: String, now: Instant = Instant.now()): FeedEvent? {
         val data = objectOf(raw) ?: return null
         val id = data["@id"]?.jsonPrimitive?.contentOrNull?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: return null
-        if (data["deleted"]?.jsonPrimitive?.booleanOrNull == true || data["readAt"]?.jsonPrimitive?.contentOrNull != null) {
+        // Expired (MAG-679): an update may say only that, and a replayed creation can be hours old.
+        val expired = PushPayload.parseInstant(data["expiresAt"]?.jsonPrimitive?.contentOrNull)?.let { !it.isAfter(now) } == true
+        if (expired || data["deleted"]?.jsonPrimitive?.booleanOrNull == true || data["readAt"]?.jsonPrimitive?.contentOrNull != null) {
             val timerId = data["relatedEntityIri"]?.jsonPrimitive?.contentOrNull?.let { COOKING_TIMER_PATH.matchEntire(it)?.groupValues?.get(1) }
             return FeedEvent.Withdraw(id, timerId?.let(::cookingTimerTag))
         }

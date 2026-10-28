@@ -300,6 +300,19 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('Pars maintenant pour Dentiste', $message['data']['title']);
     }
 
+    /** A phone offline when the alert goes out must not be told « Pars maintenant » once the event has started (MAG-679). */
+    public function testADepartureCarriesItsExpiryAndFcmDropsItThen(): void
+    {
+        $factory = new PushMessageFactory('maggie', [$this->navigationLinks(['/api/trips/01JTRIP' => 'https://waze.com/ul?navigate=yes'])]);
+        $notification = $this->notification(NotificationType::Departure, 'Pars maintenant pour Dentiste', null, '/api/trips/01JTRIP')
+            ->setExpiresAt(new \DateTimeImmutable('+20 minutes'));
+
+        $message = $factory->build($notification, 't');
+
+        self::assertSame($notification->getExpiresAt()?->format('c'), $message['data']['expiresAt']);
+        self::assertEqualsWithDelta(1200, (int) rtrim($message['android']['ttl'], 's'), 5);
+    }
+
     public function testADepartureWhoseTripNobodyKnowsAnymoreCarriesNoLink(): void
     {
         $factory = new PushMessageFactory('maggie', [$this->navigationLinks([])]);

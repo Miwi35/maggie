@@ -25,6 +25,7 @@
             "body": "The body the client renders",
             "relatedEntityIri": "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "actions": [],
+            "expiresAt": "2099-01-01T00:00:00+00:00",
             "createdAt": "2026-01-01T00:00:00+00:00"
         }
     ],

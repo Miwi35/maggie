@@ -115,6 +115,25 @@ class NotificationRepository extends ServiceEntityRepository
     }
 
     /**
+     * What is still worth saying about an entity: the notifications that have not expired by $now.
+     *
+     * @return list<Notification>
+     */
+    public function findLiveByRelatedEntity(string $relatedEntityIri, \DateTimeImmutable $now): array
+    {
+        /** @var list<Notification> $notifications */
+        $notifications = $this->createQueryBuilder('n')
+            ->where('n.relatedEntityIri = :iri')
+            ->andWhere('n.expiresAt IS NULL OR n.expiresAt > :now')
+            ->setParameter('iri', $relatedEntityIri)
+            ->setParameter('now', $now, Types::DATETIMETZ_IMMUTABLE)
+            ->getQuery()
+            ->getResult();
+
+        return $notifications;
+    }
+
+    /**
      * The user's unread notifications of one kind about one entity: a cooking
      * timer's end, read once it is seen on any device (MAG-582).
      *

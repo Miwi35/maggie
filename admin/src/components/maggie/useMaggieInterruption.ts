@@ -6,6 +6,9 @@ import { readFeedMessage, type Interruption } from './interruptions'
 /** How long « Plus tard » waits before Maggie speaks again. */
 export const LATER_DELAY_MS = 10 * 60 * 1000
 
+/** What `setTimeout` can wait for: past it the delay wraps and fires at once. */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
+
 interface Options {
   chatOpen: boolean
   onOpenChat: () => void
@@ -29,6 +32,8 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
   const [queue, setQueue] = useState<Interruption[]>([])
   const seen = useRef(new Set<string>())
   const timers = useRef(new Map<number, Interruption>())
+  // The moment an interruption stops being worth saying, by its id (MAG-679).
+  const expiryTimers = useRef(new Map<string, number>())
   // Read by the stream handler, which outlives any one render.
   const chatOpenRef = useRef(chatOpen)
   useEffect(() => {
@@ -43,19 +48,34 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
     })
   }, [])
 
-  const enqueue = useCallback((interruption: Interruption) => {
-    if (seen.current.has(interruption.id)) return
-    seen.current.add(interruption.id)
-    if (interruption.source === 'proaction' && chatOpenRef.current) return
-    setQueue((prev) => [...prev, interruption])
-  }, [])
-
   const withdraw = useCallback(
     (id: string) => {
       setQueue((prev) => prev.filter((item) => item.id !== id))
       clearTimers((item) => item.id === id)
+      window.clearTimeout(expiryTimers.current.get(id))
+      expiryTimers.current.delete(id)
     },
     [clearTimers],
+  )
+
+  const enqueue = useCallback(
+    (interruption: Interruption) => {
+      if (seen.current.has(interruption.id)) return
+      seen.current.add(interruption.id)
+      if (interruption.source === 'proaction' && chatOpenRef.current) return
+      setQueue((prev) => [...prev, interruption])
+
+      // Whether shown, waiting its turn or postponed, it goes when it expires.
+      const expiresAt = interruption.source === 'notification' ? interruption.expiresAt : undefined
+      if (expiresAt === undefined) return
+      const delay = expiresAt - Date.now()
+      if (delay > MAX_TIMEOUT_MS) return
+      expiryTimers.current.set(
+        interruption.id,
+        window.setTimeout(() => withdraw(interruption.id), Math.max(delay, 0)),
+      )
+    },
+    [withdraw],
   )
 
   useEffect(() => {
@@ -107,7 +127,14 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
     if (chatOpen) clearTimers((item) => item.source === 'proaction')
   }, [chatOpen, clearTimers])
 
-  useEffect(() => () => clearTimers(), [clearTimers])
+  useEffect(() => {
+    const expiries = expiryTimers.current
+    return () => {
+      clearTimers()
+      expiries.forEach((timer) => window.clearTimeout(timer))
+      expiries.clear()
+    }
+  }, [clearTimers])
 
   const current = queue.find((item) => !(chatOpen && item.source === 'approval')) ?? null
 
@@ -130,5 +157,5 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
     onOpenChat()
   }, [dismiss, onOpenChat])
 
-  return { current, dismiss, openChat }
+  return { current, dismiss, openChat, withdraw }
 }

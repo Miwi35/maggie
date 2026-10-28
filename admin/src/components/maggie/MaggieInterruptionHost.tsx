@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDataProvider } from 'react-admin'
 import { useNavigate } from 'react-router-dom'
-import { fetchNavigationUrl, openNavigation } from '../../modules/calendar/trips'
+import { lookupNavigation, openNavigation } from '../../modules/calendar/trips'
 import { MaggieInterruption } from './MaggieInterruption'
 import { useMaggieInterruption } from './useMaggieInterruption'
 
@@ -37,7 +37,7 @@ async function addShortageToList(shortageId: string): Promise<boolean> {
 }
 
 export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterruptionHostProps) => {
-  const { current, dismiss, openChat } = useMaggieInterruption({ chatOpen, onOpenChat })
+  const { current, dismiss, openChat, withdraw } = useMaggieInterruption({ chatOpen, onOpenChat })
   const dataProvider = useDataProvider()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
@@ -57,7 +57,8 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
   }
 
   // The « Y aller » link is read as soon as the alert shows, so that the click opens the tab at once:
-  // a tab opened after a wait is taken for a popup and blocked.
+  // a tab opened after a wait is taken for a popup and blocked. A trip that is gone takes its alert with it
+  // (MAG-679): there is nothing to say, nowhere to go — the bell keeps it.
   const departureTrip = current?.source === 'notification' ? current.departureTrip : undefined
   const navigation = useRef<{ id: string; url?: string | null; promise: Promise<string | null> } | null>(null)
   useEffect(() => {
@@ -65,12 +66,14 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
       navigation.current = null
       return
     }
-    const entry: NonNullable<typeof navigation.current> = { id: currentId, promise: fetchNavigationUrl(departureTrip) }
-    entry.promise.then((url) => {
+    const lookup = lookupNavigation(departureTrip)
+    const entry: NonNullable<typeof navigation.current> = { id: currentId, promise: lookup.then(({ url }) => url) }
+    lookup.then(({ url, gone }) => {
       entry.url = url
+      if (gone) withdraw(entry.id)
     })
     navigation.current = entry
-  }, [currentId, departureTrip])
+  }, [currentId, departureTrip, withdraw])
 
   const send = useCallback(
     async (post: () => Promise<boolean>) => {

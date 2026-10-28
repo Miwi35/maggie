@@ -503,4 +503,38 @@ describe('useMaggieInterruption', () => {
       expect(result.current.current).toBeNull()
     })
   })
+
+  describe('a departure alert that expires (MAG-679)', () => {
+    const departure = (expiresAt: string) =>
+      notification({ '@id': '/api/notifications/n9', type: 'departure', title: 'Pars maintenant pour Dentiste', body: null, relatedEntityIri: '/api/trips/01TRIP', expiresAt })
+    const inMinutes = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString()
+
+    test('stops being said when its event starts, even while shown', () => {
+      const { result } = setup()
+      stream().emit(departure(inMinutes(5)))
+      expect(result.current.current?.title).toBe('Pars maintenant pour Dentiste')
+
+      act(() => vi.advanceTimersByTime(5 * 60_000))
+
+      expect(result.current.current).toBeNull()
+    })
+
+    test('does not come back after « Plus tard » once its event has started', () => {
+      const { result } = setup()
+      stream().emit(departure(inMinutes(5)))
+      act(() => result.current.dismiss(true))
+
+      act(() => vi.advanceTimersByTime(LATER_DELAY_MS))
+
+      expect(result.current.current).toBeNull()
+    })
+
+    test('an expired one that arrives late (replayed by the hub) is not queued', () => {
+      const { result } = setup()
+
+      stream().emit(departure(inMinutes(-18 * 60)))
+
+      expect(result.current.current).toBeNull()
+    })
+  })
 })

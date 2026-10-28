@@ -310,4 +310,14 @@ class PushPayloadTest {
         assertEquals(listOf(PushActionKind.ALREADY_ON_THE_WAY), payload("departure").actions())
         assertEquals(listOf(PushActionKind.ALREADY_ON_THE_WAY), payload("departure", "link" to "maggie://event/e-1").actions())
     }
+
+    @Test
+    fun `the expiry the server gives is read, and tells when the alert is over (MAG-679)`() {
+        val departure = payload("departure", "expiresAt" to "2026-10-28T12:00:00+00:00")
+
+        assertEquals(false, departure.isExpired(java.time.Instant.parse("2026-10-28T11:59:59Z")))
+        assertEquals(true, departure.isExpired(java.time.Instant.parse("2026-10-28T12:00:00Z")))
+        assertEquals(false, payload("departure").isExpired(java.time.Instant.parse("2030-01-01T00:00:00Z")))
+        assertEquals(false, payload("departure", "expiresAt" to "not a date").isExpired(java.time.Instant.parse("2030-01-01T00:00:00Z")))
+    }
 }

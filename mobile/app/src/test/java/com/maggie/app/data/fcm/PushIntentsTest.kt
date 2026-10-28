@@ -37,6 +37,19 @@ class PushIntentsTest {
     }
 
     @Test
+    fun `a departure tapped from the tray still knows when it stops being worth saying (MAG-679)`() {
+        val payload = PushPayload.from(
+            mapOf("notificationId" to "n-1", "type" to "departure", "title" to "Pars maintenant", "expiresAt" to "2026-10-27T18:00:00+00:00"),
+        )!!
+
+        val tap = PushIntents.departure(context, payload, go = false)
+        val back = PushIntents.payloadOf(tap)!!
+
+        assertEquals(payload.expiresAt, back.expiresAt)
+        assertEquals(true, back.isExpired(java.time.Instant.parse("2026-10-28T10:00:00Z")))
+    }
+
+    @Test
     fun `only Y aller goes straight to the link`() {
         val payload = PushPayload.from(mapOf("notificationId" to "n-1", "link" to "$scheme://finance/banks"))!!
 

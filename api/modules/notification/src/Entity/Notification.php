@@ -110,6 +110,11 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
     #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $readAt = null;
 
+    /** From then on the alert is no longer worth saying (MAG-679); null: never. */
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date')]
+    private ?\DateTimeImmutable $expiresAt = null;
+
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
     #[IndexedField(type: 'date')]
     private \DateTimeImmutable $createdAt;
@@ -236,6 +241,18 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
         return $this;
     }
 
+    public function getExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->expiresAt;
+    }
+
+    public function setExpiresAt(?\DateTimeImmutable $expiresAt): static
+    {
+        $this->expiresAt = $expiresAt;
+
+        return $this;
+    }
+
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
@@ -250,6 +267,7 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
             'type' => $this->type->value,
             'createdAt' => $this->createdAt->format('c'),
             'readAt' => $this->readAt?->format('c'),
+            'expiresAt' => $this->expiresAt?->format('c'),
             'relatedEntityIri' => $this->relatedEntityIri,
             'reminderId' => $this->reminderId,
             'actions' => $this->actions,
@@ -269,6 +287,7 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
             'reminderId' => $this->reminderId,
             'actions' => $this->getActions(),
             'readAt' => $this->readAt?->format('c'),
+            'expiresAt' => $this->expiresAt?->format('c'),
             'createdAt' => $this->createdAt->format('c'),
         ], $changedProperties);
     }

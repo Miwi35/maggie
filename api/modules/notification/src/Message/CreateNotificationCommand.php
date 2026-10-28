@@ -18,6 +18,8 @@ final readonly class CreateNotificationCommand
         public ?string $reminderId = null,
         /** @var list<string> the buttons it offers, in order */
         public array $actions = [],
+        /** From then on it is no longer worth saying: a departure alert stops when its event starts (MAG-679). */
+        public ?\DateTimeImmutable $expiresAt = null,
     ) {
     }
 }

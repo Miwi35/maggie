@@ -3,6 +3,7 @@ package com.maggie.app.data.fcm
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.maggie.app.data.interruption.InterruptionCenter
+import java.time.Instant
 
 /**
  * Where a push goes once it reaches the app (MAG-314): with the app open, Maggie interrupts
@@ -13,10 +14,13 @@ class PushDelivery(
     private val center: InterruptionCenter,
     private val notifier: () -> PushNotifier,
     private val isForeground: () -> Boolean = ::appIsForeground,
+    private val now: () -> Instant = Instant::now,
 ) {
 
     /** [reshow]: the alarm of a « Plus tard » coming back, so the postponement is over. */
     fun deliver(payload: PushPayload, reshow: Boolean = false) {
+        // A push held back for hours is not worth saying once what it announced is over (MAG-679).
+        if (payload.isExpired(now())) return
         // « Pars maintenant » (MAG-658) is the system's strong interruption, open or not: its full screen and
         // its « Y aller » (a link to Waze or Maps) are not something the in-app toaster can say.
         if (payload.isDeparture) {

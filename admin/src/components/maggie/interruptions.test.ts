@@ -162,6 +162,32 @@ describe('a departure alert (MAG-659)', () => {
     },
   )
 
+  describe('once it has expired (MAG-679)', () => {
+    const past = new Date(Date.now() - 60_000).toISOString()
+    const future = new Date(Date.now() + 3_600_000).toISOString()
+
+    test('is not said: the event has started, or the trip is gone', () => {
+      expect(readFeedMessage(JSON.stringify({ ...departure, expiresAt: past }))).toEqual({
+        kind: 'withdraw',
+        id: 'notification:/api/notifications/n14',
+      })
+    })
+
+    test('an update that carries only its expiry takes the alert down', () => {
+      expect(readFeedMessage(JSON.stringify({ '@id': '/api/notifications/n14', expiresAt: past }))).toEqual({
+        kind: 'withdraw',
+        id: 'notification:/api/notifications/n14',
+      })
+    })
+
+    test('is said until then, and carries when it stops being so', () => {
+      expect(readFeedMessage(JSON.stringify({ ...departure, expiresAt: future }))).toMatchObject({
+        kind: 'interrupt',
+        interruption: { departureTrip: '/api/trips/01K0TRIP', expiresAt: Date.parse(future) },
+      })
+    })
+  })
+
   test('another type of notification pointing at a trip is no departure', () => {
     const event = readFeedMessage(JSON.stringify({ ...departure, type: 'reminder' }))
 

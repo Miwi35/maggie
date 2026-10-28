@@ -21,6 +21,7 @@ import com.maggie.app.ui.theme.MaggieTheme
 import com.maggie.app.ui.uiTagRoot
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -38,7 +39,9 @@ class DepartureActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val payload = PushIntents.payloadOf(intent)?.takeIf { it.isDeparture }
-        if (payload == null) {
+        // Tapped from the tray long after the event started (MAG-679): nothing left to say.
+        if (payload == null || payload.isExpired(Instant.now())) {
+            payload?.let { PushNotifier(this).close(it.systemTag) }
             finish()
             return
         }

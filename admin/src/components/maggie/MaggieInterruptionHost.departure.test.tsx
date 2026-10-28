@@ -40,11 +40,11 @@ const departure = {
   readAt: null,
 }
 
-const respond = (trip: { ok: boolean; navigationUrl?: unknown }) =>
+const respond = (trip: { ok: boolean; status?: number; navigationUrl?: unknown }) =>
   fetchMock.mockImplementation((url: string) =>
     Promise.resolve(
       url.startsWith('/api/trips/')
-        ? { ok: trip.ok, status: trip.ok ? 200 : 404, json: async () => ({ navigationUrl: trip.navigationUrl }) }
+        ? { ok: trip.ok, status: trip.status ?? (trip.ok ? 200 : 500), json: async () => ({ navigationUrl: trip.navigationUrl }) }
         : { ok: true, status: 200, json: async () => [] },
     ),
   )
@@ -94,7 +94,7 @@ describe('MaggieInterruptionHost — departure alert (MAG-659)', () => {
   })
 
   test('a trip that cannot be read opens nothing and says so, the alert stays', async () => {
-    respond({ ok: false })
+    respond({ ok: false, status: 500 })
     setup()
     FakeEventSource.instances[0].emit(departure)
 
@@ -104,6 +104,25 @@ describe('MaggieInterruptionHost — departure alert (MAG-659)', () => {
     expect(await screen.findByText(/itinéraire est introuvable/)).toBeInTheDocument()
     expect(update).not.toHaveBeenCalled()
     expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+  })
+
+  test('a trip that no longer exists takes its alert down: nothing to say, nowhere to go (MAG-679)', async () => {
+    respond({ ok: false, status: 404 })
+    setup()
+    FakeEventSource.instances[0].emit(departure)
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  test('an alert whose event has started is never shown (MAG-679)', async () => {
+    respond({ ok: true, navigationUrl: WAZE })
+    setup()
+
+    FakeEventSource.instances[0].emit({ ...departure, expiresAt: new Date(Date.now() - 18 * 3_600_000).toISOString() })
+
+    await act(async () => {})
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
   test('a link that is not a web link is never opened', async () => {
