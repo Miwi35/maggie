@@ -5,9 +5,9 @@ import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.FinanceHomeState
 import com.maggie.app.data.model.GroceryHomeState
 import com.maggie.app.data.model.HomeTasks
-import com.maggie.app.data.model.NutritionHomeMeal
-import com.maggie.app.data.model.NutritionHomeSlot
-import com.maggie.app.data.model.NutritionHomeState
+import com.maggie.app.data.model.CuisineHomeMeal
+import com.maggie.app.data.model.CuisineHomeSlot
+import com.maggie.app.data.model.CuisineHomeState
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -76,10 +76,10 @@ class DrawerSummaryTest {
 
     @Test
     fun `Cuisine names the lunch until the afternoon, then the dinner`() {
-        val meals = NutritionHomeState(
+        val meals = CuisineHomeState(
             listOf(
-                NutritionHomeSlot("lunch", listOf(NutritionHomeMeal("m1", title = "Déjeuner", recipes = listOf("Salade")))),
-                NutritionHomeSlot("dinner", listOf(NutritionHomeMeal("m2", title = "Dîner", recipes = listOf("Pâtes", "Tarte")))),
+                CuisineHomeSlot("lunch", listOf(CuisineHomeMeal("m1", title = "Déjeuner", recipes = listOf("Salade")))),
+                CuisineHomeSlot("dinner", listOf(CuisineHomeMeal("m2", title = "Dîner", recipes = listOf("Pâtes", "Tarte")))),
             ),
         )
 
@@ -89,7 +89,7 @@ class DrawerSummaryTest {
 
     @Test
     fun `Cuisine with only the lunch behind says nothing`() {
-        val meals = NutritionHomeState(listOf(NutritionHomeSlot("lunch", listOf(NutritionHomeMeal("m1", recipes = listOf("Salade")))), NutritionHomeSlot("dinner")))
+        val meals = CuisineHomeState(listOf(CuisineHomeSlot("lunch", listOf(CuisineHomeMeal("m1", recipes = listOf("Salade")))), CuisineHomeSlot("dinner")))
 
         assertNull(DrawerSummary.of(meals = meals, now = evening)["cookbook"])
     }

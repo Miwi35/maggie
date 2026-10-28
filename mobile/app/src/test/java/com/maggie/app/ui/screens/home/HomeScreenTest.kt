@@ -254,7 +254,7 @@ class HomeScreenTest {
     fun `when every card is empty the screen says one calm sentence, for each day`() {
         val registry = listOf(
             reporting(HomeModules.TASKS, HomeCardStatus.EMPTY),
-            reporting(HomeModules.NUTRITION, HomeCardStatus.EMPTY),
+            reporting(HomeModules.CUISINE, HomeCardStatus.EMPTY),
         )
         compose.setContent { HomeScreen(viewModel = HomeViewModel(), registry = registry) }
 

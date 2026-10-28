@@ -8,7 +8,7 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.GroceryRecipeNeed
 import com.maggie.app.data.model.Meal
-import com.maggie.app.data.model.NutritionHomeState
+import com.maggie.app.data.model.CuisineHomeState
 import com.maggie.app.util.rethrowCancellation
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -24,22 +24,22 @@ import java.time.LocalDate
  * What the Cuisine card of the Accueil reads (MAG-591): the meals of a day and what their recipes lack, from their own
  * resources — two requests, whatever the number of meals — and the topics of everything that feeds them.
  */
-class NutritionCardRepository(
+class CuisineCardRepository(
     private val apiService: MaggieApiService,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
 ) {
     /** The card for [day]. A part answered 404 (its module is absent) is empty; any other failure is a failure. */
-    suspend fun read(day: LocalDate): Result<NutritionHomeState> = try {
+    suspend fun read(day: LocalDate): Result<CuisineHomeState> = try {
         val date = day.toString()
         val (meals, needs) = coroutineScope {
             val meals = async { whenPresent(emptyList<Meal>()) { apiService.getMeals(fromDay = date, toDay = date) } }
             val needs = async { whenPresent(emptyList<GroceryRecipeNeed>()) { apiService.getGroceryRecipeNeeds(date, date) } }
             meals.await() to needs.await()
         }
-        Result.success(NutritionHomeState.from(meals, needs))
+        Result.success(CuisineHomeState.from(meals, needs))
     } catch (e: Exception) {
-        Result.failure<NutritionHomeState>(e).rethrowCancellation()
+        Result.failure<CuisineHomeState>(e).rethrowCancellation()
     }
 
     /** One value each time something the card shows changes server-side, bursts merged; read [read] again on each. */

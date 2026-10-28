@@ -3,8 +3,8 @@ package com.maggie.app.ui.screens.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.HomeDay
-import com.maggie.app.data.model.NutritionHomeState
-import com.maggie.app.data.repository.NutritionCardRepository
+import com.maggie.app.data.model.CuisineHomeState
+import com.maggie.app.data.repository.CuisineCardRepository
 import com.maggie.app.util.DateRanges
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
 
-data class NutritionHomeUiState(
-    val state: NutritionHomeState? = null,
+data class CuisineHomeUiState(
+    val state: CuisineHomeState? = null,
     val isLoading: Boolean = true,
     /** The last read failed; [state], when there is one, is the previous answer. */
     val failed: Boolean = false,
@@ -27,12 +27,12 @@ data class NutritionHomeUiState(
  * The Cuisine card (MAG-564): the meals of the selected day, read from the meals and the recipe needs (MAG-591), again when
  * the day changes and each time Mercure says one of the resources behind them moved.
  */
-class NutritionHomeViewModel(
-    private val repository: NutritionCardRepository,
+class CuisineHomeViewModel(
+    private val repository: CuisineCardRepository,
     private val clock: () -> Instant = { Instant.now() },
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(NutritionHomeUiState())
-    val uiState: StateFlow<NutritionHomeUiState> = _uiState
+    private val _uiState = MutableStateFlow(CuisineHomeUiState())
+    val uiState: StateFlow<CuisineHomeUiState> = _uiState
 
     private var day = HomeDay.TODAY
     private var reading: Job? = null
@@ -48,7 +48,7 @@ class NutritionHomeViewModel(
     fun selectDay(next: HomeDay) {
         if (next == day) return
         day = next
-        _uiState.value = NutritionHomeUiState()
+        _uiState.value = CuisineHomeUiState()
         read(silently = false)
     }
 
@@ -66,7 +66,7 @@ class NutritionHomeViewModel(
             val today = clock().atZone(DateRanges.zone).toLocalDate()
             val date = if (asked == HomeDay.TODAY) today else today.plusDays(1)
             repository.read(date).fold(
-                onSuccess = { state -> _uiState.value = NutritionHomeUiState(state = state, isLoading = false) },
+                onSuccess = { state -> _uiState.value = CuisineHomeUiState(state = state, isLoading = false) },
                 // A refresh that fails keeps what the card shows: the next one will do.
                 onFailure = { _uiState.update { current -> if (silently && current.state != null) current else current.copy(isLoading = false, failed = true) } },
             )

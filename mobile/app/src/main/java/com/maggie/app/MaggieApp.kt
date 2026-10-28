@@ -57,7 +57,7 @@ import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.NotificationRepository
-import com.maggie.app.data.repository.NutritionCardRepository
+import com.maggie.app.data.repository.CuisineCardRepository
 import com.maggie.app.data.repository.AccountRepository
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.BankConnectionRepository
@@ -147,7 +147,7 @@ import com.maggie.app.ui.screens.home.GroceryHomeViewModel
 import com.maggie.app.ui.screens.home.AgendaHomeViewModel
 import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.screens.home.TasksCardViewModel
-import com.maggie.app.ui.screens.home.NutritionHomeViewModel
+import com.maggie.app.ui.screens.home.CuisineHomeViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
@@ -364,7 +364,7 @@ class MaggieApp : Application() {
             single { TasksCardRepository(get(), get(), get(), get()) }
             single { AgendaCardRepository(get(), get(), get()) }
             single { GroceryCardRepository(get(), get(), get()) }
-            single { NutritionCardRepository(get(), get(), get()) }
+            single { CuisineCardRepository(get(), get(), get()) }
             single { FinanceCardRepository(get(), get(), get()) }
             single { MonthBalanceRepository(get()) }
             single { TransactionRepository(get()) }
@@ -395,7 +395,7 @@ class MaggieApp : Application() {
             viewModel { DrawerSummaryViewModel(get(), get(), get(), get(), get()) }
             viewModel { GroceryHomeViewModel(get()) }
             viewModel { TasksCardViewModel(get(), get(), get()) }
-            viewModel { NutritionHomeViewModel(get()) }
+            viewModel { CuisineHomeViewModel(get()) }
             viewModel { FinanceHomeViewModel(get()) }
             viewModel { AgendaHomeViewModel(get()) }
             viewModel { SubtasksViewModel(get()) }

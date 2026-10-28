@@ -7,11 +7,11 @@ import com.maggie.app.data.model.FinanceHomeState
 import com.maggie.app.data.model.GroceryHomeState
 import com.maggie.app.data.model.HomeDay
 import com.maggie.app.data.model.HomeTasks
-import com.maggie.app.data.model.NutritionHomeState
+import com.maggie.app.data.model.CuisineHomeState
 import com.maggie.app.data.repository.AgendaCardRepository
 import com.maggie.app.data.repository.FinanceCardRepository
 import com.maggie.app.data.repository.GroceryCardRepository
-import com.maggie.app.data.repository.NutritionCardRepository
+import com.maggie.app.data.repository.CuisineCardRepository
 import com.maggie.app.data.repository.TasksCardRepository
 import com.maggie.app.util.DateRanges
 import kotlinx.coroutines.Job
@@ -27,7 +27,7 @@ private data class Answers(
     val tasks: HomeTasks? = null,
     val agenda: AgendaHomeState? = null,
     val grocery: GroceryHomeState? = null,
-    val meals: NutritionHomeState? = null,
+    val meals: CuisineHomeState? = null,
     val finance: FinanceHomeState? = null,
 )
 
@@ -40,7 +40,7 @@ class DrawerSummaryViewModel(
     private val tasks: TasksCardRepository,
     private val agenda: AgendaCardRepository,
     private val grocery: GroceryCardRepository,
-    private val meals: NutritionCardRepository,
+    private val meals: CuisineCardRepository,
     private val finance: FinanceCardRepository,
     private val clock: () -> Instant = { Instant.now() },
 ) : ViewModel() {

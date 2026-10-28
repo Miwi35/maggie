@@ -7,7 +7,7 @@ import { getCollection, waitForIndexed } from '../helpers/api.js'
 
 const JSON_HEADERS = { 'Content-Type': 'application/json', Accept: 'application/json' }
 
-// The journeys share `nutritionUser` and the timer journeys both run an « Eau »: one at a time.
+// The journeys share `cuisineUser` and the timer journeys both run an « Eau »: one at a time.
 test.describe.configure({ mode: 'serial' })
 
 /**
@@ -32,19 +32,19 @@ async function clearStatus(api: APIRequestContext): Promise<void> {
  * The Cuisine activity, launched from the Accueil (MAG-580, extends MAG-99): the full-screen frame, the
  * preparation of tonight's meal with its two recipes in order, and the way out.
  *
- * The account of `65-nutrition-home.yaml`: tonight's dinner has « Pâtes au pesto » (two steps) then
+ * The account of `65-cuisine-home.yaml`: tonight's dinner has « Pâtes au pesto » (two steps) then
  * « Salade de saison » (one step). What each screen holds is the Vitest suite's; this is the request and the
  * real route, the real browser's full screen and the way back to where the cook came from.
  */
 test('« ▶ Lancer » on tonight’s meal opens the Cuisine activity, which lists both recipes, and Échap goes back to the Accueil', async ({
-  nutritionUser,
+  cuisineUser,
 }) => {
-  const { page } = nutritionUser
+  const { page } = cuisineUser
   const home = new HomePage(page)
 
   // Given tonight's dinner with two recipes, when I tap « Lancer » on the Accueil…
   await home.open()
-  await home.card('nutrition').getByTestId('home-launch-nutrition').click()
+  await home.card('cuisine').getByTestId('home-launch-cuisine').click()
 
   // …the activity opens over the whole window, on the preparation of the meal.
   await expect(page).toHaveURL(/\/activites\/cuisine\?meal=/)
@@ -70,7 +70,7 @@ test('« ▶ Lancer » on tonight’s meal opens the Cuisine activity, which lis
 
   await expect(page.getByText("Quitter l'activité ?")).toHaveCount(0)
   await home.expectReady()
-  await expect(home.card('nutrition')).toBeVisible()
+  await expect(home.card('cuisine')).toBeVisible()
 })
 
 /**
@@ -80,9 +80,9 @@ test('« ▶ Lancer » on tonight’s meal opens the Cuisine activity, which lis
  * serves the steps, the timers and their worker.
  */
 test('the steps column ticks the steps as I go, jumps to a touched one without ticking it, and lights a step whose timer ended', async ({
-  nutritionUser,
+  cuisineUser,
 }) => {
-  const { page, api } = nutritionUser
+  const { page, api } = cuisineUser
   const LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
   const name = 'Pot-au-feu MAG-614'
   const ingredientName = 'Bœuf MAG-614'
@@ -196,9 +196,9 @@ test('the steps column ticks the steps as I go, jumps to a touched one without t
  * back to the preparation and the sheet offers « Cuisiner » again.
  */
 test('quitting at step 3 keeps the cook: the sheet says « Reprendre », the activity reopens at step 3 with two ticked, « Recommencer » starts over', async ({
-  nutritionUser,
+  cuisineUser,
 }) => {
-  const { page, api } = nutritionUser
+  const { page, api } = cuisineUser
   const LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
   const name = 'Blanquette MAG-615'
   const created: string[] = []
@@ -281,13 +281,13 @@ test('quitting at step 3 keeps the cook: the sheet says « Reprendre », the act
  * the step, the lines of the meal first and marked, a tick reaches the API, and the activity never leaves full
  * screen. The Vitest suite owns the states of the panel; this is the real route, the real browser and the API.
  *
- * The account of `65-nutrition-home.yaml`: tonight's dinner has « Pâtes au pesto », whose spaghetti the journey puts
+ * The account of `65-cuisine-home.yaml`: tonight's dinner has « Pâtes au pesto », whose spaghetti the journey puts
  * on the list.
  */
 test('« Courses » opens the list over the activity, shows the spaghetti of the meal first, and ticking it reaches the list without leaving full screen', async ({
-  nutritionUser,
+  cuisineUser,
 }) => {
-  const { page, api } = nutritionUser
+  const { page, api } = cuisineUser
   const home = new HomePage(page)
   let itemId = ''
 
@@ -299,7 +299,7 @@ test('« Courses » opens the list over the activity, shows the spaghetti of the
     itemId = ((await added.json()) as { itemId: string }).itemId
 
     await home.open()
-    await home.card('nutrition').getByTestId('home-launch-nutrition').click()
+    await home.card('cuisine').getByTestId('home-launch-cuisine').click()
     const shell = page.getByTestId('activity-shell')
     await expect(page.getByTestId('cooking-preparation')).toBeVisible()
     await expect(shell).not.toHaveAttribute('data-mode', 'pending')

@@ -100,7 +100,7 @@ class HomeCardScreenTest {
         val colors = mutableMapOf<String, Color>()
         compose.setContent {
             MaggieTheme("dark") {
-                listOf(HomeModules.TASKS, HomeModules.GROCERY, HomeModules.NUTRITION, HomeModules.AGENDA, HomeModules.FINANCE)
+                listOf(HomeModules.TASKS, HomeModules.GROCERY, HomeModules.CUISINE, HomeModules.AGENDA, HomeModules.FINANCE)
                     .forEach { colors[it] = homeModuleColor(it) }
             }
         }
@@ -108,7 +108,7 @@ class HomeCardScreenTest {
 
         assertEquals(MaggieTokens.Module.taches.second, colors.getValue(HomeModules.TASKS))
         assertEquals(MaggieTokens.Module.cuisine.second, colors.getValue(HomeModules.GROCERY))
-        assertEquals(MaggieTokens.Module.cuisine.second, colors.getValue(HomeModules.NUTRITION))
+        assertEquals(MaggieTokens.Module.cuisine.second, colors.getValue(HomeModules.CUISINE))
         assertEquals(MaggieTokens.Module.agenda.second, colors.getValue(HomeModules.AGENDA))
         assertEquals(MaggieTokens.Module.finance.second, colors.getValue(HomeModules.FINANCE))
     }

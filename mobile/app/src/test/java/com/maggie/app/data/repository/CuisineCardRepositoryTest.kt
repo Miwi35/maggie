@@ -32,11 +32,11 @@ import java.time.LocalDate
  * card endpoint; a part answered 404 is empty; the topics of the meals, recipes, ingredients and products wake it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class NutritionCardRepositoryTest {
+class CuisineCardRepositoryTest {
     private val api = mockk<MaggieApiService>()
     private val mercure = mockk<MercureService>()
     private val auth = mockk<AuthRepository> { coEvery { getUserId() } returns "01HUSER" }
-    private val repository = NutritionCardRepository(api, mercure, auth)
+    private val repository = CuisineCardRepository(api, mercure, auth)
 
     private val day = LocalDate.of(2026, 10, 23)
 

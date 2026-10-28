@@ -65,13 +65,13 @@ object UiTags {
     const val HOME_GROCERY_MORE = "home_grocery_more"
     const val HOME_GROCERY_ERROR = "home_grocery_error"
     const val HOME_GROCERY_RETRY = "home_grocery_retry"
-    /** Accueil › Nutrition card (MAG-564): a slot's row, a meal, its missing line, the error and its retry. */
-    const val HOME_NUTRITION_SLOT = "home_nutrition_slot"
-    const val HOME_NUTRITION_MEAL = "home_nutrition_meal"
-    const val HOME_NUTRITION_MISSING = "home_nutrition_missing"
-    const val HOME_NUTRITION_EMPTY = "home_nutrition_empty"
-    const val HOME_NUTRITION_ERROR = "home_nutrition_error"
-    const val HOME_NUTRITION_RETRY = "home_nutrition_retry"
+    /** Accueil › Cuisine card (MAG-564): a slot's row, a meal, its missing line, the error and its retry. */
+    const val HOME_CUISINE_SLOT = "home_cuisine_slot"
+    const val HOME_CUISINE_MEAL = "home_cuisine_meal"
+    const val HOME_CUISINE_MISSING = "home_cuisine_missing"
+    const val HOME_CUISINE_EMPTY = "home_cuisine_empty"
+    const val HOME_CUISINE_ERROR = "home_cuisine_error"
+    const val HOME_CUISINE_RETRY = "home_cuisine_retry"
     /** Accueil · Agenda (MAG-562): a row of the day (suffixed by the event id), the « maintenant » line, « Voir la journée ». */
     const val HOME_AGENDA_ROW_PREFIX = "home_agenda_row_"
     const val HOME_AGENDA_NOW_LINE = "home_agenda_now_line"

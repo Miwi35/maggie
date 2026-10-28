@@ -5,7 +5,7 @@ import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.FinanceHomeState
 import com.maggie.app.data.model.GroceryHomeState
 import com.maggie.app.data.model.HomeTasks
-import com.maggie.app.data.model.NutritionHomeState
+import com.maggie.app.data.model.CuisineHomeState
 import com.maggie.app.data.model.recipesLabel
 import com.maggie.app.util.DateRanges
 import java.time.Instant
@@ -33,7 +33,7 @@ data class DrawerSummary(val entries: Map<String, DrawerEntryStatus> = emptyMap(
             tasks: HomeTasks? = null,
             agenda: AgendaHomeState? = null,
             grocery: GroceryHomeState? = null,
-            meals: NutritionHomeState? = null,
+            meals: CuisineHomeState? = null,
             finance: FinanceHomeState? = null,
             now: Instant = Instant.now(),
         ): DrawerSummary {
@@ -74,7 +74,7 @@ data class DrawerSummary(val entries: Map<String, DrawerEntryStatus> = emptyMap(
         }
 
         /** « Ce soir · Pâtes · Salade »: the next meal of the day, the lunch only until the afternoon. */
-        private fun mealLine(meals: NutritionHomeState, now: Instant): String? {
+        private fun mealLine(meals: CuisineHomeState, now: Instant): String? {
             val time = now.atZone(DateRanges.zone).toLocalTime()
             val slots = if (time < LUNCH_ENDS) listOf("lunch" to "Ce midi", "dinner" to "Ce soir") else listOf("dinner" to "Ce soir")
             slots.forEach { (slot, moment) ->

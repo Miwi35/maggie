@@ -23,9 +23,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.HomeDay
-import com.maggie.app.data.model.NutritionHomeMeal
-import com.maggie.app.data.model.NutritionHomeSlot
-import com.maggie.app.data.model.NutritionHomeState
+import com.maggie.app.data.model.CuisineHomeMeal
+import com.maggie.app.data.model.CuisineHomeSlot
+import com.maggie.app.data.model.CuisineHomeState
 import com.maggie.app.data.model.label
 import com.maggie.app.data.model.missingLabel
 import com.maggie.app.data.model.recipesLabel
@@ -37,20 +37,20 @@ import com.maggie.app.ui.screens.cookbook.cooking.resumesMeal
 import org.koin.androidx.compose.koinViewModel
 
 /**
- * The Nutrition card of the Accueil (MAG-564): the meals of the selected day, lunch then dinner, each with
+ * The Cuisine card of the Accueil (MAG-564): the meals of the selected day, lunch then dinner, each with
  * all its recipes, its guests and what its recipes lack. A day with no meal draws no card (MAG-594). A tap anywhere opens Cuisine, which opens on « Repas ».
  */
 @Composable
-fun NutritionHomeCard(
+fun CuisineHomeCard(
     day: HomeDay,
-    viewModel: NutritionHomeViewModel = koinViewModel(),
+    viewModel: CuisineHomeViewModel = koinViewModel(),
     resumeViewModel: CookingResumeViewModel = koinViewModel(),
 ) {
     val ui by viewModel.uiState.collectAsState()
     val resume by resumeViewModel.resume.collectAsState()
     val open = LocalHomeNavigation.current
     LaunchedEffect(day) { viewModel.selectDay(day) }
-    NutritionHomeCardContent(
+    CuisineHomeCardContent(
         ui = ui,
         onOpen = { open(Screen.Cookbook.route) },
         onRetry = viewModel::refresh,
@@ -61,18 +61,18 @@ fun NutritionHomeCard(
 }
 
 @Composable
-internal fun NutritionHomeCardContent(
-    ui: NutritionHomeUiState,
+internal fun CuisineHomeCardContent(
+    ui: CuisineHomeUiState,
     onOpen: () -> Unit,
     onRetry: () -> Unit,
     day: HomeDay = HomeDay.TODAY,
     resume: CookingResume? = null,
     onLaunch: (String) -> Unit = {},
 ) {
-    ReportHomeCard(HomeModules.NUTRITION, ui.status)
+    ReportHomeCard(HomeModules.CUISINE, ui.status)
     if (ui.status == HomeCardStatus.EMPTY) return
 
-    HomeCard(title = "Cuisine", module = HomeModules.NUTRITION, onOpen = onOpen) {
+    HomeCard(title = "Cuisine", module = HomeModules.CUISINE, onOpen = onOpen) {
         val state = ui.state
         Column(
             modifier = Modifier
@@ -81,23 +81,23 @@ internal fun NutritionHomeCardContent(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when {
-                state != null && !state.isEmpty -> NutritionHomeBody(state, day, resume, onLaunch)
+                state != null && !state.isEmpty -> CuisineHomeBody(state, day, resume, onLaunch)
                 ui.failed && !ui.isLoading -> Unit
                 else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
         }
-        if (ui.failed && !ui.isLoading) NutritionHomeError(onRetry)
+        if (ui.failed && !ui.isLoading) CuisineHomeError(onRetry)
     }
 }
 
 @Composable
-private fun NutritionHomeBody(state: NutritionHomeState, day: HomeDay, resume: CookingResume?, onLaunch: (String) -> Unit) {
-    state.slots.forEach { slot -> key(slot.slot) { NutritionHomeSlotRow(slot, day, resume, onLaunch) } }
+private fun CuisineHomeBody(state: CuisineHomeState, day: HomeDay, resume: CookingResume?, onLaunch: (String) -> Unit) {
+    state.slots.forEach { slot -> key(slot.slot) { CuisineHomeSlotRow(slot, day, resume, onLaunch) } }
 }
 
 @Composable
-private fun NutritionHomeSlotRow(slot: NutritionHomeSlot, day: HomeDay, resume: CookingResume?, onLaunch: (String) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().testTag(UiTags.HOME_NUTRITION_SLOT)) {
+private fun CuisineHomeSlotRow(slot: CuisineHomeSlot, day: HomeDay, resume: CookingResume?, onLaunch: (String) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().testTag(UiTags.HOME_CUISINE_SLOT)) {
         Text(
             text = slot.label(),
             style = MaterialTheme.typography.labelLarge,
@@ -110,17 +110,17 @@ private fun NutritionHomeSlotRow(slot: NutritionHomeSlot, day: HomeDay, resume: 
                     text = "—",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag(UiTags.HOME_NUTRITION_EMPTY),
+                    modifier = Modifier.testTag(UiTags.HOME_CUISINE_EMPTY),
                 )
             }
-            slot.meals.forEach { meal -> key(meal.id) { NutritionHomeMealRow(meal, day, resume, onLaunch) } }
+            slot.meals.forEach { meal -> key(meal.id) { CuisineHomeMealRow(meal, day, resume, onLaunch) } }
         }
     }
 }
 
 @Composable
-private fun NutritionHomeMealRow(meal: NutritionHomeMeal, day: HomeDay, resume: CookingResume?, onLaunch: (String) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().testTag(UiTags.HOME_NUTRITION_MEAL)) {
+private fun CuisineHomeMealRow(meal: CuisineHomeMeal, day: HomeDay, resume: CookingResume?, onLaunch: (String) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().testTag(UiTags.HOME_CUISINE_MEAL)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             // The guests sit under the name: beside it they squeezed a long name until it broke inside a word.
             Column(modifier = Modifier.weight(1f)) {
@@ -136,7 +136,7 @@ private fun NutritionHomeMealRow(meal: NutritionHomeMeal, day: HomeDay, resume: 
             // (MAG-615); nothing for tomorrow, nor for a meal with no recipe.
             if (meal.recipes.isNotEmpty()) {
                 ActivityLaunchButton(
-                    module = HomeModules.NUTRITION,
+                    module = HomeModules.CUISINE,
                     activity = "la cuisine de ${meal.recipesLabel()}",
                     day = day,
                     onLaunch = { onLaunch(meal.id) },
@@ -149,18 +149,18 @@ private fun NutritionHomeMealRow(meal: NutritionHomeMeal, day: HomeDay, resume: 
                 text = it,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.testTag(UiTags.HOME_NUTRITION_MISSING),
+                modifier = Modifier.testTag(UiTags.HOME_CUISINE_MISSING),
             )
         }
     }
 }
 
 @Composable
-private fun NutritionHomeError(onRetry: () -> Unit) {
+private fun CuisineHomeError(onRetry: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag(UiTags.HOME_NUTRITION_ERROR),
+            .testTag(UiTags.HOME_CUISINE_ERROR),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
@@ -171,7 +171,7 @@ private fun NutritionHomeError(onRetry: () -> Unit) {
                 .weight(1f)
                 .padding(top = 12.dp),
         )
-        TextButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp).testTag(UiTags.HOME_NUTRITION_RETRY)) {
+        TextButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp).testTag(UiTags.HOME_CUISINE_RETRY)) {
             Text("Réessayer")
         }
     }

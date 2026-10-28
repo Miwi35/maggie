@@ -1,12 +1,12 @@
 appId: com.maggie.app.e2e
-name: 24-home-nutrition
+name: 24-home-cuisine
 tags:
   - dashboard
 ---
-# The Nutrition card of the Accueil (MAG-564, extends MAG-99). It signs in as the seed's
-# nutrition account (`65-nutrition-home.yaml`), alone in having meals planned: tonight's
+# The Cuisine card of the Accueil (MAG-564, extends MAG-99). It signs in as the seed's
+# cuisine account (`65-cuisine-home.yaml`), alone in having meals planned: tonight's
 # dinner has two recipes, tomorrow's lunch one that asks for a parmesan the user is out of,
-# tomorrow's dinner is empty. What the card holds in each state is `NutritionHomeCardScreenTest`'s.
+# tomorrow's dinner is empty. What the card holds in each state is `CuisineHomeCardScreenTest`'s.
 #
 # Given tonight's meal has two recipes, when the user opens the Accueil, then the card shows
 # both on one line. When they tap « Demain », then it shows tomorrow's lunch with
@@ -17,8 +17,8 @@ tags:
     permissions:
       all: allow
     arguments:
-      e2e_journey: e2e/mobile/flows/24-home-nutrition.yaml
-      e2e_email: e2e-nutrition@maggie.local
+      e2e_journey: e2e/mobile/flows/24-home-cuisine.yaml
+      e2e_email: e2e-cuisine@maggie.local
 
 - runFlow: ../subflows/sign-in.yaml
 
@@ -30,7 +30,7 @@ tags:
 # Aujourd'hui: tonight's dinner, its two recipes on one line, nothing missing.
 - scrollUntilVisible:
     element:
-      id: "home_nutrition_meal"
+      id: "home_cuisine_meal"
     timeout: 20000
 - extendedWaitUntil:
     visible: "Pâtes au pesto · Salade de saison"
@@ -46,4 +46,4 @@ tags:
 - assertVisible: "manque : parmesan"
 - assertNotVisible: "Pâtes au pesto · Salade de saison"
 - assertVisible:
-    id: "home_nutrition_empty"
+    id: "home_cuisine_empty"

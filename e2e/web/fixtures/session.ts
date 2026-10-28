@@ -213,11 +213,11 @@ export const HOME_TASKS_USER_EMAIL = 'e2e-home-tasks@maggie.local'
 export const SHORTAGE_USER_EMAIL = 'e2e-shortage@maggie.local'
 
 /**
- * The twenty-eighth seeded account, for the Nutrition card of the Accueil
+ * The twenty-eighth seeded account, for the Cuisine card of the Accueil
  * (MAG-564): a dinner tonight, a lunch tomorrow, and nothing else planned, which
  * the card would show and the meals journeys would move.
  */
-export const NUTRITION_USER_EMAIL = 'e2e-nutrition@maggie.local'
+export const CUISINE_USER_EMAIL = 'e2e-cuisine@maggie.local'
 
 /**
  * The twenty-ninth seeded account, for the cushion's share of the capacity (MAG-669): a cushion past

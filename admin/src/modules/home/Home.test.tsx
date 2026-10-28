@@ -117,31 +117,31 @@ describe('Home', () => {
   })
 
   test('draws the cards of a zone in the order of the config, and only the zones that have cards', () => {
-    const { container } = renderLayout('/', [placed('grocery'), placed('nutrition')])
+    const { container } = renderLayout('/', [placed('grocery'), placed('cuisine')])
 
     expect(screen.getAllByTestId(/^card-/).map((card) => card.getAttribute('data-testid'))).toEqual([
       'card-grocery',
-      'card-nutrition',
+      'card-cuisine',
     ])
     // The selector and the one zone with cards: no launch strip, no left column.
     expect(container.firstElementChild?.firstElementChild?.children).toHaveLength(2)
   })
 
   test('changing the order of the config changes the order on the page', () => {
-    const registry = fakes('grocery', 'nutrition', 'finance')
+    const registry = fakes('grocery', 'cuisine', 'finance')
     const order = () => screen.getAllByTestId(/^card-/).map((card) => card.getAttribute('data-testid'))
-    const first = renderHome('/', { card: [placed('grocery'), placed('nutrition'), placed('finance')] }, registry)
-    expect(order()).toEqual(['card-grocery', 'card-nutrition', 'card-finance'])
+    const first = renderHome('/', { card: [placed('grocery'), placed('cuisine'), placed('finance')] }, registry)
+    expect(order()).toEqual(['card-grocery', 'card-cuisine', 'card-finance'])
     first.unmount()
 
-    renderHome('/', { card: [placed('finance'), placed('grocery'), placed('nutrition')] }, registry)
-    expect(order()).toEqual(['card-finance', 'card-grocery', 'card-nutrition'])
+    renderHome('/', { card: [placed('finance'), placed('grocery'), placed('cuisine')] }, registry)
+    expect(order()).toEqual(['card-finance', 'card-grocery', 'card-cuisine'])
   })
 
   test('a card disabled in the config is not drawn, and the others stay', () => {
-    renderLayout('/', [placed('tasks', 'left'), placed('grocery', 'grid', false), placed('nutrition', 'grid', true)])
+    renderLayout('/', [placed('tasks', 'left'), placed('grocery', 'grid', false), placed('cuisine', 'grid', true)])
 
-    expect(screen.getAllByTestId(/^card-/).map((card) => card.getAttribute('data-testid'))).toEqual(['card-tasks', 'card-nutrition'])
+    expect(screen.getAllByTestId(/^card-/).map((card) => card.getAttribute('data-testid'))).toEqual(['card-tasks', 'card-cuisine'])
   })
 
   test('a key with no component is skipped, and does not count for the empty sentence', () => {
@@ -171,7 +171,7 @@ describe('Home', () => {
       ['tasks', 'left'],
       ['agenda', 'left'],
       ['grocery', 'grid'],
-      ['nutrition', 'grid'],
+      ['cuisine', 'grid'],
       ['health', 'grid'],
       ['finance', 'grid'],
       ['leisure', 'grid'],
@@ -193,11 +193,11 @@ describe('Home', () => {
       renderHome('/', { card: cards.map(([card]) => card) }, Object.fromEntries(cards.map(([card, status]) => reporting(status, card.key))))
 
     test('an empty card takes no room: its box is closed, and so is a zone of empty cards', async () => {
-      renderReporting([placed('tasks', 'left'), 'empty'], [placed('grocery'), 'filled'], [placed('nutrition'), 'empty'])
+      renderReporting([placed('tasks', 'left'), 'empty'], [placed('grocery'), 'filled'], [placed('cuisine'), 'empty'])
 
       await waitFor(() => expect(screen.getByTestId('card-grocery')).toBeVisible())
       expect(screen.queryByTestId('card-tasks')).toBeNull()
-      expect(screen.queryByTestId('card-nutrition')).toBeNull()
+      expect(screen.queryByTestId('card-cuisine')).toBeNull()
       // Neither the empty card's box nor the left column it was alone in is displayed: no hole in the grid.
       const boxes = Array.from(document.querySelectorAll('div')).filter((div) => getComputedStyle(div).display === 'none')
       expect(boxes).toHaveLength(3)
@@ -205,7 +205,7 @@ describe('Home', () => {
     })
 
     test('a card loading or in error is not empty: it stays, and the page says nothing calm', async () => {
-      renderReporting([placed('tasks', 'left'), 'loading'], [placed('grocery'), 'error'], [placed('nutrition'), 'empty'])
+      renderReporting([placed('tasks', 'left'), 'loading'], [placed('grocery'), 'error'], [placed('cuisine'), 'empty'])
 
       expect(await screen.findByTestId('card-tasks')).toBeVisible()
       expect(screen.getByTestId('card-grocery')).toBeVisible()
@@ -240,7 +240,7 @@ describe('Home', () => {
 
     /**
      * Stubs fetch: the Agenda card reads empty events, the Courses card reads the open list in `answers.grocery.today`, the Cuisine card reads
-     * the meals of the day in `answers.nutrition[day]`, the Finance card reads the dashboard (empty), and the Tâches card reads the tasks and routines resources, `answers.tasks[day]` being the open tasks it finds.
+     * the meals of the day in `answers.cuisine[day]`, the Finance card reads the dashboard (empty), and the Tâches card reads the tasks and routines resources, `answers.tasks[day]` being the open tasks it finds.
      */
     const stubHome = (answers: Record<string, Partial<Record<'today' | 'tomorrow', unknown>>> = {}, failing: string[] = []) => {
       const fetchMock = vi.fn((url: string) => {
@@ -265,10 +265,10 @@ describe('Home', () => {
           return ok({ member: [{ id: 'l1' }] })
         }
         if (/\/meals\?/.test(url)) {
-          if (failing.includes('nutrition')) return fail()
+          if (failing.includes('cuisine')) return fail()
           const tomorrow = url.includes(`date%5Bafter%5D=${addDays(localDay(new Date()), 1)}`)
 
-          return ok({ member: answers.nutrition?.[tomorrow ? 'tomorrow' : 'today'] ?? [] })
+          return ok({ member: answers.cuisine?.[tomorrow ? 'tomorrow' : 'today'] ?? [] })
         }
         if (/\/finance\/dashboard/.test(url)) {
           return failing.includes('finance') ? fail() : ok(finance)
@@ -283,10 +283,10 @@ describe('Home', () => {
 
     test('the Cuisine card asks for the meals of the day the selector is on', async () => {
       const user = userEvent.setup()
-      const fetchMock = stubHome({ nutrition: { today: [meal] } })
+      const fetchMock = stubHome({ cuisine: { today: [meal] } })
       const mealsOf = (day: string) => fetchMock.mock.calls.filter(([url]) => String(url).includes(`/meals?`) && String(url).includes(`date%5Bafter%5D=${day}`))
       renderHome('/', homeConfig, cardRegistry)
-      await screen.findByTestId('home-nutrition-lunch')
+      await screen.findByTestId('home-cuisine-lunch')
       const today = localDay(new Date())
       expect(mealsOf(today)).toHaveLength(1)
 
@@ -316,13 +316,13 @@ describe('Home', () => {
 
     test('a card full today and empty tomorrow goes on « Demain »', async () => {
       const user = userEvent.setup()
-      stubHome({ nutrition: { today: [meal] } })
+      stubHome({ cuisine: { today: [meal] } })
       renderHome('/', homeConfig, cardRegistry)
-      expect(await screen.findByTestId('home-card-nutrition')).toBeVisible()
+      expect(await screen.findByTestId('home-card-cuisine')).toBeVisible()
 
       await user.click(screen.getByRole('button', { name: 'Demain' }))
 
-      await waitFor(() => expect(screen.queryByTestId('home-card-nutrition')).toBeNull())
+      await waitFor(() => expect(screen.queryByTestId('home-card-cuisine')).toBeNull())
       expect(screen.getByTestId('home-empty')).toHaveTextContent('Rien de prévu demain.')
     })
 
@@ -340,7 +340,7 @@ describe('Home', () => {
 
       expect(await screen.findByTestId('home-card-grocery')).toBeVisible()
       await waitFor(() => expect(screen.queryByTestId('home-card-tasks')).toBeNull())
-      expect(screen.queryByTestId('home-card-nutrition')).toBeNull()
+      expect(screen.queryByTestId('home-card-cuisine')).toBeNull()
       expect(screen.queryByTestId('home-card-finance')).toBeNull()
       expect(screen.queryByTestId('home-card-agenda')).toBeNull()
       expect(screen.queryByTestId('home-empty')).toBeNull()
