@@ -188,12 +188,15 @@ class GoogleTasksSyncService
             if (null === $googleTaskId) {
                 // Create new task on Google, in its place among its siblings
                 $googleTask = $this->taskMapper->toGoogle($task);
-                $result = $this->apiClient->insertTask(
-                    $user,
-                    $taskListId,
-                    $googleTask,
-                    $task->getParent()?->getGoogleTaskId(),
-                    $this->previousSiblingOnGoogle($task),
+                $result = $this->orFirstWhenPreviousIsGone(
+                    $task,
+                    fn (?string $previous): GoogleTask => $this->apiClient->insertTask(
+                        $user,
+                        $taskListId,
+                        $googleTask,
+                        $task->getParent()?->getGoogleTaskId(),
+                        $previous,
+                    ),
                 );
                 $task->setGoogleTaskId($result->getId());
                 $task->setGoogleTaskListId($taskListId);
@@ -202,12 +205,15 @@ class GoogleTasksSyncService
             } elseif (null !== $changedFields && [] !== $changedFields) {
                 // A new parent or a new place: Google's move, which no patch can do
                 if (\in_array('position', $changedFields, true)) {
-                    $result = $this->apiClient->moveTask(
-                        $user,
-                        $taskListId,
-                        $googleTaskId,
-                        $task->getParent()?->getGoogleTaskId(),
-                        $this->previousSiblingOnGoogle($task),
+                    $result = $this->orFirstWhenPreviousIsGone(
+                        $task,
+                        fn (?string $previous): GoogleTask => $this->apiClient->moveTask(
+                            $user,
+                            $taskListId,
+                            $googleTaskId,
+                            $task->getParent()?->getGoogleTaskId(),
+                            $previous,
+                        ),
                     );
                     $this->takePlacement($task, $result);
                     $this->takeVersion($task, $result);
@@ -263,6 +269,34 @@ class GoogleTasksSyncService
                 return;
             }
             throw $e;
+        }
+    }
+
+    /**
+     * Runs a placing call with the previous sibling Maggie knows; when Google
+     * answers 404 « Previous task id not found » — that sibling was deleted
+     * there and the pull has not said so yet (MAG-678) — places the task first
+     * instead. The next pull brings Google's order back.
+     *
+     * @param \Closure(?string): GoogleTask $place
+     */
+    private function orFirstWhenPreviousIsGone(Task $task, \Closure $place): GoogleTask
+    {
+        $previous = $this->previousSiblingOnGoogle($task);
+
+        try {
+            return $place($previous);
+        } catch (GoogleServiceException $e) {
+            if (null === $previous || 404 !== $e->getCode()) {
+                throw $e;
+            }
+
+            $this->logger->warning('Previous sibling not found on Google, placing the task first: {googleTaskId}', [
+                'googleTaskId' => $previous,
+                'taskId' => (string) $task->getId(),
+            ]);
+
+            return $place(null);
         }
     }
 

@@ -449,6 +449,79 @@ class GoogleTasksSyncServiceTest extends TestCase
         $this->createService()->pushTaskToGoogle($task->setTitle('Renamed'), ['title', 'position']);
     }
 
+    /**
+     * MAG-678: the sibling it should follow was deleted on Google and Maggie has
+     * not pulled that yet — Google answers « Previous task id not found ». The
+     * task is created first among its siblings rather than lost to a failing push.
+     */
+    public function testInsertFallsBackToFirstWhenThePreviousSiblingIsGoneFromGoogle(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+        $sibling = $this->localTask($user, 'g-gone');
+        $task = (new Task())->setUser($user)->setTitle('New')->setPosition('00000000000000000001');
+
+        $this->taskRepository->method('findSiblings')->willReturn([$sibling, $task]);
+        $calls = [];
+        $this->apiClient->method('insertTask')->willReturnCallback(
+            function (User $u, string $list, GoogleTask $body, ?string $parent, ?string $previous) use (&$calls): GoogleTask {
+                $calls[] = $previous;
+                if (null !== $previous) {
+                    throw new GoogleServiceException('{"error":{"code":404,"message":"Previous task id not found"}}', 404);
+                }
+
+                return $this->googleTask('g-new', 'New', position: '00000000000000000042');
+            },
+        );
+
+        $this->createService()->pushTaskToGoogle($task);
+
+        self::assertSame(['g-gone', null], $calls);
+        self::assertSame('g-new', $task->getGoogleTaskId());
+    }
+
+    public function testMoveFallsBackToFirstWhenThePreviousSiblingIsGoneFromGoogle(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+        $first = $this->localTask($user, 'g-gone');
+        $task = $this->localTask($user, 'g-task');
+
+        $this->taskRepository->method('findSiblings')->willReturn([$first, $task]);
+        $calls = [];
+        $this->apiClient->method('moveTask')->willReturnCallback(
+            function (User $u, string $list, string $id, ?string $parent, ?string $previous) use (&$calls): GoogleTask {
+                $calls[] = $previous;
+                if (null !== $previous) {
+                    throw new GoogleServiceException('Previous task id not found', 404);
+                }
+
+                return $this->googleTask('g-task', 'Task', position: '00000000000000000007');
+            },
+        );
+
+        $this->createService()->pushTaskToGoogle($task, ['position']);
+
+        self::assertSame(['g-gone', null], $calls);
+        self::assertSame('00000000000000000007', $task->getPosition());
+    }
+
+    /** A 404 with nothing to fall back on (the list itself is gone) is still a failure. */
+    public function testInsertStillFailsOn404WhenNoPreviousSiblingWasSent(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+        $task = (new Task())->setUser($user)->setTitle('New');
+
+        $this->taskRepository->method('findSiblings')->willReturn([$task]);
+        $this->apiClient->expects(self::once())->method('insertTask')
+            ->willThrowException(new GoogleServiceException('Requested entity was not found.', 404));
+
+        $this->expectException(GoogleServiceException::class);
+
+        $this->createService()->pushTaskToGoogle($task);
+    }
+
     private function googleTask(string $id, string $title, ?string $parent = null, ?string $position = null): GoogleTask
     {
         $googleTask = new GoogleTask();
