@@ -59,6 +59,9 @@ async function run(api: APIRequestContext, message: string): Promise<void> {
 }
 
 test('the planning keeps the trip by car and posts two checks, and an event that moves replans it', async ({ api }) => {
+  // Two agent runs (the planning, then the replan the move files) and the proactions between them: more than
+  // the default 90 s on a loaded runner.
+  test.setTimeout(180_000)
   const day = parisDay()
   const now = e2eNow().toISOString()
   expect((await api.put('/api/me/location', { data: { ...HOME, accuracy: 10, capturedAt: now } })).status()).toBe(204)
@@ -76,6 +79,19 @@ test('the planning keeps the trip by car and posts two checks, and an event that
   expect(created.error, JSON.stringify(created)).toBeUndefined()
   const eventId = (created.event as { id: string }).id
 
+  // Creating the event filed a replan: cancel it before the planning runs, or the agent runs it first and
+  // the planning waits behind it — on a loaded runner, past the test's timeout. While one is pending the API
+  // files no other, and the journey waits for the one the move files.
+  await expect
+    .poll(async () => (await proactionsOf(api, REPLAN_SUMMARY)).some((proaction) => !beforeCreation.has(proaction.id)), {
+      message: 'creating the event should have filed a « Replanifier les trajets » proaction',
+    })
+    .toBe(true)
+  for (const pending of (await proactionsOf(api, REPLAN_SUMMARY)).filter((proaction) => proaction.status === 'pending')) {
+    const cancelled = await callMcpTool(api, 'cancel_proaction', { id: pending.id })
+    expect(cancelled.error, JSON.stringify(cancelled)).toBeUndefined()
+  }
+
   await run(api, `C'est le début de la journée du ${day}. Planifie les trajets du jour.`)
 
   const trip = await tripOf(api, day, eventId)
@@ -89,17 +105,6 @@ test('the planning keeps the trip by car and posts two checks, and an event that
     new Date(parisTime(day, '13:24:00')).getTime(),
   ])
 
-  // Creating the event already filed a replan (queued): wait for it, then cancel what is pending — while
-  // one is pending the API files no other, and the journey waits for the one the move files.
-  await expect
-    .poll(async () => (await proactionsOf(api, REPLAN_SUMMARY)).some((proaction) => !beforeCreation.has(proaction.id)), {
-      message: 'creating the event should have filed a « Replanifier les trajets » proaction',
-    })
-    .toBe(true)
-  for (const pending of (await proactionsOf(api, REPLAN_SUMMARY)).filter((proaction) => proaction.status === 'pending')) {
-    const cancelled = await callMcpTool(api, 'cancel_proaction', { id: pending.id })
-    expect(cancelled.error, JSON.stringify(cancelled)).toBeUndefined()
-  }
   const known = new Set((await proactionsOf(api, REPLAN_SUMMARY)).map((proaction) => proaction.id))
   const moved = await callMcpTool(api, 'update_event', {
     id: eventId,
