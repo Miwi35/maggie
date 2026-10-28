@@ -91,7 +91,6 @@ tags:
 - inputText: "Qu'est-ce que j'ai de prévu aujourd'hui ?"
 - tapOn:
     id: "chat_send"
-- runFlow: ../subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ".*déjeuner avec Alex et votre cours de piano.*"
     timeout: 60000
@@ -99,7 +98,7 @@ tags:
 # ---------------------------------------------------------------------------
 # The chat input survives the keyboard — the behaviour `fc168b5` protected,
 # which today lives in the text-mode sheet's `windowInsetsPadding(ime ∪
-# navigationBars)`.
+# navigationBars)` and, on a tablet, in the panel's own lift above the keyboard.
 #
 # Asserted by *using* the control, not by looking at it: the IME is a separate
 # window and does not clip the app window's node bounds, so a send button sitting
@@ -113,14 +112,14 @@ tags:
 # (`70-budget-question.yaml`, picked because its answer differs from the first
 # one's) gives a signal only a real send can produce.
 #
-# The keyboard was closed after the exchange above; tapping the field brings it back.
+# The keyboard may still be up after the exchange above (MAG-532: the answer is in view
+# without closing it); tapping the field keeps it up.
 # ---------------------------------------------------------------------------
 - tapOn:
     id: "chat_input"
 - inputText: "Parlons de mes finances, où en est mon budget ?"
 - tapOn:
     id: "chat_send"
-- runFlow: ../subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ".*budget tient la route ce mois-ci.*"
     timeout: 60000
@@ -344,7 +343,6 @@ tags:
 - inputText: "Supprime l'événement Test validation ${output.eventId}"
 - tapOn:
     id: "chat_send"
-- runFlow: ../subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ".*Je te demande ton accord pour supprimer.*"
     timeout: 60000

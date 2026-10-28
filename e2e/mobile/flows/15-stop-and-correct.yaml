@@ -64,7 +64,6 @@ tags:
 - inputText: "Ael demain"
 - tapOn:
     id: "chat_send"
-- runFlow: ../subflows/hide-keyboard.yaml
 
 - extendedWaitUntil:
     visible: ".*Compris : un événement test à Ael demain.*"
