@@ -97,7 +97,7 @@ export const ApprovalCard = ({ approval, onApprove, onDeny }: ApprovalCardProps)
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
-          Maggie demande ton accord
+          Maggie demande votre accord
         </Typography>
         <Chip
           size="small"

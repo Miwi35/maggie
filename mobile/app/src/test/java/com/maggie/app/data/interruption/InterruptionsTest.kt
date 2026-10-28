@@ -106,6 +106,13 @@ class InterruptionsTest {
     }
 
     @Test
+    fun `a pending approval asks for votre accord, never ton accord (MAG-696)`() {
+        val payload = Interruptions.of(PendingApproval(id = "ap-1", toolName = "delete_event"), now)!!
+
+        assertEquals("Maggie demande votre accord", payload.title)
+    }
+
+    @Test
     fun `an approval already decided or expired is not asked`() {
         assertNull(Interruptions.of(PendingApproval(id = "a", toolName = "t", status = PendingApproval.STATUS_APPROVED), now))
         assertNull(Interruptions.of(PendingApproval(id = "a", toolName = "t", expiresAt = "2026-10-08T09:59:00Z"), now))

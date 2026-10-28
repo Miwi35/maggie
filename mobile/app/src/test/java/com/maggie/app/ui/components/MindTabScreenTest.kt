@@ -151,7 +151,7 @@ class MindTabScreenTest {
                 AgUiEvent.ToolCallEnd("call-1", "delete_event"),
                 AgUiEvent.ToolResult("call-1", "delete_event", "pending_approval"),
                 AgUiEvent.TextMessageStart("m-1"),
-                AgUiEvent.TextMessageContent("m-1", "J'attends ton accord."),
+                AgUiEvent.TextMessageContent("m-1", "J'attends votre accord."),
                 AgUiEvent.TextMessageEnd("m-1"),
                 AgUiEvent.RunFinished("run-1"),
             ),

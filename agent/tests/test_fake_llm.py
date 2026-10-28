@@ -648,7 +648,7 @@ class TestMatching:
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
         history = [
             {"role": "user", "content": "Supprime l'événement Test validation"},
-            {"role": "assistant", "content": "Je te demande ton accord."},
+            {"role": "assistant", "content": "Je vous demande votre accord."},
             {
                 "role": "user",
                 "content": "[Réponse de l'utilisateur à ta demande : Autoriser — supprimer l'événement (via chat, 14:32)]",

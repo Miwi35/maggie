@@ -21,4 +21,4 @@ turns:
   - tools:
       - name: delete_event
         input: {id: "\\1"}
-  - text: "Je te demande ton accord pour supprimer la vidange."
+  - text: "Je vous demande votre accord pour supprimer la vidange."

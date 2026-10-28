@@ -97,7 +97,7 @@ class AssistantOverlayScreenTest {
         show(FakeChat(history = emptyList(), pending = listOf(approval)), Voice())
         compose.waitForIdle()
 
-        compose.onNodeWithText("Maggie demande ton accord").assertIsDisplayed()
+        compose.onNodeWithText("Maggie demande votre accord").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.approvalAllow("ap-1")).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.approvalDeny("ap-1")).assertIsDisplayed()
     }
@@ -177,7 +177,7 @@ class AssistantOverlayScreenTest {
         show(FakeChat(history = emptyList()), voice)
         compose.waitForIdle()
 
-        compose.onNodeWithText("Maggie demande ton accord").assertDoesNotExist()
+        compose.onNodeWithText("Maggie demande votre accord").assertDoesNotExist()
         verify(exactly = 0) { voice.manager.speak(any()) }
     }
 

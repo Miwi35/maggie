@@ -67,7 +67,7 @@ tags:
           timeout: 5000
           optional: true
 - extendedWaitUntil:
-    visible: ".*Je te demande ton accord pour supprimer.*"
+    visible: ".*Je vous demande votre accord pour supprimer.*"
     timeout: 30000
 
 # The badge, then what it counts — in words, without the tool's name.

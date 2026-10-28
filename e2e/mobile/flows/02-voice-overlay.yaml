@@ -344,7 +344,7 @@ tags:
 - tapOn:
     id: "chat_send"
 - extendedWaitUntil:
-    visible: ".*Je te demande ton accord pour supprimer.*"
+    visible: ".*Je vous demande votre accord pour supprimer.*"
     timeout: 60000
 - runFlow: ../subflows/close-chat.yaml
 - extendedWaitUntil:
@@ -358,7 +358,7 @@ tags:
 - assertTrue: "${output.reset == 0}"
 - openLink: "maggie-e2e-assist://overlay"
 - extendedWaitUntil:
-    visible: ".*Maggie demande ton accord.*"
+    visible: ".*Maggie demande votre accord.*"
     timeout: 30000
 - extendedWaitUntil:
     visible: ".*ce texte n'apparaît jamais, il sert de minuterie.*"
@@ -373,12 +373,13 @@ tags:
       STATE: present
       EVENT_ID: ${output.eventId}
 
+- assertVisible: "Refuser"
 - tapOn: "Autoriser"
 - extendedWaitUntil:
     visible: ".*l'événement Test validation est supprimé.*"
     timeout: 60000
 - extendedWaitUntil:
-    notVisible: ".*Maggie demande ton accord.*"
+    notVisible: ".*Maggie demande votre accord.*"
     timeout: 30000
 - runScript:
     file: ../scripts/event-api.js

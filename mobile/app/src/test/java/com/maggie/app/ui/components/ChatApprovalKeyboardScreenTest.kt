@@ -26,7 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 /**
- * « Maggie demande ton accord » with the keyboard open (MAG-672): the keyboard leaves the
+ * « Maggie demande votre accord » with the keyboard open (MAG-672): the keyboard leaves the
  * conversation a few lines of height, and the card — last of the thread — used to be cut under
  * « Détails », Refuser and Autoriser out of sight. The card is now the last thing of the
  * thread itself: the list follows it to its last pixel, and scrolls to reach it.
