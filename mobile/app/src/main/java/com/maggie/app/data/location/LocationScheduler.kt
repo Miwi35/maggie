@@ -14,6 +14,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import org.koin.core.context.GlobalContext
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 /** What runs in the background while « Partir à l'heure » is on (MAG-651). */
@@ -30,6 +31,9 @@ interface LocationScheduler {
     /** The transitions of a delivery, handled off the receiver so the broadcast is released at once. */
     fun handleTransitions(events: List<TransitionEvent>)
 
+    /** The GPS fixes other apps obtained (`PRIORITY_PASSIVE`), handled off the receiver. */
+    fun handlePassivePoints(points: List<Position>)
+
     fun retryCarLater()
 }
 
@@ -39,9 +43,16 @@ interface TransitionRegistrar {
     fun unregister()
 }
 
+/** Registers and removes the passive listening for fixes other apps obtain (`PRIORITY_PASSIVE`, no cost to the battery). */
+interface PassiveRegistrar {
+    fun register()
+    fun unregister()
+}
+
 class AndroidLocationScheduler(
     private val work: WorkManager,
     private val transitions: TransitionRegistrar,
+    private val passive: PassiveRegistrar,
 ) : LocationScheduler {
 
     private val network = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
@@ -54,11 +65,13 @@ class AndroidLocationScheduler(
             .build()
         work.enqueueUniquePeriodicWork(PERIODIC_POSITION, ExistingPeriodicWorkPolicy.KEEP, request)
         transitions.register()
+        passive.register()
     }
 
     override fun stopTracking() {
-        listOf(PERIODIC_POSITION, POSITION_NOW, TRANSITIONS, RETRY_CAR).forEach(work::cancelUniqueWork)
+        listOf(PERIODIC_POSITION, POSITION_NOW, TRANSITIONS, PASSIVE, RETRY_CAR).forEach(work::cancelUniqueWork)
         transitions.unregister()
+        passive.unregister()
     }
 
     // Not expedited: before Android 12 that needs a foreground notification, and nothing here may show one.
@@ -79,6 +92,14 @@ class AndroidLocationScheduler(
         work.enqueueUniqueWork(TRANSITIONS, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 
+    // APPEND: the points come in the order they were taken.
+    override fun handlePassivePoints(points: List<Position>) {
+        val request = OneTimeWorkRequestBuilder<PassivePointsWorker>()
+            .setInputData(PassivePointsWorker.toData(points))
+            .build()
+        work.enqueueUniqueWork(PASSIVE, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+    }
+
     override fun retryCarLater() {
         val request = OneTimeWorkRequestBuilder<CarPlaceWorker>()
             .setConstraints(network)
@@ -91,6 +112,7 @@ class AndroidLocationScheduler(
         const val PERIODIC_POSITION = "departure-position"
         const val POSITION_NOW = "departure-position-now"
         const val TRANSITIONS = "departure-transitions"
+        const val PASSIVE = "departure-passive"
         const val RETRY_CAR = "departure-car-retry"
         const val PERIOD_MINUTES = 30L
         private const val BACKOFF_MINUTES = 1L
@@ -106,13 +128,50 @@ class PositionWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val koin = GlobalContext.getOrNull() ?: return Result.retry()
         val reporter = koin.get<LocationReporter>()
         // The listening for the car is dropped by a reboot or an app update, and only a launch brought it back.
-        if (reporter.mayListen()) koin.get<TransitionRegistrar>().register()
+        if (reporter.mayListen()) {
+            koin.get<TransitionRegistrar>().register()
+            koin.get<PassiveRegistrar>().register()
+            // Best effort: Android 12+ refuses a foreground service started from a worker unless the app is in view.
+            koin.get<TripLauncher>().startIfNeeded()
+        }
         val accuracy = if (inputData.getBoolean(PRECISE, false)) PositionAccuracy.HIGH else PositionAccuracy.BALANCED
         return reporter.reportPosition(accuracy).toWorkResult()
     }
 
     companion object {
         const val PRECISE = "precise"
+    }
+}
+
+/** The fixes the passive listening was handed: the most precise one is sent if it beats the last position sent. */
+class PassivePointsWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val koin = GlobalContext.getOrNull() ?: return Result.success()
+        koin.get<LocationReporter>().reportPassive(fromData(inputData))
+        // A passive point is a gift, not a duty: a failed send is not worth a retry.
+        return Result.success()
+    }
+
+    companion object {
+        private const val LATITUDES = "latitudes"
+        private const val LONGITUDES = "longitudes"
+        private const val ACCURACIES = "accuracies"
+        private const val AT = "at"
+
+        fun toData(points: List<Position>): Data = Data.Builder()
+            .putDoubleArray(LATITUDES, points.map { it.latitude }.toDoubleArray())
+            .putDoubleArray(LONGITUDES, points.map { it.longitude }.toDoubleArray())
+            .putDoubleArray(ACCURACIES, points.map { it.accuracy }.toDoubleArray())
+            .putLongArray(AT, points.map { it.capturedAt.toEpochMilli() }.toLongArray())
+            .build()
+
+        fun fromData(data: Data): List<Position> {
+            val latitudes = data.getDoubleArray(LATITUDES) ?: return emptyList()
+            val longitudes = data.getDoubleArray(LONGITUDES) ?: return emptyList()
+            val accuracies = data.getDoubleArray(ACCURACIES) ?: return emptyList()
+            val at = data.getLongArray(AT) ?: return emptyList()
+            return latitudes.indices.map { Position(latitudes[it], longitudes[it], accuracies[it], Instant.ofEpochMilli(at[it])) }
+        }
     }
 }
 

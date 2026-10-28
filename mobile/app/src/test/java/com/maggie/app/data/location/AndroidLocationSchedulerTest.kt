@@ -38,6 +38,8 @@ class AndroidLocationSchedulerTest {
 
     private lateinit var work: WorkManager
     private val transitions = FakeTransitions()
+    private val passive = FakePassive()
+    private val launcher = FakeLauncher()
     private lateinit var scheduler: AndroidLocationScheduler
     private val permissions = FakePermissions()
 
@@ -46,7 +48,7 @@ class AndroidLocationSchedulerTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         WorkManagerTestInitHelper.initializeTestWorkManager(context, Configuration.Builder().build())
         work = WorkManager.getInstance(context)
-        scheduler = AndroidLocationScheduler(work, transitions)
+        scheduler = AndroidLocationScheduler(work, transitions, passive)
     }
 
     @After
@@ -88,7 +90,16 @@ class AndroidLocationSchedulerTest {
         preferences.setEnabled(enabled)
         val reporter = LocationReporter(RecordingApi().service, preferences, permissions, source)
         stopKoin()
-        startKoin { modules(module { single { reporter }; single<TransitionRegistrar> { transitions } }) }
+        startKoin {
+            modules(
+                module {
+                    single { reporter }
+                    single<TransitionRegistrar> { transitions }
+                    single<PassiveRegistrar> { passive }
+                    single<TripLauncher> { launcher }
+                },
+            )
+        }
         val id = infos(name).single().id
         val driver = WorkManagerTestInitHelper.getTestDriver(ApplicationProvider.getApplicationContext())!!
         driver.setAllConstraintsMet(id)
@@ -122,6 +133,50 @@ class AndroidLocationSchedulerTest {
         accuraciesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true)
 
         assertEquals(registrations + 1, transitions.registrations)
+    }
+
+    @Test
+    fun `starting listens for the fixes other apps obtain, stopping stops listening`() {
+        scheduler.startTracking()
+        assertTrue(passive.registered)
+
+        scheduler.stopTracking()
+
+        assertEquals(false, passive.registered)
+    }
+
+    @Test
+    fun `every run of the 30-minute position brings back the passive listening and the trip service`() {
+        scheduler.startTracking()
+        val registrations = passive.registrations
+        val starts = launcher.starts
+
+        accuraciesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true)
+
+        assertEquals(registrations + 1, passive.registrations)
+        assertEquals(starts + 1, launcher.starts)
+    }
+
+    @Test
+    fun `a push after the switch went off starts no trip service`() {
+        scheduler.requestPositionNow()
+
+        accuraciesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false, enabled = false)
+
+        assertEquals(0, launcher.starts)
+        assertEquals(0, passive.registrations)
+    }
+
+    @Test
+    fun `the passive points are handed to WorkManager in order and survive the trip through the work data`() {
+        val first = Position(48.1, 2.1, 9.0, Instant.parse("2026-10-27T17:00:00Z"))
+        val second = Position(48.2, 2.2, 5.0, Instant.parse("2026-10-27T17:01:00Z"))
+
+        scheduler.handlePassivePoints(listOf(first))
+        scheduler.handlePassivePoints(listOf(second))
+
+        assertEquals(2, infos(AndroidLocationScheduler.PASSIVE).size)
+        assertEquals(listOf(first, second), PassivePointsWorker.fromData(PassivePointsWorker.toData(listOf(first, second))))
     }
 
     @Test
@@ -171,6 +226,7 @@ class AndroidLocationSchedulerTest {
             AndroidLocationScheduler.RETRY_CAR,
         ).forEach { name -> assertTrue(name, infos(name).all { it.state == WorkInfo.State.CANCELLED }) }
         assertEquals(false, transitions.registered)
+        assertEquals(false, passive.registered)
     }
 
     @Test

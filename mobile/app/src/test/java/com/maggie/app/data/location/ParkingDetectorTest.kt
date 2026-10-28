@@ -2,6 +2,8 @@ package com.maggie.app.data.location
 
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -21,11 +23,13 @@ class ParkingDetectorTest {
 
     private val api = RecordingApi()
     private val scheduler = FakeScheduler()
+    private val launcher = FakeLauncher()
     private lateinit var preferences: LocationPreferences
     private lateinit var detector: ParkingDetector
     private lateinit var handler: ActivityTransitionHandler
 
     private val t0 = Instant.parse("2026-10-26T21:29:00Z")
+    private val clock = FakeClock(t0.plusSeconds(60))
 
     private fun leaveCar(at: Instant = t0) = TransitionEvent(Movement.IN_VEHICLE, entering = false, at = at)
     private fun enterCar(at: Instant = t0) = TransitionEvent(Movement.IN_VEHICLE, entering = true, at = at)
@@ -36,7 +40,13 @@ class ParkingDetectorTest {
         preferences = preferencesIn(folder.root)
         preferences.setEnabled(true)
         detector = ParkingDetector(preferences)
-        handler = ActivityTransitionHandler(detector, LocationReporter(api.service, preferences, FakePermissions(), FakePositionSource()), scheduler)
+        handler = ActivityTransitionHandler(
+            detector,
+            LocationReporter(api.service, preferences, FakePermissions(), FakePositionSource(), clock),
+            scheduler,
+            preferences,
+            launcher,
+        )
     }
 
     @Test
@@ -109,11 +119,13 @@ class ParkingDetectorTest {
     }
 
     @Test
-    fun `Movement maps ON_FOOT and WALKING to being on foot`() {
+    fun `Movement maps every way of moving on one's own to being on foot`() {
         assertEquals(Movement.ON_FOOT, Movement.of(com.google.android.gms.location.DetectedActivity.ON_FOOT))
         assertEquals(Movement.ON_FOOT, Movement.of(com.google.android.gms.location.DetectedActivity.WALKING))
         assertEquals(Movement.IN_VEHICLE, Movement.of(com.google.android.gms.location.DetectedActivity.IN_VEHICLE))
-        assertEquals(Movement.OTHER, Movement.of(com.google.android.gms.location.DetectedActivity.STILL))
+        assertEquals(Movement.ON_FOOT, Movement.of(com.google.android.gms.location.DetectedActivity.ON_BICYCLE))
+        assertEquals(Movement.STILL, Movement.of(com.google.android.gms.location.DetectedActivity.STILL))
+        assertEquals(Movement.OTHER, Movement.of(com.google.android.gms.location.DetectedActivity.TILTING))
     }
 
     @Test
@@ -142,5 +154,50 @@ class ParkingDetectorTest {
             ),
             events,
         )
+    }
+
+    @Test
+    fun `reproduction - after a drive the car stays where the trip ended, not where the owner walked to`() = runTest {
+        val lyon = Position(45.76, 4.83, 6.0, t0.minusSeconds(10))
+        val walkedTo = Position(45.80, 4.90, 30.0, t0.plusSeconds(120))
+        preferences.addGpsPoint(lyon.copy(latitude = 45.70, capturedAt = t0.minusSeconds(300)))
+        preferences.addGpsPoint(lyon)
+        val here = LocationReporter(api.service, preferences, FakePermissions(), FakePositionSource(walkedTo), clock)
+        val walking = ActivityTransitionHandler(detector, here, scheduler, preferences, launcher)
+
+        walking.handle(listOf(leaveCar(), standUp()))
+
+        val call = api.calls.single()
+        assertEquals("/api/me/car", call.path)
+        assertEquals(45.76, call.body.getValue("latitude").jsonPrimitive.double, 0.0)
+    }
+
+    @Test
+    fun `placing the car does not start the trip service, the receiver already did`() = runTest {
+        handler.handle(listOf(leaveCar(), standUp()))
+
+        assertEquals(0, launcher.starts)
+    }
+
+    @Test
+    fun `every delivery remembers what the phone does and asks for the trip service`() = runTest {
+        handler.onDelivery(listOf(standUp()))
+        assertEquals(Motion.MOVING, preferences.motion())
+
+        handler.onDelivery(listOf(enterCar(t0.plusSeconds(100))))
+        assertEquals(Motion.IN_VEHICLE, preferences.motion())
+
+        handler.onDelivery(listOf(TransitionEvent(Movement.STILL, entering = true, at = t0.plusSeconds(200))))
+        assertEquals(Motion.STILL, preferences.motion())
+        assertEquals(3, launcher.starts)
+    }
+
+    @Test
+    fun `leaving an activity that is not the current one changes nothing`() = runTest {
+        handler.onDelivery(listOf(enterCar()))
+
+        handler.onDelivery(listOf(TransitionEvent(Movement.ON_FOOT, entering = false, at = t0.plusSeconds(5))))
+
+        assertEquals(Motion.IN_VEHICLE, preferences.motion())
     }
 }

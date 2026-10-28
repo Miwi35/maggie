@@ -10,18 +10,20 @@ import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** The three movements the app listens for; any other is ignored. */
+/** The movements the app listens for; any other is ignored. [STILL] comes last: the ordinal travels in WorkManager data. */
 enum class Movement {
     IN_VEHICLE,
     ON_FOOT,
     OTHER,
+    STILL,
     ;
 
     companion object {
-        /** `ON_FOOT` and `WALKING` both mean the owner is on their feet. */
+        /** `ON_FOOT`, `WALKING`, `RUNNING` and `ON_BICYCLE` all mean the owner moves by their own means. */
         fun of(detectedActivity: Int): Movement = when (detectedActivity) {
             DetectedActivity.IN_VEHICLE -> IN_VEHICLE
-            DetectedActivity.ON_FOOT, DetectedActivity.WALKING -> ON_FOOT
+            DetectedActivity.ON_FOOT, DetectedActivity.WALKING, DetectedActivity.RUNNING, DetectedActivity.ON_BICYCLE -> ON_FOOT
+            DetectedActivity.STILL -> STILL
             else -> OTHER
         }
     }
@@ -102,14 +104,44 @@ class ParkingDetector(private val preferences: LocationPreferences) {
     }
 }
 
-/** What the transition receiver does with a delivery: a parking is the car's place, sent now or retried later. */
+/**
+ * What a delivery of transitions leads to. The receiver, in the instant the system grants it, remembers what
+ * the phone now does and starts the trip service ([onDelivery]): Android 12+ lets a foreground service start
+ * from there and not from a worker that runs later. WorkManager then places the car when a parking is
+ * complete, sent now or retried later ([handle]).
+ */
 class ActivityTransitionHandler(
     private val detector: ParkingDetector,
     private val reporter: LocationReporter,
     private val scheduler: LocationScheduler,
+    private val preferences: LocationPreferences,
+    private val launcher: TripLauncher,
 ) {
+    private val deliveries = Mutex()
+
+    suspend fun onDelivery(events: List<TransitionEvent>) {
+        deliveries.withLock { remember(events) }
+        launcher.startIfNeeded()
+    }
+
     suspend fun handle(events: List<TransitionEvent>) {
-        val parkedAt = detector.onTransitions(events) ?: return
-        if (reporter.reportCar(parkedAt) == ReportOutcome.RETRY) scheduler.retryCarLater()
+        val parkedAt = detector.onTransitions(events)
+        if (parkedAt != null && reporter.reportCar(parkedAt) == ReportOutcome.RETRY) scheduler.retryCarLater()
+    }
+
+    private suspend fun remember(events: List<TransitionEvent>) {
+        var motion = preferences.motion()
+        // Same order as the detector: at one instant, what is left comes before what is entered.
+        for (event in events.sortedWith(compareBy({ it.at }, { it.entering }))) {
+            val entered = when (event.movement) {
+                Movement.IN_VEHICLE -> Motion.IN_VEHICLE
+                Movement.ON_FOOT -> Motion.MOVING
+                Movement.STILL -> Motion.STILL
+                Movement.OTHER -> continue
+            }
+            if (event.entering) motion = entered else if (motion == entered) motion = Motion.UNKNOWN
+        }
+        val moved = events.any { it.entering && (it.movement == Movement.IN_VEHICLE || it.movement == Movement.ON_FOOT) }
+        preferences.recordMotion(motion, moved)
     }
 }

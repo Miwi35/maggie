@@ -72,12 +72,33 @@ class FakeScheduler : LocationScheduler {
     var stopped = 0
     var positionRequests = 0
     val handedTransitions = mutableListOf<List<TransitionEvent>>()
+    val handedPassive = mutableListOf<List<Position>>()
     var carRetries = 0
     override fun startTracking() { started++ }
     override fun stopTracking() { stopped++ }
     override fun requestPositionNow() { positionRequests++ }
     override fun handleTransitions(events: List<TransitionEvent>) { handedTransitions.add(events) }
+    override fun handlePassivePoints(points: List<Position>) { handedPassive.add(points) }
     override fun retryCarLater() { carRetries++ }
+}
+
+class FakeLauncher : TripLauncher {
+    var starts = 0
+    override suspend fun startIfNeeded() { starts++ }
+}
+
+class FakePassive : PassiveRegistrar {
+    var registered = false
+    var registrations = 0
+    override fun register() { registered = true; registrations++ }
+    override fun unregister() { registered = false }
+}
+
+/** A clock that only moves when told to. */
+class FakeClock(var now: Instant) : java.time.Clock() {
+    override fun getZone(): java.time.ZoneId = java.time.ZoneOffset.UTC
+    override fun withZone(zone: java.time.ZoneId?): java.time.Clock = this
+    override fun instant(): Instant = now
 }
 
 /** A real DataStore in [dir], so what the receiver keeps between two events is really kept. */

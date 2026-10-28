@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- The service that follows the position while the owner moves or drives (MAG-666). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <queries>
         <intent><action android:name="android.settings.VOICE_INPUT_SETTINGS" /></intent>
@@ -86,6 +89,17 @@
         <receiver
             android:name=".data.location.ActivityTransitionReceiver"
             android:exported="false" />
+
+        <!-- The fixes other apps obtain, delivered for free (MAG-666). Never exported: only the app's own PendingIntent reaches it. -->
+        <receiver
+            android:name=".data.location.PassiveLocationReceiver"
+            android:exported="false" />
+
+        <!-- The GPS for the length of a trip, on foot or at the wheel (MAG-666); started by the transitions or the car's connection. -->
+        <service
+            android:name=".data.location.TripService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <service
             android:name=".voice.MaggieVoiceInteractionService"
