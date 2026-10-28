@@ -12,6 +12,8 @@ import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
@@ -19,8 +21,8 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities'
 import { quantityLabel, quantityParts } from '../grocery/packaging'
 import { SeasonBadge } from '../grocery/SeasonBadge'
-import { durationLabel, productPackaging, servingsLabel, shortName, stepRefLabel, stepsTitle, stepsUsing, utensilNames } from './recipeSheet'
-import type { Nutrition, ProductInfo, RecipeLine, RecipeRecord, RecipeStep } from './recipeSheet'
+import { durationLabel, micronutrientAmount, micronutrientGroups, productPackaging, servingsLabel, shortName, stepRefLabel, stepsTitle, stepsUsing, utensilNames } from './recipeSheet'
+import type { Micronutrient, Nutrition, ProductInfo, RecipeLine, RecipeRecord, RecipeStep } from './recipeSheet'
 import { dragId, nameOf } from './recipeSteps'
 import type { NameRef } from './recipeSteps'
 
@@ -457,26 +459,89 @@ export const StepsBlock = ({
 }
 
 /**
+ * « Micronutriments · n », folded under the macros (MAG-648): n counts only the micronutrients the
+ * ingredients give, and it opens on vitamins, minerals and fatty acids, each as a share of its reference.
+ */
+export const MicronutrientsBlock = ({ micronutrients }: { micronutrients: Micronutrient[] }) => {
+  const [open, setOpen] = useState(false)
+  if (micronutrients.length === 0) return null
+
+  return (
+    <Box sx={{ mt: 1 }}>
+      <Button
+        size="small"
+        color="inherit"
+        aria-expanded={open}
+        aria-controls="recipe-micronutrients"
+        onClick={() => setOpen((was) => !was)}
+        endIcon={open ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        sx={{ px: 0, textTransform: 'none', fontWeight: 600 }}
+      >
+        {`Micronutriments · ${micronutrients.length}`}
+      </Button>
+      {open && (
+        <Box id="recipe-micronutrients" data-testid="recipe-micronutrients" sx={{ display: 'grid', gap: 1.5, mt: 0.5 }}>
+          {micronutrientGroups(micronutrients).map(({ title, items }) => (
+            <Box key={title} component="section" aria-label={title}>
+              <Typography variant="subtitle2" component="h3">
+                {title}
+              </Typography>
+              <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+                {items.map((item) => (
+                  <Box
+                    component="li"
+                    key={item.key}
+                    data-testid={`micronutrient-${item.key}`}
+                    sx={{ display: 'flex', gap: 2, fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    <Typography sx={{ flexGrow: 1 }}>{item.label}</Typography>
+                    <Typography color="text.secondary">{micronutrientAmount(item)}</Typography>
+                    {item.referencePercent !== null && <Typography sx={{ minWidth: '3.5em', textAlign: 'right' }}>{`${item.referencePercent} %`}</Typography>}
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+/**
  * What one serving brings, at the end of the sheet. The share of the day's need only shows when the
  * reference is known (Santé › Configuration): without it the line is left out, not guessed.
  */
-export const NutritionBlock = ({ nutrition, dailyKcal = null }: { nutrition: Nutrition | null; dailyKcal?: number | null }) => {
-  if (!nutrition) return null
+export const NutritionBlock = ({
+  nutrition,
+  micronutrients = [],
+  dailyKcal = null,
+}: {
+  nutrition: Nutrition | null
+  micronutrients?: Micronutrient[]
+  dailyKcal?: number | null
+}) => {
+  if (!nutrition && micronutrients.length === 0) return null
 
-  const share = dailyKcal && dailyKcal > 0 ? Math.round((nutrition.kcal / dailyKcal) * 100) : null
+  const share = nutrition && dailyKcal && dailyKcal > 0 ? Math.round((nutrition.kcal / dailyKcal) * 100) : null
 
   return (
     <Section title="Valeurs par personne">
-      <Typography data-testid="nutrition-energy" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-        {`≈ ${nutrition.kcal} kcal`}
-        {share !== null && ` · ${share} % du besoin du jour`}
-      </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}>
-        <Typography color="text.secondary">{`Protéines ${nutrition.protein} g`}</Typography>
-        <Typography color="text.secondary">{`Lipides ${nutrition.fat} g`}</Typography>
-        <Typography color="text.secondary">{`Glucides ${nutrition.carbs} g`}</Typography>
-      </Box>
-      {nutrition.skipped > 0 && (
+      {nutrition && (
+        <>
+          <Typography data-testid="nutrition-energy" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+            {`≈ ${nutrition.kcal} kcal`}
+            {share !== null && ` · ${share} % du besoin du jour`}
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mt: 0.5, fontVariantNumeric: 'tabular-nums' }}>
+            <Typography color="text.secondary">{`Protéines ${nutrition.protein} g`}</Typography>
+            <Typography color="text.secondary">{`Lipides ${nutrition.fat} g`}</Typography>
+            <Typography color="text.secondary">{`Glucides ${nutrition.carbs} g`}</Typography>
+          </Box>
+        </>
+      )}
+      <MicronutrientsBlock micronutrients={micronutrients} />
+      {nutrition && nutrition.skipped > 0 && (
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
           {nutrition.skipped === 1 ? '1 ingrédient non compté (sans poids ni valeurs nutritionnelles).' : `${nutrition.skipped} ingrédients non comptés (sans poids ni valeurs nutritionnelles).`}
         </Typography>

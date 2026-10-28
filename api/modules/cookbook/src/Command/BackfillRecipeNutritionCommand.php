@@ -21,7 +21,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * Gives the ingredients of the existing recipes what the nutrition per serving needs (MAG-647):
  * a weight per piece for those counted in pieces, the Ciqual macros for those linked to a code
- * without values. The closest Ciqual food for an ingredient linked to nothing is only proposed:
+ * without values, and their micronutrients (MAG-648) when they have none yet. The closest Ciqual food for an ingredient linked to nothing is only proposed:
  * it is written with --link-ciqual, once the owner has read the list. Nothing already there is
  * overwritten; safe to run again.
  */
@@ -100,8 +100,25 @@ final class BackfillRecipeNutritionCommand extends Command
                 }
             }
 
-            if (null !== $ingredient->getCiqualAlimCode() && ($dryRun ? null === $ingredient->getKcalPer100g() : $this->ciqualNutrients->fillMissing($ingredient))) {
-                $changes[] = 'macros from Ciqual';
+            $code = $ingredient->getCiqualAlimCode();
+            if (null !== $code) {
+                $lackedMacros = null === $ingredient->getKcalPer100g();
+                $lackedMicronutrients = null === $ingredient->getMicronutrientsPer100g();
+                if ($dryRun) {
+                    if ($lackedMacros) {
+                        $changes[] = 'macros from Ciqual';
+                    }
+                    $micronutrients = $lackedMicronutrients ? $this->ciqualNutrients->micronutrientsOf($code) : null;
+                } else {
+                    $this->ciqualNutrients->fillMissing($ingredient);
+                    if ($lackedMacros && null !== $ingredient->getKcalPer100g()) {
+                        $changes[] = 'macros from Ciqual';
+                    }
+                    $micronutrients = $lackedMicronutrients ? $ingredient->getMicronutrientsPer100g() : null;
+                }
+                if (null !== $micronutrients) {
+                    $changes[] = sprintf('%d micronutrient(s) from Ciqual%s', \count($micronutrients), [] === $micronutrients ? '' : ' ('.implode(', ', array_keys($micronutrients)).')');
+                }
             }
 
             if ([] !== $changes) {

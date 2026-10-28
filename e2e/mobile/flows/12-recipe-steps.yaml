@@ -8,8 +8,8 @@ tags:
 # over HTTP by `scripts/recipe-api.js` as Maggie or the admin would send it: what the sheet
 # must show is what the API really serves, not a fixture of the phone's. Then a utensil is
 # added from the phone through the full-screen search, with creation on the fly, and it comes
-# back on the sheet. The recipe, its ingredients and the utensils are this flow's own and
-# are deleted at the end.
+# back on the sheet. Its micronutrients unfold under the values of one serving (MAG-648). The
+# recipe, its ingredients and the utensils are this flow's own and are deleted at the end.
 
 - runFlow: ../subflows/new-user.yaml
 
@@ -77,6 +77,24 @@ tags:
 # One line below « ≈ 500 kcal », which can sit on the screen's bottom edge: scroll to it, as for every other line.
 - scrollUntilVisible:
     element: "Protéines 20 g"
+
+# MAG-648: the micronutrients fold under the macros; unfolded, vitamin C reads as a share of its reference
+# (300 g of vegetables linked to Ciqual 20385, 20.1 mg per 100 g, for 2 servings: 30 mg, 38 % of 80 mg).
+- scrollUntilVisible:
+    element:
+      id: "recipe_micronutrients_toggle"
+- extendedWaitUntil:
+    visible: "Micronutriments · .*"
+    timeout: 10000
+- assertNotVisible: "Vitamine C"
+- tapOn:
+    id: "recipe_micronutrients_toggle"
+- scrollUntilVisible:
+    element: "Vitamine C"
+- scrollUntilVisible:
+    element: "38 %"
+- scrollUntilVisible:
+    element: "Minéraux"
 
 # A utensil from the phone: the full-screen search, a name the catalogue lacks, created on the spot.
 - scrollUntilVisible:

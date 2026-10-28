@@ -201,6 +201,26 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the micronutrients of a recipe deserialise from the recorded response (MAG-648)`() {
+        val recipe = readRecording("recipes.collection")["member"]!!.jsonArray.first().jsonObject
+        val micronutrients = recipe["micronutrientsPerServing"]!!.jsonArray.map { it.jsonObject }
+
+        assertTrue("The recording carries no micronutrient: it proves nothing about them.", micronutrients.isNotEmpty())
+        assertDeclaredFieldsExist(
+            "Micronutrient",
+            serializer<Micronutrient>(),
+            micronutrients.flatMap { it.keys }.toSet(),
+            "recipes.collection (micronutrients)",
+        )
+
+        val decoded = json.decodeFromJsonElement(serializer<Recipe>(), recipe).micronutrientsPerServing
+        assertEquals(listOf("vitaminB1", "iron"), decoded.map { it.key })
+        assertEquals("Fer", decoded[1].label)
+        assertEquals("minerals", decoded[1].group)
+        assertEquals(10, decoded[1].referencePercent)
+    }
+
+    @Test
     fun `ingredients deserialise from the recorded response`() =
         assertCollectionContract("ingredients", serializer<Ingredient>(), "Ingredient")
 

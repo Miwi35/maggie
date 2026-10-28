@@ -54,10 +54,15 @@ class UpdateIngredientHandler
         } elseif ($command->clears('fallbackStore')) {
             $ingredient->setFallbackStore(null);
         }
+        // The micronutrients describe the Ciqual food linked, nothing else (MAG-648): another food, or none, takes them away.
         if (null !== $command->ciqualAlimCode) {
+            if ($command->ciqualAlimCode !== $ingredient->getCiqualAlimCode()) {
+                $ingredient->setMicronutrientsPer100g(null);
+            }
             $ingredient->setCiqualAlimCode($command->ciqualAlimCode);
         } elseif ($command->clears('ciqualAlimCode')) {
             $ingredient->setCiqualAlimCode(null);
+            $ingredient->setMicronutrientsPer100g(null);
         }
         if (null !== $command->kcalPer100g) {
             $ingredient->setKcalPer100g($command->kcalPer100g);
@@ -84,7 +89,7 @@ class UpdateIngredientHandler
         } elseif ($command->clears('pieceWeightGrams')) {
             $ingredient->setPieceWeightGrams(null);
         }
-        // The Ciqual code alone computes nothing: the macros come with it, the ones already there stay.
+        // The Ciqual code alone computes nothing: the macros and micronutrients come with it, the macros already there stay.
         if (null !== $command->ciqualAlimCode) {
             $this->ciqualNutrients->fillMissing($ingredient, $command->clearFields);
         }

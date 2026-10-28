@@ -11,7 +11,8 @@
 //             create-method: the steps spec's reference example (MAG-492) — boil water 10 min in the
 //             background, cut the vegetables, cook the pasta 12 min in the background (waits 1),
 //             sauté 8 min, drain and mix (waits 3 and 4) — with its utensils; 1 kg of pasta at
-//             100 kcal per 100 g (500 kcal per serving, MAG-630)
+//             100 kcal per 100 g (500 kcal per serving, MAG-630); 300 g of vegetables linked to Ciqual
+//             20385, 20.1 mg of vitamin C per 100 g (30 mg per serving, 38 % of 80 mg, MAG-648)
 //   RECIPE    the recipe's name
 //   QUANTITY  create, set-quantity: grams of the recipe's single line
 //   NOTES     set-notes: the notes
@@ -161,7 +162,9 @@ if (ACTION === 'create') {
   removeLeftovers()
   // MAG-630: the pasta carries values, so the sheet's « Par personne » has figures to show.
   const pasta = createIngredient(methodIngredients[0], { kcalPer100g: 100, proteinPer100g: 4, carbsPer100g: 20, fatPer100g: 1 })
-  const vegetables = createIngredient(methodIngredients[1])
+  // MAG-648: the vegetables are linked to Ciqual (« Tomate sans précision, crue »), so the API fills their
+  // micronutrients from the real food base; their macros are given as 0 to keep the 500 kcal above.
+  const vegetables = createIngredient(methodIngredients[1], { ciqualAlimCode: '20385', kcalPer100g: 0, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 })
   const response = http.post(base + '/api/recipes', {
     headers: authorized(LD),
     body: JSON.stringify({

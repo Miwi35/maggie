@@ -37,6 +37,16 @@ class RecipeLiveUpdateTest {
     }
 
     @Test
+    fun `the micronutrients published with the lines replace the ones shown (MAG-648)`() {
+        val micronutrient = """{"key":"vitaminC","label":"Vitamine C","group":"vitamins","amount":75,"unit":"mg","referencePercent":94}"""
+        val recipe = apply(published(""""micronutrientsPerServing":[$micronutrient]"""))
+
+        assertEquals("Vitamine C", recipe.micronutrientsPerServing.single().label)
+        assertEquals(75f, recipe.micronutrientsPerServing.single().amount)
+        assertEquals(94, recipe.micronutrientsPerServing.single().referencePercent)
+    }
+
+    @Test
     fun `an emptied ingredient list empties the recipe`() {
         assertEquals(emptyList<Any>(), apply(published(""""ingredients":[]""")).ingredients)
     }

@@ -51,6 +51,8 @@ class BackfillRecipeNutritionCommandTest extends KernelTestCase
                         ['const_code' => '25000', 'value' => 3.0],
                         ['const_code' => '31000', 'value' => 5.0],
                         ['const_code' => '40000', 'value' => 1.0],
+                        ['const_code' => '55100', 'value' => 30.0],
+                        ['const_code' => '10260', 'value' => 2.5],
                     ],
                 ];
             }
@@ -110,6 +112,26 @@ class BackfillRecipeNutritionCommandTest extends KernelTestCase
         self::assertNull($this->ingredient('Poudre de perlimpinpin')->getPieceWeightGrams(), 'No known weight: left for a hand to set.');
         self::assertNull($this->ingredient('Oignon doux')->getPieceWeightGrams(), 'An ingredient no recipe uses is not touched.');
         self::assertStringContainsString('to set by hand: Poudre de perlimpinpin', preg_replace('/\s+/', ' ', $this->tester->getDisplay()));
+    }
+
+    public function testDryRunListsTheMicronutrientsToCompleteAndWritesNone(): void
+    {
+        $this->tester->execute(['--dry-run' => true]);
+
+        $display = preg_replace('/\s+/', ' ', $this->tester->getDisplay());
+        self::assertStringContainsString('2 micronutrient(s) from Ciqual (vitaminC, iron)', $display);
+        self::assertNull($this->ingredient('Lentilles')->getMicronutrientsPer100g());
+    }
+
+    public function testItFillsTheMissingMicronutrientsWithoutOverwritingAny(): void
+    {
+        $this->tester->execute([]);
+
+        $this->tester->assertCommandIsSuccessful();
+        self::assertSame(['vitaminC' => 30.0, 'iron' => 2.5], $this->ingredient('Lentilles')->getMicronutrientsPer100g());
+        self::assertSame(116.0, $this->ingredient('Lentilles')->getKcalPer100g(), 'The macros already there stay');
+        self::assertSame(['omega3Ala' => 9.0], $this->ingredient('Huile de colza')->getMicronutrientsPer100g(), 'Micronutrients already there are not overwritten');
+        self::assertNull($this->ingredient('Oignon')->getMicronutrientsPer100g(), 'No Ciqual link, no micronutrients');
     }
 
     public function testRunningItAgainChangesNothing(): void

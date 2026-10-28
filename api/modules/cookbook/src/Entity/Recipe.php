@@ -18,6 +18,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Cookbook\Repository\RecipeRepository;
+use Maggie\Cookbook\Service\Micronutrients;
 use Maggie\Cookbook\State\CreateRecipeProcessor;
 use Maggie\Cookbook\State\DeleteRecipeProcessor;
 use Maggie\Cookbook\State\UpdateRecipeProcessor;
@@ -300,6 +301,18 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
         return $this;
     }
 
+    /**
+     * The vitamins, minerals and fatty acids of one serving, from its ingredients' Ciqual values
+     * (MAG-648); computed on each read, never stored. {@see Micronutrients::perServing()}
+     *
+     * @return list<array{key: string, label: string, group: string, amount: float, unit: string, referencePercent: ?int}>
+     */
+    #[ApiProperty(writable: false, description: 'Micronutrients of one serving, in the order of the sheet: key, label, group (vitamins, minerals, fattyAcids), amount in unit, referencePercent (share of the daily reference value, null without one). A micronutrient no counted ingredient gives is absent, never 0.')]
+    public function getMicronutrientsPerServing(): array
+    {
+        return Micronutrients::perServing($this);
+    }
+
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
@@ -345,6 +358,11 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
      */
     public function toMercurePayload(?array $changedProperties = null): array
     {
+        // The micronutrients follow the lines and the servings: an update of either carries them.
+        if (null !== $changedProperties && [] !== array_intersect(['ingredients', 'servings'], $changedProperties)) {
+            $changedProperties[] = 'micronutrientsPerServing';
+        }
+
         return self::filterPayload([
             'name' => $this->name,
             'servings' => $this->servings,
@@ -353,6 +371,7 @@ class Recipe implements MercurePublishable, OwnedByUserInterface, IndexableInter
             'ingredients' => $this->ingredientsPayload(),
             'utensils' => array_map(static fn (Utensil $utensil) => $utensil->toRecipePayload(), $this->getUtensils()),
             'steps' => $this->stepsPayload(),
+            'micronutrientsPerServing' => $this->getMicronutrientsPerServing(),
         ], $changedProperties);
     }
 

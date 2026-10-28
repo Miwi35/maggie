@@ -55,6 +55,7 @@ class IngredientFromCiqualResolver
         foreach ($this->ciqualNutrients->macrosFromFood($foodData) as $field => $value) {
             $ingredient->{'set'.ucfirst($field)}($value);
         }
+        $ingredient->setMicronutrientsPer100g(Micronutrients::fromFood($foodData));
 
         $this->em->persist($ingredient);
 

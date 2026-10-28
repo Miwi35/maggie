@@ -1,0 +1,83 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: micronutrients-test@example.com
+    googleId: google-micronutrients-test
+    name: Micronutrients Test User
+
+# Values per 100 g as Ciqual would give them; the test computes by hand what one serving brings.
+Maggie\Cookbook\Entity\Ingredient:
+  orange:
+    name: Orange
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    ciqualAlimCode: '13034'
+    pieceWeightGrams: 150
+    micronutrientsPer100g: { vitaminC: 50.0, iron: 0.1, calcium: 48.0 }
+    user: '@test_user'
+  lentils:
+    name: Lentilles
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    ciqualAlimCode: '20504'
+    micronutrientsPer100g: { iron: 3.3, omega3Ala: 0.1 }
+    user: '@test_user'
+  rapeseed_oil:
+    name: Huile de colza
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Condiment)>'
+    ciqualAlimCode: '16130'
+    micronutrientsPer100g: { omega3Ala: 9.0, omega6: 19.0 }
+    user: '@test_user'
+  herbs:
+    name: Herbes fraîches
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    ciqualAlimCode: '11000'
+    micronutrientsPer100g: { vitaminD: 10.0 }
+    user: '@test_user'
+  salt:
+    name: Sel
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Condiment)>'
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  soup:
+    name: Soupe de lentilles à l'orange
+    servings: 2
+    user: '@test_user'
+  plain:
+    name: Pâtes nature
+    servings: 2
+    user: '@test_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  # 2 pieces of 150 g = 300 g
+  soup_orange:
+    recipe: '@soup'
+    ingredient: '@orange'
+    quantity: 2
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+  # 0.2 kg = 200 g
+  soup_lentils:
+    recipe: '@soup'
+    ingredient: '@lentils'
+    quantity: 0.2
+    unit: '<(Maggie\Grocery\Enum\Unit::Kilogram)>'
+  # 5 cl = 50 g
+  soup_oil:
+    recipe: '@soup'
+    ingredient: '@rapeseed_oil'
+    quantity: 5
+    unit: '<(Maggie\Grocery\Enum\Unit::Centiliter)>'
+  # A bunch has no weight: not counted, its vitamin D neither.
+  soup_herbs:
+    recipe: '@soup'
+    ingredient: '@herbs'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Bunch)>'
+  soup_salt:
+    recipe: '@soup'
+    ingredient: '@salt'
+    quantity: 5
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  plain_salt:
+    recipe: '@plain'
+    ingredient: '@salt'
+    quantity: 5
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'

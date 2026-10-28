@@ -13,7 +13,7 @@ use Maggie\Grocery\Service\PieceWeightCatalog;
 /**
  * The ingredient behind a line of a recipe being written (MAG-647). Beyond
  * finding it, the line makes sure the recipe's nutrition can count it: macros
- * from Ciqual when it has a code but no values, and a weight per piece when
+ * and micronutrients from Ciqual when it has a code but no values, and a weight per piece when
  * the line is counted in pieces — the one Maggie gave, else the average-weights table.
  */
 class RecipeLineIngredient
@@ -38,10 +38,10 @@ class RecipeLineIngredient
             $ingredient->setPieceWeightGrams((float) $item['pieceWeightGrams']);
         }
 
-        // Only an ingredient with no value at all: a macro cleared on purpose beside others stays cleared.
-        if (null === $ingredient->getKcalPer100g() && null === $ingredient->getProteinPer100g() && null === $ingredient->getCarbsPer100g() && null === $ingredient->getFatPer100g()) {
-            $this->ciqualNutrients->fillMissing($ingredient);
-        }
+        // The macros only for an ingredient with no value at all: a macro cleared on purpose beside others
+        // stays cleared. The micronutrients whenever it has none yet (MAG-648).
+        $noMacro = null === $ingredient->getKcalPer100g() && null === $ingredient->getProteinPer100g() && null === $ingredient->getCarbsPer100g() && null === $ingredient->getFatPer100g();
+        $this->ciqualNutrients->fillMissing($ingredient, $noMacro ? [] : CiqualNutrients::MACRO_FIELDS);
 
         if (Unit::Piece->value === $item['unit'] && null === $ingredient->getPieceWeightGrams()) {
             $ingredient->setPieceWeightGrams($this->pieceWeights->gramsForProduct($ingredient));
