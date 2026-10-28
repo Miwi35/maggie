@@ -797,6 +797,8 @@ data class CushionConfigRequest(
     val monthlyNetIncomeCents: Int? = null,
     val rechargeCapCents: Int? = null,
     val rechargeTargetMonths: Int? = null,
+    val criticalMonths: Int? = null,
+    val cushionSharePercent: Int? = null,
 )
 
 @Serializable

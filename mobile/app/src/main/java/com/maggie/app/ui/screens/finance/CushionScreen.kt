@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CushionConfigRequest
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.cushionDeficitLabel
+import com.maggie.app.data.model.cushionShareRuleLabel
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.label
@@ -180,6 +181,12 @@ internal fun CushionSummaryCard(status: CushionStatus) {
                 }
             }
 
+            Text(
+                text = cushionShareRuleLabel(status),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp).testTag(UiTags.CUSHION_SHARE_RULE),
+            )
+
             if (status.accounts.isEmpty()) {
                 Text(
                     text = "Aucun compte n'est marqué « matelas ».",
@@ -243,6 +250,12 @@ private fun CushionSettingsCard(
     var cap by remember(status.rechargeCapCents) {
         mutableStateOf((status.rechargeCapCents / 100.0).toString())
     }
+    var criticalMonths by remember(status.criticalMonths) {
+        mutableStateOf(status.criticalMonths.toString())
+    }
+    var sharePercent by remember(status.cushionSharePercent) {
+        mutableStateOf(status.cushionSharePercent.toString())
+    }
 
     MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -274,6 +287,24 @@ private fun CushionSettingsCard(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             )
             OutlinedTextField(
+                value = criticalMonths,
+                onValueChange = { criticalMonths = it },
+                label = { Text("Seuil critique (mois de dépenses)") },
+                supportingText = { Text("En dessous, toute l'épargne va au matelas (0 à 24).") },
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.CUSHION_CRITICAL_MONTHS),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+            OutlinedTextField(
+                value = sharePercent,
+                onValueChange = { sharePercent = it },
+                label = { Text("Part du matelas (%)") },
+                supportingText = { Text("Au-delà du seuil, jusqu'à la cible. 100 % = matelas d'abord.") },
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.CUSHION_SHARE_PERCENT),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+            OutlinedTextField(
                 value = cap,
                 onValueChange = { cap = it },
                 label = { Text("Plafond de recharge (€/mois)") },
@@ -291,10 +322,13 @@ private fun CushionSettingsCard(
                                 ?.let { (it * 100).roundToInt() },
                             rechargeCapCents = cap.toDoubleOrNull()
                                 ?.let { (it * 100).roundToInt() },
+                            criticalMonths = criticalMonths.toIntOrNull(),
+                            cushionSharePercent = sharePercent.toIntOrNull(),
                         ),
                     )
                 },
                 enabled = !isSaving,
+                modifier = Modifier.testTag(UiTags.CUSHION_SAVE),
             ) {
                 Text("Enregistrer")
             }

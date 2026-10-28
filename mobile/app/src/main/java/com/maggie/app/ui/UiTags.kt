@@ -414,6 +414,12 @@ object UiTags {
     /** Matelas — the row « Avancé à des proches », which only exists while a créance is open. */
     const val CUSHION_PEER_CLAIMS = "cushion_peer_claims"
 
+    /** Matelas — the settings fields a journey fills (MAG-669), and the line that says where the saving goes. */
+    const val CUSHION_CRITICAL_MONTHS = "cushion_critical_months"
+    const val CUSHION_SHARE_PERCENT = "cushion_share_percent"
+    const val CUSHION_SAVE = "cushion_save"
+    const val CUSHION_SHARE_RULE = "cushion_share_rule"
+
     /**
      * Suggestions — the yes of a card, which is refused while no heading is
      * chosen. Tagged because that refusal is what the journey asserts, and a

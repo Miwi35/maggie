@@ -66,4 +66,30 @@ class SafetyCushionTest {
             cushionDeficitLabel(CushionStatus(deficitCents = 300000)),
         )
     }
+
+    @Test
+    fun `cushionShareRuleLabel gives everything to the cushion below the threshold`() {
+        val status = CushionStatus(deficitCents = 300000, criticalDeficitCents = 20000, criticalCents = 400000)
+
+        assertEquals(
+            "Sous le seuil critique (2 mois de dépenses, ${formatCents(400000)}) : toute l'épargne va au matelas.",
+            cushionShareRuleLabel(status),
+        )
+    }
+
+    @Test
+    fun `cushionShareRuleLabel gives the share past the threshold, and nothing once full`() {
+        assertEquals(
+            "Seuil critique atteint : 80 % de l'épargne va au matelas, le reste aux projets.",
+            cushionShareRuleLabel(CushionStatus(deficitCents = 300000, cushionSharePercent = 80)),
+        )
+        assertEquals(
+            "Matelas d'abord : toute l'épargne va au matelas, les projets attendent qu'il soit complet.",
+            cushionShareRuleLabel(CushionStatus(deficitCents = 300000, cushionSharePercent = 100)),
+        )
+        assertEquals(
+            "Matelas complet : toute l'épargne va aux projets.",
+            cushionShareRuleLabel(CushionStatus(state = "complete", deficitCents = 0)),
+        )
+    }
 }

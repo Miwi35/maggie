@@ -20,6 +20,12 @@ export interface CushionStatus {
   deficitCents: number
   coveragePercent: number
   monthsCovered: number
+  /** Months of spending the cushion must hold before projects get a share. */
+  criticalMonths: number
+  criticalCents: number
+  criticalDeficitCents: number
+  /** Share of the saving the cushion takes past the critical threshold, until full. */
+  cushionSharePercent: number
   rechargeCapCents: number
   rechargeTargetMonths: number
   monthlyRechargeCents: number
@@ -33,7 +39,12 @@ export interface CushionStatus {
 export type CushionConfig = Partial<
   Pick<
     CushionStatus,
-    'targetMonths' | 'monthlyNetIncomeCents' | 'rechargeCapCents' | 'rechargeTargetMonths'
+    | 'targetMonths'
+    | 'monthlyNetIncomeCents'
+    | 'rechargeCapCents'
+    | 'rechargeTargetMonths'
+    | 'criticalMonths'
+    | 'cushionSharePercent'
   >
 >
 

@@ -13,6 +13,8 @@ final readonly class UpdateSafetyCushionCommand
         public ?int $monthlyNetIncomeCents = null,
         public ?int $rechargeCapCents = null,
         public ?int $rechargeTargetMonths = null,
+        public ?int $criticalMonths = null,
+        public ?int $cushionSharePercent = null,
     ) {
     }
 }

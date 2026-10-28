@@ -164,6 +164,72 @@ class SafetyCushionToolsTest extends KernelTestCase
         $this->assertMercureUpdatePublished('/safety_cushions/');
     }
 
+    public function testAnUnconfiguredUserReadsTheDefaultThresholdAndShare(): void
+    {
+        $this->loadFixtures('user.yaml');
+        $this->loginFixtureUser();
+
+        $status = $this->cushionStatus();
+
+        self::assertSame(2, $status['criticalMonths']);
+        self::assertSame(60, $status['cushionSharePercent']);
+    }
+
+    public function testTheCriticalThresholdIsCountedInMonthsOfSpending(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Controller/fixtures/debt_timeline_lifestyle.yaml');
+        $this->loginFixtureUser();
+
+        $status = $this->cushionStatus();
+
+        // A train de vie of 100 €/month and an empty cushion: 200 € to reach the threshold.
+        self::assertSame(20000, $status['criticalCents']);
+        self::assertSame(20000, $status['criticalDeficitCents']);
+    }
+
+    public function testConfigureSetsTheThresholdAndTheShareAndPublishes(): void
+    {
+        $this->loadFixtures('safety_cushion.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(
+            $this->tool()('configure', criticalMonths: 0, cushionSharePercent: 100),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        self::assertTrue($data['success']);
+        self::assertSame(0, $data['cushion']['criticalMonths']);
+        self::assertSame(100, $data['cushion']['cushionSharePercent']);
+        // The fields not given stand.
+        self::assertSame(3, $data['cushion']['targetMonths']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(SafetyCushion::class, $this->getFixture('cushion')->getId());
+        self::assertSame(0, $stored->getCriticalMonths());
+        self::assertSame(100, $stored->getCushionSharePercent());
+
+        $this->assertMercureUpdatePublished('/safety_cushions/'.$this->getFixture('cushion')->getId());
+    }
+
+    public function testConfigureRefusesAThresholdOrAShareOutOfBounds(): void
+    {
+        $this->loadFixtures('safety_cushion.yaml');
+        $this->loginFixtureUser();
+
+        self::assertArrayHasKey('error', json_decode($this->tool()('configure', criticalMonths: 25), true, 512, JSON_THROW_ON_ERROR));
+        self::assertArrayHasKey('error', json_decode($this->tool()('configure', criticalMonths: -1), true, 512, JSON_THROW_ON_ERROR));
+        self::assertArrayHasKey('error', json_decode($this->tool()('configure', cushionSharePercent: 101), true, 512, JSON_THROW_ON_ERROR));
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(SafetyCushion::class, $this->getFixture('cushion')->getId());
+        self::assertSame(2, $stored->getCriticalMonths());
+        self::assertSame(60, $stored->getCushionSharePercent());
+    }
+
     public function testARaiseRecomputesTheTargetWithoutTouchingTheCushion(): void
     {
         $this->loadFixtures('safety_cushion.yaml');

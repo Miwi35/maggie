@@ -127,6 +127,54 @@ class SafetyCushionApiTest extends WebTestCase
         self::assertSame(250000, $data['monthlyNetIncomeCents']);
     }
 
+    public function testConfigSetsTheThresholdAndTheShare(): void
+    {
+        $this->loadFixtures('safety_cushion.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->configure(['criticalMonths' => 3, 'cushionSharePercent' => 80]);
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(3, $data['criticalMonths']);
+        self::assertSame(80, $data['cushionSharePercent']);
+        self::assertSame(3, $data['targetMonths']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(SafetyCushion::class, $this->getFixture('cushion')->getId());
+        self::assertSame(3, $stored->getCriticalMonths());
+        self::assertSame(80, $stored->getCushionSharePercent());
+
+        $this->assertMercureUpdatePublished('/safety_cushions/');
+    }
+
+    /** @return iterable<string, array{array<string, int>}> */
+    public static function outOfBounds(): iterable
+    {
+        yield 'negative threshold' => [['criticalMonths' => -1]];
+        yield 'threshold past 24 months' => [['criticalMonths' => 25]];
+        yield 'negative share' => [['cushionSharePercent' => -5]];
+        yield 'share past 100' => [['cushionSharePercent' => 101]];
+    }
+
+    /** @param array<string, int> $body */
+    #[\PHPUnit\Framework\Attributes\DataProvider('outOfBounds')]
+    public function testConfigRejectsAThresholdOrAShareOutOfBounds(array $body): void
+    {
+        $this->loadFixtures('safety_cushion.yaml');
+        /** @var User $user */
+        $user = $this->getFixture('test_user');
+        $this->authenticateAsUser($user);
+
+        $this->configure($body);
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
     public function testConfigRejectsAnImpossibleTarget(): void
     {
         $this->loadFixtures('safety_cushion.yaml');

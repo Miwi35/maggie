@@ -25,6 +25,10 @@ data class CushionStatus(
     val deficitCents: Int = 0,
     val coveragePercent: Int = 0,
     val monthsCovered: Double = 0.0,
+    val criticalMonths: Int = 2,
+    val criticalCents: Int = 0,
+    val criticalDeficitCents: Int = 0,
+    val cushionSharePercent: Int = 60,
     val rechargeCapCents: Int = 0,
     val rechargeTargetMonths: Int = 6,
     val monthlyRechargeCents: Int = 0,
@@ -57,4 +61,17 @@ fun cushionDeficitLabel(status: CushionStatus): String {
     val lent = minOf(status.deficitCents, status.peerClaimsCents)
 
     return if (lent > 0) "$base, dont ${formatCents(lent)} avancés à des proches" else base
+}
+
+/** Where the saving goes this month: all of it below the critical threshold, a share past it (MAG-669). */
+fun cushionShareRuleLabel(status: CushionStatus): String = when {
+    status.criticalDeficitCents > 0 ->
+        "Sous le seuil critique (${status.criticalMonths} mois de dépenses, " +
+            "${formatCents(status.criticalCents)}) : toute l'épargne va au matelas."
+    status.deficitCents > 0 && status.cushionSharePercent >= 100 ->
+        "Matelas d'abord : toute l'épargne va au matelas, les projets attendent qu'il soit complet."
+    status.deficitCents > 0 ->
+        "Seuil critique atteint : ${status.cushionSharePercent} % de l'épargne va au matelas, " +
+            "le reste aux projets."
+    else -> "Matelas complet : toute l'épargne va aux projets."
 }

@@ -50,7 +50,8 @@ class ReadPlanningInputs
             [
                 'state' => (string) $cushion['state'],
                 'deficitCents' => (int) $cushion['deficitCents'],
-                'monthlyRechargeCents' => (int) $cushion['monthlyRechargeCents'],
+                'criticalDeficitCents' => (int) $cushion['criticalDeficitCents'],
+                'sharePercent' => (int) $cushion['cushionSharePercent'],
             ],
             $this->reserveCents($user, $projects),
             $projects,

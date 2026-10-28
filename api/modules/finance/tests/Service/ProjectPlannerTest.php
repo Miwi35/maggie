@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  */
 class ProjectPlannerTest extends TestCase
 {
-    private const COMPLETE = ['state' => 'complete', 'deficitCents' => 0, 'monthlyRechargeCents' => 0];
+    private const COMPLETE = ['state' => 'complete', 'deficitCents' => 0, 'criticalDeficitCents' => 0, 'sharePercent' => 60];
 
     private int $position = 0;
 
@@ -28,7 +28,7 @@ class ProjectPlannerTest extends TestCase
         $this->position = 0;
     }
 
-    /** @param array{state: string, deficitCents: int, monthlyRechargeCents: int} $cushion */
+    /** @param array{state: string, deficitCents: int, criticalDeficitCents: int, sharePercent: int} $cushion */
     private function plan(array $projects, array $cushion = self::COMPLETE, int $capacity = 50000, int $reserve = 0, int $overspent = 0, bool $incomeKnown = true): array
     {
         return (new ProjectPlanner(new LoanSchedule()))->plan(
@@ -103,11 +103,11 @@ class ProjectPlannerTest extends TestCase
         self::assertSame(['Vélo', 'Japon'], array_column($plan['projects'], 'name'));
     }
 
-    public function testNothingStartsWhileTheCushionIsBeingBuilt(): void
+    public function testNothingStartsWhileTheCushionTakesEverything(): void
     {
         $plan = $this->plan(
             [$this->project('Vélo', 120000)],
-            ['state' => 'building', 'deficitCents' => 100000, 'monthlyRechargeCents' => 20000],
+            ['state' => 'building', 'deficitCents' => 100000, 'criticalDeficitCents' => 0, 'sharePercent' => 100],
         );
 
         self::assertSame(['state' => 'building', 'completeMonth' => self::m(1)], $plan['cushion']);
@@ -121,7 +121,7 @@ class ProjectPlannerTest extends TestCase
         $trip = $this->project('Week-end', 20000);
         $this->source($trip, FundingSourceKind::Capital, 20000);
 
-        $plan = $this->plan([$trip], ['state' => 'building', 'deficitCents' => 100000, 'monthlyRechargeCents' => 0]);
+        $plan = $this->plan([$trip], ['state' => 'building', 'deficitCents' => 100000, 'criticalDeficitCents' => 100000, 'sharePercent' => 60]);
 
         self::assertSame(self::m(1), self::row($plan, 'Week-end')['purchaseMonth']);
         self::assertSame(20000, $plan['months'][1]['capitalCents']);
@@ -131,7 +131,7 @@ class ProjectPlannerTest extends TestCase
     {
         $plan = $this->plan(
             [$this->project('Vélo', 120000)],
-            ['state' => 'building', 'deficitCents' => 5000000, 'monthlyRechargeCents' => 0],
+            ['state' => 'building', 'deficitCents' => 5000000, 'criticalDeficitCents' => 5000000, 'sharePercent' => 60],
         );
 
         self::assertNull($plan['cushion']['completeMonth']);
@@ -139,13 +139,103 @@ class ProjectPlannerTest extends TestCase
         self::assertTrue(self::row($plan, 'Vélo')['isBeyondHorizon']);
     }
 
-    public function testARechargingCushionLowersTheCapacityForAWhile(): void
+    public function testBelowTheCriticalThresholdTheCushionTakesTheWholeCapacity(): void
     {
-        $plan = $this->plan([], ['state' => 'recharging', 'deficitCents' => 60000, 'monthlyRechargeCents' => 20000]);
+        $plan = $this->plan(
+            [$this->project('Vélo', 30000)],
+            ['state' => 'building', 'deficitCents' => 200000, 'criticalDeficitCents' => 100000, 'sharePercent' => 60],
+        );
 
-        self::assertSame([30000, 30000, 30000, 50000], array_column(\array_slice($plan['months'], 0, 4), 'capacityCents'));
-        self::assertSame([20000, 20000, 20000, 0], array_column(\array_slice($plan['months'], 0, 4), 'cushionCents'));
+        self::assertSame([50000, 50000], array_column(\array_slice($plan['months'], 0, 2), 'cushionCents'));
+        self::assertSame([0, 0], array_column(\array_slice($plan['months'], 0, 2), 'salaryCents'));
+        // Threshold reached in M1: 200 € to the bike in M2 and 100 € in M3.
+        self::assertSame(self::m(3), self::row($plan, 'Vélo')['purchaseMonth']);
+    }
+
+    public function testAMonthThatStartsBelowTheThresholdBuysNothing(): void
+    {
+        $trip = $this->project('Week-end', 20000);
+        $this->source($trip, FundingSourceKind::Capital, 20000);
+
+        $plan = $this->plan([$trip], ['state' => 'building', 'deficitCents' => 200000, 'criticalDeficitCents' => 50000, 'sharePercent' => 60]);
+
+        self::assertSame(50000, $plan['months'][0]['cushionCents']);
+        self::assertSame(self::m(1), self::row($plan, 'Week-end')['purchaseMonth']);
+    }
+
+    public function testPastTheThresholdTheCushionTakesItsShareThenOnlyItsDeficit(): void
+    {
+        $plan = $this->plan(
+            [$this->project('Vélo', 120000)],
+            ['state' => 'building', 'deficitCents' => 70000, 'criticalDeficitCents' => 0, 'sharePercent' => 60],
+        );
+
+        // 60 % of 500 € twice, then the 100 € left; the projects take the rest.
+        self::assertSame([30000, 30000, 10000, 0], array_column(\array_slice($plan['months'], 0, 4), 'cushionCents'));
+        self::assertSame([20000, 20000, 40000, 40000], array_column(\array_slice($plan['months'], 0, 4), 'salaryCents'));
         self::assertSame(self::m(2), $plan['cushion']['completeMonth']);
+        self::assertSame(self::m(0), self::row($plan, 'Vélo')['savingFromMonth']);
+        self::assertSame(self::m(3), self::row($plan, 'Vélo')['purchaseMonth']);
+    }
+
+    public function testCrossingTheThresholdSharesFromTheNextMonth(): void
+    {
+        $plan = $this->plan([], ['state' => 'building', 'deficitCents' => 200000, 'criticalDeficitCents' => 40000, 'sharePercent' => 60]);
+
+        self::assertSame([50000, 30000, 30000], array_column(\array_slice($plan['months'], 0, 3), 'cushionCents'));
+    }
+
+    public function testACompleteCushionTakesNothing(): void
+    {
+        $plan = $this->plan([$this->project('Vélo', 50000)]);
+
+        self::assertSame(0, array_sum(array_column($plan['months'], 'cushionCents')));
+        self::assertSame(self::m(0), self::row($plan, 'Vélo')['purchaseMonth']);
+    }
+
+    public function testARechargingCushionFollowsTheSameRule(): void
+    {
+        $below = $this->plan([], ['state' => 'recharging', 'deficitCents' => 120000, 'criticalDeficitCents' => 50000, 'sharePercent' => 60]);
+        self::assertSame([50000, 30000, 30000, 10000, 0], array_column(\array_slice($below['months'], 0, 5), 'cushionCents'));
+        self::assertSame(self::m(3), $below['cushion']['completeMonth']);
+
+        $past = $this->plan([$this->project('Vélo', 20000)], ['state' => 'recharging', 'deficitCents' => 60000, 'criticalDeficitCents' => 0, 'sharePercent' => 60]);
+        self::assertSame([30000, 30000, 0], array_column(\array_slice($past['months'], 0, 3), 'cushionCents'));
+        self::assertSame(self::m(0), self::row($past, 'Vélo')['purchaseMonth']);
+    }
+
+    public function testNoCriticalThresholdSharesFromTheFirstMonth(): void
+    {
+        $plan = $this->plan(
+            [$this->project('Vélo', 20000)],
+            ['state' => 'building', 'deficitCents' => 300000, 'criticalDeficitCents' => 0, 'sharePercent' => 60],
+        );
+
+        self::assertSame(30000, $plan['months'][0]['cushionCents']);
+        self::assertSame(self::m(0), self::row($plan, 'Vélo')['purchaseMonth']);
+    }
+
+    public function testAFixedDateProjectDoesNotChangeTheCushionShare(): void
+    {
+        $move = $this->project('Déménagement', 30000, ProjectDateMode::Fixed, '2027-04-15');
+        $trip = $this->project('Week-end', 20000);
+        $this->source($trip, FundingSourceKind::Capital, 20000);
+
+        $plan = $this->plan([$move, $trip], ['state' => 'building', 'deficitCents' => 150000, 'criticalDeficitCents' => 0, 'sharePercent' => 100]);
+
+        self::assertSame([50000, 50000, 50000], array_column(\array_slice($plan['months'], 0, 3), 'cushionCents'));
+        self::assertSame(self::m(2), self::row($plan, 'Week-end')['purchaseMonth']);
+    }
+
+    public function testAFullShareIsCushionFirst(): void
+    {
+        $trip = $this->project('Week-end', 20000);
+        $this->source($trip, FundingSourceKind::Capital, 20000);
+
+        $plan = $this->plan([$trip], ['state' => 'building', 'deficitCents' => 100000, 'criticalDeficitCents' => 0, 'sharePercent' => 100]);
+
+        self::assertSame([50000, 50000], array_column(\array_slice($plan['months'], 0, 2), 'cushionCents'));
+        self::assertSame(self::m(1), self::row($plan, 'Week-end')['purchaseMonth']);
     }
 
     public function testAFixedDateProjectKeepsItsDateAndGoesFirst(): void

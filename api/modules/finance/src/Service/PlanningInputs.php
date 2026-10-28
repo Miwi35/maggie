@@ -15,10 +15,10 @@ use Maggie\Finance\Entity\Project;
 final readonly class PlanningInputs
 {
     /**
-     * @param array{state: string, deficitCents: int, monthlyRechargeCents: int} $cushion
-     * @param list<Project>                                                      $projects   in priority order
-     * @param list<Loan>                                                         $loans      the signed ones
-     * @param list<Placement>                                                    $placements
+     * @param array{state: string, deficitCents: int, criticalDeficitCents: int, sharePercent: int} $cushion
+     * @param list<Project>                                                                         $projects   in priority order
+     * @param list<Loan>                                                                            $loans      the signed ones
+     * @param list<Placement>                                                                       $placements
      */
     public function __construct(
         public \DateTimeImmutable $today,

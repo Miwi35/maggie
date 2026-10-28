@@ -219,6 +219,14 @@ export const SHORTAGE_USER_EMAIL = 'e2e-shortage@maggie.local'
  */
 export const NUTRITION_USER_EMAIL = 'e2e-nutrition@maggie.local'
 
+/**
+ * The twenty-ninth seeded account, for the cushion's share of the capacity (MAG-669): a cushion past
+ * its critical threshold and under its target, one project, and the share the journey sets to 100 %
+ * and back — the owner's cushion target is `finance-cushion.spec.ts`'s, and its projects are reordered
+ * by `finance-projects.spec.ts`. The thirtieth, `e2e-cushion-share-mobile@`, is the phone's twin.
+ */
+export const CUSHION_SHARE_USER_EMAIL = 'e2e-cushion-share@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

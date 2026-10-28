@@ -12,7 +12,7 @@ use Maggie\Finance\Enum\ProjectDateMode;
 
 /**
  * The projects laid out month by month over 36 months, capacity first and
- * cushion first (MAG-526, rules 3, 11, 12 and 13). Pure: everything it needs is
+ * cushion first (MAG-526, rules 3, 11, 12 and 13; rule 3 revised by MAG-669). Pure: everything it needs is
  * handed in, so the same inputs always give the same planning.
  *
  * Each month, in this order:
@@ -28,8 +28,9 @@ use Maggie\Finance\Enum\ProjectDateMode;
  *  4. what remains funds the first project not yet gathered, in priority order.
  *
  * A project is bought the month its salary part is gathered, never before the
- * projects it depends on, and — while the cushion is still being built — never
- * before the cushion is complete. A loan starts the month after the purchase.
+ * projects it depends on, and never while the cushion takes the whole capacity:
+ * below its critical threshold, or short of its target with a 100 % share. A
+ * loan starts the month after the purchase.
  *
  * An investment (MAG-557) brings its rent from the month after the purchase and
  * is resold the planned month, never before the one after the purchase: the
@@ -46,12 +47,12 @@ final class ProjectPlanner
     }
 
     /**
-     * @param list<Project>                                                      $projects     in priority order
-     * @param array{state: string, deficitCents: int, monthlyRechargeCents: int} $cushion
-     * @param int                                                                $reserveCents savings outside the cushion not already assigned to a source
-     * @param array<int, int>                                                    $freedCents   month index → extra capacity (a payment a scenario's early repayment frees)
-     * @param array<int, int>                                                    $outlayCents  month index → cash an early repayment takes; what the month cannot pay moves to the next
-     * @param array<int, int>                                                    $depositCents month index → what a scenario's placements take of the capacity (their deposits, per month)
+     * @param list<Project>                                                                         $projects     in priority order
+     * @param array{state: string, deficitCents: int, criticalDeficitCents: int, sharePercent: int} $cushion      criticalDeficitCents: what is missing to the critical threshold; sharePercent: the cushion's part past it
+     * @param int                                                                                   $reserveCents savings outside the cushion not already assigned to a source
+     * @param array<int, int>                                                                       $freedCents   month index → extra capacity (a payment a scenario's early repayment frees)
+     * @param array<int, int>                                                                       $outlayCents  month index → cash an early repayment takes; what the month cannot pay moves to the next
+     * @param array<int, int>                                                                       $depositCents month index → what a scenario's placements take of the capacity (their deposits, per month)
      *
      * @return array{
      *     startMonth: string,
@@ -124,8 +125,9 @@ final class ProjectPlanner
         $savings[0] += array_sum($gathered);
 
         $deficit = max(0, $cushion['deficitCents']);
+        $critical = min($deficit, max(0, $cushion['criticalDeficitCents']));
+        $cushionShare = max(0, min(100, $cushion['sharePercent']));
         $state = $cushion['state'];
-        $waitsForCushion = CushionState::Building->value === $state && $deficit > 0;
         $completeAt = null;
         $pendingOutlay = 0;
 
@@ -203,13 +205,15 @@ final class ProjectPlanner
             $repaid = min($pendingOutlay, $available);
             $pendingOutlay -= $repaid;
             $available -= $repaid;
+            // Read before the cushion's turn: a month that starts below the threshold funds no project.
+            $belowCritical = $critical > 0;
             if ($deficit > 0) {
-                $toCushion[$m] = match ($state) {
-                    CushionState::Building->value => min($available, $deficit),
-                    CushionState::Recharging->value => min($available, $deficit, max(0, $cushion['monthlyRechargeCents'])),
-                    default => 0,
-                };
+                // Below the critical threshold the cushion takes everything; past it, its share.
+                $toCushion[$m] = $critical > 0
+                    ? min($available, $deficit)
+                    : min(intdiv($available * $cushionShare, 100), $deficit);
                 $deficit -= $toCushion[$m];
+                $critical = max(0, $critical - $toCushion[$m]);
                 if (0 === $deficit) {
                     $completeAt = $m;
                 }
@@ -245,7 +249,7 @@ final class ProjectPlanner
                 }
             }
 
-            $open = !$waitsForCushion || null !== $completeAt;
+            $open = 0 === $deficit || (!$belowCritical && $cushionShare < 100);
             do {
                 $bought = false;
                 foreach ($projects as $i => $project) {

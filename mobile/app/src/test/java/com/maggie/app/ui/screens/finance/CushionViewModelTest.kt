@@ -160,6 +160,23 @@ class CushionViewModelTest {
     }
 
     @Test
+    fun `configure sends the threshold and the share and keeps what the API returns`() = runTest {
+        val updated = buildingStatus.copy(criticalMonths = 0, cushionSharePercent = 100)
+        coEvery { cushionRepository.configure(any()) } returns Result.success(updated)
+
+        viewModel = CushionViewModel(cushionRepository)
+        advanceUntilIdle()
+
+        viewModel.configure(CushionConfigRequest(criticalMonths = 0, cushionSharePercent = 100))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(0, state.status?.criticalMonths)
+        assertEquals(100, state.status?.cushionSharePercent)
+        coVerify { cushionRepository.configure(CushionConfigRequest(criticalMonths = 0, cushionSharePercent = 100)) }
+    }
+
+    @Test
     fun `configure failure surfaces the error and stops the spinner`() = runTest {
         coEvery { cushionRepository.configure(any()) } returns Result.failure(RuntimeException("boom"))
 

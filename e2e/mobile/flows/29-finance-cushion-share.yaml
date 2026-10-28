@@ -1,0 +1,156 @@
+appId: com.maggie.app.e2e
+name: 29-finance-cushion-share
+tags:
+  - finance
+---
+# La part du matelas au-delà du seuil critique (MAG-669, extends MAG-102).
+#
+# Étant donné un matelas au-dessus de 2 mois de dépenses mais sous sa cible, et un projet (seed)
+# Quand j'ouvre Planification › Projets
+# Alors le projet a une date d'achat dans les 36 mois
+# Quand je règle la part du matelas à 100 % dans Trésorerie › matelas
+# Alors le projet recule après le mois où le matelas est complet
+#
+# An account of its own, the phone's twin of the web journey's (69-finance-cushion-share.yaml):
+# 2 000 € of capacity a month, 3 000 € on the cushion against a 9 000 € target and a 2 000 €
+# critical threshold, one project « Moto » of 1 500 €. At the seeded 60 %, 800 € a month go to
+# Moto: bought in M1. At 100 %, the cushion takes 2 000 € in M0, M1 and M2 and is complete in M2:
+# Moto is bought in M3.
+#
+# The Gantt draws the purchase as a mark on a bar, which Maestro cannot read as a month: the screen
+# shows Moto's line, and `scripts/cushion-share-api.js` reads the month from the planning the phone
+# drew from. The share itself is typed and saved on the phone, and the script checks it reached the
+# API. The exact figures of the screen are `CushionViewModelTest` and `SafetyCushionTest`.
+#
+# The share is put back to 60 % before and after: a run that failed half-way is taken as it was left.
+
+- runScript:
+    file: ../scripts/cushion-share-api.js
+    env:
+      ACTION: reset
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/29-finance-cushion-share.yaml
+      e2e_email: e2e-cushion-share-mobile@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+# ---------------------------------------------------------------------------
+# Planification › Projets at 60 %: Moto is bought within the 36 months, in M1.
+# ---------------------------------------------------------------------------
+- openLink: "maggie-e2e://finance"
+- extendedWaitUntil:
+    visible:
+      id: "breadcrumb_section"
+    timeout: 30000
+- tapOn:
+    id: "breadcrumb_section"
+- tapOn:
+    id: "breadcrumb_menu_planning"
+- extendedWaitUntil:
+    visible:
+      id: "subview_projects"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "projects"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "project_gantt"
+    centerElement: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Moto"
+    timeout: 10000
+- runScript:
+    file: ../scripts/cushion-share-api.js
+    env:
+      ACTION: expect-purchase
+      MONTHS: "1"
+
+# ---------------------------------------------------------------------------
+# Trésorerie › matelas: the share set to 100 %.
+# ---------------------------------------------------------------------------
+- openLink: "maggie-e2e://finance"
+- extendedWaitUntil:
+    visible:
+      id: "breadcrumb_section"
+    timeout: 30000
+- tapOn:
+    id: "breadcrumb_section"
+- tapOn:
+    id: "breadcrumb_menu_treasury"
+- extendedWaitUntil:
+    visible:
+      id: "treasury_open_cushion"
+    timeout: 20000
+- tapOn:
+    id: "treasury_open_cushion"
+- extendedWaitUntil:
+    visible:
+      id: "cushion_share_rule"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*Seuil critique atteint : 60 % de l'épargne va au matelas.*"
+    timeout: 10000
+
+- scrollUntilVisible:
+    element:
+      id: "cushion_share_percent"
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "cushion_share_percent"
+- eraseText
+- inputText: "100"
+- runFlow: ../subflows/hide-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: "cushion_save"
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "cushion_save"
+- runScript:
+    file: ../scripts/cushion-share-api.js
+    env:
+      ACTION: expect-share
+      SHARE: "100"
+# The screen reads the saved status back: the rule above the settings says cushion first.
+- scrollUntilVisible:
+    element: "Matelas d'abord : toute l'épargne va au matelas.*"
+    direction: UP
+    timeout: 20000
+
+# ---------------------------------------------------------------------------
+# Planification › Projets at 100 %: Moto comes after the cushion is complete, in M3.
+# ---------------------------------------------------------------------------
+- openLink: "maggie-e2e://finance/projects"
+- extendedWaitUntil:
+    visible:
+      id: "projects"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "project_gantt"
+    centerElement: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Moto"
+    timeout: 10000
+- runScript:
+    file: ../scripts/cushion-share-api.js
+    env:
+      ACTION: expect-purchase
+      MONTHS: "3"
+
+# Left as the seed wrote it.
+- runScript:
+    file: ../scripts/cushion-share-api.js
+    env:
+      ACTION: reset

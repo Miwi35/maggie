@@ -26452,6 +26452,20 @@
                         "default": 6,
                         "type": "integer"
                     },
+                    "criticalMonths": {
+                        "minimum": 0,
+                        "maximum": 24,
+                        "description": "Months of spending (the train de vie) the cushion must hold before any\nsaving goes elsewhere: below it, the whole capacity goes to the cushion.",
+                        "default": 2,
+                        "type": "integer"
+                    },
+                    "cushionSharePercent": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "Part of the capacity, in percent, the cushion takes past the critical threshold until it is full.",
+                        "default": 60,
+                        "type": "integer"
+                    },
                     "completedAt": {
                         "description": "First time the target was ever reached — tells building from recharging.",
                         "type": [
@@ -26505,6 +26519,20 @@
                         "maximum": 60,
                         "description": "Months the user would like a recharge to take, before the cap applies.",
                         "default": 6,
+                        "type": "integer"
+                    },
+                    "criticalMonths": {
+                        "minimum": 0,
+                        "maximum": 24,
+                        "description": "Months of spending (the train de vie) the cushion must hold before any\nsaving goes elsewhere: below it, the whole capacity goes to the cushion.",
+                        "default": 2,
+                        "type": "integer"
+                    },
+                    "cushionSharePercent": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "Part of the capacity, in percent, the cushion takes past the critical threshold until it is full.",
+                        "default": 60,
                         "type": "integer"
                     },
                     "completedAt": {
@@ -26564,6 +26592,20 @@
                                 "maximum": 60,
                                 "description": "Months the user would like a recharge to take, before the cap applies.",
                                 "default": 6,
+                                "type": "integer"
+                            },
+                            "criticalMonths": {
+                                "minimum": 0,
+                                "maximum": 24,
+                                "description": "Months of spending (the train de vie) the cushion must hold before any\nsaving goes elsewhere: below it, the whole capacity goes to the cushion.",
+                                "default": 2,
+                                "type": "integer"
+                            },
+                            "cushionSharePercent": {
+                                "minimum": 0,
+                                "maximum": 100,
+                                "description": "Part of the capacity, in percent, the cushion takes past the critical threshold until it is full.",
+                                "default": 60,
                                 "type": "integer"
                             },
                             "completedAt": {
