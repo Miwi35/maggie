@@ -429,7 +429,7 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated, variant = 'dial
         component="aside"
         aria-label="Fiche de la tâche"
         variant="outlined"
-        sx={{ width: 420, maxWidth: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', alignSelf: 'flex-start' }}
+        sx={{ width: { xs: '100%', md: 420 }, flexShrink: 0, display: 'flex', flexDirection: 'column', alignSelf: { md: 'flex-start' } }}
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, pt: 1.5 }}>
           <Typography variant="h6" component="h2">

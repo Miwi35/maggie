@@ -2,11 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { fetchDayPlan } from './dayPlan'
-import { fetchTaskView } from './taskViews'
+import { fetchTaskView, TASK_TOPICS } from './taskViews'
 import type { TaskCounts } from './taskViews'
 
-/** The page's own topics: a task or the day changing moves the menu's numbers. */
-const TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}']
 const NO_TOPICS: string[] = []
 
 /**
@@ -35,7 +33,7 @@ export function useTaskCounts(enabled: boolean): TaskCounts | null {
     if (enabled) load()
   }, [enabled, load])
 
-  useMercure(enabled ? TOPICS : NO_TOPICS, load)
+  useMercure(enabled ? TASK_TOPICS : NO_TOPICS, load)
 
   return enabled ? counts : null
 }

@@ -26,12 +26,9 @@ import { fetchDayReview } from './dayReview'
 import { parseQuickAdd } from './quickAdd'
 import { DEFAULT_CHEER, fetchReward, fetchRewardCheer, parseReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
-import { createTask, fetchTask, fetchTaskView, findTaskView, setTaskDone } from './taskViews'
+import { createTask, fetchTask, fetchTaskView, findTaskView, setTaskDone, TASK_TOPICS } from './taskViews'
 import type { TaskView, ViewTask } from './taskViews'
 
-// The day is published apart from its tasks (MAG-497): a tick moves both. So is the evening's review (MAG-500).
-// The rewards come on the same stream: a palier opens its bravo wherever the page is (MAG-509).
-const TASK_TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}', '/api/day_reviews/{id}', '/api/rewards/{id}']
 const PAGE_SIZE = 30
 
 /** The views of the tasks, each a route (MAG-644), and the routines (MAG-511), which are not tasks. */
@@ -396,7 +393,8 @@ const TasksPage = ({ view }: TasksPageProps) => {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={onTitleKey}
-            disabled={creating}
+            // The day is rewritten with the new task: never from a day that was not read.
+            disabled={creating || (view === 'today' && !day)}
             sx={{ width: { xs: '100%', md: 360 } }}
           />
         )}
@@ -407,7 +405,7 @@ const TasksPage = ({ view }: TasksPageProps) => {
         )}
       </Stack>
 
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'flex-start' }, gap: 3 }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {content}
 

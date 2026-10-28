@@ -391,6 +391,15 @@ describe('CustomMenu — the Tâches views (MAG-644)', () => {
     expect(await screen.findByRole('menuitem', { name: /^Aujourd'hui/ })).toHaveClass('Mui-selected')
   })
 
+  test('reads no number while the page belongs to another module', async () => {
+    stubTasks()
+    renderMenuAt('/stores')
+
+    await screen.findByRole('menuitem', { name: 'Magasins' })
+    const urls = vi.mocked(fetch).mock.calls.map(([url]) => String(url))
+    expect(urls.some((url) => url.includes('/tasks/view/') || url.includes('/day-plans/'))).toBe(false)
+  })
+
   test('draws the entries without a number while the API does not answer', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('down', { status: 503 })))
     renderMenuAt('/tasks')

@@ -451,6 +451,18 @@ describe('TaskBoard', () => {
         expect(screen.getByRole('textbox', { name: 'Ajouter une tâche' })).toHaveValue('')
       })
 
+      test('never rewrites a day it could not read: the field waits for it, and stays off when it fails', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+        mockFetch.mockImplementation((url, init) =>
+          Promise.resolve(String(url).includes('/day-plans/') ? json({ error: 'boom' }, 500) : respond(String(url), init)),
+        )
+        render(<TaskBoard />)
+
+        await screen.findByRole('alert')
+        expect(await field()).toBeDisabled()
+        expect(calls('PUT')).toHaveLength(0)
+      })
+
       test('« Appeler le garage demain » is the task « Appeler le garage », due tomorrow, and not in today', async () => {
         const user = setup()
         render(<TaskBoard />)
