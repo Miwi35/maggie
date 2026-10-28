@@ -72,6 +72,10 @@ final class RecipeIngredientsPayload
             $line['ciqualAlimCode'] = $item['ciqualAlimCode'];
         }
 
+        if (!isset($line['ingredientId']) && !isset($line['ciqualAlimCode'])) {
+            throw new BadRequestHttpException('Each ingredient must have either ingredient or ciqualAlimCode.');
+        }
+
         return $line;
     }
 
