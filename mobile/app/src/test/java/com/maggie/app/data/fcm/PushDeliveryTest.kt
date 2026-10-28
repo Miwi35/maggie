@@ -86,7 +86,7 @@ class PushDeliveryTest {
 
     @Test
     fun `a departure alert whose event has started is shown nowhere, delivered 18 hours late`() {
-        PushDelivery(center, { notifier }, isForeground = { true }, now = { now }).deliver(departure("2026-10-27T18:00:00Z"))
+        PushDelivery(center, { notifier }, noCar(), isForeground = { true }, now = { now }).deliver(departure("2026-10-27T18:00:00Z"))
 
         assertNull(center.current.value)
         verify(exactly = 0) { notifier.show(any(), any(), any()) }
@@ -96,7 +96,7 @@ class PushDeliveryTest {
     fun `a departure alert is shown until its event starts`() {
         val valid = departure("2026-10-28T12:30:00Z")
 
-        PushDelivery(center, { notifier }, isForeground = { false }, now = { now }).deliver(valid)
+        PushDelivery(center, { notifier }, noCar(), isForeground = { false }, now = { now }).deliver(valid)
 
         verify(exactly = 1) { notifier.show(valid, any(), any()) }
     }
@@ -105,7 +105,7 @@ class PushDeliveryTest {
     fun `an alert without an expiry is always shown`() {
         val open = departure(null)
 
-        PushDelivery(center, { notifier }, isForeground = { false }, now = { now }).deliver(open)
+        PushDelivery(center, { notifier }, noCar(), isForeground = { false }, now = { now }).deliver(open)
 
         verify(exactly = 1) { notifier.show(open, any(), any()) }
     }
