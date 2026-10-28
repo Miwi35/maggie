@@ -134,7 +134,7 @@ class FinanceHomeCardScreenTest {
 
         compose.onNodeWithTag(UiTags.HOME_FINANCE_NEXT_PROJECT).assertIsDisplayed()
         compose.onNodeWithText("Salle de bain").assertIsDisplayed()
-        compose.onNodeWithText("0 / 9\u202F000\u00A0€ · au-delà de 36 mois").assertIsDisplayed()
+        compose.onNodeWithText("0 / 9\u202F000\u00A0€ · au-delà de 3 ans").assertIsDisplayed()
     }
 
     @Test

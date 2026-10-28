@@ -141,7 +141,13 @@ private fun CurrentTab(
                     }
                     item { RhythmCurvePanel(week = scores.week.rhythm, month = scores.month.rhythm) }
                 }
-                dashboard.nextProject?.let { project -> item { NextProjectCard(project) } }
+                val planned = dashboard.nextProject
+                val beyond = dashboard.projectBeyondHorizon
+                if (planned != null) {
+                    item { NextProjectCard(planned) }
+                } else if (beyond != null) {
+                    item { NextProjectBeyondHorizonCard(beyond) }
+                }
             } else {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {

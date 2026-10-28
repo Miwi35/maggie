@@ -67,6 +67,16 @@ describe('FinanceDashboardPage', () => {
     expect(screen.queryByTestId('next-project-card')).not.toBeInTheDocument()
   })
 
+  test('names the first project beyond the horizon when none lands inside it', async () => {
+    const beyond = { projectId: 'p9', name: 'Salle de bain', amountCents: 900000, gatheredCents: 0, horizonMonths: 36 }
+    stubApi(dashboardFixture({ nextProject: null, projectBeyondHorizon: beyond }))
+    renderPage()
+
+    const card = await screen.findByTestId('next-project-card')
+    expect(card).toHaveTextContent('Salle de bain')
+    expect(screen.getByTestId('next-project-date')).toHaveTextContent('au-delà de 3 ans')
+  })
+
   test('shows no negative return when nothing moves back', async () => {
     stubApi(dashboardFixture({ nextProject: nextProjectFixture({ delay: null }) }))
     renderPage()

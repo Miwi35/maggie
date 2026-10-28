@@ -30,6 +30,7 @@ const RingCard = ({ period, title, dashboard }: { period: 'week' | 'month'; titl
  */
 export const CurrentStateTab = ({ dashboard, now = new Date() }: { dashboard: FinanceDashboard; now?: Date }) => {
   const syncedAt = useLastBankSync()
+  const project = dashboard.nextProject ?? dashboard.projectBeyondHorizon
 
   return (
     <>
@@ -43,9 +44,7 @@ export const CurrentStateTab = ({ dashboard, now = new Date() }: { dashboard: Fi
       <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 2, alignItems: 'stretch', mb: 2 }}>
         <RingCard period="week" title="Semaine" dashboard={dashboard} />
         <RingCard period="month" title="Mois" dashboard={dashboard} />
-        {dashboard.nextProject && (
-          <NextProjectCard project={dashboard.nextProject} sx={{ flex: '2 1 360px', mb: 0 }} />
-        )}
+        {project && <NextProjectCard project={project} sx={{ flex: '2 1 360px', mb: 0 }} />}
       </Stack>
 
       <Card sx={{ mb: 2 }} data-testid="month-spending-card">

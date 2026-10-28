@@ -10,7 +10,7 @@ import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
 import { formatCents } from './accountTypes'
-import { purchaseLabel } from './nextProject'
+import { durationLabel, purchaseLabel } from './nextProject'
 import { reviewLink } from './reviewFilter'
 import { useFinanceCardState } from './useFinanceCardState'
 import { ringShares } from './useFinanceScores'
@@ -155,7 +155,7 @@ const NextProject = ({ project }: { project: HomeNextProject }) => {
           {project.name}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-          {project.purchaseMonth ? purchaseLabel(project.purchaseMonth) : `au-delà de ${project.horizonMonths} mois`}
+          {project.purchaseMonth ? purchaseLabel(project.purchaseMonth) : `au-delà de ${durationLabel(project.horizonMonths)}`}
         </Typography>
       </Stack>
       <Typography variant="caption" color="text.secondary">

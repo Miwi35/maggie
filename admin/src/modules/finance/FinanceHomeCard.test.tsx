@@ -212,7 +212,7 @@ describe('FinanceHomeCard', () => {
     expect(screen.getAllByTestId('home-finance-ring')).toHaveLength(2)
   })
 
-  test('shows the first project with « au-delà de 36 mois » when none lands inside the horizon', async () => {
+  test('shows the first project with « au-delà de 3 ans » when none lands inside the horizon', async () => {
     const beyond = { projectId: 'p2', name: 'Salle de bain', amountCents: 900000, gatheredCents: 0, horizonMonths: 36 }
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(dashboard({ nextProject: null, projectBeyondHorizon: beyond }))))
     renderCard()
@@ -220,7 +220,8 @@ describe('FinanceHomeCard', () => {
     const project = await screen.findByTestId('home-finance-next-project')
 
     expect(project).toHaveTextContent('Salle de bain')
-    expect(project).toHaveTextContent('au-delà de 36 mois')
+    expect(project).toHaveTextContent('au-delà de 3 ans')
+    expect(project).not.toHaveTextContent('36 mois')
     expect(project.textContent).toMatch(/0,00\s€ sur 9\s000,00\s€/)
   })
 

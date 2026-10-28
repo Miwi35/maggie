@@ -93,6 +93,17 @@ class FinanceHomeTest {
         val beyond = FinanceHomeProject("p2", "Salle de bain", 900000, 0, null, 36)
 
         assertEquals("740 / 1\u202F200\u00A0€ · mars 2027", planned.progressLabel { "mars 2027" })
-        assertEquals("0 / 9\u202F000\u00A0€ · au-delà de 36 mois", beyond.progressLabel { error("no month") })
+        assertEquals("0 / 9\u202F000\u00A0€ · au-delà de 3 ans", beyond.progressLabel { error("no month") })
+    }
+
+    @Test
+    fun `a duration is said in years and months, never 36 mois`() {
+        assertEquals("3 ans", durationLabel(36))
+        assertEquals("1 an et 4 mois", durationLabel(16))
+        assertEquals("1 an et 1 mois", durationLabel(13))
+        assertEquals("1 an", durationLabel(12))
+        assertEquals("8 mois", durationLabel(8))
+        assertEquals("1 mois", durationLabel(1))
+        assertEquals("3 ans et 4 mois", durationLabel(40))
     }
 }

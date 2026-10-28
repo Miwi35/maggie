@@ -236,9 +236,9 @@ export interface FinanceDashboard {
   /** The rings and the curve of the month shown: same payload as `/api/finance/scores`. */
   scores: FinanceScores
   tiles: DashboardTiles
-  /** Null with no project, or when none lands inside the 36 months: the block is hidden. */
+  /** Null with no project, or when none lands inside the 36 months (see `projectBeyondHorizon`). */
   nextProject: NextProject | null
-  /** The first project when none lands inside the horizon (cushion being built): only the Accueil card shows it. */
+  /** The first project when none lands inside the horizon (cushion being built): the cards show it « au-delà de 3 ans ». */
   projectBeyondHorizon: ProjectBeyondHorizon | null
   todo: DashboardTodo
 }
