@@ -5,8 +5,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,14 +28,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.FinanceHomeProject
 import com.maggie.app.data.model.FinanceHomeRing
@@ -95,17 +92,11 @@ internal fun FinanceHomeCardContent(ui: FinanceHomeUiState, onOpen: () -> Unit, 
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FinanceHomeBody(state: FinanceHomeState, onOpen: () -> Unit) {
     // One compact row, as the mock-up draws it: the two rings, then what waits to be qualified at the far end.
     // On a narrow phone the pill goes under the rings, whole, rather than cut beside them (MAG-675).
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = SpaceBetweenAtLeast12,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
+    RingsAndPill(modifier = Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             FinanceHomeRingView("Semaine", "week", state.week)
             FinanceHomeRingView("Mois", "month", state.month)
@@ -122,12 +113,35 @@ private fun FinanceHomeBody(state: FinanceHomeState, onOpen: () -> Unit) {
     state.nextProject?.let { FinanceHomeNextProject(it) }
 }
 
-/** The rings at the start and the pill at the far end, never closer than 12 dp: closer, the pill goes to the next line. */
-private val SpaceBetweenAtLeast12 = object : Arrangement.Horizontal {
-    override val spacing = 12.dp
-
-    override fun Density.arrange(totalSize: Int, sizes: IntArray, layoutDirection: LayoutDirection, outPositions: IntArray) =
-        with(Arrangement.SpaceBetween) { arrange(totalSize, sizes, layoutDirection, outPositions) }
+/**
+ * The rings at the start and the pill at the far end when it fits beside them with 12 dp to spare, else the pill under
+ * the rings. The pill is measured at its natural width first: a FlowRow hands it the room left on the line, which
+ * clips its single-line text instead of moving it down.
+ */
+@Composable
+private fun RingsAndPill(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val rings = measurables[0].measure(loose)
+        val pill = measurables.getOrNull(1)?.measure(loose)
+        val gap = 12.dp.roundToPx()
+        val width = constraints.maxWidth
+        val beside = pill == null || rings.width + gap + pill.width <= width
+        val height = when {
+            pill == null -> rings.height
+            beside -> maxOf(rings.height, pill.height)
+            else -> rings.height + 8.dp.roundToPx() + pill.height
+        }
+        layout(width, height) {
+            if (pill != null && beside) {
+                rings.placeRelative(0, (height - rings.height) / 2)
+                pill.placeRelative(width - pill.width, (height - pill.height) / 2)
+            } else {
+                rings.placeRelative(0, 0)
+                pill?.placeRelative(0, rings.height + 8.dp.roundToPx())
+            }
+        }
+    }
 }
 
 @Composable
