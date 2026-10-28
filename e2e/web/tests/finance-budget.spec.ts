@@ -79,7 +79,10 @@ test('the annual envelope is consumed by the whole year, the monthly one by its 
   await budget.open()
 
   // « Mois » first: the month's budget, as the tree of its envelopes (MAG-632).
-  expect(await budget.gaugedCategories()).toEqual(['Courses', 'Loisirs'])
+  expect(
+    await budget.gaugedCategories(),
+    'Loisirs has an annual envelope only: it is on « Hors budget », not in the month',
+  ).toEqual(['Courses'])
   await expect(budget.node('Courses')).toHaveAttribute('data-has-envelope', 'true')
   await expect(budget.node('Courses')).toContainText(`/ ${euros(COURSES_BUDGET_CENTS)}`)
   await expect(

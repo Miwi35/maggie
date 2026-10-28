@@ -18,7 +18,7 @@ export class FinancePeerDebtsPage extends AdminShell {
 
   constructor(page: Page) {
     super(page)
-    this.heading = this.content.getByRole('heading', { name: 'Créances et dettes' })
+    this.heading = this.content.getByRole('heading', { name: 'Créances et dettes', level: 2 })
     this.owedToMeTile = this.content.getByTestId('tile-owed-to-me')
     this.iOweTile = this.content.getByTestId('tile-i-owe')
     this.byPersonSwitch = this.content.getByRole('button', { name: 'Par personne' })
