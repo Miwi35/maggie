@@ -46,6 +46,13 @@ class TestParsingScenarios:
         assert len(scenario.steps) == 1
         assert scenario.steps[0].expected_tools == ["get_upcoming_events"]
 
+    def test_a_scenario_is_written_text_unless_it_says_spoken(self):
+        written = parse_scenario({"name": "a", "user_message": "salut"}, source="a.yaml")
+        spoken = parse_scenario({"name": "b", "spoken": True, "user_message": "salut"}, source="b.yaml")
+
+        assert written.spoken is False
+        assert spoken.spoken is True
+
     def test_the_multi_turn_shape(self):
         scenario = parse_scenario(
             {

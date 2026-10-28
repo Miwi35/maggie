@@ -67,7 +67,7 @@ data class SettingsUiState(
     val preferences: UserPreference? = null,
     val agendas: List<Agenda> = emptyList(),
     val ttsVoices: List<TtsVoice> = emptyList(),
-    val selectedTtsVoice: String = "fr-FR-DeniseNeural",
+    val selectedTtsVoice: String = "6vTyAgAT8PncODBcLjRf",
     /** What the agent's settings are called: the name the user gave her, « Maggie » by default (MAG-329). */
     val agentName: String = DEFAULT_AGENT_NAME,
     val isLoading: Boolean = false,
@@ -137,7 +137,7 @@ class SettingsViewModel(
                 val prefResult = userPreferenceRepository.refresh()
                 val agendas = agendaRepository.getAgendas()
                 val ttsVoices = try { apiService.getTtsVoices() } catch (_: Exception) { emptyList() }
-                val selectedVoice = try { apiService.getTtsVoice() } catch (_: Exception) { "fr-FR-DeniseNeural" }
+                val selectedVoice = try { apiService.getTtsVoice() } catch (_: Exception) { "6vTyAgAT8PncODBcLjRf" }
                 val agentName = try { apiService.getAgentName().trim() } catch (_: Exception) { "" }
                 _uiState.value = _uiState.value.copy(
                     user = user,

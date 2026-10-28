@@ -33,10 +33,19 @@ class Settings(BaseSettings):
     # the real API (MAG-94).
     openai_base_url: str = ""
 
-    # Speech synthesis. "edge" reaches Microsoft over a WebSocket the library
-    # opens itself, which no base URL can redirect — so the e2e stack switches
-    # provider instead, to one that returns a fixed silent clip.
-    tts_provider: str = "edge"
+    # Speech synthesis (ADR-014). "elevenlabs" speaks with the voice the user picked — Claire by
+    # default — and falls back on Edge for a sentence when ElevenLabs fails; "edge" forces Edge.
+    # Edge reaches Microsoft over a WebSocket the library opens itself, which no base URL can
+    # redirect — so the e2e stack switches provider instead, to "fake": a fixed silent clip.
+    tts_provider: str = "elevenlabs"
+    # Empty means no ElevenLabs account configured: every sentence goes to Edge.
+    elevenlabs_api_key: str = ""
+    elevenlabs_base_url: str = "https://api.elevenlabs.io"
+    # v4 for a voice message (quality), v4 Turbo for the live voice (latency).
+    elevenlabs_model_file: str = "eleven_v4"
+    elevenlabs_model_live: str = "eleven_v4_turbo"
+    # How long ElevenLabs may take to start answering before the sentence goes to Edge.
+    elevenlabs_timeout_seconds: float = 8.0
 
     # Token of the e2e-only surface (`app/e2e.py`), the same `E2E_LOGIN_TOKEN` the API's
     # test login takes. Empty keeps it closed even under TTS_PROVIDER=fake.

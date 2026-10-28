@@ -9,7 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from aiohttp import WSServerHandshakeError
 
-from app.tts.synthesis import SILENT_MP3_FRAME, SpeechUnavailableError, synthesize_speech
+from app.tts.providers import SILENT_MP3_FRAME, SpeechUnavailableError
+from app.tts.synthesis import synthesize_speech
 
 
 async def collect(text: str) -> list[bytes]:
@@ -20,7 +21,7 @@ class TestFakeProvider:
     async def test_fake_provider_never_touches_edge_tts(self, monkeypatch):
         monkeypatch.setattr("app.tts.synthesis.settings.tts_provider", "fake")
 
-        with patch("app.tts.synthesis.edge_tts.Communicate") as communicate:
+        with patch("app.tts.providers.edge_tts.Communicate") as communicate:
             chunks = await collect("Bonjour, je suis Maggie.")
 
         communicate.assert_not_called()
@@ -56,7 +57,7 @@ class TestDefaultProvider:
         communicate = MagicMock()
         communicate.stream = fake_stream
 
-        with patch("app.tts.synthesis.edge_tts.Communicate", return_value=communicate) as factory:
+        with patch("app.tts.providers.edge_tts.Communicate", return_value=communicate) as factory:
             chunks = await collect("Bonjour.")
 
         factory.assert_called_once()
@@ -92,25 +93,25 @@ class TestRefusedHandshake:
 
     async def test_a_single_refusal_is_retried(self, monkeypatch):
         monkeypatch.setattr("app.tts.synthesis.settings.tts_provider", "edge")
-        monkeypatch.setattr("app.tts.synthesis.asyncio.sleep", AsyncMock())
+        monkeypatch.setattr("app.tts.providers.asyncio.sleep", AsyncMock())
         factory = RefusingThenAnswering(refusals=1)
-        monkeypatch.setattr("app.tts.synthesis.edge_tts.Communicate", factory)
+        monkeypatch.setattr("app.tts.providers.edge_tts.Communicate", factory)
 
         assert await collect("Bonjour.") == [b"real-audio"]
         assert factory.attempts == 2
 
     async def test_a_persistent_refusal_is_reported_as_unavailable_speech(self, monkeypatch):
         monkeypatch.setattr("app.tts.synthesis.settings.tts_provider", "edge")
-        monkeypatch.setattr("app.tts.synthesis.asyncio.sleep", AsyncMock())
-        monkeypatch.setattr("app.tts.synthesis.edge_tts.Communicate", RefusingThenAnswering(refusals=99))
+        monkeypatch.setattr("app.tts.providers.asyncio.sleep", AsyncMock())
+        monkeypatch.setattr("app.tts.providers.edge_tts.Communicate", RefusingThenAnswering(refusals=99))
 
         with pytest.raises(SpeechUnavailableError):
             await collect("Bonjour.")
 
     def test_the_route_answers_502_instead_of_a_broken_200(self, monkeypatch, authed_client):
         monkeypatch.setattr("app.tts.synthesis.settings.tts_provider", "edge")
-        monkeypatch.setattr("app.tts.synthesis.asyncio.sleep", AsyncMock())
-        monkeypatch.setattr("app.tts.synthesis.edge_tts.Communicate", RefusingThenAnswering(refusals=99))
+        monkeypatch.setattr("app.tts.providers.asyncio.sleep", AsyncMock())
+        monkeypatch.setattr("app.tts.providers.edge_tts.Communicate", RefusingThenAnswering(refusals=99))
 
         response = authed_client.post("/tts/synthesize", json={"text": "Bonjour."})
 
@@ -118,7 +119,7 @@ class TestRefusedHandshake:
 
     def test_the_route_still_streams_audio_when_the_handshake_succeeds(self, monkeypatch, authed_client):
         monkeypatch.setattr("app.tts.synthesis.settings.tts_provider", "edge")
-        monkeypatch.setattr("app.tts.synthesis.edge_tts.Communicate", RefusingThenAnswering(refusals=0))
+        monkeypatch.setattr("app.tts.providers.edge_tts.Communicate", RefusingThenAnswering(refusals=0))
 
         response = authed_client.post("/tts/synthesize", json={"text": "Bonjour."})
 

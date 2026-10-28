@@ -28,6 +28,7 @@ CLAIM_GUARD_RETRY = "claim_guard_retry"
 MCP_TOOL_ERROR = "mcp_tool_error"
 PROACTION_FAILED = "proaction_failed"
 UNANSWERED_MESSAGE = "unanswered_message"
+TTS_FALLBACK = "tts_fallback"
 
 
 def _credit_exhausted(hint: dict) -> bool:

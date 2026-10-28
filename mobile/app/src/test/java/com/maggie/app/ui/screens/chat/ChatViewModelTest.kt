@@ -1787,6 +1787,42 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `a message said aloud asks the agent for a spoken answer, again on retry (MAG-689)`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        val spoken = mutableListOf<Boolean>()
+        var calls = 0
+        every {
+            repository.sendMessageStream("quoi de neuf ?", any(), any(), any(), any(), capture(spoken))
+        } answers {
+            if (++calls == 1) flowOf(AgUiEvent.Error("HTTP 502")) else streamedAnswer("resp-1", "Bonjour monsieur.")
+        }
+        coEvery { repository.fetchMessagesAfter(any()) } returns emptyList()
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.sendMessage("quoi de neuf ?", spoken = true)
+        advanceUntilIdle()
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertEquals(listOf(true, true), spoken)
+    }
+
+    @Test
+    fun `a typed message is answered as written text`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Bonjour", any(), any()) } returns streamedAnswer("resp-1", "Salut!")
+        coEvery { repository.fetchMessagesAfter(any()) } returns emptyList()
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.sendMessage("Bonjour")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("Bonjour", any(), any(), any(), any(), false) }
+    }
+
+    @Test
     fun `a second failure shows the mention and its button again`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()

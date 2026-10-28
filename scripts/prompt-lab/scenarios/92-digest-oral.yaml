@@ -1,0 +1,20 @@
+# The digest, said aloud: she writes for the ear (MAG-689, ADR-014).
+#
+# The request says the answer is for the voice. The model has to turn the day into a few
+# spoken sentences in the owner's tone — the smiling assistant whose boss is the user — not
+# read out a markdown list. The delivery tags are what ElevenLabs acts on; Edge strips them.
+name: digest-oral
+description: Asked for her day by voice, she answers in spoken sentences, in a warm and respectful tone, with no list, no markdown and no emoji.
+channel: chat
+spoken: true
+
+steps:
+  - user_message: "Maggie, fais-moi le point sur ma journée."
+    expected_absent: ["**", "##", "\n- ", "\n* ", "1."]
+    expected_behavior: >
+      Elle répond en phrases courtes faites pour être dites à voix haute, sans liste à puces ni numérotation,
+      sans markdown ni emoji. Elle vouvoie l'utilisateur, l'appelle « monsieur » et reste chaleureuse, douce et
+      positive, sans familiarité ni taquinerie ; elle propose (« je vous propose », « je me suis permis »)
+      plutôt qu'elle n'impose. Elle peut glisser une ou deux indications de ton entre crochets, comme
+      [warmly] ou [softly], au début d'une phrase, jamais à chaque phrase. Les heures et les dates sont écrites
+      comme on les dit (« neuf heures trente », « demain matin »).
