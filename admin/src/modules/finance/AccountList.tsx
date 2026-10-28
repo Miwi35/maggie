@@ -20,6 +20,7 @@ import AddIcon from '@mui/icons-material/Add'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { LiveList } from '../../components/list/LiveList'
 import type { LiveConfig } from '../../hooks/liveList'
+import { isCushionAccount } from './accountCushion'
 import { ACCOUNT_TYPE_LABELS } from './accountTypes'
 import { Amount } from './AmountField'
 import { syncedLabel } from './dashboardHeader'
@@ -121,7 +122,7 @@ const AccountCard = ({ account, onDelete }: { account: RaRecord; onDelete: (acco
           </KebabMenu>
         </Stack>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2 }}>
-          <Box>{account.isCushion === true && <Chip size="small" color="primary" variant="outlined" label="Matelas" />}</Box>
+          <Box>{isCushionAccount(account) && <Chip size="small" color="primary" variant="outlined" label="Matelas" />}</Box>
           <Typography variant="h6" component="p">
             <Amount cents={account.balanceCents as number} currency={account.currency as string} bold />
           </Typography>
