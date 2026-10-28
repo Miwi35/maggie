@@ -79,8 +79,9 @@ export class FinanceCushionPage extends AdminShell {
     return this.summary.getByTestId('cushion-share-rule')
   }
 
-  /** Sets « Part du matelas (%) » and saves, waiting for the write and the remount (see {@link setTargetMonths}). */
+  /** Opens « Régler », sets « Part du matelas (%) » and saves, waiting for the write (see {@link setTargetMonths}). */
   async setSharePercent(percent: number): Promise<void> {
+    await this.openSettings()
     await this.settings.getByLabel('Part du matelas (%)').fill(String(percent))
     await Promise.all([
       this.page.waitForResponse(
@@ -90,6 +91,6 @@ export class FinanceCushionPage extends AdminShell {
       ),
       this.save.click(),
     ])
-    await expect(this.settings.getByLabel('Part du matelas (%)')).toHaveValue(String(percent))
+    await expect(this.settings).toBeHidden()
   }
 }
