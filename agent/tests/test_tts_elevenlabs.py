@@ -125,6 +125,7 @@ class TestEdgeSpeaksWhenElevenLabsCannot:
             (httpx.ConnectTimeout("slow"), "timeout"),
             (httpx.ReadTimeout("slow"), "timeout"),
             (httpx.ConnectError("down"), "error"),
+            (httpx.Response(200, content=b""), "empty"),
         ],
     )
     async def test_the_sentence_is_spoken_by_edge_without_an_exception(self, failure, reason, edge):
@@ -313,3 +314,9 @@ class TestDeliveryTags:
     )
     def test_the_words_around_a_tag_stay_readable(self, spoken, plain):
         assert strip_delivery_tags(spoken) == plain
+
+    async def test_a_sentence_made_only_of_tags_is_not_sent_to_edge(self, monkeypatch, edge):
+        monkeypatch.setattr("app.tts.synthesis.settings.tts_provider", "edge")
+
+        assert await collect("[warmly]") == b""
+        assert edge.spoken == []

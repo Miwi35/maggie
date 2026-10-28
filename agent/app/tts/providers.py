@@ -78,6 +78,8 @@ class EdgeProvider:
 
     async def stream(self, text: str, voice: str, usage: Usage) -> AsyncGenerator[bytes, None]:
         text = strip_delivery_tags(text)
+        if not text.strip():
+            return
         for attempt in range(1, HANDSHAKE_ATTEMPTS + 1):
             communicate = edge_tts.Communicate(text, voice)
             started = False
@@ -136,6 +138,8 @@ class ElevenLabsProvider:
                     if chunk:
                         started = True
                         yield chunk
+                if not started:
+                    raise ProviderFailedError("empty", "no audio in a 200 response")
         except httpx.TimeoutException as exc:
             raise ProviderFailedError("timeout") from exc
         except httpx.HTTPError as exc:

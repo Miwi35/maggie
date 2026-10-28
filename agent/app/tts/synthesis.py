@@ -8,6 +8,7 @@ with a log and a GlitchTip signal: Maggie is never mute.
 
 import logging
 from collections.abc import AsyncGenerator
+from contextlib import aclosing
 
 from app.config import settings
 from app.error_tracking import TTS_FALLBACK, capture_signal
@@ -97,15 +98,17 @@ async def synthesize_speech(
         voice = _edge_voice(voice)
 
     if provider is not _elevenlabs:
-        async for chunk in provider.stream(text, voice, usage):
-            yield chunk
+        async with aclosing(provider.stream(text, voice, usage)) as chunks:
+            async for chunk in chunks:
+                yield chunk
         return
 
     started = False
     try:
-        async for chunk in provider.stream(text, voice, usage):
-            started = True
-            yield chunk
+        async with aclosing(provider.stream(text, voice, usage)) as chunks:
+            async for chunk in chunks:
+                started = True
+                yield chunk
         return
     except Exception as exc:
         # Mid-stream the audio is already on its way: the sentence cannot be started over.
@@ -116,8 +119,9 @@ async def synthesize_speech(
     TTS_FALLBACKS.labels(provider=provider.name, reason=reason).inc()
     capture_signal(TTS_FALLBACK, provider=provider.name, reason=reason)
 
-    async for chunk in _edge.stream(text, _edge_voice(voice), usage):
-        yield chunk
+    async with aclosing(_edge.stream(text, _edge_voice(voice), usage)) as chunks:
+        async for chunk in chunks:
+            yield chunk
 
 
 async def synthesize_file(text: str, voice: str = DEFAULT_VOICE) -> bytes:
