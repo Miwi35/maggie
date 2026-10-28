@@ -50,6 +50,27 @@ describe('readFeedMessage', () => {
   })
 })
 
+describe('a finished proaction (MAG-680)', () => {
+  const finished = { id: 'p1', status: 'completed', response: 'Ton colis est arrivé.' }
+
+  test('an ordinary one is an interruption', () => {
+    expect(readFeedMessage(JSON.stringify({ ...finished, silent: false }))).toEqual({
+      kind: 'interrupt',
+      interruption: { source: 'proaction', id: 'proaction:p1', ref: 'p1', message: 'Ton colis est arrivé.' },
+    })
+  })
+
+  test('one the agent did not flag is still an interruption', () => {
+    expect(readFeedMessage(JSON.stringify(finished))).toMatchObject({ kind: 'interrupt' })
+  })
+
+  test('a silent one (replan, departure check) is a log, never an interruption', () => {
+    const answer = 'La replanification est terminée : rien à recalculer, monsieur.'
+
+    expect(readFeedMessage(JSON.stringify({ ...finished, summary: 'Replanifier les trajets', response: answer, silent: true }))).toBeNull()
+  })
+})
+
 describe('a missing product (MAG-570)', () => {
   const shortage = {
     '@id': '/api/notifications/n9',

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
 import respx
 
 from app.db.context_model import ContextStatus
@@ -289,7 +290,12 @@ class Consumed:
 
 
 async def _consume(
-    result: dict | Exception, *, proaction_id: str = "pro-1", prompt: str = "Rappelle-lui d'appeler le plombier", body: bytes | None = None
+    result: dict | Exception,
+    *,
+    proaction_id: str = "pro-1",
+    prompt: str = "Rappelle-lui d'appeler le plombier",
+    summary: str | None = None,
+    body: bytes | None = None,
 ):
     """Run the queue callback once over a claimed proaction whose gateway returns `result`."""
     from app.queue.proaction_consumer import start_consumer
@@ -301,6 +307,8 @@ async def _consume(
         gateway_instance.proaction = AsyncMock(return_value=result)
 
     claimed = API_PROACTION | {"id": proaction_id, "prompt": prompt, "status": "running"}
+    if summary is not None:
+        claimed["summary"] = summary
     message = MagicMock()
     message.body = body if body is not None else json.dumps(claimed).encode()
     message.process = MagicMock(return_value=MagicMock(__aenter__=AsyncMock(), __aexit__=AsyncMock()))
@@ -412,6 +420,19 @@ class TestProactionConsumer:
         topic, data = consumed.publisher.publish.await_args.args
         assert topic.endswith("proactions/user-1")
         assert (data["id"], data["status"], data["response"]) == ("pro-1", "completed", "Pense au plombier.")
+
+    async def test_an_ordinary_run_is_told_to_the_screens_as_not_silent(self):
+        consumed = await _consume({"response": "Pense au plombier.", "tool_calls": []})
+
+        assert consumed.publisher.publish.await_args.args[1]["silent"] is False
+
+    @pytest.mark.parametrize("summary", ["Replanifier les trajets", "Check départ · Dentiste"])
+    async def test_a_trip_replan_or_check_is_told_to_the_screens_as_silent(self, summary):
+        """MAG-680: its answer is a log; the admin must not turn it into an interruption."""
+        consumed = await _consume({"response": "Rien à recalculer.", "tool_calls": []}, summary=summary)
+
+        data = consumed.publisher.publish.await_args.args[1]
+        assert (data["status"], data["silent"]) == ("completed", True)
 
     async def test_a_summary_that_fails_does_not_turn_a_delivered_message_into_a_failure(self):
         from app.queue.proaction_consumer import execute_proaction

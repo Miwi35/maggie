@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from app.mcp.client import NO_RESPONSE_ERROR, mcp_client
+from app.trips import is_silent_trip_run
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,9 @@ class Proaction:
 
     def to_dict(self) -> dict:
         """What `GET /agent/proactions` and the `proactions` Mercure topic carry: their former shape, but
-        `createdAt`, which the API does not describe (the screens move to the agenda in MAG-328)."""
+        `createdAt`, which the API does not describe (the screens move to the agenda in MAG-328).
+
+        `silent` (MAG-680) tells the screens the run is a log, not a message: a trip check or replan."""
         return {
             "id": self.id,
             "userId": self.user_id,
@@ -70,6 +73,7 @@ class Proaction:
             "response": self.response,
             "error": self.error,
             "completedAt": self.completed_at,
+            "silent": is_silent_trip_run(self.summary),
         }
 
 
