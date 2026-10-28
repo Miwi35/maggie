@@ -18,6 +18,8 @@ import com.maggie.app.data.fcm.FcmTokenSource
 import com.maggie.app.data.fcm.FirebaseTokenSource
 import com.maggie.app.data.fcm.PushActionHandler
 import com.maggie.app.data.fcm.PushChannels
+import com.maggie.app.data.car.CarMessages
+import com.maggie.app.data.car.SharedCarConnection
 import com.maggie.app.data.fcm.PushDelivery
 import com.maggie.app.data.fcm.PushNotifier
 import com.maggie.app.data.fcm.PushTokenRegistrar
@@ -328,7 +330,8 @@ class MaggieApp : Application() {
             single { LocationReporter(get(), get(), get(), get()) }
             single { ParkingDetector(get()) }
             single<LocationUpdates> { GmsLocationUpdates(androidContext()) }
-            single<CarConnectionSource> { AndroidCarConnection(androidContext()) }
+            single { SharedCarConnection(AndroidCarConnection(androidContext()), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
+            single<CarConnectionSource> { get<SharedCarConnection>() }
             single<BatteryLevel> { AndroidBatteryLevel(androidContext()) }
             single { TripTracker(get(), get(), get(), get(), get(), get()) }
             single<TripLauncher> { AndroidTripLauncher(androidContext(), get(), get()) }
@@ -337,12 +340,23 @@ class MaggieApp : Application() {
             single { DepartureTracking(get(), get(), get()) }
 
             // Interruption (MAG-314): Maggie speaks inside the app while it is open
-            single { InterruptionCenter() }
+            single {
+                val notifier = { PushNotifier(androidContext()) }
+                val connection = get<SharedCarConnection>()
+                CarMessages(
+                    isConnected = { connection.isConnected },
+                    post = { payload, nudge -> notifier().show(payload, inCar = true, nudge = nudge) },
+                    isShowing = { tag -> notifier().isShowing(tag) },
+                    scheduleNudge = { payload, delayMs -> notifier().scheduleNudge(payload, delayMs) },
+                    cancelNudge = { payload -> notifier().cancelNudge(payload) },
+                )
+            }
+            single { InterruptionCenter(car = get()) }
             single { InterruptionPreferences(androidContext()) }
             single<InterruptionAlert> { AndroidInterruptionAlert(androidContext(), get()) }
             single<RewardFeedback> { AndroidRewardFeedback(androidContext()) }
             single { TaskRewards(get(), get()) }
-            single { PushDelivery(get(), { PushNotifier(androidContext()) }) }
+            single { PushDelivery(get(), { PushNotifier(androidContext()) }, get()) }
             single { InterruptionFeed(get(), get(), get(), get(), clearSystem = { PushNotifier(androidContext()).close(it) }) }
 
             // Repositories
@@ -504,6 +518,12 @@ class MaggieApp : Application() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { get<DepartureTracking>().follow(authRepository.isAuthenticated) }
         // A trip under way when the app starts, or a car that connects while it lives, brings the GPS service up.
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { get<TripWatcher>().watch() }
+        // The car going away brings back, on the phone, what Maggie said there and nobody answered (MAG-683).
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            val car = get<CarMessages>()
+            val delivery = get<PushDelivery>()
+            get<SharedCarConnection>().connected.collect { connected -> if (!connected) delivery.backOnPhone(car.left()) }
+        }
         keepInterruptionsFed(get<InterruptionFeed>(), get<InterruptionCenter>(), authRepository)
         keepCalendarCacheFed(get<CalendarCacheFeed>(), authRepository)
         removeListeningLeftovers()

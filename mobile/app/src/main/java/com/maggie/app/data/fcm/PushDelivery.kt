@@ -2,17 +2,21 @@ package com.maggie.app.data.fcm
 
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.maggie.app.data.car.CarMessages
 import com.maggie.app.data.interruption.InterruptionCenter
+import com.maggie.app.data.interruption.interrupts
 import java.time.Instant
 
 /**
  * Where a push goes once it reaches the app (MAG-314): with the app open, Maggie interrupts
  * inside it and the system shows nothing; otherwise it is the system notification. Never both,
- * so a message is never said twice.
+ * so a message is never said twice. In the car (MAG-683) every message is the conversation notification the car reads,
+ * the app open or not.
  */
 class PushDelivery(
     private val center: InterruptionCenter,
     private val notifier: () -> PushNotifier,
+    private val car: CarMessages,
     private val isForeground: () -> Boolean = ::appIsForeground,
     private val now: () -> Instant = Instant::now,
 ) {
@@ -24,10 +28,27 @@ class PushDelivery(
         // « Pars maintenant » (MAG-658) is the system's strong interruption, open or not: its full screen and
         // its « Y aller » (a link to Waze or Maps) are not something the in-app toaster can say.
         if (payload.isDeparture) {
-            notifier().show(payload)
+            if (!car.say(payload)) notifier().show(payload)
             return
         }
-        if (isForeground()) center.offer(payload, reshow) else notifier().show(payload)
+        // Open, the center is where the car is told too: the Mercure feeds reach it without passing here.
+        if (isForeground()) {
+            center.offer(payload, reshow)
+        } else if (!car.say(payload)) {
+            notifier().show(payload)
+        }
+    }
+
+    /** The car is gone: what was left unanswered is said on the phone as usual, in the app or in the tray. */
+    fun backOnPhone(payloads: List<PushPayload>) {
+        payloads.forEach { payload ->
+            notifier().close(payload.systemTag)
+            if (!isForeground()) {
+                notifier().show(payload)
+            } else if (payload.interrupts) {
+                center.reopen(payload)
+            }
+        }
     }
 
     /**

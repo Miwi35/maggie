@@ -1,0 +1,14 @@
+# « Oui, vas-y », dictated on a validation's notification in the car (MAG-683): the Authorize button.
+name: reply-approval-approve
+description: Read a yes to a held action as the Authorize button.
+
+match:
+  user_matches: "(?is)approvalId : (\\w+).*(oui|vas-y)"
+
+turns:
+  - tools:
+      - name: answer_approval
+        input:
+          approval_id: "\\1"
+          decision: approve
+  - text: "C'est autorisé et fait."

@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.os.Bundle
 import androidx.core.app.RemoteInput
+import com.maggie.app.data.car.noCar
 import com.maggie.app.data.interruption.InterruptionCenter
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -30,7 +31,8 @@ class PushActionReceiverTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
     private val manager = app.getSystemService(NotificationManager::class.java)
     private val handler = mockk<PushActionHandler>()
-    private val center = InterruptionCenter()
+    private val car = noCar()
+    private val center = InterruptionCenter(car = car)
     private var foreground = false
 
     @Before
@@ -40,7 +42,8 @@ class PushActionReceiverTest {
             modules(
                 module {
                     single { handler }
-                    single { PushDelivery(center, { PushNotifier(app) }, isForeground = { foreground }) }
+                    single { car }
+                    single { PushDelivery(center, { PushNotifier(app) }, car, isForeground = { foreground }) }
                 },
             )
         }

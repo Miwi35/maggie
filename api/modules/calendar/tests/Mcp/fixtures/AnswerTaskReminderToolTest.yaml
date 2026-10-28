@@ -1,0 +1,24 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: fixture@example.com
+    googleId: google-fixture-id
+    name: Fixture User
+  other_user:
+    email: other@example.com
+    googleId: google-other-id
+    name: Other User
+
+Maggie\Core\Entity\UserPreference:
+  preference:
+    timezone: Europe/Paris
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Task:
+  garage:
+    title: Appeler le garagiste
+    position: '00000000000000000001'
+    user: '@test_user'
+  other_task:
+    title: Tâche d'un autre
+    position: '00000000000000000001'
+    user: '@other_user'

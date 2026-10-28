@@ -1,5 +1,6 @@
 package com.maggie.app.data.fcm
 
+import com.maggie.app.data.car.noCar
 import com.maggie.app.data.interruption.InterruptionCenter
 import io.mockk.mockk
 import io.mockk.verify
@@ -17,7 +18,7 @@ class PushDeliveryTest {
 
     @Test
     fun `in the foreground it is an interruption and no system notification`() {
-        PushDelivery(center, { notifier }, isForeground = { true }).deliver(payload)
+        PushDelivery(center, { notifier }, noCar(), isForeground = { true }).deliver(payload)
 
         assertEquals(payload, center.current.value)
         verify(exactly = 0) { notifier.show(any(), any(), any()) }
@@ -25,7 +26,7 @@ class PushDeliveryTest {
 
     @Test
     fun `in the background it is the system notification and no interruption`() {
-        PushDelivery(center, { notifier }, isForeground = { false }).deliver(payload)
+        PushDelivery(center, { notifier }, noCar(), isForeground = { false }).deliver(payload)
 
         assertNull(center.current.value)
         verify(exactly = 1) { notifier.show(payload, any(), any()) }
@@ -33,7 +34,7 @@ class PushDeliveryTest {
 
     @Test
     fun `the same push arriving twice in the foreground is shown once`() {
-        val delivery = PushDelivery(center, { notifier }, isForeground = { true })
+        val delivery = PushDelivery(center, { notifier }, noCar(), isForeground = { true })
 
         delivery.deliver(payload)
         center.close("n-1")
@@ -45,7 +46,7 @@ class PushDeliveryTest {
 
     @Test
     fun `a withdrawal takes the notification down from the tray and the interruption away`() {
-        val delivery = PushDelivery(center, { notifier }, isForeground = { true })
+        val delivery = PushDelivery(center, { notifier }, noCar(), isForeground = { true })
         delivery.deliver(payload)
 
         delivery.withdraw("cooking-timer-t-1", "n-1")
@@ -56,7 +57,7 @@ class PushDeliveryTest {
 
     @Test
     fun `a withdrawal without a notification id still clears the tray`() {
-        PushDelivery(center, { notifier }, isForeground = { false }).withdraw("cooking-timer-t-1", null)
+        PushDelivery(center, { notifier }, noCar(), isForeground = { false }).withdraw("cooking-timer-t-1", null)
 
         verify(exactly = 1) { notifier.close("cooking-timer-t-1") }
     }
@@ -65,7 +66,7 @@ class PushDeliveryTest {
     fun `a departure alert is the system's strong interruption, the app open or not (MAG-658)`() {
         val departure = PushPayload.from(mapOf("notificationId" to "n-2", "title" to "Pars maintenant pour Dentiste", "type" to "departure"))!!
 
-        PushDelivery(center, { notifier }, isForeground = { true }).deliver(departure)
+        PushDelivery(center, { notifier }, noCar(), isForeground = { true }).deliver(departure)
 
         assertNull("the toaster cannot say a link to Waze", center.current.value)
         verify(exactly = 1) { notifier.show(departure, any(), any()) }

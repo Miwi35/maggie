@@ -2,7 +2,9 @@ package com.maggie.app.data.fcm
 
 import com.maggie.app.ui.navigation.DeepLinks
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** The `data` block of `PushMessageFactory` read as the app reads it, and the buttons it earns. */
@@ -319,5 +321,16 @@ class PushPayloadTest {
         assertEquals(true, departure.isExpired(java.time.Instant.parse("2026-10-28T12:00:00Z")))
         assertEquals(false, payload("departure").isExpired(java.time.Instant.parse("2030-01-01T00:00:00Z")))
         assertEquals(false, payload("departure", "expiresAt" to "not a date").isExpired(java.time.Instant.parse("2030-01-01T00:00:00Z")))
+    }
+
+    @Test
+    fun `a message waits for an answer when it is a reminder, a shortage or a validation, not a plain message (MAG-683)`() {
+        fun of(vararg data: Pair<String, String>) = PushPayload.from(mapOf("notificationId" to "n-1", "title" to "T") + data)!!
+
+        assertTrue(of("type" to "task_nudge", "reminderId" to "r-1").awaitsAnswer)
+        assertTrue(of("type" to "approval", "approvalId" to "ap-1").awaitsAnswer)
+        assertTrue(of("type" to "grocery", "shortageId" to "s-1").awaitsAnswer)
+        assertFalse(of("type" to "proaction").awaitsAnswer)
+        assertFalse(of("type" to "departure", "link" to "https://waze.com/ul?x=1").awaitsAnswer)
     }
 }

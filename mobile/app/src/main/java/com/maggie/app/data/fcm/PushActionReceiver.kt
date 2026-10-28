@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.RemoteInput
+import com.maggie.app.data.car.CarMessages
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,6 +17,7 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
 
     private val handler: PushActionHandler by inject()
     private val delivery: PushDelivery by inject()
+    private val car: CarMessages by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         val payload = PushIntents.payloadOf(intent) ?: return
@@ -23,6 +25,11 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
 
         if (intent.action == ACTION_RESHOW) {
             delivery.deliver(payload, reshow = true)
+            return
+        }
+
+        if (intent.action == ACTION_NUDGE) {
+            car.nudge(payload)
             return
         }
 
@@ -51,6 +58,7 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
     companion object {
         const val KEY_REPLY = "reply"
         const val ACTION_RESHOW = "com.maggie.app.push.RESHOW"
+        const val ACTION_NUDGE = "com.maggie.app.push.NUDGE"
 
         fun actionFor(kind: PushActionKind): String = "com.maggie.app.push.${kind.name}"
 
