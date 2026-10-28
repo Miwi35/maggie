@@ -61,20 +61,23 @@ class AndroidCarConnection(private val context: Context) : CarConnectionSource {
 
     override val connected: Flow<Boolean> = callbackFlow {
         val main = Handler(Looper.getMainLooper())
-        val connection = CarConnection(context.applicationContext)
         val answered = AtomicBoolean(false)
         val observer = Observer<Int> {
             answered.set(true)
             trySend(it == CarConnection.CONNECTION_TYPE_PROJECTION)
         }
-        main.post { connection.type.observeForever(observer) }
+        // `CarConnection` builds a Handler: it must be created on the main thread, not on this collector's worker.
+        var connection: CarConnection? = null
+        main.post {
+            connection = CarConnection(context.applicationContext).also { it.type.observeForever(observer) }
+        }
         val silence = launch {
             delay(SILENCE_MS)
             if (answered.compareAndSet(false, true)) trySend(false)
         }
         awaitClose {
             silence.cancel()
-            main.post { connection.type.removeObserver(observer) }
+            main.post { connection?.type?.removeObserver(observer) }
         }
     }.distinctUntilChanged()
 
