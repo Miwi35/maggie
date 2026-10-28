@@ -34,7 +34,7 @@ from app.llm.context_summary import context_summarizer
 from app.llm.duplicates import find_duplicated_turn, find_settled_answer, normalize, user_lock
 from app.llm.gateway import LLMGateway
 from app.llm.image import ChatImage
-from app.llm.message_reply import ReplyTo, with_reply
+from app.llm.message_reply import ReplyTo, grant_approval_answer, with_reply
 from app.llm.replace import abandon_approvals, withdraw_turn
 from app.llm.runner import run_tool_loop
 from app.llm.screen_context import split as split_screen_context
@@ -174,6 +174,7 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
     """
     said, screen = split_screen_context(request.message, request.screen_context)
     screen = with_reply(screen, request.in_reply_to)
+    grant_approval_answer(user_id, request.in_reply_to)
     logger.info(f"Chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
     # A screenshot, or the message it answers, makes it another message, whatever the words say:
@@ -262,6 +263,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     # is stored and published — this is the route the overlay streams on (MAG-30).
     said, screen = split_screen_context(request.message, request.screen_context)
     screen = with_reply(screen, request.in_reply_to)
+    grant_approval_answer(user_id, request.in_reply_to)
     logger.info(f"Stream chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
     key = request.idempotency_key

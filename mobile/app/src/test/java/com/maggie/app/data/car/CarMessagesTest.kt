@@ -95,11 +95,12 @@ class CarMessagesTest {
     }
 
     @Test
-    fun `the same message arriving twice is nudged from its first arrival`() {
+    fun `the same message arriving twice is said once and nudged from its first arrival`() {
         say(reminder("a"))
         say(reminder("a"))
 
         assertEquals(1, scheduled.size)
+        assertEquals(listOf("a" to false), posted)
     }
 
     @Test
@@ -113,9 +114,11 @@ class CarMessagesTest {
     }
 
     @Test
-    fun `the car gone before the alarm leaves it alone too`() {
+    fun `the car gone, the phone took the message back and the alarm leaves it alone`() {
         say(reminder("a"))
         connected = false
+        car.left()
+        tray -= "a"
 
         fireAlarm("a")
 
@@ -124,14 +127,13 @@ class CarMessagesTest {
 
     @Test
     fun `a message forgotten is not nudged and its alarm is cancelled`() {
-        val a = reminder("a")
-        say(a)
+        say(reminder("a"))
 
-        car.forget(a)
-        fireAlarm("a")
+        car.forget("a")
+        car.forget("unknown")
 
         assertEquals(listOf("a"), cancelled)
-        assertEquals(listOf("a" to false), posted)
+        assertTrue("it is no longer given back", car.left().isEmpty())
     }
 
     @Test

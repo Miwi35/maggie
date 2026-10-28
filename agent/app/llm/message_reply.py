@@ -10,6 +10,7 @@ and the model reads the block in front of that turn.
 
 import json
 import logging
+import time
 
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
@@ -29,6 +30,11 @@ REMINDER_BUTTONS = {
 
 _MAX_TEXT = 500
 
+# What the owner has just said yes or no to, from his own device: the model may not decide a held action by itself,
+# even one it triggered and whose id it saw. In memory, like a turn in flight: after a restart it says it could not.
+_GRANT_TTL_S = 600
+_grants: dict[tuple[str, str], float] = {}
+
 
 class ReplyTo(BaseModel):
     """The message of Maggie the owner answers, as the phone shows it."""
@@ -42,6 +48,21 @@ class ReplyTo(BaseModel):
     shortage_id: str | None = Field(default=None, max_length=64)
     # The keys of the buttons the phone shows (`data.actions`), when the message carries a reminder.
     buttons: list[str] = Field(default_factory=list, max_length=12)
+
+
+def grant_approval_answer(user_id: str, reply: ReplyTo | None) -> None:
+    """The owner answers this validation in the turn that starts now: `answer_approval` may decide it, once."""
+    if reply is None or not reply.approval_id:
+        return
+    now = time.monotonic()
+    for key in [key for key, until in _grants.items() if until <= now]:
+        del _grants[key]
+    _grants[(user_id, reply.approval_id)] = now + _GRANT_TTL_S
+
+
+def _take_grant(user_id: str, approval_id: str) -> bool:
+    until = _grants.pop((user_id, approval_id), None)
+    return until is not None and until > time.monotonic()
 
 
 def reply_block(reply: ReplyTo) -> str:
@@ -98,7 +119,7 @@ ANSWER_APPROVAL_TOOL = {
     "description": (
         "Approve or deny an action held for the user's validation (its approvalId is given with the message "
         "the user is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval "
-        "the user is answering in this message — never decide one on your own."
+        "the user is answering in this message — never decide one on your own: any other call is refused."
     ),
     "input_schema": {
         "type": "object",
@@ -119,6 +140,9 @@ async def handle_answer_approval(arguments: dict, user_id: str) -> str:
     decision = arguments.get("decision")
     if not isinstance(approval_id, str) or decision not in {"approve", "deny"}:
         return json.dumps({"error": "approval_id and decision (approve or deny) are required"})
+
+    if not _take_grant(user_id, approval_id):
+        return json.dumps({"error": "Only the owner's answer to this validation can decide it; ask him."})
 
     try:
         if decision == "approve":

@@ -41,7 +41,10 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
         scope.launch {
             try {
                 when (val outcome = handler.handle(kind, payload, reply) { late -> notifier.show(payload, note = late.message) }) {
-                    PushOutcome.Closed -> notifier.close(payload.systemTag)
+                    PushOutcome.Closed -> {
+                        notifier.close(payload.systemTag)
+                        car.forget(payload.systemTag)
+                    }
                     PushOutcome.Postponed -> notifier.postpone(payload)
                     // The car presses « Marquer comme lu » by itself: a failure must not turn the message into an error note.
                     is PushOutcome.Retry -> if (kind != PushActionKind.MARK_AS_READ) notifier.show(payload, note = outcome.message)

@@ -1,13 +1,21 @@
 """The owner answers one of Maggie's messages from the car (MAG-683)."""
 
 import json
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException
 
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
-from app.llm.message_reply import HEADER, ReplyTo, handle_answer_approval, reply_block, with_reply
+from app.llm.message_reply import (
+    HEADER,
+    ReplyTo,
+    grant_approval_answer,
+    handle_answer_approval,
+    reply_block,
+    with_reply,
+)
 
 REMINDER_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7W"
 
@@ -69,8 +77,49 @@ class TestReplyBlock:
         assert with_reply(None, a_reminder()).startswith(HEADER)
 
 
+def owner_answers(approval_id: str = "appr-1", user_id: str = "user-1") -> None:
+    grant_approval_answer(user_id, ReplyTo(id="n-1", approval_id=approval_id))
+
+
 class TestAnswerApproval:
+    async def test_the_model_cannot_decide_a_held_action_the_owner_did_not_answer(self):
+        with patch("app.api.routes.approve_action", new=AsyncMock()) as approve:
+            result = json.loads(await handle_answer_approval({"approval_id": "appr-9", "decision": "approve"}, "user-1"))
+
+        assert "error" in result
+        approve.assert_not_awaited()
+
+    async def test_the_owners_answer_decides_that_approval_once(self):
+        owner_answers("appr-2")
+        with patch("app.api.routes.approve_action", new=AsyncMock(return_value={"id": "appr-2"})) as approve:
+            first = json.loads(await handle_answer_approval({"approval_id": "appr-2", "decision": "approve"}, "user-1"))
+            second = json.loads(await handle_answer_approval({"approval_id": "appr-2", "decision": "approve"}, "user-1"))
+
+        assert first["success"] is True
+        assert "error" in second
+        assert approve.await_count == 1
+
+    async def test_the_answer_to_one_approval_does_not_decide_another_or_another_users(self):
+        owner_answers("appr-3")
+        with patch("app.api.routes.approve_action", new=AsyncMock()) as approve:
+            other_approval = json.loads(await handle_answer_approval({"approval_id": "appr-4", "decision": "approve"}, "user-1"))
+            other_user = json.loads(await handle_answer_approval({"approval_id": "appr-3", "decision": "approve"}, "user-2"))
+
+        assert "error" in other_approval and "error" in other_user
+        approve.assert_not_awaited()
+
+    async def test_a_grant_expires(self):
+        owner_answers("appr-5")
+        with patch("app.llm.message_reply.time.monotonic", return_value=time.monotonic() + 601), patch(
+            "app.api.routes.approve_action", new=AsyncMock()
+        ) as approve:
+            result = json.loads(await handle_answer_approval({"approval_id": "appr-5", "decision": "approve"}, "user-1"))
+
+        assert "error" in result
+        approve.assert_not_awaited()
+
     async def test_approve_runs_the_held_call_as_the_button_does(self):
+        owner_answers()
         with patch("app.api.routes.approve_action", new=AsyncMock(return_value={"id": "appr-1", "status": "approved"})) as approve:
             result = json.loads(await handle_answer_approval({"approval_id": "appr-1", "decision": "approve"}, "user-1"))
 
@@ -80,6 +129,7 @@ class TestAnswerApproval:
         assert approve.await_args.kwargs["user_id"] == "user-1"
 
     async def test_deny_refuses_it(self):
+        owner_answers()
         with patch("app.api.routes.deny_action", new=AsyncMock(return_value={"id": "appr-1", "status": "denied"})) as deny:
             result = json.loads(await handle_answer_approval({"approval_id": "appr-1", "decision": "deny"}, "user-1"))
 
@@ -87,6 +137,7 @@ class TestAnswerApproval:
         assert deny.await_args.kwargs["channel"] == "notification"
 
     async def test_an_approval_already_decided_is_reported_not_raised(self):
+        owner_answers()
         gone = AsyncMock(side_effect=HTTPException(status_code=409, detail="Approval is not pending"))
         with patch("app.api.routes.approve_action", new=gone):
             result = json.loads(await handle_answer_approval({"approval_id": "appr-1", "decision": "approve"}, "user-1"))

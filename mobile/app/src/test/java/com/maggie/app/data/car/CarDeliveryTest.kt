@@ -173,4 +173,15 @@ class CarDeliveryTest {
         assertEquals(PushActionKind.REPLY.label, reply.title.toString())
         assertEquals(1, reply.remoteInputs.size)
     }
+
+    @Test
+    fun `a message read elsewhere is taken down and no longer waits`() {
+        delivery.deliver(push("n-1", "task_nudge", "reminderId" to "r-1", "actions" to "done,in10"))
+
+        delivery.withdraw("n-1", "n-1")
+        inCar = false
+
+        assertTrue(car.left().isEmpty())
+        assertNull(shadowOf(manager).getNotification("n-1", PushNotifier.NOTIFICATION_ID))
+    }
 }

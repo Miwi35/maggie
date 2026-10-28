@@ -43,7 +43,7 @@ class PushDelivery(
     fun backOnPhone(payloads: List<PushPayload>) {
         payloads.forEach { payload ->
             notifier().close(payload.systemTag)
-            if (!isForeground()) {
+            if (!isForeground() || !payload.interrupts) {
                 notifier().show(payload)
             } else if (payload.interrupts) {
                 center.reopen(payload)
@@ -58,6 +58,7 @@ class PushDelivery(
      */
     fun withdraw(tag: String, notificationId: String?) {
         notifier().close(tag)
+        car.forget(tag)
         notificationId?.let(center::close)
     }
 

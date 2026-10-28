@@ -194,6 +194,28 @@ class TestRoutes:
         assert "Appeler le garage" in screen
         assert "reminderId : r-9" in screen
 
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
+    def test_a_reply_to_a_validation_lets_the_model_decide_that_one_validation(
+        self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
+    ):
+        mock_gateway.chat = AsyncMock(return_value={"response": "Fait.", "tool_calls": []})
+        mock_msg_repo.create = AsyncMock(
+            return_value=Message(id="msg-1", user_id="test-user", role="user", content="x")
+        )
+        mock_summarizer.maybe_summarize = AsyncMock()
+
+        authed_client.post(
+            "/chat",
+            json={"message": "oui vas-y", "in_reply_to": {"id": "n-2", "type": "approval", "approval_id": "ap-7"}},
+        )
+
+        from app.llm.message_reply import _take_grant
+
+        assert _take_grant("test-user", "ap-7") is True
+        assert _take_grant("test-user", "ap-8") is False
+
     def test_a_reply_without_the_id_of_its_message_is_refused(self, authed_client):
         response = authed_client.post("/chat", json={"message": "oui", "in_reply_to": {"id": "", "title": "x"}})
 

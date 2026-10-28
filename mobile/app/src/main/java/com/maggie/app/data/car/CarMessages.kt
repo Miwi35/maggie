@@ -32,25 +32,28 @@ class CarMessages(
     /** True when the message was said in the car; false when the phone is not in one, and nothing was done. */
     fun say(payload: PushPayload): Boolean {
         if (!isConnected()) return false
+        // The same question arrives by FCM and by Mercure: said once, not alerted twice, nudged from its first arrival.
+        if (payload.awaitsAnswer && waiting.containsKey(payload.key) && isShowing(payload.systemTag)) return true
         post(payload, false)
-        if (payload.awaitsAnswer) {
-            val first = waiting.put(payload.key, payload) == null
-            // A message sent twice is nudged from its first arrival, not pushed back by the second.
-            if (first) scheduleNudge(payload, NUDGE_MS)
-        }
+        if (payload.awaitsAnswer && waiting.put(payload.key, payload) == null) scheduleNudge(payload, NUDGE_MS)
         return true
     }
 
-    /** The alarm of [say]: the message is told again if it is still there, and never scheduled again. */
+    /**
+     * The alarm of [say]: the message is told again if it is still in the tray, and never scheduled again.
+     * The tray is the only witness: the alarm outlives the process, which no longer remembers what it waited for,
+     * and the car going away takes the notification down before this fires.
+     */
     fun nudge(payload: PushPayload) {
-        if (!isConnected() || waiting[payload.key] == null || !isShowing(payload.systemTag)) return
+        if (!isShowing(payload.systemTag)) return
         if (nudged.add(payload.key)) post(payload, true)
     }
 
-    /** Read, answered or taken down elsewhere: there is nothing left to wait on. */
-    fun forget(payload: PushPayload) {
-        nudged.remove(payload.key)
-        if (waiting.remove(payload.key) != null) cancelNudge(payload)
+    /** Read, answered or taken down elsewhere: there is nothing left to wait on. [tag]: the notification's. */
+    fun forget(tag: String) {
+        val payload = waiting.values.firstOrNull { it.systemTag == tag } ?: return
+        waiting.remove(payload.key)
+        cancelNudge(payload)
     }
 
     /**
