@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest'
+import { afterEach, describe, test, expect, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { TreasuryChart, TreasuryFlowsChart, shortDay } from './TreasuryChart'
 
@@ -8,7 +8,29 @@ const DAYS = [
   { date: '2026-10-15', balanceCents: -30000, cumulativeInflowCents: 0, cumulativeOutflowCents: 0, movements: [] },
 ]
 
+const renderedAt = (width: number) =>
+  vi.spyOn(SVGElement.prototype, 'getBoundingClientRect').mockReturnValue({ width } as DOMRect)
+
+afterEach(() => vi.restoreAllMocks())
+
 describe('TreasuryChart', () => {
+  test.each([1060, 1440])('draws its labels at the mockup size, %d px wide', (width) => {
+    renderedAt(width)
+    const { container } = render(<TreasuryChart projection={DAYS} limitCents={0} />)
+
+    const texts = container.querySelectorAll('svg text')
+    expect(texts.length).toBeGreaterThanOrEqual(4)
+    for (const text of texts) {
+      expect(Number(text.getAttribute('font-size')) * (width / 640)).toBeCloseTo(11, 1)
+    }
+  })
+
+  test('says nothing under the curve until a day is hovered', () => {
+    render(<TreasuryChart projection={DAYS} limitCents={0} />)
+
+    expect(screen.queryByText(/Survolez/)).not.toBeInTheDocument()
+  })
+
   test('names both series so identity never rests on colour alone', () => {
     render(<TreasuryChart projection={DAYS} limitCents={0} />)
 
@@ -73,6 +95,16 @@ describe('TreasuryChart', () => {
 })
 
 describe('TreasuryFlowsChart', () => {
+  test('draws its axis labels at the mockup size and explains nothing under the curve', () => {
+    renderedAt(1060)
+    const { container } = render(<TreasuryFlowsChart projection={DAYS} />)
+
+    for (const text of container.querySelectorAll('svg text')) {
+      expect(Number(text.getAttribute('font-size')) * (1060 / 640)).toBeCloseTo(11, 1)
+    }
+    expect(screen.queryByText(/Survolez/)).not.toBeInTheDocument()
+  })
+
   const FLOWS = [
     { date: '2026-10-13', balanceCents: 20000, cumulativeInflowCents: 0, cumulativeOutflowCents: 0, movements: [] },
     {

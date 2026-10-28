@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
 import { chartColor } from '../../design/tokens'
 import { formatCents, formatCentsRounded } from './accountTypes'
+import { LABEL_PX, useUnitsPerPixel } from './chartText'
 import type { TreasuryDay, TreasuryMovement } from './useTreasuryOutlook'
 
 const WIDTH = 640
@@ -44,6 +45,8 @@ export const TreasuryChart = ({ projection, limitCents }: TreasuryChartProps) =>
   const theme = useTheme()
   const patternId = useId()
   const [hovered, setHovered] = useState<number | null>(null)
+  const { ref, unitsPerPixel } = useUnitsPerPixel(WIDTH)
+  const fontSize = LABEL_PX * unitsPerPixel
   const line = chartColor(1, theme.palette.mode === 'dark' ? 'dark' : 'light')
   const danger = theme.palette.error.main
 
@@ -91,6 +94,7 @@ export const TreasuryChart = ({ projection, limitCents }: TreasuryChartProps) =>
       </Stack>
 
       <svg
+        ref={ref}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         width="100%"
         role="img"
@@ -115,7 +119,12 @@ export const TreasuryChart = ({ projection, limitCents }: TreasuryChartProps) =>
               stroke={danger}
               strokeWidth="1"
             />
-            <text x={PAD.left + 6} y={Math.min(zoneBottom - 6, zoneTop + 14)} fontSize="11" fill={danger}>
+            <text
+              x={PAD.left + 6 * unitsPerPixel}
+              y={Math.min(zoneBottom - 6 * unitsPerPixel, zoneTop + 14 * unitsPerPixel)}
+              fontSize={fontSize}
+              fill={danger}
+            >
               Zone de découvert
             </text>
           </g>
@@ -130,7 +139,7 @@ export const TreasuryChart = ({ projection, limitCents }: TreasuryChartProps) =>
           strokeDasharray="4 4"
           strokeWidth="1"
         />
-        <text x={WIDTH - PAD.right} y={y(0) - 4} fontSize="11" textAnchor="end" fill={theme.palette.text.secondary}>
+        <text x={WIDTH - PAD.right} y={y(0) - 4 * unitsPerPixel} fontSize={fontSize} textAnchor="end" fill={theme.palette.text.secondary}>
           {formatCentsRounded(0)}
         </text>
 
@@ -161,20 +170,20 @@ export const TreasuryChart = ({ projection, limitCents }: TreasuryChartProps) =>
 
         {projection.length > 0 && (
           <>
-            <text x={PAD.left} y={HEIGHT - 6} fontSize="11" fill={theme.palette.text.secondary}>
+            <text x={PAD.left} y={HEIGHT - 6 * unitsPerPixel} fontSize={fontSize} fill={theme.palette.text.secondary}>
               {shortDay(projection[0].date)}
             </text>
-            <text x={WIDTH - PAD.right} y={HEIGHT - 6} fontSize="11" textAnchor="end" fill={theme.palette.text.secondary}>
+            <text x={WIDTH - PAD.right} y={HEIGHT - 6 * unitsPerPixel} fontSize={fontSize} textAnchor="end" fill={theme.palette.text.secondary}>
               {shortDay(projection[projection.length - 1].date)}
             </text>
           </>
         )}
       </svg>
 
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }} aria-live="polite">
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, minHeight: '1.5em' }} aria-live="polite">
         {active
           ? `${shortDay(active.date)} : solde ${formatCents(active.balanceCents)}${active.balanceCents < -limitCents ? ' — en découvert' : ''}${dayMovements(active)}`
-          : 'Survolez un jour pour le détail, ou lisez le tableau ci-dessous.'}
+          : ''}
       </Typography>
     </Box>
   )
@@ -189,6 +198,8 @@ export const TreasuryChart = ({ projection, limitCents }: TreasuryChartProps) =>
 export const TreasuryFlowsChart = ({ projection }: { projection: TreasuryDay[] }) => {
   const theme = useTheme()
   const [hovered, setHovered] = useState<number | null>(null)
+  const { ref, unitsPerPixel } = useUnitsPerPixel(WIDTH)
+  const fontSize = LABEL_PX * unitsPerPixel
   const mode = theme.palette.mode === 'dark' ? 'dark' : 'light'
   const inflowColor = chartColor(1, mode)
   const outflowColor = chartColor(2, mode)
@@ -221,6 +232,7 @@ export const TreasuryFlowsChart = ({ projection }: { projection: TreasuryDay[] }
       </Stack>
 
       <svg
+        ref={ref}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         width="100%"
         role="img"
@@ -274,20 +286,20 @@ export const TreasuryFlowsChart = ({ projection }: { projection: TreasuryDay[] }
 
         {projection.length > 0 && (
           <>
-            <text x={PAD.left} y={HEIGHT - 6} fontSize="11" fill={theme.palette.text.secondary}>
+            <text x={PAD.left} y={HEIGHT - 6 * unitsPerPixel} fontSize={fontSize} fill={theme.palette.text.secondary}>
               {shortDay(projection[0].date)}
             </text>
-            <text x={WIDTH - PAD.right} y={HEIGHT - 6} fontSize="11" textAnchor="end" fill={theme.palette.text.secondary}>
+            <text x={WIDTH - PAD.right} y={HEIGHT - 6 * unitsPerPixel} fontSize={fontSize} textAnchor="end" fill={theme.palette.text.secondary}>
               {shortDay(projection[projection.length - 1].date)}
             </text>
           </>
         )}
       </svg>
 
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }} data-testid="treasury-flows-detail" aria-live="polite">
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, minHeight: '1.5em' }} data-testid="treasury-flows-detail" aria-live="polite">
         {active
           ? `${shortDay(active.date)} : entrées cumulées ${formatCents(active.cumulativeInflowCents)}, sorties cumulées ${formatCents(active.cumulativeOutflowCents)}${dayMovements(active)}`
-          : 'Survolez un jour pour le détail.'}
+          : ''}
       </Typography>
     </Box>
   )

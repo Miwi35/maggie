@@ -534,6 +534,11 @@ test('the treasury is one page, with no tabs: curve, cushion, advances, debts, m
   await expect(treasury.debtsSection).toContainText(person)
   await expect(treasury.movementsSection).toBeVisible()
 
+  // MAG-697: the curve explains nothing under itself, and its labels keep the mockup's size.
+  await expect(treasury.chartSection).not.toContainText('Survolez')
+  const axisLabel = treasury.chart.locator('text').first()
+  expect((await axisLabel.boundingBox())!.height).toBeLessThan(16)
+
   // And they follow one another: curve, cushion, advances, créances et dettes, movements.
   const order = await treasury.content
     .locator('[data-testid^="treasury-section-"]')
