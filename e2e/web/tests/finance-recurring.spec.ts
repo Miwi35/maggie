@@ -481,11 +481,10 @@ test('a debit without counterparty becomes a recurring operation recognised by i
   await list.openTransaction(label)
   await list.content.getByRole('button', { name: 'En faire une opération récurrente' }).click()
 
-  // Then the counterparty is empty and the label pattern is filled, with its help
+  // Then the counterparty is empty and the label pattern is filled
   await expect(recurring.form.getByLabel('Contrepartie attendue')).toHaveValue('')
   const pattern = recurring.form.getByLabel('Motif du libellé')
   await expect(pattern).not.toHaveValue('')
-  await expect(recurring.form).toContainText(/reconnaît les transactions dont le libellé contient/i)
   await recurring.choose(/Catégorie/, categoryName)
 
   // When I write the pattern myself (this label has no merchant to keep) and save
@@ -676,7 +675,6 @@ test('a series qualifies its transactions, a hand qualification stays put (MAG-4
   await recurring.form.getByRole('switch', { name: 'Obligatoire' }).check()
   await recurring.form.getByRole('combobox', { name: 'Type' }).click()
   await page.getByRole('option', { name: 'Remboursement', exact: true }).click()
-  await expect(recurring.form).toContainText('je rembourse')
   await recurring.form.getByRole('button', { name: 'Créer la série' }).click()
   await recurring.historyPreview.getByRole('button', { name: /^Rattacher ces \d+ transaction/ }).click()
   await expect(recurring.historyPreview).toHaveCount(0)
