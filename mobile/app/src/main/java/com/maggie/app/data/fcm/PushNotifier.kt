@@ -71,6 +71,11 @@ class PushNotifier(private val context: Context) {
             emptyList()
         }
 
+        // The system takes the alert down by itself when its event starts (MAG-679): a tap the next day opens nothing.
+        payload.expiresAt?.let { expiresAt ->
+            if (withActions) builder.setTimeoutAfter(maxOf(1L, expiresAt.toEpochMilli() - System.currentTimeMillis()))
+        }
+
         if (withActions) {
             payload.actions().forEach { builder.addAction(action(it, payload)) }
             if (conversation) builder.addInvisibleAction(action(PushActionKind.MARK_AS_READ, payload))
@@ -242,6 +247,7 @@ object PushIntents {
     const val EXTRA_ACTIONS = "actions"
     const val EXTRA_SHORTAGE_ID = "shortageId"
     const val EXTRA_COOKING_TIMER_ID = "cookingTimerId"
+    const val EXTRA_EXPIRES_AT = "expiresAt"
 
     /** The reminder's button the app answers once it is open (« Je m'y mets »), by its key. */
     const val EXTRA_ANSWER = "com.maggie.app.push.ANSWER"
@@ -259,13 +265,14 @@ object PushIntents {
         intent.putExtra(EXTRA_TASK_ID, payload.taskId)
         intent.putExtra(EXTRA_SHORTAGE_ID, payload.shortageId)
         intent.putExtra(EXTRA_COOKING_TIMER_ID, payload.cookingTimerId)
+        intent.putExtra(EXTRA_EXPIRES_AT, payload.expiresAt?.toString())
         if (payload.reminderActions.isNotEmpty()) intent.putExtra(EXTRA_ACTIONS, payload.reminderActions.joinToString(","))
     }
 
     fun payloadOf(intent: Intent): PushPayload? = PushPayload.from(
         data = listOf(
             EXTRA_NOTIFICATION_ID, EXTRA_TYPE, EXTRA_TITLE, EXTRA_TEXT, EXTRA_LINK, EXTRA_APPROVAL_ID, EXTRA_CHANNEL, EXTRA_INTERACTION,
-            EXTRA_REMINDER_ID, EXTRA_TASK_ID, EXTRA_ACTIONS, EXTRA_SHORTAGE_ID, EXTRA_COOKING_TIMER_ID,
+            EXTRA_REMINDER_ID, EXTRA_TASK_ID, EXTRA_ACTIONS, EXTRA_SHORTAGE_ID, EXTRA_COOKING_TIMER_ID, EXTRA_EXPIRES_AT,
         )
             .mapNotNull { key -> intent.getStringExtra(key)?.let { key to it } }
             .toMap(),
