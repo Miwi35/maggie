@@ -84,6 +84,14 @@ To ask: reply in the ticket's agent thread with short questions, each as options
 - The guard of agent PRs and the freeze after a failed deploy live in Cyrus (`cyrus-pilot`: `guard/guard.py`, the dispatcher); a PR that touches a destructive migration, secrets or authentication is merged by a human.
 - Never `--no-verify`, never a test disabled to get green.
 
+## Effort by role
+
+The effort follows the role, not one level for every session:
+
+- **Plan / design → `high`**: the session itself plans (and reads, decides, shapes).
+- **Implementation → `medium`**: `fullstack-developer` (`effort: medium`) applies the plan strictly; a hole in the plan goes back up to the session, it does not fill it.
+- **Review → `high`**: `code-reviewer` (`effort: high`) judges only architecture drift, standards not respected (mandatory tests included) and potential bugs.
+
 ## Review loop — before opening the PR
 
 Once the ticket is implemented and its tests pass, the session orchestrates a review until the reviewer accepts:
