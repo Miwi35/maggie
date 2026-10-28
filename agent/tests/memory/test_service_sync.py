@@ -210,6 +210,38 @@ class TestOwnerWins:
         assert "conflit sur `" + ROSES + "`" in journal and aside in journal
         assert await memory_outbox_repo.count(USER_A) == 0
 
+    async def test_two_workers_syncing_at_once_note_a_conflict_once(self, env):
+        """The agent runs two uvicorn workers on one folder: each has its own sync loop and its own locks."""
+
+        class Yielding:
+            def __init__(self, inner):
+                self._inner = inner
+
+            def __getattr__(self, name):
+                attr = getattr(self._inner, name)
+                if not asyncio.iscoroutinefunction(attr):
+                    return attr
+
+                async def call(*args, **kwargs):
+                    await asyncio.sleep(0)
+                    return await attr(*args, **kwargs)
+
+                return call
+
+        first = MemoryService(Yielding(env.bucket), env.root, clock=env.clock, push_after_write=False)
+        second = MemoryService(Yielding(env.bucket), env.root, clock=env.clock, push_after_write=False)
+        await first.write(USER_A, ROSES, fiche("Version 1."))
+        await first.sync_user(USER_A)
+        ident = carte.parse(env.local(ROSES)).carte.id
+        await first.write(USER_A, ROSES, fiche("Version de Maggie.", ident=ident))
+        env.bucket.seed(env.key(ROSES), fiche("Version du propriétaire.", ident=ident))
+
+        await asyncio.gather(first.sync_user(USER_A), second.sync_user(USER_A))
+
+        assert len(first.conflicts(USER_A)) == 1
+        lines = [line for line in env.remote(paths.JOURNAL).splitlines() if "conflit sur" in line]
+        assert len(lines) == 1 and f"`{ROSES}`" in lines[0]
+
     async def test_the_index_follows_his_version(self, env):
         await env.service.write(USER_A, ROSES, fiche("Version 1."))
         await env.service.sync_user(USER_A)

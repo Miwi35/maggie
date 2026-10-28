@@ -19,6 +19,7 @@ or suddenly empty, so an outage cannot be mistaken for the owner deleting everyt
 
 import asyncio
 import contextlib
+import fcntl
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -59,6 +60,7 @@ from app.metrics import MEMORY_DEGRADED, MEMORY_OUTBOX_PENDING, MEMORY_SYNC_FAIL
 logger = logging.getLogger(__name__)
 
 MAX_PASSES = 3
+LOCK_POLL_SECONDS = 0.05
 NOTIFY_DELAY_SECONDS = 0.4
 NOTIFY_MAX_PATHS = 50
 
@@ -493,7 +495,7 @@ class MemoryService:
         self._check_scope(user_id)
         assert self.bucket is not None
         total = PassReport()
-        async with self._lock(self._pass_locks, user_id):
+        async with self._lock(self._pass_locks, user_id), self._worker_lock(user_id):
             try:
                 for _ in range(MAX_PASSES):
                     report = await self._one_pass(user_id)
@@ -506,6 +508,26 @@ class MemoryService:
                 raise
             await self._mark_up(user_id)
         return total
+
+    @contextlib.asynccontextmanager
+    async def _worker_lock(self, user_id: str):
+        """One pass per user across the uvicorn workers, which share the folder and the outbox.
+
+        The asyncio locks only bind one process: two workers would each take the same outbox entry
+        and note its conflict twice.
+        """
+        self.root.mkdir(parents=True, exist_ok=True)
+        with (self.root / f".sync-{user_id}.lock").open("w") as handle:
+            while True:
+                try:
+                    fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    await asyncio.sleep(LOCK_POLL_SECONDS)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
 
     async def _mark_down(self, user_id: str, error: Exception) -> None:
         status = self.status(user_id)
