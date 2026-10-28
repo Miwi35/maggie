@@ -99,11 +99,8 @@ export const FINANCE_MENUS: NavMenu[] = [
     key: 'review',
     label: 'Revue',
     path: financeSummaryPath('review'),
-    aspects: [
-      { id: 'review', label: 'Transactions', path: '/finance/review' },
-      { id: 'rules', label: 'Règles de catégorisation', path: '/categorization_rules', resource: 'categorization_rules' },
-      { id: 'recurring', label: 'Opérations récurrentes', path: '/finance/recurring-operations' },
-    ],
+    // One page, no sub-views (MAG-634): the rules and the recurring operations moved to Configuration.
+    aspects: [{ id: 'review', label: 'Revue', path: '/finance/review' }],
   },
   {
     key: 'budget',
@@ -142,9 +139,14 @@ export const FINANCE_MENUS: NavMenu[] = [
     key: 'settings',
     label: 'Configuration',
     path: financeSummaryPath('settings'),
+    // The mock-up's two sub-views, Catégories first (MAG-634); the rules and the recurring operations are reached from them.
     aspects: [
-      { id: 'banks', label: 'Banques', path: '/finance/banks' },
       { id: 'categories', label: 'Catégories', path: '/categories', resource: 'categories' },
+      { id: 'banks', label: 'Banques', path: '/finance/banks' },
+    ],
+    screens: [
+      { id: 'rules', label: 'Règles de catégorisation', path: '/categorization_rules', resource: 'categorization_rules' },
+      { id: 'recurring', label: 'Opérations récurrentes', path: '/finance/recurring-operations' },
     ],
   },
 ]

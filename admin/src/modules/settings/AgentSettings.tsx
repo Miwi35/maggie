@@ -501,7 +501,6 @@ export const AgentSettings = () => {
                 minRows={3}
                 maxRows={10}
                 fullWidth
-                helperText="Décrivez la personnalité et le comportement de l'agent"
               />
               <Box display="flex" justifyContent="flex-end">
                 <Button

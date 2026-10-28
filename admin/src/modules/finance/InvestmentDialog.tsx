@@ -165,7 +165,6 @@ export const InvestmentDialog = ({ project, projects, onClose, onSubmit }: Inves
                   label="Projet financé par la revente"
                   value={values.resaleTarget}
                   onChange={(event) => set('resaleTarget', event.target.value)}
-                  helperText="Sans projet, la revente accélère ceux qui attendent ce mois-là."
                 >
                   <MenuItem value="">Aucun</MenuItem>
                   {targets.map((candidate) => (

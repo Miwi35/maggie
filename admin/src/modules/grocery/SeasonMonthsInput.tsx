@@ -29,6 +29,5 @@ export const SeasonMonthsInput = () => (
     label="Mois de saison"
     choices={SEASON_MONTH_CHOICES}
     parse={sorted}
-    helperText="Pré-rempli pour les fruits et légumes connus ; aucun mois coché : pas de saison."
   />
 )

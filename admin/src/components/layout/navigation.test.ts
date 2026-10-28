@@ -116,6 +116,18 @@ describe('the seven Finance menus', () => {
     expect(financeMenuOf('/finance/peer-debts')).toBe('treasury')
   })
 
+  test('Revue is one page without sub-views; Configuration reads Catégories · Banques, rules and recurring operations behind it (MAG-634)', () => {
+    const review = FINANCE_MENUS.find((menu) => menu.key === 'review')
+    const settings = FINANCE_MENUS.find((menu) => menu.key === 'settings')
+
+    expect(review?.aspects.map((aspect) => aspect.id)).toEqual(['review'])
+    expect(settings?.aspects.map((aspect) => aspect.label)).toEqual(['Catégories', 'Banques'])
+    expect(settings?.screens?.map((screen) => screen.path)).toEqual(['/categorization_rules', '/finance/recurring-operations'])
+    expect(labels('/finance/recurring-operations')).toEqual(['Finance', 'Configuration', 'Opérations récurrentes'])
+    expect(financeMenuOf('/categorization_rules')).toBe('settings')
+    expect(financeMenuOf('/finance/recurring-operations')).toBe('settings')
+  })
+
   test('open Planification on Projets, in the mock-ups\' single row: Projets · Prêts · Placements · Indépendance (MAG-519, MAG-633)', () => {
     const planning = FINANCE_MENUS.find((menu) => menu.key === 'planning')
 

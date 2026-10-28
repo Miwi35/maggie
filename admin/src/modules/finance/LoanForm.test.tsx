@@ -38,6 +38,15 @@ const fillTheLoan = async (user: ReturnType<typeof userEvent.setup>) => {
 }
 
 describe('LoanForm, conditions by type', () => {
+  test('carries only titles and labels, no explanatory text', async () => {
+    renderCreate()
+
+    expect(await screen.findByText('Ordre de libération')).toBeInTheDocument()
+    expect(screen.queryByText(/Code ISO 4217/)).toBeNull()
+    expect(screen.queryByText(/ne s'éteint jamais/)).toBeNull()
+    expect(screen.queryByText(/remonte dans la liste/)).toBeNull()
+  })
+
   test('a fixed-rate loan shows none of the type-specific fields', async () => {
     renderCreate()
 

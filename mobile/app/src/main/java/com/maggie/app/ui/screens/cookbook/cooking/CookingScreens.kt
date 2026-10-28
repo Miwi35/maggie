@@ -536,12 +536,13 @@ private fun PreparationScreen(
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (hasSteps) {
                 Button(
                     onClick = actions.next,
                     enabled = !state.refreshing,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = buttonHeight).testTag(UiTags.COOKING_START),
+                    modifier = Modifier.widthIn(min = 240.dp).heightIn(min = buttonHeight).testTag(UiTags.COOKING_START),
                 ) { Text("C'est parti", style = MaterialTheme.typography.titleMedium) }
             } else {
                 Text(
@@ -552,7 +553,7 @@ private fun PreparationScreen(
                 )
                 Button(
                     onClick = actions.skipRecipe,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = buttonHeight).testTag(UiTags.COOKING_SKIP),
+                    modifier = Modifier.widthIn(min = 240.dp).heightIn(min = buttonHeight).testTag(UiTags.COOKING_SKIP),
                 ) { Text(if (session.isLastRecipe) "Terminer" else "Recette suivante") }
             }
         }

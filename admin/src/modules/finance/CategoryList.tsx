@@ -37,9 +37,12 @@ const CATEGORY_LIVE: LiveConfig = {
   },
 }
 
-/** The starting set sits next to Create: both are ways to fill this screen. */
+/** The starting set sits next to Create; the recurring operations, moved here from Revue (MAG-634), are one click away. */
 const CategoryActions = () => (
   <TopToolbar>
+    <Button component={Link} to="/finance/recurring-operations">
+      Opérations récurrentes
+    </Button>
     <StandardCategoriesButton variant="text" />
     <CreateButton />
   </TopToolbar>
@@ -151,7 +154,6 @@ export const CategoryList = () => {
             empty={
               <ListEmpty
                 title="Aucune catégorie pour l'instant"
-                description="Les catégories portent les budgets, les règles automatiques et la revue mensuelle. Partez du jeu standard — logement, nourriture, abonnements, loisirs, placements, essence, imprévus — puis ajustez-le."
                 action="Créer une catégorie"
                 secondaryAction={<StandardCategoriesButton />}
               />

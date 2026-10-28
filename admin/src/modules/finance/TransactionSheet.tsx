@@ -124,11 +124,6 @@ export const OneOffEnvelopeInput = () => {
       choices={choices}
       emptyText="Aucune"
       fullWidth
-      helperText={
-        choices.length === 0
-          ? 'Aucune enveloppe ponctuelle : créez-en une (Hellfest, vacances…) dans les enveloppes.'
-          : 'La dépense garde sa catégorie mais sort des enveloppes du mois et de l’année.'
-      }
     />
   )
 }
@@ -154,7 +149,7 @@ const ClassementSection = ({ record }: { record: RaRecord }) => {
 
   return (
     <Box>
-      <QualificationInput sense={nature === 'income' ? 'in' : 'out'} categoryHelperText="Facultatif. Choisir ici, c’est qualifier la ligne à la main : ni une série ni une règle n’y touchera plus." />
+      <QualificationInput sense={nature === 'income' ? 'in' : 'out'} />
       <QualificationOrigin record={record} />
       <OneOffEnvelopeInput />
       <StatusInput />
@@ -246,14 +241,13 @@ const SheetBody = ({ saveError }: { saveError: string | null }) => {
         minRows={3}
         fullWidth
         validate={maxLength(NOTE_MAX_LENGTH, `La note ne peut pas dépasser ${NOTE_MAX_LENGTH} caractères`)}
-        helperText={`Ce que vous voulez retenir de cette ligne. ${NOTE_MAX_LENGTH} caractères au plus.`}
       />
     ),
   }
 
   return (
     <Box sx={{ maxWidth: 680, width: '100%' }}>
-      <FormSection first title="La transaction" description="Le compte, le libellé, le montant et la date de la ligne." />
+      <FormSection first title="La transaction" />
       <TransactionHeaderFields withCurrency />
 
       {TRANSACTION_SHEET_SECTIONS.filter((name) => !marked || SECTIONS_OF_A_MARKED_LINE.includes(name)).map((name) => (

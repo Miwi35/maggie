@@ -136,7 +136,6 @@ export const CreateFilterDialog = ({
               value={labelPattern}
               onChange={(event) => setLabelPattern(event.target.value)}
               sx={{ flex: '2 1 240px' }}
-              helperText="Le nom du commerçant suffit : CARREFOUR, SNCF, NETFLIX… Facultatif avec un sens et un montant."
               error={!identified}
             />
             <TextField
@@ -164,7 +163,6 @@ export const CreateFilterDialog = ({
               onChange={(event) => setMinAmount(event.target.value)}
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
               sx={{ flex: '1 1 160px' }}
-              helperText="Facultatif, hors signe."
             />
             <TextField
               size="small"
@@ -174,7 +172,6 @@ export const CreateFilterDialog = ({
               onChange={(event) => setMaxAmount(event.target.value)}
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
               sx={{ flex: '1 1 160px' }}
-              helperText="Facultatif, hors signe."
             />
           </Stack>
           {!identified && <Alert severity="info" variant="outlined">{RULE_NEEDS_IDENTITY}</Alert>}
@@ -187,7 +184,6 @@ export const CreateFilterDialog = ({
               setQualification(next.qualification)
             }}
             sense={direction === 'debit' ? 'out' : direction === 'credit' ? 'in' : 'unknown'}
-            categoryHelperText="Une catégorie posée à la main ne sera jamais écrasée par ce filtre."
           />
 
           <FormControlLabel

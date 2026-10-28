@@ -50,6 +50,16 @@ const renderEdit = (update = vi.fn().mockResolvedValue({ data: product }), recor
 }
 
 describe('ProductForm', () => {
+  test('carries only titles and labels, no explanatory text', async () => {
+    renderEdit()
+
+    await screen.findByDisplayValue('Halles du voisin')
+    expect(screen.getByText('Saison')).toBeInTheDocument()
+    expect(screen.queryByText(/Lait demi-écrémé/)).toBeNull()
+    expect(screen.queryByText(/ce que vous ajoutez à votre liste de courses/)).toBeNull()
+    expect(screen.queryByText(/sans que vous le demandiez/)).toBeNull()
+  })
+
   test('shows the preferred store the product already has', async () => {
     renderEdit()
 

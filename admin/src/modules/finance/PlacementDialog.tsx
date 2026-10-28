@@ -96,7 +96,6 @@ export const PlacementDialog = ({ placement, onClose, onSubmit }: PlacementDialo
               label="Fréquence"
               value={values.frequency}
               onChange={(event) => set('frequency', event.target.value as PlacementFrequency)}
-              helperText={values.frequency === 'once' ? 'Un seul versement, le premier jour.' : undefined}
             >
               {FREQUENCY_CHOICES.map((choice) => (
                 <MenuItem key={choice.id} value={choice.id}>

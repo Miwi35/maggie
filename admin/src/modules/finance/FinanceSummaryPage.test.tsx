@@ -105,6 +105,7 @@ describe('FinanceSummaryPage', () => {
 
   test.each([
     ['accounts', 'accounts'],
+    ['review', 'review'],
     ['treasury', 'treasury'],
   ])('%s has no sub-view, so no tabs: the content, directly (MAG-632)', async (key, aspect) => {
     stubApi()
@@ -130,11 +131,19 @@ describe('FinanceSummaryPage', () => {
     await opensOn('Projets', 'projects')
   })
 
-  test('Revue opens on the list of the transactions, whether there is something to review or not (MAG-539)', async () => {
+  test('Revue is the list of the transactions, whether there is something to review or not (MAG-539, MAG-634)', async () => {
     stubApi()
     renderPage('/finance/summary/review')
 
-    await opensOn('Transactions', 'review')
+    expect(await screen.findByText('content:review')).toBeInTheDocument()
+  })
+
+  test('Configuration reads Catégories · Banques and opens on Catégories when nothing has data (MAG-634)', async () => {
+    stubApi()
+    renderPage('/finance/summary/settings')
+
+    await opensOn('Catégories', 'categories')
+    expect((await screen.findAllByRole('tab')).map((tab) => tab.textContent)).toEqual(['Catégories', 'Banques'])
   })
 
   test('Planification opens on Indépendance when only the rentes are declared', async () => {
@@ -167,9 +176,9 @@ describe('FinanceSummaryPage', () => {
 
   test('the tab named in the URL is the one shown, whatever has data', async () => {
     const fetch = stubApi()
-    renderPage('/finance/summary/review/recurring')
+    renderPage('/finance/summary/settings/banks')
 
-    await opensOn('Opérations récurrentes', 'recurring')
+    await opensOn('Banques', 'banks')
     expect(fetch).not.toHaveBeenCalled()
   })
 

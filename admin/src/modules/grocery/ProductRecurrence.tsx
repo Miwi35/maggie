@@ -21,10 +21,7 @@ const RecurrenceSetting = ({ productId }: { productId: string }) => {
 
   return (
     <>
-      <FormSection
-        title="Achat récurrent"
-        description="Un produit récurrent revient seul sur la liste de courses, à la fréquence choisie. S'applique tout de suite, sans « Enregistrer »."
-      />
+      <FormSection title="Achat récurrent" />
       <RecurrenceSelect
         label="Récurrent"
         value={current?.frequency ?? ''}

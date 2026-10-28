@@ -187,6 +187,24 @@ class ReviewListScreenTest {
     }
 
     @Test
+    fun `a row reads the cleaned label on two lines at most and a short day`() {
+        val thisYear = java.time.LocalDate.now().year
+        val raw = ReviewQueueItem(
+            id = "tx-9",
+            label = "CARTE X1234 PAIEMENT CB 0110 PARIS FR BOULANGERIE PAUL REF 99887766 ".repeat(3),
+            counterpartyLabel = "BOULANGERIE PAUL",
+            amountCents = -450,
+            bookedAt = "$thisYear-10-01",
+        )
+        show(viewModel(listOf(raw)))
+
+        compose.onNodeWithText("BOULANGERIE PAUL").assertIsDisplayed()
+        compose.onNodeWithText(raw.label.trim(), substring = true).assertDoesNotExist()
+        compose.onNodeWithText("1 oct.").assertIsDisplayed()
+        compose.onNodeWithText("$thisYear-10-01", substring = true).assertDoesNotExist()
+    }
+
+    @Test
     fun `the lines to qualify come before the recognised ones, each by ascending date`() {
         show(viewModel(listOf(netflix, paul, salary, carrefour)))
 

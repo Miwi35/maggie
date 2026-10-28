@@ -150,11 +150,6 @@ private fun BudgetTreePane(
                     item(key = "outside-monthly-budget") {
                         Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag(UiTags.BUDGET_OUTSIDE_MONTHLY)) {
                             Text("Hors budget mensuel", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "Les enveloppes annuelles et les événements ponctuels ne comptent pas dans le total du mois.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
                         }
                     }
                     items(annual, key = { it.line.id }) { row ->

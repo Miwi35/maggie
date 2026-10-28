@@ -28,9 +28,6 @@ const formSx = { maxWidth: 680 }
 const rowSx = { display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }
 const halfSx = { flex: '1 1 240px' }
 
-const MODE_HELP =
-  "Mensuel : un budget qui se renouvelle chaque mois (courses, essence). Annuel : une enveloppe unique pour l'année entière, à part du budget du mois (voyages, cadeaux, matériel). Ponctuel : un événement (Hellfest 2026, des vacances), sans catégorie ni période — vous y attribuez les dépenses à la main depuis la transaction."
-
 interface EnvelopeFormProps {
   /** Create pre-fills the current period; edit keeps what is stored. */
   withDefaults?: boolean
@@ -56,7 +53,6 @@ const ModeInput = ({ withDefaults }: EnvelopeFormProps) => {
       validate={required()}
       disabled={!withDefaults && storedOneOff}
       fullWidth
-      helperText={MODE_HELP}
     />
   )
 }
@@ -78,10 +74,7 @@ export const validateSeasons = (seasons?: Array<Partial<Season> | null>) => {
  */
 export const SeasonsInput = () => (
   <>
-    <FormSection
-      title="Saisons"
-      description="Un autre montant sur une partie de l'année (Cinéma 45 € de novembre à février). Les mois hors saison gardent le montant de l'enveloppe ; la reconduction crée chaque mois au montant de sa saison."
-    />
+    <FormSection title="Saisons" />
     <ArrayInput source="seasonalAmounts" label={false} defaultValue={[]} validate={validateSeasons}>
       <SimpleFormIterator
         inline
@@ -106,7 +99,7 @@ export const SeasonsInput = () => (
 )
 
 /** The envelope's amount, in euros on screen and cents on the wire. */
-export const AmountInput = ({ helperText }: { helperText?: string }) => (
+export const AmountInput = () => (
   <NumberInput
     source="amountCents"
     label="Montant de l'enveloppe (€)"
@@ -114,7 +107,6 @@ export const AmountInput = ({ helperText }: { helperText?: string }) => (
     format={toEuros}
     parse={toCents}
     sx={halfSx}
-    helperText={helperText}
   />
 )
 
@@ -123,48 +115,40 @@ export const AlertThresholdInput = () => (
   <NumberInput
     source="alertThresholdPercent"
     label="Seuil d'alerte (%)"
+    placeholder="80"
     min={1}
     max={99}
     validate={[minValue(1), maxValue(99)]}
     sx={halfSx}
-    helperText="Entre 1 et 99. Vide : 80 %."
   />
 )
 
 const AmountInputs = ({ withDefaults }: EnvelopeFormProps) => (
   <Box sx={rowSx}>
-    <AmountInput helperText="Ce que vous vous autorisez à dépenser sur toute la période." />
+    <AmountInput />
     <TextInput
       source="currency"
       label="Devise"
       defaultValue={withDefaults ? 'EUR' : undefined}
       sx={halfSx}
-      helperText="Code ISO 4217 : EUR, CHF, USD…"
     />
   </Box>
 )
 
 const CategoryBudgetFields = ({ withDefaults }: EnvelopeFormProps) => (
   <>
-    <FormSection
-      title="Ce que vous budgétez"
-      description="Une enveloppe plafonne les dépenses d'une catégorie sur une période. Les transactions de cette catégorie viennent s'en déduire automatiquement."
-    />
+    <FormSection title="Ce que vous budgétez" />
 
     <CategoryInput
       source="category"
       label="Catégorie"
       validate={required()}
       fullWidth
-      helperText="Seules les dépenses classées dans cette catégorie sont décomptées."
     />
 
     <AmountInputs withDefaults={withDefaults} />
 
-    <FormSection
-      title="Période couverte"
-      description="La période sur laquelle ce montant s'applique — c'est elle qui détermine quand le compteur repart de zéro."
-    />
+    <FormSection title="Période couverte" />
 
     <Box sx={rowSx}>
       <NumberInput
@@ -173,7 +157,6 @@ const CategoryBudgetFields = ({ withDefaults }: EnvelopeFormProps) => (
         defaultValue={withDefaults ? now.getFullYear() : undefined}
         validate={required()}
         sx={halfSx}
-        helperText="L'année à laquelle cette enveloppe appartient."
       />
       <FormDataConsumer>
         {({ formData }) =>
@@ -185,7 +168,6 @@ const CategoryBudgetFields = ({ withDefaults }: EnvelopeFormProps) => (
               defaultValue={withDefaults ? now.getMonth() + 1 : undefined}
               validate={required()}
               sx={halfSx}
-              helperText="Le mois que ce montant couvre. Créez une enveloppe par mois à budgéter."
             />
           )
         }
@@ -198,17 +180,13 @@ const CategoryBudgetFields = ({ withDefaults }: EnvelopeFormProps) => (
 
 const OneOffFields = ({ withDefaults }: EnvelopeFormProps) => (
   <>
-    <FormSection
-      title="L'événement"
-      description="Une enveloppe ponctuelle n'a ni catégorie ni période. Les dépenses que vous y attribuez gardent leur catégorie mais sortent des enveloppes du mois."
-    />
+    <FormSection title="L'événement" />
 
     <TextInput
       source="name"
       label="Nom de l'événement"
       validate={required()}
       fullWidth
-      helperText="Hellfest 2026, Vacances en Bretagne…"
     />
 
     <AmountInputs withDefaults={withDefaults} />
@@ -217,11 +195,7 @@ const OneOffFields = ({ withDefaults }: EnvelopeFormProps) => (
 
 export const EnvelopeForm = ({ withDefaults = false }: EnvelopeFormProps) => (
   <SimpleForm sx={formSx}>
-    <FormSection
-      first
-      title="Type d'enveloppe"
-      description="Le budget du mois, une enveloppe annuelle à part, ou un événement ponctuel."
-    />
+    <FormSection first title="Type d'enveloppe" />
 
     <ModeInput withDefaults={withDefaults} />
 
@@ -237,10 +211,7 @@ export const EnvelopeForm = ({ withDefaults = false }: EnvelopeFormProps) => (
 
     <EnvelopeSplitSection />
 
-    <FormSection
-      title="Alerte"
-      description="Après une synchro bancaire qui fait passer l'enveloppe au-delà de ce seuil, Maggie vous prévient — une fois par période, puis une seconde fois à 100 %."
-    />
+    <FormSection title="Alerte" />
 
     <AlertThresholdInput />
 

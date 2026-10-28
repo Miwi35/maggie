@@ -111,7 +111,6 @@ export const CategorizationRuleList = () => (
     empty={
       <ListEmpty
         title="Aucune règle pour l'instant"
-        description="Une règle classe toute seule les transactions dont le libellé correspond — une fois écrite, elle vaut pour tout l'historique."
         action="Écrire une règle"
         secondaryAction={<DetectInternalTransfersButton />}
       />

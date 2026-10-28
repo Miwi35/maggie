@@ -38,7 +38,6 @@ export const IngredientList = () => (
     empty={
       <ListEmpty
         title="Aucun ingrédient pour l'instant"
-        description="Les ingrédients alimentent vos recettes et leurs valeurs nutritionnelles."
         action="Ajouter un ingrédient"
       />
     }

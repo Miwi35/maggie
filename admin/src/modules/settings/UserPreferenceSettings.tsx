@@ -217,7 +217,6 @@ export const UserPreferenceSettings = () => {
         <CardContent>
           <TextField
             label="Ville par défaut"
-            helperText="La météo que Maggie donne quand tu ne précises pas de lieu."
             value={city}
             onChange={(e) => setCity(e.target.value)}
             onBlur={handleCityBlur}

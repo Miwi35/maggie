@@ -244,6 +244,22 @@ describe('ReviewPage', () => {
     })
   })
 
+  describe('the page as the mock-up draws it (MAG-634)', () => {
+    test('is titled « Revue · n », n being the lines of the period', async () => {
+      renderPage()
+
+      expect(await screen.findByRole('heading', { level: 1, name: 'Revue · 4' })).toBeInTheDocument()
+    })
+
+    test('filters with pills, never with segmented buttons', async () => {
+      const { container } = renderPage()
+      await screen.findByRole('region', { name: 'Non reconnues' })
+
+      expect(container.querySelector('.MuiToggleButtonGroup-root, .MuiToggleButton-root')).toBeNull()
+      expect(container.querySelectorAll('.MuiChip-root').length).toBeGreaterThanOrEqual(6)
+    })
+  })
+
   describe('the state pills', () => {
     test('count the lines of the period and are all selected by default', async () => {
       renderPage()

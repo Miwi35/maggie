@@ -167,7 +167,7 @@ describe('Breadcrumbs', () => {
   test('the recurring operations page sits under Finance', () => {
     renderAt('/finance/recurring-operations')
 
-    expect(labels()).toEqual(['Finance', 'Revue', 'Opérations récurrentes'])
+    expect(labels()).toEqual(['Finance', 'Configuration', 'Opérations récurrentes'])
     expect(screen.getByText('Opérations récurrentes')).toHaveAttribute('aria-current', 'page')
   })
 

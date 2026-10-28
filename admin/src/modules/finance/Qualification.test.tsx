@@ -87,14 +87,11 @@ describe('Qualification', () => {
     })
   })
 
-  test.each([
-    ['out', /je rembourse/],
-    ['in', /on me rembourse/],
-    ['unknown', /selon le signe du montant/],
-  ] as const)('a repayment reads differently when the amount is %s', async (sense, text) => {
-    renderQualification({ sense }, { mandatory: false, kind: 'repayment' })
+  test('carries no explanatory text under the fields', async () => {
+    renderQualification({ sense: 'out' }, { mandatory: false, kind: 'repayment' })
 
-    expect(await screen.findByText(text)).toBeInTheDocument()
+    expect(await screen.findByRole('combobox', { name: 'Type' })).toHaveTextContent('Remboursement')
+    expect(screen.queryByText(/je rembourse|selon le signe du montant|quel que soit le sens/)).toBeNull()
   })
 
   test('says what is missing when the category is required', async () => {

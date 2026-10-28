@@ -65,6 +65,12 @@ describe('CategoryList', () => {
     expect(await screen.findByText('Alimentation')).toBeInTheDocument()
   })
 
+  test('leads to the recurring operations, moved here from Revue (MAG-634)', async () => {
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: 'Opérations récurrentes' })).toHaveAttribute('href', '#/finance/recurring-operations')
+  })
+
   test('a row shows the colour and the icon the category was given, not a hex code', async () => {
     renderPage()
 

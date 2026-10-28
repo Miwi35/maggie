@@ -2,7 +2,6 @@ import type { ComponentType } from 'react'
 import { ResourceContextProvider } from 'react-admin'
 import { AccountList } from './AccountList'
 import { BankConnectionsPage } from './BankConnectionsPage'
-import { CategorizationRuleList } from './CategorizationRuleList'
 import { CategoryList } from './CategoryList'
 import { EnvelopeList, EnvelopeOutside } from './EnvelopeList'
 import { IndependencePanel } from './IndependencePanel'
@@ -10,7 +9,6 @@ import { LoanList } from './LoanList'
 import { PlacementsSection } from './PlacementsSection'
 import { ProjectsPage } from './ProjectsPage'
 import { ReviewPage } from './ReviewPage'
-import { RecurringOperationsPage } from './RecurringOperationsPage'
 import { TreasuryPage } from './TreasuryPage'
 
 /** A list screen is built for its resource's route: outside it, it is told which resource it lists. */
@@ -32,8 +30,6 @@ const inResource = (resource: string, List: ComponentType): ComponentType => {
 export const ASPECT_CONTENT: Record<string, ComponentType> = {
   accounts: inResource('accounts', AccountList),
   review: ReviewPage,
-  rules: inResource('categorization_rules', CategorizationRuleList),
-  recurring: RecurringOperationsPage,
   month: inResource('envelopes', EnvelopeList),
   outside: inResource('envelopes', EnvelopeOutside),
   treasury: TreasuryPage,

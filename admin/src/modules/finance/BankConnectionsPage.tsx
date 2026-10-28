@@ -240,11 +240,7 @@ export const BankConnectionsPage = () => {
 
       <Card sx={{ mb: 2 }}>
         <CardContent>
-          <FormSection
-            first
-            title="Connecter une banque"
-            description="Vous serez redirigé vers votre banque pour autoriser l'accès. Maggie lit les transactions, elle ne peut rien déclencher sur vos comptes."
-          />
+          <FormSection first title="Connecter une banque" />
 
           {banksError && (
             <Alert severity="warning" sx={{ mb: 2 }}>
@@ -275,12 +271,7 @@ export const BankConnectionsPage = () => {
               onChange={(_, value) => setBankName(value)}
               sx={{ flexGrow: 1, minWidth: 260 }}
               renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label="Banque"
-                  helperText="Pour le Crédit Agricole, choisissez votre caisse régionale."
-                />
+                <TextField {...params} size="small" label="Banque" />
               )}
             />
 
@@ -312,10 +303,7 @@ export const BankConnectionsPage = () => {
           {loading && connections.length === 0 && <LinearProgress />}
 
           {!loading && connections.length === 0 && (
-            <Placeholder
-              title="Aucune banque connectée"
-              description="Connectez une banque pour que vos transactions arrivent toutes seules, sans import de fichier."
-            />
+            <Placeholder title="Aucune banque connectée" />
           )}
 
           {connections.map((connection) => (

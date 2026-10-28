@@ -29,13 +29,6 @@ export const STATUS_CHOICES: Record<TransactionNature, StatusChoice[]> = {
   income: INCOME_STATUS_CHOICES,
 }
 
-export const STATUS_HELP: Record<TransactionNature, string> = {
-  expense:
-    'Dépensée et engagée sont déduites du budget ; planifiée est mise de côté ; à arbitrer ne compte pas encore.',
-  income:
-    'Reçue est déjà sur le compte et compte dans vos revenus ; attendue est prévue mais pas encore arrivée ; à arbitrer ne compte pas encore.',
-}
-
 export const STATUS_SECTION_TITLE: Record<TransactionNature, string> = {
   expense: 'État de la dépense',
   income: 'État de la recette',
@@ -44,11 +37,6 @@ export const STATUS_SECTION_TITLE: Record<TransactionNature, string> = {
 export const EXCEPTIONAL_LABEL: Record<TransactionNature, string> = {
   expense: 'Dépense exceptionnelle',
   income: 'Recette exceptionnelle',
-}
-
-export const EXCEPTIONAL_HELP: Record<TransactionNature, string> = {
-  expense: 'À cocher pour ce qui ne se reproduira pas — un déménagement, une réparation.',
-  income: 'À cocher pour ce qui ne se reproduira pas — une prime, un remboursement.',
 }
 
 /** The sign decides: zero has no direction, and reads as an expense like before. */

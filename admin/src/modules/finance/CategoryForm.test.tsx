@@ -74,7 +74,7 @@ describe('CategoryForm', () => {
     expect(screen.queryByLabelText(/Obligation/)).not.toBeInTheDocument()
     expect(screen.queryByText('Nature de la dépense')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Rente')).toBeInTheDocument()
-    expect(screen.getByText(/compteur d'indépendance compare à votre train de vie/)).toBeInTheDocument()
+    expect(screen.queryByText(/compteur d'indépendance compare à votre train de vie/)).not.toBeInTheDocument()
   })
 
   test('a category without a rente is sent with no obligation', async () => {

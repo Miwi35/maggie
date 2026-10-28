@@ -142,6 +142,7 @@ class BudgetTreeScreenTest {
 
         compose.onNodeWithText("Hors budget mensuel").assertExists()
         compose.onNodeWithText("Hellfest 2026").assertExists()
+        compose.onNodeWithText("ne comptent pas dans le total du mois", substring = true).assertDoesNotExist()
     }
 
     @Test

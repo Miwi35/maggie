@@ -92,9 +92,11 @@ class BudgetAlertThresholdScreenTest {
         compose.onNodeWithTag("budget_alert_threshold").assertHasClickAction().performClick()
         compose.onNodeWithText("Alerte de Loisirs").assertIsDisplayed()
 
+        compose.onNodeWithText("Entre 1 et 99", substring = true).assertDoesNotExist()
         compose.onNodeWithTag("alert_threshold_field").performTextClearance()
         compose.onNodeWithTag("alert_threshold_field").performTextInput("100")
         compose.onNodeWithText("Enregistrer").assertIsNotEnabled()
+        compose.onNodeWithText("Entre 1 et 99.").assertIsDisplayed()
 
         compose.onNodeWithTag("alert_threshold_field").performTextClearance()
         compose.onNodeWithTag("alert_threshold_field").performTextInput("90")

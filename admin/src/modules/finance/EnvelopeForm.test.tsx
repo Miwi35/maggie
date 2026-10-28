@@ -103,22 +103,14 @@ const renderSeasonEdit = (seasonalAmounts: Array<typeof WINTER>) =>
   )
 
 describe('EnvelopeForm', () => {
-  test('groups the fields under explained sections', async () => {
+  test('groups the fields under titled sections, without explanatory text', async () => {
     renderForm()
 
     expect(await screen.findByText('Ce que vous budgétez')).toBeInTheDocument()
     expect(screen.getByText('Période couverte')).toBeInTheDocument()
-    expect(
-      screen.getByText(/c'est elle qui détermine quand le compteur repart de zéro/i),
-    ).toBeInTheDocument()
-  })
-
-  test('explains what the period fields are for', async () => {
-    renderForm()
-
-    expect(await screen.findByText(/L'année à laquelle cette enveloppe appartient/i)).toBeInTheDocument()
-    expect(screen.getByText(/Le mois que ce montant couvre/i)).toBeInTheDocument()
-    expect(screen.getByText(/se renouvelle chaque mois/i)).toBeInTheDocument()
+    expect(screen.queryByText(/compteur repart de zéro/i)).toBeNull()
+    expect(screen.queryByText(/L'année à laquelle cette enveloppe appartient/i)).toBeNull()
+    expect(screen.queryByText(/se renouvelle chaque mois/i)).toBeNull()
   })
 
   test('defaults the period to the current month', async () => {
@@ -195,8 +187,9 @@ describe('EnvelopeForm', () => {
 
     const threshold = await screen.findByLabelText(/Seuil d'alerte/i)
     expect(threshold).toHaveValue(null)
-    expect(screen.getByText(/Vide : 80 %/)).toBeInTheDocument()
-    expect(screen.getByText(/une seconde fois à 100 %/)).toBeInTheDocument()
+    expect(threshold).toHaveAttribute('placeholder', '80')
+    expect(screen.queryByText(/Vide : 80 %/)).toBeNull()
+    expect(screen.queryByText(/une seconde fois à 100 %/)).toBeNull()
   })
 
   test('saves the threshold set on an envelope', async () => {

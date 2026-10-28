@@ -1171,6 +1171,9 @@ object UiTags {
     /** Settings > Notifications — the switch of the chime and the vibration that announce her. */
     const val SETTINGS_INTERRUPTION_SOUND = "settings_interruption_sound"
 
+    /** Réglages › « Se déconnecter », the text button under the list (MAG-634). */
+    const val SETTINGS_LOGOUT = "settings_logout"
+
     /** Réglages › « Partir à l'heure » switch (MAG-651). */
     const val SETTINGS_DEPARTURE = "settings_departure"
 

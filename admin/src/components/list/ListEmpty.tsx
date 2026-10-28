@@ -8,8 +8,8 @@ import type { ReactNode } from 'react'
 interface ListEmptyProps {
   /** What is missing, as the reader would say it: "Aucun compte pour l'instant". */
   title: string
-  /** Why it is worth creating one — one sentence, no filler. */
-  description: ReactNode
+  /** Optional: screens carry no explanatory text (the why lives in the spec). */
+  description?: ReactNode
   /** Label of the create button; keep the verb the rest of the screen uses. */
   action?: string
   /** A second way out, when the screen offers one — a starting set, an import. */
@@ -34,9 +34,11 @@ export const ListEmpty = ({
       <Typography variant="h6" sx={{ mb: 1 }}>
         {isFiltered ? 'Aucun résultat pour ce filtre' : title}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {isFiltered ? 'Élargissez ou retirez le filtre pour voir le reste.' : description}
-      </Typography>
+      {(isFiltered || description) && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {isFiltered ? 'Élargissez ou retirez le filtre pour voir le reste.' : description}
+        </Typography>
+      )}
       {!isFiltered && (
         <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap>
           <CreateButton variant="contained" label={action} icon={<AddIcon />} />
@@ -54,16 +56,18 @@ export const Placeholder = ({
   action,
 }: {
   title: string
-  description: ReactNode
+  description?: ReactNode
   action?: ReactNode
 }) => (
   <Box sx={{ textAlign: 'center', px: 3, py: 5 }}>
     <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
       {title}
     </Typography>
-    <Typography variant="body2" color="text.secondary" sx={{ mb: action ? 2 : 0 }}>
-      {description}
-    </Typography>
+    {description && (
+      <Typography variant="body2" color="text.secondary" sx={{ mb: action ? 2 : 0 }}>
+        {description}
+      </Typography>
+    )}
     {action}
   </Box>
 )

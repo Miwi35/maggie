@@ -21,18 +21,13 @@ const halfSx = { flex: '1 1 240px' }
 
 export const ProductForm = ({ toolbar }: { toolbar?: ReactElement }) => (
   <SimpleForm sx={formSx} toolbar={toolbar}>
-    <FormSection
-      first
-      title="Le produit"
-      description="Un produit est ce que vous ajoutez à votre liste de courses : le nom est celui que vous taperez."
-    />
+    <FormSection first title="Le produit" />
 
     <TextInput
       source="name"
       label="Nom"
       validate={required()}
       fullWidth
-      helperText="Lait demi-écrémé, pain de mie, lessive…"
     />
 
     <Box sx={rowSx}>
@@ -48,16 +43,12 @@ export const ProductForm = ({ toolbar }: { toolbar?: ReactElement }) => (
         label="Unité par défaut"
         choices={UNIT_CHOICES}
         sx={halfSx}
-        helperText="Proposée à la saisie ; modifiable à chaque ajout."
       />
     </Box>
 
     <PackagingInputs />
 
-    <FormSection
-      title="Saison"
-      description="Les mois où il est de saison en France métropolitaine : la liste et les recettes le signalent."
-    />
+    <FormSection title="Saison" />
 
     <SeasonMonthsInput />
 
@@ -67,13 +58,9 @@ export const ProductForm = ({ toolbar }: { toolbar?: ReactElement }) => (
       source="shelfLifeDays"
       label="Se garde (jours)"
       sx={halfSx}
-      helperText="Facultatif — sert à proposer le réachat au bon moment."
     />
 
-    <FormSection
-      title="Ce qu'il m'en reste"
-      description="Sert à ne racheter que ce qui manque vraiment."
-    />
+    <FormSection title="Ce qu'il m'en reste" />
 
     <Box sx={rowSx}>
       <SelectInput
@@ -90,7 +77,6 @@ export const ProductForm = ({ toolbar }: { toolbar?: ReactElement }) => (
         min={0}
         step={1}
         sx={halfSx}
-        helperText="En conditionnements : 2 paquets de riz, pas 1 000 g."
       />
     </Box>
 
@@ -98,7 +84,6 @@ export const ProductForm = ({ toolbar }: { toolbar?: ReactElement }) => (
       source="autoRestock"
       label="Réapprovisionnement automatique"
       defaultValue={false}
-      helperText="Quand il manque, il retourne sur la liste de courses sans que vous le demandiez."
     />
 
     <ProductRecurrence />

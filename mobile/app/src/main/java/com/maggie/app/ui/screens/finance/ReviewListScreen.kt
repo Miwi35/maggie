@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryTree
@@ -84,6 +85,7 @@ import com.maggie.app.ui.components.ModuleDetailBar
 import com.maggie.app.ui.components.SubviewBar
 import com.maggie.app.ui.components.SubviewItem
 import com.maggie.app.ui.components.formatBookedDay
+import com.maggie.app.ui.components.formatShortBookedDay
 import com.maggie.app.ui.layout.ListDetailPane
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.theme.MaggieTokens
@@ -452,14 +454,18 @@ private fun LineRow(line: ReviewQueueItem, isCursor: Boolean, onClick: () -> Uni
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                line.label,
+                line.counterpartyLabel.ifBlank { line.label },
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (isCursor) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
-                listOfNotNull(formatBookedDay(line.bookedAt), line.contact?.name).joinToString(" · "),
+                listOfNotNull(formatShortBookedDay(line.bookedAt), line.contact?.name).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -748,7 +754,7 @@ private fun CorrectionScreen(
             Text(formatCents(line.amountCents, line.currency), style = MaterialTheme.typography.headlineSmall)
             qualificationProvenance(line.qualifiedBy)?.let {
                 Text(
-                    "$it. Corriger la pose à la main : la ligne ne sera plus reconnue par la règle ou la série.",
+                    "$it.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

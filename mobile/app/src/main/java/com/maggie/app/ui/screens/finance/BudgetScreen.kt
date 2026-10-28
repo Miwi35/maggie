@@ -370,11 +370,6 @@ private fun LazyListScope.outsideMonthlyBudget(
     item(key = "outside-monthly-budget") {
         Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag(UiTags.BUDGET_OUTSIDE_MONTHLY)) {
             Text("Hors budget mensuel", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Les enveloppes annuelles et les événements ponctuels ne comptent pas dans le total du mois.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
     items(annual, key = { it.line.id }) { row ->
@@ -624,12 +619,13 @@ private fun AlertThreshold(percent: Int, onEdit: (() -> Unit)?) {
 /** The threshold field, blank for the default: the same rule in the dialog of a new envelope and of an existing one. */
 @Composable
 internal fun AlertThresholdField(value: String, onValueChange: (String) -> Unit) {
+    val invalid = AlertThresholdInput.parse(value) is AlertThresholdInput.Invalid
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text("Seuil d'alerte (%)") },
-        supportingText = { Text("Entre 1 et 99. Vide : 80 %.") },
-        isError = AlertThresholdInput.parse(value) is AlertThresholdInput.Invalid,
+        supportingText = if (invalid) ({ Text("Entre 1 et 99.") }) else null,
+        isError = invalid,
         modifier = Modifier.fillMaxWidth().testTag("alert_threshold_field"),
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

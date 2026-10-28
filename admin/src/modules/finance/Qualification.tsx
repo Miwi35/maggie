@@ -11,7 +11,7 @@ import { useController, useWatch } from 'react-hook-form'
 import type { RaRecord } from 'react-admin'
 import { categoryLabel, orderedCategories } from './categoryTree'
 import type { CategoryNode } from './categoryTree'
-import { KIND_CHOICES, NO_QUALIFICATION, kindHelp } from './qualificationKinds'
+import { KIND_CHOICES, NO_QUALIFICATION } from './qualificationKinds'
 import type { QualificationKind, QualificationValue, Sense } from './qualificationKinds'
 
 export interface QualificationChange {
@@ -23,11 +23,10 @@ interface QualificationProps {
   category: string | null
   qualification: QualificationValue
   onChange: (next: QualificationChange) => void
-  /** The sign of the amount, which decides what « remboursement » means. */
+  /** The sign of the amount. No longer shown (no help text); callers may still pass it. */
   sense?: Sense
   required?: boolean
   error?: string | null
-  categoryHelperText?: string
 }
 
 /**
@@ -39,10 +38,8 @@ export const Qualification = ({
   category,
   qualification,
   onChange,
-  sense = 'unknown',
   required = false,
   error = null,
-  categoryHelperText,
 }: QualificationProps) => {
   const { data = [] } = useGetList<CategoryNode & RaRecord>('categories', {
     pagination: { page: 1, perPage: 200 },
@@ -65,7 +62,7 @@ export const Qualification = ({
             label="Catégorie"
             required={required}
             error={Boolean(error)}
-            helperText={error ?? categoryHelperText ?? 'Toutes les catégories sont proposées, quel que soit le sens du montant.'}
+            helperText={error}
           />
         )}
         fullWidth
@@ -86,7 +83,6 @@ export const Qualification = ({
         onChange={(event) =>
           onChange({ category, qualification: { ...qualification, kind: event.target.value as QualificationKind } })
         }
-        helperText={kindHelp(qualification.kind, sense)}
         fullWidth
       >
         {KIND_CHOICES.map((choice) => (
@@ -101,10 +97,8 @@ export const Qualification = ({
 
 /** The same component, bound to the `category` and `qualification` fields of a react-admin form. */
 export const QualificationInput = ({
-  sense,
   required,
-  categoryHelperText,
-}: Pick<QualificationProps, 'sense' | 'required' | 'categoryHelperText'>) => {
+}: Pick<QualificationProps, 'sense' | 'required'>) => {
   const { field: categoryField, fieldState } = useController({
     name: 'category',
     rules: required ? { required: 'Choisissez une catégorie' } : undefined,
@@ -119,10 +113,8 @@ export const QualificationInput = ({
         categoryField.onChange(next.category)
         qualificationField.onChange(next.qualification)
       }}
-      sense={sense}
       required={required}
       error={fieldState.error?.message ?? null}
-      categoryHelperText={categoryHelperText}
     />
   )
 }

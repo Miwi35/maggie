@@ -176,7 +176,6 @@ export const AccountIncidents = ({
       ) : incidents.length === 0 ? (
         <Placeholder
           title="Aucun incident sur ce compte"
-          description="Un prélèvement ou un virement rejeté par la banque apparaîtra ici, une ligne par rejet."
         />
       ) : (
         <IncidentTable
