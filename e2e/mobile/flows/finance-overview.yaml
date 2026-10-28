@@ -107,9 +107,19 @@ tags:
 # The salary is declared on the seeded matelas: never the « not declared » empty state.
 - assertNotVisible: ".*salaire non déclaré.*"
 
-- scrollUntilVisible:
-    element:
-      text: ".*Capacité d'épargne nette.*"
+# The tiles are the right column on a tablet, a list of its own: `scrollUntilVisible` swipes from the screen's
+# centre, which is the gap between the two columns, so nothing moved (nightly of 28 Oct.). The flings start in
+# the right half, which is the tiles on the two columns and the whole list on the phone.
+- repeat:
+    while:
+      notVisible: ".*Capacité d'épargne nette.*"
+    times: 6
+    commands:
+      - swipe:
+          start: 75%, 60%
+          end: 75%, 35%
+- extendedWaitUntil:
+    visible: ".*Capacité d'épargne nette.*"
     timeout: 30000
 
 # A tile leads to its menu. Back to the top first, then down to the tile: scrolling down from the
@@ -138,12 +148,16 @@ tags:
       visible:
         id: "finance_two_columns"
     commands:
-      - scrollUntilVisible:
-          element:
+      # Back to the top of the tiles' column, which is scrolled apart from the rings' one.
+      - repeat:
+          times: 4
+          commands:
+            - swipe:
+                start: 75%, 35%
+                end: 75%, 75%
+      - extendedWaitUntil:
+          visible:
             id: "finance_tile_accounts"
-          direction: UP
-          visibilityPercentage: 100
-          centerElement: true
           timeout: 30000
 - tapOn:
     id: "finance_tile_accounts"

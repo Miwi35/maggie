@@ -119,6 +119,10 @@ against an app nobody launched.
    reach what you assert with `scrollUntilVisible` (`extendedWaitUntil` does not scroll), and branch on
    `finance_two_columns`, `detail_pane` (not `chat_panel`: it is folded by default on a tablet since MAG-624) or on
    the phone-only id with `evalScript: ${0}` + `runFlow: when:` rather than assume the phone's order. A phone-only rule belongs in a screen test, not in the journey.
+   **`scrollUntilVisible` swipes from the screen's centre** — on a tablet the detail pane, or the gap between two
+   columns — and counts an element « visible » while its bounds are on screen, even half under a pane's foot.
+   For a list that is not under the centre, `repeat: while: notVisible: <text>` + `swipe` from 25 % (the list
+   pane) or 75 % (the right column) reaches the text itself (MAG-646).
 2. **`launchApp: clearState: true` and `permissions: all: allow`.** Without the
    first, a second run starts signed in and never sees the login screen; without
    the second, a runtime permission dialog belongs to the system UI and the step

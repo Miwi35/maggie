@@ -43,12 +43,21 @@ tags:
       id: "calendar_day_view_${TODAY}"
     timeout: 20000
 
-- scrollUntilVisible:
-    element:
-      id: "trip_line_${output.eventId}"
-    direction: DOWN
-    timeout: 30000
-    centerElement: true
+# The day is scrolled by flings in the list's own quarter of the screen, not by `scrollUntilVisible`: it swipes
+# from the screen's centre, which on a tablet is the detail pane, so the day never moved (nightly of 28 Oct.).
+# The loop stops as soon as the line shows, and one more fling lifts it so its step chips are above the foot.
+- repeat:
+    while:
+      notVisible:
+        id: "trip_line_${output.eventId}"
+    times: 8
+    commands:
+      - swipe:
+          start: 25%, 60%
+          end: 25%, 35%
+- swipe:
+    start: 25%, 60%
+    end: 25%, 40%
 - extendedWaitUntil:
     visible:
       id: "trip_line_${output.eventId}"
@@ -66,11 +75,26 @@ tags:
       ACTION: move
       EVENT_ID: ${output.eventId}
 
-- scrollUntilVisible:
-    element:
+# The 13:34 line goes away when Mercure brings the new trip. Waited for in place: flinging
+# before the update only carries the list past the place where the 14:34 line will appear.
+- extendedWaitUntil:
+    notVisible: "(Partir|Parti) à 13:34 · depuis la maison"
+    timeout: 40000
+
+# An hour lower than before: a fling or two in the list when it left the screen.
+- repeat:
+    while:
+      notVisible:
+        id: "trip_line_${output.eventId}"
+        text: "(Partir|Parti) à 14:34 · depuis la maison"
+    times: 8
+    commands:
+      - swipe:
+          start: 25%, 60%
+          end: 25%, 35%
+- extendedWaitUntil:
+    visible:
       id: "trip_line_${output.eventId}"
       text: "(Partir|Parti) à 14:34 · depuis la maison"
-    direction: DOWN
     timeout: 40000
-    centerElement: true
 - assertNotVisible: "(Partir|Parti) à 13:34 · depuis la maison"
