@@ -68,12 +68,14 @@ internal fun MorningContent(morning: MorningState, viewModel: TasksViewModel) {
             }
         } else {
             item(key = "time") { MorningTime(proposal) }
+            // The swap button's 12 dp around its icon completes the row's 16 dp end margin; without it the row keeps 16 dp (MAG-675).
+            val endPadding = if (proposal.reserveRanked.isNotEmpty()) 4.dp else 16.dp
             itemsIndexed(proposal.slots, key = { _, slot -> slot.task.id }) { index, slot ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag(UiTags.tasksMorningSlot(slot.position))
-                        .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                        .padding(start = 16.dp, end = endPadding, top = 4.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {

@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -44,6 +45,7 @@ import com.maggie.app.data.model.toQualifyLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.SpentRingCanvas
 import com.maggie.app.ui.components.expectedLine
+import com.maggie.app.ui.components.ringArcColor
 import com.maggie.app.ui.components.ringDescription
 import com.maggie.app.ui.components.ringFill
 import com.maggie.app.ui.components.ringTick
@@ -92,30 +94,54 @@ internal fun FinanceHomeCardContent(ui: FinanceHomeUiState, onOpen: () -> Unit, 
 
 @Composable
 private fun FinanceHomeBody(state: FinanceHomeState, onOpen: () -> Unit) {
-    // One compact row, as the mock-up draws it: the two rings, then the rhythm and what waits to be qualified.
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        FinanceHomeRingView("Semaine", "week", state.week)
-        FinanceHomeRingView("Mois", "month", state.month)
-        Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (state.toQualifyCount > 0) {
-                FinanceHomePill(
-                    text = state.toQualifyLabel(),
-                    color = financeRhythmColor("above", isDark()),
-                    tag = UiTags.HOME_FINANCE_TO_QUALIFY,
-                    onClick = onOpen,
-                )
-            }
+    // One compact row, as the mock-up draws it: the two rings, then what waits to be qualified at the far end.
+    // On a narrow phone the pill goes under the rings, whole, rather than cut beside them (MAG-675).
+    RingsAndPill(modifier = Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FinanceHomeRingView("Semaine", "week", state.week)
+            FinanceHomeRingView("Mois", "month", state.month)
+        }
+        if (state.toQualifyCount > 0) {
+            FinanceHomePill(
+                text = state.toQualifyLabel(),
+                color = financeRhythmColor("above", isDark()),
+                tag = UiTags.HOME_FINANCE_TO_QUALIFY,
+                onClick = onOpen,
+            )
         }
     }
     state.nextProject?.let { FinanceHomeNextProject(it) }
+}
+
+/**
+ * The rings at the start and the pill at the far end when it fits beside them with 12 dp to spare, else the pill under
+ * the rings. The pill is measured at its natural width first: a FlowRow hands it the room left on the line, which
+ * clips its single-line text instead of moving it down.
+ */
+@Composable
+private fun RingsAndPill(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val rings = measurables[0].measure(loose)
+        val pill = measurables.getOrNull(1)?.measure(loose)
+        val gap = 12.dp.roundToPx()
+        val width = constraints.maxWidth
+        val beside = pill == null || rings.width + gap + pill.width <= width
+        val height = when {
+            pill == null -> rings.height
+            beside -> maxOf(rings.height, pill.height)
+            else -> rings.height + 8.dp.roundToPx() + pill.height
+        }
+        layout(width, height) {
+            if (pill != null && beside) {
+                rings.placeRelative(0, (height - rings.height) / 2)
+                pill.placeRelative(width - pill.width, (height - pill.height) / 2)
+            } else {
+                rings.placeRelative(0, 0)
+                pill?.placeRelative(0, rings.height + 8.dp.roundToPx())
+            }
+        }
+    }
 }
 
 @Composable
@@ -154,6 +180,7 @@ private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHome
     val fill = ringFill(ring.spentCents, ring.plannedCents)
     val tick = ringTick(ring.spentCents, ring.expectedSpentCents, ring.plannedCents)
     val description = ringDescription(title, ring.spentCents, ring.expectedSpentCents, ring.plannedCents)
+    val arcColor = ringArcColor(ring.spentCents, ring.expectedSpentCents, ring.plannedCents)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -162,7 +189,7 @@ private fun FinanceHomeRingView(title: String, period: String, ring: FinanceHome
             .semantics(mergeDescendants = true) { contentDescription = description },
     ) {
         Box(modifier = Modifier.size(RING_SIZE), contentAlignment = Alignment.Center) {
-            SpentRingCanvas(fill, tick, RING_SIZE, RING_STROKE)
+            SpentRingCanvas(fill, tick, RING_SIZE, RING_STROKE, arcColor)
             Text(
                 text = formatCentsRounded(ring.spentCents),
                 style = MaterialTheme.typography.labelMedium,
