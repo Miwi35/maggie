@@ -104,16 +104,18 @@ The session reads the ticket, the spec and the code, then writes a plan the deve
 
 It hands that plan to `fullstack-developer`, which applies it as written and does not redesign: a gap in the plan comes back to the session, which decides. The session checks lint and the targeted tests, then runs the review loop below. Fixes after a review go to `fullstack-developer` too.
 
-## Review loop — before opening the PR
+## Review loop — local, cold, before the push
 
-Once the ticket is implemented and its tests pass, the session orchestrates a review until the reviewer accepts:
+The review happens on the machine, before the push, so CI only confirms: no round trip through the pipeline for what a local check finds (owner, 28 Oct., after the strategy of his other project).
 
-1. Send the branch to a fresh `code-reviewer` subagent with the ticket, the spec folder and the base branch.
-2. `CHANGES_REQUIRED` → hand the blocking findings to a `fullstack-developer` subagent to fix (tests first when a test is missing), then re-run lint and the targeted tests of what the fix touched.
-3. Resubmit to a new `code-reviewer` with the previous findings and the commit it reviewed: it checks **only the fixes** since then, not the whole branch again. Repeat until `ACCEPT`.
-4. Three rounds without `ACCEPT`: comment what is left, add `ci-blocked`, stop.
+1. **Gates first.** `task fix:all` and the targeted tests are green before any review: the reviewer never talks about format, lint, types or style.
+2. **Cold reviewer.** A fresh `code-reviewer` subagent gets only the ticket (criteria, out of scope), the spec if any, the base branch and the commit range — never the session's plan, reasoning or summary. It judges the diff, not the intentions.
+3. **Blocking means a named rule or a probable bug.** Each blocking finding names its source (`agent-os/standards/<file>.md § <section>` or a `CLAUDE.md` gotcha) or says « probable bug » with the scenario that fails. Anything else is minor and triggers no round.
+4. **Fix round.** The blocking findings go to `fullstack-developer`. Each one ends **fixed** (a commit) or **contested**, citing the standard or the ticket that makes it wrong — taste, effort or time are no grounds. Lint and the targeted tests of what the fixes touched run again.
+5. **Next reviewer, cold again**: a new `code-reviewer` gets the previous findings with their state and the commit last reviewed; it reviews **only the fixes** since then. A well-founded contest drops its finding; otherwise the finding stands and the message answers the contest.
+6. **Three iterations at most.** Still blocking after the third: comment what is left, add `ci-blocked`, stop. `ACCEPT` → push, open the draft PR.
 
-The PR description ends with a **Review** section: number of rounds, blocking findings fixed, minor findings left as is.
+The PR description ends with a **Review** section: number of iterations, blocking findings fixed or contested, minor findings left as is.
 
 ## Commands — Docker only
 
