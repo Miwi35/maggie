@@ -549,7 +549,7 @@ describe('ProjectsPage', () => {
     await emitMercure('/api/finance/projects/{id}', { '@id': iri('BIKE'), position: 0 })
     await emitMercure('/api/finance/projects/{id}', { '@id': iri('MOVE'), position: 1 })
     await emitMercure('/api/finance/projects/{id}', { '@id': iri('SOFA'), position: 2 })
-    expect(shown()).toEqual(['Vélo', 'Déménagement', 'Canapé'])
+    await waitFor(() => expect(shown()).toEqual(['Vélo', 'Déménagement', 'Canapé']))
 
     await emitMercure('/api/finance/projects/{id}', {
       '@id': iri('SOFA'),
