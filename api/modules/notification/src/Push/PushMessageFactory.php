@@ -100,14 +100,29 @@ class PushMessageFactory
             'actions' => [] === $notification->getActions() ? null : implode(',', $notification->getActions()),
             // A cooking timer's end (MAG-582): the app clears it by this id once the timer is seen elsewhere.
             'cookingTimerId' => $this->cookingTimerId($notification->getRelatedEntityIri()),
+            // Past it the app says nothing (MAG-679): a phone that was offline gets the alert late.
+            'expiresAt' => $notification->getExpiresAt()?->format('c'),
         ], static fn (?string $value) => null !== $value && '' !== $value);
 
         return [
             'token' => $deviceToken,
             'data' => $data,
             // Delivered at once, even to a phone in Doze.
-            'android' => ['priority' => 'high'],
+            'android' => ['priority' => 'high'] + $this->ttl($notification),
         ];
+    }
+
+    /**
+     * FCM keeps an undelivered message for four weeks by default: one that expires is dropped by FCM itself
+     * once it is no longer worth saying (MAG-679).
+     *
+     * @return array{ttl?: string}
+     */
+    private function ttl(Notification $notification): array
+    {
+        $expiresAt = $notification->getExpiresAt();
+
+        return null === $expiresAt ? [] : ['ttl' => max(0, $expiresAt->getTimestamp() - time()).'s'];
     }
 
     /**

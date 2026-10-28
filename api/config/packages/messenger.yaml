@@ -44,6 +44,7 @@ framework:
             'Maggie\Calendar\Message\SetTripCommand': sync
             'Maggie\Calendar\Message\ReplanTripsCommand': sync
             'Maggie\Calendar\Event\EventTripsChangedEvent': sync
+            'Maggie\Calendar\Event\TripRemoved': sync
             'Maggie\Calendar\Event\TaskCompleted': sync
             'Maggie\Calendar\Event\TaskReopened': sync
             'Maggie\Calendar\Message\GrantTaskRewardCommand': sync
@@ -65,6 +66,7 @@ framework:
             'Maggie\Core\Message\ParkCarCommand': sync
             'Maggie\Notification\Message\CreateNotificationCommand': sync
             'Maggie\Notification\Message\MarkNotificationReadCommand': sync
+            'Maggie\Notification\Message\ExpireNotificationsCommand': sync
             'Maggie\Notification\Message\DeleteNotificationCommand': sync
             'Maggie\Notification\Message\RegisterDeviceTokenCommand': sync
             'Maggie\Notification\Message\UnregisterDeviceTokenCommand': sync

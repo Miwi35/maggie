@@ -81,6 +81,78 @@ final class DepartureReminderSourceTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Notification::class);
     }
 
+    /** The alert says « Pars maintenant » until the dentist starts, no longer (MAG-679). */
+    public function testTheAlertExpiresWhenItsEventStarts(): void
+    {
+        $tripId = $this->seed('dentist', '2026-11-03 13:34');
+        $this->resetMercure();
+
+        $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'));
+        [$notification] = $this->departures();
+
+        self::assertSame('2026-11-03T13:00:00+00:00', $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('c'));
+        $payloads = $this->mercurePayloadsOn('/api/notifications/'.$notification->getId());
+        self::assertSame('/api/trips/'.$tripId, $payloads[0]['relatedEntityIri']);
+        self::assertSame('2026-11-03T13:00:00+00:00', (new \DateTimeImmutable($payloads[0]['expiresAt']))->setTimezone(new \DateTimeZone('UTC'))->format('c'));
+    }
+
+    /** The dentist was deleted after the alert: it must not be said any more, the Mercure update tells the screens. */
+    public function testTheAlertExpiresWhenItsEventIsDeleted(): void
+    {
+        $this->seed('dentist', '2026-11-03 13:34');
+        $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'));
+        [$notification] = $this->departures();
+        $notificationId = (string) $notification->getId();
+        $this->resetMercure();
+
+        $event = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertInstanceOf(Event::class, $event);
+        $this->em()->remove($event);
+        $this->em()->flush();
+
+        [$notification] = $this->departures();
+        $expiresAt = $notification->getExpiresAt();
+        self::assertNotNull($expiresAt);
+        self::assertLessThanOrEqual(new \DateTimeImmutable(), $expiresAt);
+        self::assertNull($notification->getReadAt(), 'It stays in the bell, readable as history.');
+        $payloads = $this->mercurePayloadsOn('/api/notifications/'.$notificationId);
+        self::assertNotSame([], $payloads);
+        self::assertArrayHasKey('expiresAt', end($payloads));
+    }
+
+    public function testTheAlertExpiresWhenOnlyItsTripIsRemoved(): void
+    {
+        $tripId = $this->seed('dentist', '2026-11-03 13:34');
+        $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'));
+
+        $trip = $this->em()->find(Trip::class, $tripId);
+        self::assertInstanceOf(Trip::class, $trip);
+        $this->em()->remove($trip);
+        $this->em()->flush();
+
+        [$notification] = $this->departures();
+        self::assertLessThanOrEqual(new \DateTimeImmutable(), $notification->getExpiresAt());
+    }
+
+    public function testTheAlertOfAnotherTripIsLeftAlone(): void
+    {
+        $this->seed('dentist', '2026-11-03 13:34');
+        $this->seed('other_dentist', '2026-11-03 13:30');
+        $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:40:00 UTC'));
+
+        $event = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertInstanceOf(Event::class, $event);
+        $this->em()->remove($event);
+        $this->em()->flush();
+
+        $expiries = [];
+        foreach ($this->departures() as $notification) {
+            $expiries[$notification->getTitle()] = $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d');
+        }
+        self::assertNotSame('2026-11-03', $expiries['Pars maintenant pour Dentiste']);
+        self::assertSame('2026-11-03', $expiries['Pars maintenant pour Dentiste du voisin']);
+    }
+
     /** The wiring: the factory of the container finds the trip's URL through the calendar module. */
     public function testTheDepartureNotificationPushesWithTheTripsNavigationUrl(): void
     {

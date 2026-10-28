@@ -220,4 +220,25 @@ class InterruptionsTest {
     fun `a departure alert is not said twice, the system raises it with its full screen (MAG-658)`() {
         assertNull(Interruptions.of(Notification(id = "n", type = "departure", title = "Pars maintenant pour Dentiste", relatedEntityIri = "/api/trips/t-1")))
     }
+
+    @Test
+    fun `a notification that expired, or whose update only says so, is withdrawn (MAG-679)`() {
+        assertEquals(
+            FeedEvent.Withdraw("n-1"),
+            Interruptions.readNotification(
+                """{"@id":"/api/notifications/n-1","expiresAt":"2020-01-01T00:00:00+00:00"}""",
+            ),
+        )
+        assertEquals(
+            FeedEvent.Withdraw("n-1"),
+            Interruptions.readNotification(
+                """{"@id":"/api/notifications/n-1","id":"n-1","type":"reminder","title":"t","expiresAt":"2020-01-01T00:00:00+00:00"}""",
+            ),
+        )
+        assertNotNull(
+            Interruptions.readNotification(
+                """{"@id":"/api/notifications/n-2","id":"n-2","type":"reminder","title":"t","expiresAt":"2099-01-01T00:00:00+00:00"}""",
+            ),
+        )
+    }
 }

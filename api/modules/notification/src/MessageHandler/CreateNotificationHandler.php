@@ -49,6 +49,7 @@ class CreateNotificationHandler
         $notification->setOccurrenceStartAt($command->occurrenceStartAt);
         $notification->setReminderId($command->reminderId);
         $notification->setActions($command->actions);
+        $notification->setExpiresAt($command->expiresAt);
 
         $notification = $this->createNotification->execute($notification);
 

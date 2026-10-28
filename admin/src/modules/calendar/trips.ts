@@ -50,24 +50,34 @@ export const isTripIri = (iri: string | null | undefined): iri is string => Bool
 /** The URL comes from the API but is opened in the owner's browser: web links only. */
 const isWebUrl = (url: unknown): url is string => typeof url === 'string' && /^https?:\/\//i.test(url)
 
-/**
- * The « Y aller » link of a trip: Waze for the car, Google Maps otherwise, built by the API.
- * `null` when the trip is gone or unreadable — the alert then has nowhere to go.
- */
-export async function fetchNavigationUrl(tripIri: string): Promise<string | null> {
-  if (!isTripIri(tripIri)) return null
+/** What reading a trip gave: its link, and whether it is gone for good (404 or 410) rather than just unreadable. */
+export interface NavigationLookup {
+  url: string | null
+  gone: boolean
+}
+
+export async function lookupNavigation(tripIri: string): Promise<NavigationLookup> {
+  if (!isTripIri(tripIri)) return { url: null, gone: false }
   try {
     const token = getToken()
     const response = await fetch(tripIri, {
       headers: { Accept: 'application/ld+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     })
-    if (!response.ok) return null
+    if (!response.ok) return { url: null, gone: response.status === 404 || response.status === 410 }
     const url = ((await response.json()) as { navigationUrl?: unknown }).navigationUrl
 
-    return isWebUrl(url) ? url : null
+    return { url: isWebUrl(url) ? url : null, gone: false }
   } catch {
-    return null
+    return { url: null, gone: false }
   }
+}
+
+/**
+ * The « Y aller » link of a trip: Waze for the car, Google Maps otherwise, built by the API.
+ * `null` when the trip is gone or unreadable — the alert then has nowhere to go.
+ */
+export async function fetchNavigationUrl(tripIri: string): Promise<string | null> {
+  return (await lookupNavigation(tripIri)).url
 }
 
 /** Opens a navigation link in a new tab, without handing it the admin's window. */

@@ -20303,6 +20303,14 @@
                         ],
                         "format": "date-time"
                     },
+                    "expiresAt": {
+                        "description": "From then on the alert is no longer worth saying (MAG-679); null: never.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "createdAt": {
                         "readOnly": true,
                         "type": "string",
@@ -20372,6 +20380,14 @@
                         }
                     },
                     "readAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "expiresAt": {
+                        "description": "From then on the alert is no longer worth saying (MAG-679); null: never.",
                         "type": [
                             "string",
                             "null"
@@ -20453,6 +20469,14 @@
                         ],
                         "format": "date-time"
                     },
+                    "expiresAt": {
+                        "description": "From then on the alert is no longer worth saying (MAG-679); null: never.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "createdAt": {
                         "readOnly": true,
                         "type": "string",
@@ -20527,6 +20551,14 @@
                                 }
                             },
                             "readAt": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "expiresAt": {
+                                "description": "From then on the alert is no longer worth saying (MAG-679); null: never.",
                                 "type": [
                                     "string",
                                     "null"

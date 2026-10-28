@@ -6,6 +6,7 @@ import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.Instant
 
 /** With the app open Maggie interrupts inside it and the system shows nothing; otherwise it is the notification (MAG-314). */
 class PushDeliveryTest {
@@ -68,5 +69,43 @@ class PushDeliveryTest {
 
         assertNull("the toaster cannot say a link to Waze", center.current.value)
         verify(exactly = 1) { notifier.show(departure, any(), any()) }
+    }
+
+    // --- An alert that outlived what it announced (MAG-679)
+
+    private val now = Instant.parse("2026-10-28T12:00:00Z")
+    private fun departure(expiresAt: String?) = PushPayload.from(
+        buildMap {
+            put("notificationId", "n-3")
+            put("title", "Pars maintenant pour Dentiste")
+            put("type", "departure")
+            expiresAt?.let { put("expiresAt", it) }
+        },
+    )!!
+
+    @Test
+    fun `a departure alert whose event has started is shown nowhere, delivered 18 hours late`() {
+        PushDelivery(center, { notifier }, isForeground = { true }, now = { now }).deliver(departure("2026-10-27T18:00:00Z"))
+
+        assertNull(center.current.value)
+        verify(exactly = 0) { notifier.show(any(), any(), any()) }
+    }
+
+    @Test
+    fun `a departure alert is shown until its event starts`() {
+        val valid = departure("2026-10-28T12:30:00Z")
+
+        PushDelivery(center, { notifier }, isForeground = { false }, now = { now }).deliver(valid)
+
+        verify(exactly = 1) { notifier.show(valid, any(), any()) }
+    }
+
+    @Test
+    fun `an alert without an expiry is always shown`() {
+        val open = departure(null)
+
+        PushDelivery(center, { notifier }, isForeground = { false }, now = { now }).deliver(open)
+
+        verify(exactly = 1) { notifier.show(open, any(), any()) }
     }
 }

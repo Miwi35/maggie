@@ -10,6 +10,7 @@ data class Notification(
     val body: String? = null,
     val relatedEntityIri: String? = null,
     val readAt: String? = null,
+    val expiresAt: String? = null,
     val createdAt: String? = null,
 ) {
     val isRead: Boolean get() = readAt != null

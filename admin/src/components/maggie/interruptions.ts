@@ -20,7 +20,14 @@ interface Common {
 
 export type Interruption =
   | (Common & { source: 'proaction' })
-  | (Common & { source: 'notification'; link: NotificationLink | null; shortageId?: string; departureTrip?: string })
+  | (Common & {
+      source: 'notification'
+      link: NotificationLink | null
+      shortageId?: string
+      departureTrip?: string
+      /** Epoch ms from when it is no longer worth saying (MAG-679). */
+      expiresAt?: number
+    })
   | (Common & { source: 'approval' })
 
 /** What one message of the shared feed means for the interruption queue. */
@@ -129,6 +136,10 @@ export function readFeedMessage(raw: string): FeedEvent | null {
   if (notificationRef) {
     // Read or deleted elsewhere (the bell, the phone, another tab): not worth saying any more.
     if (data.deleted || data.readAt) return { kind: 'withdraw', id: `notification:${notificationRef}` }
+    // Expired (MAG-679): the event started or the trip is gone. An update may carry nothing else, and a
+    // hub that replays what was missed hands over hours-old creations: neither is worth saying.
+    const expiresAt = typeof data.expiresAt === 'string' ? Date.parse(data.expiresAt) : NaN
+    if (expiresAt <= Date.now()) return { kind: 'withdraw', id: `notification:${notificationRef}` }
     if (data.type === 'approval' || !isText(data.title)) return null
     const type = typeof data.type === 'string' ? data.type : ''
     const iri = typeof data.relatedEntityIri === 'string' ? data.relatedEntityIri : null
@@ -146,6 +157,7 @@ export function readFeedMessage(raw: string): FeedEvent | null {
         link: notificationLink(iri),
         ...(shortageId && { shortageId }),
         ...(departureTrip && { departureTrip }),
+        ...(Number.isFinite(expiresAt) && { expiresAt }),
       },
     }
   }

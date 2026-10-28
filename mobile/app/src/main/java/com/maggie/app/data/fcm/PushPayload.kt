@@ -3,6 +3,8 @@ package com.maggie.app.data.fcm
 import com.maggie.app.ui.navigation.DeepLinks
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.time.Instant
+import java.time.OffsetDateTime
 
 /** What Maggie asks of the owner, as the server declares it in `data.interaction` (spec « Notifications push », partie 9). */
 @Serializable
@@ -85,7 +87,12 @@ data class PushPayload(
     val shortageId: String? = null,
     /** The cooking timer that rang (MAG-582): one notification per timer, cleared once it is seen elsewhere. */
     val cookingTimerId: String? = null,
+    /** From then on the alert is no longer worth saying (MAG-679): the event started, or its trip is gone. */
+    val expiresAt: Instant? = null,
 ) {
+    /** Delivered late (a push held back for hours), an alert is over once its [expiresAt] has passed. */
+    fun isExpired(now: Instant): Boolean = expiresAt != null && !expiresAt.isAfter(now)
+
     /** « Pars maintenant » (MAG-655): the alert that opens a full-screen interruption and a navigation app. */
     val isDeparture: Boolean get() = type == DEPARTURE_TYPE
     /** The system tag the app files it under, and the one a withdrawal names — its notification id, or `cooking-timer-{id}`. */
@@ -156,6 +163,10 @@ data class PushPayload(
 
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
+        /** The API writes ISO-8601 with an offset (`+00:00`); null for anything else. */
+        fun parseInstant(raw: String?): Instant? =
+            raw?.let { runCatching { OffsetDateTime.parse(it).toInstant() }.getOrNull() }
+
         /** Null when the message carries no notification id (nothing to dedupe, answer or close) or is a `location_request`, which is never shown. */
         fun from(data: Map<String, String>): PushPayload? {
             if (data["type"] == LOCATION_REQUEST_TYPE) return null
@@ -179,6 +190,7 @@ data class PushPayload(
                 taskId = data["taskId"]?.takeIf { it.isNotBlank() },
                 shortageId = data["shortageId"]?.takeIf { it.isNotBlank() },
                 cookingTimerId = data["cookingTimerId"]?.takeIf { it.isNotBlank() },
+                expiresAt = parseInstant(data["expiresAt"]),
                 reminderActions = data["actions"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
             )
         }
