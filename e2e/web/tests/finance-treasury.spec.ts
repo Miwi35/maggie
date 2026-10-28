@@ -26,10 +26,12 @@ import { ROUTES, adminUrl } from '../pages/routes.js'
  *   Alors les deux lignes restent un virement interne neutre
  *     et l'avance soldée n'a rien reçu de plus
  *
- * Second journey (MAG-278): Given the same advance, when I open the admin screen
- * « Avances d'épargne », then 1 500,00 € are left to give back and the exact
- * counter-transfer is proposed; when I click « Je l'ai fait », then the advance
- * is settled and nothing is proposed any more.
+ * Second journey (MAG-278, reshaped by MAG-632): Given the same advance, when I open the admin
+ * screen « Avances d'épargne », then 1 500,00 € are left to give back, on the Livret's row;
+ * when I click « Remettre », then the advance is settled.
+ *
+ * Third journey (MAG-632): the treasury is one page, with no tabs — curve, cushion, advances,
+ * créances et dettes, movements — and its settings sit behind « Régler ».
  *
  * The expected day is today's, so the current month is not due yet and the
  * previous one is the whole delay, whatever the day the suite runs. The two
@@ -439,7 +441,7 @@ test('the treasury screen announces the delay, the overdraft and the advance, an
   await expect(treasury.flowsDetail).toContainText('sorties cumulées')
 })
 
-test("the admin screen shows the advance and « Je l'ai fait » settles it", async ({ treasuryUser }) => {
+test("the savings advances screen lists the advance and « Remettre » settles it", async ({ treasuryUser }) => {
   const { api, page } = treasuryUser
   const today = parisDay()
 
@@ -449,22 +451,108 @@ test("the admin screen shows the advance and « Je l'ai fait » settles it", asy
   // When I open the savings advances screen.
   await page.goto(adminUrl(ROUTES.financeSavingsAdvances))
 
-  // Then 1 500,00 € are left to give back, on the Livret, and the exact counter-transfer is proposed.
+  // Then 1 500,00 € are left to give back, on the Livret's row, which offers « Remettre ».
   await expect(page.getByTestId('savings-total-outstanding')).toContainText('1 500,00')
-  await expect(page.getByTestId('savings-source')).toContainText('Livret MAG-276')
-  const proposal = page.getByTestId('savings-proposal')
-  await expect(proposal).toContainText('1 500,00')
-  await expect(proposal).toContainText('Livret MAG-276')
+  const row = page.getByTestId('savings-advance').filter({ hasText: 'Livret MAG-276' })
+  await expect(row).toContainText('1 500,00')
 
-  // When I say I made it, the screen records the two legs of the transaction.
-  await proposal.getByRole('button', { name: /Je l'ai fait/ }).click()
+  // When I give it back, the screen records the two legs of the transaction.
+  await row.getByRole('button', { name: 'Remettre' }).click()
 
-  // Then the advance is settled: 0,00 € left, nothing proposed any more.
+  // Then the advance is settled: 0,00 € left, no « Remettre » any more.
   await expect(page.getByTestId('savings-total-outstanding')).toHaveText(/^0,00/)
-  await expect(page.getByTestId('savings-proposal')).toHaveCount(0)
+  await expect(row.getByRole('button', { name: 'Remettre' })).toHaveCount(0)
+  await expect(row).toContainText('Soldée')
   const settled = await savingsAdvances(api)
   expect(settled.advances).toEqual([
     expect.objectContaining({ sourceAccountName: 'Livret MAG-276', repaidCents: 150000, outstandingCents: 0, isClosed: true }),
   ])
   expect(settled.proposals).toEqual([])
+})
+
+/**
+ * Trésorerie, one page (MAG-632).
+ *
+ *   Étant donné un matelas, une avance d'épargne et une créance sur une personne
+ *   Quand j'ouvre Finance › Trésorerie
+ *   Alors il n'y a pas d'onglets
+ *     et les sections courbe, matelas, avances, créances/dettes, mouvements sont là, dans cet ordre
+ *   Quand je clique « Remettre » sur l'avance
+ *   Alors elle est soldée, sur la même page
+ */
+test('the treasury is one page, with no tabs: curve, cushion, advances, debts, movements', async ({ treasuryUser }) => {
+  const { api, page } = treasuryUser
+  const today = parisDay()
+  const suffix = Math.random().toString(36).slice(2, 8)
+  const person = `Léa ${suffix}`
+
+  // Given a cushion account of 3 000 €…
+  const cushionAccount = await api.post('/api/accounts', {
+    headers: LD,
+    data: { name: 'Livret matelas MAG-632', type: 'savings', currency: 'EUR', balanceCents: 300000, isCushion: true },
+  })
+  expect(cushionAccount.status(), await cushionAccount.text()).toBe(201)
+  createdAccountIds.push(String(((await cushionAccount.json()) as { id: string }).id))
+
+  // …an advance of 1 500 € taken on the Livret…
+  const { checkingId } = await givenAdvanceTaken(api, today)
+  await line(api, checkingId, -30000, today, 'LOYER PREVU MAG-632', 'planned')
+
+  // …and 200 € that a person owes on a shared expense.
+  const contact = await api.post('/api/contacts', { headers: LD, data: { name: person } })
+  expect(contact.status(), await contact.text()).toBe(201)
+  const contactId = String(((await contact.json()) as { id: string }).id)
+  const spend = await api.post('/api/transactions', {
+    headers: LD,
+    data: {
+      account: `/api/accounts/${checkingId}`,
+      label: `GITE MAG-632 ${suffix}`,
+      amountCents: -40000,
+      currency: 'EUR',
+      bookedAt: shiftDay(today, -7),
+      status: 'spent',
+    },
+  })
+  expect(spend.status(), await spend.text()).toBe(201)
+  const spendId = String(((await spend.json()) as { id: string }).id)
+  const shared = await api.put(`/api/finance/transactions/${spendId}/my-share`, {
+    data: { myShareCents: 20000, object: `Gîte ${suffix}`, shares: [{ contactId }] },
+  })
+  expect(shared.status(), await shared.text()).toBe(200)
+
+  // When I open Finance › Trésorerie.
+  const treasury = new FinanceTreasuryPage(page)
+  await treasury.open()
+
+  // Then there are no tabs…
+  await expect(treasury.tabs).toHaveCount(0)
+
+  // …and the five sections are there.
+  await expect(treasury.chartSection).toBeVisible()
+  await expect(treasury.cushionSection).toContainText('Livret matelas MAG-632')
+  await expect(treasury.advancesSection).toContainText('Livret MAG-276')
+  await expect(treasury.debtsSection).toContainText(person)
+  await expect(treasury.movementsSection).toBeVisible()
+
+  // And they follow one another: curve, cushion, advances, créances et dettes, movements.
+  const order = await treasury.content
+    .locator('[data-testid^="treasury-section-"]')
+    .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-testid')))
+  expect(order).toEqual([
+    'treasury-section-chart',
+    'treasury-section-cushion',
+    'treasury-section-advances',
+    'treasury-section-debts',
+    'treasury-section-movements',
+  ])
+
+  // When I give the advance back from this page, it is settled without leaving it.
+  await treasury.advance('Livret MAG-276').getByRole('button', { name: 'Remettre' }).click()
+  await expect(treasury.advance('Livret MAG-276')).toContainText('Soldée')
+  await expect(treasury.advancesSection.getByTestId('savings-total-outstanding')).toHaveText(/^0,00/)
+
+  // And the settings are behind « Régler », in a dialog.
+  await treasury.openSettings()
+  await expect(treasury.settingsDialog.getByLabel('Jour du mois')).toBeVisible()
+  await expect(treasury.settingsDialog.getByLabel('Cible (mois de revenu)')).toBeVisible()
 })

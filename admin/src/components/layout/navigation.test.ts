@@ -51,8 +51,8 @@ describe('the seven Finance menus', () => {
     }
   })
 
-  test('hold every aspect once, and no two aspects share a screen', () => {
-    const aspects = FINANCE_MENUS.flatMap((menu) => menu.aspects)
+  test('hold every aspect once, and no two aspects or screens share an address', () => {
+    const aspects = FINANCE_MENUS.flatMap((menu) => [...menu.aspects, ...(menu.screens ?? [])])
     const ids = aspects.map((aspect) => aspect.id)
     const paths = aspects.flatMap((aspect) => (aspect.path ? [aspect.path] : []))
 
@@ -61,7 +61,9 @@ describe('the seven Finance menus', () => {
   })
 
   test('keep every Finance screen of before reachable from exactly one menu', () => {
-    const reached = FINANCE_MENUS.flatMap((menu) => menu.aspects.flatMap((aspect) => (aspect.path ? [aspect.path] : [])))
+    const reached = FINANCE_MENUS.flatMap((menu) =>
+      [...menu.aspects, ...(menu.screens ?? [])].flatMap((aspect) => (aspect.path ? [aspect.path] : [])),
+    )
 
     expect(reached.sort()).toEqual(
       [
@@ -89,6 +91,31 @@ describe('the seven Finance menus', () => {
     expect(labels('/finance/banks')).toEqual(['Finance', 'Configuration', 'Banques'])
   })
 
+  test('Comptes and Trésorerie are one page each, without sub-views (MAG-632)', () => {
+    for (const key of ['accounts', 'treasury']) {
+      expect(FINANCE_MENUS.find((menu) => menu.key === key)?.aspects, key).toHaveLength(1)
+    }
+  })
+
+  test('Budget has the mock-up\'s two sub-views: Mois · Hors budget (MAG-632)', () => {
+    const budget = FINANCE_MENUS.find((menu) => menu.key === 'budget')
+
+    expect(budget?.aspects.map((aspect) => aspect.label)).toEqual(['Mois', 'Hors budget'])
+  })
+
+  test('the screens that are no longer tabs keep their trail under their menu (MAG-632)', () => {
+    expect(labels('/finance/import')).toEqual(['Finance', 'Comptes', 'Import de relevés'])
+    expect(labels('/contacts')).toEqual(['Finance', 'Comptes', 'Contacts'])
+    expect(labels('/contacts/create')).toEqual(['Finance', 'Comptes', 'Contacts', 'Nouveau'])
+    expect(labels('/finance/savings-advances')).toEqual(['Finance', 'Trésorerie', "Avances d'épargne"])
+    expect(labels('/finance/peer-debts')).toEqual(['Finance', 'Trésorerie', 'Créances et dettes'])
+    expect(labels('/finance/treasury')).toEqual(['Finance', 'Trésorerie'])
+    expect(labels('/accounts')).toEqual(['Finance', 'Comptes'])
+    expect(financeMenuOf('/finance/import')).toBe('accounts')
+    expect(financeMenuOf('/contacts')).toBe('accounts')
+    expect(financeMenuOf('/finance/peer-debts')).toBe('treasury')
+  })
+
   test('open Planification on Projets, in the mock-ups\' single row: Projets · Prêts · Placements · Indépendance (MAG-519, MAG-633)', () => {
     const planning = FINANCE_MENUS.find((menu) => menu.key === 'planning')
 
@@ -111,29 +138,26 @@ describe('resolveTrail on the Finance menus', () => {
     expect(financeAspectPath('planning', 'independence')).toBe('/finance/summary/planning/independence')
     expect(labels('/finance/summary/planning/independence')).toEqual(['Finance', 'Planification', 'Indépendance'])
     expect(resolveTrail('/finance/summary/planning/loans')[1].to).toBe('/finance/summary/planning')
-    expect(financeMenuOf('/finance/summary/treasury/cushion')).toBe('treasury')
+    expect(financeMenuOf('/finance/summary/budget/outside')).toBe('budget')
   })
 
   test('every aspect of every menu has a tab address with a trail', () => {
     for (const menu of FINANCE_MENUS) {
       for (const aspect of menu.aspects) {
-        expect(labels(financeAspectPath(menu.key, aspect.id))).toEqual(['Finance', menu.label, aspect.label])
+        // The only tab of a menu is the menu itself: no second crumb.
+        const expected = aspect.label === menu.label ? ['Finance', menu.label] : ['Finance', menu.label, aspect.label]
+        expect(labels(financeAspectPath(menu.key, aspect.id))).toEqual(expected)
       }
     }
   })
 
   test('the detail of a record keeps its menu', () => {
     expect(labels('/loans/abc/show')).toEqual(['Finance', 'Planification', 'Prêts', undefined])
-    expect(labels('/envelopes/create')).toEqual(['Finance', 'Budget', 'Enveloppes', 'Nouveau'])
+    expect(labels('/envelopes/create')).toEqual(['Finance', 'Budget', 'Mois', 'Nouveau'])
   })
 
   test('the transactions of an account go through Comptes', () => {
-    expect(labels('/accounts/01ABC/transactions')).toEqual([
-      'Finance',
-      'Comptes',
-      'Comptes et transactions',
-      undefined,
-    ])
+    expect(labels('/accounts/01ABC/transactions')).toEqual(['Finance', 'Comptes', undefined])
   })
 
   test('every part of a module without menus keeps its two levels', () => {
@@ -182,6 +206,7 @@ describe('financeMenuOf', () => {
     ['/loans/abc/show', 'planning'],
     ['/finance/projects', 'planning'],
     ['/accounts/01ABC/transactions', 'accounts'],
+    ['/finance/import', 'accounts'],
     ['/categories', 'settings'],
   ])('%s highlights %s', (path, key) => {
     expect(financeMenuOf(path)).toBe(key)

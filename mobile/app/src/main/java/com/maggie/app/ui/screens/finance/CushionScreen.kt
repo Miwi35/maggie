@@ -172,13 +172,6 @@ internal fun CushionSummaryCard(status: CushionStatus) {
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                if (status.isCappedByRechargeCap) {
-                    Text(
-                        text = "Le plafond mensuel allonge la durée plutôt que de forcer l'effort.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
 
             Text(
@@ -263,12 +256,6 @@ private fun CushionSettingsCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("Réglages", style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = "La cible est un nombre de mois de revenu net : elle se recalcule si le " +
-                    "revenu change.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
             OutlinedTextField(
                 value = targetMonths,

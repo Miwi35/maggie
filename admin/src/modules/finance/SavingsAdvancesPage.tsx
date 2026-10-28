@@ -1,9 +1,9 @@
-import { useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
+import Chip from '@mui/material/Chip'
 import LinearProgress from '@mui/material/LinearProgress'
 import Stack from '@mui/material/Stack'
 import Table from '@mui/material/Table'
@@ -11,249 +11,78 @@ import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
-import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { Title, useNotify } from 'react-admin'
 import { formatCents } from './accountTypes'
 import { Amount } from './AmountField'
 import { formatDay } from './recurringOperations'
 import { useSavingsAdvances } from './useSavingsAdvances'
-import { isValidSalaryDay, useTreasurySettings } from './useTreasurySettings'
-import type { RepaymentProposal, SalaryDelay, SavingsAdvance, SavingsAdvancesData } from './useSavingsAdvances'
+import type { RepaymentProposal, SavingsAdvance, SavingsAdvancesData } from './useSavingsAdvances'
 
 const UNPROPOSED_REASONS: Record<string, string> = {
   insufficient_balance: 'Le solde du compte courant ne suffit pas.',
   no_checking_account: 'Aucun compte courant ouvert.',
 }
 
-const SalaryDayCard = ({
-  delay,
-  saving,
-  onSave,
-}: {
-  delay: SalaryDelay
-  saving: boolean
-  onSave: (day: number | null) => void
-}) => {
-  const [value, setValue] = useState(delay.salaryExpectedDay === null ? '' : String(delay.salaryExpectedDay))
-  const parsed = value.trim() === '' ? null : Number(value)
-  const invalid = parsed !== null && !isValidSalaryDay(parsed)
-  const unchanged = parsed === delay.salaryExpectedDay
+/** Open advances first, then the settled ones, each in the order the API gave them. */
+const openFirst = (advances: SavingsAdvance[]): SavingsAdvance[] => [
+  ...advances.filter((advance) => !advance.isClosed),
+  ...advances.filter((advance) => advance.isClosed),
+]
 
-  return (
-    <Card sx={{ mb: 2 }}>
-      <CardContent>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          Jour de salaire attendu
-        </Typography>
-
-        {delay.salaryExpectedDay === null ? (
-          <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
-            Quel jour du mois attendez-vous votre salaire ? Tant que vous ne l'avez pas indiqué, aucun retard n'est
-            annoncé.
-          </Alert>
-        ) : !delay.isConfigured ? (
-          <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
-            Aucun salaire de référence : le retard ne peut pas être calculé.
-          </Alert>
-        ) : delay.isLate ? (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Salaire en retard de {delay.delayDays} jour{delay.delayDays > 1 ? 's' : ''} — il manque{' '}
-            {formatCents(delay.shortfallCents)}.
-          </Alert>
-        ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Salaire attendu le {delay.salaryExpectedDay} de chaque mois : pas de retard.
-          </Typography>
-        )}
-
-        <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ flexWrap: 'wrap' }}>
-          <TextField
-            type="number"
-            size="small"
-            label="Jour du mois"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            error={invalid}
-            helperText={invalid ? 'Un jour de 1 à 31.' : 'Laisser vide pour ne plus suivre le retard.'}
-            slotProps={{ htmlInput: { min: 1, max: 31 } }}
-            sx={{ width: 200 }}
-          />
-          <Button variant="contained" disabled={saving || invalid || unchanged} onClick={() => onSave(parsed)}>
-            Enregistrer
-          </Button>
-        </Stack>
-      </CardContent>
-    </Card>
-  )
-}
-
-const OutstandingSummary = ({ data }: { data: SavingsAdvancesData }) => (
-  <Card sx={{ mb: 2 }}>
-    <CardContent>
-      <Typography variant="h6">Reste à rendre</Typography>
-      <Typography variant="h4" data-testid="savings-total-outstanding" sx={{ my: 1 }}>
-        {formatCents(data.totalOutstandingCents)}
-      </Typography>
-
-      {data.bySource.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          Aucune avance en cours : rien à remettre sur vos comptes d'épargne.
-        </Typography>
-      ) : (
-        data.bySource.map((source) => (
-          <Stack
-            key={source.sourceAccountId}
-            data-testid="savings-source"
-            data-source={source.sourceAccountName}
-            direction="row"
-            spacing={2}
-            sx={{ py: 0.5 }}
-          >
-            <Typography variant="body2" sx={{ flexGrow: 1 }}>
-              {source.sourceAccountName}
-              <Typography component="span" variant="body2" color="text.secondary">
-                {' '}
-                — {source.openCount} avance{source.openCount > 1 ? 's' : ''} ouverte{source.openCount > 1 ? 's' : ''}
-              </Typography>
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {formatCents(source.outstandingCents)}
-            </Typography>
-          </Stack>
-        ))
-      )}
-    </CardContent>
-  </Card>
-)
-
-const Proposals = ({
+/**
+ * What the proposal for an advance lets the owner do: « Remettre » records the
+ * counter-transfer. An advance without a proposal has no action — its reason, when
+ * the API gives one, is what stands in its place.
+ */
+const AdvanceAction = ({
+  advance,
   data,
   givingBack,
   onGiveBack,
 }: {
+  advance: SavingsAdvance
   data: SavingsAdvancesData
   givingBack: string | null
   onGiveBack: (proposal: RepaymentProposal) => void
 }) => {
-  const nameOf = (accountId: string) =>
-    data.advances.find((advance) => advance.sourceAccountId === accountId)?.sourceAccountName ?? 'le compte d’épargne'
+  if (advance.isClosed) {
+    return <Chip size="small" label="Soldée" />
+  }
 
-  if (data.proposals.length === 0 && data.unproposed.length === 0) {
-    return null
+  const proposal = data.proposals.find((candidate) => candidate.advanceId === advance.id)
+  if (!proposal) {
+    const reason = data.unproposed.find((item) => item.advanceId === advance.id)?.reason
+
+    return reason ? (
+      <Typography variant="caption" color="text.secondary">
+        {UNPROPOSED_REASONS[reason] ?? ''}
+      </Typography>
+    ) : null
   }
 
   return (
-    <Card sx={{ mb: 2 }}>
-      <CardContent>
-        <Typography variant="h6">Contre-virements proposés</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Faites le virement dans votre banque, puis cliquez sur « Je l'ai fait » : Maggie enregistre la transaction et
-          l'avance se solde. Ce bouton ne fait aucun virement.
+    <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
+      {proposal.isPartial && (
+        <Typography variant="caption" color="text.secondary">
+          Partiel : {formatCents(proposal.amountCents, proposal.currency)}
         </Typography>
-
-        {data.proposals.map((proposal) => (
-          <Stack
-            key={proposal.advanceId}
-            data-testid="savings-proposal"
-            data-advance={proposal.advanceId}
-            direction="row"
-            spacing={2}
-            alignItems="center"
-            sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider', flexWrap: 'wrap' }}
-          >
-            <Box sx={{ flexGrow: 1, minWidth: 220 }}>
-              <Typography variant="body2">
-                Virer <strong>{formatCents(proposal.amountCents, proposal.currency)}</strong> vers{' '}
-                {nameOf(proposal.toAccountId)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {proposal.label}
-                {proposal.isPartial && ' — réduit au solde disponible du compte courant'}
-              </Typography>
-            </Box>
-            <Button
-              variant="contained"
-              size="small"
-              disabled={givingBack !== null}
-              onClick={() => onGiveBack(proposal)}
-              aria-label={`Je l'ai fait : ${proposal.label}`}
-            >
-              Je l'ai fait
-            </Button>
-          </Stack>
-        ))}
-
-        {data.unproposed.map((item) => (
-          <Alert key={item.advanceId} severity="warning" variant="outlined" sx={{ mt: 1 }}>
-            {formatCents(item.amountCents)} à rendre à {item.sourceAccountName} ne peuvent pas être proposés.{' '}
-            {UNPROPOSED_REASONS[item.reason] ?? ''}
-          </Alert>
-        ))}
-      </CardContent>
-    </Card>
+      )}
+      <Button variant="contained" size="small" disabled={givingBack !== null} onClick={() => onGiveBack(proposal)}>
+        Remettre
+      </Button>
+    </Stack>
   )
 }
 
-const AdvancesTable = ({ title, advances, empty }: { title: string; advances: SavingsAdvance[]; empty?: string }) => (
-  <Card sx={{ mb: 2 }}>
-    <CardContent>
-      <Typography variant="h6" sx={{ mb: 1 }}>
-        {title}
-      </Typography>
-
-      {advances.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          {empty}
-        </Typography>
-      ) : (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Source</TableCell>
-              <TableCell>Ouverte le</TableCell>
-              <TableCell align="right">Avancé</TableCell>
-              <TableCell align="right">Rendu</TableCell>
-              <TableCell align="right">Reste à rendre</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {advances.map((advance) => (
-              <TableRow key={advance.id} data-testid="savings-advance" data-source={advance.sourceAccountName}>
-                <TableCell>{advance.sourceAccountName}</TableCell>
-                <TableCell>{formatDay(advance.openedOn)}</TableCell>
-                <TableCell>
-                  <Amount cents={advance.amountCents} />
-                </TableCell>
-                <TableCell>
-                  <Amount cents={advance.repaidCents} />
-                </TableCell>
-                <TableCell>
-                  <Amount cents={advance.outstandingCents} bold={!advance.isClosed} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </CardContent>
-  </Card>
-)
-
-export const SavingsAdvancesPage = () => {
+/**
+ * « Avances d'épargne »: what was taken from the savings while the salary was late,
+ * what is left to give back, and a « Remettre » on each open advance the API proposes
+ * a counter-transfer for. Reads, and re-reads whenever a transaction moves.
+ */
+export const SavingsAdvancesSection = () => {
   const { data, loading, error, retry, givingBack, giveBack } = useSavingsAdvances()
-  const { saving, saveSalaryExpectedDay } = useTreasurySettings()
   const notify = useNotify()
-
-  const onSaveDay = async (day: number | null) => {
-    const ok = await saveSalaryExpectedDay(day)
-    notify(ok ? 'Jour de salaire attendu enregistré' : "Impossible d'enregistrer le jour de salaire attendu", {
-      type: ok ? 'info' : 'error',
-    })
-    if (ok) {
-      retry()
-    }
-  }
 
   const onGiveBack = async (proposal: RepaymentProposal) => {
     const result = await giveBack(proposal)
@@ -268,42 +97,87 @@ export const SavingsAdvancesPage = () => {
     )
   }
 
-  const open = data?.advances.filter((advance) => !advance.isClosed) ?? []
-  const closed = data?.advances.filter((advance) => advance.isClosed) ?? []
-
   return (
-    <>
-      <Title title="Avances d'épargne" />
-      {loading && !data && <LinearProgress />}
+    <Card data-testid="treasury-section-advances">
+      <CardContent>
+        <Stack direction="row" spacing={2} alignItems="baseline" sx={{ mb: 1, flexWrap: 'wrap' }}>
+          <Typography variant="h6" component="h2" sx={{ flexGrow: 1 }}>
+            Avances d'épargne
+          </Typography>
+          {data && (
+            <Stack direction="row" spacing={1} alignItems="baseline">
+              <Typography variant="body2" color="text.secondary">
+                Reste à rendre
+              </Typography>
+              <Typography variant="h6" component="p" data-testid="savings-total-outstanding">
+                {formatCents(data.totalOutstandingCents)}
+              </Typography>
+            </Stack>
+          )}
+        </Stack>
 
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          action={
-            <Button color="inherit" size="small" onClick={retry}>
-              Réessayer
-            </Button>
-          }
-        >
-          {error}
-        </Alert>
-      )}
+        {loading && !data && <LinearProgress />}
 
-      {data && (
-        <>
-          <SalaryDayCard
-            key={data.salaryDelay.salaryExpectedDay ?? 'none'}
-            delay={data.salaryDelay}
-            saving={saving}
-            onSave={onSaveDay}
-          />
-          <OutstandingSummary data={data} />
-          <Proposals data={data} givingBack={givingBack} onGiveBack={onGiveBack} />
-          <AdvancesTable title="Avances ouvertes" advances={open} empty="Aucune avance en cours." />
-          {closed.length > 0 && <AdvancesTable title="Avances soldées" advances={closed} />}
-        </>
-      )}
-    </>
+        {error && (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={retry}>
+                Réessayer
+              </Button>
+            }
+          >
+            {error}
+          </Alert>
+        )}
+
+        {data &&
+          (data.advances.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              Aucune avance en cours.
+            </Typography>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Source</TableCell>
+                  <TableCell>Ouverte le</TableCell>
+                  <TableCell align="right">Avancé</TableCell>
+                  <TableCell align="right">Rendu</TableCell>
+                  <TableCell align="right">Reste à rendre</TableCell>
+                  <TableCell align="right" />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {openFirst(data.advances).map((advance) => (
+                  <TableRow key={advance.id} data-testid="savings-advance" data-source={advance.sourceAccountName}>
+                    <TableCell>{advance.sourceAccountName}</TableCell>
+                    <TableCell>{formatDay(advance.openedOn)}</TableCell>
+                    <TableCell align="right">
+                      <Amount cents={advance.amountCents} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Amount cents={advance.repaidCents} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Amount cents={advance.outstandingCents} bold={!advance.isClosed} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <AdvanceAction advance={advance} data={data} givingBack={givingBack} onGiveBack={onGiveBack} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ))}
+      </CardContent>
+    </Card>
   )
 }
+
+export const SavingsAdvancesPage = () => (
+  <Box>
+    <Title title="Avances d'épargne" />
+    <SavingsAdvancesSection />
+  </Box>
+)

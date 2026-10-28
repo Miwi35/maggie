@@ -105,8 +105,7 @@ class TreasuryScreenTest {
 
         compose.onNodeWithText("Salaire en retard de 3 jours").assertIsDisplayed()
         compose.onNodeWithText("Solde des comptes courants : ${formatCents(-12000)}").assertIsDisplayed()
-        compose.onNodeWithText("Zone de découvert : solde sous ${formatCents(0)} (trait en pointillés, jours en carrés)")
-            .performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Zone de découvert :", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Découvert prévu le 14 octobre").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Avancer ${formatCents(90000)} depuis Livret A (${formatCents(50000)} sur ce compte)").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Matelas — ${formatCents(30000)} (matelas)").performScrollTo().assertIsDisplayed()
@@ -178,7 +177,10 @@ class TreasuryScreenTest {
             ),
         )
 
-        compose.onNodeWithTag(UiTags.TREASURY_CHART_DETAIL).performScrollTo().assertTextEquals("Touchez un jour pour le détail.")
+        // No line of instructions before a day is touched: the detail appears with it.
+        compose.onNodeWithText("Touchez un jour", substring = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TREASURY_CHART_DETAIL).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TREASURY_FLOWS_DETAIL).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.TREASURY_CHART).performScrollTo().performTouchInput { click(centerRight) }
         compose.onNodeWithTag(UiTags.TREASURY_CHART_DETAIL).performScrollTo().assertTextEquals(
             "26 octobre : solde ${formatCents(-167700)} — Taxe foncière (récurrent) (${formatCents(-97700)})",

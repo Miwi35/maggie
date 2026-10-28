@@ -3,6 +3,7 @@ import { test, expect, seedAnchorDate } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { AdminShell } from '../pages/AdminShell.js'
 import { FinanceCushionPage } from '../pages/FinanceCushionPage.js'
+import { FinanceTreasuryPage } from '../pages/FinanceTreasuryPage.js'
 import { ROUTES } from '../pages/routes.js'
 
 /**
@@ -107,13 +108,13 @@ test('a settings page and the dashboard carry their trail @responsive', async ({
 })
 
 /**
- * Finance › Trésorerie › Matelas (MAG-427).
+ * Finance › Trésorerie › Matelas (MAG-427, reshaped by MAG-632).
  *
- * A menu opens its page of tabs, one per aspect, each the aspect's own content
- * (MAG-518): the owner reaches the cushion by the menu, then by its tab, and the
- * trail says where he is. Below `md` the trail only shows the way back, to the menu.
+ * The treasury menu opens ONE page, without tabs: the owner reaches it by the menu, and
+ * its cushion section also has its own address, whose trail says where he is. Below `md`
+ * the trail only shows the way back, to the menu.
  */
-test('the menu opens a page of tabs, the cushion tab shows the cushion, and the trail says where @responsive', async ({
+test('the menu opens the treasury page without tabs, the cushion address keeps its trail @responsive', async ({
   page,
 }) => {
   const shell = new AdminShell(page)
@@ -125,11 +126,11 @@ test('the menu opens a page of tabs, the cushion tab shows the cushion, and the 
   await shell.navigateTo('Trésorerie', 'Finance')
 
   await expect(page).toHaveURL(/#\/finance\/summary\/treasury$/)
-  await expect(shell.content.getByRole('tab')).toHaveCount(4)
+  await expect(shell.content.getByRole('tab')).toHaveCount(0)
+  await expect(new FinanceTreasuryPage(page).cushionSection).toBeVisible()
 
-  await shell.content.getByRole('tab', { name: 'Matelas' }).click()
+  await shell.goto(ROUTES.financeCushion)
 
-  await expect(page).toHaveURL(/#\/finance\/summary\/treasury\/cushion$/)
   await expect(new FinanceCushionPage(page).summary).toBeVisible()
   if (narrow) {
     await expect(trail.getByRole('link', { name: 'Trésorerie' })).toBeVisible()

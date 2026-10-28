@@ -20,9 +20,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -100,10 +103,13 @@ fun TransactionListScreen(
     // Open on the Incidents tab (the « N rejets » pill of the finance home).
     openIncidents: Boolean = false,
     onIncidentsOpened: () -> Unit = {},
+    // A hand-kept account's « Corriger le solde » (MAG-632), in the ⋮ of the bar; null = no menu.
+    balanceCorrection: BalanceCorrection? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showBalanceDialog by remember { mutableStateOf(false) }
     var dialogPrefill by remember { mutableStateOf<TransactionPrefill?>(null) }
 
     // The form keeps its own copy: the caller's one is consumed at once, nothing is saved.
@@ -268,6 +274,13 @@ fun TransactionListScreen(
         onRetry = viewModel::refresh,
     )
 
+    ErrorSnackbar(
+        error = balanceCorrection?.error,
+        snackbarHostState = snackbarHostState,
+        onDismiss = { balanceCorrection?.onErrorShown?.invoke() },
+        message = "Impossible de corriger le solde.",
+    )
+
     // The ViewModel owns the undo window and clears `undoableSettlement` when it closes, which
     // ends this effect and takes the bar away with it (MAG-424).
     LaunchedEffect(uiState.undoableSettlement?.key) {
@@ -297,6 +310,26 @@ fun TransactionListScreen(
                         if (onBack != null) {
                             IconButton(onClick = onBack) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                            }
+                        }
+                    },
+                    actions = {
+                        if (balanceCorrection != null) {
+                            var menuOpen by remember { mutableStateOf(false) }
+                            Box {
+                                IconButton(onClick = { menuOpen = true }, modifier = Modifier.testTag(UiTags.ACCOUNT_MENU)) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = "Plus d'actions")
+                                }
+                                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, modifier = Modifier.uiTagRoot()) {
+                                    DropdownMenuItem(
+                                        text = { Text("Corriger le solde") },
+                                        onClick = {
+                                            menuOpen = false
+                                            showBalanceDialog = true
+                                        },
+                                        modifier = Modifier.testTag(UiTags.ACCOUNT_CORRECT_BALANCE),
+                                    )
+                                }
                             }
                         }
                     },
@@ -461,6 +494,16 @@ fun TransactionListScreen(
                 showCreateDialog = false
             },
             onDismiss = { showCreateDialog = false },
+        )
+    }
+    if (showBalanceDialog && balanceCorrection != null) {
+        BalanceCorrectionDialog(
+            currentCents = balanceCorrection.currentCents,
+            onConfirm = { cents ->
+                balanceCorrection.onCorrect(cents)
+                showBalanceDialog = false
+            },
+            onDismiss = { showBalanceDialog = false },
         )
     }
 }

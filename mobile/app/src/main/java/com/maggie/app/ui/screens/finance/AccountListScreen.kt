@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.AccountCreateRequest
+import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.accountTypeLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.label
@@ -69,6 +70,7 @@ fun AccountListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf<Account?>(null) }
 
     ErrorSnackbar(
         error = uiState.error,
@@ -160,7 +162,7 @@ fun AccountListScreen(
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
                                 }
-                                IconButton(onClick = { viewModel.deleteAccount(account.id) }) {
+                                IconButton(onClick = { deleting = account }) {
                                     Icon(
                                         Icons.Default.Delete,
                                         contentDescription = "Supprimer",
@@ -173,6 +175,23 @@ fun AccountListScreen(
                 }
             }
         }
+    }
+
+    deleting?.let { account ->
+        AlertDialog(
+            modifier = Modifier.uiTagRoot(),
+            onDismissRequest = { deleting = null },
+            title = { Text("Supprimer le compte « ${account.name} » ?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteAccount(account.id)
+                        deleting = null
+                    },
+                ) { Text("Confirmer", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Annuler") } },
+        )
     }
 
     if (showCreateDialog) {

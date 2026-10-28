@@ -138,14 +138,6 @@ fun SavingsAdvancesScreen(
 
             if (advances.proposals.isNotEmpty()) {
                 item { SectionTitle("Contre-virements proposés") }
-                item {
-                    Text(
-                        "« Je l'ai fait » enregistre la transaction dans Maggie, il ne fait aucun virement " +
-                            "bancaire : faites d'abord le virement à votre banque.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
                 items(advances.proposals, key = { "proposal-${it.advanceId}" }) { proposal ->
                     ProposalCard(
                         proposal = proposal,

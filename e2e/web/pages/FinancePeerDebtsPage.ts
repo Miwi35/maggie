@@ -6,22 +6,23 @@ import { ROUTES } from './routes.js'
 /**
  * Finance → Créances et dettes (`/finance/peer-debts`, MAG-455): the two tiles
  * « On te doit » and « Tu dois », then « Par personne » (a net per person, a line
- * per object once opened) and « Par objet » (amount, who, note).
+ * per object once opened) and « Par objet » (amount, who, note) — a switch, not tabs: the
+ * section also sits on Trésorerie, which has none.
  */
 export class FinancePeerDebtsPage extends AdminShell {
   readonly heading: Locator
   readonly owedToMeTile: Locator
   readonly iOweTile: Locator
-  readonly byPersonTab: Locator
-  readonly byObjectTab: Locator
+  readonly byPersonSwitch: Locator
+  readonly byObjectSwitch: Locator
 
   constructor(page: Page) {
     super(page)
-    this.heading = this.content.getByRole('heading', { name: 'Créances et dettes' })
+    this.heading = this.content.getByRole('heading', { name: 'Créances et dettes', level: 2 })
     this.owedToMeTile = this.content.getByTestId('tile-owed-to-me')
     this.iOweTile = this.content.getByTestId('tile-i-owe')
-    this.byPersonTab = this.content.getByRole('tab', { name: 'Par personne' })
-    this.byObjectTab = this.content.getByRole('tab', { name: 'Par objet' })
+    this.byPersonSwitch = this.content.getByRole('button', { name: 'Par personne' })
+    this.byObjectSwitch = this.content.getByRole('button', { name: 'Par objet' })
   }
 
   async open(): Promise<void> {

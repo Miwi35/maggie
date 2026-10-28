@@ -10,29 +10,25 @@ import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import { Link, Title } from 'react-admin'
-import { Placeholder } from '../../components/list/ListEmpty'
 import { formatCents } from './accountTypes'
 import { contactLines, compensationSentence, netSentence, openDebts, owedSentence, peopleSentence } from './peerDebtsView'
 import { fetchPeerDebtsOverview, fetchPeerDebtSummary } from './peerDebtsApi'
 import type { PeerDebtSummary, PeerDebtWithHistory } from './peerDebtsApi'
 
-type Tab = 'person' | 'object'
+type View = 'person' | 'object'
 
-const Tile = ({ title, caption, cents, testId }: { title: string; caption: string; cents: number; testId: string }) => (
+const Tile = ({ title, cents, testId }: { title: string; cents: number; testId: string }) => (
   <Card variant="outlined" sx={{ flex: 1, minWidth: 220 }} data-testid={testId}>
     <CardContent>
       <Typography variant="overline" color="text.secondary">
         {title}
       </Typography>
       <Typography variant="h5">{formatCents(cents)}</Typography>
-      <Typography variant="caption" color="text.secondary">
-        {caption}
-      </Typography>
     </CardContent>
   </Card>
 )
@@ -95,12 +91,15 @@ const ObjectRow = ({ debt }: { debt: PeerDebtWithHistory }) => (
   </Box>
 )
 
-/** « Créances et dettes » (MAG-455): who owes what, by person then by object, each person one tap from their page. */
-export const PeerDebtsPage = () => {
+/**
+ * « Créances et dettes » (MAG-455): who owes what, by person then by object, each
+ * person one tap from their page. A section, with its own reads.
+ */
+export const PeerDebtsSection = () => {
   const [summary, setSummary] = useState<PeerDebtSummary | null>(null)
   const [debts, setDebts] = useState<PeerDebtWithHistory[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<Tab>('person')
+  const [view, setView] = useState<View>('person')
 
   const load = useCallback(() => {
     setError(null)
@@ -118,53 +117,76 @@ export const PeerDebtsPage = () => {
   const empty = summary !== null && summary.byContact.length === 0 && open.length === 0
 
   return (
-    <Box sx={{ p: 2, maxWidth: 820 }}>
-      <Title title="Créances et dettes" />
-      <Stack direction="row" justifyContent="flex-end" alignItems="center" sx={{ mb: 2 }}>
-        <Button component={Link} to="/contacts/create" startIcon={<AddIcon />} variant="outlined" size="small">
-          Personne
-        </Button>
-      </Stack>
+    <Card data-testid="treasury-section-debts">
+      <CardContent>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2 }}>
+          <Typography variant="h6" component="h2">
+            Créances et dettes
+          </Typography>
+          <Button component={Link} to="/contacts/create" startIcon={<AddIcon />} variant="outlined" size="small">
+            Personne
+          </Button>
+        </Stack>
 
-      {error && (
-        <Alert severity="error" action={<Button color="inherit" size="small" onClick={load}>Réessayer</Button>}>
-          {error}
-        </Alert>
-      )}
-      {!summary && !error && <LinearProgress aria-label="Chargement des créances et des dettes" />}
+        {error && (
+          <Alert severity="error" action={<Button color="inherit" size="small" onClick={load}>Réessayer</Button>}>
+            {error}
+          </Alert>
+        )}
+        {!summary && !error && <LinearProgress aria-label="Chargement des créances et des dettes" />}
 
-      {summary && debts && (
-        <>
-          <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: 'wrap', gap: 2 }}>
-            <Tile title="On te doit" caption="avancés sur ton matelas" cents={summary.owedToMeCents} testId="tile-owed-to-me" />
-            <Tile title="Tu dois" caption="hors revenus et épargne" cents={summary.iOweCents} testId="tile-i-owe" />
-          </Stack>
+        {summary && debts && (
+          <>
+            <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: 'wrap', gap: 2 }}>
+              <Tile title="On te doit" cents={summary.owedToMeCents} testId="tile-owed-to-me" />
+              <Tile title="Tu dois" cents={summary.iOweCents} testId="tile-i-owe" />
+            </Stack>
 
-          <Tabs value={tab} onChange={(_, v: Tab) => setTab(v)} sx={{ mb: 1 }}>
-            <Tab value="person" label="Par personne" />
-            <Tab value="object" label="Par objet" />
-          </Tabs>
+            {empty ? (
+              <Typography variant="body2" color="text.secondary">
+                Rien en cours
+              </Typography>
+            ) : (
+              <>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={view}
+                  onChange={(_, next: View | null) => {
+                    if (next !== null) setView(next)
+                  }}
+                  aria-label="Affichage des créances et des dettes"
+                  sx={{ mb: 1 }}
+                >
+                  <ToggleButton value="person">Par personne</ToggleButton>
+                  <ToggleButton value="object">Par objet</ToggleButton>
+                </ToggleButtonGroup>
 
-          {empty ? (
-            <Placeholder
-              title="Rien en cours"
-              description="Personne ne te doit rien et tu ne dois rien : partage une dépense ou affecte un virement pour commencer."
-            />
-          ) : tab === 'person' ? (
-            <List disablePadding aria-label="Par personne">
-              {summary.byContact.map((balance) => (
-                <PersonRow key={balance.contactId} balance={balance} debts={debts} />
-              ))}
-            </List>
-          ) : (
-            <List disablePadding aria-label="Par objet">
-              {open.map((debt) => (
-                <ObjectRow key={debt.id} debt={debt} />
-              ))}
-            </List>
-          )}
-        </>
-      )}
-    </Box>
+                {view === 'person' ? (
+                  <List disablePadding aria-label="Par personne">
+                    {summary.byContact.map((balance) => (
+                      <PersonRow key={balance.contactId} balance={balance} debts={debts} />
+                    ))}
+                  </List>
+                ) : (
+                  <List disablePadding aria-label="Par objet">
+                    {open.map((debt) => (
+                      <ObjectRow key={debt.id} debt={debt} />
+                    ))}
+                  </List>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }
+
+export const PeerDebtsPage = () => (
+  <Box sx={{ p: 2, maxWidth: 820 }}>
+    <Title title="Créances et dettes" />
+    <PeerDebtsSection />
+  </Box>
+)

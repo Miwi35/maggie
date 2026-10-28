@@ -39,6 +39,11 @@ export interface NavMenu {
   label: string
   path: string
   aspects: NavAspect[]
+  /**
+   * Screens of the menu that are not tabs: reached from its page (a ⋮ menu, a
+   * section's « Ouvrir »), with their own address, trail and routes.
+   */
+  screens?: NavAspect[]
 }
 
 export interface NavModule {
@@ -83,8 +88,9 @@ export const FINANCE_MENUS: NavMenu[] = [
     key: 'accounts',
     label: 'Comptes',
     path: financeSummaryPath('accounts'),
-    aspects: [
-      { id: 'accounts', label: 'Comptes et transactions', path: '/accounts', resource: 'accounts' },
+    // One page, no sub-views (MAG-632): the import and the contacts are reached from its ⋮ menu.
+    aspects: [{ id: 'accounts', label: 'Comptes', path: '/accounts', resource: 'accounts' }],
+    screens: [
       { id: 'import', label: 'Import de relevés', path: '/finance/import' },
       { id: 'contacts', label: 'Contacts', path: '/contacts', resource: 'contacts' },
     ],
@@ -103,17 +109,22 @@ export const FINANCE_MENUS: NavMenu[] = [
     key: 'budget',
     label: 'Budget',
     path: financeSummaryPath('budget'),
-    aspects: [{ id: 'envelopes', label: 'Enveloppes', path: '/envelopes', resource: 'envelopes' }],
+    // The mock-up's two sub-views (MAG-632): the month's envelopes, and what sits outside the monthly budget.
+    aspects: [
+      { id: 'month', label: 'Mois', path: '/envelopes', resource: 'envelopes' },
+      { id: 'outside', label: 'Hors budget' },
+    ],
   },
   {
     key: 'treasury',
     label: 'Trésorerie',
     path: financeSummaryPath('treasury'),
-    aspects: [
+    // One page for the whole treasury (MAG-632); its sections keep their own addresses.
+    aspects: [{ id: 'treasury', label: 'Trésorerie', path: '/finance/treasury' }],
+    screens: [
       { id: 'cushion', label: 'Matelas', path: '/finance/cushion' },
       { id: 'advances', label: "Avances d'épargne", path: '/finance/savings-advances' },
       { id: 'peer-debts', label: 'Créances et dettes', path: '/finance/peer-debts' },
-      { id: 'outlook', label: 'Solde projeté', path: '/finance/treasury' },
     ],
   },
   {
@@ -139,13 +150,22 @@ export const FINANCE_MENUS: NavMenu[] = [
 ]
 
 const financeParts = (): NavPart[] => [
-  ...FINANCE_MENUS.flatMap((menu) =>
-    menu.aspects.flatMap((aspect): NavPart[] =>
+  ...FINANCE_MENUS.flatMap((menu) => [
+    ...menu.aspects.flatMap((aspect): NavPart[] =>
       aspect.path
         ? [{ label: aspect.label, path: aspect.path, resource: aspect.resource, menu: { label: menu.label, path: menu.path } }]
         : [],
     ),
-  ),
+    ...(menu.screens ?? []).map(
+      (screen): NavPart => ({
+        label: screen.label,
+        path: screen.path as string,
+        resource: screen.resource,
+        menu: { label: menu.label, path: menu.path },
+        reachedFromPage: true,
+      }),
+    ),
+  ]),
   resourcePart('Transactions', 'transactions'),
 ]
 
@@ -246,14 +266,21 @@ const partCrumb = (part: NavPart): TrailCrumb => ({ label: part.label, to: part.
  * A part's crumbs after the module: its menu, when it has one, then itself —
  * unless the part is the module's own page (« Tâches » of Tâches): one crumb.
  */
-const partHead = (module: NavModule, part: NavPart): TrailCrumb[] =>
-  part.path === module.dashboard
-    ? [moduleCrumb(module)]
-    : [
-        moduleCrumb(module),
-        ...(part.menu ? [{ label: part.menu.label, to: part.menu.path }] : []),
-        partCrumb(part),
-      ]
+const partHead = (module: NavModule, part: NavPart): TrailCrumb[] => {
+  if (part.path === module.dashboard) {
+    return [moduleCrumb(module)]
+  }
+  // The only page of its menu (« Comptes » of Comptes): one crumb, the menu's.
+  if (part.menu?.label === part.label) {
+    return [moduleCrumb(module), { label: part.menu.label, to: part.menu.path }]
+  }
+
+  return [
+    moduleCrumb(module),
+    ...(part.menu ? [{ label: part.menu.label, to: part.menu.path }] : []),
+    partCrumb(part),
+  ]
+}
 
 /** The Finance menu a page belongs to, so the sidebar can highlight it. */
 export function financeMenuOf(pathname: string): string | undefined {
@@ -321,7 +348,10 @@ export function resolveTrail(pathname: string): TrailCrumb[] {
     for (const candidate of module.menus ?? []) {
       const aspect = candidate.aspects.find((entry) => financeAspectPath(candidate.key, entry.id) === path)
       if (aspect) {
-        return [moduleCrumb(module), { label: candidate.label, to: candidate.path }, { label: aspect.label, to: path }]
+        // The only tab of its menu (« Trésorerie » of Trésorerie) is the menu itself.
+        return aspect.label === candidate.label
+          ? [moduleCrumb(module), { label: candidate.label, to: candidate.path }]
+          : [moduleCrumb(module), { label: candidate.label, to: candidate.path }, { label: aspect.label, to: path }]
       }
     }
 

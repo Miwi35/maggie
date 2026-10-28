@@ -5,77 +5,76 @@ import { MONTH_LABELS } from './financeLabels.js'
 import { ROUTES } from './routes.js'
 
 /**
- * Finance → Budgets (`/envelopes`).
+ * Finance → Budget (`/envelopes`, MAG-632): two views, « Mois » and « Hors budget ».
  *
- * Three things stacked on one route, and the journeys read all three: the
- * day's score banner, the consumption gauges for the chosen period with the
- * roll-over button, and the tree of envelopes with its editor.
+ * « Mois » is the compact toolbar (period, roll-over, « Ajuster », the lines to
+ * qualify) over the tree of envelopes, each node drawing its own gauge; the
+ * editor of a node only exists once one is selected. « Hors budget » lists the
+ * annual and one-off envelopes apart from the month. The score rings and the
+ * total belong to the Dashboard and are not repeated here.
  *
  * Every number on this screen is computed by the API from the seeded
- * transactions — which is what MAG-102 asks to be checked — so the gauges are
+ * transactions — which is what MAG-102 asks to be checked — so the nodes are
  * addressed by their category name and read whole, label and amounts together.
  */
 export class FinanceBudgetPage extends AdminShell {
-  readonly budgetCard: Locator
   readonly rollOverButton: Locator
-  readonly totalLine: Locator
-  /** « Hors budget mensuel »: the annual and one-off envelopes, out of the month's totals (MAG-414). */
-  readonly outsideMonthly: Locator
 
   constructor(page: Page) {
     super(page)
-    this.budgetCard = this.content
-      .locator('.MuiCard-root')
-      .filter({ has: page.getByRole('heading', { name: 'Budgets' }) })
-    this.rollOverButton = this.budgetCard.getByRole('button', {
-      name: 'Reconduire le mois précédent',
-    })
-    this.totalLine = this.budgetCard.getByText(/^Total :/)
-    this.outsideMonthly = this.budgetCard.getByTestId('outside-monthly-budget')
+    this.rollOverButton = this.content.getByRole('button', { name: 'Reconduire le mois précédent' })
   }
 
   /**
-   * Opens the screen and waits for the panel to have *answered*.
+   * Opens « Mois » and waits for the tree to have *answered*.
    *
-   * Not just the card: its "Budgets" heading renders before `useBudgetStatus`
-   * comes back, so a read taken on the shell alone can legitimately see no
-   * gauge at all — and `gaugedCategories()` is a one-shot `evaluateAll` with
-   * no auto-retry behind it. The total line only exists once the status is in,
-   * and so does the empty list's own invitation.
+   * The tree renders before `useBudgetStatus` comes back, so a read taken on
+   * the shell alone could see no envelope at all — and `gaugedCategories()` is
+   * a one-shot `evaluateAll` with no auto-retry behind it. The wait is on the
+   * status response, then on the tree's progress bar having gone.
    */
   async open(): Promise<void> {
+    const answered = this.page.waitForResponse((response) => response.url().includes('/api/finance/budget-status'))
     await this.goto(ROUTES.envelopes)
-    await expect(this.budgetCard).toBeVisible()
-    await expect(
-      this.totalLine.or(this.content.getByText("Aucune enveloppe pour l'instant")),
-    ).toBeVisible()
+    await answered
+    await expect(this.tree()).toBeVisible()
+    await expect(this.content.getByRole('progressbar')).toHaveCount(0)
+  }
+
+  /** Opens « Hors budget », the second tab of Budget: the annual and one-off envelopes. */
+  async openOutside(): Promise<void> {
+    const answered = this.page.waitForResponse((response) => response.url().includes('/api/finance/budget-status'))
+    await this.goto(ROUTES.financeBudgetOutside)
+    await answered
+    await expect(this.content.getByTestId('envelope-outside')).toBeVisible()
+    await expect(this.content.getByRole('progressbar')).toHaveCount(0)
+  }
+
+  /** The tabs of the menu, by name. */
+  tabs(): Locator {
+    return this.content.getByRole('tab')
   }
 
   /**
-   * One gauge, with its category, its period and its amounts.
+   * One category's gauge — its node in the tree — with its amounts.
    *
    * Addressed by `data-category` rather than by the amounts it shows: the
    * point of these assertions is that *this* category consumed *that* much,
    * and a `getByText('120,00 € / 200,00 €')` would be just as happy if the two
-   * gauges swapped their categories.
+   * nodes swapped their categories.
    */
   gauge(categoryName: string): Locator {
-    return this.budgetCard.locator(`[data-testid="budget-gauge"][data-category="${categoryName}"]`)
+    return this.node(categoryName)
   }
 
-  /** A gauge of « Hors budget mensuel »: an annual envelope's category, or a one-off envelope's name. */
-  outsideGauge(name: string): Locator {
-    return this.outsideMonthly.locator(`[data-testid="budget-gauge"][data-category="${name}"]`)
-  }
-
-  /** The gauges on screen, in the order the panel draws them. */
+  /** The categories that have an envelope this month, in the order the tree draws them. */
   async gaugedCategories(): Promise<string[]> {
-    return this.budgetCard
-      .getByTestId('budget-gauge')
-      .evaluateAll((gauges) => gauges.map((gauge) => gauge.getAttribute('data-category') ?? ''))
+    return this.tree()
+      .locator('[data-testid="envelope-node"][data-has-envelope="true"]')
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-category') ?? ''))
   }
 
-  /** The tree of categories, left of the editor (MAG-419). */
+  /** The tree of categories (MAG-419); the editor opens beside it once a node is selected. */
   tree(): Locator {
     return this.content.getByTestId('envelope-tree')
   }
@@ -83,16 +82,16 @@ export class FinanceBudgetPage extends AdminShell {
   /**
    * A category's node in the tree, with or without an envelope.
    *
-   * By `data-category`, like the gauges: the point is that *this* category
+   * By `data-category`: the point is that *this* category
    * reads *that* amount, not that some node does.
    */
   node(categoryName: string): Locator {
     return this.tree().locator(`[data-testid="envelope-node"][data-category="${categoryName}"]`)
   }
 
-  /** An entry of « Hors budget mensuel » in the tree: an annual envelope's category, or a one-off event's name. */
+  /** An entry of the « Hors budget » tab: an annual envelope's category, or a one-off event's name. */
   outsideNode(name: string): Locator {
-    return this.content.locator(`[data-testid="envelope-outside-node"][data-category="${name}"]`)
+    return this.content.getByTestId('envelope-outside').locator(`[data-testid="envelope-outside-node"][data-category="${name}"]`)
   }
 
   /** The editor of the selected node, right of the tree. */
@@ -174,14 +173,11 @@ export class FinanceBudgetPage extends AdminShell {
   }
 
   /**
-   * Moves the period picker, and waits for the panel to have answered for it.
-   *
-   * The picker drives three independent fetches (score, status, list), so the
-   * wait is on the heading the new period produces rather than on a spinner
-   * that may already have gone.
+   * Moves the period picker; the assertions that follow retry until the tree
+   * has answered for the new period.
    */
   async selectPeriod(year: number, month: number): Promise<void> {
-    const picker = this.budgetCard
+    const picker = this.content
     await picker.getByLabel('Année', { exact: true }).fill(String(year))
     await picker.getByLabel('Mois', { exact: true }).click()
     await this.page.getByRole('option', { name: MONTH_LABELS[month] }).click()
@@ -189,14 +185,12 @@ export class FinanceBudgetPage extends AdminShell {
   }
 
   /**
-   * Opens the ruler of a mother envelope, below its gauge.
-   *
-   * It stays closed until asked for: the gauge alone is the read screen, the
-   * ruler is where the owner shares her amount between the daughters.
+   * Opens the ruler of a mother envelope: selecting her node opens her editor,
+   * where the ruler is already drawn, with its handles.
    */
   async openRuler(motherName: string): Promise<Locator> {
-    await this.gauge(motherName).getByRole('button', { name: 'Répartir' }).click()
-    const ruler = this.gauge(motherName).getByTestId('envelope-split')
+    await this.selectNode(motherName)
+    const ruler = this.editor().getByTestId('envelope-split')
     await expect(ruler).toBeVisible()
 
     return ruler
@@ -255,17 +249,5 @@ export class FinanceBudgetPage extends AdminShell {
     expect(response.status(), await response.text()).toBe(200)
 
     return response.json()
-  }
-
-  /** The week's or the month's ring (MAG-417); its status is `data-status`, its word is its text. */
-  scoreRing(period: 'week' | 'month'): Locator {
-    return this.content.locator(`[data-testid="score-ring"][data-period="${period}"]`)
-  }
-
-  /** Touches a ring and returns the reasons it opens — a score on its own reads as a verdict. */
-  async scoreReasons(period: 'week' | 'month'): Promise<Locator> {
-    const ring = this.scoreRing(period)
-    await ring.getByRole('button').click()
-    return ring.getByTestId('score-reasons')
   }
 }

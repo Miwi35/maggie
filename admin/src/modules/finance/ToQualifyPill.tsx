@@ -12,7 +12,7 @@ export const ToQualifyPill = () => {
   if (summary === null || summary.count < 1) return null
 
   return (
-    <Box sx={{ display: 'flex', mb: 2 }}>
+    <Box sx={{ display: 'flex' }}>
       <Chip
         component={Link}
         to={reviewLink({ state: 'unrecognised', period: 'all' })}

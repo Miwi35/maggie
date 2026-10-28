@@ -404,7 +404,7 @@ test.describe('a shared spend', () => {
     await screen.person(tom).getByRole('button', { name: tom }).click()
     await expect(screen.person(tom)).toContainText(gite)
     await expect(screen.person(tom)).toContainText(petrol)
-    await screen.byObjectTab.click()
+    await screen.byObjectSwitch.click()
     await expect(screen.object(gite)).toContainText(`on te doit ${euros(20000)}`)
     await expect(screen.object(petrol)).toContainText(`tu dois ${euros(28000)}`)
   })

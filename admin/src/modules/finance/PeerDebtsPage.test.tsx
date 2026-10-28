@@ -82,11 +82,11 @@ describe('PeerDebtsPage — « Créances et dettes »', () => {
     const owed = await screen.findByTestId('tile-owed-to-me')
     expect(owed).toHaveTextContent('On te doit')
     expect(flat(owed)).toContain('400,00 €')
-    expect(owed).toHaveTextContent('avancés sur ton matelas')
+    expect(owed).not.toHaveTextContent('avancés sur ton matelas')
     const due = screen.getByTestId('tile-i-owe')
     expect(due).toHaveTextContent('Tu dois')
     expect(flat(due)).toContain('280,00 €')
-    expect(due).toHaveTextContent('hors revenus et épargne')
+    expect(due).not.toHaveTextContent('hors revenus et épargne')
   })
 
   test('« Par personne » gives each person their net, and Tom the compensation', async () => {
@@ -117,7 +117,7 @@ describe('PeerDebtsPage — « Créances et dettes »', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: 'Par objet' }))
+    await user.click(await screen.findByRole('button', { name: 'Par objet' }))
 
     const objects = screen.getAllByTestId('peer-debt-object')
     expect(objects).toHaveLength(2)
@@ -126,6 +126,14 @@ describe('PeerDebtsPage — « Créances et dettes »', () => {
     expect(flat(objects[0])).toContain('Julie 200,00 € · Tom 200,00 €')
     expect(objects[0]).toHaveTextContent('Pris sur ma carte')
     expect(flat(objects[1])).toContain('tu dois 280,00 €')
+  })
+
+  test('is a section with its heading and no tabs: « Par objet » is a switch, not a tab', async () => {
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: 'Créances et dettes' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Par personne' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('« Personne » opens the new contact form', async () => {
@@ -143,6 +151,7 @@ describe('PeerDebtsPage — « Créances et dettes »', () => {
     renderPage()
 
     expect(await screen.findByText('Rien en cours')).toBeInTheDocument()
+    expect(screen.queryByText(/partage une dépense ou affecte un virement/)).not.toBeInTheDocument()
   })
 
   test('shows the message and lets the owner try again when a read fails', async () => {

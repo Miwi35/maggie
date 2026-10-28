@@ -1,0 +1,259 @@
+appId: com.maggie.app.e2e
+name: 13-finance-accounts-section
+tags:
+  - finance
+---
+# Comptes is a section like the others (MAG-632, replaces the swipe of MAG-422; extends MAG-102).
+#
+# Given a checking account and a savings account of its own (made here, through the app:
+# the seeded ones are read by the other flows and a transfer would move their figures),
+# When I choose « Comptes » in the breadcrumb of Finance,
+# Then the section opens on its own page, with no screen apart and no back arrow: the breadcrumb and a
+# card per account;
+# When I touch an account,
+# Then on a phone its transactions open on a detail screen (back arrow, no breadcrumb), where the
+# debit is booked and listed, and the arrow brings the section back; on the tablet (with the detail pane
+# beside) they open in the pane next to the list, as days with the status in words, and an internal
+# transfer names the account on its other side: « depuis X » on the credit, « vers X » on the debit.
+#
+# The names carry a random suffix so a re-run on the same server meets only its own pair, and
+# the savings name extends the checking one: accounts are sorted by name, so the two sit side
+# by side whatever else the server holds. The amount is not round, for the same reason: the
+# pairing looks for the opposite amount on another account of the same user.
+#
+# On a phone the ⋮ of the account's bar also opens « Corriger le solde » (hand-kept accounts only).
+#
+# What is not here: the older month (« Mois précédent »), the late occurrence and the « +33 % »
+# of a series. They need history the seed does not hold; the API's `AccountTimelineControllerTest`
+# and the phone's `AccountViewModelTest` / `DtoContractTest` carry them.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13-finance-accounts-section.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- evalScript: ${output.n = Math.floor(Math.random() * 90000) + 10000}
+
+# When I choose « Comptes » in the breadcrumb.
+- openLink: "maggie-e2e://finance"
+- extendedWaitUntil:
+    visible:
+      id: "breadcrumb_section"
+    timeout: 30000
+- tapOn:
+    id: "breadcrumb_section"
+- extendedWaitUntil:
+    visible:
+      id: "breadcrumb_menu_accounts"
+    timeout: 20000
+- tapOn:
+    id: "breadcrumb_menu_accounts"
+
+# Then the section is its own page: the breadcrumb says where I am, no back arrow, no carousel.
+- extendedWaitUntil:
+    visible: "Nouveau compte"
+    timeout: 30000
+- assertVisible:
+    id: "breadcrumb_section"
+    containsChild:
+      text: "Comptes"
+- assertNotVisible: "Retour"
+
+# Given the two accounts.
+- tapOn: "Nouveau compte"
+- extendedWaitUntil:
+    visible: "Nom"
+    timeout: 10000
+- tapOn: "Nom"
+- inputText: "Compte courant MAG-632-${output.n}"
+- runFlow: ../subflows/hide-keyboard.yaml
+- tapOn: "Créer"
+- extendedWaitUntil:
+    visible: "EUR · Compte courant MAG-632-${output.n}"
+    timeout: 30000
+
+- tapOn: "Nouveau compte"
+- extendedWaitUntil:
+    visible: "Nom"
+    timeout: 10000
+- tapOn: "Nom"
+- inputText: "Compte courant MAG-632-${output.n} livret"
+- runFlow: ../subflows/hide-keyboard.yaml
+- tapOn: "Épargne"
+- tapOn: "Créer"
+- extendedWaitUntil:
+    visible: "EUR · Compte courant MAG-632-${output.n} livret"
+    timeout: 30000
+
+# When I touch the checking account: on a phone its transactions open on a detail screen with the arrow,
+# on the tablet in the pane beside the list.
+- tapOn: "EUR · Compte courant MAG-632-${output.n}"
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "detail_pane"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "transactions_tab"
+          timeout: 20000
+      - assertVisible: "Retour"
+      - assertNotVisible:
+          id: "breadcrumb_section"
+      # The account was typed in by hand: its ⋮ offers « Corriger le solde » (cancelled, the balance stays).
+      - extendedWaitUntil:
+          visible:
+            id: "account_menu"
+          timeout: 20000
+      - tapOn:
+          id: "account_menu"
+      - tapOn:
+          id: "account_correct_balance"
+      - extendedWaitUntil:
+          visible:
+            id: "account_balance_input"
+          timeout: 10000
+      - tapOn: "Annuler"
+      - tapOn: "Nouvelle transaction"
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "detail_pane"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "account_add_transaction"
+          timeout: 20000
+      - tapOn:
+          id: "account_add_transaction"
+
+# The debit, booked on the checking account.
+- extendedWaitUntil:
+    visible: "Libellé"
+    timeout: 10000
+- tapOn: "Libellé"
+- inputText: "VIREMENT VERS LIVRET MAG-632"
+- tapOn: "Montant (€)"
+- inputText: "451.37"
+- runFlow: ../subflows/hide-keyboard.yaml
+- tapOn: "Créer"
+- extendedWaitUntil:
+    visible: "VIREMENT VERS LIVRET MAG-632"
+    timeout: 30000
+
+# The tablet reads the account as days, the status a word, not a colour.
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "detail_pane"
+    commands:
+      - extendedWaitUntil:
+          visible: "Aujourd'hui"
+          timeout: 30000
+      - assertVisible: "Dépensée"
+
+# The arrow brings the section back (the tablet's list is still there); I touch the savings account.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "detail_pane"
+    commands:
+      - tapOn: "Retour"
+      - extendedWaitUntil:
+          visible:
+            id: "breadcrumb_section"
+          timeout: 20000
+      - extendedWaitUntil:
+          visible: "Nouveau compte"
+          timeout: 20000
+- tapOn: "EUR · Compte courant MAG-632-${output.n} livret"
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "detail_pane"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "transactions_tab"
+          timeout: 20000
+      - tapOn: "Nouvelle transaction"
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "detail_pane"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "account_add_transaction"
+          timeout: 20000
+      - tapOn:
+          id: "account_add_transaction"
+
+# The page is the other account's: the debit is not on it. Its credit, and a line of its own the same day.
+- extendedWaitUntil:
+    visible: "Libellé"
+    timeout: 10000
+- assertNotVisible: "VIREMENT VERS LIVRET MAG-632"
+- tapOn: "Recette"
+- tapOn: "Libellé"
+- inputText: "VIREMENT DEPUIS COURANT MAG-632"
+- tapOn: "Montant (€)"
+- inputText: "451.37"
+- runFlow: ../subflows/hide-keyboard.yaml
+- tapOn: "Créer"
+- extendedWaitUntil:
+    visible: "VIREMENT DEPUIS COURANT MAG-632"
+    timeout: 30000
+- assertNotVisible: "VIREMENT VERS LIVRET MAG-632"
+
+# Then, on the tablet's days, the credit says where it came from, and its status is a word; and the
+# debit, back on the checking account, names the savings account it went to.
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "detail_pane"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "transfer_badge"
+          timeout: 60000
+      - assertVisible: "depuis Compte courant MAG-632-${output.n}"
+      - assertVisible: "Reçue"
+      - tapOn: "EUR · Compte courant MAG-632-${output.n}"
+      - extendedWaitUntil:
+          visible: "VIREMENT VERS LIVRET MAG-632"
+          timeout: 30000
+      - extendedWaitUntil:
+          visible:
+            id: "transfer_badge"
+          timeout: 60000
+      - assertVisible: "vers Compte courant MAG-632-${output.n} livret"
+
+# And on a phone, the arrow brings the section back, then the checking account lists its debit.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "detail_pane"
+    commands:
+      - tapOn: "Retour"
+      - extendedWaitUntil:
+          visible:
+            id: "breadcrumb_section"
+          timeout: 20000
+      - tapOn: "EUR · Compte courant MAG-632-${output.n}"
+      - extendedWaitUntil:
+          visible: "VIREMENT VERS LIVRET MAG-632"
+          timeout: 30000
+      - assertNotVisible: "VIREMENT DEPUIS COURANT MAG-632"

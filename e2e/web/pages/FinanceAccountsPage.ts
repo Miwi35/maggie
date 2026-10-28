@@ -4,7 +4,7 @@ import { AdminShell } from './AdminShell.js'
 import { ROUTES, accountTransactionsRoute } from './routes.js'
 
 /**
- * Finance → Comptes, and the transactions of one account.
+ * Finance → Comptes (one card per account), and the transactions of one account.
  *
  * Two screens in one page object because in the admin they are one journey:
  * the transaction resource is deliberately kept out of the menu, and clicking
@@ -13,6 +13,10 @@ import { ROUTES, accountTransactionsRoute } from './routes.js'
  */
 export class FinanceAccountsPage extends AdminShell {
   readonly createAccount: Locator
+  /** The « Dernier import » card beside the accounts (MAG-632). */
+  readonly lastImport: Locator
+  /** The ⋮ of the page: « Import de relevés » and « Contacts ». */
+  readonly pageMenu: Locator
   /** "Ajouter une transaction", only on the account-scoped list. */
   readonly addTransaction: Locator
   /** « Mois précédent », under the timeline: it loads the month of the latest earlier line (MAG-422). */
@@ -22,32 +26,38 @@ export class FinanceAccountsPage extends AdminShell {
 
   constructor(page: Page) {
     super(page)
-    // Two labels for one button, and which one is on screen depends on the
-    // data: a list with rows carries react-admin's own "Créer" in the toolbar,
-    // and an empty one replaces the whole toolbar with `ListEmpty`, whose
-    // invitation reads "Ajouter un compte". The journey presses the same
-    // button either way.
-    this.createAccount = this.content.getByRole('link', { name: /Créer|Ajouter un compte/ })
+    // One button, always on screen: the page of cards carries it in its header,
+    // empty or not (MAG-632).
+    this.createAccount = this.content.getByRole('link', { name: 'Ajouter un compte' })
+    this.lastImport = this.content.getByTestId('last-import-card')
+    this.pageMenu = this.content.getByRole('button', { name: "Plus d'actions" })
     this.addTransaction = this.content.getByRole('link', { name: 'Ajouter une transaction' })
     this.previousMonth = this.content.getByRole('button', { name: 'Mois précédent' })
     this.accountSelect = this.content.getByRole('combobox', { name: 'Compte' })
   }
 
   /**
-   * The account list, whether or not it holds anything.
-   *
-   * A react-admin list with an `empty` renders *only* that — the toolbar
-   * included — so an account list and an invitation to create one are two
-   * different screens, and a journey that starts from nothing meets the
-   * second.
+   * The accounts, whether or not there are any: one card each, or the
+   * invitation (MAG-632). No sub-view, no tabs.
    */
   async open(): Promise<void> {
     await this.goto(ROUTES.accounts)
     await expect(
       this.content
-        .getByRole('table')
+        .getByTestId('account-card')
+        .first()
         .or(this.content.getByText("Aucun compte pour l'instant")),
     ).toBeVisible()
+  }
+
+  /** One account's card, addressed by its text (name, bank · type, balance). */
+  card(text: string): Locator {
+    return this.content.getByTestId('account-card').filter({ hasText: text })
+  }
+
+  /** Opens the ⋮ menu of an account's card. */
+  async openCardMenu(name: string): Promise<void> {
+    await this.card(name).getByRole('button', { name: `Actions de ${name}` }).click()
   }
 
   /**
@@ -119,7 +129,7 @@ export class FinanceAccountsPage extends AdminShell {
   }
 
   /**
-   * Reopens the account list and waits for the row.
+   * Reopens the account list and waits for the card.
    *
    * Call it *after* `waitForIndexed` confirmed the write: the list is served
    * from Elasticsearch and fetches when it mounts, so the screen can be stale
@@ -128,7 +138,7 @@ export class FinanceAccountsPage extends AdminShell {
    */
   async expectAccountEventually(name: string): Promise<void> {
     await this.open()
-    await expect(this.row(name)).toBeVisible()
+    await expect(this.card(name)).toBeVisible()
   }
 
   /** Fills the account form and saves. The form is the create and the edit one. */
@@ -137,8 +147,6 @@ export class FinanceAccountsPage extends AdminShell {
     options: { bank?: string; type?: string; balanceEuros?: number; cushion?: boolean } = {},
   ): Promise<void> {
     await this.createAccount.click()
-    // A text field: until the form replaces the list, a label containing
-    // « Nom » is also the list's « Trier par nom croissant » header.
     const nameField = this.content.getByRole('textbox', { name: 'Nom' })
     await expect(nameField).toBeVisible()
 

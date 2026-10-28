@@ -13,6 +13,7 @@ import com.maggie.app.data.model.BudgetStatus
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.OneOffBudgetLine
 import com.maggie.app.data.model.OutsideMonthlyBudget
+import com.maggie.app.data.model.RollOverResult
 import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.Transaction
@@ -22,6 +23,7 @@ import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.emptyFlow
@@ -41,6 +43,7 @@ class BudgetTreeScreenTest {
     val compose = ScreenRule()
 
     private val transactionRepository = mockk<TransactionRepository>()
+    private val budgetRepository = mockk<BudgetRepository>()
 
     private val loisirs = BudgetLine(
         id = "env-loisirs", categoryId = "cat-loisirs", categoryName = "Loisirs", categoryPath = "Loisirs",
@@ -54,8 +57,11 @@ class BudgetTreeScreenTest {
         remainingCents = 6000, availableCents = 6000,
     )
 
-    private fun open(toQualify: ToSortPile? = null, onOpenToQualify: () -> Unit = {}) {
-        val budgetRepository = mockk<BudgetRepository>()
+    private fun open(
+        toQualify: ToSortPile? = null,
+        onOpenToQualify: () -> Unit = {},
+        adjustments: EnvelopeAdjustmentsViewModel? = null,
+    ) {
         coEvery { budgetRepository.getBudgetStatus(any(), any()) } returns Result.success(
             BudgetStatus(
                 year = 2026,
@@ -89,7 +95,7 @@ class BudgetTreeScreenTest {
             LocalDate.of(2026, 10, 15),
         )
         compose.setContent {
-            BudgetScreen(viewModel = viewModel, onBack = {}, toQualify = toQualify, onOpenToQualify = onOpenToQualify)
+            BudgetScreen(viewModel = viewModel, onBack = {}, toQualify = toQualify, onOpenToQualify = onOpenToQualify, adjustments = adjustments)
         }
         compose.waitForIdle()
     }
@@ -144,7 +150,41 @@ class BudgetTreeScreenTest {
 
         compose.onNodeWithContentDescription("Nouvelle enveloppe").assertDoesNotExist()
         compose.onNodeWithContentDescription("Supprimer").assertDoesNotExist()
-        compose.onNodeWithText("Les enveloppes se règlent sur la tablette ou le web.").assertExists()
+        compose.onNodeWithText("Les enveloppes se règlent sur la tablette ou le web.").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the head of the page carries no Ajuster and no copy button, only the menu`() {
+        open(adjustments = mockk(relaxed = true))
+
+        compose.onNodeWithText("Ajuster").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Reconduire le mois précédent").assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.BUDGET_ADJUST_OPEN).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.BUDGET_MENU).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the menu holds Ajuster les enveloppes and the roll-over of the previous month`() {
+        open(adjustments = mockk(relaxed = true))
+
+        compose.onNodeWithTag(UiTags.BUDGET_MENU).performClick()
+
+        compose.onNodeWithTag(UiTags.BUDGET_ADJUST_OPEN).assertIsDisplayed()
+        compose.onNodeWithText("Ajuster les enveloppes").assertIsDisplayed()
+        compose.onNodeWithText("Reconduire le mois précédent").assertIsDisplayed()
+    }
+
+    @Test
+    fun `without the adjustment mode the menu offers the roll-over alone, which copies the previous month`() {
+        coEvery { budgetRepository.rollOverEnvelopes(any()) } returns Result.success(RollOverResult(true, 2, 0))
+        open()
+
+        compose.onNodeWithTag(UiTags.BUDGET_MENU).performClick()
+        compose.onNodeWithTag(UiTags.BUDGET_ADJUST_OPEN).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.BUDGET_ROLL_OVER).performClick()
+        compose.waitForIdle()
+
+        coVerify { budgetRepository.rollOverEnvelopes(any()) }
     }
 
     @Test

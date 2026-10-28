@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { useTreasuryOutlook } from './useTreasuryOutlook'
+import { isValidSalaryDay, useTreasuryOutlook } from './useTreasuryOutlook'
 
 const OUTLOOK = { today: '2026-10-13', balanceCents: 0, projection: [] }
 const SETTINGS = { id: 's1', salaryExpectedDay: 25, overdraftLimitCents: 0 }
@@ -130,5 +130,11 @@ describe('useTreasuryOutlook', () => {
     })
 
     expect(saved).toEqual({ ok: false, message: 'overdraftLimitCents must be an integer of 0 or more cents' })
+  })
+})
+
+describe('isValidSalaryDay', () => {
+  test('only whole days from 1 to 31 are valid', () => {
+    expect([0, 1, 31, 32, 2.5, Number.NaN].map(isValidSalaryDay)).toEqual([false, true, true, false, false, false])
   })
 })

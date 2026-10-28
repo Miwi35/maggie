@@ -102,10 +102,10 @@ import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsScreen
 import com.maggie.app.ui.screens.cookbook.grocery.PastErrandsViewModel
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 import com.maggie.app.ui.screens.finance.AccountListScreen
-import com.maggie.app.ui.screens.finance.AccountPagerScreen
 import com.maggie.app.ui.screens.finance.AccountTimelineActions
 import com.maggie.app.ui.screens.finance.AccountTimelineDetail
 import com.maggie.app.ui.screens.finance.AccountViewModel
+import com.maggie.app.ui.screens.finance.BalanceCorrection
 import com.maggie.app.ui.screens.finance.BankConnectionListScreen
 import com.maggie.app.ui.screens.finance.BankConnectionViewModel
 import com.maggie.app.ui.screens.finance.BudgetScreen
@@ -1743,66 +1743,60 @@ fun NavGraph() {
                                 selectedAccount = accountId to accountName
                                 transactionToOpen = transactionId
                                 accountDrillDown = true
-                                if (!paneShown) {
-                                    navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
-                                }
                             },
                         )
-                        if (!paneShown) {
-                            // One account at a time, swiped (MAG-422); a touch on a line goes on to its sheet.
-                            AccountPagerScreen(
-                                viewModel = accountViewModel,
-                                onBack = { navController.backInFinance() },
-                                actions = timelineActions,
-                                onOpenContacts = openContacts,
-                            )
-                        } else {
-                            ListDetailPane(
-                                showsDetailPane = paneShown,
-                                list = {
-                                    AccountListScreen(
-                                        viewModel = accountViewModel,
-                                        onBack = { navController.backInFinance() },
-                                        onOpenContacts = openContacts,
-                                        lastSync = (summaryBlocks[SummaryBlock.LAST_SYNC] as? BlockState.Ready)?.lines?.firstOrNull(),
-                                        onOpenAccount = { accountId, accountName ->
-                                            selectedAccount = accountId to accountName
+                        ListDetailPane(
+                            showsDetailPane = paneShown,
+                            list = {
+                                AccountListScreen(
+                                    viewModel = accountViewModel,
+                                    onBack = { navController.backInFinance() },
+                                    onOpenContacts = openContacts,
+                                    lastSync = (summaryBlocks[SummaryBlock.LAST_SYNC] as? BlockState.Ready)?.lines?.firstOrNull(),
+                                    onOpenAccount = { accountId, accountName ->
+                                        selectedAccount = accountId to accountName
+                                        transactionToOpen = null
+                                        accountViewModel.selectAccount(accountId)
+                                        if (paneShown) {
                                             accountDrillDown = false
-                                            transactionToOpen = null
-                                            accountViewModel.selectAccount(accountId)
-                                        },
-                                    )
-                                },
-                                detail = account?.let {
-                                    {
-                                        if (accountDrillDown || transactionPrefill != null) {
-                                            AccountTransactions(
-                                                it,
-                                                onBack = {
-                                                    accountDrillDown = false
-                                                    transactionToOpen = null
-                                                },
-                                                onMakeRecurring = openRecurringFrom,
-                                                prefill = transactionPrefill,
-                                                onPrefillConsumed = { transactionPrefill = null },
-                                                openTransactionId = transactionToOpen,
-                                                onTransactionOpened = { transactionToOpen = null },
-                                                onOpenPeerDebts = { navController.navigate(Screen.PeerDebts.route) { launchSingleTop = true } },
-                                                openIncidents = incidentsToOpen,
-                                                onIncidentsOpened = { incidentsToOpen = false },
-                                            )
                                         } else {
-                                            AccountTimelineDetail(
-                                                viewModel = accountViewModel,
-                                                accountId = it.first,
-                                                actions = timelineActions,
-                                            )
+                                            // Comptes is a section page: an account opens its transactions, a screen with the arrow.
+                                            accountDrillDown = true
+                                            navController.navigate(Screen.AccountTransactions.route) { launchSingleTop = true }
                                         }
+                                    },
+                                )
+                            },
+                            detail = account?.let {
+                                {
+                                    if (accountDrillDown || transactionPrefill != null) {
+                                        AccountTransactions(
+                                            it,
+                                            accountViewModel = accountViewModel,
+                                            onBack = {
+                                                accountDrillDown = false
+                                                transactionToOpen = null
+                                            },
+                                            onMakeRecurring = openRecurringFrom,
+                                            prefill = transactionPrefill,
+                                            onPrefillConsumed = { transactionPrefill = null },
+                                            openTransactionId = transactionToOpen,
+                                            onTransactionOpened = { transactionToOpen = null },
+                                            onOpenPeerDebts = { navController.navigate(Screen.PeerDebts.route) { launchSingleTop = true } },
+                                            openIncidents = incidentsToOpen,
+                                            onIncidentsOpened = { incidentsToOpen = false },
+                                        )
+                                    } else {
+                                        AccountTimelineDetail(
+                                            viewModel = accountViewModel,
+                                            accountId = it.first,
+                                            actions = timelineActions,
+                                        )
                                     }
-                                },
-                                placeholder = "Touchez un compte pour voir ses transactions ici.",
-                            )
-                        }
+                                }
+                            },
+                            placeholder = "Touchez un compte pour voir ses transactions ici.",
+                        )
                     }
                     composable(Screen.Contacts.route, deepLinks = DeepLinks.forRoute(Screen.Contacts.route)) {
                         val contactViewModel: ContactViewModel = koinViewModel()
@@ -2076,8 +2070,12 @@ fun NavGraph() {
                         }
                         BackHandler(onBack = leave)
                         if (account != null) {
+                            // The list's ViewModel when the list is below on the stack: a corrected balance shows there too.
+                            val listEntry = remember(entry) { runCatching { navController.getBackStackEntry(Screen.AccountList.route) }.getOrNull() }
+                            val accountViewModel: AccountViewModel = koinViewModel(viewModelStoreOwner = listEntry ?: entry)
                             AccountTransactions(
                                 account,
+                                accountViewModel = accountViewModel,
                                 onBack = leave,
                                 onMakeRecurring = openRecurringFrom,
                                 prefill = transactionPrefill,
@@ -2340,6 +2338,7 @@ fun NavGraph() {
 @Composable
 private fun AccountTransactions(
     account: Pair<String, String>,
+    accountViewModel: AccountViewModel,
     onBack: (() -> Unit)?,
     onMakeRecurring: (Transaction) -> Unit,
     prefill: TransactionPrefill?,
@@ -2352,9 +2351,21 @@ private fun AccountTransactions(
 ) {
     // Keyed by account: the pane keeps one nav entry while the selection changes under it.
     val transactionViewModel: TransactionViewModel = koinViewModel(key = account.first) { parametersOf(account.first) }
+    // « Corriger le solde » only exists for a hand-kept account, and the timeline's read says which it is (MAG-632).
+    val accounts by accountViewModel.uiState.collectAsState()
+    LaunchedEffect(account.first) { accountViewModel.selectAccount(account.first) }
+    val manual = accounts.timelines[account.first]?.account?.takeIf { it.isManual }
     TransactionListScreen(
         viewModel = transactionViewModel,
         accountName = account.second,
+        balanceCorrection = manual?.let {
+            BalanceCorrection(
+                currentCents = it.balanceCents,
+                onCorrect = { cents -> accountViewModel.correctBalance(account.first, cents) },
+                error = accounts.error,
+                onErrorShown = accountViewModel::clearError,
+            )
+        },
         onBack = onBack,
         onMakeRecurring = onMakeRecurring,
         prefill = prefill,
