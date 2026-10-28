@@ -405,3 +405,15 @@ class TestTheShippedScenarios:
         await run(self.night(env, FakeMcp(events=events)))
 
         assert [p for p in env.service.folder(USER_A).files() if p.startswith("Goûts/")] == []
+
+
+async def test_the_agenda_is_read_on_sessions_of_its_own_and_never_twice_on_one():
+    # One MCP session answers parallel calls with empty or swapped replies: a session takes one call at a time.
+    mcp = FakeMcp(errands=saturday_errands(), upcoming=[timed_event("2026-10-20", "Kadavar")])
+
+    obs = await habits.observe(mcp, USER_A, TODAY, PARIS)
+
+    assert obs.ok == set(habits.MODULES)
+    assert mcp.called("get_events_by_date") == settings.memory_habits_past_days + 1
+    assert len(mcp.forks) == habits.SESSIONS
+    assert not any(session.overlapped for session in [mcp, *mcp.forks])

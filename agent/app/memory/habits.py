@@ -30,7 +30,7 @@ FINANCES = "finances"
 MODULES = (AGENDA, COURSES, REPAS, FINANCES)
 PREFIX = {AGENDA: "A", COURSES: "C", REPAS: "R", FINANCES: "F"}
 CAPS = {AGENDA: 200, COURSES: 20, REPAS: 120, FINANCES: 100}
-CONCURRENCY = 6
+SESSIONS = 8
 MAX_PROOFS = 12
 MAX_LABEL = 160
 WEEKDAYS = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
@@ -160,29 +160,32 @@ def agenda_item(event: Any) -> tuple[date, str, str, str, str] | None:
 
 
 async def _read_agenda(mcp: Any, user_id: str, today: date, start: date, future_days: int) -> list[Item]:
+    calls: list[tuple[str, dict[str, Any]]] = [("get_upcoming_events", {"days": future_days})]
+    calls += [
+        ("get_events_by_date", {"date": (start + timedelta(days=n)).isoformat()})
+        for n in range((today - start).days + 1)
+    ]
+    pages: list[Any] = []
     failure: list[SourceDown] = []
-    gate = asyncio.Semaphore(CONCURRENCY)
 
-    async def events_of(name: str, arguments: dict[str, Any]) -> list[Any]:
-        async with gate:
-            if failure:
-                return []
+    async def worker(session: Any) -> None:
+        while calls and not failure:
+            name, arguments = calls.pop()
             try:
-                events = (await _call(mcp, name, arguments, user_id)).get("events")
+                pages.append((await _call(session, name, arguments, user_id)).get("events"))
             except SourceDown as e:
                 failure.append(e)
-                return []
-            return events if isinstance(events, list) else []
 
-    days = [start + timedelta(days=n) for n in range((today - start).days + 1)]
-    pages = await asyncio.gather(
-        events_of("get_upcoming_events", {"days": future_days}),
-        *(events_of("get_events_by_date", {"date": d.isoformat()}) for d in days),
-    )
+    sessions = [await mcp.fork() for _ in range(SESSIONS)]
+    try:
+        await asyncio.gather(*(worker(session) for session in sessions))
+    finally:
+        for session in sessions:
+            await session.disconnect()
     if failure:
         raise failure[0]
     found: dict[tuple[str, date], Item] = {}
-    for event in (e for page in pages for e in page):
+    for event in (e for page in pages if isinstance(page, list) for e in page):
         parsed = agenda_item(event)
         if parsed is None or parsed[0] < start:
             continue
@@ -288,7 +291,7 @@ async def observe(mcp: Any, user_id: str, today: date, tz: ZoneInfo) -> Observat
             obs.dropped[module] = left_out
         return items
 
-    found = await asyncio.gather(*(read(m) for m in MODULES))
+    found = [await read(m) for m in MODULES]
     for module, items in zip(MODULES, found, strict=True):
         kept, cut = _nearest(items, today, CAPS[module])
         if cut:

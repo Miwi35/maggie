@@ -1,5 +1,6 @@
 """The app's data as the MCP server answers it, for the habits pass (MAG-18): the same shapes, none of the network."""
 
+import asyncio
 import json
 from typing import Any
 
@@ -26,12 +27,40 @@ class FakeMcp:
         self.transactions = transactions or []
         self.down = set(down)
         self.calls: list[tuple[str, dict[str, Any], str | None]] = []
+        self.in_flight = 0
+        self.overlapped = False
+        self.forks: list[FakeMcp] = []
+
+    async def fork(self) -> "FakeMcp":
+        other = FakeMcp(
+            events=self.events,
+            upcoming=self.upcoming,
+            errands=self.errands,
+            meals=self.meals,
+            transactions=self.transactions,
+            down=tuple(self.down),
+        )
+        other.calls = self.calls
+        self.forks.append(other)
+        return other
+
+    async def disconnect(self) -> None:
+        return None
 
     async def ensure_connected(self) -> None:
         return None
 
     async def call_tool(self, name: str, arguments: dict[str, Any], user_id: str | None = None) -> str:
         self.calls.append((name, arguments, user_id))
+        self.overlapped = self.overlapped or self.in_flight > 0
+        self.in_flight += 1
+        try:
+            await asyncio.sleep(0)
+            return self._answer(name, arguments)
+        finally:
+            self.in_flight -= 1
+
+    def _answer(self, name: str, arguments: dict[str, Any]) -> str:
         if name in self.down:
             return json.dumps({"error": "No response from MCP server"})
         if name == "get_events_by_date":
