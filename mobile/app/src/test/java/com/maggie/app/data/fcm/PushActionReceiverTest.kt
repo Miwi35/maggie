@@ -118,6 +118,22 @@ class PushActionReceiverTest {
     }
 
     @Test
+    fun `a Marquer comme lu that fails leaves the conversation as it was (MAG-682)`() {
+        coEvery { handler.handle(PushActionKind.MARK_AS_READ, any(), any(), any()) } returns PushOutcome.Retry("Maggie est injoignable. Réessayez.")
+        val notifier = PushNotifier(app)
+        notifier.show(payload("proaction"))
+
+        val invisible = androidx.core.app.NotificationCompat.getInvisibleActions(shown()).single()
+        app.sendBroadcast(Intent(shadowOf(invisible.actionIntent).savedIntent))
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        coVerify(timeout = 3_000) { handler.handle(PushActionKind.MARK_AS_READ, any(), any(), any()) }
+        await { false }
+
+        val style = androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(shown())
+        assertEquals(listOf("Titre\nTexte"), style?.messages?.map { it.text.toString() })
+    }
+
+    @Test
     fun `a failed answer keeps the notification, with the reason and its buttons`() {
         coEvery { handler.handle(PushActionKind.OK, any(), any(), any()) } returns PushOutcome.Retry("Maggie est injoignable. Réessayez.")
         PushNotifier(app).show(payload("reminder"))
