@@ -50,6 +50,9 @@ enum class PushActionKind(val label: String, val reminderKey: String? = null) {
 
     /** « Déjà en route » of a departure alert (MAG-658): the notification goes, nothing opens. */
     ALREADY_ON_THE_WAY("Déjà en route"),
+
+    /** « Marquer comme lu » of a conversation (MAG-682): never shown in the tray, Android Auto presses it after reading aloud. */
+    MARK_AS_READ("Marquer comme lu"),
     ;
 
     companion object {
@@ -88,6 +91,9 @@ data class PushPayload(
     /** The system tag the app files it under, and the one a withdrawal names — its notification id, or `cooking-timer-{id}`. */
     /** The system tag it is shown under — the server's own, so the app's and the system's are one notification. */
     val systemTag: String get() = cookingTimerId?.let(::cookingTimerTag) ?: notificationId
+
+    /** A message of Maggie that can be answered (MAG-682): shown as a conversation, which is what Android Auto reads aloud. */
+    val isConversation: Boolean get() = PushActionKind.REPLY in actions()
 
     /**
      * The buttons the notification carries, by what it asks.

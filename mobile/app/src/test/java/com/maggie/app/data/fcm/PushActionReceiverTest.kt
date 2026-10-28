@@ -104,6 +104,20 @@ class PushActionReceiverTest {
     }
 
     @Test
+    fun `Marquer comme lu, pressed by the car, reaches the handler and removes the conversation (MAG-682)`() {
+        coEvery { handler.handle(PushActionKind.MARK_AS_READ, any(), any(), any()) } returns PushOutcome.Closed
+        PushNotifier(app).show(payload("proaction"))
+
+        val invisible = androidx.core.app.NotificationCompat.getInvisibleActions(shown()).single()
+        app.sendBroadcast(Intent(shadowOf(invisible.actionIntent).savedIntent))
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        await { shown() == null }
+
+        assertNull(shown())
+        coVerify { handler.handle(PushActionKind.MARK_AS_READ, match { it.notificationId == "n-1" }, null, any()) }
+    }
+
+    @Test
     fun `a failed answer keeps the notification, with the reason and its buttons`() {
         coEvery { handler.handle(PushActionKind.OK, any(), any(), any()) } returns PushOutcome.Retry("Maggie est injoignable. Réessayez.")
         PushNotifier(app).show(payload("reminder"))
