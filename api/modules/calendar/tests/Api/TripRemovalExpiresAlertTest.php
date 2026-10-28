@@ -42,7 +42,9 @@ class TripRemovalExpiresAlertTest extends WebTestCase
 
     public function testDeletingTheEventExpiresItsDepartureAlertNow(): void
     {
-        $startsAt = new \DateTimeImmutable('+1 hour');
+        $expiresAt = new \DateTimeImmutable('+1 hour');
+        // Midday in Paris on the current Paris day, whatever the hour the test runs at.
+        $startsAt = new \DateTimeImmutable('today 12:00', new \DateTimeZone('Europe/Paris'));
         $event = $this->em()->find(Event::class, (string) $this->getFixture('dentist')->getId());
         self::assertNotNull($event);
         // An event of today: its removal also raises EventTripsChangedEvent, whose handlers flush again.
@@ -51,7 +53,7 @@ class TripRemovalExpiresAlertTest extends WebTestCase
         // Moving it filed a replanning; none must be pending when it is deleted, or the deletion files none.
         $this->em()->createQuery('DELETE FROM '.Proaction::class)->execute();
         $trip = $this->seedTrip($event);
-        $this->alert('Pars maintenant pour Dentiste', '/api/trips/'.$trip, $startsAt);
+        $this->alert('Pars maintenant pour Dentiste', '/api/trips/'.$trip, $expiresAt);
 
         $this->client->request('DELETE', '/api/events/'.$event->getId(), [], [], $this->authHeaders());
 
