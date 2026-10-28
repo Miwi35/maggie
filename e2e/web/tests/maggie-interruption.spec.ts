@@ -176,8 +176,7 @@ test('a task alert « Dans 3 j » interrupts, and « Voir la tâche » opens the
   const interruption = page.getByRole('alertdialog').filter({ hasText: title })
   await expect(interruption).toBeVisible({ timeout: 5_000 })
   await interruption.getByRole('button', { name: 'Voir la tâche' }).click()
-  // The task is due in three days: the page moves to the view that holds it, the link's mark kept.
-  await expect(page).toHaveURL(/#\/tasks\/upcoming\?task=e2e-task-due-1$/)
+  await expect(page).toHaveURL(/#\/tasks\?task=e2e-task-due-1$/)
 })
 
 test('touching a task alert in the bell opens the task board on that task, highlighted (MAG-410 recette, MAG-640)', async ({

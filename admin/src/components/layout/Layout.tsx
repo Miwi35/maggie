@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback, useRef, useMemo } from 'react'
+import { Suspense, useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Layout as RALayout, Loading, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
@@ -36,8 +36,11 @@ export const Layout = (props: LayoutProps) => {
     setChatOpen(false)
   }
 
+  const resizeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(resizeTimer.current), [])
   const triggerResize = useCallback(() => {
-    setTimeout(() => window.dispatchEvent(new Event('resize')), 250)
+    clearTimeout(resizeTimer.current)
+    resizeTimer.current = setTimeout(() => window.dispatchEvent(new Event('resize')), 250)
   }, [])
 
   const handleChatToggle = useCallback(() => {
