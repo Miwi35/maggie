@@ -9,6 +9,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Entity\UserLocation;
+use Maggie\Core\Enum\LocationSource;
 use Maggie\Core\Event\UserLocationChangedEvent;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -93,6 +94,8 @@ final class UserLocationControllerTest extends WebTestCase
         yield 'longitude above 180' => ['/api/me/location', ['longitude' => 180.5] + self::POSITION, 'longitude'];
         yield 'longitude as a string' => ['/api/me/location', ['longitude' => '2.35'] + self::POSITION, 'longitude'];
         yield 'negative accuracy' => ['/api/me/location', ['accuracy' => -1] + self::POSITION, 'accuracy'];
+        yield 'source unknown' => ['/api/me/location', ['source' => 'wifi'] + self::POSITION, 'source'];
+        yield 'source not a string' => ['/api/me/location', ['source' => 1] + self::POSITION, 'source'];
         yield 'accuracy missing' => ['/api/me/location', array_diff_key(self::POSITION, ['accuracy' => true]), 'accuracy'];
         yield 'capturedAt missing' => ['/api/me/location', array_diff_key(self::POSITION, ['capturedAt' => true]), 'capturedAt'];
         yield 'capturedAt not a date' => ['/api/me/location', ['capturedAt' => 'hier'] + self::POSITION, 'capturedAt'];
@@ -138,10 +141,13 @@ final class UserLocationControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(204);
         $location = $this->locationOf('test_user');
         self::assertNotNull($location);
-        self::assertSame(48.8566, $location->getLatitude());
-        self::assertSame(2.3522, $location->getLongitude());
-        self::assertSame(12.5, $location->getAccuracy());
-        self::assertSame((new \DateTimeImmutable('2026-10-26T07:15:00Z'))->getTimestamp(), $location->getCapturedAt()?->getTimestamp());
+        $gps = $location->getGpsFix();
+        self::assertSame(48.8566, $gps?->latitude);
+        self::assertSame(2.3522, $gps->longitude);
+        self::assertSame(12.5, $gps->accuracy);
+        self::assertSame(LocationSource::Gps, $gps->source);
+        self::assertSame((new \DateTimeImmutable('2026-10-26T07:15:00Z'))->getTimestamp(), $gps->capturedAt->getTimestamp());
+        self::assertNull($location->getNetworkFix());
         self::assertNull($location->getCarLatitude());
         self::assertEquals([new UserLocationChangedEvent($this->userId('test_user'), 'position')], $this->events());
     }
@@ -156,11 +162,64 @@ final class UserLocationControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(204);
         self::assertSame(1, $this->rowsOf('test_user'));
         $location = $this->locationOf('test_user');
-        self::assertSame(43.6, $location?->getLatitude());
-        self::assertSame(1.44, $location->getLongitude());
-        self::assertSame(5.0, $location->getAccuracy());
-        self::assertSame('2026-10-26T09:00:00+00:00', $location->getCapturedAt()?->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM));
+        $gps = $location?->getGpsFix();
+        self::assertSame(43.6, $gps?->latitude);
+        self::assertSame(1.44, $gps->longitude);
+        self::assertSame(5.0, $gps->accuracy);
+        self::assertSame('2026-10-26T09:00:00+00:00', $gps->capturedAt->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM));
         self::assertCount(2, $this->events());
+    }
+
+    /** MAG-666, recette of 28 Oct.: GPS at the car, then a network fix 500 m wide and 3 km away. */
+    public function testANetworkFixIsKeptApartAndNeverOverwritesTheGpsOne(): void
+    {
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $this->put('/api/me/location', ['source' => 'gps', 'latitude' => 48.11, 'longitude' => -1.68, 'accuracy' => 20, 'capturedAt' => '2026-10-28T10:16:00Z']);
+
+        $this->put('/api/me/location', ['source' => 'network', 'latitude' => 48.137, 'longitude' => -1.68, 'accuracy' => 500, 'capturedAt' => '2026-10-28T10:22:00Z']);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame(1, $this->rowsOf('test_user'));
+        $location = $this->locationOf('test_user');
+        $gps = $location?->getGpsFix();
+        self::assertSame([48.11, -1.68, 20.0], [$gps?->latitude, $gps?->longitude, $gps?->accuracy]);
+        self::assertSame('2026-10-28T10:16:00+00:00', $gps->capturedAt->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM));
+        $network = $location->getNetworkFix();
+        self::assertSame([48.137, -1.68, 500.0], [$network?->latitude, $network?->longitude, $network?->accuracy]);
+        self::assertSame(LocationSource::Network, $network->source);
+        self::assertSame('2026-10-28T10:22:00+00:00', $network->capturedAt->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM));
+    }
+
+    public function testAGpsFixNeverOverwritesTheNetworkOne(): void
+    {
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $this->put('/api/me/location', ['source' => 'network', 'latitude' => 48.137, 'longitude' => -1.68, 'accuracy' => 500, 'capturedAt' => '2026-10-28T10:22:00Z']);
+
+        $this->put('/api/me/location', ['source' => 'gps', 'latitude' => 48.11, 'longitude' => -1.68, 'accuracy' => 20, 'capturedAt' => '2026-10-28T10:30:00Z']);
+
+        $location = $this->locationOf('test_user');
+        self::assertSame(48.137, $location?->getNetworkFix()?->latitude);
+        self::assertSame(48.11, $location->getGpsFix()?->latitude);
+    }
+
+    public static function unlabelledFixes(): iterable
+    {
+        yield 'a precise fix is read as GPS' => [50, LocationSource::Gps];
+        yield 'a vague fix is read as network' => [50.5, LocationSource::Network];
+        yield 'a zero accuracy tells nothing: network' => [0, LocationSource::Network];
+    }
+
+    #[DataProvider('unlabelledFixes')]
+    public function testAnUnlabelledFixIsReadByItsAccuracy(float|int $accuracy, LocationSource $expected): void
+    {
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->put('/api/me/location', ['accuracy' => $accuracy] + self::POSITION);
+
+        self::assertResponseStatusCodeSame(204);
+        $location = $this->locationOf('test_user');
+        self::assertSame($expected, ($location?->getGpsFix() ?? $location?->getNetworkFix())?->source);
+        self::assertNull(LocationSource::Gps === $expected ? $location->getNetworkFix() : $location->getGpsFix());
     }
 
     public function testTheSameReportSentAgainRaisesNoEvent(): void
@@ -186,8 +245,8 @@ final class UserLocationControllerTest extends WebTestCase
         self::assertSame(48.85, $location?->getCarLatitude());
         self::assertSame(2.35, $location->getCarLongitude());
         self::assertSame((new \DateTimeImmutable('2026-10-26T07:40:00Z'))->getTimestamp(), $location->getCarParkedAt()?->getTimestamp());
-        self::assertSame(48.8566, $location->getLatitude());
-        self::assertSame(12.5, $location->getAccuracy());
+        self::assertSame(48.8566, $location->getGpsFix()?->latitude);
+        self::assertSame(12.5, $location->getGpsFix()->accuracy);
         self::assertEquals([
             new UserLocationChangedEvent($this->userId('test_user'), 'position'),
             new UserLocationChangedEvent($this->userId('test_user'), 'car'),
@@ -203,7 +262,8 @@ final class UserLocationControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(204);
         $location = $this->locationOf('test_user');
         self::assertSame(48.85, $location?->getCarLatitude());
-        self::assertNull($location->getLatitude());
+        self::assertNull($location->getGpsFix());
+        self::assertNull($location->getNetworkFix());
         self::assertEquals([new UserLocationChangedEvent($this->userId('test_user'), 'car')], $this->events());
     }
 
@@ -216,8 +276,8 @@ final class UserLocationControllerTest extends WebTestCase
 
         self::assertSame(1, $this->rowsOf('test_user'));
         $other = $this->locationOf('other_user');
-        self::assertSame(45.75, $other?->getLatitude());
-        self::assertSame(4.85, $other->getLongitude());
+        self::assertSame(45.75, $other?->getGpsFix()?->latitude);
+        self::assertSame(4.85, $other->getGpsFix()->longitude);
         self::assertSame(45.76, $other->getCarLatitude());
         self::assertNotContains($this->userId('other_user'), array_map(static fn (UserLocationChangedEvent $e) => $e->userId, $this->events()));
     }

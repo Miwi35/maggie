@@ -31,8 +31,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "DepartureTrip"
 
-private fun android.location.Location.toPosition() =
-    Position(latitude, longitude, accuracy.toDouble(), Instant.ofEpochMilli(time))
+internal fun android.location.Location.toPosition() =
+    Position(latitude, longitude, accuracy.toDouble(), Instant.ofEpochMilli(time), FixSource.of(provider, accuracy.toDouble()))
 
 /** GPS fixes of the fused provider every [intervalMs], for as long as the flow is collected. */
 class GmsLocationUpdates(private val context: Context) : LocationUpdates {

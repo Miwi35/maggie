@@ -95,7 +95,7 @@ class GmsFixProvider(private val context: Context) : FixProvider {
                     .addOnSuccessListener { location ->
                         continuation.resume(
                             location?.let {
-                                Position(it.latitude, it.longitude, it.accuracy.toDouble(), Instant.ofEpochMilli(it.time))
+                                it.toPosition()
                             },
                         )
                     }

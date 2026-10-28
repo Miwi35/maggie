@@ -41,7 +41,9 @@ class LocationReporter(
 
     /**
      * A fresh fix, sent as the owner's position; the GPS when the API is waiting for it ([PositionAccuracy.HIGH]),
-     * else the cheap sources. A GPS-grade point the phone has not moved from is kept when the fix is vaguer.
+     * else the cheap sources. A GPS-grade point the phone has not moved from is kept when the fix is vaguer. A vaguer
+     * fix that disagrees with it is sent for what it is — a network position, which the API keeps apart from the GPS
+     * one and never lets overwrite it (MAG-666).
      */
     suspend fun reportPosition(accuracy: PositionAccuracy = PositionAccuracy.BALANCED): ReportOutcome {
         if (!canReport()) return ReportOutcome.SKIPPED
@@ -120,7 +122,7 @@ class LocationReporter(
 
     private suspend fun deliver(position: Position, record: Boolean = true): ReportOutcome {
         if (record && position.isGpsGrade) preferences.addGpsPoint(position)
-        val outcome = send { api.putMyLocation(position.latitude, position.longitude, position.accuracy, position.capturedAt.toString()) }
+        val outcome = send { api.putMyLocation(position.latitude, position.longitude, position.accuracy, position.capturedAt.toString(), position.source.wire) }
         if (outcome == ReportOutcome.SENT) preferences.setLastSent(position)
         return outcome
     }

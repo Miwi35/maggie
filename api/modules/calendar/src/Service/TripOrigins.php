@@ -11,13 +11,13 @@ use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Repository\PlaceRepository;
 use Maggie\Calendar\Routing\RoutingException;
 use Maggie\Core\Entity\User;
-use Maggie\Core\Repository\UserLocationRepository;
+use Maggie\Core\Service\UserPositions;
 use Maggie\Notification\Push\LocationRequester;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Uid\Ulid;
 
 /**
- * Reads a trip's origin (MAG-653): `position` (the last one the phone gave),
+ * Reads a trip's origin (MAG-653): `position` (the one {@see UserPositions} picks among the last GPS and network fixes the phone gave),
  * `home` (the « Maison », taken from the Google account when none is saved),
  * `place:<ulid>` or `event:<ulid>` (where an earlier event is).
  *
@@ -31,7 +31,7 @@ class TripOrigins
     public const string HOME = 'home';
 
     public function __construct(
-        private readonly UserLocationRepository $userLocations,
+        private readonly UserPositions $positions,
         private readonly PlaceRepository $places,
         private readonly EventRepository $events,
         private readonly TripLocations $locations,
@@ -65,22 +65,19 @@ class TripOrigins
 
     private function position(User $user): TripOrigin
     {
-        $location = $this->userLocations->findOneByUser($user);
-        $latitude = $location?->getLatitude();
-        $longitude = $location?->getLongitude();
-        if (null === $location || null === $latitude || null === $longitude) {
+        $fix = $this->positions->of($user);
+        if (null === $fix) {
             throw new InvalidTripException('origin', 'no position of the user is known yet: ask where they leave from, or use a place:<id> origin.');
         }
 
-        $capturedAt = $location->getCapturedAt();
         $freshSince = $this->clock->now()->modify(sprintf('-%d minutes', self::FRESH_POSITION_MINUTES));
         $requested = false;
-        if (null === $capturedAt || $capturedAt < $freshSince) {
+        if ($fix->capturedAt < $freshSince) {
             $this->locationRequester->request($user);
             $requested = true;
         }
 
-        return new TripOrigin(TripOrigin::POSITION, null, 'ma position', $latitude, $longitude, $capturedAt, $requested);
+        return new TripOrigin(TripOrigin::POSITION, null, 'ma position', $fix->latitude, $fix->longitude, $fix->capturedAt, $requested, $fix->source);
     }
 
     private function home(User $user): TripOrigin

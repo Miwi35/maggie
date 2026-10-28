@@ -9,6 +9,7 @@ use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Service\PlaceMatcher;
 use Maggie\Core\Entity\UserLocation;
 use Maggie\Core\Event\UserLocationChangedEvent;
+use Maggie\Core\Location\LocationFix;
 
 /**
  * The user, or their car, is no longer where the trip was computed from (MAG-656): the position
@@ -20,9 +21,13 @@ final readonly class IsUserAwayFromTrip
 {
     public const float DISTANCE_METERS = 300.0;
 
-    /** @param UserLocationChangedEvent::POSITION|UserLocationChangedEvent::CAR $what */
+    /**
+     * @param LocationFix|null                                                 $position the user's position as {@see \Maggie\Core\Service\UserPositions} picks it
+     * @param UserLocationChangedEvent::POSITION|UserLocationChangedEvent::CAR $what
+     */
     public function __construct(
         private UserLocation $location,
+        private ?LocationFix $position,
         private string $what,
     ) {
     }
@@ -31,8 +36,8 @@ final readonly class IsUserAwayFromTrip
     {
         if (UserLocationChangedEvent::POSITION === $this->what) {
             return $this->isFar(
-                $this->location->getLatitude(),
-                $this->location->getLongitude(),
+                $this->position?->latitude,
+                $this->position?->longitude,
                 $trip->getOriginLatitude(),
                 $trip->getOriginLongitude(),
             );

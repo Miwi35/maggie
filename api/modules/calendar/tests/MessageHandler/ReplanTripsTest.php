@@ -20,6 +20,7 @@ use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Service\TripEstimate;
 use Maggie\Calendar\Service\TripOrigin;
+use Maggie\Core\Enum\LocationSource;
 use Maggie\Core\Message\ParkCarCommand;
 use Maggie\Core\Message\ReportUserLocationCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -102,9 +103,9 @@ class ReplanTripsTest extends KernelTestCase
         $this->em()->flush();
     }
 
-    private function report(float $latitude): void
+    private function report(float $latitude, LocationSource $source = LocationSource::Gps, string $capturedAt = '2026-11-03 10:00:00'): void
     {
-        $this->bus()->dispatch(new ReportUserLocationCommand($this->id('test_user'), $latitude, -1.68, 10.0, $this->at('2026-11-03 10:00:00')));
+        $this->bus()->dispatch(new ReportUserLocationCommand($this->id('test_user'), $latitude, -1.68, 10.0, $this->at($capturedAt), $source));
     }
 
     private function parkCar(float $latitude): void
@@ -256,6 +257,26 @@ class ReplanTripsTest extends KernelTestCase
         $this->report(48.1109);
 
         self::assertSame([], $this->replans());
+    }
+
+    /** MAG-666, recette of 28 Oct.: a vague network fix 2 km off must not undo the GPS position. */
+    public function testANetworkFixFarFromTheGpsPositionFilesNothing(): void
+    {
+        $this->seedTrip('dentist');
+        $this->report(48.1105);
+
+        $this->report(48.128, LocationSource::Network, '2026-11-03 10:05:00');
+
+        self::assertSame([], $this->replans());
+    }
+
+    public function testANetworkPositionAloneFarFromTheOriginFilesAReplanProaction(): void
+    {
+        $this->seedTrip('dentist');
+
+        $this->report(48.128, LocationSource::Network);
+
+        self::assertCount(1, $this->replans());
     }
 
     public function testAPositionWithoutATripLeftTodayFilesNothing(): void

@@ -49,6 +49,7 @@ class LocationReporterTest {
         assertEquals(2.3522, call.body.getValue("longitude").jsonPrimitive.double, 0.0)
         assertEquals(12.0, call.body.getValue("accuracy").jsonPrimitive.double, 0.0)
         assertEquals(JsonPrimitive("2026-10-26T21:30:00Z"), call.body.getValue("capturedAt"))
+        assertEquals(JsonPrimitive("gps"), call.body.getValue("source"))
     }
 
     @Test
@@ -72,11 +73,12 @@ class LocationReporterTest {
     @Test
     fun `a position with a poor precision is sent as it is, with its real precision`() = runTest {
         switchOn()
-        source.position = FakePositionSource.PARIS.copy(accuracy = 500.0)
+        source.position = FakePositionSource.PARIS.copy(accuracy = 500.0, source = FixSource.NETWORK)
 
         assertEquals(ReportOutcome.SENT, reporter.reportPosition(PositionAccuracy.HIGH))
 
         assertEquals(500.0, api.calls.single().body.getValue("accuracy").jsonPrimitive.double, 0.0)
+        assertEquals(JsonPrimitive("network"), api.calls.single().body.getValue("source"))
     }
 
     @Test
@@ -219,7 +221,27 @@ class LocationReporterTest {
         assertEquals(45.76, call.body.getValue("latitude").jsonPrimitive.double, 0.0)
         assertEquals(5.0, call.body.getValue("accuracy").jsonPrimitive.double, 0.0)
         assertEquals(JsonPrimitive(t0.plusSeconds(600).toString()), call.body.getValue("capturedAt"))
+        assertEquals(JsonPrimitive("gps"), call.body.getValue("source"))
         assertEquals(listOf(PositionAccuracy.BALANCED), source.requested)
+    }
+
+    @Test
+    fun `28 Oct - a network fix 3 km from the car is sent as network, the GPS point at the car is never resent as a vague one`() = runTest {
+        switchOn()
+        source.position = Position(45.76, 4.83, 20.0, t0.plusSeconds(100), FixSource.GPS)
+        assertEquals(ReportOutcome.SENT, reporter.reportPosition(PositionAccuracy.HIGH))
+        clock.now = t0.plusSeconds(4000)
+        source.position = Position(45.787, 4.83, 500.0, t0.plusSeconds(3990), FixSource.NETWORK)
+
+        assertEquals(ReportOutcome.SENT, reporter.reportPosition())
+
+        val (atTheCar, indoors) = api.calls
+        assertEquals(JsonPrimitive("gps"), atTheCar.body.getValue("source"))
+        assertEquals(45.76, atTheCar.body.getValue("latitude").jsonPrimitive.double, 0.0)
+        assertEquals(JsonPrimitive("network"), indoors.body.getValue("source"))
+        assertEquals(45.787, indoors.body.getValue("latitude").jsonPrimitive.double, 0.0)
+        assertEquals(500.0, indoors.body.getValue("accuracy").jsonPrimitive.double, 0.0)
+        assertEquals(2, api.calls.size)
     }
 
     @Test
