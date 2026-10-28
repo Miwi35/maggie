@@ -33,6 +33,7 @@ import { subscribeAgentFeed } from '../../hooks/agentFeed'
 import { AGENT_STREAMS, agentTopic, getStoredUserId } from '../../hooks/agentTopics'
 import { mercureUrl } from '../../hooks/mercureUrl'
 import { saidInMessage } from '../../screenContext'
+import { stripDeliveryTags } from './deliveryTags'
 import { Linkified } from './Linkified'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { newMessageKey } from '../../hooks/messageKey'
@@ -1342,7 +1343,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                             WebkitBoxOrient: 'vertical',
                           }}
                           dangerouslySetInnerHTML={{
-                            __html: highlightSearchTerm(saidInMessage(result.content), searchQuery),
+                            __html: highlightSearchTerm(stripDeliveryTags(saidInMessage(result.content)), searchQuery),
                           }}
                         />
                       </Box>
@@ -1433,7 +1434,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                                 Capture d'écran (non conservée)
                               </Typography>
                             )}
-                            <Linkified text={saidInMessage(msg.content)} />
+                            <Linkified text={msg.role === 'assistant' ? stripDeliveryTags(saidInMessage(msg.content)) : saidInMessage(msg.content)} />
                           </ChatBubble>
                           )}
                           {msg.role === 'assistant' && !msg.id.startsWith('tmp-') && !msg.id.startsWith('err-') && (

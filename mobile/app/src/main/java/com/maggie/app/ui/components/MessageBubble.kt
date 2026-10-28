@@ -57,6 +57,7 @@ import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
+import com.maggie.app.util.stripDeliveryTags
 import com.maggie.app.voice.ScreenshotEncoder
 
 /** The user's answer to a request of Maggie's: a discreet centred line, not a bubble (MAG-336). */
@@ -197,7 +198,9 @@ fun MessageBubble(
                         }
                         val linkColor = MaterialTheme.colorScheme.primary
                         Text(
-                            text = remember(message.content, linkColor) { linkified(message.content, linkColor) },
+                            text = remember(message.content, linkColor) {
+                                linkified(if (isUser) message.content else stripDeliveryTags(message.content), linkColor)
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }

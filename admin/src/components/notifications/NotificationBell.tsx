@@ -22,6 +22,7 @@ import { useMercure } from '../../hooks/useMercure'
 import { getToken } from '../../auth/session'
 import { notificationLink, shortageAlertId } from '../maggie/interruptions'
 import { fetchNavigationUrl, isTripIri, openNavigation } from '../../modules/calendar/trips'
+import { stripDeliveryTags } from '../chat/deliveryTags'
 
 const NOTIFICATION_TOPICS = ['/api/notifications/{id}']
 
@@ -408,7 +409,7 @@ export const NotificationBell = () => {
                         n.body ? (
                           <>
                             <Box component="span" sx={{ display: 'block', color: 'text.primary', fontSize: 13 }}>
-                              {n.body}
+                              {stripDeliveryTags(n.body)}
                             </Box>
                             {timeAgo(n.createdAt)}
                           </>

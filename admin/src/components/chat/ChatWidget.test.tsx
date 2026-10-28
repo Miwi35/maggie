@@ -202,6 +202,24 @@ describe('ChatWidget', () => {
       expect(defaultProps.onUnread).not.toHaveBeenCalled()
     })
 
+    // MAG-704: the voice tags are for the voice, never for the eyes.
+    test('shows a message of Maggie without its voice tags', async () => {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+      renderWithTheme(<ChatWidget {...defaultProps} />)
+
+      publish(chatSource(), {
+        id: 'proaction-tags',
+        role: 'assistant',
+        content: '[warmly] Bonjour monsieur.',
+        createdAt: '2026-10-01T18:00:00Z',
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Bonjour monsieur.')).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/warmly/)).not.toBeInTheDocument()
+    })
+
     // MAG-336: the trace of the owner's answer to a request is an info line in the thread.
     describe('the line that keeps the answer to a request', () => {
       const decision = {
