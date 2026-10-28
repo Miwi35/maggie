@@ -24,8 +24,25 @@ class ScriptedDeviceSpeech : DeviceSpeechRecognizer {
          */
         const val SENTENCE = "euh ajoute des tomates à la liste de courses s'il te plaît"
 
+        /**
+         * The next hold hears this one: the agent takes the same words, sent again within the
+         * minute, for the same message and replays its answer (MAG-386), so a journey that
+         * dictates twice in a row needs two different sentences. Same meaning, same scenarios.
+         */
+        const val OTHER_SENTENCE = "euh ajoute des tomates à la liste de courses s'il vous plaît"
+
         /** Above [TranscriptionQuality.MIN_CONFIDENCE]: a sentence the phone heard well. */
         const val CONFIDENCE = 0.9f
+
+        private var delivered = 0
+
+        /** Starts the alternation over: one process serves every flow, a test wants the first sentence. */
+        fun restart() {
+            delivered = 0
+        }
+
+        /** What the next delivery says: the two sentences in turn, so two holds never repeat each other. */
+        private fun nextSentence(): String = if (delivered++ % 2 == 0) SENTENCE else OTHER_SENTENCE
     }
 
     // One instance per hold, like the real engine: a session released late cannot
@@ -42,7 +59,7 @@ class ScriptedDeviceSpeech : DeviceSpeechRecognizer {
     }
 
     override fun stopListening() {
-        listener?.onResult(DeviceSpeechResult(SENTENCE, CONFIDENCE))
+        listener?.let { it.onResult(DeviceSpeechResult(nextSentence(), CONFIDENCE)) }
         listener = null
     }
 

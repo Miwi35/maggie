@@ -127,6 +127,10 @@ class ChatViewModel(
     private val _contextUpdates = MutableSharedFlow<AgUiEvent.ContextUpdate>(extraBufferCapacity = 16)
     val contextUpdates: SharedFlow<AgUiEvent.ContextUpdate> = _contextUpdates
 
+    /** A request ended with nothing to read aloud: the voice has no reply to wait for. */
+    private val _noReplyToSpeak = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val noReplyToSpeak: SharedFlow<Unit> = _noReplyToSpeak
+
     private val json = Json { ignoreUnknownKeys = true }
     private val searchQueryFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
     private var highlightJob: Job? = null
@@ -498,6 +502,7 @@ class ChatViewModel(
         map { if (it.status == ToolCallStatus.RUNNING) it.copy(status = ToolCallStatus.ERROR) else it }
 
     private fun fail() {
+        if (awaitingReply) _noReplyToSpeak.tryEmit(Unit)
         awaitingReply = false
         _uiState.value = _uiState.value.copy(
             isLoading = false,
@@ -728,6 +733,7 @@ class ChatViewModel(
     /** The request is over: its answer, if any, is now the thing to read aloud. */
     private fun finishRequest() {
         val reply = if (awaitingReply) _uiState.value.messages.lastOrNull { !it.isDecision }?.takeIf { it.role == "assistant" } else null
+        if (awaitingReply && reply == null) _noReplyToSpeak.tryEmit(Unit)
         awaitingReply = false
         unanswered = null
         _uiState.value = _uiState.value.copy(isLoading = false, answering = false, replyToSpeak = reply, agentState = AgentState.IDLE)

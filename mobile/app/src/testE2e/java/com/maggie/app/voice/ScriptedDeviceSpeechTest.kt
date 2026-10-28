@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 /**
@@ -29,6 +30,9 @@ class ScriptedDeviceSpeechTest {
         override fun onUnavailable(reason: String, fatal: Boolean) =
             throw AssertionError("the scripted engine is never out: $reason")
     }
+
+    @Before
+    fun startOver() = ScriptedDeviceSpeech.restart()
 
     @Test
     fun `the e2e flavor hands the voice path the scripted engine`() {
@@ -60,6 +64,29 @@ class ScriptedDeviceSpeechTest {
         engine.stopListening()
 
         assertEquals(listOf(DeviceSpeechResult(ScriptedDeviceSpeech.SENTENCE, ScriptedDeviceSpeech.CONFIDENCE)), heard.results)
+    }
+
+    @Test
+    fun `two holds in a row never say the same words, so the agent takes them for two messages`() {
+        val heard = Heard()
+        repeat(3) {
+            val engine = ScriptedDeviceSpeech()
+            engine.start(heard)
+            engine.stopListening()
+        }
+
+        assertEquals(
+            listOf(ScriptedDeviceSpeech.SENTENCE, ScriptedDeviceSpeech.OTHER_SENTENCE, ScriptedDeviceSpeech.SENTENCE),
+            heard.results.map { it.text },
+        )
+    }
+
+    @Test
+    fun `the other sentence reaches Maggie as the same request, minus its hesitation`() {
+        assertEquals(
+            "ajoute des tomates à la liste de courses s'il vous plaît",
+            HesitationFilter.strip(ScriptedDeviceSpeech.OTHER_SENTENCE),
+        )
     }
 
     @Test

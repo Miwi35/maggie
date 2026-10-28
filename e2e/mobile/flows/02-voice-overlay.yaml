@@ -267,7 +267,12 @@ tags:
 # Cutting Maggie off (MAG-223): a tap on the mic stops her wherever she is, and what
 # she had not said yet never shows up afterwards.
 #
-# The same sentence is dictated a second time. Its history now holds the first answer
+# The sentence is dictated a second time, worded differently (`ScriptedDeviceSpeech`
+# alternates two): the same words within the minute are the same message for the agent,
+# which replays its answer instead of opening a turn (MAG-386), and the story would never
+# start (MAG-534). The fake TTS audio cannot be played by the emulator's `MediaPlayer`
+# (`Prepare failed`), so the first answer's reading has failed by then, and the voice must be
+# free for this hold — the contract of MAG-534. Its history now holds the first answer
 # ("quatre tomates"), which is what `41-dictated-long-story.yaml` waits for: a story
 # that stalls after its first words (`stall_after_deltas`) and cannot end by itself —
 # a pace was a race against the CI emulator, lost twice. The flow waits for its

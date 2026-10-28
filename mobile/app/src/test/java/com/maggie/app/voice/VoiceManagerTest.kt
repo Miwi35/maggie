@@ -123,11 +123,13 @@ private class FakeSpeechPlayer : SpeechPlayer {
     var played = false
     var stopped = false
     var released = false
+    var failure: Exception? = null
     override var durationMs = 10_000
     override var positionMs = 0
     private var onFinished: (() -> Unit)? = null
 
     override fun play(file: File, onFinished: () -> Unit) {
+        failure?.let { throw it }
         played = true
         this.onFinished = onFinished
     }
@@ -156,6 +158,7 @@ class VoiceManagerTest {
     private lateinit var players: MutableList<FakeSpeechPlayer>
     private lateinit var cacheDir: File
     private var now = 0L
+    private var playbackFailure: Exception? = null
 
     @Before
     fun setup() {
@@ -177,6 +180,7 @@ class VoiceManagerTest {
         recorder.levels = List(16) { 0.12f }
         players = mutableListOf()
         now = 0L
+        playbackFailure = null
         voiceManager = managerWith(NoDeviceSpeech)
     }
 
@@ -195,7 +199,7 @@ class VoiceManagerTest {
         clock = { now },
         scope = testScope,
         ioDispatcher = StandardTestDispatcher(testScope.testScheduler),
-        playerFactory = { FakeSpeechPlayer().also { players.add(it) } },
+        playerFactory = { FakeSpeechPlayer().also { it.failure = playbackFailure; players.add(it) } },
     )
 
     private fun advance(ms: Long) {
@@ -438,6 +442,32 @@ class VoiceManagerTest {
         testScope.runCurrent()
 
         assertEquals(VoiceState.LISTENING, voiceManager.state.value)
+    }
+
+    @Test
+    fun `a reply that cannot be played frees the voice`() {
+        playbackFailure = java.io.IOException("Prepare failed.: status=0x1")
+        reachProcessing()
+
+        speakNow("Il était une fois un roi.")
+
+        assertEquals(VoiceState.IDLE, voiceManager.state.value)
+        assertTrue(players.single().released)
+    }
+
+    @Test
+    fun `the next hold after a reply that could not be played is sent`() {
+        playbackFailure = java.io.IOException("Prepare failed.: status=0x1")
+        speakNow("C'est ajouté : quatre tomates.")
+        var sent: String? = null
+
+        voiceManager.pressDown { sent = it }
+        advance(600)
+        voiceManager.pressRelease()
+        testScope.runCurrent()
+
+        assertEquals("bonjour Maggie", sent)
+        assertEquals(VoiceState.PROCESSING, voiceManager.state.value)
     }
 
     @Test

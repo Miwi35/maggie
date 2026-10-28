@@ -545,6 +545,62 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `a failed request tells the voice it has no reply to wait for`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Hello", any(), any()) } returns flow { throw RuntimeException("Stream error") }
+        coEvery { repository.sendMessage("Hello") } throws RuntimeException("Network error")
+        coEvery { repository.fetchMessagesAfter(any()) } returns emptyList()
+
+        viewModel.noReplyToSpeak.test {
+            viewModel.sendMessage("Hello")
+            advanceUntilIdle()
+
+            awaitItem()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `an answer to read aloud does not tell the voice to stand down`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        every { repository.sendMessageStream("Bonjour", any(), any()) } returns streamedAnswer("resp-1", "Salut!")
+        coEvery { repository.persistMessage(any()) } returns Unit
+
+        viewModel.noReplyToSpeak.test {
+            viewModel.sendMessage("Bonjour")
+            advanceUntilIdle()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `a question repeated within the minute ends without a reply to read and frees the voice`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        // The agent attaches a repeated sentence to the turn it already answered: it replays that
+        // answer, under its own id, and stores no second question.
+        every { repository.sendMessageStream("Hello", any(), any()) } returns streamedAnswer("msg-2", "Hi!")
+        coEvery { repository.persistMessage(any()) } returns Unit
+        coEvery { repository.fetchMessagesAfter(any()) } returns emptyList()
+
+        viewModel.noReplyToSpeak.test {
+            viewModel.sendMessage("Hello")
+            advanceUntilIdle()
+
+            awaitItem()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertNull(state.failure)
+        assertNull(state.replyToSpeak)
+    }
+
+    @Test
     fun `closing before the answer lands means it is never offered, even on reopening`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
