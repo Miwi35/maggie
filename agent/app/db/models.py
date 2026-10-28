@@ -20,6 +20,8 @@ DECISION_ROLE = "decision"
 FEEDBACK_UP = "up"
 FEEDBACK_DOWN = "down"
 
+AUDIO_TYPE = "audio/mpeg"
+
 
 class Message(AgentBase):
     """Chat message — owned by the agent, stored in the agent database."""
@@ -64,6 +66,22 @@ class Message(AgentBase):
     feedback = Column(String(8), nullable=True)
     feedback_comment = Column(Text, nullable=True)
     feedback_at = Column(DateTime(timezone=True), nullable=True)
+    # A voice message of Maggie's (MAG-685): `type`, `durationMs`, `size` and `transcript` of the
+    # MP3 kept in the bucket under `audio/<userId>/<id>.mp3`. Null on every other message, and
+    # again once the retention purge has taken the audio away: the transcript stays as `content`.
+    audio = Column(JSONB, nullable=True)
+
+    def audio_attachment(self) -> dict | None:
+        """The attachment the clients read: what is stored, and where to ask for a signed URL to play it."""
+        if not self.audio:
+            return None
+        return {
+            "type": self.audio.get("type", AUDIO_TYPE),
+            "durationMs": int(self.audio.get("durationMs", 0)),
+            "size": int(self.audio.get("size", 0)),
+            "url": f"/agent/messages/{self.id}/audio",
+            "transcript": self.audio.get("transcript", self.content),
+        }
 
     def to_dict(self) -> dict:
         """What a client is shown — `GET /agent/messages`, the Mind panel, the phone.
@@ -85,4 +103,6 @@ class Message(AgentBase):
         }
         if self.decision:
             payload["decision"] = self.decision
+        if attachment := self.audio_attachment():
+            payload["audio"] = attachment
         return payload

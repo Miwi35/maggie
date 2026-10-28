@@ -175,3 +175,20 @@ async def test_one_boto_session_serves_every_call(monkeypatch):
     for _ in range(3):
         assert await b.head("absent") is None
     assert len(created) == 1
+
+
+async def test_an_audio_put_says_it_is_audio(s3):
+    """MAG-685: a voice message's MP3 is not Markdown, and the signed URL serves it with its type."""
+    await bucket().put("audio/u/m.mp3", b"\xff\xfb", content_type="audio/mpeg")
+    await bucket().put("u/Mémoire/a.md", b"texte")
+
+    sent = [c[1] for c in s3.calls if c[0] == "put"]
+    assert [s["ContentType"] for s in sent] == ["audio/mpeg", "text/markdown; charset=utf-8"]
+
+
+async def test_a_signed_url_is_presigned_offline_and_expires():
+    """The real client, no stub: presigning is local computation, so this proves aiobotocore's signature."""
+    url = await bucket().signed_url("audio/u/m.mp3", 900)
+
+    assert url.startswith("http://stockage.local/b/audio/u/m.mp3?")
+    assert "X-Amz-Expires=900" in url and "X-Amz-Signature=" in url

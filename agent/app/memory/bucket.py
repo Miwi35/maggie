@@ -15,13 +15,21 @@ ETags are handled without their quotes everywhere in the agent.
 
 import asyncio
 import hashlib
+import hmac
 import logging
+import secrets
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
+from urllib.parse import quote, urlencode
 
 logger = logging.getLogger(__name__)
+
+MARKDOWN = "text/markdown; charset=utf-8"
+# Where the in-memory bucket serves what it signs: the agent itself, since nothing else holds its objects.
+FAKE_BUCKET_PATH = "/agent/fake-bucket/"
 
 
 class BucketError(Exception):
@@ -73,8 +81,20 @@ class Bucket(Protocol):
 
     async def get(self, key: str) -> ObjectData: ...
 
-    async def put(self, key: str, body: bytes, *, if_match: str | None = None, if_none_match: bool = False) -> str:
+    async def put(
+        self,
+        key: str,
+        body: bytes,
+        *,
+        if_match: str | None = None,
+        if_none_match: bool = False,
+        content_type: str = MARKDOWN,
+    ) -> str:
         """Write `key`, return its new ETag. `if_match` / `if_none_match` raise `PreconditionFailed` on a lost race."""
+        ...
+
+    async def signed_url(self, key: str, expires_in: int) -> str:
+        """A URL that reads `key` without credentials for `expires_in` seconds, and never after (MAG-685)."""
         ...
 
     async def delete(self, key: str) -> None: ...
@@ -220,7 +240,15 @@ class S3Bucket:
 
         return await self._call(run)
 
-    async def put(self, key: str, body: bytes, *, if_match: str | None = None, if_none_match: bool = False) -> str:
+    async def put(
+        self,
+        key: str,
+        body: bytes,
+        *,
+        if_match: str | None = None,
+        if_none_match: bool = False,
+        content_type: str = MARKDOWN,
+    ) -> str:
         if not self.conditional_writes:
             await self._check_precondition(key, if_match, if_none_match)
 
@@ -229,7 +257,7 @@ class S3Bucket:
                 "Bucket": self.bucket,
                 "Key": key,
                 "Body": body,
-                "ContentType": "text/markdown; charset=utf-8",
+                "ContentType": content_type,
             }
             if self.conditional_writes and if_match:
                 kwargs["IfMatch"] = f'"{clean_etag(if_match)}"'
@@ -252,6 +280,14 @@ class S3Bucket:
             await s3.delete_object(Bucket=self.bucket, Key=key)
 
         await self._call(run)
+
+    async def signed_url(self, key: str, expires_in: int) -> str:
+        async def run(s3: Any) -> str:
+            return await s3.generate_presigned_url(
+                "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=expires_in
+            )
+
+        return await self._call(run)
 
     async def versioning_status(self) -> str:
         async def run(s3: Any) -> str:
@@ -278,6 +314,9 @@ class FakeBucket:
         self.fail_next_puts_with_412 = 0
         self.fail_listing_after_pages: int | None = None
         self.calls: list[str] = []
+        self.content_types: dict[str, str] = {}
+        # What its signed URLs are signed with: a URL is good for this process only, like the objects.
+        self._signing_key = secrets.token_bytes(32)
 
     def _guard(self, operation: str) -> None:
         self.calls.append(operation)
@@ -330,7 +369,15 @@ class FakeBucket:
             raise ObjectNotFound(key)
         return self.objects[key]
 
-    async def put(self, key: str, body: bytes, *, if_match: str | None = None, if_none_match: bool = False) -> str:
+    async def put(
+        self,
+        key: str,
+        body: bytes,
+        *,
+        if_match: str | None = None,
+        if_none_match: bool = False,
+        content_type: str = MARKDOWN,
+    ) -> str:
         self._guard("put")
         if self.fail_next_puts_with_412 > 0:
             self.fail_next_puts_with_412 -= 1
@@ -340,7 +387,24 @@ class FakeBucket:
             raise PreconditionFailed(f"{key} already exists")
         if if_match and (current is None or current.etag != clean_etag(if_match)):
             raise PreconditionFailed(f"{key} is no longer at ETag {clean_etag(if_match)}")
+        self.content_types[key] = content_type
         return self.seed(key, body)
+
+    def _signature(self, key: str, expires: int) -> str:
+        return hmac.new(self._signing_key, f"{key}\n{expires}".encode(), hashlib.sha256).hexdigest()
+
+    async def signed_url(self, key: str, expires_in: int) -> str:
+        """A path on the agent that serves `key` until `expires`: the S3 presigned URL, without S3."""
+        self._guard("sign")
+        expires = int(time.time()) + expires_in
+        query = urlencode({"expires": expires, "signature": self._signature(key, expires)})
+        return f"{FAKE_BUCKET_PATH}{quote(key)}?{query}"
+
+    def check_signature(self, key: str, expires: int, signature: str) -> bool:
+        """True when the URL was signed by this bucket for this key and has not expired."""
+        if expires < time.time():
+            return False
+        return hmac.compare_digest(self._signature(key, expires), signature)
 
     async def delete(self, key: str) -> None:
         self._guard("delete")

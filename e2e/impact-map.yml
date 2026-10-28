@@ -323,6 +323,12 @@ web:
       - 'agent/fixtures/fake-llm/96-memory-*.yaml'
   e2e/web/tests/chat-stop.spec.ts:
     areas: [chat, dashboard]
+  e2e/web/tests/chat-voice-message.spec.ts:
+    areas: [chat, realtime]
+    paths:
+      - 'agent/app/tts/**'
+      - 'agent/app/memory/bucket.py'
+      - 'agent/fixtures/fake-llm/99-voice-message.yaml'
   e2e/web/tests/chat-incomplete-recipe.spec.ts:
     areas: [chat, cookbook]
     paths:

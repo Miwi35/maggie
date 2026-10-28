@@ -22,6 +22,7 @@ from app.proactions import api as proactions_api
 from app.proactions.legacy import migrate_legacy_proactions
 from app.queue.proaction_publisher import publish_proaction
 from app.trips import planning_trips_rules
+from app.tts.voice_message import purge_voice_messages
 from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
@@ -354,6 +355,17 @@ async def _memory_night_loop() -> None:
         await asyncio.sleep(settings.memory_night_interval_seconds)
 
 
+async def _voice_message_purge_loop() -> None:
+    """Every few hours, take away the voice messages' audio older than the retention (MAG-685)."""
+    while True:
+        try:
+            await purge_voice_messages()
+        except Exception as e:
+            logger.error(f"Voice message purge loop error: {e}")
+
+        await asyncio.sleep(settings.voice_message_purge_interval_hours * 3600)
+
+
 async def start_scheduler() -> None:
     """Start the scheduler loops as background tasks."""
     _tasks.append(asyncio.create_task(_execution_loop()))
@@ -362,4 +374,5 @@ async def start_scheduler() -> None:
     _tasks.append(asyncio.create_task(_style_synthesis_loop()))
     _tasks.append(asyncio.create_task(_memory_encoding_loop()))
     _tasks.append(asyncio.create_task(_memory_night_loop()))
+    _tasks.append(asyncio.create_task(_voice_message_purge_loop()))
     logger.info("Proaction scheduler started")

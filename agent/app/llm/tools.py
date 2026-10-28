@@ -16,6 +16,7 @@ from app.memory.tools import NATIVE_HANDLERS as MEMORY_HANDLERS
 from app.policy.engine import A2A_SOURCE, Mode, policy_engine
 from app.policy.summary import build_summary
 from app.skills.index import skill_index
+from app.tts.voice_message import SEND_VOICE_MESSAGE_TOOL, handle_send_voice_message
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,13 @@ INSTRUCTION_TOOLS = [
         },
     },
 ]
+
+# Voice message tool (always available — chat + proaction, MAG-685). Offered even when the bucket
+# is off: the model then hears why it cannot send one, and says so, rather than never knowing the tool.
+VOICE_TOOLS = [SEND_VOICE_MESSAGE_TOOL]
+
+# Native tools that post into the thread the call was made in: they are handed its context id.
+_THREAD_HANDLERS = {"send_voice_message": handle_send_voice_message}
 
 # Skill tools (always available — chat + proaction)
 SKILL_TOOLS = [
@@ -408,7 +416,7 @@ def _native_tool_names() -> frozenset[str]:
     native name to the agent's own handler anyway. Proactions are not among them: the API
     serves them (MAG-327).
     """
-    native = [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS, ANSWER_APPROVAL_TOOL]
+    native = [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS, ANSWER_APPROVAL_TOOL, *VOICE_TOOLS]
     return frozenset({tool["name"] for tool in native} | {"delegate"})
 
 
@@ -420,6 +428,7 @@ class ToolRouter:
     - Instruction tools — always available (chat + proaction)
     - Skill tools — always available (chat + proaction)
     - Date and time tool — always available (chat + proaction)
+    - Voice message tool — always available (chat + proaction)
     - `delegate` — only when sub-agents are loaded (never over A2A)
     - MCP tools — fetched from the Symfony MCP server, proactions included (MAG-327)
 
@@ -436,7 +445,11 @@ class ToolRouter:
             source: Who the tools are for. `a2a` gets the read-only MCP tools and nothing else.
         """
         a2a = source == A2A_SOURCE
-        tools = [] if a2a else [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS, ANSWER_APPROVAL_TOOL]
+        tools = (
+            []
+            if a2a
+            else [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS, ANSWER_APPROVAL_TOOL, *VOICE_TOOLS]
+        )
 
         if not a2a and subagent_registry.agents:
             tools.append(delegate_tool_definition())
@@ -479,6 +492,15 @@ class ToolRouter:
         held = await self._apply_policy(name, arguments, user_id, source, context_id)
         if held is not None:
             return held
+
+        if name in _THREAD_HANDLERS:
+            if user_id is None:
+                return json.dumps({"error": "user_id required for native tools"})
+            try:
+                return await _THREAD_HANDLERS[name](arguments, user_id, context_id)
+            except Exception as e:
+                logger.error(f"Native tool call failed: {name}: {e}")
+                return json.dumps({"error": f"Tool call failed: {e}"})
 
         if name in _NATIVE_HANDLERS:
             if user_id is None:

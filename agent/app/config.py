@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     # How long ElevenLabs may take to start answering before the sentence goes to Edge.
     elevenlabs_timeout_seconds: float = 8.0
 
+    # Voice messages (MAG-685): the MP3 is kept in the memory bucket, under `audio/`, this many days,
+    # then purged — the message stays, its transcript as its text. A signed URL to play it lives
+    # this many seconds: long enough to listen, short enough that a shared link soon reads nothing.
+    voice_message_retention_days: int = 30
+    voice_message_purge_interval_hours: int = 6
+    voice_message_url_ttl_seconds: int = 900
+    # The longest text one voice message may say: about four minutes spoken.
+    voice_message_max_chars: int = 4000
+
     # Token of the e2e-only surface (`app/e2e.py`), the same `E2E_LOGIN_TOKEN` the API's
     # test login takes. Empty keeps it closed even under TTS_PROVIDER=fake.
     e2e_login_token: str = ""
