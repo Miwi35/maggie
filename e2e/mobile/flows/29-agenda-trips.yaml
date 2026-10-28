@@ -75,6 +75,12 @@ tags:
       ACTION: move
       EVENT_ID: ${output.eventId}
 
+# The 13:34 line goes away when Mercure brings the new trip. Waited for in place: flinging
+# before the update only carries the list past the place where the 14:34 line will appear.
+- extendedWaitUntil:
+    notVisible: "(Partir|Parti) à 13:34 · depuis la maison"
+    timeout: 40000
+
 # An hour lower than before: a fling or two in the list when it left the screen.
 - repeat:
     while:
