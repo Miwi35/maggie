@@ -6,7 +6,7 @@ namespace Maggie\Calendar\Doctrine;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\OnFlushEventArgs;
-use Doctrine\ORM\Event\PreFlushEventArgs;
+use Doctrine\ORM\Event\PostFlushEventArgs;
 use Doctrine\ORM\Events;
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Event\TripRemoved;
@@ -19,8 +19,11 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * removes it: the alerts about it are not worth saying any more, and the handlers see to that.
  *
  * The removal only shows during onFlush; the event goes out after the flush, never during it.
+ *
+ * Nothing is reset when a flush starts: another postFlush listener may flush again before this
+ * one runs (the replanning an event of today files does), and that nested flush would otherwise
+ * make it forget the removal it is about to announce.
  */
-#[AsDoctrineListener(event: Events::preFlush)]
 #[AsDoctrineListener(event: Events::onFlush)]
 // After the projection's WorkCollector has taken the flush's work: its effects flush again, which would make it forget it.
 #[AsDoctrineListener(event: Events::postFlush, priority: -10)]
@@ -36,12 +39,6 @@ final class TripRemovedListener
     ) {
     }
 
-    /** A flush that failed after onFlush never reached postFlush: its removals must not outlive it. */
-    public function preFlush(PreFlushEventArgs $args): void
-    {
-        $this->removed = [];
-    }
-
     public function onFlush(OnFlushEventArgs $args): void
     {
         foreach ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityDeletions() as $entity) {
@@ -51,13 +48,19 @@ final class TripRemovedListener
         }
     }
 
-    public function postFlush(): void
+    public function postFlush(PostFlushEventArgs $args): void
     {
         // A handler may flush again: forget what is being dispatched before it does.
-        $removed = $this->removed;
+        $removed = array_unique($this->removed);
         $this->removed = [];
 
+        $em = $args->getObjectManager();
         foreach ($removed as $tripId) {
+            // A flush that failed after onFlush left its removals here: a trip still stored was not removed.
+            if (null !== $em->find(Trip::class, $tripId)) {
+                continue;
+            }
+
             // The trip is already gone: a failing effect must not turn its removal into an error.
             try {
                 $this->eventBus->dispatch(new TripRemoved($tripId));
