@@ -34,7 +34,18 @@ class ModuleHuesTest {
     }
 
     @Test
+    fun `every Cuisine screen is periwinkle (MAG-662)`() {
+        listOf(
+            Screen.Cookbook.route, Screen.RecipeDetail.route, Screen.RecipeCreate.route, Screen.RecipeEdit.route,
+            Screen.MealCreate.route, Screen.MealIngredientChoice.route, DeepLinks.RECIPE_ROUTE,
+        ).forEach { assertEquals(it, ModuleHue.CUISINE, moduleHueOf(it)) }
+    }
+
+    @Test
     fun `other screens keep Maggie's violet`() {
+        assertNull(moduleHueOf(Screen.Home.route))
+        assertNull(moduleHueOf(Screen.Calendar.route))
+        assertNull(moduleHueOf(Screen.Grocery.route))
         assertNull(moduleHueOf(Screen.Settings.route))
         assertNull(moduleHueOf(Screen.Loading.route))
         assertNull(moduleHueOf(null))
