@@ -306,7 +306,7 @@ describe('CustomMenu — the modules of the mockup', () => {
     expect(hrefs().filter((href) => (href ?? '').startsWith('/meals/'))).toEqual([])
   })
 
-  test.each(['/', '/calendar', '/tasks'])('shows no sub-entry on %s', async (path) => {
+  test.each(['/', '/calendar'])('shows no sub-entry on %s', async (path) => {
     stubPersonality('Maggie')
     renderMenuAt(path)
     await screen.findByRole('menuitem', { name: 'Réglages' })
@@ -344,5 +344,67 @@ describe('CustomMenu — the modules of the mockup', () => {
 
     const entry = await screen.findByRole('menuitem', { name: 'Magasins' })
     expect(entry.querySelector('svg')).toBeNull()
+  })
+})
+
+describe('CustomMenu — the Tâches views (MAG-644)', () => {
+  const stubTasks = (counts = { today: 9, upcoming: 4, someday: 2, done: 7 }, day = { total: 5, done: 2 }) =>
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/tasks/view/')) {
+          return new Response(JSON.stringify({ member: [], counts, totalItems: 0 }))
+        }
+        if (url.includes('/day-plans/')) {
+          return new Response(JSON.stringify({ slots: [], now: null, reserve: [], ...day }))
+        }
+
+        return new Response(JSON.stringify({ name: 'Maggie', language: 'fr', backstory: '' }))
+      }),
+    )
+
+  test('opens Aujourd\'hui · À venir · Un jour · Faites under the module, Routines being reached from the page', async () => {
+    stubTasks()
+    renderMenuAt('/tasks')
+
+    expect(await screen.findByRole('menuitem', { name: /^Aujourd'hui/ })).toHaveAttribute('href', '/tasks')
+    expect(screen.getByRole('menuitem', { name: /^À venir/ })).toHaveAttribute('href', '/tasks/upcoming')
+    expect(screen.getByRole('menuitem', { name: /^Un jour/ })).toHaveAttribute('href', '/tasks/someday')
+    expect(screen.getByRole('menuitem', { name: /^Faites/ })).toHaveAttribute('href', '/tasks/done')
+    expect(hrefs()).not.toContain('/tasks/routines')
+  })
+
+  test('counts what is left of the day under Aujourd\'hui, and the size of the other views', async () => {
+    stubTasks()
+    renderMenuAt('/tasks/upcoming')
+
+    expect(await screen.findByRole('menuitem', { name: "Aujourd'hui 3" })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'À venir 4' })).toHaveClass('Mui-selected')
+    expect(screen.getByRole('menuitem', { name: 'Un jour 2' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Faites 7' })).toBeInTheDocument()
+  })
+
+  test('keeps Aujourd\'hui lit on the Routines page, which no entry names', async () => {
+    stubTasks()
+    renderMenuAt('/tasks/routines')
+
+    expect(await screen.findByRole('menuitem', { name: /^Aujourd'hui/ })).toHaveClass('Mui-selected')
+  })
+
+  test('reads no number while the page belongs to another module', async () => {
+    stubTasks()
+    renderMenuAt('/stores')
+
+    await screen.findByRole('menuitem', { name: 'Magasins' })
+    const urls = vi.mocked(fetch).mock.calls.map(([url]) => String(url))
+    expect(urls.some((url) => url.includes('/tasks/view/') || url.includes('/day-plans/'))).toBe(false)
+  })
+
+  test('draws the entries without a number while the API does not answer', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('down', { status: 503 })))
+    renderMenuAt('/tasks')
+
+    expect(await screen.findByRole('menuitem', { name: "Aujourd'hui" })).toBeInTheDocument()
+    expect(screen.queryByTestId('menu-count')).toBeNull()
   })
 })

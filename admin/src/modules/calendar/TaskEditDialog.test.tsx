@@ -271,4 +271,46 @@ describe('TaskEditDialog', () => {
     expect(subtaskTitles()).toHaveLength(2)
     expect(screen.getByLabelText('Nouvelle sous-tâche')).toHaveValue('Résilier la box')
   })
+
+  describe('as a panel (MAG-644)', () => {
+    const renderPanel = (onClose = vi.fn(), onUpdated = vi.fn()) =>
+      render(<TaskEditDialog variant="panel" open task={TASK} onClose={onClose} onUpdated={onUpdated} />)
+
+    test('is a side panel, not a dialog, with the same fields', async () => {
+      renderPanel()
+
+      const panel = screen.getByRole('complementary', { name: 'Fiche de la tâche' })
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(within(panel).getByRole('heading', { name: 'Modifier la tâche' })).toBeInTheDocument()
+      expect(within(panel).getByLabelText(/Titre/)).toHaveValue('Préparer le déménagement')
+      expect(await within(panel).findByRole('checkbox', { name: 'Réserver le camion' })).toBeInTheDocument()
+    })
+
+    test('the cross closes it', async () => {
+      const onClose = vi.fn()
+      renderPanel(onClose)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Fermer la fiche' }))
+
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    test('saving updates the task and closes the panel', async () => {
+      const onClose = vi.fn()
+      const onUpdated = vi.fn()
+      renderPanel(onClose, onUpdated)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('tasks', expect.objectContaining({ id: TASK.id })))
+      await waitFor(() => expect(onUpdated).toHaveBeenCalled())
+      expect(onClose).toHaveBeenCalled()
+    })
+
+    test('draws nothing while closed', () => {
+      render(<TaskEditDialog variant="panel" open={false} task={TASK} onClose={vi.fn()} onUpdated={vi.fn()} />)
+
+      expect(screen.queryByRole('complementary')).toBeNull()
+    })
+  })
 })

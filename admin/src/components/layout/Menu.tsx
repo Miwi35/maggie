@@ -15,6 +15,8 @@ import { ModuleIcon } from './ModuleIcon'
 import { MaggieAvatar } from '../maggie/MaggieAvatar'
 import type { ModuleName } from '../../theme'
 import { useAgentName } from '../../hooks/useAgentName'
+import { useTaskCounts } from '../../modules/calendar/useTaskCounts'
+import type { TaskView } from '../../modules/calendar/taskViews'
 import {
   AGENT_SETTINGS_PATH,
   HOME_LABEL,
@@ -54,6 +56,14 @@ const entryStyle = (theme: Theme, hue?: ModuleName) => ({
   },
 })
 
+/** The Tâches entries that carry the size of their view (MAG-644); « Routines » is no view and has none. */
+const TASK_VIEW_OF_ENTRY: Record<string, TaskView> = {
+  '/tasks': 'today',
+  '/tasks/upcoming': 'upcoming',
+  '/tasks/someday': 'someday',
+  '/tasks/done': 'done',
+}
+
 const Header = () => {
   const agentName = useAgentName()
 
@@ -78,6 +88,7 @@ const ModuleEntry = ({ module, open, selected, currentEntry }: ModuleEntryProps)
   const agentName = useAgentName()
   const look = MODULE_LOOKS[module.label]
   const icon = look.hue ? <ModuleIcon module={look.hue}>{look.icon}</ModuleIcon> : look.icon
+  const counts = useTaskCounts(open && selected && module.label === 'Tâches')
 
   return (
     <>
@@ -93,7 +104,20 @@ const ModuleEntry = ({ module, open, selected, currentEntry }: ModuleEntryProps)
             <MenuItemLink
               key={entry.key}
               to={entry.path}
-              primaryText={entry.path === AGENT_SETTINGS_PATH ? agentName : entry.label}
+              primaryText={
+                entry.path === AGENT_SETTINGS_PATH ? (
+                  agentName
+                ) : counts && TASK_VIEW_OF_ENTRY[entry.path] ? (
+                  <Box component="span" sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                    {`${entry.label} `}
+                    <Box component="span" data-testid="menu-count" sx={{ opacity: 0.7, fontWeight: 400 }}>
+                      {counts[TASK_VIEW_OF_ENTRY[entry.path]]}
+                    </Box>
+                  </Box>
+                ) : (
+                  entry.label
+                )
+              }
               selected={entry.path === currentEntry}
               sx={(theme: Theme) => ({ pl: 7, minHeight: 36, ...entryStyle(theme, look.hue) })}
             />

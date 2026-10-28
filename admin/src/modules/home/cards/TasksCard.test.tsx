@@ -108,7 +108,7 @@ describe('TasksCard', () => {
     expect(screen.getByRole('link', { name: 'Tâches' })).toHaveAttribute('href', '/tasks')
 
     const routines = screen.getByRole('region', { name: 'Routines' })
-    expect(within(routines).getByRole('link', { name: 'Routines' })).toHaveAttribute('href', '/tasks?tab=routines')
+    expect(within(routines).getByRole('link', { name: 'Routines' })).toHaveAttribute('href', '/tasks/routines')
     expect(within(routines).getByRole('checkbox', { name: 'Étirements : fait' })).not.toBeChecked()
     expect(within(routines).getByRole('checkbox', { name: 'Vitamines : fait' })).toBeChecked()
     expect(screen.queryByText(/autres?$/)).not.toBeInTheDocument()

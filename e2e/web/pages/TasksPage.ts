@@ -3,32 +3,45 @@ import type { Locator, Page } from '@playwright/test'
 import { AdminShell } from './AdminShell.js'
 import { ROUTES } from './routes.js'
 
-/** The tabs of the « Tâches » page, by the word the owner reads (MAG-408), « Routines » right after « Aujourd'hui » (MAG-511). */
-export type TasksTab = "Aujourd'hui" | 'Routines' | 'À venir' | 'À faire un jour' | 'Faites'
+/** The views of « Tâches », each a route of its own and a sub-entry of the menu (MAG-644), « Routines » reached from the page (MAG-511). */
+export type TasksView = "Aujourd'hui" | 'À venir' | 'Un jour' | 'Faites' | 'Routines'
+
+/** The views that sit in the menu with a number. */
+export type CountedView = Exclude<TasksView, 'Routines'>
+
+const PATHS: Record<TasksView, string> = {
+  "Aujourd'hui": ROUTES.tasks,
+  'À venir': ROUTES.tasksUpcoming,
+  'Un jour': ROUTES.tasksSomeday,
+  Faites: ROUTES.tasksDone,
+  Routines: ROUTES.tasksRoutines,
+}
 
 /** The groups of « Routines »: the part of the day for the daily ones, then the rhythm (MAG-511). */
 export type RoutineGroup = 'Matin' | 'Après-midi' | 'Soir' | 'Chaque semaine' | 'Chaque mois'
 
 /**
- * The « Tâches » page: « Aujourd'hui » — the day of five tasks at most, its
- * « Maintenant » and its folded reserve (MAG-497) — then « À venir », « À faire
- * un jour » and « Faites ».
+ * The « Tâches » page: « Aujourd'hui » — the day of five tasks at most with its « Maintenant » (MAG-497),
+ * and the reserve in the same full-width list — then « À venir », « Un jour » and « Faites », each its
+ * own route with the menu's sub-entry and number (MAG-644).
  */
 export class TasksPage extends AdminShell {
+  /** The h1 of the view: « Aujourd'hui », « À venir »… */
   readonly heading: Locator
-  readonly quickCreate: Locator
+  /** « Tâches · jeudi 15 octobre », above the list. */
+  readonly title: Locator
+  /** « Ajouter une tâche »: « Appeler le garage demain » creates a task due tomorrow (MAG-644). */
+  readonly quickAdd: Locator
+  /** « Routines », the link to the routines from the page's header. */
+  readonly routinesLink: Locator
+  /** The sheet of a task, a 420 px panel beside the list (MAG-644). */
+  readonly sheet: Locator
   /** The card of the first task of the day not done. */
   readonly now: Locator
   /** The day's progress, named « 1 sur 5 ». */
   readonly ring: Locator
-  /** The day's slots, in order. */
-  readonly slots: Locator
-  /** « Réserve (N) », the button that folds and unfolds the reserve. */
-  readonly reserveToggle: Locator
-  /** The reserve, once unfolded. */
-  readonly reserve: Locator
-  /** « Ajouter une tâche », the day's own quick create. */
-  readonly dayCreate: Locator
+  /** The day's rows, in order: the slots, then the reserve — one list, « En retard » on top when there is one. */
+  readonly dayRows: Locator
   /** « Ta journée » (MAG-498): the morning's proposal, which replaces the day until confirmed or put off. */
   readonly morning: Locator
   /** The five proposed, numbered, in order. */
@@ -62,21 +75,21 @@ export class TasksPage extends AdminShell {
   /** The constellation of the month (MAG-509), in the bravo or in the evening: « Ta constellation d'octobre · 5 étoiles ». */
   readonly constellationOfBravo: Locator
   readonly constellationOfEvening: Locator
-  /** « Nouvelle routine », on the « Routines » tab (MAG-511). */
+  /** « Nouvelle routine », on « Routines » (MAG-511). */
   readonly newRoutine: Locator
   /** The routine's form, new or opened from its card: titled « Nouvelle routine » or by the routine. */
   readonly routineDialog: Locator
 
   constructor(page: Page) {
     super(page)
-    this.heading = this.content.getByRole('heading', { name: 'Tâches', exact: true })
-    this.quickCreate = this.content.getByRole('textbox', { name: 'Nouvelle tâche' })
+    this.heading = this.content.getByRole('heading', { level: 1 })
+    this.title = this.content.getByText(/^Tâches · /)
+    this.quickAdd = this.content.getByRole('textbox', { name: 'Ajouter une tâche' })
+    this.routinesLink = this.content.getByRole('link', { name: 'Routines', exact: true })
+    this.sheet = page.getByRole('complementary', { name: 'Fiche de la tâche' })
     this.now = this.content.getByRole('region', { name: 'Maintenant' })
     this.ring = this.content.getByRole('img', { name: /^\d+ sur \d+$/ })
-    this.slots = this.content.getByRole('list', { name: 'Mes 5' })
-    this.reserveToggle = this.content.getByRole('button', { name: /^Réserve \(\d+\)$/ })
-    this.reserve = this.content.getByRole('list', { name: 'Réserve' })
-    this.dayCreate = this.content.getByRole('textbox', { name: 'Ajouter une tâche' })
+    this.dayRows = this.content.getByRole('list', { name: /^(En retard|Aujourd'hui)$/ }).getByRole('listitem')
     this.morning = this.content.getByRole('region', { name: 'Ta journée' })
     this.proposed = this.morning.getByRole('list', { name: 'Ta journée' })
     this.morningTime = this.morning.getByText(/^≈ .+ libres$/)
@@ -99,10 +112,10 @@ export class TasksPage extends AdminShell {
     this.routineDialog = page.getByRole('dialog')
   }
 
-  /** The page on « Routines »: the morning or the evening may be offered, the tab is another view. */
+  /** The page on « Routines », by its own route: the morning or the evening are offered on « Aujourd'hui » only. */
   async openRoutines(): Promise<void> {
-    await this.openMorning()
-    await this.select('Routines')
+    await this.goto(ROUTES.tasksRoutines)
+    await expect(this.heading).toHaveText('Routines')
     await expect(this.newRoutine).toBeVisible()
   }
 
@@ -138,19 +151,22 @@ export class TasksPage extends AdminShell {
     if (await this.eveningLater.isVisible()) {
       await this.eveningLater.click()
     }
-    await expect(this.dayCreate).toBeVisible()
+    await expect(this.dayReady).toBeVisible()
+  }
+
+  /** The day is drawn: a row of it, or the word that says it is empty. */
+  get dayReady(): Locator {
+    return this.dayRows.first().or(this.content.getByText("Rien à faire aujourd'hui"))
   }
 
   /** The page once « Ta journée », « Le soir » or the day is on screen — whichever the hour and the day call for. */
   async openMorning(): Promise<void> {
     await this.goto(ROUTES.tasks)
-    await expect(this.heading).toBeVisible()
-    // The counts come with the first answer: the tabs are not final before.
-    await expect(this.tab("Aujourd'hui")).toHaveText(/\(\d+\)/)
-    await expect(this.later.or(this.eveningLater).or(this.dayCreate)).toBeVisible()
+    await expect(this.heading).toHaveText("Aujourd'hui")
+    await expect(this.later.or(this.eveningLater).or(this.dayReady)).toBeVisible()
   }
 
-  /** The star a task done carries in « Mes 5 » (MAG-509). */
+  /** The star a task done carries in the day's list (MAG-509). */
   starOf(title: string): Locator {
     return this.slot(title).getByTestId('task-star')
   }
@@ -175,21 +191,30 @@ export class TasksPage extends AdminShell {
     return this.proposed.getByRole('listitem').filter({ has: this.page.getByText(title, { exact: true }) })
   }
 
-  /** A tab, whatever number it carries: « À venir (3) ». */
-  tab(name: TasksTab): Locator {
-    return this.content.getByRole('tab', { name: new RegExp(`^${name}( \\(\\d+\\))?$`) })
+  /** The sub-entry of the menu for a view, whatever number it carries: « À venir 3 ». */
+  menuEntry(view: CountedView): Locator {
+    return this.page.getByRole('menuitem', { name: new RegExp(`^${view}\\s*\\d*$`) })
   }
 
-  async select(name: TasksTab): Promise<void> {
-    await this.tab(name).click()
-    await expect(this.tab(name)).toHaveAttribute('aria-selected', 'true')
+  /** Goes to a view the way the owner does: « Routines » by the link of the page, the others by the menu. */
+  async select(view: TasksView): Promise<void> {
+    if (view === 'Routines') {
+      await this.routinesLink.click()
+    } else {
+      await this.openMenu()
+      await this.menuEntry(view).click()
+    }
+
+    await expect(this.page).toHaveURL(new RegExp(`#${PATHS[view]}$`))
+    await expect(this.heading).toHaveText(view)
   }
 
-  /** The number on a tab: « À venir (3) » is 3. */
-  async count(name: TasksTab): Promise<number> {
-    const label = (await this.tab(name).textContent()) ?? ''
+  /** The number on the menu's entry: « À venir 3 » is 3. Waits for the menu to have its numbers. */
+  async count(view: CountedView): Promise<number> {
+    await this.openMenu()
+    const label = (await this.menuEntry(view).getByTestId('menu-count').textContent()) ?? ''
 
-    return Number(/\((\d+)\)/.exec(label)?.[1] ?? Number.NaN)
+    return Number(label)
   }
 
   /** The row of a task in the list on screen. */
@@ -202,9 +227,9 @@ export class TasksPage extends AdminShell {
     return this.row(title).getByRole('checkbox')
   }
 
-  /** The slot of the day that holds `title`. */
+  /** The row of the day that holds `title`, slot or reserve. */
   slot(title: string): Locator {
-    return this.slots.getByRole('listitem').filter({ has: this.page.getByText(title, { exact: true }) })
+    return this.dayRows.filter({ has: this.page.getByText(title, { exact: true }) })
   }
 
   /** The Focus of `title` (MAG-499): its first step, its ten-minute ring, its petits pas. */
@@ -215,27 +240,5 @@ export class TasksPage extends AdminShell {
   /** The Focus's ring, which reads the time left: « 10:00 ». */
   get timer(): Locator {
     return this.content.getByRole('timer', { name: 'Minuteur' })
-  }
-
-  /** The row of `title` in the unfolded reserve. */
-  reserveRow(title: string): Locator {
-    return this.reserve.getByRole('listitem').filter({ has: this.page.getByText(title, { exact: true }) })
-  }
-
-  /** Unfolds the reserve, folded on every visit. */
-  async openReserve(): Promise<void> {
-    await expect(this.reserveToggle).toBeVisible()
-    if ((await this.reserveToggle.getAttribute('aria-expanded')) !== 'true') {
-      await this.reserveToggle.click()
-    }
-    await expect(this.reserveToggle).toHaveAttribute('aria-expanded', 'true')
-    await expect(this.reserve).toBeVisible()
-  }
-
-  /** The number on « Réserve (N) ». */
-  async reserveCount(): Promise<number> {
-    const label = (await this.reserveToggle.textContent()) ?? ''
-
-    return Number(/\((\d+)\)/.exec(label)?.[1] ?? Number.NaN)
   }
 }

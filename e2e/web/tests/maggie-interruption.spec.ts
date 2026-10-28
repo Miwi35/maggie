@@ -215,6 +215,7 @@ test('touching a task alert in the bell opens the task board on that task, highl
   await bell.item(title).click()
 
   await expect(page).toHaveURL(new RegExp(`#/tasks\\?task=${taskId}$`))
+  // The day's reserve lists any open task, so « Aujourd'hui » holds it and the route stays.
   const board = new TasksPage(page)
   await expect(board.heading).toBeVisible()
   await expect(board.row(taskTitle)).toBeVisible()

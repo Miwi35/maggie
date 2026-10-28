@@ -1,84 +1,92 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { useNotify } from 'react-admin'
-import { useSearchParams } from 'react-router-dom'
+import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import Checkbox from '@mui/material/Checkbox'
-import List from '@mui/material/List'
-import ListItem from '@mui/material/ListItem'
-import ListItemButton from '@mui/material/ListItemButton'
+import Button from '@mui/material/Button'
 import Pagination from '@mui/material/Pagination'
 import Skeleton from '@mui/material/Skeleton'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
+import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import UpdateIcon from '@mui/icons-material/Update'
-import { addDays, localDay, parseDay } from '../../dates'
+import { addDays, localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { TaskBravoBanner, TaskPalier } from './TaskBravo'
-import { scrollToRow, TaskDay } from './TaskDay'
+import { TaskDay } from './TaskDay'
 import { TaskEditDialog } from './TaskEditDialog'
 import { TaskEvening } from './TaskEvening'
+import { TaskList } from './TaskList'
+import type { ListedTask } from './TaskList'
 import { TaskMorning } from './TaskMorning'
 import { TaskRoutines } from './TaskRoutines'
-import { UrgencyBadge } from './UrgencyBadge'
-import { claimEvening, claimMorning, eveningDue, fetchDayPlan, fetchDayTimes, morningDue } from './dayPlan'
+import { claimEvening, claimMorning, DAY_SLOTS, eveningDue, fetchDayPlan, fetchDayTimes, morningDue, saveDayPlan } from './dayPlan'
 import type { DayPlan } from './dayPlan'
 import { fetchDayReview } from './dayReview'
+import { parseQuickAdd } from './quickAdd'
 import { DEFAULT_CHEER, fetchReward, fetchRewardCheer, parseReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
-import { createTask, fetchTask, fetchTaskView, findTaskView, postponedLabel, setTaskDone, TASK_VIEWS } from './taskViews'
-import type { TaskCounts, TaskView, ViewTask } from './taskViews'
+import { createTask, fetchTask, fetchTaskView, findTaskView, setTaskDone, TASK_TOPICS } from './taskViews'
+import type { TaskView, ViewTask } from './taskViews'
 
-// The day is published apart from its tasks (MAG-497): a tick moves both. So is the evening's review (MAG-500).
-// The rewards come on the same stream: a palier opens its bravo wherever the page is (MAG-509).
-const TASK_TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}', '/api/day_reviews/{id}', '/api/rewards/{id}']
 const PAGE_SIZE = 30
 
-/** The four views of the tasks, and the routines (MAG-511), which are not tasks. */
-type BoardTab = TaskView | 'routines'
+/** The views of the tasks, each a route (MAG-644), and the routines (MAG-511), which are not tasks. */
+type BoardView = TaskView | 'routines'
 
-const TABS: Record<TaskView, { label: string; empty: string }> = {
-  today: { label: "Aujourd'hui", empty: "Rien à faire aujourd'hui" },
-  upcoming: { label: 'À venir', empty: 'Aucune tâche à venir' },
-  someday: { label: 'À faire un jour', empty: 'Aucune tâche pour plus tard' },
-  done: { label: 'Faites', empty: 'Aucune tâche terminée' },
+const VIEW_PATHS: Record<BoardView, string> = {
+  today: '/tasks',
+  upcoming: '/tasks/upcoming',
+  someday: '/tasks/someday',
+  done: '/tasks/done',
+  routines: '/tasks/routines',
 }
 
-/** The due day a quick-created task gets: tomorrow in « À venir », none in « À faire un jour ». */
-const defaultDueDate = (view: BoardTab): string | undefined => {
-  if (view === 'upcoming') return addDays(localDay(new Date()), 1)
-
-  return undefined
+const EMPTY: Record<TaskView, string> = {
+  today: "Rien à faire aujourd'hui",
+  upcoming: 'Aucune tâche à venir',
+  someday: 'Aucune tâche pour plus tard',
+  done: 'Aucune tâche terminée',
 }
 
-/** The tab a link opens: `#/tasks?tab=routines` (the home widget). Read once, the page keeps its own tabs after. */
-const initialTab = (): BoardTab =>
-  new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('tab') === 'routines' ? 'routines' : 'today'
+const LABELS: Record<TaskView, string> = {
+  today: "Aujourd'hui",
+  upcoming: 'À venir',
+  someday: 'Un jour',
+  done: 'Faites',
+}
 
-const shortDay = (day: string): string =>
-  parseDay(day).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+const viewOfPath = (pathname: string): BoardView => {
+  const path = pathname.replace(/\/+$/, '') || '/'
+
+  return (Object.keys(VIEW_PATHS) as BoardView[]).find((view) => VIEW_PATHS[view] === path) ?? 'today'
+}
+
+const TITLE_DATE = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+interface TasksPageProps {
+  view: BoardView
+}
 
 /**
- * The « Tâches » page (MAG-408): « Aujourd'hui » — the day of five tasks at most
- * and its reserve (MAG-497) — then three views the API sorts: « À venir »,
- * « À faire un jour » and « Faites ». The API decides which view a task is in
- * (it knows the user's day), so the page only draws, ticks, creates and refetches.
+ * One view of the « Tâches » module (MAG-408, MAG-644), at full width: the list under its header, the
+ * sheet of a task beside it. The API decides which view a task is in (it knows the user's day), so the
+ * page only draws, ticks, creates and refetches.
  */
-export const TaskBoard = () => {
+const TasksPage = ({ view }: TasksPageProps) => {
   const notify = useNotify()
-  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const setParams = useRef(setSearchParams)
+  useEffect(() => {
+    setParams.current = setSearchParams
+  })
   // `#/tasks?task=<id>`: the task a notification or a search hit points at (MAG-640).
   const target = searchParams.get('task')?.split('/').pop() || null
-  const [highlighted, setHighlighted] = useState<string | null>(null)
+  const page = view === 'done' ? Math.max(1, Number(searchParams.get('page')) || 1) : 1
 
-  const [view, setView] = useState<BoardTab>(initialTab)
-  const [page, setPage] = useState(1)
   const [tasks, setTasks] = useState<ViewTask[]>([])
   const [total, setTotal] = useState(0)
-  const [counts, setCounts] = useState<TaskCounts | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [title, setTitle] = useState('')
@@ -95,12 +103,12 @@ export const TaskBoard = () => {
 
   const today = localDay(new Date())
 
-  // Only the answer to the last request is drawn: a slow one must not overwrite a newer tab.
+  // Only the answer to the last request is drawn: a slow one must not overwrite a newer page.
   const request = useRef(0)
   const dayRequest = useRef(0)
 
-  // The day is read whatever the tab: the « Aujourd'hui » counter is its tasks left to do.
   const loadDay = useCallback(() => {
+    if (view !== 'today') return
     const current = ++dayRequest.current
     fetchDayPlan(today)
       .then((result) => {
@@ -113,7 +121,7 @@ export const TaskBoard = () => {
         console.error(error)
         setDayFailed(true)
       })
-  }, [today])
+  }, [view, today])
 
   // A write answered with the day wins over a read sent before it.
   const showDay = useCallback((result: DayPlan) => {
@@ -123,7 +131,7 @@ export const TaskBoard = () => {
   }, [])
 
   const load = useCallback(() => {
-    if (view === 'routines') return
+    if (view === 'routines' || view === 'today') return
     const current = ++request.current
     fetchTaskView(view, page)
       .then((result) => {
@@ -131,12 +139,11 @@ export const TaskBoard = () => {
         const lastPage = Math.max(1, Math.ceil(result.totalItems / PAGE_SIZE))
         // The last page was emptied (a task unticked): go back to the last one that holds tasks.
         if (page > lastPage) {
-          setPage(lastPage)
+          setParams.current({ page: String(lastPage) }, { replace: true })
           return
         }
         setTasks(result.member)
         setTotal(result.totalItems)
-        setCounts(result.counts)
         setFailed(false)
       })
       .catch((error: unknown) => {
@@ -149,8 +156,7 @@ export const TaskBoard = () => {
       })
   }, [view, page])
 
-  // Callbacks that outlive a render (a tick answered after a tab switch) must reload the tab shown now.
-  // On « Aujourd'hui » the view is still read: its answer carries the other tabs' counts.
+  // Callbacks that outlive a render (a tick answered after a navigation) must reload what is shown now.
   const loadRef = useRef(load)
   useEffect(() => {
     loadRef.current = load
@@ -176,59 +182,54 @@ export const TaskBoard = () => {
     if (!day || decided.current) return
     decided.current = true
     const opened = day
-    const now = new Date()
+    const at = new Date()
     fetchDayTimes()
       .then(async ({ morningTime, eveningTime }) => {
         // A link to a task shows that task: neither the morning nor the evening covers it.
         if (linked.current) return
-        if (eveningDue(now, eveningTime, opened.total, null)) {
+        if (eveningDue(at, eveningTime, opened.total, null)) {
           const review = await fetchDayReview(opened.date).catch(() => null)
-          if (review && eveningDue(now, eveningTime, opened.total, review.reviewedAt) && claimEvening()) {
+          if (review && eveningDue(at, eveningTime, opened.total, review.reviewedAt) && claimEvening()) {
             setReviewing(opened)
             return
           }
         }
-        if (morningDue(now, morningTime, opened.confirmedAt) && claimMorning()) setPreparing(true)
+        if (morningDue(at, morningTime, opened.confirmedAt) && claimMorning()) setPreparing(true)
       })
       .catch(() => undefined)
       .finally(() => setOpening(false))
   }, [day])
 
-  // The tab that holds the linked task opens, the task is marked and scrolled to; an unknown one leaves the board as it is.
+  // The task a link points at is marked and scrolled to when this view lists it; else the view that
+  // holds it opens. An unknown task leaves the page as it is.
+  const listedIds = useMemo(
+    () => new Set(view === 'today' ? [...(day?.slots.map((slot) => slot.task.id) ?? []), ...(day?.reserve.map((task) => task.id) ?? [])] : tasks.map((task) => task.id)),
+    [view, day, tasks],
+  )
+  const highlighted = target && listedIds.has(target) ? target : null
+  const ready = view === 'today' ? day !== null : view !== 'routines' && !loading && !failed
   const located = useRef<string | null>(null)
-  const shown = useRef({ view, page })
-  useEffect(() => {
-    shown.current = { view, page }
-  })
   useEffect(() => {
     if (!target) {
       located.current = null
-      setHighlighted(null)
       return
     }
-    if (!day || located.current === target) return
+    if (!ready || located.current === target) return
     located.current = target
-    if (day.slots.some((slot) => slot.task.id === target) || day.reserve.some((task) => task.id === target)) {
-      setPage(1)
-      setView('today')
-      setHighlighted(target)
-      return
-    }
+    if (listedIds.has(target)) return
     findTaskView(target)
       .then((found) => {
-        if (located.current !== target || !found) return
-        // Already on that view and page: nothing reloads it, so it must not be emptied.
-        if (found.view !== shown.current.view || found.page !== shown.current.page) {
-          setLoading(true)
-          setFailed(false)
-          setTasks([])
+        if (located.current !== target) return
+        if (found) {
+          if (found.view === view && found.page === page) return
+          const query = new URLSearchParams({ task: target, ...(found.page > 1 ? { page: String(found.page) } : {}) })
+          navigate({ pathname: VIEW_PATHS[found.view], search: `?${query.toString()}` }, { replace: true })
+        } else if (view !== 'today') {
+          navigate({ pathname: VIEW_PATHS.today, search: `?task=${target}` }, { replace: true })
         }
-        setPage(found.page)
-        setView(found.view)
-        setHighlighted(target)
       })
       .catch(console.error)
-  }, [target, day])
+  }, [target, ready, listedIds, view, page, navigate])
 
   const reload = useCallback(() => {
     loadRef.current()
@@ -249,7 +250,7 @@ export const TaskBoard = () => {
     reload()
   }, [reload])
 
-  // The day only carries what it draws: the form wants the whole task.
+  // The day only carries what it draws: the sheet wants the whole task.
   const edit = (taskId: string) => {
     fetchTask(taskId)
       .then(setEditing)
@@ -271,17 +272,7 @@ export const TaskBoard = () => {
     fetchRewardCheer().then(setCheer)
   }, [])
 
-  const selectView = (_: unknown, next: BoardTab) => {
-    if (next === view) return
-    setHighlighted(null)
-    setLoading(true)
-    setFailed(false)
-    setTasks([])
-    setPage(1)
-    setView(next)
-  }
-
-  const toggle = (task: ViewTask) => {
+  const toggle = (task: ListedTask) => {
     const done = task.completedAt == null
     setTaskDone(task['@id'] ?? task.id, done)
       .then(() => {
@@ -299,16 +290,32 @@ export const TaskBoard = () => {
       .catch((error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' }))
   }
 
+  // « Appeler le garage demain » (MAG-644): the closing day word is the due day. Without one, the task
+  // takes a free place of the day on « Aujourd'hui », tomorrow on « À venir », and no day elsewhere.
   const create = () => {
-    const value = title.trim()
-    if (!value || creating) return
+    const parsed = parseQuickAdd(title, today)
+    if (!parsed.title || creating) return
+    const dueDate = parsed.dueDate ?? (view === 'upcoming' ? addDays(today, 1) : undefined)
     setCreating(true)
-    createTask(value, defaultDueDate(view))
-      .then(() => {
+    createTask(parsed.title, dueDate)
+      .then((id) => {
         setTitle('')
+        const slots = day?.slots.map((slot) => slot.task.id) ?? []
+        const forToday = !dueDate || dueDate === today
+        if (view === 'today' && id && forToday && slots.length < DAY_SLOTS) {
+          return saveDayPlan(today, [...slots, id]).then(showDay)
+        }
+        if (dueDate && dueDate !== today) {
+          notify(`Tâche ajoutée pour le ${new Date(`${dueDate}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`, {
+            type: 'success',
+          })
+        }
         reload()
       })
-      .catch((error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' }))
+      .catch((error: Error) => {
+        notify(`Erreur: ${error.message}`, { type: 'error' })
+        reload()
+      })
       .finally(() => setCreating(false))
   }
 
@@ -318,158 +325,126 @@ export const TaskBoard = () => {
     create()
   }
 
-  const tabLabel = (name: TaskView): string => {
-    if (name === 'today') return day ? `${TABS.today.label} (${day.total - day.done})` : TABS.today.label
+  const pages = Math.ceil(total / PAGE_SIZE)
+  const canAdd = view === 'today' || view === 'upcoming' || view === 'someday'
 
-    return counts ? `${TABS[name].label} (${counts[name]})` : TABS[name].label
+  let content
+  if (view === 'routines') {
+    content = <TaskRoutines animate={cheer.animation} />
+  } else if (view === 'today') {
+    content =
+      reviewing ? (
+        <TaskEvening day={reviewing} onClose={closeEvening} onDone={closeEvening} animate={cheer.animation} />
+      ) : preparing ? (
+        <TaskMorning date={today} onClose={() => setPreparing(false)} onConfirmed={confirmMorning} />
+      ) : dayFailed ? (
+        <Alert severity="error">Tâches indisponibles</Alert>
+      ) : !day || opening ? (
+        [1, 2, 3].map((i) => <Skeleton key={i} height={40} />)
+      ) : (
+        <TaskDay
+          day={day}
+          today={today}
+          onDay={showDay}
+          onReload={reload}
+          onEdit={edit}
+          highlightId={highlighted}
+          selectedId={editing?.id ?? null}
+          onChange={() => setPreparing(true)}
+          onEvening={() => setReviewing(day)}
+          cheer={cheer}
+        />
+      )
+  } else if (failed) {
+    content = <Alert severity="error">Tâches indisponibles</Alert>
+  } else if (loading) {
+    content = [1, 2, 3].map((i) => <Skeleton key={i} height={40} />)
+  } else if (tasks.length === 0) {
+    content = (
+      <Typography variant="body2" color="text.secondary">
+        {EMPTY[view]}
+      </Typography>
+    )
+  } else {
+    content = (
+      <TaskList
+        groups={[{ tasks }]}
+        today={today}
+        label={LABELS[view]}
+        highlightId={highlighted}
+        selectedId={editing?.id ?? null}
+        onToggle={toggle}
+        onOpen={(task) => setEditing(tasks.find((candidate) => candidate.id === task.id) ?? null)}
+      />
+    )
   }
 
-  const listed = new Set(tasks.flatMap((t) => [t['@id'], t.id]))
-  const pages = Math.ceil(total / PAGE_SIZE)
-
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
-      <Tabs value={view} onChange={selectView} variant="scrollable" aria-label="Vues des tâches" sx={{ mb: 2 }}>
-        {/* « Routines » right after « Aujourd'hui », as on the phone (MAG-511). */}
-        {TASK_VIEWS.flatMap((name) => {
-          const tab = <Tab key={name} value={name} label={tabLabel(name)} />
-
-          return name === 'today' ? [tab, <Tab key="routines" value="routines" label="Routines" />] : [tab]
-        })}
-      </Tabs>
-
-      {view !== 'done' && view !== 'today' && view !== 'routines' && (
-        <TextField
-          label="Nouvelle tâche"
-          size="small"
-          fullWidth
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={onTitleKey}
-          disabled={creating}
-          sx={{ mb: 2 }}
-        />
-      )}
-
-      {view === 'routines' ? (
-        <TaskRoutines animate={cheer.animation} />
-      ) : view === 'today' && reviewing ? (
-        <TaskEvening day={reviewing} onClose={closeEvening} onDone={closeEvening} animate={cheer.animation} />
-      ) : view === 'today' && preparing ? (
-        <TaskMorning date={today} onClose={() => setPreparing(false)} onConfirmed={confirmMorning} />
-      ) : view === 'today' ? (
-        dayFailed ? (
-          <Alert severity="error">Tâches indisponibles</Alert>
-        ) : !day || opening ? (
-          [1, 2, 3].map((i) => <Skeleton key={i} height={40} />)
-        ) : (
-          <TaskDay
-            day={day}
-            today={today}
-            onDay={showDay}
-            onReload={reload}
-            onEdit={edit}
-            highlightId={highlighted}
-            onChange={() => setPreparing(true)}
-            onEvening={() => setReviewing(day)}
-            cheer={cheer}
-          />
-        )
-      ) : failed ? (
-        <Alert severity="error">Tâches indisponibles</Alert>
-      ) : loading ? (
-        [1, 2, 3].map((i) => <Skeleton key={i} height={40} />)
-      ) : tasks.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          {TABS[view].empty}
+    <Box sx={{ p: 3 }}>
+      <Stack direction="row" alignItems="center" flexWrap="wrap" gap={2} sx={{ mb: 2 }}>
+        <Typography component="p" variant="subtitle1" color="text.secondary" sx={{ flex: 1, minWidth: 200 }}>
+          Tâches · {TITLE_DATE.format(new Date())}
         </Typography>
-      ) : (
-        <List disablePadding aria-label={TABS[view].label}>
-          {tasks.map((task) => {
-            const done = task.completedAt != null
-            const late = !done && task.overdueDays != null && task.overdueDays > 0
-            // Put off, never late: a critical task keeps its own mark instead (MAG-497).
-            const postponed = task.urgency === 'critical' ? null : postponedLabel(task.postponedSince, today)
-            // A subtask goes under its task, as it comes in the list.
-            const indented = !!task.parent && listed.has(task.parent)
+        {canAdd && (
+          <TextField
+            label="Ajouter une tâche"
+            placeholder="Appeler le garage demain"
+            size="small"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={onTitleKey}
+            // The day is rewritten with the new task: never from a day that was not read.
+            disabled={creating || (view === 'today' && !day)}
+            sx={{ width: { xs: '100%', md: 360 } }}
+          />
+        )}
+        {view !== 'routines' && (
+          <Button component={RouterLink} to={VIEW_PATHS.routines} color="inherit">
+            Routines
+          </Button>
+        )}
+      </Stack>
 
-            return (
-              <ListItem
-                key={task.id}
-                ref={task.id === highlighted ? scrollToRow : undefined}
-                aria-current={task.id === highlighted ? 'true' : undefined}
-                disablePadding
-                sx={{ pl: indented ? 4 : 0, borderRadius: 1, ...(task.id === highlighted && { bgcolor: 'action.selected' }) }}
-              >
-                <Checkbox
-                  size="small"
-                  checked={done}
-                  onChange={() => toggle(task)}
-                  slotProps={{ input: { 'aria-label': `${done ? 'Rouvrir' : 'Terminer'} ${task.title}` } }}
-                />
-                <ListItemButton
-                  dense
-                  onClick={() => setEditing(task)}
-                  sx={{ borderRadius: 1, gap: 1, flexWrap: 'wrap' }}
-                >
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      flex: 1,
-                      minWidth: 0,
-                      textDecoration: done ? 'line-through' : 'none',
-                      color: done ? 'text.disabled' : 'text.primary',
-                    }}
-                  >
-                    {task.title}
-                  </Typography>
-                  <UrgencyBadge urgency={task.urgency} />
-                  {postponed && (
-                    <Typography
-                      component="span"
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-                    >
-                      <UpdateIcon aria-hidden fontSize="inherit" />
-                      {postponed}
-                    </Typography>
-                  )}
-                  {task.dueDate && (
-                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                      {late ? `prévue le ${shortDay(task.dueDate)}` : shortDay(task.dueDate)}
-                    </Typography>
-                  )}
-                </ListItemButton>
-              </ListItem>
-            )
-          })}
-        </List>
-      )}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'flex-start' }, gap: 3 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {content}
 
-      {view === 'done' && !failed && pages > 1 && (
-        <Pagination
-          count={pages}
-          page={page}
-          onChange={(_, next) => {
-            setLoading(true)
-            setPage(next)
-          }}
-          sx={{ mt: 2 }}
-        />
-      )}
+          {view === 'done' && !failed && pages > 1 && (
+            <Pagination
+              count={pages}
+              page={page}
+              onChange={(_, next) => {
+                setLoading(true)
+                setSearchParams(next > 1 ? { page: String(next) } : {})
+              }}
+              sx={{ mt: 2 }}
+            />
+          )}
+        </Box>
+
+        {editing && view !== 'routines' && (
+          <TaskEditDialog
+            variant="panel"
+            open
+            // The data provider wants the IRI as id.
+            task={{ ...editing, id: editing['@id'] ?? editing.id }}
+            onClose={() => setEditing(null)}
+            onUpdated={reload}
+          />
+        )}
+      </Box>
 
       {palier && <TaskPalier reward={palier} animate={cheer.animation} onClose={() => setPalier(null)} />}
 
       <TaskBravoBanner title={banner.title} reward={banner.reward} onClose={() => setBanner((b) => ({ ...b, reward: null }))} />
-
-      <TaskEditDialog
-        open={editing !== null}
-        // The data provider wants the IRI as id.
-        task={editing ? { ...editing, id: editing['@id'] ?? editing.id } : null}
-        onClose={() => setEditing(null)}
-        onUpdated={reload}
-      />
     </Box>
   )
+}
+
+/** The module's page: the view is the route (`/tasks`, `/tasks/upcoming`…), and a view starts from nothing. */
+export const TaskBoard = () => {
+  const { pathname } = useLocation()
+  const view = viewOfPath(pathname)
+
+  return <TasksPage key={view} view={view} />
 }

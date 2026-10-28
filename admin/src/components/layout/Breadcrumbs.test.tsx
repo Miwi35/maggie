@@ -281,7 +281,7 @@ describe('the menu and the breadcrumb agree', () => {
 
   test('every part of the table resolves to its own trail, through its menu when it has one', () => {
     for (const module of NAVIGATION) {
-      for (const part of module.parts.filter((candidate) => candidate.path !== module.dashboard)) {
+      for (const part of module.parts.filter((candidate) => candidate.path !== module.dashboard && !candidate.bare)) {
         const trail = resolveTrail(part.path)
         // The only page of its menu is the menu itself: one crumb, not two.
         const expected = !part.menu
@@ -307,7 +307,11 @@ describe('PageHeading — the h1 of every page', () => {
 
   test.each([
     ['/calendar', 'Agenda'],
-    ['/tasks', 'Tâches'],
+    ['/tasks', "Aujourd'hui"],
+    ['/tasks/upcoming', 'À venir'],
+    ['/tasks/someday', 'Un jour'],
+    ['/tasks/done', 'Faites'],
+    ['/tasks/routines', 'Routines'],
     ['/grocery', 'Liste'],
     ['/products', 'Produits'],
     ['/meals', 'Repas'],
@@ -392,9 +396,16 @@ describe('Breadcrumbs — the mockup style', () => {
     expect(style.letterSpacing).not.toBe('0.08em')
   })
 
-  test('a Tâches page has one crumb, the module itself', () => {
-    renderAt('/tasks')
+  test.each([
+    ['/tasks', "Aujourd'hui"],
+    ['/tasks/upcoming', 'À venir'],
+    ['/tasks/someday', 'Un jour'],
+    ['/tasks/done', 'Faites'],
+    ['/tasks/routines', 'Routines'],
+    ['/tasks/create', 'Nouveau'],
+  ])('%s reads Tâches › %s', (path, view) => {
+    renderAt(path)
 
-    expect(labels()).toEqual(['Tâches'])
+    expect(labels()).toEqual(['Tâches', view])
   })
 })

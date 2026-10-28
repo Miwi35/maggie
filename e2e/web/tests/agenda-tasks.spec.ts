@@ -109,10 +109,10 @@ test('a task created from the agenda lands in the database and on the grid', asy
  * from the API (`overdueDays`), counted in the user's timezone: the page only draws it.
  *
  * On the « Tâches » page the day holds five tasks the owner chose (MAG-497): the
- * late one waits in the reserve, « reportée depuis … » since its due day, never a
- * reproach in red.
+ * late one waits in the reserve, listed under « En retard » (MAG-644) with « reportée depuis … »
+ * since its due day, never a word of reproach.
  */
-test('a late task is put off, not reproached: the API counts its lateness and the reserve says « reportée depuis »', async ({ page, api }) => {
+test('a late task is put off, not reproached: the API counts its lateness and its row says « reportée depuis »', async ({ page, api }) => {
   const title = 'Renvoyer le formulaire de la mutuelle'
   const taskId = seedId('e2e_task_late')
 
@@ -122,13 +122,12 @@ test('a late task is put off, not reproached: the API counts its lateness and th
   expect(stored.overdueDays, 'the item should carry its lateness').toBe(2)
   expect(stored.postponedSince, 'put off since its due day').toBe(seedDate(-2))
 
-  // The « Tâches » page: in the reserve, put off rather than late.
+  // The « Tâches » page: in the day's list, put off rather than late.
   const board = new TasksPage(page)
   await board.open()
-  await board.openReserve()
-  await expect(board.reserveRow(title)).toHaveCount(1)
-  await expect(board.reserveRow(title)).toContainText(/reportée depuis \S+/)
-  await expect(board.reserveRow(title)).not.toContainText(/retard/i)
+  await expect(board.slot(title)).toHaveCount(1)
+  await expect(board.slot(title)).toContainText(/reportée depuis \S+/)
+  await expect(board.slot(title)).not.toContainText(/retard/i)
 })
 
 /**
@@ -137,10 +136,10 @@ test('a late task is put off, not reproached: the API counts its lateness and th
  * The seed's three witnesses, with the default weights: « Payer la cantine »
  * (high criticality, medium priority, due today) 78, « Rendre le livre » (low,
  * low, a day late) 67, « Arroser » (low, low, due today) 55 — urgencies haute,
- * haute, normale. The API computes both; the reserve of the « Tâches » page
- * (MAG-497) keeps its order, and there « Rendre le livre » reads « reportée depuis hier ». Other
- * journeys add tasks to the day, so the three are compared with each other, not
- * with the row numbers.
+ * haute, normale. The API computes both; the list of the « Tâches » page keeps the
+ * reserve's order (MAG-497) — « Rendre le livre », a day late, sits under « En retard » and reads
+ * « reportée depuis hier ». Other journeys add tasks to the day, so the three are compared with
+ * each other, not with the row numbers.
  */
 test('« Aujourd\'hui » goes by score, each task with its urgency in words', async ({ page, api }) => {
   const witnesses = ['Payer la cantine', 'Rendre le livre', 'Arroser']
@@ -160,27 +159,28 @@ test('« Aujourd\'hui » goes by score, each task with its urgency in words', as
 
   const board = new TasksPage(page)
   await board.open()
-  await board.openReserve()
-  const drawn = await board.reserve.getByRole('listitem').allTextContents()
+  const drawn = await board.dayRows.allTextContents()
   const order = witnesses.map((title) => drawn.findIndex((row) => row.includes(title)))
-  expect(order, `the order of the reserve: ${drawn.join(' | ')}`).toEqual([...order].sort((a, b) => a - b))
-  expect(Math.min(...order), 'a witness is missing from the reserve on screen').toBeGreaterThanOrEqual(0)
-  await expect(board.reserveRow('Rendre le livre')).toContainText('reportée depuis hier')
+  expect(Math.min(...order), `a witness is missing from the list: ${drawn.join(' | ')}`).toBeGreaterThanOrEqual(0)
+  // The two due today keep their score's order; the late one is listed apart, first.
+  expect(order[0], `the order of the list: ${drawn.join(' | ')}`).toBeLessThan(order[2])
+  expect(order[1]).toBeLessThan(order[0])
+  await expect(board.slot('Rendre le livre')).toContainText('reportée depuis hier')
 })
 
 /**
- * The « Tâches » page sorts every task into one of four tabs — MAG-408.
+ * The « Tâches » page sorts every task into one of four views — MAG-408 — each a route and a menu entry (MAG-644).
  *
  * Five tasks of this attempt: a late one, a late critical one, one due in five
  * days, one without a date and a done one. The API sorts each into its view; on
  * the page « Aujourd'hui » is the day the owner chose (MAG-497), so the late ones
- * wait in its reserve — the ordinary one « reportée depuis … », the critical one
- * with its own mark — and the three others land in their own tab. Ticking the
+ * wait in its list under « En retard » — the ordinary one « reportée depuis … », the critical one
+ * with its own mark — and the three others land in their own view. Ticking the
  * « À venir » one moves it to « Faites ». The seed and the other journeys add
- * tasks of their own, so the counters are checked to be there and non-zero, and
+ * tasks of their own, so the menu's numbers are checked to be there and non-zero, and
  * to follow the view's own total, not to equal one.
  */
-test('« Tâches » puts a late, an upcoming, an undated and a done task in their own tabs, and ticking moves it to « Faites »', async ({ page, api }) => {
+test('« Tâches » puts a late, an upcoming, an undated and a done task in their own views, and ticking moves it to « Faites »', async ({ page, api }) => {
   const late = perAttempt('Relancer le notaire')
   const critical = perAttempt('Payer la taxe foncière')
   const upcoming = perAttempt('Réserver le train')
@@ -213,24 +213,24 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
   const board = new TasksPage(page)
   await board.open()
 
-  // Given a late task: in the reserve of « Aujourd'hui », put off, never late in red.
-  await board.openReserve()
-  await expect(board.reserveRow(late)).toHaveCount(1)
-  await expect(board.reserveRow(late)).toContainText(/reportée depuis \S+/)
-  await expect(board.reserveRow(late)).not.toContainText(/retard/i)
+  // Given a late task: in « Aujourd'hui », put off, never a word of reproach.
+  await expect(board.slot(late)).toHaveCount(1)
+  await expect(board.slot(late)).toContainText(/reportée depuis \S+/)
+  await expect(board.slot(late)).not.toContainText(/retard/i)
+  await expect(board.content.getByRole('list', { name: 'En retard' })).toContainText(late)
   // A critical one keeps its word and its icon instead.
-  const criticalBadge = board.reserveRow(critical).getByTestId('urgency-badge')
+  const criticalBadge = board.slot(critical).getByTestId('urgency-badge')
   await expect(criticalBadge).toHaveText('critique')
   await expect(criticalBadge.locator('svg')).toHaveCount(1)
-  await expect(board.reserveRow(critical)).not.toContainText('reportée')
+  await expect(board.slot(critical)).not.toContainText('reportée')
   // Done, it is nowhere in the day.
-  await expect(board.reserveRow(finished)).toHaveCount(0)
+  await expect(board.slot(finished)).toHaveCount(0)
 
   await board.select('À venir')
   await expect(board.row(upcoming)).toHaveCount(1)
   await expect(board.row(late)).toHaveCount(0)
 
-  await board.select('À faire un jour')
+  await board.select('Un jour')
   await expect(board.row(someday)).toHaveCount(1)
   await expect(board.row(upcoming)).toHaveCount(0)
 
@@ -239,19 +239,19 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
   await expect(board.row(someday)).toHaveCount(0)
 
   // « Aujourd'hui » counts what is left of the day, which may be nothing.
-  expect(await board.count("Aujourd'hui"), "the « Aujourd'hui » counter").toBeGreaterThanOrEqual(0)
-  for (const tab of ['À venir', 'À faire un jour', 'Faites'] as const) {
-    expect(await board.count(tab), `the « ${tab} » counter`).toBeGreaterThanOrEqual(1)
+  expect(await board.count("Aujourd'hui"), "the « Aujourd'hui » number").toBeGreaterThanOrEqual(0)
+  for (const view of ['À venir', 'Un jour', 'Faites'] as const) {
+    expect(await board.count(view), `the « ${view} » number`).toBeGreaterThanOrEqual(1)
   }
 
-  // When I tick the « À venir » task, it leaves its tab and shows in « Faites ».
+  // When I tick the « À venir » task, it leaves its view and shows in « Faites ».
   await board.select('À venir')
   const before = await board.count('Faites')
   await board.checkbox(upcoming).click()
 
   await expect(board.row(upcoming)).toHaveCount(0)
   await expect
-    .poll(() => board.count('Faites'), { message: 'the « Faites » counter should follow the tick' })
+    .poll(() => board.count('Faites'), { message: 'the « Faites » number should follow the tick' })
     .toBeGreaterThan(before)
   await board.select('Faites')
   await expect(board.row(upcoming)).toHaveCount(1)
@@ -266,8 +266,79 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
 })
 
 /**
- * The day holds five tasks at most, « Maintenant » on top and the rest folded
- * away in the reserve — MAG-497, extends MAG-100.
+ * « Tâches » as the mockup draws it — MAG-644, extends MAG-100.
+ *
+ * The views are sub-entries of the menu with their numbers and a route each; the page is titled with
+ * the day, lists its tasks in the full width with an Urgence and an Échéance column, opens a task in a
+ * panel beside the list rather than a dialog over it, and adds a task from its header: a date word
+ * at the end of the title (« demain ») sets the due day. « À venir » is used for the writes, so the
+ * day of the other journeys is left alone.
+ */
+test('the views are menu entries with their numbers, a task opens in a panel, and a quick add with « demain » lands in « À venir »', async ({ page, api }) => {
+  const title = perAttempt('Rappeler le plombier')
+  const tomorrow = daysFrom(parisDay(), 1)
+  const board = new TasksPage(page)
+  let createdId: string | undefined
+
+  try {
+    // Given the page on « Aujourd'hui »: titled with the day, the routines one click away…
+    await board.open()
+    await expect(board.title).toBeVisible()
+    await expect(board.heading).toHaveText("Aujourd'hui")
+    await expect(board.routinesLink).toBeVisible()
+    await expect(page.getByRole('navigation', { name: "Fil d'Ariane" })).toContainText("Aujourd'hui")
+
+    // …and the menu lists the four views under « Tâches », each with its number.
+    await board.openMenu()
+    for (const view of ["Aujourd'hui", 'À venir', 'Un jour', 'Faites'] as const) {
+      await expect(board.menuEntry(view), view).toBeVisible()
+    }
+    await expect.poll(() => board.count('Faites'), { message: 'the « Faites » number' }).toBeGreaterThanOrEqual(1)
+
+    // When I go to « À venir » from the menu, the list has its Urgence and Échéance columns.
+    await board.select('À venir')
+    await expect(page.getByRole('navigation', { name: "Fil d'Ariane" })).toContainText('À venir')
+    await expect(board.content.getByText('Urgence', { exact: true })).toBeVisible()
+    await expect(board.content.getByText('Échéance', { exact: true })).toBeVisible()
+    const before = await board.count('À venir')
+
+    // When I type « … demain » in the header and validate…
+    await board.quickAdd.fill(`${title} demain`)
+    await board.quickAdd.press('Enter')
+
+    // …then the task is listed, without the date word in its title, due tomorrow…
+    await expect(board.row(title)).toHaveCount(1)
+    await expect(board.quickAdd).toHaveValue('')
+    await expect(board.row(title).getByTestId('urgency-badge')).toBeVisible()
+    const stored = await waitForIndexed<StoredTask>(api, '/api/tasks?itemsPerPage=100', (task) => task.title === title, {
+      what: `The task "${title}"`,
+    })
+    createdId = stored.id
+    expect(stored.dueDate?.slice(0, 10)).toBe(tomorrow)
+    // …and the menu's number follows.
+    await expect.poll(() => board.count('À venir'), { message: 'the « À venir » number should follow the add' }).toBeGreaterThan(before)
+
+    // When I open it, the sheet is a panel beside the list, not a dialog over it.
+    await board.row(title).getByRole('button', { name: `Ouvrir ${title}`, exact: true }).click()
+    await expect(board.sheet).toBeVisible()
+    await expect(board.sheet.getByRole('heading', { name: 'Modifier la tâche' })).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(board.row(title)).toBeVisible()
+    await board.sheet.getByRole('button', { name: 'Fermer la fiche' }).click()
+    await expect(board.sheet).toBeHidden()
+
+    // When I follow « Routines » from the page, it has its own route and title.
+    await board.select('Routines')
+    await expect(board.newRoutine).toBeVisible()
+    await expect(page.getByRole('navigation', { name: "Fil d'Ariane" })).toContainText('Routines')
+  } finally {
+    if (createdId) await api.delete(`/api/tasks/${createdId}`)
+  }
+})
+
+/**
+ * The day holds five tasks at most, « Maintenant » on top and the reserve listed
+ * after them — MAG-497, extends MAG-100 (one full-width list since MAG-644).
  *
  * Every journey that writes today's day belongs in this block, serial: the day
  * is one per user and date, and two journeys replacing it at once would each
@@ -276,7 +347,7 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
 test.describe('the day of five', () => {
   test.describe.configure({ mode: 'serial' })
 
-  test('ticking the first task of the day moves « Maintenant » to the second, and the reserve keeps the rest folded', async ({ page, api }) => {
+  test('ticking the first task of the day moves « Maintenant » to the second, and the reserve follows the five in the same list', async ({ page, api }) => {
     const today = parisDay()
     const titles = Array.from({ length: 7 }, (_, i) => perAttempt(`Journée ${i + 1} — ranger le bureau`))
     const ids: string[] = []
@@ -297,11 +368,11 @@ test.describe('the day of five', () => {
       await board.open()
       await expect(board.now).toContainText(titles[0])
       await expect(board.ring).toHaveAccessibleName('0 sur 5')
-      await expect(board.slots.getByRole('listitem')).toHaveCount(5)
-      for (const title of titles.slice(0, 5)) await expect(board.slot(title)).toHaveCount(1)
-      await expect(board.tab("Aujourd'hui")).toHaveText("Aujourd'hui (5)")
-      await expect(board.reserveToggle).toHaveAttribute('aria-expanded', 'false')
-      await expect(board.reserve).toBeHidden()
+      // The five come first, in order, and the two others follow them in the same list.
+      await expect(board.dayRows).toContainText(titles.slice(0, 5))
+      for (const title of titles) await expect(board.slot(title)).toHaveCount(1)
+      await expect(board.dayRows).toContainText([titles[4], titles[5]])
+      await expect.poll(() => board.count("Aujourd'hui"), { message: 'the menu counts the five' }).toBe(5)
 
       // When I tick the first in the admin, and take the pause its bravo offers (MAG-508)…
       await board.slot(titles[0]).getByRole('checkbox', { name: `Terminer ${titles[0]}` }).click()
@@ -317,13 +388,10 @@ test.describe('the day of five', () => {
       await expect(board.ring).toHaveAccessibleName('1 sur 5')
       await expect(board.ring).toHaveText('1 sur 5')
       await expect(board.slot(titles[0]).getByRole('checkbox', { name: `Rouvrir ${titles[0]}` })).toBeChecked()
-      await expect(board.tab("Aujourd'hui")).toHaveText("Aujourd'hui (4)")
-      // …and the reserve is still folded, holding the two others once unfolded.
-      await expect(board.reserveToggle).toHaveAttribute('aria-expanded', 'false')
-      await expect(board.reserve).toBeHidden()
-      await board.openReserve()
-      for (const title of titles.slice(5)) await expect(board.reserveRow(title)).toHaveCount(1)
-      for (const title of titles.slice(0, 5)) await expect(board.reserveRow(title)).toHaveCount(0)
+      // …the menu counts four left…
+      await expect.poll(() => board.count("Aujourd'hui"), { message: 'the menu counts what is left' }).toBe(4)
+      // …and the two others are still listed after the five.
+      for (const title of titles.slice(5)) await expect(board.slot(title)).toHaveCount(1)
 
       // The data agrees: the tick is the first slot's, and « now » the second.
       await expect
@@ -403,7 +471,7 @@ test.describe('the day of five', () => {
       await expect(board.focus(titles[0])).toHaveCount(0)
       await expect(board.now).toContainText(titles[1])
       await expect(board.now).not.toContainText(/retard|reproche/i)
-      await expect(board.slots.getByRole('listitem')).toContainText([titles[1], titles[2], titles[0]])
+      await expect(board.dayRows).toContainText([titles[1], titles[2], titles[0]])
       // …and the data agrees.
       await expect
         .poll(async () => (await dayPlan(api, today)).slots.map((slot) => slot.task.id), {
@@ -485,8 +553,7 @@ test.describe('the morning and the evening', () => {
       const kept = await board.proposed.getByRole('listitem').getByText(/^Matin — /).allTextContents()
       await board.go.click()
       await expect(board.morning).toBeHidden()
-      await expect(board.dayCreate).toBeVisible()
-      await expect(board.slots.getByRole('listitem').first()).toBeVisible()
+      await expect(board.dayRows.first()).toBeVisible()
 
       await expect
         .poll(
@@ -507,7 +574,7 @@ test.describe('the morning and the evening', () => {
       await expect(board.morning).toBeVisible()
       await board.later.click()
       await expect(board.morning).toBeHidden()
-      await expect(board.dayCreate).toBeVisible()
+      await expect(board.dayReady).toBeVisible()
     } finally {
       await setDayPlan(api, today, [])
       for (const id of ids) await api.delete(`/api/tasks/${id}`)
@@ -578,7 +645,7 @@ test.describe('the morning and the evening', () => {
       // « Plus tard » closes the review without recording it; the day is shown.
       await board.eveningLater.click()
       await expect(board.evening).toBeHidden()
-      await expect(board.dayCreate).toBeVisible()
+      await expect(board.dayReady).toBeVisible()
       const review = await api.get(`/api/day-reviews/${today}`, { headers: { Accept: 'application/json' } })
       expect(((await review.json()) as { reviewedAt: string | null }).reviewedAt).toBeNull()
     } finally {
@@ -590,7 +657,7 @@ test.describe('the morning and the evening', () => {
 })
 
 /**
- * The bravo of a task done (MAG-508): a tick from « Mes 5 » opens it over the
+ * The bravo of a task done (MAG-508): a tick from the day's list opens it over the
  * day, with « {titre} · faite », a message of the tone set and the day so far;
  * the next message is never the same; the last of the five is a shooting star.
  *
@@ -598,7 +665,7 @@ test.describe('the morning and the evening', () => {
  * once a local day per user, and the other journeys tick tasks too. A run again
  * on the same stack and day finds that star gone — reseed first.
  */
-test('ticking from « Mes 5 » opens the bravo; the next message differs; the last of the five is a shooting star', async ({ bravoUser }) => {
+test('ticking from the day\'s list opens the bravo; the next message differs; the last of the five is a shooting star', async ({ bravoUser }) => {
   const { page, api } = bravoUser
   const today = parisDay()
   const titles = Array.from({ length: 5 }, (_, i) => perAttempt(`Bravo ${i + 1} — ranger le salon`))
@@ -625,7 +692,7 @@ test('ticking from « Mes 5 » opens the bravo; the next message differs; the la
     await board.open()
     await expect(board.ring).toHaveAccessibleName('2 sur 5')
 
-    // When I tick the third from « Mes 5 »…
+    // When I tick the third from the day's list…
     await board.slot(titles[2]).getByRole('checkbox', { name: `Terminer ${titles[2]}` }).click()
 
     // …then the bravo says it is done, with a message of the « direct » bank and the day so far…
@@ -666,7 +733,7 @@ test('ticking from « Mes 5 » opens the bravo; the next message differs; the la
 /**
  * The constellation of the month (MAG-509, extends MAG-100): one star per task done, only
  * those earned. The seed gives `e2e-stars@maggie.local` four stars this month and seven last
- * month; a tick brings the month to five, drawn under the bravo and on the task in « Mes 5 »,
+ * month; a tick brings the month to five, drawn under the bravo and on the task in the day's list,
  * and the evening goes back to last month and its seven, the total never lost.
  *
  * An account of its own, because the counts are exact: any other tick of it would move them.
@@ -687,7 +754,7 @@ test('a tick adds a star to the month: the bravo draws five, the evening goes ba
     await board.open()
     await expect(board.starOf(title)).toBeHidden()
 
-    // When I tick it from « Mes 5 »…
+    // When I tick it from the day's list…
     await board.slot(title).getByRole('checkbox', { name: `Terminer ${title}` }).click()
 
     // …then the bravo draws five stars, the latest one marked, and says « 5 étoiles »…
@@ -697,7 +764,7 @@ test('a tick adds a star to the month: the bravo draws five, the evening goes ba
     await expect(board.constellationOfBravo.locator('[data-latest="true"]')).toHaveCount(1)
     expect(await (await api.get('/api/stars', { headers: { Accept: 'application/json' } })).json()).toMatchObject({ count: 5, total: 12 })
 
-    // …and the task carries its star in « Mes 5 ».
+    // …and the task carries its star in the day's list.
     await board.pause.click()
     await expect(board.bravo).toBeHidden()
     await expect(board.starOf(title)).toBeVisible()

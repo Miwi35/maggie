@@ -17,6 +17,8 @@ export interface NavPart {
   menu?: { label: string; path: string }
   /** Not an entry of the sidebar: the part is reached from a page (« Courses passées » from the list), its trail and routes stay. */
   reachedFromPage?: boolean
+  /** Only the part's records (`create`, `:id`) hang on it: it has no crumb of its own between the module and the page. */
+  bare?: boolean
 }
 
 /**
@@ -183,8 +185,15 @@ export const NAVIGATION: NavModule[] = [
   },
   {
     label: 'Tâches',
-    dashboard: '/tasks',
-    parts: [resourcePart('Tâches', 'tasks')],
+    // The views are routes (MAG-644): « Aujourd'hui » is the module's home. « Routines » is reached from the page.
+    parts: [
+      { label: "Aujourd'hui", path: '/tasks' },
+      { label: 'À venir', path: '/tasks/upcoming' },
+      { label: 'Un jour', path: '/tasks/someday' },
+      { label: 'Faites', path: '/tasks/done' },
+      { label: 'Routines', path: '/tasks/routines', reachedFromPage: true },
+      { ...resourcePart('Tâches', 'tasks'), reachedFromPage: true, bare: true },
+    ],
   },
   {
     label: 'Courses',
@@ -269,7 +278,7 @@ const partCrumb = (part: NavPart): TrailCrumb => ({ label: part.label, to: part.
  * unless the part is the module's own page (« Tâches » of Tâches): one crumb.
  */
 const partHead = (module: NavModule, part: NavPart): TrailCrumb[] => {
-  if (part.path === module.dashboard) {
+  if (part.path === module.dashboard || part.bare) {
     return [moduleCrumb(module)]
   }
   // The only page of its menu (« Comptes » of Comptes): one crumb, the menu's.

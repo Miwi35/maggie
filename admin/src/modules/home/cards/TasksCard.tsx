@@ -153,7 +153,7 @@ const TasksBody = ({ state, pending, onTask, onRoutine }: BodyProps) => {
       {state.routines.length > 0 && (
         <Box component="section" aria-label="Routines">
           <Typography variant="overline" color="text.secondary" component="h3">
-            <Link component={RouterLink} to="/tasks?tab=routines" color="inherit" underline="hover">
+            <Link component={RouterLink} to="/tasks/routines" color="inherit" underline="hover">
               Routines
             </Link>
           </Typography>
