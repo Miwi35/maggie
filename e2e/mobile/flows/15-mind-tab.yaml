@@ -14,6 +14,9 @@ tags:
 # description (« Mind, 1 en attente de validation »): Compose merges the badge into the tab,
 # so its tag is out of Maestro's reach.
 #
+# With the keyboard still open, the card's Refuser and Autoriser are in view (MAG-672,
+# `ChatApprovalKeyboardScreenTest` for the JVM side).
+#
 # The fake model holds `delete_event` as the real one does (`73-delete-event-held.yaml`).
 #
 # Needs `E2E_BASE_URL` and `E2E_LOGIN_TOKEN`, which `run.sh` passes with `-e`.
@@ -43,6 +46,13 @@ tags:
 - inputText: "Supprime l'événement Test validation ${output.eventId}"
 - tapOn:
     id: "chat_send"
+
+# The card closes the thread, keyboard or not (MAG-672): both answers are in view before
+# anything hides the keyboard, with no gesture.
+- extendedWaitUntil:
+    visible: "Autoriser"
+    timeout: 60000
+- assertVisible: "Refuser"
 - runFlow: ../subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ".*Je te demande ton accord pour supprimer.*"
