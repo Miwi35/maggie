@@ -59,8 +59,8 @@ enum class PushActionKind(val label: String, val reminderKey: String? = null) {
 }
 
 /**
- * The `data` block of an FCM message from `PushMessageFactory`, plus the `notification`
- * block when there is one. Every value is a string; absent keys are absent, never null.
+ * The `data` block of an FCM message from `PushMessageFactory`, which is data alone (MAG-681).
+ * Every value is a string; absent keys are absent, never null.
  */
 data class PushPayload(
     val notificationId: String,
@@ -85,7 +85,7 @@ data class PushPayload(
 ) {
     /** « Pars maintenant » (MAG-655): the alert that opens a full-screen interruption and a navigation app. */
     val isDeparture: Boolean get() = type == DEPARTURE_TYPE
-
+    /** The system tag the app files it under, and the one a withdrawal names — its notification id, or `cooking-timer-{id}`. */
     /** The system tag it is shown under — the server's own, so the app's and the system's are one notification. */
     val systemTag: String get() = cookingTimerId?.let(::cookingTimerTag) ?: notificationId
 
@@ -151,21 +151,16 @@ data class PushPayload(
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
         /** Null when the message carries no notification id (nothing to dedupe, answer or close) or is a `location_request`, which is never shown. */
-        fun from(
-            data: Map<String, String>,
-            notificationTitle: String? = null,
-            notificationBody: String? = null,
-            notificationChannel: String? = null,
-        ): PushPayload? {
+        fun from(data: Map<String, String>): PushPayload? {
             if (data["type"] == LOCATION_REQUEST_TYPE) return null
             val id = data["notificationId"]?.takeIf { it.isNotBlank() } ?: return null
             val type = data["type"]
-            val text = (data["body"] ?: data["text"] ?: notificationBody)?.takeIf { it.isNotBlank() }
-            val title = (data["title"] ?: notificationTitle)?.takeIf { it.isNotBlank() } ?: "Maggie"
+            val text = (data["body"] ?: data["text"])?.takeIf { it.isNotBlank() }
+            val title = data["title"]?.takeIf { it.isNotBlank() } ?: "Maggie"
             return PushPayload(
                 notificationId = id,
                 type = type,
-                channel = notificationChannel?.takeIf { it in PushChannels.ALL } ?: PushChannels.forType(type),
+                channel = data["channel"]?.takeIf { it in PushChannels.ALL } ?: PushChannels.forType(type),
                 title = title,
                 text = text,
                 link = data["link"]?.takeIf { it.isNotBlank() },

@@ -11,13 +11,13 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 /**
  * Turns a stored notification into the FCM message one device receives.
  *
- * Both blocks, never data alone (owner's rule, 7 Oct.) — but for a task
- * reminder with buttons (MAG-510) and the departure alert (MAG-658), see {@see self::build()}: with a `notification`
- * block Android shows the push itself while the app is closed, killed or in
- * the background; in the foreground it shows nothing and hands the message to
- * `onMessageReceived`, where the app raises its interruption (MAG-314). The
- * `data` block carries what the app needs either way — the notification id to
- * dedupe against Mercure, the type, and the `maggie://` link with its label.
+ * Data alone, at high priority, for every notification (MAG-681). A `notification`
+ * block is shown by Android itself while the app is closed, and Android Auto only
+ * reads notifications the app builds. So the `data` block carries everything the
+ * app needs to build it (`MaggieFcmService`): the notification id to dedupe against
+ * Mercure, the type, title and text, the channel, the `maggie://` link with
+ * its label, and the buttons' keys. In the foreground the app raises its
+ * interruption instead (MAG-314).
  */
 class PushMessageFactory
 {
@@ -45,10 +45,7 @@ class PushMessageFactory
     /** A position asked for and not given by then is too old to plan a departure with. */
     private const LOCATION_REQUEST_TTL = '600s';
 
-    /**
-     * FCM refuses a message over 4096 bytes, and title and text travel twice
-     * (both blocks): 2 × (400 + 1200) leaves room for the rest of the data.
-     */
+    /** FCM refuses a message over 4096 bytes: 400 + 1200 leaves room for the rest of the data. */
     private const MAX_TITLE_BYTES = 400;
     private const MAX_TEXT_BYTES = 1200;
 
@@ -92,6 +89,7 @@ class PushMessageFactory
             'type' => $notification->getType()->value,
             'title' => $title,
             'body' => $text,
+            'channel' => $this->channel($notification->getType()),
             'link' => $action['link'] ?? null,
             'actionLabel' => $action['label'] ?? null,
             // A task reminder's buttons (MAG-510), as ordered keys the phone labels; they answer the reminder.
@@ -104,35 +102,11 @@ class PushMessageFactory
             'cookingTimerId' => $this->cookingTimerId($notification->getRelatedEntityIri()),
         ], static fn (?string $value) => null !== $value && '' !== $value);
 
-        // A task reminder (MAG-510) goes as data alone: a `notification` block would be shown by
-        // Android itself in the background, without the buttons it exists for. The app posts it
-        // with them (`PushNotifier`), in the reminders channel its type maps to. So does the
-        // departure alert (MAG-658): « Y aller », « Déjà en route » and the full-screen
-        // « Pars maintenant » exist only if the app builds the notification.
-        if ([] !== $notification->getActions() || NotificationType::Departure === $notification->getType()) {
-            return [
-                'token' => $deviceToken,
-                'data' => $data,
-                'android' => ['priority' => 'high'],
-            ];
-        }
-
         return [
             'token' => $deviceToken,
-            'notification' => array_filter([
-                'title' => $title,
-                'body' => $text,
-            ], static fn (?string $value) => null !== $value && '' !== $value),
             'data' => $data,
-            'android' => [
-                // Delivered at once, even to a phone in Doze.
-                'priority' => 'high',
-                'notification' => [
-                    'channel_id' => $this->channel($notification->getType()),
-                    // Sent twice (a worker retry), it replaces itself rather than stacking.
-                    'tag' => $this->tag($notification),
-                ],
-            ],
+            // Delivered at once, even to a phone in Doze.
+            'android' => ['priority' => 'high'],
         ];
     }
 
@@ -215,9 +189,10 @@ class PushMessageFactory
     }
 
     /**
-     * The Android tag: one per notification, and for a cooking timer's end
-     * `cooking-timer-{timerId}` — one per timer (MAG-582), which the app
-     * clears when the timer is seen on another device.
+     * The Android tag the app files the notification under: its id, and for a cooking
+     * timer's end `cooking-timer-{timerId}` — one per timer (MAG-582), which the app
+     * clears when the timer is seen on another device. Sent twice (a worker retry),
+     * a notification replaces itself rather than stacking. Only the withdrawal names it.
      */
     private function tag(Notification $notification): string
     {

@@ -13,38 +13,75 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The FCM message carries a `notification` block — Android shows it when the
- * app is not in front — and a `data` block for the app's interruption (MAG-314).
+ * Every FCM message is data alone, at high priority (MAG-681): Android Auto only reads
+ * notifications the app builds, and a `notification` block is shown by the system itself
+ * while the app is closed. The `data` block carries all the app needs to build it.
  */
 final class PushMessageFactoryTest extends TestCase
 {
-    public function testTheMessageCarriesBothBlocks(): void
+    /** @return iterable<string, array{NotificationType}> */
+    public static function everyType(): iterable
+    {
+        foreach (NotificationType::cases() as $type) {
+            yield $type->value => [$type];
+        }
+    }
+
+    #[DataProvider('everyType')]
+    public function testNoMessageCarriesANotificationBlock(NotificationType $type): void
+    {
+        $notification = $this->notification($type, 'Titre', 'Texte', '/api/events/01JEVENT');
+
+        $message = (new PushMessageFactory())->build($notification, 't');
+
+        self::assertArrayNotHasKey('notification', $message);
+        self::assertArrayNotHasKey('notification', $message['android']);
+        self::assertSame('high', $message['android']['priority']);
+        self::assertSame('Titre', $message['data']['title']);
+        self::assertSame('Texte', $message['data']['body']);
+        self::assertSame($type->value, $message['data']['type']);
+        self::assertContainsOnlyString($message['data']);
+    }
+
+    #[DataProvider('everyType')]
+    public function testTheDataNamesTheChannelTheAppBuildsItsNotificationIn(NotificationType $type): void
+    {
+        $message = (new PushMessageFactory())->build($this->notification($type, 'Titre'), 't');
+
+        self::assertContains($message['data']['channel'], [
+            PushMessageFactory::CHANNEL_CHAT,
+            PushMessageFactory::CHANNEL_REMINDERS,
+            PushMessageFactory::CHANNEL_APPROVALS,
+            PushMessageFactory::CHANNEL_FINANCE,
+            PushMessageFactory::CHANNEL_DEPARTURE,
+        ]);
+    }
+
+    public function testTheMessageCarriesEverythingTheAppShowsInData(): void
     {
         $notification = $this->notification(NotificationType::Proaction, 'J\'ai rangé ta semaine', 'Trois créneaux libérés.', '/api/events/01JABCDEF0123456789ABCDEFG');
 
         $message = (new PushMessageFactory())->build($notification, 'device-token');
 
         self::assertSame('device-token', $message['token']);
-        self::assertSame(['title' => 'J\'ai rangé ta semaine', 'body' => 'Trois créneaux libérés.'], $message['notification']);
+        self::assertArrayNotHasKey('notification', $message);
         self::assertSame([
             'notificationId' => (string) $notification->getId(),
             'type' => 'proaction',
             'title' => 'J\'ai rangé ta semaine',
             'body' => 'Trois créneaux libérés.',
+            'channel' => 'chat_v2',
             'link' => 'maggie://event/01JABCDEF0123456789ABCDEFG',
             'actionLabel' => 'Voir l\'événement',
         ], $message['data']);
-        self::assertSame('high', $message['android']['priority']);
-        self::assertSame('chat_v2', $message['android']['notification']['channel_id']);
-        self::assertSame((string) $notification->getId(), $message['android']['notification']['tag']);
+        self::assertSame(['priority' => 'high'], $message['android']);
     }
 
     public function testDataHoldsOnlyStringsAndLeavesOutWhatIsMissing(): void
     {
         $message = (new PushMessageFactory())->build($this->notification(NotificationType::Approval, 'Je peux payer ?'), 't');
 
-        self::assertSame(['title' => 'Je peux payer ?'], $message['notification']);
-        self::assertSame(['notificationId', 'type', 'title'], array_keys($message['data']));
+        self::assertSame(['notificationId', 'type', 'title', 'channel'], array_keys($message['data']));
         self::assertContainsOnlyString($message['data']);
     }
 
@@ -52,7 +89,6 @@ final class PushMessageFactoryTest extends TestCase
     {
         $message = (new PushMessageFactory())->build($this->notification(NotificationType::Reminder, 'Dentiste', '15'), 't');
 
-        self::assertSame('Dans 15 min', $message['notification']['body']);
         self::assertSame('Dans 15 min', $message['data']['body']);
     }
 
@@ -68,7 +104,7 @@ final class PushMessageFactoryTest extends TestCase
 
         self::assertLessThan(4096, \strlen(json_encode($message, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
         self::assertStringEndsWith('…', $message['data']['body']);
-        self::assertStringEndsWith('…', $message['notification']['title']);
+        self::assertStringEndsWith('…', $message['data']['title']);
         self::assertTrue(mb_check_encoding($message['data']['body'], 'UTF-8'));
     }
 
@@ -85,7 +121,6 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('start,in10,tonight', $message['data']['actions']);
         self::assertSame('task_nudge', $message['data']['type']);
         self::assertContainsOnlyString($message['data']);
-        // Data alone: Android would show a `notification` block itself, without the buttons.
         self::assertArrayNotHasKey('notification', $message);
         self::assertSame(['priority' => 'high'], $message['android']);
         self::assertSame('Suivante : « Appeler le garagiste ».', $message['data']['title']);
@@ -103,7 +138,6 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('grocery', $message['data']['type']);
         self::assertArrayNotHasKey('reminderId', $message['data']);
         self::assertArrayNotHasKey('taskId', $message['data']);
-        // Data alone, like the reminders: a `notification` block would hide the buttons.
         self::assertArrayNotHasKey('notification', $message);
         self::assertContainsOnlyString($message['data']);
     }
@@ -139,15 +173,16 @@ final class PushMessageFactoryTest extends TestCase
         self::assertArrayNotHasKey('reminderId', $message['data']);
         self::assertArrayNotHasKey('taskId', $message['data']);
         self::assertArrayNotHasKey('actions', $message['data']);
-        self::assertSame('reminders_v2', $message['android']['notification']['channel_id']);
-        self::assertArrayHasKey('notification', $message, 'without buttons, both blocks as always');
+        self::assertSame('reminders_v2', $message['data']['channel']);
+        self::assertArrayNotHasKey('notification', $message);
     }
 
     public function testAShortMessageIsLeftWhole(): void
     {
         $message = (new PushMessageFactory())->build($this->notification(NotificationType::Proaction, 'Café prêt', 'À toi de jouer'), 't');
 
-        self::assertSame(['title' => 'Café prêt', 'body' => 'À toi de jouer'], $message['notification']);
+        self::assertSame('Café prêt', $message['data']['title']);
+        self::assertSame('À toi de jouer', $message['data']['body']);
     }
 
     public function testTheLinkUsesTheSchemeOfTheBuild(): void
@@ -201,11 +236,12 @@ final class PushMessageFactoryTest extends TestCase
         $first = (new PushMessageFactory())->build($this->notification(NotificationType::CookingTimer, 'Pâtes : c\'est prêt', 'minuteur de l\'étape 3 · Pâtes aux légumes', '/api/cooking/timers/'.$timerId), 't');
         $again = (new PushMessageFactory())->build($this->notification(NotificationType::CookingTimer, 'Pâtes : c\'est prêt', null, '/api/cooking/timers/'.$timerId), 't');
 
-        self::assertSame('cooking-timer-'.$timerId, $first['android']['notification']['tag']);
-        self::assertSame($first['android']['notification']['tag'], $again['android']['notification']['tag'], 'Two notifications of one timer replace each other on the phone.');
+        self::assertSame($timerId, $first['data']['cookingTimerId']);
+        self::assertSame($first['data']['cookingTimerId'], $again['data']['cookingTimerId'], 'Two notifications of one timer replace each other on the phone.');
+        self::assertSame('cooking-timer-'.$timerId, (new PushMessageFactory())->buildWithdrawal($this->notification(NotificationType::CookingTimer, 'x', null, '/api/cooking/timers/'.$timerId), 't')['data']['tag']);
         self::assertSame($timerId, $first['data']['cookingTimerId']);
         self::assertSame('cooking_timer', $first['data']['type']);
-        self::assertSame('minuteur de l\'étape 3 · Pâtes aux légumes', $first['notification']['body']);
+        self::assertSame('minuteur de l\'étape 3 · Pâtes aux légumes', $first['data']['body']);
     }
 
     public function testAWithdrawalIsDataOnlyAndNamesTheTagToTakeDown(): void
@@ -236,7 +272,6 @@ final class PushMessageFactoryTest extends TestCase
         $notification = $this->notification(NotificationType::Reminder, 'Rendez-vous', null, '/api/events/01JEVENT');
         $message = (new PushMessageFactory())->build($notification, 't');
 
-        self::assertSame((string) $notification->getId(), $message['android']['notification']['tag']);
         self::assertArrayNotHasKey('cookingTimerId', $message['data']);
     }
 
@@ -245,7 +280,7 @@ final class PushMessageFactoryTest extends TestCase
     {
         $message = (new PushMessageFactory())->build($this->notification($type, 'Titre'), 't');
 
-        self::assertSame($channel, $message['android']['notification']['channel_id']);
+        self::assertSame($channel, $message['data']['channel']);
     }
 
     /** Time to leave (MAG-655): « Y aller » opens the trip's navigation URL, at high priority, in the departure channel. */
@@ -259,8 +294,7 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('https://waze.com/ul?ll=48.119,-1.6672&navigate=yes', $message['data']['link']);
         self::assertSame('Y aller', $message['data']['actionLabel']);
         self::assertSame('high', $message['android']['priority']);
-        // Data alone (MAG-658): the app raises it, with its buttons and its full-screen « Pars maintenant »,
-        // in the departure channel its type maps to.
+        self::assertSame('departure', $message['data']['channel']);
         self::assertArrayNotHasKey('notification', $message);
         self::assertArrayNotHasKey('notification', $message['android']);
         self::assertSame('Pars maintenant pour Dentiste', $message['data']['title']);

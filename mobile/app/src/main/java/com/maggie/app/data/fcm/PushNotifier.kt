@@ -19,10 +19,9 @@ import com.maggie.app.ui.screens.departure.DepartureActivity
 /**
  * Raises, updates and closes the system notification of a push, with its buttons.
  *
- * Android shows a push by itself while the app is closed (the `notification` block) and
- * hands the message to the app in the foreground. This builds the one the app raises
- * itself, under the same tag the server gives the system's, so the same message never
- * shows twice.
+ * Every push is data alone (MAG-681), so the app builds the notification itself, closed or
+ * not: Android Auto only reads the ones the app builds. It files it under the payload's tag,
+ * so a message sent twice replaces itself.
  */
 class PushNotifier(private val context: Context) {
 
@@ -160,7 +159,7 @@ class PushNotifier(private val context: Context) {
     private fun requestCode(payload: PushPayload, what: String): Int = (payload.notificationId + what).hashCode()
 
     companion object {
-        /** FCM raises its own under `(tag = notificationId, id = 0)`; sharing it is what dedupes. */
+        /** One notification per tag: a resent message, or a timer ringing twice, replaces itself. */
         const val NOTIFICATION_ID = 0
         const val POSTPONE_MS = 10 * 60 * 1000L
         private const val SETTLED_TIMEOUT_MS = 8_000L
@@ -205,12 +204,11 @@ object PushIntents {
 
     fun payloadOf(intent: Intent): PushPayload? = PushPayload.from(
         data = listOf(
-            EXTRA_NOTIFICATION_ID, EXTRA_TYPE, EXTRA_TITLE, EXTRA_TEXT, EXTRA_LINK, EXTRA_APPROVAL_ID, EXTRA_INTERACTION,
+            EXTRA_NOTIFICATION_ID, EXTRA_TYPE, EXTRA_TITLE, EXTRA_TEXT, EXTRA_LINK, EXTRA_APPROVAL_ID, EXTRA_CHANNEL, EXTRA_INTERACTION,
             EXTRA_REMINDER_ID, EXTRA_TASK_ID, EXTRA_ACTIONS, EXTRA_SHORTAGE_ID, EXTRA_COOKING_TIMER_ID,
         )
             .mapNotNull { key -> intent.getStringExtra(key)?.let { key to it } }
             .toMap(),
-        notificationChannel = intent.getStringExtra(EXTRA_CHANNEL),
     )
 
     /** What « Y aller » of a departure asks the departure activity to do: open the navigation link, then close. */
