@@ -175,11 +175,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         // MAG-570: the « Il manque » account's « Repas ». Eight since MAG-564: the
         // Cuisine card's.
         self::assertSame(8, $this->rowsOf(Agenda::class));
-        // Events include the meals, which extend Event: 17 events + 5 meals. Four
+        // Events include the meals, which extend Event: 18 events + 5 meals. Four
         // of the original fifteen are the habits the deduction reads (MAG-150), one the
         // day on the 1st of the month (MAG-382). Two more since MAG-562: the done and the
-        // coming event of the Accueil's Agenda card.
-        self::assertSame(22, $this->rowsOf(Event::class));
+        // coming event of the Accueil's Agenda card. One more since MAG-568: the review's line.
+        self::assertSame(23, $this->rowsOf(Event::class));
         self::assertSame(5, $this->rowsOf(Meal::class));
         // Eight since MAG-405: one task due two days ago, never done. Eleven since
         // MAG-406: the three whose order « Aujourd'hui » is read in. Twelve since
