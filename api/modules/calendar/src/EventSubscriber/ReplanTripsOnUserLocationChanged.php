@@ -13,7 +13,6 @@ use Maggie\Calendar\Specification\IsUserAwayFromTrip;
 use Maggie\Core\Event\UserLocationChangedEvent;
 use Maggie\Core\Repository\UserLocationRepository;
 use Maggie\Core\Repository\UserRepository;
-use Maggie\Core\Service\UserPositions;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -31,7 +30,6 @@ final class ReplanTripsOnUserLocationChanged
         private readonly MessageBusInterface $commandBus,
         private readonly UserRepository $users,
         private readonly UserLocationRepository $locations,
-        private readonly UserPositions $positions,
         private readonly TripRepository $trips,
         private readonly ClockInterface $clock,
     ) {
@@ -51,7 +49,7 @@ final class ReplanTripsOnUserLocationChanged
         $next = UserLocationChangedEvent::CAR === $event->what
             ? current(array_filter($left, static fn (Trip $trip): bool => TripMode::Drive === $trip->getMode())) ?: null
             : ($left[0] ?? null);
-        if (null === $next || !(new IsUserAwayFromTrip($location, $this->positions->chosen($location), $event->what))->isSatisfiedBy($next)) {
+        if (null === $next || !(new IsUserAwayFromTrip($location, $location->getFix(), $event->what))->isSatisfiedBy($next)) {
             return;
         }
 

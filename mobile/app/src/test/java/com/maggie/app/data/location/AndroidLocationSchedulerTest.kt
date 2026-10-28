@@ -84,10 +84,11 @@ class AndroidLocationSchedulerTest {
     }
 
     /** Runs the work the way WorkManager does once its constraints are met, with the reporter's position source recorded. */
-    private fun accuraciesAskedBy(name: String, periodic: Boolean, enabled: Boolean = true): List<PositionAccuracy> = runBlocking {
+    private fun fixesAskedBy(name: String, periodic: Boolean, enabled: Boolean = true, stillAt: Position? = null): Int = runBlocking {
         val source = FakePositionSource()
         val preferences = preferencesIn(folder.root)
         preferences.setEnabled(enabled)
+        stillAt?.let { preferences.addGpsPoint(it) }
         val reporter = LocationReporter(RecordingApi().service, preferences, permissions, source)
         stopKoin()
         startKoin {
@@ -106,23 +107,23 @@ class AndroidLocationSchedulerTest {
         if (periodic) driver.setPeriodDelayMet(id)
         repeat(100) {
             val finished = infos(name).single().state == WorkInfo.State.SUCCEEDED
-            if (source.requested.isEmpty() && !finished) delay(50)
+            if (source.asked == 0 && !finished) delay(50)
         }
-        source.requested.toList()
+        source.asked
     }
 
     @Test
-    fun `the position asked for by the push is read from the GPS`() {
+    fun `the position asked for by the push takes a GPS fix`() {
         scheduler.requestPositionNow()
 
-        assertEquals(listOf(PositionAccuracy.HIGH), accuraciesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false))
+        assertEquals(1, fixesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false))
     }
 
     @Test
-    fun `the position every 30 minutes is read from the cheap sources`() {
+    fun `the position every 30 minutes wakes no GPS while the phone is still on a kept point`() {
         scheduler.startTracking()
 
-        assertEquals(listOf(PositionAccuracy.BALANCED), accuraciesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true))
+        assertEquals(0, fixesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true, stillAt = Position(48.8566, 2.3522, 8.0, Instant.now())))
     }
 
     @Test
@@ -130,7 +131,7 @@ class AndroidLocationSchedulerTest {
         scheduler.startTracking()
         val registrations = transitions.registrations
 
-        accuraciesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true)
+        fixesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true)
 
         assertEquals(registrations + 1, transitions.registrations)
     }
@@ -151,7 +152,7 @@ class AndroidLocationSchedulerTest {
         val registrations = passive.registrations
         val starts = launcher.starts
 
-        accuraciesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true)
+        fixesAskedBy(AndroidLocationScheduler.PERIODIC_POSITION, periodic = true)
 
         assertEquals(registrations + 1, passive.registrations)
         assertEquals(starts + 1, launcher.starts)
@@ -161,7 +162,7 @@ class AndroidLocationSchedulerTest {
     fun `a push after the switch went off starts no trip service`() {
         scheduler.requestPositionNow()
 
-        accuraciesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false, enabled = false)
+        fixesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false, enabled = false)
 
         assertEquals(0, launcher.starts)
         assertEquals(0, passive.registrations)
@@ -180,10 +181,17 @@ class AndroidLocationSchedulerTest {
     }
 
     @Test
+    fun `a network point claiming 30 m is still a network point after the trip through the work data`() {
+        val wifi = Position(48.1, 2.1, 30.0, Instant.parse("2026-10-27T17:00:00Z"), FixSource.NETWORK)
+
+        assertEquals(listOf(wifi), PassivePointsWorker.fromData(PassivePointsWorker.toData(listOf(wifi))))
+    }
+
+    @Test
     fun `a push after the switch went off does not bring the listening back`() {
         scheduler.requestPositionNow()
 
-        accuraciesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false, enabled = false)
+        fixesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false, enabled = false)
 
         assertEquals(0, transitions.registrations)
     }
@@ -193,7 +201,7 @@ class AndroidLocationSchedulerTest {
         permissions.activity = false
         scheduler.requestPositionNow()
 
-        accuraciesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false)
+        fixesAskedBy(AndroidLocationScheduler.POSITION_NOW, periodic = false)
 
         assertEquals(0, transitions.registrations)
     }

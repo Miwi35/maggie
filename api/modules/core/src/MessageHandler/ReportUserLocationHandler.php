@@ -20,7 +20,6 @@ final class ReportUserLocationHandler
     public function __invoke(ReportUserLocationCommand $command): void
     {
         $this->locations->save($command->userId, static fn (UserLocation $location) => $location->moveTo(
-            $command->source,
             $command->latitude,
             $command->longitude,
             $command->accuracy,

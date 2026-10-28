@@ -14,7 +14,6 @@ use Maggie\Calendar\Mcp\Tool\UpdateEventTool;
 use Maggie\Calendar\Routing\GeocodingClient;
 use Maggie\Calendar\Routing\RoutingClient;
 use Maggie\Core\Entity\User;
-use Maggie\Core\Enum\LocationSource;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Core\Service\UserLocations;
 use Maggie\Notification\Push\LocationRequester;
@@ -194,19 +193,10 @@ class EstimateTripToolTest extends KernelTestCase
     {
         $capturedAt = Clock::get()->now()->modify("-{$minutesAgo} minutes");
         self::getContainer()->get(UserLocations::class)->save($this->id('test_user'), function ($location) use ($position, $capturedAt, $car): void {
-            $location->moveTo(LocationSource::Gps, $position[0], $position[1], 10.0, $capturedAt);
+            $location->moveTo($position[0], $position[1], 10.0, $capturedAt);
             if (null !== $car) {
                 $location->parkCar($car[0], $car[1], $capturedAt);
             }
-        });
-    }
-
-    /** A network fix of the phone, $minutesAgo before the clock. */
-    private function networkFix(array $position, int $minutesAgo): void
-    {
-        $capturedAt = Clock::get()->now()->modify("-{$minutesAgo} minutes");
-        self::getContainer()->get(UserLocations::class)->save($this->id('test_user'), static function ($location) use ($position, $capturedAt): void {
-            $location->moveTo(LocationSource::Network, $position[0], $position[1], 500.0, $capturedAt);
         });
     }
 
@@ -264,7 +254,7 @@ class EstimateTripToolTest extends KernelTestCase
         self::assertTrue($drive['parkingKnown']);
         self::assertSame('https://waze.com/ul?ll=48.119,-1.6672&navigate=yes', $drive['navigationUrl']);
         self::assertSame([48.1127, -1.68], [$drive['carLatitude'], $drive['carLongitude']]);
-        self::assertSame(['kind' => 'position', 'id' => null, 'label' => 'ma position', 'latitude' => 48.11, 'longitude' => -1.68, 'source' => 'gps'], array_diff_key($drive['origin'], ['capturedAt' => true]));
+        self::assertSame(['kind' => 'position', 'id' => null, 'label' => 'ma position', 'latitude' => 48.11, 'longitude' => -1.68], array_diff_key($drive['origin'], ['capturedAt' => true]));
         self::assertSame(['WALK', 'DRIVE', 'WALK'], $this->routedModes());
     }
 
@@ -380,30 +370,17 @@ class EstimateTripToolTest extends KernelTestCase
         self::assertSame(48.11, $result['estimates'][0]['origin']['latitude']);
     }
 
-    /** MAG-666, recette of 28 Oct.: GPS at the car, then a network fix 3 km off, newer. */
-    public function testTheGpsPositionIsTheOriginWhileANewerNetworkFixIsKeptApart(): void
+    /** MAG-666, recette of 28 Oct. at 22:44: the GPS point at the car was 5 h old and stays the origin; the phone is asked for a new one. */
+    public function testAGpsPositionStaysTheOriginWhateverItsAge(): void
     {
-        $this->at(self::HOME, minutesAgo: 20);
-        $this->networkFix(self::GYM, minutesAgo: 2);
-
-        $origin = $this->estimate('dentist', ['walk'])['estimates'][0]['origin'];
-
-        self::assertSame(self::HOME, [$origin['latitude'], $origin['longitude']]);
-        self::assertSame('gps', $origin['source']);
-        self::assertSame('2026-11-03T09:40:00+00:00', $origin['capturedAt']);
-    }
-
-    public function testTheNetworkPositionIsTheOriginWhenTheGpsOneIsOverTwoHoursOldAndOlder(): void
-    {
-        $this->at(self::HOME, minutesAgo: 130);
-        $this->networkFix(self::GYM, minutesAgo: 2);
+        $this->at(self::HOME, minutesAgo: 300);
 
         $result = $this->estimate('dentist', ['walk']);
 
         $origin = $result['estimates'][0]['origin'];
-        self::assertSame(self::GYM, [$origin['latitude'], $origin['longitude']]);
-        self::assertSame('network', $origin['source']);
-        self::assertFalse($result['locationRequested']);
+        self::assertSame(self::HOME, [$origin['latitude'], $origin['longitude']]);
+        self::assertArrayNotHasKey('source', $origin);
+        self::assertTrue($result['locationRequested']);
     }
 
     public function testAFreshPositionAsksNothing(): void

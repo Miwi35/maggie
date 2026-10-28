@@ -25,13 +25,12 @@ class FusedPositionSourceTest {
     }
 
     private val gps = Position(48.8566, 2.3522, 8.0, Instant.parse("2026-10-27T10:00:00Z"))
-    private val wifi = Position(48.87, 2.38, 500.0, Instant.parse("2026-10-27T09:59:30Z"))
 
     @Test
-    fun `a position asked for before a departure uses the GPS and takes up to 30 seconds`() = runTest {
-        val fixes = FakeFixes(mapOf(Priority.PRIORITY_HIGH_ACCURACY to gps, Priority.PRIORITY_BALANCED_POWER_ACCURACY to wifi))
+    fun `a position is the GPS and takes up to 30 seconds`() = runTest {
+        val fixes = FakeFixes(mapOf(Priority.PRIORITY_HIGH_ACCURACY to gps))
 
-        val position = FusedPositionSource(fixes).current(PositionAccuracy.HIGH)
+        val position = FusedPositionSource(fixes).current()
 
         assertEquals(gps, position)
         assertEquals(listOf(Priority.PRIORITY_HIGH_ACCURACY), fixes.priorities)
@@ -39,38 +38,17 @@ class FusedPositionSourceTest {
     }
 
     @Test
-    fun `the periodic position never wakes the GPS`() = runTest {
-        val fixes = FakeFixes(mapOf(Priority.PRIORITY_BALANCED_POWER_ACCURACY to wifi))
+    fun `no GPS fix in time is no position, the cheap sources are never asked`() = runTest {
+        val fixes = FakeFixes(mapOf(Priority.PRIORITY_BALANCED_POWER_ACCURACY to Position(48.87, 2.38, 500.0, Instant.parse("2026-10-27T09:59:30Z"))))
 
-        val position = FusedPositionSource(fixes).current(PositionAccuracy.BALANCED)
-
-        assertEquals(wifi, position)
-        assertEquals(listOf(Priority.PRIORITY_BALANCED_POWER_ACCURACY), fixes.priorities)
-    }
-
-    @Test
-    fun `no GPS fix in time sends the best position available, with its true precision`() = runTest {
-        val fixes = FakeFixes(mapOf(Priority.PRIORITY_HIGH_ACCURACY to null, Priority.PRIORITY_BALANCED_POWER_ACCURACY to wifi))
-
-        val position = FusedPositionSource(fixes).current(PositionAccuracy.HIGH)
-
-        assertEquals(wifi, position)
-        assertEquals(500.0, position!!.accuracy, 0.0)
-        assertEquals(listOf(Priority.PRIORITY_HIGH_ACCURACY, Priority.PRIORITY_BALANCED_POWER_ACCURACY), fixes.priorities)
-    }
-
-    @Test
-    fun `nothing at all is no position, not a crash`() = runTest {
-        val fixes = FakeFixes(emptyMap())
-
-        assertNull(FusedPositionSource(fixes).current(PositionAccuracy.HIGH))
+        assertNull(FusedPositionSource(fixes).current())
+        assertEquals(listOf(Priority.PRIORITY_HIGH_ACCURACY), fixes.priorities)
     }
 
     @Test
     fun `a provider that fails is no position, not a crash`() = runTest {
         val fixes = FakeFixes(emptyMap(), failure = SecurityException("permission taken back"))
 
-        assertNull(FusedPositionSource(fixes).current(PositionAccuracy.HIGH))
-        assertNull(FusedPositionSource(fixes).current(PositionAccuracy.BALANCED))
+        assertNull(FusedPositionSource(fixes).current())
     }
 }

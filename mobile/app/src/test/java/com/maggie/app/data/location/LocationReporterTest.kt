@@ -53,32 +53,31 @@ class LocationReporterTest {
     }
 
     @Test
-    fun `the position asked for before a departure is read from the GPS`() = runTest {
+    fun `the position asked for before a departure takes a GPS fix`() = runTest {
         switchOn()
 
-        reporter.reportPosition(PositionAccuracy.HIGH)
+        reporter.reportPosition(precise = true)
 
-        assertEquals(listOf(PositionAccuracy.HIGH), source.requested)
+        assertEquals(1, source.asked)
     }
 
     @Test
-    fun `the periodic position is read from the cheap sources`() = runTest {
+    fun `a periodic position of a phone with no kept point takes a GPS fix`() = runTest {
         switchOn()
 
         reporter.reportPosition()
 
-        assertEquals(listOf(PositionAccuracy.BALANCED), source.requested)
+        assertEquals(1, source.asked)
     }
 
     @Test
-    fun `a position with a poor precision is sent as it is, with its real precision`() = runTest {
+    fun `a fix that is not GPS-grade is never sent`() = runTest {
         switchOn()
         source.position = FakePositionSource.PARIS.copy(accuracy = 500.0, source = FixSource.NETWORK)
 
-        assertEquals(ReportOutcome.SENT, reporter.reportPosition(PositionAccuracy.HIGH))
+        assertEquals(ReportOutcome.SKIPPED, reporter.reportPosition(precise = true))
 
-        assertEquals(500.0, api.calls.single().body.getValue("accuracy").jsonPrimitive.double, 0.0)
-        assertEquals(JsonPrimitive("network"), api.calls.single().body.getValue("source"))
+        assertTrue(api.calls.isEmpty())
     }
 
     @Test
@@ -89,7 +88,7 @@ class LocationReporterTest {
 
         reporter.reportCar(parkedAt)
 
-        assertEquals(listOf(PositionAccuracy.HIGH), source.requested)
+        assertEquals(1, source.asked)
     }
 
     @Test
@@ -122,16 +121,6 @@ class LocationReporterTest {
         assertEquals(ReportOutcome.RETRY, reporter.reportPosition())
 
         assertEquals(1, api.calls.size)
-    }
-
-    @Test
-    fun `no fix in time sends nothing and the work is told to try again`() = runTest {
-        switchOn()
-        source.position = null
-
-        assertEquals(ReportOutcome.RETRY, reporter.reportPosition())
-
-        assertTrue(api.calls.isEmpty())
     }
 
     @Test
@@ -209,11 +198,10 @@ class LocationReporterTest {
         Position(latitude, 4.83, accuracy, t0.plusSeconds(seconds))
 
     @Test
-    fun `a phone that has not moved keeps its GPS point instead of a vaguer network one`() = runTest {
+    fun `a phone that has not moved sends its last GPS point again and wakes no sensor`() = runTest {
         switchOn()
         preferences.addGpsPoint(gps(0))
         preferences.recordMotion(Motion.STILL, moved = false)
-        source.position = Position(45.761, 4.831, 800.0, t0.plusSeconds(590))
 
         assertEquals(ReportOutcome.SENT, reporter.reportPosition())
 
@@ -222,76 +210,103 @@ class LocationReporterTest {
         assertEquals(5.0, call.body.getValue("accuracy").jsonPrimitive.double, 0.0)
         assertEquals(JsonPrimitive(t0.plusSeconds(600).toString()), call.body.getValue("capturedAt"))
         assertEquals(JsonPrimitive("gps"), call.body.getValue("source"))
-        assertEquals(listOf(PositionAccuracy.BALANCED), source.requested)
+        assertEquals(0, source.asked)
     }
 
     @Test
-    fun `a network fix claiming 30 m is sent as network and never kept as a GPS point`() = runTest {
+    fun `a network fix claiming 30 m is neither sent nor kept as a GPS point`() = runTest {
         switchOn()
         val wifi = Position(45.76, 4.83, 30.0, t0.plusSeconds(100), FixSource.NETWORK)
         source.position = wifi
 
         reporter.reportPosition()
         reporter.keepFix(wifi)
+        reporter.reportFix(wifi)
+        reporter.reportPassive(listOf(wifi))
 
-        assertEquals(JsonPrimitive("network"), api.calls.single().body.getValue("source"))
+        assertTrue(api.calls.isEmpty())
         assertTrue(preferences.gpsLog().isEmpty())
         assertNull(preferences.keptGpsPoint())
     }
 
     @Test
-    fun `28 Oct - a network fix 3 km from the car is sent as network, the GPS point at the car is never resent as a vague one`() = runTest {
+    fun `28 Oct - the GPS point at the car stays the position of the still phone, a network fix 3 km away is never read`() = runTest {
         switchOn()
         source.position = Position(45.76, 4.83, 20.0, t0.plusSeconds(100), FixSource.GPS)
-        assertEquals(ReportOutcome.SENT, reporter.reportPosition(PositionAccuracy.HIGH))
+        assertEquals(ReportOutcome.SENT, reporter.reportPosition(precise = true))
         clock.now = t0.plusSeconds(4000)
         source.position = Position(45.787, 4.83, 500.0, t0.plusSeconds(3990), FixSource.NETWORK)
 
         assertEquals(ReportOutcome.SENT, reporter.reportPosition())
 
-        val (atTheCar, indoors) = api.calls
-        assertEquals(JsonPrimitive("gps"), atTheCar.body.getValue("source"))
-        assertEquals(45.76, atTheCar.body.getValue("latitude").jsonPrimitive.double, 0.0)
-        assertEquals(JsonPrimitive("network"), indoors.body.getValue("source"))
-        assertEquals(45.787, indoors.body.getValue("latitude").jsonPrimitive.double, 0.0)
-        assertEquals(500.0, indoors.body.getValue("accuracy").jsonPrimitive.double, 0.0)
         assertEquals(2, api.calls.size)
+        api.calls.forEach {
+            assertEquals(JsonPrimitive("gps"), it.body.getValue("source"))
+            assertEquals(45.76, it.body.getValue("latitude").jsonPrimitive.double, 0.0)
+        }
+        assertEquals(1, source.asked)
     }
 
     @Test
-    fun `a phone that has moved sends the fresh position, whatever its precision`() = runTest {
+    fun `a phone that has moved takes a GPS fix instead of resending the old point`() = runTest {
         switchOn()
         preferences.addGpsPoint(gps(0))
         preferences.recordMotion(Motion.MOVING, moved = true)
-        source.position = Position(45.77, 4.84, 800.0, t0.plusSeconds(590))
-
-        reporter.reportPosition()
-
-        val call = api.calls.single()
-        assertEquals(45.77, call.body.getValue("latitude").jsonPrimitive.double, 0.0)
-        assertEquals(800.0, call.body.getValue("accuracy").jsonPrimitive.double, 0.0)
-    }
-
-    @Test
-    fun `a fresh fix as precise as the kept point replaces it`() = runTest {
-        switchOn()
-        preferences.addGpsPoint(gps(0))
-        source.position = Position(45.77, 4.84, 4.0, t0.plusSeconds(590))
+        source.position = Position(45.77, 4.84, 8.0, t0.plusSeconds(590))
 
         reporter.reportPosition()
 
         assertEquals(45.77, api.calls.single().body.getValue("latitude").jsonPrimitive.double, 0.0)
+        assertEquals(1, source.asked)
     }
 
     @Test
-    fun `no fresh fix but a kept point still sends the kept point`() = runTest {
+    fun `a phone that has moved, with no GPS fix in time, sends its last GPS point as it was`() = runTest {
         switchOn()
         preferences.addGpsPoint(gps(0))
+        preferences.recordMotion(Motion.MOVING, moved = true)
         source.position = null
 
         assertEquals(ReportOutcome.SENT, reporter.reportPosition())
 
-        assertEquals(45.76, api.calls.single().body.getValue("latitude").jsonPrimitive.double, 0.0)
+        val call = api.calls.single()
+        assertEquals(45.76, call.body.getValue("latitude").jsonPrimitive.double, 0.0)
+        assertEquals(JsonPrimitive(t0.toString()), call.body.getValue("capturedAt"))
+    }
+
+    @Test
+    fun `with no GPS fix in time and no GPS point at all nothing is sent and no retry drains the battery`() = runTest {
+        switchOn()
+        source.position = null
+
+        assertEquals(ReportOutcome.SKIPPED, reporter.reportPosition(precise = true))
+
+        assertTrue(api.calls.isEmpty())
+    }
+
+    @Test
+    fun `a position asked for before a departure takes a GPS fix even when the phone is still`() = runTest {
+        switchOn()
+        preferences.addGpsPoint(gps(0))
+        source.position = Position(45.77, 4.84, 4.0, t0.plusSeconds(590))
+
+        reporter.reportPosition(precise = true)
+
+        assertEquals(45.77, api.calls.single().body.getValue("latitude").jsonPrimitive.double, 0.0)
+        assertEquals(1, source.asked)
+    }
+
+    @Test
+    fun `asked before a departure with no GPS fix in time, the still phone sends its last GPS point`() = runTest {
+        switchOn()
+        preferences.addGpsPoint(gps(0))
+        source.position = null
+
+        assertEquals(ReportOutcome.SENT, reporter.reportPosition(precise = true))
+
+        val call = api.calls.single()
+        assertEquals(45.76, call.body.getValue("latitude").jsonPrimitive.double, 0.0)
+        assertEquals(JsonPrimitive(t0.plusSeconds(600).toString()), call.body.getValue("capturedAt"))
     }
 
     @Test
@@ -339,7 +354,7 @@ class LocationReporterTest {
         val call = api.calls.single()
         assertEquals("/api/me/car", call.path)
         assertEquals(45.76, call.body.getValue("latitude").jsonPrimitive.double, 0.0)
-        assertTrue(source.requested.isEmpty())
+        assertEquals(0, source.asked)
     }
 
     @Test
@@ -351,7 +366,7 @@ class LocationReporterTest {
         reporter.reportCar(t0.plusSeconds(3600))
 
         assertEquals(48.8566, api.calls.single().body.getValue("latitude").jsonPrimitive.double, 0.0)
-        assertEquals(listOf(PositionAccuracy.HIGH), source.requested)
+        assertEquals(1, source.asked)
     }
 
     @Test
@@ -379,28 +394,57 @@ class LocationReporterTest {
     }
 
     @Test
-    fun `a phone said to be still but whose fresh fix is far from the kept point sends the fresh fix`() = runTest {
+    fun `a phone said to be still but whose GPS fix asked for is far from the kept point sends the fix`() = runTest {
         switchOn()
         preferences.addGpsPoint(gps(0))
         preferences.recordMotion(Motion.STILL, moved = false)
         source.position = Position(46.5, 4.84, 30.0, t0.plusSeconds(590))
 
-        reporter.reportPosition()
+        reporter.reportPosition(precise = true)
 
         assertEquals(46.5, api.calls.single().body.getValue("latitude").jsonPrimitive.double, 0.0)
     }
 
     @Test
-    fun `a kept point older than an hour is not where the phone is, whatever the sensors said`() = runTest {
+    fun `a kept point stays the position of a still phone whatever its age`() = runTest {
         switchOn()
         preferences.addGpsPoint(gps(0))
         preferences.recordMotion(Motion.STILL, moved = false)
-        source.position = Position(45.761, 4.831, 800.0, t0.plusSeconds(7190))
-        clock.now = t0.plusSeconds(7200)
+        source.position = Position(45.761, 4.831, 800.0, t0.plusSeconds(86390), FixSource.NETWORK)
+        clock.now = t0.plusSeconds(86400)
 
         reporter.reportPosition()
 
-        assertEquals(800.0, api.calls.single().body.getValue("accuracy").jsonPrimitive.double, 0.0)
+        val call = api.calls.single()
+        assertEquals(45.76, call.body.getValue("latitude").jsonPrimitive.double, 0.0)
+        assertEquals(5.0, call.body.getValue("accuracy").jsonPrimitive.double, 0.0)
+        assertEquals(0, source.asked)
+    }
+
+    @Test
+    fun `28 Oct 22 h 44 - indoors, five hours after the car, the GPS point stays the position and the network fix 3 km away is not read`() = runTest {
+        switchOn()
+        preferences.addGpsPoint(gps(0))
+        preferences.recordMotion(Motion.STILL, moved = false)
+        source.position = Position(45.787, 4.83, 500.0, t0.plusSeconds(17990), FixSource.NETWORK)
+        clock.now = t0.plusSeconds(18000)
+
+        reporter.reportPosition()
+
+        val call = api.calls.single()
+        assertEquals(45.76, call.body.getValue("latitude").jsonPrimitive.double, 0.0)
+        assertEquals(JsonPrimitive("gps"), call.body.getValue("source"))
+        assertEquals(0, source.asked)
+    }
+
+    @Test
+    fun `a network fix is never sent, even when the position is asked for`() = runTest {
+        switchOn()
+        source.position = FakePositionSource.PARIS.copy(accuracy = 500.0, source = FixSource.NETWORK)
+
+        reporter.reportPosition(precise = true)
+
+        assertTrue(api.calls.isEmpty())
     }
 
     @Test
@@ -408,15 +452,15 @@ class LocationReporterTest {
         switchOn()
         clock.now = t0.plusSeconds(120)
         assertEquals(ReportOutcome.SENT, reporter.reportCar(t0))
-        assertEquals(listOf(PositionAccuracy.HIGH), source.requested)
+        assertEquals(1, source.asked)
 
         api.calls.clear()
-        source.requested.clear()
+        source.asked = 0
         clock.now = t0.plusSeconds(1800)
         assertEquals(ReportOutcome.DROPPED, reporter.reportCar(t0))
 
         assertTrue(api.calls.isEmpty())
-        assertTrue(source.requested.isEmpty())
+        assertEquals(0, source.asked)
     }
 
     @Test
@@ -446,11 +490,11 @@ class LocationReporterTest {
     }
 
     @Test
-    fun `a fix of the trip is sent and kept, a vague one is sent but not kept`() = runTest {
+    fun `a fix of the trip is sent and kept, a vague GPS one is sent but not kept`() = runTest {
         switchOn()
 
         reporter.reportFix(gps(0))
-        reporter.reportFix(gps(60, latitude = 45.9, accuracy = 400.0))
+        reporter.reportFix(Position(45.9, 4.83, 400.0, t0.plusSeconds(60), FixSource.GPS))
 
         assertEquals(2, api.calls.size)
         assertEquals(listOf(gps(0)), preferences.gpsLog())

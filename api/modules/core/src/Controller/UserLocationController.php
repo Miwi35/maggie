@@ -19,7 +19,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * Where the owner is and where the car is parked, as the phone reports them
  * (MAG-650). Hand-written: an API Platform write on an identifier-less /me
  * operation builds a fresh object (MeOperationContractTest). Each PUT replaces
- * the user's last value (the position, of its own source, GPS or network); there is no history and nothing to read back.
+ * the user's last value; there is no history and nothing to read back. Only GPS positions are
+ * kept (MAG-666): a network one is answered 204 and dropped.
  */
 final class UserLocationController
 {
@@ -48,13 +49,15 @@ final class UserLocationController
                 longitude: $this->coordinate($body, 'longitude', 180),
                 accuracy: $this->accuracy($body),
                 capturedAt: $this->dateTime($body, 'capturedAt'),
-                source: $this->source($body),
             );
+            $source = $this->source($body);
         } catch (InvalidLocationField $e) {
             return $e->response();
         }
 
-        $this->bus->dispatch($command);
+        if (LocationSource::Gps === $source) {
+            $this->bus->dispatch($command);
+        }
 
         return new Response(null, Response::HTTP_NO_CONTENT);
     }
@@ -124,7 +127,7 @@ final class UserLocationController
 
     /**
      * `gps` or `network`. A phone that does not say (an app older than MAG-666) is read by its accuracy,
-     * the rule the app applies itself.
+     * the rule the app applies itself. An old app may still send `network`: it is accepted and dropped.
      *
      * @param array<mixed> $body
      */

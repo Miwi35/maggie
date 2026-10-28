@@ -11,7 +11,6 @@ use Maggie\Calendar\Service\TripEstimate;
 use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Calendar\Specification\IsUserAwayFromTrip;
 use Maggie\Core\Entity\UserLocation;
-use Maggie\Core\Enum\LocationSource;
 use Maggie\Core\Event\UserLocationChangedEvent;
 use Maggie\Core\Location\LocationFix;
 use PHPUnit\Framework\TestCase;
@@ -36,7 +35,7 @@ class IsUserAwayFromTripTest extends TestCase
 
     private function position(float $latitude): LocationFix
     {
-        return new LocationFix($latitude, -1.68, 10.0, new \DateTimeImmutable('2026-11-03 10:00:00 UTC'), LocationSource::Gps);
+        return new LocationFix($latitude, -1.68, 10.0, new \DateTimeImmutable('2026-11-03 10:00:00 UTC'));
     }
 
     private function car(float $latitude): UserLocation

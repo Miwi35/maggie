@@ -45,22 +45,13 @@ interface FixProvider {
     suspend fun fix(priority: Int, timeoutMs: Long, maxAgeMs: Long): Position?
 }
 
-/**
- * A fix of the fused provider. [PositionAccuracy.HIGH] asks the GPS and waits up to [GPS_TIMEOUT_MS]; with no
- * fix by then, the best position the cheap sources have is sent with its true precision rather than nothing.
- */
+/** The GPS fix of the fused provider, waited for up to [GPS_TIMEOUT_MS]. No fallback to Wi-Fi and cell towers: a network position can be kilometres off (MAG-666). */
 class FusedPositionSource(private val provider: FixProvider) : PositionSource {
 
     constructor(context: Context) : this(GmsFixProvider(context))
 
-    override suspend fun current(accuracy: PositionAccuracy): Position? = try {
-        when (accuracy) {
-            PositionAccuracy.HIGH ->
-                provider.fix(Priority.PRIORITY_HIGH_ACCURACY, GPS_TIMEOUT_MS, GPS_MAX_AGE_MS)
-                    ?: provider.fix(Priority.PRIORITY_BALANCED_POWER_ACCURACY, FALLBACK_TIMEOUT_MS, MAX_AGE_MS)
-            PositionAccuracy.BALANCED ->
-                provider.fix(Priority.PRIORITY_BALANCED_POWER_ACCURACY, BALANCED_TIMEOUT_MS, MAX_AGE_MS)
-        }
+    override suspend fun current(): Position? = try {
+        provider.fix(Priority.PRIORITY_HIGH_ACCURACY, GPS_TIMEOUT_MS, GPS_MAX_AGE_MS)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -70,10 +61,7 @@ class FusedPositionSource(private val provider: FixProvider) : PositionSource {
 
     private companion object {
         const val GPS_TIMEOUT_MS = 30_000L
-        const val FALLBACK_TIMEOUT_MS = 10_000L
-        const val BALANCED_TIMEOUT_MS = 20_000L
         const val GPS_MAX_AGE_MS = 10_000L
-        const val MAX_AGE_MS = 60_000L
     }
 }
 
