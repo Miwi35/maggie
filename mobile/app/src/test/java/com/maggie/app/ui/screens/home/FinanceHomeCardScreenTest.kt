@@ -1,13 +1,22 @@
 package com.maggie.app.ui.screens.home
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.FinanceHomeProject
 import com.maggie.app.data.model.FinanceHomeRing
@@ -16,10 +25,15 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.RingArcColorKey
+import com.maggie.app.ui.theme.MaggieTokens
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * The Finance card (MAG-565), as `accueil/Accueil-Tel` draws it: two small rings of what was spent (no verdict),
@@ -164,5 +178,38 @@ class FinanceHomeCardScreenTest {
         compose.onNodeWithText("Réessayer").performClick()
 
         assertEquals(1, retried)
+    }
+
+    private fun arcColorOf(period: String) =
+        compose.onNode(
+            SemanticsMatcher.keyIsDefined(RingArcColorKey) and hasAnyAncestor(hasTestTag(UiTags.homeFinanceRing(period))),
+            useUnmergedTree = true,
+        ).fetchSemanticsNode().config[RingArcColorKey]
+
+    // The phone's figures (MAG-675): 2 508 € spent this month against 1 383 € expected.
+    private val monthAbove = FinanceHomeRing(spentCents = 250800, expectedSpentCents = 138300, plannedCents = 300000)
+
+    @Test
+    fun `a ring is orange above what was expected and mint in the rhythm, as on the Dashboard`() {
+        draw(loaded(FinanceHomeState(accountCount = 1, week = onTrack, month = monthAbove)))
+
+        assertEquals(MaggieTokens.Rhythm.above.first, arcColorOf("month"))
+        assertEquals(MaggieTokens.Rhythm.onTrack.first, arcColorOf("week"))
+    }
+
+    // The reporting phone: 1080 × 2340 px at xxhdpi is 360 dp wide; the Accueil adds its 16 dp margin around the card.
+    // Native graphics: the legacy mode measures one pixel per character, so no text would ever be cut.
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `the to-qualify pill is read whole on a 360 dp phone`() {
+        val week = FinanceHomeRing(spentCents = 61200, expectedSpentCents = 32100, plannedCents = 70000)
+        val ui = loaded(FinanceHomeState(accountCount = 1, week = week, month = monthAbove, toQualifyCount = 365))
+        compose.setContent { Box(Modifier.padding(horizontal = 16.dp)) { FinanceHomeCardContent(ui, {}, {}) } }
+
+        val layout = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText("365 à qualifier", useUnmergedTree = true).fetchSemanticsNode()
+            .config[SemanticsActions.GetTextLayoutResult].action?.invoke(layout)
+        assertFalse("« 365 à qualifier » is clipped", layout.single().hasVisualOverflow)
     }
 }

@@ -1,16 +1,15 @@
 package com.maggie.app.ui.screens.grocery
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
@@ -50,6 +49,7 @@ private data class FilterOption(
  * The filters of the products list (MAG-606): Magasin, Rayon (of that store) and Trier, each a chip that
  * opens its choices in a bottom sheet. Rayon waits for a store, and so does the sort by rayon.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ProductFilterBar(
     state: ProductUiState,
@@ -67,10 +67,10 @@ internal fun ProductFilterBar(
         is AisleFilter.One -> state.storeAisles.firstOrNull { it.id == aisle.id }?.name
     }
 
-    Row(
+    // A row that wraps: on a narrow phone the last filter goes to the next line, whole, rather than off the edge (MAG-675).
+    FlowRow(
         modifier = modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

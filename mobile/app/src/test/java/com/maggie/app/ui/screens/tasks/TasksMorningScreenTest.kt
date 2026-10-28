@@ -1,10 +1,13 @@
 package com.maggie.app.ui.screens.tasks
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
@@ -26,6 +29,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,7 +69,7 @@ class TasksMorningScreenTest {
 
     private lateinit var repository: TaskRepository
 
-    private fun show() {
+    private fun show(proposal: DayProposal = this.proposal) {
         val day = DayPlan(id = "day", date = today.toString())
         repository = mockk()
         coEvery { repository.getDayPlan(today) } returns Result.success(day)
@@ -139,5 +143,14 @@ class TasksMorningScreenTest {
 
         compose.onNodeWithTag(UiTags.TASKS_MORNING).assertDoesNotExist()
         coVerify(exactly = 0) { repository.setDaySlots(any(), any()) }
+    }
+
+    @Test
+    fun `with no reserve to swap from, the minutes keep the row's 16 dp margin (MAG-675)`() {
+        show(proposal.copy(reserveRanked = emptyList()))
+
+        val screen = compose.onRoot().getUnclippedBoundsInRoot()
+        val minutes = compose.onNodeWithText("10 min").getUnclippedBoundsInRoot()
+        assertTrue("« 10 min » ends ${screen.right - minutes.right} from the edge", screen.right - minutes.right >= 16.dp)
     }
 }

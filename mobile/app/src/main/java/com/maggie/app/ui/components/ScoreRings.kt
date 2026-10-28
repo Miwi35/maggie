@@ -29,6 +29,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,8 +65,17 @@ fun ringFill(spentCents: Int, plannedCents: Int): Float {
 fun ringFill(rhythm: Rhythm): Float = ringFill(rhythm.spentCents, rhythm.plannedCents)
 
 /** « above » once what was spent passes what was expected by today, « on_track » otherwise; nothing planned, nothing to pass. */
-fun ringRhythmStatus(rhythm: Rhythm): String =
-    if (rhythm.plannedCents > 0 && rhythm.spentCents > rhythm.expectedSpentCents) "above" else "on_track"
+fun ringRhythmStatus(spentCents: Int, expectedSpentCents: Int, plannedCents: Int): String =
+    if (plannedCents > 0 && spentCents > expectedSpentCents) "above" else "on_track"
+
+fun ringRhythmStatus(rhythm: Rhythm): String = ringRhythmStatus(rhythm.spentCents, rhythm.expectedSpentCents, rhythm.plannedCents)
+
+/** The arc of a ring: mint in the rhythm, orange above it (MAG-631) — on the Dashboard and on the Accueil alike (MAG-675). */
+@Composable
+internal fun ringArcColor(spentCents: Int, expectedSpentCents: Int, plannedCents: Int): Color = financeRhythmColor(
+    ringRhythmStatus(spentCents, expectedSpentCents, plannedCents),
+    MaterialTheme.colorScheme.background.luminance() < 0.5f,
+)
 
 /** Where the tick sits on the ring: what was expected by today on the same scale. Null when nothing is planned. */
 fun ringTick(spentCents: Int, expectedSpentCents: Int, plannedCents: Int): Float? =
@@ -99,6 +110,10 @@ internal fun statusColor(status: String): Color = when (status) {
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
+/** The colour a ring's arc is drawn in, for the tests: a drawing cannot be read back, a semantics property can. */
+internal val RingArcColorKey = SemanticsPropertyKey<Color>("RingArcColor")
+private var SemanticsPropertyReceiver.ringArcColor by RingArcColorKey
+
 /** The track, the arc and the tick of a ring; shared by the dashboard and the home card. */
 @Composable
 internal fun SpentRingCanvas(
@@ -106,12 +121,12 @@ internal fun SpentRingCanvas(
     tick: Float?,
     diameter: Dp,
     stroke: Dp,
-    arcColor: Color = MaterialTheme.colorScheme.primary,
+    arcColor: Color,
 ) {
     val track = maggieSurface().track
     val tickColor = MaterialTheme.colorScheme.onSurface
 
-    Canvas(modifier = Modifier.size(diameter)) {
+    Canvas(modifier = Modifier.size(diameter).semantics { ringArcColor = arcColor }) {
         val strokePx = stroke.toPx()
         val topLeft = Offset(strokePx / 2, strokePx / 2)
         val arc = Size(size.width - strokePx, size.height - strokePx)
@@ -195,7 +210,7 @@ private fun ScoreRing(
     val rhythm = score.rhythm
     val fill = ringFill(rhythm)
     val tick = ringTick(rhythm)
-    val arcColor = financeRhythmColor(ringRhythmStatus(rhythm), MaterialTheme.colorScheme.background.luminance() < 0.5f)
+    val arcColor = ringArcColor(rhythm.spentCents, rhythm.expectedSpentCents, rhythm.plannedCents)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         Column(
