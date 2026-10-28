@@ -1,0 +1,19 @@
+# The night reads the app's data once a week (MAG-18). The journey's agenda « Concerts » holds five shows of
+# stoner, psychedelic and doom bands; the data lines are keyed A1…A5 in date order, and the model cites them.
+# The code, not the model, writes the proof lines and the period, so a key that did not exist would be refused.
+name: memory-night-habits-concerts
+description: The night draws the owner's musical tastes from the shows of his agenda « Concerts ».
+
+match:
+  system_contains: "cherches les habitudes observées"
+  user_contains: "Black Wizards"
+
+turns:
+  - text: |
+      {"habitudes": [{"chemin": null,
+         "titre": "Le propriétaire aime le stoner, le psyché, le doom et le heavy rock des années 70",
+         "dossiers": ["Goûts"],
+         "resume": "Les styles de musique que ses concerts montrent",
+         "evoque": ["concerts", "musique", "stoner", "psyché", "doom", "heavy rock"],
+         "preuves": ["A1", "A2", "A3", "A4", "A5"]}],
+       "cessees": []}

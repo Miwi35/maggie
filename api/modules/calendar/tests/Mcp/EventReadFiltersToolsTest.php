@@ -36,10 +36,10 @@ class EventReadFiltersToolsTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function byDate(string $date, ?array $agendas = null, ?string $query = null): array
+    private function byDate(string $date, ?array $agendas = null, ?string $query = null, ?string $endDate = null): array
     {
         return json_decode(
-            (self::getContainer()->get(GetEventsByDateTool::class))($date, $agendas, $query),
+            (self::getContainer()->get(GetEventsByDateTool::class))($date, $agendas, $query, $endDate),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -246,6 +246,46 @@ class EventReadFiltersToolsTest extends KernelTestCase
         $data = $this->byDate($this->tomorrow(), null, 'squash');
 
         self::assertSame(['Squash'], $this->summaries($data));
+    }
+
+    public function testAStretchOfDaysComesBackInOneCall(): void
+    {
+        $this->loginFixtureUser();
+        $tomorrow = $this->tomorrow();
+        $inThreeDays = (new \DateTimeImmutable($tomorrow))->modify('+2 days')->format('Y-m-d');
+
+        $data = $this->byDate($tomorrow, null, null, $inThreeDays);
+
+        self::assertSame($tomorrow, $data['date']);
+        self::assertSame($inThreeDays, $data['endDate']);
+        self::assertContains('Squash', $this->summaries($data));
+        foreach ($this->summaries($this->byDate($tomorrow)) as $summary) {
+            self::assertContains($summary, $this->summaries($data));
+        }
+    }
+
+    public function testAStretchEndingTheDayBeforeLeavesOutTheNextDaysEvents(): void
+    {
+        $this->loginFixtureUser();
+        $yesterday = (new \DateTimeImmutable($this->tomorrow()))->modify('-2 days')->format('Y-m-d');
+
+        $data = $this->byDate($yesterday, null, null, $yesterday);
+
+        self::assertNotContains('Squash', $this->summaries($data));
+        self::assertSame($data['count'], count($data['events']));
+    }
+
+    public function testAStretchIsRefusedWhenItsEndIsWrong(): void
+    {
+        $this->loginFixtureUser();
+        $tomorrow = $this->tomorrow();
+
+        self::assertStringContainsString('YYYY-MM-DD', $this->byDate($tomorrow, null, null, 'demain')['error']);
+        self::assertStringContainsString('is before date', $this->byDate($tomorrow, null, null, '2000-01-01')['error']);
+        $tooFar = (new \DateTimeImmutable($tomorrow))->modify('+31 days')->format('Y-m-d');
+        self::assertStringContainsString('at most 30 days', $this->byDate($tomorrow, null, null, $tooFar)['error']);
+        $lastDay = (new \DateTimeImmutable($tomorrow))->modify('+30 days')->format('Y-m-d');
+        self::assertArrayNotHasKey('error', $this->byDate($tomorrow, null, null, $lastDay));
     }
 
     public function testATitleSearchNeverReturnsTheNeighboursEvents(): void

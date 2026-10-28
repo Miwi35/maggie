@@ -25,7 +25,9 @@ MAX_OPEN_CHARS = 20000
 
 _PROVENANCE_HELP = (
     "`dit` = the owner said it (source: the conversation, with the minute); `observé` = seen in the app's data "
-    "(source: `app : <la donnée>`); `déduit` = you inferred it (always announced as such when used)."
+    "(source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, "
+    "is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced "
+    "as such when used)."
 )
 
 MEMORY_TOOLS = [

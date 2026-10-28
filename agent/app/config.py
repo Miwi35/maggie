@@ -170,6 +170,12 @@ class Settings(BaseSettings):
     memory_night_min_proofs: int = 2
     # A fiche whose last claim is older than this is looked at for forgetting (age, use and links shown).
     memory_night_forget_after_days: int = 21
+    # The habits read in the app's data (MAG-18): once a week, the night reads the agenda, the errands, the
+    # meals and the transactions of this many past days (and the agenda of this many days ahead) and writes what
+    # they prove. A habit needs this many data points, on different days.
+    memory_habits_past_days: int = 84
+    memory_habits_future_days: int = 90
+    memory_habits_min_proofs: int = 3
 
     @field_validator("llm_provider")
     @classmethod
