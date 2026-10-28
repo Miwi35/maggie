@@ -130,6 +130,32 @@ class PushActionHandlerTest {
     }
 
     @Test
+    fun `Répondre marks the message read, so it is answered everywhere (MAG-682)`() = runBlocking {
+        handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "Oui, merci")
+
+        coVerifyOrder {
+            api.sendChat("Oui, merci")
+            api.markNotificationRead("n-1")
+        }
+    }
+
+    @Test
+    fun `Marquer comme lu marks the notification read and sends nothing (MAG-682)`() = runBlocking {
+        val outcome = handler.handle(PushActionKind.MARK_AS_READ, payload("proaction"))
+
+        assertEquals(PushOutcome.Closed, outcome)
+        coVerify { api.markNotificationRead("n-1") }
+        coVerify(exactly = 0) { api.sendChat(any(), any(), any()) }
+    }
+
+    @Test
+    fun `Marquer comme lu that does not get through keeps the conversation, to be tried again (MAG-682)`() = runBlocking {
+        coEvery { api.markNotificationRead("n-1") } throws java.io.IOException("offline")
+
+        assertTrue(handler.handle(PushActionKind.MARK_AS_READ, payload("proaction")) is PushOutcome.Retry)
+    }
+
+    @Test
     fun `Répondre with nothing typed sends nothing`() = runBlocking {
         val outcome = handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "   ")
 

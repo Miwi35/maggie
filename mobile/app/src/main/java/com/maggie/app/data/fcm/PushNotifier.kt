@@ -10,7 +10,9 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
 import androidx.core.app.RemoteInput
+import androidx.core.graphics.drawable.IconCompat
 import com.maggie.app.MainActivity
 import com.maggie.app.R
 import com.maggie.app.ui.navigation.DeepLinks
@@ -53,16 +55,63 @@ class PushNotifier(private val context: Context) {
                 .setFullScreenIntent(screen, true)
         }
 
+        val manager = context.getSystemService(NotificationManager::class.java)
+
+        // A message of Maggie (MAG-682) is a conversation, the only form Android Auto reads aloud. A note
+        // or a settled request is the app talking, not Maggie: those stay plain text.
+        val conversation = payload.isConversation && note == null && withActions
+        val folded = if (conversation) {
+            val history = history(manager, payload)
+            builder
+                .setStyle(conversationStyle(payload, history.flatMap { it.second }))
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setGroup(GROUP_CONVERSATION)
+            history.map { it.first }
+        } else {
+            emptyList()
+        }
+
         if (withActions) {
             payload.actions().forEach { builder.addAction(action(it, payload)) }
+            if (conversation) builder.addInvisibleAction(action(PushActionKind.MARK_AS_READ, payload))
         } else {
             builder.setTimeoutAfter(SETTLED_TIMEOUT_MS)
         }
 
-        context.getSystemService(NotificationManager::class.java)
-            .notify(payload.systemTag, NOTIFICATION_ID, builder.build())
+        manager.notify(payload.systemTag, NOTIFICATION_ID, builder.build())
+        // The new notification says them again: one conversation in the tray, not one entry per message.
+        folded.forEach { manager.cancel(it, NOTIFICATION_ID) }
         return true
     }
+
+    /** The conversation's earlier messages still in the tray, with the tag each sits under, oldest first. */
+    private fun history(manager: NotificationManager, payload: PushPayload): List<Pair<String, List<NotificationCompat.MessagingStyle.Message>>> =
+        manager.activeNotifications
+            .filter { it.notification.channelId == PushChannels.CHAT && it.id == NOTIFICATION_ID && it.tag != null && it.tag != payload.systemTag }
+            .mapNotNull { sbn ->
+                NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(sbn.notification)
+                    ?.let { sbn.tag to it.messages }
+            }
+            .sortedBy { (_, messages) -> messages.lastOrNull()?.timestamp ?: 0L }
+
+    private fun conversationStyle(
+        payload: PushPayload,
+        earlier: List<NotificationCompat.MessagingStyle.Message>,
+    ): NotificationCompat.MessagingStyle {
+        val maggie = Person.Builder()
+            .setName(SENDER)
+            .setKey(SENDER_KEY)
+            .setIcon(IconCompat.createWithResource(context, R.drawable.maggie))
+            .build()
+        val style = NotificationCompat.MessagingStyle(Person.Builder().setName("Moi").setKey("owner").build())
+        earlier.sortedBy { it.timestamp }.takeLast(MAX_HISTORY - 1).forEach(style::addMessage)
+        style.addMessage(NotificationCompat.MessagingStyle.Message(spoken(payload), System.currentTimeMillis(), maggie))
+        return style
+    }
+
+    // Android Auto reads the message, not the title: a headline that is not just « Maggie » goes in front of it.
+    private fun spoken(payload: PushPayload): String =
+        listOfNotNull(payload.title.takeIf { it != SENDER }, payload.text).joinToString("\n")
 
     /** [tag]: the payload's [PushPayload.systemTag] — its notification id, or `cooking-timer-{id}`. */
     fun close(tag: String) {
@@ -133,6 +182,11 @@ class PushNotifier(private val context: Context) {
                 .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
                 .setShowsUserInterface(false)
         }
+        if (kind == PushActionKind.MARK_AS_READ) {
+            builder
+                .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
+                .setShowsUserInterface(false)
+        }
         return builder.build()
     }
 
@@ -162,6 +216,12 @@ class PushNotifier(private val context: Context) {
         /** One notification per tag: a resent message, or a timer ringing twice, replaces itself. */
         const val NOTIFICATION_ID = 0
         const val POSTPONE_MS = 10 * 60 * 1000L
+
+        /** The sender of Maggie's messages, and the group her conversation notifications share. */
+        const val SENDER = "Maggie"
+        private const val SENDER_KEY = "maggie"
+        const val GROUP_CONVERSATION = "maggie-conversation"
+        private const val MAX_HISTORY = 6
         private const val SETTLED_TIMEOUT_MS = 8_000L
     }
 }

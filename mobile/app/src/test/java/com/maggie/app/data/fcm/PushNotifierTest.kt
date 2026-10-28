@@ -3,6 +3,7 @@ package com.maggie.app.data.fcm
 import android.app.Application
 import android.app.NotificationManager
 import android.content.Intent
+import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.BuildConfig
@@ -91,6 +92,94 @@ class PushNotifierTest {
         val reply = shown().actions.single()
         assertEquals("Répondre", reply.title.toString())
         assertEquals(PushActionReceiver.KEY_REPLY, reply.remoteInputs.single().resultKey)
+    }
+
+    // --- A message of Maggie, as a conversation (MAG-682)
+
+    private fun chat(id: String, body: String, title: String = "Maggie") = PushPayload.from(
+        data = mapOf("notificationId" to id, "type" to "proaction", "title" to title, "body" to body),
+    )!!
+
+    private fun conversation(tag: String = "n-1") =
+        NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(
+            shadowOf(manager).getNotification(tag, PushNotifier.NOTIFICATION_ID),
+        )
+
+    @Test
+    fun `a message of Maggie is a conversation from Maggie, with her portrait, in the conversation group`() {
+        notifier.show(chat("n-1", "Tu as dentiste demain à 9 h."))
+
+        val style = conversation()!!
+        val message = style.messages.single()
+        assertEquals("Tu as dentiste demain à 9 h.", message.text.toString())
+        assertEquals("Maggie", message.person?.name.toString())
+        assertNotNull("her portrait", message.person?.icon)
+        assertEquals(NotificationCompat.CATEGORY_MESSAGE, shown().category)
+        assertEquals(PushNotifier.GROUP_CONVERSATION, shown().group)
+    }
+
+    @Test
+    fun `a headline that is not just Maggie is read before the message`() {
+        notifier.show(chat("n-1", "À 9 h.", title = "Dentiste demain"))
+
+        assertEquals("Dentiste demain\nÀ 9 h.", conversation()!!.messages.single().text.toString())
+    }
+
+    @Test
+    fun `Répondre is the reply semantic action and Marquer comme lu an invisible one that is not in the tray`() {
+        notifier.show(chat("n-1", "Salut"))
+
+        val reply = shown().actions.single()
+        assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_REPLY, NotificationCompat.getAction(shown(), 0)!!.semanticAction)
+        assertEquals("Répondre", reply.title.toString())
+        assertFalse(NotificationCompat.getAction(shown(), 0)!!.showsUserInterface)
+
+        val markRead = NotificationCompat.getInvisibleActions(shown()).single()
+        assertEquals("Marquer comme lu", markRead.title.toString())
+        assertEquals(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ, markRead.semanticAction)
+        assertFalse(markRead.showsUserInterface)
+        val intent = shadowOf(markRead.actionIntent).savedIntent
+        assertTrue(shadowOf(markRead.actionIntent).isBroadcast)
+        assertEquals(PushActionReceiver::class.java.name, intent.component?.className)
+        assertEquals(PushActionReceiver.actionFor(PushActionKind.MARK_AS_READ), intent.action)
+        assertEquals("n-1", intent.getStringExtra(PushIntents.EXTRA_NOTIFICATION_ID))
+    }
+
+    @Test
+    fun `the next message brings the earlier ones along and takes their place in the tray`() {
+        notifier.show(chat("n-1", "Premier"))
+        notifier.show(chat("n-2", "Deuxième"))
+
+        assertNull("folded into the newest", shown())
+        assertEquals(1, shadowOf(manager).allNotifications.size)
+        assertEquals(listOf("Premier", "Deuxième"), conversation("n-2")!!.messages.map { it.text.toString() })
+    }
+
+    @Test
+    fun `the conversation keeps the last messages only`() {
+        (1..9).forEach { notifier.show(chat("n-$it", "Message $it")) }
+
+        val texts = conversation("n-9")!!.messages.map { it.text.toString() }
+        assertEquals(6, texts.size)
+        assertEquals("Message 9", texts.last())
+    }
+
+    @Test
+    fun `other notifications are no conversation and carry no invisible action`() {
+        notifier.show(payload("reminder"))
+        notifier.show(chat("n-3", "Salut"))
+
+        assertNull(conversation("n-1"))
+        assertTrue(NotificationCompat.getInvisibleActions(shown()).isEmpty())
+        assertNotNull("the reminder is left alone", shown())
+    }
+
+    @Test
+    fun `a failed reply says so in plain text and keeps Répondre`() {
+        notifier.show(chat("n-1", "Salut"), note = "Maggie est injoignable. Réessayez.")
+
+        assertNull(conversation())
+        assertEquals(listOf("Répondre"), buttons())
     }
 
     @Test

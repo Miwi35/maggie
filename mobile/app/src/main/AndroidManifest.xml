@@ -129,6 +129,11 @@
             </intent-filter>
         </service>
 
+        <!-- Android Auto reads and answers Maggie's messages (MAG-682): the app declares it posts notifications for the car. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <!-- Sentry would start itself from a ContentProvider; MaggieApp starts it
              instead, and only when the build carries a DSN (SentrySetup). -->
         <meta-data android:name="io.sentry.auto-init" android:value="false" />

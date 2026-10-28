@@ -57,7 +57,7 @@ class PushActionHandler(
         // « Déjà en route »: nothing to open, nothing to send.
         PushActionKind.ALREADY_ON_THE_WAY -> PushOutcome.Closed
         PushActionKind.LATER -> PushOutcome.Postponed
-        PushActionKind.OK, PushActionKind.DONE -> markRead(payload)
+        PushActionKind.OK, PushActionKind.DONE, PushActionKind.MARK_AS_READ -> markRead(payload)
         PushActionKind.REPLY -> reply(payload, reply, onLateFailure)
         PushActionKind.APPROVE -> decide(payload) { apiService.approve(it, "notification") }
         PushActionKind.DENY -> decide(payload) { apiService.deny(it, "notification") }
