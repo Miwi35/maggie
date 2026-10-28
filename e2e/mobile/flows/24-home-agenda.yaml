@@ -58,6 +58,13 @@ tags:
     direction: DOWN
     centerElement: true
     timeout: 20000
+# The selector scrolls with the page: back up to it before switching day.
+- scrollUntilVisible:
+    element:
+      id: "home_day_tomorrow"
+    direction: UP
+    centerElement: true
+    timeout: 20000
 - tapOn:
     id: "home_day_tomorrow"
 - extendedWaitUntil:
@@ -67,6 +74,12 @@ tags:
     timeout: 20000
 - assertNotVisible:
     id: "home_launch_finance"
+- scrollUntilVisible:
+    element:
+      id: "home_day_today"
+    direction: UP
+    centerElement: true
+    timeout: 20000
 - tapOn:
     id: "home_day_today"
 - scrollUntilVisible:
