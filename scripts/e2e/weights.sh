@@ -11,7 +11,8 @@
 # Web: the sum of a spec file's tests (all projects, the last attempt of each).
 # Mobile: the phone's measure, the format every pull request plays. Only a
 # journey that ran to the end counts: a failed one may have stopped early or
-# hung, so its time says nothing about what it costs. A journey seen in several
+# hung, so its time says nothing about what it costs — nor does a mobile flow
+# that passed only on its retry, whose recorded time is the failed first try's. A journey seen in several
 # verdicts keeps its longest time.
 
 set -euo pipefail
@@ -23,12 +24,12 @@ if [ -d "$dir" ]; then
 fi
 
 jq -n --argjson verdicts "$verdicts" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
-  def weights($platform; keep; key):
+  def weights($platform; keep; ok; key):
     [ $verdicts[] | select(.platform == $platform and ((.["label"] // "") | keep))
-      | .journeys[]? | select((.status == "passed" or .status == "flaky") and ((.duration // 0) > 0)) ]
+      | .journeys[]? | select((.status | ok) and ((.duration // 0) > 0)) ]
     | group_by(.id)
     | map({key: (.[0].id | key), value: ([.[].duration] | max)})
     | from_entries;
   {version: 1, generatedAt: $now,
-   web: weights("web"; true; ltrimstr("e2e/web/")),
-   mobile: weights("mobile"; startswith("mobile phone "); ltrimstr("e2e/mobile/flows/") | rtrimstr(".yaml"))}'
+   web: weights("web"; true; (. == "passed" or . == "flaky"); ltrimstr("e2e/web/")),
+   mobile: weights("mobile"; startswith("mobile phone "); (. == "passed"); ltrimstr("e2e/mobile/flows/") | rtrimstr(".yaml"))}'

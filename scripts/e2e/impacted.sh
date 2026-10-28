@@ -57,6 +57,9 @@ WEB_MAX_LOTS="${E2E_WEB_MAX_LOTS:-4}"
 # What web lot 1 does before its journeys (seed, smoke journey, lint, type-check,
 # eval check), in seconds: an estimate, to refine from the job's step times.
 WEB_LOT1_HEAD="${E2E_WEB_LOT1_HEAD:-120}"
+# Playwright's workers per lot (playwright.config.ts): the measured seconds of a
+# spec file are summed over its tests, which two workers play side by side.
+WEB_WORKERS="${E2E_WEB_WORKERS:-2}"
 
 die() { echo "impacted.sh: $*" >&2; exit 2; }
 
@@ -244,7 +247,7 @@ cmd_select() {
     --argjson shards "$(shards_json)" --argjson all "$all" \
     --argjson per_lot "$WEB_FILES_PER_LOT" --argjson max_lots "$WEB_MAX_LOTS" \
     --slurpfile covs "$SELECT_TMP/map.json" --slurpfile diffs "$SELECT_TMP/diff.json" \
-    --slurpfile wts "$SELECT_TMP/weights.json" --argjson lot1_head "$WEB_LOT1_HEAD" \
+    --slurpfile wts "$SELECT_TMP/weights.json" --argjson lot1_head "$WEB_LOT1_HEAD" --argjson web_workers "$WEB_WORKERS" \
     --arg cov_reason "$COVERAGE_REASON" \
     "$E2E_JQ_DEFS"'
     def res($globs): ($globs // []) | map(glob2re);
@@ -371,7 +374,7 @@ cmd_select() {
     | ([$wt.web[]?] | median) as $web_median
     | ($web | map(ltrimstr("e2e/web/"))) as $web_specs
     | (if $web_weighted
-       then balance([$web_specs[] | {id: ., w: ($wt.web[.] // $web_median)}]; [$lot1_head] + [range(1; $web_lots) | 0])
+       then balance([$web_specs[] | {id: ., w: (($wt.web[.] // $web_median) / $web_workers)}]; [$lot1_head] + [range(1; $web_lots) | 0])
        else null end) as $web_balance
     # Mobile lots follow shards.txt, the balance measured there; a lot left empty
     # by the selection is dropped. In a lot the journeys in quarantine come last,
