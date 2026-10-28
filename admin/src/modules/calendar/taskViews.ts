@@ -4,11 +4,11 @@ import type { TaskData } from './TaskEditDialog'
 
 export const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost/api').replace(/\/$/, '')
 
-/** The four views of the « Tâches » page, in the order of its tabs (MAG-408). */
 // The day is published apart from its tasks (MAG-497): a tick moves both. So is the evening's review (MAG-500).
 // The rewards come on the same stream: a palier opens its bravo wherever the page is (MAG-509).
 // The page and the menu's numbers share these topics, hence one connection (MAG-473).
 export const TASK_TOPICS = ['/api/tasks/{id}', '/api/day_plans/{id}', '/api/day_reviews/{id}', '/api/rewards/{id}']
+/** The four views of the « Tâches » page, in the order of the menu (MAG-408). */
 export const TASK_VIEWS = ['today', 'upcoming', 'someday', 'done'] as const
 export type TaskView = (typeof TASK_VIEWS)[number]
 
