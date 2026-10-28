@@ -1,7 +1,6 @@
 package com.maggie.app.voice
 
 import android.media.MediaPlayer
-import android.util.Log
 import java.io.File
 
 interface SpeechPlayer {
@@ -15,7 +14,9 @@ interface SpeechPlayer {
     fun release()
 }
 
-class MediaSpeechPlayer : SpeechPlayer {
+class MediaSpeechPlayer(
+    private val newPlayer: () -> MediaPlayer = { MediaPlayer() },
+) : SpeechPlayer {
     private var player: MediaPlayer? = null
 
     override val durationMs: Int
@@ -25,7 +26,7 @@ class MediaSpeechPlayer : SpeechPlayer {
         get() = runCatching { player?.currentPosition }.getOrNull() ?: 0
 
     override fun play(file: File, onFinished: () -> Unit) {
-        player = MediaPlayer().apply {
+        player = newPlayer().apply {
             setDataSource(file.absolutePath)
             prepare()
             setOnCompletionListener { onFinished() }
@@ -34,14 +35,6 @@ class MediaSpeechPlayer : SpeechPlayer {
                 true
             }
             start()
-            // Speed-up after start() so a setPlaybackParams failure on certain
-            // devices doesn't prevent playback; reuse the existing params so
-            // sampling rate, fallback mode, etc. keep their defaults.
-            try {
-                playbackParams = playbackParams.setSpeed(PLAYBACK_SPEED)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to set TTS playback speed", e)
-            }
         }
     }
 
@@ -56,10 +49,5 @@ class MediaSpeechPlayer : SpeechPlayer {
             player?.release()
         } catch (_: Exception) { }
         player = null
-    }
-
-    private companion object {
-        const val TAG = "MediaSpeechPlayer"
-        const val PLAYBACK_SPEED = 1.5f
     }
 }
