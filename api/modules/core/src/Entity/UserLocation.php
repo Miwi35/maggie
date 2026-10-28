@@ -7,6 +7,8 @@ namespace Maggie\Core\Entity;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Enum\LocationSource;
+use Maggie\Core\Location\LocationFix;
 use Maggie\Core\Repository\UserLocationRepository;
 use Symfony\Component\Uid\Ulid;
 
@@ -16,7 +18,11 @@ use Symfony\Component\Uid\Ulid;
  * to work out when to leave; no front shows it, so neither Mercure nor
  * Elasticsearch carries it.
  *
- * Either half may be missing: the phone can report the car before any position.
+ * The last GPS position and the last network position are kept apart (MAG-666): a
+ * network fix never overwrites a GPS one. Which of the two stands for the user is
+ * decided in one place, {@see \Maggie\Core\Service\UserPositions}.
+ *
+ * Any part may be missing: the phone can report the car before any position.
  */
 #[ORM\Entity(repositoryClass: UserLocationRepository::class)]
 class UserLocation implements OwnedByUserInterface
@@ -30,17 +36,29 @@ class UserLocation implements OwnedByUserInterface
     private User $user;
 
     #[ORM\Column(nullable: true)]
-    private ?float $latitude = null;
+    private ?float $gpsLatitude = null;
 
     #[ORM\Column(nullable: true)]
-    private ?float $longitude = null;
+    private ?float $gpsLongitude = null;
 
     /** Radius in metres the phone vouches for. */
     #[ORM\Column(nullable: true)]
-    private ?float $accuracy = null;
+    private ?float $gpsAccuracy = null;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
-    private ?\DateTimeImmutable $capturedAt = null;
+    private ?\DateTimeImmutable $gpsCapturedAt = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?float $networkLatitude = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?float $networkLongitude = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?float $networkAccuracy = null;
+
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $networkCapturedAt = null;
 
     #[ORM\Column(nullable: true)]
     private ?float $carLatitude = null;
@@ -73,34 +91,38 @@ class UserLocation implements OwnedByUserInterface
         return $this;
     }
 
-    public function getLatitude(): ?float
+    public function getGpsFix(): ?LocationFix
     {
-        return $this->latitude;
+        return $this->fix(LocationSource::Gps);
     }
 
-    public function getLongitude(): ?float
+    public function getNetworkFix(): ?LocationFix
     {
-        return $this->longitude;
+        return $this->fix(LocationSource::Network);
     }
 
-    public function getAccuracy(): ?float
+    /** Replaces the last position of the fix's own source; the other source's is left alone. */
+    public function moveTo(LocationSource $source, float $latitude, float $longitude, float $accuracy, \DateTimeImmutable $capturedAt): static
     {
-        return $this->accuracy;
-    }
-
-    public function getCapturedAt(): ?\DateTimeImmutable
-    {
-        return $this->capturedAt;
-    }
-
-    public function moveTo(float $latitude, float $longitude, float $accuracy, \DateTimeImmutable $capturedAt): static
-    {
-        $this->latitude = $latitude;
-        $this->longitude = $longitude;
-        $this->accuracy = $accuracy;
-        $this->capturedAt = self::toSecond($capturedAt);
+        $capturedAt = self::toSecond($capturedAt);
+        if (LocationSource::Gps === $source) {
+            [$this->gpsLatitude, $this->gpsLongitude, $this->gpsAccuracy, $this->gpsCapturedAt] = [$latitude, $longitude, $accuracy, $capturedAt];
+        } else {
+            [$this->networkLatitude, $this->networkLongitude, $this->networkAccuracy, $this->networkCapturedAt] = [$latitude, $longitude, $accuracy, $capturedAt];
+        }
 
         return $this;
+    }
+
+    private function fix(LocationSource $source): ?LocationFix
+    {
+        [$latitude, $longitude, $accuracy, $capturedAt] = LocationSource::Gps === $source
+            ? [$this->gpsLatitude, $this->gpsLongitude, $this->gpsAccuracy, $this->gpsCapturedAt]
+            : [$this->networkLatitude, $this->networkLongitude, $this->networkAccuracy, $this->networkCapturedAt];
+
+        return null === $latitude || null === $longitude || null === $accuracy || null === $capturedAt
+            ? null
+            : new LocationFix($latitude, $longitude, $accuracy, $capturedAt, $source);
     }
 
     public function getCarLatitude(): ?float

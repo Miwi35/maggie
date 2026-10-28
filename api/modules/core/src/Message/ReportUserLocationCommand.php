@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Message;
 
-/** The phone says where the owner is (MAG-650): it replaces the last position. */
+use Maggie\Core\Enum\LocationSource;
+
+/** The phone says where the owner is (MAG-650): it replaces the last position of the same source (MAG-666). */
 final readonly class ReportUserLocationCommand
 {
     public function __construct(
@@ -13,6 +15,7 @@ final readonly class ReportUserLocationCommand
         public float $longitude,
         public float $accuracy,
         public \DateTimeImmutable $capturedAt,
+        public LocationSource $source,
     ) {
     }
 }

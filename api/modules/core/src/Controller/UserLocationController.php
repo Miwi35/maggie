@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Core\Controller;
 
 use Maggie\Core\Entity\User;
+use Maggie\Core\Enum\LocationSource;
 use Maggie\Core\Message\ParkCarCommand;
 use Maggie\Core\Message\ReportUserLocationCommand;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -18,7 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * Where the owner is and where the car is parked, as the phone reports them
  * (MAG-650). Hand-written: an API Platform write on an identifier-less /me
  * operation builds a fresh object (MeOperationContractTest). Each PUT replaces
- * the user's last value; there is no history and nothing to read back.
+ * the user's last value (the position, of its own source, GPS or network); there is no history and nothing to read back.
  */
 final class UserLocationController
 {
@@ -47,6 +48,7 @@ final class UserLocationController
                 longitude: $this->coordinate($body, 'longitude', 180),
                 accuracy: $this->accuracy($body),
                 capturedAt: $this->dateTime($body, 'capturedAt'),
+                source: $this->source($body),
             );
         } catch (InvalidLocationField $e) {
             return $e->response();
@@ -118,6 +120,23 @@ final class UserLocationController
         }
 
         return $value;
+    }
+
+    /**
+     * `gps` or `network`. A phone that does not say (an app older than MAG-666) is read by its accuracy,
+     * the rule the app applies itself.
+     *
+     * @param array<mixed> $body
+     */
+    private function source(array $body): LocationSource
+    {
+        if (!\array_key_exists('source', $body)) {
+            return LocationSource::fromAccuracy($this->accuracy($body));
+        }
+
+        $source = \is_string($body['source']) ? LocationSource::tryFrom($body['source']) : null;
+
+        return $source ?? throw new InvalidLocationField('source', 'source must be "gps" or "network"');
     }
 
     /** @param array<mixed> $body */

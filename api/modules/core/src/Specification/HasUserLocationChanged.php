@@ -15,7 +15,10 @@ use Maggie\Core\Event\UserLocationChangedEvent;
 final readonly class HasUserLocationChanged
 {
     private const FIELDS = [
-        UserLocationChangedEvent::POSITION => ['latitude', 'longitude', 'accuracy', 'capturedAt'],
+        UserLocationChangedEvent::POSITION => [
+            'gpsLatitude', 'gpsLongitude', 'gpsAccuracy', 'gpsCapturedAt',
+            'networkLatitude', 'networkLongitude', 'networkAccuracy', 'networkCapturedAt',
+        ],
         UserLocationChangedEvent::CAR => ['carLatitude', 'carLongitude', 'carParkedAt'],
     ];
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\Service;
 
+use Maggie\Core\Enum\LocationSource;
+
 /**
  * Where a trip starts (MAG-653), resolved from `position`, `place:<ulid>` or
  * `event:<ulid>`. `locationRequested` tells the position was too old and the
@@ -23,6 +25,8 @@ final readonly class TripOrigin
         public float $longitude,
         public ?\DateTimeImmutable $capturedAt = null,
         public bool $locationRequested = false,
+        /** For a position: how the phone obtained it. */
+        public ?LocationSource $source = null,
     ) {
     }
 
@@ -38,6 +42,9 @@ final readonly class TripOrigin
         ];
         if (null !== $this->capturedAt) {
             $origin['capturedAt'] = $this->capturedAt->format(\DATE_ATOM);
+        }
+        if (null !== $this->source) {
+            $origin['source'] = $this->source->value;
         }
 
         return $origin;

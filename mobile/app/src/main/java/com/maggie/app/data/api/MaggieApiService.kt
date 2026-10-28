@@ -352,13 +352,14 @@ data class PersonalityResponse(
     val name: String = "",
 )
 
-/** `PUT /api/me/location` (MAG-650): `capturedAt` is ISO-8601 with its offset. */
+/** `PUT /api/me/location` (MAG-650): `capturedAt` is ISO-8601 with its offset; `source` is `gps` or `network` (MAG-666). */
 @Serializable
 data class MyLocationRequest(
     val latitude: Double,
     val longitude: Double,
     val accuracy: Double,
     val capturedAt: String,
+    val source: String,
 )
 
 /** `PUT /api/me/car` (MAG-650): `parkedAt` is ISO-8601 with its offset. */
@@ -1606,10 +1607,10 @@ class MaggieApiService(
     // Where the owner is and where the car is parked (MAG-650): the last value only, no history.
     // A 4xx other than 408 / 429 is the API refusing this very report, which sending it again
     // will not change: it is told apart from a network or server failure, which is worth a retry.
-    suspend fun putMyLocation(latitude: Double, longitude: Double, accuracy: Double, capturedAt: String) {
+    suspend fun putMyLocation(latitude: Double, longitude: Double, accuracy: Double, capturedAt: String, source: String) {
         val response = client.put("$baseUrl/api/me/location") {
             contentType(ContentType.Application.Json)
-            setBody(MyLocationRequest(latitude, longitude, accuracy, capturedAt))
+            setBody(MyLocationRequest(latitude, longitude, accuracy, capturedAt, source))
         }
         response.requireReported()
     }
