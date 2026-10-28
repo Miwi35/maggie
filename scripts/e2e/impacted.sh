@@ -27,6 +27,15 @@
 #       main has moved since (lines drift a little: acceptable, the night plays
 #       everything). No map, an unreadable one, one older than
 #       E2E_COVERAGE_MAX_AGE_DAYS (3), or no diff: exactly the zone selection.
+#
+#       --weights (or E2E_WEIGHTS): the nightly's measured seconds per journey
+#       (`e2e-weights`, scripts/e2e/weights.sh, MAG-701). With it the selected
+#       journeys are shared out between the lots by duration — the heaviest first
+#       into the lightest lot, a journey with no measure weighing the median —
+#       instead of by file count (web, Playwright's --shard) or by the fixed
+#       e2e/mobile/shards.txt (mobile). Web lot 1 starts loaded with the shared
+#       preparation it also runs (E2E_WEB_LOT1_HEAD seconds). Without it, or with
+#       a file that cannot be read, the lots are the ones of before.
 #   impacted.sh check
 #       The map is sound: every journey on disk is in it and every journey in it
 #       is on disk, every area it names exists, a critical journey is not in
@@ -45,6 +54,9 @@ SHARDS_FILE="${E2E_MOBILE_SHARDS:-$E2E_ROOT/e2e/mobile/shards.txt}"
 # A Playwright lot takes about ten spec files before a fourth stack stops paying.
 WEB_FILES_PER_LOT="${E2E_WEB_FILES_PER_LOT:-10}"
 WEB_MAX_LOTS="${E2E_WEB_MAX_LOTS:-4}"
+# What web lot 1 does before its journeys (seed, smoke journey, lint, type-check,
+# eval check), in seconds: an estimate, to refine from the job's step times.
+WEB_LOT1_HEAD="${E2E_WEB_LOT1_HEAD:-120}"
 
 die() { echo "impacted.sh: $*" >&2; exit 2; }
 
@@ -140,15 +152,31 @@ load_coverage_map() {
   COVERAGE_FILE="$file"
 }
 
+# The durations to balance the lots with, checked, in $WEIGHTS_FILE — or none,
+# and why, in $WEIGHTS_REASON.
+load_weights() {
+  local file="$1"
+  WEIGHTS_FILE=''
+  WEIGHTS_REASON=''
+  if [ -z "$file" ]; then WEIGHTS_REASON='no durations'; return; fi
+  if [ ! -s "$file" ]; then WEIGHTS_REASON="no durations at $file"; return; fi
+  if ! jq -e '.version == 1 and (.web | type == "object") and (.mobile | type == "object")' "$file" >/dev/null 2>&1; then
+    WEIGHTS_REASON="the durations $file cannot be read"
+    return
+  fi
+  WEIGHTS_FILE="$file"
+}
+
 cmd_select() {
   local all=false base='' github_output=false files map disk selection
-  local coverage_map="${E2E_COVERAGE_MAP:-}" diff_file="${E2E_COVERAGE_DIFF:-}"
+  local coverage_map="${E2E_COVERAGE_MAP:-}" diff_file="${E2E_COVERAGE_DIFF:-}" weights="${E2E_WEIGHTS:-}"
   while [ $# -gt 0 ]; do
     case "$1" in
       --all) all=true ;;
       --base) base="${2:?--base needs a ref}"; shift ;;
       --coverage-map) coverage_map="${2:?--coverage-map needs a file}"; shift ;;
       --diff) diff_file="${2:?--diff needs a file}"; shift ;;
+      --weights) weights="${2:?--weights needs a file}"; shift ;;
       --github-output) github_output=true ;;
       *) die "unknown option $1" ;;
     esac
@@ -202,12 +230,21 @@ cmd_select() {
     echo "::notice::e2e journeys selected by zones: $COVERAGE_REASON" >&2
   fi
 
+  echo null >"$SELECT_TMP/weights.json"
+  load_weights "$weights"
+  if [ -n "$WEIGHTS_FILE" ]; then
+    cp "$WEIGHTS_FILE" "$SELECT_TMP/weights.json"
+  elif [ -n "$weights" ]; then
+    echo "::notice::e2e lots split as before: $WEIGHTS_REASON" >&2
+  fi
+
   select_json() {
     jq -n \
     --argjson map "$map" --argjson files "$files" --argjson disk "$disk" \
     --argjson shards "$(shards_json)" --argjson all "$all" \
     --argjson per_lot "$WEB_FILES_PER_LOT" --argjson max_lots "$WEB_MAX_LOTS" \
     --slurpfile covs "$SELECT_TMP/map.json" --slurpfile diffs "$SELECT_TMP/diff.json" \
+    --slurpfile wts "$SELECT_TMP/weights.json" --argjson lot1_head "$WEB_LOT1_HEAD" \
     --arg cov_reason "$COVERAGE_REASON" \
     "$E2E_JQ_DEFS"'
     def res($globs): ($globs // []) | map(glob2re);
@@ -217,8 +254,17 @@ cmd_select() {
       ascii_downcase | explode | reverse | to_entries
       | map(.key as $k | (.value | if . >= 97 then . - 87 else . - 48 end) as $d
             | range(0; 4) as $b | select((($d / pow(2; $b)) | floor) % 2 == 1) | $k * 4 + $b);
+    # The median of a list of numbers: what a journey nobody measured weighs.
+    def median: sort | if length == 0 then 0 else .[length / 2 | floor] end;
+    # Greedy balance: the heaviest item first, into the lightest lot. $init is the
+    # load each lot starts with, which also sets the number of lots.
+    def balance($items; $init):
+      reduce ($items | sort_by([-.w, .id]))[] as $it ({loads: $init, lots: ($init | map([]))};
+        (.loads | min) as $m | (.loads | index($m)) as $i
+        | .loads[$i] += $it.w | .lots[$i] += [$it.id]);
 
     $covs[0] as $cov
+    | $wts[0] as $wt
     | ($diffs[0] | map({key: .file, value: .}) | from_entries) as $diff
 
     | ($map | journeys) as $mapped
@@ -317,13 +363,30 @@ cmd_select() {
     | pick("mobile") as $mobile
     | [$js[] | select(.quarantine != null) | .id] as $quarantine
     | ([($web | length) / $per_lot | ceil, $max_lots] | min) as $web_lots
+    # Web: with measured durations, each lot gets the list of spec files it runs
+    # (`specs`); without, Playwright splits the whole list itself (`shard` i/n).
+    # A weighted lot can be empty (lot 1, loaded with the shared preparation):
+    # it prepares and runs no journey.
+    | (($wt != null and (($wt.web | length) > 0) and $web_lots > 0)) as $web_weighted
+    | ([$wt.web[]?] | median) as $web_median
+    | ($web | map(ltrimstr("e2e/web/"))) as $web_specs
+    | (if $web_weighted
+       then balance([$web_specs[] | {id: ., w: ($wt.web[.] // $web_median)}]; [$lot1_head] + [range(1; $web_lots) | 0])
+       else null end) as $web_balance
     # Mobile lots follow shards.txt, the balance measured there; a lot left empty
     # by the selection is dropped. In a lot the journeys in quarantine come last,
     # so one that stops the run cannot hide the others.
     | ($mobile | map(ltrimstr("e2e/mobile/"))) as $flows
-    | [ ($shards[] | [.names[] | "flows/\(.).yaml" | select(. as $f | $flows | index($f))]),
-        [$flows[] | . as $f | select([$shards[].names[] | "flows/\(.).yaml"] | index($f) | not)]
-      | select(length > 0) ] as $shard_lots
+    | (($wt != null) and (($wt.mobile | length) > 0) and ($shards | length) > 0 and ($flows | length) > 0) as $mobile_weighted
+    | ([$wt.mobile[]?] | median) as $mobile_median
+    | def flow_weight: ($wt.mobile[ltrimstr("flows/") | rtrimstr(".yaml")] // $mobile_median);
+    # With measured durations, as many lots as shards.txt has lines (fewer when
+    # fewer flows were selected); without, the lots of shards.txt as it is.
+    (if $mobile_weighted
+     then balance([$flows[] | {id: ., w: flow_weight}]; [range(0; ([($shards | length), ($flows | length)] | min)) | 0]).lots
+     else [ ($shards[] | [.names[] | "flows/\(.).yaml" | select(. as $f | $flows | index($f))]),
+            [$flows[] | . as $f | select([$shards[].names[] | "flows/\(.).yaml"] | index($f) | not)]
+          | select(length > 0) ] end) as $shard_lots
     # A lot of journeys in quarantine alone could never block: its flows join the
     # last lot that can, rather than hold an emulator and a stack of their own.
     | def blocking: any(.[]; ("e2e/mobile/" + .) as $id | $quarantine | index($id) | not);
@@ -337,9 +400,13 @@ cmd_select() {
         mobile: $mobile,
         quarantined: [($web + $mobile)[] | select(. as $i | $quarantine | index($i))],
         forgotten: [$js[] | select(.forgotten == true) | .id],
-        web_lots: [range(1; $web_lots + 1)],
+        web_lots: (if $web_weighted
+                   then [$web_balance.lots | to_entries[] | {index: (.key + 1), specs: (.value | join(" ")), shard: "", estimate: ($web_balance.loads[.key] | round)}]
+                   else [range(1; $web_lots + 1) | {index: ., specs: "", shard: "\(.)/\($web_lots)"}] end),
+        weighted: {web: $web_weighted, mobile: $mobile_weighted},
         web_specs: ($web | map(ltrimstr("e2e/web/")) | join(" ")),
-        mobile_lots: [$mobile_lots | to_entries[] | {index: (.key + 1), flows: (.value | join(" "))}],
+        mobile_lots: [$mobile_lots | to_entries[] | {index: (.key + 1), flows: (.value | join(" "))}
+                      + (if $mobile_weighted then {estimate: ([.value[] | flow_weight] | add | round)} else {} end)],
         coverage: (if $cov == null then {used: false, reason: $cov_reason}
                    else {used: true, commit: $cov.commit, generatedAt: $cov.generatedAt} end),
         files: $per_file
@@ -349,10 +416,11 @@ cmd_select() {
   # The line map must never cost a pull request its selection: if it cannot be
   # applied (an entry jq cannot read, say), the zones decide, with a warning.
   if ! selection="$(select_json)"; then
-    [ -n "$COVERAGE_FILE" ] || die "the selection failed"
-    echo "::warning::the line map could not be applied: e2e journeys selected by zones" >&2
+    [ -n "$COVERAGE_FILE" ] || [ -n "$WEIGHTS_FILE" ] || die "the selection failed"
+    echo "::warning::the line map or the durations could not be applied: e2e journeys selected by zones, lots split as before" >&2
     echo null >"$SELECT_TMP/map.json"
     echo '[]' >"$SELECT_TMP/diff.json"
+    echo null >"$SELECT_TMP/weights.json"
     COVERAGE_FILE=''
     COVERAGE_REASON='the line map could not be applied'
     selection="$(select_json)"
@@ -387,6 +455,14 @@ write_github_output() {
     "| Web (Playwright) | \(scope("web")) | \(.web_lots | length) |",
     "| Mobile (Maestro) | \(scope("mobile")) | \(.mobile_lots | length) |",
     "",
+    # The estimated seconds of each lot, from the measured durations; the gap
+    # between the longest and the shortest is what the balance aims to shrink.
+    ([["web", .web_lots, .weighted.web], ["mobile", .mobile_lots, .weighted.mobile]][]
+      | select(.[2] and (.[1] | length) > 0)
+      | .[1] as $lots
+      | ([$lots[].estimate] | max - min) as $gap
+      | "**Lots \(.[0]), estimated seconds** (measured durations\(if .[0] == "web" then ", lot 1 includes the shared preparation" else "" end)): "
+        + ($lots | map("\(.index): \(.estimate)") | join(" · ")) + " — gap \($gap) s\n"),
     (if .coverage.used then "Sélection par couverture (carte du \(.coverage.generatedAt[:10]), \(.coverage.commit[:7])) — e2e/impact-map.yml for the rest.\n"
      else "Carte par zones (\(.coverage.reason)).\n" end),
     ([.files[] | select(.lines != null)] as $cov
