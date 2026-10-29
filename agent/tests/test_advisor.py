@@ -70,9 +70,8 @@ def test_maggie_herself_keeps_making_a_scenario_current_on_the_users_word():
 PROJECTS = [
     {"id": "01HZZZZZZZZZZZZZZZZZZZZZZ1", "name": "Déménagement"},
     {"id": "01HZZZZZZZZZZZZZZZZZZZZZZ2", "name": "Canapé"},
-    {"id": "01HZZZZZZZZZZZZZZZZZZZZZZ3", "name": "Voiture"},
 ]
-LOAN_ID = "01HZZZZZZZZZZZZZZZZZZZZZZ4"
+LOAN_ID = "01HZZZZZZZZZZZZZZZZZZZZZZ3"
 LOANS = [{"id": LOAN_ID, "name": "Crédit voiture"}]
 
 
