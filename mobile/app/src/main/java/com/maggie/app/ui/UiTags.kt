@@ -122,6 +122,9 @@ object UiTags {
      */
     const val CHAT_OPEN = "chat_open"
 
+    /** The count of Maggie's messages not yet read, on the way into the conversation (MAG-687). */
+    const val CHAT_UNREAD_BADGE = "chat_unread_badge"
+
     /** Maggie's face inside the bar's field (MAG-624). */
     const val CHAT_AVATAR = "chat_avatar"
 

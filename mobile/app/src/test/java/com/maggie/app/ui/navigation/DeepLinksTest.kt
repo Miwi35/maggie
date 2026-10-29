@@ -197,6 +197,20 @@ class DeepLinksTest {
     }
 
     @Test
+    fun `a chat link naming a message id opens the conversation on it, a word is still a draft (MAG-687)`() {
+        val ulid = "01JABCDEFGHJKMNPQRSTVWXYZ0"
+        val uuid = "0b9f6c1e-3a52-4c1f-9d2e-6f4a1b2c3d4e"
+        assertEquals(ulid, DeepLinks.chatMessageId(ulid))
+        assertEquals("", DeepLinks.chatDraft(ulid))
+        assertEquals(uuid, DeepLinks.chatMessageId(uuid))
+        assertEquals(DeepLinks.ChatTarget.Message(ulid), DeepLinks.chatTarget(" $ulid "))
+        assertEquals(null, DeepLinks.chatMessageId("Ajoute du lait"))
+        assertEquals(null, DeepLinks.chatMessageId("bonjour"))
+        assertEquals("bonjour", DeepLinks.chatDraft("bonjour"))
+        assertEquals(null, DeepLinks.chatMessageId(null))
+    }
+
+    @Test
     fun `the activity takes VIEW links, is singleTop to receive them, and is not browsable`() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
         val activity = manifest.substringAfter("android:name=\".MainActivity\"").substringBefore("</activity>")

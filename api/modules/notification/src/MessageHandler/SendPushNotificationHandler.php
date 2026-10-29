@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Maggie\Notification\MessageHandler;
 
+use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Message\SendPushNotificationCommand;
 use Maggie\Notification\Push\FcmClient;
 use Maggie\Notification\Push\FcmSendResult;
 use Maggie\Notification\Push\FcmUnavailableException;
 use Maggie\Notification\Push\PushMessageFactory;
+use Maggie\Notification\Push\QuietHours;
 use Maggie\Notification\Repository\DeviceTokenRepository;
 use Maggie\Notification\Repository\NotificationRepository;
 use Maggie\Notification\UseCase\UnregisterDeviceToken;
@@ -24,6 +26,7 @@ class SendPushNotificationHandler
         private readonly NotificationRepository $notificationRepository,
         private readonly DeviceTokenRepository $deviceTokenRepository,
         private readonly UnregisterDeviceToken $unregisterDeviceToken,
+        private readonly QuietHours $quietHours,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -49,11 +52,14 @@ class SendPushNotificationHandler
             return;
         }
 
+        // Quiet hours (MAG-687): a chat message arrives, but the phone makes no sound.
+        $silent = NotificationType::Message === $notification->getType() && $this->quietHours->isActive($notification->getUser());
+
         $failure = null;
 
         foreach ($this->deviceTokenRepository->findByUser($notification->getUser()) as $deviceToken) {
             try {
-                $result = $this->fcm->send($this->messageFactory->build($notification, $deviceToken->getToken()));
+                $result = $this->fcm->send($this->messageFactory->build($notification, $deviceToken->getToken(), $silent));
             } catch (FcmUnavailableException $e) {
                 $failure = $e;
 

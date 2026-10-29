@@ -21,6 +21,7 @@ import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.ChatUnread
 import com.maggie.app.data.model.Errand
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.FinanceDashboard
@@ -73,8 +74,8 @@ import com.maggie.app.data.model.PeerAllocationLine
 import com.maggie.app.data.model.PeerAllocationRequest
 import com.maggie.app.data.model.PeerKind
 import com.maggie.app.data.model.TransactionAllocation
-import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
+import com.maggie.app.data.repository.ChatUnreadRepository
 import com.maggie.app.data.repository.ErrandPage
 import com.maggie.app.data.repository.ErrandRepository
 import com.maggie.app.data.repository.EventRepository
@@ -800,7 +801,7 @@ class FakeChat(
     val viewModel: ChatViewModel by lazy {
         val (auth, mercure) = signedIn()
         val repository = mockk<ChatRepository>()
-        val preferences = mockk<ChatPreferencesRepository>()
+        val unread = mockk<ChatUnreadRepository>()
 
         every { repository.observeMessages() } returns flowOf(history)
         coEvery { repository.syncMessages() } returns Unit
@@ -814,8 +815,9 @@ class FakeChat(
             outgoing += firstArg<String>()
             reply
         }
-        coEvery { preferences.getLastReadMessageId() } returns null
-        coEvery { preferences.saveLastReadMessageId(any()) } returns Unit
+        coEvery { unread.get() } returns Result.success(ChatUnread())
+        every { unread.observe() } returns emptyFlow()
+        coEvery { unread.markRead(any()) } returns Result.success(ChatUnread())
 
         coEvery { approvals.getPending() } returns Result.success(pending)
         every { approvals.observe() } returns emptyFlow()
@@ -828,7 +830,7 @@ class FakeChat(
                 Result.success(held.copy(status = PendingApproval.STATUS_DENIED))
         }
 
-        ChatViewModel(repository, mercure, preferences, auth, approvals)
+        ChatViewModel(repository, mercure, unread, auth, approvals)
     }
 }
 

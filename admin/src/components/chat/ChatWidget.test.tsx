@@ -90,7 +90,6 @@ describe('ChatWidget', () => {
     defaultProps.onAgentStateChange = vi.fn()
     defaultProps.onContextsChange = vi.fn()
     defaultProps.onToolCallsChange = vi.fn()
-    localStorage.removeItem('chat_lastReadMessageId')
   })
 
   test('renders tabs and input when open', () => {
@@ -824,14 +823,16 @@ describe('ChatWidget', () => {
     expect(captions.length).toBeGreaterThanOrEqual(2)
   })
 
-  test('shows unread breakline when lastReadMessageId is set in localStorage', async () => {
-    localStorage.setItem('chat_lastReadMessageId', 'msg-1')
+  test('shows unread breakline after the lastReadMessageId the server gives', async () => {
 
     const historyMessages = [
       { id: 'msg-1', role: 'user', content: 'Read message', createdAt: '2026-01-10T10:00:00Z' },
       { id: 'msg-2', role: 'assistant', content: 'Unread message', createdAt: '2026-01-10T10:05:00Z' },
     ]
-    vi.stubGlobal('fetch', mockFetch({ '/agent/messages': historyMessages }))
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({ '/agent/messages': historyMessages, '/agent/chat/unread': { lastReadMessageId: 'msg-1', unreadCount: 1 } }),
+    )
 
     renderWithTheme(<ChatWidget {...defaultProps} />)
 
@@ -845,13 +846,14 @@ describe('ChatWidget', () => {
   })
 
   test('does not show unread breakline when lastReadMessageId is last message', async () => {
-    localStorage.setItem('chat_lastReadMessageId', 'msg-2')
-
     const historyMessages = [
       { id: 'msg-1', role: 'user', content: 'Old message', createdAt: '2026-01-10T10:00:00Z' },
       { id: 'msg-2', role: 'assistant', content: 'Last message', createdAt: '2026-01-10T10:05:00Z' },
     ]
-    vi.stubGlobal('fetch', mockFetch({ '/agent/messages': historyMessages }))
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({ '/agent/messages': historyMessages, '/agent/chat/unread': { lastReadMessageId: 'msg-2', unreadCount: 0 } }),
+    )
 
     renderWithTheme(<ChatWidget {...defaultProps} />)
 

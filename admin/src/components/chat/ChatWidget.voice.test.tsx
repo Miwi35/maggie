@@ -79,7 +79,9 @@ describe('a voice message in the chat', () => {
     await screen.findByText('Un vocal ?')
     expect(screen.queryByTestId('voice-bubble')).not.toBeInTheDocument()
 
-    const chat = MockEventSource.instances.find((es) => es.url.includes('chat'))!
+    const chat = MockEventSource.instances.find((es) =>
+      new URL(es.url, 'http://x').searchParams.getAll('match').includes('/chat/user-1'),
+    )!
     act(() => {
       chat.onmessage?.({
         data: JSON.stringify({

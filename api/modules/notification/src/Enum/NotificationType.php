@@ -27,4 +27,6 @@ enum NotificationType: string
     case CookingTimer = 'cooking_timer';
     /** Time to leave for an event: one per `departAt` of its trip (MAG-655). */
     case Departure = 'departure';
+    /** A chat message from Maggie outside a conversation in progress (MAG-687). */
+    case Message = 'message';
 }

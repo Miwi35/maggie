@@ -76,4 +76,16 @@ class PushChannelsTest {
     fun `a routine reminder lands on the reminders channel (MAG-512)`() {
         assertEquals(PushChannels.REMINDERS, PushChannels.forType("routine"))
     }
+
+    @Test
+    fun `the quiet chat channel is low importance with no sound, and only a silent chat message lands on it (MAG-687)`() {
+        PushChannels.create(context)
+
+        val quiet = manager.getNotificationChannel(PushChannels.CHAT_QUIET)
+        assertEquals(android.app.NotificationManager.IMPORTANCE_LOW, quiet.importance)
+        assertEquals(null, quiet.sound)
+        assertEquals(PushChannels.CHAT_QUIET, PushChannels.forDelivery(PushChannels.CHAT, silent = true))
+        assertEquals(PushChannels.CHAT, PushChannels.forDelivery(PushChannels.CHAT, silent = false))
+        assertEquals(PushChannels.REMINDERS, PushChannels.forDelivery(PushChannels.REMINDERS, silent = true))
+    }
 }

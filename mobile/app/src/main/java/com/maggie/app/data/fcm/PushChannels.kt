@@ -33,7 +33,20 @@ object PushChannels {
     /** The channels of the default-sound generation, removed from the phone's settings. */
     val LEGACY: List<String> = listOf("chat", "reminders", "approvals", "finance")
 
+    /**
+     * Quiet hours (MAG-687): the server marks a message `silent` and keeps `chat_v2`; this channel is the app's own,
+     * low importance with no sound or vibration. A channel's sound is frozen at creation, so the loud one cannot be muted per message.
+     */
+    const val CHAT_QUIET = "chat_quiet"
+
+    /** The channels the server names. */
     val ALL: List<String> = listOf(CHAT, REMINDERS, APPROVALS, FINANCE, DEPARTURE)
+
+    /** The channels only the app picks: never named by a message. */
+    val LOCAL: List<String> = listOf(CHAT_QUIET)
+
+    /** The channel a notification is shown under: the quiet one when the server asked for silence on a message. */
+    fun forDelivery(channel: String, silent: Boolean): String = if (silent && channel == CHAT) CHAT_QUIET else channel
 
     /** The channel the server picks for a notification type (`PushMessageFactory::channel`). */
     fun forType(type: String?): String = when (type) {
@@ -72,5 +85,12 @@ object PushChannels {
             channel.setSound(chime, attributes)
             manager.createNotificationChannel(channel)
         }
+        manager.createNotificationChannel(
+            NotificationChannel(CHAT_QUIET, "Messages (heures calmes)", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "Messages de Maggie pendant vos heures calmes, sans son ni vibration"
+                setSound(null, null)
+                enableVibration(false)
+            },
+        )
     }
 }

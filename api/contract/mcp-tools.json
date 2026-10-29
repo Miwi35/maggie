@@ -2153,7 +2153,7 @@
                 "action"
             ]
         },
-        "description": "Create, list, mark as read, or delete notifications. Use create to reach the user on their own devices (push notification): a proaction you took or an approval you are waiting for — type is one of proaction, approval, reminder, task_due, grocery, finance; give a short title, an optional body, and relatedEntityIri (e.g. /api/events/{id}, /api/tasks/{id}, /finance/banks) so tapping it opens the right screen. Use unreadOnly to see what still needs attention."
+        "description": "Create, list, mark as read, or delete notifications. Use create to reach the user on their own devices (push notification): a proaction you took or an approval you are waiting for — type is one of proaction, approval, reminder, task_due, grocery, finance, message (a chat message you write outside a conversation in progress: relatedEntityIri /chat?message={id} opens it); give a short title, an optional body, and relatedEntityIri (e.g. /api/events/{id}, /api/tasks/{id}, /finance/banks) so tapping it opens the right screen. Use unreadOnly to see what still needs attention."
     },
     "manage_operations": {
         "name": "manage_operations",

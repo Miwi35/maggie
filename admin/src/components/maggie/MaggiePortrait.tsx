@@ -8,6 +8,8 @@ export const PORTRAIT_MARGIN = 24
 
 interface MaggiePortraitProps {
   unread: boolean
+  /** The server's count, when known: shown instead of the dot. */
+  count?: number
   onClick: () => void
 }
 
@@ -17,7 +19,7 @@ interface MaggiePortraitProps {
  * away — closing the chat (✕) brings it back (MAG-624, mockups `Admin-Cible` /
  * `Chat-Tablette`). The layout only renders it while the chat is closed.
  */
-export const MaggiePortrait = ({ unread, onClick }: MaggiePortraitProps) => (
+export const MaggiePortrait = ({ unread, count = 0, onClick }: MaggiePortraitProps) => (
   <ButtonBase
     data-testid="maggie-portrait"
     aria-label="Ouvrir la conversation avec Maggie"
@@ -34,7 +36,13 @@ export const MaggiePortrait = ({ unread, onClick }: MaggiePortraitProps) => (
       '&:focus-visible': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
     })}
   >
-    <Badge variant="dot" color="error" invisible={!unread} sx={{ '& .MuiBadge-badge': { top: 6, right: 6 } }}>
+    <Badge
+      variant={count > 0 ? 'standard' : 'dot'}
+      badgeContent={count > 0 ? count : undefined}
+      max={99}
+      color="error"
+      invisible={!unread}
+      sx={{ '& .MuiBadge-badge': { top: 6, right: 6 } }}>
       <MaggieAvatar size={PORTRAIT_SIZE} />
     </Badge>
   </ButtonBase>

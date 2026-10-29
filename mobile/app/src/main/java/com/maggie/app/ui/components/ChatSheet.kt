@@ -74,6 +74,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.layout.CHAT_PANEL_WIDTH
+import com.maggie.app.ui.screens.chat.ChatDisplayed
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.voice.VoiceManager
@@ -91,6 +92,7 @@ fun ChatSheet(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberChatListState(viewModel)
+    ChatDisplayed(viewModel)
 
     if (voiceManager != null) {
         val voiceState by voiceManager.state.collectAsState()
@@ -229,6 +231,7 @@ fun ChatPanel(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberChatListState(viewModel)
+    ChatDisplayed(viewModel)
 
     Surface(
         modifier = modifier

@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -27,6 +29,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 
@@ -38,6 +42,7 @@ import com.maggie.app.ui.UiTags
  */
 @Composable
 fun ChatBottomBar(
+    unreadCount: Int = 0,
     onOpenChat: () -> Unit,
     onMicClick: () -> Unit = {},
 ) {
@@ -72,7 +77,12 @@ fun ChatBottomBar(
                         text = "Demander à Maggie...",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
+                    if (unreadCount > 0) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        UnreadBadge(unreadCount)
+                    }
                 }
             }
 
@@ -98,6 +108,7 @@ fun ChatBottomBar(
 fun ChatRailActions(
     onOpenChat: () -> Unit,
     onMicClick: () -> Unit = {},
+    unreadCount: Int = 0,
 ) {
     Spacer(modifier = Modifier.height(8.dp))
 
@@ -106,10 +117,26 @@ fun ChatRailActions(
         modifier = Modifier.testTag(UiTags.CHAT_OPEN),
         elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp),
     ) {
-        Icon(Icons.Default.Chat, contentDescription = "Demander à Maggie")
+        BadgedBox(badge = { if (unreadCount > 0) UnreadBadge(unreadCount) }) {
+            Icon(Icons.Default.Chat, contentDescription = "Demander à Maggie")
+        }
     }
 
     ChatMicButton(onMicClick)
+}
+
+/** « 3 »: Maggie's messages waiting to be read; 99 and more read « 99+ ». */
+@Composable
+internal fun UnreadBadge(count: Int) {
+    Badge(
+        modifier = Modifier
+            .testTag(UiTags.CHAT_UNREAD_BADGE)
+            .semantics { contentDescription = "$count messages non lus" },
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+    ) {
+        Text(if (count > 99) "99+" else count.toString())
+    }
 }
 
 /** The mic, which opens the conversation in voice mode. Shared by the three surfaces. */

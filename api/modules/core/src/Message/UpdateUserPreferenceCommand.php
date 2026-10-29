@@ -17,6 +17,9 @@ final readonly class UpdateUserPreferenceCommand
         public ?bool $notificationsEnabled = null,
         // An empty string clears the city; null leaves it as it is.
         public ?string $defaultCity = null,
+        // "HH:MM" both, or "" both to clear the quiet hours (MAG-687); null leaves them as they are.
+        public ?string $quietHoursStart = null,
+        public ?string $quietHoursEnd = null,
     ) {
     }
 }

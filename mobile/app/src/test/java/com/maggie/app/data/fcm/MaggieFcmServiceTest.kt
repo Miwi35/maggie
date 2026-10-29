@@ -9,6 +9,7 @@ import com.google.firebase.messaging.RemoteMessage
 import com.maggie.app.data.car.noCar
 import com.maggie.app.data.interruption.InterruptionCenter
 import com.maggie.app.data.location.LocationScheduler
+import com.maggie.app.ui.navigation.DeepLinks
 import io.mockk.mockk
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -132,5 +133,71 @@ class MaggieFcmServiceTest {
         receive("type" to "withdraw", "notificationId" to "n-6", "tag" to "n-6")
 
         assertNull(shown("n-6"))
+    }
+
+    private val messageData = arrayOf(
+        "notificationId" to "m-1",
+        "type" to "message",
+        "channel" to PushChannels.CHAT,
+        "messageId" to "01JABCDEFGHJKMNPQRSTVWXYZ0",
+        "link" to "${DeepLinks.SCHEME}://chat?message=01JABCDEFGHJKMNPQRSTVWXYZ0",
+        "actionLabel" to "Ouvrir la conversation",
+        "title" to "Maggie",
+        "body" to "Tu as dentiste demain à 9 h.",
+    )
+
+    @Test
+    fun `a message of Maggie is the conversation notification with Répondre, and its tap opens the message (MAG-687)`() {
+        receive(*messageData)
+
+        val notification = shown("m-1")
+        assertEquals(PushChannels.CHAT, notification.channelId)
+        assertEquals(listOf("Répondre"), notification.actions.map { it.title.toString() })
+        val style = androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)!!
+        assertEquals("Tu as dentiste demain à 9 h.", style.messages.single().text.toString())
+        val opened = shadowOf(notification.contentIntent).savedIntent
+        assertEquals("${DeepLinks.SCHEME}://chat?message=01JABCDEFGHJKMNPQRSTVWXYZ0", opened.data.toString())
+    }
+
+    @Test
+    fun `during the quiet hours the message is posted on the quiet channel, without sound or vibration (MAG-687)`() {
+        receive(*messageData, "silent" to "1")
+
+        val notification = shown("m-1")
+        assertEquals(PushChannels.CHAT_QUIET, notification.channelId)
+        val channel = manager.getNotificationChannel(PushChannels.CHAT_QUIET)
+        assertEquals(NotificationManager.IMPORTANCE_LOW, channel.importance)
+        assertNull(channel.sound)
+        assertEquals(false, channel.shouldVibrate())
+        assertEquals(listOf("Répondre"), notification.actions.map { it.title.toString() })
+    }
+
+    @Test
+    fun `with the chat on screen on this device a message raises nothing, not even an interruption (MAG-687)`() {
+        foreground = true
+        center.hold("message")
+
+        receive(*messageData)
+
+        assertNull(shown("m-1"))
+        assertNull(center.current.value)
+    }
+
+    @Test
+    fun `the chat open but the app in the background still gets the notification`() {
+        foreground = false
+        center.hold("message")
+
+        receive(*messageData)
+
+        assertNotNull(shown("m-1"))
+    }
+
+    @Test
+    fun `a message pushed twice is one notification, whichever way it came (MAG-687)`() {
+        receive(*messageData)
+        receive(*messageData)
+
+        assertEquals(1, shadowOf(manager).allNotifications.size)
     }
 }

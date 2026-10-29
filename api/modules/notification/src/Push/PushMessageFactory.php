@@ -75,8 +75,12 @@ class PushMessageFactory
     ) {
     }
 
-    /** @return array<string, mixed> the FCM v1 `message` object */
-    public function build(Notification $notification, string $deviceToken): array
+    /**
+     * @param bool $silent quiet hours (MAG-687): the app posts it without sound or vibration
+     *
+     * @return array<string, mixed> the FCM v1 `message` object
+     */
+    public function build(Notification $notification, string $deviceToken, bool $silent = false): array
     {
         $id = (string) $notification->getId();
         $title = self::cut($notification->getTitle(), self::MAX_TITLE_BYTES);
@@ -100,6 +104,9 @@ class PushMessageFactory
             'actions' => [] === $notification->getActions() ? null : implode(',', $notification->getActions()),
             // A cooking timer's end (MAG-582): the app clears it by this id once the timer is seen elsewhere.
             'cookingTimerId' => $this->cookingTimerId($notification->getRelatedEntityIri()),
+            // The chat message to open (MAG-687).
+            'messageId' => $this->messageId($notification->getRelatedEntityIri()),
+            'silent' => $silent ? '1' : null,
             // Past it the app says nothing (MAG-679): a phone that was offline gets the alert late.
             'expiresAt' => $notification->getExpiresAt()?->format('c'),
         ], static fn (?string $value) => null !== $value && '' !== $value);
@@ -199,7 +206,7 @@ class PushMessageFactory
             NotificationType::Approval => self::CHANNEL_APPROVALS,
             NotificationType::ConsentExpiring, NotificationType::Finance => self::CHANNEL_FINANCE,
             NotificationType::Departure => self::CHANNEL_DEPARTURE,
-            NotificationType::Proaction, NotificationType::Grocery => self::CHANNEL_CHAT,
+            NotificationType::Proaction, NotificationType::Grocery, NotificationType::Message => self::CHANNEL_CHAT,
         };
     }
 
@@ -221,6 +228,18 @@ class PushMessageFactory
         $path = (string) parse_url((string) $relatedEntityIri, PHP_URL_PATH);
 
         return 1 === preg_match('#^/api/cooking/timers/([0-9A-Za-z-]{1,64})$#', $path, $m) ? $m[1] : null;
+    }
+
+    /** `/chat?message={id}`: the message Maggie wrote (MAG-687). */
+    private function messageId(?string $relatedEntityIri): ?string
+    {
+        if (null === $relatedEntityIri || '/chat' !== parse_url($relatedEntityIri, PHP_URL_PATH)) {
+            return null;
+        }
+        parse_str((string) parse_url($relatedEntityIri, PHP_URL_QUERY), $query);
+        $id = $query['message'] ?? null;
+
+        return \is_string($id) && 1 === preg_match('/^[0-9A-Za-z-]{1,64}$/', $id) ? $id : null;
     }
 
     private function taskId(?string $relatedEntityIri): ?string
@@ -262,6 +281,11 @@ class PushMessageFactory
             }
 
             return null;
+        }
+
+        // A chat message from Maggie (MAG-687): the app opens the conversation at that message.
+        if (null !== $messageId = $this->messageId($relatedEntityIri)) {
+            return ['link' => sprintf('%s://chat?message=%s', $this->deepLinkScheme, $messageId), 'label' => 'Ouvrir la conversation'];
         }
 
         // The routines of the day (MAG-512): « Aujourd'hui » of the tasks.

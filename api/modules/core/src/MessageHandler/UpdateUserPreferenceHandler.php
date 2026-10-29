@@ -47,6 +47,12 @@ class UpdateUserPreferenceHandler
             $pref->setNotificationsEnabled($command->notificationsEnabled);
         }
 
+        if (null !== $command->quietHoursStart || null !== $command->quietHoursEnd) {
+            $start = '' === $command->quietHoursStart ? null : $command->quietHoursStart;
+            $end = '' === $command->quietHoursEnd ? null : $command->quietHoursEnd;
+            $pref->setQuietHoursStart($start)->setQuietHoursEnd($end);
+        }
+
         $pref->setUpdatedAt(new \DateTimeImmutable());
         $this->entityManager->flush();
 

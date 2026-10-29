@@ -173,6 +173,7 @@ describe('NotificationBell — opening what a notification is about', () => {
   test.each([
     ['a task due', 'Dans 3 j : Appeler le garage', '/api/tasks/01K0TASK', '/tasks?task=01K0TASK'],
     ['a budget alert', 'Enveloppe dépassée', '/finance/budgets', '/envelopes'],
+    ['a message of Maggie', 'Maggie a écrit', '/chat?message=01K0MSG', '/chat?message=01K0MSG'],
   ])('%s opens the admin screen of its IRI, not the raw API path', async (_, title, relatedEntityIri, path) => {
     const read = { ...dentist, title, relatedEntityIri, readAt: '2026-10-07T10:05:00+00:00' }
     listed = [read]

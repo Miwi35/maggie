@@ -5,15 +5,17 @@ import app.cash.turbine.test
 import com.maggie.app.data.api.ApprovalDecisionException
 import com.maggie.app.data.api.ChatImage
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.interruption.InterruptionCenter
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.ChatUnread
 import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.repository.ApprovalRepository
-import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
+import com.maggie.app.data.repository.ChatUnreadRepository
 import com.maggie.app.ui.screens.contexts.ThreadEvent
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -42,6 +44,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.yield
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.After
@@ -58,10 +61,11 @@ class ChatViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var repository: ChatRepository
     private lateinit var mercureService: MercureService
-    private lateinit var chatPrefsRepository: ChatPreferencesRepository
+    private lateinit var unreadRepository: ChatUnreadRepository
     private lateinit var authRepository: AuthRepository
     private lateinit var approvalRepository: ApprovalRepository
     private lateinit var viewModel: ChatViewModel
+    private val center = InterruptionCenter()
 
     private val sampleMessages = listOf(
         ChatMessage(id = "msg-1", role = "user", content = "Hello", createdAt = "2026-02-15T10:00:00Z"),
@@ -76,7 +80,7 @@ class ChatViewModelTest {
         every { Log.d(any(), any<String>()) } returns 0
         repository = mockk()
         mercureService = mockk()
-        chatPrefsRepository = mockk()
+        unreadRepository = mockk()
         authRepository = mockk()
         approvalRepository = mockk()
         coEvery { approvalRepository.getPending() } returns Result.success(emptyList())
@@ -85,12 +89,14 @@ class ChatViewModelTest {
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns emptyFlow()
         coEvery { repository.loadRecentMessages(any()) } returns sampleMessages
-        coEvery { chatPrefsRepository.getLastReadMessageId() } returns null
-        coEvery { chatPrefsRepository.saveLastReadMessageId(any()) } returns Unit
+        coEvery { repository.handleMercureMessage(any()) } returns Unit
+        coEvery { unreadRepository.get() } returns Result.success(ChatUnread())
+        every { unreadRepository.observe() } returns emptyFlow()
+        coEvery { unreadRepository.markRead(any()) } returns Result.success(ChatUnread(lastReadMessageId = "msg-2"))
     }
 
     private fun createViewModel(): ChatViewModel {
-        return ChatViewModel(repository, mercureService, chatPrefsRepository, authRepository, approvalRepository)
+        return ChatViewModel(repository, mercureService, unreadRepository, authRepository, approvalRepository, center)
     }
 
     @After
@@ -375,7 +381,7 @@ class ChatViewModelTest {
 
     @Test
     fun `onScrolledToBottom clears unread`() = runTest {
-        coEvery { chatPrefsRepository.getLastReadMessageId() } returns "msg-1"
+        coEvery { unreadRepository.get() } returns Result.success(ChatUnread("msg-1", 1))
         viewModel = createViewModel()
         advanceUntilIdle()
 
@@ -386,7 +392,163 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         assertNull(viewModel.uiState.value.unreadFromId)
-        coVerify { chatPrefsRepository.saveLastReadMessageId("msg-2") }
+        coVerify { unreadRepository.markRead("msg-2") }
+    }
+
+    // --- Server-backed unread (MAG-687) ---
+
+    private val messageOfMaggie = ChatMessage(id = "msg-3", role = "assistant", content = "Salut", createdAt = "2026-02-15T10:05:00Z")
+
+    private fun chatEvents(vararg messages: ChatMessage) = flow {
+        messages.forEach { emit(MercureEvent(id = "e-${it.id}", data = Json.encodeToString(ChatMessage.serializer(), it))) }
+        awaitCancellation()
+    }
+
+    @Test
+    fun `the unread count comes from the server when the chat loads`() = runTest {
+        coEvery { unreadRepository.get() } returns Result.success(ChatUnread("msg-1", 3))
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.unreadCount)
+    }
+
+    @Test
+    fun `a server that cannot be reached leaves nothing unread rather than a wrong badge`() = runTest {
+        coEvery { unreadRepository.get() } returns Result.failure(RuntimeException("offline"))
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.uiState.value.unreadCount)
+        assertNull(viewModel.uiState.value.unreadFromId)
+    }
+
+    @Test
+    fun `showing the chat marks the latest message read on the server and zeroes the badge, keeping the divider`() = runTest {
+        coEvery { unreadRepository.get() } returns Result.success(ChatUnread("msg-1", 1))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onChatDisplayed(true)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { unreadRepository.markRead("msg-2") }
+        assertEquals(0, viewModel.uiState.value.unreadCount)
+        assertEquals("msg-2", viewModel.uiState.value.unreadFromId)
+    }
+
+    @Test
+    fun `the same message is not marked read twice`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onChatDisplayed(true)
+        viewModel.onChatDisplayed(true)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { unreadRepository.markRead("msg-2") }
+    }
+
+    @Test
+    fun `a message of Maggie arriving while the chat is shown is read at once`() = runTest {
+        every { mercureService.subscribe("/chat/user-1") } returns chatEvents(messageOfMaggie)
+        viewModel = createViewModel()
+        viewModel.onChatDisplayed(true)
+        advanceUntilIdle()
+
+        coVerify { unreadRepository.markRead("msg-3") }
+        assertEquals(0, viewModel.uiState.value.unreadCount)
+    }
+
+    @Test
+    fun `a message of Maggie arriving while the chat is hidden is counted from the server, not marked read`() = runTest {
+        coEvery { unreadRepository.get() } returnsMany listOf(
+            Result.success(ChatUnread()),
+            Result.success(ChatUnread("msg-2", 1)),
+        )
+        every { mercureService.subscribe("/chat/user-1") } returns chatEvents(messageOfMaggie)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { unreadRepository.markRead(any()) }
+        assertEquals(1, viewModel.uiState.value.unreadCount)
+    }
+
+    @Test
+    fun `reading on another device updates the badge and drops the divider`() = runTest {
+        val readElsewhere = MutableSharedFlow<ChatUnread>()
+        every { unreadRepository.observe() } returns readElsewhere
+        coEvery { unreadRepository.get() } returns Result.success(ChatUnread("msg-1", 1))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.unreadCount)
+        assertEquals("msg-2", viewModel.uiState.value.unreadFromId)
+
+        readElsewhere.emit(ChatUnread("msg-2", 0))
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.uiState.value.unreadCount)
+        assertNull(viewModel.uiState.value.unreadFromId)
+    }
+
+    @Test
+    fun `scrolling to the bottom marks read and drops the divider`() = runTest {
+        coEvery { unreadRepository.get() } returns Result.success(ChatUnread("msg-1", 1))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onScrolledToBottom()
+        advanceUntilIdle()
+
+        coVerify { unreadRepository.markRead("msg-2") }
+        assertNull(viewModel.uiState.value.unreadFromId)
+    }
+
+    @Test
+    fun `a failed mark read is tried again at the next occasion`() = runTest {
+        coEvery { unreadRepository.markRead(any()) } returns Result.failure(RuntimeException("offline"))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onChatDisplayed(true)
+        advanceUntilIdle()
+        viewModel.onChatDisplayed(false)
+        viewModel.onChatDisplayed(true)
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { unreadRepository.markRead("msg-2") }
+    }
+
+    @Test
+    fun `the interruption center keeps quiet about messages for as long as the chat is shown`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        val message = com.maggie.app.data.fcm.PushPayload.from(
+            mapOf("notificationId" to "n1", "type" to "message", "body" to "Salut"),
+        )!!
+
+        viewModel.onChatDisplayed(true)
+        assertFalse(center.offer(message))
+
+        viewModel.onChatDisplayed(false)
+        val another = message.copy(notificationId = "n2")
+        assertTrue(center.offer(another))
+    }
+
+    @Test
+    fun `opening on a message waits for the first page so it is not replaced`() = runTest {
+        val older = ChatMessage(id = "old-1", role = "assistant", content = "Avant", createdAt = "2026-02-10T10:00:00Z")
+        coEvery { repository.loadMessageContext("old-1") } returns listOf(older)
+        viewModel = createViewModel()
+
+        viewModel.navigateToMessage("old-1")
+        advanceTimeBy(100)
+
+        assertEquals(listOf("old-1"), viewModel.uiState.value.messages.map { it.id })
+        assertEquals("old-1", viewModel.uiState.value.highlightedMessageId)
     }
 
     @Test
@@ -403,7 +565,7 @@ class ChatViewModelTest {
 
     @Test
     fun `unread divider appears when lastReadId is set`() = runTest {
-        coEvery { chatPrefsRepository.getLastReadMessageId() } returns "msg-1"
+        coEvery { unreadRepository.get() } returns Result.success(ChatUnread("msg-1", 1))
         viewModel = createViewModel()
         advanceUntilIdle()
 

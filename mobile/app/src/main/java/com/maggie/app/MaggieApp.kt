@@ -63,7 +63,7 @@ import com.maggie.app.data.repository.AgendaCardRepository
 import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.CalendarCacheFeed
-import com.maggie.app.data.repository.ChatPreferencesRepository
+import com.maggie.app.data.repository.ChatUnreadRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.GroceryCardRepository
@@ -375,7 +375,7 @@ class MaggieApp : Application() {
             single { EventRepository(get(), get()) }
             single { TaskRepository(get(), get()) }
             single { RoutineRepository(get()) }
-            single { ChatPreferencesRepository(androidContext()) }
+            single { ChatUnreadRepository(get(), get(), get()) }
             single { ChatRepository(get(), get()) }
             single { ApprovalRepository(get(), get(), get()) }
             single { AgendaRepository(get(), get()) }
@@ -449,7 +449,7 @@ class MaggieApp : Application() {
             viewModel { BravoViewModel(get(), get()) }
             viewModel { RoutinesViewModel(get(), get(), get(), get(), get()) }
             viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
-            viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
+            viewModel { ChatViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get(), get(), get()) }

@@ -92,7 +92,6 @@ describe('ChatWidget scroll (MAG-348)', () => {
       },
     })
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => VIEWPORT })
-    localStorage.removeItem('chat_lastReadMessageId')
     screen_.narrow = false
   })
 

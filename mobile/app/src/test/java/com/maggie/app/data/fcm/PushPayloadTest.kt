@@ -333,4 +333,24 @@ class PushPayloadTest {
         assertFalse(of("type" to "proaction").awaitsAnswer)
         assertFalse(of("type" to "departure", "link" to "https://waze.com/ul?x=1").awaitsAnswer)
     }
+
+    @Test
+    fun `a message push carries the message to open and whether it is silent (MAG-687)`() {
+        val loud = PushPayload.from(
+            mapOf("notificationId" to "n-1", "type" to "message", "messageId" to "01JABCDEFGHJKMNPQRSTVWXYZ0", "body" to "Salut"),
+        )!!
+        assertEquals("01JABCDEFGHJKMNPQRSTVWXYZ0", loud.messageId)
+        assertFalse(loud.silent)
+        assertEquals(PushChannels.CHAT, loud.channel)
+        assertTrue(loud.isConversation)
+
+        val quiet = PushPayload.from(mapOf("notificationId" to "n-2", "type" to "message", "silent" to "1"))!!
+        assertTrue(quiet.silent)
+    }
+
+    @Test
+    fun `a message cannot pick the quiet channel itself`() {
+        val payload = PushPayload.from(mapOf("notificationId" to "n-1", "type" to "message", "channel" to PushChannels.CHAT_QUIET))!!
+        assertEquals(PushChannels.CHAT, payload.channel)
+    }
 }

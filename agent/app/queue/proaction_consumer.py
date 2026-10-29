@@ -12,6 +12,7 @@ from app.mercure.publisher import MercurePublisher
 from app.proactions import api as proactions_api
 from app.proactions.api import Proaction
 from app.queue.connection import PROACTION_QUEUE, get_channel
+from app.queue.message_notification import notify_message
 from app.trips import is_silent_trip_run
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             # conversation that never mentions it, and the summary of the thread
             # it belonged to never learns Maggie spoke (MAG-14).
             context_id = result.get("context_id")
-            await message_repo.create(
+            stored = await message_repo.create(
                 user_id=proaction.user_id,
                 role="assistant",
                 content=result["response"],
@@ -77,6 +78,10 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 # into the same thread — so what it looked up is replayed there too
                 # (MAG-211).
                 blocks=result.get("blocks"),
+            )
+            # Out of any conversation: the user is told, never failing a proaction already delivered.
+            await notify_message(
+                proaction.user_id, stored.id, result["response"], has_audio=bool(getattr(stored, "audio", None))
             )
     except Exception as e:
         error_msg = str(e)

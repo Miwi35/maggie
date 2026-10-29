@@ -27,7 +27,7 @@ final class MercureSubscriberTokenFactory
      * connects, stays connected and never receives anything.
      * `agent/contract/mercure-topics.json` is the agent's own list.
      */
-    private const AGENT_TOPICS = ['chat', 'contexts', 'proactions', 'instructions', 'skills', 'approvals', 'memory'];
+    private const AGENT_TOPICS = ['chat', 'contexts', 'proactions', 'instructions', 'skills', 'approvals', 'memory', 'chat-read'];
 
     public function __construct(
         private readonly MercureAccessToken $accessToken,

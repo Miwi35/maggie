@@ -189,6 +189,35 @@ class NotificationToolsTest extends KernelTestCase
         self::assertCount(1, $pushes);
     }
 
+    public function testCreateAMessageNotificationStoresPublishesIndexesAndQueuesThePush(): void
+    {
+        $this->loadFixtures('notification.yaml');
+        $user = $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())(
+            'create',
+            type: 'message',
+            title: 'Maggie',
+            body: 'Ton rendez-vous est déplacé.',
+            relatedEntityIri: '/chat?message=01JMSG0123456789ABCDEFGHJK',
+        ), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['created']);
+        $stored = $this->notificationTitled('Maggie');
+        self::assertNotNull($stored);
+        self::assertSame((string) $user->getId(), (string) $stored->getUser()->getId());
+        self::assertSame('message', $stored->getType()->value);
+        self::assertSame('/chat?message=01JMSG0123456789ABCDEFGHJK', $stored->getRelatedEntityIri());
+
+        $this->assertMercureUpdatePublished('/notifications/');
+        $this->assertElasticsearchIndexDispatched(Notification::class);
+        $pushes = array_filter(
+            array_map(static fn ($envelope) => $envelope->getMessage(), $this->getAsyncTransport()->getSent()),
+            static fn (object $message) => $message instanceof SendPushNotificationCommand && $message->notificationId === (string) $stored->getId(),
+        );
+        self::assertCount(1, $pushes);
+    }
+
     private function notificationTitled(string $title): ?Notification
     {
         $em = self::getContainer()->get('doctrine.orm.entity_manager');

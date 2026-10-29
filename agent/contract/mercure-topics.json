@@ -5,5 +5,6 @@
     "instructions": "/instructions/{userId}",
     "skills": "/skills/{userId}",
     "approvals": "/approvals/{userId}",
-    "memory": "/memory/{userId}"
+    "memory": "/memory/{userId}",
+    "chat-read": "/chat-read/{userId}"
 }

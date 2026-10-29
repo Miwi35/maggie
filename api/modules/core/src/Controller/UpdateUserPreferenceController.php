@@ -68,6 +68,21 @@ final class UpdateUserPreferenceController
             );
         }
 
+        // Quiet hours (MAG-687): both "HH:MM", or both null to clear. Sent together, never half.
+        $hasStart = \array_key_exists('quietHoursStart', $body);
+        $hasEnd = \array_key_exists('quietHoursEnd', $body);
+        if ($hasStart || $hasEnd) {
+            $start = $body['quietHoursStart'] ?? null;
+            $end = $body['quietHoursEnd'] ?? null;
+            $valid = static fn (mixed $v): bool => \is_string($v) && 1 === preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v);
+            if (!$hasStart || !$hasEnd || !(($valid($start) && $valid($end)) || (null === $start && null === $end))) {
+                return new JsonResponse(
+                    ['error' => 'quietHoursStart and quietHoursEnd must be sent together, both as HH:MM or both null'],
+                    Response::HTTP_BAD_REQUEST,
+                );
+            }
+        }
+
         $agendaIds = $body['enabledAgendaIds'] ?? null;
         if (null !== $agendaIds && (!\is_array($agendaIds) || array_filter($agendaIds, 'is_string') !== $agendaIds)) {
             return new JsonResponse(
@@ -90,6 +105,8 @@ final class UpdateUserPreferenceController
                 enabledAgendaIds: null === $agendaIds ? null : array_values($agendaIds),
                 notificationsEnabled: $body['notificationsEnabled'] ?? null,
                 defaultCity: $body['defaultCity'] ?? null,
+                quietHoursStart: $hasStart ? ($body['quietHoursStart'] ?? '') : null,
+                quietHoursEnd: $hasEnd ? ($body['quietHoursEnd'] ?? '') : null,
             ));
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
@@ -112,6 +129,11 @@ final class UpdateUserPreferenceController
         // the two answers must carry the same keys.
         if (null !== $preference->getDefaultCity()) {
             $response['defaultCity'] = $preference->getDefaultCity();
+        }
+
+        if (null !== $preference->getQuietHoursStart()) {
+            $response['quietHoursStart'] = $preference->getQuietHoursStart();
+            $response['quietHoursEnd'] = $preference->getQuietHoursEnd();
         }
 
         return new JsonResponse($response);

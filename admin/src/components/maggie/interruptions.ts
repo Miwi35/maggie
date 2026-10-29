@@ -88,6 +88,9 @@ export function notificationLink(iri: string | null | undefined): NotificationLi
     }
   }
 
+  // A message of Maggie's (MAG-687): the chat opens on it.
+  if (path === '/chat' && /[?&]message=[0-9A-Za-z-]{1,64}(?:&|#|$)/.test(iri)) return { path: iri, label: 'Ouvrir la conversation' }
+
   // The routines of the day (MAG-512) wait in « Aujourd'hui » of the tasks.
   if (/^\/tasks\/?$/.test(path)) return { path: '/tasks', label: 'Voir les routines' }
 
