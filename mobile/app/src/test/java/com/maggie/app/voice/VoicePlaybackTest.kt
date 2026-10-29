@@ -17,6 +17,7 @@ private class FakePlayer : VoiceMessagePlayer {
     var released = false
     var appliedSpeed = 1f
     var seek: Int? = null
+    var focusRefused = false
     override var positionMs: Int = 0
 
     override fun prepare(url: String, listener: VoiceMessagePlayer.Listener) {
@@ -24,7 +25,9 @@ private class FakePlayer : VoiceMessagePlayer {
         this.listener = listener
     }
 
-    override fun start() { playing = true }
+    override fun start() {
+        if (focusRefused) listener?.onFocusLost() else playing = true
+    }
     override fun pause() { playing = false }
     override fun seekTo(positionMs: Int) { seek = positionMs; this.positionMs = positionMs }
     override fun setSpeed(speed: Float) { appliedSpeed = speed }
@@ -170,6 +173,18 @@ class VoicePlaybackTest {
         players[0].listener!!.onPrepared(4000)
 
         players[0].listener!!.onFocusLost()
+
+        assertEquals(Status.PAUSED, playback.state.value.status)
+        playback.stop()
+    }
+
+    @Test
+    fun `a refused focus at the start leaves the bubble paused, not playing`() = runTest {
+        val playback = VoicePlayback(this, { FakePlayer().also { it.focusRefused = true; players.add(it) } }, { "https://signed/$it" })
+        playback.toggle("m1")
+        runCurrent()
+
+        players[0].listener!!.onPrepared(4000)
 
         assertEquals(Status.PAUSED, playback.state.value.status)
         playback.stop()

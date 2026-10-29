@@ -86,9 +86,10 @@ class VoicePlayback(
     }
 
     private fun resume() {
-        player?.start()
+        // PLAYING first: start() may answer a lost focus or an error at once, and that must stay.
         _state.update { it.copy(status = VoicePlaybackState.Status.PLAYING) }
-        startTicker()
+        player?.start()
+        if (_state.value.status == VoicePlaybackState.Status.PLAYING) startTicker()
     }
 
     private fun load(messageId: String, knownDurationMs: Int) {
@@ -115,14 +116,14 @@ class VoicePlayback(
                     override fun onPrepared(durationMs: Int) {
                         if (mine != generation) return
                         fresh.setSpeed(_state.value.speed)
-                        fresh.start()
                         _state.update {
                             it.copy(
                                 status = VoicePlaybackState.Status.PLAYING,
                                 durationMs = durationMs.takeIf { d -> d > 0 } ?: it.durationMs,
                             )
                         }
-                        startTicker()
+                        fresh.start()
+                        if (_state.value.status == VoicePlaybackState.Status.PLAYING) startTicker()
                     }
 
                     override fun onCompleted() {
