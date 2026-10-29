@@ -72,10 +72,10 @@ async def run_tool_loop(
             )
             counts = usage_kwargs(response.usage)
             record_llm_usage(model=model, call_type=call_type, duration_seconds=time.monotonic() - t0, **counts)
-            usage["input_tokens"] += (
-                counts["input_tokens"] + counts["cache_creation_input_tokens"] + counts["cache_read_input_tokens"]
+            usage["input_tokens"] += sum(
+                counts.get(key, 0) for key in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
             )
-            usage["output_tokens"] += counts["output_tokens"]
+            usage["output_tokens"] += counts.get("output_tokens", 0)
         except Exception:
             record_llm_usage(
                 model=model,

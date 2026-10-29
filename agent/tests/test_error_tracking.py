@@ -145,6 +145,7 @@ class TestTheSignals:
         with (
             patch.object(proaction_consumer, "proactions_api", AsyncMock()),
             patch.object(proaction_consumer, "publisher", AsyncMock()),
+            patch.object(proaction_consumer, "_journal", AsyncMock()),
         ):
             result = await proaction_consumer.execute_proaction(gateway, proaction)
 
