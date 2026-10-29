@@ -62,6 +62,9 @@ class AssistantOverlayScreenTest {
         chat: FakeChat,
         voice: Voice,
         pendingContext: ScreenContext? = null,
+        screenAttached: Boolean = false,
+        onAttachScreen: () -> Unit = {},
+        onRemoveScreen: () -> Unit = {},
         onListen: () -> Unit = {},
     ) = compose.setContent {
         AssistantOverlay(
@@ -69,6 +72,9 @@ class AssistantOverlayScreenTest {
             voiceManager = voice.manager,
             onDismiss = {},
             pendingContext = pendingContext,
+            screenAttached = screenAttached,
+            onAttachScreen = onAttachScreen,
+            onRemoveScreen = onRemoveScreen,
             onVoiceResult = {},
             onListen = onListen,
         )
@@ -192,7 +198,12 @@ class AssistantOverlayScreenTest {
 
     @Test
     fun `a screenshot still on its way says so`() {
-        show(FakeChat(history = emptyList()), Voice(), pendingContext = ScreenContext(screenshotPending = true))
+        show(
+            FakeChat(history = emptyList()),
+            Voice(),
+            pendingContext = ScreenContext(screenshotPending = true),
+            screenAttached = true,
+        )
         compose.waitForIdle()
 
         compose.onNodeWithTag(UiTags.ASSIST_SCREENSHOT_STATUS, useUnmergedTree = true)
@@ -214,10 +225,57 @@ class AssistantOverlayScreenTest {
             FakeChat(history = emptyList()),
             Voice(),
             pendingContext = ScreenContext(appLabel = "Chrome", hasScreenshot = true),
+            screenAttached = true,
         )
         compose.waitForIdle()
 
         compose.onNodeWithTag(UiTags.ASSIST_SCREENSHOT_STATUS, useUnmergedTree = true)
             .assertTextEquals("Capture d'écran indisponible : elle n'a pas pu être lue")
+    }
+
+    @Test
+    fun `a screen to offer shows « + Écran » and nothing else about it`() {
+        var attached = 0
+        show(
+            FakeChat(history = emptyList()),
+            Voice(),
+            pendingContext = ScreenContext(appLabel = "Chrome", hasScreenshot = true),
+            onAttachScreen = { attached++ },
+        )
+        compose.waitForIdle()
+
+        compose.onNodeWithText("+ Écran", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.ASSIST_SCREEN_ATTACHMENT, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.ASSIST_SCREENSHOT, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.ASSIST_SCREEN_ADD, useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.OnClick)
+        assertEquals(1, attached)
+    }
+
+    @Test
+    fun `an attached screen reads « Écran · application » with a cross that removes it`() {
+        var removed = 0
+        show(
+            FakeChat(history = emptyList()),
+            Voice(),
+            pendingContext = ScreenContext(appLabel = "Chrome", hasScreenshot = true),
+            screenAttached = true,
+            onRemoveScreen = { removed++ },
+        )
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.ASSIST_SCREEN_ADD, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Écran · Chrome", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.ASSIST_SCREEN_REMOVE, useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.OnClick)
+        assertEquals(1, removed)
+    }
+
+    @Test
+    fun `no screen to offer, no chip`() {
+        show(FakeChat(history = emptyList()), Voice(), pendingContext = ScreenContext(appLabel = "Chrome"))
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.ASSIST_SCREEN_ADD, useUnmergedTree = true).assertDoesNotExist()
     }
 }

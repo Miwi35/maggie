@@ -36,19 +36,19 @@ class AssistantActivity : ComponentActivity() {
      */
     private var pendingContext by mutableStateOf<ScreenContext?>(null)
 
-    /** The zone of the screenshot the user circled (MAG-316); null sends the whole screen. */
-    private var screenshotRegion by mutableStateOf<CropRegion?>(null)
-
     /** Always the session's own file: the intent only says whether there is one (MAG-214). */
     private val screenshot by lazy { PendingScreenshot(ScreenshotEncoder.file(this)) }
 
+    /** Nothing is attached until the user touches « + Écran » (MAG-486); the circled zone lives here too (MAG-316). */
+    private val attachment by lazy { ScreenAttachment(screenshot) }
+
     private val sendVoiceResult: (String) -> Unit = { text ->
         val screen = pendingContext
-        // Read, then deleted: the screenshot goes with this sentence and nowhere else (MAG-214).
-        val takeImage = { if (screen?.hasScreenshot == true) screenshot.take(screenshotRegion) else null }
-        if (routeVoiceResult(text, chatViewModel, voiceManager, screen, takeImage)) {
+        // Read, then deleted: the screenshot goes with this sentence if it was attached, and nowhere else (MAG-214).
+        if (routeVoiceResult(text, chatViewModel, voiceManager, screen) { attachment.take(screen) }) {
+            // Deleted unread when it was not attached: the capture does not outlive the sentence (MAG-486).
+            attachment.sent()
             pendingContext = null
-            screenshotRegion = null
         }
     }
 
@@ -59,8 +59,7 @@ class AssistantActivity : ComponentActivity() {
     private fun replaceContext(next: ScreenContext?) {
         if (pendingContext?.hasScreenshot == true && next?.hasScreenshot != true) screenshot.discard()
         pendingContext = next
-        // A zone circled on the previous screen means nothing on this one.
-        screenshotRegion = null
+        attachment.reset()
     }
 
     /**
@@ -105,8 +104,11 @@ class AssistantActivity : ComponentActivity() {
                     voiceManager = voiceManager,
                     onDismiss = { finish() },
                     pendingContext = pendingContext,
-                    screenshotRegion = screenshotRegion,
-                    onSelectScreenshotRegion = { screenshotRegion = it },
+                    screenAttached = attachment.attached,
+                    onAttachScreen = attachment::attach,
+                    onRemoveScreen = attachment::remove,
+                    screenshotRegion = attachment.region,
+                    onSelectScreenshotRegion = attachment::select,
                     onVoiceResult = sendVoiceResult,
                     onListen = { requestMicAndListen() },
                 )
