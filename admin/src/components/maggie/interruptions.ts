@@ -1,5 +1,6 @@
 import { SEARCH_INDEX_CONFIG } from '../../modules/search/searchConfig'
 import { isTripIri } from '../../modules/calendar/trips'
+import { stripDeliveryTags } from '../chat/deliveryTags'
 
 /** Where an interruption comes from — what its action does depends on it. */
 export type InterruptionSource = 'proaction' | 'notification' | 'approval'
@@ -107,7 +108,7 @@ export function notificationLink(iri: string | null | undefined): NotificationLi
 function notificationMessage(type: string, body: unknown): string {
   if (typeof body !== 'string' || !body.trim()) return ''
   if (type === 'reminder' && /^\d+$/.test(body.trim())) return `Dans ${Number(body)} min`
-  return body
+  return stripDeliveryTags(body)
 }
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value.trim() !== ''

@@ -17,6 +17,7 @@ import com.maggie.app.MainActivity
 import com.maggie.app.R
 import com.maggie.app.ui.navigation.DeepLinks
 import com.maggie.app.ui.screens.departure.DepartureActivity
+import com.maggie.app.util.stripDeliveryTags
 
 /**
  * Raises, updates and closes the system notification of a push, with its buttons.
@@ -40,8 +41,8 @@ class PushNotifier(private val context: Context) {
         val builder = NotificationCompat.Builder(context, payload.channel)
             .setSmallIcon(R.drawable.maggie_logo)
             .setContentTitle(payload.title)
-            .setContentText(note ?: payload.text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(note ?: payload.text))
+            .setContentText(note ?: payload.text?.let(::stripDeliveryTags))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(note ?: payload.text?.let(::stripDeliveryTags)))
             .setAutoCancel(true)
             .setContentIntent(openIntent(payload, toLink = false))
 
@@ -116,7 +117,7 @@ class PushNotifier(private val context: Context) {
 
     // Android Auto reads the message, not the title: a headline that is not just « Maggie » goes in front of it.
     private fun spoken(payload: PushPayload): String =
-        listOfNotNull(payload.title.takeIf { it != SENDER }, payload.text).joinToString("\n")
+        listOfNotNull(payload.title.takeIf { it != SENDER }, payload.text?.let(::stripDeliveryTags)).joinToString("\n")
 
     /** [tag]: the payload's [PushPayload.systemTag] — its notification id, or `cooking-timer-{id}`. */
     fun close(tag: String) {
