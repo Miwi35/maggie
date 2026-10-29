@@ -167,6 +167,11 @@ object UiTags {
     /** The send button while Maggie answers: it stops her and brings the question back to the input (MAG-320). */
     const val CHAT_STOP = "chat_stop"
 
+    /** « + Écran » in the assistant overlay, the attachment it turns into, and its cross (MAG-486). */
+    const val ASSIST_SCREEN_ADD = "assist_screen_add"
+    const val ASSIST_SCREEN_ATTACHMENT = "assist_screen_attachment"
+    const val ASSIST_SCREEN_REMOVE = "assist_screen_remove"
+
     /** The assistant overlay's screenshot, which the user circles to pick the zone to send (MAG-316). */
     const val ASSIST_SCREENSHOT = "assist_screenshot"
 
