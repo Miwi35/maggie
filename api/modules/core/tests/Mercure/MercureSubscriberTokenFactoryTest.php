@@ -29,7 +29,7 @@ final class MercureSubscriberTokenFactoryTest extends TestCase
         );
 
         // The agent publishes outside /users/…, on topics keyed by the user id.
-        foreach (['chat', 'contexts', 'proactions', 'instructions', 'skills', 'approvals', 'memory'] as $name) {
+        foreach (['chat', 'contexts', 'proactions', 'instructions', 'skills', 'approvals', 'memory', 'chat-read'] as $name) {
             self::assertContains(['match' => '/'.$name.'/'.$id], $topics);
         }
 
