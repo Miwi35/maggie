@@ -19,6 +19,7 @@ from app.auth import (
     require_service_token,
 )
 from app.config import settings
+from app.db.chat_read_state_repository import UnknownMessage, chat_read_state_repo
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
@@ -44,6 +45,8 @@ from app.llm.transcription import CLEANUP_MODES, transcribe_audio
 from app.llm.turns import lease_deadline, turn_runner
 from app.memory.bucket import FakeBucket, ObjectNotFound
 from app.memory.service import memory_service
+from app.mercure import topics as mercure_topics
+from app.mercure.publisher import MercurePublisher
 from app.policy.decision import CHANNELS, record_decision
 from app.proactions import api as proactions_api
 from app.queue.proaction_consumer import execute_proaction
@@ -59,6 +62,7 @@ router = APIRouter()
 router.include_router(memory_router)
 
 llm_gateway = LLMGateway()
+read_publisher = MercurePublisher()
 streaming_gateway = StreamingGateway()
 
 
@@ -97,6 +101,10 @@ class ChatRequest(BaseModel):
 
 MAX_MESSAGE_ID_CHARS = 26
 MAX_INTERRUPT_CHARS = 20000
+
+
+class ReadRequest(BaseModel):
+    messageId: str = Field(min_length=1)
 
 
 class InterruptRequest(BaseModel):
@@ -616,6 +624,26 @@ async def get_messages(
         messages = await message_repo.find_recent(user_id, limit=limit)
 
     return [msg.to_dict() for msg in messages]
+
+
+@router.get("/chat/unread")
+async def get_chat_unread(user_id: str = Depends(get_current_user_id)):
+    """Where the user stopped reading and how many of Maggie's messages came after (MAG-687)."""
+    return await chat_read_state_repo.get(user_id)
+
+
+@router.put("/chat/read")
+async def mark_chat_read(data: ReadRequest, user_id: str = Depends(get_current_user_id)):
+    """Move the shared read position forward (never back), and tell the user's other screens."""
+    try:
+        state = await chat_read_state_repo.mark_read(user_id, data.messageId)
+    except UnknownMessage:
+        raise HTTPException(status_code=404, detail="Message not found") from None
+    try:
+        await read_publisher.publish(mercure_topics.for_user(mercure_topics.CHAT_READ, user_id), state)
+    except Exception as e:
+        logger.warning(f"Failed to publish chat read position: {e}")
+    return state
 
 
 @router.delete("/messages/{message_id}", status_code=204)
