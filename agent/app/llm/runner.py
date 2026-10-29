@@ -54,6 +54,7 @@ async def run_tool_loop(
     """
     tool_calls_made: list[dict] = []
     blocks: list[dict] = []
+    usage = {"input_tokens": 0, "output_tokens": 0}
     cached_tools = cache_tools(tools)
     guard = ClaimGuard(tools, question_of(messages))
 
@@ -69,12 +70,12 @@ async def run_tool_loop(
                 messages=messages,
                 tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
             )
-            record_llm_usage(
-                model=model,
-                call_type=call_type,
-                duration_seconds=time.monotonic() - t0,
-                **usage_kwargs(response.usage),
+            counts = usage_kwargs(response.usage)
+            record_llm_usage(model=model, call_type=call_type, duration_seconds=time.monotonic() - t0, **counts)
+            usage["input_tokens"] += (
+                counts["input_tokens"] + counts["cache_creation_input_tokens"] + counts["cache_read_input_tokens"]
             )
+            usage["output_tokens"] += counts["output_tokens"]
         except Exception:
             record_llm_usage(
                 model=model,
@@ -106,7 +107,7 @@ async def run_tool_loop(
                 text_response = guard.honest_answer()
             else:
                 text_response = with_sources(text_response, response.content)
-            return {"response": text_response, "tool_calls": tool_calls_made, "blocks": blocks}
+            return {"response": text_response, "tool_calls": tool_calls_made, "blocks": blocks, "usage": usage}
 
         messages.append({"role": "assistant", "content": response.content})
 
@@ -129,4 +130,4 @@ async def run_tool_loop(
         # block objects, which no column can store.
         blocks.extend(record(round_calls))
 
-    return {"response": ITERATION_LIMIT_MESSAGE, "tool_calls": tool_calls_made, "blocks": blocks}
+    return {"response": ITERATION_LIMIT_MESSAGE, "tool_calls": tool_calls_made, "blocks": blocks, "usage": usage}

@@ -14,6 +14,7 @@ from app.db.chat_read_state_model import ChatReadState  # noqa: F401 — registe
 from app.db.context_model import ConversationContext  # noqa: F401 — register model with AgentBase before create_all
 from app.db.context_repository import context_repo
 from app.db.instruction_model import Instruction  # noqa: F401 — register model with AgentBase before create_all
+from app.db.journal_model import JournalRun  # noqa: F401 — register model with AgentBase before create_all
 from app.db.memory_index_model import (  # noqa: F401 — register models with AgentBase before create_all
     MemoryFile,
     MemoryLink,

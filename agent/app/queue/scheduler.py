@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time as time_module
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -9,6 +10,7 @@ from app.db.context_model import ContextStatus, ConversationContext
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
+from app.db.journal_repository import journal_repo
 from app.db.memory_night_repository import DONE
 from app.db.message_repository import message_repo
 from app.db.pending_action_repository import pending_action_repo
@@ -31,6 +33,7 @@ EXECUTION_INTERVAL = 60  # seconds
 ENCODING_PAGE = 20  # threads looked at per query by the encoding pass
 ENCODING_MAX_PAGES = 50  # pages per cycle: what is left is found again at the next one
 PLANNING_REFRESH = 900  # seconds: how often new users and changed timezones are picked up
+JOURNAL_PURGE_INTERVAL = 6 * 3600  # seconds: the journal keeps days, a few hours late is nothing
 PLANNING_AGENDA_TIMEOUT = 5.0  # seconds: reading the day's events for the recall; past it, planning goes on without
 
 
@@ -158,17 +161,49 @@ async def generate_proactions(
     """Run the daily planning for one user and return what came out — the planner's and the manual trigger's one path.
 
     With `dry_run` the run plans nothing for real: `schedule_proaction` is simulated and the result lists it.
+    A real run is kept in the journal (MAG-688), raised or not; the result carries its entry as `journal`.
     """
     logger.info(f"Running daily proaction planning for user {user_id}")
-    today = (now or datetime.now(UTC)).astimezone(await resolve_user_timezone(user_id)).date()
+    started_at = datetime.now(UTC)
+    clock = time_module.monotonic()
+    today = (now or started_at).astimezone(await resolve_user_timezone(user_id)).date()
     prompt = daily_planning_prompt(today)
     options: dict = {"silent": True}
     if dry_run:
         options["dry_run"] = True
-    # Level 2 of the recall on the coming day: what the events call back, not the planning prompt.
-    # An empty day recalls nothing: the planning prompt's own words (« agenda », « proaction ») must not.
-    options["about"] = await planning_agenda(user_id, today)
-    return await gateway.proaction(prompt, user_id, **options)
+    try:
+        # Level 2 of the recall on the coming day: what the events call back, not the planning prompt.
+        # An empty day recalls nothing: the planning prompt's own words (« agenda », « proaction ») must not.
+        options["about"] = await planning_agenda(user_id, today)
+        result = await gateway.proaction(prompt, user_id, **options)
+    except Exception as e:
+        if not dry_run:
+            await _journal_planning(user_id, today, started_at, clock, error=str(e) or type(e).__name__)
+        raise
+    if not dry_run:
+        entry = await _journal_planning(user_id, today, started_at, clock, result=result)
+        if entry is not None:
+            result = {**result, "journal": entry}
+    return result
+
+
+async def _journal_planning(
+    user_id: str, day: date, started_at: datetime, clock: float, *, result: dict | None = None, error: str | None = None
+) -> dict | None:
+    """Keep the planning run in the journal; never raises — the planning is done whether it is kept or not."""
+    try:
+        run = await journal_repo.record_planning(
+            user_id,
+            day.isoformat(),
+            started_at,
+            int((time_module.monotonic() - clock) * 1000),
+            result=result,
+            error=error,
+        )
+        return run.to_dict()
+    except Exception as e:
+        logger.error(f"Could not keep the planning of user {user_id} in the journal: {e}")
+        return None
 
 
 async def plan_user(gateway: LLMGateway, user_id: str) -> None:
@@ -366,6 +401,26 @@ async def _voice_message_purge_loop() -> None:
         await asyncio.sleep(settings.voice_message_purge_interval_hours * 3600)
 
 
+async def purge_journal(now: datetime | None = None) -> int:
+    """Take away the journal's runs older than the retention (MAG-688); how many went."""
+    before = (now or _utcnow()) - timedelta(days=settings.proaction_journal_retention_days)
+    purged = await journal_repo.purge(before)
+    if purged:
+        logger.info(f"Journal purge: {purged} run(s) removed")
+    return purged
+
+
+async def _journal_purge_loop() -> None:
+    """Every few hours, take away the journal's runs past the retention. First pass at boot."""
+    while True:
+        try:
+            await purge_journal()
+        except Exception as e:
+            logger.error(f"Journal purge loop error: {e}")
+
+        await asyncio.sleep(JOURNAL_PURGE_INTERVAL)
+
+
 async def start_scheduler() -> None:
     """Start the scheduler loops as background tasks."""
     _tasks.append(asyncio.create_task(_execution_loop()))
@@ -375,4 +430,5 @@ async def start_scheduler() -> None:
     _tasks.append(asyncio.create_task(_memory_encoding_loop()))
     _tasks.append(asyncio.create_task(_memory_night_loop()))
     _tasks.append(asyncio.create_task(_voice_message_purge_loop()))
+    _tasks.append(asyncio.create_task(_journal_purge_loop()))
     logger.info("Proaction scheduler started")

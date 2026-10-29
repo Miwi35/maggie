@@ -244,3 +244,42 @@ def agent_db(tmp_path):
     ):
         yield factory
     engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def no_journal_write(request):
+    """Keep the journal (MAG-688) off the database in tests that run a planning or a proaction for something else.
+
+    Tests that run on `journal_db` keep the real repository.
+    """
+    if "journal_db" in request.fixturenames:
+        yield
+        return
+    from app.db.journal_model import JournalRun
+
+    with (
+        patch("app.db.journal_repository.journal_repo.record_planning", AsyncMock(return_value=JournalRun(id="j"))),
+        patch("app.db.journal_repository.journal_repo.record_proaction", AsyncMock(return_value=JournalRun(id="j"))),
+    ):
+        yield
+
+
+@pytest.fixture()
+def journal_db():
+    """In-memory database behind the journal repository (real queries, no mocks)."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.db.journal_model import JournalRun
+
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    JournalRun.__table__.create(engine)
+    factory = sessionmaker(engine, expire_on_commit=False)
+
+    def open_session():
+        return _SyncSessionAsAsync(factory())
+
+    with patch("app.db.journal_repository.agent_session", open_session):
+        yield factory
+    engine.dispose()
