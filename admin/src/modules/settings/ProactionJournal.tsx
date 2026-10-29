@@ -61,9 +61,17 @@ function time(iso: string | null): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function dayLabel(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+/** The run's day as the agent wrote it, on the user's own wall clock (`YYYY-MM-DD`), not the browser's. */
+function dayLabel(day: string): string {
+  const [year, month, date] = day.split('-').map(Number)
+  if (!year || !month || !date) return day
+  return new Date(Date.UTC(year, month - 1, date, 12)).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
 }
 
 function duration(ms: number): string {
@@ -75,11 +83,11 @@ function title(entry: JournalEntry): string {
   return entry.summary || entry.prompt || 'Proaction'
 }
 
-/** The runs grouped by the day they started on, in the order they came (newest first). */
+/** The runs grouped by their day, in the order they came (newest first). */
 function byDay(entries: JournalEntry[]): Array<[string, JournalEntry[]]> {
   const groups = new Map<string, JournalEntry[]>()
   for (const entry of entries) {
-    const label = dayLabel(entry.startedAt)
+    const label = dayLabel(entry.day)
     groups.set(label, [...(groups.get(label) ?? []), entry])
   }
   return [...groups.entries()]

@@ -149,6 +149,7 @@ class LLMGateway:
             return {
                 "response": "AI service is not configured.",
                 "tool_calls": [],
+                "error": "AI service is not configured.",
             }
 
         tools = await self.tool_router.get_tool_definitions()
