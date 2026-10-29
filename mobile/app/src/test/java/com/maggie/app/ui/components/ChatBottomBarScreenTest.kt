@@ -52,4 +52,19 @@ class ChatBottomBarScreenTest {
         assertEquals(1, opened)
         assertEquals(1, mic)
     }
+
+    @Test
+    fun `the unread count shows in the field only when there is something unread (MAG-687)`() {
+        compose.setContent { ChatBottomBar(unreadCount = 3, onOpenChat = {}) }
+
+        compose.onNodeWithTag(UiTags.CHAT_UNREAD_BADGE, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("3", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `no badge when everything is read (MAG-687)`() {
+        compose.setContent { ChatBottomBar(unreadCount = 0, onOpenChat = {}) }
+
+        compose.onNodeWithTag(UiTags.CHAT_UNREAD_BADGE, useUnmergedTree = true).assertDoesNotExist()
+    }
 }

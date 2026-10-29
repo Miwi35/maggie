@@ -39,6 +39,7 @@ object MercureTopics {
     fun agentScoped(userId: String, stream: String): String = "/$stream/$userId"
 
     const val CHAT = "chat"
+    const val CHAT_READ = "chat-read"
     const val CONTEXTS = "contexts"
     const val APPROVALS = "approvals"
 
@@ -119,5 +120,5 @@ object MercureTopics {
     )
 
     /** The agent streams the app subscribes to, checked against `agent/contract/mercure-topics.json`. */
-    val SUBSCRIBED_AGENT: Set<String> = setOf(CHAT, CONTEXTS, APPROVALS)
+    val SUBSCRIBED_AGENT: Set<String> = setOf(CHAT, CHAT_READ, CONTEXTS, APPROVALS)
 }

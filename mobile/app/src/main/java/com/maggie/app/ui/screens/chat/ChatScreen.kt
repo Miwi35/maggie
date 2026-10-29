@@ -42,9 +42,15 @@ import com.maggie.app.ui.components.MindContent
 import com.maggie.app.ui.components.rememberChatListState
 
 @Composable
-fun ChatScreen(viewModel: ChatViewModel, draft: String = "") {
+fun ChatScreen(viewModel: ChatViewModel, draft: String = "", messageId: String? = null) {
     val uiState by viewModel.uiState.collectAsState()
     var input by remember { mutableStateOf("") }
+    ChatDisplayed(viewModel)
+
+    // `maggie://chat?message=<id>` (MAG-687): the conversation opens on that message.
+    LaunchedEffect(messageId) {
+        if (messageId != null) viewModel.navigateToMessage(messageId)
+    }
 
     LaunchedEffect(draft) {
         if (draft.isNotEmpty()) input = draft

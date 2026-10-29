@@ -227,6 +227,8 @@ import com.maggie.app.ui.screens.settings.SettingsScreen
 import com.maggie.app.util.EventExpander
 import com.maggie.app.util.RruleUtils
 import com.maggie.app.voice.VoiceManager
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -695,6 +697,10 @@ fun NavGraph() {
     val isLocked by biometricLockManager.isLocked.collectAsState()
 
     val chatViewModel: ChatViewModel = koinViewModel()
+    // Only the count: the whole state moves with every streamed token.
+    val chatUnreadCount by remember(chatViewModel) {
+        chatViewModel.uiState.map { it.unreadCount }.distinctUntilChanged()
+    }.collectAsState(initial = 0)
     val contextViewModel: ContextViewModel = koinViewModel()
     val homeViewModel: HomeViewModel = koinViewModel()
     val calendarViewModel: FullCalendarViewModel = koinViewModel()
@@ -1110,6 +1116,7 @@ fun NavGraph() {
                         chatAction = if (chrome.showsChatInRail) {
                             {
                                 ChatRailActions(
+                                    unreadCount = chatUnreadCount,
                                     onOpenChat = ::openChat,
                                     onMicClick = ::startVoiceMode,
                                 )
@@ -1170,6 +1177,7 @@ fun NavGraph() {
                 bottomBar = {
                     if (chrome.showsChatBar) {
                         ChatBottomBar(
+                            unreadCount = chatUnreadCount,
                             onOpenChat = ::openChat,
                             onMicClick = ::startVoiceMode,
                         )
@@ -1318,9 +1326,11 @@ fun NavGraph() {
                         ),
                         deepLinks = DeepLinks.forRoute(Screen.Chat.route),
                     ) { entry ->
+                        val linked = entry.arguments?.getString(DeepLinks.ARG_MESSAGE)
                         ChatScreen(
                             viewModel = chatViewModel,
-                            draft = DeepLinks.chatDraft(entry.arguments?.getString(DeepLinks.ARG_MESSAGE)),
+                            draft = DeepLinks.chatDraft(linked),
+                            messageId = DeepLinks.chatMessageId(linked),
                         )
                     }
                     composable(Screen.Calendar.route) {

@@ -89,9 +89,16 @@ data class PushPayload(
     val cookingTimerId: String? = null,
     /** From then on the alert is no longer worth saying (MAG-679): the event started, or its trip is gone. */
     val expiresAt: Instant? = null,
+    /** The chat message a `message` push announces (MAG-687); its link opens the conversation on it. */
+    val messageId: String? = null,
+    /** Quiet hours (MAG-687): posted without sound or vibration. */
+    val silent: Boolean = false,
 ) {
     /** Delivered late (a push held back for hours), an alert is over once its [expiresAt] has passed. */
     fun isExpired(now: Instant): Boolean = expiresAt != null && !expiresAt.isAfter(now)
+
+    /** A message Maggie wrote in the conversation (MAG-687): a tap goes to it, nothing is said while the chat shows it. */
+    val isMessage: Boolean get() = type == MESSAGE_TYPE
 
     /** « Pars maintenant » (MAG-655): the alert that opens a full-screen interruption and a navigation app. */
     val isDeparture: Boolean get() = type == DEPARTURE_TYPE
@@ -162,6 +169,9 @@ data class PushPayload(
         /** `PushMessageFactory::LOCATION_REQUEST_TYPE` (MAG-650): data-only, the phone answers with its position. */
         const val LOCATION_REQUEST_TYPE = "location_request"
 
+        /** `NotificationType::Message` (MAG-687). */
+        const val MESSAGE_TYPE = "message"
+
         /** `NotificationType::Departure`. */
         const val DEPARTURE_TYPE = "departure"
 
@@ -202,6 +212,8 @@ data class PushPayload(
                 shortageId = data["shortageId"]?.takeIf { it.isNotBlank() },
                 cookingTimerId = data["cookingTimerId"]?.takeIf { it.isNotBlank() },
                 expiresAt = parseInstant(data["expiresAt"]),
+                messageId = data["messageId"]?.takeIf { it.isNotBlank() },
+                silent = data["silent"] == "1",
                 reminderActions = data["actions"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
             )
         }

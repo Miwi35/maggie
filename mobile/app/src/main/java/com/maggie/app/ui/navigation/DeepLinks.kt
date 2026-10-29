@@ -117,6 +117,24 @@ object DeepLinks {
     /** The link of [taskId]'s Focus; the id is the caller's to check ([isValidId]). */
     fun taskFocus(taskId: String): String = "$SCHEME://task/$taskId/focus"
 
-    // A link prefills the chat, it never sends: any app can fire one.
-    fun chatDraft(message: String?): String = message?.trim().orEmpty()
+    // ULID or UUID: what a chat message id is made of. Anything else in `chat?message=` is a draft.
+    private val MESSAGE_ID = Regex("[0-9A-HJKMNP-TV-Z]{26}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
+    /**
+     * What `chat?message=` carries (MAG-687): the id of a message to open the conversation on (the link of a
+     * message push), otherwise a text to prefill. A link prefills the chat, it never sends: any app can fire one.
+     */
+    sealed interface ChatTarget {
+        data class Message(val id: String) : ChatTarget
+        data class Draft(val text: String) : ChatTarget
+    }
+
+    fun chatTarget(message: String?): ChatTarget {
+        val value = message?.trim().orEmpty()
+        return if (MESSAGE_ID.matches(value)) ChatTarget.Message(value) else ChatTarget.Draft(value)
+    }
+
+    fun chatDraft(message: String?): String = (chatTarget(message) as? ChatTarget.Draft)?.text.orEmpty()
+
+    fun chatMessageId(message: String?): String? = (chatTarget(message) as? ChatTarget.Message)?.id
 }

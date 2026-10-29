@@ -401,4 +401,22 @@ class PushNotifierTest {
         assertNull(notification.fullScreenIntent)
         assertTrue(notification.actions.isNullOrEmpty())
     }
+
+    @Test
+    fun `a silent message goes to the quiet channel and keeps its conversation form (MAG-687)`() {
+        notifier.show(chat("n-1", "Bonne nuit").copy(silent = true))
+
+        assertEquals(PushChannels.CHAT_QUIET, shown().channelId)
+        assertNotNull(conversation())
+        assertEquals(listOf("Répondre"), buttons())
+    }
+
+    @Test
+    fun `a silent message folds the loud ones of the same conversation, and the other way round`() {
+        notifier.show(chat("n-2", "Premier"))
+        notifier.show(chat("n-1", "Second").copy(silent = true))
+
+        assertNull(shadowOf(manager).getNotification("n-2", PushNotifier.NOTIFICATION_ID))
+        assertEquals(listOf("Premier", "Second"), conversation()!!.messages.map { it.text.toString() })
+    }
 }

@@ -50,6 +50,6 @@ class PushChannelsContractTest {
         published.forEach { id ->
             assertTrue("The channel \"$id\" is named by the server and not created", manager.getNotificationChannel(id) != null)
         }
-        assertEquals(published.size, manager.notificationChannels.size)
+        assertEquals(published.size + PushChannels.LOCAL.size, manager.notificationChannels.size)
     }
 }

@@ -9,6 +9,8 @@ import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.SignedAudio
+import com.maggie.app.data.model.ChatReadRequest
+import com.maggie.app.data.model.ChatUnread
 import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.ContactCounterparty
 import com.maggie.app.data.model.ContactCounterpartyCreateRequest
@@ -3164,6 +3166,19 @@ class MaggieApiService(
             withoutPagination()
             url.parameters.append("date", date)
         }.body<ApiCollection<Trip>>().member
+    }
+
+    // Chat read state — agent endpoints (MAG-687). The server keeps the watermark, monotone.
+    suspend fun getChatUnread(): ChatUnread {
+        return client.get("$baseUrl/agent/chat/unread").orRefusal().body()
+    }
+
+    suspend fun markChatRead(messageId: String): ChatUnread {
+        return client.put("$baseUrl/agent/chat/read") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(ChatReadRequest(messageId))
+        }.orRefusal().body()
     }
 
     // Approvals — agent endpoints

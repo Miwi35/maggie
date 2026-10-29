@@ -41,13 +41,16 @@ class PushNotifier(private val context: Context) {
     fun show(payload: PushPayload, note: String? = null, withActions: Boolean = true, inCar: Boolean = false, nudge: Boolean = false): Boolean {
         if (!canNotify()) return false
 
-        val builder = NotificationCompat.Builder(context, payload.channel)
+        val builder = NotificationCompat.Builder(context, PushChannels.forDelivery(payload.channel, payload.silent))
             .setSmallIcon(R.drawable.maggie_logo)
             .setContentTitle(payload.title)
             .setContentText(note ?: payload.text?.let(::stripDeliveryTags))
             .setStyle(NotificationCompat.BigTextStyle().bigText(note ?: payload.text?.let(::stripDeliveryTags)))
             .setAutoCancel(true)
             .setContentIntent(openIntent(payload, toLink = false))
+
+        // Quiet hours (MAG-687): below Android 8 there are no channels, so the notification itself is silent.
+        if (payload.silent) builder.setSilent(true).setPriority(NotificationCompat.PRIORITY_LOW)
 
         // « Pars maintenant » (MAG-658): a strong interruption, the full screen over the lock screen.
         if (payload.isDeparture && withActions && !inCar) {
@@ -100,7 +103,7 @@ class PushNotifier(private val context: Context) {
      */
     private fun history(manager: NotificationManager, payload: PushPayload): List<Pair<String, List<NotificationCompat.MessagingStyle.Message>>> =
         manager.activeNotifications
-            .filter { it.notification.channelId == PushChannels.CHAT && it.id == NOTIFICATION_ID && it.tag != null && it.tag != payload.systemTag && it.notification.actions.orEmpty().size <= 1 }
+            .filter { (it.notification.channelId == PushChannels.CHAT || it.notification.channelId == PushChannels.CHAT_QUIET) && it.id == NOTIFICATION_ID && it.tag != null && it.tag != payload.systemTag && it.notification.actions.orEmpty().size <= 1 }
             .mapNotNull { sbn ->
                 NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(sbn.notification)
                     ?.let { sbn.tag to it.messages }
@@ -289,6 +292,8 @@ object PushIntents {
     const val EXTRA_SHORTAGE_ID = "shortageId"
     const val EXTRA_COOKING_TIMER_ID = "cookingTimerId"
     const val EXTRA_EXPIRES_AT = "expiresAt"
+    const val EXTRA_MESSAGE_ID = "messageId"
+    const val EXTRA_SILENT = "silent"
 
     /** The reminder's button the app answers once it is open (« Je m'y mets »), by its key. */
     const val EXTRA_ANSWER = "com.maggie.app.push.ANSWER"
@@ -307,13 +312,15 @@ object PushIntents {
         intent.putExtra(EXTRA_SHORTAGE_ID, payload.shortageId)
         intent.putExtra(EXTRA_COOKING_TIMER_ID, payload.cookingTimerId)
         intent.putExtra(EXTRA_EXPIRES_AT, payload.expiresAt?.toString())
+        intent.putExtra(EXTRA_MESSAGE_ID, payload.messageId)
+        if (payload.silent) intent.putExtra(EXTRA_SILENT, "1")
         if (payload.reminderActions.isNotEmpty()) intent.putExtra(EXTRA_ACTIONS, payload.reminderActions.joinToString(","))
     }
 
     fun payloadOf(intent: Intent): PushPayload? = PushPayload.from(
         data = listOf(
             EXTRA_NOTIFICATION_ID, EXTRA_TYPE, EXTRA_TITLE, EXTRA_TEXT, EXTRA_LINK, EXTRA_APPROVAL_ID, EXTRA_CHANNEL, EXTRA_INTERACTION,
-            EXTRA_REMINDER_ID, EXTRA_TASK_ID, EXTRA_ACTIONS, EXTRA_SHORTAGE_ID, EXTRA_COOKING_TIMER_ID, EXTRA_EXPIRES_AT,
+            EXTRA_REMINDER_ID, EXTRA_TASK_ID, EXTRA_ACTIONS, EXTRA_SHORTAGE_ID, EXTRA_COOKING_TIMER_ID, EXTRA_EXPIRES_AT, EXTRA_MESSAGE_ID, EXTRA_SILENT,
         )
             .mapNotNull { key -> intent.getStringExtra(key)?.let { key to it } }
             .toMap(),
@@ -352,9 +359,10 @@ object PushIntents {
     /**
      * The tap on a notification opens the app on what Maggie said: the interruption, with its
      * action. Only « Y aller » ([toLink]) goes straight to the link, the app's home when the push has none.
+     * A message of Maggie (MAG-687) is the exception: its tap opens the conversation on that message.
      */
     fun open(context: Context, payload: PushPayload, toLink: Boolean = false): Intent {
-        val link = if (toLink) linkOf(payload.link) else null
+        val link = if (toLink || payload.isMessage) linkOf(payload.link) else null
         return Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (link != null) {

@@ -6,15 +6,18 @@ import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.ApprovalDecisionException
 import com.maggie.app.data.api.ChatImage
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.fcm.PushPayload
+import com.maggie.app.data.interruption.InterruptionCenter
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.ChatUnread
 import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.repository.ApprovalRepository
-import com.maggie.app.data.repository.ChatPreferencesRepository
 import com.maggie.app.data.repository.ChatRepository
+import com.maggie.app.data.repository.ChatUnreadRepository
 import com.maggie.app.ui.components.approvalQuestion
 import com.maggie.app.ui.screens.contexts.ThreadEvent
 import com.maggie.app.util.ChatDateFormatter
@@ -67,6 +70,8 @@ data class ChatUiState(
     val highlightedMessageId: String? = null,
     val tappedMessageId: String? = null,
     val unreadFromId: String? = null,
+    /** Messages of Maggie the owner has not read, on any device (MAG-687): the server's count. */
+    val unreadCount: Int = 0,
     val scrollToIndex: Int? = null,
     val scrollBehavior: ScrollBehavior = ScrollBehavior.NONE,
     val streamingText: String = "",
@@ -116,9 +121,10 @@ data class ChatUiState(
 class ChatViewModel(
     private val repository: ChatRepository,
     private val mercureService: MercureService,
-    private val chatPrefsRepository: ChatPreferencesRepository,
+    private val unreadRepository: ChatUnreadRepository,
     private val authRepository: AuthRepository,
     private val approvalRepository: ApprovalRepository,
+    private val interruptions: InterruptionCenter = InterruptionCenter(),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatUiState())
     private val askedApprovals = mutableSetOf<String>()
@@ -197,6 +203,10 @@ class ChatViewModel(
      * deleting its thread would neither hide it nor bring it back with « Annuler ».
      */
     private var runContextId: String? = null
+
+    private var initialLoad: Job? = null
+    private var displayers = 0
+    private var lastMarkedId: String? = null
     private val runMessageIds = mutableSetOf<String>()
 
     companion object {
@@ -205,6 +215,9 @@ class ChatViewModel(
         private const val PAGE_SIZE = 20
         private const val ACTIVITY_HISTORY = 10
         private const val TAG = "ChatViewModel"
+
+        /** What the interruption center keeps quiet while the conversation is on screen. */
+        const val MESSAGE_TYPE = PushPayload.MESSAGE_TYPE
         private const val PENDING_PREFIX = "pending_"
         private const val RECOVERY_WINDOW_MS = 60_000L
         private const val RECOVERY_POLL_MS = 3_000L
@@ -212,28 +225,31 @@ class ChatViewModel(
     }
 
     init {
-        loadInitialMessages()
+        initialLoad = loadInitialMessages()
         subscribeToChatUpdates()
+        subscribeToReadState()
         observeSearchQuery()
         startRealtimeWhenSignedIn()
     }
 
-    private fun loadInitialMessages() {
-        viewModelScope.launch {
+    private fun loadInitialMessages(): Job {
+        return viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
                 val messages = repository.loadRecentMessages(PAGE_SIZE).asSaid()
-                val lastReadId = chatPrefsRepository.getLastReadMessageId()
-                val unreadFromId = resolveUnreadFromId(messages, lastReadId)
+                val unread = unreadRepository.get().getOrNull()
+                val unreadFromId = resolveUnreadFromId(messages, unread?.lastReadMessageId)
                 _uiState.value = _uiState.value.copy(
                     messages = messages,
                     isLoading = false,
                     hasMoreHistory = messages.size >= PAGE_SIZE,
                     unreadFromId = unreadFromId,
+                    unreadCount = unread?.unreadCount ?: _uiState.value.unreadCount,
                 )
                 rebuildDisplayItems()
                 // Scroll to bottom on initial load
                 scrollToBottom(animate = false)
+                if (displayers > 0) markRead()
             } catch (_: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false)
             }
@@ -741,6 +757,8 @@ class ChatViewModel(
         awaitingReply = false
         unanswered = null
         _uiState.value = _uiState.value.copy(isLoading = false, answering = false, replyToSpeak = reply, agentState = AgentState.IDLE)
+        // The answer streamed in front of the owner is read as it arrives.
+        if (displayers > 0) markRead()
     }
 
     /** Called by whoever read [ChatUiState.replyToSpeak]: it is offered once. */
@@ -807,6 +825,8 @@ class ChatViewModel(
     fun navigateToMessage(messageId: String) {
         viewModelScope.launch {
             closeSearch()
+            // A link can open the chat before its first page is in: that page would replace the context loaded here.
+            initialLoad?.join()
             // Check if the message is already in our list
             val existingIndex = _uiState.value.messages.indexOfFirst { it.id == messageId }
             if (existingIndex >= 0) {
@@ -867,14 +887,72 @@ class ChatViewModel(
         }
     }
 
+    override fun onCleared() {
+        if (displayers > 0) interruptions.release(MESSAGE_TYPE)
+        displayers = 0
+    }
+
     fun markAllRead() {
-        val messages = _uiState.value.messages
-        if (messages.isEmpty()) return
-        val lastId = messages.last().id
+        if (_uiState.value.messages.isEmpty()) return
         _uiState.value = _uiState.value.copy(unreadFromId = null)
         rebuildDisplayItems()
+        markRead()
+    }
+
+    /**
+     * The conversation is on screen, or no longer (MAG-687): [ChatDisplayed] reports each surface that shows it
+     * (screen, sheet, panel). On screen it counts as read, and Maggie raises no notification for what it shows.
+     */
+    fun onChatDisplayed(displayed: Boolean) {
+        if (displayed) {
+            if (displayers++ == 0) interruptions.hold(MESSAGE_TYPE)
+            markRead()
+        } else if (displayers > 0 && --displayers == 0) {
+            interruptions.release(MESSAGE_TYPE)
+        }
+    }
+
+    /** Tells the server everything up to the latest message is read; the divider stays until the owner reaches the bottom. */
+    private fun markRead() {
+        val lastId = _uiState.value.messages.lastOrNull { !it.id.startsWith(PENDING_PREFIX) && it.id.isNotEmpty() }?.id ?: return
+        if (lastId == lastMarkedId) return
+        lastMarkedId = lastId
+        _uiState.value = _uiState.value.copy(unreadCount = 0)
         viewModelScope.launch {
-            chatPrefsRepository.saveLastReadMessageId(lastId)
+            unreadRepository.markRead(lastId)
+                .onSuccess { applyReadState(it, clearDivider = false) }
+                .onFailure { if (lastMarkedId == lastId) lastMarkedId = null }
+        }
+    }
+
+    /** [clearDivider]: false for our own mark, whose divider stays until the owner reaches the bottom. */
+    private fun applyReadState(read: ChatUnread, clearDivider: Boolean = true) {
+        _uiState.value = _uiState.value.copy(
+            unreadCount = read.unreadCount,
+            unreadFromId = if (clearDivider && read.unreadCount == 0) null else _uiState.value.unreadFromId,
+        )
+        rebuildDisplayItems()
+    }
+
+    private fun subscribeToReadState(): Job {
+        return viewModelScope.launch {
+            unreadRepository.observe()
+                .catch { /* SSE connection errors — silently retry on next app resume */ }
+                .collect { read ->
+                    // Read elsewhere: what this device had marked is no longer what the server holds.
+                    val ours = read.lastReadMessageId != null && read.lastReadMessageId == lastMarkedId
+                    if (read.unreadCount > 0) lastMarkedId = null
+                    applyReadState(read, clearDivider = !ours)
+                }
+        }
+    }
+
+    /** A message of Maggie arrived: read at once when the conversation is on screen, counted otherwise. */
+    private fun onAssistantMessageArrived() {
+        if (displayers > 0) {
+            markRead()
+        } else {
+            viewModelScope.launch { unreadRepository.get().onSuccess { applyReadState(it) } }
         }
     }
 
@@ -1365,6 +1443,7 @@ class ChatViewModel(
                         // that keeps the user's own answer to a request (MAG-336): Maggie is still
                         // working on the question asked before it.
                         if (message.role != "user" && !message.isDecision) {
+                            if (known == null) onAssistantMessageArrived()
                             unanswered = null
                             _uiState.value = _uiState.value.copy(isLoading = false, failure = null)
                             rebuildDisplayItems()
