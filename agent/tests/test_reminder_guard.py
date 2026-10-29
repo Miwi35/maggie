@@ -165,6 +165,22 @@ class TestTheGuard:
 
         assert guard.review("C'est noté, je vous préviendrai à 9h, une heure avant.") is Verdict.ACCEPT
 
+    def test_a_task_with_a_due_date_backs_the_claim(self):
+        # MAG-703: « rappelle-moi d'aller faire X » is a task; the morning alert carries it.
+        guard = ClaimGuard(OFFERED)
+        guard.record("create_task", '{"id": "t-1", "title": "Faire les courses"}', {"title": "Faire les courses", "dueDate": "2026-10-29"})
+
+        assert guard.review("Je l'ai mise dans vos tâches de jeudi, je vous la rappellerai le matin.") is Verdict.ACCEPT
+
+    def test_a_task_without_a_due_date_does_not(self):
+        guard = ClaimGuard(OFFERED)
+        guard.record("create_task", '{"id": "t-1", "title": "Faire les courses"}', {"title": "Faire les courses"})
+
+        assert guard.review(FALSE_CLAIM) is Verdict.RETRY
+
+    def test_the_nudge_does_not_push_an_errand_towards_a_proaction(self):
+        assert "create_task" in NUDGE
+
     def test_an_event_without_reminders_does_not(self):
         guard = ClaimGuard(OFFERED)
         guard.record("create_event", '{"event": {"id": "e-1"}}', {"title": "Dentiste"})
