@@ -95,8 +95,8 @@ class ChatViewModelTest {
         coEvery { unreadRepository.markRead(any()) } returns Result.success(ChatUnread(lastReadMessageId = "msg-2"))
     }
 
-    private fun createViewModel(): ChatViewModel {
-        return ChatViewModel(repository, mercureService, unreadRepository, authRepository, approvalRepository, center)
+    private fun createViewModel(inCar: () -> Boolean = { false }): ChatViewModel {
+        return ChatViewModel(repository, mercureService, unreadRepository, authRepository, approvalRepository, center, inCar)
     }
 
     @After
@@ -264,6 +264,49 @@ class ChatViewModelTest {
         advanceUntilIdle()
 
         verify { repository.sendMessageStream("bonjour", null, any()) }
+    }
+
+    @Test
+    fun `a message sent while the phone is in the car says so`() = runTest {
+        viewModel = createViewModel(inCar = { true })
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any(), any(), any(), any(), any()) } returns
+            flowOf(AgUiEvent.RunFinished(runId = "run-1"))
+
+        viewModel.sendMessage("qu'est-ce que j'ai demain ?")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("qu'est-ce que j'ai demain ?", null, any(), null, null, false, true) }
+    }
+
+    @Test
+    fun `a message sent while the phone is not in the car does not say so`() = runTest {
+        viewModel = createViewModel(inCar = { false })
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any(), any(), any(), any(), any()) } returns
+            flowOf(AgUiEvent.RunFinished(runId = "run-1"))
+
+        viewModel.sendMessage("bonjour")
+        advanceUntilIdle()
+
+        verify { repository.sendMessageStream("bonjour", null, any(), null, null, false, false) }
+    }
+
+    @Test
+    fun `a retry says what the first send said, even if the car left meanwhile`() = runTest {
+        var connected = true
+        viewModel = createViewModel(inCar = { connected })
+        advanceUntilIdle()
+        every { repository.sendMessageStream(any(), any(), any(), any(), any(), any(), any()) } returns
+            flow { throw RuntimeException("Stream failed") }
+
+        viewModel.sendMessage("bonjour")
+        advanceUntilIdle()
+        connected = false
+        viewModel.retry()
+        advanceUntilIdle()
+
+        verify(exactly = 2) { repository.sendMessageStream("bonjour", null, any(), null, null, false, true) }
     }
 
     @Test

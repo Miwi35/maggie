@@ -125,6 +125,8 @@ class ChatViewModel(
     private val authRepository: AuthRepository,
     private val approvalRepository: ApprovalRepository,
     private val interruptions: InterruptionCenter = InterruptionCenter(),
+    // Whether the phone is projecting to Android Auto right now (MAG-684): read when a message is sent.
+    private val inCar: () -> Boolean = { false },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatUiState())
     private val askedApprovals = mutableSetOf<String>()
@@ -163,6 +165,7 @@ class ChatViewModel(
         val image: ChatImage?,
         val replaces: String?,
         val spoken: Boolean,
+        val inCar: Boolean,
     )
 
     private var unanswered: Attempt? = null
@@ -323,6 +326,8 @@ class ChatViewModel(
      *
      * [spoken]: the question was said aloud and the answer will be read aloud, so the agent
      * writes it for the ear (MAG-689).
+     *
+     * The car's connection is read here, once per message: a retry says what the first send said (MAG-684).
      */
     fun sendMessage(text: String, screenContext: String? = null, image: ByteArray? = null, spoken: Boolean = false) {
         if (text.isBlank()) return
@@ -372,7 +377,7 @@ class ChatViewModel(
             interruptJob?.join()
 
             val attached = image?.let { ChatImage.jpeg(it) }
-            deliver(Attempt(text, screenContext?.takeIf { it.isNotBlank() }, key, anchor, userMessage.id, attached, replaces, spoken))
+            deliver(Attempt(text, screenContext?.takeIf { it.isNotBlank() }, key, anchor, userMessage.id, attached, replaces, spoken, inCar()))
         }
     }
 
@@ -421,10 +426,10 @@ class ChatViewModel(
 
     private suspend fun deliver(attempt: Attempt) {
         unanswered = attempt
-        val (text, screen, key, anchor, pendingId, image, replaces, spoken) = attempt
+        val (text, screen, key, anchor, pendingId, image, replaces, spoken, driving) = attempt
         try {
             var streamError: String? = null
-            repository.sendMessageStream(text, screen, key, image, replaces, spoken)
+            repository.sendMessageStream(text, screen, key, image, replaces, spoken, driving)
                 .collect { event ->
                     if (event is AgUiEvent.Error) streamError = event.message
                     handleStreamEvent(event)

@@ -145,6 +145,10 @@ class PersonalityEngine:
         """The instruction added when the reply is read aloud: spoken text, Maggie's tone, delivery tags."""
         return str(self._yaml.get("spoken_prompt", "")).strip()
 
+    def get_driving_prompt(self) -> str:
+        """The instruction added when the owner is in the car (MAG-684): short, for the ear, nothing to look at."""
+        return str(self._yaml.get("driving_prompt", "")).strip()
+
     async def get_system_prompt(self, user_id: str, capabilities: str = "") -> str:
         """Build the stable system prompt: template from YAML, values from DB (no date, it would break caching)."""
         config = await self.get_config(user_id)

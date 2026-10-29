@@ -100,6 +100,10 @@ class ChatRequest(BaseModel):
     # reads it as it would the phone's button, or as an instruction; what is stored is what was said.
     in_reply_to: ReplyTo | None = None
 
+    # The phone is projecting to Android Auto, or the answer was dictated from the car (MAG-684): the
+    # answer is asked short and made for the ear. A turn taken up again after a restart loses it, like `spoken`.
+    in_car: bool = False
+
 
 MAX_MESSAGE_ID_CHARS = 26
 MAX_INTERRUPT_CHARS = 20000
@@ -234,6 +238,7 @@ async def _answer_chat(request: ChatRequest, user_id: str, said: str, screen: st
         screen_context=screen,
         image=request.image,
         spoken=request.spoken,
+        in_car=request.in_car,
     )
 
     # Both halves in the thread the question was routed into (MAG-13), and the thread
@@ -324,6 +329,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
                     image=request.image,
                     carried_over=carried_over,
                     spoken=request.spoken,
+                    in_car=request.in_car,
                 )
     if received is not None:
         events = turn_runner.replay(user_id, received)

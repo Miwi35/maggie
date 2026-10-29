@@ -80,12 +80,14 @@ class LLMGateway:
         about: str = "",
         source: str = "chat",
         spoken: bool = False,
+        in_car: bool = False,
     ) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skills), the full skills of `moment`
         (MAG-345), the memory (profile, then what `about` calls back: MAG-16), then directives, date, preamble.
 
         `spoken`: the reply will be read aloud (live voice, voice message, car), so it is asked for as a
         spoken text. In the volatile part, never in the cached prefix, which stays the same for the written chat.
+        `in_car`: the owner is driving (MAG-684): short answers for the ear, same place.
         """
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
@@ -110,6 +112,8 @@ class LLMGateway:
         now = current_datetime_line(tz=tz)
         if spoken:
             preamble = f"{preamble}\n\n{self.personality.get_spoken_prompt()}"
+        if in_car:
+            preamble = f"{preamble}\n\n{self.personality.get_driving_prompt()}"
         volatile = f"{memory.notice}{directives}{context_section}\n\n{now}{last_exchange}{preamble}"
         moment_skills = skill_index.skills_for_moment(moment) if moment else ""
         return build_system(base + skill_context, volatile, moment_skills, memory.profile, memory.recalled)
@@ -229,10 +233,12 @@ class LLMGateway:
         screen_context: str | None = None,
         image: ChatImage | None = None,
         spoken: bool = False,
+        in_car: bool = False,
     ) -> dict:
         """Process a chat message through Claude with MCP tool support.
 
         `spoken` says the answer will be read aloud: it is asked for as a spoken text (ADR-014).
+        `in_car` says the owner is driving: the answer is asked short, for the ear (MAG-684).
 
         `screen_context` is what the screen behind the assistant overlay was showing
         (MAG-30). It reaches the model through the history, on the turn being answered, and
@@ -301,6 +307,7 @@ class LLMGateway:
                 moment=MOMENT_CHAT,
                 about=message,
                 spoken=spoken,
+                in_car=in_car,
             )
             result = await run_tool_loop(
                 system_prompt,

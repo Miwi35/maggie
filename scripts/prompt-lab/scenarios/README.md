@@ -23,6 +23,7 @@ channel: chat                   # chat (default) or stream — stream is the onl
                                 # one that exercises context routing
 spoken: false                   # true: the answer is for the voice (live voice, voice
                                 # message, car) — the request carries `spoken` (MAG-689)
+in_car: false                   # true: the owner is driving — the request carries `in_car` (MAG-684)
 steps:
   - user_message: "Qu'est-ce que j'ai de prévu aujourd'hui ?"
     expected_tools: [get_upcoming_events]     # each has to be called

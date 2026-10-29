@@ -449,7 +449,10 @@ class MaggieApp : Application() {
             viewModel { BravoViewModel(get(), get()) }
             viewModel { RoutinesViewModel(get(), get(), get(), get(), get()) }
             viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
-            viewModel { ChatViewModel(get(), get(), get(), get(), get(), get()) }
+            viewModel {
+                val car = get<SharedCarConnection>()
+                ChatViewModel(get(), get(), get(), get(), get(), get(), inCar = car::isConnected)
+            }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
             viewModel { NotificationViewModel(get(), get(), get(), get(), get()) }

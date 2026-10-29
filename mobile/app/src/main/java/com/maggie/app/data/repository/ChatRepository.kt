@@ -138,6 +138,7 @@ class ChatRepository(
         image: ChatImage? = null,
         replaces: String? = null,
         spoken: Boolean = false,
+        inCar: Boolean = false,
     ): Flow<AgUiEvent> {
         return apiService.sendChatStream(
             message = content,
@@ -146,6 +147,7 @@ class ChatRepository(
             image = image,
             replaces = replaces,
             spoken = spoken,
+            inCar = inCar,
         )
     }
 
