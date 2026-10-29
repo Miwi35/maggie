@@ -20261,7 +20261,8 @@
                             "approval",
                             "finance",
                             "cooking_timer",
-                            "departure"
+                            "departure",
+                            "message"
                         ]
                     },
                     "title": {
@@ -20344,7 +20345,8 @@
                             "approval",
                             "finance",
                             "cooking_timer",
-                            "departure"
+                            "departure",
+                            "message"
                         ]
                     },
                     "title": {
@@ -20427,7 +20429,8 @@
                             "approval",
                             "finance",
                             "cooking_timer",
-                            "departure"
+                            "departure",
+                            "message"
                         ]
                     },
                     "title": {
@@ -20515,7 +20518,8 @@
                                     "approval",
                                     "finance",
                                     "cooking_timer",
-                                    "departure"
+                                    "departure",
+                                    "message"
                                 ]
                             },
                             "title": {
@@ -29339,6 +29343,19 @@
                         "default": true,
                         "type": "boolean"
                     },
+                    "quietHoursStart": {
+                        "description": "Quiet hours (MAG-687), \"HH:MM\" in the user's timezone: chat pushes are silent in the window. Both set or both null.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "quietHoursEnd": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "createdAt": {
                         "readOnly": true,
                         "type": "string",
@@ -29394,6 +29411,19 @@
                     "notificationsEnabled": {
                         "default": true,
                         "type": "boolean"
+                    },
+                    "quietHoursStart": {
+                        "description": "Quiet hours (MAG-687), \"HH:MM\" in the user's timezone: chat pushes are silent in the window. Both set or both null.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "quietHoursEnd": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "createdAt": {
                         "readOnly": true,
@@ -29455,6 +29485,19 @@
                             "notificationsEnabled": {
                                 "default": true,
                                 "type": "boolean"
+                            },
+                            "quietHoursStart": {
+                                "description": "Quiet hours (MAG-687), \"HH:MM\" in the user's timezone: chat pushes are silent in the window. Both set or both null.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "quietHoursEnd": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "createdAt": {
                                 "readOnly": true,

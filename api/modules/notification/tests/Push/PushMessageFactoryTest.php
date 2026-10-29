@@ -77,6 +77,48 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame(['priority' => 'high'], $message['android']);
     }
 
+    public function testAChatMessageOpensTheConversationAtThatMessage(): void
+    {
+        $notification = $this->notification(NotificationType::Message, 'Maggie', 'Salut', '/chat?message=01JMSG0123456789ABCDEFGHJK');
+
+        $data = (new PushMessageFactory())->build($notification, 't')['data'];
+
+        self::assertSame('message', $data['type']);
+        self::assertSame('chat_v2', $data['channel']);
+        self::assertSame('maggie://chat?message=01JMSG0123456789ABCDEFGHJK', $data['link']);
+        self::assertSame('Ouvrir la conversation', $data['actionLabel']);
+        self::assertSame('01JMSG0123456789ABCDEFGHJK', $data['messageId']);
+        self::assertArrayNotHasKey('silent', $data);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function malformedChatIris(): iterable
+    {
+        yield 'no message' => ['/chat'];
+        yield 'empty id' => ['/chat?message='];
+        yield 'bad characters' => ['/chat?message=a%20b%26c'];
+        yield 'too long' => ['/chat?message='.str_repeat('a', 65)];
+        yield 'array' => ['/chat?message[]=a'];
+        yield 'other path' => ['/chats?message=abc'];
+    }
+
+    #[DataProvider('malformedChatIris')]
+    public function testAMalformedChatIriGivesNoLink(string $iri): void
+    {
+        $data = (new PushMessageFactory())->build($this->notification(NotificationType::Message, 'Maggie', null, $iri), 't')['data'];
+
+        self::assertArrayNotHasKey('link', $data);
+        self::assertArrayNotHasKey('actionLabel', $data);
+        self::assertArrayNotHasKey('messageId', $data);
+    }
+
+    public function testASilentMessageSaysSoInData(): void
+    {
+        $data = (new PushMessageFactory())->build($this->notification(NotificationType::Message, 'Maggie'), 't', silent: true)['data'];
+
+        self::assertSame('1', $data['silent']);
+    }
+
     public function testDataHoldsOnlyStringsAndLeavesOutWhatIsMissing(): void
     {
         $message = (new PushMessageFactory())->build($this->notification(NotificationType::Approval, 'Je peux payer ?'), 't');

@@ -9,6 +9,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Repository\UserPreferenceRepository;
 use Maggie\Notification\Entity\DeviceToken;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Message\CreateNotificationCommand;
@@ -19,12 +20,15 @@ use Maggie\Notification\MessageHandler\WithdrawPushNotificationHandler;
 use Maggie\Notification\Push\FcmClient;
 use Maggie\Notification\Push\FcmUnavailableException;
 use Maggie\Notification\Push\PushMessageFactory;
+use Maggie\Notification\Push\QuietHours;
 use Maggie\Notification\Repository\DeviceTokenRepository;
 use Maggie\Notification\Repository\NotificationRepository;
 use Maggie\Notification\UseCase\UnregisterDeviceToken;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -120,6 +124,39 @@ final class SendPushNotificationHandlerTest extends KernelTestCase
         self::assertSame('maggie://event/01JEVENT', $this->sent[0]['data']['link']);
     }
 
+    /**
+     * Quiet hours (MAG-687): 22:00-07:00 in Europe/Paris for `night_message`, 13:00-14:00 for `lunch_message`.
+     *
+     * @return iterable<string, array{string, string, bool}>
+     */
+    public static function quietHoursCases(): iterable
+    {
+        // Paris is UTC+1 on 1 March 2026.
+        yield 'inside, before midnight' => ['night_message', '2026-03-01 22:30:00 UTC', true]; // 23:30 Paris
+        yield 'inside, after midnight' => ['night_message', '2026-03-01 03:00:00 UTC', true]; // 04:00 Paris
+        yield 'start included' => ['night_message', '2026-03-01 21:00:00 UTC', true]; // 22:00 Paris
+        yield 'end excluded' => ['night_message', '2026-03-01 06:00:00 UTC', false]; // 07:00 Paris
+        yield 'outside' => ['night_message', '2026-03-01 11:00:00 UTC', false]; // 12:00 Paris
+        yield 'timezone, not UTC, decides' => ['night_message', '2026-03-01 22:30:00 UTC', true];
+        yield 'same-day window, inside' => ['lunch_message', '2026-03-01 12:30:00 UTC', true]; // 13:30 Paris
+        yield 'same-day window, outside' => ['lunch_message', '2026-03-01 14:30:00 UTC', false]; // 15:30 Paris
+        yield 'no quiet hours set' => ['open_message', '2026-03-01 23:30:00 UTC', false];
+        yield 'another type is never silent' => ['night_proaction', '2026-03-01 22:30:00 UTC', false];
+    }
+
+    #[DataProvider('quietHoursCases')]
+    public function testAChatMessageIsSilentOnlyInsideTheQuietHours(string $notification, string $now, bool $silent): void
+    {
+        $this->handle($notification, clock: new MockClock($now));
+
+        self::assertCount(1, $this->sent);
+        if ($silent) {
+            self::assertSame('1', $this->sent[0]['data']['silent']);
+        } else {
+            self::assertArrayNotHasKey('silent', $this->sent[0]['data']);
+        }
+    }
+
     public function testATokenGoogleNoLongerKnowsIsForgotten(): void
     {
         $this->answers['tablet-token'] = 404;
@@ -200,12 +237,12 @@ final class SendPushNotificationHandlerTest extends KernelTestCase
         );
     }
 
-    private function handle(string $notificationRef, bool $configured = true): void
+    private function handle(string $notificationRef, bool $configured = true, ?MockClock $clock = null): void
     {
-        $this->handler($configured)(new SendPushNotificationCommand((string) $this->getFixture($notificationRef)->getId()));
+        $this->handler($configured, $clock)(new SendPushNotificationCommand((string) $this->getFixture($notificationRef)->getId()));
     }
 
-    private function handler(bool $configured = true): SendPushNotificationHandler
+    private function handler(bool $configured = true, ?MockClock $clock = null): SendPushNotificationHandler
     {
         $container = self::getContainer();
 
@@ -215,6 +252,7 @@ final class SendPushNotificationHandlerTest extends KernelTestCase
             $container->get(NotificationRepository::class),
             $container->get(DeviceTokenRepository::class),
             $container->get(UnregisterDeviceToken::class),
+            new QuietHours($container->get(UserPreferenceRepository::class), $clock ?? new MockClock('2026-03-01 12:00:00 UTC')),
             new NullLogger(),
         );
     }

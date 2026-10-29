@@ -159,6 +159,67 @@ class UpdateUserPreferenceControllerTest extends WebTestCase
         self::assertTrue($stored->isNotificationsEnabled());
     }
 
+    public function testQuietHoursAreSavedReturnedAndCleared(): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $id = $this->getFixture('preference')->getId();
+
+        $this->patch(['quietHoursStart' => '22:30', 'quietHoursEnd' => '07:00']);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('22:30', $data['quietHoursStart']);
+        self::assertSame('07:00', $data['quietHoursEnd']);
+        $em->clear();
+        $stored = $em->find(UserPreference::class, $id);
+        self::assertSame('22:30', $stored->getQuietHoursStart());
+        self::assertSame('07:00', $stored->getQuietHoursEnd());
+
+        $this->patch(['theme' => 'dark']);
+        $em->clear();
+        self::assertSame('22:30', $em->find(UserPreference::class, $id)->getQuietHoursStart(), 'left out keeps them');
+
+        $this->patch(['quietHoursStart' => null, 'quietHoursEnd' => null]);
+
+        self::assertResponseIsSuccessful();
+        $em->clear();
+        $stored = $em->find(UserPreference::class, $id);
+        self::assertNull($stored->getQuietHoursStart());
+        self::assertNull($stored->getQuietHoursEnd());
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function badQuietHours(): iterable
+    {
+        yield 'only the start' => [['quietHoursStart' => '22:00']];
+        yield 'only the end' => [['quietHoursEnd' => '07:00']];
+        yield 'one null one set' => [['quietHoursStart' => '22:00', 'quietHoursEnd' => null]];
+        yield 'seconds' => [['quietHoursStart' => '22:00:00', 'quietHoursEnd' => '07:00']];
+        yield 'hour 24' => [['quietHoursStart' => '24:00', 'quietHoursEnd' => '07:00']];
+        yield 'minute 60' => [['quietHoursStart' => '22:60', 'quietHoursEnd' => '07:00']];
+        yield 'no leading zero' => [['quietHoursStart' => '9:00', 'quietHoursEnd' => '07:00']];
+        yield 'not a string' => [['quietHoursStart' => 2200, 'quietHoursEnd' => '07:00']];
+    }
+
+    /** @param array<string, mixed> $body */
+    #[\PHPUnit\Framework\Attributes\DataProvider('badQuietHours')]
+    public function testBadQuietHoursAreRejectedAndChangeNothing(array $body): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->patch($body);
+
+        self::assertResponseStatusCodeSame(400);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(UserPreference::class, $this->getFixture('preference')->getId());
+        self::assertNull($stored->getQuietHoursStart());
+        self::assertNull($stored->getQuietHoursEnd());
+    }
+
     public function testAnEmptyAgendaListCanBeSaved(): void
     {
         $this->loadFixtures('user_preference.yaml');

@@ -12,7 +12,33 @@ Maggie\Core\Entity\User:
     googleId: google-push-silent
     name: Silent Push User
 
+  night_user:
+    email: push-night@example.com
+    googleId: google-push-night
+    name: Night Push User
+  lunch_user:
+    email: push-lunch@example.com
+    googleId: google-push-lunch
+    name: Lunch Push User
+  open_user:
+    email: push-open@example.com
+    googleId: google-push-open
+    name: Open Push User
+
 Maggie\Core\Entity\UserPreference:
+  night_preference:
+    user: '@night_user'
+    timezone: Europe/Paris
+    quietHoursStart: '22:00'
+    quietHoursEnd: '07:00'
+  lunch_preference:
+    user: '@lunch_user'
+    timezone: Europe/Paris
+    quietHoursStart: '13:00'
+    quietHoursEnd: '14:00'
+  open_preference:
+    user: '@open_user'
+    timezone: Europe/Paris
   silent_preference:
     user: '@silent_user'
     notificationsEnabled: false
@@ -28,7 +54,34 @@ Maggie\Notification\Entity\DeviceToken:
     user: '@other_user'
     token: 'other-token'
 
+  night_phone:
+    user: '@night_user'
+    token: 'night-token'
+  lunch_phone:
+    user: '@lunch_user'
+    token: 'lunch-token'
+  open_phone:
+    user: '@open_user'
+    token: 'open-token'
+
 Maggie\Notification\Entity\Notification:
+  night_message:
+    user: '@night_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Message)>'
+    title: 'Message de nuit'
+    relatedEntityIri: '/chat?message=01JMSG'
+  night_proaction:
+    user: '@night_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Proaction)>'
+    title: 'Proaction de nuit'
+  lunch_message:
+    user: '@lunch_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Message)>'
+    title: 'Message du midi'
+  open_message:
+    user: '@open_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::Message)>'
+    title: 'Message libre'
   unread:
     user: '@push_user'
     type: '<(Maggie\Notification\Enum\NotificationType::Proaction)>'

@@ -55,6 +55,13 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
     #[ORM\Column(options: ['default' => true])]
     private bool $notificationsEnabled = true;
 
+    /** Quiet hours (MAG-687), "HH:MM" in the user's timezone: chat pushes are silent in the window. Both set or both null. */
+    #[ORM\Column(length: 5, nullable: true)]
+    private ?string $quietHoursStart = null;
+
+    #[ORM\Column(length: 5, nullable: true)]
+    private ?string $quietHoursEnd = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -171,6 +178,30 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getQuietHoursStart(): ?string
+    {
+        return $this->quietHoursStart;
+    }
+
+    public function getQuietHoursEnd(): ?string
+    {
+        return $this->quietHoursEnd;
+    }
+
+    public function setQuietHoursStart(?string $quietHoursStart): static
+    {
+        $this->quietHoursStart = $quietHoursStart;
+
+        return $this;
+    }
+
+    public function setQuietHoursEnd(?string $quietHoursEnd): static
+    {
+        $this->quietHoursEnd = $quietHoursEnd;
+
+        return $this;
+    }
+
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
@@ -199,6 +230,8 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
             'defaultCity' => $this->defaultCity,
             'enabledAgendaIds' => $this->enabledAgendaIds,
             'notificationsEnabled' => $this->notificationsEnabled,
+            'quietHoursStart' => $this->quietHoursStart,
+            'quietHoursEnd' => $this->quietHoursEnd,
         ], $changedProperties);
     }
 }
