@@ -1,0 +1,15 @@
+# « Pour mon weekend, une tâche de préparation avec des choses à ne pas oublier » (MAG-714).
+name: task-checklist-weekend
+description: A list to not forget becomes Markdown checkboxes in the description, due the day before the weekend.
+
+match:
+  user_matches: "pour mon weekend.*(ne pas oublier|pas oublier)"
+
+turns:
+  - tools:
+      - name: create_task
+        input:
+          title: "Préparer le weekend"
+          description: "- [ ] Chargeur\n- [ ] Passeport\n- [ ] Clés"
+          dueDate: "${friday}"
+  - text: "La tâche « Préparer le weekend » est créée pour vendredi, avec sa liste à cocher."

@@ -276,7 +276,7 @@ class Scenario:
 
 
 def expand_days(text: str) -> str:
-    """`${today}` and `${tomorrow}` become YYYY-MM-DD, `${month}` YYYY-MM, in Paris, the stack clock (MAG-409).
+    """`${today}`, `${tomorrow}`, `${friday}` (coming, or today) become YYYY-MM-DD, `${month}` YYYY-MM, in Paris.
 
     A scenario cannot hardcode « demain »: the fake does not read tool results, so it cannot
     ask `date_time` either. The agent runs under the e2e clock, so this is the day the API sees.
@@ -291,6 +291,7 @@ def expand_days(text: str) -> str:
     return (
         text.replace("${today}", today.isoformat())
         .replace("${tomorrow}", (today + timedelta(days=1)).isoformat())
+        .replace("${friday}", (today + timedelta(days=(4 - today.weekday()) % 7)).isoformat())
         .replace("${month}", today.isoformat()[:7])
         .replace("${in_2_minutes}", soon.strftime("%Y-%m-%dT%H:%M:00"))
     )

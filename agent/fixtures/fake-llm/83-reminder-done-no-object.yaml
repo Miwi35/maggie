@@ -1,0 +1,13 @@
+# « c'est fait » with nothing to hang it on (MAG-714): the day's reminders are read first, and no
+# answer_task_reminder goes out without an id from a result.
+name: reminder-done-no-object
+description: A bare « c'est fait » reads the day's tasks and asks which one, never invents a reminderId.
+
+match:
+  user_matches: '^\s*c.est fait\s*[.!]?\s*$'
+
+turns:
+  - tools:
+      - name: get_tasks
+        input: {view: today}
+  - text: "De quoi s'agit-il ? Je regarde tes tâches du jour : dis-moi laquelle est faite."

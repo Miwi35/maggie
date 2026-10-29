@@ -144,3 +144,46 @@ class TestTaskReminder:
         assert ("create_task", {"title": "Faire les courses", "dueDate": expand_days("${tomorrow}")}) in api.calls
         assert "schedule_proaction" not in called(result)
         assert "tâches de demain" in result["response"]
+
+
+class FakeShelfApi(FakeTaskApi):
+    STORE_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7Y"
+    PRODUCT_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7Z"
+
+    async def call_tool(self, name: str, arguments: dict, user_id: str | None = None) -> str:
+        self.calls.append((name, dict(arguments)))
+        if name == "manage_stores":
+            return json.dumps({"stores": [{"id": self.STORE_ID, "name": "Super U"}]})
+        if name == "add_grocery_item":
+            return json.dumps({"success": True, "itemId": OTHER_ID, "productId": self.PRODUCT_ID})
+        return json.dumps({"success": True})
+
+
+class TestMag714:
+    async def test_the_shelf_is_set_on_the_product_after_reading_the_stores_and_without_a_question(self):
+        api = FakeShelfApi()
+        with patch("app.llm.tools.mcp_client", api):
+            result = await ask([{"role": "user", "content": "Ajoute huile moteur, je l'achète à super U au rayon pile/voiture"}])
+
+        assert called(result) == ["manage_stores", "add_grocery_item", "assign_product_store"]
+        assert api.calls[-1] == (
+            "assign_product_store",
+            {"productId": api.PRODUCT_ID, "preferredStoreId": api.STORE_ID, "aisle": "pile/voiture"},
+        )
+        assert "?" not in result["response"]
+
+    async def test_a_list_to_not_forget_is_a_checklist_due_the_friday_before(self, api):
+        result = await ask(
+            [{"role": "user", "content": "Pour mon weekend je dois ajouter une tâche de préparation avec des choses à ne pas oublier : chargeur, passeport, clés"}]
+        )
+
+        assert called(result) == ["create_task"]
+        _, args = api.calls[0]
+        assert args["description"].splitlines() == ["- [ ] Chargeur", "- [ ] Passeport", "- [ ] Clés"]
+        assert args["dueDate"] == expand_days("${friday}")
+
+    async def test_a_bare_done_calls_no_reminder_tool(self, api):
+        result = await ask([{"role": "user", "content": "c'est fait"}])
+
+        assert "answer_task_reminder" not in called(result)
+        assert called(result) == ["get_tasks"]

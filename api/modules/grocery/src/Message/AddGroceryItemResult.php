@@ -36,6 +36,7 @@ final readonly class AddGroceryItemResult
             'success' => true,
             'itemCount' => \count($this->list->getItems()->filter(static fn (GroceryItem $i) => !$i->isChecked())),
             'itemId' => (string) $this->item->getId(),
+            'productId' => null !== $this->item->getProduct() ? (string) $this->item->getProduct()->getId() : null,
             'quantity' => $this->item->getQuantity(),
             'unit' => $this->item->getUnit()?->value,
             'desiredQuantity' => $this->item->getDesiredQuantity(),
