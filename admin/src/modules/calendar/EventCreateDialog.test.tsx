@@ -58,6 +58,7 @@ describe('EventCreateDialog', () => {
 
     fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Atelier poterie' } })
     fireEvent.change(screen.getByLabelText('Lieu'), { target: { value: 'Atelier des Lilas' } })
+    expect(screen.getByRole('toolbar', { name: /Description/ })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Apporter un tablier' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 

@@ -22,6 +22,7 @@ import {
   saveTransactionDebt,
 } from './peerDebtsApi'
 import type { TransactionDebt, TransactionDebtInput } from './peerDebtsApi'
+import { MarkdownEditor } from '../../components/markdown/MarkdownEditor'
 
 const STEP_CENTS = 100
 
@@ -239,17 +240,7 @@ export const TransactionDebtSection = ({ transactionId, label }: { transactionId
             onChange={(e) => setObject(e.target.value)}
             inputProps={{ maxLength: 255 }}
           />
-          <TextField
-            fullWidth
-            multiline
-            minRows={2}
-            margin="normal"
-            label="Notes"
-            value={notes}
-            disabled={saving}
-            onChange={(e) => setNotes(e.target.value)}
-            inputProps={{ maxLength: 2000 }}
-          />
+          <MarkdownEditor label="Notes" value={notes} disabled={saving} onChange={setNotes} />
 
           {amountValid && person && (
             <Typography variant="body2" color="text.secondary" data-testid="debt-summary">

@@ -12,7 +12,6 @@ import {
   Form,
   SaveButton,
   SelectInput,
-  TextInput,
   Toolbar,
   maxLength,
   useGetList,
@@ -42,6 +41,7 @@ import { fetchAllocation } from './peerDebtsApi'
 import { TransactionDebtSection } from './TransactionDebtSection'
 import { TransactionShareSection } from './TransactionShareSection'
 import { useTransactionTransfer } from './useTransactionTransfer'
+import { MarkdownInput } from '../../components/markdown/MarkdownInput'
 
 const TRANSACTION_TOPICS = ['/api/transactions/{id}']
 
@@ -234,12 +234,10 @@ const SheetBody = ({ saveError }: { saveError: string | null }) => {
     ),
     jugement: <ComingSoon>Bientôt : dire si cette dépense était un bon choix.</ComingSoon>,
     note: (
-      <TextInput
+      <MarkdownInput
         source="note"
         label="Note"
-        multiline
         minRows={3}
-        fullWidth
         validate={maxLength(NOTE_MAX_LENGTH, `La note ne peut pas dépasser ${NOTE_MAX_LENGTH} caractères`)}
       />
     ),

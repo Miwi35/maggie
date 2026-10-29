@@ -16,6 +16,7 @@ import { rruleToFrenchText } from './recurrenceUtils'
 import { ReminderPicker } from './ReminderPicker'
 import type { EventReminders } from './ReminderPicker'
 import type { EventStatus } from './eventStatus'
+import { MarkdownEditor } from '../../components/markdown/MarkdownEditor'
 
 interface Agenda {
   id: string
@@ -219,13 +220,7 @@ export const EventFormDialog = ({
             ))}
           </TextField>
           <TextField label="Lieu" value={location} onChange={(e) => setLocation(e.target.value)} />
-          <TextField
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            multiline
-            minRows={2}
-          />
+          <MarkdownEditor label="Description" value={description} onChange={setDescription} />
         </Stack>
       </DialogContent>
       <DialogActions>

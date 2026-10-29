@@ -181,6 +181,7 @@ describe('TransactionShareSection', () => {
     expect(plain(screen.getByTestId('owed-to-me'))).toContain('On te doit 600,00 €')
     for (const name of ['Julie', 'Tom', 'Inès']) expect(partOf(name)).toHaveValue('200')
 
+    expect(screen.getByRole('toolbar', { name: /Notes/ })).toBeInTheDocument()
     await user.type(screen.getByLabelText('Notes'), 'Clés chez Tom')
     await user.click(screen.getByRole('button', { name: 'Enregistrer le partage' }))
 

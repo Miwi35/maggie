@@ -23,6 +23,7 @@ import type { Project, ProjectDateMode, ProjectInput, ProjectPreview, ProjectWel
 import { fetchScenarios, isAuto } from './scenariosApi'
 import { emptyValues, toInput, validateProject, valuesOf } from './projectForm'
 import type { ProjectFormErrors, ProjectFormField, ProjectFormValues } from './projectForm'
+import { MarkdownEditor } from '../../components/markdown/MarkdownEditor'
 
 const API_FIELDS: Record<string, ProjectFormField> = { name: 'name', amountCents: 'amount', targetOn: 'targetOn' }
 
@@ -230,13 +231,7 @@ export const ProjectDialog = ({ project, projects, onClose, onSubmit, onPreview 
                 </FormGroup>
               </FormControl>
             )}
-            <TextField
-              label="Note"
-              multiline
-              minRows={2}
-              value={values.note}
-              onChange={(event) => set('note', event.target.value)}
-            />
+            <MarkdownEditor label="Note" value={values.note} onChange={(value) => set('note', value)} />
               </>
             )}
           </Stack>

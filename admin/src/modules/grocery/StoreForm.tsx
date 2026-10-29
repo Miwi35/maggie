@@ -1,5 +1,6 @@
 import { SimpleForm, TextInput, NumberInput, required } from 'react-admin'
 import { FormSection } from '../../components/form/FormSection'
+import { MarkdownInput } from '../../components/markdown/MarkdownInput'
 
 const formSx = { maxWidth: 680 }
 
@@ -13,13 +14,7 @@ export const StoreForm = () => (
       validate={required()}
       fullWidth
     />
-    <TextInput
-      source="description"
-      label="Description"
-      multiline
-      rows={3}
-      fullWidth
-    />
+    <MarkdownInput source="description" label="Description" minRows={3} />
     <NumberInput
       source="visitOrder"
       label="Ordre de visite"

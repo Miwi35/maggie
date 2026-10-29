@@ -8,6 +8,7 @@ import { utensilNames } from './recipeSheet'
 import type { RecipeRecord, RecipeStep } from './recipeSheet'
 import { nameOf, newStep, setDuration, sameName, stepsPayload } from './recipeSteps'
 import type { NameRef } from './recipeSteps'
+import { MarkdownEditor } from '../../components/markdown/MarkdownEditor'
 
 type Save = (data: Record<string, unknown>) => Promise<string | null>
 
@@ -52,7 +53,7 @@ export const RecipeStepDialog = ({
       submitDisabled={step.text.trim() === ''}
       onSubmit={() => run(() => onSave({ steps: stepsPayload(adding ? [...steps, step] : steps.map((other, i) => (i === index ? step : other))) }))}
     >
-      <TextField label="Texte" value={step.text} onChange={(event) => setStep({ ...step, text: event.target.value })} multiline minRows={3} autoFocus fullWidth />
+      <MarkdownEditor label="Texte" value={step.text} onChange={(text) => setStep({ ...step, text })} minRows={3} autoFocus />
       <TextField
         label="Durée (min)"
         type="number"

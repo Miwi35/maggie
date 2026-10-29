@@ -34,6 +34,7 @@ describe('TaskCreateDialog', () => {
     render(<TaskCreateDialog open onClose={vi.fn()} onCreated={vi.fn()} />)
 
     fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Déménager' } })
+    expect(screen.getByRole('toolbar', { name: /Notes/ })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Notes'), { target: { value: 'Les cartons sont à la cave' } })
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 

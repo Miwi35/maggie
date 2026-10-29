@@ -107,6 +107,7 @@ describe('TransactionSheet', () => {
     await screen.findByRole('heading', { name: 'Nature' })
 
     expect(sectionNames()).toEqual([...TRANSACTION_SHEET_SECTIONS])
+    expect(screen.getByRole('toolbar', { name: /Note/ })).toBeInTheDocument()
     for (const title of ['Nature', 'Classement', 'Récurrence', 'Partage', 'Jugement', 'Note']) {
       expect(screen.getByRole('heading', { name: title })).toBeInTheDocument()
     }
