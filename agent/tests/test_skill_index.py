@@ -213,6 +213,31 @@ class TestLegacyImport:
         assert await _index().import_legacy_files(tmp_path / "absent") == 0
 
 
+class TestShippedSkills:
+    """The digest skill ships with Maggie (MAG-709): written once into the folder, then the owner's."""
+
+    async def test_the_digest_skill_is_seeded_with_its_order_and_its_screen(self, agent_db):
+        index = _index()
+
+        assert await index.seed_builtin() == ["digest"]
+        await index.rebuild()
+
+        digest = await index.get("digest") or ""
+        for tool in ("get_weather", "get_events_by_date", "list_trips", "get_tasks", "manage_meals"):
+            assert tool in digest
+        assert 'screen: "digest"' in digest
+        assert digest.index("**Météo**") < digest.index("**Agenda**") < digest.index("**Finance**")
+        assert index.store.load("digest") is not None
+
+    async def test_the_owners_copy_is_never_overwritten(self, agent_db):
+        index = _index()
+        await index.create("digest", "le mien", [], "Mon digest à moi", user_id="u")
+
+        assert await index.seed_builtin() == []
+
+        assert "Mon digest à moi" in (await index.get("digest") or "")
+
+
 class TestSystemPromptSkills:
     @pytest.mark.asyncio
     async def test_system_prompt_carries_index_without_body(self, agent_db):

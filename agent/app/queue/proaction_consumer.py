@@ -17,6 +17,7 @@ from app.proactions.api import Proaction
 from app.queue.connection import PROACTION_QUEUE, get_channel
 from app.queue.message_notification import notify_message
 from app.trips import is_silent_trip_run
+from app.tts.voice_message import message_screen
 from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,23 @@ async def _journal(
         logger.error(f"Could not keep proaction {proaction.id} in the journal: {e}")
 
 
+def voice_screen(tool_calls: list[dict]) -> str | None:
+    """The screen the run's vocal was meant for (MAG-709): the written message beside it belongs there too.
+
+    Read from what the model asked, not from what the tool answered: a vocal that could not be made
+    (speech or bucket down) leaves the written digest where it belongs.
+    """
+    for call in tool_calls:
+        arguments = call.get("input")
+        if (
+            call.get("name") == "send_voice_message"
+            and isinstance(arguments, dict)
+            and (screen := message_screen(arguments.get("screen")))
+        ):
+            return screen
+    return None
+
+
 async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_run: bool = False) -> dict:
     """Run one claimed proaction to its message — the queue consumer's and the manual trigger's one path.
 
@@ -98,6 +116,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             # conversation that never mentions it, and the summary of the thread
             # it belonged to never learns Maggie spoke (MAG-14).
             context_id = result.get("context_id")
+            screen = voice_screen(result.get("tool_calls") or [])
             stored = await message_repo.create(
                 user_id=proaction.user_id,
                 role="assistant",
@@ -107,10 +126,15 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 # into the same thread — so what it looked up is replayed there too
                 # (MAG-211).
                 blocks=result.get("blocks"),
+                screen=screen,
             )
             # Out of any conversation: the user is told, never failing a proaction already delivered.
             await notify_message(
-                proaction.user_id, stored.id, result["response"], has_audio=bool(getattr(stored, "audio", None))
+                proaction.user_id,
+                stored.id,
+                result["response"],
+                has_audio=bool(getattr(stored, "audio", None)),
+                screen=screen,
             )
     except Exception as e:
         error_msg = str(e)

@@ -66,6 +66,12 @@ class PushMessageFactory
         'recipes' => ['recipe', 'Voir la recette'],
     ];
 
+    /** Where a message of Maggie's opens → app link host and label: the thread, or the Digest du matin (MAG-709). */
+    private const MESSAGE_SCREENS = [
+        '/chat' => ['chat', 'Ouvrir la conversation'],
+        '/digest' => ['digest', 'Voir le digest'],
+    ];
+
     /** @param iterable<NavigationLinkProvider> $navigationLinks the modules whose entities carry their own link */
     public function __construct(
         // `maggie` in prod; the dev and e2e builds answer to their own scheme.
@@ -230,10 +236,10 @@ class PushMessageFactory
         return 1 === preg_match('#^/api/cooking/timers/([0-9A-Za-z-]{1,64})$#', $path, $m) ? $m[1] : null;
     }
 
-    /** `/chat?message={id}`: the message Maggie wrote (MAG-687). */
+    /** `/chat?message={id}`: the message Maggie wrote (MAG-687); `/digest?message={id}` for a digest (MAG-709). */
     private function messageId(?string $relatedEntityIri): ?string
     {
-        if (null === $relatedEntityIri || '/chat' !== parse_url($relatedEntityIri, PHP_URL_PATH)) {
+        if (null === $relatedEntityIri || !isset(self::MESSAGE_SCREENS[(string) parse_url($relatedEntityIri, PHP_URL_PATH)])) {
             return null;
         }
         parse_str((string) parse_url($relatedEntityIri, PHP_URL_QUERY), $query);
@@ -283,9 +289,12 @@ class PushMessageFactory
             return null;
         }
 
-        // A chat message from Maggie (MAG-687): the app opens the conversation at that message.
+        // A chat message from Maggie (MAG-687): the app opens the conversation at that message,
+        // or the Digest du matin when the message is a digest (MAG-709).
         if (null !== $messageId = $this->messageId($relatedEntityIri)) {
-            return ['link' => sprintf('%s://chat?message=%s', $this->deepLinkScheme, $messageId), 'label' => 'Ouvrir la conversation'];
+            [$host, $label] = self::MESSAGE_SCREENS[$path];
+
+            return ['link' => sprintf('%s://%s?message=%s', $this->deepLinkScheme, $host, $messageId), 'label' => $label];
         }
 
         // The routines of the day (MAG-512): « Aujourd'hui » of the tasks.

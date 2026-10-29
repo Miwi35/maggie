@@ -366,6 +366,7 @@ class TestProactionConsumer:
             content="C'est l'heure d'appeler le plombier !",
             context_id=None,
             blocks=None,
+            screen=None,
         )
 
     async def test_a_trip_check_says_nothing_in_the_chat_and_is_recorded_completed(self):
@@ -398,6 +399,7 @@ class TestProactionConsumer:
             content="C'est l'heure d'appeler le plombier !",
             context_id="ctx-1",
             blocks=None,
+            screen=None,
         )
 
     async def test_the_thread_is_summarized_so_the_reply_has_something_to_land_on(self):

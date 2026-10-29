@@ -280,14 +280,19 @@ def expand_days(text: str) -> str:
 
     A scenario cannot hardcode « demain »: the fake does not read tool results, so it cannot
     ask `date_time` either. The agent runs under the e2e clock, so this is the day the API sees.
+    `${in_2_minutes}` is the local instant two minutes from now, YYYY-MM-DDTHH:MM:00 (MAG-709): a
+    proaction a planning poses there comes due while the journey waits, as it would in the morning.
     """
     if "${" not in text:
         return text
-    today = datetime.now(ZoneInfo("Europe/Paris")).date()
+    now = datetime.now(ZoneInfo("Europe/Paris"))
+    today = now.date()
+    soon = (now + timedelta(minutes=2)).replace(second=0, microsecond=0)
     return (
         text.replace("${today}", today.isoformat())
         .replace("${tomorrow}", (today + timedelta(days=1)).isoformat())
         .replace("${month}", today.isoformat()[:7])
+        .replace("${in_2_minutes}", soon.strftime("%Y-%m-%dT%H:%M:00"))
     )
 
 

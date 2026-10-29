@@ -17,7 +17,10 @@ class DeepLinksTest {
         assertEquals(listOf("$scheme://task/{id}"), DeepLinks.patternsFor(DeepLinks.TASK_ROUTE))
         assertEquals(listOf("$scheme://grocery/{id}"), DeepLinks.patternsFor(DeepLinks.GROCERY_ROUTE))
         assertEquals(listOf("$scheme://recipe/{id}"), DeepLinks.patternsFor(DeepLinks.RECIPE_ROUTE))
-        assertEquals(listOf("$scheme://chat?message={message}"), DeepLinks.patternsFor(Screen.Chat.route))
+        assertEquals(
+            listOf("$scheme://chat?message={message}", "$scheme://digest?message={message}"),
+            DeepLinks.patternsFor(Screen.Chat.route),
+        )
         assertEquals(
             listOf("$scheme://finance", "$scheme://finance/dashboard"),
             DeepLinks.patternsFor(Screen.FinanceDashboard.route),
@@ -208,6 +211,13 @@ class DeepLinksTest {
         assertEquals(null, DeepLinks.chatMessageId("bonjour"))
         assertEquals("bonjour", DeepLinks.chatDraft("bonjour"))
         assertEquals(null, DeepLinks.chatMessageId(null))
+    }
+
+    @Test
+    fun `the id of a message the agent wrote opens the conversation on it, not a draft (MAG-709)`() {
+        val agentId = "3f9c2b7d1e4a4c0b9a8d7e6f5a"
+        assertEquals(agentId, DeepLinks.chatMessageId(agentId))
+        assertEquals("", DeepLinks.chatDraft(agentId))
     }
 
     @Test

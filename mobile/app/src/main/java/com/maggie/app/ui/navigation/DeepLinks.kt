@@ -96,7 +96,9 @@ object DeepLinks {
         Screen.Independence.route to listOf("$SCHEME://finance/planning/independence"),
         Screen.FinanceReviewActivity.route to listOf("$SCHEME://finance/review/activity"),
         Screen.CookingActivity.route to listOf("$SCHEME://activity/cooking?$ARG_MEAL={$ARG_MEAL}&$ARG_RECIPE={$ARG_RECIPE}"),
-        Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}"),
+        // `digest?message=` is the Digest du matin's link (MAG-709): until its screen exists (MAG-710), the thread
+        // opens on the digest's message.
+        Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}", "$SCHEME://digest?$ARG_MESSAGE={$ARG_MESSAGE}"),
     )
 
     val ROUTES: Set<String> = PATTERNS.keys
@@ -117,8 +119,9 @@ object DeepLinks {
     /** The link of [taskId]'s Focus; the id is the caller's to check ([isValidId]). */
     fun taskFocus(taskId: String): String = "$SCHEME://task/$taskId/focus"
 
-    // ULID or UUID: what a chat message id is made of. Anything else in `chat?message=` is a draft.
-    private val MESSAGE_ID = Regex("[0-9A-HJKMNP-TV-Z]{26}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+    // ULID, UUID, or the agent's 26 hex digits (MAG-709): what a chat message id is made of. Anything else in
+    // `chat?message=` is a draft.
+    private val MESSAGE_ID = Regex("[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{26}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
     /**
      * What `chat?message=` carries (MAG-687): the id of a message to open the conversation on (the link of a

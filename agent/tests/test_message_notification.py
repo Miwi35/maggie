@@ -50,6 +50,14 @@ async def test_the_notification_points_at_the_message():
     )
 
 
+async def test_a_digest_notification_opens_the_digest():
+    with patch("app.queue.message_notification.mcp_client") as mcp:
+        mcp.call_tool = AsyncMock()
+        await notify_message("user-1", "msg-1", "Bonjour", screen="digest")
+
+    assert mcp.call_tool.await_args.args[1]["relatedEntityIri"] == "/digest?message=msg-1"
+
+
 async def test_a_failing_notification_is_logged_not_raised():
     with patch("app.queue.message_notification.mcp_client") as mcp:
         mcp.call_tool = AsyncMock(side_effect=RuntimeError("api down"))
@@ -57,8 +65,13 @@ async def test_a_failing_notification_is_logged_not_raised():
 
 
 class TestConsumer:
+    @classmethod
+    async def _run(cls, result, **kwargs):
+        outcome, mcp, _ = await cls._run_keeping(result, **kwargs)
+        return outcome, mcp
+
     @staticmethod
-    async def _run(result, *, dry_run=False, audio=None, notify_error=None):
+    async def _run_keeping(result, *, dry_run=False, audio=None, notify_error=None):
         gateway = MagicMock()
         if isinstance(result, Exception):
             gateway.proaction = AsyncMock(side_effect=result)
@@ -78,7 +91,7 @@ class TestConsumer:
             summarizer.maybe_summarize = AsyncMock()
             mcp.call_tool = AsyncMock(side_effect=notify_error)
             outcome = await execute_proaction(gateway, PROACTION, dry_run=dry_run)
-        return outcome, mcp
+        return outcome, mcp, messages
 
     async def test_the_message_is_notified_with_a_stripped_preview(self):
         _, mcp = await self._run({"response": "[warmly] Pense au plombier.", "tool_calls": [], "context_id": "c1"})
@@ -88,6 +101,37 @@ class TestConsumer:
         assert args.args[1]["body"] == "Pense au plombier."
         assert args.args[1]["relatedEntityIri"] == "/chat?message=msg-9"
         assert args.kwargs["user_id"] == "user-1"
+
+    async def test_a_digest_run_stores_its_message_on_the_digest_and_the_notification_opens_it(self):
+        vocal = {
+            "name": "send_voice_message",
+            "input": {"text": "Bonjour", "screen": "digest"},
+            "result": '{"sent": true, "messageId": "voc-1", "durationMs": 900, "screen": "digest"}',
+        }
+        _, mcp, messages = await self._run_keeping(
+            {"response": "Votre journée…", "tool_calls": [vocal], "context_id": "c1"}
+        )
+
+        assert messages.create.await_args.kwargs["screen"] == "digest"
+        assert mcp.call_tool.await_args.args[1]["relatedEntityIri"] == "/digest?message=msg-9"
+
+    async def test_a_vocal_that_failed_still_leaves_the_written_digest_on_the_digest(self):
+        vocal = {
+            "name": "send_voice_message",
+            "input": {"text": "Bonjour", "screen": "digest"},
+            "result": '{"error": "Le vocal n\'a pas pu être enregistré"}',
+        }
+        _, mcp, messages = await self._run_keeping({"response": "Votre journée…", "tool_calls": [vocal]})
+
+        assert messages.create.await_args.kwargs["screen"] == "digest"
+        assert mcp.call_tool.await_args.args[1]["relatedEntityIri"] == "/digest?message=msg-9"
+
+    async def test_a_vocal_without_a_screen_leaves_the_message_in_the_thread(self):
+        vocal = {"name": "send_voice_message", "input": {"text": "Bonjour"}, "result": '{"sent": true}'}
+        _, mcp, messages = await self._run_keeping({"response": "Voilà.", "tool_calls": [vocal]})
+
+        assert messages.create.await_args.kwargs["screen"] is None
+        assert mcp.call_tool.await_args.args[1]["relatedEntityIri"] == "/chat?message=msg-9"
 
     async def test_a_voice_message_without_text_reads_message_vocal(self):
         _, mcp = await self._run({"response": "[whispers]", "tool_calls": []}, audio={"type": "audio/mpeg"})

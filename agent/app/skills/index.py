@@ -12,6 +12,9 @@ from app.skills.store import SkillFiles, skill_files
 logger = logging.getLogger(__name__)
 
 LEGACY_SKILLS_DIR = Path("/app/data/skills")
+# The skills shipped with Maggie (MAG-709, the digest): written into the skills folder when it has none of
+# that name, then they are the owner's like any other — his edits are never overwritten.
+BUILTIN_SKILLS_DIR = Path(__file__).parent
 
 # When a skill applies, as its tags say (MAG-345): `moment:chat`, `moment:proaction`, `moment:planification`.
 # The skills of the moment a prompt is built for are given in full; the others stay in the index.
@@ -68,6 +71,28 @@ class SkillIndex:
             except Exception as e:
                 logger.warning(f"Failed to import legacy skill file {path}: {e}")
         return imported
+
+    async def seed_builtin(self, directory: Path = BUILTIN_SKILLS_DIR) -> list[str]:
+        """Write the shipped skills that are missing into the skills folder and the table; the names written.
+
+        A skill of the same name already there — the owner's copy, edited or not — is left as it is. One
+        the owner deleted comes back at the next start: to stop the digest, its directive is what goes.
+        """
+        seeded: list[str] = []
+        for path in sorted(directory.glob("*.md")):
+            try:
+                parsed = parse_markdown(path)
+                if parsed is None:
+                    continue
+                entry, body = parsed
+                if await self.repo.get(entry.name) is not None:
+                    continue
+                await self.store.save(entry.name, entry.description, entry.tags, body.strip())
+                await self.repo.upsert(entry.name, entry.description, entry.tags, body.strip())
+                seeded.append(entry.name)
+            except Exception as e:
+                logger.warning(f"Failed to seed the shipped skill {path.name}: {e}")
+        return seeded
 
     async def get_skill(self, name: str) -> Skill | None:
         return await self.repo.get(name)

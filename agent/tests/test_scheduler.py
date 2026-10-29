@@ -242,6 +242,30 @@ class TestPlanningCycle:
         assert [call.args[1] for call in gateway.proaction.await_args_list] == ["user-ny"]
         assert checked_until == utc(2026, 10, 1, 9, 0)
 
+    async def test_a_first_directive_stored_while_the_cycle_slept_is_planned_at_its_hour(self, agent_db, monkeypatch):
+        """« Tous les matins à 7 h, le digest » said at 04:52: the 05:00 planning reads it the same morning (MAG-709)."""
+        timezones(monkeypatch, defaultdict(lambda: "Europe/Paris"))
+        instants = [utc(2026, 10, 1, 2, 50), utc(2026, 10, 1, 3, 5)]
+        monkeypatch.setattr(scheduler, "_utcnow", lambda: instants.pop(0))
+
+        async def sleep(seconds):
+            await instruction_repo.store("owner", "Tous les matins à 7 h, le digest de ma journée.")
+
+        monkeypatch.setattr(scheduler.asyncio, "sleep", sleep)
+        gateway = AsyncMock()
+        gateway.proaction.return_value = {"response": "ok"}
+
+        await scheduler.run_planning_cycle(gateway, utc(2026, 10, 1, 2, 50))
+
+        assert [call.args[1] for call in gateway.proaction.await_args_list] == ["owner"]
+
+    async def test_a_directive_stored_in_the_day_is_planned_the_next_morning(self, agent_db, monkeypatch, clock):
+        """Said at 14:00, the digest is planned at the next 05:00, for the morning after (MAG-709)."""
+        timezones(monkeypatch, defaultdict(lambda: "Europe/Paris"))
+        await instruction_repo.store("owner", "Tous les matins à 7 h, le digest de ma journée.")
+
+        assert await planning_schedule(utc(2026, 10, 1, 12, 0)) == {"owner": utc(2026, 10, 2, 3, 0)}
+
     async def test_nobody_due_means_a_refresh_sleep_and_no_planning(self, agent_db, monkeypatch, clock):
         instants, sleeps = clock
         await instruction_repo.store("user-ny", "Rule 1")

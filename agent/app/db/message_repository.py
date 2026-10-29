@@ -44,6 +44,7 @@ class MessageRepository:
         has_image: bool = False,
         decision: dict | None = None,
         audio: dict | None = None,
+        screen: str | None = None,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
 
@@ -72,6 +73,7 @@ class MessageRepository:
                 has_image=has_image,
                 decision=decision,
                 audio=audio,
+                screen=screen,
             )
             if turn_lease_until is not None:
                 msg.turn_status = TURN_RUNNING

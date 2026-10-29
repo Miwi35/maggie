@@ -238,6 +238,9 @@ async def run_planning_cycle(gateway: LLMGateway, since: datetime) -> datetime:
     await asyncio.sleep(max(0.0, (wake - now).total_seconds()))
 
     checked_until = _utcnow()
+    # Read again on waking (MAG-709): a planning directive stored while the cycle slept — the first one of
+    # a user — is planned at this moment too, not a day late.
+    schedule = await planning_schedule(since)
     for user_id in [user_id for user_id, target in schedule.items() if target <= checked_until]:
         await plan_user(gateway, user_id)
     return checked_until
