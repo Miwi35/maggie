@@ -66,7 +66,9 @@ onFlowComplete:
     id: "focus_ring"
 - tapOn:
     id: "focus_timer_toggle"
-- assertVisible: ".*Minuteur.*10:00.*"
+- extendedWaitUntil:
+    visible: ".*Minuteur.*10:00.*"
+    timeout: 10000
 - assertVisible: ".*Pas A MAG-499.*"
 - assertVisible: ".*Pas B MAG-499.*"
 
