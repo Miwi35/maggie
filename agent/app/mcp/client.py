@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -15,6 +16,12 @@ USER_HEADER = "X-Maggie-User-Id"
 # What `call_tool` answers when the server could not be reached or did not answer at all.
 NO_RESPONSE_ERROR = "No response from MCP server"
 
+# Just after a rollout, a new connection can still be routed to the pod that left and hang:
+# connecting fails fast and is tried again, since the request was never sent (MAG-704).
+TIMEOUT = httpx.Timeout(30.0, connect=5.0)
+CONNECT_ATTEMPTS = 3
+CONNECT_RETRY_DELAY_SECONDS = 1.0
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,7 +38,7 @@ class McpClient:
 
     async def connect(self) -> None:
         """Initialize connection to MCP server."""
-        self._http_client = httpx.AsyncClient(timeout=30.0)
+        self._http_client = httpx.AsyncClient(timeout=TIMEOUT)
         self._session_id = None
         self._session_expired = False
 
@@ -159,7 +166,7 @@ class McpClient:
         headers.update(journey_headers())
 
         try:
-            response = await self._http_client.post(self.server_url, json=payload, headers=headers)
+            response = await self._post(payload, headers)
 
             # Capture session ID from response
             if "mcp-session-id" in response.headers:
@@ -181,6 +188,21 @@ class McpClient:
         except Exception as e:
             logger.error(f"MCP request error: {e}")
             return None
+
+    async def _post(self, payload: dict, headers: dict) -> httpx.Response:
+        """POST to the server, trying again only when the connection never opened.
+
+        A failure after the request left (read timeout, dropped response) is not retried:
+        the server may have acted, and a tool that writes would write twice.
+        """
+        assert self._http_client is not None
+        for attempt in range(1, CONNECT_ATTEMPTS):
+            try:
+                return await self._http_client.post(self.server_url, json=payload, headers=headers)
+            except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+                logger.warning(f"MCP connection failed ({e!r}), retrying ({attempt}/{CONNECT_ATTEMPTS - 1})")
+                await asyncio.sleep(CONNECT_RETRY_DELAY_SECONDS)
+        return await self._http_client.post(self.server_url, json=payload, headers=headers)
 
     async def _send_notification(self, method: str, params: dict) -> None:
         """Send a JSON-RPC notification (no response expected)."""

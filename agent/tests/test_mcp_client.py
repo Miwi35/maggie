@@ -4,7 +4,13 @@ import httpx
 import pytest
 import respx
 
+from app.mcp import client as client_module
 from app.mcp.client import McpClient
+
+
+@pytest.fixture(autouse=True)
+def no_retry_delay(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(client_module, "CONNECT_RETRY_DELAY_SECONDS", 0)
 
 
 @pytest.fixture()
@@ -119,6 +125,70 @@ class TestMcpClient:
         await client.disconnect()
 
     @respx.mock
+    @pytest.mark.parametrize("failure", [httpx.ConnectTimeout("connect timed out"), httpx.ConnectError("refused")])
+    async def test_call_tool_retries_a_connection_that_never_opened(
+        self, client: McpClient, mcp_server_url: str, failure: httpx.TransportError
+    ):
+        """Right after a rollout the first connection can reach the pod that just left: retry it."""
+        client._http_client = httpx.AsyncClient(timeout=30.0)
+        client._session_id = "session-existing"
+
+        route = respx.post(mcp_server_url).mock(
+            side_effect=[
+                failure,
+                httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": "ok"}]}}),
+            ]
+        )
+
+        result = await client.call_tool("get_upcoming_events", {})
+
+        assert result == "ok"
+        assert route.call_count == 2
+
+        await client.disconnect()
+
+    @respx.mock
+    async def test_call_tool_gives_up_after_three_connection_attempts(self, client: McpClient, mcp_server_url: str):
+        client._http_client = httpx.AsyncClient(timeout=30.0)
+        client._session_id = "session-existing"
+
+        route = respx.post(mcp_server_url).mock(side_effect=httpx.ConnectError("refused"))
+
+        result = await client.call_tool("get_upcoming_events", {})
+
+        assert json.loads(result) == {"error": "No response from MCP server"}
+        assert route.call_count == 3
+
+        await client.disconnect()
+
+    @respx.mock
+    async def test_call_tool_does_not_retry_a_request_already_sent(self, client: McpClient, mcp_server_url: str):
+        """A read timeout means the server may have acted: a retry could write twice."""
+        client._http_client = httpx.AsyncClient(timeout=30.0)
+        client._session_id = "session-existing"
+
+        route = respx.post(mcp_server_url).mock(side_effect=httpx.ReadTimeout("read timed out"))
+
+        result = await client.call_tool("create_event", {})
+
+        assert json.loads(result) == {"error": "No response from MCP server"}
+        assert route.call_count == 1
+
+        await client.disconnect()
+
+    async def test_connect_opens_connections_within_five_seconds(self, client: McpClient):
+        """A dead endpoint must fail fast enough to leave room for the retry."""
+        client._send_request = _no_response  # type: ignore[method-assign]
+
+        await client.connect()
+
+        assert client._http_client is not None
+        assert client._http_client.timeout.connect == 5.0
+        assert client._http_client.timeout.read == 30.0
+
+        await client.disconnect()
+
+    @respx.mock
     async def test_call_tool_sends_user_header(self, client: McpClient, mcp_server_url: str):
         """The MCP server needs to know which user the tool acts for."""
         client._http_client = httpx.AsyncClient(timeout=30.0)
@@ -163,3 +233,7 @@ class TestMcpClient:
         assert "X-Maggie-User-Id" not in route.calls.last.request.headers
 
         await client.disconnect()
+
+
+async def _no_response(*_args, **_kwargs) -> None:
+    return None
