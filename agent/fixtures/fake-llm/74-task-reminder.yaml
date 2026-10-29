@@ -1,0 +1,16 @@
+# « Rappelle-moi d'aller faire les courses demain matin » (MAG-703): a thing the user
+# has to do is a task due that day — the morning alert carries it — not a proaction, and
+# not a promise nothing holds. `${tomorrow}` is the day after the stack's clock, in Paris.
+name: task-reminder
+description: Add the item to the grocery list, then file the errand as a task due tomorrow.
+
+match:
+  user_contains: "rappelle-moi d'aller faire les courses"
+
+turns:
+  - tools:
+      - name: add_grocery_item
+        input: {name: jambon}
+      - name: create_task
+        input: {title: "Faire les courses", dueDate: "${tomorrow}"}
+  - text: "C'est fait : jambon est sur la liste, et Faire les courses est dans vos tâches de demain, je vous la rappellerai le matin."
