@@ -9,8 +9,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from aiohttp import WSServerHandshakeError
 
-from app.tts.providers import SILENT_MP3_FRAME, SpeechUnavailableError
-from app.tts.synthesis import synthesize_speech
+from app.tts.providers import SILENT_MP3_CLIP, SILENT_MP3_FRAME, SpeechUnavailableError
+from app.tts.synthesis import synthesize_file, synthesize_speech
+from app.tts.voice_message import mp3_duration_ms
 
 
 async def collect(text: str) -> list[bytes]:
@@ -38,6 +39,15 @@ class TestFakeProvider:
         # everything would let a broken streaming path pass.
         assert len(short) == 1
         assert len(long) > 1
+
+    async def test_fake_voice_message_is_a_whole_clip_of_valid_frames(self, monkeypatch):
+        monkeypatch.setattr("app.tts.synthesis.settings.tts_provider", "fake")
+
+        clip = await synthesize_file("Salut.")
+
+        assert clip == SILENT_MP3_CLIP
+        assert len(SILENT_MP3_FRAME) == 417  # one MPEG-1 Layer III frame at 128 kbps / 44.1 kHz
+        assert mp3_duration_ms(clip) > 2000
 
     async def test_fake_provider_yields_audio_even_for_empty_text(self, monkeypatch):
         monkeypatch.setattr("app.tts.synthesis.settings.tts_provider", "fake")

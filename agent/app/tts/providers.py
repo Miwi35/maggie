@@ -22,7 +22,9 @@ Usage = Literal["live", "file"]
 # A valid, silent MP3 frame. The e2e provider streams this instead of calling a real
 # service: journeys assert that audio arrived and that the player handles it, never what it
 # sounds like, so a real voice would only add latency and a dependency on a service that can be down.
-SILENT_MP3_FRAME = bytes.fromhex("fffb90c4" + "00" * 100)
+SILENT_MP3_FRAME = bytes.fromhex("fffb90c4" + "00" * 413)
+# A voice message needs a clip a browser can actually play for a moment: ~3 s of the same frame.
+SILENT_MP3_CLIP = SILENT_MP3_FRAME * 115
 
 # Microsoft's endpoint refuses the WebSocket upgrade now and then (MAG-401). One retry
 # rides out a blip; a second refusal means the service is down, not that we were unlucky.
@@ -69,6 +71,9 @@ class FakeProvider:
         actually breaks — is the same one the journeys exercise.
         """
         FakeProvider.requests += 1
+        if usage == "file":
+            yield SILENT_MP3_CLIP
+            return
         for _ in range(max(1, (len(text) + 49) // 50)):
             yield SILENT_MP3_FRAME
 
