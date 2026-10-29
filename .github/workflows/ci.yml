@@ -172,6 +172,11 @@ jobs:
       e2e: ${{ inputs.suite != 'no-e2e' && steps.select.outputs.e2e == 'true' }}
       mobile: ${{ inputs.suite != 'no-e2e' && inputs.e2e != 'smoke' && steps.select.outputs.mobile == 'true' }}
       web_journeys: ${{ inputs.e2e != 'smoke' }}
+      # The light jobs a ready pull request does not replay (MAG-702): green in an
+      # earlier run of the same PR with the same content in their folders
+      # (infra/scripts/green-jobs.sh). `reuse_runs`: job id -> that run.
+      reuse: ${{ steps.reuse.outputs.reuse || '[]' }}
+      reuse_runs: ${{ steps.reuse.outputs.reuse_runs || '{}' }}
       web_specs: ${{ steps.select.outputs.web_specs }}
       web_lots: ${{ inputs.e2e == 'smoke' && '[{"index":1,"specs":"","shard":""}]' || steps.select.outputs.web_lots }}
       web_lot_count: ${{ inputs.e2e == 'smoke' && '1' || steps.select.outputs.web_lot_count }}
@@ -330,6 +335,20 @@ jobs:
             echo "diff=$dir/changes.diff"
           } >> "$GITHUB_OUTPUT"
 
+      # Jobs already green on this pull request (MAG-702): the draft's CI, or an
+      # earlier run, passed them on the same content. Only a ready pull request;
+      # any doubt (API, run, fetch) reuses nothing and every job runs.
+      - name: Reuse the jobs already green
+        id: reuse
+        if: ${{ github.event_name == 'pull_request' && !github.event.pull_request.draft }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: HEAD_SHA="$(git rev-parse HEAD)" GITHUB_REPOSITORY="$GH_REPO" infra/scripts/green-jobs.sh
+
       - name: Select the e2e journeys
         id: select
         env:
@@ -352,7 +371,7 @@ jobs:
   api-lint:
     name: API Lint (PHPStan)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.api == 'true' }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.api == 'true' && !contains(fromJSON(needs.changes.outputs.reuse), 'api-lint') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -378,7 +397,7 @@ jobs:
   agent-lint:
     name: Agent Lint (Ruff)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.agent == 'true' }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.agent == 'true' && !contains(fromJSON(needs.changes.outputs.reuse), 'agent-lint') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -397,7 +416,7 @@ jobs:
   ciqual-lint:
     name: Ciqual Lint (Ruff)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.ciqual == 'true' }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.ciqual == 'true' && !contains(fromJSON(needs.changes.outputs.reuse), 'ciqual-lint') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -416,7 +435,7 @@ jobs:
   admin-lint:
     name: Admin Lint (ESLint + TypeScript)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.admin == 'true' }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.admin == 'true' && !contains(fromJSON(needs.changes.outputs.reuse), 'admin-lint') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -441,7 +460,7 @@ jobs:
   api-test:
     name: API Tests (PHPUnit)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.api == 'true' }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.api == 'true' && !contains(fromJSON(needs.changes.outputs.reuse), 'api-test') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -503,7 +522,7 @@ jobs:
   agent-test:
     name: Agent Tests (pytest)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.agent == 'true' }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.agent == 'true' && !contains(fromJSON(needs.changes.outputs.reuse), 'agent-test') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -526,7 +545,7 @@ jobs:
   ciqual-test:
     name: Ciqual Tests (pytest)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.ciqual == 'true' }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.ciqual == 'true' && !contains(fromJSON(needs.changes.outputs.reuse), 'ciqual-test') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -549,7 +568,7 @@ jobs:
   admin-test:
     name: Admin Tests (Vitest)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.admin == 'true' }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.admin == 'true' && !contains(fromJSON(needs.changes.outputs.reuse), 'admin-test') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -583,12 +602,16 @@ jobs:
   # test job ran (a docs or tooling PR, a draft) the job does not start at all.
   coverage-report:
     name: Coverage report
-    needs: [api-test, agent-test, ciqual-test, admin-test, mobile-unit]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && contains(needs.*.result, 'success') }}
+    # `changes` is a need for the jobs reused from an earlier run (MAG-702): their
+    # measure is that run's artifact. It succeeds on every run, so the condition
+    # names the test jobs one by one instead of `contains(needs.*.result, …)`.
+    needs: [changes, api-test, agent-test, ciqual-test, admin-test, mobile-unit]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && (needs.api-test.result == 'success' || needs.agent-test.result == 'success' || needs.ciqual-test.result == 'success' || needs.admin-test.result == 'success' || needs.mobile-unit.result == 'success' || (needs.changes.result == 'success' && needs.changes.outputs.reuse != '[]')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
       # No match (no component changed) is not an error.
@@ -598,6 +621,24 @@ jobs:
           pattern: coverage-*
           path: coverage-out
           merge-multiple: true
+      # A reused job left its measure in the run it was reused from; without the
+      # artifact (expired, never uploaded) the component is missing from the report.
+      - name: Fetch the measure of the reused jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REUSE_RUNS: ${{ needs.changes.outputs.reuse_runs }}
+        run: |
+          mkdir -p coverage-out
+          for entry in api-test:api agent-test:agent ciqual-test:ciqual admin-test:admin mobile-unit:mobile; do
+            run="$(jq -r --arg job "${entry%%:*}" '.[$job] // empty' <<<"$REUSE_RUNS")"
+            [ -n "$run" ] || continue
+            if gh run download "$run" -n "coverage-${entry#*:}" -D coverage-out; then
+              echo "${entry#*:}: measure of the green run $run"
+            else
+              echo "::notice::${entry#*:} reused from run $run, but its coverage artifact is gone: not in the report"
+            fi
+          done
       - name: Comment the report
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1484,7 +1525,7 @@ jobs:
   mobile-unit:
     name: Mobile Unit Tests (release)
     needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.mobile_unit == 'true' }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.mobile_unit == 'true' && !contains(fromJSON(needs.changes.outputs.reuse), 'mobile-unit') }}
     runs-on: ubuntu-latest
     defaults:
       run:
