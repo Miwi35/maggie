@@ -17,8 +17,10 @@ set -euo pipefail
 # and on a merge group of the merge queue alike:
 #   - `Detect changes` succeeded;
 #   - every job below succeeded — or was skipped *by the decision of `Detect
-#     changes`* (its path filter said false). A job without a filter is expected
-#     on every run: skipped is a failure for it.
+#     changes`*: its path filter said false, or it is in the `reuse` list (MAG-702:
+#     green in an earlier run of the pull request on the same content, see
+#     infra/scripts/green-jobs.sh). A job without a filter is expected on every
+#     run: skipped is a failure for it.
 #
 # Anything else is red: failure, cancelled, skipped for another reason, absent
 # from `needs` (a job renamed in ci.yml but not here).
@@ -53,6 +55,7 @@ fail() {
 
 result_of() { jq -r --arg job "$1" '.[$job].result // "absent"' <<<"$NEEDS"; }
 filter_of() { jq -r --arg name "$1" '.changes.outputs[$name] // "absent"' <<<"$NEEDS"; }
+reused() { jq -e --arg job "$1" '(.changes.outputs.reuse // "[]") | fromjson | index($job) != null' <<<"$NEEDS" > /dev/null 2>&1; }
 
 changes="$(result_of changes)"
 printf '%-18s %s\n' changes "$changes"
@@ -73,6 +76,8 @@ for entry in "${REQUIRED[@]}"; do
     skipped)
       if [ "$filter" = - ]; then
         fail "$job was skipped, and nothing but a cancelled run skips it"
+      elif [ "$changes" = success ] && [ "$wanted" = true ] && reused "$job"; then
+        echo "$job reused from an earlier green run (Detect changes: reuse)"
       elif [ "$changes" != success ] || [ "$wanted" != false ]; then
         fail "$job was skipped, not by Detect changes ($filter=$wanted)"
       fi
