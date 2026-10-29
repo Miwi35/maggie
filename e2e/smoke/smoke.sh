@@ -477,7 +477,7 @@ voices="$(curl -sS "${AUTH[@]}" "$BASE_URL/agent/tts/voices")"
 assert_contains "$voices" 'fr-FR-DeniseNeural' "the curated voice list comes back"
 
 # Its own text, 150 characters of one letter, rather than the dictated sentence:
-# the fake emits one 104-byte frame per 50 characters of prepared text, so the
+# the fake emits one 417-byte frame per 50 characters of prepared text, so the
 # byte count below is exact and says what it means. Borrowing the dictation
 # fixture would tie this assertion to a sentence another journey is free to
 # reword, and shortening that sentence would fail here for no reason.
@@ -495,13 +495,13 @@ assert_eq 200 "$tts_status" "synthesising a sentence answers"
 assert_eq fffb "$(head -c 2 "$spoken" | od -An -tx1 | tr -d ' \n')" \
   "what came back is audio, not an error page"
 
-# Three whole frames, 104 bytes each: the stand-in answered, and its chunking
+# Three whole frames, 417 bytes each: the stand-in answered, and its chunking
 # loop ran the number of times the text implies. It says nothing about the
 # response being streamed rather than buffered — `curl -o` writes the same
 # bytes either way — only that the whole body arrived and came from the fake
 # provider and not from Edge TTS, whose output for this text would be neither
 # silent nor a round multiple of a frame.
-assert_eq 312 "$(wc -c <"$spoken")" "the stand-in returned one 104-byte frame per 50 characters"
+assert_eq 1251 "$(wc -c <"$spoken")" "the stand-in returned one 417-byte frame per 50 characters"
 
 assert_eq 400 "$(status_of -X POST "${AUTH[@]}" -H 'Content-Type: application/json' \
   -d '{"text":"bonjour","voice":"fr-FR-Inexistante"}' "$BASE_URL/agent/tts/synthesize")" \
