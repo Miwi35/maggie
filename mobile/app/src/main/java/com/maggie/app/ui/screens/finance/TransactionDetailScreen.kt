@@ -57,6 +57,7 @@ import com.maggie.app.data.model.transferLegSummary
 import com.maggie.app.data.model.visibleSheetSections
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.formatBookedDay
+import com.maggie.app.ui.components.markdown.MarkdownEditor
 
 /**
  * What the sheet does for the owner; each gesture acts at once, there is no « Enregistrer » for the
@@ -325,11 +326,11 @@ private fun RecurrenceSection(state: TransferDetailState, actions: TransactionSh
 private fun NoteSection(state: TransferDetailState, actions: TransactionSheetActions) {
     val saved = state.transaction.note.orEmpty()
     var text by rememberSaveable(state.transaction.id, saved) { mutableStateOf(saved) }
-    OutlinedTextField(
+    MarkdownEditor(
         value = text,
         onValueChange = { if (it.length <= NOTE_MAX_LENGTH) text = it },
-        label = { Text("Note") },
-        modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSACTION_NOTE),
+        label = "Note",
+        modifier = Modifier.testTag(UiTags.TRANSACTION_NOTE),
         minLines = 3,
         maxLines = 8,
         supportingText = { Text("${text.length} / $NOTE_MAX_LENGTH") },

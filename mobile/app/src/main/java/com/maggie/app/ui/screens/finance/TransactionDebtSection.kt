@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.markdown.MarkdownEditor
 
 /** What « Ce virement est » does for the owner (MAG-452); every edit stays a draft until « Enregistrer ». */
 class DebtSheetActions(
@@ -111,13 +112,12 @@ internal fun DebtSection(state: TransferDetailState, actions: DebtSheetActions) 
             enabled = !debt.isSaving,
             modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSACTION_DEBT_SUBJECT),
         )
-        OutlinedTextField(
+        MarkdownEditor(
             value = debt.notes,
             onValueChange = { if (it.length <= DEBT_NOTES_MAX_LENGTH) actions.onNotesChange(it) },
-            label = { Text("Notes") },
-            minLines = 2,
+            label = "Notes",
             enabled = !debt.isSaving,
-            modifier = Modifier.fillMaxWidth().testTag(UiTags.TRANSACTION_DEBT_NOTES),
+            modifier = Modifier.testTag(UiTags.TRANSACTION_DEBT_NOTES),
         )
 
         debt.summary(currency)?.let {

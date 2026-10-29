@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.PeerKind
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.markdown.MarkdownEditor
 
 /** What « Partage » does for the owner (MAG-451); every edit stays a draft until « Enregistrer ». */
 class ShareSheetActions(
@@ -175,13 +176,12 @@ private fun ShareEditorContent(share: ShareEditor, actions: ShareSheetActions, c
             enabled = !share.isSaving,
             modifier = Modifier.fillMaxWidth().testTag(UiTags.SHARE_SUBJECT),
         )
-        OutlinedTextField(
+        MarkdownEditor(
             value = share.notes,
             onValueChange = { if (it.length <= SHARE_NOTES_MAX_LENGTH) actions.onNotesChange(it) },
-            label = { Text("Notes") },
-            minLines = 2,
+            label = "Notes",
             enabled = !share.isSaving,
-            modifier = Modifier.fillMaxWidth().testTag(UiTags.SHARE_NOTES),
+            modifier = Modifier.testTag(UiTags.SHARE_NOTES),
         )
 
         share.problem?.let {

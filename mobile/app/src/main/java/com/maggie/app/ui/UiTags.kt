@@ -1784,4 +1784,21 @@ object UiTags {
     fun reviewSegment(step: String) = REVIEW_ACTIVITY_SEGMENT_PREFIX + step
     fun periodPlanRow(categoryId: String) = PERIOD_PLAN_ROW_PREFIX + categoryId
     fun periodPlanAmount(categoryId: String) = PERIOD_PLAN_AMOUNT_PREFIX + categoryId
+
+    const val TASK_NOTES = "task_notes"
+    const val EVENT_DESCRIPTION = "event_description"
+
+    /** Markdown fields (MAG-713): the bar above the keyboard, its buttons, the reading view's check boxes and « n/m » counter. */
+    const val MARKDOWN_TOOLBAR = "markdown_toolbar"
+    const val MARKDOWN_CHECK = "markdown_tool_check"
+    const val MARKDOWN_BULLET = "markdown_tool_bullet"
+    const val MARKDOWN_BOLD = "markdown_tool_bold"
+    const val MARKDOWN_HEADING = "markdown_tool_heading"
+    const val MARKDOWN_LINK = "markdown_tool_link"
+    const val MARKDOWN_CLEAR = "markdown_tool_clear"
+    const val MARKDOWN_COUNTER = "markdown_counter"
+    const val MARKDOWN_CHECKBOX_PREFIX = "markdown_checkbox_"
+
+    /** The reading view's check boxes, in order from 0. */
+    fun markdownCheckbox(index: Int) = MARKDOWN_CHECKBOX_PREFIX + index
 }
