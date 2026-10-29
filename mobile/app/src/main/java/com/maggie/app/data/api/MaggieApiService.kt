@@ -290,6 +290,22 @@ data class AgentChatRequest(
     val replaces: String? = null,
     /** The answer will be read aloud (voice overlay): Maggie writes for the ear (MAG-689). */
     val spoken: Boolean = false,
+    /** The message of Maggie this one answers, dictated on its notification in the car (MAG-683). */
+    val in_reply_to: ReplyTo? = null,
+)
+
+/** The message of Maggie an answer is for: Maggie reads it as she would the button of the notification, or as an instruction. */
+@Serializable
+data class ReplyTo(
+    val id: String,
+    val type: String? = null,
+    val title: String? = null,
+    val text: String? = null,
+    val reminder_id: String? = null,
+    val approval_id: String? = null,
+    val shortage_id: String? = null,
+    /** The keys of the reminder's buttons, as the server ordered them. */
+    val buttons: List<String> = emptyList(),
 )
 
 /** An image as the agent takes it: standard base64, no `data:` prefix. */
@@ -1429,6 +1445,7 @@ class MaggieApiService(
         userId: String = "default",
         image: ChatImage? = null,
         spoken: Boolean = false,
+        inReplyTo: ReplyTo? = null,
     ): AgentChatResponse {
         return client.post("$baseUrl/agent/chat") {
             waitForAgentReply()
@@ -1440,6 +1457,7 @@ class MaggieApiService(
                     screen_context = screenContext,
                     image = image,
                     spoken = spoken,
+                    in_reply_to = inReplyTo,
                 ),
             )
         }.body()

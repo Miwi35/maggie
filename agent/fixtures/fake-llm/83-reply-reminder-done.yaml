@@ -1,0 +1,16 @@
+# « C'est fait », dictated on a reminder's notification in the car (MAG-683). The reply travels with
+# the message it answers; the block the agent writes in front of the sentence gives the reminder's id
+# and the buttons, and Maggie presses « Fait » through the real MCP tool.
+name: reply-reminder-done
+description: Read a reply to a task reminder as the Done button.
+
+match:
+  user_matches: "(?is)reminderId : (\\w+).*c.est fait"
+
+turns:
+  - tools:
+      - name: answer_task_reminder
+        input:
+          reminderId: "\\1"
+          action: done
+  - text: "C'est noté : la tâche est faite."

@@ -172,6 +172,19 @@ class MaggieApiServiceTest {
     }
 
     @Test
+    fun `AgentChatRequest carries the message an answer is for, and nothing when it answers none (MAG-683)`() {
+        val plain = Json.encodeToString(AgentChatRequest.serializer(), AgentChatRequest(message = "Salut"))
+        val answer = Json.encodeToString(
+            AgentChatRequest.serializer(),
+            AgentChatRequest(message = "c'est fait", in_reply_to = ReplyTo(id = "n-1", reminder_id = "r-1", buttons = listOf("done"))),
+        )
+
+        assertTrue(!plain.contains("in_reply_to"))
+        assertTrue(answer.contains("\"in_reply_to\":{\"id\":\"n-1\""))
+        assertTrue(answer.contains("\"reminder_id\":\"r-1\""))
+    }
+
+    @Test
     fun `AgentChatRequest carries the idempotency key the agent deduplicates a resent message on`() {
         val body = Json.encodeToString(
             AgentChatRequest.serializer(),

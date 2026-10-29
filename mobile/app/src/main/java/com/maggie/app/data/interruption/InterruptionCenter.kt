@@ -1,5 +1,6 @@
 package com.maggie.app.data.interruption
 
+import com.maggie.app.data.car.CarMessages
 import com.maggie.app.data.fcm.PushNotifier
 import com.maggie.app.data.fcm.PushPayload
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +17,11 @@ import kotlinx.coroutines.flow.StateFlow
  * The queue only decides *what* is shown. How long it stays (30 s) belongs to the screen
  * that shows it, so a message raised while the app is in the background is not used up unseen.
  */
-class InterruptionCenter(private val now: () -> Long = System::currentTimeMillis) {
+class InterruptionCenter(
+    private val now: () -> Long = System::currentTimeMillis,
+    /** In the car (MAG-683) nothing is shown on the phone: the message leaves as the notification the car reads. */
+    private val car: CarMessages? = null,
+) {
 
     private val lock = Any()
     private val queue = ArrayDeque<PushPayload>()
@@ -48,6 +53,7 @@ class InterruptionCenter(private val now: () -> Long = System::currentTimeMillis
         }
         if (!seen.add(payload.key)) return false
         if (seen.size > MAX_REMEMBERED) seen.remove(seen.first())
+        if (car?.say(payload) == true) return true
 
         if (_current.value == null) {
             _current.value = payload

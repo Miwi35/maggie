@@ -5,6 +5,7 @@ from app.agents.registry import subagent_registry
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.pending_action_repository import pending_action_repo
+from app.llm.message_reply import ANSWER_APPROVAL_TOOL, handle_answer_approval
 from app.llm.time_tool import DATE_TIME_TOOLS, handle_date_time
 from app.mcp.client import mcp_client
 from app.memory import conversations
@@ -358,6 +359,7 @@ _NATIVE_HANDLERS = {
     "delete_skill": _handle_delete_skill,
     "date_time": handle_date_time,
     "delegate": _handle_delegate,
+    "answer_approval": handle_answer_approval,
     **MEMORY_HANDLERS,
 }
 
@@ -406,7 +408,7 @@ def _native_tool_names() -> frozenset[str]:
     native name to the agent's own handler anyway. Proactions are not among them: the API
     serves them (MAG-327).
     """
-    native = [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS]
+    native = [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS, ANSWER_APPROVAL_TOOL]
     return frozenset({tool["name"] for tool in native} | {"delegate"})
 
 
@@ -434,7 +436,7 @@ class ToolRouter:
             source: Who the tools are for. `a2a` gets the read-only MCP tools and nothing else.
         """
         a2a = source == A2A_SOURCE
-        tools = [] if a2a else list(MEMORY_TOOLS) + list(INSTRUCTION_TOOLS) + list(SKILL_TOOLS) + list(DATE_TIME_TOOLS)
+        tools = [] if a2a else [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS, ANSWER_APPROVAL_TOOL]
 
         if not a2a and subagent_registry.agents:
             tools.append(delegate_tool_definition())

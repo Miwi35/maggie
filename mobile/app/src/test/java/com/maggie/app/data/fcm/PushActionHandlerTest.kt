@@ -14,6 +14,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.mockk
+import io.mockk.slot
+import com.maggie.app.data.api.ReplyTo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -126,7 +128,41 @@ class PushActionHandlerTest {
         val outcome = handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "  Oui, merci  ")
 
         assertEquals(PushOutcome.Closed, outcome)
-        coVerify { api.sendChat("Oui, merci") }
+        coVerify { api.sendChat("Oui, merci", inReplyTo = any()) }
+    }
+
+    @Test
+    fun `Répondre carries the message it answers, with the ids Maggie needs to read it as the button (MAG-683)`() = runBlocking {
+        val reminder = payload("task_nudge").copy(
+            reminderId = "r-1",
+            reminderActions = listOf("done", "in10"),
+        )
+        val sent = slot<ReplyTo>()
+
+        handler.handle(PushActionKind.REPLY, reminder, reply = "c'est fait")
+
+        coVerify { api.sendChat("c'est fait", inReplyTo = capture(sent)) }
+        assertEquals(
+            ReplyTo(
+                id = "n-1",
+                type = "task_nudge",
+                title = "Titre",
+                text = "Texte",
+                reminder_id = "r-1",
+                buttons = listOf("done", "in10"),
+            ),
+            sent.captured,
+        )
+    }
+
+    @Test
+    fun `Répondre on a validation names the held action`() = runBlocking {
+        val sent = slot<ReplyTo>()
+
+        handler.handle(PushActionKind.REPLY, payload("approval", approvalId = "ap-1"), reply = "oui vas-y")
+
+        coVerify { api.sendChat("oui vas-y", inReplyTo = capture(sent)) }
+        assertEquals("ap-1", sent.captured.approval_id)
     }
 
     @Test
@@ -134,7 +170,7 @@ class PushActionHandlerTest {
         handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "Oui, merci")
 
         coVerifyOrder {
-            api.sendChat("Oui, merci")
+            api.sendChat("Oui, merci", inReplyTo = any())
             api.markNotificationRead("n-1")
         }
     }
@@ -145,7 +181,7 @@ class PushActionHandlerTest {
 
         assertEquals(PushOutcome.Closed, outcome)
         coVerify { api.markNotificationRead("n-1") }
-        coVerify(exactly = 0) { api.sendChat(any(), any(), any()) }
+        coVerify(exactly = 0) { api.sendChat(any(), any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -160,7 +196,7 @@ class PushActionHandlerTest {
         val outcome = handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "   ")
 
         assertTrue(outcome is PushOutcome.Retry)
-        coVerify(exactly = 0) { api.sendChat(any(), any(), any()) }
+        coVerify(exactly = 0) { api.sendChat(any(), any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -178,14 +214,14 @@ class PushActionHandlerTest {
 
         assertEquals(PushOutcome.Closed, outcome)
         coVerifyOrder {
-            api.sendChat("Oui, merci", any(), any())
+            api.sendChat("Oui, merci", any(), any(), any(), any(), any())
             api.markNotificationRead("n-1")
         }
     }
 
     @Test
     fun `a reply that cannot be sent leaves the notification unread`() = runBlocking {
-        coEvery { api.sendChat(any(), any(), any()) } throws java.io.IOException("offline")
+        coEvery { api.sendChat(any(), any(), any(), any(), any(), any()) } throws java.io.IOException("offline")
 
         handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "Oui, merci")
 
@@ -194,7 +230,7 @@ class PushActionHandlerTest {
 
     @Test
     fun `a reply that cannot be sent comes back with its text so it is not lost`() = runBlocking {
-        coEvery { api.sendChat(any(), any(), any()) } throws java.io.IOException("offline")
+        coEvery { api.sendChat(any(), any(), any(), any(), any(), any()) } throws java.io.IOException("offline")
 
         val outcome = handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "Oui, merci")
 
@@ -204,7 +240,7 @@ class PushActionHandlerTest {
 
     @Test
     fun `a reply Maggie is still answering closes the notification instead of asking to send it twice`() = runBlocking {
-        coEvery { api.sendChat(any(), any(), any()) } coAnswers {
+        coEvery { api.sendChat(any(), any(), any(), any(), any(), any()) } coAnswers {
             delay(1_000)
             mockk(relaxed = true)
         }
@@ -212,12 +248,12 @@ class PushActionHandlerTest {
         val outcome = handler.handle(PushActionKind.REPLY, payload("proaction"), reply = "Oui, merci")
 
         assertEquals(PushOutcome.Closed, outcome)
-        coVerify(exactly = 1) { api.sendChat("Oui, merci", any(), any()) }
+        coVerify(exactly = 1) { api.sendChat("Oui, merci", any(), any(), any(), any(), any()) }
     }
 
     @Test
     fun `a slow reply that ends up failing tells the notification afterwards`() = runBlocking {
-        coEvery { api.sendChat(any(), any(), any()) } coAnswers {
+        coEvery { api.sendChat(any(), any(), any(), any(), any(), any()) } coAnswers {
             delay(500)
             throw java.io.IOException("offline")
         }

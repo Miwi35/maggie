@@ -4,6 +4,7 @@ import android.util.Log
 import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.api.ApprovalDecisionException
 import com.maggie.app.data.api.MaggieApiService
+import com.maggie.app.data.api.ReplyTo
 import com.maggie.app.data.model.TaskReminderAnswer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -139,7 +140,7 @@ class PushActionHandler(
 
         val sending = sendScope.async {
             runCatching {
-                apiService.sendChat(message)
+                apiService.sendChat(message, inReplyTo = payload.replyTo())
                 // Answered here, so closed everywhere; a failed mark must not undo the send.
                 runCatching { apiService.markNotificationRead(payload.notificationId) }
             }
@@ -198,3 +199,15 @@ class PushActionHandler(
         private val FINAL_STATUSES = setOf(400, 404, 409)
     }
 }
+
+/** What the agent needs to read an answer as the answer to this message (MAG-683): its words and the ids of what it asks about. */
+fun PushPayload.replyTo(): ReplyTo = ReplyTo(
+    id = notificationId,
+    type = type,
+    title = title,
+    text = text,
+    reminder_id = reminderId,
+    approval_id = approvalId,
+    shortage_id = shortageId,
+    buttons = reminderActions,
+)

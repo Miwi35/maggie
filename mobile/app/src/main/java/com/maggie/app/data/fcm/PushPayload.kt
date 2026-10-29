@@ -103,6 +103,13 @@ data class PushPayload(
     val isConversation: Boolean get() = PushActionKind.REPLY in actions()
 
     /**
+     * What Maggie waits an answer for (MAG-683): a validation, a reminder, a task or a shortage to settle.
+     * A plain message, a departure alert or a mere « C'est noté » waits for nothing, and is never told twice.
+     */
+    val awaitsAnswer: Boolean
+        get() = reminderId != null || shortageId != null || actions().any { it in ANSWERING }
+
+    /**
      * The buttons the notification carries, by what it asks.
      *
      * `interaction.kind` decides when the server provides it; otherwise the type does. A
@@ -157,6 +164,10 @@ data class PushPayload(
 
         /** `NotificationType::Departure`. */
         const val DEPARTURE_TYPE = "departure"
+
+        private val ANSWERING = setOf(
+            PushActionKind.DONE, PushActionKind.LATER, PushActionKind.APPROVE, PushActionKind.DENY, PushActionKind.ADD_TO_LIST,
+        )
 
         /** The buttons Android shows on a notification, at most. */
         const val MAX_ACTIONS = 3

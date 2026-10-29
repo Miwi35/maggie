@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.os.Bundle
 import androidx.core.app.RemoteInput
+import com.maggie.app.data.car.CarMessages
 import com.maggie.app.data.interruption.InterruptionCenter
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -30,7 +31,16 @@ class PushActionReceiverTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
     private val manager = app.getSystemService(NotificationManager::class.java)
     private val handler = mockk<PushActionHandler>()
-    private val center = InterruptionCenter()
+    private var inCar = false
+    private val cancelled = mutableListOf<String>()
+    private val car = CarMessages(
+        isConnected = { inCar },
+        post = { payload, nudge -> PushNotifier(app).show(payload, inCar = true, nudge = nudge) },
+        isShowing = { PushNotifier(app).isShowing(it) },
+        scheduleNudge = { _, _ -> },
+        cancelNudge = { cancelled += it.notificationId },
+    )
+    private val center = InterruptionCenter(car = car)
     private var foreground = false
 
     @Before
@@ -40,7 +50,8 @@ class PushActionReceiverTest {
             modules(
                 module {
                     single { handler }
-                    single { PushDelivery(center, { PushNotifier(app) }, isForeground = { foreground }) }
+                    single { car }
+                    single { PushDelivery(center, { PushNotifier(app) }, car, isForeground = { foreground }) }
                 },
             )
         }
@@ -131,6 +142,18 @@ class PushActionReceiverTest {
 
         val style = androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(shown())
         assertEquals(listOf("Titre\nTexte"), style?.messages?.map { it.text.toString() })
+    }
+
+    @Test
+    fun `a reminder answered in the car, even turned into a bravo, is no longer nudged (MAG-683)`() {
+        inCar = true
+        coEvery { handler.handle(PushActionKind.TICK, any(), any(), any()) } returns PushOutcome.Rewarded("Et une de moins. Bravo.")
+        car.say(PushPayload.from(mapOf("notificationId" to "n-1", "type" to "task_nudge", "title" to "Appeler", "reminderId" to "r-1", "actions" to "done,in10"))!!)
+
+        press("Fait")
+        await { cancelled.isNotEmpty() }
+
+        assertEquals(listOf("n-1"), cancelled)
     }
 
     @Test

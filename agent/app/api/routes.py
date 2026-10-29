@@ -34,6 +34,7 @@ from app.llm.context_summary import context_summarizer
 from app.llm.duplicates import find_duplicated_turn, find_settled_answer, normalize, user_lock
 from app.llm.gateway import LLMGateway
 from app.llm.image import ChatImage
+from app.llm.message_reply import ReplyTo, grant_approval_answer, with_reply
 from app.llm.replace import abandon_approvals, withdraw_turn
 from app.llm.runner import run_tool_loop
 from app.llm.screen_context import split as split_screen_context
@@ -85,6 +86,10 @@ class ChatRequest(BaseModel):
     # The answer will be read aloud (the voice overlay, ADR-014): Maggie writes it for the ear, with
     # the voice's delivery tags. A turn taken up again after a restart is answered as written text.
     spoken: bool = False
+
+    # The message of Maggie this one answers (MAG-683): dictated on a notification in the car. The model
+    # reads it as it would the phone's button, or as an instruction; what is stored is what was said.
+    in_reply_to: ReplyTo | None = None
 
 
 MAX_MESSAGE_ID_CHARS = 26
@@ -168,10 +173,13 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
     same message: it gets that answer, and no second turn runs (MAG-386).
     """
     said, screen = split_screen_context(request.message, request.screen_context)
+    screen = with_reply(screen, request.in_reply_to)
+    grant_approval_answer(user_id, request.in_reply_to)
     logger.info(f"Chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
-    # A screenshot makes it another message, whatever the words say.
-    if request.image is not None:
+    # A screenshot, or the message it answers, makes it another message, whatever the words say:
+    # « c'est fait » said to two reminders is two answers.
+    if request.image is not None or request.in_reply_to is not None:
         return await _answer_chat(request, user_id, said, screen)
 
     flight = (user_id, normalize(said))
@@ -254,6 +262,8 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     # The screen the assistant was summoned from reaches the model, not the message that
     # is stored and published — this is the route the overlay streams on (MAG-30).
     said, screen = split_screen_context(request.message, request.screen_context)
+    screen = with_reply(screen, request.in_reply_to)
+    grant_approval_answer(user_id, request.in_reply_to)
     logger.info(f"Stream chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
     key = request.idempotency_key
@@ -268,7 +278,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
                 # Before the look-up below: the corrected words may be the old ones, and must not
                 # be taken for a repeat of the turn that is being taken back.
                 carried_over = await withdraw_turn(user_id, request.replaces)
-            if request.image is None:
+            if request.image is None and request.in_reply_to is None:
                 received = await find_duplicated_turn(user_id, said)
             if received is not None:
                 # No key in common, but the same words while that turn runs or just ended (MAG-386):

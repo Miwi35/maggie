@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.RemoteInput
+import com.maggie.app.data.car.CarMessages
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,6 +17,7 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
 
     private val handler: PushActionHandler by inject()
     private val delivery: PushDelivery by inject()
+    private val car: CarMessages by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         val payload = PushIntents.payloadOf(intent) ?: return
@@ -26,6 +28,11 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
             return
         }
 
+        if (intent.action == ACTION_NUDGE) {
+            car.nudge(payload)
+            return
+        }
+
         val kind = PushActionKind.entries.firstOrNull { actionFor(it) == intent.action } ?: return
         val reply = RemoteInput.getResultsFromIntent(intent)?.getCharSequence(KEY_REPLY)?.toString()
 
@@ -33,7 +40,8 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
         val pending = goAsync()
         scope.launch {
             try {
-                when (val outcome = handler.handle(kind, payload, reply) { late -> notifier.show(payload, note = late.message) }) {
+                val outcome = handler.handle(kind, payload, reply) { late -> notifier.show(payload, note = late.message) }
+                when (outcome) {
                     PushOutcome.Closed -> notifier.close(payload.systemTag)
                     PushOutcome.Postponed -> notifier.postpone(payload)
                     // The car presses « Marquer comme lu » by itself: a failure must not turn the message into an error note.
@@ -42,6 +50,8 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
                     // The same notification, now the bravo: its words in place of the reminder's, nothing to press.
                     is PushOutcome.Rewarded -> notifier.show(payload.copy(title = outcome.message, text = null), withActions = false)
                 }
+                // Answered, whatever it became in the tray: the car's one reminder has nothing left to say.
+                if (outcome !is PushOutcome.Retry) car.forget(payload.systemTag)
             } finally {
                 pending.finish()
             }
@@ -51,6 +61,7 @@ class PushActionReceiver : BroadcastReceiver(), KoinComponent {
     companion object {
         const val KEY_REPLY = "reply"
         const val ACTION_RESHOW = "com.maggie.app.push.RESHOW"
+        const val ACTION_NUDGE = "com.maggie.app.push.NUDGE"
 
         fun actionFor(kind: PushActionKind): String = "com.maggie.app.push.${kind.name}"
 

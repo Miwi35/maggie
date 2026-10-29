@@ -34,8 +34,11 @@ class PushNotifier(private val context: Context) {
     /**
      * @param note replaces the text, to say why a button did not go through.
      * @param withActions false once there is nothing left to press; the notification then dismisses itself.
+     * @param inCar the phone is in the car (MAG-683): whatever the message, it is the conversation the car reads
+     * and answers, with « Répondre », and a departure alert is no longer a full screen.
+     * @param nudge the one reminder of a message left unanswered: it says so, and the car takes it for a new message.
      */
-    fun show(payload: PushPayload, note: String? = null, withActions: Boolean = true): Boolean {
+    fun show(payload: PushPayload, note: String? = null, withActions: Boolean = true, inCar: Boolean = false, nudge: Boolean = false): Boolean {
         if (!canNotify()) return false
 
         val builder = NotificationCompat.Builder(context, payload.channel)
@@ -47,7 +50,7 @@ class PushNotifier(private val context: Context) {
             .setContentIntent(openIntent(payload, toLink = false))
 
         // « Pars maintenant » (MAG-658): a strong interruption, the full screen over the lock screen.
-        if (payload.isDeparture && withActions) {
+        if (payload.isDeparture && withActions && !inCar) {
             val screen = departureScreen(payload, go = false)
             builder
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -60,11 +63,11 @@ class PushNotifier(private val context: Context) {
 
         // A message of Maggie (MAG-682) is a conversation, the only form Android Auto reads aloud. A note
         // or a settled request is the app talking, not Maggie: those stay plain text.
-        val conversation = payload.isConversation && note == null && withActions
+        val conversation = (payload.isConversation || inCar) && note == null && withActions
         val folded = if (conversation) {
             val history = history(manager, payload)
             builder
-                .setStyle(conversationStyle(payload, history.flatMap { it.second }))
+                .setStyle(conversationStyle(payload, history.flatMap { it.second }, nudge))
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setGroup(GROUP_CONVERSATION)
             history.map { it.first }
@@ -78,7 +81,7 @@ class PushNotifier(private val context: Context) {
         }
 
         if (withActions) {
-            payload.actions().forEach { builder.addAction(action(it, payload)) }
+            buttons(payload, conversation).forEach { builder.addAction(action(it, payload)) }
             if (conversation) builder.addInvisibleAction(action(PushActionKind.MARK_AS_READ, payload))
         } else {
             builder.setTimeoutAfter(SETTLED_TIMEOUT_MS)
@@ -90,19 +93,33 @@ class PushNotifier(private val context: Context) {
         return true
     }
 
-    /** The conversation's earlier messages still in the tray, with the tag each sits under, oldest first. */
+    /**
+     * The conversation's earlier messages still in the tray, with the tag each sits under, oldest first.
+     * One that carries more than « Répondre » (a reminder or a validation answered in the car, MAG-683) keeps
+     * its own notification: its buttons and its one reminder depend on it.
+     */
     private fun history(manager: NotificationManager, payload: PushPayload): List<Pair<String, List<NotificationCompat.MessagingStyle.Message>>> =
         manager.activeNotifications
-            .filter { it.notification.channelId == PushChannels.CHAT && it.id == NOTIFICATION_ID && it.tag != null && it.tag != payload.systemTag }
+            .filter { it.notification.channelId == PushChannels.CHAT && it.id == NOTIFICATION_ID && it.tag != null && it.tag != payload.systemTag && it.notification.actions.orEmpty().size <= 1 }
             .mapNotNull { sbn ->
                 NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(sbn.notification)
                     ?.let { sbn.tag to it.messages }
             }
             .sortedBy { (_, messages) -> messages.lastOrNull()?.timestamp ?: 0L }
 
+    // A message that had no « Répondre » (a reminder, a validation) gets one in the car, ahead of the others:
+    // Android shows three buttons at most, and the owner answers by voice there.
+    private fun buttons(payload: PushPayload, conversation: Boolean): List<PushActionKind> =
+        if (conversation && !payload.isConversation) {
+            listOf(PushActionKind.REPLY) + payload.actions().take(PushPayload.MAX_ACTIONS - 1)
+        } else {
+            payload.actions()
+        }
+
     private fun conversationStyle(
         payload: PushPayload,
         earlier: List<NotificationCompat.MessagingStyle.Message>,
+        nudge: Boolean,
     ): NotificationCompat.MessagingStyle {
         val maggie = Person.Builder()
             .setName(SENDER)
@@ -111,13 +128,18 @@ class PushNotifier(private val context: Context) {
             .build()
         val style = NotificationCompat.MessagingStyle(Person.Builder().setName("Moi").setKey("owner").build())
         earlier.sortedBy { it.timestamp }.takeLast(MAX_HISTORY - 1).forEach(style::addMessage)
-        style.addMessage(NotificationCompat.MessagingStyle.Message(spoken(payload), System.currentTimeMillis(), maggie))
+        val said = if (nudge) "$NUDGE_PREFIX${spoken(payload)}" else spoken(payload)
+        style.addMessage(NotificationCompat.MessagingStyle.Message(said, System.currentTimeMillis(), maggie))
         return style
     }
 
     // Android Auto reads the message, not the title: a headline that is not just « Maggie » goes in front of it.
     private fun spoken(payload: PushPayload): String =
         listOfNotNull(payload.title.takeIf { it != SENDER }, payload.text?.let(::stripDeliveryTags)).joinToString("\n")
+
+    /** Whether the notification under [tag] is still in the tray: not answered, read or opened since. */
+    fun isShowing(tag: String): Boolean = context.getSystemService(NotificationManager::class.java)
+        .activeNotifications.any { it.id == NOTIFICATION_ID && it.tag == tag }
 
     /** [tag]: the payload's [PushPayload.systemTag] — its notification id, or `cooking-timer-{id}`. */
     fun close(tag: String) {
@@ -138,6 +160,23 @@ class PushNotifier(private val context: Context) {
         context.getSystemService(AlarmManager::class.java)
             .setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delayMs, pending)
     }
+
+    /** The one reminder of a message left unanswered in the car (MAG-683): the receiver says it again if it is still there. */
+    fun scheduleNudge(payload: PushPayload, delayMs: Long) {
+        context.getSystemService(AlarmManager::class.java)
+            .setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delayMs, nudgeIntent(payload))
+    }
+
+    fun cancelNudge(payload: PushPayload) {
+        context.getSystemService(AlarmManager::class.java).cancel(nudgeIntent(payload))
+    }
+
+    private fun nudgeIntent(payload: PushPayload): PendingIntent = PendingIntent.getBroadcast(
+        context,
+        requestCode(payload, PushActionReceiver.ACTION_NUDGE),
+        broadcast(PushActionReceiver.ACTION_NUDGE, payload),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
 
     private fun action(kind: PushActionKind, payload: PushPayload): NotificationCompat.Action {
         // « Y aller » of a departure hands the navigation link to Waze or Maps; the activity that does it also closes the notification.
@@ -228,6 +267,7 @@ class PushNotifier(private val context: Context) {
         private const val SENDER_KEY = "maggie"
         const val GROUP_CONVERSATION = "maggie-conversation"
         private const val MAX_HISTORY = 6
+        private const val NUDGE_PREFIX = "Je te relance. "
         private const val SETTLED_TIMEOUT_MS = 8_000L
     }
 }

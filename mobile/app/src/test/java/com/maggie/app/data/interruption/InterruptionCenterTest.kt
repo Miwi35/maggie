@@ -13,7 +13,7 @@ import org.junit.Test
 class InterruptionCenterTest {
 
     private var clock = 1_000L
-    private val center = InterruptionCenter { clock }
+    private val center = InterruptionCenter(now = { clock })
 
     private fun message(id: String, type: String = "proaction", interaction: String? = null) = PushPayload.from(
         buildMap {

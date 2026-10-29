@@ -169,6 +169,61 @@ class TestRoutes:
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
     @patch("app.api.routes.llm_gateway")
+    def test_a_reply_reaches_the_model_with_its_message_and_is_stored_as_said(
+        self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
+    ):
+        """MAG-683: « c'est fait » dictated in the car answers one reminder, and only the words are kept."""
+        mock_gateway.chat = AsyncMock(return_value={"response": "C'est noté.", "tool_calls": []})
+        mock_msg_repo.create = AsyncMock(
+            return_value=Message(id="msg-1", user_id="test-user", role="user", content="x")
+        )
+        mock_summarizer.maybe_summarize = AsyncMock()
+
+        response = authed_client.post(
+            "/chat",
+            json={
+                "message": "c'est fait",
+                "in_reply_to": {"id": "n-1", "type": "task_reminder", "title": "Appeler le garage", "reminder_id": "r-9"},
+            },
+        )
+
+        assert response.status_code == 200
+        mock_msg_repo.create.assert_any_await(user_id="test-user", role="user", content="c'est fait", has_image=False)
+        screen = mock_gateway.chat.await_args.kwargs["screen_context"]
+        assert "[Réponse à un message de Maggie]" in screen
+        assert "Appeler le garage" in screen
+        assert "reminderId : r-9" in screen
+
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
+    def test_a_reply_to_a_validation_lets_the_model_decide_that_one_validation(
+        self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
+    ):
+        mock_gateway.chat = AsyncMock(return_value={"response": "Fait.", "tool_calls": []})
+        mock_msg_repo.create = AsyncMock(
+            return_value=Message(id="msg-1", user_id="test-user", role="user", content="x")
+        )
+        mock_summarizer.maybe_summarize = AsyncMock()
+
+        authed_client.post(
+            "/chat",
+            json={"message": "oui vas-y", "in_reply_to": {"id": "n-2", "type": "approval", "approval_id": "ap-7"}},
+        )
+
+        from app.llm.message_reply import _take_grant
+
+        assert _take_grant("test-user", "ap-7") is True
+        assert _take_grant("test-user", "ap-8") is False
+
+    def test_a_reply_without_the_id_of_its_message_is_refused(self, authed_client):
+        response = authed_client.post("/chat", json={"message": "oui", "in_reply_to": {"id": "", "title": "x"}})
+
+        assert response.status_code == 422
+
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
     def test_a_client_glueing_the_block_to_the_message_still_stores_the_question(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
     ):
