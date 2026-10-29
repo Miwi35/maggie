@@ -158,8 +158,14 @@ fun AssistantOverlay(
                             ScreenshotStatus("Capture d'écran indisponible : elle n'a pas pu être lue")
                         }
                     }
-                    // No thumbnail without a word (MAG-214): still coming, or why it is not.
-                    pendingContext?.screenshotStatus()?.let { ScreenshotStatus(it) }
+                    // No thumbnail without a word (MAG-214): still coming.
+                    if (pendingContext?.screenshotPending == true) {
+                        pendingContext.screenshotStatus()?.let { ScreenshotStatus(it) }
+                    }
+                }
+                // Why there is none is told even with nothing attached: « + Écran » does not appear.
+                if (pendingContext?.screenshotMiss != null) {
+                    pendingContext.screenshotStatus()?.let { ScreenshotStatus(it) }
                 }
 
                 // Messages
