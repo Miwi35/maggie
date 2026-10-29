@@ -13,7 +13,8 @@ Both tool loops — `run_tool_loop` and the streamed `chat_stream` — hold one 
 turn. They report every tool result to it, and ask it about the answer the model ends on.
 Three kinds of announcement are checked, in this order:
 
-- a reminder (« je vous rappellerai à 16h05 »), backed by `schedule_proaction`, an event
+- a reminder (« je vous rappellerai à 16h05 »), backed by `schedule_proaction`, a task
+  created with a due date (the morning alert carries it, MAG-703), an event
   created or updated with reminders, or a pending reminder listed by `list_proactions`;
 - something learned (« c'est noté », « je retiens », « j'ai enregistré »), backed by
   `add_instruction`, `create_skill`, `update_skill`, `memory_write_fiche`, `schedule_proaction`,
@@ -47,6 +48,7 @@ from app.llm.dry_run import is_read_only
 from app.llm.screen_context import split
 
 SCHEDULE_TOOL = "schedule_proaction"
+TASK_TOOL = "create_task"
 DELEGATE_TOOL = "delegate"
 LEARNING_TOOLS = ("add_instruction", "create_skill", "update_skill", "memory_write_fiche", "memory_log_miss")
 AGENDA_TOOLS = ("get_events_by_date", "get_upcoming_events")
@@ -151,7 +153,9 @@ NUDGE = (
     "[Contrôle automatique] Ta réponse annonce un rappel, mais aucun appel à schedule_proaction "
     "n'a réussi pendant ce tour : rien n'est programmé. Si l'utilisateur veut un rappel, appelle "
     "schedule_proaction maintenant (scheduled_at = le champ iso renvoyé par date_time), puis "
-    "confirme avec l'heure locale que l'outil renvoie. S'il était déjà programmé avant ce message, "
+    "confirme avec l'heure locale que l'outil renvoie. Exception : « rappelle-moi d'aller faire X » est une "
+    "chose que l'utilisateur doit faire, donc create_task avec dueDate (le jour visé), jamais "
+    "schedule_proaction. S'il était déjà programmé avant ce message, "
     "dis qu'il est déjà programmé. Sinon, dis ce qui manque pour le programmer, sans promettre "
     "de rappel."
 )
@@ -286,6 +290,8 @@ def _backs_a_reminder(tool_name: str, result: str, arguments: dict) -> bool:
         return _lists_a_pending_one(result)
     if tool_name in EVENT_TOOLS:
         return bool(arguments.get("reminders")) and _went_through(result)
+    if tool_name == TASK_TOOL:
+        return bool(arguments.get("dueDate")) and _went_through(result)
     return tool_name == SCHEDULE_TOOL and _went_through(result)
 
 

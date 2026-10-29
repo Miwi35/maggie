@@ -50,7 +50,9 @@ DATE_TIME_TOOLS = [
             "A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. "
             "Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to "
             "schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder "
-            "still needs the schedule_proaction call. Calendar units (years, months, weeks, days) keep the wall-clock "
+            "still needs a tool call: create_task with a dueDate when the user has something to do (« rappelle-moi "
+            "d'aller faire X »), schedule_proaction when Maggie herself must act or speak at that time. "
+            "Calendar units (years, months, weeks, days) keep the wall-clock "
             "time across a clock change; clock units (hours, minutes, seconds) are real elapsed time."
         ),
         "input_schema": {
