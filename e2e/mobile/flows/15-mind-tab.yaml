@@ -53,10 +53,22 @@ tags:
     visible: "Autoriser"
     timeout: 60000
 - assertVisible: "Refuser"
-- runFlow: ../subflows/hide-keyboard.yaml
+# The sentence above the card sits behind the keyboard, and on a tablet the keyboard comes
+# back after a first look found it down (nightly of 28 Oct.): the keyboard is looked for again
+# each time the sentence is not in view, never hidden blindly.
+- repeat:
+    while:
+      notVisible: ".*Je te demande ton accord pour supprimer.*"
+    times: 6
+    commands:
+      - runFlow: ../subflows/hide-keyboard.yaml
+      - extendedWaitUntil:
+          visible: ".*Je te demande ton accord pour supprimer.*"
+          timeout: 5000
+          optional: true
 - extendedWaitUntil:
     visible: ".*Je te demande ton accord pour supprimer.*"
-    timeout: 60000
+    timeout: 30000
 
 # The badge, then what it counts — in words, without the tool's name.
 - extendedWaitUntil:
