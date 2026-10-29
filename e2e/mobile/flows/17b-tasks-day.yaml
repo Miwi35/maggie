@@ -73,6 +73,8 @@ onFlowComplete:
 - tapOn:
     id: "tasks_day_add_input"
 - inputText: "Ajout MAG-497"
+# The window is not panned above the keyboard any more (MAG-532): bring the row up before tapping.
+- runFlow: ../subflows/scroll-list-end.yaml
 - tapOn:
     id: "tasks_day_add_submit"
 # No `hideKeyboard`: the keyboard is already down once the row recomposes, and on

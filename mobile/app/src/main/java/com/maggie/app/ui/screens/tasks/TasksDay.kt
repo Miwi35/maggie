@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -73,7 +76,8 @@ internal fun DayContent(
     onFocus: (taskId: String) -> Unit,
 ) {
     val onOpen: (String) -> Unit = viewModel::openTask
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    // The window is no longer panned by the keyboard (MAG-532): the list keeps room to scroll the add field above it.
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = WindowInsets.ime.asPaddingValues()) {
         state.routinesBand?.let { band ->
             item(key = "routines") {
                 RoutinesBandRow(band = band, pending = state.routinesPending, onToggle = viewModel::toggleRoutine)
