@@ -24,7 +24,7 @@ class ApprovalRepository(
         apiService.getPendingApprovals()
     }
 
-    /** The answers of the last [hours] hours, most recent first: the bell's « Réglées ». */
+    /** The answers given since [since], most recent first: the bell's « Réglées ». */
     suspend fun getDecided(since: java.time.Instant): Result<List<PendingApproval>> = runCatching {
         apiService.getDecidedApprovals(since.toString())
     }
