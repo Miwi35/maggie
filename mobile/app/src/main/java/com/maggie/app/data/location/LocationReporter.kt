@@ -24,9 +24,10 @@ enum class ReportOutcome {
 
 /**
  * Sends the owner's position and the car's place (MAG-651). Nothing leaves the phone while the
- * switch is off or a permission is missing. The API holds the last value only; the phone keeps a few
- * minutes of GPS-grade points (MAG-666) — to place the car where the trip ended, and to send the same
- * precise point again while the phone has not moved rather than a vaguer network one.
+ * switch is off or a permission is missing. Only GPS points are ever sent (MAG-666): a network position
+ * can be kilometres off while claiming a few hundred metres. The API holds the last value only; the phone
+ * keeps a few minutes of GPS-grade points — to place the car where the trip ended, and to send the last
+ * one again while the phone has not moved, whatever its age.
  */
 class LocationReporter(
     private val api: MaggieApiService,
@@ -40,29 +41,24 @@ class LocationReporter(
     suspend fun mayListen(): Boolean = preferences.isEnabled() && permissions.canTrack()
 
     /**
-     * A fresh fix, sent as the owner's position; the GPS when the API is waiting for it ([PositionAccuracy.HIGH]),
-     * else the cheap sources. A GPS-grade point the phone has not moved from is kept when the fix is vaguer. A vaguer
-     * fix that disagrees with it is sent for what it is — a network position, which the API keeps apart from the GPS
-     * one and never lets overwrite it (MAG-666).
+     * The owner's position. While the phone has not moved, the last GPS point stays the position whatever its
+     * age and no sensor is woken. A [precise] one (the API is waiting for it before a departure) and a phone
+     * that has moved take a GPS fix, 30 s at most; with none, the last GPS point is sent, and nothing at all
+     * when there is none — never a network position, and no retry that would drain the battery on a ceiling.
      */
-    suspend fun reportPosition(accuracy: PositionAccuracy = PositionAccuracy.BALANCED): ReportOutcome {
+    suspend fun reportPosition(precise: Boolean = false): ReportOutcome {
         if (!canReport()) return ReportOutcome.SKIPPED
-        val fresh = source.current(accuracy)
-        val kept = preferences.keptGpsPoint()?.takeIf { stillStands(it, fresh) }
-        return when {
-            fresh != null && (kept == null || (fresh.accuracy > 0.0 && fresh.accuracy <= kept.accuracy)) -> deliver(fresh)
-            kept != null -> deliver(kept.copy(capturedAt = clock.instant()), record = false)
-            else -> ReportOutcome.RETRY
-        }
+        val still = preferences.keptGpsPoint()
+        if (still != null && !precise) return deliver(still.copy(capturedAt = clock.instant()), record = false)
+        val fresh = gpsFix()
+        if (fresh != null) return deliver(fresh)
+        val last = still?.copy(capturedAt = clock.instant()) ?: preferences.gpsLog().lastOrNull() ?: return ReportOutcome.SKIPPED
+        return deliver(last, record = false)
     }
 
-    /** The phone's own claim of not having moved is not enough: the kept point is young, and the fresh fix agrees with it. */
-    private fun stillStands(kept: Position, fresh: Position?): Boolean {
-        if (Duration.between(kept.capturedAt, clock.instant()) > KEPT_MAX_AGE) return false
-        return fresh == null || kept.distanceTo(fresh) <= fresh.accuracy + kept.accuracy
-    }
+    private suspend fun gpsFix(): Position? = source.current()?.takeIf { it.isGpsGrade }
 
-    /** A fix of the trip service (GPS while the owner moves or drives): sent as the position, and kept. */
+    /** A fix of the trip service (GPS while the owner moves or drives): sent as the position, and kept. A network one is refused. */
     suspend fun reportFix(position: Position): ReportOutcome {
         if (!canReport()) return ReportOutcome.SKIPPED
         return deliver(position)
@@ -81,7 +77,7 @@ class LocationReporter(
         if (!canReport()) return ReportOutcome.SKIPPED
         val last = preferences.lastSent()
         val better = points
-            .filter { it.accuracy > 0.0 }
+            .filter { it.source == FixSource.GPS && it.accuracy > 0.0 }
             .filter { last == null || (it.capturedAt.isAfter(last.capturedAt) && it.accuracy < last.accuracy) }
             .minByOrNull { it.accuracy }
             ?: return ReportOutcome.SKIPPED
@@ -99,7 +95,7 @@ class LocationReporter(
             ?.takeIf { !it.capturedAt.isBefore(parkedAt.minus(MAX_POINT_AGE)) }
         // No point: the fix of now is the car's place only if the owner has not had time to walk away.
         val recent = Duration.between(parkedAt, clock.instant()) <= MAX_FIX_DELAY
-        val place = logged ?: (if (recent) source.current(PositionAccuracy.HIGH) else null) ?: return ReportOutcome.DROPPED
+        val place = logged ?: (if (recent) gpsFix() else null) ?: return ReportOutcome.DROPPED
         preferences.setPendingCar(PendingCar(place.latitude, place.longitude, parkedAt))
         preferences.setLastCarParkedAt(parkedAt)
         return sendPendingCar()
@@ -121,6 +117,7 @@ class LocationReporter(
     private suspend fun canReport() = preferences.isEnabled() && permissions.canReadPosition()
 
     private suspend fun deliver(position: Position, record: Boolean = true): ReportOutcome {
+        if (position.source != FixSource.GPS) return ReportOutcome.SKIPPED
         if (record && position.isGpsGrade) preferences.addGpsPoint(position)
         val outcome = send { api.putMyLocation(position.latitude, position.longitude, position.accuracy, position.capturedAt.toString(), position.source.wire) }
         if (outcome == ReportOutcome.SENT) preferences.setLastSent(position)
@@ -143,9 +140,6 @@ class LocationReporter(
         /** An exit is stamped a little before the points that follow it still stand at the car. */
         val PARKING_GRACE: Duration = Duration.ofSeconds(30)
         val MAX_POINT_AGE: Duration = Duration.ofMinutes(10)
-
-        /** A kept point older than this is no longer where the phone is, whatever the sensors said. */
-        val KEPT_MAX_AGE: Duration = Duration.ofHours(1)
 
         /** Past this, a fix taken for a car left that long ago says where the owner went (~400 m on foot), not where the car is. */
         val MAX_FIX_DELAY: Duration = Duration.ofMinutes(5)

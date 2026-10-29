@@ -354,7 +354,7 @@ data class PersonalityResponse(
     val name: String = "",
 )
 
-/** `PUT /api/me/location` (MAG-650): `capturedAt` is ISO-8601 with its offset; `source` is `gps` or `network` (MAG-666). */
+/** `PUT /api/me/location` (MAG-650): `capturedAt` is ISO-8601 with its offset; `source` is `gps` (MAG-666: the API drops a `network` one). */
 @Serializable
 data class MyLocationRequest(
     val latitude: Double,

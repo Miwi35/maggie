@@ -22,7 +22,7 @@ final readonly class IsUserAwayFromTrip
     public const float DISTANCE_METERS = 300.0;
 
     /**
-     * @param LocationFix|null                                                 $position the user's position as {@see \Maggie\Core\Service\UserPositions} picks it
+     * @param LocationFix|null                                                 $position the user's last GPS point
      * @param UserLocationChangedEvent::POSITION|UserLocationChangedEvent::CAR $what
      */
     public function __construct(

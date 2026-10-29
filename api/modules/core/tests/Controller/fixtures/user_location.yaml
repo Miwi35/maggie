@@ -12,5 +12,5 @@ Maggie\Core\Entity\UserLocation:
   other_location:
     user: '@other_user'
     __calls:
-      - moveTo: ['<(\Maggie\Core\Enum\LocationSource::Gps)>', 45.75, 4.85, 20.0, '<(new \DateTimeImmutable("2026-10-26T07:00:00+00:00"))>']
+      - moveTo: [45.75, 4.85, 20.0, '<(new \DateTimeImmutable("2026-10-26T07:00:00+00:00"))>']
       - parkCar: [45.76, 4.86, '<(new \DateTimeImmutable("2026-10-25T18:00:00+00:00"))>']

@@ -120,7 +120,7 @@ class AndroidLocationScheduler(
 }
 
 /**
- * The position every 30 minutes (cheap sources), and on the push `location_request` (the GPS, flagged [PRECISE]);
+ * The position every 30 minutes (the last GPS point while the phone is still), and on the push `location_request` (a GPS fix, flagged [PRECISE]);
  * a failed send is tried again by WorkManager with its backoff, never a crash.
  */
 class PositionWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -134,8 +134,7 @@ class PositionWorker(context: Context, params: WorkerParameters) : CoroutineWork
             // Best effort: Android 12+ refuses a foreground service started from a worker unless the app is in view.
             koin.get<TripLauncher>().startIfNeeded()
         }
-        val accuracy = if (inputData.getBoolean(PRECISE, false)) PositionAccuracy.HIGH else PositionAccuracy.BALANCED
-        return reporter.reportPosition(accuracy).toWorkResult()
+        return reporter.reportPosition(precise = inputData.getBoolean(PRECISE, false)).toWorkResult()
     }
 
     companion object {
@@ -157,12 +156,14 @@ class PassivePointsWorker(context: Context, params: WorkerParameters) : Coroutin
         private const val LONGITUDES = "longitudes"
         private const val ACCURACIES = "accuracies"
         private const val AT = "at"
+        private const val SOURCES = "sources"
 
         fun toData(points: List<Position>): Data = Data.Builder()
             .putDoubleArray(LATITUDES, points.map { it.latitude }.toDoubleArray())
             .putDoubleArray(LONGITUDES, points.map { it.longitude }.toDoubleArray())
             .putDoubleArray(ACCURACIES, points.map { it.accuracy }.toDoubleArray())
             .putLongArray(AT, points.map { it.capturedAt.toEpochMilli() }.toLongArray())
+            .putStringArray(SOURCES, points.map { it.source.wire }.toTypedArray())
             .build()
 
         fun fromData(data: Data): List<Position> {
@@ -170,7 +171,12 @@ class PassivePointsWorker(context: Context, params: WorkerParameters) : Coroutin
             val longitudes = data.getDoubleArray(LONGITUDES) ?: return emptyList()
             val accuracies = data.getDoubleArray(ACCURACIES) ?: return emptyList()
             val at = data.getLongArray(AT) ?: return emptyList()
-            return latitudes.indices.map { Position(latitudes[it], longitudes[it], accuracies[it], Instant.ofEpochMilli(at[it])) }
+            val sources = data.getStringArray(SOURCES)
+            return latitudes.indices.map {
+                val accuracy = accuracies[it]
+                val source = FixSource.values().firstOrNull { s -> s.wire == sources?.getOrNull(it) } ?: FixSource.fromAccuracy(accuracy)
+                Position(latitudes[it], longitudes[it], accuracy, Instant.ofEpochMilli(at[it]), source)
+            }
         }
     }
 }

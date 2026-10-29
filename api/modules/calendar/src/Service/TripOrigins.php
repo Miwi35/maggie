@@ -11,13 +11,13 @@ use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Repository\PlaceRepository;
 use Maggie\Calendar\Routing\RoutingException;
 use Maggie\Core\Entity\User;
-use Maggie\Core\Service\UserPositions;
+use Maggie\Core\Repository\UserLocationRepository;
 use Maggie\Notification\Push\LocationRequester;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Uid\Ulid;
 
 /**
- * Reads a trip's origin (MAG-653): `position` (the one {@see UserPositions} picks among the last GPS and network fixes the phone gave),
+ * Reads a trip's origin (MAG-653): `position` (the last GPS point the phone gave, whatever its age),
  * `home` (the « Maison », taken from the Google account when none is saved),
  * `place:<ulid>` or `event:<ulid>` (where an earlier event is).
  *
@@ -31,10 +31,10 @@ class TripOrigins
     public const string HOME = 'home';
 
     public function __construct(
-        private readonly UserPositions $positions,
+        private readonly UserLocationRepository $locations,
         private readonly PlaceRepository $places,
         private readonly EventRepository $events,
-        private readonly TripLocations $locations,
+        private readonly TripLocations $tripLocations,
         private readonly LocationRequester $locationRequester,
         private readonly ClockInterface $clock,
         private readonly HomeFromGoogle $homeFromGoogle,
@@ -65,7 +65,7 @@ class TripOrigins
 
     private function position(User $user): TripOrigin
     {
-        $fix = $this->positions->of($user);
+        $fix = $this->locations->findOneByUser($user)?->getFix();
         if (null === $fix) {
             throw new InvalidTripException('origin', 'no position of the user is known yet: ask where they leave from, or use a place:<id> origin.');
         }
@@ -77,7 +77,7 @@ class TripOrigins
             $requested = true;
         }
 
-        return new TripOrigin(TripOrigin::POSITION, null, 'ma position', $fix->latitude, $fix->longitude, $fix->capturedAt, $requested, $fix->source);
+        return new TripOrigin(TripOrigin::POSITION, null, 'ma position', $fix->latitude, $fix->longitude, $fix->capturedAt, $requested);
     }
 
     private function home(User $user): TripOrigin
@@ -102,7 +102,7 @@ class TripOrigins
 
     private function fromPlace(Place $place): TripOrigin
     {
-        [$latitude, $longitude] = $this->locations->ofPlace($place);
+        [$latitude, $longitude] = $this->tripLocations->ofPlace($place);
 
         return new TripOrigin(TripOrigin::PLACE, (string) $place->getId(), $place->isHome() ? 'la maison' : $place->getName(), $latitude, $longitude);
     }
@@ -114,7 +114,7 @@ class TripOrigins
             throw new InvalidTripException('origin', "no event of yours has the id {$id}.");
         }
 
-        [$latitude, $longitude] = $this->locations->ofEvent($event, 'origin');
+        [$latitude, $longitude] = $this->tripLocations->ofEvent($event, 'origin');
 
         return new TripOrigin(TripOrigin::EVENT, $id, $event->getSummary(), $latitude, $longitude);
     }

@@ -7,7 +7,6 @@ namespace Maggie\Core\Entity;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\OwnedByUserInterface;
-use Maggie\Core\Enum\LocationSource;
 use Maggie\Core\Location\LocationFix;
 use Maggie\Core\Repository\UserLocationRepository;
 use Symfony\Component\Uid\Ulid;
@@ -18,9 +17,9 @@ use Symfony\Component\Uid\Ulid;
  * to work out when to leave; no front shows it, so neither Mercure nor
  * Elasticsearch carries it.
  *
- * The last GPS position and the last network position are kept apart (MAG-666): a
- * network fix never overwrites a GPS one. Which of the two stands for the user is
- * decided in one place, {@see \Maggie\Core\Service\UserPositions}.
+ * Only GPS positions are kept (MAG-666): the phone sends no other, and a network
+ * fix, which can be kilometres off while claiming a few hundred metres, is dropped
+ * on the way in. The last GPS point stays the position whatever its age.
  *
  * Any part may be missing: the phone can report the car before any position.
  */
@@ -47,18 +46,6 @@ class UserLocation implements OwnedByUserInterface
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $gpsCapturedAt = null;
-
-    #[ORM\Column(nullable: true)]
-    private ?float $networkLatitude = null;
-
-    #[ORM\Column(nullable: true)]
-    private ?float $networkLongitude = null;
-
-    #[ORM\Column(nullable: true)]
-    private ?float $networkAccuracy = null;
-
-    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
-    private ?\DateTimeImmutable $networkCapturedAt = null;
 
     #[ORM\Column(nullable: true)]
     private ?float $carLatitude = null;
@@ -91,38 +78,19 @@ class UserLocation implements OwnedByUserInterface
         return $this;
     }
 
-    public function getGpsFix(): ?LocationFix
+    public function getFix(): ?LocationFix
     {
-        return $this->fix(LocationSource::Gps);
+        return null === $this->gpsLatitude || null === $this->gpsLongitude || null === $this->gpsAccuracy || null === $this->gpsCapturedAt
+            ? null
+            : new LocationFix($this->gpsLatitude, $this->gpsLongitude, $this->gpsAccuracy, $this->gpsCapturedAt);
     }
 
-    public function getNetworkFix(): ?LocationFix
+    /** Replaces the last position. */
+    public function moveTo(float $latitude, float $longitude, float $accuracy, \DateTimeImmutable $capturedAt): static
     {
-        return $this->fix(LocationSource::Network);
-    }
-
-    /** Replaces the last position of the fix's own source; the other source's is left alone. */
-    public function moveTo(LocationSource $source, float $latitude, float $longitude, float $accuracy, \DateTimeImmutable $capturedAt): static
-    {
-        $capturedAt = self::toSecond($capturedAt);
-        if (LocationSource::Gps === $source) {
-            [$this->gpsLatitude, $this->gpsLongitude, $this->gpsAccuracy, $this->gpsCapturedAt] = [$latitude, $longitude, $accuracy, $capturedAt];
-        } else {
-            [$this->networkLatitude, $this->networkLongitude, $this->networkAccuracy, $this->networkCapturedAt] = [$latitude, $longitude, $accuracy, $capturedAt];
-        }
+        [$this->gpsLatitude, $this->gpsLongitude, $this->gpsAccuracy, $this->gpsCapturedAt] = [$latitude, $longitude, $accuracy, self::toSecond($capturedAt)];
 
         return $this;
-    }
-
-    private function fix(LocationSource $source): ?LocationFix
-    {
-        [$latitude, $longitude, $accuracy, $capturedAt] = LocationSource::Gps === $source
-            ? [$this->gpsLatitude, $this->gpsLongitude, $this->gpsAccuracy, $this->gpsCapturedAt]
-            : [$this->networkLatitude, $this->networkLongitude, $this->networkAccuracy, $this->networkCapturedAt];
-
-        return null === $latitude || null === $longitude || null === $accuracy || null === $capturedAt
-            ? null
-            : new LocationFix($latitude, $longitude, $accuracy, $capturedAt, $source);
     }
 
     public function getCarLatitude(): ?float

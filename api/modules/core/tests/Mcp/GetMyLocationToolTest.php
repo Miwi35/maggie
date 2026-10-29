@@ -6,7 +6,6 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Entity\UserLocation;
-use Maggie\Core\Enum\LocationSource;
 use Maggie\Core\Mcp\Tool\GetMyLocationTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\Clock;
@@ -44,10 +43,10 @@ class GetMyLocationToolTest extends KernelTestCase
         return (new \DateTimeImmutable(self::NOW, new \DateTimeZone('UTC')))->modify('-'.$interval);
     }
 
-    private function report(User $user, LocationSource $source, float $latitude, float $accuracy, string $ago): void
+    private function report(User $user, float $latitude, float $accuracy, string $ago): void
     {
         $location = $this->em()->getRepository(UserLocation::class)->findOneBy(['user' => $user]) ?? (new UserLocation())->setUser($user);
-        $location->moveTo($source, $latitude, 4.8, $accuracy, $this->ago($ago));
+        $location->moveTo($latitude, 4.8, $accuracy, $this->ago($ago));
         $this->em()->persist($location);
         $this->em()->flush();
     }
@@ -60,41 +59,36 @@ class GetMyLocationToolTest extends KernelTestCase
         self::assertArrayNotHasKey('position', $result);
     }
 
-    public function testAllNullWhenThePhoneNeverReported(): void
+    public function testNullWhenThePhoneNeverReported(): void
     {
         $this->loginFixtureUser();
 
-        self::assertSame(['position' => null, 'gps' => null, 'network' => null], $this->call());
+        self::assertSame(['position' => null], $this->call());
     }
 
-    public function testReturnsBothPositionsWithTheirSourceAndAgeAndTrustsTheGpsOne(): void
+    public function testReturnsTheLastGpsPointWithItsAge(): void
     {
         $user = $this->loginFixtureUser();
-        $this->report($user, LocationSource::Gps, 45.75, 20.0, '40 minutes');
-        $this->report($user, LocationSource::Network, 45.78, 500.0, '2 minutes');
+        $this->report($user, 45.75, 20.0, '40 minutes');
 
-        $result = $this->call();
+        $position = $this->call()['position'];
 
-        self::assertSame('gps', $result['gps']['source']);
-        self::assertSame(45.75, $result['gps']['latitude']);
-        self::assertEquals(20, $result['gps']['accuracy']);
-        self::assertSame(40, $result['gps']['ageMinutes']);
-        self::assertSame('network', $result['network']['source']);
-        self::assertSame(45.78, $result['network']['latitude']);
-        self::assertSame(2, $result['network']['ageMinutes']);
-        self::assertSame($result['gps'], $result['position']);
+        self::assertSame(45.75, $position['latitude']);
+        self::assertEquals(20, $position['accuracy']);
+        self::assertSame(40, $position['ageMinutes']);
+        self::assertArrayNotHasKey('source', $position);
     }
 
-    public function testTrustsTheNetworkPositionWhenTheGpsOneIsOverTwoHoursOld(): void
+    /** MAG-666, recette of 28 Oct.: a phone that stayed still for hours still has its last GPS point. */
+    public function testTheLastGpsPointStaysThePositionWhateverItsAge(): void
     {
         $user = $this->loginFixtureUser();
-        $this->report($user, LocationSource::Gps, 45.75, 20.0, '3 hours');
-        $this->report($user, LocationSource::Network, 45.78, 500.0, '2 minutes');
+        $this->report($user, 45.75, 20.0, '5 hours');
 
-        $result = $this->call();
+        $position = $this->call()['position'];
 
-        self::assertSame('network', $result['position']['source']);
-        self::assertSame(180, $result['gps']['ageMinutes']);
+        self::assertSame(45.75, $position['latitude']);
+        self::assertSame(300, $position['ageMinutes']);
     }
 
     public function testNeverReadsAnotherUsersPosition(): void
@@ -104,6 +98,5 @@ class GetMyLocationToolTest extends KernelTestCase
         $result = $this->call();
 
         self::assertNull($result['position']);
-        self::assertNull($result['gps']);
     }
 }

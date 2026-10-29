@@ -20,7 +20,6 @@ use Maggie\Calendar\Message\SetTripCommand;
 use Maggie\Calendar\Routing\GeocodingClient;
 use Maggie\Calendar\Routing\RoutingClient;
 use Maggie\Core\Entity\User;
-use Maggie\Core\Enum\LocationSource;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Core\Service\UserLocations;
 use Maggie\Notification\Push\LocationRequester;
@@ -162,7 +161,7 @@ class TripToolsTest extends KernelTestCase
     {
         $capturedAt = Clock::get()->now()->modify('-2 minutes');
         self::getContainer()->get(UserLocations::class)->save($this->id('test_user'), static function ($location) use ($capturedAt): void {
-            $location->moveTo(LocationSource::Gps, self::HOME[0], self::HOME[1], 10.0, $capturedAt);
+            $location->moveTo(self::HOME[0], self::HOME[1], 10.0, $capturedAt);
             $location->parkCar(self::CAR[0], self::CAR[1], $capturedAt);
         });
     }

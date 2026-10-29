@@ -9,7 +9,7 @@ data class Position(
     /** Metres; may be zero. */
     val accuracy: Double,
     val capturedAt: Instant,
-    /** How the fix was acquired; the API keeps the last GPS and the last network position apart (MAG-666). */
+    /** How the fix was acquired; only GPS ones leave the phone (MAG-666). */
     val source: FixSource = FixSource.fromAccuracy(accuracy),
 ) {
     /** Precise enough to stand for where the car is: a GPS fix at 50 m or better. A network fix never is: kept points lose their source. */
@@ -54,12 +54,9 @@ enum class FixSource(val wire: String) {
     }
 }
 
-/** How a fix is read: [HIGH] is the GPS (a position the API acts on), [BALANCED] Wi-Fi and cell towers (±500 m, easy on the battery). */
-enum class PositionAccuracy { BALANCED, HIGH }
-
-/** Where a fresh fix comes from — the fused provider, or a fake in tests. Null when none could be had in time. */
+/** Where a fresh GPS fix comes from — the fused provider, or a fake in tests. Null when none could be had in time. */
 fun interface PositionSource {
-    suspend fun current(accuracy: PositionAccuracy): Position?
+    suspend fun current(): Position?
 }
 
 /** What the owner granted. Position needs the fine and the background permissions; parking detection, the activity one. */

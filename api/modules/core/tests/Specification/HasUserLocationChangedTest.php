@@ -24,9 +24,6 @@ final class HasUserLocationChangedTest extends TestCase
         yield 'the same instant, another object' => [['gpsCapturedAt' => [$at, new \DateTimeImmutable('2026-10-26T09:00:00+01:00')]], 'position', false];
         yield 'the same car date, another object' => [['carParkedAt' => [$at, new \DateTimeImmutable('2026-10-26T08:00:00Z')]], 'car', false];
         yield 'the position moved, not the car' => [['gpsLatitude' => [48.8, 48.9]], 'car', false];
-        yield 'a network fix moves the position' => [['networkLatitude' => [null, 48.8], 'networkCapturedAt' => [null, $at]], 'position', true];
-        yield 'a new network accuracy alone' => [['networkAccuracy' => [500.0, 300.0]], 'position', true];
-        yield 'a network fix is not the car' => [['networkLatitude' => [48.8, 48.9]], 'car', false];
         yield 'nothing written' => [[], 'position', false];
     }
 

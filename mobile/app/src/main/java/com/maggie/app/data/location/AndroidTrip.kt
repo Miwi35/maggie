@@ -168,7 +168,7 @@ class PassiveLocationReceiver : BroadcastReceiver() {
         val result = LocationResult.extractResult(intent) ?: return
         val koin = GlobalContext.getOrNull() ?: return
         try {
-            koin.get<LocationScheduler>().handlePassivePoints(result.locations.map { it.toPosition() })
+            koin.get<LocationScheduler>().handlePassivePoints(result.locations.map { it.toPosition() }.filter { it.source == FixSource.GPS })
         } catch (e: Exception) {
             Log.w(TAG, "Passive fixes not handled: ${e.message}")
         }
