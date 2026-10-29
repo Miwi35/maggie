@@ -49,6 +49,7 @@ MCP_TOOL_NAMES = (
     "manage_projects",
     "manage_recurring_groceries",
     "manage_safety_cushion",
+    "manage_scenarios",
     "manage_stores",
     "manage_transactions",
     "manage_utensils",

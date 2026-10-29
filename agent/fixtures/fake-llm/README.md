@@ -235,6 +235,12 @@ both ids from it.
 `91-projects-planning.yaml` answers « Quand pourrai-je acheter le canapé ? » with `get_project_planning` (MAG-526), a
 pure read that takes no argument.
 
+**Advisor** (MAG-559). `91-advisor-delegate.yaml` answers « Et si je remboursais le prêt auto plus tôt ? » by handing the
+question to the `advisor` sub-agent through `delegate`; `90-advisor-loan-early.yaml` is the advisor's own run
+(`system_contains: conseiller financier et comptable`): it lists the projects and the loans, simulates the early repayment
+of the Crédit voiture, files one draft with `manage_scenarios` suggest (`${month}` is the current month) and says the
+figures as a field of the possible. `results_matches` captures the three project ids and the loan's.
+
 **Investments** (MAG-557). `91-investments-set.yaml` makes the « Box » an investment (5 000 € down payment, a 20-year loan
 at 3,9 %, 160 € rent, resale in 2036-06) through `manage_investments` set: one round lists the projects,
 `results_matches` captures the Box's id from it. The figures said are the scenario's own: the fake does not read the result.
