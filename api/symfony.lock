@@ -125,6 +125,9 @@
     "maggie/grocery": {
         "version": "dev-main"
     },
+    "maggie/health": {
+        "version": "dev-main"
+    },
     "maggie/notification": {
         "version": "dev-main"
     },

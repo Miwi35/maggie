@@ -35,6 +35,7 @@ use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Service\PurchaseSuggestions;
+use Maggie\Health\Entity\Workout;
 use Maggie\MealGrocery\Entity\ShortageAlert;
 use Maggie\Notification\Entity\Notification;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -225,6 +226,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(4, $this->rowsOf(Notification::class));
         // MAG-652: the owner's « Maison » and « Dentiste », read by the trips, and the neighbour's « Maison ».
         self::assertSame(3, $this->rowsOf(Place::class));
+
+        // MAG-705: the three sessions of the Santé › Sport journey, on the owner's account.
+        $owner = $this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']);
+        self::assertSame(3, $this->rowsOf(Workout::class, ['user' => $owner]));
+        self::assertSame(3, $this->rowsOf(Workout::class));
 
         // MAG-556: the PEA of the placement withdrawal journey, and the 1 500 € the
         // trip takes out of it the month it is bought.

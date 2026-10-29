@@ -1,0 +1,91 @@
+{
+    "@context": "/api/contexts/Workout",
+    "@id": "/api/workouts",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/workouts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Workout",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "type": "run",
+            "title": "Course",
+            "startedAt": "2026-10-20T05:10:00+00:00",
+            "durationMinutes": 32,
+            "distanceMeters": 5400,
+            "kcal": 386,
+            "avgHeartRate": 152,
+            "feeling": "good",
+            "notes": "Sous la pluie",
+            "source": "watch",
+            "externalId": "watch-4711",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        },
+        {
+            "@id": "/api/workouts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Workout",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "type": "strength",
+            "title": "Haut du corps",
+            "startedAt": "2026-10-18T16:30:00+00:00",
+            "durationMinutes": 45,
+            "source": "manual",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/workouts{?type,type[],source,source[],startedAt[before],startedAt[strictly_before],startedAt[after],startedAt[strictly_after]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "type",
+                "property": "type",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "type[]",
+                "property": "type",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "source",
+                "property": "source",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "source[]",
+                "property": "source",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startedAt[before]",
+                "property": "startedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startedAt[strictly_before]",
+                "property": "startedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startedAt[after]",
+                "property": "startedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startedAt[strictly_after]",
+                "property": "startedAt",
+                "required": false
+            }
+        ]
+    }
+}

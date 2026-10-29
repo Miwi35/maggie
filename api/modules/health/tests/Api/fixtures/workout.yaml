@@ -1,0 +1,49 @@
+# MAG-705's scenario: three sessions of the user (a run on the watch, a
+# strength session typed by hand, a planned walk) and one of another user,
+# which proves the isolation.
+Maggie\Core\Entity\User:
+  test_user:
+    email: health-api-test@example.com
+    googleId: google-health-api-test
+    name: Health Api Test User
+  other_user:
+    email: health-other@example.com
+    googleId: google-health-other
+    name: Other Health User
+
+Maggie\Health\Entity\Workout:
+  run:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<(new \DateTimeImmutable("2026-10-20T07:10:00+02:00"))>'
+    durationMinutes: 32
+    distanceMeters: 5400
+    kcal: 386
+    avgHeartRate: 152
+    feeling: '<(Maggie\Health\Enum\WorkoutFeeling::Good)>'
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+    externalId: watch-4711
+    user: '@test_user'
+  strength:
+    type: '<(Maggie\Health\Enum\WorkoutType::Strength)>'
+    title: Haut du corps
+    startedAt: '<(new \DateTimeImmutable("2026-10-18T18:30:00+02:00"))>'
+    durationMinutes: 45
+    kcal: 260
+    source: '<(Maggie\Health\Enum\WorkoutSource::Manual)>'
+    user: '@test_user'
+  planned:
+    type: '<(Maggie\Health\Enum\WorkoutType::Walk)>'
+    title: Marche rapide
+    startedAt: '<(new \DateTimeImmutable("2026-10-25T09:00:00+01:00"))>'
+    durationMinutes: 70
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    user: '@test_user'
+  secret:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Séance secrète
+    startedAt: '<(new \DateTimeImmutable("2026-10-21T07:00:00+02:00"))>'
+    durationMinutes: 30
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+    externalId: watch-4711
+    user: '@other_user'

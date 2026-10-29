@@ -64,6 +64,7 @@ _MANAGE_OBJECTS = {
     "manage_stores": "le magasin",
     "manage_transactions": "la transaction",
     "manage_utensils": "l'ustensile",
+    "manage_workouts": "la séance",
 }
 
 # `manage_*` tools whose `list` action answers without arguments and stays small enough to

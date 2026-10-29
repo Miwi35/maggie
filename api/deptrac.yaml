@@ -20,6 +20,9 @@ deptrac:
     - name: Finance
       collectors:
         - { type: classNameRegex, value: '#^Maggie\\Finance\\#' }
+    - name: Health
+      collectors:
+        - { type: classNameRegex, value: '#^Maggie\\Health\\#' }
     - name: Cookbook
       collectors:
         - { type: classNameRegex, value: '#^Maggie\\Cookbook\\#' }
@@ -47,6 +50,7 @@ deptrac:
     Notification: [Core]
     Calendar: [Core, Notification]
     Finance: [Core, Calendar, Notification]
+    Health: [Core]
     Grocery: [Core, GroceryCatalogue]
     GroceryCatalogue: [Core, Grocery]
     Cookbook: [Core, Calendar, Notification, GroceryCatalogue]

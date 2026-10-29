@@ -40,6 +40,9 @@
         <testsuite name="Finance">
             <directory>modules/finance/tests/</directory>
         </testsuite>
+        <testsuite name="Health">
+            <directory>modules/health/tests/</directory>
+        </testsuite>
     </testsuites>
 
     <groups>
@@ -58,6 +61,7 @@
             <directory>modules/meal-grocery/src/</directory>
             <directory>modules/notification/src/</directory>
             <directory>modules/finance/src/</directory>
+            <directory>modules/health/src/</directory>
         </include>
         <exclude>
             <file>src/Kernel.php</file>
