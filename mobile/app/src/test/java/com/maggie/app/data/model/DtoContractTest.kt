@@ -5,6 +5,7 @@ import com.maggie.app.ui.screens.cookbook.cooking.CookingPhase
 import com.maggie.app.ui.screens.cookbook.cooking.toCookingSession
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -64,6 +65,34 @@ class DtoContractTest {
         // and the my-share / debt endpoints do not. The test of that recording asserts the field itself.
         "PeerDebt" to setOf("history"),
     )
+
+    // The agent's messages are not recorded in api/contract/responses (that suite records the API
+    // Platform side only): this is the literal shape agent/app/db/models.py `audio_attachment`
+    // writes in the history and on Mercure (MAG-685), so it proves the DTO's names, not the agent's.
+    @Test
+    fun `a voice message reads its audio attachment under the names the agent sends (MAG-686)`() {
+        val body = """{"id":"m1","role":"assistant","content":"Bonjour","createdAt":"2026-10-29T08:00:00Z",
+            "audio":{"type":"audio/mpeg","durationMs":4200,"size":33600,"url":"/agent/messages/m1/audio","transcript":"[warmly] Bonjour"}}"""
+        val message = Json { ignoreUnknownKeys = true }.decodeFromString<ChatMessage>(body)
+
+        val audio = message.audio
+        assertNotNull(audio)
+        assertEquals(4200, audio!!.durationMs)
+        assertEquals(33600, audio.size)
+        assertEquals("/agent/messages/m1/audio", audio.url)
+        assertEquals("audio/mpeg", audio.type)
+        assertEquals("[warmly] Bonjour", audio.transcript)
+        assertNull(Json { ignoreUnknownKeys = true }.decodeFromString<ChatMessage>("""{"role":"user","content":"x"}""").audio)
+    }
+
+    @Test
+    fun `the signed URL of a voice message reads from the audio endpoint answer`() {
+        val signed = Json { ignoreUnknownKeys = true }.decodeFromString<SignedAudio>(
+            """{"type":"audio/mpeg","durationMs":1,"size":2,"url":"https://b2.example/x?sig=1","transcript":"t","expiresAt":"2026-10-29T08:05:00+00:00"}""",
+        )
+        assertEquals("https://b2.example/x?sig=1", signed.url)
+        assertEquals("2026-10-29T08:05:00+00:00", signed.expiresAt)
+    }
 
     @Test
     fun `agendas deserialise from the recorded response`() =

@@ -187,6 +187,15 @@ object UiTags {
     /** « Réessayer », under a question that got no answer (MAG-363). */
     const val CHAT_RETRY = "chat_retry"
 
+    /** The voice bubble of the chat (MAG-686): play/pause, progress, duration, speed, transcript, error. */
+    const val VOICE_PLAY = "voice_play"
+    const val VOICE_SEEK = "voice_seek"
+    const val VOICE_DURATION = "voice_duration"
+    const val VOICE_SPEED = "voice_speed"
+    const val VOICE_TRANSCRIPT_TOGGLE = "voice_transcript_toggle"
+    const val VOICE_TRANSCRIPT = "voice_transcript"
+    const val VOICE_ERROR = "voice_error"
+
     /** The voice bar's state line — « Maggie parle... » and friends. */
     const val VOICE_STATE = "voice_state"
 

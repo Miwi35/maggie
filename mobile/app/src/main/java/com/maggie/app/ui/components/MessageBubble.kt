@@ -196,13 +196,19 @@ fun MessageBubble(
                             ScreenshotThumbnail(thumbnail)
                             Spacer(modifier = Modifier.height(8.dp))
                         }
-                        val linkColor = MaterialTheme.colorScheme.primary
-                        Text(
-                            text = remember(message.content, linkColor) {
-                                linkified(if (isUser) message.content else stripDeliveryTags(message.content), linkColor)
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        val audio = message.audio
+                        val playback = rememberVoicePlayback()
+                        if (audio != null && !isUser) {
+                            VoiceBubble(message.id, audio, playback)
+                        } else {
+                            val linkColor = MaterialTheme.colorScheme.primary
+                            Text(
+                                text = remember(message.content, linkColor) {
+                                    linkified(if (isUser) message.content else stripDeliveryTags(message.content), linkColor)
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                     }
                 }
 

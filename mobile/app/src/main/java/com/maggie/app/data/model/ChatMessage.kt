@@ -25,9 +25,28 @@ data class ChatMessage(
     val feedback: String? = null,
     /** What the owner said went wrong with a thumb down, when he said anything. */
     val feedbackComment: String? = null,
+    /** The voice message this one is, when Maggie sent it as audio (MAG-685): the text is its transcript. */
+    val audio: AudioAttachment? = null,
 ) {
     val isDecision: Boolean get() = role == DECISION_ROLE
 }
+
+/**
+ * The audio of a voice message (MAG-685). [url] is relative and authenticated: only
+ * `GET <url>` with the bearer gives the short signed URL the player reads (MAG-686).
+ */
+@Serializable
+data class AudioAttachment(
+    val type: String = "audio/mpeg",
+    val durationMs: Int = 0,
+    val size: Int = 0,
+    val url: String = "",
+    val transcript: String = "",
+)
+
+/** The answer of `GET /agent/messages/{id}/audio`: the signed URL to play, and when it stops working. */
+@Serializable
+data class SignedAudio(val url: String, val expiresAt: String = "")
 
 /**
  * The ratings the agent knows. Plain strings, like [ChatMessage.role]: a value this
