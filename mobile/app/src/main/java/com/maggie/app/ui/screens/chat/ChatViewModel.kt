@@ -444,7 +444,7 @@ class ChatViewModel(
             Log.w(TAG, "Stream failed, falling back to non-streaming: ${e::class.simpleName}: ${e.message}")
             // Fallback to non-streaming
             try {
-                val newMessages = repository.sendMessage(text, screen, image, spoken).asSaid()
+                val newMessages = repository.sendMessage(text, screen, image, spoken, driving).asSaid()
                 if (newMessages.isNotEmpty()) {
                     // Replace optimistic user message with server response
                     val current = _uiState.value.messages.dropLast(1)

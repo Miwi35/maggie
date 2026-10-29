@@ -45,8 +45,15 @@ class ChatRepository(
         screenContext: String? = null,
         image: ChatImage? = null,
         spoken: Boolean = false,
+        inCar: Boolean = false,
     ): List<ChatMessage> {
-        val response = apiService.sendChat(message = content, screenContext = screenContext, image = image, spoken = spoken)
+        val response = apiService.sendChat(
+            message = content,
+            screenContext = screenContext,
+            image = image,
+            spoken = spoken,
+            inCar = inCar,
+        )
         if (response.messages.isNotEmpty()) {
             chatMessageDao.upsertAll(response.messages.map { ChatMessageEntity.fromModel(it) })
         }

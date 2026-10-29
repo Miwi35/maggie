@@ -325,6 +325,21 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `the fallback says the phone is in the car too`() = runTest {
+        viewModel = createViewModel(inCar = { true })
+        advanceUntilIdle()
+
+        every { repository.sendMessageStream(any(), any(), any(), any(), any(), any(), any()) } returns
+            flow { throw RuntimeException("Stream failed") }
+        coEvery { repository.sendMessage(any(), any(), any(), any(), any()) } returns emptyList()
+
+        viewModel.sendMessage("bonjour")
+        advanceUntilIdle()
+
+        coVerify { repository.sendMessage("bonjour", null, null, false, true) }
+    }
+
+    @Test
     fun `history that comes back carrying a screen context shows only what was said`() = runTest {
         // What the agent stores is the string it was POSTed, block included.
         val stored = "[Contexte de l'écran]\nApplication : Boutique (com.example.shop)\n\nc'est quoi ce produit ?"
