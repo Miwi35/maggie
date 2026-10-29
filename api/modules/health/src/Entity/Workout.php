@@ -49,7 +49,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ApiFilter(SearchFilter::class, properties: ['type' => 'exact', 'source' => 'exact'])]
 #[ApiFilter(DateFilter::class, properties: ['startedAt'])]
 #[ApiResource(operations: [
-    new GetCollection(uriTemplate: '/workouts', order: ['startedAt' => 'DESC']),
+    new GetCollection(uriTemplate: '/workouts', order: ['startedAt' => 'DESC'], paginationMaximumItemsPerPage: 500),
     new Get(uriTemplate: '/workouts/{id}'),
     new Post(uriTemplate: '/workouts', processor: CreateWorkoutProcessor::class),
     new Patch(uriTemplate: '/workouts/{id}', processor: UpdateWorkoutProcessor::class),
@@ -83,6 +83,7 @@ class Workout implements MercurePublishable, OwnedByUserInterface
     private Ulid $id;
 
     #[ORM\Column(length: 16, enumType: WorkoutType::class)]
+    #[Assert\NotNull]
     #[ApiProperty(description: 'run, walk, bike, swim, strength, climbing or other.')]
     private WorkoutType $type;
 
@@ -98,6 +99,7 @@ class Workout implements MercurePublishable, OwnedByUserInterface
     private \DateTimeImmutable $startedAt;
 
     #[ORM\Column(type: 'integer')]
+    #[Assert\NotNull]
     #[Assert\Range(min: 1, max: self::MAX_DURATION_MINUTES)]
     #[ApiProperty(description: 'Duration in whole minutes (1 to 1440).')]
     private int $durationMinutes;

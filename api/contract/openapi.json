@@ -12751,7 +12751,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 100
+                            "maximum": 500
                         },
                         "style": "form",
                         "explode": false
@@ -30248,8 +30248,10 @@
                     }
                 },
                 "required": [
+                    "type",
                     "title",
-                    "startedAt"
+                    "startedAt",
+                    "durationMinutes"
                 ]
             },
             "Workout.html": {
@@ -30363,8 +30365,10 @@
                     }
                 },
                 "required": [
+                    "type",
                     "title",
-                    "startedAt"
+                    "startedAt",
+                    "durationMinutes"
                 ]
             },
             "Workout.jsonMergePatch": {
@@ -30594,8 +30598,10 @@
                             }
                         },
                         "required": [
+                            "type",
                             "title",
-                            "startedAt"
+                            "startedAt",
+                            "durationMinutes"
                         ]
                     }
                 ]

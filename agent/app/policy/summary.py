@@ -69,7 +69,9 @@ _MANAGE_OBJECTS = {
 
 # `manage_*` tools whose `list` action answers without arguments and stays small enough to
 # read. The others (a period to give, a whole history) keep to the label.
-_NO_LIST_LOOKUP = frozenset({"manage_aisles", "manage_envelopes", "manage_meals", "manage_transactions"})
+_NO_LIST_LOOKUP = frozenset(
+    {"manage_aisles", "manage_envelopes", "manage_meals", "manage_transactions", "manage_workouts"}
+)
 
 _TITLE_KEYS = ("name", "title", "label", "customLabel", "summary")
 

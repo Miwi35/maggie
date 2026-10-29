@@ -191,6 +191,54 @@ class WorkoutApiTest extends WebTestCase
         self::assertSame(4, $this->rows());
     }
 
+    public function testAMissingTypeIsRefused(): void
+    {
+        $this->login();
+        $body = self::body();
+        unset($body['type']);
+
+        $this->send('POST', '/api/workouts', $body);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(4, $this->rows());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testAMissingDurationIsRefused(): void
+    {
+        $this->login();
+        $body = self::body();
+        unset($body['durationMinutes']);
+
+        $this->send('POST', '/api/workouts', $body);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(4, $this->rows());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testAPageOfFiveHundredServesAllTheWorkouts(): void
+    {
+        $this->login();
+        $em = $this->em();
+        $user = $em->find(User::class, $this->id('test_user'));
+        \assert($user instanceof User);
+        for ($i = 0; $i < 120; ++$i) {
+            $em->persist((new Workout())
+                ->setUser($user)
+                ->setType(WorkoutType::Run)
+                ->setTitle('Bulk '.$i)
+                ->setStartedAt(new \DateTimeImmutable('2026-01-01T07:00:00+01:00'))
+                ->setDurationMinutes(30));
+        }
+        $em->flush();
+
+        $this->send('GET', '/api/workouts?itemsPerPage=500');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(123, $this->response()['member']);
+    }
+
     public function testAMissingStartIsRefused(): void
     {
         $this->login();
