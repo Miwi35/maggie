@@ -22,6 +22,10 @@ FEEDBACK_DOWN = "down"
 
 AUDIO_TYPE = "audio/mpeg"
 
+# The screens a message of Maggie's may name (MAG-709): its notification opens there instead of the thread.
+SCREEN_DIGEST = "digest"
+MESSAGE_SCREENS = (SCREEN_DIGEST,)
+
 
 class Message(AgentBase):
     """Chat message — owned by the agent, stored in the agent database."""
@@ -71,6 +75,9 @@ class Message(AgentBase):
     # again once the retention purge has taken the audio away: the transcript stays as `content`.
     # `none_as_null`: None is SQL NULL, not JSON `null`, so « has no audio » is `IS NULL`.
     audio = Column(JSONB(none_as_null=True), nullable=True)
+    # The screen the message belongs on (MAG-709): `digest` for the morning digest, chosen by the model
+    # as the skill says. Null on every other message: its notification opens the thread.
+    screen = Column(String(16), nullable=True)
 
     def audio_attachment(self) -> dict | None:
         """The attachment the clients read: what is stored, and where to ask for a signed URL to play it."""
@@ -106,4 +113,6 @@ class Message(AgentBase):
             payload["decision"] = self.decision
         if attachment := self.audio_attachment():
             payload["audio"] = attachment
+        if self.screen:
+            payload["screen"] = self.screen
         return payload

@@ -90,6 +90,10 @@ export function notificationLink(iri: string | null | undefined): NotificationLi
 
   // A message of Maggie's (MAG-687): the chat opens on it.
   if (path === '/chat' && /[?&]message=[0-9A-Za-z-]{1,64}(?:&|#|$)/.test(iri)) return { path: iri, label: 'Ouvrir la conversation' }
+  // A digest (MAG-709): until the Digest du matin exists (MAG-710), the chat opens on its message.
+  if (path === '/digest' && /[?&]message=[0-9A-Za-z-]{1,64}(?:&|#|$)/.test(iri)) {
+    return { path: `/chat${iri.slice(path.length)}`, label: 'Voir le digest' }
+  }
 
   // The routines of the day (MAG-512) wait in « Aujourd'hui » of the tasks.
   if (/^\/tasks\/?$/.test(path)) return { path: '/tasks', label: 'Voir les routines' }

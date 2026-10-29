@@ -5,6 +5,7 @@ The message is already in the chat; the notification is what reaches the user wh
 
 import logging
 
+from app.db.models import SCREEN_DIGEST
 from app.mcp.client import mcp_client
 from app.tts.text import strip_delivery_tags
 
@@ -24,7 +25,16 @@ def message_preview(content: str, *, has_audio: bool = False) -> str:
     return text
 
 
-async def notify_message(user_id: str, message_id: str, content: str, *, has_audio: bool = False) -> None:
+def message_link(message_id: str, screen: str | None = None) -> str:
+    """Where tapping the notification leads: the Digest du matin for a digest (MAG-709), the thread otherwise."""
+    if screen == SCREEN_DIGEST:
+        return f"/digest?message={message_id}"
+    return f"/chat?message={message_id}"
+
+
+async def notify_message(
+    user_id: str, message_id: str, content: str, *, has_audio: bool = False, screen: str | None = None
+) -> None:
     """Create the `message` notification pointing at the chat message. Logged on failure, never raised."""
     try:
         await mcp_client.call_tool(
@@ -34,7 +44,7 @@ async def notify_message(user_id: str, message_id: str, content: str, *, has_aud
                 "type": "message",
                 "title": "Maggie",
                 "body": message_preview(content, has_audio=has_audio),
-                "relatedEntityIri": f"/chat?message={message_id}",
+                "relatedEntityIri": message_link(message_id, screen),
             },
             user_id=user_id,
         )

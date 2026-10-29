@@ -67,9 +67,11 @@ def client_as(user_id: str | None) -> TestClient:
     return TestClient(app)
 
 
-async def send(text: str = DIGEST, context_id: str | None = "ctx-1") -> dict:
+async def send(text: str = DIGEST, context_id: str | None = "ctx-1", **extra: str) -> dict:
     return json.loads(
-        await ToolRouter().call_tool("send_voice_message", {"text": text}, user_id=OWNER, context_id=context_id)
+        await ToolRouter().call_tool(
+            "send_voice_message", {"text": text, **extra}, user_id=OWNER, context_id=context_id
+        )
     )
 
 
@@ -151,6 +153,28 @@ class TestTheTool:
         [message] = client_as(OWNER).get("/messages").json()
         assert message["id"] == result["messageId"]
         assert message["audio"]["url"] == f"/agent/messages/{result['messageId']}/audio"
+
+    async def test_a_digest_vocal_is_kept_with_its_screen_and_shown_with_it(self, chat_db, bucket):
+        result = await send(screen="digest")
+
+        assert result["screen"] == "digest"
+        async with chat_db.session() as session:
+            [message] = (await session.execute(Message.__table__.select())).all()
+        assert message.screen == "digest"
+        [payload] = [c.args[1] for c in chat_db.chat_published.await_args_list]
+        assert payload["screen"] == "digest"
+        [listed] = client_as(OWNER).get("/messages").json()
+        assert listed["screen"] == "digest"
+
+    async def test_a_vocal_without_a_known_screen_belongs_to_the_thread(self, chat_db, bucket):
+        result = await send(screen="accueil")
+
+        assert "screen" not in result
+        async with chat_db.session() as session:
+            [message] = (await session.execute(Message.__table__.select())).all()
+        assert message.screen is None
+        [payload] = [c.args[1] for c in chat_db.chat_published.await_args_list]
+        assert "screen" not in payload
 
     async def test_markdown_is_said_as_text_for_the_ear(self, chat_db, bucket):
         await send("**Bonjour** ! Voir https://exemple.fr")

@@ -423,6 +423,15 @@ web:
       - 'agent/app/queue/scheduler.py'
       - 'agent/app/db/journal_*.py'
       - 'agent/fixtures/fake-llm/06-planning-journal.yaml'
+  e2e/web/tests/agent-digest.spec.ts:
+    areas: [chat, settings]
+    paths:
+      - 'agent/app/queue/**'
+      - 'agent/app/skills/**'
+      - 'agent/app/tts/voice_message.py'
+      - 'agent/fixtures/fake-llm/06-planning-digest.yaml'
+      - 'agent/fixtures/fake-llm/98-proaction-digest-due.yaml'
+      - 'api/modules/notification/src/Push/**'
   e2e/web/tests/task-settings.spec.ts:
     areas: [settings, calendar]
   e2e/web/tests/task-routines.spec.ts:

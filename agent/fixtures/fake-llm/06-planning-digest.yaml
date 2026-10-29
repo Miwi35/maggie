@@ -1,0 +1,34 @@
+# « Tous les matins à 7 h, fais-moi le digest de ma journée, par écrit et en vocal » (MAG-709, extends
+# MAG-99): the planning of a user whose planning instruction names « digest MAG-709 » schedules the
+# digest proaction of the day.
+#
+# Same trick as 06-planning-journal.yaml: the fake reads no tool result, but the third call of the run
+# sees what `list_instructions` answered in the first, so this scenario only matches once that
+# instruction is in the history. Its first two turns are 07-planning-read.yaml's, never played here.
+# Two minutes from now and not 07:00 (`${in_2_minutes}`): the API refuses a past `scheduled_at`, and the
+# journey waits for the executor to claim the digest as it would in the morning.
+name: planning-digest
+description: The daily planning reads the digest instruction and schedules the day's digest.
+
+match:
+  user_matches: "C'est le début de la journée du (\\d{4}-\\d{2}-\\d{2})"
+  history_contains: "digest MAG-709"
+
+turns:
+  - tools:
+      - name: list_instructions
+        input: {kind: planning}
+      - name: get_events_by_date
+        input: {date: '\1'}
+      - name: list_proactions
+        input: {from: '\1', to: '\1'}
+  - tools:
+      - name: date_time
+        input: {action: now}
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Fais le digest de la journée de l'utilisateur, par écrit et en vocal, avec la compétence digest (digest MAG-709)."
+          scheduled_at: '${in_2_minutes}'
+          summary: "Digest du matin"
+  - text: "Proaction posée : le digest du matin."

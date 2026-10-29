@@ -88,6 +88,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not start the skills folder: {e}")
 
+    # The skills shipped with Maggie (MAG-709): written once into the folder, never over the owner's copy.
+    try:
+        seeded = await skill_index.seed_builtin()
+        if seeded:
+            logger.info(f"Seeded the shipped skills: {', '.join(seeded)}")
+    except Exception as e:
+        logger.warning(f"Could not seed the shipped skills: {e}")
+
     try:
         await skill_index.rebuild()
         logger.info(f"Skill index built: {len(skill_index.entries)} skills")

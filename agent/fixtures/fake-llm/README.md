@@ -251,6 +251,11 @@ only matches once the agenda is in the history, and takes the event's id from th
 `06-replan-trips.yaml` answers the « Replanifier les trajets du … » proaction: estimate again from the position, `set_trip`.
 A proaction run has 20 rounds (`PROACTION_MAX_ITERATIONS`), not the chat's 5.
 
+**Digest du matin** (MAG-709). `06-planning-digest.yaml` is the planning of a user whose instruction names « digest
+MAG-709 »: it schedules « Digest du matin » two minutes from now (`${in_2_minutes}`), for the executor to claim. `98-proaction-digest-due.yaml` runs it: `get_skill`
+digest, the day's reads (`get_weather`, `get_events_by_date`, `list_trips`, `get_tasks`, `manage_meals`), the vocal with
+`screen: "digest"`, then the written digest — stored on the digest screen, its notification links `/digest?message=`.
+
 ## Adding a scenario
 
 1. Pick a file name whose prefix puts it where you want in the matching order.

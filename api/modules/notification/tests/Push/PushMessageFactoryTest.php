@@ -91,6 +91,17 @@ final class PushMessageFactoryTest extends TestCase
         self::assertArrayNotHasKey('silent', $data);
     }
 
+    public function testADigestMessageOpensTheDigestAtThatMessage(): void
+    {
+        $notification = $this->notification(NotificationType::Message, 'Maggie', 'Bonjour', '/digest?message=01JMSG0123456789ABCDEFGHJK');
+
+        $data = (new PushMessageFactory())->build($notification, 't')['data'];
+
+        self::assertSame('maggie://digest?message=01JMSG0123456789ABCDEFGHJK', $data['link']);
+        self::assertSame('Voir le digest', $data['actionLabel']);
+        self::assertSame('01JMSG0123456789ABCDEFGHJK', $data['messageId']);
+    }
+
     /** @return iterable<string, array{string}> */
     public static function malformedChatIris(): iterable
     {
@@ -100,6 +111,7 @@ final class PushMessageFactoryTest extends TestCase
         yield 'too long' => ['/chat?message='.str_repeat('a', 65)];
         yield 'array' => ['/chat?message[]=a'];
         yield 'other path' => ['/chats?message=abc'];
+        yield 'digest, bad characters' => ['/digest?message=a%20b%26c'];
     }
 
     #[DataProvider('malformedChatIris')]

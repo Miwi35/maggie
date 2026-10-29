@@ -14,11 +14,12 @@ describe('notificationLink', () => {
     ['/finance', 'Ouvrir les finances', '/finance/dashboard'],
     ['/finance/cushion', 'Ouvrir les finances', '/finance/cushion'],
     ['/chat?message=01K0MSG', 'Ouvrir la conversation', '/chat?message=01K0MSG'],
+    ['/digest?message=01K0MSG', 'Voir le digest', '/chat?message=01K0MSG'],
   ])('%s opens %s', (iri, label, path) => {
     expect(notificationLink(iri)).toEqual({ label, path })
   })
 
-  test.each([null, undefined, '', '/api/unknown/x', '/finance/nowhere', 'https://example.com/x', '/chat', '/chat?other=1'])(
+  test.each([null, undefined, '', '/api/unknown/x', '/finance/nowhere', 'https://example.com/x', '/chat', '/chat?other=1', '/digest'])(
     'has no link for %s',
     (iri) => {
       expect(notificationLink(iri)).toBeNull()

@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.config import settings
 from app.db.message_repository import message_repo
-from app.db.models import AUDIO_TYPE, Message
+from app.db.models import AUDIO_TYPE, MESSAGE_SCREENS, Message
 from app.db.user_setting_repository import user_setting_repo
 from app.memory.bucket import Bucket, BucketError, BucketUnavailable
 from app.memory.service import memory_service
@@ -38,6 +38,14 @@ SEND_VOICE_MESSAGE_TOOL = {
         "type": "object",
         "properties": {
             "text": {"type": "string", "description": "What Maggie says, written to be heard"},
+            "screen": {
+                "type": "string",
+                "enum": list(MESSAGE_SCREENS),
+                "description": (
+                    'The screen the vocal belongs on, when a skill says so (the digest skill: "digest"); '
+                    "its notification then opens that screen instead of the thread. Omit it otherwise."
+                ),
+            },
         },
         "required": ["text"],
     },
@@ -89,7 +97,15 @@ async def _voice_of(user_id: str) -> str:
     return setting.tts_voice if setting and setting.tts_voice else DEFAULT_VOICE
 
 
-async def send_voice_message(user_id: str, text: str, context_id: str | None = None) -> Message:
+def message_screen(raw: object) -> str | None:
+    """The screen a message names, or None: anything that is not a known screen opens the thread."""
+    value = str(raw or "").strip().lower()
+    return value if value in MESSAGE_SCREENS else None
+
+
+async def send_voice_message(
+    user_id: str, text: str, context_id: str | None = None, *, screen: str | None = None
+) -> Message:
     """Say `text` in the user's voice, keep the MP3 in the bucket, and post the message that carries it."""
     bucket = _bucket()
     if bucket is None:
@@ -121,20 +137,23 @@ async def send_voice_message(user_id: str, text: str, context_id: str | None = N
         "transcript": transcript,
     }
     return await message_repo.create(
-        user_id, "assistant", transcript, context_id, message_id=message_id, audio=attachment
+        user_id, "assistant", transcript, context_id, message_id=message_id, audio=attachment, screen=screen
     )
 
 
 async def handle_send_voice_message(arguments: dict, user_id: str, context_id: str | None = None) -> str:
     """The tool: the message sent, or the reason it could not be — never an exception the turn would stop on."""
     try:
-        message = await send_voice_message(user_id, str(arguments.get("text") or ""), context_id)
+        message = await send_voice_message(
+            user_id, str(arguments.get("text") or ""), context_id, screen=message_screen(arguments.get("screen"))
+        )
     except VoiceMessageError as e:
         return json.dumps({"error": str(e)}, ensure_ascii=False)
     audio = message.audio or {}
-    return json.dumps(
-        {"sent": True, "messageId": message.id, "durationMs": audio.get("durationMs", 0)}, ensure_ascii=False
-    )
+    sent = {"sent": True, "messageId": message.id, "durationMs": audio.get("durationMs", 0)}
+    if message.screen:
+        sent["screen"] = message.screen
+    return json.dumps(sent, ensure_ascii=False)
 
 
 async def signed_audio_url(message: Message) -> tuple[str, datetime]:

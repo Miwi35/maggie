@@ -1,0 +1,34 @@
+# The digest of 06-planning-digest.yaml, come due (MAG-709, extends MAG-99): the run loads the digest
+# skill, reads the day through MCP — the weather from the simulated Open-Meteo (70 % of rain), the
+# agenda, the trips, the tasks, the meals — then sends the vocal with `screen: "digest"` and answers
+# the written digest. The consumer stores that answer on the digest too, and its notification opens it.
+#
+# The figures are the Open-Meteo stub's (.docker/e2e/wiremock/mappings/open-meteo.json): the fake
+# reads no tool result, so a weather in error still gets this text — the journal is where it shows.
+name: proaction-digest-due
+description: The morning digest, delivered as a written message and a vocal on the digest screen.
+
+match:
+  user_contains: ["[Proaction due maintenant]", "digest MAG-709"]
+
+turns:
+  - tools:
+      - name: get_skill
+        input: {name: digest}
+  - tools:
+      - name: get_weather
+        input: {date: '${today}'}
+      - name: get_events_by_date
+        input: {date: '${today}'}
+      - name: list_trips
+        input: {date: '${today}'}
+      - name: get_tasks
+        input: {view: today}
+      - name: manage_meals
+        input: {action: list, fromDate: '${today}', toDate: '${today}'}
+  - tools:
+      - name: send_voice_message
+        input:
+          text: "Bonjour monsieur. Il pleuvra probablement aujourd'hui, prenez de quoi vous couvrir. Je vous ai écrit le détail de la journée. (digest MAG-709)"
+          screen: digest
+  - text: "**Météo** : entre 9,5 et 18,5 °C, pluie probable (70 %) : prenez de quoi vous couvrir.\n\n**Agenda** : votre journée est dans le fil, je vous ai aussi envoyé un vocal. (digest MAG-709)"
