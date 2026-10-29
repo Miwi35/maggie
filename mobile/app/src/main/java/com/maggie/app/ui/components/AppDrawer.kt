@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Restaurant
@@ -51,7 +52,7 @@ import java.util.Locale
  * The hue of a navigation entry (`charte/Tiroir`, MAG-620): the module's own where the theme has
  * one, Maggie's violet for the Accueil, a neutral for Réglages.
  */
-enum class DrawerTint { ACCENT, AGENDA, TASKS, GROCERY, CUISINE, FINANCE, NEUTRAL }
+enum class DrawerTint { ACCENT, AGENDA, TASKS, GROCERY, CUISINE, FINANCE, SPORT, NEUTRAL }
 
 data class DrawerDestination(
     val route: String,
@@ -61,8 +62,8 @@ data class DrawerDestination(
 )
 
 // One entry per module, in the mock-up's order. No « Chat »: Maggie lives in the bottom bar
-// (and in the rail header on a short window), not in the navigation. Santé and Loisirs join when
-// their modules exist.
+// (and in the rail header on a short window), not in the navigation. Loisirs joins when its
+// module exists.
 val DRAWER_DESTINATIONS = listOf(
     DrawerDestination("home", "Accueil", Icons.Default.Home, DrawerTint.ACCENT),
     DrawerDestination("calendar", "Agenda", Icons.Default.DateRange, DrawerTint.AGENDA),
@@ -70,6 +71,7 @@ val DRAWER_DESTINATIONS = listOf(
     DrawerDestination("grocery", "Courses", Icons.Default.ShoppingCart, DrawerTint.GROCERY),
     DrawerDestination("cookbook", "Cuisine", Icons.Default.Restaurant, DrawerTint.CUISINE),
     DrawerDestination("finance_dashboard", "Finance", Icons.Default.Insights, DrawerTint.FINANCE),
+    DrawerDestination("health/sport", "Santé", Icons.Default.FitnessCenter, DrawerTint.SPORT),
 )
 
 internal val SETTINGS_DESTINATION = DrawerDestination("settings", "Réglages", Icons.Default.Settings, DrawerTint.NEUTRAL)
@@ -88,6 +90,7 @@ internal fun DrawerTint.color(): Color {
         DrawerTint.GROCERY -> pick(MaggieTokens.Module.cuisine)
         DrawerTint.CUISINE -> pick(MaggieTokens.Module.cuisine)
         DrawerTint.FINANCE -> pick(MaggieTokens.Module.finance)
+        DrawerTint.SPORT -> pick(MaggieTokens.Module.sport)
         DrawerTint.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 }

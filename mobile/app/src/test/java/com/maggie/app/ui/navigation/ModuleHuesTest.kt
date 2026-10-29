@@ -42,6 +42,12 @@ class ModuleHuesTest {
     }
 
     @Test
+    fun `Santé's sport screens are coral (MAG-705)`() {
+        listOf(Screen.HealthSport.route, Screen.HealthSportForm.route)
+            .forEach { assertEquals(it, ModuleHue.HEALTH, moduleHueOf(it)) }
+    }
+
+    @Test
     fun `other screens keep Maggie's violet`() {
         assertNull(moduleHueOf(Screen.Home.route))
         assertNull(moduleHueOf(Screen.Calendar.route))

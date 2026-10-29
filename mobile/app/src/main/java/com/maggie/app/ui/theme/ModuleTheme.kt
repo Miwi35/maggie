@@ -13,6 +13,7 @@ enum class ModuleHue(internal val hue: Pair<Color, Color>) {
     FINANCE(MaggieTokens.Module.finance),
     TASKS(MaggieTokens.Module.taches),
     CUISINE(MaggieTokens.Module.cuisine),
+    HEALTH(MaggieTokens.Module.sport),
 }
 
 /** Whether the app is drawn on the dark Veilleuse — the theme's own choice, not the system's. */

@@ -267,6 +267,12 @@ areas:
     - mobile/app/src/main/java/com/maggie/app/data/model/{Account,BankConnection,CategorizationRule,Category,Contact,FinanceDashboard,FinanceScores,Envelope,Loan,MonthBalance,PeerDebt,ReviewActivity,ReviewList,RuleSuggestion,SafetyCushion,Transaction}.kt
     - 'e2e/web/pages/{Finance*,financeLabels}.ts'
     - e2e/web/helpers/money.ts
+  health:
+    - api/modules/health/**
+    - admin/src/modules/health/**
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/health/**
+    - mobile/app/src/main/java/com/maggie/app/data/{model/Workout,repository/WorkoutRepository}.kt
+    - e2e/web/pages/HealthSportPage.ts
   notification:
     - api/modules/notification/**
     - api/fixtures/e2e/60-notification.yaml
@@ -538,6 +544,8 @@ web:
     areas: [cookbook, grocery]
   e2e/web/tests/meals-page.spec.ts:
     areas: [cookbook]
+  e2e/web/tests/health-sport.spec.ts:
+    areas: [health]
   e2e/web/tests/meals-chat-move.spec.ts:
     areas: [cookbook, chat]
     paths:
@@ -792,6 +800,9 @@ mobile:
   e2e/mobile/flows/21-finance-peer-debts.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/contacts-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
+  e2e/mobile/flows/30-health-sport.yaml:
+    areas: [health]
+    paths: [e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/29-finance-cushion-share.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/cushion-share-api.js, api/fixtures/e2e/69-finance-cushion-share.yaml]

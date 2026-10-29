@@ -848,6 +848,10 @@ class DtoContractTest {
         assertCollectionContract("finance_placements", serializer<Placement>(), "Placement")
 
     @Test
+    fun `workouts deserialise from the recorded response (MAG-705)`() =
+        assertCollectionContract("workouts", serializer<Workout>(), "Workout")
+
+    @Test
     fun `recurring operations deserialise from the recorded response`() =
         assertCollectionContract("recurring_operations", serializer<RecurringOperationRecord>(), "RecurringOperationRecord")
 

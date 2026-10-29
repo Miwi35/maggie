@@ -46,6 +46,7 @@ internal fun moduleHueOf(route: String?): ModuleHue? = when {
     FinanceSection.of(route) != null || route in FINANCE_ONLY_ROUTES -> ModuleHue.FINANCE
     route in TASK_ROUTES -> ModuleHue.TASKS
     route in COOKING_ROUTES -> ModuleHue.CUISINE
+    HealthSection.pageOf(route) != null || route == Screen.HealthSportForm.route -> ModuleHue.HEALTH
     else -> null
 }
 

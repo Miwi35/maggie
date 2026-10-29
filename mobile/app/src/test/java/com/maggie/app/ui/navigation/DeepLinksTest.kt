@@ -25,6 +25,7 @@ class DeepLinksTest {
             listOf("$scheme://finance", "$scheme://finance/dashboard"),
             DeepLinks.patternsFor(Screen.FinanceDashboard.route),
         )
+        assertEquals(listOf("$scheme://health/sport"), DeepLinks.patternsFor(Screen.HealthSport.route))
         assertEquals(
             listOf("$scheme://finance/recurring-operations"),
             DeepLinks.patternsFor(Screen.RecurringOperations.route),

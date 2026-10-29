@@ -158,6 +158,7 @@ import com.maggie.app.data.model.TaskOrderPreviewItem
 import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.data.model.User
+import com.maggie.app.data.model.Workout
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -673,6 +674,24 @@ data class ProjectWriteRequest(
     /** IRIs: `/api/finance/projects/{id}`. */
     val dependsOn: List<String>,
     val note: String?,
+)
+
+/**
+ * A training session as the form writes it, for `POST` and the merge-patch `PATCH` alike (MAG-705). No field has a
+ * default, so every one is sent: a figure the user emptied says `null`, which a default would leave out of the body
+ * and leave the old value in place. [distanceMeters] in whole metres, [startedAt] an ISO date-time with its offset.
+ */
+@Serializable
+data class WorkoutWriteRequest(
+    val type: String,
+    val title: String,
+    val startedAt: String,
+    val durationMinutes: Int,
+    val distanceMeters: Int?,
+    val kcal: Int?,
+    val avgHeartRate: Int?,
+    val feeling: String?,
+    val notes: String?,
 )
 
 /**
@@ -2753,6 +2772,34 @@ class MaggieApiService(
     /** No scenario is current any more. */
     suspend fun clearCurrentScenario() {
         client.delete("$baseUrl/api/finance/current-scenario").orRefusal()
+    }
+
+    // Santé — séances d'entraînement (MAG-705), newest first
+    suspend fun getWorkouts(): List<Workout> {
+        return client.get("$baseUrl/api/workouts") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.orRefusal().body<ApiCollection<Workout>>().member
+    }
+
+    suspend fun createWorkout(request: WorkoutWriteRequest): Workout {
+        return client.post("$baseUrl/api/workouts") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun updateWorkout(id: String, request: WorkoutWriteRequest): Workout {
+        return client.patch("$baseUrl/api/workouts/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun deleteWorkout(id: String) {
+        client.delete("$baseUrl/api/workouts/$id").orRefusal()
     }
 
     // Finance — Placements (MAG-555), simulated: sorted by name

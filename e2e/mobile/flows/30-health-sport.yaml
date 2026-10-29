@@ -1,0 +1,84 @@
+appId: com.maggie.app.e2e
+name: 30-health-sport
+tags:
+  - health
+---
+# Santé › Sport, from the phone (MAG-705, new journey « Santé »).
+#
+# Étant donné un compte neuf
+# Quand j'ouvre Santé › Sport et j'ajoute une séance (course à pied, 32 min, 5,4 km)
+# Alors elle apparaît dans « Séances » avec la pastille « Saisie »
+#
+# A new user, so the list starts empty and the only session is the one this flow writes. The
+# title carries a random number all the same, so the row is this run's and no other.
+#
+# What is not here: the week card's pills and counter, the sort, the detail sheet and its
+# deletion, the form's refusals, the tablet's pane with the planned sessions (`SportScreenTest`,
+# `SportViewModelTest`, `WorkoutWeekTest`, `WorkoutFormTest`, `WorkoutFormatTest`), the drawer and
+# link (`DrawerDestinationsTest`, `DeepLinksTest`), and the admin's side of the same API.
+
+- runFlow: ../subflows/new-user.yaml
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/30-health-sport.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+- evalScript: ${output.n = Math.floor(Math.random() * 90000) + 10000}
+
+# Santé › Sport: an empty list, which offers to add.
+- openLink: "maggie-e2e://health/sport"
+- extendedWaitUntil:
+    visible:
+      id: "sport"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "sport_empty"
+    timeout: 20000
+
+# « + »: the form, on a run by default.
+- tapOn:
+    id: "sport_add"
+- extendedWaitUntil:
+    visible:
+      id: "workout_form"
+    timeout: 20000
+- tapOn:
+    id: "workout_type_run"
+- tapOn:
+    id: "workout_title"
+- inputText: "Course ${output.n}"
+- runFlow: ../subflows/hide-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: "workout_duration"
+- tapOn:
+    id: "workout_duration"
+- inputText: "32"
+- runFlow: ../subflows/hide-keyboard.yaml
+- scrollUntilVisible:
+    element:
+      id: "workout_distance"
+- tapOn:
+    id: "workout_distance"
+- inputText: "5,4"
+- runFlow: ../subflows/hide-keyboard.yaml
+- tapOn:
+    id: "workout_save"
+
+# Back on the list: the session, its figures and the source pill « Saisie ».
+- extendedWaitUntil:
+    visible:
+      id: "sport_list"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ".*Course ${output.n}.*"
+    timeout: 20000
+- assertVisible: ".*5,4 km.*"
+- assertVisible: "Saisie"
