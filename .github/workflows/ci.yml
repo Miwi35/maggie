@@ -173,7 +173,7 @@ jobs:
       mobile: ${{ inputs.suite != 'no-e2e' && inputs.e2e != 'smoke' && steps.select.outputs.mobile == 'true' }}
       web_journeys: ${{ inputs.e2e != 'smoke' }}
       web_specs: ${{ steps.select.outputs.web_specs }}
-      web_lots: ${{ inputs.e2e == 'smoke' && '[1]' || steps.select.outputs.web_lots }}
+      web_lots: ${{ inputs.e2e == 'smoke' && '[{"index":1,"specs":"","shard":""}]' || steps.select.outputs.web_lots }}
       web_lot_count: ${{ inputs.e2e == 'smoke' && '1' || steps.select.outputs.web_lot_count }}
       mobile_lots: ${{ steps.select.outputs.mobile_lots }}
       mobile_lot_count: ${{ steps.select.outputs.mobile_lot_count }}
@@ -292,7 +292,20 @@ jobs:
           dir="$RUNNER_TEMP/e2e-coverage"
           mkdir -p "$dir"
           ids="$(gh run list --workflow nightly-e2e.yml --branch main --status completed -L 8 --json databaseId --jq '.[].databaseId')" \
-            || { echo "::notice::no nightly run listed: journeys selected by zones"; exit 0; }
+            || { echo "::notice::no nightly run listed: journeys selected by zones, lots split as before"; exit 0; }
+          # The durations of the journeys (`e2e-weights`, nightly-e2e.yml), which
+          # share a change's journeys between its lots (MAG-701): from the most
+          # recent of those runs that left them, a night's map and durations not
+          # being always both there. Without, the lots are split as they were.
+          for id in $ids; do
+            rm -rf "$dir/weights"
+            if gh run download "$id" -n e2e-weights -D "$dir/weights" 2>/dev/null && [ -s "$dir/weights/e2e-weights.json" ]; then
+              echo "durations of nightly run $id: $(jq -r '"\(.web | length) web specs, \(.mobile | length) mobile flows, \(.generatedAt)"' "$dir/weights/e2e-weights.json")"
+              echo "weights=$dir/weights/e2e-weights.json" >> "$GITHUB_OUTPUT"
+              break
+            fi
+          done
+          [ -s "$dir/weights/e2e-weights.json" ] || echo "::notice::no durations in the last nightly runs: e2e lots split as before"
           for id in $ids; do
             rm -rf "$dir/map"
             if gh run download "$id" -n e2e-coverage-map -D "$dir/map" 2>/dev/null && [ -s "$dir/map/e2e-coverage-map.json" ]; then
@@ -325,6 +338,9 @@ jobs:
           # Empty without a line map: impacted.sh then selects by zones alone.
           E2E_COVERAGE_MAP: ${{ steps.coverage.outputs.map }}
           E2E_COVERAGE_DIFF: ${{ steps.coverage.outputs.diff }}
+          # The nightly's measured durations, to share the lots between the
+          # journeys; empty without them: the lots are then split as before.
+          E2E_WEIGHTS: ${{ steps.coverage.outputs.weights }}
         run: |
           if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ] || [ "$EVENT" = push ]; then
             jq -r '.[]' <<<"${FILES:-[]}" | scripts/e2e/impacted.sh select --github-output > selection.json
@@ -602,7 +618,9 @@ jobs:
   #
   # Only the journeys `Detect changes` selected (e2e/impact-map.yml), in as many
   # shards as they need: one per ten spec files, four at most — four on the
-  # nightly run. A journey in quarantine plays, but its failure only warns in the
+  # nightly run. With the nightly's durations (`e2e-weights`) the spec files are
+  # shared out between them by measured time, lot 1 counting the preparation it
+  # also does (MAG-701); without, Playwright splits them by count. A journey in quarantine plays, but its failure only warns in the
   # job summary (`scripts/e2e/verdict.sh`).
   #
   # Not a required check, on purpose: the shards are named after their index.
@@ -610,7 +628,7 @@ jobs:
   #
   # On main (`e2e: smoke`, MAG-484): one lot, the smoke journey alone.
   e2e-shard:
-    name: ${{ needs.changes.outputs.web_journeys == 'false' && 'E2E smoke' || format('E2E shard {0}/{1}', matrix.shard, needs.changes.outputs.web_lot_count) }}
+    name: ${{ needs.changes.outputs.web_journeys == 'false' && 'E2E smoke' || format('E2E shard {0}/{1}', matrix.lot.index, needs.changes.outputs.web_lot_count) }}
     needs: changes
     if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.e2e == 'true' }}
     runs-on: ubuntu-latest
@@ -618,7 +636,10 @@ jobs:
       # A red shard must not hide what the others found.
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.changes.outputs.web_lots) }}
+        # {index, specs, shard}: the spec files of the lot when the nightly's
+        # durations balanced them, else the Playwright shard `i/n` of all of
+        # them (scripts/e2e/impacted.sh).
+        lot: ${{ fromJSON(needs.changes.outputs.web_lots) }}
     permissions:
       contents: read
       # The stack's images are pushed once per set of build inputs (MAG-135).
@@ -757,7 +778,7 @@ jobs:
       # one every selection has: none of it depends on how the Playwright tests
       # are split.
       - name: Seed
-        if: matrix.shard == 1
+        if: matrix.lot.index == 1
         # No --now. The seed anchors on the containers' clock, which follows
         # `E2E_NOW` (pinned above): passing --now would move the seeded world away
         # from it, and every endpoint that derives its period from `new
@@ -768,11 +789,11 @@ jobs:
         run: task e2e:seed
 
       - name: Smoke journey
-        if: matrix.shard == 1
+        if: matrix.lot.index == 1
         run: task e2e:smoke
 
       - name: The web journeys lint and type-check
-        if: matrix.shard == 1
+        if: matrix.lot.index == 1
         # Seconds, in the container the journeys themselves run in, and it
         # catches a renamed page object or an `expect` nobody awaited before
         # eleven services have been driven through a browser to find out.
@@ -789,17 +810,27 @@ jobs:
         # failing the shard.
         env:
           SPECS: ${{ needs.changes.outputs.web_specs }}
-          SHARD: ${{ matrix.shard }}/${{ needs.changes.outputs.web_lot_count }}
-          E2E_VERDICT_LABEL: web shard ${{ matrix.shard }}/${{ needs.changes.outputs.web_lot_count }}
-          E2E_VERDICT_OUT: e2e/verdicts/web-${{ matrix.shard }}.json
+          LOT_SPECS: ${{ matrix.lot.specs }}
+          LOT_SHARD: ${{ matrix.lot.shard }}
+          E2E_VERDICT_LABEL: web shard ${{ matrix.lot.index }}/${{ needs.changes.outputs.web_lot_count }}
+          E2E_VERDICT_OUT: e2e/verdicts/web-${{ matrix.lot.index }}.json
         run: |
           status=0
           # shellcheck disable=SC2086 # one argument per spec file
-          task e2e:web -- --shard="$SHARD" $SPECS || status=$?
+          if [ -n "$LOT_SHARD" ]; then
+            task e2e:web -- --shard="$LOT_SHARD" $SPECS || status=$?
+          elif [ -n "$LOT_SPECS" ]; then
+            task e2e:web -- $LOT_SPECS || status=$?
+          else
+            # Balanced by duration, lot 1 carries the shared preparation and can
+            # be left without a journey: running Playwright with no file would play them all.
+            echo "::notice::no journey in this lot: it only prepares the stack"
+            exit 0
+          fi
           scripts/e2e/verdict.sh web e2e/web/results/results.json "$status"
 
       - name: The eval scenarios parse
-        if: matrix.shard == 1
+        if: matrix.lot.index == 1
         # Cheap — no key, no model call — and the only place a scenario file
         # that went missing or grew a typo'd expectation fails loudly. Without
         # it the first symptom is the nightly going red at 03:17 for a reason
@@ -812,7 +843,7 @@ jobs:
         if: ${{ !cancelled() && inputs.coverage }}
         continue-on-error: true
         env:
-          LOT: web-${{ matrix.shard }}
+          LOT: web-${{ matrix.lot.index }}
         run: scripts/e2e/coverage/collect-lot.sh "$LOT"
 
       - name: Raw coverage
@@ -820,7 +851,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-coverage-raw-web-${{ matrix.shard }}
+          name: e2e-coverage-raw-web-${{ matrix.lot.index }}
           path: e2e/coverage/raw
           retention-days: 2
           if-no-files-found: ignore
@@ -832,7 +863,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-verdict-web-${{ matrix.shard }}
+          name: e2e-verdict-web-${{ matrix.lot.index }}
           path: e2e/verdicts
           retention-days: 3
           if-no-files-found: ignore
@@ -846,7 +877,7 @@ jobs:
         # `e2e-report` job merges the shards' into the one artifact people open.
         uses: actions/upload-artifact@v4
         with:
-          name: blob-report-${{ matrix.shard }}
+          name: blob-report-${{ matrix.lot.index }}
           path: e2e/web/blob-report
           retention-days: 1
           if-no-files-found: ignore
@@ -1093,8 +1124,10 @@ jobs:
       fail-fast: false
       matrix:
         device: ${{ fromJSON(needs.changes.outputs.mobile_devices) }}
-        # {index, flows}: the shards of shards.txt that kept a selected flow,
-        # numbered again from 1 (scripts/e2e/impacted.sh).
+        # {index, flows}: the flows shared out by their measured duration, as many
+        # lots as shards.txt has lines; without the nightly's durations, the
+        # shards of shards.txt that kept a selected flow, numbered again from 1
+        # (scripts/e2e/impacted.sh).
         lot: ${{ fromJSON(needs.changes.outputs.mobile_lots) }}
     permissions:
       contents: read

@@ -16,8 +16,10 @@
 #
 # Writes a table to $GITHUB_STEP_SUMMARY when set, `quarantine_failed=true|false`
 # to $GITHUB_OUTPUT when set, and the verdict as JSON to $E2E_VERDICT_OUT when set
-# — {platform, label, status, journeys: [{id, status, quarantined}]}, journey
-# status being passed, failed, flaky (green on a retry) or not-run.
+# — {platform, label, status, journeys: [{id, status, quarantined, duration}]},
+# journey status being passed, failed, flaky (green on a retry) or not-run, and
+# duration the seconds the report measured (the weights the nightly publishes,
+# scripts/e2e/weights.sh).
 
 set -euo pipefail
 
@@ -50,9 +52,12 @@ if [ "$platform" = web ]; then
   if [ -s "$report" ] && jq -e . "$report" >/dev/null 2>&1; then
     journeys="$(jq -c '
       . as $report
-      | [.. | objects | select(has("specs")) | .specs[] | {file, statuses: [.tests[].status]}]
+      | [.. | objects | select(has("specs")) | .specs[]
+         | {file, statuses: [.tests[].status],
+            ms: ([.tests[] | (.results // [] | last | .duration) // 0] | add // 0)}]
       | group_by(.file)
       | map({id: ("e2e/web/tests/" + .[0].file),
+             duration: (([.[].ms] | add) / 100 | round / 10),
              status: ([.[].statuses[]] as $s
                | if ($s | index("unexpected")) then "failed"
                  elif ($s | index("flaky")) then "flaky"
@@ -71,6 +76,7 @@ else
       [.. | objects | select(has("testcase")) | .testcase | if type == "array" then .[] else . end]
       | map((.["+@name"] // "") as $name
         | {id: ($names[$name] // ("e2e/mobile/flows/" + $name + ".yaml")),
+           duration: ((.["+@time"] // 0 | tonumber? // 0) * 10 | round / 10),
            status: (if has("failure") or has("error") or ((.["+@status"] // "") | test("ERROR|FAIL"; "i")) then "failed"
                     elif ((.["+@status"] // "") | test("CANCEL|SKIP"; "i")) then "not-run"
                     else "passed" end)})

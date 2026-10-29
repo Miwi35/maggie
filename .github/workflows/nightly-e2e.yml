@@ -20,6 +20,10 @@ name: Nightly e2e
 # couverture »): `coverage-map` turns what each journey executed into the line
 # map (artifact `e2e-coverage-map`, 7 days) that pull requests select their
 # journeys with. It never changes the night's verdict.
+#
+# `report` also publishes `e2e-weights` (7 days): the seconds each web spec and
+# each phone flow took tonight, which pull requests use to share their lots out
+# evenly (MAG-701).
 
 run-name: >-
   ${{ github.event_name == 'schedule' && 'Nuit · e2e complets' || 'Nuit · e2e complets · manuel' }}
@@ -115,6 +119,30 @@ jobs:
           cat report.md >> "$GITHUB_STEP_SUMMARY"
           echo "red=$([ "$status" -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
 
+      # What each journey cost tonight: pull requests balance their lots with it
+      # (`Detect changes` in ci.yml, scripts/e2e/impacted.sh, MAG-701). Never
+      # part of the verdict: without it, a night leaves the lots as they were.
+      - name: Journey durations
+        id: weights
+        continue-on-error: true
+        run: |
+          scripts/e2e/weights.sh verdicts > e2e-weights.json
+          jq -e '(.web | length) > 0 or (.mobile | length) > 0' e2e-weights.json >/dev/null \
+            || { echo "::warning::no journey duration tonight: pull requests keep the lots of today"; exit 0; }
+          jq -r '"### E2E durations\n\n\(.web | length) web specs (\(.web | add // 0 | round) s), \(.mobile | length) mobile flows (\(.mobile | add // 0 | round) s)."' \
+            e2e-weights.json >> "$GITHUB_STEP_SUMMARY"
+          echo "built=true" >> "$GITHUB_OUTPUT"
+
+      - name: Durations
+        if: steps.weights.outputs.built == 'true'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-weights
+          path: e2e-weights.json
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Open or update the nightly e2e ticket
         if: steps.report.outputs.red == 'true'
         env:
@@ -169,7 +197,7 @@ jobs:
           # no complete coverage (a hook failed, a job skipped) means no map: a
           # partial one would play too few journeys on a pull request.
           expected="$(scripts/e2e/impacted.sh select --all </dev/null \
-            | jq -r '(.web_lots[] | "web-\(.)"), (.mobile_lots[] | "mobile-phone-\(.index)")')"
+            | jq -r '(.web_lots[] | "web-\(.index)"), (.mobile_lots[] | "mobile-phone-\(.index)")')"
           [ -n "$expected" ] || { echo "::warning::the lots of tonight are unknown: no e2e line map"; exit 0; }
           status=0
           # shellcheck disable=SC2086 # one argument per lot
