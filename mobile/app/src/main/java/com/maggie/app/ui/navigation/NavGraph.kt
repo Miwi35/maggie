@@ -196,6 +196,8 @@ import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.home.HomeScreen
 import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarScreen
+import com.maggie.app.ui.screens.digest.DigestScreen
+import com.maggie.app.ui.screens.digest.DigestViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.fullcalendar.MEALS_FILTER_ID
 import com.maggie.app.ui.screens.fullcalendar.PROACTIONS_FILTER_ID
@@ -258,6 +260,7 @@ sealed class Screen(val route: String, val label: String) {
     data object TaskFocus : Screen("task/focus", "Focus")
     data object TaskBravo : Screen("task/bravo", "Bravo")
     data object Chat : Screen("chat", "Chat")
+    data object Digest : Screen("digest", "Digest du matin")
     data object Settings : Screen("settings", "Réglages")
     data object Search : Screen("search", "Rechercher")
     data object Proactions : Screen("proactions", "Proactions")
@@ -1384,6 +1387,25 @@ fun NavGraph() {
                             viewModel = chatViewModel,
                             draft = DeepLinks.chatDraft(linked),
                             messageId = DeepLinks.chatMessageId(linked),
+                        )
+                    }
+                    composable(
+                        Screen.Digest.route,
+                        arguments = listOf(
+                            navArgument(DeepLinks.ARG_MESSAGE) {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            },
+                        ),
+                        deepLinks = DeepLinks.forRoute(Screen.Digest.route),
+                    ) { entry ->
+                        val linked = entry.arguments?.getString(DeepLinks.ARG_MESSAGE)
+                        DigestScreen(
+                            viewModel = koinViewModel<DigestViewModel>(key = "digest-$linked") { parametersOf(linked) },
+                            onBack = { navController.popBackStack() },
+                            onNavigate = { route -> navController.navigate(route) { launchSingleTop = true } },
+                            onOpenChat = ::openChat,
                         )
                     }
                     composable(Screen.Calendar.route) {

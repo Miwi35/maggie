@@ -48,6 +48,7 @@ import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Trip
+import com.maggie.app.data.model.Weather
 import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.AisleFilter
 import com.maggie.app.data.model.Product
@@ -3219,6 +3220,14 @@ class MaggieApiService(
             withoutPagination()
             url.parameters.append("date", date)
         }.body<ApiCollection<Trip>>().member
+    }
+
+    /** The weather of [date] (`YYYY-MM-DD`) in the user's city (MAG-710); 404 without a city. */
+    suspend fun getWeather(date: String): Weather {
+        return client.get("$baseUrl/api/weather") {
+            accept(ContentType.Application.Json)
+            url.parameters.append("date", date)
+        }.orRefusal().body()
     }
 
     // Chat read state — agent endpoints (MAG-687). The server keeps the watermark, monotone.

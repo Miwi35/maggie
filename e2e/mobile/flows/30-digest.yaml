@@ -1,0 +1,60 @@
+appId: com.maggie.app.e2e
+name: 30-digest
+tags:
+  - digest
+env:
+  PROFILE: standard
+---
+# The morning digest screen (MAG-710, extends MAG-709 and MAG-99).
+#
+# Given the digest Maggie sent (vocal and written message, `scripts/digest-api.js` plays the planning
+# and waits for the executor), the simulated weather and one appointment today
+# When I open the digest from its link `maggie-e2e://digest?message=<id>`
+# Then the date heads the screen, the weather card reads the day (Open-Meteo is WireMock: rain, 19°,
+#   min 10°, 3 mm, 70 %, wind 23 km/h), Maggie's vocal is there to play and the Agenda card holds the appointment
+#
+# What is not here: the order of the blocks, the empty cards, a weather in error and the tablet's two
+# columns are the JVM's (`DigestScreenTest`, `DigestViewModelTest`). It runs as a user of its own: the digest
+# instruction and its messages must not reach another journey's account.
+
+- runFlow: ../subflows/new-user.yaml
+
+- runScript:
+    file: ../scripts/digest-api.js
+    env:
+      SUMMARY: "Rendez-vous digest"
+      EMAIL: ${output.journeyEmail}
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/30-digest.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://digest?message=${output.digestMessageId}"
+
+- extendedWaitUntil:
+    visible:
+      id: "digest_screen"
+    timeout: 20000
+- assertVisible:
+    id: "digest_date"
+- extendedWaitUntil:
+    visible:
+      id: "digest_weather"
+    timeout: 20000
+- assertVisible: "Pluie"
+- assertVisible: "19°"
+- assertVisible: "min 10°"
+- assertVisible: "3 mm de pluie"
+- assertVisible: "pluie 70 %"
+- assertVisible: "vent 23 km/h"
+- assertVisible:
+    id: "voice_play"
+- assertVisible:
+    id: "home_card_agenda"
+- assertVisible: "Rendez-vous digest"

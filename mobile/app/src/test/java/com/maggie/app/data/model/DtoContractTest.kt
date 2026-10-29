@@ -197,6 +197,16 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the weather deserialises from the recorded response`() {
+        assertItemContract("weather.read", serializer<Weather>(), "Weather")
+
+        val weather = json.decodeFromJsonElement(serializer<Weather>(), readRecording("weather.read"))
+        assertEquals("Orages", weather.conditionLabel)
+        assertEquals(listOf("orage"), weather.alerts)
+        assertEquals("4 mm de pluie", weather.quantityLabel)
+    }
+
+    @Test
     fun `meals deserialise from the recorded response`() =
         assertCollectionContract("meals", serializer<Meal>(), "Meal")
 

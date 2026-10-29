@@ -45,6 +45,23 @@ object UiTags {
     /** Accueil — the one calm sentence said when every card is empty (MAG-594). */
     const val HOME_EMPTY = "home_empty"
 
+    /** Digest du matin (MAG-710): the screen, its header, the date, Maggie's text, the weather card and its parts. */
+    const val DIGEST_SCREEN = "digest_screen"
+    const val DIGEST_BACK = "digest_back"
+    const val DIGEST_DATE = "digest_date"
+    const val DIGEST_GREETING = "digest_greeting"
+    const val DIGEST_MESSAGE_TEXT = "digest_message_text"
+    const val DIGEST_WEATHER = "digest_weather"
+    const val DIGEST_WEATHER_MAX = "digest_weather_max"
+    const val DIGEST_WEATHER_MIN = "digest_weather_min"
+    const val DIGEST_WEATHER_RAIN = "digest_weather_rain"
+    const val DIGEST_WEATHER_WIND = "digest_weather_wind"
+    const val DIGEST_WEATHER_CONDITION = "digest_weather_condition"
+    const val DIGEST_WEATHER_QUANTITY = "digest_weather_quantity"
+    const val DIGEST_WEATHER_ALERT = "digest_weather_alert"
+    const val DIGEST_TRIP = "digest_trip"
+    const val DIGEST_FINANCE_WEEK = "digest_finance_week"
+
     /** Accueil — a card (suffixed by its module: `tasks`, `agenda`…) and the header that opens its module. */
     const val HOME_CARD_PREFIX = "home_card_"
     const val HOME_CARD_HEADER_PREFIX = "home_header_"
