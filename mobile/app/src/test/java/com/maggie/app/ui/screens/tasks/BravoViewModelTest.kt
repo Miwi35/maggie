@@ -33,8 +33,7 @@ import org.junit.Test
 import java.time.LocalDate
 
 /**
- * The Bravo (MAG-508): one test per transition — opened on a task ticked, « Suivante », « Pause
- * méritée » — and the buzz and the sound each played only when their switch is on.
+ * The Bravo (MAG-508): one test per transition — opened on a task ticked, « Retour à ma journée » — and the buzz and the sound each played only when their switch is on.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class BravoViewModelTest {
@@ -134,7 +133,7 @@ class BravoViewModelTest {
     private fun viewModel() = BravoViewModel(repository, TaskRewards(repository, feedback), today = { today })
 
     @Test
-    fun `opened on a task ticked, it shows the title at once, then the reward, the day's count and the next task`() = runTest(testDispatcher) {
+    fun `opened on a task ticked, it shows the title at once, then the reward, the day's count`() = runTest(testDispatcher) {
         val viewModel = viewModel()
 
         viewModel.open(ticked)
@@ -148,8 +147,6 @@ class BravoViewModelTest {
         assertTrue(state.celebration!!.animate)
         assertEquals(3, state.day?.done)
         assertEquals(5, state.day?.total)
-        assertEquals("d4", state.next?.id)
-        assertEquals("Suivante : Appeler le garage · 10 min", nextLabelOf(state.next!!))
         assertEquals("3 sur 5 aujourd'hui", dayBarLabelOf(state.day!!.done, state.day!!.total))
     }
 
@@ -260,38 +257,14 @@ class BravoViewModelTest {
     }
 
     @Test
-    fun `Suivante leaves for the Focus of the day's Maintenant`() = runTest(testDispatcher) {
+    fun `Retour à ma journée leaves for the day`() = runTest(testDispatcher) {
         val viewModel = viewModel()
         viewModel.open(ticked)
         advanceUntilIdle()
 
-        viewModel.next()
+        viewModel.back()
 
-        assertEquals(BravoExit.Next("d4"), viewModel.uiState.value.exit)
-    }
-
-    @Test
-    fun `with nothing left to do there is no next task, and Suivante does nothing`() = runTest(testDispatcher) {
-        coEvery { repository.getDayPlan(today) } returns Result.success(day(doneCount = 5))
-        val viewModel = viewModel()
-        viewModel.open(ticked)
-        advanceUntilIdle()
-
-        viewModel.next()
-
-        assertNull(viewModel.uiState.value.next)
-        assertNull(viewModel.uiState.value.exit)
-    }
-
-    @Test
-    fun `Pause méritée goes back to the day`() = runTest(testDispatcher) {
-        val viewModel = viewModel()
-        viewModel.open(ticked)
-        advanceUntilIdle()
-
-        viewModel.pause()
-
-        assertEquals(BravoExit.Day, viewModel.uiState.value.exit)
+        assertTrue(viewModel.uiState.value.leaves)
     }
 
     @Test

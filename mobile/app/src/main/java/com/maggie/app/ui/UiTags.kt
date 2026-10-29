@@ -665,6 +665,8 @@ object UiTags {
      * with its add field, « C'est fait » and « Plus tard »; from the day, the slot menu's « Focus ».
      */
     const val FOCUS = "focus"
+    const val FOCUS_TIMER_TOGGLE = "focus_timer_toggle"
+    const val FOCUS_ESTIMATE = "focus_estimate"
     const val FOCUS_RING = "focus_ring"
     const val FOCUS_TIME = "focus_time"
     const val FOCUS_START = "focus_start"
@@ -684,15 +686,14 @@ object UiTags {
 
     /**
      * The Bravo (MAG-508): the screen, its green circle, « {titre} · faite », the reward's message,
-     * the day's bar, « Suivante », « Pause méritée » and the étoile filante; out of the day, the banner.
+     * the day's bar, « Retour à ma journée » and the étoile filante; out of the day, the banner.
      */
     const val BRAVO = "bravo"
     const val BRAVO_CIRCLE = "bravo_circle"
     const val BRAVO_TITLE = "bravo_title"
     const val BRAVO_MESSAGE = "bravo_message"
     const val BRAVO_DAY_BAR = "bravo_day_bar"
-    const val BRAVO_NEXT = "bravo_next"
-    const val BRAVO_PAUSE = "bravo_pause"
+    const val BRAVO_BACK = "bravo_back"
     const val BRAVO_SHOOTING_STAR = "bravo_shooting_star"
     const val TASKS_REWARD_BANNER = "tasks_reward_banner"
 

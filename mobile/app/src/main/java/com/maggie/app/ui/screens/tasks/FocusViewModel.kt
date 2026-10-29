@@ -20,6 +20,8 @@ data class FocusUiState(
     val task: Task? = null,
     /** The « petits pas »: the task's subtasks, in Google's order. */
     val steps: List<Task> = emptyList(),
+    /** The timer is an option: off when the Focus opens, whatever the task's duration. */
+    val timerEnabled: Boolean = false,
     val timer: FocusTimer = FocusTimer(),
     val remainingMs: Long = FocusTimer.DEFAULT_MS,
     val phase: FocusTimerPhase = FocusTimerPhase.IDLE,
@@ -37,7 +39,7 @@ data class FocusUiState(
 )
 
 /**
- * The Focus (MAG-499): one task of the day, its first step, a 10-minute timer and its subtasks as
+ * The Focus (MAG-499): one task of the day, its first step, an optional timer and its subtasks as
  * « petits pas ». It lives with the navigation graph, so a rotation keeps the timer; [open] is
  * therefore idempotent for the task already in focus, and [close] is what ends a Focus.
  */
@@ -87,9 +89,22 @@ class FocusViewModel(
         _uiState.value = FocusUiState()
     }
 
+    /** « Activer le minuteur »: the ring appears, set to the task's duration (10 minutes without one); a second press removes it and stops it. */
+    fun toggleTimer() {
+        val state = _uiState.value
+        val task = state.task ?: return
+        stopTicking()
+        val timer = if (state.timerEnabled) FocusTimer() else FocusTimer(totalMs = durationMsOf(task))
+        _uiState.update { it.copy(timerEnabled = !it.timerEnabled) }
+        setTimer(timer)
+    }
+
+    private fun durationMsOf(task: Task): Long =
+        task.estimatedMinutes?.takeIf { it > 0 }?.let { it * 60_000L } ?: FocusTimer.DEFAULT_MS
+
     fun start() {
         val state = _uiState.value
-        if (state.task == null || state.phase != FocusTimerPhase.IDLE) return
+        if (state.task == null || !state.timerEnabled || state.phase != FocusTimerPhase.IDLE) return
         run(state.timer.started(clock()))
     }
 
@@ -109,7 +124,7 @@ class FocusViewModel(
     /** After the end of the ten minutes: ten more. */
     fun restart() {
         if (_uiState.value.phase != FocusTimerPhase.FINISHED) return
-        run(FocusTimer().started(clock()))
+        run(FocusTimer(totalMs = _uiState.value.timer.totalMs).started(clock()))
     }
 
     /** The screen came back to the front: the time left is read again, whatever the ticks did meanwhile. */

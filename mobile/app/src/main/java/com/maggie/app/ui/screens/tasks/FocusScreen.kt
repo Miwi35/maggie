@@ -63,12 +63,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.maggie.app.data.model.Task
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.screens.shared.minutesLabel
 
 private val WIDE_FROM = 600.dp
 
 /** What a screen reader says of the ring: the time left, never the bare digits. */
-internal fun timerDescriptionOf(remainingMs: Long, phase: FocusTimerPhase): String = when (phase) {
-    FocusTimerPhase.FINISHED -> "Les 10 minutes sont passées"
+internal fun timerDescriptionOf(remainingMs: Long, phase: FocusTimerPhase, totalMs: Long): String = when (phase) {
+    FocusTimerPhase.FINISHED -> "Les ${minutesLabel((totalMs / 60_000).toInt())} sont passées"
     FocusTimerPhase.PAUSED -> "Minuteur en pause, ${timerLabelOf(remainingMs)} restantes"
     else -> "Minuteur, ${timerLabelOf(remainingMs)} restantes"
 }
@@ -189,6 +190,14 @@ private fun FocusContent(task: Task, state: FocusUiState, viewModel: FocusViewMo
 private fun TitleBlock(task: Task) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = task.title, style = MaterialTheme.typography.headlineSmall)
+        task.estimatedMinutes?.takeIf { it > 0 }?.let { minutes ->
+            Text(
+                text = "≈ ${minutesLabel(minutes)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(UiTags.FOCUS_ESTIMATE),
+            )
+        }
         task.firstStep?.takeIf { it.isNotBlank() }?.let { step ->
             Surface(
                 shape = RoundedCornerShape(12.dp),
@@ -212,16 +221,35 @@ private fun TitleBlock(task: Task) {
     }
 }
 
-/** The ring of the ten minutes, and the one button that starts, pauses, resumes or restarts them. */
+/** « Activer le minuteur », and once on, the ring with the one button that starts, pauses, resumes or restarts it. */
 @Composable
 private fun TimerBlock(state: FocusUiState, viewModel: FocusViewModel) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        TimerRing(remainingMs = state.remainingMs, totalMs = state.timer.totalMs, phase = state.phase)
-        when (state.phase) {
-            FocusTimerPhase.IDLE -> TimerButton("Démarrer", Icons.Default.PlayArrow, UiTags.FOCUS_START, viewModel::start)
-            FocusTimerPhase.RUNNING -> TimerButton("Pause", Icons.Default.Pause, UiTags.FOCUS_PAUSE, viewModel::pause)
-            FocusTimerPhase.PAUSED -> TimerButton("Reprendre", Icons.Default.PlayArrow, UiTags.FOCUS_RESUME, viewModel::resume)
-            FocusTimerPhase.FINISHED -> TimerButton("Encore 10 minutes", Icons.Default.Replay, UiTags.FOCUS_RESTART, viewModel::restart)
+        val label = if (state.timerEnabled) "Minuteur · ${minutesLabel((state.timer.totalMs / 60_000).toInt())}" else "Activer le minuteur"
+        if (state.timerEnabled) {
+            FilledTonalButton(
+                onClick = viewModel::toggleTimer,
+                modifier = Modifier.heightIn(min = 48.dp).testTag(UiTags.FOCUS_TIMER_TOGGLE),
+            ) { Text(label) }
+        } else {
+            OutlinedButton(
+                onClick = viewModel::toggleTimer,
+                modifier = Modifier.heightIn(min = 48.dp).testTag(UiTags.FOCUS_TIMER_TOGGLE),
+            ) { Text(label) }
+        }
+        if (state.timerEnabled) {
+            TimerRing(remainingMs = state.remainingMs, totalMs = state.timer.totalMs, phase = state.phase)
+            when (state.phase) {
+                FocusTimerPhase.IDLE -> TimerButton("Démarrer", Icons.Default.PlayArrow, UiTags.FOCUS_START, viewModel::start)
+                FocusTimerPhase.RUNNING -> TimerButton("Pause", Icons.Default.Pause, UiTags.FOCUS_PAUSE, viewModel::pause)
+                FocusTimerPhase.PAUSED -> TimerButton("Reprendre", Icons.Default.PlayArrow, UiTags.FOCUS_RESUME, viewModel::resume)
+                FocusTimerPhase.FINISHED -> TimerButton(
+                    "Encore ${minutesLabel((state.timer.totalMs / 60_000).toInt())}",
+                    Icons.Default.Replay,
+                    UiTags.FOCUS_RESTART,
+                    viewModel::restart,
+                )
+            }
         }
     }
 }
@@ -247,7 +275,7 @@ internal fun TimerRing(remainingMs: Long, totalMs: Long, phase: FocusTimerPhase)
         modifier = Modifier
             .size(220.dp)
             .testTag(UiTags.FOCUS_RING)
-            .clearAndSetSemantics { contentDescription = timerDescriptionOf(remainingMs, phase) },
+            .clearAndSetSemantics { contentDescription = timerDescriptionOf(remainingMs, phase, totalMs) },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {

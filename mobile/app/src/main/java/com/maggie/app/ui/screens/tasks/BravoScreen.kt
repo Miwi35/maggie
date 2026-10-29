@@ -49,21 +49,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.reward.Celebration
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.interruption.rememberReducedMotion
-import com.maggie.app.ui.screens.shared.minutesLabel
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.isMaggieDark
 import com.maggie.app.ui.theme.readableTextOn
 import kotlinx.coroutines.delay
-
-/** « Suivante : Appeler le garage · 10 min »; the duration only when the task has one. */
-internal fun nextLabelOf(task: DayTask): String =
-    "Suivante : ${task.title}" + (task.estimatedMinutes?.let { " · ${minutesLabel(it)}" } ?: "")
 
 /** « 3 sur 5 aujourd'hui ». */
 internal fun dayBarLabelOf(done: Int, total: Int): String = "${ringLabelOf(done, total)} aujourd'hui"
@@ -74,33 +67,24 @@ private const val BANNER_MS = 4_000L
 /**
  * The Bravo (MAG-508), after a task of the day ticked from « Mes 5 », « Maintenant » or the Focus:
  * a green circle that appears, small stars, « {titre} · faite », the reward's message, the month's
- * constellation, the day's bar, « Suivante » (the Focus of the next task) and « Pause méritée »
- * (back to the day). Nothing moves
+ * constellation, the day's bar, and « Retour à ma journée ». Nothing moves
  * when the user turned the animation off or the system removes animations.
  */
 @Composable
 fun BravoScreen(
     viewModel: BravoViewModel,
-    onNext: (taskId: String) -> Unit,
-    onPause: () -> Unit,
+    onBack: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
     val reducedMotion = rememberReducedMotion()
 
-    LaunchedEffect(state.exit) {
-        when (val exit = state.exit) {
-            is BravoExit.Next -> onNext(exit.taskId)
-            BravoExit.Day -> onPause()
-            null -> Unit
-        }
-    }
-    BackHandler(onBack = viewModel::pause)
+    LaunchedEffect(state.leaves) { if (state.leaves) onBack() }
+    BackHandler(onBack = viewModel::back)
 
     BravoContent(
         state = state,
         animate = !reducedMotion && state.celebration?.animate != false,
-        onNext = viewModel::next,
-        onPause = viewModel::pause,
+        onBack = viewModel::back,
     )
 }
 
@@ -108,8 +92,7 @@ fun BravoScreen(
 internal fun BravoContent(
     state: BravoUiState,
     animate: Boolean,
-    onNext: () -> Unit,
-    onPause: () -> Unit,
+    onBack: () -> Unit,
 ) {
     val celebration = state.celebration
     Box(
@@ -150,18 +133,10 @@ internal fun BravoContent(
                 }
                 state.stars?.let { Constellation(stars = it, animate = animate) }
                 state.day?.takeIf { it.total > 0 }?.let { day -> DayBar(done = day.done, total = day.total) }
-                state.next?.let { next ->
-                    Button(
-                        onClick = onNext,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(UiTags.BRAVO_NEXT),
-                    ) {
-                        Text(nextLabelOf(next), maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-                TextButton(
-                    onClick = onPause,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(UiTags.BRAVO_PAUSE),
-                ) { Text("Pause méritée", style = MaterialTheme.typography.titleMedium) }
+                Button(
+                    onClick = onBack,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(UiTags.BRAVO_BACK),
+                ) { Text("Retour à ma journée", style = MaterialTheme.typography.titleMedium) }
             }
         }
         if (celebration?.reward?.isShootingStar == true) ShootingStar(animate = animate)
