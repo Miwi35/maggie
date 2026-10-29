@@ -5,6 +5,7 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import { alpha } from '@mui/material/styles'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import HomeIcon from '@mui/icons-material/Home'
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu'
 import SettingsIcon from '@mui/icons-material/Settings'
@@ -35,6 +36,7 @@ const MODULE_LOOKS: Record<string, { icon: ReactElement; hue?: ModuleName }> = {
   Tâches: { icon: <TaskAltIcon />, hue: 'taches' },
   Courses: { icon: <ShoppingCartIcon />, hue: 'cuisine' },
   Cuisine: { icon: <RestaurantMenuIcon />, hue: 'cuisine' },
+  Santé: { icon: <FitnessCenterIcon />, hue: 'sport' },
   Finance: { icon: <AccountBalanceWalletIcon />, hue: 'comptes' },
   [SETTINGS_LABEL]: { icon: <SettingsIcon /> },
 }
@@ -129,7 +131,7 @@ const ModuleEntry = ({ module, open, selected, currentEntry }: ModuleEntryProps)
 
 /**
  * The sidebar of the mockup (`charte/Admin-Cible`, MAG-620): the modules in one
- * flat column — Accueil, Agenda, Tâches, Courses, Cuisine, Finance — and
+ * flat column — Accueil, Agenda, Tâches, Courses, Cuisine, Santé, Finance — and
  * Réglages pinned at the bottom. Only the module the page belongs to opens its
  * entries, bare of icons, the current one in the module's hue.
  */

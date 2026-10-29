@@ -25,6 +25,9 @@ vi.mock('./modules/cookbook', () => ({
   cookbookResources: <div data-testid="cookbook-resources" />,
 }))
 
+vi.mock('./modules/health', () => ({
+  healthResources: <div data-testid="health-resources" />,
+}))
 vi.mock('./modules/finance', () => ({
   financeResources: <div data-testid="finance-resources" />,
 }))

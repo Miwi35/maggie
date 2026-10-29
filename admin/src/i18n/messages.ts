@@ -24,6 +24,7 @@ const resources = {
   agendas: { name: 'Agenda |||| Agendas' },
   events: { name: 'Événement |||| Événements' },
   tasks: { name: 'Tâche |||| Tâches' },
+  workouts: { name: 'Séance |||| Séances' },
 }
 
 export const messages = {
