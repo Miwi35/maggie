@@ -14,6 +14,7 @@ interface MarkdownEditorProps {
   error?: boolean
   helperText?: string
   disabled?: boolean
+  maxLength?: number
   onBlur?: () => void
 }
 
@@ -26,7 +27,7 @@ const BUTTONS: { format: Format; label: string; glyph: string }[] = [
 ]
 
 /** A multiline text stored as Markdown, with a formatting bar that is always shown. */
-export function MarkdownEditor({ label, value, onChange, minRows = 2, autoFocus, error, helperText, disabled, onBlur }: MarkdownEditorProps) {
+export function MarkdownEditor({ label, value, onChange, minRows = 2, autoFocus, error, helperText, disabled, maxLength, onBlur }: MarkdownEditorProps) {
   const input = useRef<HTMLTextAreaElement | null>(null)
   const pending = useRef<{ start: number; end: number } | null>(null)
 
@@ -110,7 +111,7 @@ export function MarkdownEditor({ label, value, onChange, minRows = 2, autoFocus,
           onBlur={onBlur}
           onKeyDown={onKeyDown}
           inputRef={input}
-          slotProps={{ input: { disableUnderline: true, sx: { px: 1.5, py: 1 } }, htmlInput: { 'aria-label': label } }}
+          slotProps={{ input: { disableUnderline: true, sx: { px: 1.5, py: 1 } }, htmlInput: { 'aria-label': label, maxLength } }}
         />
       </Box>
       {helperText ? (

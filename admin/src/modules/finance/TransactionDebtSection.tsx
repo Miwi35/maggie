@@ -240,7 +240,7 @@ export const TransactionDebtSection = ({ transactionId, label }: { transactionId
             onChange={(e) => setObject(e.target.value)}
             inputProps={{ maxLength: 255 }}
           />
-          <MarkdownEditor label="Notes" value={notes} disabled={saving} onChange={setNotes} />
+          <MarkdownEditor label="Notes" value={notes} disabled={saving} onChange={setNotes} maxLength={2000} />
 
           {amountValid && person && (
             <Typography variant="body2" color="text.secondary" data-testid="debt-summary">
