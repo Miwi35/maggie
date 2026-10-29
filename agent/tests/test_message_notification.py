@@ -115,13 +115,20 @@ class TestConsumer:
         assert messages.create.await_args.kwargs["screen"] == "digest"
         assert mcp.call_tool.await_args.args[1]["relatedEntityIri"] == "/digest?message=msg-9"
 
-    async def test_a_vocal_that_failed_leaves_the_message_in_the_thread(self):
+    async def test_a_vocal_that_failed_still_leaves_the_written_digest_on_the_digest(self):
         vocal = {
             "name": "send_voice_message",
             "input": {"text": "Bonjour", "screen": "digest"},
             "result": '{"error": "Le vocal n\'a pas pu être enregistré"}',
         }
         _, mcp, messages = await self._run_keeping({"response": "Votre journée…", "tool_calls": [vocal]})
+
+        assert messages.create.await_args.kwargs["screen"] == "digest"
+        assert mcp.call_tool.await_args.args[1]["relatedEntityIri"] == "/digest?message=msg-9"
+
+    async def test_a_vocal_without_a_screen_leaves_the_message_in_the_thread(self):
+        vocal = {"name": "send_voice_message", "input": {"text": "Bonjour"}, "result": '{"sent": true}'}
+        _, mcp, messages = await self._run_keeping({"response": "Voilà.", "tool_calls": [vocal]})
 
         assert messages.create.await_args.kwargs["screen"] is None
         assert mcp.call_tool.await_args.args[1]["relatedEntityIri"] == "/chat?message=msg-9"

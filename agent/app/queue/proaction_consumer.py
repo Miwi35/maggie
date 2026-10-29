@@ -65,15 +65,18 @@ async def _journal(
 
 
 def voice_screen(tool_calls: list[dict]) -> str | None:
-    """The screen the run's vocal was sent for (MAG-709): the written message beside it belongs there too."""
+    """The screen the run's vocal was meant for (MAG-709): the written message beside it belongs there too.
+
+    Read from what the model asked, not from what the tool answered: a vocal that could not be made
+    (speech or bucket down) leaves the written digest where it belongs.
+    """
     for call in tool_calls:
-        if call.get("name") != "send_voice_message":
-            continue
-        try:
-            result = json.loads(call.get("result") or "")
-        except (TypeError, ValueError):
-            continue
-        if isinstance(result, dict) and result.get("sent") and (screen := message_screen(result.get("screen"))):
+        arguments = call.get("input")
+        if (
+            call.get("name") == "send_voice_message"
+            and isinstance(arguments, dict)
+            and (screen := message_screen(arguments.get("screen")))
+        ):
             return screen
     return None
 
