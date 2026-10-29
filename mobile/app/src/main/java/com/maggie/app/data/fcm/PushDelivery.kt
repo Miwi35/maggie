@@ -4,6 +4,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.maggie.app.data.car.CarMessages
 import com.maggie.app.data.interruption.InterruptionCenter
+import com.maggie.app.data.interruption.asMessageOfMaggie
 import com.maggie.app.data.interruption.interrupts
 import java.time.Instant
 
@@ -35,7 +36,7 @@ class PushDelivery(
         if (isForeground()) {
             center.offer(payload, reshow)
         } else if (!car.say(payload)) {
-            notifier().show(payload)
+            notifier().show(payload.asMessageOfMaggie())
         }
     }
 
@@ -44,7 +45,7 @@ class PushDelivery(
         payloads.forEach { payload ->
             notifier().close(payload.systemTag)
             if (!isForeground() || !payload.interrupts) {
-                notifier().show(payload)
+                notifier().show(payload.asMessageOfMaggie())
             } else if (payload.interrupts) {
                 center.reopen(payload)
             }

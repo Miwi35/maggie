@@ -169,7 +169,7 @@ import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.login.LoginViewModel
 import com.maggie.app.ui.interruption.InterruptionViewModel
-import com.maggie.app.ui.screens.notifications.NotificationViewModel
+import com.maggie.app.ui.interruption.InterruptionsListViewModel
 import com.maggie.app.ui.screens.proactions.ProactionViewModel
 import com.maggie.app.ui.screens.search.SearchViewModel
 import com.maggie.app.ui.screens.tasks.BravoViewModel
@@ -455,7 +455,17 @@ class MaggieApp : Application() {
             }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-            viewModel { NotificationViewModel(get(), get(), get(), get(), get()) }
+            viewModel {
+                InterruptionsListViewModel(
+                    approvals = get(),
+                    notifications = get(),
+                    trips = get(),
+                    center = get(),
+                    mercureService = get(),
+                    authRepository = get(),
+                    closeSystem = { PushNotifier(androidContext()).close(it) },
+                )
+            }
             viewModel {
                 InterruptionViewModel(
                     get(),

@@ -3194,6 +3194,14 @@ class MaggieApiService(
         }.body()
     }
 
+    /** The answers given since [since] (an ISO instant), most recent first (MAG-712). */
+    suspend fun getDecidedApprovals(since: String): List<PendingApproval> {
+        return client.get("$baseUrl/agent/approvals") {
+            url.parameters.append("status", "decided")
+            url.parameters.append("since", since)
+        }.body()
+    }
+
     // `channel` (chat, notification or voice) is where the answer was given: it is written in the line the thread keeps (MAG-336).
     suspend fun approve(id: String, channel: String = "chat"): PendingApproval = decideApproval(id, "approve", channel)
 

@@ -180,6 +180,24 @@ class TestReads:
 
         assert [a.id for a in pending] == [first.id, second.id]
 
+    async def test_find_decided_lists_only_the_users_answers_since_the_date_most_recent_first(self, pending_db):
+        from datetime import UTC, datetime, timedelta
+
+        still_pending = await hold(arguments={"eventId": "evt-0"})
+        first = await hold(arguments={"eventId": "evt-1"})
+        second = await hold(arguments={"eventId": "evt-2"})
+        await pending_action_repo.decide(str(first.id), PendingActionStatus.APPROVED, "{}")
+        await pending_action_repo.decide(str(second.id), PendingActionStatus.DENIED)
+        other = await hold(user_id=OTHER_USER)
+        await pending_action_repo.decide(str(other.id), PendingActionStatus.APPROVED, "{}")
+
+        since = datetime.now(UTC) - timedelta(hours=24)
+        decided = await pending_action_repo.find_decided(USER, since)
+
+        assert [a.id for a in decided] == [second.id, first.id]
+        assert still_pending.id not in [a.id for a in decided]
+        assert await pending_action_repo.find_decided(USER, datetime.now(UTC) + timedelta(hours=1)) == []
+
 
 class TestDecide:
     async def test_it_writes_the_answer_and_the_result(self, pending_db):

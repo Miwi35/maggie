@@ -62,16 +62,38 @@ class InterruptionCenterTest {
     fun `a validation goes ahead of the messages waiting, but not ahead of the one on screen`() {
         center.offer(message("a"))
         center.offer(message("b"))
-        center.offer(question("q1"))
-        center.offer(question("q2"))
+        center.offer(message("q1", interaction = "confirm"))
+        center.offer(message("q2", interaction = "confirm"))
 
         assertEquals("a", shown())
         center.close("a")
-        assertEquals("n-q1", shown())
-        center.close("approval:q1")
-        assertEquals("n-q2", shown())
-        center.close("approval:q2")
+        assertEquals("q1", shown())
+        center.close("q1")
+        assertEquals("q2", shown())
+        center.close("q2")
         assertEquals("b", shown())
+    }
+
+    @Test
+    fun `a held action never takes the screen, it waits in the bell and the chat`() {
+        center.offer(question("q1"))
+
+        assertNull(center.current.value)
+        center.offer(message("a"))
+        assertEquals("a", shown())
+    }
+
+    @Test
+    fun `a question with answers to choose from stays listed after its timeout and goes once answered`() {
+        val choice = message("c", type = "reminder").copy(interaction = PushInteraction(kind = "choice", options = listOf("Oui", "Non")))
+        center.offer(choice)
+
+        center.timeOut("c")
+        assertNull(center.current.value)
+        assertEquals(listOf("c"), center.questions.value.map { it.notificationId })
+
+        center.close("c")
+        assertTrue(center.questions.value.isEmpty())
     }
 
     @Test

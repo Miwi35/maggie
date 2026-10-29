@@ -43,8 +43,8 @@ tags:
     timeout: 20000
 
 # The bar under the content (MAG-624, `Tel-Cible`): the field and the mic on its right. The
-# header is the menu and the title — no search nor bell, they are in the drawer. A phone only:
-# the rail of a foldable keeps the search in its header, a tablet folds Maggie to her portrait.
+# header is the menu, the title, the loupe and the bell of Maggie's interruptions (MAG-712). A phone
+# only: a tablet folds Maggie to her portrait.
 - runFlow:
     when:
       visible:
@@ -54,7 +54,20 @@ tags:
           id: "chat_open"
       - assertVisible:
           id: "chat_mic"
-      - assertNotVisible: "Rechercher"
+      - assertVisible:
+          id: "header_search"
+      - assertVisible:
+          id: "header_bell"
+      - tapOn:
+          id: "header_bell"
+      - assertVisible:
+          id: "interruptions_panel"
+      - assertVisible: "En attente de votre réponse"
+      - tapOn:
+          id: "interruptions_scrim"
+          point: "50%,95%"
+      - assertNotVisible:
+          id: "interruptions_panel"
 
 # The chat, from the bar every main screen carries. By id and not by its text.
 - runFlow: ../subflows/open-chat.yaml

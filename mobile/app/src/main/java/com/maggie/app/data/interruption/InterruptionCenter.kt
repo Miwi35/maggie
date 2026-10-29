@@ -30,9 +30,13 @@ class InterruptionCenter(
     private val rung = HashSet<String>()
     private val quiet = HashMap<String, Int>()
     private val _current = MutableStateFlow<PushPayload?>(null)
+    private val _questions = MutableStateFlow<List<PushPayload>>(emptyList())
 
     /** The one on screen, null when Maggie has nothing to say. */
     val current: StateFlow<PushPayload?> = _current
+
+    /** The questions with answers to choose from that are not answered yet, the one that timed out on screen included (MAG-712). */
+    val questions: StateFlow<List<PushPayload>> = _questions
 
     /**
      * False when it was already offered (shown, queued, answered or timed out), is left to its own source,
@@ -53,7 +57,10 @@ class InterruptionCenter(
         }
         if (!seen.add(payload.key)) return false
         if (seen.size > MAX_REMEMBERED) seen.remove(seen.first())
+        if (payload.isChoice) _questions.value = _questions.value.filter { it.key != payload.key } + payload
         if (car?.say(payload) == true) return true
+        // A held action is confirmed from the bell or the chat (MAG-712): never in front of what the owner is doing.
+        if (payload.isConfirmation) return true
 
         if (_current.value == null) {
             _current.value = payload
@@ -69,7 +76,7 @@ class InterruptionCenter(
     /** The owner asked for it again (a tap on the notification): on screen now, the one it replaces waits its turn. */
     fun reopen(payload: PushPayload) = synchronized(lock) {
         seen.add(payload.key)
-        if (isQuieted(payload)) return
+        if (isQuieted(payload) || payload.isConfirmation) return
         val showing = _current.value
         if (showing?.key == payload.key) return
         queue.removeAll { it.key == payload.key }
@@ -81,11 +88,19 @@ class InterruptionCenter(
     fun close(key: String) = synchronized(lock) {
         // Remembered even if it was never shown: read before its push arrived, it must not come in late.
         seen.add(key)
+        _questions.value = _questions.value.filter { it.key != key }
         if (_current.value?.key == key) {
             _current.value = queue.removeFirstOrNull()
         } else {
             queue.removeAll { it.key == key }
         }
+    }
+
+    /** Thirty seconds without an answer: off the screen, but the bell still lists it (MAG-712). */
+    fun timeOut(key: String) = synchronized(lock) {
+        val question = _questions.value.firstOrNull { it.key == key }
+        close(key)
+        if (question != null) _questions.value = _questions.value + question
     }
 
     /**
@@ -121,6 +136,7 @@ class InterruptionCenter(
         seen.clear()
         postponed.clear()
         rung.clear()
+        _questions.value = emptyList()
         _current.value = null
     }
 

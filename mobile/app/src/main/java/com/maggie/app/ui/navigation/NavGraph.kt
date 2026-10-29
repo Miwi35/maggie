@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context as AndroidContext
 import android.content.ContextWrapper
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -13,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -84,7 +86,11 @@ import com.maggie.app.ui.components.MaggiePortrait
 import com.maggie.app.ui.interruption.InterruptionHost
 import com.maggie.app.ui.components.ContextListSheet
 import com.maggie.app.ui.components.MaggieNavigationRail
-import com.maggie.app.ui.components.BarActions
+import com.maggie.app.ui.components.HeaderActions
+import com.maggie.app.ui.components.InterruptionsActions
+import com.maggie.app.ui.components.LocalHeaderActions
+import com.maggie.app.ui.interruption.InterruptionsListViewModel
+import com.maggie.app.ui.interruption.SettledKind
 import com.maggie.app.ui.components.MaggieTopBar
 import com.maggie.app.ui.layout.AppLayout
 import com.maggie.app.ui.layout.AppShell
@@ -191,8 +197,6 @@ import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.fullcalendar.MEALS_FILTER_ID
 import com.maggie.app.ui.screens.fullcalendar.PROACTIONS_FILTER_ID
 import com.maggie.app.ui.screens.chat.ChatScreen
-import com.maggie.app.ui.screens.notifications.NotificationScreen
-import com.maggie.app.ui.screens.notifications.NotificationViewModel
 import com.maggie.app.ui.screens.proactions.ProactionDetailContent
 import com.maggie.app.ui.screens.proactions.ProactionDetailSheet
 import com.maggie.app.ui.screens.proactions.ProactionScreen
@@ -253,7 +257,6 @@ sealed class Screen(val route: String, val label: String) {
     data object TaskBravo : Screen("task/bravo", "Bravo")
     data object Chat : Screen("chat", "Chat")
     data object Settings : Screen("settings", "Réglages")
-    data object Notifications : Screen("notifications", "Notifications")
     data object Search : Screen("search", "Rechercher")
     data object Proactions : Screen("proactions", "Proactions")
     data object Cookbook : Screen("cookbook", "Cuisine")
@@ -708,7 +711,7 @@ fun NavGraph() {
     val focusViewModel: FocusViewModel = koinViewModel()
     val bravoViewModel: BravoViewModel = koinViewModel()
     val routinesViewModel: RoutinesViewModel = koinViewModel()
-    val notificationViewModel: NotificationViewModel = koinViewModel()
+    val interruptionsViewModel: InterruptionsListViewModel = koinViewModel()
     val drawerSummaryViewModel: DrawerSummaryViewModel = koinViewModel()
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
@@ -733,8 +736,7 @@ fun NavGraph() {
     val recipeRepository: RecipeRepository = koinInject()
     val apiService: MaggieApiService = koinInject()
 
-    // Notification unread count
-    val notificationUiState by notificationViewModel.uiState.collectAsState()
+    val interruptionsState by interruptionsViewModel.uiState.collectAsState()
     val drawerSummary by drawerSummaryViewModel.summary.collectAsState()
     // The lines are read again as the drawer opens: « the next event » moves with the clock.
     LaunchedEffect(drawerState.targetValue) {
@@ -1090,20 +1092,38 @@ fun NavGraph() {
     // Tâches and Cuisine draw their breadcrumb in place of the bar's title (MAG-670): same burger, same actions.
     val moduleBar = ModuleBar(
         onOpenDrawer = if (chrome.showsRail) null else ({ scope.launch { drawerState.open() } }),
-        actions = {
-            if (chrome.showsRail) {
-                BarActions(
-                    unreadCount = notificationUiState.unreadCount,
-                    onNotificationsClick = { navigateTo(Screen.Notifications.route) },
-                    onSearchClick = { navigateTo(Screen.Search.route) },
-                )
+        actions = {},
+    )
+    val interruptionActions = InterruptionsActions(
+        onTrip = { trip ->
+            interruptionsViewModel.tripOpened(trip)
+            trip.navigationUrl?.let { url ->
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
+        },
+        onQuestion = interruptionsViewModel::openQuestion,
+        onConfirmation = { openChat() },
+        onSettled = { entry ->
+            val url = entry.navigationUrl
+            if (entry.kind == SettledKind.TRIP && url != null) {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            } else {
+                openChat()
             }
         },
     )
+    val headerActions: @Composable RowScope.() -> Unit = {
+        HeaderActions(
+            state = interruptionsState,
+            actions = interruptionActions,
+            onSearch = { navigateTo(Screen.Search.route) },
+        )
+    }
     CompositionLocalProvider(
         LocalFinanceNav provides financeNav,
         LocalGroceryNav provides groceryNav,
         LocalModuleBar provides moduleBar,
+        LocalHeaderActions provides headerActions,
     ) {
         AppShell(
             drawerState = drawerState,
@@ -1113,7 +1133,6 @@ fun NavGraph() {
                     currentRoute = currentRoute,
                     onNavigate = ::navigateTo,
                     onCloseDrawer = { scope.launch { drawerState.close() } },
-                    unreadNotifications = notificationUiState.unreadCount,
                     summary = drawerSummary,
                 )
             },
@@ -1175,11 +1194,7 @@ fun NavGraph() {
                             } else {
                                 { scope.launch { drawerState.open() } }
                             },
-                            unreadCount = notificationUiState.unreadCount,
-                            onNotificationsClick = { navigateTo(Screen.Notifications.route) },
-                            onSearchClick = { navigateTo(Screen.Search.route) },
                             dense = chrome.denseTopBar,
-                            actionsInBar = chrome.showsRail,
                         )
                     }
                 },
@@ -1566,12 +1581,6 @@ fun NavGraph() {
                             onNavigateToProactions = {
                                 navController.navigate(Screen.Proactions.route) { launchSingleTop = true }
                             },
-                        )
-                    }
-                    composable(Screen.Notifications.route) {
-                        NotificationScreen(
-                            viewModel = notificationViewModel,
-                            onBack = { navController.popBackStack() },
                         )
                     }
                     composable(Screen.Search.route) {

@@ -362,7 +362,7 @@ object PushIntents {
      * A message of Maggie (MAG-687) is the exception: its tap opens the conversation on that message.
      */
     fun open(context: Context, payload: PushPayload, toLink: Boolean = false): Intent {
-        val link = if (toLink || payload.isMessage) linkOf(payload.link) else null
+        val link = if (toLink || payload.isMessage || payload.approvalId != null) linkOf(payload.link) else null
         return Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (link != null) {

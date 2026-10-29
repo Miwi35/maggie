@@ -74,31 +74,15 @@ class AppDrawerScreenTest {
         compose.onAllNodesWithTag(UiTags.drawerItem("chat")).assertCountEquals(0)
     }
 
-    /** The phone's top bar is the menu and the title (MAG-624): the two icons it dropped live here. */
+    /** The search and the bell are in every header (MAG-712): the drawer keeps neither. */
     @Test
-    fun `the search and the notifications are drawer entries above Réglages`() {
-        val opened = mutableListOf<String>()
-        draw(onNavigate = { opened += it })
+    fun `the drawer has no Rechercher and no Notifications entry`() {
+        draw()
 
-        compose.onNodeWithTag(UiTags.drawerItem("search")).assertIsDisplayed().tap()
-        compose.onNodeWithTag(UiTags.drawerItem("notifications")).assertIsDisplayed().tap()
-
-        assertEquals(listOf("search", "notifications"), opened)
-    }
-
-    @Test
-    fun `unread notifications are counted on their entry, none shows no number`() {
-        compose.setContent {
-            AppDrawerContent(
-                currentRoute = "home",
-                onNavigate = {},
-                onCloseDrawer = {},
-                today = sunday,
-                unreadNotifications = 3,
-            )
-        }
-
-        compose.onNodeWithText("3").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.drawerItem("search")).assertCountEquals(0)
+        compose.onAllNodesWithTag(UiTags.drawerItem("notifications")).assertCountEquals(0)
+        compose.onAllNodesWithText("Rechercher").assertCountEquals(0)
+        compose.onAllNodesWithText("Notifications").assertCountEquals(0)
     }
 
     @Test

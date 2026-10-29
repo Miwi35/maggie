@@ -18,9 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.TaskAlt
@@ -74,15 +72,6 @@ val DRAWER_DESTINATIONS = listOf(
     DrawerDestination("finance_dashboard", "Finance", Icons.Default.Insights, DrawerTint.FINANCE),
 )
 
-/**
- * What the top bar carried on a phone before it was cut down to the menu and the title (MAG-624):
- * the search and the notifications, one tap from the drawer instead of two icons in every header.
- */
-val DRAWER_UTILITIES = listOf(
-    DrawerDestination("search", "Rechercher", Icons.Default.Search, DrawerTint.NEUTRAL),
-    DrawerDestination("notifications", "Notifications", Icons.Default.Notifications, DrawerTint.NEUTRAL),
-)
-
 internal val SETTINGS_DESTINATION = DrawerDestination("settings", "Réglages", Icons.Default.Settings, DrawerTint.NEUTRAL)
 
 /** The destinations the rail shows, in order: the modules, then the settings. */
@@ -128,7 +117,6 @@ fun AppDrawerContent(
     onNavigate: (String) -> Unit,
     onCloseDrawer: () -> Unit,
     today: LocalDate = LocalDate.now(),
-    unreadNotifications: Int = 0,
     summary: DrawerSummary = DrawerSummary(),
 ) {
     ModalDrawerSheet(
@@ -142,11 +130,6 @@ fun AppDrawerContent(
         }
 
         Spacer(modifier = Modifier.weight(1f))
-
-        DRAWER_UTILITIES.forEach { utility ->
-            val badge = if (utility.route == "notifications") unreadNotifications else null
-            DrawerItem(utility, currentRoute, onNavigate, onCloseDrawer, badge = badge)
-        }
 
         DrawerItem(SETTINGS_DESTINATION, currentRoute, onNavigate, onCloseDrawer)
 
@@ -252,11 +235,10 @@ private fun DrawerItem(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
     onCloseDrawer: () -> Unit,
-    badge: Int? = null,
     status: DrawerEntryStatus? = null,
 ) {
     val tint = destination.tint.color()
-    val count = badge ?: status?.count
+    val count = status?.count
     NavigationDrawerItem(
         icon = { DestinationTile(destination) },
         label = {

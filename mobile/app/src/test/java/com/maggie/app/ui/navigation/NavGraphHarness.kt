@@ -32,8 +32,8 @@ import com.maggie.app.ui.screens.fullcalendar.FullCalendarUiState
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.login.LoginUiState
 import com.maggie.app.ui.screens.login.LoginViewModel
-import com.maggie.app.ui.screens.notifications.NotificationUiState
-import com.maggie.app.ui.screens.notifications.NotificationViewModel
+import com.maggie.app.ui.interruption.InterruptionsListViewModel
+import com.maggie.app.ui.interruption.InterruptionsUiState
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -84,7 +84,7 @@ internal fun startNavGraphApp() {
         every { uiState } returns state(com.maggie.app.ui.screens.tasks.RoutinesUiState())
     }
     val cal = mockk<FullCalendarViewModel>(relaxed = true) { every { uiState } returns state(FullCalendarUiState()) }
-    val notif = mockk<NotificationViewModel>(relaxed = true) { every { uiState } returns state(NotificationUiState()) }
+    val notif = mockk<InterruptionsListViewModel>(relaxed = true) { every { uiState } returns state(InterruptionsUiState()) }
     val drawerSummary = mockk<com.maggie.app.ui.components.DrawerSummaryViewModel>(relaxed = true) {
         every { summary } returns state(com.maggie.app.ui.components.DrawerSummary())
     }

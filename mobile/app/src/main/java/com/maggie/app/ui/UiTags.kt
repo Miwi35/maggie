@@ -216,6 +216,24 @@ object UiTags {
     /** Top bar — the burger that opens the navigation drawer. */
     const val NAV_MENU = "nav_menu"
 
+    /** Header — the loupe that opens the search, and the bell of Maggie's interruptions (MAG-712). */
+    const val HEADER_SEARCH = "header_search"
+    const val HEADER_BELL = "header_bell"
+    const val HEADER_BELL_BADGE = "header_bell_badge"
+
+    /** The bell's panel, the scrim behind it, its sections and its entries (MAG-712). */
+    const val INTERRUPTIONS_PANEL = "interruptions_panel"
+    const val INTERRUPTIONS_SCRIM = "interruptions_scrim"
+    const val INTERRUPTIONS_PENDING = "interruptions_pending"
+    const val INTERRUPTIONS_SETTLED = "interruptions_settled"
+    const val INTERRUPTIONS_EMPTY = "interruptions_empty"
+    const val INTERRUPTIONS_QUESTIONS = "interruptions_questions"
+    const val INTERRUPTIONS_CONFIRMATION = "interruptions_confirmation"
+
+    fun interruptionsTrip(id: String) = "interruptions_trip_$id"
+    fun interruptionsQuestion(key: String) = "interruptions_question_$key"
+    fun interruptionsSettled(id: String) = "interruptions_settled_$id"
+
     /** Top bar — the title of the generic bar; a module whose screen wears its own breadcrumb has none (MAG-670). */
     const val TOP_BAR_TITLE = "top_bar_title"
 

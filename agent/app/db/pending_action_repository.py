@@ -113,6 +113,20 @@ class PendingActionRepository:
             )
             return list(result.scalars().all())
 
+    async def find_decided(self, user_id: str, since: datetime) -> list[PendingAction]:
+        """The user's answered actions since `since`, most recent first — the « Réglées » of the bell."""
+        async with agent_session() as session:
+            result = await session.execute(
+                select(PendingAction)
+                .where(
+                    PendingAction.user_id == user_id,
+                    PendingAction.status.in_(DECIDABLE),
+                    PendingAction.decided_at >= since,
+                )
+                .order_by(PendingAction.decided_at.desc())
+            )
+            return list(result.scalars().all())
+
     async def decide(
         self,
         action_id: str,

@@ -90,7 +90,6 @@ internal fun AppShellPreview() {
                     MaggieTopBar(
                         title = "Cuisine",
                         onMenuClick = if (hasRail) null else { {} },
-                        unreadCount = 2,
                         dense = layout.denseTopBar,
                     )
                 },

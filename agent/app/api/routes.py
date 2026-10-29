@@ -554,11 +554,23 @@ async def announce_approved_action(action: PendingAction, result: str) -> None:
 
 @router.get("/approvals")
 async def get_approvals(
-    status: Literal["pending"] = Query(default="pending"),
+    status: Literal["pending", "decided"] = Query(default="pending"),
+    since: str | None = Query(default=None, description="ISO date; with status=decided, the oldest decision served"),
     user_id: str = Depends(get_current_user_id),
 ):
-    """The authenticated user's actions waiting for an answer, oldest first."""
-    actions = await pending_action_repo.find_pending(user_id)
+    """The authenticated user's actions waiting for an answer (oldest first), or their recent decisions."""
+    if status == "pending":
+        actions = await pending_action_repo.find_pending(user_id)
+        return [a.to_dict() for a in actions]
+    try:
+        since_at = datetime.fromisoformat(since.replace("Z", "+00:00")) if since else None
+    except ValueError:
+        since_at = None
+    if since_at is None:
+        raise HTTPException(status_code=400, detail="`since` must be an ISO 8601 date")
+    if since_at.tzinfo is None:
+        since_at = since_at.replace(tzinfo=UTC)
+    actions = await pending_action_repo.find_decided(user_id, since_at)
     return [a.to_dict() for a in actions]
 
 

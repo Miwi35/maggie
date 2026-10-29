@@ -24,6 +24,11 @@ class ApprovalRepository(
         apiService.getPendingApprovals()
     }
 
+    /** The answers of the last [hours] hours, most recent first: the bell's « Réglées ». */
+    suspend fun getDecided(since: java.time.Instant): Result<List<PendingApproval>> = runCatching {
+        apiService.getDecidedApprovals(since.toString())
+    }
+
     suspend fun approve(id: String, channel: String = "chat"): Result<PendingApproval> =
         runCatching { apiService.approve(id, channel) }
 
