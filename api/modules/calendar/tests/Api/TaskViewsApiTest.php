@@ -109,8 +109,9 @@ class TaskViewsApiTest extends WebTestCase
             'Due tomorrow',
             'Due the 18th, critical',
             'Due the 18th, low',
-            'Dated subtask of a far task',
             'Due the 30th',
+            'Dated subtask of a far task',
+            'Undated subtask of a far task',
         ], $this->titles('upcoming'));
     }
 
@@ -132,6 +133,8 @@ class TaskViewsApiTest extends WebTestCase
             'Someday, medium second',
             'Someday, medium unpositioned',
             'Someday, low priority',
+            'Someday, parent of a dated subtask',
+            'Subtask of a someday task, due tomorrow',
         ], $this->titles('someday'));
     }
 
@@ -160,7 +163,7 @@ class TaskViewsApiTest extends WebTestCase
         $seen = [];
         foreach (['today', 'upcoming', 'someday', 'done'] as $view) {
             $body = $this->get('/api/tasks/view/'.$view);
-            self::assertSame(['today' => 3, 'upcoming' => 5, 'someday' => 5, 'done' => 4], $body['counts']);
+            self::assertSame(['today' => 3, 'upcoming' => 6, 'someday' => 7, 'done' => 4], $body['counts']);
             self::assertSame($body['counts'][$view], $body['totalItems']);
             foreach ($body['member'] as $member) {
                 self::assertArrayNotHasKey($member['id'], $seen, $member['title'].' is in two views');
@@ -168,7 +171,7 @@ class TaskViewsApiTest extends WebTestCase
             }
         }
 
-        self::assertCount(17, $seen, 'the 17 tasks of the user, none left out');
+        self::assertCount(20, $seen, 'the 20 tasks of the user, none left out');
     }
 
     public function testNoViewShowsAnotherUsersTasks(): void

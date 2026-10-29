@@ -12,8 +12,8 @@ use Maggie\Core\Entity\User;
 /**
  * The four views of the tasks (MAG-408), each task in exactly one:
  * `today` ({@see TodayTasks}), `upcoming` (not done, due after today),
- * `someday` (not done, no due day) and `done`. A task already listed in
- * `today` — a subtask that follows its task — is left out of the others.
+ * `someday` (not done, no due day) and `done`. A subtask follows its task, right
+ * after it in the task's view whatever its own day, and is in no other.
  */
 final class TaskViews
 {
@@ -44,8 +44,28 @@ final class TaskViews
             $inToday[(string) $task->getId()] = true;
         }
 
-        $upcoming = $this->upcoming($user, $inToday);
-        $someday = $this->someday($user, $inToday);
+        $dueAfter = $this->taskRepository->findOpenDueAfter($user, $this->urgency->today($user));
+        $undated = $this->taskRepository->findOpenUndated($user);
+
+        $followed = [];
+        foreach ([...$dueAfter, ...$undated] as $task) {
+            $followed[(string) $task->getId()] = true;
+        }
+        $heads = static fn (array $tasks): array => array_values(array_filter(
+            $tasks,
+            static fn (Task $task): bool => !isset($inToday[(string) $task->getId()])
+                && (null === $task->getParent() || !isset($followed[(string) $task->getParent()->getId()])),
+        ));
+        $upcomingHeads = $heads($dueAfter);
+        $somedayHeads = $heads($undated);
+
+        $subtasks = [];
+        foreach ($this->taskRepository->findOpenSubtasksOf($user, [...$upcomingHeads, ...$somedayHeads]) as $subtask) {
+            $subtasks[(string) $subtask->getParent()?->getId()][] = $this->urgency->mark($subtask);
+        }
+
+        $upcoming = $this->withSubtasks($this->upcoming($upcomingHeads), $subtasks);
+        $someday = $this->withSubtasks($this->someday($somedayHeads), $subtasks);
         $doneCount = $this->taskRepository->countDone($user);
 
         $counts = [
@@ -67,13 +87,13 @@ final class TaskViews
     }
 
     /**
-     * @param array<string, true> $inToday
+     * @param list<Task> $heads
      *
      * @return list<Task> by due day, then by score
      */
-    private function upcoming(User $user, array $inToday): array
+    private function upcoming(array $heads): array
     {
-        $tasks = $this->marked($this->taskRepository->findOpenDueAfter($user, $this->urgency->today($user)), $inToday);
+        $tasks = array_map($this->urgency->mark(...), $heads);
         // The score sort leaves ties by due day, so sort by day first, score within a day.
         $byDay = [];
         foreach ($tasks as $task) {
@@ -85,13 +105,13 @@ final class TaskViews
     }
 
     /**
-     * @param array<string, true> $inToday
+     * @param list<Task> $heads
      *
      * @return list<Task> by priority, then by manual order
      */
-    private function someday(User $user, array $inToday): array
+    private function someday(array $heads): array
     {
-        $tasks = $this->marked($this->taskRepository->findOpenUndated($user), $inToday);
+        $tasks = array_map($this->urgency->mark(...), $heads);
         $rank = static fn (Task $task): int => match ($task->getPriority()) {
             TaskPriority::High => 0,
             TaskPriority::Medium => 1,
@@ -104,16 +124,21 @@ final class TaskViews
     }
 
     /**
-     * @param Task[]              $tasks
-     * @param array<string, true> $inToday
+     * @param list<Task>                $heads
+     * @param array<string, list<Task>> $subtasks by task id
      *
-     * @return list<Task>
+     * @return list<Task> each task followed by its open subtasks, in score order
      */
-    private function marked(array $tasks, array $inToday): array
+    private function withSubtasks(array $heads, array $subtasks): array
     {
-        return array_values(array_map(
-            $this->urgency->mark(...),
-            array_filter($tasks, static fn (Task $task): bool => !isset($inToday[(string) $task->getId()])),
-        ));
+        $listed = [];
+        foreach ($heads as $head) {
+            $listed[] = $head;
+            foreach ($this->urgency->sort($subtasks[(string) $head->getId()] ?? []) as $subtask) {
+                $listed[] = $subtask;
+            }
+        }
+
+        return $listed;
     }
 }
