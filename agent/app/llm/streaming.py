@@ -105,12 +105,14 @@ class StreamingGateway:
         current_context_id: str | None = None,
         about: str = "",
         spoken: bool = False,
+        in_car: bool = False,
     ) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skills), the memory (the profile, then what
         `about` calls back: MAG-16), then directives, contexts, date.
 
         `spoken`: the answer will be read aloud, so it is asked for as a spoken text (ADR-014). In the
-        volatile part, never in the cached prefix, which stays the same for the written chat."""
+        volatile part, never in the cached prefix, which stays the same for the written chat.
+        `in_car`: the owner is driving (MAG-684): short answers for the ear, same place."""
         capabilities = generate_capability_summary(tools) if tools else ""
         base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
         await skill_index.refresh()
@@ -137,6 +139,8 @@ class StreamingGateway:
         volatile = f"{memory.notice}{directives}{context_section}\n\n{date_line}{last_exchange}"
         if spoken:
             volatile = f"{volatile}\n\n{self.personality.get_spoken_prompt()}"
+        if in_car:
+            volatile = f"{volatile}\n\n{self.personality.get_driving_prompt()}"
         # The skills learnt for the chat, in full (MAG-345).
         return build_system(
             base + skill_context, volatile, skill_index.skills_for_moment(MOMENT_CHAT), memory.profile, memory.recalled
@@ -153,6 +157,7 @@ class StreamingGateway:
         carried_over: str | None = None,
         stopped: Callable[[], bool] | None = None,
         spoken: bool = False,
+        in_car: bool = False,
     ) -> AsyncGenerator[dict, None]:
         """Stream AG-UI events for a chat message.
 
@@ -161,6 +166,7 @@ class StreamingGateway:
         then is what the turn did kept, a shutdown hands the turn over untouched.
 
         `spoken`: the answer will be read aloud (the voice overlay): written for the ear (ADR-014).
+        `in_car`: the owner is driving: the answer is short and made for the ear (MAG-684).
 
         `screen_context` is what the screen behind the assistant overlay was showing
         (MAG-30). It joins the conversation in `build_history`, on the turn being answered,
@@ -220,6 +226,7 @@ class StreamingGateway:
             current_context_id=current_context_id,
             about=message,
             spoken=spoken,
+            in_car=in_car,
         )
         cached_tools = cache_tools(tools)
 

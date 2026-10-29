@@ -1,0 +1,11 @@
+# The owner is in the car (MAG-684): the request carries `in_car`, and the system prompt the model
+# receives holds the driving instruction. Only then does this scenario match.
+name: in-car-driving
+description: The driving instruction reaches the model when the phone is in the car.
+
+match:
+  user_contains: "en voiture ?"
+  system_contains: "EN VOITURE"
+
+turns:
+  - text: "Vous avez un rendez-vous à quatorze heures, monsieur. Rien d'autre."

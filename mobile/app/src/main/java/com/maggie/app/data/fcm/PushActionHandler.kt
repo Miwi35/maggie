@@ -140,7 +140,7 @@ class PushActionHandler(
 
         val sending = sendScope.async {
             runCatching {
-                apiService.sendChat(message, inReplyTo = payload.replyTo())
+                apiService.sendChat(message, inReplyTo = payload.replyTo(), inCar = true)
                 // Answered here, so closed everywhere; a failed mark must not undo the send.
                 runCatching { apiService.markNotificationRead(payload.notificationId) }
             }

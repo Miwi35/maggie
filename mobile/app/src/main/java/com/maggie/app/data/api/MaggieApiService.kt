@@ -295,6 +295,8 @@ data class AgentChatRequest(
     val spoken: Boolean = false,
     /** The message of Maggie this one answers, dictated on its notification in the car (MAG-683). */
     val in_reply_to: ReplyTo? = null,
+    /** The phone is projecting to Android Auto, or the answer was dictated from the car: Maggie answers short, for the ear (MAG-684). */
+    val in_car: Boolean = false,
 )
 
 /** The message of Maggie an answer is for: Maggie reads it as she would the button of the notification, or as an instruction. */
@@ -1458,6 +1460,7 @@ class MaggieApiService(
         image: ChatImage? = null,
         spoken: Boolean = false,
         inReplyTo: ReplyTo? = null,
+        inCar: Boolean = false,
     ): AgentChatResponse {
         return client.post("$baseUrl/agent/chat") {
             waitForAgentReply()
@@ -1470,6 +1473,7 @@ class MaggieApiService(
                     image = image,
                     spoken = spoken,
                     in_reply_to = inReplyTo,
+                    in_car = inCar,
                 ),
             )
         }.body()
@@ -1565,6 +1569,7 @@ class MaggieApiService(
         image: ChatImage? = null,
         replaces: String? = null,
         spoken: Boolean = false,
+        inCar: Boolean = false,
     ): Flow<AgUiEvent> = kotlinx.coroutines.flow.flow {
         try {
             val response = client.post("$baseUrl/agent/chat/stream") {
@@ -1578,6 +1583,7 @@ class MaggieApiService(
                         image = image,
                         replaces = replaces,
                         spoken = spoken,
+                        in_car = inCar,
                     ),
                 )
             }

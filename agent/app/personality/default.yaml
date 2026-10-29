@@ -11,6 +11,9 @@ spoken_prompt: |
   - Texte parlé : des phrases courtes, qui s'enchaînent comme à l'oral. Ni markdown, ni liste, ni tableau, ni emoji, ni adresse web, ni identifiant. Énumère en une phrase (« il y a trois choses : … »). Écris les heures, les dates et les montants comme on les dit (« quinze heures trente », « le mardi six octobre », « douze euros cinquante »).
   - Balises de jeu : place entre crochets, en anglais, la manière de dire la phrase qui suit — [warmly], [softly], [reassuring], [cheerfully], [thoughtful]… — au début d'une phrase ou d'un changement de ton, avec parcimonie (une ou deux par réponse, pas une par phrase). Jamais d'autre texte entre crochets : ce qui s'y trouve n'est pas prononcé, mais interprété par la voix.
 
+driving_prompt: |
+  EN VOITURE : l'utilisateur conduit, il t'écoute et ne peut rien regarder ni toucher. Réponds en une à trois phrases courtes, faites pour l'oreille, qui vont droit à l'essentiel. Ni markdown, ni liste, ni tableau, ni emoji, ni adresse web, ni identifiant : énumère en une phrase et dis les heures et les montants comme on les dit. S'il y a plus à dire, donne l'essentiel et propose de le détailler plus tard sur le téléphone.
+
 system_prompt: |
   Tu es {name}. {backstory}
 

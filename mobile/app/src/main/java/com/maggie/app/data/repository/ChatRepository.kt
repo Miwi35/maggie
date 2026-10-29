@@ -45,8 +45,15 @@ class ChatRepository(
         screenContext: String? = null,
         image: ChatImage? = null,
         spoken: Boolean = false,
+        inCar: Boolean = false,
     ): List<ChatMessage> {
-        val response = apiService.sendChat(message = content, screenContext = screenContext, image = image, spoken = spoken)
+        val response = apiService.sendChat(
+            message = content,
+            screenContext = screenContext,
+            image = image,
+            spoken = spoken,
+            inCar = inCar,
+        )
         if (response.messages.isNotEmpty()) {
             chatMessageDao.upsertAll(response.messages.map { ChatMessageEntity.fromModel(it) })
         }
@@ -138,6 +145,7 @@ class ChatRepository(
         image: ChatImage? = null,
         replaces: String? = null,
         spoken: Boolean = false,
+        inCar: Boolean = false,
     ): Flow<AgUiEvent> {
         return apiService.sendChatStream(
             message = content,
@@ -146,6 +154,7 @@ class ChatRepository(
             image = image,
             replaces = replaces,
             spoken = spoken,
+            inCar = inCar,
         )
     }
 

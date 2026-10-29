@@ -14,6 +14,7 @@ from app.db.message_repository import message_repo
 from app.personality.engine import PersonalityEngine
 
 SPOKEN_MARKER = "ÉCRIRE POUR L'ORAL"
+DRIVING_MARKER = "EN VOITURE"
 
 
 def _gateway(cls):
@@ -133,3 +134,70 @@ class TestWhoAsksForIt:
             await asyncio.sleep(0)
 
         assert seen["spoken"] is spoken
+
+
+class TestTheDrivingInstruction:
+    """The owner is in the car (MAG-684): short answers for the ear, only in that context."""
+
+    async def test_in_the_car_the_prompt_asks_for_short_answers_for_the_ear(self, agent_db):
+        prompt = _text(await _prompt(_gateway(StreamingGateway), "app.llm.streaming", in_car=True))
+
+        assert DRIVING_MARKER in prompt
+        for expected in ("courtes", "markdown", "liste", "tableau", "adresse web"):
+            assert expected in prompt
+
+    async def test_without_the_car_the_instruction_is_not_there(self, agent_db):
+        prompt = _text(await _prompt(_gateway(StreamingGateway), "app.llm.streaming"))
+
+        assert DRIVING_MARKER not in prompt
+
+    async def test_it_stays_out_of_the_cached_prefix(self, agent_db):
+        gateway = _gateway(StreamingGateway)
+
+        driving = await _prompt(gateway, "app.llm.streaming", in_car=True)
+        written = await _prompt(gateway, "app.llm.streaming")
+
+        assert driving[0] == written[0]
+        assert DRIVING_MARKER not in driving[0]["text"]
+
+    async def test_the_non_streamed_gateway_adds_it_too(self, agent_db):
+        gateway = _gateway(LLMGateway)
+
+        assert DRIVING_MARKER in _text(await _prompt(gateway, "app.llm.gateway", in_car=True))
+        assert DRIVING_MARKER not in _text(await _prompt(gateway, "app.llm.gateway"))
+
+    @pytest.mark.parametrize("in_car", [True, False])
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
+    def test_the_chat_route_hands_the_context_to_the_gateway(self, mock_gateway, mock_msg_repo, in_car, authed_client):
+        seen = {}
+
+        async def chat(message, user_id, **kwargs):
+            seen.update(kwargs)
+            return {"response": "Bonjour.", "tool_calls": []}
+
+        mock_gateway.chat = chat
+        mock_msg_repo.create = AsyncMock(return_value=MagicMock(id="m1", to_dict=lambda: {}))
+
+        authed_client.post("/chat", json={"message": "Bonjour", "in_car": in_car})
+
+        assert seen["in_car"] is in_car
+
+    @pytest.mark.parametrize("in_car", [True, False])
+    async def test_the_streamed_turn_carries_it_to_the_gateway(self, chat_db, in_car):
+        seen = {}
+
+        class Gateway:
+            async def chat_stream(self, message, user_id, user_msg_id, **kwargs):
+                seen.update(kwargs)
+                await message_repo.create(
+                    user_id=user_id, role="assistant", content="Bonjour.", message_id=answer_message_id(user_msg_id)
+                )
+                yield {"type": "RUN_FINISHED", "runId": "run-1"}
+
+        with patch.object(routes, "streaming_gateway", Gateway()), patch.object(routes, "turn_runner", TurnRunner()):
+            response = await routes.chat_stream(routes.ChatRequest(message="Bonjour", in_car=in_car), user_id="user-1")
+            [chunk async for chunk in response.body_iterator]
+            await asyncio.sleep(0)
+
+        assert seen["in_car"] is in_car

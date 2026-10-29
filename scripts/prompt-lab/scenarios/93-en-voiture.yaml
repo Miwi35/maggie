@@ -1,0 +1,16 @@
+# Maggie knows the owner is driving (MAG-684): the answer is short and made for the ear.
+#
+# The request says the phone is projecting to Android Auto. The model has to give the gist in a
+# few spoken sentences — no list, table, link or markdown — and not read the whole agenda out.
+name: en-voiture
+description: Asked for his day while driving, she answers in one to three short spoken sentences, with no list, no markdown and no link.
+channel: chat
+in_car: true
+
+steps:
+  - user_message: "Qu'est-ce que j'ai de prévu aujourd'hui ?"
+    expected_absent: ["**", "##", "\n- ", "\n* ", "1.", "http"]
+    expected_behavior: >
+      Elle répond en une à trois phrases courtes, faites pour être écoutées, qui donnent l'essentiel de la
+      journée sans tout énumérer : ni liste à puces ou numérotée, ni tableau, ni markdown, ni emoji, ni adresse
+      web. Elle peut proposer de détailler plus tard sur le téléphone.

@@ -75,6 +75,7 @@ class TurnRunner:
         carried_over: str | None = None,
         follow: bool = True,
         spoken: bool = False,
+        in_car: bool = False,
     ) -> AsyncGenerator[dict | None, None] | None:
         """Launch the turn answering `message_id`; the events come back to whoever follows it.
 
@@ -82,7 +83,7 @@ class TurnRunner:
         """
         queue: asyncio.Queue | None = asyncio.Queue() if follow else None
         task = asyncio.create_task(
-            self._run(gateway, user_id, message_id, message, screen_context, image, carried_over, queue, spoken)
+            self._run(gateway, user_id, message_id, message, screen_context, image, carried_over, queue, spoken, in_car)
         )
         self._tasks[message_id] = task
         task.add_done_callback(lambda _: self._forget(message_id))
@@ -99,6 +100,7 @@ class TurnRunner:
         carried_over: str | None,
         queue: asyncio.Queue | None,
         spoken: bool,
+        in_car: bool,
     ) -> None:
         heartbeat = asyncio.create_task(self._renew_lease(message_id))
         try:
@@ -111,6 +113,7 @@ class TurnRunner:
                 carried_over=carried_over,
                 stopped=lambda: message_id in self._stopped,
                 spoken=spoken,
+                in_car=in_car,
             ):
                 if queue is not None:
                     queue.put_nowait(event)
