@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 import anthropic
@@ -23,6 +23,8 @@ from app.db.chat_read_state_repository import UnknownMessage, chat_read_state_re
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
+from app.db.journal_model import PLANNING, PROACTION
+from app.db.journal_repository import journal_repo
 from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID
 from app.db.pending_action_model import PendingAction, PendingActionStatus
@@ -815,6 +817,57 @@ async def execute_user_proaction(
         raise HTTPException(status_code=502, detail=f"Proaction execution failed: {e}") from e
 
     return {"id": proaction_id, "dryRun": dry_run, **result}
+
+
+def _with_origin(entries: list[dict]) -> list[dict]:
+    """Each proaction run gets the planning that scheduled it, when the journal still has it: its origin.
+
+    The instructions that planning read are the closest the journal comes to « the instruction it came
+    from »: the model chose among them, and nothing records which one.
+    """
+    planned_by = {
+        scheduled["id"]: entry
+        for entry in reversed(entries)
+        if entry["kind"] == PLANNING
+        for scheduled in entry["scheduled"]
+        if scheduled.get("id")
+    }
+    for entry in entries:
+        if entry["kind"] == PROACTION:
+            planning = planned_by.get(entry["proactionId"])
+            entry["origin"] = (
+                {"planningId": planning["id"], "day": planning["day"], "instructions": planning["instructions"]}
+                if planning
+                else None
+            )
+    return entries
+
+
+@router.get("/journal")
+async def get_journal(
+    days: int = Query(default=7, ge=1, le=366),
+    user_id: str = Depends(get_current_user_id),
+):
+    """The caller's plannings and proaction runs of the last `days` days, newest first (MAG-688)."""
+    since = datetime.now(UTC) - timedelta(days=days)
+    return _with_origin([run.to_dict() for run in await journal_repo.find_by_user(user_id, since)])
+
+
+@router.post("/journal/planning")
+async def run_journal_planning(user_id: str = Depends(get_current_user_id)):
+    """« Relancer la planification maintenant » (MAG-688): the caller's daily planning, now, and its journal entry.
+
+    The same run as the morning's, for the caller alone — so a new instruction is tried without waiting
+    for tomorrow. Today's proactions already scheduled are left be: the planning reads them first.
+    """
+    try:
+        result = await generate_proactions(llm_gateway, user_id)
+    except Exception as e:
+        logger.error(f"Planning on demand failed for user {user_id}: {e}")
+        raise HTTPException(status_code=502, detail="La planification a échoué : voir le journal.") from e
+    if result.get("journal") is None:
+        raise HTTPException(status_code=500, detail="La planification a tourné mais le journal ne l'a pas gardée.")
+    return result["journal"]
 
 
 class RecetteResetRequest(BaseModel):

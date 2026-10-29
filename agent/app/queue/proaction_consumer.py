@@ -1,8 +1,11 @@
 import json
 import logging
+import time
+from datetime import UTC, datetime
 
 import aio_pika
 
+from app.db.journal_repository import journal_repo
 from app.db.message_repository import message_repo
 from app.error_tracking import PROACTION_FAILED, capture_signal
 from app.llm.context_summary import context_summarizer
@@ -14,6 +17,7 @@ from app.proactions.api import Proaction
 from app.queue.connection import PROACTION_QUEUE, get_channel
 from app.queue.message_notification import notify_message
 from app.trips import is_silent_trip_run
+from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +42,27 @@ async def _record(proaction: Proaction, status: str, *, response: str | None = N
         logger.warning(f"Failed to publish proaction update: {e}")
 
 
+async def _journal(
+    proaction: Proaction, started_at: datetime, clock: float, *, result: dict | None = None, error: str | None = None
+) -> None:
+    """Keep the run in the journal (MAG-688); never raises — the message is delivered whether it is kept or not."""
+    try:
+        day = started_at.astimezone(await resolve_user_timezone(proaction.user_id)).date().isoformat()
+        await journal_repo.record_proaction(
+            proaction.user_id,
+            proaction.id,
+            proaction.prompt,
+            proaction.summary,
+            day,
+            started_at,
+            int((time.monotonic() - clock) * 1000),
+            result=result,
+            error=error,
+        )
+    except Exception as e:
+        logger.error(f"Could not keep proaction {proaction.id} in the journal: {e}")
+
+
 async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_run: bool = False) -> dict:
     """Run one claimed proaction to its message — the queue consumer's and the manual trigger's one path.
 
@@ -45,6 +70,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
     1. Calls LLMGateway.proaction() with the proaction's prompt
     2. Stores what came out in the conversation thread it belongs to (MAG-14)
     3. Records it on the API as completed (with response) or failed (with error)
+    4. Keeps the run in the journal (MAG-688): its tool calls, duration and tokens
 
     With `dry_run` (MAG-249) only step 1 happens, with the tools that write simulated: the proaction is
     not claimed and keeps its status, nothing is stored, and the result says which tools were simulated.
@@ -60,6 +86,9 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             "simulatedTools": result.get("simulated_tools", []),
         }
 
+    started_at = datetime.now(UTC)
+    clock = time.monotonic()
+    result: dict | None = None
     try:
         result = await gateway.proaction(proaction.prompt, proaction.user_id, summary=proaction.summary)
         # A trip check or replan (MAG-657) is a log, not a message: the departure alert is the API's.
@@ -86,11 +115,13 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
     except Exception as e:
         error_msg = str(e)
         logger.error(f"Proaction {proaction_id} failed: {error_msg}")
+        await _journal(proaction, started_at, clock, result=result, error=error_msg or type(e).__name__)
         await _record(proaction, "failed", error=error_msg)
         # The error type only: its message may quote the prompt or a tool result.
         capture_signal(PROACTION_FAILED, proaction_id=proaction_id, user_id=proaction.user_id, error=type(e).__name__)
         return {"status": "failed", "message": None, "error": error_msg, "toolCalls": []}
 
+    await _journal(proaction, started_at, clock, result=result)
     await _record(proaction, "completed", response=result["response"])
 
     # Awaited, unlike on the streamed path: nobody is holding a stream open here, and the

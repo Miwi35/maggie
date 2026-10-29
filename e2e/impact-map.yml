@@ -415,6 +415,12 @@ web:
     areas: [design, settings]
   e2e/web/tests/agent-settings.spec.ts:
     areas: [settings]
+  e2e/web/tests/agent-journal.spec.ts:
+    areas: [settings]
+    paths:
+      - 'agent/app/queue/scheduler.py'
+      - 'agent/app/db/journal_*.py'
+      - 'agent/fixtures/fake-llm/06-planning-journal.yaml'
   e2e/web/tests/task-settings.spec.ts:
     areas: [settings, calendar]
   e2e/web/tests/task-routines.spec.ts:

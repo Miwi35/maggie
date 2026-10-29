@@ -449,11 +449,12 @@ class TestContextLifecycle:
         monkeypatch.setattr(scheduler, "_memory_encoding_loop", lambda: started.append("encoding") or asyncio.sleep(0))
         monkeypatch.setattr(scheduler, "_memory_night_loop", lambda: started.append("night") or asyncio.sleep(0))
         monkeypatch.setattr(scheduler, "_voice_message_purge_loop", lambda: started.append("voice") or asyncio.sleep(0))
+        monkeypatch.setattr(scheduler, "_journal_purge_loop", lambda: started.append("journal") or asyncio.sleep(0))
 
         await scheduler.start_scheduler()
 
-        assert started == ["lifecycle", "style", "encoding", "night", "voice"]
-        assert len(scheduler._tasks) == 7
+        assert started == ["lifecycle", "style", "encoding", "night", "voice", "journal"]
+        assert len(scheduler._tasks) == 8
 
 
 class TestVoiceMessagePurgeLoop:

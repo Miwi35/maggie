@@ -149,6 +149,7 @@ class LLMGateway:
             return {
                 "response": "AI service is not configured.",
                 "tool_calls": [],
+                "error": "AI service is not configured.",
             }
 
         tools = await self.tool_router.get_tool_definitions()
@@ -187,10 +188,11 @@ class LLMGateway:
             logger.error(f"Proaction API error: {e.message}")
             if not dry_run:
                 await self._alert_if_provider(e, user_id)
-            return {"response": f"AI service error: {e.message}", "tool_calls": []}
+            # `error` tells the journal (MAG-688) the run failed, whatever the response says.
+            return {"response": f"AI service error: {e.message}", "tool_calls": [], "error": e.message}
         except anthropic.APIConnectionError as e:
             logger.error(f"Proaction connection error: {e}")
-            return {"response": "Unable to reach the AI service.", "tool_calls": []}
+            return {"response": "Unable to reach the AI service.", "tool_calls": [], "error": str(e)}
 
         if dry_run:
             result["dry_run"] = True

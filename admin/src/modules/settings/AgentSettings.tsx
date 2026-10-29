@@ -5,6 +5,7 @@ import { mercureUrl } from '../../hooks/mercureUrl'
 import { announceAgentName } from '../../hooks/useAgentName'
 import { agentFetch } from './agentFetch'
 import { StyleProposals } from './StyleProposals'
+import { ProactionJournal } from './ProactionJournal'
 import { MemorySettings, type MemoryNotice } from './MemorySettings'
 import { useMercure } from '../../hooks/useMercure'
 import { PROACTION_STATUS_LABELS } from '../calendar/proaction'
@@ -471,6 +472,7 @@ export const AgentSettings = () => {
           <Tab label="Compétences" />
           <Tab label="Proactions" />
           <Tab label="Mémoire" />
+          <Tab label="Journal" />
         </Tabs>
 
         {/* Personality tab */}
@@ -807,6 +809,13 @@ export const AgentSettings = () => {
         {tab === 4 && (
           <CardContent>
             <MemorySettings notify={notify} subscribe={subscribeMemory} />
+          </CardContent>
+        )}
+
+        {/* Journal tab (MAG-688) */}
+        {tab === 5 && (
+          <CardContent>
+            <ProactionJournal />
           </CardContent>
         )}
       </Card>

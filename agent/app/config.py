@@ -101,6 +101,8 @@ class Settings(BaseSettings):
     # in each user's own timezone (MAG-165). This one is the fallback when it is unknown or invalid.
     planning_timezone: str = "Europe/Paris"
     daily_planning_hour: int = 5
+    # The journal of the plannings and proaction runs (MAG-688) keeps this many days, then is purged.
+    proaction_journal_retention_days: int = 30
 
     # Agent
     agent_name: str = "Maggie"

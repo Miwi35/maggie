@@ -110,7 +110,12 @@ class TestRunToolLoop:
 
         result = await _run(client, tool_router, tools=[{"name": "list_events"}])
 
-        assert result == {"response": "Bonjour", "tool_calls": [], "blocks": []}
+        assert result == {
+            "response": "Bonjour",
+            "tool_calls": [],
+            "blocks": [],
+            "usage": {"input_tokens": 10, "output_tokens": 5},
+        }
         client.messages.create.assert_awaited_once()
         tool_router.call_tool.assert_not_awaited()
         usage.assert_called_once()
@@ -136,6 +141,16 @@ class TestRunToolLoop:
         assert [m["role"] for m in messages] == ["user", "assistant", "user"]
         assert messages[-1]["content"] == [{"type": "tool_result", "tool_use_id": "tu-1", "content": '{"events": []}'}]
         assert client.messages.create.await_count == 2
+
+    async def test_the_tokens_of_every_call_of_the_run_are_summed_up_cache_included(self, client, tool_router, usage):
+        """What the journal shows as a run's cost (MAG-688): every call of the loop, cached input counted."""
+        cached = _text_response("Rien de prévu")
+        cached.usage.cache_read_input_tokens = 800
+        client.messages.create.side_effect = [_tool_response("list_events"), cached]
+
+        result = await _run(client, tool_router, tools=[{"name": "list_events"}])
+
+        assert result["usage"] == {"input_tokens": 820, "output_tokens": 10}
 
     async def test_default_source_is_chat(self, client, tool_router, usage):
         client.messages.create.side_effect = [_tool_response(), _text_response("ok")]

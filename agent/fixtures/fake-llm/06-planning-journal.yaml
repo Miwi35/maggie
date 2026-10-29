@@ -1,0 +1,32 @@
+# « Relancer la planification maintenant » (MAG-688): the planning of a user whose planning
+# instruction names « journal MAG-688 » schedules one proaction tonight at 23:00.
+#
+# Same trick as 06-planning-custody-day.yaml: the fake reads no tool result, but the third call
+# of the run sees what `list_instructions` answered in the first, so this scenario only matches
+# once that instruction is in the history. Its first two turns are 07-planning-read.yaml's, never
+# played here. 23:00: the API refuses a past `scheduled_at`, and CI pins the stack at noon.
+name: planning-journal
+description: The daily planning reads the journal instruction and schedules tonight's proaction.
+
+match:
+  user_matches: "C'est le début de la journée du (\\d{4}-\\d{2}-\\d{2})"
+  history_contains: "journal MAG-688"
+
+turns:
+  - tools:
+      - name: list_instructions
+        input: {kind: planning}
+      - name: get_events_by_date
+        input: {date: '\1'}
+      - name: list_proactions
+        input: {from: '\1', to: '\1'}
+  - tools:
+      - name: date_time
+        input: {action: now}
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Fais le point de la journée avec l'utilisateur."
+          scheduled_at: '\1T23:00:00'
+          summary: "Point du soir"
+  - text: "Proaction posée : le point du soir à 23 h."
