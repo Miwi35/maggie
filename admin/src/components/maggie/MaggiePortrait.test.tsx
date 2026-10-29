@@ -43,4 +43,13 @@ describe('MaggiePortrait', () => {
     )
     expect(container.querySelector('.MuiBadge-badge:not(.MuiBadge-invisible)')).toBeNull()
   })
+
+  it('shows how many messages are unread when the server says so', () => {
+    render(
+      <ThemeProvider theme={veilleuseDarkTheme}>
+        <MaggiePortrait unread count={3} onClick={vi.fn()} />
+      </ThemeProvider>,
+    )
+    expect(screen.getByText('3')).toBeInTheDocument()
+  })
 })

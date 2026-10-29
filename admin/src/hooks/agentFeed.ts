@@ -31,6 +31,7 @@ export function subscribeAgentFeed(userId: string, listener: Listener): () => vo
     agentTopic(AGENT_STREAMS.contexts, userId),
     agentTopic(AGENT_STREAMS.proactions, userId),
     agentTopic(AGENT_STREAMS.approvals, userId),
+    agentTopic(AGENT_STREAMS.chatRead, userId),
     `/users/${userId}${NOTIFICATIONS_TOPIC}`,
   ]).toString()
 

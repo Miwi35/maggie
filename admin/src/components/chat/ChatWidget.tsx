@@ -40,6 +40,7 @@ import type { VoiceAttachment } from './VoiceBubble'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { newMessageKey } from '../../hooks/messageKey'
 import { isAwaitingAnswer, useApprovals } from '../../hooks/useApprovals'
+import { useChatUnread } from './useChatUnread'
 import { ApprovalCard } from './ApprovalCard'
 import { ActivityPulse } from '../mind/ActivityPulse'
 import { MaggieAvatar } from '../maggie/MaggieAvatar'
@@ -131,6 +132,11 @@ interface ChatWidgetProps {
   onTabChange: (event: unknown, newTab: SidebarTab) => void
   onClose: () => void
   onUnread: () => void
+  /** The server's count of Maggie's messages not read yet, each time it changes (MAG-687). */
+  onUnreadCount?: (count: number) => void
+  /** A message to open the conversation on (a notification's `chat?message=`); `onMessageOpened` says it was taken. */
+  openMessageId?: string | null
+  onMessageOpened?: () => void
   agentState: AgentState
   onAgentStateChange: (state: AgentState) => void
   contexts: ContextState[]
@@ -235,7 +241,7 @@ function getTimeSeparatorLabel(prev: ChatMessage | null, current: ChatMessage): 
 }
 
 export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
-  ({ open, sidebarTab, onTabChange, onClose, onUnread, agentState, onAgentStateChange, contexts, onContextsChange, toolCalls, onToolCallsChange }, ref) => {
+  ({ open, sidebarTab, onTabChange, onClose, onUnread, onUnreadCount, openMessageId, onMessageOpened, agentState, onAgentStateChange, contexts, onContextsChange, toolCalls, onToolCallsChange }, ref) => {
     const [messages, setMessages] = useState<ChatMessage[]>([])
     const [input, setInput] = useState('')
     const [loadingHistory, setLoadingHistory] = useState(false)
@@ -307,6 +313,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
     const transcription = useTranscription()
     const isNarrow = useNarrowScreen()
     const { approvals, approve, deny, receive: receiveApproval } = useApprovals()
+    const unread = useChatUnread()
+    const { markRead: markChatRead } = unread
+    const separatorDoneRef = useRef(false)
     const awaitingCount = approvals.filter((a) => isAwaitingAnswer(a)).length
 
     // AG-UI stream callbacks
@@ -484,14 +493,6 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
           const history = await fetchMessages({ limit: String(PAGE_SIZE) })
           setMessages(history)
           setHasMore(history.length >= PAGE_SIZE)
-
-          const lastReadId = localStorage.getItem('chat_lastReadMessageId')
-          if (lastReadId) {
-            const idx = history.findIndex((m) => m.id === lastReadId)
-            if (idx >= 0 && idx < history.length - 1) {
-              setUnreadFromId(history[idx + 1].id)
-            }
-          }
         } catch (e) {
           console.error('Failed to load chat history:', e)
         } finally {
@@ -597,30 +598,41 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       }
     }, [loadOlderMessages, searchMode, setFollowing])
 
-    // --- Track chat close → save last read to localStorage ---
+    // --- Unread: the read position lives on the server (MAG-687) ---
 
     useEffect(() => {
-      if (prevOpenRef.current && !open && messages.length > 0) {
-        const lastMsg = messages[messages.length - 1]
-        if (lastMsg && !lastMsg.id.startsWith('tmp-')) {
-          localStorage.setItem('chat_lastReadMessageId', lastMsg.id)
-        }
+      onUnreadCount?.(unread.unreadCount)
+    }, [unread.unreadCount, onUnreadCount])
+
+    // Closing the chat drops the unread line; the next opening draws it again from the server's position.
+    useEffect(() => {
+      if (prevOpenRef.current && !open) {
         setUnreadFromId(null)
+        separatorDoneRef.current = false
       }
       prevOpenRef.current = open
-    }, [open, messages])
+    }, [open])
 
-    // --- Clear unread breakline when user scrolls to bottom ---
-
+    // The unread line starts after the message the server says was read last, once per opening.
     useEffect(() => {
-      if (following && unreadFromId) {
-        setUnreadFromId(null)
-        const lastMsg = messages[messages.length - 1]
-        if (lastMsg && !lastMsg.id.startsWith('tmp-')) {
-          localStorage.setItem('chat_lastReadMessageId', lastMsg.id)
-        }
-      }
-    }, [following, unreadFromId, messages])
+      if (!open || separatorDoneRef.current || !historyLoaded || !unread.loaded) return
+      separatorDoneRef.current = true
+      const idx = unread.lastReadMessageId ? messages.findIndex((m) => m.id === unread.lastReadMessageId) : -1
+      if (idx >= 0 && idx < messages.length - 1) setUnreadFromId(messages[idx + 1].id)
+    }, [open, historyLoaded, unread.loaded, unread.lastReadMessageId, messages])
+
+    // Clear the unread line when the user is at the bottom.
+    useEffect(() => {
+      if (following && unreadFromId) setUnreadFromId(null)
+    }, [following, unreadFromId])
+
+    // Read = the chat is open on its tab and the list follows the latest message.
+    const lastMessageId = messages[messages.length - 1]?.id
+    useEffect(() => {
+      if (!open || sidebarTab !== 'chat' || searchMode || !following || !historyLoaded || !unread.loaded) return
+      if (!lastMessageId || lastMessageId.startsWith('tmp-') || lastMessageId === unread.lastReadMessageId) return
+      markChatRead(lastMessageId)
+    }, [open, sidebarTab, searchMode, following, historyLoaded, unread.loaded, unread.lastReadMessageId, lastMessageId, markChatRead])
 
     // --- Send message ---
 
@@ -969,6 +981,16 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       },
       [setFollowing],
     )
+
+    // A notification opens the conversation on its message (MAG-687): once the history is in, so it does not replace the context.
+    useEffect(() => {
+      if (!open || !openMessageId || !historyLoaded) return
+      onMessageOpened?.()
+      navigateToMessage(openMessageId).finally(() => {
+        // Not a search: nothing else resets the flag that keeps the next opening from pinning.
+        skipOpenPinRef.current = false
+      })
+    }, [open, openMessageId, historyLoaded, navigateToMessage, onMessageOpened])
 
     const scrollToBottom = useCallback(() => {
       setFollowing(true)

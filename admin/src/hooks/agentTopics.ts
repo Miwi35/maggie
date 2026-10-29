@@ -15,6 +15,8 @@ export const AGENT_STREAMS = {
   /** Actions the policy holds back until the user answers them (MAG-4); the chat cards follow it (MAG-6). */
   approvals: 'approvals',
   memory: 'memory',
+  /** Where the owner stopped reading the chat, and how many messages of Maggie's wait (MAG-687). */
+  chatRead: 'chat-read',
 } as const
 
 export type AgentStream = (typeof AGENT_STREAMS)[keyof typeof AGENT_STREAMS]

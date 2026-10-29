@@ -1,4 +1,5 @@
 import { Suspense, useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Layout as RALayout, Loading, LayoutProps } from 'react-admin'
 import Box from '@mui/material/Box'
 import { ChatWidget, ChatWidgetRef } from '../chat/ChatWidget'
@@ -21,6 +22,11 @@ export const Layout = (props: LayoutProps) => {
   const [chatOpen, setChatOpen] = useState(false)
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('chat')
   const [unreadChat, setUnreadChat] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  // A notification of type `message` links to `/chat?message=<id>`: the chat opens on it (MAG-687).
+  const [openMessageId, setOpenMessageId] = useState<string | null>(null)
+  const location = useLocation()
+  const navigate = useNavigate()
   const [contexts, setContexts] = useState<ContextState[]>([])
   const [toolCalls, setToolCalls] = useState<ToolCallState[]>([])
   const [agentState, setAgentState] = useState<AgentState>('idle')
@@ -56,6 +62,27 @@ export const Layout = (props: LayoutProps) => {
     }
     triggerResize()
   }, [chatOpen, sidebarTab, triggerResize])
+
+  useEffect(() => {
+    if (location.pathname !== '/chat') return
+    const id = new URLSearchParams(location.search).get('message')
+    if (id) {
+      setOpenMessageId(id)
+      setChatOpen(true)
+      setSidebarTab('chat')
+      setUnreadChat(false)
+      triggerResize()
+    }
+    navigate('/', { replace: true })
+  }, [location.pathname, location.search, navigate, triggerResize])
+
+  // The read position is the server's: read elsewhere, the dot of a live message goes too.
+  const handleUnreadCount = useCallback((count: number) => {
+    setUnreadCount(count)
+    if (count === 0) setUnreadChat(false)
+  }, [])
+
+  const handleMessageOpened = useCallback(() => setOpenMessageId(null), [])
 
   const handleOpenChatFromInterruption = useCallback(() => {
     setChatOpen(true)
@@ -96,7 +123,8 @@ export const Layout = (props: LayoutProps) => {
       chatOpen,
       sidebarTab,
       onChatToggle: handleChatToggle,
-      unreadChat,
+      unreadChat: unreadChat || unreadCount > 0,
+      unreadCount,
       onVoiceMessage: handleVoiceMessage,
     }),
     [
@@ -104,6 +132,7 @@ export const Layout = (props: LayoutProps) => {
       sidebarTab,
       handleChatToggle,
       unreadChat,
+      unreadCount,
       handleVoiceMessage,
     ],
   )
@@ -155,6 +184,9 @@ export const Layout = (props: LayoutProps) => {
             onTabChange={handleTabChange}
             onClose={handleChatClose}
             onUnread={handleUnread}
+            onUnreadCount={handleUnreadCount}
+            openMessageId={openMessageId}
+            onMessageOpened={handleMessageOpened}
             agentState={agentState}
             onAgentStateChange={setAgentState}
             contexts={contexts}
@@ -162,7 +194,7 @@ export const Layout = (props: LayoutProps) => {
             toolCalls={toolCalls}
             onToolCallsChange={setToolCalls}
           />
-          {!chatOpen && <MaggiePortrait unread={unreadChat} onClick={handleChatToggle} />}
+          {!chatOpen && <MaggiePortrait unread={unreadChat || unreadCount > 0} count={unreadCount} onClick={handleChatToggle} />}
           <MaggieInterruptionHost chatOpen={chatOpen} onOpenChat={handleOpenChatFromInterruption} />
         </Box>
       </RALayout>

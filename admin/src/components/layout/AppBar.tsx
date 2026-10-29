@@ -21,6 +21,7 @@ export const CustomAppBar = () => {
     sidebarTab,
     onChatToggle,
     unreadChat,
+    unreadCount,
     onVoiceMessage,
   } = useChatContext()
   const recorder = useVoiceRecorder()
@@ -104,7 +105,13 @@ export const CustomAppBar = () => {
               screen reader announced it as "button", and a journey had no way
               to address it. Its neighbour gets one from its tooltip. */}
           <IconButton color="inherit" onClick={onChatToggle} aria-label="Chat avec Maggie">
-            <Badge variant="dot" color="error" invisible={!unreadChat || (chatOpen && sidebarTab === 'chat')}>
+            <Badge
+              variant={unreadCount > 0 ? 'standard' : 'dot'}
+              badgeContent={unreadCount > 0 ? unreadCount : undefined}
+              max={99}
+              color="error"
+              invisible={!unreadChat || (chatOpen && sidebarTab === 'chat')}
+            >
               <ChatIcon />
             </Badge>
           </IconButton>

@@ -152,7 +152,6 @@ describe('threads in the chat', () => {
     vi.stubGlobal('EventSource', MockEventSource)
     MockEventSource.instances = []
     localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
-    localStorage.removeItem('chat_lastReadMessageId')
     stubApi()
   })
 
