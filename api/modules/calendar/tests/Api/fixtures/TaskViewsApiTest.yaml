@@ -62,6 +62,12 @@ Maggie\Calendar\Entity\Task:
     dueDate: '<(new \DateTimeImmutable("2026-10-20"))>'
     user: '@test_user'
 
+  sub_undated:
+    title: Undated subtask of a far task
+    parent: '@up_far'
+    position: '00000000000000000002'
+    user: '@test_user'
+
   # someday: by priority, then by position, the unpositioned last
   some_low:
     title: Someday, low priority
@@ -87,6 +93,18 @@ Maggie\Calendar\Entity\Task:
     title: Someday, high priority
     priority: '<(Maggie\Calendar\Enum\TaskPriority::High)>'
     position: '00000000000000000009'
+    user: '@test_user'
+
+  some_parent:
+    title: Someday, parent of a dated subtask
+    priority: '<(Maggie\Calendar\Enum\TaskPriority::Low)>'
+    position: '00000000000000000005'
+    user: '@test_user'
+
+  sub_of_someday:
+    title: Subtask of a someday task, due tomorrow
+    parent: '@some_parent'
+    dueDate: '<(new \DateTimeImmutable("2026-10-14"))>'
     user: '@test_user'
 
   # done: the most recently done first, dated or not

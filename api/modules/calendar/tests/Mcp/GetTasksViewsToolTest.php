@@ -67,10 +67,11 @@ class GetTasksViewsToolTest extends KernelTestCase
             'Due tomorrow',
             'Due the 18th, critical',
             'Due the 18th, low',
-            'Dated subtask of a far task',
             'Due the 30th',
+            'Dated subtask of a far task',
+            'Undated subtask of a far task',
         ], array_column($data['tasks'], 'title'));
-        self::assertSame(5, $data['count']);
+        self::assertSame(6, $data['count']);
         self::assertSame('2026-10-14', $data['tasks'][0]['dueDate']);
     }
 
@@ -86,8 +87,10 @@ class GetTasksViewsToolTest extends KernelTestCase
             'Someday, medium second',
             'Someday, medium unpositioned',
             'Someday, low priority',
+            'Someday, parent of a dated subtask',
+            'Subtask of a someday task, due tomorrow',
         ], array_column($data['tasks'], 'title'));
-        self::assertSame([null, null, null, null, null], array_column($data['tasks'], 'dueDate'));
+        self::assertSame([null, null, null, null, null, null, '2026-10-14'], array_column($data['tasks'], 'dueDate'));
     }
 
     public function testDoneIsTheMostRecentlyDoneFirst(): void
@@ -109,7 +112,7 @@ class GetTasksViewsToolTest extends KernelTestCase
         $this->loginFixtureUser();
 
         foreach (['today', 'upcoming', 'someday', 'done'] as $view) {
-            self::assertSame(['today' => 3, 'upcoming' => 5, 'someday' => 5, 'done' => 4], $this->call($view)['counts']);
+            self::assertSame(['today' => 3, 'upcoming' => 6, 'someday' => 7, 'done' => 4], $this->call($view)['counts']);
         }
     }
 
