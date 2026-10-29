@@ -34,7 +34,8 @@ import com.maggie.app.data.local.entity.TaskEntity
     // 13: tasks carry their parent, position and links, and the due date is a day (MAG-404).
     // 14: answers carry the owner's thumb and its comment (MAG-23).
     // 15: tasks carry their estimated duration and first step (MAG-497).
-    version = 15,
+    // 16: a voice message carries its audio attachment (MAG-686).
+    version = 16,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

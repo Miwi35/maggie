@@ -132,3 +132,35 @@ tags:
     timeout: 20000
 
 - assertNotVisible: ".*aucun scénario.*"
+
+# A voice message (MAG-686, extends MAG-685): `99-voice-message.yaml` makes the model call
+# `send_voice_message`; the message lands in the thread through Mercure as a bubble with its
+# player. Playing it reads the signed URL of the fake bucket: no error line, the duration stays.
+- tapOn:
+    id: "chat_input"
+
+- inputText: "Envoie-moi un vocal qui résume ma journée (réf maestro)"
+
+- tapOn:
+    id: "chat_send"
+
+- runFlow: ../subflows/hide-keyboard.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "voice_play"
+    timeout: 60000
+
+- assertVisible:
+    id: "voice_duration"
+
+- tapOn:
+    id: "voice_play"
+
+- extendedWaitUntil:
+    visible:
+      id: "voice_duration"
+    timeout: 20000
+
+- assertNotVisible:
+    id: "voice_error"

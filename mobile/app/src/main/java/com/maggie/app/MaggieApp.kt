@@ -163,6 +163,8 @@ import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.screens.home.TasksCardViewModel
 import com.maggie.app.ui.screens.home.CuisineHomeViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
+import com.maggie.app.voice.MediaVoiceMessagePlayer
+import com.maggie.app.voice.VoicePlayback
 import com.maggie.app.ui.screens.contexts.ContextViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.login.LoginViewModel
@@ -314,6 +316,16 @@ class MaggieApp : Application() {
             }
             single { MaggieApiService(get()) }
             single { MercureService(get()) }
+            // One player for every voice bubble of the chat (MAG-686): a second message stops the first.
+            single {
+                val api = get<MaggieApiService>()
+                val context = androidContext()
+                VoicePlayback(
+                    scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
+                    newPlayer = { MediaVoiceMessagePlayer(context) },
+                    resolveUrl = { api.getMessageAudio(it).url },
+                )
+            }
 
             // Push
             single<FcmTokenSource> { FirebaseTokenSource() }

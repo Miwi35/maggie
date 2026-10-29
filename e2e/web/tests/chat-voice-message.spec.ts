@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { test, expect } from '../fixtures/index.js'
 import { calledTools, parseAgUiStream } from '../helpers/agui.js'
 import { openMercureProbe } from '../helpers/mercure.js'
+import { ChatPanel } from '../pages/ChatPanel.js'
 import { HomePage } from '../pages/HomePage.js'
 
 /**
@@ -11,6 +12,8 @@ import { HomePage } from '../pages/HomePage.js'
  * runs — the fake TTS says the text, the fake bucket keeps the MP3 — and the message lands in
  * the thread with its audio attachment, on Mercure and in the history. Its URL answers the owner
  * with a short signed URL that plays; another user gets a 403, nobody signed in a 401 or 403.
+ *
+ * MAG-686: the panel draws the message as a voice bubble — duration, play, speed, transcript.
  *
  * An account of its own: nothing else writes its chat.
  */
@@ -90,4 +93,30 @@ test('a voice message lands in the thread with an audio only its owner can play'
   const anonymous = await playwright.request.newContext({ baseURL })
   expect([401, 403]).toContain((await anonymous.get(audio.url)).status())
   await anonymous.dispose()
+})
+
+test('the voice message shows as a bubble the owner plays, speeds up and reads', async ({ page }) => {
+  const ref = randomUUID().slice(0, 8)
+  await new HomePage(page).open()
+  const chat = new ChatPanel(page)
+
+  // Given a voice message received…
+  await chat.send(`Envoie-moi un vocal qui résume ma journée (réf ${ref})`)
+  const bubble = chat.panel.getByTestId('voice-bubble').last()
+  await expect(bubble).toBeVisible()
+
+  // …Then its duration shows, and a click on play starts it.
+  await expect(bubble.getByTestId('voice-duration')).toHaveText(/^\d+:\d{2}$/)
+  await bubble.getByRole('button', { name: 'Lecture' }).click()
+  await expect(bubble.getByRole('button', { name: 'Pause' })).toBeVisible()
+
+  // The speed goes ×1 → ×1,5 → ×2.
+  await bubble.getByRole('button', { name: 'Vitesse ×1', exact: true }).click()
+  await bubble.getByRole('button', { name: 'Vitesse ×1,5' }).click()
+  await expect(bubble.getByRole('button', { name: 'Vitesse ×2' })).toBeVisible()
+
+  // The transcript unfolds, without voice tags.
+  await bubble.getByRole('button', { name: 'Transcription' }).click()
+  await expect(bubble.getByTestId('voice-transcript')).toContainText(`réf ${ref}`)
+  await expect(bubble.getByTestId('voice-transcript')).not.toContainText('[')
 })

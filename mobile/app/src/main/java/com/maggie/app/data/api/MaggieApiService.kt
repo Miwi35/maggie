@@ -8,6 +8,7 @@ import com.maggie.app.data.model.AccountIncidents
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.SignedAudio
 import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.ContactCounterparty
 import com.maggie.app.data.model.ContactCounterpartyCreateRequest
@@ -1437,6 +1438,15 @@ class MaggieApiService(
             url.parameters.append("user_id", userId)
             afterDate?.let { url.parameters.append("after", it) }
         }.body()
+    }
+
+    /**
+     * The short signed URL of a voice message's audio (MAG-686): the call is authenticated, the URL
+     * it returns is not and goes to the player as it is. 403 for another user's message, 404 without audio.
+     */
+    suspend fun getMessageAudio(messageId: String): SignedAudio {
+        val signed: SignedAudio = client.get("$baseUrl/agent/messages/$messageId/audio").orRefusal().body()
+        return if (signed.url.startsWith("/")) signed.copy(url = baseUrl + signed.url) else signed
     }
 
     suspend fun sendChat(

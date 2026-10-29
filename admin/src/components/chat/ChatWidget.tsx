@@ -35,6 +35,8 @@ import { mercureUrl } from '../../hooks/mercureUrl'
 import { saidInMessage } from '../../screenContext'
 import { stripDeliveryTags } from './deliveryTags'
 import { Linkified } from './Linkified'
+import { VoiceBubble } from './VoiceBubble'
+import type { VoiceAttachment } from './VoiceBubble'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { newMessageKey } from '../../hooks/messageKey'
 import { isAwaitingAnswer, useApprovals } from '../../hooks/useApprovals'
@@ -67,6 +69,8 @@ interface ChatMessage {
   decision?: { actionId?: string } | null
   /** The owner's thumb on one of Maggie's answers (MAG-23). */
   feedback?: FeedbackRating | null
+  /** Maggie's voice message: the audio to play, its transcript (MAG-686). */
+  audio?: VoiceAttachment | null
 }
 
 /** A deletion the owner can still take back: nothing is sent to the server before the delay is over. */
@@ -734,6 +738,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                   createdAt: data.createdAt || new Date().toISOString(),
                   contextId: data.contextId ?? null,
                   decision: data.decision ?? null,
+                  audio: data.audio ?? null,
                 },
               ]
             })
@@ -1434,7 +1439,11 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                                 Capture d'écran (non conservée)
                               </Typography>
                             )}
-                            <Linkified text={msg.role === 'assistant' ? stripDeliveryTags(saidInMessage(msg.content)) : saidInMessage(msg.content)} />
+                            {msg.audio ? (
+                              <VoiceBubble audio={msg.audio} authHeaders={getAuthHeaders} />
+                            ) : (
+                              <Linkified text={msg.role === 'assistant' ? stripDeliveryTags(saidInMessage(msg.content)) : saidInMessage(msg.content)} />
+                            )}
                           </ChatBubble>
                           )}
                           {msg.role === 'assistant' && !msg.id.startsWith('tmp-') && !msg.id.startsWith('err-') && (
