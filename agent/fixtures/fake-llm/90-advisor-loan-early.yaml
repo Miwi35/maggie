@@ -1,0 +1,36 @@
+# « Et si je remboursais le prêt auto plus tôt ? » (MAG-559), the advisor's own run — the sub-agent
+# `advisor`, whose system prompt says « conseiller financier et comptable ». It reads the projects
+# and the loans, simulates the early repayment of the Crédit voiture, files ONE draft scenario
+# (`manage_scenarios` suggest, kind advisor, never current) and compares it with the automatic
+# `auto-balanced`. Both ids come from this run's results: projects first (Déménagement, Canapé,
+# the journey user's two, in the seed's order), then the loan. The figures said are the scenario's own.
+name: advisor-loan-early
+description: The advisor simulates an early repayment and files a draft scenario.
+
+match:
+  system_contains: "conseiller financier et comptable"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+name\W+D(?:\W+u00e9|é)m[\s\S]*?id\W+([0-9A-HJKMNP-TV-Z]{26})\W+name\W+Canap[\s\S]*?id\W+([0-9A-HJKMNP-TV-Z]{26})\W+name\W+Cr(?:\W+u00e9|é)dit voiture'
+
+turns:
+  - tools:
+      - name: manage_projects
+        input: {action: list}
+      - name: manage_loans
+        input: {action: list}
+  - tools:
+      - name: manage_loans
+        input:
+          action: early_repayment
+          loanId: '\3'
+  - tools:
+      - name: manage_scenarios
+        input:
+          action: suggest
+          name: Remboursement du crédit voiture
+          projectIds: ['\1', '\2']
+          repayments:
+            - loanId: '\3'
+              month: "${month}"
+              amountCents: null
+  - text: "Champ du possible, déposé en brouillon dans Planification › Scénarios (« Suggestion du conseiller ») : rembourser tout le capital restant du Crédit voiture (4 800 €, 3,2 %) ce mois-ci libère 210 € de mensualité dès le mois suivant et épargne les intérêts restants, pour une immobilisation de 4 800 € d'épargne. La date N et les courbes se comparent dans le brouillon. Rien n'est appliqué : le scénario courant n'a pas changé."

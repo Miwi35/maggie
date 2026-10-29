@@ -276,7 +276,7 @@ class Scenario:
 
 
 def expand_days(text: str) -> str:
-    """`${today}` and `${tomorrow}` become YYYY-MM-DD in Paris, the clock the stack runs on (MAG-409).
+    """`${today}` and `${tomorrow}` become YYYY-MM-DD, `${month}` YYYY-MM, in Paris, the stack clock (MAG-409).
 
     A scenario cannot hardcode « demain »: the fake does not read tool results, so it cannot
     ask `date_time` either. The agent runs under the e2e clock, so this is the day the API sees.
@@ -284,7 +284,11 @@ def expand_days(text: str) -> str:
     if "${" not in text:
         return text
     today = datetime.now(ZoneInfo("Europe/Paris")).date()
-    return text.replace("${today}", today.isoformat()).replace("${tomorrow}", (today + timedelta(days=1)).isoformat())
+    return (
+        text.replace("${today}", today.isoformat())
+        .replace("${tomorrow}", (today + timedelta(days=1)).isoformat())
+        .replace("${month}", today.isoformat()[:7])
+    )
 
 
 def _as_tuple(value: Any) -> tuple[str, ...]:

@@ -569,6 +569,12 @@ web:
   e2e/web/tests/finance-scenarios.spec.ts:
     areas: [finance]
     paths: [api/fixtures/e2e/50-finance.yaml]
+  e2e/web/tests/finance-advisor.spec.ts:
+    areas: [finance, chat]
+    paths:
+      - 'agent/fixtures/fake-llm/90-advisor-loan-early.yaml'
+      - 'agent/fixtures/fake-llm/91-advisor-delegate.yaml'
+      - agent/data/agents/advisor.md
   e2e/web/tests/finance-timeline.spec.ts:
     areas: [finance]
     paths: [api/fixtures/e2e/50-finance.yaml]

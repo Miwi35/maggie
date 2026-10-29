@@ -18,6 +18,29 @@ rules:
   - tools: ["delete_instruction"]
     mode: allow
 
+  # The advisor (MAG-559) reads, simulates and files a DRAFT scenario — nothing
+  # else: no project, loan, placement or account is written, no scenario is made
+  # current. Read actions first, then every other `manage_*` call is refused.
+  - tools: ["manage_scenarios"]
+    sources: ["subagent:advisor"]
+    when: { action: ["list", "get", "compare", "timeline", "suggest"] }
+    mode: allow
+  - tools: ["manage_loans"]
+    sources: ["subagent:advisor"]
+    when: { action: ["list", "timeline", "early_repayment"] }
+    mode: allow
+  - tools: ["manage_placements"]
+    sources: ["subagent:advisor"]
+    when: { action: ["list", "simulate"] }
+    mode: allow
+  - tools: ["manage_projects", "manage_accounts"]
+    sources: ["subagent:advisor"]
+    when: { action: ["list"] }
+    mode: allow
+  - tools: ["manage_*"]
+    sources: ["subagent:advisor"]
+    mode: deny
+
   # Everything else named « delete » destroys something the user made: an
   # event, a recipe, a task, a skill. Those are proposed, never done.
   - tools: ["delete_*"]
