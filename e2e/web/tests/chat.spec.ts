@@ -584,6 +584,22 @@ test('asking for an item writes it to the grocery list', async ({ page, api }) =
 })
 
 /**
+ * 40-grocery-add-shelf.yaml — « huile moteur, à super U, au rayon pile/voiture » (MAG-714): she reads the
+ * stores, adds the line, then shelves the product by the productId the add returned. The scenario
+ * only reaches the last call if the stores were read and the ids came from results.
+ */
+test('an item bought at a named store is shelved by its productId, without a question', async ({ page }) => {
+  await new HomePage(page).open()
+
+  const chat = new ChatPanel(page)
+  const events = await chat.send("Ajoute huile moteur, je l'achète à super U au rayon pile/voiture")
+
+  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(false)
+  expect(calledTools(events)).toEqual(['manage_stores', 'add_grocery_item', 'assign_product_store'])
+  expect(toolResults(events)).toContainEqual({ toolName: 'assign_product_store', status: 'success' })
+})
+
+/**
  * 45-grocery-purchase-suggestions.yaml — « Il me manque quelque chose ? » reads what the past
  * errands say is due again (MAG-495). The fake does not read the result, so what is asserted is the
  * tool that ran and that it succeeded; whether Café is in it is `grocery-list.spec.ts`'s, which may

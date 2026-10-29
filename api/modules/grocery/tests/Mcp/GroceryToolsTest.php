@@ -55,6 +55,7 @@ class GroceryToolsTest extends KernelTestCase
         $items = $this->em()->getRepository(GroceryItem::class)->findAll();
         self::assertCount(1, $items);
         self::assertSame('Bananes', $items[0]->getLabel());
+        self::assertSame((string) $items[0]->getProduct()->getId(), $data['productId']);
 
         $products = $this->em()->getRepository(Product::class)->findAll();
         self::assertCount(1, $products);

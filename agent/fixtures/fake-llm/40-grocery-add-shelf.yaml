@@ -1,0 +1,24 @@
+# « Ajoute huile moteur, je l'achète à super U au rayon pile/voiture » (MAG-714).
+#
+# The store is read (`manage_stores list`) before anything is asked, and the shelf is set with the
+# productId the add returned — never the line's itemId, never a guessed store id.
+name: grocery-add-shelf
+description: Read the stores, add the line, put its product in the named aisle.
+
+match:
+  user_matches: "ajoute.*huile moteur.*super u.*rayon"
+
+# Group 1: the id of the store `manage_stores list` returned; group 2: the productId of the add.
+results_matches: '(?s)id\W+([0-9A-HJKMNP-TV-Z]{26})\W+name\W+Super U\W.*?productId\W+([0-9A-HJKMNP-TV-Z]{26})'
+
+turns:
+  - tools:
+      - name: manage_stores
+        input: {action: list}
+  - tools:
+      - name: add_grocery_item
+        input: {label: "Huile moteur", quantity: 1}
+  - tools:
+      - name: assign_product_store
+        input: {productId: "\\2", preferredStoreId: "\\1", aisle: "pile/voiture"}
+  - text: "C'est ajouté : huile moteur chez Super U, au rayon pile/voiture."

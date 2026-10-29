@@ -14,6 +14,11 @@ Maggie\Grocery\Entity\Store:
     description: Fruits et légumes
     visitOrder: 2
     user: '@e2e_user'
+  e2e_store_super_u:
+    name: Super U
+    description: Courses d'appoint et rayon voiture
+    visitOrder: 3
+    user: '@e2e_user'
 
   # The neighbour's two shops. They exist because that account is also the
   # shopper of `grocery-errand.spec.ts` — the one journey that has to own a

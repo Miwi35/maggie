@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Maggie\Grocery\Mcp\Tool;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Identifier\CanonicalId;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
+use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Message\UpdateProductCommand;
 use Maggie\Grocery\Repository\ProductRepository;
@@ -22,6 +24,7 @@ class AssignProductStoreTool
         private readonly MessageBusInterface $bus,
         private readonly ProductRepository $productRepository,
         private readonly McpUserContext $userContext,
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -37,8 +40,17 @@ class AssignProductStoreTool
             $user = $this->userContext->requireUser();
 
             $product = $this->productRepository->find($productId);
+            if (null === $product) {
+                $line = $this->entityManager->find(GroceryItem::class, $productId);
+                if (null !== $line && (string) $line->getGroceryList()->getUser()->getId() === (string) $user->getId()) {
+                    $product = $line->getProduct();
+                    if (null !== $product) {
+                        $productId = (string) $product->getId();
+                    }
+                }
+            }
             if (null === $product || (string) $product->getUser()->getId() !== (string) $user->getId()) {
-                return self::error("Product not found: {$productId}");
+                return self::error("Product not found: {$productId} — pass the productId (add_grocery_item returns it, search_products finds it), not an unknown id");
             }
 
             $aisles = null;
