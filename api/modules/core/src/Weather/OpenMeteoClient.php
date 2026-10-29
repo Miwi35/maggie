@@ -26,6 +26,7 @@ class OpenMeteoClient
         'temperature_2m_max',
         'temperature_2m_min',
         'precipitation_sum',
+        'snowfall_sum',
         'precipitation_probability_max',
         'wind_speed_10m_max',
         'wind_gusts_10m_max',

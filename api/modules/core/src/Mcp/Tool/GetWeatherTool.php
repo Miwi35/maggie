@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Mcp\Tool;
 
+use Maggie\Core\Enum\WeatherCondition;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Core\Repository\UserPreferenceRepository;
 use Maggie\Core\Weather\LocationNotFoundException;
 use Maggie\Core\Weather\OpenMeteoClient;
+use Maggie\Core\Weather\WeatherAlerts;
 use Maggie\Core\Weather\WeatherException;
 use Mcp\Capability\Attribute\McpTool;
 
 #[McpTool(
     name: 'get_weather',
-    description: 'Daily weather forecast from Open-Meteo: min and max temperature (°C), rain (mm and probability), wind and gusts (km/h), and alerts. Without `date` it returns today and tomorrow; with `date` (YYYY-MM-DD, from today up to 15 days ahead) only that day. `location` is a city name; without it the city the user chose in their preferences is used, and if there is none the tool says so — ask the user for a city. Alerts are derived from the forecast (storm, strong wind, heavy rain, snow, heat, hard frost), not official warnings. When the weather service is down the result is an `error`: say so plainly and carry on without the weather.',
+    description: 'Daily weather forecast from Open-Meteo: condition (text, plus `condition_code`: clear, partly_cloudy, cloudy, fog, drizzle, rain, showers, snow, storm), min and max temperature (°C), rain (mm and probability), wind and gusts (km/h), and alerts. Without `date` it returns today and tomorrow; with `date` (YYYY-MM-DD, from today up to 15 days ahead) only that day. `location` is a city name; without it the city the user chose in their preferences is used, and if there is none the tool says so — ask the user for a city. Alerts are derived from the forecast (storm, strong wind, heavy rain, snow, heat, hard frost), not official warnings. When the weather service is down the result is an `error`: say so plainly and carry on without the weather.',
 )]
 class GetWeatherTool
 {
@@ -146,45 +148,9 @@ class GetWeatherTool
             'rain_probability_percent' => $row['precipitation_probability_max'],
             'wind_max_kmh' => $row['wind_speed_10m_max'],
             'wind_gusts_max_kmh' => $row['wind_gusts_10m_max'],
-            'alerts' => $this->alerts($row, $code),
+            'condition_code' => null === $code ? null : WeatherCondition::fromWmo($code)?->value,
+            'alerts' => WeatherAlerts::forDay($row, $code),
         ];
-    }
-
-    /**
-     * @param array<string, mixed> $row
-     *
-     * @return list<string>
-     */
-    private function alerts(array $row, ?int $code): array
-    {
-        $alerts = [];
-
-        if (null !== $code && $code >= 95) {
-            $alerts[] = 'orage';
-        }
-        if (null !== $code && \in_array($code, [71, 73, 75, 77, 85, 86], true)) {
-            $alerts[] = 'neige';
-        }
-        $gusts = $row['wind_gusts_10m_max'] ?? null;
-        if (is_numeric($gusts) && $gusts >= 70) {
-            $alerts[] = 'vent violent';
-        } elseif (is_numeric($gusts) && $gusts >= 50) {
-            $alerts[] = 'vent fort';
-        }
-        $rain = $row['precipitation_sum'] ?? null;
-        if (is_numeric($rain) && $rain >= 20) {
-            $alerts[] = 'fortes pluies';
-        }
-        $max = $row['temperature_2m_max'] ?? null;
-        if (is_numeric($max) && $max >= 35) {
-            $alerts[] = 'forte chaleur';
-        }
-        $min = $row['temperature_2m_min'] ?? null;
-        if (is_numeric($min) && $min <= -5) {
-            $alerts[] = 'gel marqué';
-        }
-
-        return $alerts;
     }
 
     /** @param array<string, mixed> $data */
