@@ -1,0 +1,18 @@
+# « Envoie-moi un vocal qui résume ma journée » (MAG-685, extends MAG-99): the model decides to
+# send a voice message, the tool really runs — the fake TTS says it, the fake bucket keeps the MP3,
+# the message lands in the thread with its audio attachment and goes out on Mercure.
+#
+# The journey's reference rides into the vocal through `\1`, so the message it waits for on
+# Mercure is this run's alone.
+name: voice-message
+description: Send a voice message that sums up the day, through the native voice tool.
+
+match:
+  user_matches: 'envoie-moi un vocal.*\(réf (\w+)\)'
+
+turns:
+  - tools:
+      - name: send_voice_message
+        input:
+          text: "Bonjour ! Voici ta journée : un rendez-vous à dix heures, puis le marché à midi. (réf \\1)"
+  - text: "Je t'ai envoyé un vocal avec le résumé de ta journée."

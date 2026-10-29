@@ -7,7 +7,7 @@ from typing import Literal
 import anthropic
 import openai
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, UploadFile
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
@@ -42,6 +42,8 @@ from app.llm.streaming import StreamingGateway, answer_message_id
 from app.llm.style_synthesis import style_synthesizer
 from app.llm.transcription import CLEANUP_MODES, transcribe_audio
 from app.llm.turns import lease_deadline, turn_runner
+from app.memory.bucket import FakeBucket, ObjectNotFound
+from app.memory.service import memory_service
 from app.policy.decision import CHANNELS, record_decision
 from app.proactions import api as proactions_api
 from app.queue.proaction_consumer import execute_proaction
@@ -49,6 +51,7 @@ from app.queue.scheduler import generate_proactions
 from app.skills.document import render_markdown
 from app.skills.index import skill_index
 from app.tts.synthesis import DEFAULT_VOICE, VOICE_IDS, SpeechUnavailableError, get_voices, synthesize_speech
+from app.tts.voice_message import AUDIO_PREFIX, VoiceMessageError, signed_audio_url
 
 logger = logging.getLogger(__name__)
 
@@ -620,6 +623,43 @@ async def delete_message(message_id: str, user_id: str = Depends(get_current_use
     """Delete one of the caller's messages (MAG-342). 404 for another user's, like an unknown one."""
     if not await message_repo.delete_for_user(message_id, user_id):
         raise HTTPException(status_code=404, detail="Message not found")
+
+
+@router.get("/messages/{message_id}/audio")
+async def get_message_audio(message_id: str, user_id: str = Depends(get_current_user_id)):
+    """A short signed URL to play a voice message's audio (MAG-685), for the message's owner alone.
+
+    403 with another user's token: the audio of one user is never readable by another.
+    """
+    message = await message_repo.get(message_id)
+    if message is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if message.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not your message")
+    if not message.audio:
+        raise HTTPException(status_code=404, detail="This message has no audio")
+    try:
+        url, expires_at = await signed_audio_url(message)
+    except VoiceMessageError as e:
+        # Returned, not raised: a bucket that is off or down is not a bug for the error tracker.
+        return JSONResponse(status_code=503, content={"detail": str(e)})
+    return {**message.audio_attachment(), "url": url, "expiresAt": expires_at.isoformat()}
+
+
+@router.get("/fake-bucket/{key:path}", include_in_schema=False)
+async def read_fake_bucket(key: str, expires: int = Query(...), signature: str = Query(...)):
+    """What a signed URL of the in-memory bucket points at (dev, e2e): S3's presigned GET, played by the agent."""
+    bucket = memory_service.bucket
+    # Only the voice messages' audio is ever signed: nothing else of the bucket is served here.
+    if not isinstance(bucket, FakeBucket) or not key.startswith(AUDIO_PREFIX):
+        raise HTTPException(status_code=404, detail="Not found")
+    if not bucket.check_signature(key, expires, signature):
+        raise HTTPException(status_code=403, detail="Invalid or expired signature")
+    try:
+        obj = await bucket.get(key)
+    except ObjectNotFound as e:
+        raise HTTPException(status_code=404, detail="Not found") from e
+    return Response(content=obj.body, media_type=bucket.content_types.get(key, "application/octet-stream"))
 
 
 @router.put("/messages/{message_id}/feedback")

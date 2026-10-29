@@ -448,11 +448,32 @@ class TestContextLifecycle:
         monkeypatch.setattr(scheduler, "_style_synthesis_loop", lambda: started.append("style") or asyncio.sleep(0))
         monkeypatch.setattr(scheduler, "_memory_encoding_loop", lambda: started.append("encoding") or asyncio.sleep(0))
         monkeypatch.setattr(scheduler, "_memory_night_loop", lambda: started.append("night") or asyncio.sleep(0))
+        monkeypatch.setattr(scheduler, "_voice_message_purge_loop", lambda: started.append("voice") or asyncio.sleep(0))
 
         await scheduler.start_scheduler()
 
-        assert started == ["lifecycle", "style", "encoding", "night"]
-        assert len(scheduler._tasks) == 6
+        assert started == ["lifecycle", "style", "encoding", "night", "voice"]
+        assert len(scheduler._tasks) == 7
+
+
+class TestVoiceMessagePurgeLoop:
+    async def test_it_purges_then_waits_and_survives_a_failure(self, monkeypatch):
+        """MAG-685: one failing pass is logged, the loop goes on."""
+        purge = AsyncMock(side_effect=[RuntimeError("bucket"), {"objects": 0, "messages": 0}])
+        sleeps = []
+
+        async def sleep(seconds):
+            sleeps.append(seconds)
+            if len(sleeps) == 2:
+                raise asyncio.CancelledError
+
+        monkeypatch.setattr(scheduler, "purge_voice_messages", purge)
+        monkeypatch.setattr(scheduler.asyncio, "sleep", sleep)
+        with pytest.raises(asyncio.CancelledError):
+            await scheduler._voice_message_purge_loop()
+
+        assert purge.await_count == 2
+        assert sleeps == [settings.voice_message_purge_interval_hours * 3600] * 2
 
 
 class TestExecutionLoop:

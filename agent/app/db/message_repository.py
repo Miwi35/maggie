@@ -43,6 +43,7 @@ class MessageRepository:
         interrupted: bool = False,
         has_image: bool = False,
         decision: dict | None = None,
+        audio: dict | None = None,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
 
@@ -70,6 +71,7 @@ class MessageRepository:
                 interrupted=interrupted,
                 has_image=has_image,
                 decision=decision,
+                audio=audio,
             )
             if turn_lease_until is not None:
                 msg.turn_status = TURN_RUNNING
@@ -97,6 +99,21 @@ class MessageRepository:
         async with agent_session() as session:
             result = await session.execute(select(Message).where(Message.id == message_id))
             return result.scalar_one_or_none()
+
+    async def drop_audio_before(self, before: datetime) -> int:
+        """Take the audio attachment off the voice messages older than `before` (MAG-685 retention).
+
+        The message stays, its transcript as its text: only the attachment pointing at a purged MP3 goes.
+        """
+        async with agent_session() as session:
+            result = await session.execute(
+                update(Message)
+                .where(Message.audio.is_not(None), Message.created_at < before)
+                .values(audio=None)
+                .execution_options(synchronize_session=False)
+            )
+            await session.commit()
+            return int(result.rowcount or 0)
 
     async def find_by_client_key(self, user_id: str, client_key: str) -> Message | None:
         """The message this user already sent under this idempotency key, if any."""
@@ -353,13 +370,17 @@ class MessageRepository:
             return result.scalars().first()
 
     async def find_answer_to(self, user_id: str, question: Message) -> Message | None:
-        """The first answer stored after a question — `POST /chat` stores its answer under no fixed id."""
+        """The first answer stored after a question — `POST /chat` stores its answer under no fixed id.
+
+        A voice message the turn sent on its way (MAG-685) is not the answer: it is stored before it.
+        """
         async with agent_session() as session:
             result = await session.execute(
                 select(Message)
                 .where(
                     Message.user_id == user_id,
                     Message.role == "assistant",
+                    Message.audio.is_(None),
                     Message.created_at >= question.created_at,
                 )
                 .order_by(Message.created_at.asc())

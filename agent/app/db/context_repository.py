@@ -104,6 +104,8 @@ class ContextRepository:
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS feedback VARCHAR(8)"))
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS feedback_comment TEXT"))
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS feedback_at TIMESTAMPTZ"))
+            # MAG-685 — the audio attachment of a voice message; the MP3 itself is in the bucket.
+            await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS audio JSONB"))
             await conn.execute(
                 text("ALTER TABLE agent_user_setting ADD COLUMN IF NOT EXISTS style_synthesized_at TIMESTAMPTZ")
             )

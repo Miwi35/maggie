@@ -12,6 +12,7 @@ from app.llm.tools import (
     PENDING_APPROVAL_MESSAGE,
     POLICY_DENIED_MESSAGE,
     SKILL_TOOLS,
+    VOICE_TOOLS,
     ToolRouter,
 )
 from app.policy.engine import PolicyEngine
@@ -21,9 +22,15 @@ NUM_INSTRUCTION_TOOLS = len(INSTRUCTION_TOOLS)
 NUM_SKILL_TOOLS = len(SKILL_TOOLS)
 NUM_DATE_TIME_TOOLS = len(DATE_TIME_TOOLS)
 NUM_ANSWER_TOOLS = 1  # answer_approval (MAG-683)
+NUM_VOICE_TOOLS = len(VOICE_TOOLS)
 # Every native tool; the proaction tools are the API's since MAG-327, served over MCP
 NUM_DEFAULT_TOOLS = (
-    NUM_MEMORY_TOOLS + NUM_INSTRUCTION_TOOLS + NUM_SKILL_TOOLS + NUM_DATE_TIME_TOOLS + NUM_ANSWER_TOOLS
+    NUM_MEMORY_TOOLS
+    + NUM_INSTRUCTION_TOOLS
+    + NUM_SKILL_TOOLS
+    + NUM_DATE_TIME_TOOLS
+    + NUM_ANSWER_TOOLS
+    + NUM_VOICE_TOOLS
 )
 
 

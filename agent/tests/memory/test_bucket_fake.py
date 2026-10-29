@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlparse
+
 import pytest
 
 from app.memory.bucket import BucketUnavailable, FakeBucket, ObjectNotFound, PreconditionFailed, clean_etag
@@ -81,3 +83,28 @@ def test_provider_switch(monkeypatch):
     monkeypatch.setattr("app.memory.service.settings.memory_provider", "s3")
     monkeypatch.setattr("app.memory.service.settings.memory_bucket", "")
     assert build_bucket() is None
+
+
+class TestSignedUrls:
+    """MAG-685: the in-memory bucket signs URLs the agent serves, like S3's presigned GET."""
+
+    async def test_a_url_it_signed_checks_out_until_it_expires(self, monkeypatch):
+        bucket = FakeBucket()
+        await bucket.put("audio/u/m.mp3", b"\xff\xfb", content_type="audio/mpeg")
+
+        url = await bucket.signed_url("audio/u/m.mp3", 60)
+        query = parse_qs(urlparse(url).query)
+        expires, signature = int(query["expires"][0]), query["signature"][0]
+
+        assert urlparse(url).path == "/agent/fake-bucket/audio/u/m.mp3"
+        assert bucket.check_signature("audio/u/m.mp3", expires, signature)
+        assert not bucket.check_signature("audio/autre/m.mp3", expires, signature)
+        assert not bucket.check_signature("audio/u/m.mp3", expires + 1, signature)
+        monkeypatch.setattr("app.memory.bucket.time.time", lambda: expires + 1)
+        assert not bucket.check_signature("audio/u/m.mp3", expires, signature)
+
+    async def test_another_bucket_does_not_honour_it(self):
+        url = await FakeBucket().signed_url("k", 60)
+        query = parse_qs(urlparse(url).query)
+
+        assert not FakeBucket().check_signature("k", int(query["expires"][0]), query["signature"][0])

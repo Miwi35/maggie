@@ -109,3 +109,45 @@ def strip_delivery_tags(text: str) -> str:
     """The text without its `[...]` delivery tags, the words around them left readable."""
     text = _TAG_BEFORE_PUNCTUATION_RE.sub("", text)
     return re.sub(r"  +", " ", _DELIVERY_TAG_RE.sub(" ", text)).strip()
+
+
+# What a voice message cannot say (MAG-685): Markdown, tables and links are for the eye. The model
+# is asked for plain spoken text; this is what remains when it writes for the screen anyway.
+_CODE_FENCE_RE = re.compile(r"^\s*```.*$", re.MULTILINE)
+_LINK_RE = re.compile(r"!?\[([^\[\]\n]*)\]\([^()\s]*\)")
+_URL_RE = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
+_TABLE_RULE_RE = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
+_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+")
+_QUOTE_RE = re.compile(r"^\s*>\s?")
+_BULLET_RE = re.compile(r"^\s*(?:[-*+•]|\d{1,3}[.)])\s+")
+_EMPHASIS_RE = re.compile(r"(\*\*|__|\*|_|~~|`)(?=\S)(.+?)(?<=\S)\1")
+_RULE_RE = re.compile(r"^\s*([-*_])(\s*\1){2,}\s*$")
+_ENDS_A_SENTENCE = (".", "!", "?", "…", ":", ";", ",")
+
+
+def _spoken_line(line: str) -> str:
+    if _TABLE_RULE_RE.match(line) or _RULE_RE.match(line) or _CODE_FENCE_RE.match(line):
+        return ""
+    line = _HEADING_RE.sub("", line)
+    line = _QUOTE_RE.sub("", line)
+    line = _BULLET_RE.sub("", line)
+    if line.strip().startswith("|") or line.count("|") >= 2:
+        # A table row reads as its cells, one after the other.
+        line = ", ".join(cell.strip() for cell in line.strip().strip("|").split("|") if cell.strip())
+    line = line.strip()
+    if line and not line.endswith(_ENDS_A_SENTENCE) and not line.endswith("]"):
+        line += "."
+    return line
+
+
+def to_spoken_text(text: str) -> str:
+    """The text as it is said: no Markdown, no table, no URL — a link reads as its words, a list as sentences."""
+    text = _LINK_RE.sub(r"\1", text)
+    text = _URL_RE.sub("", text)
+    previous = None
+    while previous != text:
+        previous, text = text, _EMPHASIS_RE.sub(r"\2", text)
+    lines = [_spoken_line(line) for line in text.splitlines()]
+    spoken = " ".join(line for line in lines if line)
+    spoken = re.sub(r"\s+([.,])", r"\1", spoken)
+    return re.sub(r"\s{2,}", " ", spoken).strip()
