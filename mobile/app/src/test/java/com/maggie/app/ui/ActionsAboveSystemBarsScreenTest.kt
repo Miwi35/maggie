@@ -15,6 +15,7 @@ import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.MealGroceryIngredient
 import com.maggie.app.data.model.MealGroceryToBuy
@@ -144,10 +145,38 @@ class ActionsAboveSystemBarsScreenTest {
         assertTrue("the field ends at $bottom", bottom <= SHRUNK_WINDOW)
     }
 
+    /**
+     * MAG-532: edge to edge, `adjustResize` may leave the window at full height and only report
+     * the keyboard as an inset. The panel then has to lift its field itself, and the conversation
+     * with it, or the short reply stays under the keyboard.
+     */
+    @Test
+    fun `the chat panel keeps its field and the last reply above a keyboard that did not shrink the window`() {
+        val chat = FakeChat(
+            history = listOf(
+                ChatMessage(id = "m1", role = "user", content = "Salut", createdAt = "2026-01-05T09:01:00Z"),
+                ChatMessage(id = "m2", role = "assistant", content = "Bonjour Meven", createdAt = "2026-01-05T09:02:00Z"),
+            ),
+        )
+        compose.setContent {
+            Hosted { Box(Modifier.height(FULL_WINDOW)) { ChatPanel(viewModel = chat.viewModel) } }
+        }
+        give(navigationBar = TASKBAR_PX, keyboard = KEYBOARD_PX)
+
+        val keyboardTop = FULL_WINDOW - KEYBOARD_PX.dp
+        compose.onNodeWithTag(UiTags.CHAT_SEND).assertIsDisplayed()
+        val field = compose.onNodeWithTag(UiTags.CHAT_INPUT).getUnclippedBoundsInRoot().bottom
+        assertTrue("the field ends at $field, the keyboard starts at $keyboardTop", field <= keyboardTop)
+        compose.onNodeWithText("Bonjour Meven").assertIsDisplayed()
+        val reply = compose.onNodeWithText("Bonjour Meven").getUnclippedBoundsInRoot().bottom
+        assertTrue("the reply ends at $reply, the keyboard starts at $keyboardTop", reply <= keyboardTop)
+    }
+
     private companion object {
         val TASKBAR = 48.dp
         const val TASKBAR_PX = 48
         const val KEYBOARD_PX = 426
         val SHRUNK_WINDOW = 442.dp
+        val FULL_WINDOW = 800.dp
     }
 }

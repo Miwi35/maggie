@@ -47,8 +47,8 @@ tags:
 - tapOn:
     id: "chat_send"
 
-# The card closes the thread, keyboard or not (MAG-672): both answers are in view before
-# anything hides the keyboard, with no gesture.
+# The card closes the thread, keyboard or not (MAG-672): both answers are in view with
+# the keyboard still up, with no gesture.
 - extendedWaitUntil:
     visible: "Autoriser"
     timeout: 60000

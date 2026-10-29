@@ -40,7 +40,6 @@ tags:
 - inputText: "Où en sont mes finances ?"
 - tapOn:
     id: "chat_send"
-- runFlow: ../subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ".*Votre budget tient la route ce mois-ci.*"
     timeout: 60000
@@ -54,7 +53,6 @@ tags:
 - inputText: "Je prépare l'anniversaire de Lucie"
 - tapOn:
     id: "chat_send"
-- runFlow: ../subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ".*on organise l'anniversaire de Lucie ensemble.*"
     timeout: 60000

@@ -1,5 +1,9 @@
 package com.maggie.app.ui.components
 
+import android.content.Context
+import android.util.DisplayMetrics
+import android.view.View
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -49,6 +53,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -57,6 +62,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionOnScreen
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -253,7 +262,7 @@ fun ChatPanel(
             ChatInputRow(
                 viewModel = viewModel,
                 isSending = uiState.isLoading,
-                windowIsResizedByKeyboard = true,
+                inActivityWindow = true,
                 leading = { ChatMicButton(onMicClick) },
             )
         }
@@ -404,17 +413,20 @@ private fun ChatHeader(onClose: (() -> Unit)?, onThreads: () -> Unit, showsIdent
 
 /**
  * @param leading what sits left of the field — the panel puts the mic there.
- * @param windowIsResizedByKeyboard the sheet is a dialog, which the keyboard does not
- * resize, so its row lifts itself by the keyboard's height. The panel is in the
- * activity's own window, which the system already shrinks above the keyboard: lifting
- * it again pushed the field out of the top of the screen on a tablet.
+ * @param inActivityWindow the sheet is a dialog, which the keyboard does not resize, so its
+ * row lifts itself by the keyboard's height. The panel is in the activity's own window,
+ * which the system may shrink above the keyboard (lifting it by the whole inset pushed the
+ * field out of the top of the screen on a tablet), pan, or leave at full height edge to
+ * edge (MAG-532: the short reply stayed under the keyboard). So the panel lifts its row by
+ * what the keyboard still covers of it, measured on the screen: nothing when the window was
+ * shrunk, the whole keyboard when it was not.
  */
 @Composable
 private fun ChatInputRow(
     viewModel: ChatViewModel,
     isSending: Boolean,
     focusRequester: FocusRequester? = null,
-    windowIsResizedByKeyboard: Boolean = false,
+    inActivityWindow: Boolean = false,
     leading: @Composable () -> Unit = {},
 ) {
     var input by remember { mutableStateOf(TextFieldValue("")) }
@@ -428,12 +440,18 @@ private fun ChatInputRow(
         focusRequester?.requestFocus()
     }
 
+    var bottomOnScreen by remember { mutableFloatStateOf(0f) }
+    val screenHeight = displayHeightPx(LocalView.current)
+    val keyboardHeight = WindowInsets.ime.getBottom(LocalDensity.current)
+    val coveredByKeyboard = if (keyboardHeight == 0) 0 else (bottomOnScreen - (screenHeight - keyboardHeight)).coerceAtLeast(0f).toInt()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .onGloballyPositioned { bottomOnScreen = it.positionOnScreen().y + it.size.height }
             .windowInsetsPadding(
-                if (windowIsResizedByKeyboard) {
-                    WindowInsets.navigationBars
+                if (inActivityWindow) {
+                    WindowInsets.navigationBars.union(WindowInsets(bottom = coveredByKeyboard))
                 } else {
                     WindowInsets.ime.union(WindowInsets.navigationBars)
                 },
@@ -480,4 +498,12 @@ private fun ChatInputRow(
             }
         }
     }
+}
+
+/** The display's height, whatever the window's: what the keyboard's inset is measured from. */
+@Suppress("DEPRECATION")
+private fun displayHeightPx(view: View): Int {
+    val windowManager = view.context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    val display = view.display ?: windowManager.defaultDisplay
+    return DisplayMetrics().also { display.getRealMetrics(it) }.heightPixels
 }
