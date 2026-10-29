@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.lastDayOf
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.markdown.MarkdownText
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.util.RruleUtils
 import java.time.Instant
@@ -189,7 +190,7 @@ fun EventDetailContent(
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(Icons.Outlined.Description, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text(text = event.description, style = MaterialTheme.typography.bodyMedium)
+                    MarkdownText(text = event.description, modifier = Modifier.weight(1f))
                 }
             }
 

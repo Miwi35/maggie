@@ -23,9 +23,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.TaskCreateRequest
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.DateField
+import com.maggie.app.ui.components.markdown.MarkdownEditor
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,12 +73,11 @@ fun TaskCreateScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
+            MarkdownEditor(
                 value = description,
                 onValueChange = { description = it },
-                label = { Text("Notes") },
-                minLines = 2,
-                modifier = Modifier.fillMaxWidth(),
+                label = "Notes",
+                modifier = Modifier.testTag(UiTags.TASK_NOTES),
             )
 
             DropdownField(

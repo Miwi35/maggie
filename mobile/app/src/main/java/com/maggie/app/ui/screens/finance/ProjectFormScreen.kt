@@ -48,6 +48,7 @@ import com.maggie.app.data.model.ProjectWellbeing
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.DateField
 import com.maggie.app.ui.components.MaggieCard
+import com.maggie.app.ui.components.markdown.MarkdownEditor
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.uiTagRoot
@@ -277,12 +278,11 @@ internal fun ProjectFormContent(
                     }
                 }
 
-                OutlinedTextField(
+                MarkdownEditor(
                     value = draft.note,
                     onValueChange = { value -> onEdit { it.copy(note = value) } },
-                    label = { Text("Note") },
-                    minLines = 2,
-                    modifier = Modifier.fillMaxWidth().testTag(UiTags.PROJECT_NOTE),
+                    label = "Note",
+                    modifier = Modifier.testTag(UiTags.PROJECT_NOTE),
                 )
 
                 if (!form.isNew) {

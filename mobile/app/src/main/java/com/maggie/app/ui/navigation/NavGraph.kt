@@ -982,6 +982,15 @@ fun NavGraph() {
         }
     }
 
+    // A box ticked in the notes is saved as an edit; the detail stays open on the new text.
+    fun updateTaskDescription(task: Task, description: String) {
+        selectedTask = task.copy(description = description)
+        scope.launch {
+            taskRepository.updateTask(task.id, buildJsonObject { put("description", description) })
+            refreshAll()
+        }
+    }
+
     fun editRecipe(recipeId: String) {
         editRecipeId = recipeId
         navController.navigate(Screen.RecipeEdit.route)
@@ -1388,6 +1397,7 @@ fun NavGraph() {
                                         onEdit = { editTask(task) },
                                         onDelete = { deleteTask(task) },
                                         onToggleDone = { done -> toggleTaskDone(task, done) },
+                                        onDescriptionChange = { updateTaskDescription(task, it) },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
                                     )
                                 })
@@ -1429,6 +1439,7 @@ fun NavGraph() {
                                         onEdit = { editTask(open) },
                                         onDelete = { deleteTask(open) },
                                         onToggleDone = { done -> toggleTaskDone(open, done) },
+                                        onDescriptionChange = { updateTaskDescription(open, it) },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
                                     )
                                 }
@@ -2281,6 +2292,7 @@ fun NavGraph() {
                 onEdit = { editTask(task) },
                 onDelete = { deleteTask(task) },
                 onToggleDone = { done -> toggleTaskDone(task, done) },
+                onDescriptionChange = { updateTaskDescription(task, it) },
             )
         }
     }

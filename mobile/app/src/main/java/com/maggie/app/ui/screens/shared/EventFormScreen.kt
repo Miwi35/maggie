@@ -31,6 +31,7 @@ import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.markdown.MarkdownEditor
 import com.maggie.app.util.RruleUtils
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
@@ -198,12 +199,11 @@ fun EventFormScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
+            MarkdownEditor(
                 value = fields.description,
                 onValueChange = { fields = fields.copy(description = it) },
-                label = { Text("Description") },
-                minLines = 2,
-                modifier = Modifier.fillMaxWidth(),
+                label = "Description",
+                modifier = Modifier.testTag(UiTags.EVENT_DESCRIPTION),
             )
         }
     }

@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Utensil
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.markdown.MarkdownEditor
 
 /** What the full-screen utensil search is choosing for: the recipe's equipment, or one step's. */
 private sealed interface UtensilTarget {
@@ -150,11 +151,10 @@ internal fun RecipeFormScreen(
                 singleLine = true,
             )
 
-            OutlinedTextField(
+            MarkdownEditor(
                 value = form.notes,
                 onValueChange = { v -> edit { it.copy(notes = v) } },
-                label = { Text("Notes") },
-                modifier = Modifier.fillMaxWidth(),
+                label = "Notes",
                 minLines = 3,
             )
 
@@ -281,12 +281,11 @@ private fun StepEditor(
                 }
             }
 
-            OutlinedTextField(
+            MarkdownEditor(
                 value = step.text,
                 onValueChange = { v -> edit { it.setStepText(key, v) } },
-                label = { Text("Étape") },
-                modifier = Modifier.fillMaxWidth().testTag(UiTags.RECIPE_STEP_TEXT),
-                minLines = 2,
+                label = "Étape",
+                modifier = Modifier.testTag(UiTags.RECIPE_STEP_TEXT),
             )
 
             Row(

@@ -51,6 +51,7 @@ import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.quantityLabel
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.markdown.MarkdownText
 import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
 import com.maggie.app.ui.screens.cookbook.cooking.CookingResume
 import com.maggie.app.ui.screens.cookbook.cooking.detailFor
@@ -358,7 +359,7 @@ internal fun RecipeSheetContent(
         )
 
         r.notes?.let { notes ->
-            Text(text = notes, style = MaterialTheme.typography.bodyMedium)
+            MarkdownText(text = notes)
         }
 
         if (r.ingredients.isNotEmpty()) {

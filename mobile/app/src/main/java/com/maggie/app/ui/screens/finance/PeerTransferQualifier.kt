@@ -37,6 +37,7 @@ import com.maggie.app.data.model.PeerKind
 import com.maggie.app.data.model.TransactionAllocation
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.markdown.MarkdownEditor
 
 /** One créance (or dette) « Il couvre » offers: checked or not, and how much of the transfer goes on it. */
 data class PeerShareChoice(
@@ -409,12 +410,11 @@ private fun NewDebtFields(editor: PeerTransferEditor, actions: PeerTransferActio
         enabled = !editor.isSaving,
         modifier = Modifier.fillMaxWidth().testTag(UiTags.PEER_SUBJECT),
     )
-    OutlinedTextField(
+    MarkdownEditor(
         value = editor.notes,
         onValueChange = { if (it.length <= PEER_NOTES_MAX_LENGTH) actions.onNotesChange(it) },
-        label = { Text("Notes") },
-        minLines = 2,
+        label = "Notes",
         enabled = !editor.isSaving,
-        modifier = Modifier.fillMaxWidth().testTag(UiTags.PEER_NOTES),
+        modifier = Modifier.testTag(UiTags.PEER_NOTES),
     )
 }

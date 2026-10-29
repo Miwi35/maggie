@@ -59,6 +59,7 @@ import com.maggie.app.data.model.transferCount
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.FinanceTopBar
+import com.maggie.app.ui.components.markdown.MarkdownEditor
 import com.maggie.app.ui.layout.ListDetailPane
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.uiTagRoot
@@ -321,12 +322,11 @@ private fun ContactPage(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().testTag(UiTags.CONTACT_NAME),
             )
-            OutlinedTextField(
+            MarkdownEditor(
                 value = notes,
                 onValueChange = { notes = it },
-                label = { Text("Notes") },
-                minLines = 2,
-                modifier = Modifier.fillMaxWidth().testTag(UiTags.CONTACT_NOTES),
+                label = "Notes",
+                modifier = Modifier.testTag(UiTags.CONTACT_NOTES),
             )
             if (changed) {
                 Button(

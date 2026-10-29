@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
+import com.maggie.app.ui.components.markdown.MarkdownText
 import com.maggie.app.util.DateRanges
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -47,6 +48,7 @@ fun TaskDetailSheet(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
+    onDescriptionChange: ((String) -> Unit)? = null,
 ) {
     TaskDetailContent(
         task = task,
@@ -55,6 +57,7 @@ fun TaskDetailSheet(
         onEdit = onEdit,
         onDelete = onDelete,
         onToggleDone = onToggleDone,
+        onDescriptionChange = onDescriptionChange,
         // A long list of subtasks must not push the actions off the sheet.
         modifier = Modifier.verticalScroll(rememberScrollState()),
     ) { body ->
@@ -71,6 +74,7 @@ fun TaskDetailContent(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
+    onDescriptionChange: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
     frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
 ) {
@@ -152,7 +156,11 @@ fun TaskDetailContent(
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(Icons.Outlined.Description, contentDescription = "Notes", modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text(text = task.description, style = MaterialTheme.typography.bodyMedium)
+                    MarkdownText(
+                        text = task.description,
+                        onTextChange = onDescriptionChange,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
 
