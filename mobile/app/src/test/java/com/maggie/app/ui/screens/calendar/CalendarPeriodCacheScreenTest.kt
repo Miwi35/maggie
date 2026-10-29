@@ -25,16 +25,16 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.asCoroutineDispatcher
+import java.util.concurrent.Executors
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -49,14 +49,19 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class CalendarPeriodCacheScreenTest {
     private lateinit var db: MaggieDatabase
+    private val mainDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val api = mockk<MaggieApiService>()
     private val work = Agenda(id = "W", name = "Work", color = "#FF0000")
 
     @Before
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        // One thread runs every state update of the ViewModel (Room's invalidation, the period read,
+        // the agendas): with Unconfined they resumed on Room's threads and overwrote each other's copy().
+        Dispatchers.setMain(mainDispatcher)
         val context = ApplicationProvider.getApplicationContext<Context>()
-        db = Room.inMemoryDatabaseBuilder(context, MaggieDatabase::class.java).allowMainThreadQueries().build()
+        db = Room.inMemoryDatabaseBuilder(context, MaggieDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
         coEvery { api.getAgendas() } returns listOf(work)
         coEvery { api.getRecurringEventsBefore(any()) } returns emptyList()
     }
@@ -65,6 +70,7 @@ class CalendarPeriodCacheScreenTest {
     fun tearDown() {
         db.close()
         Dispatchers.resetMain()
+        mainDispatcher.close()
     }
 
     private fun viewModel(): FullCalendarViewModel {
@@ -97,19 +103,6 @@ class CalendarPeriodCacheScreenTest {
         )
     }
 
-    // A ceiling, not a wait: the screen fills in about 2 s on a cold JVM, more on a loaded CI runner.
-    private suspend fun FullCalendarViewModel.eventually(check: (List<String>) -> Boolean): List<String> {
-        var last = emptyList<String>()
-        withTimeoutOrNull(30_000) {
-            while (true) {
-                last = uiState.value.expandedEvents.map { it.summary }
-                if (check(last)) break
-                withContext(Dispatchers.Default) { delay(50) }
-            }
-        }
-        return last
-    }
-
     @Test
     fun `the month after the current one shows the events the API served in one answer`() = runBlocking {
         val nextMonth = DateRanges.todayDate().plusMonths(1).withDayOfMonth(1)
@@ -130,7 +123,9 @@ class CalendarPeriodCacheScreenTest {
         viewModel.setViewType(CalendarViewType.MONTH)
         viewModel.navigateForward()
 
-        val shown = viewModel.eventually { it.size >= 37 }
+        // Waits for the screen state, not for time: the bound only turns a hang into a failure.
+        withTimeoutOrNull(60_000) { viewModel.uiState.first { it.expandedEvents.size >= 37 } }
+        val shown = viewModel.uiState.value.expandedEvents.map { it.summary }
 
         assertEquals(
             "error=${viewModel.uiState.value.error}, agendas=${viewModel.uiState.value.enabledAgendas}",
