@@ -9,6 +9,7 @@ import com.google.firebase.messaging.RemoteMessage
 import com.maggie.app.data.car.noCar
 import com.maggie.app.data.interruption.InterruptionCenter
 import com.maggie.app.data.location.LocationScheduler
+import com.maggie.app.ui.navigation.DeepLinks
 import io.mockk.mockk
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -139,7 +140,7 @@ class MaggieFcmServiceTest {
         "type" to "message",
         "channel" to PushChannels.CHAT,
         "messageId" to "01JABCDEFGHJKMNPQRSTVWXYZ0",
-        "link" to "maggie://chat?message=01JABCDEFGHJKMNPQRSTVWXYZ0",
+        "link" to "${DeepLinks.SCHEME}://chat?message=01JABCDEFGHJKMNPQRSTVWXYZ0",
         "actionLabel" to "Ouvrir la conversation",
         "title" to "Maggie",
         "body" to "Tu as dentiste demain à 9 h.",
@@ -155,7 +156,7 @@ class MaggieFcmServiceTest {
         val style = androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)!!
         assertEquals("Tu as dentiste demain à 9 h.", style.messages.single().text.toString())
         val opened = shadowOf(notification.contentIntent).savedIntent
-        assertEquals("maggie://chat?message=01JABCDEFGHJKMNPQRSTVWXYZ0", opened.data.toString())
+        assertEquals("${DeepLinks.SCHEME}://chat?message=01JABCDEFGHJKMNPQRSTVWXYZ0", opened.data.toString())
     }
 
     @Test
