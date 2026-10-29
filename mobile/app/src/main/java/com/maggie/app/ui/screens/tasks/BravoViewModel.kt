@@ -3,7 +3,6 @@ package com.maggie.app.ui.screens.tasks
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.DayPlan
-import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Stars
 import com.maggie.app.data.reward.Celebration
 import com.maggie.app.data.reward.TaskRewards
@@ -16,13 +15,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-/** Where the Bravo goes: the Focus of the next task, or back to the day. */
-sealed interface BravoExit {
-    data class Next(val taskId: String) : BravoExit
-
-    data object Day : BravoExit
-}
-
 /** A task of the day just ticked, handed from the day or the Focus to the Bravo. */
 data class BravoRequest(val taskId: String, val title: String)
 
@@ -32,19 +24,18 @@ data class BravoUiState(
     val title: String = "",
     /** Its reward with the user's animation switch; null while it is read, or when it earned none. */
     val celebration: Celebration? = null,
-    /** The day once the tick was taken: its count and « Maintenant », the next task. Null while read or unreadable. */
+    /** The day once the tick was taken, for its count. Null while read or unreadable. */
     val day: DayPlan? = null,
     /** The month's constellation once the tick was taken, the new star in it; null while read or unreadable. */
     val stars: Stars? = null,
     /** The reward and the day are being read: the circle waits for them, to know whether it may move. */
     val isLoading: Boolean = false,
-    val exit: BravoExit? = null,
-) {
-    val next: DayTask? get() = day?.now?.task
-}
+    /** « Retour à ma journée » was chosen: the screen goes back to the day. */
+    val leaves: Boolean = false,
+)
 
 /**
- * The Bravo (MAG-508): a task of the day ticked, its reward, the day's count and the next task.
+ * The Bravo (MAG-508): a task of the day ticked, its reward, the day's count.
  * The reward and the day are read once the tick has answered; the buzz and the sound come with the
  * reward, and the month's constellation with its new star. Kept with the navigation graph like the Focus, so [open] is idempotent for the task shown.
  */
@@ -71,16 +62,10 @@ class BravoViewModel(
         }
     }
 
-    /** « Suivante »: the Focus of the day's « Maintenant ». */
-    fun next() {
-        val next = _uiState.value.next ?: return
-        _uiState.update { it.copy(exit = BravoExit.Next(next.id)) }
-    }
-
-    /** « Pause méritée »: back to the day. */
-    fun pause() {
+    /** « Retour à ma journée ». */
+    fun back() {
         if (_uiState.value.taskId == null) return
-        _uiState.update { it.copy(exit = BravoExit.Day) }
+        _uiState.update { it.copy(leaves = true) }
     }
 
     /** The Bravo was left: nothing is kept for the next one. */

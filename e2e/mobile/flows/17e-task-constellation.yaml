@@ -83,7 +83,7 @@ onFlowComplete:
 
 # Back on the day, the task carries its star.
 - tapOn:
-    id: "bravo_pause"
+    id: "bravo_back"
 - extendedWaitUntil:
     visible:
       id: "task_star"

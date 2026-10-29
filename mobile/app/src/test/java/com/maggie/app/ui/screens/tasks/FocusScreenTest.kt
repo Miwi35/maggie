@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.tasks
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -57,11 +58,40 @@ class FocusScreenTest {
         compose.onNodeWithTag(UiTags.FOCUS_FIRST_STEP).assertIsDisplayed()
         compose.onNodeWithText("2 min").assertIsDisplayed()
         compose.onNodeWithText("Trouver le numéro").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.FOCUS_TIME, useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("10:00", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithContentDescription("Minuteur, 10:00 restantes").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FOCUS_RING).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.FOCUS_START).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.FOCUS_TIMER_TOGGLE).assertIsDisplayed()
         compose.onNodeWithText("Chercher le numéro").assertIsDisplayed()
         compose.onNodeWithText("Dire la plaque").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a task of 15 minutes shows its duration, and still no ring`() {
+        show(focused.copy(estimatedMinutes = 15))
+
+        compose.onNodeWithTag(UiTags.FOCUS_ESTIMATE).assertTextEquals("≈ 15 min")
+        compose.onNodeWithTag(UiTags.FOCUS_RING).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a task with no duration shows no estimate`() {
+        show()
+
+        compose.onNodeWithTag(UiTags.FOCUS_ESTIMATE).assertDoesNotExist()
+    }
+
+    @Test
+    fun `Activer le minuteur shows the ring at the task's duration, and a second press removes it`() {
+        show(focused.copy(estimatedMinutes = 15))
+
+        compose.onNodeWithText("Activer le minuteur").performScrollTo().performClick()
+        compose.onNodeWithText("Minuteur · 15 min").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Minuteur, 15:00 restantes").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FOCUS_START).assertIsDisplayed()
+
+        compose.onNodeWithTag(UiTags.FOCUS_TIMER_TOGGLE).performClick()
+        compose.onNodeWithTag(UiTags.FOCUS_RING).assertDoesNotExist()
+        compose.onNodeWithText("Activer le minuteur").assertIsDisplayed()
     }
 
     @Test
@@ -76,6 +106,7 @@ class FocusScreenTest {
     fun `the timer button goes from start to pause, then to resume`() {
         show()
 
+        compose.onNodeWithTag(UiTags.FOCUS_TIMER_TOGGLE).performClick()
         compose.onNodeWithTag(UiTags.FOCUS_START).performClick()
         compose.onNodeWithTag(UiTags.FOCUS_PAUSE).assertIsDisplayed()
 

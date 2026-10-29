@@ -10,7 +10,7 @@ onFlowComplete:
         TODAY: ${TODAY}
         EMAIL: e2e-other@maggie.local
 ---
-# The Focus (MAG-499): one task of the day, its first step, a 10-minute ring and its petits pas.
+# The Focus (MAG-499): one task of the day, its first step, an optional ring and its petits pas.
 #
 # Given today's day whose first task has a first step and two subtasks (`scripts/focus-api.js`
 # PUTs /api/day-plans/{TODAY}), when « Juste 10 minutes » is tapped, a petit pas ticked, the ring
@@ -60,8 +60,15 @@ onFlowComplete:
     id: "focus_first_step"
 - assertVisible: "Ouvrir le courrier"
 - assertVisible: "2 min"
-# The ring reads its time through its description, not through its text.
-- assertVisible: ".*Minuteur.*10:00.*"
+# The timer is an option (MAG-716): no ring until « Activer le minuteur ». Its time is read
+# through the ring's description, not through its text.
+- assertNotVisible:
+    id: "focus_ring"
+- tapOn:
+    id: "focus_timer_toggle"
+- extendedWaitUntil:
+    visible: ".*Minuteur.*10:00.*"
+    timeout: 10000
 - assertVisible: ".*Pas A MAG-499.*"
 - assertVisible: ".*Pas B MAG-499.*"
 
@@ -90,13 +97,13 @@ onFlowComplete:
 - tapOn:
     id: "focus_done"
 
-# The bravo (MAG-508) comes first; « Pause méritée » goes back to the day.
+# The bravo (MAG-508) comes first; « Retour à ma journée » goes back to the day.
 - extendedWaitUntil:
     visible:
       id: "bravo"
     timeout: 20000
 - tapOn:
-    id: "bravo_pause"
+    id: "bravo_back"
 
 # Back on the day: « Maintenant » follows.
 - extendedWaitUntil:

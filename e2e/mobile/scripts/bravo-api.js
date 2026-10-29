@@ -1,7 +1,7 @@
 // The day of the bravo journey, over HTTP (MAG-508).
 //
 // `setup` gives the day five tasks of its own, the first two done, so a tick from « Mes 5 »
-// is the third of five; the fourth has its minutes, for « Suivante : … · 15 min ». `expect-reward`
+// is the third of five; the fourth has its minutes, for the day's next task. `expect-reward`
 // reads back the reward the tick laid down: one star, a message. `cleanup` deletes every task of
 // the journey (its titles carry MAG-508) and empties the day; `setup` runs it first, so a failed
 // run leaves nothing behind for the next.

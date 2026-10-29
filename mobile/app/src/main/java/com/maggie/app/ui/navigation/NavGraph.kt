@@ -1464,22 +1464,14 @@ fun NavGraph() {
                             )
                         }
                     }
-                    // The Bravo (MAG-508): « Suivante » opens the next task's Focus in its place, « Pause méritée » the day.
+                    // The Bravo (MAG-508): « Retour à ma journée » goes back to the day.
                     composable(Screen.TaskBravo.route) { entry ->
                         val bravo by bravoViewModel.uiState.collectAsState()
                         PopWhenMissing(navController, entry, bravo.taskId != null)
                         if (bravo.taskId != null) {
                             BravoScreen(
                                 viewModel = bravoViewModel,
-                                onNext = { taskId ->
-                                    bravoViewModel.close()
-                                    focusTaskId = taskId
-                                    navController.navigate(Screen.TaskFocus.route) {
-                                        popUpTo(Screen.TaskBravo.route) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
-                                },
-                                onPause = {
+                                onBack = {
                                     bravoViewModel.close()
                                     tasksViewModel.selectView(TaskView.TODAY)
                                     navController.popBackStack()

@@ -82,16 +82,67 @@ class FocusViewModelTest {
     )
 
     @Test
-    fun `opening reads the task, its first step and its petits pas, the timer waiting at ten minutes`() = runTest(testDispatcher) {
+    fun `opening reads the task, its first step and its petits pas, the timer off`() = runTest(testDispatcher) {
         val viewModel = opened()
 
         val state = viewModel.uiState.value
         assertEquals("Appeler le garage", state.task?.title)
         assertEquals("Trouver le numéro", state.task?.firstStep)
         assertEquals(listOf("s1", "s2"), state.steps.map { it.id })
+        assertFalse(state.timerEnabled)
         assertEquals(FocusTimerPhase.IDLE, state.phase)
-        assertEquals(600_000L, state.remainingMs)
         assertFalse(state.isLoading)
+    }
+
+    @Test
+    fun `activating the timer on a task with 15 minutes sets the ring to 15 00`() = runTest(testDispatcher) {
+        coEvery { repository.fetchTask("t1") } returns Result.success(focused.copy(estimatedMinutes = 15))
+        val viewModel = opened()
+
+        viewModel.toggleTimer()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.timerEnabled)
+        assertEquals(900_000L, state.remainingMs)
+        assertEquals(FocusTimerPhase.IDLE, state.phase)
+    }
+
+    @Test
+    fun `activating the timer on a task with no duration sets the ring to 10 00`() = runTest(testDispatcher) {
+        val viewModel = opened()
+
+        viewModel.toggleTimer()
+
+        assertTrue(viewModel.uiState.value.timerEnabled)
+        assertEquals(600_000L, viewModel.uiState.value.remainingMs)
+    }
+
+    @Test
+    fun `removing the timer stops it and a new activation starts from the full duration`() = runTest(testDispatcher) {
+        coEvery { repository.fetchTask("t1") } returns Result.success(focused.copy(estimatedMinutes = 15))
+        val viewModel = opened()
+        viewModel.toggleTimer()
+        viewModel.start()
+        elapse(60_000)
+
+        viewModel.toggleTimer()
+        elapse(60_000)
+
+        assertFalse(viewModel.uiState.value.timerEnabled)
+        assertEquals(FocusTimerPhase.IDLE, viewModel.uiState.value.phase)
+        viewModel.toggleTimer()
+        assertEquals(900_000L, viewModel.uiState.value.remainingMs)
+    }
+
+    @Test
+    fun `start does nothing while the timer is off`() = runTest(testDispatcher) {
+        val viewModel = opened()
+
+        viewModel.start()
+        elapse(30_000)
+
+        assertEquals(FocusTimerPhase.IDLE, viewModel.uiState.value.phase)
+        assertEquals(600_000L, viewModel.uiState.value.remainingMs)
     }
 
     @Test
@@ -107,6 +158,7 @@ class FocusViewModelTest {
     @Test
     fun `opening the task already in focus keeps its timer, as a rotation does`() = runTest(testDispatcher) {
         val viewModel = opened()
+        viewModel.toggleTimer()
         viewModel.start()
         elapse(60_000)
 
@@ -123,6 +175,7 @@ class FocusViewModelTest {
     fun `start runs the timer down from 10 00`() = runTest(testDispatcher) {
         val viewModel = opened()
 
+        viewModel.toggleTimer()
         viewModel.start()
         elapse(30_000)
 
@@ -135,6 +188,7 @@ class FocusViewModelTest {
     @Test
     fun `pause freezes the time left`() = runTest(testDispatcher) {
         val viewModel = opened()
+        viewModel.toggleTimer()
         viewModel.start()
         elapse(30_000)
 
@@ -150,6 +204,7 @@ class FocusViewModelTest {
     @Test
     fun `resume goes on from the time left`() = runTest(testDispatcher) {
         val viewModel = opened()
+        viewModel.toggleTimer()
         viewModel.start()
         elapse(30_000)
         viewModel.pause()
@@ -166,6 +221,7 @@ class FocusViewModelTest {
     @Test
     fun `the timer ends at zero by itself and stops ticking`() = runTest(testDispatcher) {
         val viewModel = opened()
+        viewModel.toggleTimer()
         viewModel.start()
 
         elapse(600_000)
@@ -177,6 +233,7 @@ class FocusViewModelTest {
     @Test
     fun `after the end, restart gives ten more minutes`() = runTest(testDispatcher) {
         val viewModel = opened()
+        viewModel.toggleTimer()
         viewModel.start()
         elapse(600_000)
 
@@ -194,6 +251,7 @@ class FocusViewModelTest {
         val viewModel = FocusViewModel(repository, today = { today }, clock = { clockMs }, tickMs = 250)
         viewModel.open("t1")
         advanceUntilIdle()
+        viewModel.toggleTimer()
         viewModel.start()
 
         clockMs = 4 * 60_000 // the app was away: no tick ran
@@ -259,6 +317,7 @@ class FocusViewModelTest {
     fun `« C'est fait » ticks the task and leaves for its Bravo (MAG-508)`() = runTest(testDispatcher) {
         coEvery { repository.toggleDone("t1", true) } returns Result.success(focused.copy(completedAt = "2026-10-15T08:00:00Z"))
         val viewModel = opened()
+        viewModel.toggleTimer()
         viewModel.start()
 
         viewModel.complete()
@@ -343,12 +402,14 @@ class FocusViewModelTest {
     @Test
     fun `closing forgets the Focus, the timer stops and the next one starts clean`() = runTest(testDispatcher) {
         val viewModel = opened()
+        viewModel.toggleTimer()
         viewModel.start()
 
         viewModel.close()
 
         assertNull(viewModel.uiState.value.taskId)
         assertEquals(FocusTimerPhase.IDLE, viewModel.uiState.value.phase)
+        assertFalse(viewModel.uiState.value.timerEnabled)
         elapse(60_000)
         assertEquals(600_000L, viewModel.uiState.value.remainingMs)
     }

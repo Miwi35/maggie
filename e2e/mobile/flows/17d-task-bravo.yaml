@@ -14,8 +14,8 @@ onFlowComplete:
 #
 # Given today's day holding five tasks of the journey's own, the first two done
 # (`scripts/bravo-api.js`), when the third is ticked from « Mes 5 », then the Bravo shows
-# « … · faite », a message and the day bar, the reward is stored as a star, and « Suivante »
-# opens the Focus of the fourth — the task « Maintenant » now holds.
+# « … · faite », a message and the day bar, the reward is stored as a star, and « Retour à ma
+# journée » is the only way on — no « Suivante » (MAG-716) — and goes back to the day.
 #
 # It signs in as the seed's second user, like the other journeys of the day; `onFlowComplete`
 # deletes the tasks and empties the day even when a step failed. The message bank, the
@@ -84,15 +84,14 @@ onFlowComplete:
       TODAY: ${TODAY}
       EMAIL: e2e-other@maggie.local
 
-# « Suivante » opens the Focus of the next task. The button's label is a child of its node, so
-# the label and the button are asserted apart.
+# No « Suivante » (MAG-716): « Retour à ma journée » is the only button, and goes back to the day.
+- assertNotVisible: ".*Suivante.*"
 - assertVisible:
-    id: "bravo_next"
-- assertVisible: ".*Suivante : Bravo 4 MAG-508.*15 min.*"
+    id: "bravo_back"
 - tapOn:
-    id: "bravo_next"
+    id: "bravo_back"
 - extendedWaitUntil:
     visible:
-      id: "focus"
+      id: "tasks_now"
     timeout: 20000
 - assertVisible: ".*Bravo 4 MAG-508.*"

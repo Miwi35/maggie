@@ -31,7 +31,7 @@ import java.time.LocalDate
 
 /**
  * The Bravo (MAG-508) over the real ViewModel and a faked repository: the circle, « {titre} · faite »,
- * the message, « 3 sur 5 aujourd'hui », « Suivante » and « Pause méritée »; the étoile filante apart.
+ * the message, « 3 sur 5 aujourd'hui », « Retour à ma journée »; the étoile filante apart.
  */
 @RunWith(AndroidJUnit4::class)
 class BravoScreenTest {
@@ -41,8 +41,7 @@ class BravoScreenTest {
 
     private val today = LocalDate.of(2026, 10, 15)
     private val repository = mockk<TaskRepository>()
-    private var nextId: String? = null
-    private var pauses = 0
+    private var backs = 0
 
     private val reward = Reward(
         id = "rw1",
@@ -76,12 +75,12 @@ class BravoScreenTest {
         coEvery { repository.getStars() } returns stars
         val viewModel = BravoViewModel(repository, TaskRewards(repository, mockk(relaxed = true)), today = { today })
         viewModel.open(BravoRequest("d3", "Renvoyer le formulaire"))
-        compose.setContent { BravoScreen(viewModel = viewModel, onNext = { nextId = it }, onPause = { pauses++ }) }
+        compose.setContent { BravoScreen(viewModel = viewModel, onBack = { backs++ }) }
         compose.waitForIdle()
     }
 
     @Test
-    fun `shows the circle, the task done, the message, the day's bar and the next task with its duration`() {
+    fun `shows the circle, the task done, the message, the day's bar and nothing about a next task`() {
         show()
 
         compose.onNodeWithTag(UiTags.BRAVO_CIRCLE).assertIsDisplayed()
@@ -89,7 +88,8 @@ class BravoScreenTest {
         compose.onNodeWithTag(UiTags.BRAVO_MESSAGE).assertTextEquals("Faite. Suivante.")
         compose.onNodeWithTag(UiTags.BRAVO_DAY_BAR).assertIsDisplayed()
         compose.onNodeWithText("3 sur 5 aujourd'hui").assertIsDisplayed()
-        compose.onNodeWithText("Suivante : Appeler le garage · 10 min").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Suivante : ", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Pause méritée").assertDoesNotExist()
         compose.onNodeWithTag(UiTags.BRAVO_SHOOTING_STAR).assertDoesNotExist()
     }
 
@@ -114,34 +114,22 @@ class BravoScreenTest {
     }
 
     @Test
-    fun `Suivante opens the Focus of the next task`() {
+    fun `Retour à ma journée is the only button, and goes back to the day`() {
         show()
 
-        compose.onNodeWithTag(UiTags.BRAVO_NEXT).performScrollTo().performClick()
+        compose.onNodeWithText("Retour à ma journée").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.BRAVO_BACK).performScrollTo().performClick()
         compose.waitForIdle()
 
-        assertEquals("d4", nextId)
-        assertEquals(0, pauses)
+        assertEquals(1, backs)
     }
 
     @Test
-    fun `Pause méritée goes back to the day`() {
-        show()
-
-        compose.onNodeWithTag(UiTags.BRAVO_PAUSE).performScrollTo().performClick()
-        compose.waitForIdle()
-
-        assertEquals(1, pauses)
-        assertEquals(null, nextId)
-    }
-
-    @Test
-    fun `the day done, there is no Suivante, only Pause méritée`() {
+    fun `the day done, Retour à ma journée is still the way out`() {
         show(doneCount = 5)
 
         compose.onNodeWithText("5 sur 5 aujourd'hui").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.BRAVO_NEXT).assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.BRAVO_PAUSE).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.BRAVO_BACK).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -154,7 +142,7 @@ class BravoScreenTest {
             day = day(5),
         )
         var animate by mutableStateOf(true)
-        compose.setContent { BravoContent(state = state, animate = animate, onNext = {}, onPause = {}) }
+        compose.setContent { BravoContent(state = state, animate = animate, onBack = {}) }
 
         compose.onNodeWithTag(UiTags.BRAVO_SHOOTING_STAR).assertExists()
         compose.onNodeWithTag(UiTags.BRAVO_MESSAGE).assertTextEquals("Étoile filante : journée complète.")
