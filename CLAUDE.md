@@ -57,7 +57,8 @@ What any session needs to ship here, and what Cyrus's skills look up:
 
 Tickets are created by agents through the Linear MCP and picked up unattended by the dispatcher, so each one must be workable without a conversation. Before creating, search Linear for a duplicate. Write in French.
 
-- **Description**, in this order: **Contexte** (why, with links) · **À faire** · **Critères d'acceptation** (verifiable, one per line) · **Parcours e2e** (Given/When/Then and the journey ticket MAG-99…103 it extends; `N/A — task` for a Task) · **Fichiers probables** · **Hors périmètre**. End with `Définition de « terminé » : agent-os/standards/global/testing.md` — link it, do not copy it.
+- **Description**, in this order: **Contexte** (why, with links) · **À faire** · **Critères d'acceptation** (verifiable, one per line) · **Parcours e2e** (Given/When/Then and the journey ticket MAG-99…103 it extends; `N/A — task` for a Task) · **Plan** (see below) · **Hors périmètre**. End with `Définition de « terminé » : agent-os/standards/global/testing.md` — link it, do not copy it.
+- **Plan — mandatory for `agent-ready`** (owner, 28 Oct.): the design is done when the ticket is written, so the session that codes it only executes. Per file: the path, created or changed, the existing equivalent to copy (`path:line`) or the recipe of `agent-os/standards/recipes/` that applies, and what differs; then the order of the commits; the tests to write, each case named, with the targeted command; the standards to read. A ticket without a Plan is not `agent-ready`: the dispatcher would hand an agent a design to redo.
 - **Team** Maggie, **project** of the feature (attached to an initiative, with its spec — see *Workflow*); the description opens with `## Cadrage` (see *Workflow*), **priority** set (Urgent: fixes and test foundation · High: Maggie works · Medium: rest), **type label** `Feature` (user-visible), `Bug` or `Task` (not acceptable through the UI) — it decides the path and whether the ticket goes to Recette.
 - **Dispatcher labels**: one `area:*` per component touched, `agent-ready` when the acceptance criteria need no round trip, `lock:migration` if it adds a schema migration, `needs-shaping` if a spec must be shaped first. `agent-ready` and `needs-human` are mutually exclusive.
 - **Dependencies** as `blockedBy`, never only in prose: the dispatcher skips blocked tickets.
@@ -84,25 +85,19 @@ To ask: reply in the ticket's agent thread with short questions, each as options
 
 - The guard of agent PRs and the freeze after a failed deploy live in Cyrus (`cyrus-pilot`: `guard/guard.py`, the dispatcher); a PR that touches a destructive migration, secrets or authentication is merged by a human.
 - Never `--no-verify`, never a test disabled to get green.
+- **Commands are guarded, not only described**: `.claude/hooks/guard_bash.py` refuses before they run Gradle by hand, `--rerun-tasks`, overriding the Gradle and Kotlin limits, a runtime on the host, Maestro or an emulator outside `task e2e:mobile`, and a full test suite. Refused: follow the reason it prints, never work around it.
 
 ## Effort by role — plan, implement, review
 
-Reasoning effort follows the work, not one level for everything (owner, 28 Oct.): the thinking goes into the plan and the review, the implementation is near-mechanical — faster delivery, fewer tokens.
+Reasoning effort follows the work (owner, 28 Oct.): the thinking goes into the plan and the review, the implementation is execution — faster delivery, fewer tokens.
 
 | Role | Who | Effort |
 |---|---|---|
-| Plan and design | the session itself | high |
-| Implementation | a `fullstack-developer` subagent, Sonnet | medium |
-| Review | a `code-reviewer` subagent | high |
+| Plan and design | written into the ticket's **Plan** when the ticket is created, with the owner | high |
+| Implementation | the Cyrus session itself (`CLAUDE_CODE_EFFORT_LEVEL=medium` on the dispatcher's host) | medium |
+| Review | a `code-reviewer` subagent, cold | high |
 
-The session reads the ticket, the spec and the code, then writes a plan the developer can apply **without exploring** — per file:
-- the path, created or changed;
-- the existing equivalent to copy (`path:line`) and what differs from it;
-- the contracts (names, parameters, formats, the ticket that sets them);
-- the tests to write, by name, and the targeted test command;
-- the standards that apply (`agent-os/standards/…`), which the developer reads and nothing else.
-
-It hands that plan to `fullstack-developer`, which applies it as written and does not redesign: a gap in the plan comes back to the session, which decides. The session checks lint and the targeted tests, then runs the review loop below. Fixes after a review go to `fullstack-developer` too.
+The session executes the ticket's Plan as written: it reads the files the Plan names and their direct neighbours, the standards and the recipe it cites, nothing else, and does not redesign. A gap the Plan leaves is settled like any decision (*Autonomy*): the code, a standard or a recipe answers → decide and leave the decision comment; a product question → `needs-human`. **Subagents only for independent parts**, all launched in one message so they run in parallel, each briefed with what it needs — never one that redoes the exploration (repository, standards, ticket). A ticket without a Plan (written before 28 Oct.): the session writes the Plan into a ticket comment first, then executes it.
 
 ## Review loop — local, cold, before the push
 
