@@ -48,3 +48,14 @@ async def resolve_user_timezone(user_id: str) -> ZoneInfo:
         logger.warning(f"Invalid timezone {name!r} for user {user_id}, planning on {settings.planning_timezone}: {e!r}")
         known_timezones[user_id] = ZoneInfo(settings.planning_timezone)
     return known_timezones[user_id]
+
+
+async def resolve_user_email(user_id: str) -> str | None:
+    """The account email the API reports next to the timezone; None when it cannot be read right now."""
+    try:
+        raw = await mcp_client.call_tool(USER_TIMEZONE_TOOL, {}, user_id=user_id)
+        email = json.loads(raw).get("email")
+    except Exception as e:
+        logger.warning(f"Email of user {user_id} unreadable: {e!r}")
+        return None
+    return email.strip().lower() if isinstance(email, str) and email.strip() else None

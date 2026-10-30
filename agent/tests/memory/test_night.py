@@ -98,6 +98,7 @@ def wired(chat_db, env):
     with (
         patch("app.user_timezone.resolve_user_timezone", paris),
         patch("app.memory.night.resolve_user_timezone", paris),
+        patch("app.memory.night.resolve_user_email", AsyncMock(return_value=None)),
         patch("app.memory.encoder.resolve_user_timezone", paris),
         patch("app.memory.night.record_llm_usage"),
         patch("app.memory.encoder.record_llm_usage"),
@@ -1046,6 +1047,44 @@ class TestWhenTheNightIsDue:
 
         assert await night.run(USER_A, NOW, force=True) is None
         assert await night.run_all(NOW) == []
+
+
+class TestTechnicalAccounts:
+    USER_SMOKE = "01J9Z3K5Q8W2X4Y6A7B8C9D0E3"
+    USER_RECETTE = "01J9Z3K5Q8W2X4Y6A7B8C9D0E4"
+
+    async def _nights(self, env, emails: dict[str, str | None]) -> tuple[list[str], NightModel]:
+        model = NightModel()
+        night = keeper(env, model)
+        started: list[str] = []
+
+        async def fake_run(user_id, now=None, *, force=False):
+            started.append(user_id)
+            return None
+
+        night.run = fake_run
+        env.service.users = AsyncMock(return_value=list(emails))
+        with patch("app.memory.night.resolve_user_email", AsyncMock(side_effect=lambda uid: emails[uid])):
+            await night.run_all(NOW)
+        return started, model
+
+    async def test_smoke_and_recette_are_left_out_of_the_night(self, env):
+        started, model = await self._nights(
+            env,
+            {
+                USER_A: "owner@example.com",
+                self.USER_SMOKE: "smoke@maggieai.fr",
+                self.USER_RECETTE: "recette@maggieai.fr",
+            },
+        )
+
+        assert started == [USER_A]
+        assert model.calls == 0
+
+    async def test_an_unreadable_email_keeps_the_night_as_before(self, env):
+        started, _ = await self._nights(env, {USER_A: None, self.USER_SMOKE: "smoke@maggieai.fr"})
+
+        assert started == [USER_A]
 
 
 class TestTheReport:

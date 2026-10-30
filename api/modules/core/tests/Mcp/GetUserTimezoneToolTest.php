@@ -50,7 +50,7 @@ class GetUserTimezoneToolTest extends KernelTestCase
         $preference->setTimezone('America/New_York');
         $this->em()->flush();
 
-        self::assertSame(['timezone' => 'America/New_York'], $this->call());
+        self::assertSame(['timezone' => 'America/New_York', 'email' => $user->getEmail()], $this->call());
     }
 
     public function testFallsBackToParisWhenTheUserHasNoPreferences(): void
@@ -60,7 +60,7 @@ class GetUserTimezoneToolTest extends KernelTestCase
         $this->em()->remove($this->em()->getRepository(UserPreference::class)->findOneBy(['user' => $user]));
         $this->em()->flush();
 
-        self::assertSame(['timezone' => 'Europe/Paris'], $this->call());
+        self::assertSame(['timezone' => 'Europe/Paris', 'email' => $user->getEmail()], $this->call());
     }
 
     public function testNeverReadsAnotherUsersTimezone(): void
@@ -75,8 +75,8 @@ class GetUserTimezoneToolTest extends KernelTestCase
         $this->em()->persist($otherPreference);
         $this->em()->flush();
 
-        $this->loginFixtureUser();
+        $user = $this->loginFixtureUser();
 
-        self::assertSame(['timezone' => 'Europe/Paris'], $this->call());
+        self::assertSame(['timezone' => 'Europe/Paris', 'email' => $user->getEmail()], $this->call());
     }
 }
