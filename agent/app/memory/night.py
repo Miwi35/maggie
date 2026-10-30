@@ -42,6 +42,7 @@ from app.db.context_repository import context_repo
 from app.db.memory_index_repository import IndexedFile, memory_index_repo
 from app.db.memory_night_repository import DONE, NightRun, memory_night_repo
 from app.llm.client import create_llm_client, llm_configured
+from app.llm.provider_status import note_provider_failure, note_provider_success
 from app.mcp.client import mcp_client
 from app.memory import carte as carte_mod
 from app.memory import conversations, fiches, habits, misses, paths, recall
@@ -475,6 +476,7 @@ class NightKeeper:
                 messages=[{"role": "user", "content": request}],
             )
         except Exception as e:
+            await note_provider_failure(e)
             record_llm_usage(
                 model=model,
                 call_type=CALL_TYPE,
@@ -484,6 +486,7 @@ class NightKeeper:
                 status="error",
             )
             raise ModelDown(str(e)) from e
+        await note_provider_success()
         record_llm_usage(
             model=model, call_type=CALL_TYPE, duration_seconds=time.monotonic() - t0, **usage_kwargs(response.usage)
         )
