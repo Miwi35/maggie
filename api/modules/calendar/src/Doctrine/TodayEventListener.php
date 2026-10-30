@@ -98,7 +98,7 @@ final class TodayEventListener implements FixtureEffectsInterface
 
             // The event is already stored: a failing effect must not turn its save into an error.
             try {
-                $this->eventBus->dispatch(new EventTripsChangedEvent((string) $event->getId(), (string) $event->getAgenda()->getUser()->getId(), $change));
+                $this->eventBus->dispatch(new EventTripsChangedEvent((string) $event->getId(), (string) $event->getAgenda()->getUser()->getId(), $change, $specification->addsLocation($event)));
             } catch (\Throwable $e) {
                 $this->logger->error('Event {event} changed the trips of today but its event failed: {error}', [
                     'event' => (string) $event->getId(),

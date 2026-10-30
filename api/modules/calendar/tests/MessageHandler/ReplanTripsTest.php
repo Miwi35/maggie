@@ -119,6 +119,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testMovingTheStartOfATodayEventFilesAReplanProactionForNow(): void
     {
+        $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->update('dentist', startAt: $this->at('2026-11-03 15:00:00'), endAt: $this->at('2026-11-03 16:00:00'));
 
         $replans = $this->replans();
@@ -131,6 +132,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testThePromptSaysWhyAndWhichDay(): void
     {
+        $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->update('dentist', startAt: $this->at('2026-11-03 15:00:00'), endAt: $this->at('2026-11-03 16:00:00'));
 
         $prompt = $this->replans()[0]->getPrompt();
@@ -140,6 +142,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testRelocatingATodayEventFilesAReplanProaction(): void
     {
+        $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->update('dentist', location: '12 rue du Nouveau Cabinet Fictif');
 
         self::assertCount(1, $this->replans());
@@ -147,6 +150,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testRemovingATodayEventFilesAReplanProactionWhoseReasonIsTheRemoval(): void
     {
+        $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->bus()->dispatch(new DeleteEventCommand($this->id('dentist')));
 
         $replans = $this->replans();
@@ -156,6 +160,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testRemovingATodayEventStillRemovesItFromTheIndexAndTellsTheScreens(): void
     {
+        $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->resetMercure();
         $this->resetAsyncTransport();
 
@@ -168,6 +173,25 @@ class ReplanTripsTest extends KernelTestCase
             '/users/'.$this->id('test_user').'/api/events/'.$this->id('dentist'),
             array_merge(...array_map(static fn ($update) => $update->getTopics(), $this->getMercureHub()->getUpdates())),
         );
+    }
+
+    public function testRemovingMovingOrRelocatingATodayEventFilesNothingWhenTheDayHasNoTrip(): void
+    {
+        $this->update('dentist', startAt: $this->at('2026-11-03 15:00:00'), endAt: $this->at('2026-11-03 16:00:00'));
+        $this->update('dentist', location: '12 rue du Nouveau Cabinet Fictif');
+        $this->bus()->dispatch(new DeleteEventCommand($this->id('swim')));
+
+        self::assertSame([], $this->replans());
+    }
+
+    public function testAddingALocationToATodayEventWithoutOneFilesAReplanEvenWithoutATrip(): void
+    {
+        $this->update('dentist', location: '');
+        self::assertSame([], $this->replans());
+
+        $this->update('dentist', location: '12 rue du Nouveau Cabinet Fictif');
+
+        self::assertCount(1, $this->replans());
     }
 
     public function testCreatingATodayEventWithALocationFilesAReplanProaction(): void
@@ -312,6 +336,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testTwoTriggersWhileOneIsPendingFileOneProaction(): void
     {
+        $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->update('dentist', location: '12 rue du Nouveau Cabinet Fictif');
         $this->update('dentist', startAt: $this->at('2026-11-03 15:00:00'), endAt: $this->at('2026-11-03 16:00:00'));
         $this->bus()->dispatch(new DeleteEventCommand($this->id('swim')));
@@ -321,6 +346,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testOnceItRanANewTriggerFilesAnotherOne(): void
     {
+        $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->update('dentist', location: '12 rue du Nouveau Cabinet Fictif');
         $first = $this->replans()[0];
         $first->markRunning();
@@ -340,6 +366,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testAnotherUsersPendingReplanDoesNotHoldBackThisOne(): void
     {
+        $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->bus()->dispatch(new ReplanTripsCommand($this->id('other_user'), ReplanTripsCommand::EVENT_UPDATED));
 
         $this->update('dentist', location: '12 rue du Nouveau Cabinet Fictif');

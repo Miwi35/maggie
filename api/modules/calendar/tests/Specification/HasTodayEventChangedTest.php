@@ -106,6 +106,23 @@ class HasTodayEventChangedTest extends TestCase
         self::assertFalse(HasTodayEventChanged::updated($changeSet, $this->now)->isSatisfiedBy($this->event()));
     }
 
+    public function testOnlyACreationWithALocationOrAnUpdateAddingOneAddsALocation(): void
+    {
+        $added = ['location' => [null, 'Nouveau lieu']];
+        $changed = ['location' => ['Ancien lieu', 'Nouveau lieu']];
+        $removed = ['location' => ['Ancien lieu', null]];
+        $moved = ['startAt' => [$this->at('2026-11-03 14:00:00'), $this->at('2026-11-03 15:00:00')]];
+
+        self::assertTrue(HasTodayEventChanged::created($this->now)->addsLocation($this->event()));
+        self::assertFalse(HasTodayEventChanged::created($this->now)->addsLocation($this->event(location: null)));
+        self::assertTrue(HasTodayEventChanged::updated($added, $this->now)->addsLocation($this->event()));
+        self::assertTrue(HasTodayEventChanged::updated(['location' => ['  ', 'Lieu']], $this->now)->addsLocation($this->event()));
+        self::assertFalse(HasTodayEventChanged::updated($changed, $this->now)->addsLocation($this->event()));
+        self::assertFalse(HasTodayEventChanged::updated($removed, $this->now)->addsLocation($this->event(location: null)));
+        self::assertFalse(HasTodayEventChanged::updated($moved, $this->now)->addsLocation($this->event()));
+        self::assertFalse(HasTodayEventChanged::removed($this->now)->addsLocation($this->event()));
+    }
+
     public function testRemovingATodayEventSatisfiesIt(): void
     {
         self::assertTrue(HasTodayEventChanged::removed($this->now)->isSatisfiedBy($this->event()));

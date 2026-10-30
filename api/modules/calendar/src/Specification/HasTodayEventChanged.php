@@ -59,6 +59,18 @@ final readonly class HasTodayEventChanged
         };
     }
 
+    /** The event gets a place to go to it had not: a trip is to plan, even if none exists yet. */
+    public function addsLocation(Event $event): bool
+    {
+        return match ($this->transition) {
+            self::CREATED => $this->hasLocation($event->getLocation()),
+            self::UPDATED => isset($this->changeSet['location'])
+                && !$this->hasLocation(\is_string($this->changeSet['location'][0]) ? $this->changeSet['location'][0] : null)
+                && $this->hasLocation($event->getLocation()),
+            default => false,
+        };
+    }
+
     private function isUpdateOfToday(Event $event): bool
     {
         $startChanged = isset($this->changeSet['startAt']) && $this->differs(...$this->changeSet['startAt']);
