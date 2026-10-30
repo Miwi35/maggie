@@ -20,52 +20,73 @@ describe('ReminderPicker', () => {
   test('starts with no reminder and says so', () => {
     render(<ReminderPicker value={null} onChange={vi.fn()} />)
 
-    expect(screen.getByText('Aucun rappel')).toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: 'Rappel' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Rappels' })).toHaveTextContent('Aucun rappel')
   })
 
-  test('adding a reminder emits Google’s shape', async () => {
-    const onChange = vi.fn()
-    render(<ReminderPicker value={null} onChange={onChange} />)
+  test('the menu lists the six Google options and « Personnaliser… »', async () => {
+    render(<ReminderPicker value={null} onChange={vi.fn()} />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un rappel' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappels' }))
 
-    expect(onChange).toHaveBeenCalledWith(at(30))
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      '5 minutes avant',
+      '10 minutes avant',
+      '15 minutes avant',
+      '30 minutes avant',
+      '1 heure avant',
+      '1 jour avant',
+      'Personnaliser…',
+    ])
   })
 
-  test('a second reminder is added beside the first, not instead of it', async () => {
-    const onChange = vi.fn()
-    render(<ReminderPicker value={at(30)} onChange={onChange} />)
-
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un rappel' }))
-
-    expect(onChange).toHaveBeenCalledWith(at(30, 5))
-  })
-
-  test('removing the only reminder emits null, which is what clears the field', async () => {
+  test('checking a second option emits both, in Google’s shape', async () => {
     const onChange = vi.fn()
     render(<ReminderPicker value={at(60)} onChange={onChange} />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Supprimer le rappel 1 heure avant' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappels' }))
+    await userEvent.click(screen.getByRole('option', { name: '1 jour avant' }))
+
+    expect(onChange).toHaveBeenCalledWith(at(60, 1440))
+  })
+
+  test('unchecking the only reminder emits null, which is what clears the field', async () => {
+    const onChange = vi.fn()
+    render(<ReminderPicker value={at(60)} onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappels' }))
+    await userEvent.click(screen.getByRole('option', { name: '1 heure avant' }))
 
     expect(onChange).toHaveBeenCalledWith(null)
   })
 
-  test('a delay already chosen cannot be chosen twice', async () => {
-    render(<ReminderPicker value={at(30, 60)} onChange={vi.fn()} />)
+  test('the field lists the chosen reminders', () => {
+    render(<ReminderPicker value={at(60, 1440)} onChange={vi.fn()} />)
 
-    await userEvent.click(screen.getAllByRole('combobox', { name: 'Rappel' })[0])
+    expect(screen.getByRole('combobox', { name: 'Rappels' })).toHaveTextContent('1 heure avant, 1 jour avant')
+  })
 
-    // Its own value stays selectable; the other row's does not.
-    expect(screen.getByRole('option', { name: '30 minutes avant' })).not.toHaveAttribute('aria-disabled', 'true')
-    expect(screen.getByRole('option', { name: '1 heure avant' })).toHaveAttribute('aria-disabled', 'true')
+  test('« Personnaliser… » adds a free delay in days', async () => {
+    const onChange = vi.fn()
+    render(<ReminderPicker value={at(60)} onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappels' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Personnaliser…' }))
+    await userEvent.clear(screen.getByLabelText('Délai'))
+    await userEvent.type(screen.getByLabelText('Délai'), '2')
+    await userEvent.click(screen.getByRole('combobox', { name: 'Unité' }))
+    await userEvent.click(screen.getByRole('option', { name: 'jours' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter' }))
+
+    expect(onChange).toHaveBeenCalledWith(at(60, 2880))
   })
 
   /** Five is what Google accepts on one event, and what the API validates. */
-  test('stops offering more than five reminders', () => {
+  test('stops offering more once five are chosen', async () => {
     render(<ReminderPicker value={at(5, 10, 15, 30, 60)} onChange={vi.fn()} />)
 
-    expect(screen.queryByRole('button', { name: 'Ajouter un rappel' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappels' }))
+
+    expect(screen.getByRole('option', { name: '1 jour avant' })).toHaveAttribute('aria-disabled', 'true')
   })
 
   test('reads back what the cron reads, and ignores the rest', () => {

@@ -76,7 +76,7 @@ describe('EventEditDialog', () => {
       screen.getByLabelText(/Fin/),
       screen.getByRole('combobox', { name: 'Répéter' }),
       screen.getByRole('combobox', { name: 'Statut' }),
-      screen.getByRole('button', { name: 'Ajouter un rappel' }),
+      screen.getByRole('combobox', { name: 'Rappels' }),
       screen.getByRole('combobox', { name: 'Agenda' }),
       screen.getByLabelText('Lieu'),
       screen.getByLabelText('Description'),
@@ -141,10 +141,12 @@ describe('EventEditDialog', () => {
       />,
     )
 
-    expect(screen.getByRole('combobox', { name: 'Rappel' })).toHaveTextContent('30 minutes avant')
+    expect(screen.getByRole('combobox', { name: 'Rappels' })).toHaveTextContent('30 minutes avant')
 
-    await userEvent.click(screen.getByRole('combobox', { name: 'Rappel' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappels' }))
+    await userEvent.click(screen.getByRole('option', { name: '30 minutes avant' }))
     await userEvent.click(screen.getByRole('option', { name: '1 jour avant' }))
+    await userEvent.keyboard('{Escape}')
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(onSubmit).toHaveBeenCalledWith(
@@ -166,10 +168,11 @@ describe('EventEditDialog', () => {
       />,
     )
 
-    await userEvent.click(screen.getByRole('button', { name: 'Supprimer le rappel 30 minutes avant' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappels' }))
+    await userEvent.click(screen.getByRole('option', { name: '30 minutes avant' }))
+    await userEvent.keyboard('{Escape}')
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
-    expect(screen.getByText('Aucun rappel')).toBeInTheDocument()
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ reminders: null }))
   })
 

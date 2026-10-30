@@ -366,7 +366,7 @@ describe('CalendarView', () => {
 
       const edit = await screen.findByRole('dialog')
       // The form opened on the series' reminder, untouched.
-      expect(within(edit).getByRole('combobox', { name: 'Rappel' })).toHaveTextContent('30 minutes avant')
+      expect(within(edit).getByRole('combobox', { name: 'Rappels' })).toHaveTextContent('30 minutes avant')
       await userEvent.click(within(edit).getByRole('button', { name: 'Enregistrer' }))
 
       const confirm = await screen.findByRole('dialog')

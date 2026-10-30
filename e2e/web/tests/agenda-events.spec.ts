@@ -209,17 +209,20 @@ test('a reminder set in the dialog is stored, and shown on the card', async ({ p
   const calendar = new CalendarPage(page)
   await calendar.open()
 
-  await calendar.createEvent({ ...created, agenda: 'Perso', reminder: '1 heure avant' })
+  await calendar.createEvent({ ...created, agenda: 'Perso', reminder: ['1 heure avant', '1 jour avant'] })
 
   const stored = await storedEvent(api, created.summary)
   expect(stored.reminders).toEqual({
     useDefault: false,
-    overrides: [{ method: 'popup', minutes: 60 }],
+    overrides: [
+      { method: 'popup', minutes: 60 },
+      { method: 'popup', minutes: 1440 },
+    ],
   })
 
   // And the owner can see what he will be told, and when, without reopening the form.
   await calendar.openEvent(String(stored.id), created.summary)
-  await expect(calendar.reminderOnCard('1 heure avant')).toBeVisible()
+  await expect(calendar.reminderOnCard('1 heure avant, 1 jour avant')).toBeVisible()
 })
 
 /**
