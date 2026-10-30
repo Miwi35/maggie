@@ -43,6 +43,9 @@
         <testsuite name="Health">
             <directory>modules/health/tests/</directory>
         </testsuite>
+        <testsuite name="PsychedLabs">
+            <directory>packages/*/tests/</directory>
+        </testsuite>
     </testsuites>
 
     <groups>
@@ -62,6 +65,7 @@
             <directory>modules/notification/src/</directory>
             <directory>modules/finance/src/</directory>
             <directory>modules/health/src/</directory>
+            <directory>packages/testing/src/</directory>
         </include>
         <exclude>
             <file>src/Kernel.php</file>

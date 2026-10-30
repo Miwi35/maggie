@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1fc8f1b71610891a2c08b1b282255a31",
+    "content-hash": "3b14f161a69b444b1339cb3b5a2e8e69",
     "packages": [
         {
             "name": "api-platform/core",
@@ -11981,6 +11981,41 @@
             "time": "2026-02-18T12:38:40+00:00"
         },
         {
+            "name": "psychedlabs/testing",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "packages/testing",
+                "reference": "b54f05547dd599f96fb487f12232bdd015435711"
+            },
+            "require": {
+                "doctrine/dbal": "^4.0",
+                "php": ">=8.4",
+                "phpunit/phpunit": "^12.0",
+                "symfony/mercure": "^0.7",
+                "symfony/uid": "^7.4"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "PsychedLabs\\Testing\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "PsychedLabs\\Testing\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Test tooling: in-memory Mercure hub and assertions, contract snapshots, SQL query counter",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "react/cache",
             "version": "v1.2.0",
             "source": {
@@ -13992,7 +14027,8 @@
         "maggie/grocery": 20,
         "maggie/health": 20,
         "maggie/meal-grocery": 20,
-        "maggie/notification": 20
+        "maggie/notification": 20,
+        "psychedlabs/testing": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,
