@@ -1,0 +1,20 @@
+# « Mets l'appel au garage vendredi à 18 h » (MAG-718): a precise hour is the moment `time` with
+# `scheduledTime`, and no `reminders` — the API's default is a reminder at the time; she passes some
+# only when the user names them (« 30 min avant » → [30]). Same read-then-write as
+# 74-task-schedule-evening.yaml.
+name: task-schedule-time
+description: Schedule the named task on Friday at 18:00, default reminder at the time.
+
+match:
+  user_matches: "appel au garage vendredi (?:à|a) 18 ?h"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+title\W+Appel au garage\W+description'
+
+turns:
+  - tools:
+      - name: get_tasks
+        input: {status: pending}
+  - tools:
+      - name: update_task
+        input: {id: '\1', scheduledDate: '${friday}', scheduledMoment: time, scheduledTime: "18:00"}
+  - text: "C'est fait : l'appel au garage est programmé vendredi à 18 h, je vous le rappellerai à l'heure."
