@@ -48,5 +48,12 @@ final class SyncedMeasurement
         if (null === $this->weightKg && null === $this->bodyFatPercent) {
             $context->buildViolation('Give at least one of weightKg or bodyFatPercent.')->atPath('weightKg')->addViolation();
         }
+        // Checked as stored, rounded to the column's scale, as the measurement's rules do.
+        if (is_numeric($this->weightKg) && round((float) $this->weightKg, 2) <= 0) {
+            $context->buildViolation('Is in kilograms, more than 0 once rounded to 2 decimals.')->atPath('weightKg')->addViolation();
+        }
+        if (is_numeric($this->bodyFatPercent) && (round((float) $this->bodyFatPercent, 1) <= 0 || round((float) $this->bodyFatPercent, 1) >= BodyMeasurement::MAX_BODY_FAT_PERCENT)) {
+            $context->buildViolation('Is in percent, more than 0 and less than 100 once rounded to 1 decimal.')->atPath('bodyFatPercent')->addViolation();
+        }
     }
 }
