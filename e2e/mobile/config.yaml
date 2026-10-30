@@ -88,3 +88,4 @@ executionOrder:
     - 30-health-sport
     - 31-health-suivi
     - 32-health-configuration
+    - 31-task-schedule

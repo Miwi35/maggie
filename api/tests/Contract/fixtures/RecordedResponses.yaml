@@ -88,6 +88,11 @@ Maggie\Calendar\Entity\Task:
     position: '00000000000000000000'
     estimatedMinutes: 20
     firstStep: Ouvrir le dossier
+    # Planned at a precise time the day before it is due (MAG-718): the four fields recorded.
+    scheduledDate: '<(new \DateTimeImmutable("2026-03-19"))>'
+    scheduledMoment: '<(Maggie\Calendar\Enum\TaskMoment::Time)>'
+    scheduledTime: '18:00'
+    reminders: [0, 30]
     user: '@recorded_user'
 
   # A subtask as Google sends one (MAG-404): its parent, its place, a link.

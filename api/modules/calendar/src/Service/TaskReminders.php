@@ -37,8 +37,9 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * three rules, answered in one gesture. Called every minute by
  * `maggie:notification:check-reminders`.
  *
- * - `due`: the morning alerts of {@see TaskAlertSchedule}, at the morning or,
- *   when it falls in the quiet hours, at their end;
+ * - `due` (MAG-718): a task at a precise time, at each of its reminders —
+ *   minutes before the time, as an event. The morning alerts of
+ *   {@see TaskAlertSchedule} send nothing anymore: the morning digest reads them;
  * - `nudge`: at `afterBreakfast` and `afterLunch`, the task « now » of a
  *   confirmed day, once per moment and per day;
  * - `routine` (MAG-512): at each moment and each hour of the routines that ask
@@ -47,7 +48,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  *
  * The rules hold for every kind: nothing in the quiet hours — a reminder that
  * falls in them is dropped, never piled up for the morning —, at most
- * `reminderDailyCap` a local day (those the user put off aside), and never the
+ * `reminderDailyCap` a local day (those the user put off or set aside), and never the
  * message of the previous reminder of the same kind. A new kind plugs in at
  * {@see self::compose()}.
  *
@@ -66,7 +67,6 @@ final class TaskReminders
     public function __construct(
         private readonly TaskReminderRepository $reminders,
         private readonly TaskSettingsRepository $settings,
-        private readonly TaskAlertSchedule $alertSchedule,
         private readonly TaskOverdue $overdue,
         private readonly DayPlanRepository $dayPlanRepository,
         private readonly DayPlans $dayPlans,
@@ -88,7 +88,7 @@ final class TaskReminders
         $settings = $this->settingsOf($user);
         $local = $this->local($user);
 
-        $this->planDue($user, $settings, $local);
+        $this->planTimed($user, $local);
         $this->planNudges($user, $settings, $local);
         $this->planRoutines($user, $local);
         $this->em->flush();
@@ -146,6 +146,16 @@ final class TaskReminders
                 break;
             case TaskReminder::ACTION_TOMORROW:
                 \assert(null !== $task);
+                if (TaskReminder::KIND_DUE === $reminder->getKind() && null !== $task->getScheduledDate()) {
+                    // A task at a precise time moves its programmation a day later, at the same time: from its own day, so
+                    // a reminder a week before does not bring it closer, and never before tomorrow, so a late answer does
+                    // not leave it in the past, never reminded again.
+                    $this->bus->dispatch(new UpdateTaskCommand(taskId: (string) $task->getId(), scheduledDate: max(
+                        $task->getScheduledDate()->modify('+1 day'),
+                        $this->overdue->today($user)->modify('+1 day'),
+                    )));
+                    break;
+                }
                 $this->putInTomorrow($user, $task);
                 break;
             case TaskReminder::ACTION_DONE:
@@ -195,20 +205,45 @@ final class TaskReminders
         ];
     }
 
-    private function planDue(User $user, TaskSettings $settings, \DateTimeImmutable $local): void
+    /**
+     * Each reminder of the tasks at a precise time, at its minute: once per
+     * task and per minute, so a task moved to another time is reminded again.
+     */
+    private function planTimed(User $user, \DateTimeImmutable $local): void
     {
-        $at = self::at($local, $settings->getAlertTime());
-        if (!self::within($local, $at)) {
-            return;
-        }
+        $zone = $local->getTimezone();
+        $today = $this->overdue->today($user);
+        // The furthest reminder is a week before: a task up to a week ahead may fall now.
+        $until = $today->modify(\sprintf('+%d days', intdiv(TaskSchedule::MAX_REMINDER_MINUTES, 1440)));
 
-        [$from, $to] = self::dayOf($local);
-        foreach ($this->alertSchedule->dueAlerts($user, $this->overdue->today($user)) as $alert) {
-            $taskId = (string) $alert->task->getId();
-            if (!$this->reminders->isPlanned($user, TaskReminder::KIND_DUE, $from, $to, subjectId: $taskId)) {
-                $this->plan($user, TaskReminder::KIND_DUE, $taskId, null, $at);
+        foreach ($this->tasks->findOpenTimedBetween($user, $today, $until) as $task) {
+            $taskId = (string) $task->getId();
+            foreach (self::timedAt($task, $zone) as $at) {
+                if (self::within($local, $at) && !$this->reminders->isPlanned($user, TaskReminder::KIND_DUE, $at, $at->modify('+1 second'), subjectId: $taskId)) {
+                    $this->plan($user, TaskReminder::KIND_DUE, $taskId, null, $at);
+                }
             }
         }
+    }
+
+    /**
+     * The minutes the reminders of a task at a precise time fall at, in $zone.
+     *
+     * @return array<int, \DateTimeImmutable> by delay, minutes before the time
+     */
+    private static function timedAt(Task $task, \DateTimeZone $zone): array
+    {
+        $start = TaskSchedule::startsAt($task, $zone);
+        if (null === $start) {
+            return [];
+        }
+
+        $at = [];
+        foreach ($task->getReminders() as $delay) {
+            $at[$delay] = $start->modify(\sprintf('-%d minutes', $delay));
+        }
+
+        return $at;
     }
 
     private function planNudges(User $user, TaskSettings $settings, \DateTimeImmutable $local): void
@@ -298,7 +333,7 @@ final class TaskReminders
         return $sent;
     }
 
-    /** The rules every kind keeps: on time, outside the quiet hours, under the daily cap unless put off by the user. */
+    /** The rules every kind keeps: on time, outside the quiet hours, under the daily cap unless put off or asked for by the user. */
     private function mayGo(TaskReminder $reminder, TaskSettings $settings, \DateTimeImmutable $local, \DateTimeImmutable $from, \DateTimeImmutable $to): bool
     {
         // Missed, it is not sent late: never piled up after the quiet hours or a restart.
@@ -306,7 +341,8 @@ final class TaskReminders
             return false;
         }
 
-        return $reminder->isSnoozed() || $this->reminders->countCappedSentBetween($reminder->getUser(), $from, $to) < $settings->getReminderDailyCap();
+        // A reminder at a precise time is one the user set, as on an event: the cap is for Maggie's own.
+        return TaskReminder::KIND_DUE === $reminder->getKind() || $reminder->isSnoozed() || $this->reminders->countCappedSentBetween($reminder->getUser(), $from, $to) < $settings->getReminderDailyCap();
     }
 
     /**
@@ -330,17 +366,22 @@ final class TaskReminders
 
         switch ($reminder->getKind()) {
             case TaskReminder::KIND_DUE:
-                $alert = $this->alertSchedule->alertFor($task, $this->overdue->today($user), $settings->getAlertSchedule());
-                if (null === $alert) {
+                // Moved or no longer at that time since it was planned: it has nothing left to say.
+                $zone = $local->getTimezone();
+                $delay = array_search($reminder->getScheduledFor()->setTimezone($zone)->format('Y-m-d H:i'), array_map(
+                    static fn (\DateTimeImmutable $at): string => $at->format('Y-m-d H:i'),
+                    self::timedAt($task, $zone),
+                ), true);
+                if (false === $delay) {
                     return null;
                 }
-                $drawn = $this->messages->due($settings->getTone(), $alert->reason, $alert->days, $task->getTitle(), $previous);
+                $time = (string) $task->getScheduledTime();
 
                 return [
                     'type' => NotificationType::TaskDue,
-                    'key' => $drawn['key'],
-                    'title' => $drawn['message'],
-                    'body' => null,
+                    'key' => 'due.timed',
+                    'title' => mb_strimwidth($task->getTitle(), 0, ReminderMessages::TITLE_MAX, '…'),
+                    'body' => 0 === $delay ? 'C\'est l\'heure · '.$time : 'Dans '.self::delay($delay).' · '.$time,
                     'actions' => [TaskReminder::ACTION_START, TaskReminder::ACTION_DONE, TaskReminder::ACTION_TOMORROW],
                     'iri' => '/api/tasks/'.$reminder->getSubjectId(),
                 ];
@@ -491,6 +532,21 @@ final class TaskReminders
     private function local(User $user): \DateTimeImmutable
     {
         return $this->clock->now()->setTimezone($this->overdue->zone($user));
+    }
+
+    /** « 30 min », « 1 h », « 1 h 30 », « 2 j » : a delay before the time, as said. */
+    private static function delay(int $minutes): string
+    {
+        if ($minutes < 60) {
+            return $minutes.' min';
+        }
+        if (0 === $minutes % 1440) {
+            return intdiv($minutes, 1440).' j';
+        }
+        $hours = intdiv($minutes, 60);
+        $rest = $minutes % 60;
+
+        return 0 === $rest ? $hours.' h' : \sprintf('%d h %02d', $hours, $rest);
     }
 
     /** $time, `HH:MM`, on the day of $local and in its zone. */

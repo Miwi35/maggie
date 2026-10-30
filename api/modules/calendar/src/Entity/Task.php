@@ -17,10 +17,12 @@ use ApiPlatform\Metadata\Post;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Enum\TaskCriticality;
+use Maggie\Calendar\Enum\TaskMoment;
 use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Enum\TaskUrgencyLevel;
 use Maggie\Calendar\Filter\CompletionPeriodFilter;
 use Maggie\Calendar\Repository\TaskRepository;
+use Maggie\Calendar\Service\TaskSchedule;
 use Maggie\Calendar\State\CreateTaskProcessor;
 use Maggie\Calendar\State\DeleteTaskProcessor;
 use Maggie\Calendar\State\UpdateTaskProcessor;
@@ -45,9 +47,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: TaskRepository::class)]
 #[ORM\Index(columns: ['due_date'], name: 'idx_task_due_date')]
 #[ORM\Index(columns: ['completed_at'], name: 'idx_task_completed_at')]
-#[ApiFilter(DateFilter::class, properties: ['dueDate'])]
+#[ORM\Index(columns: ['scheduled_date'], name: 'idx_task_scheduled_date')]
+#[ApiFilter(DateFilter::class, properties: ['dueDate', 'scheduledDate'])]
 #[ApiFilter(CompletionPeriodFilter::class, properties: ['completedAt'])]
-#[ApiFilter(ExistsFilter::class, properties: ['completedAt', 'dueDate'])]
+#[ApiFilter(ExistsFilter::class, properties: ['completedAt', 'dueDate', 'scheduledDate'])]
 #[ApiFilter(SearchFilter::class, properties: ['priority' => 'exact', 'criticality' => 'exact'])]
 #[ApiFilter(OrderFilter::class, properties: ['id', 'dueDate', 'criticality', 'position', 'completedAt'])]
 #[ApiFilter(UlidRelationFilter::class, properties: ['parent'])]
@@ -109,6 +112,58 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
         denormalizationContext: [DateTimeNormalizer::FORMAT_KEY => StrictDayNormalizer::DAY_FORMAT],
     )]
     private ?\DateTimeImmutable $dueDate = null;
+
+    /**
+     * The day the owner plans to do it (MAG-718), not a deadline: it puts the
+     * task in that day's agenda and in « Aujourd'hui ». Maggie's own: Google
+     * Tasks only keeps the due day.
+     */
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[IndexedField(type: 'date')]
+    #[ApiProperty(
+        description: 'The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day\'s agenda and in today\'s tasks. Maggie\'s own: Google never sees it.',
+        openapiContext: ['type' => ['string', 'null'], 'format' => 'date', 'example' => '2037-01-01'],
+    )]
+    #[Context(
+        normalizationContext: [DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'],
+        denormalizationContext: [DateTimeNormalizer::FORMAT_KEY => StrictDayNormalizer::DAY_FORMAT],
+    )]
+    private ?\DateTimeImmutable $scheduledDate = null;
+
+    /** When in the scheduled day: a part of it, or `time` with `scheduledTime`. Null: just the day. */
+    #[ORM\Column(length: 20, nullable: true, enumType: TaskMoment::class)]
+    #[IndexedField(type: 'keyword')]
+    #[ApiProperty(
+        description: 'When in the scheduled day: morning, afternoon, evening, or time (then scheduledTime is required). Null: the day only. Needs a scheduledDate.',
+        openapiContext: ['type' => ['string', 'null'], 'enum' => ['morning', 'afternoon', 'evening', 'time', null]],
+    )]
+    private ?TaskMoment $scheduledMoment = null;
+
+    /** `HH:MM` in the owner's timezone, set if and only if the moment is `time`. */
+    #[ORM\Column(length: 5, nullable: true)]
+    #[IndexedField(type: 'keyword')]
+    #[Assert\Regex(pattern: TaskSchedule::TIME_PATTERN, message: 'scheduledTime must be a time "HH:MM".')]
+    #[ApiProperty(
+        description: 'The time of the scheduled day, HH:MM in the user\'s timezone. Only with scheduledMoment "time", and required with it.',
+        openapiContext: ['type' => ['string', 'null'], 'pattern' => '^([01]\d|2[0-3]):[0-5]\d$', 'example' => '18:00'],
+    )]
+    private ?string $scheduledTime = null;
+
+    /**
+     * Minutes before `scheduledTime` a reminder goes out, as an event has them
+     * (0: at the time). Only at a precise time.
+     *
+     * @var list<int>
+     */
+    #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
+    #[IndexedField(type: 'integer')]
+    #[Assert\Count(max: Event::MAX_REMINDERS)]
+    #[Assert\All([new Assert\Type('integer'), new Assert\Range(min: 0, max: TaskSchedule::MAX_REMINDER_MINUTES)])]
+    #[ApiProperty(
+        description: 'Reminders, in minutes before scheduledTime (0: at the time, up to 10080: a week). Only with scheduledMoment "time"; set to time without reminders, it gets one at the time.',
+        openapiContext: ['type' => 'array', 'items' => ['type' => 'integer', 'minimum' => 0, 'maximum' => TaskSchedule::MAX_REMINDER_MINUTES], 'maxItems' => Event::MAX_REMINDERS],
+    )]
+    private array $reminders = [];
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
@@ -256,6 +311,72 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     public function setDueDate(?\DateTimeImmutable $dueDate): static
     {
         $this->dueDate = $dueDate;
+
+        return $this;
+    }
+
+    public function getScheduledDate(): ?\DateTimeImmutable
+    {
+        return $this->scheduledDate;
+    }
+
+    public function setScheduledDate(?\DateTimeImmutable $scheduledDate): static
+    {
+        $this->scheduledDate = $scheduledDate;
+
+        return $this;
+    }
+
+    public function getScheduledMoment(): ?TaskMoment
+    {
+        return $this->scheduledMoment;
+    }
+
+    public function setScheduledMoment(?TaskMoment $scheduledMoment): static
+    {
+        $this->scheduledMoment = $scheduledMoment;
+
+        return $this;
+    }
+
+    public function getScheduledTime(): ?string
+    {
+        return $this->scheduledTime;
+    }
+
+    public function setScheduledTime(?string $scheduledTime): static
+    {
+        $this->scheduledTime = $scheduledTime;
+
+        return $this;
+    }
+
+    /** @return list<int> */
+    public function getReminders(): array
+    {
+        return $this->reminders;
+    }
+
+    /** @param list<int> $reminders */
+    public function setReminders(array $reminders): static
+    {
+        $this->reminders = $reminders;
+
+        return $this;
+    }
+
+    /**
+     * The four fields of the programmation at once, as {@see TaskSchedule}
+     * settled them: they only make sense together.
+     *
+     * @param list<int> $reminders
+     */
+    public function schedule(?\DateTimeImmutable $day, ?TaskMoment $moment, ?string $time, array $reminders): static
+    {
+        $this->scheduledDate = $day;
+        $this->scheduledMoment = $moment;
+        $this->scheduledTime = $time;
+        $this->reminders = $reminders;
 
         return $this;
     }
@@ -415,6 +536,10 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'title' => $this->title,
             'description' => $this->description,
             'dueDate' => $this->dueDate?->format('Y-m-d'),
+            'scheduledDate' => $this->scheduledDate?->format('Y-m-d'),
+            'scheduledMoment' => $this->scheduledMoment?->value,
+            'scheduledTime' => $this->scheduledTime,
+            'reminders' => $this->reminders,
             'completedAt' => $this->completedAt?->format('c'),
             'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
             'position' => $this->position,
@@ -434,6 +559,10 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'priority' => $this->priority->value,
             'criticality' => $this->criticality->value,
             'dueDate' => $this->dueDate?->format('Y-m-d'),
+            'scheduledDate' => $this->scheduledDate?->format('Y-m-d'),
+            'scheduledMoment' => $this->scheduledMoment?->value,
+            'scheduledTime' => $this->scheduledTime,
+            'reminders' => $this->reminders,
             'isDone' => $this->isDone(),
             'parent' => null !== $this->parent ? '/api/tasks/'.$this->parent->getId() : null,
             'position' => $this->position,

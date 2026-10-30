@@ -7,7 +7,9 @@ use ApiPlatform\State\ProcessorInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Exception\InvalidTaskParentException;
+use Maggie\Calendar\Exception\InvalidTaskScheduleException;
 use Maggie\Calendar\Message\UpdateTaskCommand;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -18,6 +20,7 @@ class UpdateTaskProcessor implements ProcessorInterface
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly RequestStack $requestStack,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -30,7 +33,7 @@ class UpdateTaskProcessor implements ProcessorInterface
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
         if (null !== $previous) {
-            foreach (['description' => 'getDescription', 'dueDate' => 'getDueDate', 'completedAt' => 'getCompletedAt', 'parent' => 'getParent', 'estimatedMinutes' => 'getEstimatedMinutes', 'firstStep' => 'getFirstStep'] as $field => $getter) {
+            foreach (['description' => 'getDescription', 'dueDate' => 'getDueDate', 'completedAt' => 'getCompletedAt', 'parent' => 'getParent', 'estimatedMinutes' => 'getEstimatedMinutes', 'firstStep' => 'getFirstStep', 'scheduledDate' => 'getScheduledDate', 'scheduledMoment' => 'getScheduledMoment'] as $field => $getter) {
                 if (null === $data->$getter() && null !== $previous->$getter()) {
                     $clearFields[] = $field;
                 }
@@ -54,6 +57,12 @@ class UpdateTaskProcessor implements ProcessorInterface
             position: null === $previous || $data->getPosition() !== $previous->getPosition() ? $data->getPosition() : null,
             estimatedMinutes: null === $previous || $data->getEstimatedMinutes() !== $previous->getEstimatedMinutes() ? $data->getEstimatedMinutes() : null,
             firstStep: null === $previous || $data->getFirstStep() !== $previous->getFirstStep() ? $data->getFirstStep() : null,
+            scheduledDate: null === $previous || $data->getScheduledDate() != $previous->getScheduledDate() ? $data->getScheduledDate() : null,
+            scheduledMoment: null === $previous || $data->getScheduledMoment() !== $previous->getScheduledMoment() ? $data->getScheduledMoment()?->value : null,
+            // A time sent null is no change of its own: the moment says whether one is kept.
+            scheduledTime: null === $previous || $data->getScheduledTime() !== $previous->getScheduledTime() ? $data->getScheduledTime() : null,
+            // Sent, even unchanged: an empty list at a new precise time is no reminder, not the default one.
+            reminders: null === $previous || $data->getReminders() !== $previous->getReminders() || $this->sends('reminders') ? $data->getReminders() : null,
         );
 
         // The deserializer applied the patch to the managed entity, the parent
@@ -64,7 +73,7 @@ class UpdateTaskProcessor implements ProcessorInterface
         try {
             $envelope = $this->bus->dispatch($command);
         } catch (HandlerFailedException $e) {
-            if ($e->getPrevious() instanceof InvalidTaskParentException) {
+            if ($e->getPrevious() instanceof InvalidTaskParentException || $e->getPrevious() instanceof InvalidTaskScheduleException) {
                 throw new BadRequestHttpException($e->getPrevious()->getMessage(), $e);
             }
 
@@ -72,5 +81,16 @@ class UpdateTaskProcessor implements ProcessorInterface
         }
 
         return $envelope->last(HandledStamp::class)->getResult();
+    }
+
+    /**
+     * Whether the request body names $field: a list sent empty is not one left
+     * out, and the deserializer alone cannot tell them apart.
+     */
+    private function sends(string $field): bool
+    {
+        $body = json_decode((string) $this->requestStack->getCurrentRequest()?->getContent(), true);
+
+        return \is_array($body) && \array_key_exists($field, $body);
     }
 }

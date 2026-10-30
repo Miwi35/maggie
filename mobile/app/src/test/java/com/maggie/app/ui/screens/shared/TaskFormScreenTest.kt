@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.shared
 
+import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -14,9 +15,15 @@ import com.maggie.app.data.model.Task
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.ui.UiTags
+import com.maggie.app.util.DateRanges
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,6 +49,7 @@ class TaskFormScreenTest {
         onUpdate: (JsonObject) -> Unit = {},
         onDelete: () -> Unit = {},
         actions: SubtaskActions = SubtaskActions(),
+        task: Task = this.task,
     ) {
         compose.setContent {
             TaskFormScreen(
@@ -85,7 +93,8 @@ class TaskFormScreenTest {
 
         assertTopToBottom(
             "titre" to compose.onNodeWithTag(UiTags.TASK_FORM_TITLE),
-            "échéance" to compose.onNodeWithText("Échéance"),
+            "échéance" to compose.onNodeWithTag(UiTags.TASK_FORM_DUE),
+            "programmée" to compose.onNodeWithTag(UiTags.TASK_FORM_SCHEDULED),
             "criticité" to compose.onNodeWithText("Criticité"),
             "notes" to compose.onNodeWithTag(UiTags.TASK_NOTES),
         )
@@ -142,5 +151,101 @@ class TaskFormScreenTest {
         compose.onNodeWithContentDescription("Ajouter la sous-tâche").performClick()
 
         assertEquals(listOf("tick s1 true", "add Acheter des cartons"), calls)
+    }
+
+    // The dates card (MAG-718).
+
+    private val atSix = task.copy(scheduledDate = "2026-10-16", scheduledMoment = "time", scheduledTime = "18:00", reminders = listOf(0, 30))
+
+    private fun chooseMoment(moment: String) {
+        compose.onNodeWithTag(UiTags.TASK_FORM_MOMENT).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.taskFormMoment(moment)).performClick()
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun `the moment only appears once a day is scheduled, and « Demain » schedules tomorrow`() {
+        val created = mutableListOf<TaskCreateRequest>()
+        showCreate(onCreate = { created += it })
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_MOMENT).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TASK_FORM_REMINDERS).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TASK_FORM_SCHEDULED).performClick()
+        compose.onNodeWithTag(UiTags.PICKER_TOMORROW).performClick()
+        compose.onNodeWithTag(UiTags.TASK_FORM_MOMENT).assertExists()
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_TITLE).performTextInput("Appeler le garage")
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+
+        val request = created.single()
+        assertEquals(DateRanges.todayDate().plusDays(1).toString(), request.scheduledDate)
+        assertNull(request.scheduledMoment)
+        assertNull(request.scheduledTime)
+        assertNull(request.reminders)
+        assertNull(request.dueDate)
+    }
+
+    @Test
+    fun `the moment's menu offers the four moments, the time with its value`() {
+        showEdit(task = atSix)
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_MOMENT).performScrollTo().assertContentDescriptionContains("18:00", substring = true)
+        compose.onNodeWithTag(UiTags.TASK_FORM_MOMENT).performClick()
+
+        listOf("Matin", "Après-midi", "Soir", "Heure précise · 18:00 ›").forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+    }
+
+    @Test
+    fun `« Soir » hides the reminders and saves no time and no reminder`() {
+        val updates = mutableListOf<JsonObject>()
+        showEdit(onUpdate = { updates += it }, task = atSix)
+        compose.onNodeWithTag(UiTags.TASK_FORM_REMINDERS).performScrollTo().assertIsDisplayed()
+
+        chooseMoment("evening")
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_REMINDERS).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+        val body = updates.single()
+        assertEquals("2026-10-16", body["scheduledDate"]?.jsonPrimitive?.content)
+        assertEquals("evening", body["scheduledMoment"]?.jsonPrimitive?.content)
+        assertEquals(JsonNull, body["scheduledTime"])
+        assertEquals(JsonArray(emptyList()), body["reminders"])
+    }
+
+    @Test
+    fun `« Heure précise » opens the 24 h clock, then shows the time and the reminders at « À l'heure »`() {
+        val updates = mutableListOf<JsonObject>()
+        showEdit(onUpdate = { updates += it }, task = task.copy(scheduledDate = "2026-10-16", scheduledMoment = "evening"))
+        compose.onNodeWithTag(UiTags.TASK_FORM_REMINDERS).assertDoesNotExist()
+
+        chooseMoment("time")
+        compose.onNodeWithText("Heure précise").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_MOMENT).assertContentDescriptionContains("Moment, 18:00")
+        compose.onNodeWithTag(UiTags.TASK_FORM_REMINDERS).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("À l'heure").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+        val body = updates.single()
+        assertEquals("time", body["scheduledMoment"]?.jsonPrimitive?.content)
+        assertEquals("18:00", body["scheduledTime"]?.jsonPrimitive?.content)
+        assertEquals(listOf(0), body["reminders"]?.jsonArray?.map { it.jsonPrimitive.int })
+    }
+
+    @Test
+    fun `clearing the scheduled day clears the whole programmation`() {
+        val updates = mutableListOf<JsonObject>()
+        showEdit(onUpdate = { updates += it }, task = atSix)
+
+        compose.onNodeWithContentDescription("Effacer : Programmée").performScrollTo().performClick()
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_MOMENT).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+        val body = updates.single()
+        listOf("scheduledDate", "scheduledMoment", "scheduledTime").forEach { assertEquals(it, JsonNull, body[it]) }
+        assertEquals(JsonArray(emptyList()), body["reminders"])
+        // The due date is another field: it stays.
+        assertEquals("2026-10-13", body["dueDate"]?.jsonPrimitive?.content)
     }
 }

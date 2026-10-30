@@ -425,13 +425,41 @@
                         "string"
                     ],
                     "default": null
+                },
+                "scheduledDate": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "scheduledMoment": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "scheduledTime": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "reminders": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "title"
             ]
         },
-        "description": "Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD. To make it a subtask, give parentId — the id of a task that is not a subtask itself (one level only). estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie, Google never sees them."
+        "description": "Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD. To make it a subtask, give parentId — the id of a task that is not a subtask itself (one level only). estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie, Google never sees them. dueDate is the deadline (« avant samedi », « pour samedi au plus tard »); scheduledDate (YYYY-MM-DD) is the day the user plans to do it (« mets-la vendredi »), which puts it in that day's agenda and today's tasks; scheduledMoment is morning, afternoon, evening, or time with scheduledTime HH:MM (« vendredi à 18 h »); reminders, only with time, are minutes before it (0: at the time) — left out, one at the time."
     },
     "delete_event": {
         "name": "delete_event",
@@ -856,7 +884,7 @@
                 }
             }
         },
-        "description": "Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. Tasks come highest orderScore first (done: most recently done first): cite them in that order. A view (given, status is ignored) is one tab of the task screen, each task in exactly one: \"today\" = not done, due today or late, by orderScore, each followed by its subtasks; \"upcoming\" = not done, due after today, by due day then orderScore; \"someday\" = not done, no due day, by priority then position; \"done\" = the 50 most recently done (total gives how many). counts gives the size of the four views. Use view \"today\" whenever the user asks about their day, their tasks or what is on: the late tasks and the urgent ones come first, already ranked by orderScore, so cite them in that order — late (overdueDays) before the others. Use view \"someday\" only to suggest a task to plan on a light day (few events, no high or critical urgency in today): it has no due day, so it is never late and never urgent by itself. Each task has urgency (low, normal, high, critical — computed from criticality and the due day, never set), orderScore (time pressure + criticality + priority), overdueDays (days late, null when not late) and parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google) and dueDate as YYYY-MM-DD."
+        "description": "Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. Tasks come highest orderScore first (done: most recently done first): cite them in that order. A view (given, status is ignored) is one tab of the task screen, each task in exactly one: \"today\" = not done, planned today (scheduledDate) or due today or late — the planned ones first by moment then time, then the others by orderScore —, each followed by its subtasks, and reminders: the day's list the morning digest tells, each {taskId, title, reason, days, urgency} — reason \"to_schedule\" (due in days days, 0 the due day, and no day planned yet: suggest planning it) or \"not_done\" (days late); \"upcoming\" = not done, due or planned after today, by day then orderScore; \"someday\" = not done, no due day nor day planned ahead, by priority then position; \"done\" = the 50 most recently done (total gives how many). counts gives the size of the four views. Use view \"today\" whenever the user asks about their day, their tasks or what is on: the late tasks and the urgent ones come first, already ranked by orderScore, so cite them in that order — late (overdueDays) before the others. Use view \"someday\" only to suggest a task to plan on a light day (few events, no high or critical urgency in today): it has no due day, so it is never late and never urgent by itself. Each task has urgency (low, normal, high, critical — computed from criticality and the due day, never set), orderScore (time pressure + criticality + priority), overdueDays (days late, null when not late) and parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google), dueDate (the deadline) as YYYY-MM-DD, and its programmation: scheduledDate (the day planned, YYYY-MM-DD), scheduledMoment (morning, afternoon, evening, or time with scheduledTime HH:MM) and reminders (minutes before the time)."
     },
     "get_treasury_outlook": {
         "name": "get_treasury_outlook",
@@ -4745,12 +4773,40 @@
                         "string"
                     ],
                     "default": null
+                },
+                "scheduledDate": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "scheduledMoment": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "scheduledTime": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "reminders": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "id"
             ]
         },
-        "description": "Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. Due date format: YYYY-MM-DD. parentId makes it a subtask of that task (one level only), position sets its order among its siblings. estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie. To empty an optional field, list its name in clear (description, dueDate, parent — parent makes it a top-level task again —, estimatedMinutes, firstStep)."
+        "description": "Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. Due date format: YYYY-MM-DD. parentId makes it a subtask of that task (one level only), position sets its order among its siblings. estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie. dueDate is the deadline (« avant samedi », « pour samedi au plus tard »); scheduledDate (YYYY-MM-DD) is the day the user plans to do it (« mets-la vendredi »), which puts it in that day's agenda and today's tasks; scheduledMoment is morning, afternoon, evening (« vendredi soir »), or time with scheduledTime HH:MM (« vendredi à 18 h »); reminders, only with time, are minutes before it (0: at the time) — left out when setting a time, one at the time; another moment drops the time and the reminders. To empty an optional field, list its name in clear (description, dueDate, parent — parent makes it a top-level task again —, estimatedMinutes, firstStep, scheduledDate — the whole programmation —, scheduledMoment — the day only stays)."
     }
 }

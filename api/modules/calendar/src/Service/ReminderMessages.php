@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Calendar\Service;
 
 use Maggie\Calendar\Entity\TaskSettings;
-use Maggie\Calendar\Enum\TaskAlertReason;
 use Random\Randomizer;
 
 /**
@@ -15,9 +14,10 @@ use Random\Randomizer;
  * same kind, so the same one never comes twice in a row.
  *
  * A message is known by its key, `{bank}.{tone}.{n}` counted from 1:
- * `nudge.direct.4`, `due.overdue.drole.2`, `routine.doux.1`. `{titre}` is the
- * task's title, `{jours}` the days before the due day or since it, `{liste}`
- * the titles of the routines of a moment, separated by commas (MAG-512).
+ * `nudge.direct.4`, `routine.doux.1`. `{titre}` is the task's title, `{liste}`
+ * the titles of the routines of a moment, separated by commas (MAG-512). The
+ * morning alerts had a bank too, gone with them (MAG-718): a reminder at a
+ * precise time says its task and its time.
  */
 final class ReminderMessages
 {
@@ -61,65 +61,6 @@ final class ReminderMessages
             '« {titre} » parie que tu n\'en feras que 10 minutes. Donne-lui raison.',
             'Psst. « {titre} ». C\'est tout, c\'est le message.',
             '« {titre} » a mis sa plus belle tenue rien que pour toi.',
-        ],
-    ];
-
-    /**
-     * By reason of the alert ({@see TaskAlertReason}), then tone.
-     *
-     * @var array<string, array<string, list<string>>>
-     */
-    public const DUE = [
-        'daysBefore' => [
-            TaskSettings::TONE_DOUX => [
-                '« {titre} » arrive dans {jours} j. Un petit bout aujourd\'hui ?',
-                'Dans {jours} j : « {titre} ». On peut la préparer doucement.',
-                '« {titre} » se profile dans {jours} j.',
-            ],
-            TaskSettings::TONE_DIRECT => [
-                'Dans {jours} j : « {titre} ».',
-                '« {titre} » : échéance dans {jours} j.',
-                'J-{jours} pour « {titre} ».',
-            ],
-            TaskSettings::TONE_DROLE => [
-                '« {titre} » arrive dans {jours} j, elle a déjà réservé sa place.',
-                'Compte à rebours : J-{jours} avant « {titre} ».',
-                '« {titre} » approche à pas de loup : {jours} j.',
-            ],
-        ],
-        'dueDay' => [
-            TaskSettings::TONE_DOUX => [
-                'C\'est pour aujourd\'hui : « {titre} ». Un petit pas suffit.',
-                '« {titre} » est prévue aujourd\'hui, à ton rythme.',
-                'Aujourd\'hui, « {titre} » a sa place.',
-            ],
-            TaskSettings::TONE_DIRECT => [
-                'Aujourd\'hui : « {titre} ».',
-                '« {titre} » est pour aujourd\'hui.',
-                'Échéance du jour : « {titre} ».',
-            ],
-            TaskSettings::TONE_DROLE => [
-                '« {titre} » a rendez-vous avec toi aujourd\'hui.',
-                'Aujourd\'hui, c\'est le grand jour de « {titre} ».',
-                '« {titre} » a entouré aujourd\'hui dans son agenda.',
-            ],
-        ],
-        'overdue' => [
-            TaskSettings::TONE_DOUX => [
-                '« {titre} » peut trouver sa place aujourd\'hui, sans pression.',
-                '« {titre} » a été reportée, et ce n\'est pas grave. Un petit pas ?',
-                'Si tu as un moment, « {titre} » t\'attend.',
-            ],
-            TaskSettings::TONE_DIRECT => [
-                'Reportée : « {titre} ». Aujourd\'hui ?',
-                '« {titre} » est reportée depuis {jours} j. On la cale ?',
-                '« {titre} » : un créneau aujourd\'hui ?',
-            ],
-            TaskSettings::TONE_DROLE => [
-                '« {titre} » a pris quelques jours de vacances. On la fait revenir ?',
-                '« {titre} » campe dans ta réserve depuis {jours} j.',
-                '« {titre} » a pris racine. Un petit coup de pelle ?',
-            ],
         ],
     ];
 
@@ -173,7 +114,7 @@ final class ReminderMessages
     {
         $messages = self::NUDGE[$tone] ?? throw new \InvalidArgumentException(\sprintf('No reminder messages for the tone "%s".', $tone));
 
-        return $this->draw('nudge.'.$tone, $messages, $previousKey, $title, 0);
+        return $this->draw('nudge.'.$tone, $messages, $previousKey, $title);
     }
 
     /**
@@ -190,37 +131,13 @@ final class ReminderMessages
     {
         $messages = self::ROUTINE[$tone] ?? throw new \InvalidArgumentException(\sprintf('No reminder messages for the tone "%s".', $tone));
 
-        return $this->draw('routine.'.$tone, $messages, $previousKey, implode(', ', $titles), 0, '{liste}');
-    }
-
-    /**
-     * A morning alert, by its reason and in the tone set.
-     *
-     * @return array{key: string, message: string}
-     *
-     * @throws \InvalidArgumentException on an unknown tone
-     */
-    public function due(string $tone, TaskAlertReason $reason, int $days, string $title, ?string $previousKey): array
-    {
-        $bank = self::bankOf($reason);
-        $messages = self::DUE[$bank][$tone] ?? throw new \InvalidArgumentException(\sprintf('No reminder messages for the tone "%s".', $tone));
-
-        return $this->draw('due.'.$bank.'.'.$tone, $messages, $previousKey, $title, $days);
+        return $this->draw('routine.'.$tone, $messages, $previousKey, implode(', ', $titles), '{liste}');
     }
 
     /** @return list<string> every message of every bank, placeholders left in */
     public static function all(): array
     {
-        return array_merge(...array_values(self::NUDGE), ...array_merge(...array_map(array_values(...), array_values(self::DUE))), ...array_values(self::ROUTINE));
-    }
-
-    private static function bankOf(TaskAlertReason $reason): string
-    {
-        return match ($reason) {
-            TaskAlertReason::DaysBefore => 'daysBefore',
-            TaskAlertReason::DueDay => 'dueDay',
-            TaskAlertReason::Overdue => 'overdue',
-        };
+        return array_merge(...array_values(self::NUDGE), ...array_values(self::ROUTINE));
     }
 
     /**
@@ -228,7 +145,7 @@ final class ReminderMessages
      *
      * @return array{key: string, message: string}
      */
-    private function draw(string $prefix, array $messages, ?string $previousKey, string $title, int $days, string $placeholder = '{titre}'): array
+    private function draw(string $prefix, array $messages, ?string $previousKey, string $title, string $placeholder = '{titre}'): array
     {
         $keys = [];
         foreach ($messages as $index => $message) {
@@ -239,7 +156,7 @@ final class ReminderMessages
         }
 
         $key = array_keys($keys)[$this->randomizer->getInt(0, \count($keys) - 1)];
-        $message = str_replace('{jours}', (string) $days, $keys[$key]);
+        $message = $keys[$key];
 
         // The title is cut, not the words around it: the whole fits a notification title.
         $room = self::TITLE_MAX - mb_strlen(str_replace($placeholder, '', $message));

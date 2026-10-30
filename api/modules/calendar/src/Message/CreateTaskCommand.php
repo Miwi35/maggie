@@ -4,6 +4,7 @@ namespace Maggie\Calendar\Message;
 
 final readonly class CreateTaskCommand
 {
+    /** @param list<int>|null $reminders minutes before the time; null: the default at a precise time */
     public function __construct(
         public string $userId,
         public string $title,
@@ -16,6 +17,10 @@ final readonly class CreateTaskCommand
         public ?string $position = null,
         public ?int $estimatedMinutes = null,
         public ?string $firstStep = null,
+        public ?\DateTimeImmutable $scheduledDate = null,
+        public ?string $scheduledMoment = null,
+        public ?string $scheduledTime = null,
+        public ?array $reminders = null,
     ) {
     }
 }

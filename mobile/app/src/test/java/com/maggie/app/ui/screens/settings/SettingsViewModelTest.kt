@@ -412,20 +412,6 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `the time picked becomes the morning, as HH MM`() = runTest {
-        answersWith(ownValues.copy(morningTime = "06:05"))
-        val viewModel = viewModel()
-        advanceUntilIdle()
-
-        viewModel.setMorningTime(6, 5)
-        advanceUntilIdle()
-
-        assertEquals("""{"morningTime":"06:05"}""", bodies.single().toString())
-        assertEquals("06:05", viewModel.uiState.value.tasks.settings?.morningTime)
-        assertTrue(viewModel.uiState.value.tasks.saved)
-    }
-
-    @Test
     fun `the time picked becomes the evening, as HH MM (MAG-500)`() = runTest {
         answersWith(ownValues.copy(eveningTime = "21:45"))
         val viewModel = viewModel()
@@ -573,18 +559,18 @@ class SettingsViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.setMorningTime(9, 0)
+        viewModel.setEveningTime(21, 0)
         advanceUntilIdle()
 
         val tasks = viewModel.uiState.value.tasks
         assertEquals("Impossible d'enregistrer les réglages des tâches", tasks.error)
-        assertEquals("07:30", tasks.settings?.morningTime)
+        assertEquals("22:00", tasks.settings?.eveningTime)
         assertFalse(tasks.saved)
     }
 
     @Test
-    fun `the alerts' defaults save the schedule, the morning and the evening, not the order`() = runTest {
-        answersWith(ownValues.copy(alertSchedule = defaultValues.alertSchedule, morningTime = defaultValues.morningTime, eveningTime = defaultValues.eveningTime))
+    fun `the reminders' defaults save the schedule and the evening, not the morning nor the order (MAG-718)`() = runTest {
+        answersWith(ownValues.copy(alertSchedule = defaultValues.alertSchedule, eveningTime = defaultValues.eveningTime))
         val viewModel = viewModel()
         advanceUntilIdle()
 
@@ -594,12 +580,12 @@ class SettingsViewModelTest {
         assertEquals(
             """{"alertSchedule":{"critical":{"daysBefore":[3,1],"dueDay":true,"overdueEveryDays":1},""" +
                 """"high":{"daysBefore":[1],"dueDay":true,"overdueEveryDays":1},""" +
-                """"normal":{"daysBefore":[],"dueDay":true,"overdueEveryDays":2}},"morningTime":"08:00","eveningTime":"21:00"}""",
+                """"normal":{"daysBefore":[],"dueDay":true,"overdueEveryDays":2}},"eveningTime":"21:00"}""",
             bodies.single().toString(),
         )
         val tasks = viewModel.uiState.value.tasks
         assertEquals(defaultValues.alertSchedule, tasks.settings?.alertSchedule)
-        assertEquals("08:00", tasks.settings?.morningTime)
+        assertEquals("07:30", tasks.settings?.morningTime)
         assertEquals("21:00", tasks.settings?.eveningTime)
         assertTrue(tasks.saved)
     }
@@ -676,16 +662,16 @@ class SettingsViewModelTest {
         advanceUntilIdle()
         runCurrent()
 
-        viewModel.setMorningTime(9, 0)
-        coEvery { apiService.getTaskSettings() } returns taskSettings(ownValues.copy(morningTime = "05:00"))
+        viewModel.setEveningTime(21, 0)
+        coEvery { apiService.getTaskSettings() } returns taskSettings(ownValues.copy(eveningTime = "23:00"))
         updates.emit(MercureEvent(data = "{}"))
         advanceUntilIdle()
-        assertEquals("09:00", viewModel.uiState.value.tasks.settings?.morningTime)
+        assertEquals("21:00", viewModel.uiState.value.tasks.settings?.eveningTime)
 
         answer.completeExceptionally(IllegalStateException("timeout"))
         advanceUntilIdle()
 
-        assertEquals("07:30", viewModel.uiState.value.tasks.settings?.morningTime)
+        assertEquals("22:00", viewModel.uiState.value.tasks.settings?.eveningTime)
     }
 
     @Test

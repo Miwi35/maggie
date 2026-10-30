@@ -10,6 +10,7 @@ use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Service\TaskEstimate;
 use Maggie\Calendar\Service\TaskHierarchy;
+use Maggie\Calendar\Service\TaskSchedule;
 use Maggie\Calendar\UseCase\UpdateTask;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -61,6 +62,19 @@ class UpdateTaskHandler
         }
 
         // Maggie's own fields: Google never hears of them, so no push either.
+        $scheduleChanged = null !== $command->scheduledDate || null !== $command->scheduledMoment || null !== $command->scheduledTime
+            || null !== $command->reminders || $command->clears('scheduledDate') || $command->clears('scheduledMoment');
+        if ($scheduleChanged) {
+            TaskSchedule::apply(
+                $task,
+                $command->scheduledDate,
+                $command->scheduledMoment,
+                $command->scheduledTime,
+                $command->reminders,
+                clearDay: $command->clears('scheduledDate'),
+                clearMoment: $command->clears('scheduledMoment'),
+            );
+        }
         TaskEstimate::check($command->estimatedMinutes, $command->firstStep);
         if (null !== $command->estimatedMinutes) {
             $task->setEstimatedMinutes($command->estimatedMinutes);
@@ -116,7 +130,7 @@ class UpdateTaskHandler
 
         // Only Maggie's own fields changed: nothing for Google.
         $ownOnly = [] === $changedFields && null === $command->priority && null === $command->criticality
-            && (null !== $command->estimatedMinutes || null !== $command->firstStep
+            && ($scheduleChanged || null !== $command->estimatedMinutes || null !== $command->firstStep
                 || $command->clears('estimatedMinutes') || $command->clears('firstStep'));
 
         if ($task->isGoogleSynced() && !$ownOnly) {

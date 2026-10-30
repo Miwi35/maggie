@@ -19,6 +19,10 @@ final class TaskJson
             'priority' => $task->getPriority()->value,
             'criticality' => $task->getCriticality()->value,
             'dueDate' => $task->getDueDate()?->format('Y-m-d'),
+            'scheduledDate' => $task->getScheduledDate()?->format('Y-m-d'),
+            'scheduledMoment' => $task->getScheduledMoment()?->value,
+            'scheduledTime' => $task->getScheduledTime(),
+            'reminders' => $task->getReminders(),
             'isDone' => $task->isDone(),
             'completedAt' => $task->getCompletedAt()?->format('c'),
             'overdueDays' => $task->getOverdueDays(),
@@ -34,16 +38,16 @@ final class TaskJson
     }
 
     /**
-     * The due day a tool was given, YYYY-MM-DD and a day that exists — not
+     * The day a tool was given, YYYY-MM-DD and a day that exists — not
      * the 45th rolled over into the next month.
      *
      * @throws \InvalidArgumentException
      */
-    public static function day(string $day): \DateTimeImmutable
+    public static function day(string $day, string $field = 'dueDate'): \DateTimeImmutable
     {
         $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', $day);
         if (false === $parsed || $parsed->format('Y-m-d') !== $day) {
-            throw new \InvalidArgumentException("dueDate must be a day, YYYY-MM-DD: \"{$day}\".");
+            throw new \InvalidArgumentException("{$field} must be a day, YYYY-MM-DD: \"{$day}\".");
         }
 
         return $parsed;
