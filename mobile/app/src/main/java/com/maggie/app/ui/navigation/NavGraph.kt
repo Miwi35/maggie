@@ -205,6 +205,7 @@ import com.maggie.app.ui.screens.digest.DigestViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
 import com.maggie.app.ui.screens.fullcalendar.MEALS_FILTER_ID
 import com.maggie.app.ui.screens.fullcalendar.PROACTIONS_FILTER_ID
+import com.maggie.app.ui.screens.fullcalendar.TASKS_FILTER_ID
 import com.maggie.app.ui.screens.chat.ChatScreen
 import com.maggie.app.ui.screens.proactions.ProactionDetailContent
 import com.maggie.app.ui.screens.proactions.ProactionDetailSheet
@@ -1470,6 +1471,13 @@ fun NavGraph() {
                                             selectedTask = null
                                             selectedEvent = null
                                             selectedProactionId = it.id
+                                        } else if (it.agendaIri == TASKS_FILTER_ID) {
+                                            // A scheduled task (MAG-718) opens its own sheet, not an event's.
+                                            calendarViewModel.uiState.value.tasks.firstOrNull { task -> task.id == it.id }?.let { task ->
+                                                selectedEvent = null
+                                                selectedProactionId = null
+                                                selectedTask = task
+                                            }
                                         } else if (it.agendaIri != MEALS_FILTER_ID) {
                                             selectedTask = null
                                             selectedProactionId = null
