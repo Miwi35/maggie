@@ -57,8 +57,6 @@ data class TasksUiState(
     /** An action (tick, add) failed; the list is left as it was. */
     val message: String? = null,
     /** The quick-add field. */
-    val draft: String = "",
-    val isAdding: Boolean = false,
     /** The last page of « Faites » read. */
     val page: Int = 1,
     /** « Aujourd'hui » is the day (MAG-497): five slots at most, « Maintenant » and the reserve. */
@@ -321,38 +319,6 @@ class TasksViewModel(
         // The other tab's tasks must not stay under this one's label while the read is in flight.
         _uiState.update { it.copy(view = view, tasks = emptyList(), totalItems = 0, message = null, page = 1) }
         load(spinner = true)
-    }
-
-    fun onDraftChange(draft: String) {
-        _uiState.update { it.copy(draft = draft) }
-    }
-
-    /**
-     * Adds the draft with the tab's default day (today, tomorrow, none) and reads the view again.
-     * Added from the day, it takes the next slot while one is free, else it waits in the reserve.
-     */
-    fun addTask() {
-        val state = _uiState.value
-        val title = state.draft.trim()
-        if (title.isEmpty() || state.isAdding || !state.view.addable) return
-        val request = TaskCreateRequest(title = title, dueDate = state.view.defaultDueDate(today()))
-        _uiState.update { it.copy(isAdding = true, message = null) }
-        viewModelScope.launch {
-            taskRepository.createTask(request)
-                .onSuccess { created ->
-                    _uiState.update { it.copy(isAdding = false, draft = "") }
-                    val day = _uiState.value.day
-                    if (state.view == TaskView.TODAY && day != null && !day.isFull) {
-                        taskRepository.setDaySlots(day.day, day.taskIds + created.id)
-                            .onSuccess { saved -> _uiState.update { it.copy(day = saved) } }
-                            .onFailure { _uiState.update { it.copy(message = "La tâche attend dans la réserve.") } }
-                    }
-                    reload()
-                }
-                .onFailure {
-                    _uiState.update { it.copy(isAdding = false, message = "Impossible d'ajouter la tâche.") }
-                }
-        }
     }
 
     /**

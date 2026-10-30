@@ -14,11 +14,8 @@ enum class TaskView(val key: String, val label: String) {
     DONE("done", "Faites"),
     ;
 
-    /** « Faites » has no add field: a task added there would not be done. */
-    val addable: Boolean get() = this != DONE
-
     /**
-     * The due day a task added from this view gets: tomorrow in « À venir », none elsewhere —
+     * The due day the « + » form opens with from this view: tomorrow in « À venir », none elsewhere —
      * added to the day (MAG-497), it takes a slot, not a deadline.
      */
     fun defaultDueDate(today: LocalDate): String? = when (this) {

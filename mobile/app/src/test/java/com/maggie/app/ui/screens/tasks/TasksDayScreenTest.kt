@@ -82,7 +82,7 @@ class TasksDayScreenTest {
         val mercure = mockk<MercureService>()
         every { mercure.subscribe(any()) } returns emptyFlow()
         val viewModel = TasksViewModel(repository, mercure, auth, TaskRewards(repository, mockk(relaxed = true)), offlineRoutines(), today = { today })
-        compose.setContent { TasksScreen(viewModel = viewModel, onTaskClick = {}, onFocus = onFocus) }
+        compose.setContent { TasksScreen(viewModel = viewModel, onTaskClick = {}, onCreateTask = {}, onFocus = onFocus) }
         compose.waitForIdle()
         return viewModel
     }
@@ -134,13 +134,11 @@ class TasksDayScreenTest {
     }
 
     @Test
-    fun `an empty day has no « Maintenant » and no ring, but its add field and its reserve`() {
+    fun `an empty day has no « Maintenant » and no ring, but its reserve`() {
         show(emptyList())
 
         compose.onNodeWithTag(UiTags.TASKS_NOW).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.TASKS_RING).assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.TASKS_DAY_ADD_INPUT).assertIsDisplayed()
-        compose.onNodeWithText("Ajouter une tâche").assertIsDisplayed()
         compose.onNodeWithText("Réserve · 1").assertIsDisplayed()
     }
 

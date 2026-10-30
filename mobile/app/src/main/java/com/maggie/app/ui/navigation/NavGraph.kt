@@ -215,10 +215,9 @@ import com.maggie.app.ui.screens.shared.cancelledOccurrence
 import com.maggie.app.ui.screens.shared.occurrenceStartKey
 import com.maggie.app.ui.screens.shared.SubtaskActions
 import com.maggie.app.ui.screens.shared.SubtasksViewModel
-import com.maggie.app.ui.screens.shared.TaskCreateScreen
 import com.maggie.app.ui.screens.shared.TaskDetailContent
 import com.maggie.app.ui.screens.shared.TaskDetailSheet
-import com.maggie.app.ui.screens.shared.TaskEditScreen
+import com.maggie.app.ui.screens.shared.TaskFormScreen
 import com.maggie.app.ui.screens.tasks.BravoScreen
 import com.maggie.app.ui.screens.tasks.BravoViewModel
 import com.maggie.app.ui.screens.tasks.FocusScreen
@@ -807,6 +806,7 @@ fun NavGraph() {
     var editingRecurrenceAction by rememberSaveable { mutableStateOf<RecurrenceAction?>(null) }
     val recurringEventEditor = remember(eventRepository) { RecurringEventEditor(eventRepository) }
     var editingTask by rememberSavedSelection<Task>()
+    var newTaskDueDay by rememberSaveable { mutableStateOf<String?>(null) }
     // The task in focus (MAG-499): kept by id, the Focus reads it whole.
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -1000,12 +1000,9 @@ fun NavGraph() {
         navController.navigate(Screen.TaskEdit.route)
     }
 
-    fun deleteTask(task: Task) {
-        scope.launch {
-            taskRepository.deleteTask(task.id)
-            selectedTask = null
-            refreshAll()
-        }
+    fun createTask(dueDay: String? = null) {
+        newTaskDueDay = dueDay
+        navController.navigate(Screen.TaskCreate.route)
     }
 
     fun toggleTaskDone(task: Task, done: Boolean) {
@@ -1399,7 +1396,7 @@ fun NavGraph() {
                                 FullCalendarScreen(
                                     viewModel = calendarViewModel,
                                     onCreateEvent = { navController.navigate(Screen.EventCreate.route) },
-                                    onCreateTask = { navController.navigate(Screen.TaskCreate.route) },
+                                    onCreateTask = { createTask() },
                                     onOpenTasks = { navigateTo(Screen.Tasks.route) },
                                     onEventClick = {
                                         // A meal is edited in the Cuisine module, not as an event.
@@ -1440,9 +1437,7 @@ fun NavGraph() {
                                     TaskDetailContent(
                                         task = task,
                                         subtasks = subtasksState,
-                                        subtaskActions = subtaskActions,
                                         onEdit = { editTask(task) },
-                                        onDelete = { deleteTask(task) },
                                         onToggleDone = { done -> toggleTaskDone(task, done) },
                                         onDescriptionChange = { updateTaskDescription(task, it) },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -1466,6 +1461,7 @@ fun NavGraph() {
                                         selectedProactionId = null
                                         selectedTask = it
                                     },
+                                    onCreateTask = { dueDay -> createTask(dueDay) },
                                     onFocus = {
                                         focusTaskId = it
                                         navController.navigate(Screen.TaskFocus.route) { launchSingleTop = true }
@@ -1482,9 +1478,7 @@ fun NavGraph() {
                                     TaskDetailContent(
                                         task = open,
                                         subtasks = subtasksState,
-                                        subtaskActions = subtaskActions,
                                         onEdit = { editTask(open) },
-                                        onDelete = { deleteTask(open) },
                                         onToggleDone = { done -> toggleTaskDone(open, done) },
                                         onDescriptionChange = { updateTaskDescription(open, it) },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -1548,14 +1542,18 @@ fun NavGraph() {
                         }
                     }
                     composable(Screen.TaskCreate.route) {
-                        TaskCreateScreen(
-                            onConfirm = { request ->
+                        TaskFormScreen(
+                            task = null,
+                            initialDueDay = newTaskDueDay,
+                            onCreate = { request ->
                                 scope.launch {
                                     taskRepository.createTask(request)
                                     navController.popBackStack()
                                     refreshAll()
                                 }
                             },
+                            onUpdate = {},
+                            onDelete = {},
                             onBack = { navController.popBackStack() },
                         )
                     }
@@ -1588,13 +1586,22 @@ fun NavGraph() {
                         PopWhenMissing(navController, entry, task != null)
                         if (task != null) {
                             LaunchedEffect(task.id) { subtasksViewModel.load(task) }
-                            TaskEditScreen(
+                            TaskFormScreen(
                                 task = task,
                                 subtasks = subtasksState,
                                 subtaskActions = subtaskActions,
-                                onConfirm = { data ->
+                                onCreate = {},
+                                onUpdate = { data ->
                                     scope.launch {
                                         taskRepository.updateTask(task.id, data)
+                                        editingTask = null
+                                        navController.popBackStack()
+                                        refreshAll()
+                                    }
+                                },
+                                onDelete = {
+                                    scope.launch {
+                                        taskRepository.deleteTask(task.id)
                                         editingTask = null
                                         navController.popBackStack()
                                         refreshAll()
@@ -2343,10 +2350,8 @@ fun NavGraph() {
             TaskDetailSheet(
                 task = task,
                 subtasks = subtasksState,
-                subtaskActions = subtaskActions,
                 onDismiss = { selectedTask = null },
                 onEdit = { editTask(task) },
-                onDelete = { deleteTask(task) },
                 onToggleDone = { done -> toggleTaskDone(task, done) },
                 onDescriptionChange = { updateTaskDescription(task, it) },
             )

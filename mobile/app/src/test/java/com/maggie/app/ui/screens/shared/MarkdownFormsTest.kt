@@ -23,7 +23,7 @@ class MarkdownFormsTest {
 
     @Test
     fun `the task creation notes have the Markdown bar`() {
-        compose.setContent { TaskCreateScreen(onConfirm = {}, onBack = {}) }
+        compose.setContent { TaskFormScreen(task = null, onCreate = {}, onUpdate = {}, onDelete = {}, onBack = {}) }
 
         compose.onNodeWithTag(UiTags.MARKDOWN_TOOLBAR).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.TASK_NOTES).performClick()
@@ -33,11 +33,11 @@ class MarkdownFormsTest {
     @Test
     fun `the task edition notes have the Markdown bar`() {
         compose.setContent {
-            TaskEditScreen(
+            TaskFormScreen(
                 task = Task(id = "t1", title = "Piscine", description = "- [ ] Douche solaire"),
-                subtasks = SubtasksUiState(),
-                subtaskActions = SubtaskActions(),
-                onConfirm = {},
+                onCreate = {},
+                onUpdate = {},
+                onDelete = {},
                 onBack = {},
             )
         }
@@ -63,9 +63,7 @@ class MarkdownFormsTest {
             TaskDetailContent(
                 task = Task(id = "t1", title = "Piscine", description = "- [ ] Douche solaire\n- [ ] Pompe"),
                 subtasks = SubtasksUiState(parentId = "t1"),
-                subtaskActions = SubtaskActions(),
                 onEdit = {},
-                onDelete = {},
                 onToggleDone = {},
                 onDescriptionChange = { saved = it },
             )

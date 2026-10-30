@@ -594,14 +594,13 @@ object UiTags {
     const val MEAL_ADD_DAY_PREFIX = "meal_add_day_"
 
     /**
-     * Tasks screen (MAG-408) — the root, the quick-add field and its button, the empty line, and the
+     * Tasks screen (MAG-408) — the root, the floating « + » (`tasks_add`), the empty line, and the
      * box that ticks a task, suffixed by the task's id. The header « Tâches › … ▾ » (MAG-626) is the
      * module breadcrumb: `breadcrumb_section` opens the menu, one `breadcrumb_menu_<key>` entry per view
      * (`today`, `upcoming`, `someday`, `done`, `routines`).
      */
     const val TASKS = "tasks"
-    const val TASKS_ADD_INPUT = "tasks_add_input"
-    const val TASKS_ADD_SUBMIT = "tasks_add_submit"
+    const val TASKS_ADD = "tasks_add"
     const val TASKS_EMPTY = "tasks_empty"
     const val TASKS_CHECK_PREFIX = "tasks_check_"
 
@@ -626,8 +625,6 @@ object UiTags {
     const val TASKS_RESERVE_ITEM_PREFIX = "tasks_reserve_item_"
     const val TASKS_RESERVE_ADD_PREFIX = "tasks_reserve_add_"
     const val TASKS_REPLACE_PREFIX = "tasks_replace_"
-    const val TASKS_DAY_ADD_INPUT = "tasks_day_add_input"
-    const val TASKS_DAY_ADD_SUBMIT = "tasks_day_add_submit"
 
     /**
      * « Ta journée » (MAG-498): the morning's proposal, its time bar, each row and its swap button by
@@ -1806,6 +1803,11 @@ object UiTags {
     fun periodPlanAmount(categoryId: String) = PERIOD_PLAN_AMOUNT_PREFIX + categoryId
 
     const val TASK_NOTES = "task_notes"
+    const val TASK_FORM_TITLE = "task_form_title"
+    const val TASK_FORM_SUBMIT = "task_form_submit"
+    const val TASK_FORM_DELETE = "task_form_delete"
+    const val TASK_DETAIL_EDIT = "task_detail_edit"
+    const val TASK_DETAIL_DONE = "task_detail_done"
     const val EVENT_DESCRIPTION = "event_description"
 
     /** Markdown fields (MAG-713): the bar above the keyboard, its buttons, the reading view's check boxes and « n/m » counter. */

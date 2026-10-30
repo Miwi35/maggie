@@ -14,8 +14,7 @@ onFlowComplete:
 # not done, the ring, and the rest in a reserve folded under its count.
 #
 # Given today's day holding five tasks of the journey's own (`scripts/day-plan-api.js`
-# PUTs /api/day-plans/{TODAY}) and a sixth due three days ago, when a task is added from
-# the day, then it waits in the reserve — the five keep their slots, which the script
+# PUTs /api/day-plans/{TODAY}) and a sixth due three days ago, when a task is added with the « + », then it waits in the reserve — the five keep their slots, which the script
 # reads back — and the task due on a past day reads « reportée », never late in red.
 #
 # It signs in as the seed's second user, so the day and the reserve of the main one, which
@@ -66,19 +65,14 @@ onFlowComplete:
     id: "tasks_slot_1"
 - assertVisible: ".*Jour 1 MAG-497.*"
 
-# Added from the day while the five are taken: it waits in the reserve.
-# `scroll-list-end`, not `scrollUntilVisible`: the field is at the foot of the list, below the
-# tablet's portrait band, and a swipe from the screen centre does not reach the list (MAG-571).
-- runFlow: ../subflows/scroll-list-end.yaml
+# Added with the floating « + » while the five are taken: it waits in the reserve.
 - tapOn:
-    id: "tasks_day_add_input"
+    id: "tasks_add"
+- tapOn:
+    id: "task_form_title"
 - inputText: "Ajout MAG-497"
-# The window is not panned above the keyboard any more (MAG-532): bring the row up before tapping.
-- runFlow: ../subflows/scroll-list-end.yaml
 - tapOn:
-    id: "tasks_day_add_submit"
-# No `hideKeyboard`: the keyboard is already down once the row recomposes, and on
-# Android it then sends « back », which leaves the tasks screen for the Accueil.
+    id: "task_form_submit"
 - runScript:
     file: ../scripts/day-plan-api.js
     env:

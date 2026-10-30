@@ -19,7 +19,7 @@ tags:
 #
 # Then the gestures: a task added in « À venir » gets tomorrow, ticking it takes it out
 # of the view and into « Faites », and its detail (a sheet on a phone, the pane on a
-# tablet) deletes it, so the shared server is left as it was.
+# tablet) is read and edited through the pencil, and its form deletes it, so the shared server is left as it was.
 
 - launchApp:
     clearState: true
@@ -99,12 +99,15 @@ tags:
     visible: "Appeler le garage"
     timeout: 20000
 
-# Quick add in « À venir »: the field names tomorrow, the task lands in the tab.
+# The floating « + » (MAG-721) opens « Nouvelle tâche », whose due day is tomorrow from « À venir »:
+# « Créer » and the task lands in the tab.
 - tapOn:
-    id: "tasks_add_input"
+    id: "tasks_add"
+- tapOn:
+    id: "task_form_title"
 - inputText: "Tâche MAG-408"
 - tapOn:
-    id: "tasks_add_submit"
+    id: "task_form_submit"
 - extendedWaitUntil:
     visible: "Tâche MAG-408"
     timeout: 20000
@@ -138,25 +141,36 @@ tags:
 # MAG-636: the API's English words (criticality, priority) never reach the screen.
 - assertNotVisible: "low|medium|high|critical"
 
-# Its detail deletes it, which leaves the seeded server as it was. On a foldable the detail
-# is a sheet taller than the screen: « Supprimer » is at its foot.
+# Its fiche is read only (MAG-721): the pencil opens « Modifier la tâche », a new title and « Enregistrer »
+# show on the fiche, and « Supprimer » at the foot of the form deletes it, which leaves the seeded server as it was.
 - tapOn: "Tâche MAG-408"
 - extendedWaitUntil:
     visible: ".*Priorité.*"
     timeout: 20000
-- runFlow:
-    when:
-      notVisible: "Supprimer"
-    commands:
-      - swipe:
-          from:
-            text: ".*Priorité.*"
-          direction: UP
+- assertNotVisible: "Supprimer"
+- tapOn:
+    id: "task_detail_edit"
+- extendedWaitUntil:
+    visible: "Modifier la tâche"
+    timeout: 20000
+- tapOn:
+    id: "task_form_title"
+- inputText: " éditée"
+- tapOn:
+    id: "task_form_submit"
+- tapOn: "Tâche MAG-408 éditée"
 - extendedWaitUntil:
     visible:
-      text: "Supprimer"
+      id: "task_detail_edit"
     timeout: 20000
-- tapOn: "Supprimer"
+- tapOn:
+    id: "task_detail_edit"
+- scrollUntilVisible:
+    element:
+      id: "task_form_delete"
+    timeout: 20000
+- tapOn:
+    id: "task_form_delete"
 - extendedWaitUntil:
-    notVisible: "Tâche MAG-408"
+    notVisible: "Tâche MAG-408 éditée"
     timeout: 20000
