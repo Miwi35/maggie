@@ -74,8 +74,11 @@ const VIEWS: Record<string, ViewTask[]> = {
 const BANK = dayTask('01BANK', 'Appeler la banque', { postponedSince: '2026-10-12', firstStep: 'Trouver le RIB', estimatedMinutes: 10 })
 const CANTEEN = dayTask('01CANTEEN', 'Payer la cantine', { postponedSince: '2026-10-12', urgency: 'critical', criticality: 'critical' })
 const WATER = dayTask('01WATER', 'Arroser')
-const BOOK = dayTask('01BOOK', 'Rendre le livre', { postponedSince: '2026-10-14' })
-const PHOTOS = dayTask('01PHOTOS', 'Trier les photos')
+const BOOK = dayTask('01BOOK', 'Rendre le livre', { postponedSince: '2026-10-14', dueDate: '2026-10-15' })
+const PHOTOS = dayTask('01PHOTOS', 'Trier les photos', { dueDate: '2026-10-15' })
+// The reserve holds every open task: these two wait for another view (MAG-644 recette).
+const TOMORROW = dayTask('01TOMORROW', 'Appeler le garage', { dueDate: '2026-10-16' })
+const UNDATED = dayTask('01UNDATED', 'Apprendre le piano')
 
 /** The day the mocked API holds; the PUT and the PATCH write it as the real one would. */
 let state: { slots: DayTask[]; reserve: DayTask[] }
@@ -166,7 +169,8 @@ const respond = (url: string, init?: RequestInit): Response => {
   }
 
   if (method === 'POST' && url.endsWith('/tasks')) {
-    const created = dayTask('01NEW', (JSON.parse(init!.body as string) as { title: string }).title)
+    const body = JSON.parse(init!.body as string) as { title: string; dueDate?: string }
+    const created = dayTask('01NEW', body.title, { dueDate: body.dueDate ?? null })
     state = { ...state, reserve: [created, ...state.reserve] }
 
     return json({ id: '01NEW', '@id': '/api/tasks/01NEW', title: created.title }, 201)
@@ -341,6 +345,31 @@ describe('TaskBoard', () => {
       expect(screen.getByRole('heading', { name: "Aujourd'hui · 5" })).toBeInTheDocument()
     })
 
+    test('lists no reserve task due after today or without a day: they belong to « À venir » and « Un jour »', async () => {
+      state = { slots: [BANK, CANTEEN, WATER], reserve: [BOOK, TOMORROW, UNDATED, PHOTOS] }
+      render(<TaskBoard />)
+      await screen.findByRole('list', { name: "Aujourd'hui" })
+
+      expect(rowTitles()).toEqual([
+        expect.stringContaining('Appeler la banque'),
+        expect.stringContaining('Payer la cantine'),
+        expect.stringContaining('Arroser'),
+        expect.stringContaining('Rendre le livre'),
+        expect.stringContaining('Trier les photos'),
+      ])
+      expect(screen.getByRole('heading', { name: "Aujourd'hui · 5" })).toBeInTheDocument()
+      expect(screen.queryByText('Appeler le garage')).toBeNull()
+      expect(screen.queryByText('Apprendre le piano')).toBeNull()
+    })
+
+    test('a day with only later and undated tasks in the reserve says there is nothing today', async () => {
+      state = { slots: [], reserve: [TOMORROW, UNDATED] }
+      render(<TaskBoard />)
+
+      expect(await screen.findByText("Rien à faire aujourd'hui")).toBeInTheDocument()
+      expect(screen.queryByText('Appeler le garage')).toBeNull()
+    })
+
     test('draws the Urgence and Échéance columns, a day in the « Échéance » one', async () => {
       state = { slots: [{ ...BANK, dueDate: '2026-10-15' }, CANTEEN, WATER], reserve: [] }
       render(<TaskBoard />)
@@ -439,14 +468,14 @@ describe('TaskBoard', () => {
       const bodies = () => mockFetch.mock.calls.filter(([, i]) => i?.method === 'POST').map(([, i]) => JSON.parse(i!.body as string))
       const field = () => screen.findByRole('textbox', { name: 'Ajouter une tâche' })
 
-      test('a task without a day takes the first free place of the day', async () => {
+      test('a task without a day word is due today and takes the first free place of the day', async () => {
         const user = setup()
         render(<TaskBoard />)
 
         await user.type(await field(), 'Acheter du pain{Enter}')
 
         await waitFor(() => expect(putBodies()).toEqual([['01BANK', '01CANTEEN', '01WATER', '01NEW']]))
-        expect(bodies()).toEqual([{ title: 'Acheter du pain' }])
+        expect(bodies()).toEqual([{ title: 'Acheter du pain', dueDate: '2026-10-15' }])
         await waitFor(() => expect(rowTitles()[3]).toContain('Acheter du pain'))
         expect(screen.getByRole('textbox', { name: 'Ajouter une tâche' })).toHaveValue('')
       })

@@ -36,6 +36,20 @@ export interface DayPlan {
   total: number
 }
 
+/**
+ * What « Aujourd'hui » lists (MAG-644): the day's slots — the five chosen, whatever their due day — then
+ * the reserve tasks due today or before. The reserve holds every open task, so one due later or without
+ * a day belongs to « À venir » or « Un jour », not here.
+ */
+export function dayTasks(day: DayPlan, today: string): DayTask[] {
+  const due = (task: DayTask): boolean => task.dueDate != null && task.dueDate.slice(0, 10) <= today
+
+  return [...day.slots.map((slot) => slot.task), ...day.reserve.filter(due)]
+}
+
+/** What is left to do of {@link dayTasks}: the number the menu shows next to « Aujourd'hui ». */
+export const openOnDay = (day: DayPlan, today: string): number => dayTasks(day, today).filter((task) => task.completedAt == null).length
+
 const dayError = async (response: Response): Promise<Error> => {
   const body = (await response.json().catch(() => ({}))) as { error?: string }
 

@@ -20,7 +20,7 @@ import { TaskList } from './TaskList'
 import type { ListedTask } from './TaskList'
 import { TaskMorning } from './TaskMorning'
 import { TaskRoutines } from './TaskRoutines'
-import { claimEvening, claimMorning, DAY_SLOTS, eveningDue, fetchDayPlan, fetchDayTimes, morningDue, saveDayPlan } from './dayPlan'
+import { claimEvening, claimMorning, DAY_SLOTS, dayTasks, eveningDue, fetchDayPlan, fetchDayTimes, morningDue, saveDayPlan } from './dayPlan'
 import type { DayPlan } from './dayPlan'
 import { fetchDayReview } from './dayReview'
 import { parseQuickAdd } from './quickAdd'
@@ -203,8 +203,8 @@ const TasksPage = ({ view }: TasksPageProps) => {
   // The task a link points at is marked and scrolled to when this view lists it; else the view that
   // holds it opens. An unknown task leaves the page as it is.
   const listedIds = useMemo(
-    () => new Set(view === 'today' ? [...(day?.slots.map((slot) => slot.task.id) ?? []), ...(day?.reserve.map((task) => task.id) ?? [])] : tasks.map((task) => task.id)),
-    [view, day, tasks],
+    () => new Set(view === 'today' ? (day ? dayTasks(day, today) : []).map((task) => task.id) : tasks.map((task) => task.id)),
+    [view, day, tasks, today],
   )
   const highlighted = target && listedIds.has(target) ? target : null
   const ready = view === 'today' ? day !== null : view !== 'routines' && !loading && !failed
@@ -290,12 +290,13 @@ const TasksPage = ({ view }: TasksPageProps) => {
       .catch((error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' }))
   }
 
-  // « Appeler le garage demain » (MAG-644): the closing day word is the due day. Without one, the task
-  // takes a free place of the day on « Aujourd'hui », tomorrow on « À venir », and no day elsewhere.
+  // « Appeler le garage demain » (MAG-644): the closing day word is the due day. Without one, the task is due
+  // today on « Aujourd'hui » (and takes a free place of the day), tomorrow on « À venir », and no day elsewhere:
+  // « Aujourd'hui » lists only what is due today or before, so an undated task would vanish from it.
   const create = () => {
     const parsed = parseQuickAdd(title, today)
     if (!parsed.title || creating) return
-    const dueDate = parsed.dueDate ?? (view === 'upcoming' ? addDays(today, 1) : undefined)
+    const dueDate = parsed.dueDate ?? (view === 'today' ? today : view === 'upcoming' ? addDays(today, 1) : undefined)
     setCreating(true)
     createTask(parsed.title, dueDate)
       .then((id) => {

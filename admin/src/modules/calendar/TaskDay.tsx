@@ -14,7 +14,7 @@ import { TaskBravo } from './TaskBravo'
 import { TaskFocus } from './TaskFocus'
 import { isLate, TaskList } from './TaskList'
 import type { ListedTask, TaskGroup } from './TaskList'
-import { deferOnDay, saveDayPlan } from './dayPlan'
+import { dayTasks as listedOnDay, deferOnDay, saveDayPlan } from './dayPlan'
 import type { DayPlan, DayTask } from './dayPlan'
 import { DEFAULT_CHEER, fetchReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
@@ -104,7 +104,8 @@ export const DayRing = ({ done, total }: { done: number; total: number }) => {
 /**
  * The « Aujourd'hui » view (MAG-497, MAG-644): « Maintenant » — the first slot not done — on top,
  * then every task of the day in the full width, « En retard » apart from « Aujourd'hui ». The five
- * slots are the API's (and the morning's) to choose; the list draws them first, then the reserve.
+ * slots are the API's (and the morning's) to choose; the list draws them first, then the reserve tasks
+ * due today or before — a later or undated one is in « À venir » or « Un jour ».
  */
 export const TaskDay = ({
   day,
@@ -123,7 +124,7 @@ export const TaskDay = ({
   const [bravo, setBravo] = useState<{ task: DayTask; reward: Reward; stars: Stars | null } | null>(null)
 
   const slotTasks = useMemo(() => day.slots.map((slot) => slot.task), [day.slots])
-  const dayTasks = useMemo(() => [...slotTasks, ...day.reserve], [slotTasks, day.reserve])
+  const dayTasks = useMemo(() => listedOnDay(day, today), [day, today])
 
   const groups = useMemo((): TaskGroup[] => {
     const late = dayTasks.filter((task) => isLate(task, today))

@@ -318,6 +318,12 @@ test('the views are menu entries with their numbers, a task opens in a panel, an
     // …and the menu's number follows.
     await expect.poll(() => board.count('À venir'), { message: 'the « À venir » number should follow the add' }).toBeGreaterThan(before)
 
+    // …and « Aujourd'hui » does not list it: due tomorrow, it is not of today (MAG-644 recette).
+    await board.select("Aujourd'hui")
+    await expect(board.heading).toHaveText("Aujourd'hui")
+    await expect(board.row(title)).toHaveCount(0)
+    await board.select('À venir')
+
     // When I open it, the sheet is a panel beside the list, not a dialog over it.
     await board.row(title).getByRole('button', { name: `Ouvrir ${title}`, exact: true }).click()
     await expect(board.sheet).toBeVisible()
@@ -355,7 +361,9 @@ test.describe('the day of five', () => {
     try {
       // Given seven open tasks of this attempt, the second with its first step and its minutes…
       for (const [i, title] of titles.entries()) {
-        ids.push(await createTask(api, i === 1 ? { title, firstStep: 'Vider le premier tiroir', estimatedMinutes: 10 } : { title }))
+        // The two after the five wait in the reserve, which « Aujourd'hui » lists only when due today or before.
+        const task = i === 1 ? { title, firstStep: 'Vider le premier tiroir', estimatedMinutes: 10 } : { title }
+        ids.push(await createTask(api, i >= 5 ? { ...task, dueDate: today } : task))
       }
       // …five of them in today's day, through the API.
       const planned = await setDayPlan(api, today, ids.slice(0, 5))
@@ -372,7 +380,11 @@ test.describe('the day of five', () => {
       await expect(board.dayRows).toContainText(titles.slice(0, 5))
       for (const title of titles) await expect(board.slot(title)).toHaveCount(1)
       await expect(board.dayRows).toContainText([titles[4], titles[5]])
-      await expect.poll(() => board.count("Aujourd'hui"), { message: 'the menu counts the five' }).toBe(5)
+      // The menu counts what the list holds that is left to do.
+      const left = () => board.dayRows.getByRole('checkbox', { name: /^Terminer / }).count()
+      await expect
+        .poll(async () => (await board.count("Aujourd'hui")) - (await left()), { message: 'the menu counts the list' })
+        .toBe(0)
 
       // When I tick the first in the admin, and take the pause its bravo offers (MAG-508)…
       await board.slot(titles[0]).getByRole('checkbox', { name: `Terminer ${titles[0]}` }).click()
@@ -389,7 +401,9 @@ test.describe('the day of five', () => {
       await expect(board.ring).toHaveText('1 sur 5')
       await expect(board.slot(titles[0]).getByRole('checkbox', { name: `Rouvrir ${titles[0]}` })).toBeChecked()
       // …the menu counts four left…
-      await expect.poll(() => board.count("Aujourd'hui"), { message: 'the menu counts what is left' }).toBe(4)
+      await expect
+        .poll(async () => (await board.count("Aujourd'hui")) - (await left()), { message: 'the menu counts what is left' })
+        .toBe(0)
       // …and the two others are still listed after the five.
       for (const title of titles.slice(5)) await expect(board.slot(title)).toHaveCount(1)
 
