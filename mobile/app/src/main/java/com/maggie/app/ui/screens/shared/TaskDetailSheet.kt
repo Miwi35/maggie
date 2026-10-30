@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.components.markdown.MarkdownText
 import com.maggie.app.util.DateRanges
 import java.time.format.DateTimeFormatter
@@ -55,7 +56,7 @@ fun TaskDetailSheet(
         // A long list of subtasks must not push the actions off the sheet.
         modifier = Modifier.verticalScroll(rememberScrollState()),
     ) { body ->
-        ModalBottomSheet(onDismissRequest = onDismiss) { body() }
+        ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.uiTagRoot()) { body() }
     }
 }
 
