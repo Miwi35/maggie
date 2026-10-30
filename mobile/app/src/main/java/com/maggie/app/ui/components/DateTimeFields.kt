@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -195,28 +196,31 @@ fun DateField(
             },
             modifier = Modifier.uiTagRoot(),
         ) {
-            if (quickPicks) {
-                val today = DateRanges.todayDate()
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp),
-                ) {
-                    listOf(
-                        Triple("Demain", 1L, UiTags.PICKER_TOMORROW),
-                        Triple("Après-demain", 2L, UiTags.PICKER_AFTER_TOMORROW),
-                    ).forEach { (text, days, quickTag) ->
-                        AssistChip(
-                            onClick = {
-                                onValueChange(today.plusDays(days))
-                                open = false
-                            },
-                            label = { Text(text) },
-                            modifier = Modifier.testTag(quickTag),
-                        )
+            // The dialog lays its content in a Box: without a Column, the calendar covers the quick picks.
+            Column {
+                if (quickPicks) {
+                    val today = DateRanges.todayDate()
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp),
+                    ) {
+                        listOf(
+                            Triple("Demain", 1L, UiTags.PICKER_TOMORROW),
+                            Triple("Après-demain", 2L, UiTags.PICKER_AFTER_TOMORROW),
+                        ).forEach { (text, days, quickTag) ->
+                            AssistChip(
+                                onClick = {
+                                    onValueChange(today.plusDays(days))
+                                    open = false
+                                },
+                                label = { Text(text) },
+                                modifier = Modifier.testTag(quickTag),
+                            )
+                        }
                     }
                 }
+                InFrench { DatePicker(state = state) }
             }
-            InFrench { DatePicker(state = state) }
         }
     }
 }
