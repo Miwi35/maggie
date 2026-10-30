@@ -4,7 +4,11 @@ namespace Maggie\Calendar\Tests\Mcp;
 
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\SecurityTokenTrait;
+use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Enum\TaskCriticality;
+use Maggie\Calendar\Enum\TaskMoment;
 use Maggie\Calendar\Mcp\Tool\GetTasksTool;
+use Maggie\Core\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\Clock;
 use Symfony\Component\Clock\MockClock;
@@ -95,5 +99,59 @@ class GetTasksTodayToolTest extends KernelTestCase
         $byTitle = array_column($data['tasks'], 'overdueDays', 'title');
         self::assertSame(3, $byTitle['Late three days']);
         self::assertSame(1, $byTitle['Late one day']);
+    }
+
+    public function testATaskPlannedTodayWithoutADueDayIsInFirstByMomentTomorrowsIsNot(): void
+    {
+        $user = $this->loginFixtureUser();
+        $this->planned($user, 'Ce soir', '2026-10-13', TaskMoment::Evening);
+        $this->planned($user, 'À 9 h', '2026-10-13', TaskMoment::Time, '09:00');
+        $this->planned($user, 'Ce matin', '2026-10-13', TaskMoment::Morning);
+        $this->planned($user, 'À 18 h', '2026-10-13', TaskMoment::Time, '18:00');
+        $this->planned($user, 'Demain soir', '2026-10-14', TaskMoment::Evening);
+
+        $data = $this->call(view: 'today');
+
+        $titles = array_column($data['tasks'], 'title');
+        self::assertSame(['Ce matin', 'À 9 h', 'Ce soir', 'À 18 h'], \array_slice($titles, 0, 4), 'the plan of the day first, by moment then time');
+        self::assertSame('Late three days', $titles[4], 'then the late ones, by score');
+        self::assertNotContains('Demain soir', $titles);
+        self::assertSame(10, $data['counts']['today']);
+        self::assertSame('evening', $data['tasks'][2]['scheduledMoment']);
+        self::assertSame('18:00', $data['tasks'][3]['scheduledTime']);
+
+        $upcoming = $this->call(view: 'upcoming');
+        self::assertContains('Demain soir', array_column($upcoming['tasks'], 'title'), 'planned tomorrow: upcoming, not someday');
+        self::assertNotContains('Demain soir', array_column($this->call(view: 'someday')['tasks'], 'title'));
+    }
+
+    public function testTodayCarriesTheRemindersTheDigestTells(): void
+    {
+        $user = $this->loginFixtureUser();
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->persist((new Task())->setUser($em->find(User::class, $user->getId()))->setTitle('Déclarer les impôts')
+            ->setCriticality(TaskCriticality::Critical)->setDueDate(new \DateTimeImmutable('2026-10-16')));
+        $planned = (new Task())->setUser($em->find(User::class, $user->getId()))->setTitle('Impôts planifiés')
+            ->setCriticality(TaskCriticality::Critical)->setDueDate(new \DateTimeImmutable('2026-10-16'))
+            ->schedule(new \DateTimeImmutable('2026-10-15'), TaskMoment::Morning, null, []);
+        $em->persist($planned);
+        $em->flush();
+
+        $reminders = $this->call(view: 'today')['reminders'];
+
+        $byTitle = array_column($reminders, null, 'title');
+        self::assertSame(['taskId', 'title', 'reason', 'days', 'urgency'], array_keys($byTitle['Déclarer les impôts']));
+        self::assertSame(['to_schedule', 3, 'critical'], [$byTitle['Déclarer les impôts']['reason'], $byTitle['Déclarer les impôts']['days'], $byTitle['Déclarer les impôts']['urgency']]);
+        self::assertArrayNotHasKey('Impôts planifiés', $byTitle, 'planned: no longer to plan');
+        self::assertContains('not_done', array_column($reminders, 'reason'), 'the late ones of the fixtures');
+        self::assertArrayNotHasKey('reminders', $this->call(view: 'upcoming'));
+    }
+
+    private function planned(User $user, string $title, string $day, TaskMoment $moment, ?string $time = null): void
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->persist((new Task())->setUser($em->find(User::class, $user->getId()))->setTitle($title)
+            ->schedule(new \DateTimeImmutable($day), $moment, $time, null === $time ? [] : [0]));
+        $em->flush();
     }
 }
