@@ -368,6 +368,19 @@ final class TaskReminderApiTest extends WebTestCase
         self::assertSame('2026-10-17', $this->em()->find(Task::class, $task->getId())?->getScheduledDate()?->format('Y-m-d'));
     }
 
+    public function testTomorrowAnsweredADayLateStillPutsTheTaskTomorrow(): void
+    {
+        $this->at('2026-10-13 06:30:00 UTC');
+        $task = $this->timedTask('Appeler maman', '08:30', [0], '2026-10-13');
+        self::assertSame(1, $this->remind(), 'the day before, at the time');
+        $this->at(self::AFTER_BREAKFAST);
+
+        $this->act($this->onlyReminder(), 'tomorrow');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('2026-10-15', $this->em()->find(Task::class, $task->getId())?->getScheduledDate()?->format('Y-m-d'), 'tomorrow, not the 14th already past');
+    }
+
     public function testANudgeIsNotTicked(): void
     {
         $this->act($this->sentNudge(), 'done');
