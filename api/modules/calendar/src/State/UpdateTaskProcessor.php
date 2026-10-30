@@ -9,6 +9,7 @@ use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Exception\InvalidTaskParentException;
 use Maggie\Calendar\Exception\InvalidTaskScheduleException;
 use Maggie\Calendar\Message\UpdateTaskCommand;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -19,6 +20,7 @@ class UpdateTaskProcessor implements ProcessorInterface
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly RequestStack $requestStack,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -59,7 +61,8 @@ class UpdateTaskProcessor implements ProcessorInterface
             scheduledMoment: null === $previous || $data->getScheduledMoment() !== $previous->getScheduledMoment() ? $data->getScheduledMoment()?->value : null,
             // A time sent null is no change of its own: the moment says whether one is kept.
             scheduledTime: null === $previous || $data->getScheduledTime() !== $previous->getScheduledTime() ? $data->getScheduledTime() : null,
-            reminders: null === $previous || $data->getReminders() !== $previous->getReminders() ? $data->getReminders() : null,
+            // Sent, even unchanged: an empty list at a new precise time is no reminder, not the default one.
+            reminders: null === $previous || $data->getReminders() !== $previous->getReminders() || $this->sends('reminders') ? $data->getReminders() : null,
         );
 
         // The deserializer applied the patch to the managed entity, the parent
@@ -78,5 +81,16 @@ class UpdateTaskProcessor implements ProcessorInterface
         }
 
         return $envelope->last(HandledStamp::class)->getResult();
+    }
+
+    /**
+     * Whether the request body names $field: a list sent empty is not one left
+     * out, and the deserializer alone cannot tell them apart.
+     */
+    private function sends(string $field): bool
+    {
+        $body = json_decode((string) $this->requestStack->getCurrentRequest()?->getContent(), true);
+
+        return \is_array($body) && \array_key_exists($field, $body);
     }
 }
