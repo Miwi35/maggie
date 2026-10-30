@@ -12,6 +12,7 @@ import { Confirm, Show, useCreate, useCreatePath, useGetMany, useNotify, useReco
 import { Link as RouterLink, Navigate, useLocation, useParams } from 'react-router-dom'
 import { ReadingPage } from '../../components/layout/ReadingPage'
 import { useMercure } from '../../hooks/useMercure'
+import { useNeedKcal } from '../health/healthProfileApi'
 import { recipeLaunchPath } from './cooking/cookingSession'
 import { useCookingResume } from './cooking/cookingStatus'
 import { GuestsStepper } from './GuestsStepper'
@@ -77,6 +78,8 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
   const shownGuests = guests ?? servings
   const recipeId = creating ? null : idOf(record.id)
   const resume = useCookingResume(recipeId, steps.length)
+  // The share of the day's need (Santé › Configuration, MAG-707): none without a profile that gives one.
+  const needKcal = useNeedKcal()
   const scaled = useScaledQuantities(recipeId, servings, shownGuests)
   const simulating = shownGuests !== servings
   const scaledLines = useMemo(
@@ -307,7 +310,7 @@ const Sheet = ({ record, creating = false }: { record: RecipeRecord; creating?: 
           onRemove={(index) => saveOrNotify({ steps: stepsPayload(removeStep(steps, index)) })}
         />
       </Box>
-      <NutritionBlock nutrition={nutrition} micronutrients={recipe.micronutrientsPerServing} />
+      <NutritionBlock nutrition={nutrition} micronutrients={recipe.micronutrientsPerServing} dailyKcal={needKcal} />
 
       {dialog?.kind === 'header' && (
         <HeaderDialog recipe={recipe} creating={creating} onSave={creating ? createRecipe : save} onClose={closeHeader} />

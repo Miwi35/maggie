@@ -219,6 +219,26 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
     expect(screen.getByText(/1 ingrédient non compté/)).toBeInTheDocument()
   })
 
+  test('shows the share of the day’s need the health profile gives (MAG-707)', async () => {
+    stubFetch({ '/api/health/profile': () => json({ id: '01HP', needKcal: 1750, bmrKcal: 1458 }) })
+    renderSheet()
+
+    // 350 kcal a serving over a need of 1 750 kcal.
+    await waitFor(() => expect(screen.getByTestId('nutrition-energy')).toHaveTextContent('≈ 350 kcal · 20 % du besoin du jour'))
+  })
+
+  test.each([
+    ['no profile yet', { id: null, needKcal: null }],
+    ['an incomplete profile', { id: '01HP', needKcal: null, bmrKcal: null }],
+  ])('leaves the share of the day’s need out with %s', async (_case, profile) => {
+    const fetcher = stubFetch({ '/api/health/profile': () => json(profile) })
+    renderSheet()
+
+    expect(await screen.findByTestId('nutrition-energy')).toHaveTextContent('≈ 350 kcal')
+    await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/health/profile', expect.anything()))
+    expect(screen.getByTestId('nutrition-energy')).not.toHaveTextContent('% du besoin du jour')
+  })
+
   test('opens to read: none of the edit tools is there, the portions and the actions of the page are', async () => {
     renderSheet()
 
