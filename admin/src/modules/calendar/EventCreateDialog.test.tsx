@@ -255,9 +255,10 @@ describe('EventCreateDialog', () => {
     expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('reminders')
 
     mockCreate.mockClear()
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un rappel' }))
-    await userEvent.click(screen.getByRole('combobox', { name: 'Rappel' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappels' }))
     await userEvent.click(screen.getByRole('option', { name: '1 heure avant' }))
+    await userEvent.click(screen.getByRole('option', { name: '1 jour avant' }))
+    await userEvent.keyboard('{Escape}')
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() =>
@@ -265,11 +266,32 @@ describe('EventCreateDialog', () => {
         'events',
         expect.objectContaining({
           data: expect.objectContaining({
-            reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 60 }] },
+            reminders: { useDefault: false, overrides: [
+                { method: 'popup', minutes: 60 },
+                { method: 'popup', minutes: 1440 },
+              ],
+            },
           }),
         }),
       ),
     )
+  })
+
+  test('an all-day event hides the reminders and sends none', async () => {
+    await open()
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rappels' }))
+    await userEvent.click(screen.getByRole('option', { name: '1 heure avant' }))
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(screen.getByLabelText('Toute la journée'))
+
+    expect(screen.queryByRole('combobox', { name: 'Rappels' })).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/Titre/), { target: { value: 'Férié' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled())
+    expect(mockCreate.mock.calls[0][1].data).not.toHaveProperty('reminders')
   })
 
   test('the recurrence picker adds an RRULE, and leaves it out when set to never', async () => {

@@ -60,7 +60,7 @@ export const toLocalDatetime = (d: Date): string => `${toLocalDate(d)}T${pad(d.g
 
 /**
  * The one dialog an event is created and edited in (MAG-649): the same fields in the
- * same order — Titre, Toute la journée, Début, Fin, Répéter, Statut, Rappels, Agenda,
+ * same order — Titre, Toute la journée, Début, Fin, Répéter, Statut, Rappels (hors journée entière), Agenda,
  * Lieu, Description — whichever way the owner came.
  */
 export const EventFormDialog = ({
@@ -148,7 +148,7 @@ export const EventFormDialog = ({
       endAt,
       rrule,
       status,
-      reminders,
+      reminders: allDay ? null : reminders,
       agenda,
       location: location.trim(),
       description: description.trim(),
@@ -211,7 +211,7 @@ export const EventFormDialog = ({
             <MenuItem value="confirmed">Confirmé</MenuItem>
             <MenuItem value="tentative">Provisoire</MenuItem>
           </TextField>
-          <ReminderPicker value={reminders} onChange={setReminders} />
+          {!allDay && <ReminderPicker value={reminders} onChange={setReminders} />}
           <TextField label="Agenda" value={agenda} onChange={(e) => setAgenda(e.target.value)} select required>
             {agendas.map((a) => (
               <MenuItem key={a.id} value={a.id}>

@@ -21,8 +21,8 @@ export interface NewEvent {
   recurrence?: string
   /** How many occurrences, when `recurrence` is set. Leaves the series open when omitted. */
   occurrences?: number
-  /** A label of the "Rappel" select, e.g. "1 heure avant". No reminder when omitted. */
-  reminder?: string
+  /** Labels of the "Rappels" menu, e.g. "1 heure avant". No reminder when omitted. */
+  reminder?: string | string[]
   /** A label of the "Statut" select — "Provisoire". Confirmed when omitted. */
   status?: string
   location?: string
@@ -412,7 +412,7 @@ export class CalendarPage extends AdminShell {
     summary?: string
     start?: string
     end?: string
-    reminder?: string | null
+    reminder?: string | string[] | null
     status?: string
     /** A label of the "Répéter" select — only a one-off event can be made to repeat. */
     recurrence?: string
@@ -459,24 +459,24 @@ export class CalendarPage extends AdminShell {
     return this.popover.getByText(label, { exact: true })
   }
 
-  /** Adds a reminder row and picks `label` in it. */
-  private async pickReminder(dialog: Locator, label: string): Promise<void> {
-    await dialog.getByRole('button', { name: 'Ajouter un rappel' }).click()
-    await this.choose(dialog, 'Rappel', label)
+  /** Checks each delay in the « Rappels » menu. */
+  private async pickReminder(dialog: Locator, labels: string | string[]): Promise<void> {
+    await dialog.getByRole('combobox', { name: 'Rappels' }).click()
+    for (const label of [labels].flat()) {
+      await this.page.getByRole('option', { name: label, exact: true }).click()
+    }
+    await this.page.keyboard.press('Escape')
   }
 
-  /**
-   * Removes every reminder row the dialog shows.
-   *
-   * One at a time and re-counted each round: the list re-renders on every
-   * removal, so a locator captured before the first click points at nothing.
-   */
+  /** Unchecks every delay the « Rappels » menu has checked. */
   private async clearReminders(dialog: Locator): Promise<void> {
-    const remove = dialog.getByRole('button', { name: /^Supprimer le rappel/ })
+    await dialog.getByRole('combobox', { name: 'Rappels' }).click()
+    const checked = this.page.getByRole('option', { selected: true })
 
-    for (let left = await remove.count(); left > 0; left = await remove.count()) {
-      await remove.first().click()
+    for (let left = await checked.count(); left > 0; left = await checked.count()) {
+      await checked.first().click()
     }
+    await this.page.keyboard.press('Escape')
   }
 
   /**
