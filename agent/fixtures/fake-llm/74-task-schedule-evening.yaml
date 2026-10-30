@@ -1,0 +1,22 @@
+# « Mets la préparation du weekend vendredi soir » (MAG-718): the day he plans to do it is the
+# programmation — `scheduledDate` and a moment — not the deadline. She reads the pending tasks,
+# then schedules the one named by the id her own `get_tasks` returned (`results_matches`, see
+# README.md; `\W+description` ends the title, the next key of TaskJson; `\W*\w+` takes the « é »
+# whether the result spells it or escapes it as `\u00e9`). `${friday}` is the coming
+# Friday, or today on a Friday, in Paris.
+name: task-schedule-evening
+description: Schedule the named task on Friday evening, by the id the read returned.
+
+match:
+  user_matches: "pr(?:é|e)paration du weekend vendredi soir"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+title\W+Pr\W*\w+paration du weekend\W+description'
+
+turns:
+  - tools:
+      - name: get_tasks
+        input: {status: pending}
+  - tools:
+      - name: update_task
+        input: {id: '\1', scheduledDate: '${friday}', scheduledMoment: evening}
+  - text: "C'est fait : la préparation du weekend est programmée vendredi soir."

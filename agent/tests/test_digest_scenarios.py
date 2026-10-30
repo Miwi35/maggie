@@ -57,7 +57,8 @@ class DigestApi(FakeProactionApi):
         return {"days": [{"date": arguments.get("date"), "precipitationProbability": 70}]}
 
     def _get_tasks(self, arguments: dict, user_id: str | None) -> dict:
-        return {"tasks": []}
+        evening = {"id": "t-1", "title": "Préparation du weekend", "scheduledDate": "2030-11-14", "scheduledMoment": "evening"}
+        return {"tasks": [evening], "reminders": []}
 
     def _manage_meals(self, arguments: dict, user_id: str | None) -> dict:
         return {"meals": []}
@@ -136,6 +137,7 @@ class TestTheMorningDigest:
         assert vocal.await_args.kwargs["screen"] == "digest"
         assert voice_screen(result["tool_calls"]) == "digest"
         assert result["response"].startswith("**Météo**")
+        assert "ce soir, la préparation du weekend" in result["response"]
 
     async def test_a_weather_service_in_error_stops_nothing_and_the_journal_keeps_the_error(self, api, vocal):
         api.weather_down = True

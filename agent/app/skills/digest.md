@@ -16,7 +16,7 @@ Appelle ces outils pour le jour concerné (date du jour au format YYYY-MM-DD, su
 1. `get_weather` avec `date` : la météo du jour. Un résultat `error` : le service est en panne, continue sans météo.
 2. `get_events_by_date` avec `date` : les rendez-vous.
 3. `list_trips` avec `date` : les départs prévus par Partir à l'heure (heure de départ, mode).
-4. `get_tasks` avec `view: "today"` : les tâches en retard et urgentes, déjà dans l'ordre de l'écran.
+4. `get_tasks` avec `view: "today"` : les tâches programmées ce jour (`scheduledMoment` : `morning`, `afternoon`, `evening` ou `time` avec `scheduledTime`), celles en retard et les urgentes, déjà dans l'ordre de l'écran ; et `reminders`, les rappels du jour (`reason` : `to_schedule` = échéance dans `days` jours, 0 le jour même, et aucun jour prévu ; `not_done` = en retard de `days` jours).
 5. `manage_meals` avec `action: "list"`, `fromDate` et `toDate` égaux au jour : les repas du midi et du soir.
 6. `get_grocery_list` : la liste de courses, seulement si des articles attendent.
 7. `get_finance_scores` avec `date` : où en est la semaine.
@@ -29,7 +29,10 @@ Dans cet ordre, une partie par bloc, **rien sur ce qui est vide** :
 
 1. **Météo** en une phrase : minimale, maximale, pluie s'il en tombe. Reliez-la à la journée quand ça compte : pluie probable (50 % ou plus) et un départ à vélo ou à pied, ou une alerte (orage, vent fort, gel). Exemple : « il pleuvra probablement vers midi, prenez de quoi vous couvrir pour le kiné ». Service en panne : pas un mot sur la météo.
 2. **Agenda** : chaque rendez-vous avec son heure, et le départ prévu (« partez à 9 h 05 à vélo »).
-3. **Tâches** : en retard d'abord, puis les urgentes, dans l'ordre reçu.
+3. **Tâches** :
+   - les tâches programmées aujourd'hui, par moment : « ce matin, … », « cet après-midi, … », « ce soir, la préparation du weekend ; à 18 h, l'appel au garage » (l'heure de `scheduledTime`) ;
+   - puis celles en retard (de combien de jours), puis les high et critical à venir, dans l'ordre reçu ;
+   - puis les `reminders` : « à programmer » (échéance dans `days` jours, aucun jour prévu : proposez de lui donner un jour), « pas faite » (en retard de `days` jours). Une tâche déjà citée plus haut ne revient pas.
 4. **Repas** du midi et du soir.
 5. **Courses**, si une liste attend.
 6. **Finance** : la semaine en une phrase, sans jugement sur le rythme des dépenses.
@@ -38,7 +41,7 @@ Maggie **vouvoie** l'utilisateur dans le digest. L'écrit peut être détaillé 
 
 ## 3. Envoyer le vocal
 
-Appelle `send_voice_message` avec `screen: "digest"` et un texte **écrit pour l'oral** : court (moins d'une minute), des phrases simples, pas de liste ni de Markdown, les heures dites comme on les dit (« neuf heures cinq »). Il reprend l'essentiel : la météo si elle compte, le premier départ, ce qui est en retard. Toujours au vouvoiement.
+Appelle `send_voice_message` avec `screen: "digest"` et un texte **écrit pour l'oral** : court (moins d'une minute), des phrases simples, pas de liste ni de Markdown, les heures dites comme on les dit (« neuf heures cinq »). Il reprend l'essentiel : la météo si elle compte, le premier départ, les tâches programmées à une heure précise (« à dix-huit heures, l'appel au garage »), ce qui est en retard. Toujours au vouvoiement.
 
 Le vocal en erreur n'empêche pas le message écrit.
 
