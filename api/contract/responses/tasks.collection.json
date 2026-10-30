@@ -14,7 +14,13 @@
             "priority": "high",
             "criticality": "high",
             "dueDate": "2026-03-20",
-            "reminders": [],
+            "scheduledDate": "2026-03-19",
+            "scheduledMoment": "time",
+            "scheduledTime": "18:00",
+            "reminders": [
+                0,
+                30
+            ],
             "position": "00000000000000000000",
             "links": [],
             "estimatedMinutes": 20,
