@@ -4,11 +4,16 @@ import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
 import { chartColor } from '../../design/tokens'
 import { formatCents } from './accountTypes'
+import { LABEL_PX, placeLabels, textWidthPx, truncate, useUnitsPerPixel } from './chartText'
 import type { Rhythm } from './useFinanceScores'
 
 const WIDTH = 640
 const HEIGHT = 200
-const PAD = { left: 8, right: 8, top: 24, bottom: 8 }
+const PAD = { left: 8, right: 8, bottom: 8 }
+const LABEL_ROW_PX = 14
+const LABEL_GAP_PX = 8
+const LABEL_MAX_ROWS = 3
+const LABEL_MAX_CHARS = 14
 
 const dayOf = (date: string) => String(Number(date.slice(8, 10)))
 
@@ -27,6 +32,7 @@ export const RhythmCurve = ({ rhythm }: RhythmCurveProps) => {
   const spentColour = chartColor(2, mode)
   const expectedColour = chartColor(1, mode)
   const { curve, debits } = rhythm
+  const { ref, unitsPerPixel } = useUnitsPerPixel(WIDTH)
 
   const peak = Math.max(
     1,
@@ -34,8 +40,20 @@ export const RhythmCurve = ({ rhythm }: RhythmCurveProps) => {
   )
   const x = (index: number) =>
     PAD.left + (curve.length > 1 ? (index / (curve.length - 1)) * (WIDTH - PAD.left - PAD.right) : 0)
-  const y = (cents: number) =>
-    HEIGHT - PAD.bottom - (cents / peak) * (HEIGHT - PAD.top - PAD.bottom)
+
+  const drawn = debits
+    .map((debit) => ({ debit, index: curve.findIndex((point) => point.date === debit.date) }))
+    .filter(({ index }) => index >= 0)
+    .map(({ debit, index }) => ({ debit, index, text: `${truncate(debit.label, LABEL_MAX_CHARS)} ${dayOf(debit.date)}` }))
+  const placed = placeLabels(
+    drawn.map(({ index, text }) => ({ centerPx: x(index) / unitsPerPixel, widthPx: textWidthPx(text) })),
+    WIDTH / unitsPerPixel,
+    LABEL_GAP_PX,
+    LABEL_MAX_ROWS,
+  )
+  const rows = placed.reduce((count, { row }) => Math.max(count, row + 1), 1)
+  const top = (rows * LABEL_ROW_PX + 8) * unitsPerPixel
+  const y = (cents: number) => HEIGHT - PAD.bottom - (cents / peak) * (HEIGHT - top - PAD.bottom)
 
   const path = (values: (number | null)[]) =>
     values
@@ -43,8 +61,6 @@ export const RhythmCurve = ({ rhythm }: RhythmCurveProps) => {
       .filter((point): point is string => point !== null)
       .map((point, index) => `${index === 0 ? 'M' : 'L'}${point}`)
       .join(' ')
-
-  const indexOfDay = (date: string) => curve.findIndex((point) => point.date === date)
 
   return (
     <Box data-testid="rhythm-curve">
@@ -60,6 +76,7 @@ export const RhythmCurve = ({ rhythm }: RhythmCurveProps) => {
       </Stack>
 
       <svg
+        ref={ref}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         width="100%"
         role="img"
@@ -87,40 +104,33 @@ export const RhythmCurve = ({ rhythm }: RhythmCurveProps) => {
           strokeWidth={3}
           strokeLinejoin="round"
         />
-        {debits.map((debit) => {
-          const index = indexOfDay(debit.date)
-          if (index < 0) {
-            return null
-          }
-
-          return (
-            <g
-              key={`${debit.date}-${debit.recurringOperationId}-${debit.label}`}
-              data-testid="debit-marker"
-              data-label={debit.label}
-              data-date={debit.date}
+        {drawn.map(({ debit, index, text }, position) => (
+          <g
+            key={`${debit.date}-${debit.recurringOperationId}-${debit.label}`}
+            data-testid="debit-marker"
+            data-label={debit.label}
+            data-date={debit.date}
+          >
+            <line
+              x1={x(index)}
+              x2={x(index)}
+              y1={top - 6 * unitsPerPixel}
+              y2={HEIGHT - PAD.bottom}
+              stroke={theme.palette.text.disabled}
+              strokeDasharray="2 3"
+            />
+            <circle cx={x(index)} cy={y(curve[index].expectedCents)} r={4} fill={expectedColour} />
+            <text
+              x={placed[position].xPx * unitsPerPixel}
+              y={(placed[position].row * LABEL_ROW_PX + LABEL_ROW_PX - 3) * unitsPerPixel}
+              textAnchor="middle"
+              fontSize={LABEL_PX * unitsPerPixel}
+              fill={theme.palette.text.secondary}
             >
-              <line
-                x1={x(index)}
-                x2={x(index)}
-                y1={PAD.top - 6}
-                y2={HEIGHT - PAD.bottom}
-                stroke={theme.palette.text.disabled}
-                strokeDasharray="2 3"
-              />
-              <circle cx={x(index)} cy={y(curve[index].expectedCents)} r={4} fill={expectedColour} />
-              <text
-                x={Math.min(Math.max(x(index), 30), WIDTH - 30)}
-                y={PAD.top - 10}
-                textAnchor="middle"
-                fontSize={11}
-                fill={theme.palette.text.secondary}
-              >
-                {debit.label} {dayOf(debit.date)}
-              </text>
-            </g>
-          )
-        })}
+              {text}
+            </text>
+          </g>
+        ))}
       </svg>
 
       {debits.length > 0 && (

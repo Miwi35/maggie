@@ -264,7 +264,7 @@ test('a spending post links to its category resource', async ({ api }) => {
  * and filed nowhere. CI pins the day to the 13th: 1 250 € spent, whatever the
  * envelopes say, against 700 € expected — more spent than expected is normal,
  * so the ring gives no verdict, no word and no colour of one. The rent is
- * marked on the curve on the 5th (see 57-finance-scores.yaml).
+ * marked on the curve on the 5th (see 57-finance-scores.yaml), in a label of the mockup's size (MAG-697).
  */
 test('the rings count every debit and expect the recurring ones, and the curve marks the rent on the 5th', async ({
   scoresUser,
@@ -311,6 +311,8 @@ test('the rings count every debit and expect the recurring ones, and the curve m
   const rent = overview.debitMarker('Loyer')
   await expect(rent).toHaveCount(1)
   await expect(rent).toHaveAttribute('data-date', `${year}-${monthNumber}-05`)
+  // MAG-697: its label keeps the mockup's size (11 px text), whatever the width of the curve.
+  expect((await rent.locator('text').boundingBox())!.height).toBeLessThan(16)
   await expect(overview.rhythmCurve.getByTestId('spent-line')).toBeVisible()
 })
 
