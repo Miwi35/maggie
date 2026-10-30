@@ -170,6 +170,7 @@ framework:
             'Maggie\Health\Message\CreateBodyMeasurementCommand': sync
             'Maggie\Health\Message\UpdateBodyMeasurementCommand': sync
             'Maggie\Health\Message\DeleteBodyMeasurementCommand': sync
+            'Maggie\Health\Message\UpdateHealthProfileCommand': sync
             'Maggie\Finance\Message\ChangeScenarioCommand': sync
             'Maggie\Finance\Message\CreateOperationCommand': sync
             'Maggie\Finance\Message\UpdateOperationCommand': sync

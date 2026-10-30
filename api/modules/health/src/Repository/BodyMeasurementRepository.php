@@ -72,6 +72,24 @@ class BodyMeasurementRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * The profile's weight (MAG-707): the latest weighing not set aside,
+     * whatever its day; null when the user has none.
+     */
+    public function latestWeighing(User $user): ?BodyMeasurement
+    {
+        /* @var BodyMeasurement|null */
+        return $this->createQueryBuilder('m')
+            ->andWhere('m.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('m.excluded = false')
+            ->andWhere('m.weight IS NOT NULL')
+            ->orderBy('m.measuredAt', 'DESC')
+            ->addOrderBy('m.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** The user's measurement, or null — also for an id that is not a ULID. */
     public function findOneOfUser(User|string $user, string $measurementId): ?BodyMeasurement
     {

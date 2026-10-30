@@ -1,0 +1,39 @@
+# MAG-707's scenario: test_user has no profile yet and weighed 72 kg on the
+# 28th, then 90 kg on the 29th — set aside (a scale shared with someone else),
+# so the profile's weight stays 72. other_user has a complete profile of their own.
+Maggie\Core\Entity\User:
+  test_user:
+    email: health-profile-test@example.com
+    googleId: google-health-profile-test
+    name: Health Profile Test User
+  other_user:
+    email: health-profile-other@example.com
+    googleId: google-health-profile-other
+    name: Other Health Profile User
+
+Maggie\Health\Entity\BodyMeasurement:
+  weighing:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-28T07:00:00+01:00"))>'
+    weightKg: 72.0
+    user: '@test_user'
+  set_aside:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-29T07:00:00+01:00"))>'
+    weightKg: 90.0
+    excluded: true
+    user: '@test_user'
+  waist_only:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-29T08:00:00+01:00"))>'
+    waistCm: 84.5
+    user: '@test_user'
+  other_weighing:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-28T07:00:00+01:00"))>'
+    weightKg: 60.0
+    user: '@other_user'
+
+Maggie\Health\Entity\HealthProfile:
+  other_profile:
+    user: '@other_user'
+    sex: '<(Maggie\Health\Enum\Sex::Female)>'
+    birthYear: 1996
+    heightCm: 165
+    stepGoal: 6000
