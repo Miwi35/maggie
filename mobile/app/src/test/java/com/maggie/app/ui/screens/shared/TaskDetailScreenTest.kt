@@ -4,14 +4,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskLink
@@ -44,15 +42,13 @@ class TaskDetailScreenTest {
     private val truck = Task(id = "s1", title = "Réserver le camion", parent = "/api/tasks/p1", position = "0")
     private val bank = Task(id = "s2", title = "Changer d'adresse à la banque", parent = "/api/tasks/p1", position = "1")
 
-    private fun show(task: Task, actions: SubtaskActions = SubtaskActions()) {
+    private fun show(task: Task, onEdit: () -> Unit = {}, onToggleDone: (Boolean) -> Unit = {}) {
         compose.setContent {
             TaskDetailContent(
                 task = task,
                 subtasks = SubtasksUiState(parentId = "p1", subtasks = listOf(truck, bank)),
-                subtaskActions = actions,
-                onEdit = {},
-                onDelete = {},
-                onToggleDone = {},
+                onEdit = onEdit,
+                onToggleDone = onToggleDone,
                 modifier = Modifier.verticalScroll(rememberScrollState()),
             )
         }
@@ -73,33 +69,40 @@ class TaskDetailScreenTest {
         assertTrue(top("Réserver le camion") < top("Changer d'adresse à la banque"))
     }
 
+    /** MAG-721: a fiche is read; every change goes through the pencil. */
     @Test
-    fun `the first subtask cannot move up, nor the last down`() {
-        show(parent)
+    fun `the fiche has no field, no delete, no add-subtask, and a pencil`() {
+        var edited = 0
+        show(parent, onEdit = { edited++ })
 
-        compose.onNodeWithContentDescription("Monter « Réserver le camion »").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Descendre « Changer d'adresse à la banque »").assertIsNotEnabled()
+        compose.onNode(hasSetTextAction()).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Supprimer").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Ajouter la sous-tâche").assertDoesNotExist()
+        compose.onNodeWithText("Ajouter une sous-tâche").assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TASK_DETAIL_EDIT).assertIsDisplayed().performClick()
+        assertEquals(1, edited)
     }
 
     @Test
-    fun `ticking, moving and adding go to the actions with the subtask they are about`() {
-        val calls = mutableListOf<String>()
-        show(
-            parent,
-            SubtaskActions(
-                onToggleDone = { id, done -> calls += "tick $id $done" },
-                onAdd = { calls += "add $it" },
-                onMoveUp = { calls += "up $it" },
-                onMoveDown = { calls += "down $it" },
-            ),
-        )
+    fun `the rows read Échéance, Criticité and Priorité`() {
+        show(parent.copy(criticality = "high", priority = "low"))
 
-        compose.onNodeWithContentDescription("Terminer « Réserver le camion »").performScrollTo().performClick()
-        compose.onNodeWithContentDescription("Descendre « Réserver le camion »").performScrollTo().performClick()
-        compose.onNode(hasSetTextAction()).performScrollTo().performTextInput("Acheter des cartons")
-        compose.onNodeWithContentDescription("Ajouter la sous-tâche").performClick()
+        compose.onNodeWithText("Échéance").assertIsDisplayed()
+        compose.onNodeWithText("Criticité").assertIsDisplayed()
+        compose.onNodeWithText("Élevé").assertIsDisplayed()
+        compose.onNodeWithText("Priorité").assertIsDisplayed()
+        compose.onNodeWithText("Basse").assertIsDisplayed()
+        assertTrue(top("Échéance") < top("Criticité"))
+        assertTrue(top("Criticité") < top("Priorité"))
+    }
 
-        assertEquals(listOf("tick s1 true", "down s1", "add Acheter des cartons"), calls)
+    @Test
+    fun `« Marquer comme faite » ticks the task, and unticks a done one`() {
+        val calls = mutableListOf<Boolean>()
+        show(parent, onToggleDone = { calls += it })
+        compose.onNodeWithText("Marquer comme faite").performScrollTo().performClick()
+
+        assertEquals(listOf(true), calls)
     }
 
     /** MAG-406: the urgency the API computed, as a word with an icon, never as something to set. */
@@ -125,6 +128,5 @@ class TaskDetailScreenTest {
         show(truck)
 
         compose.onNodeWithText("Sous-tâches").assertDoesNotExist()
-        compose.onNodeWithText("Ajouter une sous-tâche").assertDoesNotExist()
     }
 }

@@ -124,15 +124,6 @@ internal fun DayContent(
                 )
             }
         }
-        item(key = "add") {
-            QuickAdd(
-                state = state,
-                viewModel = viewModel,
-                hint = "Ajouter une tâche",
-                inputTag = UiTags.TASKS_DAY_ADD_INPUT,
-                submitTag = UiTags.TASKS_DAY_ADD_SUBMIT,
-            )
-        }
         item(key = "reserve") {
             ReserveHeader(count = day.reserve.size, open = state.isReserveOpen, onToggle = viewModel::toggleReserve)
         }

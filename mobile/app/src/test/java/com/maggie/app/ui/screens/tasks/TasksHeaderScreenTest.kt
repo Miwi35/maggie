@@ -46,7 +46,7 @@ class TasksHeaderScreenTest {
 
     private val today = LocalDate.of(2026, 10, 15)
 
-    private fun show(withRoutines: Boolean = true, bar: ModuleBar? = null) {
+    private fun show(withRoutines: Boolean = true, bar: ModuleBar? = null, onCreateTask: (String?) -> Unit = {}) {
         val day = DayPlan(id = "day", date = today.toString(), reserve = listOf(DayTask(id = "r1", title = "Trier les photos")))
         val repository = mockk<TaskRepository>()
         coEvery { repository.getDayPlan(today) } returns Result.success(day)
@@ -67,6 +67,7 @@ class TasksHeaderScreenTest {
                 TasksScreen(
                     viewModel = viewModel,
                     onTaskClick = {},
+                    onCreateTask = onCreateTask,
                     routines = if (withRoutines) ({ Text("Mes routines") }) else null,
                 )
             }
@@ -143,11 +144,24 @@ class TasksHeaderScreenTest {
     }
 
     @Test
-    fun `the day reads « Réserve · 1 » and offers « Ajouter une tâche »`() {
+    fun `the day reads « Réserve · 1 » and has no add line`() {
         show()
 
         compose.onNodeWithText("Réserve · 1").assertIsDisplayed()
-        compose.onNodeWithText("Ajouter une tâche").assertIsDisplayed()
+        compose.onNodeWithText("Ajouter une tâche").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the floating plus opens the form with no due day in Aujourd'hui, and goes on Routines`() {
+        val asked = mutableListOf<String?>()
+        show(onCreateTask = { asked += it })
+
+        compose.onNodeWithTag(UiTags.TASKS_ADD).assertIsDisplayed().performClick()
+        assertEquals(listOf<String?>(null), asked)
+
+        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu(ROUTINES_TAB)).performClick()
+        compose.onNodeWithTag(UiTags.TASKS_ADD).assertDoesNotExist()
     }
 
     @Test

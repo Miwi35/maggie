@@ -20,6 +20,7 @@ enum class FabModule(val color: Color) {
     GROCERY(MaggieTokens.Module.cuisine.second),
     COOKBOOK(MaggieTokens.Module.cuisine.second),
     FINANCE(MaggieTokens.Module.finance.second),
+    TASKS(MaggieTokens.Module.taches.second),
 }
 
 /**

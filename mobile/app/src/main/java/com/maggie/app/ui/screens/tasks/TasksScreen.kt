@@ -10,16 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -36,13 +29,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.interruption.rememberReducedMotion
+import com.maggie.app.util.DateRanges
 
 /** What a view says when it holds nothing. */
 internal fun emptyTextOf(view: TaskView): String = when (view) {
@@ -50,14 +45,6 @@ internal fun emptyTextOf(view: TaskView): String = when (view) {
     TaskView.UPCOMING -> "Aucune tâche à venir."
     TaskView.SOMEDAY -> "Aucune tâche pour « un jour »."
     TaskView.DONE -> "Aucune tâche faite pour l'instant."
-}
-
-/** The add field's hint: it names the day the task will get. */
-internal fun addHintOf(view: TaskView): String = when (view) {
-    TaskView.TODAY -> "Ajouter une tâche pour aujourd'hui"
-    TaskView.UPCOMING -> "Ajouter une tâche pour demain"
-    TaskView.SOMEDAY -> "Ajouter une tâche sans date"
-    TaskView.DONE -> ""
 }
 
 /**
@@ -87,12 +74,14 @@ internal fun tabsOf(withRoutines: Boolean): List<TaskView?> =
  * [onFocus] opens the Focus (MAG-499) on a task of the day; [onBravo] the Bravo (MAG-508) on a task
  * of the day just ticked. A task ticked in another view shows its reward as a banner instead.
  * [routines] draws the « Routines » view (MAG-511), next to « Aujourd'hui »; without it, no such entry.
+ * The floating « + » (MAG-721) calls [onCreateTask] with the day the view gives a new task (none for « Aujourd'hui »).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
     viewModel: TasksViewModel,
     onTaskClick: (Task) -> Unit,
+    onCreateTask: (dueDay: String?) -> Unit,
     modifier: Modifier = Modifier,
     onFocus: (taskId: String) -> Unit = {},
     onBravo: (BravoRequest) -> Unit = {},
@@ -131,117 +120,84 @@ fun TasksScreen(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize().testTag(UiTags.TASKS)) {
-        TasksHeader(
-            current = if (routinesShown) null else state.view,
-            entries = tabsOf(withRoutines = routines != null),
-            countOf = { view -> view?.let { tabCountOf(it, state) } },
-            onPick = { view ->
-                showRoutines = view == null
-                if (view != null) viewModel.selectView(view)
-            },
-        )
+    Box(modifier = modifier.fillMaxSize().testTag(UiTags.TASKS)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            TasksHeader(
+                current = if (routinesShown) null else state.view,
+                entries = tabsOf(withRoutines = routines != null),
+                countOf = { view -> view?.let { tabCountOf(it, state) } },
+                onPick = { view ->
+                    showRoutines = view == null
+                    if (view != null) viewModel.selectView(view)
+                },
+            )
 
-        if (routinesShown) {
-            routines?.invoke()
-        } else {
-            // The day has its own add field, between its five and its reserve.
-            if (state.view.addable && state.view != TaskView.TODAY) {
-                QuickAdd(
-                    state = state,
-                    viewModel = viewModel,
-                    hint = addHintOf(state.view),
-                    inputTag = UiTags.TASKS_ADD_INPUT,
-                    submitTag = UiTags.TASKS_ADD_SUBMIT,
-                )
-            }
+            if (routinesShown) {
+                routines?.invoke()
+            } else {
+                state.reward?.let { RewardBanner(celebration = it, onDismiss = viewModel::dismissReward) }
+                state.palier?.let { PalierBanner(celebration = it, animate = it.animate && !reducedMotion, onDismiss = viewModel::dismissPalier) }
 
-            state.reward?.let { RewardBanner(celebration = it, onDismiss = viewModel::dismissReward) }
-            state.palier?.let { PalierBanner(celebration = it, animate = it.animate && !reducedMotion, onDismiss = viewModel::dismissPalier) }
-
-            state.message?.let { message ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(onClick = viewModel::dismissMessage) { Text("Fermer") }
-                }
-            }
-
-            PullToRefreshBox(
-                isRefreshing = state.isLoading && state.hasContent,
-                onRefresh = viewModel::refresh,
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                when {
-                    state.error != null -> ErrorState(state.error.orEmpty(), onRetry = viewModel::refresh)
-                    state.isLoading && !state.hasContent -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                    state.isEmpty -> Box(Modifier.fillMaxSize().padding(32.dp), Alignment.Center) {
+                state.message?.let { message ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Text(
-                            text = emptyTextOf(state.view),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.testTag(UiTags.TASKS_EMPTY),
+                            text = message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f),
                         )
+                        TextButton(onClick = viewModel::dismissMessage) { Text("Fermer") }
                     }
-                    else -> {
-                        val day = state.day
-                        val morning = state.morning
-                        val evening = state.evening
-                        if (state.view == TaskView.TODAY && evening != null) {
-                            EveningContent(evening = evening, viewModel = viewModel)
-                        } else if (state.view == TaskView.TODAY && morning != null) {
-                            MorningContent(morning = morning, viewModel = viewModel)
-                        } else if (state.view == TaskView.TODAY && day != null) {
-                            DayContent(day = day, state = state, viewModel = viewModel, onFocus = onFocus)
-                        } else {
-                            TaskList(state = state, viewModel = viewModel, onTaskClick = onTaskClick)
+                }
+
+                PullToRefreshBox(
+                    isRefreshing = state.isLoading && state.hasContent,
+                    onRefresh = viewModel::refresh,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    when {
+                        state.error != null -> ErrorState(state.error.orEmpty(), onRetry = viewModel::refresh)
+                        state.isLoading && !state.hasContent -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                        state.isEmpty -> Box(Modifier.fillMaxSize().padding(32.dp), Alignment.Center) {
+                            Text(
+                                text = emptyTextOf(state.view),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.testTag(UiTags.TASKS_EMPTY),
+                            )
+                        }
+                        else -> {
+                            val day = state.day
+                            val morning = state.morning
+                            val evening = state.evening
+                            if (state.view == TaskView.TODAY && evening != null) {
+                                EveningContent(evening = evening, viewModel = viewModel)
+                            } else if (state.view == TaskView.TODAY && morning != null) {
+                                MorningContent(morning = morning, viewModel = viewModel)
+                            } else if (state.view == TaskView.TODAY && day != null) {
+                                DayContent(day = day, state = state, viewModel = viewModel, onFocus = onFocus)
+                            } else {
+                                TaskList(state = state, viewModel = viewModel, onTaskClick = onTaskClick)
+                            }
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-internal fun QuickAdd(
-    state: TasksUiState,
-    viewModel: TasksViewModel,
-    hint: String,
-    inputTag: String,
-    submitTag: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        OutlinedTextField(
-            value = state.draft,
-            onValueChange = viewModel::onDraftChange,
-            placeholder = { Text(hint) },
-            singleLine = true,
-            enabled = !state.isAdding,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { viewModel.addTask() }),
-            modifier = Modifier.weight(1f).testTag(inputTag),
-        )
-        IconButton(
-            onClick = viewModel::addTask,
-            enabled = state.draft.isNotBlank() && !state.isAdding,
-            modifier = Modifier.testTag(submitTag),
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Ajouter la tâche")
+        if (!routinesShown) {
+            ModuleFab(
+                module = FabModule.TASKS,
+                contentDescription = "Nouvelle tâche",
+                onClick = { onCreateTask(state.view.defaultDueDate(DateRanges.todayDate())) },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                tag = UiTags.TASKS_ADD,
+            )
         }
     }
 }

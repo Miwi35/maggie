@@ -1,6 +1,5 @@
 package com.maggie.app.ui.screens.tasks
 
-import com.maggie.app.data.api.TaskCreateRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
@@ -31,7 +30,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -447,92 +445,6 @@ class TasksViewModelTest {
         assertNull(viewModel.uiState.value.message)
     }
 
-    /** The request sent when «Acheter du pain» is added from [view]. */
-    private fun TestScope.addFrom(view: TaskView): TaskCreateRequest {
-        val request = slot<TaskCreateRequest>()
-        coEvery { taskRepository.createTask(capture(request)) } returns Result.success(task("new", "x"))
-        coEvery { taskRepository.setDaySlots(today, any()) } returns Result.success(day(listOf(form, call)))
-        serve(view)
-        val viewModel = createViewModel()
-        viewModel.selectView(view)
-        advanceUntilIdle()
-        viewModel.onDraftChange("  Acheter du pain  ")
-        viewModel.addTask()
-        advanceUntilIdle()
-        assertEquals("", viewModel.uiState.value.draft)
-        assertFalse(viewModel.uiState.value.isAdding)
-        return request.captured
-    }
-
-    @Test
-    fun `a task added in Aujourd'hui takes a slot, not a due day`() = runTest {
-        val request = addFrom(TaskView.TODAY)
-
-        assertEquals("Acheter du pain", request.title)
-        assertNull(request.dueDate)
-    }
-
-    @Test
-    fun `a task added in À venir is due tomorrow`() = runTest {
-        assertEquals("2026-10-16", addFrom(TaskView.UPCOMING).dueDate)
-    }
-
-    @Test
-    fun `a task added in À faire un jour has no due day`() = runTest {
-        assertNull(addFrom(TaskView.SOMEDAY).dueDate)
-    }
-
-    @Test
-    fun `adding reads the view again so the task shows up`() = runTest {
-        coEvery { taskRepository.createTask(any()) } returns Result.success(task("new", "Acheter du pain", dueDate = "2026-10-16"))
-        serve(TaskView.UPCOMING, late, canteen)
-        val viewModel = createViewModel()
-        viewModel.selectView(TaskView.UPCOMING)
-        advanceUntilIdle()
-
-        serve(TaskView.UPCOMING, late, canteen, task("new", "Acheter du pain", dueDate = "2026-10-16"))
-        viewModel.onDraftChange("Acheter du pain")
-        viewModel.addTask()
-        advanceUntilIdle()
-
-        assertEquals(3, viewModel.uiState.value.tasks.size)
-    }
-
-    @Test
-    fun `a blank draft, or one in Faites, adds nothing`() = runTest {
-        val viewModel = createViewModel()
-        viewModel.onOpened()
-        advanceUntilIdle()
-
-        viewModel.onDraftChange("   ")
-        viewModel.addTask()
-        serve(TaskView.DONE)
-        viewModel.selectView(TaskView.DONE)
-        advanceUntilIdle()
-        viewModel.onDraftChange("Une tâche")
-        viewModel.addTask()
-        advanceUntilIdle()
-
-        coVerify(exactly = 0) { taskRepository.createTask(any()) }
-        assertEquals("Une tâche", viewModel.uiState.value.draft)
-    }
-
-    @Test
-    fun `a failed add keeps the draft so nothing typed is lost`() = runTest {
-        coEvery { taskRepository.createTask(any()) } returns Result.failure(RuntimeException("boom"))
-        val viewModel = createViewModel()
-        viewModel.onOpened()
-        advanceUntilIdle()
-
-        viewModel.onDraftChange("Acheter du pain")
-        viewModel.addTask()
-        advanceUntilIdle()
-
-        assertEquals("Acheter du pain", viewModel.uiState.value.draft)
-        assertFalse(viewModel.uiState.value.isAdding)
-        assertNotNull(viewModel.uiState.value.message)
-    }
-
     private fun doneTask(n: Int) = task("d$n", "Faite $n", completedAt = "2026-10-14T20:15:00Z")
 
     @Test
@@ -802,51 +714,6 @@ class TasksViewModelTest {
         assertEquals(listOf("d1", "d2"), viewModel.uiState.value.day?.taskIds)
         assertEquals("Impossible de modifier la journée.", viewModel.uiState.value.message)
         assertFalse(viewModel.uiState.value.isSavingDay)
-    }
-
-    @Test
-    fun `a task added in the day with a slot free takes it`() = runTest {
-        coEvery { taskRepository.createTask(any()) } returns Result.success(task("d5", "Acheter du pain"))
-        val puts = mutableListOf<List<String>>()
-        val viewModel = openDay(puts)
-
-        serveDay(dayOf(listOf("d1", "d2", "d5")))
-        viewModel.onDraftChange("Acheter du pain")
-        viewModel.addTask()
-        advanceUntilIdle()
-
-        assertEquals(listOf(listOf("d1", "d2", "d5")), puts)
-        assertEquals(listOf("d1", "d2", "d5"), viewModel.uiState.value.day?.taskIds)
-        assertEquals("", viewModel.uiState.value.draft)
-    }
-
-    @Test
-    fun `a task added when the five are taken waits in the reserve, no slot asked for`() = runTest {
-        serveDay(dayOf(listOf("d1", "d2", "d3", "d4", "d5")))
-        coEvery { taskRepository.createTask(any()) } returns Result.success(task("r1", "Trier les photos"))
-        val puts = mutableListOf<List<String>>()
-        val viewModel = openDay(puts)
-
-        viewModel.onDraftChange("Trier les photos")
-        viewModel.addTask()
-        advanceUntilIdle()
-
-        assertTrue(puts.isEmpty())
-        assertTrue(viewModel.uiState.value.day!!.reserve.any { it.id == "r1" })
-        assertEquals("", viewModel.uiState.value.draft)
-    }
-
-    @Test
-    fun `a task added whose slot is refused waits in the reserve and says so`() = runTest {
-        coEvery { taskRepository.createTask(any()) } returns Result.success(task("d5", "Acheter du pain"))
-        val viewModel = openDay(answer = { Result.failure(ApiRefusalException(400, "no")) })
-
-        viewModel.onDraftChange("Acheter du pain")
-        viewModel.addTask()
-        advanceUntilIdle()
-
-        assertEquals("La tâche attend dans la réserve.", viewModel.uiState.value.message)
-        assertEquals("", viewModel.uiState.value.draft)
     }
 
     @Test
