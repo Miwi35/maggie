@@ -128,7 +128,20 @@ class TodayEventListenerTest extends KernelTestCase
         $this->em()->persist($event);
         $this->em()->flush();
 
-        self::assertEquals([new EventTripsChangedEvent((string) $event->getId(), $this->userId(), EventTripsChangedEvent::CREATED)], $this->dispatched);
+        self::assertEquals([new EventTripsChangedEvent((string) $event->getId(), $this->userId(), EventTripsChangedEvent::CREATED, true)], $this->dispatched);
+    }
+
+    public function testAddingALocationToATodayEventWithoutOneSaysSo(): void
+    {
+        $dentist = $this->event('dentist');
+        $dentist->setLocation(null);
+        $this->em()->flush();
+        $this->dispatched = [];
+
+        $dentist->setLocation('12 rue du Nouveau Cabinet Fictif');
+        $this->em()->flush();
+
+        self::assertEquals([new EventTripsChangedEvent((string) $dentist->getId(), $this->userId(), EventTripsChangedEvent::UPDATED, true)], $this->dispatched);
     }
 
     public function testRemovingATodayEventSendsTheEventWithItsOwner(): void

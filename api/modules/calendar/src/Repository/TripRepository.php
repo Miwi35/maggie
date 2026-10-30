@@ -11,6 +11,7 @@ use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Core\Entity\User;
+use Symfony\Component\Uid\Ulid;
 
 /** @extends ServiceEntityRepository<Trip> */
 class TripRepository extends ServiceEntityRepository
@@ -61,5 +62,22 @@ class TripRepository extends ServiceEntityRepository
             ->orderBy('t.departAt', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /** Whether the user has a trip leaving within [$from, $to). */
+    public function hasLeavingBetween(string $userId, \DateTimeImmutable $from, \DateTimeImmutable $to): bool
+    {
+        return null !== $this->createQueryBuilder('t')
+            ->select('t.id')
+            ->join('t.event', 'e')
+            ->join('e.agenda', 'a')
+            ->where('a.user = :user')
+            ->andWhere('t.departAt >= :from AND t.departAt < :to')
+            ->setParameter('user', Ulid::fromString($userId), 'ulid')
+            ->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('to', $to, Types::DATETIMETZ_IMMUTABLE)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 }
