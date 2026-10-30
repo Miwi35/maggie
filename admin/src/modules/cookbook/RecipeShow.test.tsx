@@ -451,6 +451,7 @@ describe('RecipeShow', { timeout: 30_000 }, () => {
 
     await user.click(await screen.findByRole('button', { name: 'Modifier les notes' }))
     const notes = await screen.findByRole('textbox', { name: 'Notes' })
+    expect(screen.getByRole('toolbar', { name: 'Barre de mise en forme' })).toBeInTheDocument()
     await user.clear(notes)
     await user.type(notes, 'À réchauffer')
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))

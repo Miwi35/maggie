@@ -20,6 +20,7 @@ import { ContactPicker } from './ContactPicker'
 import type { Contact } from './contactsApi'
 import { centsToInput, fetchMyShare, parseEuros, removeMyShare, saveMyShare, splitEqually } from './peerDebtsApi'
 import type { MyShare, MyShareInput } from './peerDebtsApi'
+import { MarkdownEditor } from '../../components/markdown/MarkdownEditor'
 
 const STEP_CENTS = 100
 
@@ -304,17 +305,7 @@ export const TransactionShareSection = ({ transactionId, label }: { transactionI
             onChange={(e) => setObject(e.target.value)}
             inputProps={{ maxLength: 255 }}
           />
-          <TextField
-            fullWidth
-            multiline
-            minRows={2}
-            margin="normal"
-            label="Notes"
-            value={notes}
-            disabled={saving}
-            onChange={(e) => setNotes(e.target.value)}
-            inputProps={{ maxLength: 2000 }}
-          />
+          <MarkdownEditor label="Notes" value={notes} disabled={saving} onChange={setNotes} maxLength={2000} />
 
           {error && (
             <Alert severity="error" sx={{ mt: 1 }}>

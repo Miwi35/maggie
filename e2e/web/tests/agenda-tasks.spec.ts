@@ -3,6 +3,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { TasksPage } from '../pages/TasksPage.js'
+import { ROUTES } from '../pages/routes.js'
 
 /**
  * Tasks, from the agenda (MAG-100).
@@ -947,7 +948,7 @@ async function completeTask(api: APIRequestContext, taskId: string): Promise<voi
 /** Creates a task through the API and returns its id. */
 async function createTask(
   api: APIRequestContext,
-  data: { title: string; dueDate?: string; criticality?: string; estimatedMinutes?: number; firstStep?: string; parent?: string },
+  data: { title: string; description?: string; dueDate?: string; criticality?: string; estimatedMinutes?: number; firstStep?: string; parent?: string },
 ): Promise<string> {
   const response = await api.post('/api/tasks', {
     headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
@@ -957,6 +958,29 @@ async function createTask(
 
   return String(((await response.json()) as { id: string }).id)
 }
+
+/**
+ * The boxes of a task's notes are ticked on its sheet and saved as Markdown — MAG-722.
+ *
+ * Given a task with two boxes in its notes, When I tick the first on the sheet, Then « 1/2 »
+ * shows and stays after a reload.
+ */
+test('a box in the notes of a task is ticked on its sheet, and « 1/2 » stays after a reload', async ({ page, api }) => {
+  const title = perAttempt('Préparer la journée à la plage')
+  await createTask(api, { title, dueDate: seedDate(5), description: '- [ ] Douche solaire\n- [ ] Crème' })
+
+  const board = new TasksPage(page)
+  await board.goto(ROUTES.tasksUpcoming)
+  await board.row(title).getByRole('button', { name: `Ouvrir ${title}`, exact: true }).click()
+  await expect(board.sheet.getByTestId('markdown-progress')).toHaveText('0/2')
+
+  await board.sheet.getByRole('checkbox', { name: 'Douche solaire' }).click()
+  await expect(board.sheet.getByTestId('markdown-progress')).toHaveText('1/2')
+
+  await page.reload()
+  await board.row(title).getByRole('button', { name: `Ouvrir ${title}`, exact: true }).click()
+  await expect(board.sheet.getByTestId('markdown-progress')).toHaveText('1/2')
+})
 
 /** Today's day (MAG-497), as the API reads it. */
 async function dayPlan(api: APIRequestContext, date = parisDay()): Promise<DayPlan> {

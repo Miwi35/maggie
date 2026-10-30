@@ -15,6 +15,7 @@ import { formatCents } from './accountTypes'
 import { ContactPicker } from './ContactPicker'
 import { centsToInput, fetchAllocation, parseEuros, saveAllocation } from './peerDebtsApi'
 import type { AllocationCandidate, AllocationInput, PeerKind, TransactionAllocation } from './peerDebtsApi'
+import { MarkdownEditor } from '../../components/markdown/MarkdownEditor'
 
 const STEP_CENTS = 100
 
@@ -218,17 +219,7 @@ export const PeerTransferQualifier = ({
         onChange={(e) => setObject(e.target.value)}
         inputProps={{ maxLength: 255 }}
       />
-      <TextField
-        fullWidth
-        multiline
-        minRows={2}
-        margin="normal"
-        label="Notes"
-        value={notes}
-        disabled={saving}
-        onChange={(e) => setNotes(e.target.value)}
-        inputProps={{ maxLength: 2000 }}
-      />
+      <MarkdownEditor label="Notes" value={notes} disabled={saving} onChange={setNotes} maxLength={2000} />
     </>
   )
 

@@ -308,6 +308,7 @@ describe('ContactCreate', () => {
     )
 
     await user.type(await screen.findByLabelText(/Nom/), 'Tom')
+    expect(screen.getByRole('toolbar', { name: 'Barre de mise en forme' })).toBeInTheDocument()
     await user.type(screen.getByLabelText('Notes'), 'Coloc')
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
 

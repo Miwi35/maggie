@@ -62,9 +62,27 @@ describe('TaskEditDialog', () => {
     )
   })
 
+  test('a box in the notes is ticked in place and saved as Markdown, with its count (MAG-722)', async () => {
+    const user = userEvent.setup()
+    renderDialog({ ...TASK, description: '- [ ] Douche solaire\n- [ ] Courses' })
+
+    expect(await screen.findByTestId('markdown-progress')).toHaveTextContent('0/2')
+    await user.click(screen.getByRole('checkbox', { name: 'Douche solaire' }))
+
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        'tasks',
+        expect.objectContaining({ data: { description: '- [x] Douche solaire\n- [ ] Courses' } }),
+      ),
+    )
+    expect(screen.getByTestId('markdown-progress')).toHaveTextContent('1/2')
+  })
+
   test('shows the notes, the due day, the links and the subtasks in order', async () => {
     renderDialog()
 
+    expect(screen.getByRole('toolbar', { name: 'Barre de mise en forme' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Notes')).toBeInTheDocument()
     expect(screen.getByLabelText('Notes')).toHaveValue('Les cartons sont à la cave')
     expect(screen.getByLabelText('Échéance')).toHaveValue('2026-03-20')
 

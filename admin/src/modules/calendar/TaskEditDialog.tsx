@@ -22,6 +22,9 @@ import Typography from '@mui/material/Typography'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import CloseIcon from '@mui/icons-material/Close'
+import { MarkdownEditor } from '../../components/markdown/MarkdownEditor'
+import { MarkdownText } from '../../components/markdown/MarkdownText'
+import { checkboxCount } from '../../components/markdown/markdownEdit'
 import { UrgencyBadge } from './UrgencyBadge'
 
 /** A link Google Tasks attached to the task (an email, mostly). Read only (MAG-404). */
@@ -217,6 +220,15 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated, variant = 'dial
       .finally(() => setBusy(false))
   }
 
+  const tickBox = (next: string) => {
+    if (!task) return
+    setDescription(next)
+    dataProvider
+      .update('tasks', { id: task.id, data: { description: next.trim() || null }, previousData: task })
+      .then(() => onUpdated())
+      .catch(fail)
+  }
+
   const addSubtask = () => {
     if (!task || !newSubtask.trim()) return
     setBusy(true)
@@ -287,13 +299,8 @@ export const TaskEditDialog = ({ open, task, onClose, onUpdated, variant = 'dial
             required
             autoFocus
           />
-          <TextField
-            label="Notes"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            multiline
-            minRows={2}
-          />
+          {checkboxCount(description).total > 0 ? <MarkdownText value={description} onChange={tickBox} /> : null}
+          <MarkdownEditor label="Notes" value={description} onChange={setDescription} />
           <TextField
             label="Priorité"
             value={priority}

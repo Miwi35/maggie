@@ -10,6 +10,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import { localDay } from '../../dates'
 import { EstimateFields, parseMinutes } from './TaskEditDialog'
+import { MarkdownEditor } from '../../components/markdown/MarkdownEditor'
 
 interface TaskCreateDialogProps {
   open: boolean
@@ -95,13 +96,7 @@ export const TaskCreateDialog = ({ open, onClose, onCreated, defaultDueDate }: T
             required
             autoFocus
           />
-          <TextField
-            label="Notes"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            multiline
-            minRows={2}
-          />
+          <MarkdownEditor label="Notes" value={description} onChange={setDescription} />
           <TextField
             label="Priorité"
             value={priority}

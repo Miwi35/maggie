@@ -13,6 +13,7 @@ import { useCreate, useGetList, useNotify, useRedirect } from 'react-admin'
 import { NameChipsInput } from './NameChipsInput'
 import { utensilNames } from './recipeSheet'
 import type { RecipeRecord } from './recipeSheet'
+import { MarkdownEditor } from '../../components/markdown/MarkdownEditor'
 
 /**
  * Saves the popin's edit: it closes when the action answers null (the API kept it), shows the
@@ -146,7 +147,7 @@ export const NotesDialog = ({ notes, onSave, onClose }: { notes: string | null |
       saving={saving}
       onSubmit={() => run(() => onSave({ notes: text.trim() === '' ? null : text }))}
     >
-      <TextField label="Notes" value={text} onChange={(event) => setText(event.target.value)} multiline minRows={4} autoFocus fullWidth />
+      <MarkdownEditor label="Notes" value={text} onChange={setText} minRows={4} autoFocus />
     </EditDialog>
   )
 }
