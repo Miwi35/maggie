@@ -15,6 +15,7 @@ use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Entity\TaskReminder;
 use Maggie\Calendar\Enum\DayMoment;
 use Maggie\Calendar\Enum\TaskCriticality;
+use Maggie\Calendar\Enum\TaskMoment;
 use Maggie\Calendar\Service\ReminderMessages;
 use Maggie\Calendar\Service\TaskReminders;
 use Maggie\Core\Entity\User;
@@ -29,9 +30,10 @@ use Symfony\Component\Uid\Ulid;
 
 /**
  * Reminders that change their words (MAG-510): a nudge on the task « now »
- * at the moments of the day, the morning alerts reworded, at most the daily
- * cap, nothing in the quiet hours, never the same message twice in a row —
- * and the buttons that answer them in one gesture.
+ * at the moments of the day, at most the daily cap, nothing in the quiet
+ * hours, never the same message twice in a row; a task at a precise time
+ * reminded at each of its delays (MAG-718), no morning alert anymore — and
+ * the buttons that answer them in one gesture.
  *
  * Paris is UTC+2 on 2026-10-14: 06:30 UTC is 08:30, `afterBreakfast`.
  */
@@ -144,54 +146,78 @@ final class TaskReminderApiTest extends WebTestCase
         self::assertNotSame($reminders[0]->getNotification()?->getTitle(), $reminders[1]->getNotification()?->getTitle());
     }
 
-    public function testNineAlertsOnAMorningCappedAtSixSendSix(): void
+    public function testNoMorningAlertGoesOutAnymoreTheDigestTellsThem(): void
     {
         $this->dueTasks(9);
         $this->at('2026-10-14 06:00:00 UTC');
 
-        self::assertSame(6, $this->remind());
+        self::assertSame(0, $this->remind(), '08:00, the morning of old');
 
-        self::assertCount(6, $this->notifications(NotificationType::TaskDue));
-        $reminders = $this->reminders();
-        self::assertCount(9, $reminders);
-        self::assertCount(6, array_filter($reminders, static fn (TaskReminder $r): bool => null !== $r->getSentAt()));
-        self::assertCount(3, array_filter($reminders, static fn (TaskReminder $r): bool => null !== $r->getDroppedAt()));
+        self::assertSame([], $this->notifications(NotificationType::TaskDue));
+        self::assertSame([], $this->reminders());
     }
 
-    public function testNineAlertsOnAMorningCappedAtFourSendFour(): void
+    public function testATaskAt1800WithAReminder30MinutesBeforeIsRemindedAt1730(): void
     {
-        $this->settings(['reminderDailyCap' => 4]);
-        $this->dueTasks(9);
-        $this->at('2026-10-14 06:00:00 UTC');
+        $task = $this->timedTask('Préparer le dîner', '18:00', [30]);
 
-        self::assertSame(4, $this->remind());
+        $this->at('2026-10-14 15:29:00 UTC');
+        self::assertSame(0, $this->remind(), '17:29, not yet');
 
-        self::assertCount(4, $this->notifications(NotificationType::TaskDue));
-    }
+        $this->at('2026-10-14 15:30:00 UTC');
+        self::assertSame(1, $this->remind(), '17:30');
 
-    public function testTheMorningAlertsAreRewordedWithTheirActions(): void
-    {
-        $this->dueTasks(1);
-        $this->at('2026-10-14 06:00:00 UTC');
-
-        $this->remind();
-
-        $notification = $this->onlyReminder()->getNotification();
+        $reminder = $this->onlyReminder();
+        self::assertSame(TaskReminder::KIND_DUE, $reminder->getKind());
+        self::assertSame((string) $task->getId(), $reminder->getSubjectId());
+        self::assertSame('2026-10-14T17:30:00+02:00', $reminder->getScheduledFor()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('c'));
+        $notification = $reminder->getNotification();
         self::assertInstanceOf(Notification::class, $notification);
-        self::assertContains($notification->getTitle(), self::bank(ReminderMessages::DUE['dueDay']['doux'], 'Échéance 1'));
+        self::assertSame(NotificationType::TaskDue, $notification->getType());
+        self::assertSame('Préparer le dîner', $notification->getTitle());
+        self::assertSame('Dans 30 min · 18:00', $notification->getBody());
         self::assertSame(['start', 'done', 'tomorrow'], $notification->getActions());
-        self::assertStringStartsWith('due.dueDay.doux.', (string) $this->onlyReminder()->getMessageKey());
+        self::assertSame('/api/tasks/'.$task->getId(), $notification->getRelatedEntityIri());
+
+        $this->at('2026-10-14 15:31:00 UTC');
+        self::assertSame(0, $this->remind(), 'once per reminder');
     }
 
-    public function testAMorningInTheQuietHoursAlertsWhenTheyEnd(): void
+    public function testEachReminderOfATaskGoesOutAtItsMinuteWhateverTheCap(): void
     {
-        $this->settings(['morningTime' => '07:00', 'quietEnd' => '08:30']);
-        $this->dueTasks(1);
+        $this->settings(['reminderDailyCap' => 1]);
+        $this->timedTask('Appeler maman', '18:00', [0, 60]);
 
-        $this->at('2026-10-14 05:00:00 UTC');
-        self::assertSame(0, $this->remind(), '07:00 is quiet');
-        $this->at('2026-10-14 06:30:00 UTC');
-        self::assertSame(1, $this->remind(), '08:30 the quiet hours end');
+        $this->at('2026-10-14 15:00:00 UTC');
+        self::assertSame(1, $this->remind(), '17:00, an hour before');
+        $this->at('2026-10-14 16:00:00 UTC');
+        self::assertSame(1, $this->remind(), '18:00, at the time: set by the user, the cap of 1 does not hold it back');
+
+        $bodies = array_map(static fn (TaskReminder $r): ?string => $r->getNotification()?->getBody(), $this->reminders());
+        self::assertSame(['Dans 1 h · 18:00', 'C\'est l\'heure · 18:00'], $bodies);
+    }
+
+    public function testATaskDoneOrWithoutAPreciseTimeIsNotReminded(): void
+    {
+        $done = $this->timedTask('Déjà fait', '18:00', [0]);
+        $this->em()->find(Task::class, $done->getId())?->setCompletedAt(new \DateTimeImmutable('2026-10-14 10:00 UTC'));
+        $evening = (new Task())->setUser($this->user())->setTitle('Ce soir')->schedule(new \DateTimeImmutable(self::TODAY), TaskMoment::Evening, null, []);
+        $this->em()->persist($evening);
+        $this->em()->flush();
+
+        $this->at('2026-10-14 16:00:00 UTC');
+
+        self::assertSame(0, $this->remind());
+    }
+
+    public function testAReminderInTheQuietHoursIsDropped(): void
+    {
+        $this->timedTask('Sortir les poubelles', '21:30', [0]);
+
+        $this->at('2026-10-14 19:30:00 UTC');
+
+        self::assertSame(0, $this->remind(), '21:30 is quiet');
+        self::assertNotNull($this->onlyReminder()->getDroppedAt());
     }
 
     public function testIn10PutsTheNudgeOffTenMinutesOutsideTheCap(): void
@@ -304,7 +330,7 @@ final class TaskReminderApiTest extends WebTestCase
     {
         $due = $this->sentDue();
         $this->act($due, 'in10');
-        self::assertResponseStatusCodeSame(409, 'a morning alert is not put off');
+        self::assertResponseStatusCodeSame(409, 'a reminder at a precise time is not put off');
         $this->act($due, 'tonight');
         self::assertResponseStatusCodeSame(409);
 
@@ -475,14 +501,25 @@ final class TaskReminderApiTest extends WebTestCase
         return $this->onlyReminder();
     }
 
-    /** A morning alert on « Échéance 1 », due today, sent now. */
+    /** A reminder at the time of « Échéance 1 », planned now, sent now. */
     private function sentDue(): TaskReminder
     {
-        $this->settings(['morningTime' => Clock::get()->now()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('H:i')]);
-        $this->dueTasks(1);
+        $this->timedTask('Échéance 1', Clock::get()->now()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('H:i'), [0]);
         self::assertSame(1, $this->remind());
 
         return $this->onlyReminder();
+    }
+
+    /** @param list<int> $reminders */
+    private function timedTask(string $title, string $time, array $reminders): Task
+    {
+        $task = (new Task())->setUser($this->user())->setTitle($title)->setCriticality(TaskCriticality::Medium)
+            ->schedule(new \DateTimeImmutable(self::TODAY), TaskMoment::Time, $time, $reminders);
+        $this->em()->persist($task);
+        $this->em()->flush();
+        $this->em()->clear();
+
+        return $task;
     }
 
     private function task(string $title, ?string $due = null): Task

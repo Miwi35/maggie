@@ -7,6 +7,7 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Enum\TaskMoment;
 use Maggie\Core\Entity\User;
 use Symfony\Component\Uid\Ulid;
 
@@ -117,6 +118,69 @@ class TaskRepository extends ServiceEntityRepository
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('day', $day, Types::DATE_IMMUTABLE)
             ->orderBy('t.dueDate', 'ASC')
+            ->addOrderBy('t.position', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The tasks not done planned on $day (MAG-718), whatever their due day.
+     *
+     * @return Task[]
+     */
+    public function findOpenScheduledOn(User $user, \DateTimeImmutable $day): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.completedAt IS NULL')
+            ->andWhere('t.scheduledDate = :day')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('day', $day, Types::DATE_IMMUTABLE)
+            ->orderBy('t.position', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The tasks not done planned at a precise time from $from to $to, both
+     * included (MAG-718): those that may have a reminder falling now.
+     *
+     * @return Task[]
+     */
+    public function findOpenTimedBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.completedAt IS NULL')
+            ->andWhere('t.scheduledMoment = :time')
+            ->andWhere('t.scheduledDate >= :from')
+            ->andWhere('t.scheduledDate <= :to')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('time', TaskMoment::Time->value)
+            ->setParameter('from', $from, Types::DATE_IMMUTABLE)
+            ->setParameter('to', $to, Types::DATE_IMMUTABLE)
+            ->orderBy('t.scheduledDate', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The tasks not done planned after $day (MAG-718), the closest first.
+     *
+     * @return Task[]
+     */
+    public function findOpenScheduledAfter(User $user, \DateTimeImmutable $day): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->andWhere('t.completedAt IS NULL')
+            ->andWhere('t.scheduledDate > :day')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('day', $day, Types::DATE_IMMUTABLE)
+            ->orderBy('t.scheduledDate', 'ASC')
             ->addOrderBy('t.position', 'ASC')
             ->addOrderBy('t.id', 'ASC')
             ->getQuery()

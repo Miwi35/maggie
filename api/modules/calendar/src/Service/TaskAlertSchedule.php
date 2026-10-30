@@ -12,18 +12,22 @@ use Maggie\Calendar\Repository\TaskSettingsRepository;
 use Maggie\Core\Entity\User;
 
 /**
- * Which tasks to alert on a morning, and why (MAG-407) — the spec's « Barème
- * d'alertes », a setting of {@see \Maggie\Calendar\Entity\TaskSettings}. Each
- * task follows the schedule of its urgency on that morning
+ * Which tasks to bring up on a morning, and why (MAG-407) — Réglages › Tâches
+ * › Rappels, a setting of {@see \Maggie\Calendar\Entity\TaskSettings}. Since
+ * MAG-718 nothing is sent at a morning hour: the morning digest reads the
+ * day's list ({@see self::dueAlerts()}, through `get_tasks` view `today`).
+ * Each task follows the schedule of its urgency on that morning
  * ({@see TaskUrgency}): the urgency climbs as the due day nears, so does the
  * schedule. Per urgency:
  *
- * - `daysBefore`: the days before the due day that alert, whole numbers 1 to 30;
- * - `dueDay`: whether the morning of the due day alerts;
- * - `overdueEveryDays`: late, alert every n days (n days late, 2n…), null: never.
+ * - « À programmer », `daysBefore` and `dueDay`: the days before the due day
+ *   (whole numbers 1 to 30) and the due day itself, as long as the task has
+ *   no day planned — a reminder to plan it;
+ * - « Pas faite », `overdueEveryDays`: late, every n days (n days late,
+ *   2n…), null: never — a reminder to do it.
  *
- * `low` has no schedule: a low task is only shown, never alerted. A task done
- * or with no due day never alerts. Sending is MAG-410's.
+ * `low` has no schedule: a low task is only shown, never brought up. A task
+ * done or with no due day never is.
  *
  * @phpstan-type Rule array{daysBefore: list<int>, dueDay: bool, overdueEveryDays: int|null}
  * @phpstan-type Schedule array<string, Rule>
@@ -46,7 +50,7 @@ final class TaskAlertSchedule
     }
 
     /**
-     * The user's tasks to alert on the morning of $day, by due day then
+     * The user's tasks to bring up on the morning of $day, by due day then
      * manual order. Read, not created: no settings means the defaults.
      *
      * @return list<TaskAlert>
@@ -73,6 +77,11 @@ final class TaskAlertSchedule
     {
         $days = TaskUrgency::daysUntilDue($task, $day);
         if (null === $days) {
+            return null;
+        }
+
+        // Planned already: nothing left to plan, until it is late.
+        if ($days >= 0 && null !== $task->getScheduledDate()) {
             return null;
         }
 

@@ -11,8 +11,9 @@ use Maggie\Core\Entity\User;
 
 /**
  * The four views of the tasks (MAG-408), each task in exactly one:
- * `today` ({@see TodayTasks}), `upcoming` (not done, due after today),
- * `someday` (not done, no due day) and `done`. A subtask follows its task, right
+ * `today` ({@see TodayTasks}), `upcoming` (not done, due or planned after
+ * today — MAG-718), `someday` (not done, no due day nor day planned ahead)
+ * and `done`. A subtask follows its task, right
  * after it in the task's view whatever its own day, and is in no other.
  */
 final class TaskViews
@@ -44,8 +45,16 @@ final class TaskViews
             $inToday[(string) $task->getId()] = true;
         }
 
-        $dueAfter = $this->taskRepository->findOpenDueAfter($user, $this->urgency->today($user));
-        $undated = $this->taskRepository->findOpenUndated($user);
+        $todayDay = $this->urgency->today($user);
+        $ahead = [];
+        foreach ([...$this->taskRepository->findOpenDueAfter($user, $todayDay), ...$this->taskRepository->findOpenScheduledAfter($user, $todayDay)] as $task) {
+            $ahead[(string) $task->getId()] ??= $task;
+        }
+        $dueAfter = array_values($ahead);
+        $undated = array_values(array_filter(
+            $this->taskRepository->findOpenUndated($user),
+            static fn (Task $task): bool => !isset($ahead[(string) $task->getId()]),
+        ));
 
         $followed = [];
         foreach ([...$dueAfter, ...$undated] as $task) {
@@ -89,7 +98,7 @@ final class TaskViews
     /**
      * @param list<Task> $heads
      *
-     * @return list<Task> by due day, then by score
+     * @return list<Task> by day — the day planned, else the due day —, then by score
      */
     private function upcoming(array $heads): array
     {
@@ -97,7 +106,7 @@ final class TaskViews
         // The score sort leaves ties by due day, so sort by day first, score within a day.
         $byDay = [];
         foreach ($tasks as $task) {
-            $byDay[$task->getDueDate()?->format('Y-m-d') ?? ''][] = $task;
+            $byDay[($task->getScheduledDate() ?? $task->getDueDate())?->format('Y-m-d') ?? ''][] = $task;
         }
         ksort($byDay);
 

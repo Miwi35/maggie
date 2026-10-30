@@ -6,6 +6,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Exception\InvalidTaskParentException;
+use Maggie\Calendar\Exception\InvalidTaskScheduleException;
 use Maggie\Calendar\Message\CreateTaskCommand;
 use Maggie\Core\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -41,9 +42,14 @@ class CreateTaskProcessor implements ProcessorInterface
                 position: $data->getPosition(),
                 estimatedMinutes: $data->getEstimatedMinutes(),
                 firstStep: $data->getFirstStep(),
+                scheduledDate: $data->getScheduledDate(),
+                scheduledMoment: $data->getScheduledMoment()?->value,
+                scheduledTime: $data->getScheduledTime(),
+                // Left out, a precise time gets its default reminder.
+                reminders: [] === $data->getReminders() ? null : $data->getReminders(),
             ));
         } catch (HandlerFailedException $e) {
-            if ($e->getPrevious() instanceof InvalidTaskParentException) {
+            if ($e->getPrevious() instanceof InvalidTaskParentException || $e->getPrevious() instanceof InvalidTaskScheduleException) {
                 throw new BadRequestHttpException($e->getPrevious()->getMessage(), $e);
             }
 

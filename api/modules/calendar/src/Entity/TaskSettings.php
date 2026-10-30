@@ -67,14 +67,15 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
     private array $orderWeights = TaskOrderWeights::DEFAULTS;
 
     /**
-     * The alerts of each urgency: {@see TaskAlertSchedule}.
+     * Réglages › Rappels, per urgency — « À programmer » and « Pas faite »,
+     * read by the morning digest: {@see TaskAlertSchedule}.
      *
      * @var array<string, array<string, mixed>>
      */
     #[ORM\Column(type: Types::JSON)]
     private array $alertSchedule = TaskAlertSchedule::DEFAULTS;
 
-    /** The « morning » the alerts go out, `HH:MM` in the user's timezone. */
+    /** The « morning » of the tasks, `HH:MM` in the user's timezone: the morning proposal waits for it. No alert goes out at it anymore (MAG-718). */
     #[ORM\Column(length: 5, options: ['default' => self::DEFAULT_MORNING_TIME])]
     private string $morningTime = self::DEFAULT_MORNING_TIME;
 
@@ -375,12 +376,6 @@ class TaskSettings implements MercurePublishable, OwnedByUserInterface
         return $this->quietStart < $this->quietEnd
             ? $time >= $this->quietStart && $time < $this->quietEnd
             : $time >= $this->quietStart || $time < $this->quietEnd;
-    }
-
-    /** When the morning alerts go out: the morning, or the end of the quiet hours when the morning falls in them. */
-    public function getAlertTime(): string
-    {
-        return $this->isQuiet($this->morningTime) ? $this->quietEnd : $this->morningTime;
     }
 
     /** @return array<string, mixed> */

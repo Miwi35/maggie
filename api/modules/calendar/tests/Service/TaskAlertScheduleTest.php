@@ -8,6 +8,7 @@ use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Entity\TaskSettings;
 use Maggie\Calendar\Enum\TaskAlertReason;
 use Maggie\Calendar\Enum\TaskCriticality;
+use Maggie\Calendar\Enum\TaskMoment;
 use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Repository\DayPlanRepository;
 use Maggie\Calendar\Repository\TaskRepository;
@@ -105,6 +106,26 @@ class TaskAlertScheduleTest extends TestCase
             null === $reason ? [] : [['task', $reason, $days]],
             $this->alertsOn([self::task($criticality, $dueInDays)]),
         );
+    }
+
+    public function testACriticalTaskAtJMinus3IsToScheduleUntilItGetsADay(): void
+    {
+        $task = self::task(TaskCriticality::Critical, 3, 'Déclarer les impôts');
+
+        self::assertSame([['Déclarer les impôts', 'days_before', 3]], $this->alertsOn([$task]));
+        self::assertSame('to_schedule', TaskAlertReason::DaysBefore->digestReason());
+
+        $task->schedule(new \DateTimeImmutable('2026-10-14'), TaskMoment::Evening, null, []);
+        self::assertSame([], $this->alertsOn([$task]), 'planned: nothing left to plan');
+    }
+
+    public function testAPlannedTaskLateIsStillNotDone(): void
+    {
+        $task = self::task(TaskCriticality::High, -2, 'Rendre le livre')
+            ->schedule(new \DateTimeImmutable('2026-10-10'), null, null, []);
+
+        self::assertSame([['Rendre le livre', 'overdue', 2]], $this->alertsOn([$task]));
+        self::assertSame('not_done', TaskAlertReason::Overdue->digestReason());
     }
 
     /** @return iterable<string, array{int, TaskAlertReason|null}> */

@@ -7,6 +7,7 @@ use ApiPlatform\State\ProcessorInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Exception\InvalidTaskParentException;
+use Maggie\Calendar\Exception\InvalidTaskScheduleException;
 use Maggie\Calendar\Message\UpdateTaskCommand;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -30,7 +31,7 @@ class UpdateTaskProcessor implements ProcessorInterface
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
         if (null !== $previous) {
-            foreach (['description' => 'getDescription', 'dueDate' => 'getDueDate', 'completedAt' => 'getCompletedAt', 'parent' => 'getParent', 'estimatedMinutes' => 'getEstimatedMinutes', 'firstStep' => 'getFirstStep'] as $field => $getter) {
+            foreach (['description' => 'getDescription', 'dueDate' => 'getDueDate', 'completedAt' => 'getCompletedAt', 'parent' => 'getParent', 'estimatedMinutes' => 'getEstimatedMinutes', 'firstStep' => 'getFirstStep', 'scheduledDate' => 'getScheduledDate', 'scheduledMoment' => 'getScheduledMoment'] as $field => $getter) {
                 if (null === $data->$getter() && null !== $previous->$getter()) {
                     $clearFields[] = $field;
                 }
@@ -54,6 +55,11 @@ class UpdateTaskProcessor implements ProcessorInterface
             position: null === $previous || $data->getPosition() !== $previous->getPosition() ? $data->getPosition() : null,
             estimatedMinutes: null === $previous || $data->getEstimatedMinutes() !== $previous->getEstimatedMinutes() ? $data->getEstimatedMinutes() : null,
             firstStep: null === $previous || $data->getFirstStep() !== $previous->getFirstStep() ? $data->getFirstStep() : null,
+            scheduledDate: null === $previous || $data->getScheduledDate() != $previous->getScheduledDate() ? $data->getScheduledDate() : null,
+            scheduledMoment: null === $previous || $data->getScheduledMoment() !== $previous->getScheduledMoment() ? $data->getScheduledMoment()?->value : null,
+            // A time sent null is no change of its own: the moment says whether one is kept.
+            scheduledTime: null === $previous || $data->getScheduledTime() !== $previous->getScheduledTime() ? $data->getScheduledTime() : null,
+            reminders: null === $previous || $data->getReminders() !== $previous->getReminders() ? $data->getReminders() : null,
         );
 
         // The deserializer applied the patch to the managed entity, the parent
@@ -64,7 +70,7 @@ class UpdateTaskProcessor implements ProcessorInterface
         try {
             $envelope = $this->bus->dispatch($command);
         } catch (HandlerFailedException $e) {
-            if ($e->getPrevious() instanceof InvalidTaskParentException) {
+            if ($e->getPrevious() instanceof InvalidTaskParentException || $e->getPrevious() instanceof InvalidTaskScheduleException) {
                 throw new BadRequestHttpException($e->getPrevious()->getMessage(), $e);
             }
 

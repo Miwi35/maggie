@@ -14,6 +14,7 @@
             "priority": "high",
             "criticality": "high",
             "dueDate": "2026-03-20",
+            "reminders": [],
             "position": "00000000000000000000",
             "links": [],
             "estimatedMinutes": 20,
@@ -33,6 +34,7 @@
             "title": "Recorded subtask",
             "priority": "medium",
             "criticality": "low",
+            "reminders": [],
             "parent": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "position": "00000000000000000001",
             "links": [
@@ -55,6 +57,7 @@
             "title": "Recorded reserve task",
             "priority": "medium",
             "criticality": "low",
+            "reminders": [],
             "position": "00000000000000000002",
             "links": [],
             "urgency": "low",
@@ -70,6 +73,7 @@
             "title": "Recorded completed task",
             "priority": "low",
             "criticality": "low",
+            "reminders": [],
             "completedAt": "2026-03-19T10:00:00+00:00",
             "links": [],
             "urgency": "low",
@@ -80,7 +84,7 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/tasks{?dueDate[before],dueDate[strictly_before],dueDate[after],dueDate[strictly_after],completedAt[before],completedAt[strictly_before],completedAt[after],completedAt[strictly_after],exists[completedAt],exists[dueDate],priority,priority[],criticality,criticality[],order[id],order[dueDate],order[criticality],order[position],order[completedAt],parent}",
+        "template": "/api/tasks{?dueDate[before],dueDate[strictly_before],dueDate[after],dueDate[strictly_after],scheduledDate[before],scheduledDate[strictly_before],scheduledDate[after],scheduledDate[strictly_after],completedAt[before],completedAt[strictly_before],completedAt[after],completedAt[strictly_after],exists[completedAt],exists[dueDate],exists[scheduledDate],priority,priority[],criticality,criticality[],order[id],order[dueDate],order[criticality],order[position],order[completedAt],parent}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -105,6 +109,30 @@
                 "@type": "IriTemplateMapping",
                 "variable": "dueDate[strictly_after]",
                 "property": "dueDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "scheduledDate[before]",
+                "property": "scheduledDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "scheduledDate[strictly_before]",
+                "property": "scheduledDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "scheduledDate[after]",
+                "property": "scheduledDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "scheduledDate[strictly_after]",
+                "property": "scheduledDate",
                 "required": false
             },
             {
@@ -141,6 +169,12 @@
                 "@type": "IriTemplateMapping",
                 "variable": "exists[dueDate]",
                 "property": "dueDate",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "exists[scheduledDate]",
+                "property": "scheduledDate",
                 "required": false
             },
             {
