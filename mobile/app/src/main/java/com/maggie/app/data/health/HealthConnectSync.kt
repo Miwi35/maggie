@@ -93,9 +93,10 @@ class HealthConnectSync(
             .filter { round2(it.kilograms) > 0 && round2(it.kilograms) <= MAX_WEIGHT_KG }
             .map { SyncedMeasurement(it.id, isoAt(it.time, it.offset, zone), weightKg = round2(it.kilograms), source = MEASUREMENT_SOURCE) }
         val bodyFat = gateway.readBodyFat(since, now)
-            // The API keeps one decimal: 99.96 % would be stored as 100.
-            .filter { Math.round(it.percent * 10) / 10.0 in 0.1..<MAX_BODY_FAT_PERCENT.toDouble() }
-            .map { SyncedMeasurement(it.id, isoAt(it.time, it.offset, zone), bodyFatPercent = round2(it.percent), source = MEASUREMENT_SOURCE) }
+            // Sent with the one decimal the API keeps, and checked as sent: 99.96 % would be 100.
+            .map { it to round1(it.percent) }
+            .filter { (_, percent) -> percent > 0 && percent < MAX_BODY_FAT_PERCENT }
+            .map { (fat, percent) -> SyncedMeasurement(fat.id, isoAt(fat.time, fat.offset, zone), bodyFatPercent = percent, source = MEASUREMENT_SOURCE) }
         val days = gateway.aggregateDays(LocalDate.ofInstant(since, zone), LocalDate.ofInstant(now, zone), zone).map {
             SyncedDay(
                 date = it.date.toString(),
@@ -179,6 +180,8 @@ class HealthConnectSync(
         internal fun isUlid(value: String): Boolean = ULID.matches(value)
 
         private fun round2(value: Double): Double = Math.round(value * 100) / 100.0
+
+        private fun round1(value: Double): Double = Math.round(value * 10) / 10.0
 
         internal fun toSessionToWrite(workout: Workout): HcSessionToWrite? {
             val started = runCatching { OffsetDateTime.parse(workout.startedAt) }.getOrNull() ?: return null

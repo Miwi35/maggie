@@ -162,6 +162,21 @@ class HealthConnectSyncTest {
     }
 
     @Test
+    fun `a body fat that the API would round to 100 percent is left out, not sent to refuse the batch`() = runTest {
+        val at = Instant.parse("2026-10-21T05:12:00Z")
+        gateway.bodyFat += HcBodyFat("hc-f-100", at, null, 99.96)
+        gateway.bodyFat += HcBodyFat("hc-f-ok", at, null, 21.34)
+
+        sync.run()
+
+        val measurements = api.syncBodies().single().list("measurements").map { it.jsonObject }
+        val fat = measurements.single()
+        assertEquals(JsonPrimitive("hc-f-ok"), fat["externalId"])
+        // Sent with the one decimal the API keeps.
+        assertEquals(21.3, fat.getValue("bodyFatPercent").jsonPrimitive.content.toDouble(), 0.0)
+    }
+
+    @Test
     fun `the days sent are Health Connect's per-day aggregate, local dates of the phone's zone`() = runTest {
         preferences.advanceTo(Instant.parse("2026-10-21T08:00:00Z"))
         gateway.days += HcDayActivity(LocalDate.parse("2026-10-20"), 11_204, 538.6)
