@@ -5,6 +5,7 @@ import anthropic
 
 from app.llm.claim_guard import ClaimGuard, Verdict, question_of
 from app.llm.prompt_cache import cache_tools
+from app.llm.provider_status import note_provider_failure, note_provider_success
 from app.llm.tool_blocks import record
 from app.llm.web_search import PAUSE_TURN, answer_text, with_sources
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
@@ -70,13 +71,15 @@ async def run_tool_loop(
                 messages=messages,
                 tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
             )
+            await note_provider_success()
             counts = usage_kwargs(response.usage)
             record_llm_usage(model=model, call_type=call_type, duration_seconds=time.monotonic() - t0, **counts)
             usage["input_tokens"] += sum(
                 counts.get(key, 0) for key in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
             )
             usage["output_tokens"] += counts.get("output_tokens", 0)
-        except Exception:
+        except Exception as e:
+            await note_provider_failure(e)
             record_llm_usage(
                 model=model,
                 call_type=call_type,

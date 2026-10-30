@@ -7,6 +7,7 @@ import { MaggieInterruptionHost } from '../maggie/MaggieInterruptionHost'
 import { MaggiePortrait } from '../maggie/MaggiePortrait'
 import { CustomAppBar } from './AppBar'
 import { Breadcrumbs, PageHeading } from './Breadcrumbs'
+import { ProviderBanner } from './ProviderBanner'
 import { ThemePreferenceSync } from './ThemePreferenceSync'
 import { CustomMenu } from './Menu'
 import { CustomSidebar } from './Sidebar'
@@ -146,6 +147,7 @@ export const Layout = (props: LayoutProps) => {
               scope their text locators to the page, and a trail repeating the
               page's own title would match twice (MAG-352). */}
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <ProviderBanner />
             <Breadcrumbs />
             {/* `page-content` and the chat panel's `chat-panel` are the two
                 handles the e2e journeys scope their locators to (MAG-97).

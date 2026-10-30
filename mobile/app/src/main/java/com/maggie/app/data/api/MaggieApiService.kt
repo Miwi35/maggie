@@ -4,6 +4,7 @@ import com.maggie.app.BuildConfig
 import com.maggie.app.data.model.AcceptRecurringSuggestionsRequest
 import com.maggie.app.data.model.AcceptRecurringSuggestionsResult
 import com.maggie.app.data.model.AccountIncident
+import com.maggie.app.data.model.ProviderStatus
 import com.maggie.app.data.model.AccountIncidents
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.AgUiEvent
@@ -3290,6 +3291,11 @@ class MaggieApiService(
             accept(ContentType.Application.Json)
             url.parameters.append("date", date)
         }.orRefusal().body()
+    }
+
+    // Whether the model's provider answers — agent endpoint (MAG-727).
+    suspend fun getProviderStatus(): ProviderStatus {
+        return client.get("$baseUrl/agent/provider-status").orRefusal().body()
     }
 
     // Chat read state — agent endpoints (MAG-687). The server keeps the watermark, monotone.

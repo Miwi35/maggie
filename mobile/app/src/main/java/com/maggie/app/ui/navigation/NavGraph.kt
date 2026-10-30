@@ -15,6 +15,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -76,6 +77,8 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.NotificationPermissionPrompt
 import com.maggie.app.ui.components.AppDrawerContent
 import com.maggie.app.ui.components.DrawerSummaryViewModel
+import com.maggie.app.ui.components.ProviderStatusBanner
+import com.maggie.app.ui.components.ProviderStatusViewModel
 import com.maggie.app.data.model.Context
 import com.maggie.app.ui.components.ChatBottomBar
 import com.maggie.app.ui.components.ChatPanel
@@ -791,6 +794,9 @@ fun NavGraph() {
     val routinesViewModel: RoutinesViewModel = koinViewModel()
     val interruptionsViewModel: InterruptionsListViewModel = koinViewModel()
     val drawerSummaryViewModel: DrawerSummaryViewModel = koinViewModel()
+    val providerStatusViewModel: ProviderStatusViewModel = koinViewModel()
+    val providerBanner by providerStatusViewModel.banner.collectAsState()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { providerStatusViewModel.refresh() }
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
     val mealCreateViewModel: MealCreateViewModel = koinViewModel()
@@ -1261,16 +1267,24 @@ fun NavGraph() {
                 // the gesture bar twice.
                 contentWindowInsets = WindowInsets(0),
                 topBar = {
-                    // Courses, Tâches and Cuisine draw their own breadcrumb (MAG-627, MAG-670), like the Finance pages.
-                    if (isMainScreen && currentRoute !in OWN_BREADCRUMB_ROUTES) {
-                        MaggieTopBar(
-                            title = title,
-                            onMenuClick = if (chrome.showsRail) {
-                                null
-                            } else {
-                                { scope.launch { drawerState.open() } }
-                            },
-                            dense = chrome.denseTopBar,
+                    Column {
+                        // Courses, Tâches and Cuisine draw their own breadcrumb (MAG-627, MAG-670), like the Finance pages.
+                        val hasTopBar = isMainScreen && currentRoute !in OWN_BREADCRUMB_ROUTES
+                        if (hasTopBar) {
+                            MaggieTopBar(
+                                title = title,
+                                onMenuClick = if (chrome.showsRail) {
+                                    null
+                                } else {
+                                    { scope.launch { drawerState.open() } }
+                                },
+                                dense = chrome.denseTopBar,
+                            )
+                        }
+                        // Under the header of every screen (MAG-727); with no bar above it, it clears the status bar itself.
+                        ProviderStatusBanner(
+                            banner = providerBanner,
+                            clearsStatusBar = !hasTopBar,
                         )
                     }
                 },
