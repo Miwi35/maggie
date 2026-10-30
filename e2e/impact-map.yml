@@ -550,6 +550,8 @@ web:
     areas: [cookbook]
   e2e/web/tests/health-sport.spec.ts:
     areas: [health]
+  e2e/web/tests/health-sync.spec.ts:
+    areas: [health]
   e2e/web/tests/health-suivi.spec.ts:
     areas: [health]
     paths: [api/fixtures/e2e/70-health.yaml]

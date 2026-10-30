@@ -1,6 +1,10 @@
 package com.maggie.app.ui.screens.health
 
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.health.FakeHealthConnectGateway
+import com.maggie.app.data.health.FakeHealthSyncScheduler
+import com.maggie.app.data.health.HealthConnectAvailability
+import com.maggie.app.data.health.HealthConnectPermissions
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.ActivityLevel
@@ -50,6 +54,8 @@ class ConfigurationViewModelTest {
     private val pushes = MutableSharedFlow<MercureEvent>()
     private val clock = Clock.fixed(Instant.parse("2026-10-30T08:00:00Z"), ZoneId.of("Europe/Paris"))
     private val sent = mutableListOf<JsonObject>()
+    private val gateway = FakeHealthConnectGateway()
+    private val scheduler = FakeHealthSyncScheduler()
 
     /** The ticket's figures: Homme, 38 ans, 178 cm, 72 kg, Sédentaire → 1 648 and 1 980 kcal. */
     private val profile = HealthProfile(
@@ -102,6 +108,7 @@ class ConfigurationViewModelTest {
                 "enteredNeedKcal" -> p.copy(enteredNeedKcal = v.toInt())
                 "activityLevel" -> p.copy(activityLevel = v)
                 "stepGoal" -> p.copy(stepGoal = v.toInt())
+                "stepSource" -> p.copy(stepSource = v)
                 else -> p
             }
         }
@@ -109,7 +116,7 @@ class ConfigurationViewModelTest {
     }
 
     private fun TestScope.loaded(): ConfigurationViewModel {
-        val viewModel = ConfigurationViewModel(repository, mercureService, authRepository, clock)
+        val viewModel = ConfigurationViewModel(repository, mercureService, authRepository, gateway, scheduler, clock)
         advanceUntilIdle()
         return viewModel
     }
@@ -137,7 +144,7 @@ class ConfigurationViewModelTest {
 
     @Test
     fun `loading, then the profile with its need and basal metabolism`() = runTest {
-        val viewModel = ConfigurationViewModel(repository, mercureService, authRepository, clock)
+        val viewModel = ConfigurationViewModel(repository, mercureService, authRepository, gateway, scheduler, clock)
         assertTrue(viewModel.uiState.value.isLoading)
         assertFalse(viewModel.uiState.value.hasLoaded)
 
@@ -347,7 +354,7 @@ class ConfigurationViewModelTest {
     @Test
     fun `an edit waiting for its pause is sent when the view model is cleared`() = runTest {
         val store = ViewModelStore()
-        val built = ConfigurationViewModel(repository, mercureService, authRepository, clock)
+        val built = ConfigurationViewModel(repository, mercureService, authRepository, gateway, scheduler, clock)
         val viewModel = ViewModelProvider(
             store,
             object : ViewModelProvider.Factory {
@@ -373,7 +380,7 @@ class ConfigurationViewModelTest {
     @Test
     fun `a write already on its way is not cancelled when the view model is cleared`() = runTest {
         val store = ViewModelStore()
-        val built = ConfigurationViewModel(repository, mercureService, authRepository, clock)
+        val built = ConfigurationViewModel(repository, mercureService, authRepository, gateway, scheduler, clock)
         val viewModel = ViewModelProvider(
             store,
             object : ViewModelProvider.Factory {
@@ -391,5 +398,72 @@ class ConfigurationViewModelTest {
         advanceUntilIdle()
 
         assertEquals("moderate", server.activityLevel)
+    }
+
+    // — « Source des pas » and Health Connect (MAG-708)
+
+    @Test
+    fun `every read permission granted shows Health Connect as connected`() = runTest {
+        val viewModel = loaded()
+
+        assertEquals(HealthConnectState.CONNECTED, viewModel.uiState.value.healthConnect)
+    }
+
+    @Test
+    fun `a read permission refused shows Non connecté, and nothing is synced`() = runTest {
+        gateway.granted = HealthConnectPermissions.READ - HealthConnectPermissions.READ_WEIGHT
+
+        val viewModel = loaded()
+
+        assertEquals(HealthConnectState.NOT_PERMITTED, viewModel.uiState.value.healthConnect)
+        assertFalse(viewModel.uiState.value.healthConnect.isConnected)
+        assertEquals(0, scheduler.now)
+    }
+
+    @Test
+    fun `Health Connect not installed or too old is not connected either`() = runTest {
+        gateway.available = HealthConnectAvailability.NEEDS_UPDATE
+
+        val viewModel = loaded()
+
+        assertEquals(HealthConnectState.NOT_INSTALLED, viewModel.uiState.value.healthConnect)
+    }
+
+    @Test
+    fun `the permissions granted connect, set the steps' source to Health Connect and ask for a sync now`() = runTest {
+        gateway.granted = emptySet()
+        val viewModel = loaded()
+
+        viewModel.onPermissionsResult(HealthConnectPermissions.ALL)
+        advanceUntilIdle()
+
+        assertEquals(HealthConnectState.CONNECTED, viewModel.uiState.value.healthConnect)
+        assertEquals(listOf(JsonObject(mapOf("stepSource" to JsonPrimitive("health_connect")))), sent)
+        assertEquals(HealthProfile.STEP_SOURCE_HEALTH_CONNECT, viewModel.uiState.value.profile?.stepSource)
+        assertEquals(1, scheduler.now)
+    }
+
+    @Test
+    fun `the permission screen closed without the reads stays Non connecté and writes nothing`() = runTest {
+        gateway.granted = emptySet()
+        val viewModel = loaded()
+
+        viewModel.onPermissionsResult(setOf(HealthConnectPermissions.READ_STEPS))
+        advanceUntilIdle()
+
+        assertEquals(HealthConnectState.NOT_PERMITTED, viewModel.uiState.value.healthConnect)
+        assertTrue(sent.isEmpty())
+        assertEquals(0, scheduler.now)
+    }
+
+    @Test
+    fun `back on the screen after the settings, the permissions are read again`() = runTest {
+        val viewModel = loaded()
+        gateway.granted = emptySet()
+
+        viewModel.checkHealthConnect()
+        advanceUntilIdle()
+
+        assertEquals(HealthConnectState.NOT_PERMITTED, viewModel.uiState.value.healthConnect)
     }
 }
