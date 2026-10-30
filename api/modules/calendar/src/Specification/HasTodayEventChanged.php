@@ -54,7 +54,7 @@ final readonly class HasTodayEventChanged
 
         return match ($this->transition) {
             self::CREATED => $this->hasLocation($event->getLocation()) && $this->isToday($event->getStartAt()),
-            self::REMOVED => $this->isToday($event->getStartAt()),
+            self::REMOVED => $this->hasLocation($event->getLocation()) && $this->isToday($event->getStartAt()),
             default => $this->isUpdateOfToday($event),
         };
     }
@@ -76,6 +76,12 @@ final readonly class HasTodayEventChanged
         $startChanged = isset($this->changeSet['startAt']) && $this->differs(...$this->changeSet['startAt']);
         $locationChanged = isset($this->changeSet['location']) && $this->differs(...$this->changeSet['location']);
         if (!$startChanged && !$locationChanged) {
+            return false;
+        }
+
+        // No place before or after: the event has no trip and is the origin of none.
+        $locationBefore = $locationChanged ? $this->changeSet['location'][0] : $event->getLocation();
+        if (!$this->hasLocation(\is_string($locationBefore) ? $locationBefore : null) && !$this->hasLocation($event->getLocation())) {
             return false;
         }
 
