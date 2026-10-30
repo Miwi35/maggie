@@ -10,7 +10,11 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -108,6 +112,25 @@ class ConfigurationViewModelTest {
         val viewModel = ConfigurationViewModel(repository, mercureService, authRepository, clock)
         advanceUntilIdle()
         return viewModel
+    }
+
+    /** A fake API that answers each write only when the test says so, and counts the writes it is busy with. */
+    private val gates = mutableListOf<CompletableDeferred<Unit>>()
+    private var busy = 0
+    private var mostBusy = 0
+
+    private fun gatedServer() {
+        coEvery { repository.update(any()) } coAnswers {
+            val changes = firstArg<JsonObject>()
+            sent += changes
+            busy++
+            mostBusy = maxOf(mostBusy, busy)
+            val gate = CompletableDeferred<Unit>().also { gates += it }
+            gate.await()
+            busy--
+            server = apply(server, changes)
+            Result.success(server)
+        }
     }
 
     private fun ConfigurationViewModel.shown() = uiState.value.profile!!
@@ -271,5 +294,102 @@ class ConfigurationViewModelTest {
         assertEquals(71.0, viewModel.shown().weightKg!!, 0.001)
         assertEquals(1970, viewModel.shown().needKcal)
         coVerify(exactly = 1) { repository.getProfile() }
+    }
+
+    @Test
+    fun `two choices made within one request's latency are sent one after the other`() = runTest {
+        coEvery { repository.getProfile() } returns Result.success(HealthProfile())
+        server = HealthProfile()
+        val viewModel = loaded()
+        gatedServer()
+
+        viewModel.setSex("female")
+        viewModel.setActivityLevel(ActivityLevel.MODERATE)
+        runCurrent()
+        assertEquals("the second waits for the first's answer", 1, sent.size)
+
+        gates[0].complete(Unit)
+        runCurrent()
+        assertEquals(2, sent.size)
+        gates[1].complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, mostBusy)
+        assertEquals(
+            listOf(
+                JsonObject(mapOf("sex" to JsonPrimitive("female"))),
+                JsonObject(mapOf("activityLevel" to JsonPrimitive("moderate"))),
+            ),
+            sent,
+        )
+    }
+
+    @Test
+    fun `the answer to an older write does not replace what the last one shows`() = runTest {
+        val viewModel = loaded()
+        gatedServer()
+
+        viewModel.setActivityLevel(ActivityLevel.MODERATE)
+        viewModel.setActivityLevel(ActivityLevel.ACTIVE)
+        runCurrent()
+        assertEquals("active", viewModel.shown().activityLevel)
+
+        gates[0].complete(Unit)
+        runCurrent()
+        assertEquals("the first answer (moderate) is not shown", "active", viewModel.shown().activityLevel)
+
+        gates[1].complete(Unit)
+        advanceUntilIdle()
+        assertEquals("active", viewModel.shown().activityLevel)
+        assertEquals("active", server.activityLevel)
+    }
+
+    @Test
+    fun `an edit waiting for its pause is sent when the view model is cleared`() = runTest {
+        val store = ViewModelStore()
+        val built = ConfigurationViewModel(repository, mercureService, authRepository, clock)
+        val viewModel = ViewModelProvider(
+            store,
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T = built as T
+            },
+        )[ConfigurationViewModel::class.java]
+        advanceUntilIdle()
+
+        viewModel.stepHeight(+1)
+        viewModel.stepStepGoal(+1)
+        advanceTimeBy(100)
+        store.clear()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(JsonObject(mapOf("heightCm" to JsonPrimitive(179), "stepGoal" to JsonPrimitive(8500)))),
+            sent,
+        )
+        assertEquals(179, server.heightCm)
+    }
+
+    @Test
+    fun `a write already on its way is not cancelled when the view model is cleared`() = runTest {
+        val store = ViewModelStore()
+        val built = ConfigurationViewModel(repository, mercureService, authRepository, clock)
+        val viewModel = ViewModelProvider(
+            store,
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T = built as T
+            },
+        )[ConfigurationViewModel::class.java]
+        advanceUntilIdle()
+        gatedServer()
+
+        viewModel.setActivityLevel(ActivityLevel.MODERATE)
+        runCurrent()
+        store.clear()
+        gates[0].complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("moderate", server.activityLevel)
     }
 }

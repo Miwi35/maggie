@@ -8,12 +8,19 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.ActivityLevel
 import com.maggie.app.data.model.HealthProfile
 import com.maggie.app.data.repository.HealthProfileRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -38,6 +45,8 @@ data class ConfigurationUiState(
  * value at once and writes after [PROFILE_WRITE_DEBOUNCE_MS] — one `PATCH` of its field for a run of taps; a chip, a
  * toggle or a time writes at once. A refused write puts the API's value back. The `health-profile` topic carries the
  * whole profile (a weighing made elsewhere moves it): it replaces the state, the edits still to send laid over it.
+ * The writes go one at a time, in the order they were made (a new profile is created by the first one), and only the
+ * answer to the last one replaces what is shown; edits still waiting for their pause are sent when the screen goes.
  * The [clock] says the current year an age is turned into a birth year with.
  */
 class ConfigurationViewModel(
@@ -57,6 +66,13 @@ class ConfigurationViewModel(
     private val unsent = LinkedHashMap<String, Edit>()
     private val pendingJobs = HashMap<String, Job>()
 
+    /** One PATCH at a time, in the order of the writes: the last one to land is the last one made. */
+    private val writeLock = Mutex()
+
+    /** The number of the last write made, and how many are not answered yet. */
+    private var writeSeq = 0
+    private var inFlight = 0
+
     private class Edit(val body: JsonObject, val apply: (HealthProfile) -> HealthProfile)
 
     init {
@@ -72,7 +88,8 @@ class ConfigurationViewModel(
                 .collect { event ->
                     val pushed = runCatching { json.decodeFromString(HealthProfile.serializer(), event.data) }.getOrNull()
                         ?: return@collect
-                    accept(pushed)
+                    // Never over a write on its way: the answer to the last one replaces the state.
+                    if (inFlight > 0) confirmed = pushed else accept(pushed)
                 }
         }
     }
@@ -194,16 +211,41 @@ class ConfigurationViewModel(
     private fun writeNow(changes: JsonObject, apply: (HealthProfile) -> HealthProfile) {
         val profile = _uiState.value.profile ?: return
         _uiState.value = _uiState.value.copy(profile = apply(profile).recomputed(), error = null)
-        viewModelScope.launch { send(changes) }
+        // Undispatched: the write is numbered and queued now, even if the screen goes before the next frame.
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) { send(changes) }
     }
 
+    /**
+     * Past this point the request goes out whatever comes next (NonCancellable); it waits for the one before it to be
+     * answered ([writeLock]), so a new profile is created once, and only the answer to the last write is applied.
+     */
     private suspend fun send(changes: JsonObject) {
-        repository.update(changes)
-            .onSuccess(::accept)
-            .onFailure {
-                val back = confirmed
-                _uiState.value = _uiState.value.copy(profile = back?.let(::withUnsent) ?: _uiState.value.profile, error = MESSAGE_SAVE)
+        val seq = ++writeSeq
+        inFlight++
+        withContext(NonCancellable) {
+            writeLock.withLock {
+                val result = repository.update(changes)
+                inFlight--
+                result.onSuccess { confirmed = it }
+                if (seq != writeSeq) return@withLock
+                result
+                    .onSuccess(::accept)
+                    .onFailure {
+                        val back = confirmed
+                        _uiState.value = _uiState.value.copy(profile = back?.let(::withUnsent) ?: _uiState.value.profile, error = MESSAGE_SAVE)
+                    }
             }
+        }
+    }
+
+    /** The screen is gone (viewModelScope already cancelled): the edits still waiting for their pause leave in one PATCH. */
+    override fun onCleared() {
+        pendingJobs.values.forEach { it.cancel() }
+        pendingJobs.clear()
+        if (unsent.isEmpty()) return
+        val changes = buildJsonObject { unsent.values.forEach { edit -> edit.body.forEach { (key, value) -> put(key, value) } } }
+        unsent.clear()
+        CoroutineScope(Dispatchers.Main).launch { send(changes) }
     }
 
     private fun body(field: String, value: JsonPrimitive) = buildJsonObject { put(field, value) }
