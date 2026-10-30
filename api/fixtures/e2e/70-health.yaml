@@ -6,6 +6,14 @@
 #   Haut du corps  45 min           manual  3 days ago
 #   Marche rapide  70 min   6,9 km  watch   5 days ago
 #
+# The Santé › Suivi journey (MAG-706): ten weighings on the owner's account
+# over the last 30 days, 73,6 kg down to 72,2 kg, four with a body fat, one
+# excluded (66,2 kg, someone else on the scale). None today: the 71,8 kg the
+# web journey adds is the only value of today.
+#
+#   -28 d 73,6   -24 d 73,4   -20 d 73,3 (22,1 %)   -17 d 73,1   -14 d 72,9 (21,8 %)
+#   -11 d 66,2 excluded   -8 d 72,7   -5 d 72,5 (21,5 %)   -3 d 72,4   -1 d 72,2 (21,3 %)
+#
 # Fictitious data. Mobile journeys sign in with a fresh account and add theirs.
 
 Maggie\Health\Entity\Workout:
@@ -39,3 +47,60 @@ Maggie\Health\Entity\Workout:
     kcal: 310
     feeling: '<(Maggie\Health\Enum\WorkoutFeeling::VeryGood)>'
     source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+
+Maggie\Health\Entity\BodyMeasurement:
+  e2e_weighing_28:
+    user: '@e2e_user'
+    measuredAt: '<e2eDate("-28 days 07:18")>'
+    weightKg: 73.6
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+  e2e_weighing_24:
+    user: '@e2e_user'
+    measuredAt: '<e2eDate("-24 days 07:14")>'
+    weightKg: 73.4
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+  e2e_weighing_20:
+    user: '@e2e_user'
+    measuredAt: '<e2eDate("-20 days 07:10")>'
+    weightKg: 73.3
+    bodyFatPercent: 22.1
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+  e2e_weighing_17:
+    user: '@e2e_user'
+    measuredAt: '<e2eDate("-17 days 07:17")>'
+    weightKg: 73.1
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+  e2e_weighing_14:
+    user: '@e2e_user'
+    measuredAt: '<e2eDate("-14 days 07:14")>'
+    weightKg: 72.9
+    bodyFatPercent: 21.8
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+  e2e_weighing_11:
+    user: '@e2e_user'
+    measuredAt: '<e2eDate("-11 days 07:11")>'
+    weightKg: 66.2
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+    excluded: true
+  e2e_weighing_8:
+    user: '@e2e_user'
+    measuredAt: '<e2eDate("-8 days 07:18")>'
+    weightKg: 72.7
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+  e2e_weighing_5:
+    user: '@e2e_user'
+    measuredAt: '<e2eDate("-5 days 07:15")>'
+    weightKg: 72.5
+    bodyFatPercent: 21.5
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+  e2e_weighing_3:
+    user: '@e2e_user'
+    measuredAt: '<e2eDate("-3 days 07:13")>'
+    weightKg: 72.4
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+  e2e_weighing_1:
+    user: '@e2e_user'
+    measuredAt: '<e2eDate("-1 day 07:11")>'
+    weightKg: 72.2
+    bodyFatPercent: 21.3
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'

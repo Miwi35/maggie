@@ -595,6 +595,24 @@ Maggie\Health\Entity\Workout:
     source: '<(Maggie\Health\Enum\WorkoutSource::Manual)>'
     user: '@recorded_user'
 
+# The body measurements (MAG-706): a weighing typed by hand with its body
+# fat, an imported one set aside with a waist size and an externalId.
+Maggie\Health\Entity\BodyMeasurement:
+  recorded_body_measurement_manual:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-21T07:12:00+02:00"))>'
+    weightKg: 72.4
+    bodyFatPercent: 21.3
+    source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+    user: '@recorded_user'
+  recorded_body_measurement_imported:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-20T06:58:00+02:00"))>'
+    weightKg: 68.15
+    waistCm: 84.5
+    source: '<(Maggie\Health\Enum\MeasurementSource::HealthConnect)>'
+    externalId: hc-0001
+    excluded: true
+    user: '@recorded_user'
+
 # A timer of the Cuisine activity (MAG-582), started at the recording's fixed
 # moment so its endsAt and remainingSeconds do not move.
 Maggie\Cookbook\Entity\CookingTimer:

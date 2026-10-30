@@ -158,6 +158,9 @@ final class QueryParameterContractTest extends WebTestCase
         '/api/trips' => [
             'date' => 'mobile getTrips and admin CalendarView, the trips kept for the events of one day (MAG-658, MAG-659)',
         ],
+        '/api/body-measurements' => [
+            'measuredAt[after]' => 'admin Santé › Suivi, the measurements of the period shown (MAG-706)',
+        ],
     ];
 
     private KernelBrowser $client;
@@ -662,7 +665,8 @@ final class QueryParameterContractTest extends WebTestCase
         foreach ($names->create() as $resourceClass) {
             foreach ($metadata->create($resourceClass) as $resource) {
                 foreach ($resource->getOperations() ?? [] as $operation) {
-                    if ($operation instanceof GetCollection && '/api'.$operation->getUriTemplate() === $path.'{._format}') {
+                    // `{._format}` is appended to a generated template, not to one the entity spells out (`/body-measurements`).
+                    if ($operation instanceof GetCollection && \in_array('/api'.$operation->getUriTemplate(), [$path.'{._format}', $path], true)) {
                         return $resourceClass;
                     }
                 }

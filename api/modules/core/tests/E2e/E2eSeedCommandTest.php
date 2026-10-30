@@ -35,6 +35,7 @@ use Maggie\Grocery\Entity\GroceryList;
 use Maggie\Grocery\Entity\RecurringGroceryItem;
 use Maggie\Grocery\Entity\Store;
 use Maggie\Grocery\Service\PurchaseSuggestions;
+use Maggie\Health\Entity\BodyMeasurement;
 use Maggie\Health\Entity\Workout;
 use Maggie\MealGrocery\Entity\ShortageAlert;
 use Maggie\Notification\Entity\Notification;
@@ -231,6 +232,10 @@ final class E2eSeedCommandTest extends KernelTestCase
         $owner = $this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']);
         self::assertSame(3, $this->rowsOf(Workout::class, ['user' => $owner]));
         self::assertSame(3, $this->rowsOf(Workout::class));
+        // MAG-706: the ten weighings of the Santé › Suivi journey, one excluded, none today.
+        self::assertSame(10, $this->rowsOf(BodyMeasurement::class, ['user' => $owner]));
+        self::assertSame(1, $this->rowsOf(BodyMeasurement::class, ['user' => $owner, 'excluded' => true]));
+        self::assertSame(10, $this->rowsOf(BodyMeasurement::class));
 
         // MAG-556: the PEA of the placement withdrawal journey, and the 1 500 € the
         // trip takes out of it the month it is bought.
