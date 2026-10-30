@@ -1,9 +1,10 @@
 // The morning digest of the signed-in account, played over HTTP (MAG-710).
 //
 // The digest only exists as a message Maggie sends when its hour comes, so this plays what the web
-// journey `agent-digest.spec.ts` plays: the instruction, the planning, the digest's event moved to a
-// minute ago, then the wait for the written message on the `digest` screen (the executor claims what
-// is due once a minute). It also gives the account an event today, for the Agenda card.
+// journey `agent-digest.spec.ts` plays: the instruction, the planning, the digest's event moved to an hour
+// before the stack's pinned clock (TODAY, 11:00 UTC), then the wait for the written message on the `digest`
+// screen (the executor claims what is due once a minute). It also gives the account an event today, for the
+// Agenda card.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL, E2E_LOGIN_TOKEN and TODAY from `run.sh`):
 //   SUMMARY  the title of today's event
@@ -70,7 +71,10 @@ const instruction = http.post(base + '/agent/instructions', {
 if (!instruction.ok) {
   fail('POST /agent/instructions answered ' + instruction.status + ': ' + instruction.body)
 }
-const planning = http.post(base + '/agent/journal/planning', { headers: headers() })
+const planning = http.post(base + '/agent/journal/planning', {
+  headers: headers({ 'Content-Type': 'application/json' }),
+  body: '{}',
+})
 if (!planning.ok) {
   fail('POST /agent/journal/planning answered ' + planning.status + ': ' + planning.body)
 }
@@ -83,7 +87,7 @@ if (!scheduled || !scheduled.id) {
 const moved = http.request(base + '/api/events/' + scheduled.id, {
   method: 'PATCH',
   headers: headers({ 'Content-Type': 'application/merge-patch+json' }),
-  body: JSON.stringify({ startAt: new Date(Date.now() - 60000).toISOString() }),
+  body: JSON.stringify({ startAt: TODAY + 'T10:00:00Z' }),
 })
 if (!moved.ok) {
   fail('PATCH /api/events/' + scheduled.id + ' answered ' + moved.status + ': ' + moved.body)

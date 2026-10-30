@@ -875,6 +875,14 @@ mobile:
       - mobile/app/src/main/java/com/maggie/app/ui/screens/fullcalendar/**
       - '.docker/e2e/wiremock/mappings/google-routes.json'
       - '.docker/e2e/wiremock/mappings/google-geocoding.json'
+  e2e/mobile/flows/30-digest.yaml:
+    areas: [dashboard, chat, calendar]
+    paths:
+      - e2e/mobile/scripts/digest-api.js
+      - 'api/modules/core/src/Weather/**'
+      - mobile/app/src/main/java/com/maggie/app/ui/screens/digest/**
+      - mobile/app/src/main/java/com/maggie/app/data/model/Weather.kt
+      - mobile/app/src/main/java/com/maggie/app/data/repository/WeatherRepository.kt
   e2e/mobile/flows/15-mind-tab.yaml:
     areas: [chat, calendar, realtime]
     paths:
