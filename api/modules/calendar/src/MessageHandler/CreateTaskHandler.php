@@ -9,6 +9,7 @@ use Maggie\Calendar\Message\CreateTaskCommand;
 use Maggie\Calendar\Message\PushTaskToGoogleCommand;
 use Maggie\Calendar\Service\TaskEstimate;
 use Maggie\Calendar\Service\TaskHierarchy;
+use Maggie\Calendar\Service\TaskSchedule;
 use Maggie\Calendar\UseCase\CreateTask;
 use Maggie\Core\Repository\UserRepository;
 use Psr\Log\LoggerInterface;
@@ -52,6 +53,7 @@ class CreateTaskHandler
         if (null !== $command->completedAt) {
             $task->setCompletedAt($command->completedAt);
         }
+        TaskSchedule::apply($task, $command->scheduledDate, $command->scheduledMoment, $command->scheduledTime, $command->reminders);
         TaskEstimate::check($command->estimatedMinutes, $command->firstStep);
         $task->setEstimatedMinutes($command->estimatedMinutes);
         $task->setFirstStep(TaskEstimate::firstStep($command->firstStep));

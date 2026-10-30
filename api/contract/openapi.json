@@ -11088,6 +11088,54 @@
                         "explode": false
                     },
                     {
+                        "name": "scheduledDate[before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "scheduledDate[strictly_before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "scheduledDate[after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "scheduledDate[strictly_after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "completedAt[before]",
                         "in": "query",
                         "description": "A bound that is not a date is refused with a 400.",
@@ -11149,6 +11197,18 @@
                     },
                     {
                         "name": "exists[dueDate]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "exists[scheduledDate]",
                         "in": "query",
                         "description": "",
                         "required": false,
@@ -28336,6 +28396,48 @@
                         "format": "date",
                         "example": "2037-01-01"
                     },
+                    "scheduledDate": {
+                        "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks. Maggie's own: Google never sees it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
+                    },
+                    "scheduledMoment": {
+                        "description": "When in the scheduled day: morning, afternoon, evening, or time (then scheduledTime is required). Null: the day only. Needs a scheduledDate.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "morning",
+                            "afternoon",
+                            "evening",
+                            "time",
+                            null
+                        ]
+                    },
+                    "scheduledTime": {
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                        "description": "The time of the scheduled day, HH:MM in the user's timezone. Only with scheduledMoment \"time\", and required with it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "18:00"
+                    },
+                    "reminders": {
+                        "maxItems": 5,
+                        "description": "Reminders, in minutes before scheduledTime (0: at the time, up to 10080: a week). Only with scheduledMoment \"time\"; set to time without reminders, it gets one at the time.",
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10080
+                        }
+                    },
                     "completedAt": {
                         "type": [
                             "string",
@@ -28510,6 +28612,48 @@
                         "format": "date",
                         "example": "2037-01-01"
                     },
+                    "scheduledDate": {
+                        "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks. Maggie's own: Google never sees it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
+                    },
+                    "scheduledMoment": {
+                        "description": "When in the scheduled day: morning, afternoon, evening, or time (then scheduledTime is required). Null: the day only. Needs a scheduledDate.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "morning",
+                            "afternoon",
+                            "evening",
+                            "time",
+                            null
+                        ]
+                    },
+                    "scheduledTime": {
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                        "description": "The time of the scheduled day, HH:MM in the user's timezone. Only with scheduledMoment \"time\", and required with it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "18:00"
+                    },
+                    "reminders": {
+                        "maxItems": 5,
+                        "description": "Reminders, in minutes before scheduledTime (0: at the time, up to 10080: a week). Only with scheduledMoment \"time\"; set to time without reminders, it gets one at the time.",
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10080
+                        }
+                    },
                     "completedAt": {
                         "type": [
                             "string",
@@ -28683,6 +28827,48 @@
                         ],
                         "format": "date",
                         "example": "2037-01-01"
+                    },
+                    "scheduledDate": {
+                        "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks. Maggie's own: Google never sees it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
+                    },
+                    "scheduledMoment": {
+                        "description": "When in the scheduled day: morning, afternoon, evening, or time (then scheduledTime is required). Null: the day only. Needs a scheduledDate.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "morning",
+                            "afternoon",
+                            "evening",
+                            "time",
+                            null
+                        ]
+                    },
+                    "scheduledTime": {
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                        "description": "The time of the scheduled day, HH:MM in the user's timezone. Only with scheduledMoment \"time\", and required with it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "18:00"
+                    },
+                    "reminders": {
+                        "maxItems": 5,
+                        "description": "Reminders, in minutes before scheduledTime (0: at the time, up to 10080: a week). Only with scheduledMoment \"time\"; set to time without reminders, it gets one at the time.",
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10080
+                        }
                     },
                     "completedAt": {
                         "type": [
@@ -28859,6 +29045,48 @@
                                 ],
                                 "format": "date",
                                 "example": "2037-01-01"
+                            },
+                            "scheduledDate": {
+                                "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks. Maggie's own: Google never sees it.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date",
+                                "example": "2037-01-01"
+                            },
+                            "scheduledMoment": {
+                                "description": "When in the scheduled day: morning, afternoon, evening, or time (then scheduledTime is required). Null: the day only. Needs a scheduledDate.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "morning",
+                                    "afternoon",
+                                    "evening",
+                                    "time",
+                                    null
+                                ]
+                            },
+                            "scheduledTime": {
+                                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                                "description": "The time of the scheduled day, HH:MM in the user's timezone. Only with scheduledMoment \"time\", and required with it.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "example": "18:00"
+                            },
+                            "reminders": {
+                                "maxItems": 5,
+                                "description": "Reminders, in minutes before scheduledTime (0: at the time, up to 10080: a week). Only with scheduledMoment \"time\"; set to time without reminders, it gets one at the time.",
+                                "type": "array",
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 10080
+                                }
                             },
                             "completedAt": {
                                 "type": [

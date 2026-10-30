@@ -27,7 +27,7 @@ use Symfony\Component\Uid\Ulid;
 #[ORM\Index(columns: ['user_id', 'scheduled_for'], name: 'idx_task_reminder_user_scheduled')]
 class TaskReminder implements OwnedByUserInterface
 {
-    /** A morning alert on a task near or past its due day (MAG-410). */
+    /** A reminder of a task at a precise time, minutes before it (MAG-718); a morning alert before (MAG-410). */
     public const KIND_DUE = 'due';
     /** A nudge on the task « now » of the day, at a moment. */
     public const KIND_NUDGE = 'nudge';
@@ -44,7 +44,7 @@ class TaskReminder implements OwnedByUserInterface
     public const ACTION_OPEN = 'open';
     public const ACTIONS = [self::ACTION_START, self::ACTION_IN10, self::ACTION_TONIGHT, self::ACTION_DONE, self::ACTION_TOMORROW, self::ACTION_OPEN];
 
-    /** What each kind can be answered with: a morning alert is not put off, a nudge is not ticked. */
+    /** What each kind can be answered with: a reminder at a precise time is not put off, a nudge is not ticked. */
     public const ACTIONS_BY_KIND = [
         self::KIND_DUE => [self::ACTION_START, self::ACTION_DONE, self::ACTION_TOMORROW],
         self::KIND_NUDGE => [self::ACTION_START, self::ACTION_IN10, self::ACTION_TONIGHT, self::ACTION_TOMORROW],
