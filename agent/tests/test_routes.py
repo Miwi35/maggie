@@ -492,6 +492,28 @@ class TestApprovals:
         assert body[1]["summary"] == "Supprimer l'événement"
         assert "01KNZ8J6AGQ0K5D3WXYZ123456" not in body[1]["summary"]
 
+    def test_decided_list_requires_auth(self, client):
+        assert client.get("/approvals", params={"status": "decided", "since": "2026-10-29T00:00:00Z"}).status_code in (
+            401,
+            403,
+        )
+
+    def test_decided_list_refuses_an_invalid_or_missing_date(self, authed_client):
+        for params in ({"status": "decided", "since": "yesterday"}, {"status": "decided"}):
+            assert authed_client.get("/approvals", params=params).status_code == 400
+
+    @patch("app.api.routes.pending_action_repo")
+    def test_decided_list_serves_the_users_recent_decisions(self, mock_repo, authed_client):
+        mock_repo.find_decided = AsyncMock(return_value=[held_action(id="act-9")])
+
+        response = authed_client.get("/approvals", params={"status": "decided", "since": "2026-10-28T10:00:00Z"})
+
+        assert response.status_code == 200
+        assert [a["id"] for a in response.json()] == ["act-9"]
+        user, since = mock_repo.find_decided.await_args.args
+        assert user == "test-user"
+        assert since.isoformat() == "2026-10-28T10:00:00+00:00"
+
     def test_list_refuses_a_status_it_does_not_serve(self, authed_client):
         assert authed_client.get("/approvals", params={"status": "approved"}).status_code == 422
 

@@ -158,6 +158,7 @@ fun ModuleBreadcrumb(
         }
         Box(modifier = Modifier.weight(1f))
         actions()
+        LocalHeaderActions.current.invoke(this)
     }
 }
 
@@ -287,6 +288,7 @@ fun ModuleDetailBar(
             modifier = Modifier.weight(1f),
         )
         actions()
+        LocalHeaderActions.current.invoke(this)
     }
 }
 

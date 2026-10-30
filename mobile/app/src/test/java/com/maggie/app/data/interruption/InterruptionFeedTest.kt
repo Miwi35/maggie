@@ -83,11 +83,11 @@ class InterruptionFeedTest {
     }
 
     @Test
-    fun `the questions already waiting when the app opens are asked`() = runTest {
+    fun `the held actions already waiting when the app opens never take the screen`() = runTest {
         coEvery { approvals.getPending() } returns Result.success(listOf(PendingApproval(id = "ap-1", toolName = "t", summary = "Ajouter")))
         start()
 
-        assertEquals("approval:ap-1", center.current.value?.key)
+        assertNull(center.current.value)
     }
 
     @Test
@@ -101,13 +101,13 @@ class InterruptionFeedTest {
     }
 
     @Test
-    fun `a new held action is asked as it is raised`() = runTest {
+    fun `a new held action does not take the screen`() = runTest {
         coEvery { approvals.getPending() } returns Result.success(emptyList())
         start()
 
         approvalEvents.emit(MercureEvent(data = """{"id":"ap-2","toolName":"t","status":"pending","summary":"Supprimer"}"""))
 
-        assertEquals("Supprimer", center.current.value?.text)
+        assertNull(center.current.value)
     }
 
     @Test

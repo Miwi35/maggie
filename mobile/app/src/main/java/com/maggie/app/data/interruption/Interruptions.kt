@@ -15,8 +15,21 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 
+/** What a held action's push says (MAG-712): a message of Maggie, whose card the chat opens on. */
+const val CONFIRMATION_TITLE = "Nouveau message de Maggie"
+
 /** What identifies an interruption: a held action by its approval, whatever notification announced it. */
 val PushPayload.key: String get() = approvalId?.let { "approval:$it" } ?: notificationId
+
+/** A held action to confirm: it waits in the bell and the chat, it never takes the screen. */
+val PushPayload.isConfirmation: Boolean get() = approvalId != null
+
+/** The push of a held action as the tray shows it: a message of Maggie, whose tap opens the chat on the card. */
+fun PushPayload.asMessageOfMaggie(): PushPayload =
+    if (isConfirmation) copy(title = CONFIRMATION_TITLE, link = "${DeepLinks.SCHEME}://chat") else this
+
+/** A question put to the owner with answers to choose from (MAG-712): the bell lists it until it is answered. */
+val PushPayload.isChoice: Boolean get() = approvalId == null && interaction?.options?.isNotEmpty() == true
 
 /** A question Maggie waits on: it goes ahead of the messages. */
 val PushPayload.isQuestion: Boolean get() = approvalId != null || interaction?.kind == "confirm"
@@ -95,7 +108,7 @@ object Interruptions {
             notificationId = approval.id,
             type = "approval",
             channel = PushChannels.APPROVALS,
-            title = "Maggie demande ton accord",
+            title = CONFIRMATION_TITLE,
             text = approval.summary?.takeIf { it.isNotBlank() } ?: approval.toolName,
             link = null,
             actionLabel = null,

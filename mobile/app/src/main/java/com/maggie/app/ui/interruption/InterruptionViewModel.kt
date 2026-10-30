@@ -122,5 +122,5 @@ class InterruptionViewModel(
     }
 
     /** Thirty seconds without an answer: it goes away and stays unread. */
-    fun timedOut(key: String) = center.close(key)
+    fun timedOut(key: String) = center.timeOut(key)
 }
