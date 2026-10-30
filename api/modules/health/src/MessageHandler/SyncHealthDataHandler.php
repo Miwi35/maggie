@@ -110,26 +110,31 @@ class SyncHealthDataHandler
             return 'created';
         }
 
-        // A title renamed in Maggie stays: the batch only sets it when it carries one.
-        $title = $item['title'] ?? $existing->getTitle();
-        if (self::sameWorkout($existing, $item, $title, $startedAt)) {
+        // What the user set in Maggie stays: the type, a title renamed, a
+        // figure the batch does not carry. The batch only overwrites what it
+        // gives, and never clears a field.
+        $item = [
+            'type' => $existing->getType()->value,
+            'title' => $item['title'] ?? $existing->getTitle(),
+            'startedAt' => $startedAt,
+            'distanceMeters' => $item['distanceMeters'] ?? $existing->getDistanceMeters(),
+            'kcal' => $item['kcal'] ?? $existing->getKcal(),
+            'avgHeartRate' => $item['avgHeartRate'] ?? $existing->getAvgHeartRate(),
+        ] + $item;
+        if (self::sameWorkout($existing, $item)) {
             return 'unchanged';
         }
 
         $this->bus->dispatch(new UpdateWorkoutCommand(
             userId: $userId,
             workoutId: (string) $existing->getId(),
-            type: $item['type'],
-            title: $title,
+            title: $item['title'],
             startedAt: $startedAt,
             durationMinutes: $item['durationMinutes'],
             distanceMeters: $item['distanceMeters'],
             kcal: $item['kcal'],
             avgHeartRate: $item['avgHeartRate'],
             source: $item['source'],
-            clearDistance: null === $item['distanceMeters'],
-            clearKcal: null === $item['kcal'],
-            clearAvgHeartRate: null === $item['avgHeartRate'],
         ));
 
         return 'updated';
@@ -158,6 +163,10 @@ class SyncHealthDataHandler
             return 'created';
         }
 
+        // A weighing and a body fat reading are two records in Health Connect:
+        // the one not given is kept, never cleared.
+        $item['weightKg'] ??= $existing->getWeightKg();
+        $item['bodyFatPercent'] ??= $existing->getBodyFatPercent();
         if (self::sameMeasurement($existing, $item, $measuredAt)) {
             return 'unchanged';
         }
@@ -170,19 +179,16 @@ class SyncHealthDataHandler
             weightKg: $item['weightKg'],
             bodyFatPercent: $item['bodyFatPercent'],
             source: $item['source'],
-            clearWeight: null === $item['weightKg'],
-            clearBodyFat: null === $item['bodyFatPercent'],
         ));
 
         return 'updated';
     }
 
     /** @param SyncedWorkoutData $item */
-    private static function sameWorkout(Workout $workout, array $item, string $title, string $startedAt): bool
+    private static function sameWorkout(Workout $workout, array $item): bool
     {
-        return $workout->getType()->value === $item['type']
-            && $workout->getTitle() === $title
-            && $workout->getStartedAt()->getTimestamp() === (new \DateTimeImmutable($startedAt))->getTimestamp()
+        return $workout->getTitle() === $item['title']
+            && $workout->getStartedAt()->getTimestamp() === (new \DateTimeImmutable($item['startedAt']))->getTimestamp()
             && $workout->getDurationMinutes() === $item['durationMinutes']
             && $workout->getDistanceMeters() === $item['distanceMeters']
             && $workout->getKcal() === $item['kcal']

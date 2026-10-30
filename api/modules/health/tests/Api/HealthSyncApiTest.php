@@ -125,9 +125,9 @@ class HealthSyncApiTest extends WebTestCase
 
         $run = $this->workout('hc-run-1');
         self::assertSame(35, $run->getDurationMinutes());
-        // The title renamed in Maggie stays; what the watch no longer sends is cleared.
+        // The title renamed in Maggie stays, and so does a figure the batch does not carry.
         self::assertSame('Course du matin', $run->getTitle());
-        self::assertNull($run->getDistanceMeters());
+        self::assertSame(5400, $run->getDistanceMeters());
         $this->assertMercurePublishedOnce('/api/workouts/'.$run->getId());
 
         $weighing = $this->measurement('hc-weight-1');
@@ -149,6 +149,27 @@ class HealthSyncApiTest extends WebTestCase
         self::assertSame(['created' => 0, 'updated' => 0, 'unchanged' => 1], $this->response()['workouts']);
     }
 
+    public function testWhatTheUserSetInMaggieOutlivesTheNextPass(): void
+    {
+        // The run of the fixture: renamed, its distance typed in Maggie. The
+        // watch sends it again with no title, no distance and another type.
+        $this->sync(['workouts' => [['externalId' => 'hc-run-1', 'type' => 'walk', 'startedAt' => '2026-10-20T07:10:00+02:00', 'durationMinutes' => 32, 'source' => 'watch']],
+            'measurements' => [['externalId' => 'hc-weight-1', 'measuredAt' => '2026-10-21T07:12:00+02:00', 'bodyFatPercent' => 21.0, 'source' => 'health_connect']]]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['created' => 0, 'updated' => 0, 'unchanged' => 1], $this->response()['workouts']);
+        $run = $this->workout('hc-run-1');
+        self::assertSame(WorkoutType::Run, $run->getType());
+        self::assertSame('Course du matin', $run->getTitle());
+        self::assertSame(5400, $run->getDistanceMeters());
+        $this->assertNothingPublishedOn('/api/workouts/'.$run->getId());
+
+        // A body fat reading for the same instant keeps the weight already there.
+        $weighing = $this->measurement('hc-weight-1');
+        self::assertSame(72.4, $weighing->getWeightKg());
+        self::assertSame(21.0, $weighing->getBodyFatPercent());
+    }
+
     /** @return iterable<string, array{array<string, mixed>, string}> */
     public static function invalidBatches(): iterable
     {
@@ -163,6 +184,7 @@ class HealthSyncApiTest extends WebTestCase
         yield 'a source the sync does not write' => [['workouts' => [['source' => 'manual'] + $workout]], 'workouts[0].source'];
         yield 'same externalId twice' => [['workouts' => [$workout, $workout]], 'workouts[1].externalId'];
         yield 'measurement without a figure' => [['measurements' => [$measurement, ['externalId' => 'hc-z', 'measuredAt' => '2026-10-22T07:00:00+02:00']]], 'measurements[1].weightKg'];
+        yield 'body fat 100 once rounded' => [['measurements' => [['weightKg' => null, 'bodyFatPercent' => 99.96] + $measurement]], 'measurements[0].bodyFatPercent'];
         yield 'weight out of range' => [['measurements' => [['weightKg' => 900] + $measurement]], 'measurements[0].weightKg'];
         yield 'not a date' => [['days' => [$day, ['date' => '2026-02-30'] + $day]], 'days[1].date'];
         yield 'negative steps' => [['days' => [['steps' => -1] + $day]], 'days[0].steps'];

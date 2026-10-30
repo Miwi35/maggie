@@ -89,10 +89,12 @@ class HealthConnectSync(
     private suspend fun read(since: Instant, now: Instant, zone: ZoneId): HealthSyncRequest {
         val workouts = gateway.readExerciseSessions(since, now).mapNotNull { toSyncedWorkout(it, zone) }
         val weights = gateway.readWeights(since, now)
-            .filter { it.kilograms > 0 && it.kilograms <= MAX_WEIGHT_KG }
+            // Checked as sent, rounded: one value the API refuses would refuse the whole batch.
+            .filter { round2(it.kilograms) > 0 && round2(it.kilograms) <= MAX_WEIGHT_KG }
             .map { SyncedMeasurement(it.id, isoAt(it.time, it.offset, zone), weightKg = round2(it.kilograms), source = MEASUREMENT_SOURCE) }
         val bodyFat = gateway.readBodyFat(since, now)
-            .filter { it.percent > 0 && it.percent < MAX_BODY_FAT_PERCENT }
+            // The API keeps one decimal: 99.96 % would be stored as 100.
+            .filter { Math.round(it.percent * 10) / 10.0 in 0.1..<MAX_BODY_FAT_PERCENT.toDouble() }
             .map { SyncedMeasurement(it.id, isoAt(it.time, it.offset, zone), bodyFatPercent = round2(it.percent), source = MEASUREMENT_SOURCE) }
         val days = gateway.aggregateDays(LocalDate.ofInstant(since, zone), LocalDate.ofInstant(now, zone), zone).map {
             SyncedDay(
