@@ -184,6 +184,16 @@ class ReplanTripsTest extends KernelTestCase
         self::assertSame([], $this->replans());
     }
 
+    public function testRemovingOrMovingATodayEventWithoutALocationFilesNothingEvenWithATrip(): void
+    {
+        $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
+
+        $this->update('nowhere', startAt: $this->at('2026-11-03 15:00:00'), endAt: $this->at('2026-11-03 16:00:00'));
+        $this->bus()->dispatch(new DeleteEventCommand($this->id('nowhere')));
+
+        self::assertSame([], $this->replans());
+    }
+
     public function testAddingALocationToATodayEventWithoutOneFilesAReplanEvenWithoutATrip(): void
     {
         $this->update('dentist', location: '');

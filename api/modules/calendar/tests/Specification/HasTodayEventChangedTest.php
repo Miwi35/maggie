@@ -123,6 +123,23 @@ class HasTodayEventChangedTest extends TestCase
         self::assertFalse(HasTodayEventChanged::removed($this->now)->addsLocation($this->event()));
     }
 
+    public function testAnEventWithoutALocationBeforeAndAfterTriggersNothing(): void
+    {
+        $moved = ['startAt' => [$this->at('2026-11-03 14:00:00'), $this->at('2026-11-03 15:00:00')]];
+        $blank = ['location' => ['', null], 'startAt' => $moved['startAt']];
+
+        self::assertFalse(HasTodayEventChanged::updated($moved, $this->now)->isSatisfiedBy($this->event('2026-11-03 15:00:00', null)));
+        self::assertFalse(HasTodayEventChanged::updated($blank, $this->now)->isSatisfiedBy($this->event('2026-11-03 15:00:00', null)));
+        self::assertFalse(HasTodayEventChanged::removed($this->now)->isSatisfiedBy($this->event(location: null)));
+    }
+
+    public function testLosingTheLocationOfATodayEventStillTriggers(): void
+    {
+        $changeSet = ['location' => ['Ancien lieu', null]];
+
+        self::assertTrue(HasTodayEventChanged::updated($changeSet, $this->now)->isSatisfiedBy($this->event(location: null)));
+    }
+
     public function testRemovingATodayEventSatisfiesIt(): void
     {
         self::assertTrue(HasTodayEventChanged::removed($this->now)->isSatisfiedBy($this->event()));
