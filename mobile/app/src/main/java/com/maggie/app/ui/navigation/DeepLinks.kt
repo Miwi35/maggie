@@ -96,7 +96,8 @@ object DeepLinks {
         Screen.Independence.route to listOf("$SCHEME://finance/planning/independence"),
         Screen.FinanceReviewActivity.route to listOf("$SCHEME://finance/review/activity"),
         Screen.CookingActivity.route to listOf("$SCHEME://activity/cooking?$ARG_MEAL={$ARG_MEAL}&$ARG_RECIPE={$ARG_RECIPE}"),
-        // Santé › Sport (MAG-705).
+        // Santé › Suivi (MAG-706) and Santé › Sport (MAG-705).
+        Screen.HealthSuivi.route to listOf("$SCHEME://health/suivi"),
         Screen.HealthSport.route to listOf("$SCHEME://health/sport"),
         Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}"),
         // The Digest du matin (MAG-709, MAG-710): what the morning notification opens.

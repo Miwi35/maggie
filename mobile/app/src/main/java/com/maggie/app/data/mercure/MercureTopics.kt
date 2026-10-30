@@ -47,6 +47,7 @@ object MercureTopics {
     const val ACTIVITY_STATUS = "activity-status"
     const val AGENDAS = "agendas"
     const val AISLES = "aisles"
+    const val BODY_MEASUREMENTS = "body-measurements"
     const val CATEGORIES = "categories"
     const val COOKING_TIMERS = "cooking/timers"
     const val DAY_PLANS = "day_plans"
@@ -89,6 +90,7 @@ object MercureTopics {
         ACTIVITY_STATUS,
         AGENDAS,
         AISLES,
+        BODY_MEASUREMENTS,
         CATEGORIES,
         COOKING_TIMERS,
         DAY_PLANS,

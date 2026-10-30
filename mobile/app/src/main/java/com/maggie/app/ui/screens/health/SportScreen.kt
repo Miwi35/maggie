@@ -73,6 +73,7 @@ import java.time.ZoneId
 fun SportScreen(
     viewModel: SportViewModel,
     onOpenForm: (workoutId: String?) -> Unit,
+    onSelectSection: (HealthSection) -> Unit = {},
 ) {
     val expanded = rememberAppLayout().width == WindowWidth.EXPANDED
     val bar = LocalModuleBar.current
@@ -82,7 +83,7 @@ fun SportScreen(
                 module = "Santé",
                 sections = HealthSection.entries.map { it.breadcrumb },
                 currentKey = HealthSection.SPORT.key,
-                onSelectSection = {},
+                onSelectSection = { picked -> HealthSection.byKey(picked.key)?.takeIf { it != HealthSection.SPORT }?.let(onSelectSection) },
                 onOpenDrawer = bar.onOpenDrawer,
                 actions = {
                     IconButton(onClick = { onOpenForm(null) }, modifier = Modifier.testTag(UiTags.SPORT_ADD)) {

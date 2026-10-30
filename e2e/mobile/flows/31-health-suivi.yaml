@@ -1,0 +1,62 @@
+appId: com.maggie.app.e2e
+name: 31-health-suivi
+tags:
+  - health
+---
+# Santé › Suivi, from the phone (MAG-706, journey « Santé »).
+#
+# Étant donné un compte neuf et ses pesées créées par l'API
+# Quand j'ouvre Santé › Suivi et je choisis 30 j
+# Alors la carte Poids affiche les pesées : aujourd'hui 71,8 kg et 21,3 % de masse grasse
+#
+# A new user, so the only weighings are the three `scripts/body-measurements-api.js` writes:
+# 72,9 kg five days ago, 72,4 kg two days ago, 71,8 kg now.
+#
+# What is not here: the trend's arithmetic, the 90 j and 1 an buckets, the labels and the axis
+# (`WeightChartTest`), the column tapped, « Écarter », the Mercure refresh, the tablet's layout
+# and the absent cards (`SuiviScreenTest`, `SuiviViewModelTest`), the drawer and link
+# (`DrawerDestinationsTest`, `DeepLinksTest`), and the admin's side of the same API.
+
+- runFlow: ../subflows/new-user.yaml
+
+- runScript:
+    file: ../scripts/body-measurements-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/31-health-suivi.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+# Santé › Suivi: the period selector, then the Poids card.
+- openLink: "maggie-e2e://health/suivi"
+- extendedWaitUntil:
+    visible:
+      id: "suivi"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "weight_card"
+    timeout: 20000
+
+# 90 j first, then back to 30 j: the choice is the journey's, not only the default.
+- tapOn:
+    id: "suivi_period_90"
+- extendedWaitUntil:
+    visible: "Sem\\. du .*"
+    timeout: 10000
+- tapOn:
+    id: "suivi_period_30"
+
+# Today's column is chosen: its weighing and its body fat.
+- extendedWaitUntil:
+    visible: "Aujourd’hui"
+    timeout: 10000
+- assertVisible: "71,8 kg"
+- assertVisible: ".*21,3 % MG.*"

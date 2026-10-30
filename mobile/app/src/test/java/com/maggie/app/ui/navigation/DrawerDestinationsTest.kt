@@ -26,7 +26,7 @@ class DrawerDestinationsTest {
                 Screen.Grocery.route,
                 Screen.Cookbook.route,
                 Screen.FinanceDashboard.route,
-                Screen.HealthSport.route,
+                Screen.HealthSuivi.route,
             ),
             DRAWER_DESTINATIONS.map { it.route },
         )

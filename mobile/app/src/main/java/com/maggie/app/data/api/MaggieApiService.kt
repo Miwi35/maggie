@@ -160,6 +160,7 @@ import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.Workout
+import com.maggie.app.data.model.BodyMeasurement
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -696,6 +697,22 @@ data class WorkoutWriteRequest(
 )
 
 /**
+ * A weighing as `POST /api/body-measurements` takes it (MAG-706): at least one of the three values, [measuredAt] an
+ * ISO date-time with its offset. No field has a default, so every one is sent.
+ */
+@Serializable
+data class BodyMeasurementWriteRequest(
+    val measuredAt: String,
+    val weightKg: Double?,
+    val bodyFatPercent: Double?,
+    val waistCm: Double?,
+)
+
+/** « Écarter » (MAG-706): the merge-patch `PATCH` that sets aside a weighing, or takes it back with `false`. */
+@Serializable
+data class BodyMeasurementExcludeRequest(val excluded: Boolean)
+
+/**
  * `POST /api/finance/projects/preview` (MAG-553): a project as at creation, but its dependencies are plain ids,
  * not IRIs. [scenarioId] null previews in the current scenario. Nothing is created.
  */
@@ -1026,6 +1043,9 @@ internal fun refusalMessage(status: Int, body: String): String {
 }
 
 private val MERGE_PATCH = ContentType("application", "merge-patch+json")
+
+/** The API's cap for `/api/body-measurements` (MAG-706): a year of weighings, several a day, fits in one page. */
+private const val BODY_MEASUREMENTS_PER_PAGE = 1000
 
 class MaggieApiService(
     val client: HttpClient,
@@ -2801,6 +2821,31 @@ class MaggieApiService(
 
     suspend fun deleteWorkout(id: String) {
         client.delete("$baseUrl/api/workouts/$id").orRefusal()
+    }
+
+    // Santé — mesures corporelles (MAG-706): the weighings since [after] (ISO date-time with its offset), newest first
+    suspend fun getBodyMeasurements(after: String): List<BodyMeasurement> {
+        return client.get("$baseUrl/api/body-measurements") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("measuredAt[after]", after)
+            url.parameters.append("itemsPerPage", BODY_MEASUREMENTS_PER_PAGE.toString())
+        }.orRefusal().body<ApiCollection<BodyMeasurement>>().member
+    }
+
+    suspend fun createBodyMeasurement(request: BodyMeasurementWriteRequest): BodyMeasurement {
+        return client.post("$baseUrl/api/body-measurements") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun setBodyMeasurementExcluded(id: String, excluded: Boolean): BodyMeasurement {
+        return client.patch("$baseUrl/api/body-measurements/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(BodyMeasurementExcludeRequest(excluded))
+        }.orRefusal().body()
     }
 
     // Finance — Placements (MAG-555), simulated: sorted by name
