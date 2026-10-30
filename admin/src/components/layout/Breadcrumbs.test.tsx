@@ -57,8 +57,16 @@ describe('Breadcrumbs', () => {
     renderAt('/workouts')
 
     expect(labels()).toEqual(['Santé', 'Sport'])
-    expect(screen.getByRole('link', { name: 'Santé' })).toHaveAttribute('href', '/workouts')
+    expect(screen.getByRole('link', { name: 'Santé' })).toHaveAttribute('href', '/health/suivi')
     expect(screen.getByText('Sport')).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('the weight follow-up reads « Santé › Suivi », Suivi being the current page', () => {
+    renderAt('/health/suivi')
+
+    expect(labels()).toEqual(['Santé', 'Suivi'])
+    expect(screen.getByRole('link', { name: 'Santé' })).toHaveAttribute('href', '/health/suivi')
+    expect(screen.getByText('Suivi')).toHaveAttribute('aria-current', 'page')
   })
 
   test('the grocery list reads « Courses › Liste », the list being the current page', () => {
@@ -325,6 +333,7 @@ describe('PageHeading — the h1 of every page', () => {
     ['/meals', 'Repas'],
     ['/finance/dashboard', 'Finance'],
     ['/workouts', 'Sport'],
+    ['/health/suivi', 'Suivi'],
     ['/accounts', 'Comptes'],
     ['/settings/preferences', 'Préférences'],
     ['/agendas', 'Agendas'],

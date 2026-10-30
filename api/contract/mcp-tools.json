@@ -1216,6 +1216,110 @@
         },
         "description": "List, create, update (rename and/or move), reorder or delete the aisles of a store. Aisles are the shelves of one store in the order the user walks through it (position 1 = first); the grocery list shows each store's items aisle by aisle in that order, items without an aisle last. list/create/reorder need storeId; update/delete need aisleId. create puts the aisle last unless position says where. reorder takes aisleIds: every aisle of the store, first one first. Deleting an aisle leaves its products without an aisle in that store. To put a product in an aisle, use assign_product_store."
     },
+    "manage_body_measurements": {
+        "name": "manage_body_measurements",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "list",
+                        "create",
+                        "update",
+                        "delete",
+                        "exclude"
+                    ]
+                },
+                "measurementId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "measuredAt": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "weightKg": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null
+                },
+                "bodyFatPercent": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null
+                },
+                "waistCm": {
+                    "type": [
+                        "null",
+                        "number"
+                    ],
+                    "default": null
+                },
+                "source": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "manual",
+                        "health_connect",
+                        "withings"
+                    ]
+                },
+                "externalId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "excluded": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "after": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "before": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "limit": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, record, update, delete or set aside the user's body measurements: weight, body fat, waist size. action: list, create, update, delete or exclude. When the user says « Je pèse 72,4 kg » (or « 72,4 ce matin »), call create with weightKg 72.4 and nothing else: measuredAt defaults to now and source to manual. A measurement has measuredAt (ISO 8601 WITH time and offset, e.g. 2026-10-21T07:12:00+02:00; omit it for « now », never a date alone — ask the hour of a past one), weightKg (kilograms, decimal, more than 0 and at most 500), bodyFatPercent (percent, more than 0 and less than 100), waistCm (centimetres, more than 0 and at most 300) — at least one of the three —, source (manual, health_connect, withings; defaults to manual), externalId (optional, unique per user, de-duplicates an import) and excluded (true: set aside, still listed but never counted in the day's weight or the trend). list returns the most recent first, excluded ones included, filters on after and before (ISO 8601 with offset, on measuredAt), limit default 30, max 366. update, delete and exclude need measurementId; on update only the fields provided change (excluded: false takes back a measurement set aside); exclude sets it aside (a weighing that is not the user's, a wrong reading) without deleting it. Returns {measurements: [...]} for list and {success, measurement} otherwise, each with sourceLabel in French. A refused call changes nothing and answers {error, field?, current?}: current is the measurement as it is now."
+    },
     "manage_categories": {
         "name": "manage_categories",
         "inputSchema": {

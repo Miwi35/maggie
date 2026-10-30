@@ -1,0 +1,50 @@
+# MAG-706's scenario: six measurements of the user over five days — two
+# weighings on the 21st (the morning one is the day's), an excluded one before
+# the weighing of the 22nd, a waist size alone on the 19th, and a weighing at
+# 23:30 UTC on the 23rd, already the 24th in Paris — and one of another user,
+# which proves the isolation and shares the externalId hc-1.
+Maggie\Core\Entity\User:
+  test_user:
+    email: body-measurement-test@example.com
+    googleId: google-body-measurement-test
+    name: Body Measurement Test User
+  other_user:
+    email: body-measurement-other@example.com
+    googleId: google-body-measurement-other
+    name: Other Body Measurement User
+
+Maggie\Health\Entity\BodyMeasurement:
+  waist:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-19T07:00:00+02:00"))>'
+    waistCm: 84.5
+    user: '@test_user'
+  morning:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-21T07:12:00+02:00"))>'
+    weightKg: 72.4
+    bodyFatPercent: 21.3
+    user: '@test_user'
+  evening:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-21T19:30:00+02:00"))>'
+    weightKg: 73.1
+    user: '@test_user'
+  set_aside:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-22T06:50:00+02:00"))>'
+    weightKg: 68.0
+    excluded: true
+    user: '@test_user'
+  imported:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-22T08:00:00+02:00"))>'
+    weightKg: 72.2
+    source: '<(Maggie\Health\Enum\MeasurementSource::HealthConnect)>'
+    externalId: hc-1
+    user: '@test_user'
+  boundary:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-23T23:30:00+00:00"))>'
+    weightKg: 72.0
+    user: '@test_user'
+  secret:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-23T07:00:00+02:00"))>'
+    weightKg: 80.0
+    source: '<(Maggie\Health\Enum\MeasurementSource::HealthConnect)>'
+    externalId: hc-1
+    user: '@other_user'

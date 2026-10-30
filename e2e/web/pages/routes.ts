@@ -29,7 +29,8 @@ export const ROUTES = {
   pastErrands: '/errands',
   products: '/products',
   stores: '/stores',
-  // Santé › Sport (MAG-705).
+  // Santé › Suivi (MAG-706) and Santé › Sport (MAG-705).
+  healthSuivi: '/health/suivi',
   healthSport: '/workouts',
   recipes: '/recipes',
   meals: '/meals',

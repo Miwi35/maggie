@@ -71,7 +71,7 @@ val DRAWER_DESTINATIONS = listOf(
     DrawerDestination("grocery", "Courses", Icons.Default.ShoppingCart, DrawerTint.GROCERY),
     DrawerDestination("cookbook", "Cuisine", Icons.Default.Restaurant, DrawerTint.CUISINE),
     DrawerDestination("finance_dashboard", "Finance", Icons.Default.Insights, DrawerTint.FINANCE),
-    DrawerDestination("health/sport", "Santé", Icons.Default.FitnessCenter, DrawerTint.SPORT),
+    DrawerDestination("health/suivi", "Santé", Icons.Default.FitnessCenter, DrawerTint.SPORT),
 )
 
 internal val SETTINGS_DESTINATION = DrawerDestination("settings", "Réglages", Icons.Default.Settings, DrawerTint.NEUTRAL)

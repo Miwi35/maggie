@@ -4,6 +4,7 @@
     "Agenda": "/users/{userId}/api/agendas/{id}",
     "Aisle": "/users/{userId}/api/aisles/{id}",
     "BankConnection": "/users/{userId}/api/bank_connections/{id}",
+    "BodyMeasurement": "/users/{userId}/api/body-measurements/{id}",
     "Category": "/users/{userId}/api/categories/{id}",
     "Contact": "/users/{userId}/api/contacts/{id}",
     "ContactCounterparty": "/users/{userId}/api/contact_counterparties/{id}",

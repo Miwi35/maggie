@@ -1,0 +1,62 @@
+{
+    "@context": "/api/contexts/BodyMeasurement",
+    "@id": "/api/body-measurements",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/body-measurements/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "BodyMeasurement",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "measuredAt": "2026-10-21T05:12:00+00:00",
+            "source": "manual",
+            "excluded": false,
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "weightKg": 72.4,
+            "bodyFatPercent": 21.3
+        },
+        {
+            "@id": "/api/body-measurements/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "BodyMeasurement",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "measuredAt": "2026-10-20T04:58:00+00:00",
+            "source": "health_connect",
+            "externalId": "hc-0001",
+            "excluded": true,
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "weightKg": 68.15,
+            "waistCm": 84.5
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/body-measurements{?measuredAt[before],measuredAt[strictly_before],measuredAt[after],measuredAt[strictly_after]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "measuredAt[before]",
+                "property": "measuredAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "measuredAt[strictly_before]",
+                "property": "measuredAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "measuredAt[after]",
+                "property": "measuredAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "measuredAt[strictly_after]",
+                "property": "measuredAt",
+                "required": false
+            }
+        ]
+    }
+}

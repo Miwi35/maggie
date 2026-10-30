@@ -1351,6 +1351,483 @@
                 }
             }
         },
+        "/api/body-measurements": {
+            "get": {
+                "operationId": "api_body-measurements_get_collection",
+                "tags": [
+                    "BodyMeasurement"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "BodyMeasurement collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "BodyMeasurement.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/BodyMeasurement.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/BodyMeasurement"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/BodyMeasurement.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of BodyMeasurement resources.",
+                "description": "Retrieves the collection of BodyMeasurement resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 1000
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "measuredAt[before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "measuredAt[strictly_before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "measuredAt[after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "measuredAt[strictly_after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_body-measurements_post",
+                "tags": [
+                    "BodyMeasurement"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "BodyMeasurement resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BodyMeasurement.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BodyMeasurement"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BodyMeasurement.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a BodyMeasurement resource.",
+                "description": "Creates a BodyMeasurement resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new BodyMeasurement resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BodyMeasurement"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BodyMeasurement"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BodyMeasurement"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/body-measurements/{id}": {
+            "get": {
+                "operationId": "api_body-measurements_id_get",
+                "tags": [
+                    "BodyMeasurement"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "BodyMeasurement resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BodyMeasurement.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BodyMeasurement"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BodyMeasurement.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a BodyMeasurement resource.",
+                "description": "Retrieves a BodyMeasurement resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "BodyMeasurement identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_body-measurements_id_delete",
+                "tags": [
+                    "BodyMeasurement"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "BodyMeasurement resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the BodyMeasurement resource.",
+                "description": "Removes the BodyMeasurement resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "BodyMeasurement identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "api_body-measurements_id_patch",
+                "tags": [
+                    "BodyMeasurement"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "BodyMeasurement resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BodyMeasurement.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BodyMeasurement"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BodyMeasurement.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the BodyMeasurement resource.",
+                "description": "Updates the BodyMeasurement resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "BodyMeasurement identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated BodyMeasurement resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BodyMeasurement.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/categorization_rules": {
             "get": {
                 "operationId": "api_categorization_rules_get_collection",
@@ -14317,6 +14794,318 @@
                         "description": "Whether the bank will still answer. Expiry is checked at read time\nrather than trusted from the stored status, which only a sync updates."
                     }
                 }
+            },
+            "BodyMeasurement": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "measuredAt": {
+                        "description": "When the measurement was taken: ISO 8601 with offset, e.g. 2026-10-21T07:12:00+02:00.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "source": {
+                        "description": "manual, health_connect or withings.",
+                        "default": "manual",
+                        "type": "string",
+                        "enum": [
+                            "manual",
+                            "health_connect",
+                            "withings"
+                        ]
+                    },
+                    "externalId": {
+                        "maxLength": 255,
+                        "description": "The identifier of the measurement in the system it comes from; unique per user, it de-duplicates an import.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "excluded": {
+                        "description": "Set aside: still listed, never counted (the day's weight, the trend).",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "weightKg": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 500,
+                        "description": "Weight in kilograms, e.g. 72.4 (more than 0, at most 500).",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "bodyFatPercent": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 100,
+                        "exclusiveMaximum": 100,
+                        "description": "Body fat in percent, e.g. 21.3 (more than 0, less than 100).",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "waistCm": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 300,
+                        "description": "Waist size in centimetres, e.g. 84.5 (more than 0, at most 300).",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "measuredAt"
+                ]
+            },
+            "BodyMeasurement.html": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "measuredAt": {
+                        "description": "When the measurement was taken: ISO 8601 with offset, e.g. 2026-10-21T07:12:00+02:00.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "source": {
+                        "description": "manual, health_connect or withings.",
+                        "default": "manual",
+                        "type": "string",
+                        "enum": [
+                            "manual",
+                            "health_connect",
+                            "withings"
+                        ]
+                    },
+                    "externalId": {
+                        "maxLength": 255,
+                        "description": "The identifier of the measurement in the system it comes from; unique per user, it de-duplicates an import.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "excluded": {
+                        "description": "Set aside: still listed, never counted (the day's weight, the trend).",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "weightKg": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 500,
+                        "description": "Weight in kilograms, e.g. 72.4 (more than 0, at most 500).",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "bodyFatPercent": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 100,
+                        "exclusiveMaximum": 100,
+                        "description": "Body fat in percent, e.g. 21.3 (more than 0, less than 100).",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "waistCm": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 300,
+                        "description": "Waist size in centimetres, e.g. 84.5 (more than 0, at most 300).",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "measuredAt"
+                ]
+            },
+            "BodyMeasurement.jsonMergePatch": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "measuredAt": {
+                        "description": "When the measurement was taken: ISO 8601 with offset, e.g. 2026-10-21T07:12:00+02:00.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "source": {
+                        "description": "manual, health_connect or withings.",
+                        "default": "manual",
+                        "type": "string",
+                        "enum": [
+                            "manual",
+                            "health_connect",
+                            "withings"
+                        ]
+                    },
+                    "externalId": {
+                        "maxLength": 255,
+                        "description": "The identifier of the measurement in the system it comes from; unique per user, it de-duplicates an import.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "excluded": {
+                        "description": "Set aside: still listed, never counted (the day's weight, the trend).",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "weightKg": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 500,
+                        "description": "Weight in kilograms, e.g. 72.4 (more than 0, at most 500).",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "bodyFatPercent": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 100,
+                        "exclusiveMaximum": 100,
+                        "description": "Body fat in percent, e.g. 21.3 (more than 0, less than 100).",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "waistCm": {
+                        "minimum": 0,
+                        "exclusiveMinimum": 0,
+                        "maximum": 300,
+                        "description": "Waist size in centimetres, e.g. 84.5 (more than 0, at most 300).",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "BodyMeasurement.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "measuredAt": {
+                                "description": "When the measurement was taken: ISO 8601 with offset, e.g. 2026-10-21T07:12:00+02:00.",
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "source": {
+                                "description": "manual, health_connect or withings.",
+                                "default": "manual",
+                                "type": "string",
+                                "enum": [
+                                    "manual",
+                                    "health_connect",
+                                    "withings"
+                                ]
+                            },
+                            "externalId": {
+                                "maxLength": 255,
+                                "description": "The identifier of the measurement in the system it comes from; unique per user, it de-duplicates an import.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "excluded": {
+                                "description": "Set aside: still listed, never counted (the day's weight, the trend).",
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "user": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "weightKg": {
+                                "minimum": 0,
+                                "exclusiveMinimum": 0,
+                                "maximum": 500,
+                                "description": "Weight in kilograms, e.g. 72.4 (more than 0, at most 500).",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "bodyFatPercent": {
+                                "minimum": 0,
+                                "exclusiveMinimum": 0,
+                                "maximum": 100,
+                                "exclusiveMaximum": 100,
+                                "description": "Body fat in percent, e.g. 21.3 (more than 0, less than 100).",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "waistCm": {
+                                "minimum": 0,
+                                "exclusiveMinimum": 0,
+                                "maximum": 300,
+                                "description": "Waist size in centimetres, e.g. 84.5 (more than 0, at most 300).",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "measuredAt"
+                        ]
+                    }
+                ]
             },
             "CategorizationRule": {
                 "type": "object",
@@ -30739,6 +31528,10 @@
         {
             "name": "Store",
             "description": "Resource 'Store' operations."
+        },
+        {
+            "name": "BodyMeasurement",
+            "description": "Resource 'BodyMeasurement' operations."
         },
         {
             "name": "Workout",

@@ -1871,6 +1871,22 @@ object UiTags {
     const val WORKOUT_NOTES = "workout_notes"
     const val WORKOUT_SAVE = "workout_save"
 
+    /**
+     * « Santé › Suivi » (MAG-706): the screen, its empty state, the period selector and each period, the Poids card,
+     * its header value, its columns (index from 0, oldest first) and the « Écarter » entry of a column's menu.
+     */
+    const val SUIVI = "suivi"
+    const val SUIVI_EMPTY = "suivi_empty"
+    const val SUIVI_PERIODS = "suivi_periods"
+    const val SUIVI_PERIOD_PREFIX = "suivi_period_"
+    const val WEIGHT_CARD = "weight_card"
+    const val WEIGHT_VALUE = "weight_value"
+    const val WEIGHT_COLUMN_PREFIX = "weight_column_"
+    const val WEIGHT_EXCLUDE = "weight_exclude"
+
+    fun suiviPeriod(key: String) = SUIVI_PERIOD_PREFIX + key
+    fun weightColumn(index: Int) = WEIGHT_COLUMN_PREFIX + index
+
     fun sportWeekDay(dayOfMonth: Int) = SPORT_WEEK_DAY_PREFIX + dayOfMonth
     fun workoutRow(id: String) = WORKOUT_ROW_PREFIX + id
     fun workoutType(key: String) = WORKOUT_TYPE_PREFIX + key

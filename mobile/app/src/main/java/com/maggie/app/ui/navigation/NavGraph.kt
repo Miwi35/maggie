@@ -151,6 +151,8 @@ import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.PlacementFormScreen
 import com.maggie.app.ui.screens.health.SportScreen
 import com.maggie.app.ui.screens.health.SportViewModel
+import com.maggie.app.ui.screens.health.SuiviScreen
+import com.maggie.app.ui.screens.health.SuiviViewModel
 import com.maggie.app.ui.screens.health.WorkoutFormScreen
 import com.maggie.app.ui.screens.finance.PlacementListScreen
 import com.maggie.app.ui.screens.finance.PlacementViewModel
@@ -266,6 +268,8 @@ sealed class Screen(val route: String, val label: String) {
     data object Proactions : Screen("proactions", "Proactions")
     data object Cookbook : Screen("cookbook", "Cuisine")
     data object Grocery : Screen("grocery", "Courses")
+    /** Santé › Suivi (MAG-706): the body measurements, the module's home. */
+    data object HealthSuivi : Screen("health/suivi", "Suivi")
     /** Santé › Sport (MAG-705): the training sessions. */
     data object HealthSport : Screen("health/sport", "Sport")
     /** The full-screen form of a session (MAG-705): `id` absent for a new one. Outside the menus, so drawn without chrome. */
@@ -352,11 +356,12 @@ private val MAIN_SCREENS = setOf(
     Screen.Chat.route,
     Screen.Cookbook.route,
     Screen.Grocery.route,
+    Screen.HealthSuivi.route,
     Screen.HealthSport.route,
 )
 
 // The screens whose content opens with the module's breadcrumb: the generic bar and its title would stack on it.
-private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSport.route)
+private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSuivi.route, Screen.HealthSport.route)
 
 // The full-screen chat has its own input: a second way in would duplicate it
 // The Finance screens keep it too: the bottom of the screen is Maggie's; Finance has no rail to hold her buttons.
@@ -642,11 +647,36 @@ private fun LoanDetailPage(navController: NavController, entry: NavBackStackEntr
     LoanSheetScreen(viewModel = koinViewModel<LoanDetailViewModel>(), loanId = loanId, onBack = leave)
 }
 
+/** Santé's sections are siblings over Suivi (MAG-706): from Sport, back goes to Suivi. */
+private fun selectHealthSection(navController: NavController, section: HealthSection) {
+    val homeInBackStack = runCatching { navController.getBackStackEntry(HealthSection.HOME.route) }.isSuccess
+    val action = healthSectionAction(section, homeInBackStack)
+    val currentId = navController.currentBackStackEntry?.destination?.id
+    navController.navigate(action.route) {
+        if (action.popToHome) {
+            popUpTo(HealthSection.HOME.route) { inclusive = false }
+        } else if (currentId != null) {
+            popUpTo(currentId) { inclusive = true }
+        }
+        launchSingleTop = true
+    }
+}
+
+/** « Santé › Suivi » (MAG-706), out of [NavGraph]'s lambda like Sport. */
+@Composable
+private fun HealthSuiviPage(navController: NavController) {
+    SuiviScreen(
+        viewModel = koinViewModel<SuiviViewModel>(),
+        onSelectSection = { selectHealthSection(navController, it) },
+    )
+}
+
 /** « Santé › Sport » (MAG-705), out of [NavGraph]'s lambda like the placements. */
 @Composable
 private fun HealthSportPage(navController: NavController) {
     SportScreen(
         viewModel = koinViewModel<SportViewModel>(),
+        onSelectSection = { selectHealthSection(navController, it) },
         onOpenForm = { id -> navController.navigate(Screen.HealthSportForm.of(id)) { launchSingleTop = true } },
     )
 }
@@ -2091,6 +2121,9 @@ fun NavGraph() {
                         ),
                     ) { entry ->
                         ProjectFormPage(navController, entry)
+                    }
+                    composable(Screen.HealthSuivi.route, deepLinks = DeepLinks.forRoute(Screen.HealthSuivi.route)) {
+                        HealthSuiviPage(navController)
                     }
                     composable(Screen.HealthSport.route, deepLinks = DeepLinks.forRoute(Screen.HealthSport.route)) {
                         HealthSportPage(navController)

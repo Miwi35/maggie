@@ -83,6 +83,7 @@ import com.maggie.app.data.repository.SavingsAdvancesRepository
 import com.maggie.app.data.repository.LoanRepository
 import com.maggie.app.data.repository.PlacementRepository
 import com.maggie.app.data.repository.WorkoutRepository
+import com.maggie.app.data.repository.BodyMeasurementRepository
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.ScenarioRepository
 import com.maggie.app.data.repository.FinanceCardRepository
@@ -132,6 +133,7 @@ import com.maggie.app.ui.screens.finance.LoanDetailViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.PlacementViewModel
 import com.maggie.app.ui.screens.health.SportViewModel
+import com.maggie.app.ui.screens.health.SuiviViewModel
 import com.maggie.app.ui.screens.finance.FinanceTimelineViewModel
 import com.maggie.app.ui.screens.finance.ProjectViewModel
 import com.maggie.app.ui.screens.finance.ScenarioViewModel
@@ -408,6 +410,7 @@ class MaggieApp : Application() {
             single { ScenarioRepository(get()) }
             single { PlacementRepository(get()) }
             single { WorkoutRepository(get()) }
+            single { BodyMeasurementRepository(get()) }
             single { ReviewRepository(get()) }
             single { FinanceDashboardRepository(get()) }
             single { UpcomingRepository(get()) }
@@ -518,6 +521,7 @@ class MaggieApp : Application() {
             viewModel { FinanceTimelineViewModel(get()) }
             viewModel { PlacementViewModel(get(), get(), get()) }
             viewModel { SportViewModel(get(), get(), get()) }
+            viewModel { SuiviViewModel(get(), get(), get()) }
             viewModel { CookingViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { CookingGroceryViewModel(get(), get(), get(), get()) }
             viewModel { CookingResumeViewModel(get(), get(), get(), get()) }

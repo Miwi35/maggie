@@ -25,6 +25,7 @@ const resources = {
   events: { name: 'Événement |||| Événements' },
   tasks: { name: 'Tâche |||| Tâches' },
   workouts: { name: 'Séance |||| Séances' },
+  'body-measurements': { name: 'Pesée |||| Pesées' },
 }
 
 export const messages = {

@@ -131,6 +131,7 @@ final class RecordedResponseContractTest extends WebTestCase
         'finance_projects.collection' => '/api/finance/projects',
         'finance_placements.collection' => '/api/finance/placements',
         'workouts.collection' => '/api/workouts',
+        'body-measurements.collection' => '/api/body-measurements',
     ];
 
     private KernelBrowser $client;

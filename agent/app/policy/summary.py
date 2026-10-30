@@ -50,6 +50,7 @@ _MANAGE_OBJECTS = {
     "manage_accounts": "le compte",
     "manage_aisles": "le rayon",
     "manage_agendas": "l'agenda",
+    "manage_body_measurements": "la pesée",
     "manage_categories": "la catégorie",
     "manage_envelopes": "l'enveloppe",
     "manage_ingredients": "l'ingrédient",
@@ -70,7 +71,14 @@ _MANAGE_OBJECTS = {
 # `manage_*` tools whose `list` action answers without arguments and stays small enough to
 # read. The others (a period to give, a whole history) keep to the label.
 _NO_LIST_LOOKUP = frozenset(
-    {"manage_aisles", "manage_envelopes", "manage_meals", "manage_transactions", "manage_workouts"}
+    {
+        "manage_aisles",
+        "manage_body_measurements",
+        "manage_envelopes",
+        "manage_meals",
+        "manage_transactions",
+        "manage_workouts",
+    }
 )
 
 _TITLE_KEYS = ("name", "title", "label", "customLabel", "summary")
