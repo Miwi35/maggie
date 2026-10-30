@@ -70,7 +70,7 @@ export function MarkdownEditor({ label, value, onChange, minRows = 2, autoFocus,
         {label}
       </Typography>
       <Box sx={{ border: '1px solid #25222F', borderRadius: '10px', overflow: 'hidden' }}>
-        <Box role="toolbar" aria-label={`Mise en forme — ${label}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.5, py: 0.25, borderBottom: '1px solid #25222F' }}>
+        <Box role="toolbar" aria-label="Barre de mise en forme" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.5, py: 0.25, borderBottom: '1px solid #25222F' }}>
           {BUTTONS.map((button) => (
             <Button
               key={button.format}

@@ -145,7 +145,7 @@ describe('TransactionDebtSection', () => {
     expect(plain(screen.getByTestId('debt-summary'))).toContain('Crée une dette de 280,00 € envers Tom, dans « Tu dois »')
     expect(screen.getByText(/restent une recette/)).toBeInTheDocument()
 
-    expect(screen.getByRole('toolbar', { name: /Notes/ })).toBeInTheDocument()
+    expect(screen.getByRole('toolbar', { name: 'Barre de mise en forme' })).toBeInTheDocument()
     await user.type(screen.getByLabelText('Notes'), 'À rendre en octobre')
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
 

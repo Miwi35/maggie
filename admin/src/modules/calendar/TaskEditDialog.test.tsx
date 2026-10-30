@@ -81,7 +81,7 @@ describe('TaskEditDialog', () => {
   test('shows the notes, the due day, the links and the subtasks in order', async () => {
     renderDialog()
 
-    expect(screen.getByRole('toolbar', { name: /Notes/ })).toBeInTheDocument()
+    expect(screen.getByRole('toolbar', { name: 'Barre de mise en forme' })).toBeInTheDocument()
     expect(screen.getByLabelText('Notes')).toBeInTheDocument()
     expect(screen.getByLabelText('Notes')).toHaveValue('Les cartons sont à la cave')
     expect(screen.getByLabelText('Échéance')).toHaveValue('2026-03-20')

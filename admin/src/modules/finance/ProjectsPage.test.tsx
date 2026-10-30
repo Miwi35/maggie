@@ -320,7 +320,7 @@ describe('ProjectsPage', () => {
     await user.click(within(dialog).getByRole('radio', { name: 'Date limite (au plus tard)' }))
     fireEvent.change(within(dialog).getByLabelText(/^Date limite\W*$/), { target: { value: '2027-08-31' } })
     await user.click(within(dialog).getByRole('checkbox', { name: 'Déménagement' }))
-    expect(within(dialog).getByRole('toolbar', { name: /Note/ })).toBeInTheDocument()
+    expect(within(dialog).getByRole('toolbar', { name: 'Barre de mise en forme' })).toBeInTheDocument()
     await user.type(within(dialog).getByLabelText('Note'), 'Pour les courses')
     await user.click(within(dialog).getByRole('button', { name: 'Aperçu' }))
     await user.click(await within(dialog).findByRole('button', { name: 'Ajouter' }))
