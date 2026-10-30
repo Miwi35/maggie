@@ -97,8 +97,7 @@ second one.**
   (« Vérifiez votre connexion », « Choisissez un compte »), as most screens
   already do. Only Maggie's own words in the conversation follow her register,
   which the owner sets (« tutoie-moi », MAG-22). A *tu* in the chrome is out
-  of standard (mobile `ApprovalCard`: « Maggie demande ton accord »,
-  « réessaie » ; admin `UserPreferenceSettings`: « quand tu ne précises pas »).
+  of standard (mobile « réessaie » ; admin `UserPreferenceSettings`: « quand tu ne précises pas »).
 
 ## 4. Mobile first
 

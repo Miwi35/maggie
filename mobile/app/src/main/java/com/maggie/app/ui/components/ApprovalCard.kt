@@ -67,7 +67,7 @@ fun ApprovalCard(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = if (failed) "Action échouée" else "Maggie demande ton accord",
+                text = if (failed) "Action échouée" else "Maggie demande votre accord",
                 style = MaterialTheme.typography.labelMedium,
             )
             Text(text = approvalTitle(approval), style = MaterialTheme.typography.titleSmall)
@@ -186,7 +186,7 @@ internal fun approvalQuestion(approval: PendingApproval, resolvedLabel: String? 
     } else {
         val named = approval.summary?.takeIf { it.isNotBlank() }
             ?: approval.toolName.replace('_', ' ').trim().replaceFirstChar { it.uppercase() }
-        "Maggie demande ton accord pour $named" + (label?.let { " $it" } ?: "") + ". Tu autorises ?"
+        "Maggie demande votre accord pour $named" + (label?.let { " $it" } ?: "") + ". Vous autorisez ?"
     }
 }
 

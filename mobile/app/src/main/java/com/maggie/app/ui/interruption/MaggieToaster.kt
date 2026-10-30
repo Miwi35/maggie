@@ -15,12 +15,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -72,7 +72,6 @@ fun rememberReducedMotion(): Boolean {
  *
  * Stateless: [InterruptionHost] decides when it is shown and for how long.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MaggieToaster(
     payload: PushPayload,
@@ -118,7 +117,7 @@ fun MaggieToaster(
         contentAlignment = Alignment.Center,
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = BUBBLE_MAX_WIDTH),
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -153,26 +152,27 @@ fun MaggieToaster(
                     Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
 
-                // Three buttons do not fit one row on a narrow phone: the last ones wrap.
-                FlowRow(
+                // The answers sit together on one line, the refusal before the primary action; « Plus tard » is
+                // the way out underneath, so nothing dangles alone at the end of a wrapped row.
+                Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TextButton(
-                        onClick = { onAction(PushActionKind.LATER) },
-                        enabled = !busy,
-                        modifier = Modifier.testTag(UiTags.INTERRUPTION_LATER),
-                    ) { Text(PushActionKind.LATER.label) }
-
-                    primary.forEachIndexed { index, kind ->
+                    primary.withIndex().sortedBy { if (it.value == PushActionKind.DENY) 0 else 1 }.forEach { (index, kind) ->
                         Button(
                             onClick = { onAction(kind) },
                             enabled = !busy,
-                            modifier = Modifier.testTag(if (index == 0) UiTags.INTERRUPTION_ACTION else UiTags.INTERRUPTION_SECOND),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag(if (index == 0) UiTags.INTERRUPTION_ACTION else UiTags.INTERRUPTION_SECOND),
                         ) { Text(labelOf(kind, payload)) }
                     }
                 }
+                TextButton(
+                    onClick = { onAction(PushActionKind.LATER) },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth().testTag(UiTags.INTERRUPTION_LATER),
+                ) { Text(PushActionKind.LATER.label) }
             }
         }
     }
@@ -219,6 +219,7 @@ private fun Avatar(scale: Float, reducedMotion: Boolean) {
 
 // A background shape, not a clip: a clipped layer swallows the taps of the buttons it holds under Robolectric.
 private val BUBBLE_SHAPE = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp, bottomEnd = 30.dp, bottomStart = 8.dp)
+private val BUBBLE_MAX_WIDTH = 480.dp
 private val AVATAR_SIZE = 72.dp
 private val HALO_SPREAD = 36.dp
 private const val HALO_MIN = 0.85f

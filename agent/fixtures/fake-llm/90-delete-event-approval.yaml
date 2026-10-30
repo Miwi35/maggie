@@ -18,4 +18,4 @@ turns:
   - tools:
       - name: delete_event
         input: {id: '\1'}
-  - text: "Cette suppression attend ton accord : autorise-la ou refuse-la depuis la carte."
+  - text: "Cette suppression attend votre accord : autorisez-la ou refusez-la depuis la carte."

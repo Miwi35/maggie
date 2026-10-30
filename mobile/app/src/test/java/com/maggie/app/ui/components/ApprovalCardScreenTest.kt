@@ -47,7 +47,7 @@ class ApprovalCardScreenTest {
     fun `the card says what Maggie wants to do and offers both answers`() {
         show(ApprovalItem(approval))
 
-        compose.onNodeWithText("Maggie demande ton accord").assertIsDisplayed()
+        compose.onNodeWithText("Maggie demande votre accord").assertIsDisplayed()
         compose.onNodeWithText("Supprimer l'événement « Test validation » — le 8 octobre à 10:00").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.approvalAllow("ap-1")).assertIsEnabled()
         compose.onNodeWithTag(UiTags.approvalDeny("ap-1")).assertIsEnabled()

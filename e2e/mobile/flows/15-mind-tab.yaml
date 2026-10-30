@@ -58,16 +58,16 @@ tags:
 # each time the sentence is not in view, never hidden blindly.
 - repeat:
     while:
-      notVisible: ".*Je te demande ton accord pour supprimer.*"
+      notVisible: ".*Je vous demande votre accord pour supprimer.*"
     times: 6
     commands:
       - runFlow: ../subflows/hide-keyboard.yaml
       - extendedWaitUntil:
-          visible: ".*Je te demande ton accord pour supprimer.*"
+          visible: ".*Je vous demande votre accord pour supprimer.*"
           timeout: 5000
           optional: true
 - extendedWaitUntil:
-    visible: ".*Je te demande ton accord pour supprimer.*"
+    visible: ".*Je vous demande votre accord pour supprimer.*"
     timeout: 30000
 
 # The badge, then what it counts — in words, without the tool's name.

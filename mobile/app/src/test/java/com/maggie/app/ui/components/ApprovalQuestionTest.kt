@@ -42,6 +42,6 @@ class ApprovalQuestionTest {
     fun `an unknown tool is named as it is and still asks`() {
         val approval = PendingApproval(id = "ap-1", toolName = "archive_widget")
 
-        assertEquals("Maggie demande ton accord pour Archive widget. Tu autorises ?", approvalQuestion(approval))
+        assertEquals("Maggie demande votre accord pour Archive widget. Vous autorisez ?", approvalQuestion(approval))
     }
 }

@@ -18,4 +18,4 @@ turns:
   - tools:
       - name: delete_event
         input: {id: "\\1"}
-  - text: "Je te demande ton accord pour supprimer l'événement Test validation."
+  - text: "Je vous demande votre accord pour supprimer l'événement Test validation."
