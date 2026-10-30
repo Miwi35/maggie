@@ -10,6 +10,7 @@
         {"type": "path", "url": "modules/grocery", "options": {"symlink": true}},
         {"type": "path", "url": "modules/cookbook", "options": {"symlink": true}},
         {"type": "path", "url": "modules/finance", "options": {"symlink": true}},
+        {"type": "path", "url": "modules/health", "options": {"symlink": true}},
         {"type": "path", "url": "modules/meal-grocery", "options": {"symlink": true}}
     ],
     "require": {
@@ -29,6 +30,7 @@
         "maggie/core": "@dev",
         "maggie/finance": "@dev",
         "maggie/grocery": "@dev",
+        "maggie/health": "@dev",
         "maggie/meal-grocery": "@dev",
         "maggie/notification": "@dev",
         "nelmio/cors-bundle": "^2.6.1",
@@ -75,6 +77,7 @@
             "Maggie\\Core\\Tests\\": "modules/core/tests/",
             "Maggie\\Finance\\Tests\\": "modules/finance/tests/",
             "Maggie\\Grocery\\Tests\\": "modules/grocery/tests/",
+            "Maggie\\Health\\Tests\\": "modules/health/tests/",
             "Maggie\\MealGrocery\\Tests\\": "modules/meal-grocery/tests/",
             "Maggie\\Notification\\Tests\\": "modules/notification/tests/"
         }

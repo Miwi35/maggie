@@ -164,6 +164,9 @@ framework:
             'Maggie\Finance\Message\CreatePlacementCommand': sync
             'Maggie\Finance\Message\UpdatePlacementCommand': sync
             'Maggie\Finance\Message\DeletePlacementCommand': sync
+            'Maggie\Health\Message\CreateWorkoutCommand': sync
+            'Maggie\Health\Message\UpdateWorkoutCommand': sync
+            'Maggie\Health\Message\DeleteWorkoutCommand': sync
             'Maggie\Finance\Message\ChangeScenarioCommand': sync
             'Maggie\Finance\Message\CreateOperationCommand': sync
             'Maggie\Finance\Message\UpdateOperationCommand': sync

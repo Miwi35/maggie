@@ -8,6 +8,7 @@ import { settingsResources } from './modules/settings'
 import { groceryResources } from './modules/grocery'
 import { cookbookResources } from './modules/cookbook'
 import { financeResources } from './modules/finance'
+import { healthResources } from './modules/health'
 import { searchResources } from './modules/search'
 import {
   authProvider,
@@ -65,6 +66,7 @@ function App() {
       {calendarResources}
       {groceryResources}
       {cookbookResources}
+      {healthResources}
       {financeResources}
       {settingsResources}
       {searchResources}

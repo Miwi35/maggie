@@ -12670,6 +12670,537 @@
                     "required": true
                 }
             }
+        },
+        "/api/workouts": {
+            "get": {
+                "operationId": "api_workouts_get_collection",
+                "tags": [
+                    "Workout"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Workout collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "Workout.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Workout.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Workout"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Workout.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of Workout resources.",
+                "description": "Retrieves the collection of Workout resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 500
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "type[]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "source",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "source[]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "startedAt[before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "startedAt[strictly_before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "startedAt[after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "startedAt[strictly_after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_workouts_post",
+                "tags": [
+                    "Workout"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Workout resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workout.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workout"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workout.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a Workout resource.",
+                "description": "Creates a Workout resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new Workout resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Workout"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Workout"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Workout"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/workouts/{id}": {
+            "get": {
+                "operationId": "api_workouts_id_get",
+                "tags": [
+                    "Workout"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Workout resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workout.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workout"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workout.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Workout resource.",
+                "description": "Retrieves a Workout resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Workout identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_workouts_id_delete",
+                "tags": [
+                    "Workout"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Workout resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the Workout resource.",
+                "description": "Removes the Workout resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Workout identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "api_workouts_id_patch",
+                "tags": [
+                    "Workout"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Workout resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workout.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workout"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workout.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the Workout resource.",
+                "description": "Updates the Workout resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Workout identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated Workout resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Workout.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
         }
     },
     "components": {
@@ -29605,6 +30136,475 @@
                     }
                 ],
                 "description": "What a recipe is made with (oven, Thermomix, mandoline…), in a catalogue of\nthe user's own that one recipe after another reuses (MAG-489).\n\nA name is unique per user, whatever its case and the spaces around it:\ncreating « thermomix » once « Thermomix » exists answers the existing one."
+            },
+            "Workout": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "type": {
+                        "description": "run, walk, bike, swim, strength, climbing or other.",
+                        "type": "string",
+                        "enum": [
+                            "run",
+                            "walk",
+                            "bike",
+                            "swim",
+                            "strength",
+                            "climbing",
+                            "other"
+                        ]
+                    },
+                    "title": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "startedAt": {
+                        "description": "When the workout started (or starts, if planned): ISO 8601 with offset, e.g. 2026-10-20T07:10:00+02:00.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "durationMinutes": {
+                        "minimum": 1,
+                        "maximum": 1440,
+                        "description": "Duration in whole minutes (1 to 1440).",
+                        "type": "integer"
+                    },
+                    "distanceMeters": {
+                        "minimum": 0,
+                        "maximum": 1000000,
+                        "description": "Distance in whole metres (0 to 1 000 000): 5.4 km is 5400.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "kcal": {
+                        "minimum": 0,
+                        "maximum": 20000,
+                        "description": "Energy spent, in whole kilocalories (0 to 20 000).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "avgHeartRate": {
+                        "minimum": 20,
+                        "maximum": 250,
+                        "description": "Average heart rate, in beats per minute (20 to 250).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "feeling": {
+                        "description": "How it felt: very_good, good, hard or very_hard.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "very_good",
+                            "good",
+                            "hard",
+                            "very_hard",
+                            null
+                        ]
+                    },
+                    "notes": {
+                        "maxLength": 2000,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "source": {
+                        "description": "manual, watch, activity, estimated or planned (still to do).",
+                        "default": "manual",
+                        "type": "string",
+                        "enum": [
+                            "manual",
+                            "watch",
+                            "activity",
+                            "estimated",
+                            "planned"
+                        ]
+                    },
+                    "externalId": {
+                        "maxLength": 255,
+                        "description": "The identifier of the workout in the system it comes from; unique per user, it de-duplicates an import.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                },
+                "required": [
+                    "type",
+                    "title",
+                    "startedAt",
+                    "durationMinutes"
+                ]
+            },
+            "Workout.html": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "type": {
+                        "description": "run, walk, bike, swim, strength, climbing or other.",
+                        "type": "string",
+                        "enum": [
+                            "run",
+                            "walk",
+                            "bike",
+                            "swim",
+                            "strength",
+                            "climbing",
+                            "other"
+                        ]
+                    },
+                    "title": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "startedAt": {
+                        "description": "When the workout started (or starts, if planned): ISO 8601 with offset, e.g. 2026-10-20T07:10:00+02:00.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "durationMinutes": {
+                        "minimum": 1,
+                        "maximum": 1440,
+                        "description": "Duration in whole minutes (1 to 1440).",
+                        "type": "integer"
+                    },
+                    "distanceMeters": {
+                        "minimum": 0,
+                        "maximum": 1000000,
+                        "description": "Distance in whole metres (0 to 1 000 000): 5.4 km is 5400.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "kcal": {
+                        "minimum": 0,
+                        "maximum": 20000,
+                        "description": "Energy spent, in whole kilocalories (0 to 20 000).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "avgHeartRate": {
+                        "minimum": 20,
+                        "maximum": 250,
+                        "description": "Average heart rate, in beats per minute (20 to 250).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "feeling": {
+                        "description": "How it felt: very_good, good, hard or very_hard.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "very_good",
+                            "good",
+                            "hard",
+                            "very_hard",
+                            null
+                        ]
+                    },
+                    "notes": {
+                        "maxLength": 2000,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "source": {
+                        "description": "manual, watch, activity, estimated or planned (still to do).",
+                        "default": "manual",
+                        "type": "string",
+                        "enum": [
+                            "manual",
+                            "watch",
+                            "activity",
+                            "estimated",
+                            "planned"
+                        ]
+                    },
+                    "externalId": {
+                        "maxLength": 255,
+                        "description": "The identifier of the workout in the system it comes from; unique per user, it de-duplicates an import.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                },
+                "required": [
+                    "type",
+                    "title",
+                    "startedAt",
+                    "durationMinutes"
+                ]
+            },
+            "Workout.jsonMergePatch": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "type": {
+                        "description": "run, walk, bike, swim, strength, climbing or other.",
+                        "type": "string",
+                        "enum": [
+                            "run",
+                            "walk",
+                            "bike",
+                            "swim",
+                            "strength",
+                            "climbing",
+                            "other"
+                        ]
+                    },
+                    "title": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "startedAt": {
+                        "description": "When the workout started (or starts, if planned): ISO 8601 with offset, e.g. 2026-10-20T07:10:00+02:00.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "durationMinutes": {
+                        "minimum": 1,
+                        "maximum": 1440,
+                        "description": "Duration in whole minutes (1 to 1440).",
+                        "type": "integer"
+                    },
+                    "distanceMeters": {
+                        "minimum": 0,
+                        "maximum": 1000000,
+                        "description": "Distance in whole metres (0 to 1 000 000): 5.4 km is 5400.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "kcal": {
+                        "minimum": 0,
+                        "maximum": 20000,
+                        "description": "Energy spent, in whole kilocalories (0 to 20 000).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "avgHeartRate": {
+                        "minimum": 20,
+                        "maximum": 250,
+                        "description": "Average heart rate, in beats per minute (20 to 250).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "feeling": {
+                        "description": "How it felt: very_good, good, hard or very_hard.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "very_good",
+                            "good",
+                            "hard",
+                            "very_hard",
+                            null
+                        ]
+                    },
+                    "notes": {
+                        "maxLength": 2000,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "source": {
+                        "description": "manual, watch, activity, estimated or planned (still to do).",
+                        "default": "manual",
+                        "type": "string",
+                        "enum": [
+                            "manual",
+                            "watch",
+                            "activity",
+                            "estimated",
+                            "planned"
+                        ]
+                    },
+                    "externalId": {
+                        "maxLength": 255,
+                        "description": "The identifier of the workout in the system it comes from; unique per user, it de-duplicates an import.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                }
+            },
+            "Workout.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "type": {
+                                "description": "run, walk, bike, swim, strength, climbing or other.",
+                                "type": "string",
+                                "enum": [
+                                    "run",
+                                    "walk",
+                                    "bike",
+                                    "swim",
+                                    "strength",
+                                    "climbing",
+                                    "other"
+                                ]
+                            },
+                            "title": {
+                                "maxLength": 255,
+                                "type": "string"
+                            },
+                            "startedAt": {
+                                "description": "When the workout started (or starts, if planned): ISO 8601 with offset, e.g. 2026-10-20T07:10:00+02:00.",
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "durationMinutes": {
+                                "minimum": 1,
+                                "maximum": 1440,
+                                "description": "Duration in whole minutes (1 to 1440).",
+                                "type": "integer"
+                            },
+                            "distanceMeters": {
+                                "minimum": 0,
+                                "maximum": 1000000,
+                                "description": "Distance in whole metres (0 to 1 000 000): 5.4 km is 5400.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "kcal": {
+                                "minimum": 0,
+                                "maximum": 20000,
+                                "description": "Energy spent, in whole kilocalories (0 to 20 000).",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "avgHeartRate": {
+                                "minimum": 20,
+                                "maximum": 250,
+                                "description": "Average heart rate, in beats per minute (20 to 250).",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "feeling": {
+                                "description": "How it felt: very_good, good, hard or very_hard.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "very_good",
+                                    "good",
+                                    "hard",
+                                    "very_hard",
+                                    null
+                                ]
+                            },
+                            "notes": {
+                                "maxLength": 2000,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "source": {
+                                "description": "manual, watch, activity, estimated or planned (still to do).",
+                                "default": "manual",
+                                "type": "string",
+                                "enum": [
+                                    "manual",
+                                    "watch",
+                                    "activity",
+                                    "estimated",
+                                    "planned"
+                                ]
+                            },
+                            "externalId": {
+                                "maxLength": 255,
+                                "description": "The identifier of the workout in the system it comes from; unique per user, it de-duplicates an import.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "user": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "title",
+                            "startedAt",
+                            "durationMinutes"
+                        ]
+                    }
+                ]
             }
         },
         "responses": {},
@@ -29739,6 +30739,10 @@
         {
             "name": "Store",
             "description": "Resource 'Store' operations."
+        },
+        {
+            "name": "Workout",
+            "description": "Resource 'Workout' operations."
         },
         {
             "name": "Notification",

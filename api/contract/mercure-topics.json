@@ -43,5 +43,6 @@
     "Trip": "/users/{userId}/api/trips/{id}",
     "User": "/users/{userId}/api/users/{id}",
     "UserPreference": "/users/{userId}/api/user_preferences/{id}",
-    "Utensil": "/users/{userId}/api/utensils/{id}"
+    "Utensil": "/users/{userId}/api/utensils/{id}",
+    "Workout": "/users/{userId}/api/workouts/{id}"
 }

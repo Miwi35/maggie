@@ -267,13 +267,14 @@ describe('financeMenuOf', () => {
 })
 
 describe('the sidebar table', () => {
-  test('lists Accueil · Agenda · Tâches · Courses · Cuisine · Finance, Réglages last', () => {
+  test('lists Accueil · Agenda · Tâches · Courses · Cuisine · Santé · Finance, Réglages last', () => {
     expect(SIDEBAR.map((module) => module.label)).toEqual([
       'Accueil',
       'Agenda',
       'Tâches',
       'Courses',
       'Cuisine',
+      'Santé',
       'Finance',
       'Réglages',
     ])

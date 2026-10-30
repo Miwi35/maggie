@@ -8,14 +8,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The drawer and the rail, to the letter of the mock-up `charte/Tiroir` (MAG-620): the six modules
+ * The drawer and the rail, to the letter of the mock-up `charte/Tiroir` (MAG-620): the seven modules
  * in the owner's order, then Réglages. Maggie lives in the bottom bar, so there is no « Chat » entry.
  */
 class DrawerDestinationsTest {
     @Test
-    fun `the drawer lists exactly the six modules, in the mock-up's order`() {
+    fun `the drawer lists exactly the seven modules, in the mock-up's order`() {
         assertEquals(
-            listOf("Accueil", "Agenda", "Tâches", "Courses", "Cuisine", "Finance"),
+            listOf("Accueil", "Agenda", "Tâches", "Courses", "Cuisine", "Finance", "Santé"),
             DRAWER_DESTINATIONS.map { it.label },
         )
         assertEquals(
@@ -26,13 +26,14 @@ class DrawerDestinationsTest {
                 Screen.Grocery.route,
                 Screen.Cookbook.route,
                 Screen.FinanceDashboard.route,
+                Screen.HealthSport.route,
             ),
             DRAWER_DESTINATIONS.map { it.route },
         )
     }
 
     @Test
-    fun `the rail is the same six then Réglages, last`() {
+    fun `the rail is the same seven then Réglages, last`() {
         assertEquals(DRAWER_DESTINATIONS.map { it.route } + "settings", RAIL_DESTINATIONS.map { it.route })
         assertEquals("Réglages", RAIL_DESTINATIONS.last().label)
     }
@@ -46,7 +47,7 @@ class DrawerDestinationsTest {
     @Test
     fun `no navigation entry wears an old name`() {
         val labels = RAIL_DESTINATIONS.map { it.label }
-        listOf("Calendrier", "Paramètres", "Chat", "Nutrition", "Santé", "Loisirs").forEach {
+        listOf("Calendrier", "Paramètres", "Chat", "Nutrition", "Loisirs").forEach {
             assertFalse("« $it » is not an entry", it in labels)
         }
     }

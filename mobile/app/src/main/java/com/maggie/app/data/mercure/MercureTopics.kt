@@ -76,6 +76,7 @@ object MercureTopics {
     const val TRANSACTIONS = "transactions"
     const val TRIPS = "trips"
     const val USER_PREFERENCES = "user_preferences"
+    const val WORKOUTS = "workouts"
 
     /**
      * Every collection the app subscribes to. The contract test checks each
@@ -117,6 +118,7 @@ object MercureTopics {
         TRANSACTIONS,
         TRIPS,
         USER_PREFERENCES,
+        WORKOUTS,
     )
 
     /** The agent streams the app subscribes to, checked against `agent/contract/mercure-topics.json`. */

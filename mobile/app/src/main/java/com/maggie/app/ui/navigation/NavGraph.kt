@@ -149,6 +149,9 @@ import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.PlacementFormScreen
+import com.maggie.app.ui.screens.health.SportScreen
+import com.maggie.app.ui.screens.health.SportViewModel
+import com.maggie.app.ui.screens.health.WorkoutFormScreen
 import com.maggie.app.ui.screens.finance.PlacementListScreen
 import com.maggie.app.ui.screens.finance.PlacementViewModel
 import com.maggie.app.ui.screens.finance.ProjectFormScreen
@@ -261,6 +264,13 @@ sealed class Screen(val route: String, val label: String) {
     data object Proactions : Screen("proactions", "Proactions")
     data object Cookbook : Screen("cookbook", "Cuisine")
     data object Grocery : Screen("grocery", "Courses")
+    /** Santé › Sport (MAG-705): the training sessions. */
+    data object HealthSport : Screen("health/sport", "Sport")
+    /** The full-screen form of a session (MAG-705): `id` absent for a new one. Outside the menus, so drawn without chrome. */
+    data object HealthSportForm : Screen("health/sport/form?${DeepLinks.ARG_ID}={${DeepLinks.ARG_ID}}", "Séance") {
+        fun of(workoutId: String?): String =
+            if (workoutId == null) "health/sport/form" else "health/sport/form?${DeepLinks.ARG_ID}=$workoutId"
+    }
     data object ProductList : Screen("products", "Produits")
     data object StoreList : Screen("stores", "Magasins")
     data object PastErrands : Screen("past_errands", "Courses passées")
@@ -340,10 +350,11 @@ private val MAIN_SCREENS = setOf(
     Screen.Chat.route,
     Screen.Cookbook.route,
     Screen.Grocery.route,
+    Screen.HealthSport.route,
 )
 
 // The screens whose content opens with the module's breadcrumb: the generic bar and its title would stack on it.
-private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route)
+private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSport.route)
 
 // The full-screen chat has its own input: a second way in would duplicate it
 // The Finance screens keep it too: the bottom of the screen is Maggie's; Finance has no rail to hold her buttons.
@@ -627,6 +638,27 @@ private fun LoanDetailPage(navController: NavController, entry: NavBackStackEntr
         return
     }
     LoanSheetScreen(viewModel = koinViewModel<LoanDetailViewModel>(), loanId = loanId, onBack = leave)
+}
+
+/** « Santé › Sport » (MAG-705), out of [NavGraph]'s lambda like the placements. */
+@Composable
+private fun HealthSportPage(navController: NavController) {
+    SportScreen(
+        viewModel = koinViewModel<SportViewModel>(),
+        onOpenForm = { id -> navController.navigate(Screen.HealthSportForm.of(id)) { launchSingleTop = true } },
+    )
+}
+
+/** The full-screen form of a session, on the list's ViewModel: the list shows what it saved without a request of its own. */
+@Composable
+private fun HealthSportFormPage(navController: NavController, entry: NavBackStackEntry) {
+    val listEntry = remember(entry) { navController.previousBackStackEntry }
+    val sportViewModel: SportViewModel = koinViewModel(viewModelStoreOwner = listEntry ?: entry)
+    WorkoutFormScreen(
+        viewModel = sportViewModel,
+        workoutId = entry.arguments?.getString(DeepLinks.ARG_ID)?.takeIf(DeepLinks::isValidId),
+        onClose = { navController.popBackStack() },
+    )
 }
 
 /** « Placements » of Planification (MAG-555), out of [NavGraph]'s lambda like the projects. */
@@ -2030,6 +2062,21 @@ fun NavGraph() {
                         ),
                     ) { entry ->
                         ProjectFormPage(navController, entry)
+                    }
+                    composable(Screen.HealthSport.route, deepLinks = DeepLinks.forRoute(Screen.HealthSport.route)) {
+                        HealthSportPage(navController)
+                    }
+                    composable(
+                        Screen.HealthSportForm.route,
+                        arguments = listOf(
+                            navArgument(DeepLinks.ARG_ID) {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            },
+                        ),
+                    ) { entry ->
+                        HealthSportFormPage(navController, entry)
                     }
                     composable(Screen.PlacementList.route, deepLinks = DeepLinks.forRoute(Screen.PlacementList.route)) {
                         PlacementListPage(navController)

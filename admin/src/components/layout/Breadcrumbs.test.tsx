@@ -53,6 +53,14 @@ describe('Breadcrumbs', () => {
     expect(screen.getByText('Catégories')).toHaveAttribute('aria-current', 'page')
   })
 
+  test('the workouts read « Santé › Sport », Sport being the current page', () => {
+    renderAt('/workouts')
+
+    expect(labels()).toEqual(['Santé', 'Sport'])
+    expect(screen.getByRole('link', { name: 'Santé' })).toHaveAttribute('href', '/workouts')
+    expect(screen.getByText('Sport')).toHaveAttribute('aria-current', 'page')
+  })
+
   test('the grocery list reads « Courses › Liste », the list being the current page', () => {
     renderAt('/grocery')
 
@@ -316,6 +324,7 @@ describe('PageHeading — the h1 of every page', () => {
     ['/products', 'Produits'],
     ['/meals', 'Repas'],
     ['/finance/dashboard', 'Finance'],
+    ['/workouts', 'Sport'],
     ['/accounts', 'Comptes'],
     ['/settings/preferences', 'Préférences'],
     ['/agendas', 'Agendas'],

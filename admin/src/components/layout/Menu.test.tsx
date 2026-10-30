@@ -227,11 +227,12 @@ describe('CustomMenu — the modules of the mockup', () => {
     ['Tâches', '/tasks'],
     ['Courses', '/grocery'],
     ['Cuisine', '/meals'],
+    ['Santé', '/workouts'],
     ['Finance', '/finance/dashboard'],
     ['Réglages', '/settings/preferences'],
   ]
 
-  test('lists Accueil · Agenda · Tâches · Courses · Cuisine · Finance, then Réglages, in that order', async () => {
+  test('lists Accueil · Agenda · Tâches · Courses · Cuisine · Santé · Finance, then Réglages, in that order', async () => {
     stubPersonality('Maggie')
     renderMenuAt('/')
 
@@ -292,9 +293,20 @@ describe('CustomMenu — the modules of the mockup', () => {
       '/meals',
       '/meals',
       '/recipes',
+      '/workouts',
       '/finance/dashboard',
       '/settings/preferences',
     ])
+  })
+
+  test('opens Santé on its Sport entry, in the hue of the module', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/workouts')
+
+    const sport = await screen.findByRole('menuitem', { name: 'Sport' })
+    expect(sport).toHaveAttribute('href', '/workouts')
+    expect(sport).toHaveClass('Mui-selected')
+    expect(hrefs().filter((href) => href === '/workouts')).toHaveLength(2)
   })
 
   test('gives Cuisine one Repas entry, then Recettes: no second page for the meals', async () => {

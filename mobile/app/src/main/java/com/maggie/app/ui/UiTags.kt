@@ -1821,4 +1821,39 @@ object UiTags {
 
     /** The reading view's check boxes, in order from 0. */
     fun markdownCheckbox(index: Int) = MARKDOWN_CHECKBOX_PREFIX + index
+
+    /**
+     * « Santé › Sport » (MAG-705): the screen, « + », the week card and its seven days, the list and a row, the empty
+     * state; the detail (sheet on a phone, pane on a tablet) with its « Modifier » and « Supprimer »; the form's fields
+     * and « Enregistrer ».
+     */
+    const val SPORT = "sport"
+    const val SPORT_ADD = "sport_add"
+    const val SPORT_WEEK = "sport_week"
+    const val SPORT_WEEK_DAY_PREFIX = "sport_week_day_"
+    const val SPORT_LIST = "sport_list"
+    const val SPORT_EMPTY = "sport_empty"
+    const val WORKOUT_ROW_PREFIX = "workout_row_"
+    const val WORKOUT_DETAIL = "workout_detail"
+    const val WORKOUT_EDIT = "workout_edit"
+    const val WORKOUT_DELETE = "workout_delete"
+    const val WORKOUT_DELETE_CONFIRM = "workout_delete_confirm"
+    const val WORKOUT_FORM = "workout_form"
+    const val WORKOUT_FORM_ERROR = "workout_form_error"
+    const val WORKOUT_TYPE_PREFIX = "workout_type_"
+    const val WORKOUT_FEELING_PREFIX = "workout_feeling_"
+    const val WORKOUT_TITLE = "workout_title"
+    const val WORKOUT_DATE = "workout_date"
+    const val WORKOUT_TIME = "workout_time"
+    const val WORKOUT_DURATION = "workout_duration"
+    const val WORKOUT_DISTANCE = "workout_distance"
+    const val WORKOUT_KCAL = "workout_kcal"
+    const val WORKOUT_HEART_RATE = "workout_heart_rate"
+    const val WORKOUT_NOTES = "workout_notes"
+    const val WORKOUT_SAVE = "workout_save"
+
+    fun sportWeekDay(dayOfMonth: Int) = SPORT_WEEK_DAY_PREFIX + dayOfMonth
+    fun workoutRow(id: String) = WORKOUT_ROW_PREFIX + id
+    fun workoutType(key: String) = WORKOUT_TYPE_PREFIX + key
+    fun workoutFeeling(key: String) = WORKOUT_FEELING_PREFIX + key
 }

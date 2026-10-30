@@ -19,11 +19,11 @@ test('the menu lists the modules of the mockup and « Tâches » opens the Tâch
   await expect(avatar).toBeVisible()
   await expect(avatar.locator('img')).toBeVisible()
 
-  for (const module of ['Accueil', 'Agenda', 'Tâches', 'Courses', 'Cuisine', 'Finance', 'Réglages']) {
+  for (const module of ['Accueil', 'Agenda', 'Tâches', 'Courses', 'Cuisine', 'Finance', 'Santé', 'Réglages']) {
     await expect(shell.menuItem(module), module).toBeVisible()
   }
 
-  for (const gone of ['Chat', 'Calendrier', 'Paramètres', 'Nutrition', 'Données brutes', 'Santé', 'Loisirs']) {
+  for (const gone of ['Chat', 'Calendrier', 'Paramètres', 'Nutrition', 'Données brutes', 'Loisirs']) {
     await expect(shell.menuItem(gone), gone).toHaveCount(0)
   }
 

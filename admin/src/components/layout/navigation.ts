@@ -56,6 +56,8 @@ export interface NavModule {
   dashboardLabel?: string
   /** The sidebar's entries under the module, when it has more than a flat list of parts. */
   menus?: NavMenu[]
+  /** List the entries under the module even when there is only one (Santé opens with Sport, the other parts come with their tickets). */
+  listsSingleEntry?: boolean
   parts: NavPart[]
 }
 
@@ -175,7 +177,7 @@ const financeParts = (): NavPart[] => [
 
 /**
  * The modules of the mockup (MAG-620, `charte/Admin-Cible`), in the sidebar's
- * order, Réglages last. Santé and Loisirs join the table with their modules.
+ * order, Réglages last. Santé (MAG-705) opens with its Sport part; Loisirs joins the table with its module.
  */
 export const NAVIGATION: NavModule[] = [
   {
@@ -211,6 +213,11 @@ export const NAVIGATION: NavModule[] = [
       { label: 'Repas', path: '/meals' },
       resourcePart('Recettes', 'recipes'),
     ],
+  },
+  {
+    label: 'Santé',
+    listsSingleEntry: true,
+    parts: [resourcePart('Sport', 'workouts')],
   },
   {
     label: 'Finance',
@@ -421,7 +428,7 @@ const sidebarEntries = (module: NavModule): SidebarEntry[] => {
   ]
 
   // A module that is a single page has nothing to list under it.
-  return entries.length > 1 ? entries : []
+  return entries.length > 1 || module.listsSingleEntry ? entries : []
 }
 
 /** The sidebar, in the mockup's order: Accueil, the modules, Réglages last. */

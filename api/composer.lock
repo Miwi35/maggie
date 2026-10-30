@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "cd84766a6e05fdb447e22ccb37cdb88c",
+    "content-hash": "1fc8f1b71610891a2c08b1b282255a31",
     "packages": [
         {
             "name": "api-platform/core",
@@ -2508,6 +2508,40 @@
                 "proprietary"
             ],
             "description": "Grocery module: products, stores, grocery lists, recurring items",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "maggie/health",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "modules/health",
+                "reference": "c2ed275ffb212fa2620e51c92801f86f8498d2ac"
+            },
+            "require": {
+                "api-platform/core": "^4.2",
+                "doctrine/doctrine-bundle": "^2.18",
+                "doctrine/orm": "^3.6",
+                "maggie/core": "@dev",
+                "php": ">=8.4",
+                "symfony/mcp-bundle": "^0.3",
+                "symfony/mercure-bundle": "^0.4",
+                "symfony/uid": "7.4.*",
+                "symfony/validator": "7.4.*"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Maggie\\Health\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Health module: workouts",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -13956,6 +13990,7 @@
         "maggie/core": 20,
         "maggie/finance": 20,
         "maggie/grocery": 20,
+        "maggie/health": 20,
         "maggie/meal-grocery": 20,
         "maggie/notification": 20
     },

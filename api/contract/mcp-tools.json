@@ -3403,6 +3403,154 @@
         },
         "description": "List, create, rename, or delete the user's kitchen utensils (oven, Thermomix, mandoline…), the catalogue recipes say they are made with. A name is unique whatever its case: create answers the existing utensil when the name is already there. Deleting a utensil removes it from its recipes, which stay."
     },
+    "manage_workouts": {
+        "name": "manage_workouts",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "list",
+                        "create",
+                        "update",
+                        "delete"
+                    ]
+                },
+                "workoutId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "type": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "run",
+                        "walk",
+                        "bike",
+                        "swim",
+                        "strength",
+                        "climbing",
+                        "other"
+                    ]
+                },
+                "title": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "startedAt": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "durationMinutes": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "distanceMeters": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "kcal": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "avgHeartRate": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "feeling": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "very_good",
+                        "good",
+                        "hard",
+                        "very_hard"
+                    ]
+                },
+                "notes": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "source": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "manual",
+                        "watch",
+                        "activity",
+                        "estimated",
+                        "planned"
+                    ]
+                },
+                "externalId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "after": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "before": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "limit": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update or delete the user's workouts (running, walking, cycling, swimming, strength, climbing, other). action: list, create, update or delete. A workout has type (run, walk, bike, swim, strength, climbing, other), title, startedAt (ISO 8601 WITH time and offset, e.g. 2026-10-20T07:10:00+02:00 — never a date alone, ask the user for the hour), durationMinutes (whole minutes, 1 to 1440), distanceMeters (whole METRES, optional: 5.4 km is 5400), kcal (optional, 0 to 20000), avgHeartRate (optional, bpm, 20 to 250), feeling (optional: very_good, good, hard, very_hard), notes (optional), source (manual, watch, activity, estimated, planned; defaults to manual on create — planned is a session still to do) and externalId (optional, unique per user, de-duplicates an import). list returns the most recent first and filters on type, source, after and before (ISO 8601 with offset, on startedAt), limit default 20, max 100. update and delete need workoutId; on update only the fields provided change (nothing is cleared, an optional field is edited in the admin). create needs type, title, startedAt and durationMinutes — nothing is deduced: ask the user for what is missing. Returns {workouts: [...]} for list and {success, workout} otherwise, each workout with typeLabel, feelingLabel and sourceLabel in French. A refused call changes nothing and answers {error, field?, current?}: current is the workout as it is now."
+    },
     "monthly_review": {
         "name": "monthly_review",
         "inputSchema": {

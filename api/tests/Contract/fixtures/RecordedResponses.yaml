@@ -571,6 +571,30 @@ Maggie\Finance\Entity\Placement:
     years: 20
     user: '@recorded_user'
 
+# The workouts (MAG-705): a run from the watch with every optional figure, and
+# a strength session typed by hand with none.
+Maggie\Health\Entity\Workout:
+  recorded_workout_run:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<(new \DateTimeImmutable("2026-10-20T07:10:00+02:00"))>'
+    durationMinutes: 32
+    distanceMeters: 5400
+    kcal: 386
+    avgHeartRate: 152
+    feeling: '<(Maggie\Health\Enum\WorkoutFeeling::Good)>'
+    notes: Sous la pluie
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+    externalId: watch-4711
+    user: '@recorded_user'
+  recorded_workout_strength:
+    type: '<(Maggie\Health\Enum\WorkoutType::Strength)>'
+    title: Haut du corps
+    startedAt: '<(new \DateTimeImmutable("2026-10-18T18:30:00+02:00"))>'
+    durationMinutes: 45
+    source: '<(Maggie\Health\Enum\WorkoutSource::Manual)>'
+    user: '@recorded_user'
+
 # A timer of the Cuisine activity (MAG-582), started at the recording's fixed
 # moment so its endsAt and remainingSeconds do not move.
 Maggie\Cookbook\Entity\CookingTimer:

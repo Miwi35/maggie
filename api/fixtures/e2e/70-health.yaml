@@ -1,0 +1,41 @@
+# The Santé › Sport journey (MAG-705): three finished sessions on the owner's
+# account, in the last five days, so that the week card and the table have
+# something to show before the journey adds its own « Vélo ».
+#
+#   Course         32 min   5,4 km  watch   yesterday
+#   Haut du corps  45 min           manual  3 days ago
+#   Marche rapide  70 min   6,9 km  watch   5 days ago
+#
+# Fictitious data. Mobile journeys sign in with a fresh account and add theirs.
+
+Maggie\Health\Entity\Workout:
+  e2e_workout_run:
+    user: '@e2e_user'
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<e2eDate("-1 day 07:10")>'
+    durationMinutes: 32
+    distanceMeters: 5400
+    kcal: 386
+    avgHeartRate: 152
+    feeling: '<(Maggie\Health\Enum\WorkoutFeeling::Good)>'
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+  e2e_workout_strength:
+    user: '@e2e_user'
+    type: '<(Maggie\Health\Enum\WorkoutType::Strength)>'
+    title: Haut du corps
+    startedAt: '<e2eDate("-3 days 18:30")>'
+    durationMinutes: 45
+    kcal: 260
+    feeling: '<(Maggie\Health\Enum\WorkoutFeeling::Good)>'
+    source: '<(Maggie\Health\Enum\WorkoutSource::Manual)>'
+  e2e_workout_walk:
+    user: '@e2e_user'
+    type: '<(Maggie\Health\Enum\WorkoutType::Walk)>'
+    title: Marche rapide
+    startedAt: '<e2eDate("-5 days 12:15")>'
+    durationMinutes: 70
+    distanceMeters: 6900
+    kcal: 310
+    feeling: '<(Maggie\Health\Enum\WorkoutFeeling::VeryGood)>'
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'

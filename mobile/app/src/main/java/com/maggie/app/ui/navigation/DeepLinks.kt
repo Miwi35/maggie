@@ -96,6 +96,8 @@ object DeepLinks {
         Screen.Independence.route to listOf("$SCHEME://finance/planning/independence"),
         Screen.FinanceReviewActivity.route to listOf("$SCHEME://finance/review/activity"),
         Screen.CookingActivity.route to listOf("$SCHEME://activity/cooking?$ARG_MEAL={$ARG_MEAL}&$ARG_RECIPE={$ARG_RECIPE}"),
+        // Santé › Sport (MAG-705).
+        Screen.HealthSport.route to listOf("$SCHEME://health/sport"),
         // `digest?message=` is the Digest du matin's link (MAG-709): until its screen exists (MAG-710), the thread
         // opens on the digest's message.
         Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}", "$SCHEME://digest?$ARG_MESSAGE={$ARG_MESSAGE}"),

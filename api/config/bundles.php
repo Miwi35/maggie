@@ -16,6 +16,7 @@ return [
     Maggie\Cookbook\MaggieCookbookBundle::class => ['all' => true],
     Maggie\MealGrocery\MaggieMealGroceryBundle::class => ['all' => true],
     Maggie\Finance\MaggieFinanceBundle::class => ['all' => true],
+    Maggie\Health\MaggieHealthBundle::class => ['all' => true],
     Symfony\AI\McpBundle\McpBundle::class => ['all' => true],
     // Also in e2e: app:e2e:seed builds the deterministic world from Alice files.
     Nelmio\Alice\Bridge\Symfony\NelmioAliceBundle::class => ['dev' => true, 'test' => true, 'e2e' => true],

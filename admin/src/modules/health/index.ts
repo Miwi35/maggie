@@ -1,0 +1,1 @@
+export { healthResources } from './resources'
