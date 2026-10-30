@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import {
   FINANCE_DASHBOARD_PATH,
   FINANCE_MENUS,
+  HEALTH_SUIVI_PATH,
   NAVIGATION,
   financeAspectPath,
   financeMenuOf,
@@ -278,6 +279,18 @@ describe('the sidebar table', () => {
       'Finance',
       'Réglages',
     ])
+  })
+
+  test('Santé opens on Suivi, listed before Sport', () => {
+    const health = SIDEBAR.find((module) => module.label === 'Santé')
+
+    expect(health?.path).toBe(HEALTH_SUIVI_PATH)
+    expect(health?.entries.map((entry) => [entry.label, entry.path])).toEqual([
+      ['Suivi', '/health/suivi'],
+      ['Sport', '/workouts'],
+    ])
+    expect(labels('/health/suivi')).toEqual(['Santé', 'Suivi'])
+    expect(sidebarEntryOf('/health/suivi')).toBe('/health/suivi')
   })
 
   test('has no old name at the first level', () => {

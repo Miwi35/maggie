@@ -227,7 +227,7 @@ describe('CustomMenu — the modules of the mockup', () => {
     ['Tâches', '/tasks'],
     ['Courses', '/grocery'],
     ['Cuisine', '/meals'],
-    ['Santé', '/workouts'],
+    ['Santé', '/health/suivi'],
     ['Finance', '/finance/dashboard'],
     ['Réglages', '/settings/preferences'],
   ]
@@ -293,20 +293,32 @@ describe('CustomMenu — the modules of the mockup', () => {
       '/meals',
       '/meals',
       '/recipes',
-      '/workouts',
+      '/health/suivi',
       '/finance/dashboard',
       '/settings/preferences',
     ])
   })
 
-  test('opens Santé on its Sport entry, in the hue of the module', async () => {
+  test('opens Santé with Suivi before Sport, the current entry in the hue of the module', async () => {
     stubPersonality('Maggie')
     renderMenuAt('/workouts')
 
     const sport = await screen.findByRole('menuitem', { name: 'Sport' })
     expect(sport).toHaveAttribute('href', '/workouts')
     expect(sport).toHaveClass('Mui-selected')
-    expect(hrefs().filter((href) => href === '/workouts')).toHaveLength(2)
+    const suivi = screen.getByRole('menuitem', { name: 'Suivi' })
+    expect(suivi).toHaveAttribute('href', '/health/suivi')
+    expect(suivi).not.toHaveClass('Mui-selected')
+    const santé = hrefs().indexOf('/health/suivi')
+    expect(hrefs().slice(santé, santé + 3)).toEqual(['/health/suivi', '/health/suivi', '/workouts'])
+  })
+
+  test('Santé opens on Suivi', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/health/suivi')
+
+    expect(await screen.findByRole('menuitem', { name: 'Suivi' })).toHaveClass('Mui-selected')
+    expect(screen.getByRole('menuitem', { name: 'Sport' })).not.toHaveClass('Mui-selected')
   })
 
   test('gives Cuisine one Repas entry, then Recettes: no second page for the meals', async () => {
