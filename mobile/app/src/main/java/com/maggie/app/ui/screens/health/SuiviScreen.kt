@@ -67,6 +67,7 @@ import com.maggie.app.ui.navigation.HealthSection
 import com.maggie.app.ui.navigation.LocalModuleBar
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.uiTagRoot
 
 /**
@@ -165,10 +166,9 @@ private fun SuiviContent(viewModel: SuiviViewModel, expanded: Boolean, modifier:
 /** « 7 j · 30 j · 90 j · 1 an », a radio group: equal segments across the phone, 72 dp each in the tablet's header. */
 @Composable
 private fun PeriodSelector(selected: SuiviPeriod, onSelect: (SuiviPeriod) -> Unit, segmentWidth: Dp?, height: Dp) {
-    val dark = isMaggieDark()
-    val track = if (dark) Color(0xFF15141E) else MaggieTokens.surfaceLight.track
-    val surface = if (dark) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
-    val chosen = if (dark) surface.raised else surface.paper
+    val surface = maggieSurface()
+    val track = surface.track
+    val chosen = if (isMaggieDark()) surface.raised else surface.paper
     Row(
         modifier = Modifier
             .then(if (segmentWidth == null) Modifier.fillMaxWidth() else Modifier)

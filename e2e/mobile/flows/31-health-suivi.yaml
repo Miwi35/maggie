@@ -10,7 +10,7 @@ tags:
 # Alors la carte Poids affiche les pesées : aujourd'hui 71,8 kg et 21,3 % de masse grasse
 #
 # A new user, so the only weighings are the three `scripts/body-measurements-api.js` writes:
-# 72,9 kg five days ago, 72,4 kg two days ago, 71,8 kg now.
+# 72,9 kg five days ago, 72,4 kg two days ago, 71,8 kg today (TODAY, the stack's day).
 #
 # What is not here: the trend's arithmetic, the 90 j and 1 an buckets, the labels and the axis
 # (`WeightChartTest`), the column tapped, « Écarter », the Mercure refresh, the tablet's layout
@@ -23,6 +23,7 @@ tags:
     file: ../scripts/body-measurements-api.js
     env:
       EMAIL: ${output.journeyEmail}
+      TODAY: ${TODAY}
 
 - launchApp:
     clearState: true
