@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -16,6 +17,7 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.util.DateRanges
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -136,6 +138,20 @@ class DateTimeFieldsScreenTest {
         compose.onNodeWithText("Après-demain").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.PICKER_AFTER_TOMORROW).performClick()
         assertEquals(today.plusDays(2), date)
+    }
+
+    // The dialog lays its content in a Box: stacked there, the calendar covered the quick picks on a phone.
+    @Test
+    fun `the quick picks sit above the calendar, not under it (MAG-718)`() {
+        compose.setContent {
+            DateField(label = "Programmée", value = null, onValueChange = {}, tag = "day", quickPicks = true)
+        }
+
+        compose.onNodeWithTag("day").performClick()
+
+        val chips = compose.onNodeWithTag(UiTags.PICKER_TOMORROW).getUnclippedBoundsInRoot()
+        val calendar = compose.onNodeWithText("Sélectionner une date").getUnclippedBoundsInRoot()
+        assertTrue("« Demain » ends at ${chips.bottom}, the calendar starts at ${calendar.top}", chips.bottom <= calendar.top)
     }
 
     @Test
