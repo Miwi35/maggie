@@ -1,5 +1,7 @@
 package com.maggie.app.ui.screens.finance
 
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,7 +23,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -127,9 +128,7 @@ private fun CategoryTreeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.startCreating() }) {
-                Icon(Icons.Default.Add, contentDescription = "Nouvelle catégorie")
-            }
+            ModuleFab(FabModule.FINANCE, "Nouvelle catégorie", onClick = { viewModel.startCreating() })
         },
     ) { paddingValues ->
         when {

@@ -1,5 +1,7 @@
 package com.maggie.app.ui.screens.grocery
 
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +19,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,9 +56,7 @@ fun StoreListScreen(
             GroceryTopBar(GrocerySection.STORES)
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Nouveau magasin")
-            }
+            ModuleFab(FabModule.GROCERY, "Nouveau magasin", onClick = { showCreateDialog = true })
         },
     ) { paddingValues ->
         when {

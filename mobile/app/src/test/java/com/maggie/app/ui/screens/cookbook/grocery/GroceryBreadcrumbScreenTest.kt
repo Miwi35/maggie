@@ -5,7 +5,9 @@ import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -120,11 +122,32 @@ class GroceryBreadcrumbScreenTest {
     }
 
     @Test
-    fun `there is no Récurrents tab any more`() {
+    fun `the row of sub-views reads Liste then Récurrents, and Récurrents opens the recurring items`() {
+        val fake = FakeGrocery(recurring = FakeRecurring(listOf(milkRecurring), listOf(milk)))
+        showList(fake)
+
+        compose.onNodeWithTag(UiTags.subview("list")).assertIsSelected()
+        compose.onNodeWithTag(UiTags.subview("recurring")).performClick()
+
+        compose.onNodeWithText("Prochain ajout : 20/10/2026").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the header holds only the burger, the breadcrumb, the loupe and the bell, with the full section name`() {
         showList()
 
-        compose.onNodeWithText("Récurrents").assertDoesNotExist()
-        compose.onNode(hasTestTag(UiTags.BREADCRUMB_SECTION).and(hasText("Liste"))).assertExists()
+        compose.onNodeWithTag(UiTags.NAV_MENU).assertIsDisplayed()
+        compose.onNode(hasTestTag(UiTags.BREADCRUMB_SECTION).and(hasText("Liste"))).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Ajouter un article").assertExists()
+        compose.onNodeWithTag(UiTags.MODULE_FAB).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.GROCERY_MENU).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the overflow menu sits at the end of the row of sub-views`() {
+        showList()
+
+        compose.onNode(hasTestTag(UiTags.GROCERY_MENU).and(hasAnyAncestor(hasTestTag(UiTags.SUBVIEW_ROW_TRAILING)))).assertIsDisplayed()
     }
 
     @Test

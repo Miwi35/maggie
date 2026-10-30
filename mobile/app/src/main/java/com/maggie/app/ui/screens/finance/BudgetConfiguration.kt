@@ -107,12 +107,6 @@ private fun BudgetTreePane(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            PeriodSelector(
-                year = uiState.year,
-                month = uiState.month,
-                onPrevious = { viewModel.shiftPeriod(-1) },
-                onNext = { viewModel.shiftPeriod(1) },
-            )
             ToQualifyRow(toQualify, onOpenToQualify)
             uiState.status?.takeIf { it.budgets.isNotEmpty() && !showsOutside }?.let { status ->
                 Text(

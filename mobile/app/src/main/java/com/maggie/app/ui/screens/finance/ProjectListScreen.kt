@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -61,6 +60,8 @@ import com.maggie.app.data.model.projectDateLabel
 import com.maggie.app.data.model.projectDependenciesLabel
 import com.maggie.app.data.model.projectFundingSummary
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
@@ -178,12 +179,7 @@ fun ProjectListContent(
                 )
             }
         }
-        FloatingActionButton(
-            onClick = { onOpenForm(null) },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp).testTag(UiTags.PROJECT_ADD),
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Nouveau projet")
-        }
+        ModuleFab(FabModule.FINANCE, "Nouveau projet", onClick = { onOpenForm(null) }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), tag = UiTags.PROJECT_ADD)
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 

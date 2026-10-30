@@ -36,7 +36,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,6 +72,10 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.SubviewItem
+import com.maggie.app.ui.components.SubviewRow
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.GroceryTopBar
 import com.maggie.app.ui.navigation.GrocerySection
 import com.maggie.app.ui.screens.grocery.SeasonBadge
@@ -141,34 +144,40 @@ fun GroceryScreen(
         // The frame's top bar and the route already paid the system bars: a second time leaves a gap.
         contentWindowInsets = WindowInsets(0),
         topBar = {
-            GroceryTopBar(GrocerySection.LIST) {
-                Box {
-                    IconButton(onClick = { menuExpanded = true }, modifier = Modifier.testTag(UiTags.GROCERY_MENU)) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Menu")
-                    }
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                        modifier = Modifier.uiTagRoot(),
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Courses passées") },
-                            onClick = {
-                                menuExpanded = false
-                                onNavigateToPastErrands()
-                            },
-                            modifier = Modifier.testTag(UiTags.PAST_ERRANDS_OPEN),
-                        )
-                    }
-                }
+            Column {
+                GroceryTopBar(GrocerySection.LIST)
+                SubviewRow(
+                    items = listOf(SubviewItem("list", "Liste"), SubviewItem("recurring", "Récurrents")),
+                    selectedKey = "list",
+                    onSelect = { if (it.key == "recurring") showRecurring = true },
+                    trailing = {
+                        Box {
+                            IconButton(onClick = { menuExpanded = true }, modifier = Modifier.testTag(UiTags.GROCERY_MENU)) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                            }
+                            DropdownMenu(
+                                expanded = menuExpanded,
+                                onDismissRequest = { menuExpanded = false },
+                                modifier = Modifier.uiTagRoot(),
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Courses passées") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onNavigateToPastErrands()
+                                    },
+                                    modifier = Modifier.testTag(UiTags.PAST_ERRANDS_OPEN),
+                                )
+                            }
+                        }
+                    },
+                )
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             if (!uiState.isSelecting) {
-                FloatingActionButton(onClick = { viewModel.showAddSheet() }) {
-                    Icon(Icons.Default.Add, contentDescription = "Ajouter un article")
-                }
+                ModuleFab(FabModule.GROCERY, "Ajouter un article", onClick = { viewModel.showAddSheet() })
             }
         },
         bottomBar = {

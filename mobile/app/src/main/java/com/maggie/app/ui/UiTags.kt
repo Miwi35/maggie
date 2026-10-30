@@ -366,6 +366,8 @@ object UiTags {
     const val BREADCRUMB_SCRIM = "breadcrumb_scrim"
     const val BREADCRUMB_MENU_PREFIX = "breadcrumb_menu_"
     const val SUBVIEW_ROW = "subview_row"
+    const val SUBVIEW_ROW_TRAILING = "subview_row_trailing"
+    const val MODULE_FAB = "module_fab"
     const val SUBVIEW_PREFIX = "subview_"
     const val ACCOUNT_LAST_SYNC = "account_last_sync"
     const val REFERENCE_SALARY_LINK = "reference_salary_link"

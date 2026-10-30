@@ -72,6 +72,8 @@ import com.maggie.app.data.model.formatPlacementRate
 import com.maggie.app.data.model.placementTerms
 import com.maggie.app.data.model.yearsLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
@@ -100,17 +102,13 @@ fun PlacementListScreen(
     val expanded = rememberAppLayout().width == WindowWidth.EXPANDED
     Scaffold(
         topBar = {
-            FinanceTopBar(Screen.PlacementList.route, actions = {
-                // The tablet's list has its own « + Placement » under the rows.
-                if (!expanded) {
-                    FilledIconButton(
-                        onClick = { onOpenForm(null) },
-                        modifier = Modifier.padding(end = 8.dp).testTag(UiTags.PLACEMENT_ADD),
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Ajouter un placement")
-                    }
-                }
-            })
+            FinanceTopBar(Screen.PlacementList.route)
+        },
+        floatingActionButton = {
+            // The tablet's list has its own « + Placement » under the rows.
+            if (!expanded) {
+                ModuleFab(FabModule.FINANCE, "Ajouter un placement", onClick = { onOpenForm(null) }, tag = UiTags.PLACEMENT_ADD)
+            }
         },
     ) { paddingValues ->
         PlacementListContent(viewModel, onOpenForm, expanded, Modifier.padding(paddingValues))

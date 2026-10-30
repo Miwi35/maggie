@@ -23,6 +23,7 @@ class SubviewBar(
  * section: it draws [topBar], its back arrow and its title, and no sections menu.
  *
  * @param actions the icons the page offers at the right of the breadcrumb.
+ * @param subviewsTrailing what the row of sub-views carries at its far end (Budget's month selector).
  * @param subviews the row, when the screen supplies it; otherwise it is the section's own (a route per sub-view, or
  *   the state the graph holds for the section).
  */
@@ -31,6 +32,7 @@ fun FinanceTopBar(
     route: String,
     actions: @Composable RowScope.() -> Unit = {},
     subviews: SubviewBar? = null,
+    subviewsTrailing: (@Composable RowScope.() -> Unit)? = null,
     topBar: (@Composable () -> Unit)? = null,
 ) {
     val section = FinanceSection.pageOf(route)
@@ -50,7 +52,7 @@ fun FinanceTopBar(
             actions = actions,
         )
         when {
-            subviews != null -> SubviewRow(subviews.items, subviews.selectedKey, subviews.onSelect)
+            subviews != null -> SubviewRow(subviews.items, subviews.selectedKey, subviews.onSelect, trailing = subviewsTrailing)
             section.subviews.isEmpty() -> Unit
             section.subviews.all { it.route != null } -> {
                 val current = section.subviewOf(route)
@@ -58,6 +60,7 @@ fun FinanceTopBar(
                     items = section.subviewItems(),
                     selectedKey = current?.key.orEmpty(),
                     onSelect = { item -> section.subview(item.key)?.let { nav?.onSelectSubview?.invoke(section, it) } },
+                    trailing = subviewsTrailing,
                 )
             }
             else -> {
@@ -66,6 +69,7 @@ fun FinanceTopBar(
                     items = section.subviewItems(),
                     selectedKey = current.key,
                     onSelect = { item -> section.subview(item.key)?.let(select) },
+                    trailing = subviewsTrailing,
                 )
             }
         }
