@@ -32,6 +32,7 @@ class GetUserTimezoneTool
 
         return json_encode([
             'timezone' => $preference?->getTimezone() ?? self::DEFAULT_TIMEZONE,
+            'email' => $user->getEmail(),
         ], JSON_THROW_ON_ERROR);
     }
 }
