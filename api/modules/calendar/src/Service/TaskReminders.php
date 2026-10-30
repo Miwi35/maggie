@@ -147,8 +147,9 @@ final class TaskReminders
             case TaskReminder::ACTION_TOMORROW:
                 \assert(null !== $task);
                 if (TaskReminder::KIND_DUE === $reminder->getKind() && null !== $task->getScheduledDate()) {
-                    // A task at a precise time moves its programmation: same time tomorrow, or it would stay today and be reminded again.
-                    $this->bus->dispatch(new UpdateTaskCommand(taskId: (string) $task->getId(), scheduledDate: $this->overdue->today($user)->modify('+1 day')));
+                    // A task at a precise time moves its programmation a day later, at the same time — from its own day:
+                    // a reminder a week before must not bring it closer. Left today, it would be reminded again.
+                    $this->bus->dispatch(new UpdateTaskCommand(taskId: (string) $task->getId(), scheduledDate: $task->getScheduledDate()->modify('+1 day')));
                     break;
                 }
                 $this->putInTomorrow($user, $task);

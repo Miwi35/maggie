@@ -356,6 +356,18 @@ final class TaskReminderApiTest extends WebTestCase
         self::assertNull($this->em()->getRepository(DayPlan::class)->findOneBy(['user' => $this->getFixture('test_user')->getId(), 'date' => new \DateTimeImmutable('2026-10-15')]), 'its day is its programmation, not tomorrow\'s five');
     }
 
+    public function testTomorrowOnAReminderDaysAheadPutsTheTaskOffADayFromItsOwnDay(): void
+    {
+        $now = Clock::get()->now()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('H:i');
+        $task = $this->timedTask('Vol pour Lyon', $now, [2880], '2026-10-16');
+        self::assertSame(1, $this->remind(), 'two days before');
+
+        $this->act($this->onlyReminder(), 'tomorrow');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('2026-10-17', $this->em()->find(Task::class, $task->getId())?->getScheduledDate()?->format('Y-m-d'));
+    }
+
     public function testANudgeIsNotTicked(): void
     {
         $this->act($this->sentNudge(), 'done');
@@ -529,10 +541,10 @@ final class TaskReminderApiTest extends WebTestCase
     }
 
     /** @param list<int> $reminders */
-    private function timedTask(string $title, string $time, array $reminders): Task
+    private function timedTask(string $title, string $time, array $reminders, string $day = self::TODAY): Task
     {
         $task = (new Task())->setUser($this->user())->setTitle($title)->setCriticality(TaskCriticality::Medium)
-            ->schedule(new \DateTimeImmutable(self::TODAY), TaskMoment::Time, $time, $reminders);
+            ->schedule(new \DateTimeImmutable($day), TaskMoment::Time, $time, $reminders);
         $this->em()->persist($task);
         $this->em()->flush();
         $this->em()->clear();
