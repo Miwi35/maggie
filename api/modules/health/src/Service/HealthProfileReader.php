@@ -24,11 +24,6 @@ final class HealthProfileReader
     ) {
     }
 
-    public function forUser(User $user): HealthProfile
-    {
-        return $this->observe($this->profiles->findOneByUser($user) ?? (new HealthProfile())->setUser($user));
-    }
-
     public function observe(HealthProfile $profile): HealthProfile
     {
         return $profile->observe(
