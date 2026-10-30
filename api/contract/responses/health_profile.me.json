@@ -1,0 +1,19 @@
+{
+    "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "sex": "male",
+    "birthYear": 1988,
+    "age": 38,
+    "heightCm": 178,
+    "weightKg": 72.4,
+    "activityLevel": "moderate",
+    "mode": "computed",
+    "enteredNeedKcal": 2450,
+    "bmrKcal": 1652,
+    "needKcal": 2560,
+    "factor": 1.55,
+    "stepGoal": 9500,
+    "suggestionWindowStart": "07:30",
+    "suggestionWindowEnd": "21:00",
+    "sessionMinutes": 30,
+    "stepSource": "health_connect"
+}

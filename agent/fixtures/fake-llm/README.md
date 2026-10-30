@@ -202,6 +202,7 @@ et Garde Ael » (MAG-325): the rule is stored as a `behavior` directive, and the
 and no `days`, whatever its date.
 `97-move-meal-by-name.yaml` (MAG-639) is its twin for a planned meal, which the event tools leave out: `manage_meals list` with
 `query` and no dates, then `update` on the id found, to tomorrow's `lunch`.
+`97-health-step-goal.yaml` (MAG-707): « Mon objectif de pas, c'est 10 000 » — `update_health_profile` with `stepGoal: 10000` alone.
 
 The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change

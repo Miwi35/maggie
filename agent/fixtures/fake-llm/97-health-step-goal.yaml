@@ -1,0 +1,16 @@
+# « Mon objectif de pas, c'est 10 000 » (MAG-707).
+#
+# The step goal is a field of the health profile (Santé › Configuration): she changes it alone
+# with update_health_profile, the other fields keep their value. The fake does not read the
+# result: the journey reads the profile back from the API.
+name: health-step-goal
+description: Set the step goal of the health profile to 10 000 steps a day.
+
+match:
+  user_matches: '^mon objectif de pas,? c.est 10\s?000\W*$'
+
+turns:
+  - tools:
+      - name: update_health_profile
+        input: {stepGoal: 10000}
+  - text: "C'est noté : ton objectif est de 10 000 pas par jour."

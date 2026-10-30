@@ -8,6 +8,7 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Ingredient
 import com.maggie.app.data.model.Recipe
 import com.maggie.app.data.model.RecipeIngredient
+import com.maggie.app.data.repository.HealthProfileRepository
 import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.RecipeRepository
 import kotlinx.coroutines.Job
@@ -42,6 +43,8 @@ data class RecipeDetailUiState(
     val simulation: RecipeSimulation? = null,
     /** The catalogue's ingredients by id: what a serving brings is counted from their values. */
     val products: Map<String, Ingredient> = emptyMap(),
+    /** The day's need of Santé › Configuration (MAG-707), the ring's reference; null without a complete profile. */
+    val dailyKcal: Int? = null,
 ) {
     /** « Par personne »: from the recipe's own quantities and servings, whatever the simulation shows. */
     val nutrition: RecipeNutrition? get() = recipe?.let { nutritionPerServing(it.ingredients, it.servings, products) }
@@ -57,6 +60,7 @@ class RecipeDetailViewModel(
     private val ingredientRepository: IngredientRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
+    private val healthProfileRepository: HealthProfileRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecipeDetailUiState())
@@ -68,6 +72,7 @@ class RecipeDetailViewModel(
     init {
         load()
         loadProducts()
+        loadDailyNeed()
         subscribeToMercure()
     }
 
@@ -129,6 +134,15 @@ class RecipeDetailViewModel(
         }
     }
 
+    // A profile that cannot be read, or is incomplete, only leaves the ring out (MAG-707).
+    private fun loadDailyNeed() {
+        viewModelScope.launch {
+            healthProfileRepository.getProfile().onSuccess { profile ->
+                _uiState.update { it.copy(dailyKcal = profile.needKcal) }
+            }
+        }
+    }
+
     private fun subscribeToMercure() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
@@ -141,7 +155,7 @@ class RecipeDetailViewModel(
     private suspend fun onMessage(data: String) {
         when (val message = parseRecipeMessage(data, recipeId)) {
             RecipeMessage.Elsewhere -> Unit
-            RecipeMessage.Deleted -> _uiState.update { RecipeDetailUiState(isLoading = false, error = "Cette recette a été supprimée.", products = it.products) }
+            RecipeMessage.Deleted -> _uiState.update { RecipeDetailUiState(isLoading = false, error = "Cette recette a été supprimée.", products = it.products, dailyKcal = it.dailyKcal) }
             RecipeMessage.Unreadable -> recipeRepository.getRecipe(recipeId)
                 .onSuccess { recipe -> _uiState.update { it.copy(recipe = recipe, isLoading = false, error = null, simulation = null) } }
             is RecipeMessage.Changed -> _uiState.value.recipe?.let { current ->

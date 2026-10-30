@@ -16,6 +16,7 @@
     "Event": "/users/{userId}/api/events/{id}",
     "FinanceDashboardSnapshot": "/users/{userId}/api/finance_dashboard_snapshots/{id}",
     "GroceryList": "/users/{userId}/api/grocery_lists/{id}",
+    "HealthProfile": "/users/{userId}/api/health-profile/{id}",
     "Ingredient": "/users/{userId}/api/ingredients/{id}",
     "Loan": "/users/{userId}/api/loans/{id}",
     "Meal": "/users/{userId}/api/meals/{id}",

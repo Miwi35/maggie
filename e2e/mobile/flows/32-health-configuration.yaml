@@ -1,0 +1,54 @@
+appId: com.maggie.app.e2e
+name: 32-health-configuration
+tags:
+  - health
+---
+# Santé › Configuration, from the phone (MAG-707, journey « Santé »).
+#
+# Étant donné un compte neuf dont le profil est écrit par l'API : Homme, 38 ans, 178 cm, 72 kg, Sédentaire
+# Quand j'ouvre Santé › Configuration
+# Alors la carte Besoin du jour affiche « 1 980 kcal » et « métabolisme de base 1 648 kcal »
+#
+# A new user, so the only profile is the one `scripts/health-profile-api.js` writes; its age is
+# a birth year counted from TODAY, the stack's day. The thousands are apart by a thin no-break
+# space: the patterns match any character there.
+#
+# What is not here: the arithmetic, the steppers and their 600 ms pause, Calculé · Saisi, the
+# activity settings, a refused write and the Mercure refresh (`ConfigurationViewModelTest`,
+# `ConfigurationScreenTest`), the section menu and the link (`HealthNavigationTest`,
+# `DeepLinksTest`), the recipe sheet's ring (`RecipeDetailViewModelTest`, `RecipeNutritionTest`),
+# and the admin's side of the same API.
+
+- runFlow: ../subflows/new-user.yaml
+
+- runScript:
+    file: ../scripts/health-profile-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      TODAY: ${TODAY}
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/32-health-configuration.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://health/configuration"
+- extendedWaitUntil:
+    visible:
+      id: "configuration"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "need_card"
+    timeout: 20000
+
+- extendedWaitUntil:
+    visible: "1.980 kcal"
+    timeout: 10000
+- assertVisible: "métabolisme de base 1.648 kcal"
+- assertVisible: "× 1,20"

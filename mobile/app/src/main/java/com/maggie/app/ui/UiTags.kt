@@ -1884,6 +1884,38 @@ object UiTags {
     const val WEIGHT_COLUMN_PREFIX = "weight_column_"
     const val WEIGHT_EXCLUDE = "weight_exclude"
 
+    /**
+     * « Santé › Configuration » (MAG-707): the screen and its empty state; the « Besoin du jour » card, its need, basal
+     * metabolism and factor; « Calculé · Saisi »; Sexe, the Âge, Taille, Poids and typed-need steppers (each with
+     * `_minus`, `_value`, `_plus`), the activity chips; then « Objectif de pas », the two window times, the session
+     * lengths and « Source des pas » with its menu entries.
+     */
+    const val CONFIGURATION = "configuration"
+    const val CONFIGURATION_EMPTY = "configuration_empty"
+    const val NEED_CARD = "need_card"
+    const val NEED_VALUE = "need_value"
+    const val NEED_BMR = "need_bmr"
+    const val NEED_FACTOR = "need_factor"
+    const val NEED_MODE_PREFIX = "need_mode_"
+    const val PROFILE_SEX_PREFIX = "profile_sex_"
+    const val PROFILE_AGE = "profile_age"
+    const val PROFILE_HEIGHT = "profile_height"
+    const val PROFILE_WEIGHT = "profile_weight"
+    const val PROFILE_ENTERED_NEED = "profile_entered_need"
+    const val PROFILE_ACTIVITY_PREFIX = "profile_activity_"
+    const val PROFILE_STEP_GOAL = "profile_step_goal"
+    const val PROFILE_WINDOW_START = "profile_window_start"
+    const val PROFILE_WINDOW_END = "profile_window_end"
+    const val PROFILE_SESSION_PREFIX = "profile_session_"
+    const val PROFILE_STEP_SOURCE = "profile_step_source"
+    const val PROFILE_STEP_SOURCE_PREFIX = "profile_step_source_"
+
+    fun needMode(key: String) = NEED_MODE_PREFIX + key
+    fun profileSex(key: String) = PROFILE_SEX_PREFIX + key
+    fun profileActivity(key: String) = PROFILE_ACTIVITY_PREFIX + key
+    fun profileSession(minutes: Int) = PROFILE_SESSION_PREFIX + minutes
+    fun profileStepSource(key: String) = PROFILE_STEP_SOURCE_PREFIX + key
+
     fun suiviPeriod(key: String) = SUIVI_PERIOD_PREFIX + key
     fun weightColumn(index: Int) = WEIGHT_COLUMN_PREFIX + index
 

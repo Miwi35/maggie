@@ -254,7 +254,7 @@ private fun TimeRow(label: String, tag: String, time: String, onPick: (hour: Int
 /** The 24 h clock on [time]; OK hands the time picked over, either button closes it. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TimePickerDialog(title: String, time: String, onPick: (hour: Int, minute: Int) -> Unit, onClose: () -> Unit) {
+internal fun TimePickerDialog(title: String, time: String, onPick: (hour: Int, minute: Int) -> Unit, onClose: () -> Unit) {
     val (hour, minute) = time.split(':').map { it.toIntOrNull() ?: 0 } + listOf(0, 0)
     val state = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
     AlertDialog(

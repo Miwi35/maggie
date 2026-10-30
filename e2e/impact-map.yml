@@ -273,8 +273,10 @@ areas:
     - mobile/app/src/main/java/com/maggie/app/ui/screens/health/**
     - mobile/app/src/main/java/com/maggie/app/data/{model/Workout,repository/WorkoutRepository}.kt
     - mobile/app/src/main/java/com/maggie/app/data/{model/BodyMeasurement,repository/BodyMeasurementRepository}.kt
+    - mobile/app/src/main/java/com/maggie/app/data/{model/HealthProfile,repository/HealthProfileRepository}.kt
     - e2e/web/pages/HealthSportPage.ts
     - e2e/web/pages/HealthSuiviPage.ts
+    - e2e/web/pages/HealthConfigurationPage.ts
   notification:
     - api/modules/notification/**
     - api/fixtures/e2e/60-notification.yaml
@@ -551,6 +553,11 @@ web:
   e2e/web/tests/health-suivi.spec.ts:
     areas: [health]
     paths: [api/fixtures/e2e/70-health.yaml]
+  e2e/web/tests/health-configuration.spec.ts:
+    areas: [health, cookbook]
+  e2e/web/tests/health-configuration-chat.spec.ts:
+    areas: [health]
+    paths: [agent/fixtures/fake-llm/97-health-step-goal.yaml]
   e2e/web/tests/meals-chat-move.spec.ts:
     areas: [cookbook, chat]
     paths:
@@ -811,6 +818,9 @@ mobile:
   e2e/mobile/flows/31-health-suivi.yaml:
     areas: [health]
     paths: [e2e/mobile/scripts/body-measurements-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
+  e2e/mobile/flows/32-health-configuration.yaml:
+    areas: [health, cookbook]
+    paths: [e2e/mobile/scripts/health-profile-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/29-finance-cushion-share.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/cushion-share-api.js, api/fixtures/e2e/69-finance-cushion-share.yaml]

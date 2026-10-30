@@ -14,7 +14,7 @@
 #
 # Every lot holds at least one flow outside quarantine (a lot of quarantined flows
 # alone is folded into the last one, see impacted.sh).
-1: 02-voice-overlay 12-recipe-realtime 14-interruption 17-task-settings 17b-tasks-day 17c-tasks-evening 17d-task-bravo 17f-routines 26-finance-timeline 28-agenda-location-settings 29-finance-cushion-share 30-health-sport
+1: 02-voice-overlay 12-recipe-realtime 14-interruption 17-task-settings 17b-tasks-day 17c-tasks-evening 17d-task-bravo 17f-routines 26-finance-timeline 28-agenda-location-settings 29-finance-cushion-share 30-health-sport 32-health-configuration
 2: 08-grocery-realtime 11-calendar-all-day-series 15-calendar-more-than-a-page 15-stop-and-correct 17c-task-focus 17e-task-constellation finance-todo 19-finance-contacts 19-grocery-packagings 20-product-sheet 21-product-filters 20-finance-upcoming 31-health-suivi
 3: 09-finance-banks 10-finance-recurring 12-event-date-picker 12-thread-deletion 13-finance-category-edit 13-finance-review-list 14-rotation finance-treasury 21-finance-peer-debts 25-finance-placements 26-finance-scenarios 27-finance-independence-sources 27-cooking-launch
 4: 04-calendar-import 10-meal-ingredient-choice 13-chat-opens-on-latest 13-meals-planning 13-finance-budget-nesting 13-finance-accounts-section 16-finance-budget-split 16-finance-budget-adjust 15-mind-tab 17-tasks-views finance-scores 22-finance-review-activity 29-agenda-trips 30-digest

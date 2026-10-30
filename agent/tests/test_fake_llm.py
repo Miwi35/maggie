@@ -559,6 +559,32 @@ class TestMatching:
         assert second.content[0].input["mealId"] == meal
         assert second.content[0].input["slot"] == "lunch"
 
+    async def test_the_step_goal_scenario_changes_only_the_step_goal_of_the_health_profile(self):
+        """97-health-step-goal.yaml (MAG-707): `update_health_profile` with `stepGoal` alone, then the answer."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        question = "Mon objectif de pas, c'est 10 000"
+
+        async def turn(rounds: list[dict]):
+            return await client.messages.create(
+                model="fake",
+                max_tokens=1024,
+                system="Tu es Maggie.",
+                tools=[{"name": "update_health_profile"}],
+                messages=[{"role": "user", "content": question}, *rounds],
+            )
+
+        first = await turn([])
+        second = await turn(
+            [
+                {"role": "assistant", "content": [{"type": "tool_use", "id": "t0", "name": "update_health_profile", "input": {}}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t0", "content": '{"success": true}'}]},
+            ]
+        )
+
+        assert first.content[0].name == "update_health_profile"
+        assert first.content[0].input == {"stepGoal": 10000}
+        assert "10 000 pas" in second.content[0].text
+
     async def test_the_early_repayment_scenario_acts_on_the_loan_its_list_returned(self):
         """91-loans-early-repayment.yaml (MAG-522): the update and the simulation carry the id of « Prêt immo »."""
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)

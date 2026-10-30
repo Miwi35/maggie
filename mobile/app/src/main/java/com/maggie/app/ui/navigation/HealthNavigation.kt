@@ -4,11 +4,13 @@ import com.maggie.app.ui.components.BreadcrumbSection
 
 /**
  * The pages of Santé, the entries of the breadcrumb's menu « Santé › Suivi ▾ »: Suivi (MAG-706), the module's home,
- * then Sport (MAG-705). The menu lists no placeholder. A tap on the current page does nothing.
+ * then Sport (MAG-705), then Configuration (MAG-707), the last. The menu lists no placeholder. A tap on the current page
+ * does nothing.
  */
 enum class HealthSection(val key: String, val label: String, val route: String) {
     SUIVI("suivi", "Suivi", Screen.HealthSuivi.route),
     SPORT("sport", "Sport", Screen.HealthSport.route),
+    CONFIGURATION("configuration", "Configuration", Screen.HealthConfiguration.route),
     ;
 
     val breadcrumb: BreadcrumbSection get() = BreadcrumbSection(key, label)

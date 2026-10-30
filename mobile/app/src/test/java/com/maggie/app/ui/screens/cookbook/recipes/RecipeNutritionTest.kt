@@ -97,6 +97,14 @@ class RecipeNutritionTest {
     }
 
     @Test
+    fun `the share names the day's need it is taken from, as the mockup writes it (MAG-707)`() {
+        compose.setContent { RecipeNutritionBlock(RecipeNutrition(515, 40, 90, 25, 0), dailyKcal = 1980) }
+
+        compose.onNodeWithText("26 %").assertIsDisplayed()
+        compose.onNodeWithText("26 % du besoin du jour · 1 980 kcal").assertIsDisplayed()
+    }
+
+    @Test
     fun `the screen does not explain the lines left out`() {
         compose.setContent { RecipeNutritionBlock(RecipeNutrition(800, 40, 90, 25, 2), dailyKcal = null) }
 
