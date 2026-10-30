@@ -83,6 +83,20 @@ final class TaskScheduleApiTest extends WebTestCase
         self::assertSame([30, 60], $this->reload((string) $this->json()['id'])->getReminders());
     }
 
+    public function testRemindersSentEmptyAtAPreciseTimeLeaveNone(): void
+    {
+        $this->post(['title' => 'Sans rappel', 'scheduledDate' => '2037-01-02', 'scheduledMoment' => 'time', 'scheduledTime' => '18:00', 'reminders' => []]);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame([], $this->reload((string) $this->json()['id'])->getReminders(), 'on create');
+
+        $task = $this->getFixture('task_moving');
+        $this->patch($task, ['scheduledDate' => '2037-01-02', 'scheduledMoment' => 'evening']);
+        self::assertResponseIsSuccessful();
+        $this->patch($task, ['scheduledMoment' => 'time', 'scheduledTime' => '18:00', 'reminders' => []]);
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->reload((string) $task->getId())->getReminders(), 'from the evening to a precise time');
+    }
+
     /** @return iterable<string, array{array<string, mixed>}> */
     public static function incoherent(): iterable
     {
