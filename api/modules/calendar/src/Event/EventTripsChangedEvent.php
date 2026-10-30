@@ -14,11 +14,15 @@ final readonly class EventTripsChangedEvent
     public const UPDATED = 'updated';
     public const DELETED = 'deleted';
 
-    /** @param self::CREATED|self::UPDATED|self::DELETED $change */
+    /**
+     * @param self::CREATED|self::UPDATED|self::DELETED $change
+     * @param bool                                      $locationAdded the event now has a place to go to and had none: a trip is to plan, not only to adjust
+     */
     public function __construct(
         public string $eventId,
         public string $userId,
         public string $change,
+        public bool $locationAdded = false,
     ) {
     }
 }
