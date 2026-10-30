@@ -2,7 +2,12 @@ package com.maggie.app.ui.screens.health
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.activity.result.contract.ActivityResultContract
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.health.HealthConnectAvailability
+import com.maggie.app.data.health.HealthConnectGateway
+import com.maggie.app.data.health.HealthConnectPermissions
+import com.maggie.app.data.health.HealthSyncScheduler
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.ActivityLevel
@@ -38,7 +43,26 @@ data class ConfigurationUiState(
     /** False until the first answer: the screen shows a spinner, not an empty card. */
     val hasLoaded: Boolean = false,
     val error: String? = null,
+    /** Where Health Connect stands on this phone: « Non connecté › » until every read permission is granted (MAG-708). */
+    val healthConnect: HealthConnectState = HealthConnectState.CHECKING,
 )
+
+/** « Source des pas » (MAG-708): what the row shows, and what a tap on « Non connecté › » does. */
+enum class HealthConnectState {
+    CHECKING,
+
+    /** Every read permission granted: the sync runs. */
+    CONNECTED,
+
+    /** Health Connect is there, a permission is missing: a tap asks for them. */
+    NOT_PERMITTED,
+
+    /** Not installed, or too old: a tap opens its Play Store page. */
+    NOT_INSTALLED,
+    ;
+
+    val isConnected: Boolean get() = this == CONNECTED
+}
 
 /**
  * « Santé › Configuration » (MAG-707): the profile, the day's need and the activity settings. A stepper shows its
@@ -48,11 +72,16 @@ data class ConfigurationUiState(
  * The writes go one at a time, in the order they were made (a new profile is created by the first one), and only the
  * answer to the last one replaces what is shown; edits still waiting for their pause are sent when the screen goes.
  * The [clock] says the current year an age is turned into a birth year with.
+ *
+ * « Source des pas » reads Health Connect (MAG-708): connected once every read permission is granted; then the
+ * profile's source becomes `health_connect` and a first sync is asked for at once.
  */
 class ConfigurationViewModel(
     private val repository: HealthProfileRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
+    private val healthConnect: HealthConnectGateway,
+    private val syncScheduler: HealthSyncScheduler,
     private val clock: Clock = Clock.systemDefaultZone(),
 ) : ViewModel() {
 
@@ -78,6 +107,37 @@ class ConfigurationViewModel(
     init {
         refresh()
         subscribeToMercure()
+        checkHealthConnect()
+    }
+
+    /** At start and each time the screen comes back (from Health Connect's screen, the Play Store or the settings). */
+    fun checkHealthConnect() {
+        viewModelScope.launch {
+            val state = when (healthConnect.availability()) {
+                HealthConnectAvailability.AVAILABLE -> {
+                    val granted = runCatching { healthConnect.grantedPermissions() }.getOrDefault(emptySet())
+                    if (granted.containsAll(HealthConnectPermissions.READ)) HealthConnectState.CONNECTED else HealthConnectState.NOT_PERMITTED
+                }
+                HealthConnectAvailability.NOT_INSTALLED, HealthConnectAvailability.NEEDS_UPDATE -> HealthConnectState.NOT_INSTALLED
+            }
+            _uiState.value = _uiState.value.copy(healthConnect = state)
+        }
+    }
+
+    /** The contract the screen launches with [HealthConnectPermissions.ALL]. */
+    fun permissionContract(): ActivityResultContract<Set<String>, Set<String>> = healthConnect.requestPermissionContract()
+
+    /** Health Connect's permission screen answered: connected, the steps come from it and a first pass leaves now. */
+    fun onPermissionsResult(granted: Set<String>) {
+        if (!granted.containsAll(HealthConnectPermissions.READ)) {
+            _uiState.value = _uiState.value.copy(healthConnect = HealthConnectState.NOT_PERMITTED)
+            return
+        }
+        _uiState.value = _uiState.value.copy(healthConnect = HealthConnectState.CONNECTED)
+        if (_uiState.value.profile?.stepSource != HealthProfile.STEP_SOURCE_HEALTH_CONNECT) {
+            setStepSource(HealthProfile.STEP_SOURCE_HEALTH_CONNECT)
+        }
+        syncScheduler.syncNow()
     }
 
     private fun subscribeToMercure() {

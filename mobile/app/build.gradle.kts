@@ -247,6 +247,9 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.car.app)
 
+    // Séances, pesées, pas et dépense active from Health Connect, synced every hour (MAG-708)
+    implementation(libs.health.connect.client)
+
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

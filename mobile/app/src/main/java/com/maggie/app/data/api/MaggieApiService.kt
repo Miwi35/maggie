@@ -697,6 +697,58 @@ data class WorkoutWriteRequest(
     val notes: String?,
 )
 
+/** `PATCH /api/workouts/{id}` with the Health Connect id of the record Maggie wrote for it (MAG-708). */
+@Serializable
+data class WorkoutExternalIdRequest(val externalId: String)
+
+/**
+ * The batch `POST /api/health/sync` takes (MAG-708), upserted by `externalId` (by `date` for [days]): replaying it is
+ * harmless. The optional figures are null-defaulted so a missing one is left out of the body; `source` has no default
+ * because the client's Json leaves defaults out.
+ */
+@Serializable
+data class HealthSyncRequest(
+    val workouts: List<SyncedWorkout>,
+    val measurements: List<SyncedMeasurement>,
+    val days: List<SyncedDay>,
+)
+
+/** A session read from Health Connect: [startedAt] ISO 8601 with its offset, [durationMinutes] 1..1440. */
+@Serializable
+data class SyncedWorkout(
+    val externalId: String,
+    val type: String,
+    val title: String? = null,
+    val startedAt: String,
+    val durationMinutes: Int,
+    val source: String,
+)
+
+/** A weighing or a body fat reading — each its own Health Connect record, so one of the two values only. */
+@Serializable
+data class SyncedMeasurement(
+    val externalId: String,
+    val measuredAt: String,
+    val weightKg: Double? = null,
+    val bodyFatPercent: Double? = null,
+    val source: String,
+)
+
+/** One local day ([date] `2026-10-21`). */
+@Serializable
+data class SyncedDay(val date: String, val steps: Int, val activeKcal: Int)
+
+/** What `POST /api/health/sync` did with each part of the batch. */
+@Serializable
+data class HealthSyncResponse(
+    val workouts: HealthSyncCounts = HealthSyncCounts(),
+    val measurements: HealthSyncCounts = HealthSyncCounts(),
+    val days: HealthSyncCounts = HealthSyncCounts(),
+)
+
+@Serializable
+data class HealthSyncCounts(val created: Int = 0, val updated: Int = 0, val unchanged: Int = 0)
+
 /**
  * A weighing as `POST /api/body-measurements` takes it (MAG-706): at least one of the three values, [measuredAt] an
  * ISO date-time with its offset. No field has a default, so every one is sent.
@@ -2822,6 +2874,24 @@ class MaggieApiService(
 
     suspend fun deleteWorkout(id: String) {
         client.delete("$baseUrl/api/workouts/$id").orRefusal()
+    }
+
+    /** Only the externalId changes: the merge-patch leaves every other field as it is. */
+    suspend fun setWorkoutExternalId(id: String, externalId: String): Workout {
+        return client.patch("$baseUrl/api/workouts/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(WorkoutExternalIdRequest(externalId))
+        }.orRefusal().body()
+    }
+
+    // Santé — Health Connect (MAG-708): one batch of séances, pesées and days; a 400 refuses the whole batch
+    suspend fun syncHealth(request: HealthSyncRequest): HealthSyncResponse {
+        return client.post("$baseUrl/api/health/sync") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
     }
 
     // Santé — mesures corporelles (MAG-706): the weighings since [after] (ISO date-time with its offset), newest first

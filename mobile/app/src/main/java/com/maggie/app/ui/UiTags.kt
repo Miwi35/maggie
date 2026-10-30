@@ -1910,6 +1910,9 @@ object UiTags {
     const val PROFILE_STEP_SOURCE = "profile_step_source"
     const val PROFILE_STEP_SOURCE_PREFIX = "profile_step_source_"
 
+    /** Why Maggie asks for the Health Connect permissions (MAG-708). */
+    const val HEALTH_RATIONALE = "health_rationale"
+
     fun needMode(key: String) = NEED_MODE_PREFIX + key
     fun profileSex(key: String) = PROFILE_SEX_PREFIX + key
     fun profileActivity(key: String) = PROFILE_ACTIVITY_PREFIX + key

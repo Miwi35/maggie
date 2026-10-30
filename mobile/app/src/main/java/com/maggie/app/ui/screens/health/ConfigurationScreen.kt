@@ -1,5 +1,10 @@
 package com.maggie.app.ui.screens.health
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -46,6 +51,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -54,6 +60,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import com.maggie.app.data.health.HealthConnectPermissions
 import com.maggie.app.data.model.ActivityLevel
 import com.maggie.app.data.model.HealthProfile
 import com.maggie.app.data.model.formatFactor
@@ -86,6 +95,19 @@ fun ConfigurationScreen(
     val bar = LocalModuleBar.current
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val permissions = rememberLauncherForActivityResult(remember(viewModel) { viewModel.permissionContract() }) {
+        viewModel.onPermissionsResult(it)
+    }
+    // Back from Health Connect's screen, the Play Store or the settings: the permissions may have changed.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.checkHealthConnect() }
+    val connectHealth: () -> Unit = {
+        if (uiState.healthConnect == HealthConnectState.NOT_INSTALLED) {
+            openHealthConnectStore(context)
+        } else {
+            permissions.launch(HealthConnectPermissions.ALL)
+        }
+    }
     Scaffold(
         topBar = {
             ModuleBreadcrumb(
@@ -131,7 +153,7 @@ fun ConfigurationScreen(
                 ) {
                     NeedCard(profile)
                     ProfileSection(profile, viewModel)
-                    ActivitySection(profile, viewModel)
+                    ActivitySection(profile, uiState.healthConnect, viewModel, onConnect = connectHealth)
                 }
             }
             SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
@@ -233,9 +255,17 @@ private fun ProfileSection(profile: HealthProfile, viewModel: ConfigurationViewM
     }
 }
 
-/** « Activité »: the step goal, « Maggie propose entre … et … », a session's length, the steps' source. */
+/**
+ * « Activité »: the step goal, « Maggie propose entre … et … », a session's length, the steps' source — « Non connecté › »
+ * until Health Connect is (MAG-708), then its menu.
+ */
 @Composable
-private fun ActivitySection(profile: HealthProfile, viewModel: ConfigurationViewModel) {
+private fun ActivitySection(
+    profile: HealthProfile,
+    connection: HealthConnectState,
+    viewModel: ConfigurationViewModel,
+    onConnect: () -> Unit,
+) {
     val surface = maggieSurface()
     var picking by rememberSaveable { mutableStateOf<String?>(null) }
     var sourceMenu by remember { mutableStateOf(false) }
@@ -267,7 +297,23 @@ private fun ActivitySection(profile: HealthProfile, viewModel: ConfigurationView
             )
         }
         SettingRow("Source des pas", divider = false) {
-            Box {
+            if (!connection.isConnected) {
+                Text(
+                    if (connection == HealthConnectState.CHECKING) "…" else "Non connecté ›",
+                    fontSize = 14.sp,
+                    color = surface.textMuted,
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .clickable(
+                            enabled = connection != HealthConnectState.CHECKING,
+                            role = Role.Button,
+                            onClickLabel = "Connecter Health Connect",
+                            onClick = onConnect,
+                        )
+                        .testTag(UiTags.PROFILE_STEP_SOURCE)
+                        .padding(horizontal = 4.dp),
+                )
+            } else Box {
                 Text(
                     "${stepSourceLabel(profile.stepSource)} ›",
                     fontSize = 14.sp,
@@ -308,6 +354,24 @@ private fun ActivitySection(profile: HealthProfile, viewModel: ConfigurationView
         )
     }
 }
+
+/** Health Connect's Play Store page, which goes on to its onboarding once installed (MAG-708). */
+private fun openHealthConnectStore(context: Context) {
+    val market = Intent(Intent.ACTION_VIEW, Uri.parse(HEALTH_CONNECT_MARKET)).setPackage("com.android.vending")
+    try {
+        context.startActivity(market)
+    } catch (_: ActivityNotFoundException) {
+        // No Play Store app: the web page.
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(HEALTH_CONNECT_WEB)))
+        } catch (_: ActivityNotFoundException) {
+        }
+    }
+}
+
+internal const val HEALTH_CONNECT_MARKET =
+    "market://details?id=com.google.android.apps.healthdata&url=healthconnect%3A%2F%2Fonboarding"
+private const val HEALTH_CONNECT_WEB = "https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata"
 
 private const val WINDOW_START = "start"
 private const val WINDOW_END = "end"

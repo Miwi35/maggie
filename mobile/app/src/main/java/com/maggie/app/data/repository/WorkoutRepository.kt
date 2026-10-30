@@ -19,4 +19,9 @@ class WorkoutRepository(
     }
 
     suspend fun deleteWorkout(id: String): Result<Unit> = runCatching { apiService.deleteWorkout(id) }
+
+    /** The Health Connect id of the record Maggie wrote for the workout (MAG-708). */
+    suspend fun setExternalId(id: String, externalId: String): Result<Workout> = runCatching {
+        apiService.setWorkoutExternalId(id, externalId)
+    }
 }
