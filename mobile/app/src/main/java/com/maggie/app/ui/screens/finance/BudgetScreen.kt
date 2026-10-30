@@ -31,7 +31,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -80,6 +79,8 @@ import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.data.model.splitSharesOf
 import com.maggie.app.data.model.toSortPillLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.components.formatBookedDay
@@ -165,13 +166,24 @@ private fun BudgetContent(
     val onAdjust = adjustments?.let { { adjusting = true } }
 
     val topBar: @Composable () -> Unit = {
-        FinanceTopBar(Screen.BudgetList.route, actions = {
-            BudgetMenu(
-                onAdjust = onAdjust,
-                onRollOver = { viewModel.rollOverPreviousPeriod() },
-                rollOverEnabled = !uiState.isRollingOver,
-            )
-        })
+        FinanceTopBar(
+            Screen.BudgetList.route,
+            actions = {
+                BudgetMenu(
+                    onAdjust = onAdjust,
+                    onRollOver = { viewModel.rollOverPreviousPeriod() },
+                    rollOverEnabled = !uiState.isRollingOver,
+                )
+            },
+            subviewsTrailing = {
+                MonthSwitch(
+                    year = uiState.year,
+                    month = uiState.month,
+                    onPrevious = { viewModel.shiftPeriod(-1) },
+                    onNext = { viewModel.shiftPeriod(1) },
+                )
+            },
+        )
     }
 
     if (showsDetailPane) {
@@ -189,19 +201,11 @@ private fun BudgetContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             if (editsSeasons) {
-                FloatingActionButton(onClick = { showCreateDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Nouvelle enveloppe")
-                }
+                ModuleFab(FabModule.FINANCE, "Nouvelle enveloppe", onClick = { showCreateDialog = true })
             }
         },
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            PeriodSelector(
-                year = uiState.year,
-                month = uiState.month,
-                onPrevious = { viewModel.shiftPeriod(-1) },
-                onNext = { viewModel.shiftPeriod(1) },
-            )
             ToQualifyRow(toQualify, onOpenToQualify)
 
             uiState.status?.let { status ->
@@ -348,6 +352,29 @@ internal fun PeriodSelector(
         Text(
             text = "${monthLabel(month)} $year",
             style = MaterialTheme.typography.titleMedium,
+        )
+        IconButton(onClick = onNext) {
+            Icon(Icons.Default.ChevronRight, contentDescription = "Mois suivant")
+        }
+    }
+}
+
+/** « ‹ Octobre › » at the far end of the row of sub-views (MAG-720). */
+@Composable
+internal fun MonthSwitch(
+    year: Int,
+    month: Int,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onPrevious) {
+            Icon(Icons.Default.ChevronLeft, contentDescription = "Mois précédent")
+        }
+        Text(
+            text = monthLabel(month),
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
         )
         IconButton(onClick = onNext) {
             Icon(Icons.Default.ChevronRight, contentDescription = "Mois suivant")

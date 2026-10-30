@@ -26,7 +26,8 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FloatingActionButton
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -265,12 +266,7 @@ fun FullCalendarScreen(
                             },
                         )
                     }
-                    FloatingActionButton(
-                        onClick = { fabExpanded = !fabExpanded },
-                        modifier = Modifier.testTag(UiTags.CALENDAR_CREATE),
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Créer")
-                    }
+                    ModuleFab(FabModule.AGENDA, "Créer", onClick = { fabExpanded = !fabExpanded }, tag = UiTags.CALENDAR_CREATE)
                 }
             },
         ) { padding ->

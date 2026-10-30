@@ -27,7 +27,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -77,6 +76,8 @@ import com.maggie.app.data.model.transactionStatusCodes
 import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.components.formatBookedDay
@@ -338,9 +339,7 @@ fun TransactionListScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Nouvelle transaction")
-            }
+            ModuleFab(FabModule.FINANCE, "Nouvelle transaction", onClick = { showCreateDialog = true })
         },
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {

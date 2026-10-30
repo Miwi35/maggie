@@ -21,7 +21,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +56,8 @@ import com.maggie.app.data.model.owesYouLabel
 import com.maggie.app.data.model.youOweLabel
 import com.maggie.app.data.model.transferCount
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.components.markdown.MarkdownEditor
@@ -164,12 +165,7 @@ private fun ContactList(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = viewModel::startCreation,
-                modifier = Modifier.testTag(UiTags.CONTACT_ADD),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Nouveau contact")
-            }
+            ModuleFab(FabModule.FINANCE, "Nouveau contact", onClick = viewModel::startCreation, tag = UiTags.CONTACT_ADD)
         },
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {

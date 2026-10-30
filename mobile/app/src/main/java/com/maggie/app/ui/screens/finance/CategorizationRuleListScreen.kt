@@ -23,7 +23,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +51,8 @@ import com.maggie.app.data.model.describeRuleScope
 import com.maggie.app.data.model.headline
 import com.maggie.app.data.model.matchTypeLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
@@ -112,9 +113,7 @@ fun CategorizationRuleListScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Nouvelle règle")
-            }
+            ModuleFab(FabModule.FINANCE, "Nouvelle règle", onClick = { showCreateDialog = true })
         },
     ) { paddingValues ->
         when {

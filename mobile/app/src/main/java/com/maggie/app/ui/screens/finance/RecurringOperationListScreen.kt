@@ -23,7 +23,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +60,8 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatDay
 import com.maggie.app.data.model.referenceSourceLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
@@ -185,12 +186,7 @@ fun RecurringOperationListScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = viewModel::startCreate,
-                modifier = Modifier.testTag(UiTags.RECURRING_NEW),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Nouvelle opération récurrente")
-            }
+            ModuleFab(FabModule.FINANCE, "Nouvelle opération récurrente", onClick = viewModel::startCreate, tag = UiTags.RECURRING_NEW)
         },
     ) { paddingValues ->
         PullToRefreshBox(

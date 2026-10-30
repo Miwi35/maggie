@@ -7,6 +7,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -228,5 +231,17 @@ class FinanceTopBarScreenTest {
         compose.onNodeWithTag(UiTags.BREADCRUMB_MODULE).assertTextEquals("Finance")
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.SUBVIEW_ROW).assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-xxhdpi")
+    fun `a trailing control ends the row of sub-views`() {
+        compose.setContent {
+            FinanceTopBar(Screen.BudgetList.route, subviewsTrailing = { Text("Octobre") })
+        }
+
+        compose.onNodeWithText("Mois").assertIsDisplayed()
+        compose.onNodeWithText("Octobre").assertIsDisplayed()
+        compose.onNode(hasText("Octobre").and(hasAnyAncestor(hasTestTag(UiTags.SUBVIEW_ROW_TRAILING)))).assertExists()
     }
 }

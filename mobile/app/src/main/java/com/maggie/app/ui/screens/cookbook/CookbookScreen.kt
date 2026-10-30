@@ -9,7 +9,8 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.FloatingActionButton
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -57,9 +58,7 @@ fun CookbookScreen(
         contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.statusBars),
         floatingActionButton = {
             if (section == CookbookSection.Recipes) {
-                FloatingActionButton(onClick = onCreateRecipe, modifier = Modifier.testTag(UiTags.COOKBOOK_RECIPE_CREATE)) {
-                    Icon(Icons.Default.Add, contentDescription = "Nouvelle recette")
-                }
+                ModuleFab(FabModule.COOKBOOK, "Nouvelle recette", onClick = onCreateRecipe, tag = UiTags.COOKBOOK_RECIPE_CREATE)
             }
         },
     ) { paddingValues ->

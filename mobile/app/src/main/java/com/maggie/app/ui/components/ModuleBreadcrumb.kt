@@ -302,16 +302,20 @@ fun SubviewRow(
     selectedKey: String,
     onSelect: (SubviewItem) -> Unit,
     modifier: Modifier = Modifier,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val dark = MaterialTheme.colorScheme.background.isDark
     val mutedText = if (dark) MaggieTokens.surfaceDark.textMuted else MaggieTokens.surfaceLight.textMuted
     val faint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
     Row(
-        modifier = modifier
-            .fillMaxWidth()
+        modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+    Row(
+        modifier = Modifier
+            .weight(1f)
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 4.dp)
             .testTag(UiTags.SUBVIEW_ROW),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -341,5 +345,13 @@ fun SubviewRow(
                 )
             }
         }
+    }
+    if (trailing != null) {
+        Row(
+            modifier = Modifier.testTag(UiTags.SUBVIEW_ROW_TRAILING),
+            verticalAlignment = Alignment.CenterVertically,
+            content = trailing,
+        )
+    }
     }
 }
