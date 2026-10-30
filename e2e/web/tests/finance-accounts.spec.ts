@@ -60,6 +60,17 @@ test.describe('the owner\'s seeded world', () => {
     await expect(savings).toContainText(euros(420000))
   })
 
+  // MAG-698: the list reads `cushion` from GET /api/accounts, not `isCushion` (Mercure only).
+  test('the cushion account wears « Matelas » as soon as the list loads', async ({ page }) => {
+    // Given the seeded cushion account, when I open Finance › Comptes.
+    const accounts = new FinanceAccountsPage(page)
+    await accounts.open()
+
+    // Then its card carries « Matelas », and the checking account's does not.
+    await expect(accounts.card('Livret A')).toContainText('Matelas')
+    await expect(accounts.card('Compte courant')).not.toContainText('Matelas')
+  })
+
   /**
    * Comptes as the mock-ups draw it (MAG-632): one card per account, a
    * « Dernier import » card, an add button, and nothing like a sub-view — the

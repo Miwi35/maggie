@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { MemoryRouter } from 'react-router-dom'
+import { recordedResponse } from '../../test/recordedResponse'
 import { AccountList } from './AccountList'
 
 vi.mock('../../hooks/useMercure', () => ({ useMercure: () => {} }))
@@ -66,6 +67,16 @@ describe('AccountList, as the mock-up draws Comptes (MAG-632)', () => {
     expect(within(livret).getByText('Crédit Agricole · Épargne')).toBeInTheDocument()
     expect(livret).toHaveTextContent(/5\s000,00\s€/)
     expect(within(livret).getByText('Matelas')).toBeInTheDocument()
+  })
+
+  test('the cushion pastille shows on the account as GET /api/accounts records it, with no Mercure event yet', async () => {
+    const recorded = recordedResponse<{ member: Record<string, unknown>[] }>('accounts.collection.json')
+    expect(recorded.member.some((account) => account.cushion === true)).toBe(true)
+
+    renderList(recorded.member as typeof ACCOUNTS)
+
+    const [card] = await cards()
+    expect(within(card).getByText('Matelas')).toBeInTheDocument()
   })
 
   test('a card opens the transactions of its account', async () => {
