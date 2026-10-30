@@ -19,7 +19,7 @@ export const WeeklyMinutesCard = () => {
   const [now] = useState(() => new Date())
   const after = useMemo(() => weeksStart(now).toISOString(), [now])
   const filter = useMemo(() => ({ 'startedAt[after]': after }), [after])
-  const { data, refetch } = useGetList<Workout>('workouts', { filter, pagination: { page: 1, perPage: MAX_READ }, sort: { field: 'startedAt', order: 'DESC' } })
+  const { data, refetch } = useGetList<Workout>('workouts', { filter, pagination: { page: 1, perPage: MAX_READ } })
 
   useMercure(WORKOUT_TOPICS, () => {
     void refetch()
