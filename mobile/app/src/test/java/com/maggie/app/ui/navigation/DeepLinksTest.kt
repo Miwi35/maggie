@@ -17,10 +17,8 @@ class DeepLinksTest {
         assertEquals(listOf("$scheme://task/{id}"), DeepLinks.patternsFor(DeepLinks.TASK_ROUTE))
         assertEquals(listOf("$scheme://grocery/{id}"), DeepLinks.patternsFor(DeepLinks.GROCERY_ROUTE))
         assertEquals(listOf("$scheme://recipe/{id}"), DeepLinks.patternsFor(DeepLinks.RECIPE_ROUTE))
-        assertEquals(
-            listOf("$scheme://chat?message={message}", "$scheme://digest?message={message}"),
-            DeepLinks.patternsFor(Screen.Chat.route),
-        )
+        assertEquals(listOf("$scheme://chat?message={message}"), DeepLinks.patternsFor(Screen.Chat.route))
+        assertEquals(listOf("$scheme://digest?message={message}"), DeepLinks.patternsFor(Screen.Digest.route))
         assertEquals(
             listOf("$scheme://finance", "$scheme://finance/dashboard"),
             DeepLinks.patternsFor(Screen.FinanceDashboard.route),

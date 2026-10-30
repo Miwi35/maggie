@@ -1,0 +1,13 @@
+{
+    "date": "2026-04-22",
+    "minC": 5,
+    "maxC": 12.4,
+    "rainMm": 4.2,
+    "snowCm": 0,
+    "rainProbability": 20,
+    "windKmh": 15,
+    "alerts": [
+        "orage"
+    ],
+    "condition": "storm"
+}

@@ -138,6 +138,7 @@ class GetWeatherToolTest extends KernelTestCase
             'rain_probability_percent' => 80,
             'wind_max_kmh' => 25,
             'wind_gusts_max_kmh' => 45,
+            'condition_code' => 'rain',
             'alerts' => [],
         ], $result['days'][0]);
         self::assertStringContainsString('name=Rennes', $this->requested[0]);

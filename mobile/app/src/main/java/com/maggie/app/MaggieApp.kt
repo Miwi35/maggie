@@ -97,6 +97,7 @@ import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.data.repository.ContextRepository
 import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.TripRepository
+import com.maggie.app.data.repository.WeatherRepository
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.data.repository.ActivityStatusRepository
@@ -163,6 +164,7 @@ import com.maggie.app.ui.screens.home.GroceryHomeViewModel
 import com.maggie.app.ui.screens.home.AgendaHomeViewModel
 import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.screens.home.TasksCardViewModel
+import com.maggie.app.ui.screens.digest.DigestViewModel
 import com.maggie.app.ui.screens.home.CuisineHomeViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.voice.MediaVoiceMessagePlayer
@@ -423,6 +425,7 @@ class MaggieApp : Application() {
             single { ContextRepository(get()) }
             single { ProactionRepository(get()) }
             single { TripRepository(get()) }
+            single { WeatherRepository(get()) }
             single { UserPreferenceRepository(get()) }
             single { ThemeChoiceRepository(androidContext()) }
 
@@ -446,6 +449,7 @@ class MaggieApp : Application() {
             viewModel { CuisineHomeViewModel(get()) }
             viewModel { FinanceHomeViewModel(get()) }
             viewModel { AgendaHomeViewModel(get()) }
+            viewModel { params -> DigestViewModel(params.getOrNull<String>(), get(), get(), get(), get(), get(), get(), get()) }
             viewModel { SubtasksViewModel(get()) }
             viewModel { TasksViewModel(get(), get(), get(), get(), get()) }
             viewModel { FocusViewModel(get()) }

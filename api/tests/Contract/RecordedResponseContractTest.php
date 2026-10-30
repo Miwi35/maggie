@@ -19,6 +19,7 @@ use Maggie\Calendar\Service\RewardMessages;
 use Maggie\Calendar\Service\TripEstimate;
 use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Weather\OpenMeteoClient;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Scenario;
 use Maggie\Finance\Enum\RecurrencePeriod;
@@ -40,9 +41,12 @@ use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Clock\Clock;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Clock\NativeClock;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 
 /**
  * Records real API responses into contract/responses/, for the mobile DTO
@@ -169,6 +173,52 @@ final class RecordedResponseContractTest extends WebTestCase
                 sprintf('GET %s no longer returns what it used to. The mobile DTOs are written against this response; check mobile/app/src/main/java/com/maggie/app/data/model/ before regenerating.', $path),
             );
         }
+    }
+
+    /**
+     * The day's weather (MAG-710), read on the mocked clock's day with Open-Meteo
+     * answered by a mock: a partly cloudy day with a storm alert, so the
+     * recording holds a condition and an alert.
+     */
+    public function testTheWeatherRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $http = new MockHttpClient(static function (string $method, string $url): MockResponse {
+            $body = str_contains($url, '/search')
+                ? ['results' => [['name' => 'Rennes', 'country' => 'France', 'latitude' => 48.11, 'longitude' => -1.68]]]
+                : ['daily' => [
+                    'time' => ['2026-04-22'],
+                    'weather_code' => [95],
+                    'temperature_2m_max' => [12.4],
+                    'temperature_2m_min' => [5.0],
+                    'precipitation_sum' => [4.2],
+                    'snowfall_sum' => [0.0],
+                    'precipitation_probability_max' => [20],
+                    'wind_speed_10m_max' => [15.0],
+                    'wind_gusts_10m_max' => [30.0],
+                ]];
+
+            return new MockResponse(json_encode($body, \JSON_THROW_ON_ERROR), ['response_headers' => ['content-type: application/json']]);
+        });
+        self::getContainer()->set(OpenMeteoClient::class, new OpenMeteoClient($http, new ArrayAdapter(), 'http://open-meteo.test/forecast', 'http://open-meteo.test/search'));
+
+        $this->client->request('GET', '/api/weather?date=2026-04-22', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertSame('storm', $body['condition']);
+        self::assertSame(['orage'], $body['alerts']);
+
+        $this->assertMatchesContract(
+            'responses/weather.read.json',
+            self::stabilise($body),
+            'GET /api/weather no longer returns what it used to. The mobile DTO (Weather.kt) is written against this response.',
+        );
     }
 
     /**

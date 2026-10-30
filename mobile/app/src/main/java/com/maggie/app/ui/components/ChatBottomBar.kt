@@ -45,6 +45,7 @@ fun ChatBottomBar(
     unreadCount: Int = 0,
     onOpenChat: () -> Unit,
     onMicClick: () -> Unit = {},
+    placeholder: String = "Demander à Maggie...",
 ) {
     Surface(tonalElevation = 3.dp) {
         Row(
@@ -74,7 +75,7 @@ fun ChatBottomBar(
                     Spacer(modifier = Modifier.width(12.dp))
 
                     Text(
-                        text = "Demander à Maggie...",
+                        text = placeholder,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f, fill = false),

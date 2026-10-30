@@ -98,9 +98,9 @@ object DeepLinks {
         Screen.CookingActivity.route to listOf("$SCHEME://activity/cooking?$ARG_MEAL={$ARG_MEAL}&$ARG_RECIPE={$ARG_RECIPE}"),
         // Santé › Sport (MAG-705).
         Screen.HealthSport.route to listOf("$SCHEME://health/sport"),
-        // `digest?message=` is the Digest du matin's link (MAG-709): until its screen exists (MAG-710), the thread
-        // opens on the digest's message.
-        Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}", "$SCHEME://digest?$ARG_MESSAGE={$ARG_MESSAGE}"),
+        Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}"),
+        // The Digest du matin (MAG-709, MAG-710): what the morning notification opens.
+        Screen.Digest.route to listOf("$SCHEME://digest?$ARG_MESSAGE={$ARG_MESSAGE}"),
     )
 
     val ROUTES: Set<String> = PATTERNS.keys
