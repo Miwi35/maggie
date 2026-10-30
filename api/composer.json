@@ -11,7 +11,8 @@
         {"type": "path", "url": "modules/cookbook", "options": {"symlink": true}},
         {"type": "path", "url": "modules/finance", "options": {"symlink": true}},
         {"type": "path", "url": "modules/health", "options": {"symlink": true}},
-        {"type": "path", "url": "modules/meal-grocery", "options": {"symlink": true}}
+        {"type": "path", "url": "modules/meal-grocery", "options": {"symlink": true}},
+        {"type": "path", "url": "packages/testing", "options": {"symlink": true}}
     ],
     "require": {
         "php": ">=8.4",
@@ -79,7 +80,8 @@
             "Maggie\\Grocery\\Tests\\": "modules/grocery/tests/",
             "Maggie\\Health\\Tests\\": "modules/health/tests/",
             "Maggie\\MealGrocery\\Tests\\": "modules/meal-grocery/tests/",
-            "Maggie\\Notification\\Tests\\": "modules/notification/tests/"
+            "Maggie\\Notification\\Tests\\": "modules/notification/tests/",
+            "PsychedLabs\\Testing\\Tests\\": "packages/testing/tests/"
         }
     },
     "replace": {
@@ -122,6 +124,7 @@
         "phpstan/phpstan-doctrine": "^2.0.18",
         "phpstan/phpstan-symfony": "^2.0.15",
         "phpunit/phpunit": "^12.5.14",
+        "psychedlabs/testing": "@dev",
         "symfony/browser-kit": "7.4.*",
         "symfony/css-selector": "7.4.*",
         "symfony/maker-bundle": "^1.66"

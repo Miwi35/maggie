@@ -31,7 +31,7 @@ neon_list() {
 paths=()
 while IFS= read -r entry; do paths+=("$entry"); done < <(neon_list paths)
 # The modules come from api/phpstan-modules.php, which globs modules/*/src.
-for dir in api/modules/*/src; do
+for dir in api/modules/*/src api/packages/*/src; do
     [ -d "$dir" ] && paths+=("${dir#api/}/")
 done
 excluded=()

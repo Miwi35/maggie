@@ -10,6 +10,7 @@ $finder = (new Finder())
     ->in([
         __DIR__.'/config',
         __DIR__.'/modules',
+        __DIR__.'/packages',
         __DIR__.'/public',
         __DIR__.'/src',
         __DIR__.'/tests',
