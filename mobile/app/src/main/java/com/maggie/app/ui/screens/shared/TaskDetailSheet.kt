@@ -108,6 +108,12 @@ fun TaskDetailContent(
             task.dueDay?.let { day ->
                 DetailRow("Échéance", day.format(dueDateFormatter).replaceFirstChar { it.uppercase() })
             }
+            // The programmation (MAG-718): its read lines only, nothing when not set.
+            val schedule = TaskSchedule.of(task)
+            schedule.readLabel(DateRanges.todayDate())?.let { DetailRow("Programmée", it) }
+            schedule.remindersToApi().takeIf { it.isNotEmpty() }?.let { minutes ->
+                DetailRow("Rappels", minutes.joinToString(", ") { taskReminderLabel(it) })
+            }
             DetailRow("Criticité", TaskConstants.CRITICALITY_LABELS[task.criticality] ?: task.criticality)
             DetailRow("Priorité", TaskConstants.PRIORITY_LABELS[task.priority] ?: task.priority)
             task.estimatedMinutes?.let { DetailRow("Durée estimée", minutesLabel(it)) }

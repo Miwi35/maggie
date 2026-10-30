@@ -2,12 +2,15 @@ package com.maggie.app.ui.components
 
 import android.content.res.Configuration
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
@@ -39,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.bookedDate
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
+import com.maggie.app.util.DateRanges
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -132,7 +136,9 @@ private fun PickerField(
 
 /**
  * A date, shown « mer. 8 oct. 2026 » and chosen in a calendar (Monday first, in French).
- * [onClear] makes the date optional: it adds a button that empties the field.
+ * [onClear] makes the date optional: it adds a button that empties the field. [quickPicks]
+ * puts « Demain » and « Après-demain » above the calendar (MAG-718): one touch picks the day
+ * and closes it; anything else is chosen in the calendar.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -145,6 +151,7 @@ fun DateField(
     isError: Boolean = false,
     supportingText: String? = null,
     tag: String? = null,
+    quickPicks: Boolean = false,
 ) {
     var open by remember { mutableStateOf(false) }
 
@@ -188,6 +195,27 @@ fun DateField(
             },
             modifier = Modifier.uiTagRoot(),
         ) {
+            if (quickPicks) {
+                val today = DateRanges.todayDate()
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp),
+                ) {
+                    listOf(
+                        Triple("Demain", 1L, UiTags.PICKER_TOMORROW),
+                        Triple("Après-demain", 2L, UiTags.PICKER_AFTER_TOMORROW),
+                    ).forEach { (text, days, quickTag) ->
+                        AssistChip(
+                            onClick = {
+                                onValueChange(today.plusDays(days))
+                                open = false
+                            },
+                            label = { Text(text) },
+                            modifier = Modifier.testTag(quickTag),
+                        )
+                    }
+                }
+            }
             InFrench { DatePicker(state = state) }
         }
     }
@@ -218,28 +246,43 @@ fun TimeField(
     )
 
     if (open) {
-        val state = rememberTimePickerState(
-            initialHour = value.hour,
-            initialMinute = value.minute,
-            is24Hour = true,
-        )
-        AlertDialog(
-            onDismissRequest = { open = false },
-            title = { Text(label) },
-            text = { InFrench { TimePicker(state = state) } },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onValueChange(LocalTime.of(state.hour, state.minute))
-                        open = false
-                    },
-                    modifier = Modifier.testTag(UiTags.PICKER_CONFIRM),
-                ) { Text("OK") }
+        ClockDialog(
+            title = label,
+            value = value,
+            onConfirm = {
+                onValueChange(it)
+                open = false
             },
-            dismissButton = {
-                TextButton(onClick = { open = false }) { Text("Annuler") }
-            },
-            modifier = Modifier.uiTagRoot(),
+            onDismiss = { open = false },
         )
     }
+}
+
+/**
+ * The 24 h clock of [TimeField], on its own for a field that is not a time (the task's « Moment »,
+ * MAG-718): « OK » hands the time over, « Annuler » or outside only closes.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ClockDialog(title: String, value: LocalTime, onConfirm: (LocalTime) -> Unit, onDismiss: () -> Unit) {
+    val state = rememberTimePickerState(
+        initialHour = value.hour,
+        initialMinute = value.minute,
+        is24Hour = true,
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { InFrench { TimePicker(state = state) } },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) },
+                modifier = Modifier.testTag(UiTags.PICKER_CONFIRM),
+            ) { Text("OK") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+        },
+        modifier = Modifier.uiTagRoot(),
+    )
 }

@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.TaskCreateRequest
 import com.maggie.app.data.model.Task
 import com.maggie.app.ui.UiTags
-import com.maggie.app.ui.components.DateField
 import com.maggie.app.ui.components.markdown.MarkdownEditor
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -38,8 +37,8 @@ import kotlinx.serialization.json.put
 
 /**
  * The one form of a task (MAG-721): « Nouvelle tâche » / « Créer » when [task] is null, « Modifier la tâche » /
- * « Enregistrer » otherwise, with the same fields in the mockup's order. [initialDueDay] pre-fills a new task's
- * due day. Subtasks and « Supprimer » only exist for a task that already does.
+ * « Enregistrer » otherwise, with the same fields in the mockup's order — the dates in one card, « Échéance »
+ * then « Programmée » (MAG-718). [initialDueDay] pre-fills a new task's due day. Subtasks and « Supprimer » only exist for a task that already does.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +58,7 @@ fun TaskFormScreen(
     var priority by remember { mutableStateOf(task?.priority ?: "medium") }
     var criticality by remember { mutableStateOf(task?.criticality ?: "low") }
     var dueDate by remember { mutableStateOf(TaskDueDate.fromApi(task?.dueDate ?: initialDueDay)) }
+    var schedule by remember { mutableStateOf(TaskSchedule.of(task)) }
     var estimate by remember { mutableStateOf(task?.estimatedMinutes?.toString().orEmpty()) }
     var firstStep by remember { mutableStateOf(task?.firstStep.orEmpty()) }
     val canSave = title.isNotBlank() && TaskEstimate.isValid(estimate)
@@ -74,6 +74,11 @@ fun TaskFormScreen(
                     dueDate = TaskDueDate.toApi(dueDate),
                     estimatedMinutes = TaskEstimate.toApi(estimate),
                     firstStep = TaskEstimate.firstStepToApi(firstStep),
+                    scheduledDate = schedule.scheduledDate,
+                    scheduledMoment = schedule.scheduledMoment,
+                    scheduledTime = schedule.scheduledTime,
+                    // Sent only with a time: even emptied, so the API does not default it to « À l'heure ».
+                    reminders = schedule.remindersToApi().takeIf { schedule.scheduledTime != null },
                 ),
             )
         } else {
@@ -87,6 +92,8 @@ fun TaskFormScreen(
                     // An emptied field clears the task's: null is sent, not left out.
                     put("estimatedMinutes", TaskEstimate.toApi(estimate))
                     put("firstStep", TaskEstimate.firstStepToApi(firstStep))
+                    // Every key of the programmation, cleared ones as null or [] (MAG-718).
+                    schedule.writeTo(this)
                 },
             )
         }
@@ -126,12 +133,11 @@ fun TaskFormScreen(
                 modifier = Modifier.fillMaxWidth().testTag(UiTags.TASK_FORM_TITLE),
             )
 
-            DateField(
-                label = "Échéance",
-                value = dueDate,
-                onValueChange = { dueDate = it },
-                onClear = { dueDate = null },
-                modifier = Modifier.fillMaxWidth(),
+            TaskDatesCard(
+                dueDate = dueDate,
+                onDueDateChange = { dueDate = it },
+                schedule = schedule,
+                onScheduleChange = { schedule = it },
             )
 
             DropdownField(

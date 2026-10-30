@@ -22,6 +22,13 @@ class Converters {
     fun toTaskLinks(value: String): List<TaskLink> =
         runCatching { json.decodeFromString(LINKS, value) }.getOrDefault(emptyList())
 
+    // A task's reminders (MAG-718), minutes before its time: read whole too.
+    @TypeConverter
+    fun fromMinutes(value: List<Int>): String = value.joinToString(",")
+
+    @TypeConverter
+    fun toMinutes(value: String): List<Int> = value.split(',').mapNotNull { it.trim().toIntOrNull() }
+
     // Typed explicitly: KSP reads this class before the serialization plugin generates `serializer()`.
     private companion object {
         val json: Json = Json { ignoreUnknownKeys = true }

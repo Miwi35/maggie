@@ -8,7 +8,9 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -25,12 +27,13 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Réglages › Tâches and « Ce qui passe en premier » (MAG-407): what the screens show from the
+ * Réglages › Tâches › Rappels (MAG-718) and « Ce qui passe en premier » (MAG-407): what the screens show from the
  * state, and which ViewModel call each control makes. The saving itself is `SettingsViewModelTest`'s.
  */
 @RunWith(AndroidJUnit4::class)
@@ -90,10 +93,19 @@ class TaskSettingsScreenTest {
     }
 
     @Test
-    fun `the alerts show the morning, each urgency's chips and when it alerts late, and no help text`() {
+    fun `the reminders show each urgency's chips and when it reminds an undone task, with no morning hour (MAG-718)`() {
         open(loaded)
 
-        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_MORNING).assertTextContains("Heure du matin").assertTextContains("08:00")
+        compose.onNodeWithText("Rappels").assertIsDisplayed()
+        compose.onNodeWithText("Heure du matin").assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_DIGEST_HELP).assertTextContains("Lus par le digest du matin")
+        compose.onAllNodesWithText("À programmer").assertCountEquals(3)
+        compose.onAllNodesWithText("tant que la tâche n'a pas de date programmée").assertCountEquals(3)
+        listOf("J-7", "J-3", "J-2", "J-1", "Jour J").forEach { chip ->
+            compose.onAllNodesWithText(chip).assertCountEquals(3)
+        }
+        compose.onNodeWithTag(UiTags.settingsTasksOverdue("critical")).assertTextContains("Pas faite")
+        compose.onNodeWithText("En retard").assertDoesNotExist()
         compose.onNodeWithTag(UiTags.SETTINGS_TASKS_EVENING).assertTextContains("Heure du soir").assertTextContains("21:00")
         compose.onNodeWithTag(UiTags.settingsTasksChip("critical", 3)).assertIsSelected()
         compose.onNodeWithTag(UiTags.settingsTasksChip("critical", 7)).assertIsNotSelected()
@@ -122,23 +134,17 @@ class TaskSettingsScreenTest {
     }
 
     @Test
-    fun `En retard offers its choices and sends the one picked`() {
+    fun `Pas faite offers its four choices and sends the one picked`() {
         val viewModel = open(loaded)
 
         compose.onNodeWithTag(UiTags.settingsTasksOverdue("high")).performScrollTo().performClick()
+        // « Jamais » and « Chaque matin » are also other urgencies' values: each choice is at least there.
+        listOf("Jamais", "Chaque matin", "Tous les 2 jours", "Chaque semaine").forEach {
+            assertTrue(it, compose.onAllNodesWithText(it).fetchSemanticsNodes().isNotEmpty())
+        }
         compose.onNodeWithText("Chaque semaine").performClick()
 
         verify(exactly = 1) { viewModel.setOverdueEvery("high", 7) }
-    }
-
-    @Test
-    fun `the morning opens the time picker and OK sends the time`() {
-        val viewModel = open(loaded)
-
-        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_MORNING).performClick()
-        compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
-
-        verify(exactly = 1) { viewModel.setMorningTime(8, 0) }
     }
 
     @Test

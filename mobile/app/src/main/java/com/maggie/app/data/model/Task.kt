@@ -2,6 +2,7 @@ package com.maggie.app.data.model
 
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
+import java.time.LocalTime
 
 @Serializable
 data class Task(
@@ -32,6 +33,14 @@ data class Task(
     val firstStep: String? = null,
     /** Read only (MAG-497): the first past day it was due or planned and left undone, `YYYY-MM-DD`. */
     val postponedSince: String? = null,
+    /** The day the owner plans to do it, `YYYY-MM-DD` (MAG-718): not the due date, which is the deadline. */
+    val scheduledDate: String? = null,
+    /** `morning`, `afternoon`, `evening` or `time` (MAG-718); null with no [scheduledDate], or for a bare day. */
+    val scheduledMoment: String? = null,
+    /** `HH:MM`, set if and only if [scheduledMoment] is `time` (MAG-718). */
+    val scheduledTime: String? = null,
+    /** Minutes before [scheduledTime], 0 at the time (MAG-718); empty unless the moment is `time`. */
+    val reminders: List<Int> = emptyList(),
 ) {
     val isDone: Boolean get() = completedAt != null
 
@@ -45,8 +54,21 @@ data class Task(
     /** The due day, or null when there is none or the API sent something else. */
     val dueDay: LocalDate? get() = dueDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
+    /** The scheduled day (MAG-718), or null when there is none or the API sent something else. */
+    val scheduledDay: LocalDate? get() = scheduledDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+    /** The scheduled time when the moment is `time` (MAG-718), else null. */
+    val scheduledAt: LocalTime?
+        get() = scheduledTime?.takeIf { scheduledMoment == MOMENT_TIME }?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
+
     companion object {
         fun iriOf(id: String): String = "/api/tasks/$id"
+
+        /** The moments of a scheduled day (MAG-718), as the API spells them. */
+        const val MOMENT_MORNING = "morning"
+        const val MOMENT_AFTERNOON = "afternoon"
+        const val MOMENT_EVENING = "evening"
+        const val MOMENT_TIME = "time"
 
         /** Siblings as the API orders them: position as plain strings, then id; no position last. */
         val SIBLING_ORDER: Comparator<Task> =

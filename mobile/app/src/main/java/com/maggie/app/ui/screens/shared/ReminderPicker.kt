@@ -71,17 +71,46 @@ fun remindersText(reminders: EventReminders?): String? =
  * Controlled with no state of its own beyond which dropdown is open: the whole
  * state is the list of delays, which the screen owning the form already holds.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReminderPicker(
     value: EventReminders?,
     onChange: (EventReminders?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val minutes = remindersOf(value)
-    val emit: (List<Int>) -> Unit = { onChange(remindersFrom(it)) }
+    ReminderRows(minutes = remindersOf(value), delays = DELAYS, emit = { onChange(remindersFrom(it)) }, modifier = modifier)
+}
+
+/** « À l'heure »: a task's reminder at its very time (MAG-718), which an event's list does not offer. */
+private val TASK_DELAYS = listOf(Delay(0, "À l'heure")) + DELAYS
+
+/** A task's reminder delay in French (MAG-718): « À l'heure » for 0, else as an event's. */
+fun taskReminderLabel(minutes: Int): String =
+    TASK_DELAYS.find { it.minutes == minutes }?.label ?: reminderDelayLabel(minutes)
+
+/**
+ * The reminders of a task at a precise time (MAG-718), in the Agenda's format: the same rows as
+ * [ReminderPicker], over the bare list of minutes the task stores, « À l'heure » first.
+ */
+@Composable
+fun TaskReminderPicker(
+    minutes: List<Int>,
+    onChange: (List<Int>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ReminderRows(minutes = minutes, delays = TASK_DELAYS, emit = onChange, modifier = modifier)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderRows(
+    minutes: List<Int>,
+    delays: List<Delay>,
+    emit: (List<Int>) -> Unit,
+    modifier: Modifier,
+) {
+    fun labelOf(minutes: Int) = delays.find { it.minutes == minutes }?.label ?: reminderDelayLabel(minutes)
     val nextDelay = if (DEFAULT_DELAY in minutes) {
-        DELAYS.firstOrNull { it.minutes !in minutes }?.minutes
+        delays.firstOrNull { it.minutes !in minutes }?.minutes
     } else {
         DEFAULT_DELAY
     }
@@ -110,7 +139,7 @@ fun ReminderPicker(
                     modifier = Modifier.weight(1f),
                 ) {
                     OutlinedTextField(
-                        value = reminderDelayLabel(chosen),
+                        value = labelOf(chosen),
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Rappel") },
@@ -120,7 +149,7 @@ fun ReminderPicker(
                             .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     )
                     ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        DELAYS.forEach { delay ->
+                        delays.forEach { delay ->
                             DropdownMenuItem(
                                 text = { Text(delay.label) },
                                 // A delay already chosen is not offered twice.
@@ -137,7 +166,7 @@ fun ReminderPicker(
                 IconButton(
                     onClick = { emit(minutes.filterIndexed { i, _ -> i != index }) },
                     modifier = Modifier.semantics {
-                        contentDescription = "Supprimer le rappel ${reminderDelayLabel(chosen)}"
+                        contentDescription = "Supprimer le rappel ${labelOf(chosen)}"
                     },
                 ) {
                     Icon(Icons.Outlined.Delete, contentDescription = null)

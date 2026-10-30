@@ -747,6 +747,9 @@ mobile:
     areas: [calendar, dashboard]
   e2e/mobile/flows/17-tasks-views.yaml:
     areas: [calendar]
+  e2e/mobile/flows/31-task-schedule.yaml:
+    areas: [calendar]
+    paths: [e2e/mobile/scripts/task-schedule-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/17b-tasks-day.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/day-plan-api.js]

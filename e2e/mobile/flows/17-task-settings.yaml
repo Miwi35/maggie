@@ -4,7 +4,7 @@ tags:
   - settings
   - calendar
 ---
-# Réglages › Tâches (MAG-407): when Maggie alerts on a task, per urgency. Every change is
+# Réglages › Tâches › Rappels (MAG-407, MAG-718): when Maggie reminds of a task, per urgency. Every change is
 # saved as it is made.
 #
 # The critical tasks alert at J-3 and J-1 (`scripts/task-settings-api.js` reset). The user
@@ -16,8 +16,8 @@ tags:
 # restart.
 #
 # Only these are touched — the order levels, which order « Aujourd'hui » in
-# `15-task-subtasks`, stay what the seed made them. « Heure du matin », « Mes moments »,
-# « En retard », the sliders and their preview, the defaults, a refused save and the re-read on
+# `15-task-subtasks`, stay what the seed made them. « Mes moments »,
+# « Pas faite » (MAG-718, « En retard » before), the sliders and their preview, the defaults, a refused save and the re-read on
 # a Mercure message are the JVM's business (`SettingsViewModelTest`, `TaskSettingsScreenTest`).
 #
 # A chip is a `FilterChip` (role Checkbox): Android reports it `checked`, never `selected`.
