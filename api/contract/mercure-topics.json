@@ -9,6 +9,7 @@
     "Contact": "/users/{userId}/api/contacts/{id}",
     "ContactCounterparty": "/users/{userId}/api/contact_counterparties/{id}",
     "CookingTimer": "/users/{userId}/api/cooking/timers/{id}",
+    "DailyActivity": "/users/{userId}/api/daily-activities/{id}",
     "DayPlan": "/users/{userId}/api/day_plans/{id}",
     "DayReview": "/users/{userId}/api/day_reviews/{id}",
     "Envelope": "/users/{userId}/api/envelopes/{id}",
