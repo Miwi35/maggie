@@ -54,7 +54,7 @@ assert_eq() {
 }
 
 assert_contains() {
-  if printf '%s' "$1" | grep -qF -- "$2"; then
+  if grep -qF -- "$2" <<<"$1"; then
     pass "$3"
   else
     fail "$3 — '$2' not found in the response"
@@ -128,7 +128,7 @@ assert_contains "$events" 'Cours de piano' "the seeded recurring event is listed
 agendas="$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/agendas")"
 assert_eq 4 "$(printf '%s' "$agendas" | jq -r '.totalItems // (.member | length)')" \
   "the owner sees their four agendas and not the neighbour's"
-if printf '%s' "$events" | grep -qF 'Déjeuner du voisin'; then
+if grep -qF 'Déjeuner du voisin' <<<"$events"; then
   fail "the neighbour's lunch is in the owner's events — a read lost its user filter"
 else
   pass "nothing of the neighbour's is in the owner's events"
@@ -207,7 +207,7 @@ step "6. Search reads an index the seed rebuilt"
 # A stale index returns an empty list in silence, so this is the only way to
 # tell "nothing matches" from "the seed forgot to reindex".
 search="$(curl -sS "${AUTH[@]}" -H 'Accept: application/json' "$BASE_URL/api/search?q=tomate")"
-if printf '%s' "$search" | grep -qiF 'tomate'; then
+if grep -qiF 'tomate' <<<"$search"; then
   pass "searching for a seeded term returns a hit"
 else
   fail "search returned nothing for a seeded term — response: $(printf '%s' "$search" | head -c 300)"
@@ -239,7 +239,7 @@ assert_eq 0 "$unmatched" "every request the sync made had a stub"
 imported=""
 for _ in $(seq 1 60); do
   transactions="$(curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/transactions?itemsPerPage=100")"
-  if printf '%s' "$transactions" | grep -qF 'LECLERC RENNES CB'; then
+  if grep -qF 'LECLERC RENNES CB' <<<"$transactions"; then
     imported=yes
     break
   fi
@@ -423,7 +423,7 @@ cleaned="$(printf '%s' "$transcript" | jq -r '.clean // empty')"
 # no-scenario sentence from passing: it quotes the dictated text back, so every
 # word of it would be found there too.
 keyword="$(printf '%s' "$dictated" | tr ' ' '\n' | awk '{ print length, $0 }' | sort -rn | head -1 | cut -d' ' -f2-)"
-if printf '%s' "$cleaned" | grep -qF -- '[fake-llm]'; then
+if grep -qF -- '[fake-llm]' <<<"$cleaned"; then
   fail "no scenario cleaned the dictation — is 20-transcription-cleanup.yaml still matching? Got: $cleaned"
 else
   assert_contains "$cleaned" "$keyword" "the cleanup kept what Whisper dictated ('$keyword')"
