@@ -1,0 +1,23 @@
+{
+    "name": "psychedlabs/testing",
+    "description": "Test tooling: in-memory Mercure hub and assertions, contract snapshots, SQL query counter",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.4",
+        "doctrine/dbal": "^4.0",
+        "phpunit/phpunit": "^12.0",
+        "symfony/mercure": "^0.7",
+        "symfony/uid": "^7.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "PsychedLabs\\Testing\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PsychedLabs\\Testing\\Tests\\": "tests/"
+        }
+    }
+}

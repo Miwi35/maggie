@@ -1,9 +1,13 @@
 services:
+    PsychedLabs\Testing\Mercure\InMemoryMercureHub:
+        public: true
+
     App\Tests\Support\InMemoryMercureHub:
+        alias: PsychedLabs\Testing\Mercure\InMemoryMercureHub
         public: true
 
     Symfony\Component\Mercure\HubInterface:
-        alias: App\Tests\Support\InMemoryMercureHub
+        alias: PsychedLabs\Testing\Mercure\InMemoryMercureHub
 
     # The transitions of a task, as their listeners receive them (MAG-497).
     App\Tests\Support\TaskTransitionRecorder:
@@ -13,10 +17,16 @@ services:
             - { name: messenger.message_handler, bus: event.bus, handles: Maggie\Calendar\Event\TaskReopened }
 
     # Counts the SQL statements of a request (MAG-544).
+    # The relay is the service, so a module asking for either name gets an
+    # instance of both.
     App\Tests\Support\SqlQueryCounter:
         public: true
         tags:
             - { name: doctrine.middleware }
+
+    PsychedLabs\Testing\Doctrine\SqlQueryCounter:
+        alias: App\Tests\Support\SqlQueryCounter
+        public: true
 
     # Records the statements of a request, to tell reads from writes (MAG-545).
     App\Tests\Support\SqlRecorder:
