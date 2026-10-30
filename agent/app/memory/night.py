@@ -37,6 +37,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from app.auth import TECHNICAL_ACCOUNT_EMAILS
 from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.memory_index_repository import IndexedFile, memory_index_repo
@@ -51,7 +52,7 @@ from app.memory.encoder import memory_encoder as default_encoder
 from app.memory.service import MemoryService, memory_service
 from app.memory.ulid import is_ulid
 from app.metrics import record_llm_usage, usage_kwargs
-from app.user_timezone import resolve_user_timezone
+from app.user_timezone import resolve_user_email, resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -384,12 +385,14 @@ class NightKeeper:
         return not await memory_night_repo.has_night(user_id, local.date().isoformat())
 
     async def run_all(self, now: datetime | None = None) -> list[NightRun]:
-        """Every owner whose night is due. Never raises: the next tick tries again."""
+        """Every owner whose night is due, technical accounts left out. Never raises: the next tick tries again."""
         now = now or datetime.now(UTC)
         out: list[NightRun] = []
         if self.client is None or not self.service.enabled:
             return out
         for user_id in await self.service.users():
+            if await resolve_user_email(user_id) in TECHNICAL_ACCOUNT_EMAILS:
+                continue
             run = await self.run(user_id, now)
             if run is not None:
                 out.append(run)

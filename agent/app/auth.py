@@ -100,6 +100,9 @@ def require_service_token(credentials: HTTPAuthorizationCredentials = Depends(se
 # The API's `app:smoke:token` command signs a token for this account and no route can: the
 # email in the token's `username` claim is the login identifier, set by the API alone.
 SMOKE_ACCOUNT_EMAIL = "smoke@maggieai.fr"
+# The API's `RecetteAccount::EMAIL`: the owner's acceptance agent signs in with it.
+RECETTE_ACCOUNT_EMAIL = "recette@maggieai.fr"
+TECHNICAL_ACCOUNT_EMAILS = frozenset({SMOKE_ACCOUNT_EMAIL, RECETTE_ACCOUNT_EMAIL})
 
 
 def get_smoke_account_id(
