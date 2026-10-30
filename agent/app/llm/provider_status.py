@@ -13,6 +13,7 @@ from datetime import datetime
 
 import anthropic
 
+from app.db.provider_state_repository import provider_state_repo
 from app.mcp.client import mcp_client
 from app.user_timezone import resolve_user_timezone
 
@@ -94,3 +95,26 @@ async def alert_owner(user_id: str, reason: str, *, now: datetime | None = None)
         logger.warning(f"Provider unavailable ({reason}): user {user_id} notified")
     except Exception as e:
         logger.error(f"Provider unavailable ({reason}), and notifying user {user_id} failed: {e!r}")
+
+
+# What the apps' banner shows (MAG-727). An overload, a quota or a lost connection clears by itself.
+BANNER_REASONS = ("credit", "auth")
+
+
+async def note_provider_failure(error: BaseException) -> None:
+    """Remember a failure only the owner can fix, whatever call it came from. Never raises."""
+    reason = provider_reason(error)
+    if reason not in BANNER_REASONS:
+        return
+    try:
+        await provider_state_repo.mark_down(reason)
+    except Exception as e:
+        logger.error(f"Could not record the provider status ({reason}): {e!r}")
+
+
+async def note_provider_success() -> None:
+    """The model answered: whatever was down is up again. Never raises."""
+    try:
+        await provider_state_repo.mark_ok()
+    except Exception as e:
+        logger.error(f"Could not record the provider status (ok): {e!r}")

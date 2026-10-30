@@ -27,7 +27,7 @@ from app.llm.history import build_history, label_settled, strip_thread_label
 from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
 from app.llm.prompt_cache import build_system, cache_tools
-from app.llm.provider_status import alert_owner, provider_reason
+from app.llm.provider_status import alert_owner, note_provider_failure, note_provider_success, provider_reason
 from app.llm.tool_blocks import record
 from app.llm.tools import ToolRouter
 from app.llm.web_search import (
@@ -337,6 +337,7 @@ class StreamingGateway:
                     response_content = response.content
 
                     duration = time.monotonic() - t0
+                    await note_provider_success()
                     record_llm_usage(
                         model=settings.anthropic_model,
                         call_type="chat_stream",
@@ -492,6 +493,7 @@ class StreamingGateway:
                     status="error",
                 )
                 logger.error(f"Streaming error: {e}")
+                await note_provider_failure(e)
                 # The phone's chat goes this way: the owner hears of an empty credit from here too (MAG-448).
                 if (reason := provider_reason(e)) is not None:
                     await alert_owner(user_id, reason)
