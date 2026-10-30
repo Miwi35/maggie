@@ -818,6 +818,9 @@ mobile:
   e2e/mobile/flows/31-health-suivi.yaml:
     areas: [health]
     paths: [e2e/mobile/scripts/body-measurements-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
+  e2e/mobile/flows/32-health-configuration.yaml:
+    areas: [health, cookbook]
+    paths: [e2e/mobile/scripts/health-profile-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/29-finance-cushion-share.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/cushion-share-api.js, api/fixtures/e2e/69-finance-cushion-share.yaml]

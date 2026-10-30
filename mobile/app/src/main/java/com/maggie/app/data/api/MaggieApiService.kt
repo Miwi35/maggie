@@ -161,6 +161,7 @@ import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.Workout
 import com.maggie.app.data.model.BodyMeasurement
+import com.maggie.app.data.model.HealthProfile
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -2845,6 +2846,22 @@ class MaggieApiService(
             contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))
             setBody(BodyMeasurementExcludeRequest(excluded))
+        }.orRefusal().body()
+    }
+
+    // Santé — profil (MAG-707): plain JSON, with its defaults before it is ever written; a refused value (400) says why in `error`
+    suspend fun getHealthProfile(): HealthProfile {
+        return client.get("$baseUrl/api/health/profile") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /** Only the keys of [changes] are written (a `weightKg` records a weighing); the answer is the whole profile. */
+    suspend fun updateHealthProfile(changes: JsonObject): HealthProfile {
+        return client.patch("$baseUrl/api/health/profile") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(changes)
         }.orRefusal().body()
     }
 

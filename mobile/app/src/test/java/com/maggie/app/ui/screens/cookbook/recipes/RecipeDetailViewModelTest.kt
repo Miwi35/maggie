@@ -3,6 +3,8 @@ package com.maggie.app.ui.screens.cookbook.recipes
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.HealthProfile
+import com.maggie.app.data.repository.HealthProfileRepository
 import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.data.model.Ingredient
@@ -40,6 +42,7 @@ class RecipeDetailViewModelTest {
     private lateinit var ingredientRepository: IngredientRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
+    private lateinit var healthProfileRepository: HealthProfileRepository
     private val events = MutableSharedFlow<MercureEvent>()
 
     @Before
@@ -53,6 +56,8 @@ class RecipeDetailViewModelTest {
         coEvery { recipeRepository.getRecipe("recipe-1") } returns Result.success(carbonara())
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns events
+        healthProfileRepository = mockk()
+        coEvery { healthProfileRepository.getProfile() } returns Result.success(HealthProfile())
     }
 
     @After
@@ -61,7 +66,7 @@ class RecipeDetailViewModelTest {
     }
 
     private fun TestScope.openSheet(): RecipeDetailViewModel {
-        val viewModel = RecipeDetailViewModel("recipe-1", recipeRepository, ingredientRepository, mercureService, authRepository)
+        val viewModel = RecipeDetailViewModel("recipe-1", recipeRepository, ingredientRepository, mercureService, authRepository, healthProfileRepository)
         advanceUntilIdle()
         return viewModel
     }
@@ -69,6 +74,34 @@ class RecipeDetailViewModelTest {
     private suspend fun TestScope.receive(viewModel: RecipeDetailViewModel, data: String) {
         events.emit(MercureEvent(data = data))
         advanceUntilIdle()
+    }
+
+    @Test
+    fun `the day's need of the health profile is the ring's reference (MAG-707)`() = runTest {
+        coEvery { healthProfileRepository.getProfile() } returns Result.success(HealthProfile(bmrKcal = 1648, needKcal = 1980))
+
+        val viewModel = openSheet()
+
+        assertEquals(1980, viewModel.uiState.value.dailyKcal)
+    }
+
+    @Test
+    fun `without a complete profile there is no reference`() = runTest {
+        val viewModel = openSheet()
+
+        assertNull(viewModel.uiState.value.dailyKcal)
+        assertEquals("recipe-1", viewModel.uiState.value.recipe?.id)
+    }
+
+    @Test
+    fun `a profile that cannot be read leaves the ring out, not the sheet`() = runTest {
+        coEvery { healthProfileRepository.getProfile() } returns Result.failure(RuntimeException("boom"))
+
+        val viewModel = openSheet()
+
+        assertNull(viewModel.uiState.value.dailyKcal)
+        assertNull(viewModel.uiState.value.error)
+        assertEquals("recipe-1", viewModel.uiState.value.recipe?.id)
     }
 
     @Test
@@ -154,7 +187,7 @@ class RecipeDetailViewModelTest {
             gate.await()
             Result.success(if (calls++ == 0) carbonara() else carbonara(500f))
         }
-        val viewModel = RecipeDetailViewModel("recipe-1", recipeRepository, ingredientRepository, mercureService, authRepository)
+        val viewModel = RecipeDetailViewModel("recipe-1", recipeRepository, ingredientRepository, mercureService, authRepository, healthProfileRepository)
         runCurrent()
 
         events.emit(MercureEvent(data = published(publishedLine(500))))

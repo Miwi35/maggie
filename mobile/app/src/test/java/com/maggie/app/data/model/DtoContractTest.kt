@@ -866,6 +866,20 @@ class DtoContractTest {
         assertCollectionContract("body-measurements", serializer<BodyMeasurement>(), "BodyMeasurement")
 
     @Test
+    fun `the health profile deserialises from the recorded response (MAG-707)`() {
+        assertItemContract("health_profile.me", serializer<HealthProfile>(), "HealthProfile")
+        val profile = json.decodeFromJsonElement(serializer<HealthProfile>(), readRecording("health_profile.me"))
+
+        assertEquals("male", profile.sex)
+        assertEquals(72.4, profile.weightKg!!, 0.001)
+        assertEquals(1652, profile.bmrKcal)
+        assertEquals(2560, profile.needKcal)
+        assertEquals(1.55, profile.factor!!, 0.001)
+        assertEquals("21:00", profile.suggestionWindowEnd)
+        assertEquals(HealthProfile.STEP_SOURCE_HEALTH_CONNECT, profile.stepSource)
+    }
+
+    @Test
     fun `recurring operations deserialise from the recorded response`() =
         assertCollectionContract("recurring_operations", serializer<RecurringOperationRecord>(), "RecurringOperationRecord")
 

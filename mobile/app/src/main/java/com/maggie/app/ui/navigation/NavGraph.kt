@@ -149,6 +149,8 @@ import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.PlacementFormScreen
+import com.maggie.app.ui.screens.health.ConfigurationScreen
+import com.maggie.app.ui.screens.health.ConfigurationViewModel
 import com.maggie.app.ui.screens.health.SportScreen
 import com.maggie.app.ui.screens.health.SportViewModel
 import com.maggie.app.ui.screens.health.SuiviScreen
@@ -272,6 +274,8 @@ sealed class Screen(val route: String, val label: String) {
     data object HealthSuivi : Screen("health/suivi", "Suivi")
     /** Santé › Sport (MAG-705): the training sessions. */
     data object HealthSport : Screen("health/sport", "Sport")
+    /** Santé › Configuration (MAG-707): the profile, the day's need and the activity settings. */
+    data object HealthConfiguration : Screen("health/configuration", "Configuration")
     /** The full-screen form of a session (MAG-705): `id` absent for a new one. Outside the menus, so drawn without chrome. */
     data object HealthSportForm : Screen("health/sport/form?${DeepLinks.ARG_ID}={${DeepLinks.ARG_ID}}", "Séance") {
         fun of(workoutId: String?): String =
@@ -358,10 +362,11 @@ private val MAIN_SCREENS = setOf(
     Screen.Grocery.route,
     Screen.HealthSuivi.route,
     Screen.HealthSport.route,
+    Screen.HealthConfiguration.route,
 )
 
 // The screens whose content opens with the module's breadcrumb: the generic bar and its title would stack on it.
-private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSuivi.route, Screen.HealthSport.route)
+private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSuivi.route, Screen.HealthSport.route, Screen.HealthConfiguration.route)
 
 // The full-screen chat has its own input: a second way in would duplicate it
 // The Finance screens keep it too: the bottom of the screen is Maggie's; Finance has no rail to hold her buttons.
@@ -667,6 +672,15 @@ private fun selectHealthSection(navController: NavController, section: HealthSec
 private fun HealthSuiviPage(navController: NavController) {
     SuiviScreen(
         viewModel = koinViewModel<SuiviViewModel>(),
+        onSelectSection = { selectHealthSection(navController, it) },
+    )
+}
+
+/** « Santé › Configuration » (MAG-707), out of [NavGraph]'s lambda like Sport. */
+@Composable
+private fun HealthConfigurationPage(navController: NavController) {
+    ConfigurationScreen(
+        viewModel = koinViewModel<ConfigurationViewModel>(),
         onSelectSection = { selectHealthSection(navController, it) },
     )
 }
@@ -2127,6 +2141,9 @@ fun NavGraph() {
                     }
                     composable(Screen.HealthSport.route, deepLinks = DeepLinks.forRoute(Screen.HealthSport.route)) {
                         HealthSportPage(navController)
+                    }
+                    composable(Screen.HealthConfiguration.route, deepLinks = DeepLinks.forRoute(Screen.HealthConfiguration.route)) {
+                        HealthConfigurationPage(navController)
                     }
                     composable(
                         Screen.HealthSportForm.route,

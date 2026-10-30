@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Ingredient
 import com.maggie.app.data.model.Micronutrient
+import com.maggie.app.data.model.formatKcal
 import com.maggie.app.data.model.RecipeIngredient
 import com.maggie.app.data.model.RecipeStep
 import com.maggie.app.ui.UiTags
@@ -133,7 +134,7 @@ internal fun RecipeNutritionBlock(nutrition: RecipeNutrition?, dailyKcal: Int?, 
                     Text("≈ ${nutrition.kcal} kcal", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                     if (share != null) {
                         Text(
-                            "du besoin du jour",
+                            "$share % du besoin du jour · ${formatKcal(dailyKcal)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
