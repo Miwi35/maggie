@@ -33,6 +33,8 @@ sentry = "8.60.0"
 work = "2.10.0"
 play-services-location = "21.3.0"
 car-app = "1.4.0"
+# 1.1.0 (stable) needs compileSdk 36 and AGP 8.9.1; beta01 is the last one on compileSdk 35 and AGP 8.7 (MAG-708)
+health-connect = "1.1.0-beta01"
 
 [libraries]
 # Crash and ANR reports to GlitchTip (Sentry-compatible)
@@ -101,6 +103,9 @@ work-testing = { group = "androidx.work", name = "work-testing", version.ref = "
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "play-services-location" }
 # Whether the phone is connected to the car (Android Auto), nothing else of the library is used (MAG-666)
 car-app = { group = "androidx.car.app", name = "app", version.ref = "car-app" }
+
+# Health Connect (MAG-708): séances, pesées, pas et dépense active, from the watch through Gadgetbridge
+health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "health-connect" }
 
 # Reorderable
 reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }

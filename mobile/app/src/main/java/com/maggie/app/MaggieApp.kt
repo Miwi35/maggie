@@ -49,6 +49,12 @@ import com.maggie.app.data.location.LocationScheduler
 import com.maggie.app.data.location.ParkingDetector
 import com.maggie.app.data.location.PositionSource
 import com.maggie.app.data.location.TransitionRegistrar
+import com.maggie.app.data.health.AndroidHealthConnectGateway
+import com.maggie.app.data.health.AndroidHealthSyncScheduler
+import com.maggie.app.data.health.HealthConnectGateway
+import com.maggie.app.data.health.HealthConnectSync
+import com.maggie.app.data.health.HealthSyncPreferences
+import com.maggie.app.data.health.HealthSyncScheduler
 import com.maggie.app.data.interruption.AndroidInterruptionAlert
 import com.maggie.app.data.interruption.InterruptionAlert
 import com.maggie.app.data.interruption.InterruptionCenter
@@ -85,6 +91,7 @@ import com.maggie.app.data.repository.PlacementRepository
 import com.maggie.app.data.repository.WorkoutRepository
 import com.maggie.app.data.repository.BodyMeasurementRepository
 import com.maggie.app.data.repository.HealthProfileRepository
+import com.maggie.app.data.repository.HealthSyncRepository
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.ScenarioRepository
 import com.maggie.app.data.repository.FinanceCardRepository
@@ -205,6 +212,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -358,6 +366,13 @@ class MaggieApp : Application() {
             single { TripWatcher(get(), get()) }
             single { ActivityTransitionHandler(get(), get(), get(), get(), get()) }
             single { DepartureTracking(get(), get(), get()) }
+
+            // Health Connect (MAG-708): the watch's séances, pesées, pas and dépense active, every hour and at each opening
+            single<HealthConnectGateway> { AndroidHealthConnectGateway(androidContext()) }
+            single { HealthSyncPreferences(androidContext()) }
+            single { HealthSyncRepository(get()) }
+            single { HealthConnectSync(get(), get(), get(), get()) }
+            single<HealthSyncScheduler> { AndroidHealthSyncScheduler(WorkManager.getInstance(androidContext())) }
 
             // Interruption (MAG-314): Maggie speaks inside the app while it is open
             single {
@@ -525,7 +540,7 @@ class MaggieApp : Application() {
             viewModel { PlacementViewModel(get(), get(), get()) }
             viewModel { SportViewModel(get(), get(), get()) }
             viewModel { SuiviViewModel(get(), get(), get()) }
-            viewModel { ConfigurationViewModel(get(), get(), get()) }
+            viewModel { ConfigurationViewModel(get(), get(), get(), get(), get()) }
             viewModel { CookingViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { CookingGroceryViewModel(get(), get(), get(), get()) }
             viewModel { CookingResumeViewModel(get(), get(), get(), get()) }
@@ -567,6 +582,7 @@ class MaggieApp : Application() {
         }
         keepInterruptionsFed(get<InterruptionFeed>(), get<InterruptionCenter>(), authRepository)
         keepCalendarCacheFed(get<CalendarCacheFeed>(), authRepository)
+        keepHealthSynced(get<HealthSyncScheduler>(), get<HealthSyncPreferences>(), authRepository)
         removeListeningLeftovers()
     }
 
@@ -590,6 +606,26 @@ class MaggieApp : Application() {
         ProcessLifecycleOwner.get().lifecycleScope.launch {
             ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 feed.runWhileSignedIn(auth.isAuthenticated)
+            }
+        }
+    }
+
+    // Health Connect (MAG-708): the hourly pass while signed in, and one more each time the app comes to the front;
+    // signed out, nothing runs and the next account reads its own 30 days.
+    private fun keepHealthSynced(scheduler: HealthSyncScheduler, preferences: HealthSyncPreferences, auth: AuthRepository) {
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            auth.isAuthenticated.collect { signedIn ->
+                if (signedIn) {
+                    scheduler.startPeriodic()
+                } else {
+                    scheduler.stop()
+                    preferences.clear()
+                }
+            }
+        }
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                if (auth.isAuthenticated.first()) scheduler.syncNow()
             }
         }
     }
