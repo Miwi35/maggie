@@ -338,6 +338,24 @@ final class TaskReminderApiTest extends WebTestCase
         self::assertCount(1, $this->reminders());
     }
 
+    public function testTomorrowOnAReminderAtAPreciseTimeMovesItsDayKeepingItsTime(): void
+    {
+        $reminder = $this->sentDue();
+        $time = $this->em()->find(Task::class, Ulid::fromString($reminder->getSubjectId()))?->getScheduledTime();
+        $this->resetMercure();
+
+        $this->act($reminder, 'tomorrow');
+
+        self::assertResponseIsSuccessful();
+        $task = $this->em()->find(Task::class, Ulid::fromString($reminder->getSubjectId()));
+        self::assertSame('2026-10-15', $task?->getScheduledDate()?->format('Y-m-d'));
+        self::assertSame(TaskMoment::Time, $task->getScheduledMoment());
+        self::assertSame($time, $task->getScheduledTime());
+        self::assertSame([0], $task->getReminders());
+        $this->assertMercureUpdatePublished('/tasks/'.$reminder->getSubjectId());
+        self::assertNull($this->em()->getRepository(DayPlan::class)->findOneBy(['user' => $this->getFixture('test_user')->getId(), 'date' => new \DateTimeImmutable('2026-10-15')]), 'its day is its programmation, not tomorrow\'s five');
+    }
+
     public function testANudgeIsNotTicked(): void
     {
         $this->act($this->sentNudge(), 'done');
