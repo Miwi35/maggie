@@ -180,14 +180,6 @@ class SettingsViewModel(
         }
     }
 
-    /** « Heure du matin », as the time picker gives it. */
-    fun setMorningTime(hour: Int, minute: Int) {
-        val time = String.format(Locale.ROOT, "%02d:%02d", hour, minute)
-        val current = _uiState.value.tasks.settings ?: return
-        if (current.morningTime == time) return
-        saveTaskSettings(current.copy(morningTime = time), buildJsonObject { put("morningTime", time) })
-    }
-
     /** « Heure du soir » (MAG-500): after it, the first visit of Tâches opens the review. */
     fun setEveningTime(hour: Int, minute: Int) {
         val time = String.format(Locale.ROOT, "%02d:%02d", hour, minute)
@@ -288,15 +280,17 @@ class SettingsViewModel(
         )
     }
 
-    /** « Valeurs par défaut » of Réglages › Tâches: the alerts, the morning and the evening, not the order. */
+    /**
+     * « Valeurs par défaut » of Réglages › Tâches › Rappels: the reminders and the evening, not the order. The
+     * morning left the screen (MAG-718) — the digest's hour, which this button does not touch either.
+     */
     fun resetAlertsToDefaults() {
         val current = _uiState.value.tasks.settings ?: return
         val defaults = current.defaults
         saveTaskSettings(
-            current.copy(alertSchedule = defaults.alertSchedule, morningTime = defaults.morningTime, eveningTime = defaults.eveningTime),
+            current.copy(alertSchedule = defaults.alertSchedule, eveningTime = defaults.eveningTime),
             buildJsonObject {
                 put("alertSchedule", JsonObject(defaults.alertSchedule.mapValues { (_, rule) -> rule.toJson() }))
-                put("morningTime", defaults.morningTime)
                 put("eveningTime", defaults.eveningTime)
             },
         )

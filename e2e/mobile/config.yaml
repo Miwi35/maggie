@@ -90,3 +90,4 @@ executionOrder:
     - 31-health-suivi
     - 32-health-configuration
     - 33-health-nutrition
+    - 31-task-schedule

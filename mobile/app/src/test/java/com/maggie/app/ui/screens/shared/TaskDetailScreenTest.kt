@@ -15,11 +15,14 @@ import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskLink
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.util.DateRanges
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * A task's detail with what Google Tasks gives it (MAG-404): the notes, the
@@ -128,5 +131,38 @@ class TaskDetailScreenTest {
         show(truck)
 
         compose.onNodeWithText("Sous-tâches").assertDoesNotExist()
+    }
+
+    // MAG-718: the programmation is read, never edited, and absent when not set.
+
+    private val tomorrow = DateRanges.todayDate().plusDays(1)
+    private val tomorrowName = tomorrow.format(DateTimeFormatter.ofPattern("EEEE", Locale.FRENCH))
+
+    @Test
+    fun `a task scheduled for the evening reads « vendredi · soir » and no reminder`() {
+        show(parent.copy(scheduledDate = tomorrow.toString(), scheduledMoment = "evening"))
+
+        compose.onNodeWithText("Programmée").assertIsDisplayed()
+        compose.onNodeWithText("$tomorrowName · soir").assertIsDisplayed()
+        compose.onNodeWithText("Rappels").assertDoesNotExist()
+        assertTrue(top("Échéance") < top("Programmée"))
+    }
+
+    @Test
+    fun `a task at a precise time reads its time and its reminders`() {
+        show(parent.copy(scheduledDate = tomorrow.toString(), scheduledMoment = "time", scheduledTime = "18:00", reminders = listOf(0, 30)))
+
+        compose.onNodeWithText("$tomorrowName · 18:00").assertIsDisplayed()
+        compose.onNodeWithText("Rappels").assertIsDisplayed()
+        compose.onNodeWithText("À l'heure, 30 minutes avant").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a task with nothing scheduled shows no Programmée and no Rappels line, and no Alertes card`() {
+        show(parent)
+
+        compose.onNodeWithText("Programmée").assertDoesNotExist()
+        compose.onNodeWithText("Rappels").assertDoesNotExist()
+        compose.onNodeWithText("Alertes").assertDoesNotExist()
     }
 }

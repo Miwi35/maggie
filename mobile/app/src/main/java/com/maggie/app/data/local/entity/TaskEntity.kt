@@ -21,6 +21,10 @@ data class TaskEntity(
     val links: List<TaskLink> = emptyList(),
     val estimatedMinutes: Int? = null,
     val firstStep: String? = null,
+    val scheduledDate: String? = null,
+    val scheduledMoment: String? = null,
+    val scheduledTime: String? = null,
+    val reminders: List<Int> = emptyList(),
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
 ) {
     fun toModel(): Task = Task(
@@ -36,6 +40,10 @@ data class TaskEntity(
         links = links,
         estimatedMinutes = estimatedMinutes,
         firstStep = firstStep,
+        scheduledDate = scheduledDate,
+        scheduledMoment = scheduledMoment,
+        scheduledTime = scheduledTime,
+        reminders = reminders,
     )
 
     companion object {
@@ -53,6 +61,10 @@ data class TaskEntity(
                 links = task.links,
                 estimatedMinutes = task.estimatedMinutes,
                 firstStep = task.firstStep,
+                scheduledDate = task.scheduledDate,
+                scheduledMoment = task.scheduledMoment,
+                scheduledTime = task.scheduledTime,
+                reminders = task.reminders,
                 syncStatus = syncStatus,
             )
     }

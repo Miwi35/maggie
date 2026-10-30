@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import com.maggie.app.util.DateRanges
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -115,5 +116,38 @@ class DateTimeFieldsScreenTest {
         compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
 
         assertEquals(LocalTime.of(19, 0), time)
+    }
+
+    @Test
+    fun `the quick picks set tomorrow or the day after in one touch, and close the picker (MAG-718)`() {
+        var date by mutableStateOf<LocalDate?>(null)
+        compose.setContent {
+            DateField(label = "Programmée", value = date, onValueChange = { date = it }, tag = "day", quickPicks = true)
+        }
+        val today = DateRanges.todayDate()
+
+        compose.onNodeWithTag("day").performClick()
+        compose.onNodeWithText("Demain").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PICKER_TOMORROW).performClick()
+        assertEquals(today.plusDays(1), date)
+        compose.onNodeWithTag(UiTags.PICKER_CONFIRM).assertDoesNotExist()
+
+        compose.onNodeWithTag("day").performClick()
+        compose.onNodeWithText("Après-demain").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PICKER_AFTER_TOMORROW).performClick()
+        assertEquals(today.plusDays(2), date)
+    }
+
+    @Test
+    fun `without quick picks the picker is the calendar alone, as the Agenda has it`() {
+        compose.setContent {
+            DateField(label = "Date de début", value = LocalDate.of(2026, 10, 8), onValueChange = {}, tag = "start")
+        }
+
+        compose.onNodeWithTag("start").performClick()
+
+        compose.onNodeWithTag(UiTags.PICKER_CONFIRM).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PICKER_TOMORROW).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.PICKER_AFTER_TOMORROW).assertDoesNotExist()
     }
 }
