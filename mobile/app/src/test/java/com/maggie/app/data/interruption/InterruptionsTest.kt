@@ -106,10 +106,10 @@ class InterruptionsTest {
     }
 
     @Test
-    fun `a pending approval asks for votre accord, never ton accord (MAG-696)`() {
+    fun `a pending approval announces itself as a message of Maggie, never as ton accord (MAG-696)`() {
         val payload = Interruptions.of(PendingApproval(id = "ap-1", toolName = "delete_event"), now)!!
 
-        assertEquals("Maggie demande votre accord", payload.title)
+        assertEquals(CONFIRMATION_TITLE, payload.title)
     }
 
     @Test
