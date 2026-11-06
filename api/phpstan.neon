@@ -14,4 +14,4 @@ parameters:
     ignoreErrors:
         -
             identifier: trait.unused
-            path: packages/*/src
+            path: '%currentWorkingDirectory%/packages/*/src/*'
