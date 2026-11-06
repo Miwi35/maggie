@@ -74,6 +74,15 @@ Maggie\Grocery\Entity\Store:
     visitOrder: 1
     user: '@e2e_voice_user'
 
+Maggie\Cookbook\Entity\Ingredient:
+  # Its own tomato: the shared one belongs to the standard users' recipes, and an entry
+  # that refers to it would pull this account into their slice (FixtureSlice).
+  e2e_voice_ingredient_tomato:
+    name: Tomate
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    user: '@e2e_voice_user'
+
 Maggie\Grocery\Entity\GroceryList:
   e2e_voice_list:
     user: '@e2e_voice_user'
@@ -81,7 +90,7 @@ Maggie\Grocery\Entity\GroceryList:
 Maggie\Grocery\Entity\GroceryItem:
   e2e_voice_item_tomato:
     groceryList: '@e2e_voice_list'
-    product: '@e2e_ingredient_tomato'
+    product: '@e2e_voice_ingredient_tomato'
     quantity: 6
     unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
     checked: false
