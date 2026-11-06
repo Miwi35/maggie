@@ -147,6 +147,8 @@ class FakeProactionApi:
             "originDecidedBy": arguments.get("decidedBy", "maggie"),
             "departAt": f"{day}T{self.depart_at[arguments['mode']]}:00+01:00",
         }
+        if arguments.get("arriveAt"):
+            trip["arriveAt"] = arguments["arriveAt"]
         self.trips[event["id"]] = trip
         return {"success": True, "trip": trip}
 

@@ -21,7 +21,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'estimate_trip', description: 'Estimate the trip to an event, door to door, for one or several modes in one call — compare them before choosing. modes: drive, transit, walk, bicycle. origin: position (where the phone last was, the default), home (the user\'s « Maison »; without one, the address of their Google account is imported, and when there is none the call is refused: ask the user for it and save_place it with isHome=true), place:<id> (list_places gives the ids) or event:<id> (where an earlier event is). Returns {eventId, estimates: [{mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], unavailable: [{mode, reason}], locationRequested}. unavailable lists the modes Google has no route for (no transit line there, say): the other modes are still estimated, so do not retry them. departAt is when to leave: the start minus the trip minus 5 minutes. By car the trip walks to the car when it is more than 200 m away, drives to the parking of the known place and walks from it; parkingKnown false means no parking is known and 5 minutes are counted to find a spot. locationRequested true means the position was older than 10 minutes: the phone was asked for a new one and the estimate uses the old one. The event needs a location. A refused call answers {error, field}; {error} alone when no mode has a route, or when Google is unreachable or not configured.')]
+#[McpTool(name: 'estimate_trip', description: 'Estimate the trip to an event, door to door, for one or several modes in one call — compare them before choosing. modes: drive, transit, walk, bicycle. origin: position (where the phone last was, the default), home (the user\'s « Maison »; without one, the address of their Google account is imported, and when there is none the call is refused: ask the user for it and save_place it with isHome=true), place:<id> (list_places gives the ids) or event:<id> (where an earlier event is). Returns {eventId, estimates: [{mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], unavailable: [{mode, reason}], locationRequested}. unavailable lists the modes Google has no route for (no transit line there, say): the other modes are still estimated, so do not retry them. arriveAt (ISO 8601, Paris time) is for a whole-day event only — a stay, which has no hour to arrive by: the user gives it, and departAt counts back from it; without it a whole-day event is refused, and with it an event that has a start hour too. departAt is when to leave: the start minus the trip minus 5 minutes. By car the trip walks to the car when it is more than 200 m away, drives to the parking of the known place and walks from it; parkingKnown false means no parking is known and 5 minutes are counted to find a spot. locationRequested true means the position was older than 10 minutes: the phone was asked for a new one and the estimate uses the old one. The event needs a location. A refused call answers {error, field}; {error} alone when no mode has a route, or when Google is unreachable or not configured.')]
 final class EstimateTripTool
 {
     public function __construct(
@@ -39,6 +39,7 @@ final class EstimateTripTool
         #[Schema(items: ['type' => 'string', 'enum' => ['drive', 'transit', 'walk', 'bicycle']], minItems: 1)]
         array $modes,
         ?string $origin = null,
+        ?string $arriveAt = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -54,9 +55,8 @@ final class EstimateTripTool
             if (!$event instanceof Event || (string) $event->getAgenda()->getUser()->getId() !== (string) $user->getId()) {
                 throw new InvalidTripException('eventId', "no event of yours has the id {$eventId}.");
             }
-            if (null === $event->getStartAt()) {
-                throw new InvalidTripException('eventId', sprintf('« %s » lasts the whole day: there is no hour to arrive by.', $event->getSummary()));
-            }
+            $arrival = null === $arriveAt ? null : TripPlanner::parseArriveAt($arriveAt);
+            TripPlanner::arrival($event, $arrival);
             // Where the event is before where the trip starts: the user fixes the event first.
             $this->locations->ofEvent($event);
 
@@ -68,7 +68,7 @@ final class EstimateTripTool
             $unavailable = [];
             foreach ($tripModes as $mode) {
                 try {
-                    $estimates[] = $this->planner->estimate($event, $mode, $from);
+                    $estimates[] = $this->planner->estimate($event, $mode, $from, $arrival);
                 } catch (NoRouteException $e) {
                     $unavailable[] = ['mode' => $mode->value, 'reason' => $e->getMessage()];
                 }

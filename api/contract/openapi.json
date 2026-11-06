@@ -30271,6 +30271,15 @@
                         "readOnly": true,
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "arriveAt": {
+                        "readOnly": true,
+                        "description": "The arrival the user gave, for a whole-day event which has no start hour (a stay); null otherwise.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     }
                 }
             },
@@ -30379,6 +30388,15 @@
                     "computedAt": {
                         "readOnly": true,
                         "type": "string",
+                        "format": "date-time"
+                    },
+                    "arriveAt": {
+                        "readOnly": true,
+                        "description": "The arrival the user gave, for a whole-day event which has no start hour (a stay); null otherwise.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "date-time"
                     }
                 }
@@ -30492,6 +30510,15 @@
                             "computedAt": {
                                 "readOnly": true,
                                 "type": "string",
+                                "format": "date-time"
+                            },
+                            "arriveAt": {
+                                "readOnly": true,
+                                "description": "The arrival the user gave, for a whole-day event which has no start hour (a stay); null otherwise.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
                                 "format": "date-time"
                             }
                         }

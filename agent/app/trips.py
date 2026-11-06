@@ -8,6 +8,7 @@ RETIRED_CHECK_SUMMARY_PREFIX = "Check départ · "
 REPLAN_SUMMARY = "Replanifier les trajets"
 QUESTION_SUMMARY_PREFIX = "Où pars-tu · "
 PARKING_SUMMARY_PREFIX = "Où se garer · "
+ARRIVAL_SUMMARY_PREFIX = "Arrivée · "
 
 # A departAt that moves by less than this is not worth a new set_trip.
 DEPART_TOLERANCE_MINUTES = 2
@@ -51,8 +52,30 @@ def planning_trips_rules(day: str) -> str:
         "le meilleur choix par défaut, puis pose une question avec schedule_proaction dans quelques minutes (résumé "
         f"« {QUESTION_SUMMARY_PREFIX}<titre> ») : « Je repasse à la maison ou j'enchaîne ? » avec, pour chaque choix, "
         "l'heure de départ qu'il donne ; il peut répondre « Plus tard ». "
+        f"{stay_rules(day)}"
         "Ne repose pas de trajet qui existe déjà ; les vérifications avant le départ sont faites par l'API, "
         "ne programme aucun check."
+    )
+
+
+def stay_rules(day: str) -> str:
+    """A whole-day event with a place (a stay: Airbnb, gîte) has no hour to arrive by: ask for it (MAG-733)."""
+    return (
+        "f) Séjour. Un événement en journée entière (allDay) qui a un lieu, qui commence le "
+        f"{day} ou le lendemain et n'a pas de trajet (estimate_trip le refuse sans arriveAt), "
+        "n'a pas d'heure d'arrivée : "
+        "demande-la, ne l'invente pas. Sans lieu, ne demande rien. Si une proaction "
+        f"« {ARRIVAL_SUMMARY_PREFIX}<titre> » existe déjà pour lui (list_proactions sur toute la durée du séjour, "
+        "faite, annulée ou à venir), ne la repose pas : l'utilisateur a déjà répondu, « Pas de trajet » compris. "
+        "Sinon pose avec schedule_proaction, non silencieuse, dans quelques minutes (ce soir pour le lendemain), "
+        f"le résumé « {ARRIVAL_SUMMARY_PREFIX}<titre> » et un prompt qui cite l'id de l'événement : une interruption "
+        "avec choix « Vers quelle heure arrivez-vous à <lieu court> ? » et les choix 15 h, 16 h, 18 h, "
+        "« Autre heure », « Pas de trajet ». "
+        "Réponse : une heure → set_trip avec arriveAt (ISO 8601, heure de Paris, le jour d'arrivée) et decidedBy=user, "
+        "le mode et l'origine choisis comme pour un trajet ordinaire (estimate_trip avec le même arriveAt d'abord) ; "
+        "« Autre heure » → demande l'heure ; « Pas de trajet » → n'enregistre rien. "
+        "Pendant le séjour, les trajets des jours suivants partent du lieu du séjour : origine `event:<id>` du séjour "
+        "plutôt que la maison, sauf si l'origine est `position`. "
     )
 
 

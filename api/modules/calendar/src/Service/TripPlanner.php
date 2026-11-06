@@ -28,6 +28,7 @@ use Psr\Clock\ClockInterface;
  * - **Walk**, **bicycle**: one step.
  *
  * `departAt` is the start, minus the trip, minus {@see self::MARGIN_MINUTES}, to the minute.
+ * A whole-day event (a stay) has no start: the arrival the user gave stands in for it (MAG-733).
  */
 class TripPlanner
 {
@@ -56,12 +57,9 @@ class TripPlanner
      * @throws InvalidTripException
      * @throws RoutingException
      */
-    public function estimate(Event $event, TripMode $mode, string|TripOrigin $origin): TripEstimate
+    public function estimate(Event $event, TripMode $mode, string|TripOrigin $origin, ?\DateTimeImmutable $arriveAt = null): TripEstimate
     {
-        $start = $event->getStartAt();
-        if (null === $start) {
-            throw new InvalidTripException('eventId', sprintf('« %s » lasts the whole day: there is no hour to arrive by.', $event->getSummary()));
-        }
+        $start = self::arrival($event, $arriveAt);
 
         $user = $event->getAgenda()->getUser();
         if (\is_string($origin)) {
@@ -102,7 +100,41 @@ class TripPlanner
             parkingKnown: null !== $parking,
             carLatitude: $car[0] ?? null,
             carLongitude: $car[1] ?? null,
+            arriveAt: null === $event->getStartAt() ? $start : null,
         );
+    }
+
+    /**
+     * The hour to arrive by: the event's start, or for a whole-day event the arrival given.
+     *
+     * @throws InvalidTripException
+     */
+    public static function arrival(Event $event, ?\DateTimeImmutable $arriveAt): \DateTimeImmutable
+    {
+        $start = $event->getStartAt();
+        if (null !== $start) {
+            if (null !== $arriveAt) {
+                throw new InvalidTripException('arriveAt', sprintf('« %s » has a start hour: arriveAt is only for a whole-day event.', $event->getSummary()));
+            }
+
+            return $start;
+        }
+
+        return $arriveAt ?? throw new InvalidTripException('eventId', sprintf('« %s » lasts the whole day: there is no hour to arrive by, send arriveAt.', $event->getSummary()));
+    }
+
+    /**
+     * An ISO 8601 arrival, in Paris time when it has no offset.
+     *
+     * @throws InvalidTripException
+     */
+    public static function parseArriveAt(string $arriveAt): \DateTimeImmutable
+    {
+        try {
+            return new \DateTimeImmutable($arriveAt, new \DateTimeZone(TripDay::TIME_ZONE));
+        } catch (\Exception) {
+            throw new InvalidTripException('arriveAt', "« {$arriveAt} » is not an ISO 8601 date and time.");
+        }
     }
 
     /** Whole minutes, rounded up: a trip announced shorter than it is makes one late. */

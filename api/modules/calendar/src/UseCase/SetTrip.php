@@ -35,9 +35,9 @@ class SetTrip
      * @throws InvalidTripException
      * @throws RoutingException
      */
-    public function execute(Event $event, TripMode $mode, string $origin, TripDecider $decidedBy): Trip
+    public function execute(Event $event, TripMode $mode, string $origin, TripDecider $decidedBy, ?\DateTimeImmutable $arriveAt = null): Trip
     {
-        return $this->keep($event, $this->planner->estimate($event, $mode, $origin), $decidedBy);
+        return $this->keep($event, $this->planner->estimate($event, $mode, $origin, $arriveAt), $decidedBy);
     }
 
     /** Keeps an estimate already computed: the event's trip is replaced in place. */

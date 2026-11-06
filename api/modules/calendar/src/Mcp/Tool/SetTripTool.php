@@ -19,7 +19,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'set_trip', description: 'Keep the trip the user will take to an event, once you chose the mode and the origin (estimate_trip compares them first). The trip is computed again now and replaces the one the event had: an event has one trip at most, and the departure alert follows its departAt. mode: drive, transit, walk or bicycle. origin: position (where the phone last was), place:<id> (list_places gives the ids, home included) or event:<id> (where an earlier event is). decidedBy: user when the user chose the origin themselves (an answer the evening before) — it is then kept and only the durations are computed again; maggie (the default) when you chose it. Returns {success, trip: {id, eventId, event: {summary, startAt, location}, mode, origin: {kind, id, label, latitude, longitude}, originDecidedBy, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, computedAt, carLatitude?, carLongitude?}}, times in Paris. A refused call changes nothing and answers {error, field}; Google unreachable or not configured answers {error}.')]
+#[McpTool(name: 'set_trip', description: 'Keep the trip the user will take to an event, once you chose the mode and the origin (estimate_trip compares them first). The trip is computed again now and replaces the one the event had: an event has one trip at most, and the departure alert follows its departAt. mode: drive, transit, walk or bicycle. origin: position (where the phone last was), place:<id> (list_places gives the ids, home included) or event:<id> (where an earlier event is). arriveAt: ISO 8601, Paris time, only for a whole-day event (a stay) — the hour to arrive by, which such an event does not have; refused for an event with a start hour. decidedBy: user when the user chose the origin themselves (an answer the evening before) — it is then kept and only the durations are computed again; maggie (the default) when you chose it. Returns {success, trip: {id, eventId, event: {summary, startAt, location}, mode, arriveAt?, origin: {kind, id, label, latitude, longitude}, originDecidedBy, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, computedAt, carLatitude?, carLongitude?}}, times in Paris. A refused call changes nothing and answers {error, field}; Google unreachable or not configured answers {error}.')]
 final class SetTripTool
 {
     public function __construct(
@@ -35,6 +35,7 @@ final class SetTripTool
         string $origin,
         #[Schema(enum: ['user', 'maggie'])]
         ?string $decidedBy = null,
+        ?string $arriveAt = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -49,7 +50,7 @@ final class SetTripTool
                 ?? throw new InvalidTripException('decidedBy', "« {$decidedBy} » is not who decided: user or maggie.");
 
             try {
-                $envelope = $this->bus->dispatch(new SetTripCommand((string) $user->getId(), $eventId, $tripMode, $origin, $decider));
+                $envelope = $this->bus->dispatch(new SetTripCommand((string) $user->getId(), $eventId, $tripMode, $origin, $decider, $arriveAt));
             } catch (HandlerFailedException $e) {
                 // A refusal or Google failing is Maggie's to read; anything else is ours.
                 $cause = $e->getPrevious() ?? $e;

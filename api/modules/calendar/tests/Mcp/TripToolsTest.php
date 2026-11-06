@@ -144,11 +144,11 @@ class TripToolsTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function setTrip(string $eventId, string $mode = 'drive', string $origin = 'position', ?string $decidedBy = null): array
+    private function setTrip(string $eventId, string $mode = 'drive', string $origin = 'position', ?string $decidedBy = null, ?string $arriveAt = null): array
     {
         $this->fake();
 
-        return json_decode((self::getContainer()->get(SetTripTool::class))($eventId, $mode, $origin, $decidedBy), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode((self::getContainer()->get(SetTripTool::class))($eventId, $mode, $origin, $decidedBy, $arriveAt), true, 512, JSON_THROW_ON_ERROR);
     }
 
     /** @return array<string, mixed> */
@@ -230,6 +230,49 @@ class TripToolsTest extends KernelTestCase
         // To the event's owner, through its agenda.
         $topics = array_merge(...array_map(static fn ($update): array => $update->getTopics(), $this->getMercureHub()->getUpdates()));
         self::assertContains('/users/'.$this->id('test_user').$topic, $topics);
+    }
+
+    public function testAWholeDayEventWithAnArrivalGetsATripCountedBackFromIt(): void
+    {
+        $this->atHomeWithTheCarAway();
+
+        $result = $this->setTrip($this->id('holiday'), 'drive', 'position', 'user', '2026-11-03T16:00:00');
+
+        self::assertTrue($result['success'] ?? false, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertSame('2026-11-03T15:34:00+01:00', $result['trip']['departAt']);
+        self::assertSame('2026-11-03T16:00:00+01:00', $result['trip']['arriveAt']);
+        $trips = $this->storedTrips();
+        self::assertCount(1, $trips);
+        self::assertEquals(new \DateTimeImmutable('2026-11-03T16:00:00+01:00'), $trips[0]->getArriveAt());
+        self::assertEquals(new \DateTimeImmutable('2026-11-03T15:34:00+01:00'), $trips[0]->getDepartAt());
+        self::assertSame(TripDecider::User, $trips[0]->getOriginDecidedBy());
+        $payload = $this->mercurePayloadsOn('/api/trips/'.$trips[0]->getId())[0];
+        self::assertSame('2026-11-03T16:00:00+01:00', $payload['arriveAt']);
+
+        $listed = $this->listTrips('2026-11-03');
+        self::assertSame('2026-11-03T16:00:00+01:00', $listed['trips'][0]['arriveAt']);
+    }
+
+    public function testATimedEventHasNoArriveAt(): void
+    {
+        $this->atHomeWithTheCarAway();
+
+        $result = $this->setTrip($this->id('dentist'));
+
+        self::assertArrayNotHasKey('arriveAt', $result['trip']);
+        self::assertNull($this->storedTrips()[0]->getArriveAt());
+    }
+
+    public function testArriveAtIsRefusedForATimedEventAndForNonsense(): void
+    {
+        $this->atHomeWithTheCarAway();
+
+        $timed = $this->setTrip($this->id('dentist'), 'drive', 'position', null, '2026-11-03T16:00:00');
+        $nonsense = $this->setTrip($this->id('holiday'), 'drive', 'position', null, 'vers 16 h');
+
+        self::assertSame('arriveAt', $timed['field']);
+        self::assertSame('arriveAt', $nonsense['field']);
+        self::assertSame([], $this->storedTrips());
     }
 
     public function testASecondSetTripReplacesTheTripInPlace(): void

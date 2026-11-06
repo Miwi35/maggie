@@ -33,7 +33,7 @@ class TripRecheck
         $decidedBy = $trip->getOriginDecidedBy();
 
         try {
-            $estimate = $this->planner->estimate($event, $trip->getMode(), $this->origin($trip));
+            $estimate = $this->planner->estimate($event, $trip->getMode(), $this->origin($trip), $trip->getArriveAt());
         } catch (InvalidTripException|RoutingException) {
             return TripRecheckOutcome::NeedsChoice;
         }

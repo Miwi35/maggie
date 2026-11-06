@@ -39,6 +39,9 @@ final class TripJson
             'navigationUrl' => $trip->getNavigationUrl(),
             'computedAt' => $trip->getComputedAt()->setTimezone($paris)->format(\DATE_ATOM),
         ];
+        if (null !== $trip->getArriveAt()) {
+            $json['arriveAt'] = $trip->getArriveAt()->setTimezone($paris)->format(\DATE_ATOM);
+        }
         if (null !== $trip->getCarLatitude() && null !== $trip->getCarLongitude()) {
             $json['carLatitude'] = $trip->getCarLatitude();
             $json['carLongitude'] = $trip->getCarLongitude();
