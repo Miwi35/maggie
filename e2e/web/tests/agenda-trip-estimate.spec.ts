@@ -38,7 +38,8 @@ const HOME = { latitude: 48.11, longitude: -1.68 }
 const CAR = { latitude: 48.1127, longitude: -1.68 }
 const DENTIST_PARKING = '48.119,-1.6672'
 
-test('by car from home, the car 300 m away: walk 4, drive 14 to the parking, walk 3 — leave at 13:34', async ({ api }) => {
+test('by car from home, the car 300 m away: walk 4, drive 14 to the parking, walk 3 — leave at 13:34', async ({ tripEstimateUser }) => {
+  const { api } = tripEstimateUser
   const day = parisDay()
   const created = await callMcpTool(api, 'create_event', {
     title: 'Dentiste',
@@ -76,7 +77,8 @@ test('by car from home, the car 300 m away: walk 4, drive 14 to the parking, wal
   expect(drive.navigationUrl).toContain(`ll=${DENTIST_PARKING}`)
 })
 
-test('an event without a location is refused, naming the event', async ({ api }) => {
+test('an event without a location is refused, naming the event', async ({ tripEstimateUser }) => {
+  const { api } = tripEstimateUser
   const day = parisDay()
   const created = await callMcpTool(api, 'create_event', {
     title: 'Appel sans lieu',
@@ -94,7 +96,8 @@ test('an event without a location is refused, naming the event', async ({ api })
   expect(String(refused.error)).toMatch(/has no location/)
 })
 
-test('a mode without a route is unavailable and the car trip is kept — MAG-665', async ({ api }) => {
+test('a mode without a route is unavailable and the car trip is kept — MAG-665', async ({ tripEstimateUser }) => {
+  const { api } = tripEstimateUser
   const day = parisDay()
   const created = await callMcpTool(api, 'create_event', {
     title: 'Déjeuner à la campagne',

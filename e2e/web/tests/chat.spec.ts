@@ -749,9 +749,9 @@ test('a question about the web runs the web search and the answer shows its sour
  * over HTTP, without the browser.
  */
 test('a dictated sentence reaches the input cleaned, and sending it writes to the grocery list', async ({
-  page,
-  api,
+  voiceUser,
 }) => {
+  const { page, api } = voiceUser
   const dashboard = new HomePage(page)
   await dashboard.open()
 

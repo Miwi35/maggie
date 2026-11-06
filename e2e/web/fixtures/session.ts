@@ -365,3 +365,8 @@ export function storageStateOf(baseURL: string, session: Session): SessionStorag
     ],
   }
 }
+
+/** Own accounts for the journeys that set a shared state and collided with a neighbour in a lot (MAG-745). */
+export const TRIP_ESTIMATE_USER_EMAIL = 'e2e-trip-estimate@maggie.local'
+export const REPLAN_USER_EMAIL = 'e2e-replan@maggie.local'
+export const VOICE_USER_EMAIL = 'e2e-voice@maggie.local'
