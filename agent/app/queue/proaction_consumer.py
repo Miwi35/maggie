@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 import aio_pika
 
+from app.bilan import bilan_answered, is_bilan_relance
 from app.db.journal_repository import journal_repo
 from app.db.message_repository import message_repo
 from app.error_tracking import PROACTION_FAILED, capture_signal
@@ -113,6 +114,13 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
     clock = time.monotonic()
     result: dict | None = None
     try:
+        # The evening review's one nudge (MAG-749) goes only to a user who has not taken the review up.
+        if is_bilan_relance(proaction.summary) and await bilan_answered(
+            proaction.user_id, started_at.astimezone(await resolve_user_timezone(proaction.user_id)).date().isoformat()
+        ):
+            await _record(proaction, "completed")
+            logger.info(f"Proaction {proaction_id} skipped: the bilan was already answered")
+            return {"status": "completed", "message": None, "toolCalls": []}
         result = await gateway.proaction(proaction.prompt, proaction.user_id, summary=proaction.summary)
         # A trip check or replan (MAG-657) is a log, not a message: the departure alert is the API's.
         if result["response"] and not is_silent_trip_run(proaction.summary):

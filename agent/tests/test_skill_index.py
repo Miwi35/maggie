@@ -219,7 +219,7 @@ class TestShippedSkills:
     async def test_the_digest_skill_is_seeded_with_its_order_and_its_screen(self, agent_db):
         index = _index()
 
-        assert await index.seed_builtin() == ["digest"]
+        assert await index.seed_builtin() == ["bilan-soir", "digest"]
         await index.rebuild()
 
         digest = await index.get("digest") or ""
@@ -229,11 +229,24 @@ class TestShippedSkills:
         assert digest.index("**Météo**") < digest.index("**Agenda**") < digest.index("**Finance**")
         assert index.store.load("digest") is not None
 
+    async def test_the_bilan_soir_skill_names_its_five_steps_in_order_and_its_tools(self, agent_db):
+        index = _index()
+        await index.seed_builtin()
+        await index.rebuild()
+
+        bilan = await index.get("bilan-soir") or ""
+        steps = ["`journee`", "`finance`", "`sante`", "`consignes`", "`demain`"]
+        assert [bilan.index(step) for step in steps] == sorted(bilan.index(step) for step in steps)
+        for tool in ("get_activity_status", "save_bilan_step", "get_finance_scores", "get_tasks"):
+            assert tool in bilan
+        assert "sans verdict" in bilan
+        assert "moment:bilan-soir" in bilan
+
     async def test_the_owners_copy_is_never_overwritten(self, agent_db):
         index = _index()
         await index.create("digest", "le mien", [], "Mon digest à moi", user_id="u")
 
-        assert await index.seed_builtin() == []
+        assert await index.seed_builtin() == ["bilan-soir"]
 
         assert "Mon digest à moi" in (await index.get("digest") or "")
 
