@@ -165,10 +165,13 @@ tags:
     timeout: 20000
 - tapOn:
     id: "task_detail_edit"
-- scrollUntilVisible:
-    element:
-      id: "task_form_delete"
+# « Supprimer » is the form's last row, and since the « Programmée » field (MAG-718) it starts under the
+# phone's gesture bar: `scrollUntilVisible` takes it as visible without scrolling and the tap lands on the
+# bar. Scroll the form to its end first (`scroll-list-end` says why), then tap.
+- extendedWaitUntil:
+    visible: "Modifier la tâche"
     timeout: 20000
+- runFlow: ../subflows/scroll-list-end.yaml
 - tapOn:
     id: "task_form_delete"
 - extendedWaitUntil:
