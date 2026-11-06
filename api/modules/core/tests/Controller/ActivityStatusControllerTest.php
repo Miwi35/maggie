@@ -299,6 +299,84 @@ class ActivityStatusControllerTest extends WebTestCase
         $this->assertMercureUpdateCount(0);
     }
 
+    /** @return array<string, mixed> */
+    private static function bilan(string $step = 'journee'): array
+    {
+        return [
+            'origin' => ['kind' => 'day', 'id' => '2026-10-25'],
+            'state' => [
+                'step' => $step,
+                'answers' => ['tasks' => [['taskId' => 't1', 'choice' => 'tomorrow']], 'mood' => 4, 'fatigue' => 2, 'note' => 'Longue journée'],
+                'instructions' => [['id' => 'i1', 'text' => 'Appeler le dentiste', 'kind' => 'task', 'targetId' => 't1']],
+            ],
+        ];
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function badBilans(): iterable
+    {
+        $valid = self::bilan();
+
+        yield 'unknown step' => [['origin' => $valid['origin'], 'state' => ['step' => 'sommeil']]];
+        yield 'step not a string' => [['origin' => $valid['origin'], 'state' => ['step' => 3]]];
+        yield 'unknown choice' => [['origin' => $valid['origin'], 'state' => ['answers' => ['tasks' => [['taskId' => 't1', 'choice' => 'never']]]]]];
+        yield 'task without id' => [['origin' => $valid['origin'], 'state' => ['answers' => ['tasks' => [['choice' => 'done']]]]]];
+        yield 'answers a list' => [['origin' => $valid['origin'], 'state' => ['answers' => [1]]]];
+        yield 'unknown kind' => [['origin' => $valid['origin'], 'state' => ['instructions' => [['id' => 'i', 'text' => 'x', 'kind' => 'order']]]]];
+        yield 'instruction without text' => [['origin' => $valid['origin'], 'state' => ['instructions' => [['id' => 'i', 'kind' => 'task']]]]];
+        yield 'instructions an object' => [['origin' => $valid['origin'], 'state' => ['instructions' => new \stdClass()]]];
+        yield 'origin kind of another activity' => [['origin' => ['kind' => 'recipe', 'id' => '2026-10-25'], 'state' => $valid['state']]];
+        yield 'origin id not a day' => [['origin' => ['kind' => 'day', 'id' => 'hier'], 'state' => $valid['state']]];
+        yield 'origin id an impossible day' => [['origin' => ['kind' => 'day', 'id' => '2026-02-30'], 'state' => $valid['state']]];
+    }
+
+    /** @param array<string, mixed> $body */
+    #[DataProvider('badBilans')]
+    public function testABadBilanReturns400AndWritesNothing(array $body): void
+    {
+        $response = $this->request('PUT', self::ENDPOINT.'/bilan', $body);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertIsString($response['error'] ?? null);
+        self::assertSame([], $this->storedFor('test_user'));
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testABilanIsCreatedThenReplacedAndDeletedWithMercure(): void
+    {
+        $topic = '/api/activity-status/bilan';
+        $created = $this->request('PUT', self::ENDPOINT.'/bilan', self::bilan());
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('bilan', $created['activity']);
+        self::assertSame(['kind' => 'day', 'id' => '2026-10-25'], $created['origin']);
+        self::assertSame(self::bilan()['state'], $created['state']);
+        $this->assertMercurePublishedOnce($topic);
+        $this->assertNoElasticsearchIndexDispatched(ActivityStatus::class);
+
+        $this->resetMercure();
+        $replaced = $this->request('PUT', self::ENDPOINT.'/bilan', self::bilan('finance'));
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame('finance', $replaced['state']['step']);
+        self::assertCount(1, $this->storedFor('test_user'), 'one row per user');
+        $this->assertMercurePublishedOnce($topic);
+
+        $this->resetMercure();
+        $this->request('DELETE', self::ENDPOINT.'/bilan');
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame([], $this->storedFor('test_user'));
+        $this->assertMercureDeletePublished($topic);
+    }
+
+    public function testABilanWithOnlyAStepIsAccepted(): void
+    {
+        $this->request('PUT', self::ENDPOINT.'/bilan', ['origin' => ['kind' => 'day', 'id' => '2026-10-25'], 'state' => ['step' => 'demain']]);
+
+        self::assertResponseStatusCodeSame(201);
+    }
+
     private function assertElasticsearchDeleteDispatchedNowhere(): void
     {
         $deletes = array_filter(
