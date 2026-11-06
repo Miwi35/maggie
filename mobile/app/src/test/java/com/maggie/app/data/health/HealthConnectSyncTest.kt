@@ -276,7 +276,7 @@ class HealthConnectSyncTest {
     }
 
     @Test
-    fun `another app's client id is not a Workout id: its session is imported`() = runTest {
+    fun `another app's client id is not a Workout id, so its session is imported`() = runTest {
         gateway.sessions += session("hc-gadget", clientRecordId = "gadgetbridge-42")
 
         sync.run()
