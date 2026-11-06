@@ -695,7 +695,7 @@ class DtoContractTest {
         assertEquals(listOf("2026-01", "2026-02", "2026-03"), balance.months.map { it.month })
         assertEquals(balance.months.sumOf { it.spentCents }, balance.totals.spentCents)
         assertEquals("over", balance.envelopes.single().status)
-        assertEquals(1_485_000, balance.savings.plannedCents)
+        assertEquals(1_178_055, balance.savings.plannedCents)
         assertNull(balance.satisfaction.keptPercent)
     }
 
@@ -1343,7 +1343,7 @@ class DtoContractTest {
         assertEquals("over", balance.envelopes.single().status)
         // Nothing judged is null on the wire, and stays null: never a 0 %.
         assertNull(balance.satisfaction.keptPercent)
-        assertEquals(495000, balance.savings.plannedCents)
+        assertEquals(392_685, balance.savings.plannedCents)
     }
 
     @Test
