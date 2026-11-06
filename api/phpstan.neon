@@ -11,3 +11,7 @@ parameters:
         - src/Kernel.php
     symfony:
         containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+    ignoreErrors:
+        -
+            identifier: trait.unused
+            path: '%currentWorkingDirectory%/packages/*/src/*'

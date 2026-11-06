@@ -116,6 +116,7 @@ fill_api() {
         -v "$REPO_ROOT/api/composer.json":/app/composer.json:ro \
         -v "$REPO_ROOT/api/composer.lock":/app/composer.lock:ro \
         -v "$REPO_ROOT/api/modules":/app/modules:ro \
+        -v "$REPO_ROOT/api/packages":/app/packages:ro \
         -v "$target":/app/vendor \
         -v "$CACHE_ROOT/composer":/tmp/composer \
         -w /app \
