@@ -168,7 +168,7 @@ test('the dialog that creates an event edits it with the same fields', async ({ 
   await calendar.openEvent(String(stored.id), created.summary)
   await calendar.editFromPopover()
   const dialog = calendar.editEventDialog
-  await expect(dialog.getByLabel('Titre')).toHaveValue(created.summary)
+  await expect(dialog.getByLabel('Titre', { exact: true })).toHaveValue(created.summary)
   await expect(dialog.getByLabel('Lieu')).toHaveValue('Atelier des Lilas')
   await expect(dialog.getByLabel('Description')).toHaveValue('Apporter un tablier')
   await expect(dialog.getByRole('combobox', { name: 'Répéter' })).toBeVisible()

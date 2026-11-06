@@ -6,8 +6,8 @@ import { callMcpTool } from '../helpers/mcp.js'
  * Se réadapter — MAG-656 (« Partir à l'heure », part 7, extends MAG-100).
  *
  * No screen yet: when the plan of the day no longer holds, the API wakes Maggie
- * by filing a « Replanifier les trajets » proaction, asserted on `list_proactions`.
- * The recompute itself is hers (the agent). Google is WireMock, as in
+ * by filing a « Replanifier les trajets » proaction, asserted on `list_proactions`; a departure that only slides is kept silently, asserted on `/api/trips`.
+ * The API recomputes the trips itself (MAG-729) and wakes her only for a real choice. Google is WireMock, as in
  * agenda-trips.spec.ts.
  */
 
@@ -74,12 +74,17 @@ async function dentistWithTrip(api: APIRequestContext): Promise<{ eventId: strin
   return { eventId, day }
 }
 
-test('an event of today that moves wakes Maggie to replan the trips, now', async ({ replanUser }) => {
-  const { api } = replanUser
-  const { eventId, day } = await dentistWithTrip(api)
-  await clearPendingReplans(api)
-  const known = new Set((await replanProactions(api)).map((proaction) => proaction.id))
+async function tripDepartAt(api: APIRequestContext, day: string, eventId: string): Promise<number | undefined> {
+  const listed = await api.get(`/api/trips?date=${day}`, { headers: { Accept: 'application/ld+json' } })
+  expect(listed.status()).toBe(200)
+  const trip = ((await listed.json()) as { member: { event: string; departAt: string }[] }).member.find(
+    (candidate) => candidate.event === `/api/events/${eventId}`,
+  )
 
+  return trip === undefined ? undefined : new Date(trip.departAt).getTime()
+}
+
+async function moveOneHourLater(api: APIRequestContext, eventId: string, day: string, from: number): Promise<void> {
   const moved = await callMcpTool(api, 'update_event', {
     id: eventId,
     start_date: day,
@@ -89,25 +94,56 @@ test('an event of today that moves wakes Maggie to replan the trips, now', async
   })
   expect(moved.error, JSON.stringify(moved)).toBeUndefined()
 
-  const replan = await newReplan(api, known)
-  expect(replan.prompt).toContain(`Replanifier les trajets du ${day}`)
-  // Scheduled for now: the stack's clock, within a minute either way.
-  expect(Math.abs(new Date(replan.scheduledAt).getTime() - e2eNow().getTime())).toBeLessThan(60_000)
+  await expect
+    .poll(async () => await tripDepartAt(api, day, eventId), { message: 'the departure should slide with the event, without the model' })
+    .toBe(from + 3_600_000)
+}
 
+test('an event of today that moves slides the departure, and wakes nobody', async ({ replanUser }) => {
+  const { api } = replanUser
+  const { eventId, day } = await dentistWithTrip(api)
+  await clearPendingReplans(api)
+  const known = new Set((await replanProactions(api)).map((proaction) => proaction.id))
+  const before = (await tripDepartAt(api, day, eventId))!
+
+  await moveOneHourLater(api, eventId, day, before)
+
+  expect((await replanProactions(api)).filter((proaction) => !known.has(proaction.id))).toEqual([])
   expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
 
-test('a position 2 km from the origin of the next trip wakes Maggie, once no replan is pending', async ({ replanUser }) => {
+test('a position 2 km from the origin of the next trip is recomputed by the API, and wakes nobody', async ({ replanUser }) => {
   const { api } = replanUser
-  const { eventId } = await dentistWithTrip(api)
+  const { eventId, day } = await dentistWithTrip(api)
   await clearPendingReplans(api)
   const known = new Set((await replanProactions(api)).map((proaction) => proaction.id))
+  const before = (await tripDepartAt(api, day, eventId))!
 
   const now = e2eNow().toISOString()
   expect((await api.put('/api/me/location', { data: { ...TWO_KM_AWAY, accuracy: 10, capturedAt: now } })).status()).toBe(204)
+  // The move after it is the barrier: the worker handles the messages in order, so once its effect shows
+  // the position's replan has run too.
+  await moveOneHourLater(api, eventId, day, before)
+
+  expect((await replanProactions(api)).filter((proaction) => !known.has(proaction.id))).toEqual([])
+  expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
+})
+
+test('an event of today moved to a place Google cannot find wakes Maggie, who is told which', async ({ replanUser }) => {
+  const { api } = replanUser
+  const { eventId, day } = await dentistWithTrip(api)
+  await clearPendingReplans(api)
+  const known = new Set((await replanProactions(api)).map((proaction) => proaction.id))
+
+  const moved = await callMcpTool(api, 'update_event', { id: eventId, location: 'Lieu Introuvable' })
+  expect(moved.error, JSON.stringify(moved)).toBeUndefined()
 
   const replan = await newReplan(api, known)
-  expect(replan.prompt).toContain('Replanifier les trajets du')
+  expect(replan.prompt).toContain(`Replanifier les trajets du ${day}`)
+  expect(replan.prompt).toContain('Dentiste')
+  expect(replan.prompt).toContain(eventId)
+  // Scheduled for now: the stack's clock, within a minute either way.
+  expect(Math.abs(new Date(replan.scheduledAt).getTime() - e2eNow().getTime())).toBeLessThan(60_000)
 
   expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })

@@ -58,9 +58,8 @@ async function run(api: APIRequestContext, message: string): Promise<void> {
   expect(response.status(), `the proaction failed: ${await response.text()}`).toBe(200)
 }
 
-test('the planning keeps the trip by car and posts two checks, and an event that moves replans it', async ({ api }) => {
-  // Two agent runs (the planning, then the replan the move files) and the proactions between them: more than
-  // the default 90 s on a loaded runner.
+test('the planning keeps the trip by car and posts two checks, and an event that moves slides its departure', async ({ api }) => {
+  // The planning is an agent run: more than the default 90 s on a loaded runner.
   test.setTimeout(180_000)
   const day = parisDay()
   const now = e2eNow().toISOString()
@@ -105,7 +104,7 @@ test('the planning keeps the trip by car and posts two checks, and an event that
     new Date(parisTime(day, '13:24:00')).getTime(),
   ])
 
-  const known = new Set((await proactionsOf(api, REPLAN_SUMMARY)).map((proaction) => proaction.id))
+  // The move does not wake Maggie: the API computes the trip again itself and keeps the new departure.
   const moved = await callMcpTool(api, 'update_event', {
     id: eventId,
     start_date: day,
@@ -115,19 +114,11 @@ test('the planning keeps the trip by car and posts two checks, and an event that
   })
   expect(moved.error, JSON.stringify(moved)).toBeUndefined()
 
-  let replan: ListedProaction | undefined
   await expect
-    .poll(async () => {
-      replan = (await proactionsOf(api, REPLAN_SUMMARY)).find((proaction) => !known.has(proaction.id))
-
-      return replan !== undefined
-    }, { message: 'moving the event should have filed a « Replanifier les trajets » proaction' })
-    .toBe(true)
-
-  await run(api, replan!.prompt)
-
-  const replanned = await tripOf(api, day, eventId)
-  expect(new Date(replanned!.departAt).getTime()).toBe(new Date(parisTime(day, '14:34:00')).getTime())
+    .poll(async () => new Date((await tripOf(api, day, eventId))!.departAt).getTime(), {
+      message: 'moving the event should have moved the departure of the trip, without the model',
+    })
+    .toBe(new Date(parisTime(day, '14:34:00')).getTime())
 
   expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
