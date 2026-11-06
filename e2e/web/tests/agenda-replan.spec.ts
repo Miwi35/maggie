@@ -64,6 +64,22 @@ async function newReplan(api: APIRequestContext, known: Set<string>): Promise<Li
   return found!
 }
 
+/** Events created by the running test, removed even when it fails so a retry starts from nothing. */
+const createdEvents: string[] = []
+
+// One account is shared by the tests: the replan dedup is per user, so they run one after the other.
+test.describe.configure({ mode: 'default' })
+
+test.afterEach(async ({ replanUser }) => {
+  const { api } = replanUser
+  for (const eventId of createdEvents.splice(0)) {
+    await api.delete(`/api/events/${eventId}`)
+  }
+  for (const proaction of (await replanProactions(api)).filter((candidate) => candidate.status === 'pending')) {
+    await callMcpTool(api, 'cancel_proaction', { id: proaction.id })
+  }
+})
+
 async function dentistWithTrip(api: APIRequestContext): Promise<{ eventId: string; day: string }> {
   const day = parisDay()
   const created = await callMcpTool(api, 'create_event', {
@@ -76,6 +92,7 @@ async function dentistWithTrip(api: APIRequestContext): Promise<{ eventId: strin
   })
   expect(created.error, JSON.stringify(created)).toBeUndefined()
   const eventId = (created.event as { id: string }).id
+  createdEvents.push(eventId)
 
   const now = e2eNow().toISOString()
   await expect
@@ -124,7 +141,6 @@ test('an event of today that moves slides the departure, and wakes nobody', asyn
   await moveOneHourLater(api, eventId, day, before)
 
   expect((await replanProactions(api)).filter((proaction) => !known.has(proaction.id))).toEqual([])
-  expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
 
 test('a position 2 km from the origin of the next trip is recomputed by the API, and wakes nobody', async ({ replanUser }) => {
@@ -141,7 +157,6 @@ test('a position 2 km from the origin of the next trip is recomputed by the API,
   await moveOneHourLater(api, eventId, day, before)
 
   expect((await replanProactions(api)).filter((proaction) => !known.has(proaction.id))).toEqual([])
-  expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
 
 test('an event of today moved to a place Google cannot find wakes Maggie, who is told which', async ({ replanUser }) => {
@@ -160,5 +175,4 @@ test('an event of today moved to a place Google cannot find wakes Maggie, who is
   // Scheduled for now: the stack's clock, within a minute either way.
   expect(Math.abs(new Date(replan.scheduledAt).getTime() - e2eNow().getTime())).toBeLessThan(60_000)
 
-  expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
