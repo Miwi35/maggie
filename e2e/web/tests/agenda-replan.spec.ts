@@ -31,11 +31,14 @@ async function replanProactions(api: APIRequestContext): Promise<ListedProaction
 }
 
 /** Nothing pending: the dedup would swallow the replan the journey waits for. */
-async function clearPendingReplans(api: APIRequestContext): Promise<void> {
-  // The event's creation files its own replan asynchronously: wait for it, so it cannot land after the snapshot.
+async function clearPendingReplans(api: APIRequestContext, eventId: string): Promise<void> {
+  // The event's creation files its own replan asynchronously: wait for the one that names this event (a replan
+  // left by an earlier test or attempt must not satisfy the wait), so it cannot land after the snapshot.
   await expect
-    .poll(async () => (await replanProactions(api)).length, { message: 'the replan due to the creation should have been filed' })
-    .toBeGreaterThan(0)
+    .poll(async () => (await replanProactions(api)).some((proaction) => proaction.prompt.includes(eventId)), {
+      message: 'the replan due to the creation should have been filed',
+    })
+    .toBe(true)
 
   for (const proaction of (await replanProactions(api)).filter((candidate) => candidate.status === 'pending')) {
     const cancelled = await callMcpTool(api, 'cancel_proaction', { id: proaction.id })
@@ -75,7 +78,11 @@ async function dentistWithTrip(api: APIRequestContext): Promise<{ eventId: strin
   const eventId = (created.event as { id: string }).id
 
   const now = e2eNow().toISOString()
-  expect((await api.put('/api/me/location', { data: { ...HOME, accuracy: 10, capturedAt: now } })).status()).toBe(204)
+  await expect
+    .poll(async () => (await api.put('/api/me/location', { data: { ...HOME, accuracy: 10, capturedAt: now } })).status(), {
+      message: 'the position should be accepted',
+    })
+    .toBe(204)
   const kept = await callMcpTool(api, 'set_trip', { eventId, mode: 'walk', origin: 'position' })
   expect(kept.error, JSON.stringify(kept)).toBeUndefined()
 
@@ -110,7 +117,7 @@ async function moveOneHourLater(api: APIRequestContext, eventId: string, day: st
 test('an event of today that moves slides the departure, and wakes nobody', async ({ replanUser }) => {
   const { api } = replanUser
   const { eventId, day } = await dentistWithTrip(api)
-  await clearPendingReplans(api)
+  await clearPendingReplans(api, eventId)
   const known = new Set((await replanProactions(api)).map((proaction) => proaction.id))
   const before = (await tripDepartAt(api, day, eventId))!
 
@@ -123,7 +130,7 @@ test('an event of today that moves slides the departure, and wakes nobody', asyn
 test('a position 2 km from the origin of the next trip is recomputed by the API, and wakes nobody', async ({ replanUser }) => {
   const { api } = replanUser
   const { eventId, day } = await dentistWithTrip(api)
-  await clearPendingReplans(api)
+  await clearPendingReplans(api, eventId)
   const known = new Set((await replanProactions(api)).map((proaction) => proaction.id))
   const before = (await tripDepartAt(api, day, eventId))!
 
@@ -140,7 +147,7 @@ test('a position 2 km from the origin of the next trip is recomputed by the API,
 test('an event of today moved to a place Google cannot find wakes Maggie, who is told which', async ({ replanUser }) => {
   const { api } = replanUser
   const { eventId, day } = await dentistWithTrip(api)
-  await clearPendingReplans(api)
+  await clearPendingReplans(api, eventId)
   const known = new Set((await replanProactions(api)).map((proaction) => proaction.id))
 
   const moved = await callMcpTool(api, 'update_event', { id: eventId, location: 'Lieu Introuvable' })
