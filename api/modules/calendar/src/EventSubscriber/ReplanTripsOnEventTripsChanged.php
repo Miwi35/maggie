@@ -39,7 +39,7 @@ final class ReplanTripsOnEventTripsChanged
         $reason = match ($event->change) {
             EventTripsChangedEvent::CREATED => ReplanTripsCommand::EVENT_CREATED,
             EventTripsChangedEvent::DELETED => ReplanTripsCommand::EVENT_DELETED,
-            default => ReplanTripsCommand::EVENT_UPDATED,
+            default => $event->locationAdded ? ReplanTripsCommand::EVENT_LOCATED : ReplanTripsCommand::EVENT_UPDATED,
         };
 
         $this->commandBus->dispatch(new ReplanTripsCommand($event->userId, $reason));

@@ -12,6 +12,7 @@ use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Exception\InvalidTripException;
 use Maggie\Calendar\Repository\TripRepository;
 use Maggie\Calendar\Routing\RoutingException;
+use Maggie\Calendar\Service\TripEstimate;
 use Maggie\Calendar\Service\TripPlanner;
 use Psr\Clock\ClockInterface;
 
@@ -36,8 +37,12 @@ class SetTrip
      */
     public function execute(Event $event, TripMode $mode, string $origin, TripDecider $decidedBy): Trip
     {
-        $estimate = $this->planner->estimate($event, $mode, $origin);
+        return $this->keep($event, $this->planner->estimate($event, $mode, $origin), $decidedBy);
+    }
 
+    /** Keeps an estimate already computed: the event's trip is replaced in place. */
+    public function keep(Event $event, TripEstimate $estimate, TripDecider $decidedBy): Trip
+    {
         $trip = $this->trips->findOneByEvent($event);
         if (null === $trip) {
             $trip = new Trip($event);

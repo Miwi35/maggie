@@ -68,8 +68,8 @@ def trip_run_rules(summary: str) -> str:
     """The preamble of a check or a replan, which replaces the execution preamble: no message for the chat."""
     if is_trip_replan(summary):
         goal = (
-            "Les trajets du jour ne tiennent plus (un événement a bougé, l'utilisateur ou sa voiture est ailleurs). "
-            "Replanifie-les. "
+            "L'API a déjà recalculé les trajets du jour qui tiennent encore. Le prompt cite les événements qui "
+            "restent à traiter : replanifie ceux-là, et seulement ceux-là. "
         )
     else:
         goal = f"C'est un {summary.split(' · ')[0].lower()} : le départ approche, vérifie que le trajet tient encore. "
@@ -79,7 +79,13 @@ def trip_run_rules(summary: str) -> str:
         + goal
         + "Ton output est un log interne : il n'est pas envoyé à l'utilisateur, l'alerte de départ est celle de l'API. "
         "1. Lis les trajets enregistrés (list_trips) et les événements du jour. "
-        "2. Pour chaque trajet qui n'est pas passé, recalcule-le depuis la position réelle : estimate_trip avec "
+        "2. Pour chaque "
+        + (
+            "événement cité dans le prompt (sans trajet, choisis l'origine et le mode comme à la carte du matin)"
+            if is_trip_replan(summary)
+            else "trajet qui n'est pas passé"
+        )
+        + ", recalcule-le depuis la position réelle : estimate_trip avec "
         "l'origine `position` — sauf si originDecidedBy=user, dont l'origine reste celle de l'utilisateur "
         "(list_trips la donne en kind et id : `position`, `place:<id>` ou `event:<id>`). "
         f"3. Si le departAt recalculé a bougé de plus de {DEPART_TOLERANCE_MINUTES} minutes, "

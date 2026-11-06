@@ -8,6 +8,7 @@ use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Entity\User;
@@ -52,6 +53,34 @@ class EventRepository extends ServiceEntityRepository
         return $this->dateRangeQueryBuilder($start, $end)
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * The user's timed events starting within [$from, $to) that have a location and no trip yet,
+     * module agendas left out: the trips a replan owes a plan for (MAG-729).
+     *
+     * @return list<Event>
+     */
+    public function findLocatedWithoutTrip(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $queryBuilder = $this->createQueryBuilder('e')
+            ->join('e.agenda', 'a')
+            ->where('a.user = :user')
+            ->andWhere('a.module IS NULL')
+            ->andWhere('e.status != :cancelled')
+            ->andWhere('e.rrule IS NULL')
+            ->andWhere('e.startAt >= :from AND e.startAt < :to')
+            ->andWhere("e.location IS NOT NULL AND e.location != ''")
+            ->andWhere('NOT EXISTS (SELECT t.id FROM '.Trip::class.' t WHERE t.event = e)')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('cancelled', EventStatus::Cancelled)
+            ->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('to', $to, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('e.startAt', 'ASC');
+        IndexMetadataReader::restrictToOwnRows($queryBuilder, 'e', Event::class);
+
+        /* @var list<Event> */
+        return $queryBuilder->getQuery()->getResult();
     }
 
     /**

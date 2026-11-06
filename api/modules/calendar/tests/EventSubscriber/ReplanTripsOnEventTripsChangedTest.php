@@ -89,7 +89,7 @@ class ReplanTripsOnEventTripsChangedTest extends TestCase
 
         $this->subscriber($bus, false)(new EventTripsChangedEvent('01J0EVENT', '01J0USER', EventTripsChangedEvent::UPDATED, true));
 
-        self::assertEquals([new ReplanTripsCommand('01J0USER', ReplanTripsCommand::EVENT_UPDATED)], $bus->sent);
+        self::assertEquals([new ReplanTripsCommand('01J0USER', ReplanTripsCommand::EVENT_LOCATED)], $bus->sent);
         self::assertSame([], $this->asked);
     }
 }
