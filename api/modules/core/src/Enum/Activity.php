@@ -12,6 +12,7 @@ enum Activity: string
 {
     case Cuisine = 'cuisine';
     case Comptes = 'comptes';
+    case Bilan = 'bilan';
 
     /**
      * What may launch it: the `origin.kind` of its status.
@@ -23,6 +24,7 @@ enum Activity: string
         return match ($this) {
             self::Cuisine => ['meal', 'recipe'],
             self::Comptes => ['review'],
+            self::Bilan => ['day'],
         };
     }
 

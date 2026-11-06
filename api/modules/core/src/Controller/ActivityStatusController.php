@@ -11,6 +11,7 @@ use Maggie\Core\Enum\Activity;
 use Maggie\Core\Message\DeleteActivityStatusCommand;
 use Maggie\Core\Message\SaveActivityStatusCommand;
 use Maggie\Core\Repository\ActivityStatusRepository;
+use Maggie\Core\Service\BilanStateValidator;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -122,6 +123,13 @@ final class ActivityStatusController
         $encoded = json_encode($state, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_PRESERVE_ZERO_FRACTION);
         if (\strlen($encoded) > ActivityStatus::MAX_STATE_BYTES) {
             return self::badRequest(\sprintf('state must be at most %d bytes of JSON.', ActivityStatus::MAX_STATE_BYTES));
+        }
+
+        if (Activity::Bilan === $known) {
+            $error = BilanStateValidator::validate($id, $state);
+            if (null !== $error) {
+                return self::badRequest($error);
+            }
         }
 
         $existed = null !== $this->repository->findOneByUserAndActivity($user, $known);

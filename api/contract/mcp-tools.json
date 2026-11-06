@@ -593,6 +593,21 @@
         },
         "description": "Top up the grocery list with the recurring items that are due again; running it twice changes nothing. Meals add nothing by themselves: mealsToChoose names the meals of the date range whose ingredients the owner has not chosen yet (id, date, slot, summary) — offer to choose them with manage_meal_groceries (preview, then add). Date format: YYYY-MM-DD."
     },
+    "get_activity_status": {
+        "name": "get_activity_status",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "activity": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "activity"
+            ]
+        },
+        "description": "Read where the user stands in an activity left in progress, to resume at the right place. activity is cuisine, comptes or bilan (the evening review: step, answers, instructions). Returns the status {activity, origin, state, startedAt, updatedAt}, or null when nothing is in progress. A pure read."
+    },
     "get_day_plan": {
         "name": "get_day_plan",
         "inputSchema": {

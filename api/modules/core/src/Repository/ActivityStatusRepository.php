@@ -39,4 +39,23 @@ class ActivityStatusRepository extends ServiceEntityRepository
 
         return $this->findBy($criteria, ['updatedAt' => 'DESC', 'id' => 'ASC']);
     }
+
+    /**
+     * The statuses of an activity whose origin id sorts before `$originId`:
+     * for a day-based activity (Bilan), the ones of a day already gone.
+     *
+     * @return list<ActivityStatus>
+     */
+    public function findByActivityWithOriginIdBefore(Activity $activity, string $originId): array
+    {
+        /* @var list<ActivityStatus> */
+        return $this->createQueryBuilder('s')
+            ->andWhere('s.activity = :activity')
+            ->andWhere('s.originId < :originId')
+            ->setParameter('activity', $activity)
+            ->setParameter('originId', $originId)
+            ->orderBy('s.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }
