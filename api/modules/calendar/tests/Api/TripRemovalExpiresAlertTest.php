@@ -53,8 +53,9 @@ class TripRemovalExpiresAlertTest extends WebTestCase
         // Moving it filed a replanning; none must be pending when it is deleted, or the deletion files none.
         $this->em()->createQuery('DELETE FROM '.Proaction::class)->execute();
         $trip = $this->seedTrip($event);
-        // The deleted event's own trip goes with it: a replanning is only filed if another trip of the day remains.
-        $this->seedTrip($this->em()->find(Event::class, (string) $this->getFixture('office')->getId()));
+        // The deleted event's own trip goes with it: a replanning is only filed if another trip of the day is still to leave
+        // and cannot be computed again (Google is not reachable here).
+        $this->seedTrip($this->em()->find(Event::class, (string) $this->getFixture('office')->getId()), new \DateTimeImmutable('today 23:59', new \DateTimeZone('Europe/Paris')));
         $this->alert('Pars maintenant pour Dentiste', '/api/trips/'.$trip, $expiresAt);
 
         $this->client->request('DELETE', '/api/events/'.$event->getId(), [], [], $this->authHeaders());
@@ -68,14 +69,14 @@ class TripRemovalExpiresAlertTest extends WebTestCase
         self::assertCount(1, $this->em()->getRepository(Proaction::class)->findAll(), 'The deletion filed a replanning: the flush its handlers make is what this test is about.');
     }
 
-    private function seedTrip(Event $event): string
+    private function seedTrip(Event $event, ?\DateTimeImmutable $departAt = null): string
     {
         $trip = (new Trip($event))->apply(new TripEstimate(
             mode: TripMode::Walk,
             origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', 48.11, -1.68),
             steps: [new RouteLeg(TripMode::Walk, 240)],
             durationMinutes: 4,
-            departAt: new \DateTimeImmutable('-1 minute'),
+            departAt: $departAt ?? new \DateTimeImmutable('-1 minute'),
             navigationUrl: 'https://waze.com/ul?ll=48.119,-1.6672&navigate=yes',
             parkingKnown: true,
             carLatitude: null,

@@ -82,6 +82,14 @@ class TestTheTripRuns:
     def test_the_modes_are_named_as_the_api_spells_them(self):
         assert all(mode in planning_trips_rules("2030-11-14") for mode in ("drive", "transit", "walk", "bicycle"))
 
+    def test_a_replan_only_treats_the_events_the_prompt_cites(self):
+        rules = trip_run_rules(REPLAN_SUMMARY)
+
+        assert "seulement ceux-là" in rules
+        assert "cité dans le prompt" in rules
+        assert "trajet qui n'est pas passé" not in rules
+        assert "trajet qui n'est pas passé" in trip_run_rules(check_summary("Dentiste"))
+
     def test_obsolete_checks_are_cancelled_then_posted_again(self):
         rules = trip_run_rules(check_summary("Dentiste"))
 

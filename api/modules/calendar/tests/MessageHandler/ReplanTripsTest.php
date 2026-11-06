@@ -20,6 +20,7 @@ use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Service\TripEstimate;
 use Maggie\Calendar\Service\TripOrigin;
+use Maggie\Calendar\Tests\Support\FakeRoutingTrait;
 use Maggie\Core\Message\ParkCarCommand;
 use Maggie\Core\Message\ReportUserLocationCommand;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -39,6 +40,7 @@ class ReplanTripsTest extends KernelTestCase
     use FixtureLoaderTrait;
     use ElasticsearchAssertionTrait;
     use MercureAssertionTrait;
+    use FakeRoutingTrait;
 
     protected function setUp(): void
     {
@@ -47,6 +49,11 @@ class ReplanTripsTest extends KernelTestCase
         Clock::set(new MockClock('2020-01-01 12:00:00', 'Europe/Paris'));
         $this->loadFixtures(\dirname(__DIR__).'/Mcp/fixtures/EstimateTripToolTest.yaml');
         Clock::set(new MockClock('2026-11-03 10:00:00', 'Europe/Paris'));
+        $this->fakeRouting();
+        $this->routeSeconds = 600;
+        $this->routingDown = false;
+        // The phone is at home, where the seeded trips start: the position needs no push, nothing moves.
+        $this->report(48.11);
     }
 
     protected function tearDown(): void
@@ -119,6 +126,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testMovingTheStartOfATodayEventFilesAReplanProactionForNow(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->update('dentist', startAt: $this->at('2026-11-03 15:00:00'), endAt: $this->at('2026-11-03 16:00:00'));
 
@@ -132,6 +140,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testThePromptSaysWhyAndWhichDay(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->update('dentist', startAt: $this->at('2026-11-03 15:00:00'), endAt: $this->at('2026-11-03 16:00:00'));
 
@@ -142,6 +151,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testRelocatingATodayEventFilesAReplanProaction(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->update('dentist', location: '12 rue du Nouveau Cabinet Fictif');
 
@@ -150,6 +160,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testRemovingATodayEventFilesAReplanProactionWhoseReasonIsTheRemoval(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->bus()->dispatch(new DeleteEventCommand($this->id('dentist')));
 
@@ -160,6 +171,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testRemovingATodayEventStillRemovesItFromTheIndexAndTellsTheScreens(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->resetMercure();
         $this->resetAsyncTransport();
@@ -274,6 +286,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testAPositionTwoKilometresFromTheNextTripOriginFilesAReplanProaction(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('dentist');
 
         $this->report(48.128);
@@ -294,6 +307,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testAGpsPositionFarFromTheOriginFilesAReplanProaction(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('dentist');
 
         $this->report(48.128);
@@ -316,6 +330,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testACarMovedFarFromTheOneOfTheNextTripByCarFilesAReplanProaction(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('dentist', TripMode::Drive);
 
         $this->parkCar(48.1172);
@@ -336,6 +351,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testACarMovedFilesAReplanWhenALaterTripIsByCar(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:20:00');
         $this->seedTrip('office', TripMode::Drive, '2026-11-03 17:00:00');
 
@@ -344,8 +360,123 @@ class ReplanTripsTest extends KernelTestCase
         self::assertCount(1, $this->replans());
     }
 
+    private function storedTrip(string $eventRef): Trip
+    {
+        $this->em()->clear();
+
+        return $this->em()->getRepository(Trip::class)->findOneBy(['event' => $this->id($eventRef)]);
+    }
+
+    public function testAMovedPositionWithTheSameModeStillGoodOnlyKeepsTheNewDepartureAndWakesNobody(): void
+    {
+        // Transit 10 min to the 14:00 dentist leaves at 13:45: the kept 13:39 is 6 min off.
+        $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:39:00');
+
+        $this->report(48.128);
+
+        self::assertSame('2026-11-03 13:45', $this->storedTrip('dentist')->getDepartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d H:i'));
+        self::assertSame(TripMode::Transit, $this->storedTrip('dentist')->getMode());
+        self::assertSame([], $this->replans());
+    }
+
+    public function testADepartureMovedByAMinuteKeepsNothingAndWakesNobody(): void
+    {
+        $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:44:00');
+
+        $this->report(48.128);
+
+        $trip = $this->storedTrip('dentist');
+        self::assertSame('2026-11-03 13:44', $trip->getDepartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d H:i'));
+        self::assertSame('2026-11-03 09:00', $trip->getComputedAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d H:i'));
+        self::assertSame([], $this->replans());
+    }
+
+    public function testATripThatGrewByTwentyMinutesWakesMaggieWithTheEventAndKeepsTheTripAsIs(): void
+    {
+        $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:45:00');
+        $this->routeSeconds = 1800;
+
+        $this->report(48.128);
+
+        $replans = $this->replans();
+        self::assertCount(1, $replans);
+        self::assertStringContainsString('Dentiste', $replans[0]->getPrompt());
+        self::assertStringContainsString($this->id('dentist'), $replans[0]->getPrompt());
+        self::assertSame(10, $this->storedTrip('dentist')->getDurationMinutes());
+    }
+
+    public function testATripThatGrewByLessThanFifteenMinutesIsKeptWithoutWakingMaggie(): void
+    {
+        $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:45:00');
+        $this->routeSeconds = 1500;
+
+        $this->report(48.128);
+
+        self::assertSame(25, $this->storedTrip('dentist')->getDurationMinutes());
+        self::assertSame([], $this->replans());
+    }
+
+    public function testAFailedComputationWakesMaggieWithTheEvent(): void
+    {
+        $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:39:00');
+        $this->routingDown = true;
+
+        $this->report(48.128);
+
+        $replans = $this->replans();
+        self::assertCount(1, $replans);
+        self::assertStringContainsString('Dentiste', $replans[0]->getPrompt());
+        self::assertSame('2026-11-03 13:39', $this->storedTrip('dentist')->getDepartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d H:i'));
+    }
+
+    public function testATripWhoseOriginTheUserChoseKeepsItAndItsDecider(): void
+    {
+        $event = $this->em()->find(Event::class, $this->id('dentist'));
+        $this->em()->persist((new Trip($event))->apply(new TripEstimate(
+            mode: TripMode::Transit,
+            origin: new TripOrigin(TripOrigin::PLACE, $this->id('home'), 'Maison', 48.11, -1.68),
+            steps: [new RouteLeg(TripMode::Transit, 600)],
+            durationMinutes: 10,
+            departAt: $this->at('2026-11-03 13:39:00'),
+            navigationUrl: 'https://maps.test',
+            parkingKnown: false,
+        ), TripDecider::User, $this->at('2026-11-03 09:00:00')));
+        $this->em()->flush();
+
+        $this->report(48.128);
+
+        $trip = $this->storedTrip('dentist');
+        self::assertSame('2026-11-03 13:45', $trip->getDepartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m-d H:i'));
+        self::assertSame('place', $trip->getOriginKind());
+        self::assertSame($this->id('home'), $trip->getOriginRef());
+        self::assertSame(TripDecider::User, $trip->getOriginDecidedBy());
+        self::assertSame([], $this->replans());
+    }
+
+    public function testATripThatAlreadyLeftIsNotComputedAgain(): void
+    {
+        $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 09:00:00');
+        $this->routingDown = true;
+
+        $this->report(48.128);
+
+        self::assertSame([], $this->replans());
+    }
+
+    public function testAnEventWithALocationAndNoTripNamesItselfInThePromptOfACreation(): void
+    {
+        $this->bus()->dispatch(new ReplanTripsCommand($this->id('test_user'), ReplanTripsCommand::EVENT_CREATED));
+
+        $prompts = array_map(static fn (Proaction $p): string => $p->getPrompt(), $this->replans());
+        self::assertCount(1, $prompts);
+        self::assertStringContainsString('Dentiste', $prompts[0]);
+        self::assertStringContainsString('pas de trajet', $prompts[0]);
+        self::assertStringNotContainsString('Appel', $prompts[0], 'no location, nothing to plan');
+    }
+
     public function testTwoTriggersWhileOneIsPendingFileOneProaction(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->update('dentist', location: '12 rue du Nouveau Cabinet Fictif');
         $this->update('dentist', startAt: $this->at('2026-11-03 15:00:00'), endAt: $this->at('2026-11-03 16:00:00'));
@@ -356,6 +487,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testOnceItRanANewTriggerFilesAnotherOne(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
         $this->update('dentist', location: '12 rue du Nouveau Cabinet Fictif');
         $first = $this->replans()[0];
@@ -376,8 +508,9 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testAnotherUsersPendingReplanDoesNotHoldBackThisOne(): void
     {
+        $this->routingDown = true;
         $this->seedTrip('office', TripMode::Transit, '2026-11-03 17:00:00');
-        $this->bus()->dispatch(new ReplanTripsCommand($this->id('other_user'), ReplanTripsCommand::EVENT_UPDATED));
+        $this->bus()->dispatch(new ReplanTripsCommand($this->id('other_user'), ReplanTripsCommand::EVENT_CREATED));
 
         $this->update('dentist', location: '12 rue du Nouveau Cabinet Fictif');
 

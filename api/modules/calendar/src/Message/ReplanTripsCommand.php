@@ -17,6 +17,8 @@ final readonly class ReplanTripsCommand
 
     public const EVENT_CREATED = 'event_created';
     public const EVENT_UPDATED = 'event_updated';
+    /** An event of today got a location it had none: a trip may be to plan for it. */
+    public const EVENT_LOCATED = 'event_located';
     public const EVENT_DELETED = 'event_deleted';
     public const POSITION_MOVED = 'position_moved';
     public const CAR_MOVED = 'car_moved';
