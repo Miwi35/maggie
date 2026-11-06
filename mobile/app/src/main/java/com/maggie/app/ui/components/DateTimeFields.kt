@@ -162,10 +162,11 @@ fun DateField(
     if (open) {
         // The calendar's month names and first weekday follow the locale of its state, not the context's.
         val state = remember {
+            val shown = (value ?: LocalDate.now()).toPickerMillis()
             DatePickerState(
                 locale = Locale.FRANCE,
-                initialSelectedDateMillis = (value ?: LocalDate.now()).toPickerMillis(),
-                initialDisplayedMonthMillis = null,
+                initialSelectedDateMillis = shown,
+                initialDisplayedMonthMillis = shown,
                 yearRange = DatePickerDefaults.YearRange,
                 initialDisplayMode = DisplayMode.Picker,
                 selectableDates = DatePickerDefaults.AllDates,

@@ -25,6 +25,9 @@ use Maggie\Notification\Push\PushMessageFactory;
 use Maggie\Notification\Repository\NotificationRepository;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\Clock;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Clock\NativeClock;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -44,9 +47,16 @@ final class DepartureReminderSourceTest extends KernelTestCase
     protected function setUp(): void
     {
         self::bootKernel();
+        Clock::set(new MockClock('2026-11-03 12:40:00 UTC'));
         $this->resetMercure();
         $this->resetAsyncTransport();
         $this->loadFixtures(\dirname(__DIR__).'/Mcp/fixtures/EstimateTripToolTest.yaml');
+    }
+
+    protected function tearDown(): void
+    {
+        Clock::set(new NativeClock());
+        parent::tearDown();
     }
 
     public function testATripNotYetDueAlertsNobody(): void
@@ -113,7 +123,7 @@ final class DepartureReminderSourceTest extends KernelTestCase
         [$notification] = $this->departures();
         $expiresAt = $notification->getExpiresAt();
         self::assertNotNull($expiresAt);
-        self::assertLessThanOrEqual(new \DateTimeImmutable(), $expiresAt);
+        self::assertLessThanOrEqual(new \DateTimeImmutable('2026-11-03 12:40:00 UTC'), $expiresAt);
         self::assertNull($notification->getReadAt(), 'It stays in the bell, readable as history.');
         $payloads = $this->mercurePayloadsOn('/api/notifications/'.$notificationId);
         self::assertNotSame([], $payloads);
@@ -131,7 +141,7 @@ final class DepartureReminderSourceTest extends KernelTestCase
         $this->em()->flush();
 
         [$notification] = $this->departures();
-        self::assertLessThanOrEqual(new \DateTimeImmutable(), $notification->getExpiresAt());
+        self::assertLessThanOrEqual(new \DateTimeImmutable('2026-11-03 12:40:00 UTC'), $notification->getExpiresAt());
     }
 
     public function testTheAlertOfAnotherTripIsLeftAlone(): void
@@ -147,10 +157,10 @@ final class DepartureReminderSourceTest extends KernelTestCase
 
         $expiries = [];
         foreach ($this->departures() as $notification) {
-            $expiries[$notification->getTitle()] = $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d');
+            $expiries[$notification->getTitle()] = $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i');
         }
-        self::assertNotSame('2026-11-03', $expiries['Pars maintenant pour Dentiste']);
-        self::assertSame('2026-11-03', $expiries['Pars maintenant pour Dentiste du voisin']);
+        self::assertSame('2026-11-03 12:40', $expiries['Pars maintenant pour Dentiste']);
+        self::assertSame('2026-11-03 13:00', $expiries['Pars maintenant pour Dentiste du voisin']);
     }
 
     /** The wiring: the factory of the container finds the trip's URL through the calendar module. */

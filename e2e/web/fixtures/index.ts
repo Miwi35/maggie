@@ -18,6 +18,9 @@ import {
   BALANCE_USER_EMAIL,
   BRAVO_USER_EMAIL,
   CUSHION_SHARE_USER_EMAIL,
+  TRIP_ESTIMATE_USER_EMAIL,
+  REPLAN_USER_EMAIL,
+  VOICE_USER_EMAIL,
   STARS_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   MEALS_USER_EMAIL,
@@ -75,6 +78,9 @@ export {
   SHORTAGE_USER_EMAIL,
   CUISINE_USER_EMAIL,
   CUSHION_SHARE_USER_EMAIL,
+  TRIP_ESTIMATE_USER_EMAIL,
+  REPLAN_USER_EMAIL,
+  VOICE_USER_EMAIL,
 } from './session.js'
 export type { Session, SeededUser, JourneyProfile } from './session.js'
 export { e2eNow, parisDay, parisTime } from './clock.js'
@@ -247,6 +253,12 @@ export interface MaggieFixtures {
   cuisineUser: OtherUser
   /** The twenty-ninth seeded account, for the cushion's share of the capacity (MAG-669). */
   cushionShareUser: OtherUser
+  /** The position set by the trip estimate journey (MAG-745). */
+  tripEstimateUser: OtherUser
+  /** The position set by the replan journey (MAG-745). */
+  replanUser: OtherUser
+  /** The dictated tomatoes of the voice journey (MAG-745). */
+  voiceUser: OtherUser
   /**
    * Two windows of the same signed-in user — the "two tabs" check.
    *
@@ -555,6 +567,18 @@ export const test = base.extend<MaggieFixtures>({
 
   cuisineUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(CUISINE_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  tripEstimateUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(TRIP_ESTIMATE_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  replanUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(REPLAN_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  voiceUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(VOICE_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   cushionShareUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {

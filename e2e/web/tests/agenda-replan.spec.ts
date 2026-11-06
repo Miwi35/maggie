@@ -74,7 +74,8 @@ async function dentistWithTrip(api: APIRequestContext): Promise<{ eventId: strin
   return { eventId, day }
 }
 
-test('an event of today that moves wakes Maggie to replan the trips, now', async ({ api }) => {
+test('an event of today that moves wakes Maggie to replan the trips, now', async ({ replanUser }) => {
+  const { api } = replanUser
   const { eventId, day } = await dentistWithTrip(api)
   await clearPendingReplans(api)
   const known = new Set((await replanProactions(api)).map((proaction) => proaction.id))
@@ -96,7 +97,8 @@ test('an event of today that moves wakes Maggie to replan the trips, now', async
   expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
 
-test('a position 2 km from the origin of the next trip wakes Maggie, once no replan is pending', async ({ api }) => {
+test('a position 2 km from the origin of the next trip wakes Maggie, once no replan is pending', async ({ replanUser }) => {
+  const { api } = replanUser
   const { eventId } = await dentistWithTrip(api)
   await clearPendingReplans(api)
   const known = new Set((await replanProactions(api)).map((proaction) => proaction.id))

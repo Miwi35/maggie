@@ -402,8 +402,8 @@
             "savingCapacity": {
                 "monthlyNetIncomeCents": 495000,
                 "loanPaymentsCents": 0,
-                "estimatedLifestyleCents": 0,
-                "netCapacityCents": 495000,
+                "estimatedLifestyleCents": 102315,
+                "netCapacityCents": 392685,
                 "isIncomeKnown": true
             }
         }
@@ -606,8 +606,8 @@
     "savingCapacity": {
         "monthlyNetIncomeCents": 495000,
         "loanPaymentsCents": 0,
-        "estimatedLifestyleCents": 0,
-        "netCapacityCents": 495000,
+        "estimatedLifestyleCents": 102315,
+        "netCapacityCents": 392685,
         "isIncomeKnown": true
     },
     "independence": {

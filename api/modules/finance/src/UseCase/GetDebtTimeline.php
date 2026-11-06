@@ -8,6 +8,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Loan;
 use Maggie\Finance\Repository\LoanRepository;
 use Maggie\Finance\Service\LoanSchedule;
+use Psr\Clock\ClockInterface;
 
 /**
  * When each fixed charge falls away, and what is actually left to save.
@@ -24,6 +25,7 @@ class GetDebtTimeline
         private readonly MeasureMonthlyLifestyle $measureMonthlyLifestyle,
         private readonly GetReferenceSalary $getReferenceSalary,
         private readonly LoanSchedule $loanSchedule,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -32,7 +34,7 @@ class GetDebtTimeline
     {
         $horizon = $horizonMonths ?? self::DEFAULT_HORIZON_MONTHS;
         $loans = $this->loanRepository->findSignedByUser($user);
-        $today = new \DateTimeImmutable('first day of this month');
+        $today = \DateTimeImmutable::createFromInterface($this->clock->now())->modify('first day of this month');
 
         $schedules = [];
         $totalPrincipal = 0;
@@ -60,7 +62,7 @@ class GetDebtTimeline
         });
 
         $lifestyle = $this->measureMonthlyLifestyle->execute($user, $today);
-        $income = $this->getReferenceSalary->execute($user)['monthlyCents'] ?? 0;
+        $income = $this->getReferenceSalary->execute($user, \DateTimeImmutable::createFromInterface($this->clock->now()))['monthlyCents'] ?? 0;
 
         return [
             'horizonMonths' => $horizon,
