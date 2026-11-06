@@ -77,7 +77,7 @@ Maggie\Finance\Entity\Transaction:
     category: '@food'
     amountCents: -558000
     currency: EUR
-    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    bookedAt: '<(new \DateTimeImmutable("2026-09-01"))>'
     label: Train de vie
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
@@ -87,7 +87,7 @@ Maggie\Finance\Entity\Transaction:
     category: '@rent_income'
     amountCents: 222000
     currency: EUR
-    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    bookedAt: '<(new \DateTimeImmutable("2026-09-01"))>'
     label: Loyers
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
@@ -97,7 +97,7 @@ Maggie\Finance\Entity\Transaction:
     category: '@other_food'
     amountCents: -30000
     currency: EUR
-    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    bookedAt: '<(new \DateTimeImmutable("2026-09-01"))>'
     label: Train de vie du voisin
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
@@ -107,7 +107,7 @@ Maggie\Finance\Entity\Transaction:
     category: '@other_rent_income'
     amountCents: 600000
     currency: EUR
-    bookedAt: '<(new \DateTimeImmutable("first day of last month"))>'
+    bookedAt: '<(new \DateTimeImmutable("2026-09-01"))>'
     label: Loyer du voisin
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
