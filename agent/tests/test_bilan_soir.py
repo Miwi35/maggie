@@ -35,7 +35,7 @@ OFFERED = [
 
 
 def relance(summary: str = bilan.BILAN_RELANCE_SUMMARY) -> Proaction:
-    return Proaction(id="p-1", user_id=USER, prompt="Fais le bilan", status="running", summary=summary)
+    return Proaction(id="p-1", user_id=USER, prompt="Fais le bilan", status="running", summary=summary, scheduled_at=None)
 
 
 class TestThePlanningPrompt:
@@ -64,6 +64,18 @@ class TestThePlanningPrompt:
 
         evening = email not in {SMOKE_ACCOUNT_EMAIL, RECETTE_ACCOUNT_EMAIL}
         assert ("Bilan du soir" in gateway.proaction.await_args.args[0]) is evening
+
+
+class TestTheReviewDay:
+    def test_a_nudge_after_midnight_belongs_to_the_evening_before(self):
+        paris = ZoneInfo("Europe/Paris")
+
+        day = bilan.relance_review_day("2030-11-07T00:15:00+01:00", datetime(2030, 11, 7, tzinfo=UTC), paris)
+
+        assert day == "2030-11-06"
+
+    def test_without_a_time_it_falls_back_to_now(self):
+        assert bilan.relance_review_day(None, datetime(2030, 11, 7, 12, tzinfo=UTC), ZoneInfo("UTC")) == "2030-11-07"
 
 
 class TestTheSingleNudge:

@@ -4,6 +4,8 @@ skill `bilan-soir` (`app/skills/bilan-soir.md`); the state is the API's `activit
 
 import json
 import logging
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from app.mcp.client import mcp_client
 
@@ -34,6 +36,16 @@ def planning_bilan_rules(day: str) -> str:
         "(relance unique : elle ne part pas si l'utilisateur a déjà répondu). "
         "Si l'heure de coucher est déjà passée, ne pose rien."
     )
+
+
+def relance_review_day(scheduled_at: str | None, fallback: datetime, tz: ZoneInfo) -> str:
+    """The day (YYYY-MM-DD) of the review a nudge follows: its own time minus the delay, so one that
+    falls after midnight still asks about the evening it belongs to."""
+    try:
+        moment = datetime.fromisoformat(scheduled_at) - timedelta(minutes=RELANCE_DELAY_MINUTES)
+    except (TypeError, ValueError):
+        moment = fallback
+    return moment.astimezone(tz).date().isoformat()
 
 
 async def bilan_answered(user_id: str, day: str) -> bool:
