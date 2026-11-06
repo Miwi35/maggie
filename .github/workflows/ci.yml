@@ -1193,6 +1193,17 @@ jobs:
         with:
           lfs: true
 
+      # The stack's images, the APK and the emulator's system image share the
+      # runner's free disk; the nightly of 5 Nov ran out of it (« No space left
+      # on device » unpacking the system image, then an emulator without a
+      # package service). The Android SDK stays: the emulator runs from it.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/.ghcup /opt/ghc /usr/share/swift \
+            /usr/local/share/boost /opt/hostedtoolcache/CodeQL
+          docker image prune --all --force > /dev/null || true
+          df -h /
+
       # Nothing a previous run recorded may be counted as this lot's: the admin
       # fold merges into a raw file already there, and the API and agent data
       # live in bind mounts that outlive a stack.
