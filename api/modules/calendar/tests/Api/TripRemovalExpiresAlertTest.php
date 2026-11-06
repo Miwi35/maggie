@@ -53,6 +53,8 @@ class TripRemovalExpiresAlertTest extends WebTestCase
         // Moving it filed a replanning; none must be pending when it is deleted, or the deletion files none.
         $this->em()->createQuery('DELETE FROM '.Proaction::class)->execute();
         $trip = $this->seedTrip($event);
+        // The deleted event's own trip goes with it: a replanning is only filed if another trip of the day remains.
+        $this->seedTrip($this->em()->find(Event::class, (string) $this->getFixture('office')->getId()));
         $this->alert('Pars maintenant pour Dentiste', '/api/trips/'.$trip, $expiresAt);
 
         $this->client->request('DELETE', '/api/events/'.$event->getId(), [], [], $this->authHeaders());
