@@ -22,7 +22,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * One alert per value of `departAt`, filed against the trip with `departAt` as its
  * occurrence: a trip moved by `set_trip` alerts again, the same value never twice.
  *
- * It stops being worth saying when the event starts (MAG-679): `expiresAt`, which the screens
+ * It stops being worth saying when the event starts, a stay's arrival passes, or 30 minutes after a return's `departAt` (MAG-679, MAG-734): `expiresAt`, which the screens
  * that interrupt honour even for a message delivered late. A trip or event removed expires it
  * sooner ({@see \Maggie\Calendar\EventSubscriber\ExpireNotificationsOnTripRemoved}).
  */
@@ -84,7 +84,7 @@ final class DepartureReminderSource implements ReminderSourceInterface
             relatedEntityIri: $tripIri,
             userId: $userId,
             occurrenceStartAt: $trip->getDepartAt(),
-            expiresAt: $trip->getEvent()->getStartAt(),
+            expiresAt: $trip->getDepartureAlertExpiry(),
         ));
 
         return true;

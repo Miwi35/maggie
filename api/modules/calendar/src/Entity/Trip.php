@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\GetCollection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Calendar\Enum\TripDecider;
+use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Filter\TripDayFilter;
 use Maggie\Calendar\Repository\TripRepository;
@@ -23,7 +24,7 @@ use Symfony\Component\Uid\Ulid;
 
 /**
  * The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most
- * one per event, removed with it ({@see \Maggie\Calendar\Doctrine\TripCleanupListener}).
+ * one per event and {@see TripLeg}, removed with it ({@see \Maggie\Calendar\Doctrine\TripCleanupListener}).
  * Written by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.
  *
  * `departAt` is when to leave — a new value is a new departure alert. The
@@ -35,6 +36,7 @@ use Symfony\Component\Uid\Ulid;
  */
 #[ORM\Entity(repositoryClass: TripRepository::class)]
 #[ORM\Index(name: 'idx_trip_depart_at', columns: ['depart_at'])]
+#[ORM\UniqueConstraint(name: 'uniq_trip_event_leg', columns: ['event_id', 'leg'])]
 #[ApiFilter(TripDayFilter::class, properties: ['date'])]
 #[ApiResource(operations: [
     new GetCollection(order: ['departAt' => 'ASC']),
@@ -44,13 +46,19 @@ class Trip implements MercurePublishable, OwnedThroughInterface
 {
     use MercurePayloadFilterTrait;
 
+    public const int RETURN_ALERT_MINUTES = 30;
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
 
-    #[ORM\OneToOne(targetEntity: Event::class)]
-    #[ORM\JoinColumn(nullable: false, unique: true, onDelete: 'CASCADE')]
+    #[ORM\ManyToOne(targetEntity: Event::class)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private Event $event;
+
+    /** A return trip goes from the event's place to the home; its `departAt` is the user's, not computed. */
+    #[ORM\Column(length: 10, enumType: TripLeg::class, options: ['default' => 'outbound'])]
+    private TripLeg $leg = TripLeg::Outbound;
 
     #[ORM\Column(length: 10, enumType: TripMode::class)]
     private TripMode $mode;
@@ -98,7 +106,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
     private \DateTimeImmutable $computedAt;
 
-    /** The arrival the user gave, for a whole-day event which has no start hour (a stay); null otherwise. */
+    /** The arrival the user gave for a whole-day event (a stay); `departAt` + the duration for a return; null otherwise. */
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $arriveAt = null;
 
@@ -136,6 +144,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
         $this->originDecidedBy = $decidedBy;
         $this->computedAt = $computedAt;
         $this->arriveAt = $estimate->arriveAt;
+        $this->leg = $estimate->leg;
 
         return $this;
     }
@@ -148,6 +157,11 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     public function getEvent(): Event
     {
         return $this->event;
+    }
+
+    public function getLeg(): TripLeg
+    {
+        return $this->leg;
     }
 
     public function getMode(): TripMode
@@ -226,6 +240,17 @@ class Trip implements MercurePublishable, OwnedThroughInterface
         return $this->arriveAt;
     }
 
+    /** When the departure alert stops being worth saying: the event's start, the arrival of a stay, or 30 minutes after a return's `departAt`. */
+    #[Ignore]
+    public function getDepartureAlertExpiry(): ?\DateTimeImmutable
+    {
+        if (TripLeg::Return === $this->leg) {
+            return $this->departAt->modify(sprintf('+%d minutes', self::RETURN_ALERT_MINUTES));
+        }
+
+        return $this->event->getStartAt() ?? $this->arriveAt;
+    }
+
     #[Ignore]
     public function getLastCheckedAt(): ?\DateTimeImmutable
     {
@@ -242,6 +267,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     {
         return self::filterPayload([
             'event' => '/api/events/'.$this->event->getId(),
+            'leg' => $this->leg->value,
             'mode' => $this->mode->value,
             'steps' => $this->steps,
             'durationMinutes' => $this->durationMinutes,

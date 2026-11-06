@@ -1,0 +1,32 @@
+# The last day of a whole-day stay (MAG-734): the planning asks when the user leaves the place instead of
+# estimating a trip. Same trick as 06-planning-stay-arrival.yaml; « Pouldu » tells the two stays apart.
+name: planning-stay-return
+description: The daily planning schedules the « Retour · Gîte » question for a whole-day stay that ends tomorrow.
+
+match:
+  user_matches: "C'est le début de la journée du (\\d{4}-\\d{2}-\\d{2})"
+  history_contains: "Pouldu"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+summary\W+G.{1,8}te du Pouldu'
+
+turns:
+  - tools:
+      - name: list_instructions
+        input: {kind: planning}
+      - name: get_events_by_date
+        input: {date: "${today}"}
+      - name: list_proactions
+        input: {from: "${today}", to: "${today}"}
+  - tools:
+      - name: date_time
+        input: {action: now}
+  - tools:
+      - name: list_trips
+        input: {date: "${today}"}
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Demande à l'utilisateur à quelle heure il repart du Gîte (événement \\1) : « À quelle heure repartez-vous de Pouldu ? » Choix : 10 h, 11 h, 12 h, Autre heure, Pas de trajet."
+          scheduled_at: "${today}T18:00:00+01:00"
+          summary: "Retour · Gîte du Pouldu"
+  - text: "Question de retour programmée pour le séjour."

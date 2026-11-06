@@ -13,6 +13,7 @@ use Maggie\Calendar\Entity\Proaction;
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Enum\TripDecider;
+use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Message\ReplanTripsCommand;
 use Maggie\Calendar\Reminder\TripCheckSource;
@@ -105,6 +106,22 @@ final class TripCheckSourceTest extends KernelTestCase
         self::assertSame([], $this->replans());
     }
 
+    /** A return leaves at the hour the user chose: a check recomputes its duration, never its departAt (MAG-734). */
+    public function testACheckOnAReturnKeepsItsDepartAtAndUpdatesItsDuration(): void
+    {
+        $this->seedReturn('holiday', '2026-11-03 13:00:00');
+
+        $report = $this->source()->remind($this->at('2026-11-03 12:30:00'));
+
+        self::assertSame(1, $report->created);
+        $trip = $this->trip('holiday');
+        self::assertSame(TripLeg::Return, $trip->getLeg());
+        self::assertEquals($this->at('2026-11-03 13:00:00'), $trip->getDepartAt());
+        self::assertEquals($this->at('2026-11-03 13:10:00'), $trip->getArriveAt());
+        self::assertSame(10, $trip->getDurationMinutes());
+        self::assertSame([], $this->replans());
+    }
+
     public function testATripThatCannotBeComputedWakesMaggieWithAReplanNamingTheEvent(): void
     {
         $this->seed('dentist', '2026-11-03 13:00:00');
@@ -171,6 +188,24 @@ final class TripCheckSourceTest extends KernelTestCase
         $this->em()->clear();
 
         return $this->em()->getRepository(Proaction::class)->findBy(['summary' => ReplanTripsCommand::SUMMARY]);
+    }
+
+    private function seedReturn(string $eventRef, string $departAt): void
+    {
+        $event = $this->em()->find(Event::class, $this->id($eventRef));
+        $trip = (new Trip($event))->apply(new TripEstimate(
+            mode: TripMode::Transit,
+            origin: new TripOrigin(TripOrigin::EVENT, $this->id($eventRef), 'Vacances', 48.118, -1.668),
+            steps: [new RouteLeg(TripMode::Transit, 1800)],
+            durationMinutes: 30,
+            departAt: $this->at($departAt),
+            navigationUrl: 'https://waze.com/ul',
+            parkingKnown: false,
+            arriveAt: $this->at($departAt)->modify('+30 minutes'),
+            leg: TripLeg::Return,
+        ), TripDecider::User, $this->at('2026-11-03 09:00:00'));
+        $this->em()->persist($trip);
+        $this->em()->flush();
     }
 
     private function seed(string $eventRef, string $departAt, int $durationMinutes = 10): void

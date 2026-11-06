@@ -11,12 +11,16 @@ export interface Trip {
   id: string
   /** The event's IRI. */
   event: string
+  /** `return`: the way home at the end of a stay (MAG-734); absent or `outbound` otherwise. */
+  leg?: string
   mode: string
   steps: TripStep[]
   durationMinutes: number
   departAt: string
   navigationUrl: string
   originLabel: string
+  /** A return's arrival: `departAt` + the duration. */
+  arriveAt?: string | null
 }
 
 const STEP_ICONS: Record<string, string> = {
@@ -28,19 +32,33 @@ const STEP_ICONS: Record<string, string> = {
 
 export const stepIcon = (kind: string) => STEP_ICONS[kind] ?? '\u{1F4CD}'
 
-/** « Partir à 13:34 · depuis la maison » */
-export function departureText(trip: Pick<Trip, 'departAt' | 'originLabel'>): string {
-  const at = new Date(trip.departAt)
-  const time = Number.isNaN(at.getTime())
+const hourOf = (iso: string): string => {
+  const at = new Date(iso)
+
+  return Number.isNaN(at.getTime())
     ? '?'
     : at.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false })
-
-  return `Partir à ${time} · depuis ${trip.originLabel}`
 }
 
-/** The trips by the IRI of their event. */
-export function tripsByEvent(trips: Trip[]): Map<string, Trip> {
-  return new Map(trips.map((trip) => [trip.event, trip]))
+export const isReturn = (trip: Pick<Trip, 'leg'>): boolean => trip.leg === 'return'
+
+/** « Partir à 13:34 · depuis la maison » — a return reads « Retour · Partir à 11:00 · arrivée 11:14 ». */
+export function departureText(trip: Pick<Trip, 'departAt' | 'originLabel' | 'leg' | 'arriveAt'>): string {
+  if (isReturn(trip)) {
+    const arrival = trip.arriveAt ? ` · arrivée ${hourOf(trip.arriveAt)}` : ''
+
+    return `Retour · Partir à ${hourOf(trip.departAt)}${arrival}`
+  }
+
+  return `Partir à ${hourOf(trip.departAt)} · depuis ${trip.originLabel}`
+}
+
+/** The trips by the IRI of their event: an event can have an outbound and a return. */
+export function tripsByEvent(trips: Trip[]): Map<string, Trip[]> {
+  const byEvent = new Map<string, Trip[]>()
+  for (const trip of trips) byEvent.set(trip.event, [...(byEvent.get(trip.event) ?? []), trip])
+
+  return byEvent
 }
 
 const TRIP_IRI = /^\/api\/trips\/[0-9A-Za-z-]{1,64}$/

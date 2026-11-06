@@ -35,6 +35,14 @@ class SetTripHandler
             throw new InvalidTripException('eventId', "no event of yours has the id {$command->eventId}.");
         }
 
-        return $this->setTrip->execute($event, $command->mode, $command->origin, $command->decidedBy, null === $command->arriveAt ? null : TripPlanner::parseArriveAt($command->arriveAt));
+        return $this->setTrip->execute(
+            $event,
+            $command->mode,
+            $command->origin,
+            $command->decidedBy,
+            null === $command->arriveAt ? null : TripPlanner::parseArriveAt($command->arriveAt),
+            $command->leg,
+            null === $command->departAt ? null : TripPlanner::parseArriveAt($command->departAt, 'departAt'),
+        );
     }
 }

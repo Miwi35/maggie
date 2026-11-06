@@ -10,6 +10,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\EventStatus;
+use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Core\Entity\User;
 use Symfony\Component\Uid\Ulid;
 
@@ -21,14 +22,15 @@ class TripRepository extends ServiceEntityRepository
         parent::__construct($registry, Trip::class);
     }
 
-    public function findOneByEvent(Event $event): ?Trip
+    public function findOneByEvent(Event $event, TripLeg $leg = TripLeg::Outbound): ?Trip
     {
-        return $this->findOneBy(['event' => $event]);
+        return $this->findOneBy(['event' => $event, 'leg' => $leg]);
     }
 
     /**
      * Every trip whose time to leave has come and whose event has not started —
-     * the ones a departure alert is owed for (MAG-655). A cancelled event is not.
+     * the ones a departure alert is owed for (MAG-655). A cancelled event is not. A stay has no start:
+     * its arrival stands in; a return is owed its alert for {@see Trip::RETURN_ALERT_MINUTES} minutes.
      *
      * @return list<Trip>
      */
@@ -38,9 +40,12 @@ class TripRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('t')
             ->join('t.event', 'e')
             ->where('t.departAt <= :now')
-            ->andWhere('e.startAt > :now')
+            ->andWhere('((t.leg = :return AND t.departAt > :returnSince) OR (t.leg = :outbound AND COALESCE(e.startAt, t.arriveAt) > :now))')
             ->andWhere('e.status != :cancelled')
             ->setParameter('now', $now, Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('returnSince', $now->modify(sprintf('-%d minutes', Trip::RETURN_ALERT_MINUTES)), Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('return', TripLeg::Return)
+            ->setParameter('outbound', TripLeg::Outbound)
             ->setParameter('cancelled', EventStatus::Cancelled)
             ->orderBy('t.departAt', 'ASC')
             ->getQuery()
@@ -59,9 +64,10 @@ class TripRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('t')
             ->join('t.event', 'e')
             ->where('t.departAt > :now AND t.departAt <= :limit')
-            ->andWhere('e.startAt > :now')
+            ->andWhere('(t.leg = :return OR COALESCE(e.startAt, t.arriveAt) > :now)')
             ->andWhere('e.status != :cancelled')
             ->setParameter('now', $now, Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('return', TripLeg::Return)
             ->setParameter('limit', $now->add($window), Types::DATETIMETZ_IMMUTABLE)
             ->setParameter('cancelled', EventStatus::Cancelled)
             ->orderBy('t.departAt', 'ASC')

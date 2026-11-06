@@ -11,7 +11,7 @@ use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Trip;
 
 /**
- * An event removed takes its trip with it (MAG-654), whichever door removes it.
+ * An event removed takes its trips with it (MAG-654), whichever door removes it.
  *
  * The database would cascade on its own, but silently: removed in the same
  * unit of work, the trip is seen by the projection and its screens are told
@@ -28,8 +28,7 @@ final class TripCleanupListener
         }
 
         $em = $args->getObjectManager();
-        $trip = $em->getRepository(Trip::class)->findOneBy(['event' => $event]);
-        if (null !== $trip) {
+        foreach ($em->getRepository(Trip::class)->findBy(['event' => $event]) as $trip) {
             $em->remove($trip);
         }
     }

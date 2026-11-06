@@ -224,3 +224,56 @@ class TestAStayInWholeDay:
         trip = trip_api.trips[STAY_ID]
         assert trip["arriveAt"] == "2030-11-14T16:00:00+01:00"
         assert trip["originDecidedBy"] == "user"
+
+
+RETURN_STAY_ID = "01JSTAYRT00000000000000000"
+
+
+class TestTheReturnOfAStay:
+    async def test_the_planning_asks_when_the_user_leaves_the_place(self, trip_api):
+        trip_api.agenda[TRIP_DAY.isoformat()] = [
+            {
+                "id": RETURN_STAY_ID,
+                "summary": "Gîte du Pouldu",
+                "startDate": "2030-11-12",
+                "endDate": "2030-11-15",
+                "allDay": True,
+                "location": "2 rue du Port, 29360 Clohars-Carnoët",
+            }
+        ]
+
+        result = await plan(TRIP_DAY)
+
+        assert "set_trip" not in tools_called(result)
+        [question] = trip_api.of(USER)
+        assert question["summary"] == "Retour · Gîte du Pouldu"
+        assert RETURN_STAY_ID in question["prompt"]
+        assert "À quelle heure repartez-vous" in question["prompt"]
+
+    async def test_the_answer_keeps_the_return_with_the_hour_the_user_chose(self, trip_api):
+        trip_api.agenda[TRIP_DAY.isoformat()] = [
+            {"id": RETURN_STAY_ID, "summary": "Gîte du Pouldu", "startDate": "2030-11-12", "allDay": True}
+        ]
+        history = [
+            {"role": "assistant", "content": f"À quelle heure repartez-vous de Pouldu ? (événement {RETURN_STAY_ID})"},
+            {"role": "user", "content": "11 h"},
+        ]
+
+        with patch("app.llm.runner.record_llm_usage"):
+            result = await run_tool_loop(
+                "Tu es Maggie.",
+                history,
+                OFFERED,
+                client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
+                tool_router=ToolRouter(),
+                user_id=USER,
+                model="fake",
+                source="chat",
+                max_iterations=PROACTION_MAX_ITERATIONS,
+            )
+
+        assert tools_called(result) == ["estimate_trip", "set_trip"]
+        trip = trip_api.trips[f"{RETURN_STAY_ID}:return"]
+        assert trip["leg"] == "return"
+        assert trip["departAt"] == "2030-11-15T11:00:00+01:00"
+        assert trip["originDecidedBy"] == "user"

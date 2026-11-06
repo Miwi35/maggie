@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Calendar\Service;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Exception\InvalidTripException;
 use Maggie\Calendar\Repository\PlaceRepository;
@@ -29,6 +30,8 @@ use Psr\Clock\ClockInterface;
  *
  * `departAt` is the start, minus the trip, minus {@see self::MARGIN_MINUTES}, to the minute.
  * A whole-day event (a stay) has no start: the arrival the user gave stands in for it (MAG-733).
+ * A {@see TripLeg::Return} goes from the event's place to the home at the `departAt` the user gave;
+ * its `arriveAt` is that plus the trip (MAG-734).
  */
 class TripPlanner
 {
@@ -53,12 +56,19 @@ class TripPlanner
     /**
      * $origin is `position`, `place:<ulid>` or `event:<ulid>`, or one already
      * resolved — several modes from the same origin ask for the position once.
+     * A return ignores it: it starts at the event's place and ends at the home.
      *
      * @throws InvalidTripException
      * @throws RoutingException
      */
-    public function estimate(Event $event, TripMode $mode, string|TripOrigin $origin, ?\DateTimeImmutable $arriveAt = null): TripEstimate
+    public function estimate(Event $event, TripMode $mode, string|TripOrigin $origin, ?\DateTimeImmutable $arriveAt = null, TripLeg $leg = TripLeg::Outbound, ?\DateTimeImmutable $departAt = null): TripEstimate
     {
+        if (TripLeg::Return === $leg) {
+            return $this->estimateReturn($event, $mode, self::departure($event, $departAt, $arriveAt));
+        }
+        if (null !== $departAt) {
+            throw new InvalidTripException('departAt', 'departAt is only for a return trip: an outbound trip counts back from the start or arriveAt.');
+        }
         $start = self::arrival($event, $arriveAt);
 
         $user = $event->getAgenda()->getUser();
@@ -105,6 +115,60 @@ class TripPlanner
     }
 
     /**
+     * From the event's place to the home, leaving at $departAt: the user chose the hour, it does not move.
+     *
+     * @throws InvalidTripException
+     * @throws RoutingException
+     */
+    private function estimateReturn(Event $event, TripMode $mode, \DateTimeImmutable $departAt): TripEstimate
+    {
+        $user = $event->getAgenda()->getUser();
+        // The event's place before the home: the user fixes the event first.
+        $origin = $this->origins->resolve($user, TripOrigin::EVENT.':'.$event->getId());
+        $home = $this->origins->resolve($user, TripOrigins::HOME);
+
+        $departAt = $departAt->setTimezone(self::zone($event));
+        $departAt = $departAt->setTime((int) $departAt->format('H'), (int) $departAt->format('i'));
+        $leaving = $departAt > $this->clock->now() ? $departAt : null;
+
+        $routeMinutes = 0;
+        if (TripMode::Drive === $mode) {
+            $steps = [$this->leg(TripMode::Drive, [$origin->latitude, $origin->longitude], [$home->latitude, $home->longitude], $leaving)];
+        } else {
+            $route = $this->routing->route($mode, $origin->latitude, $origin->longitude, $home->latitude, $home->longitude);
+            $steps = $route->legs;
+            $routeMinutes = TripMode::Transit === $mode ? self::minutes($route->durationSeconds) : 0;
+        }
+        $duration = max($routeMinutes, array_sum(array_map(static fn (RouteLeg $step): int => self::minutes($step->seconds), $steps)));
+
+        return new TripEstimate(
+            mode: $mode,
+            origin: $origin,
+            steps: $steps,
+            durationMinutes: $duration,
+            departAt: $departAt,
+            navigationUrl: self::navigationUrl($mode, [$home->latitude, $home->longitude]),
+            parkingKnown: false,
+            arriveAt: $departAt->modify(sprintf('+%d minutes', $duration)),
+            leg: TripLeg::Return,
+        );
+    }
+
+    /**
+     * The hour a return leaves at.
+     *
+     * @throws InvalidTripException
+     */
+    public static function departure(Event $event, ?\DateTimeImmutable $departAt, ?\DateTimeImmutable $arriveAt): \DateTimeImmutable
+    {
+        if (null !== $arriveAt) {
+            throw new InvalidTripException('arriveAt', sprintf('The return from « %s » leaves at a given hour: send departAt, not arriveAt.', $event->getSummary()));
+        }
+
+        return $departAt ?? throw new InvalidTripException('departAt', sprintf('The return from « %s » needs the hour to leave at: send departAt.', $event->getSummary()));
+    }
+
+    /**
      * The hour to arrive by: the event's start, or for a whole-day event the arrival given.
      *
      * @throws InvalidTripException
@@ -124,17 +188,35 @@ class TripPlanner
     }
 
     /**
-     * An ISO 8601 arrival, in Paris time when it has no offset.
+     * An ISO 8601 date and time, in Paris time when it has no offset.
      *
      * @throws InvalidTripException
      */
-    public static function parseArriveAt(string $arriveAt): \DateTimeImmutable
+    public static function parseArriveAt(string $arriveAt, string $field = 'arriveAt'): \DateTimeImmutable
     {
         try {
             return new \DateTimeImmutable($arriveAt, new \DateTimeZone(TripDay::TIME_ZONE));
         } catch (\Exception) {
-            throw new InvalidTripException('arriveAt', "« {$arriveAt} » is not an ISO 8601 date and time.");
+            throw new InvalidTripException($field, "« {$arriveAt} » is not an ISO 8601 date and time.");
         }
+    }
+
+    /**
+     * Checks the hour sent against the leg, before any routing.
+     *
+     * @throws InvalidTripException
+     */
+    public static function checkHour(Event $event, TripLeg $leg, ?\DateTimeImmutable $arriveAt, ?\DateTimeImmutable $departAt): void
+    {
+        if (TripLeg::Return === $leg) {
+            self::departure($event, $departAt, $arriveAt);
+
+            return;
+        }
+        if (null !== $departAt) {
+            throw new InvalidTripException('departAt', 'departAt is only for a return trip: an outbound trip counts back from the start or arriveAt.');
+        }
+        self::arrival($event, $arriveAt);
     }
 
     /** Whole minutes, rounded up: a trip announced shorter than it is makes one late. */

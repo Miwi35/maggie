@@ -55,7 +55,7 @@ import type { EventResizeDoneArg } from '@fullcalendar/interaction'
 import frLocale from '@fullcalendar/core/locales/fr'
 import type { DatesSetArg, EventContentArg, EventInput } from '@fullcalendar/core'
 import { TripLine } from './TripLine'
-import { tripsByEvent, type Trip } from './trips'
+import { isReturn, tripsByEvent, type Trip } from './trips'
 import { EventCreateDialog } from './EventCreateDialog'
 import { TaskCreateDialog } from './TaskCreateDialog'
 import { TaskEditDialog, type TaskData } from './TaskEditDialog'
@@ -1185,7 +1185,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     () =>
       currentView === 'timeGridDay'
         ? (arg: EventContentArg) => {
-            const trip = tripOfEvent.get(arg.event.id)
+            const eventTrips = tripOfEvent.get(arg.event.id) ?? []
 
             return (
               <div className="fc-event-main-frame">
@@ -1193,7 +1193,11 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
                 <div className="fc-event-title-container">
                   <div className="fc-event-title fc-sticky">{arg.event.title || ' '}</div>
                 </div>
-                {trip && !arg.event.allDay && <TripLine trip={trip} />}
+                {eventTrips
+                  .filter((trip) => !arg.event.allDay || isReturn(trip))
+                  .map((trip) => (
+                    <TripLine key={trip.id} trip={trip} />
+                  ))}
               </div>
             )
           }

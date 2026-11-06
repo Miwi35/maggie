@@ -12,6 +12,7 @@ use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Enum\TripDecider;
+use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Reminder\DepartureReminderSource;
 use Maggie\Calendar\Repository\TripRepository;
@@ -104,6 +105,37 @@ final class DepartureReminderSourceTest extends KernelTestCase
         $payloads = $this->mercurePayloadsOn('/api/notifications/'.$notification->getId());
         self::assertSame('/api/trips/'.$tripId, $payloads[0]['relatedEntityIri']);
         self::assertSame('2026-11-03T13:00:00+00:00', (new \DateTimeImmutable($payloads[0]['expiresAt']))->setTimezone(new \DateTimeZone('UTC'))->format('c'));
+    }
+
+    /** A return leaves at the hour the user chose: the alert fires then and lasts 30 minutes (MAG-734). */
+    public function testTheAlertOfAReturnFiresAtItsDepartAtAndExpiresThirtyMinutesLater(): void
+    {
+        $this->seed('holiday', '2026-11-03 13:34', TripLeg::Return, '2026-11-03 13:38');
+
+        self::assertSame(0, $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:33:59 UTC'))->created);
+        self::assertSame(1, $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'))->created);
+
+        [$notification] = $this->departures();
+        self::assertSame('Pars maintenant pour Vacances', $notification->getTitle());
+        self::assertSame('2026-11-03T13:04:00+00:00', $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('c'));
+    }
+
+    public function testAReturnIsNoLongerAlertedThirtyMinutesAfterItsDepartAt(): void
+    {
+        $this->seed('holiday', '2026-11-03 13:34', TripLeg::Return, '2026-11-03 13:38');
+
+        self::assertSame(0, $this->source()->remind(new \DateTimeImmutable('2026-11-03 13:04:01 UTC'))->created);
+    }
+
+    /** A stay has no start hour: the outbound alert lives until the chosen arrival. */
+    public function testTheAlertOfAStayOutboundIsDueAndExpiresAtItsArrival(): void
+    {
+        $this->seed('holiday', '2026-11-03 13:34', TripLeg::Outbound, '2026-11-03 14:00');
+
+        self::assertSame(1, $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'))->created);
+
+        [$notification] = $this->departures();
+        self::assertSame('2026-11-03T13:00:00+00:00', $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('c'));
     }
 
     /** The dentist was deleted after the alert: it must not be said any more, the Mercure update tells the screens. */
@@ -308,7 +340,7 @@ final class DepartureReminderSourceTest extends KernelTestCase
         return $this->em()->getRepository(Notification::class)->findBy(['type' => NotificationType::Departure], ['createdAt' => 'ASC', 'id' => 'ASC']);
     }
 
-    private function estimate(string $departAt): TripEstimate
+    private function estimate(string $departAt, TripLeg $leg = TripLeg::Outbound, ?string $arriveAt = null): TripEstimate
     {
         return new TripEstimate(
             mode: TripMode::Walk,
@@ -318,15 +350,17 @@ final class DepartureReminderSourceTest extends KernelTestCase
             departAt: new \DateTimeImmutable($departAt, new \DateTimeZone('Europe/Paris')),
             navigationUrl: self::NAVIGATION_URL,
             parkingKnown: true,
+            arriveAt: null === $arriveAt ? null : new \DateTimeImmutable($arriveAt, new \DateTimeZone('Europe/Paris')),
+            leg: $leg,
         );
     }
 
     /** A trip as set_trip keeps it, leaving at $departAt (Paris). */
-    private function seed(string $eventRef, string $departAt): string
+    private function seed(string $eventRef, string $departAt, TripLeg $leg = TripLeg::Outbound, ?string $arriveAt = null): string
     {
         $event = $this->em()->find(Event::class, $this->id($eventRef));
         self::assertInstanceOf(Event::class, $event);
-        $trip = (new Trip($event))->apply($this->estimate($departAt), TripDecider::Maggie, new \DateTimeImmutable('2026-11-03 10:00:00 UTC'));
+        $trip = (new Trip($event))->apply($this->estimate($departAt, $leg, $arriveAt), TripDecider::Maggie, new \DateTimeImmutable('2026-11-03 10:00:00 UTC'));
         $this->em()->persist($trip);
         $this->em()->flush();
 

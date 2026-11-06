@@ -10,8 +10,10 @@ use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Place;
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\TripDecider;
+use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Mcp\Tool\ListTripsTool;
 use Maggie\Calendar\Mcp\Tool\SetTripTool;
@@ -144,11 +146,11 @@ class TripToolsTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function setTrip(string $eventId, string $mode = 'drive', string $origin = 'position', ?string $decidedBy = null, ?string $arriveAt = null): array
+    private function setTrip(string $eventId, string $mode = 'drive', ?string $origin = 'position', ?string $decidedBy = null, ?string $arriveAt = null, ?string $leg = null, ?string $departAt = null): array
     {
         $this->fake();
 
-        return json_decode((self::getContainer()->get(SetTripTool::class))($eventId, $mode, $origin, $decidedBy, $arriveAt), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode((self::getContainer()->get(SetTripTool::class))($eventId, $mode, $origin, $decidedBy, $arriveAt, $leg, $departAt), true, 512, JSON_THROW_ON_ERROR);
     }
 
     /** @return array<string, mixed> */
@@ -302,6 +304,89 @@ class TripToolsTest extends KernelTestCase
         self::assertSame('walk', $payload['mode']);
         self::assertSame('user', $payload['originDecidedBy']);
         self::assertArrayNotHasKey('deleted', $payload);
+    }
+
+    public function testTheReturnOfAStayLeavesAtTheChosenHourAndComesBackHome(): void
+    {
+        $result = $this->setTrip($this->id('holiday'), 'drive', null, 'user', null, 'return', '2026-11-04T11:00:00+01:00');
+
+        self::assertTrue($result['success'] ?? false, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertSame('return', $result['trip']['leg']);
+        self::assertSame('2026-11-04T11:00:00+01:00', $result['trip']['departAt']);
+        self::assertSame('2026-11-04T11:14:00+01:00', $result['trip']['arriveAt']);
+        $trips = $this->storedTrips();
+        self::assertCount(1, $trips);
+        self::assertSame(TripLeg::Return, $trips[0]->getLeg());
+        self::assertSame(14, $trips[0]->getDurationMinutes());
+        self::assertEquals(new \DateTimeImmutable('2026-11-04T11:00:00+01:00'), $trips[0]->getDepartAt());
+        self::assertEquals(new \DateTimeImmutable('2026-11-04T11:14:00+01:00'), $trips[0]->getArriveAt());
+        self::assertSame(TripDecider::User, $trips[0]->getOriginDecidedBy());
+        $payload = $this->mercurePayloadsOn('/api/trips/'.$trips[0]->getId())[0];
+        self::assertSame('return', $payload['leg']);
+        self::assertSame('return', $this->listTrips('2026-11-04')['trips'][0]['leg']);
+    }
+
+    public function testAnOutboundAndAReturnCoexistAndASecondReturnReplacesTheFirst(): void
+    {
+        $this->atHomeWithTheCarAway();
+        $outbound = $this->setTrip($this->id('holiday'), 'drive', 'position', 'user', '2026-11-03T16:00:00');
+        $first = $this->setTrip($this->id('holiday'), 'drive', null, 'user', null, 'return', '2026-11-04T10:00:00+01:00');
+        $second = $this->setTrip($this->id('holiday'), 'drive', null, 'user', null, 'return', '2026-11-04T12:00:00+01:00');
+
+        self::assertTrue($outbound['success'] && $first['success'] && $second['success']);
+        self::assertSame($first['trip']['id'], $second['trip']['id']);
+        self::assertNotSame($outbound['trip']['id'], $second['trip']['id']);
+        $trips = $this->storedTrips();
+        self::assertCount(2, $trips);
+        $legs = array_map(static fn (Trip $t): string => $t->getLeg()->value, $trips);
+        sort($legs);
+        self::assertSame(['outbound', 'return'], $legs);
+        foreach ($trips as $trip) {
+            if (TripLeg::Return === $trip->getLeg()) {
+                self::assertEquals(new \DateTimeImmutable('2026-11-04T12:00:00+01:00'), $trip->getDepartAt());
+            }
+        }
+    }
+
+    public function testDeletingTheEventDeletesBothItsTrips(): void
+    {
+        $this->atHomeWithTheCarAway();
+        $this->setTrip($this->id('holiday'), 'drive', 'position', 'user', '2026-11-03T16:00:00');
+        $this->setTrip($this->id('holiday'), 'drive', null, 'user', null, 'return', '2026-11-04T11:00:00+01:00');
+        self::getContainer()->get('security.token_storage')->setToken(null);
+
+        self::getContainer()->get(MessageBusInterface::class)->dispatch(new DeleteEventCommand($this->id('holiday')));
+
+        self::assertSame([], $this->storedTrips());
+    }
+
+    public function testTheReturnRefusalsNameTheField(): void
+    {
+        $holiday = $this->id('holiday');
+
+        $noHour = $this->setTrip($holiday, 'drive', null, null, null, 'return');
+        $withArrival = $this->setTrip($holiday, 'drive', null, null, '2026-11-04T11:00:00', 'return', '2026-11-04T11:00:00');
+        $outboundWithDeparture = $this->setTrip($holiday, 'drive', 'position', null, '2026-11-03T16:00:00', null, '2026-11-04T11:00:00');
+        $badLeg = $this->setTrip($holiday, 'drive', null, null, null, 'aller-retour', '2026-11-04T11:00:00');
+        $noOrigin = $this->setTrip($holiday, 'drive', null, null, '2026-11-03T16:00:00');
+
+        self::assertSame('departAt', $noHour['field'] ?? null);
+        self::assertSame('arriveAt', $withArrival['field'] ?? null);
+        self::assertSame('departAt', $outboundWithDeparture['field'] ?? null);
+        self::assertSame('leg', $badLeg['field'] ?? null);
+        self::assertSame('origin', $noOrigin['field'] ?? null);
+        self::assertSame([], $this->storedTrips());
+    }
+
+    public function testTheReturnWithoutAKnownHomeIsRefused(): void
+    {
+        $this->em()->remove($this->em()->find(Place::class, $this->id('home')));
+        $this->em()->flush();
+
+        $result = $this->setTrip($this->id('holiday'), 'drive', null, null, null, 'return', '2026-11-04T11:00:00+01:00');
+
+        self::assertArrayHasKey('error', $result);
+        self::assertSame([], $this->storedTrips());
     }
 
     public function testDeletingTheEventDeletesItsTripAndTellsTheScreens(): void

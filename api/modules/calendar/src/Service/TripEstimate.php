@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\Service;
 
+use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Routing\RouteLeg;
 
@@ -25,6 +26,7 @@ final readonly class TripEstimate
         public ?float $carLatitude = null,
         public ?float $carLongitude = null,
         public ?\DateTimeImmutable $arriveAt = null,
+        public TripLeg $leg = TripLeg::Outbound,
     ) {
     }
 
@@ -32,6 +34,7 @@ final readonly class TripEstimate
     public function toArray(): array
     {
         $estimate = [
+            'leg' => $this->leg->value,
             'mode' => $this->mode->value,
             'origin' => $this->origin->toArray(),
             'steps' => array_map(static fn (RouteLeg $step): array => array_filter([

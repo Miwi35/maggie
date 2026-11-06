@@ -62,6 +62,14 @@ class TestTheDailyPlanningPrompt:
         assert "ne la repose pas" in self.prompt
         assert "origine `event:<id>` du séjour" in self.prompt
 
+    def test_the_return_of_a_stay_is_asked_then_kept_as_a_return_trip(self):
+        assert "Retour · <titre>" in self.prompt
+        assert "À quelle heure repartez-vous" in self.prompt
+        assert self.prompt.index("À quelle heure repartez-vous") < self.prompt.index("set_trip avec leg=return")
+        assert "10 h, 11 h, 12 h" in self.prompt
+        assert "pas de maison connue" in self.prompt
+        assert "ne la repose pas" in self.prompt
+
     def test_the_proactions_of_the_instructions_are_still_only_those(self):
         assert "seulement celles-là" in self.prompt
 
