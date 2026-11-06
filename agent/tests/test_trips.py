@@ -1,4 +1,4 @@
-"""« Partir à l'heure » on the agent's side (MAG-657): what the morning card and the checks tell Maggie."""
+"""« Partir à l'heure » on the agent's side (MAG-657, MAG-730): what the morning card and the replan tell Maggie."""
 
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -9,9 +9,9 @@ from app.llm.gateway import LLMGateway
 from app.memory.agent_memory import MemoryBlocks
 from app.queue.scheduler import daily_planning_prompt
 from app.trips import (
-    CHECK_SUMMARY_PREFIX,
     REPLAN_SUMMARY,
-    check_summary,
+    RETIRED_CHECK_SUMMARY_PREFIX,
+    is_retired_trip_check,
     is_silent_trip_run,
     planning_trips_rules,
     trip_run_rules,
@@ -48,33 +48,37 @@ class TestTheDailyPlanningPrompt:
         assert "je repasse à la maison ou j'enchaîne" in self.prompt.lower()
         assert "Plus tard" in self.prompt
 
-    def test_two_checks_are_posted_before_the_departure(self):
-        assert "departAt moins 30 minutes et à departAt moins 10 minutes" in self.prompt
-        assert f"« {CHECK_SUMMARY_PREFIX}<titre de l'événement> »" in self.prompt
+    def test_no_check_is_posted_before_the_departure_the_api_does_it(self):
+        assert RETIRED_CHECK_SUMMARY_PREFIX not in self.prompt
+        assert "departAt moins" not in self.prompt
+        assert "ne programme aucun check" in self.prompt
 
     def test_the_proactions_of_the_instructions_are_still_only_those(self):
         assert "seulement celles-là" in self.prompt
 
 
+LEGACY_CHECK = f"{RETIRED_CHECK_SUMMARY_PREFIX}Dentiste"
+
+
 class TestTheTripRuns:
-    def test_a_check_and_a_replan_are_silent_runs_and_nothing_else_is(self):
-        assert is_silent_trip_run(check_summary("Dentiste"))
+    def test_a_replan_and_a_retired_check_are_silent_runs_and_nothing_else_is(self):
+        assert is_silent_trip_run(LEGACY_CHECK)
         assert is_silent_trip_run(REPLAN_SUMMARY)
+        assert is_retired_trip_check(LEGACY_CHECK)
+        assert not is_retired_trip_check(REPLAN_SUMMARY)
         assert not is_silent_trip_run("Check calendar")
         assert not is_silent_trip_run(None)
 
-    @pytest.mark.parametrize("summary", [check_summary("Dentiste"), REPLAN_SUMMARY])
-    def test_the_run_recomputes_from_the_real_position_and_keeps_a_move_over_two_minutes(self, summary):
-        rules = trip_run_rules(summary)
+    def test_the_run_recomputes_from_the_real_position_and_keeps_a_move_over_two_minutes(self):
+        rules = trip_run_rules()
 
         assert "estimate_trip" in rules and "`position`" in rules
         assert "plus de 2 minutes" in rules
         assert "set_trip" in rules
         assert "originDecidedBy=user" in rules
 
-    @pytest.mark.parametrize("summary", [check_summary("Dentiste"), REPLAN_SUMMARY])
-    def test_a_kept_origin_is_saved_again_as_the_user_s(self, summary):
-        rules = trip_run_rules(summary)
+    def test_a_kept_origin_is_saved_again_as_the_user_s(self):
+        rules = trip_run_rules()
 
         assert "decidedBy=user" in rules
         assert "place:<id>" in rules and "event:<id>" in rules
@@ -83,17 +87,16 @@ class TestTheTripRuns:
         assert all(mode in planning_trips_rules("2030-11-14") for mode in ("drive", "transit", "walk", "bicycle"))
 
     def test_a_replan_only_treats_the_events_the_prompt_cites(self):
-        rules = trip_run_rules(REPLAN_SUMMARY)
+        rules = trip_run_rules()
 
         assert "seulement ceux-là" in rules
         assert "cité dans le prompt" in rules
-        assert "trajet qui n'est pas passé" not in rules
-        assert "trajet qui n'est pas passé" in trip_run_rules(check_summary("Dentiste"))
 
-    def test_obsolete_checks_are_cancelled_then_posted_again(self):
-        rules = trip_run_rules(check_summary("Dentiste"))
+    def test_the_run_no_longer_manages_checks(self):
+        rules = trip_run_rules()
 
-        assert rules.index("cancel_proaction") < rules.index("schedule_proaction")
+        assert "cancel_proaction" not in rules and "schedule_proaction" not in rules
+        assert RETIRED_CHECK_SUMMARY_PREFIX not in rules
 
 
 def _gateway() -> LLMGateway:
@@ -120,9 +123,9 @@ async def _run(summary: str | None) -> tuple[LLMGateway, dict, str]:
     return gateway, result, system
 
 
-class TestTheGatewayOnATripCheck:
+class TestTheGatewayOnAReplan:
     async def test_it_gets_the_trip_preamble_and_no_thread(self):
-        gateway, result, system = await _run(check_summary("Dentiste"))
+        gateway, result, system = await _run(REPLAN_SUMMARY)
 
         assert "mode proaction sur les trajets" in system
         assert "envoyé directement dans le chat" not in system

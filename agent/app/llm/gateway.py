@@ -159,7 +159,7 @@ class LLMGateway:
         tools = await self.tool_router.get_tool_definitions()
 
         trip_run = not silent and summary is not None and is_silent_trip_run(summary)
-        preamble = trip_run_rules(summary) if trip_run else PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
+        preamble = trip_run_rules() if trip_run else PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
 
         system_prompt = await self._build_system_prompt(
             user_id,
