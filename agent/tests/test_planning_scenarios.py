@@ -172,3 +172,55 @@ class TestTheMorningCardOfTrips:
         assert tools_called(result) == ["list_trips", "get_events_by_date", "estimate_trip", "set_trip"]
         assert ("estimate_trip", {"eventId": DENTIST_ID, "modes": ["drive", "walk"], "origin": "position"}, USER) in trip_api.calls
         assert trip_api.trips[DENTIST_ID]["departAt"] == "2030-11-14T14:34:00+01:00"
+
+
+STAY_ID = "01JSTAYGT00000000000000000"
+
+
+class TestAStayInWholeDay:
+    async def test_the_planning_asks_the_hour_of_arrival_instead_of_estimating(self, trip_api):
+        trip_api.agenda[TRIP_DAY.isoformat()] = [
+            {
+                "id": STAY_ID,
+                "summary": "Gîte maison de Vallet",
+                "startDate": TRIP_DAY.isoformat(),
+                "allDay": True,
+                "location": "1 rue du Gîte, 44330 Vallet",
+            }
+        ]
+
+        result = await plan(TRIP_DAY)
+
+        assert "estimate_trip" not in tools_called(result)
+        assert "set_trip" not in tools_called(result)
+        [question] = trip_api.of(USER)
+        assert question["summary"] == "Arrivée · Gîte maison de Vallet"
+        assert STAY_ID in question["prompt"]
+        assert "Vers quelle heure arrivez-vous" in question["prompt"]
+
+    async def test_the_answer_keeps_the_trip_with_the_arrival_the_user_chose(self, trip_api):
+        trip_api.agenda[TRIP_DAY.isoformat()] = [
+            {"id": STAY_ID, "summary": "Gîte maison de Vallet", "startDate": TRIP_DAY.isoformat(), "allDay": True}
+        ]
+        history = [
+            {"role": "assistant", "content": f"Vers quelle heure arrivez-vous à Vallet ? (événement {STAY_ID})"},
+            {"role": "user", "content": "16 h"},
+        ]
+
+        with patch("app.llm.runner.record_llm_usage"):
+            result = await run_tool_loop(
+                "Tu es Maggie.",
+                history,
+                OFFERED,
+                client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
+                tool_router=ToolRouter(),
+                user_id=USER,
+                model="fake",
+                source="chat",
+                max_iterations=PROACTION_MAX_ITERATIONS,
+            )
+
+        assert tools_called(result) == ["estimate_trip", "set_trip"]
+        trip = trip_api.trips[STAY_ID]
+        assert trip["arriveAt"] == "2030-11-14T16:00:00+01:00"
+        assert trip["originDecidedBy"] == "user"

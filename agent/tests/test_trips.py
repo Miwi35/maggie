@@ -53,6 +53,15 @@ class TestTheDailyPlanningPrompt:
         assert "departAt moins" not in self.prompt
         assert "ne programme aucun check" in self.prompt
 
+    def test_a_stay_without_an_hour_is_asked_then_kept_with_arrive_at(self):
+        assert "Arrivée · <titre>" in self.prompt
+        assert "Vers quelle heure arrivez-vous" in self.prompt
+        assert "« Pas de trajet »" in self.prompt
+        assert self.prompt.index("Vers quelle heure arrivez-vous") < self.prompt.index("set_trip avec arriveAt")
+        assert "n'enregistre rien" in self.prompt
+        assert "ne la repose pas" in self.prompt
+        assert "origine `event:<id>` du séjour" in self.prompt
+
     def test_the_proactions_of_the_instructions_are_still_only_those(self):
         assert "seulement celles-là" in self.prompt
 

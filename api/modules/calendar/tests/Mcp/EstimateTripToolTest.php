@@ -183,9 +183,9 @@ class EstimateTripToolTest extends KernelTestCase
      *
      * @return array<string, mixed>
      */
-    private function call(string $eventId, array $modes, ?string $origin = null): array
+    private function call(string $eventId, array $modes, ?string $origin = null, ?string $arriveAt = null): array
     {
-        return json_decode(($this->tool())($eventId, $modes, $origin), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode(($this->tool())($eventId, $modes, $origin, $arriveAt), true, 512, JSON_THROW_ON_ERROR);
     }
 
     /** Where the phone was, $minutesAgo before the clock, and where the car is parked. */
@@ -256,6 +256,28 @@ class EstimateTripToolTest extends KernelTestCase
         self::assertSame([48.1127, -1.68], [$drive['carLatitude'], $drive['carLongitude']]);
         self::assertSame(['kind' => 'position', 'id' => null, 'label' => 'ma position', 'latitude' => 48.11, 'longitude' => -1.68], array_diff_key($drive['origin'], ['capturedAt' => true]));
         self::assertSame(['WALK', 'DRIVE', 'WALK'], $this->routedModes());
+    }
+
+    public function testAWholeDayEventWithAnArrivalCountsBackFromIt(): void
+    {
+        $this->at(self::HOME, car: [48.1127, -1.68]);
+
+        $result = $this->call($this->id('holiday'), ['drive'], null, '2026-11-03T16:00:00+01:00');
+
+        self::assertArrayNotHasKey('error', $result, json_encode($result, JSON_THROW_ON_ERROR));
+        // 16:00 − 21 − 5.
+        self::assertSame('2026-11-03T15:34:00+01:00', $result['estimates'][0]['departAt']);
+        self::assertSame('2026-11-03T16:00:00+01:00', $result['estimates'][0]['arriveAt']);
+    }
+
+    public function testArriveAtIsRefusedForATimedEvent(): void
+    {
+        $this->at(self::HOME);
+
+        $result = $this->call($this->id('dentist'), ['drive'], null, '2026-11-03T16:00:00+01:00');
+
+        self::assertSame('arriveAt', $result['field']);
+        self::assertSame([], $this->routedModes());
     }
 
     public function testTheDriveAsksGoogleForTheTrafficAndTheParking(): void

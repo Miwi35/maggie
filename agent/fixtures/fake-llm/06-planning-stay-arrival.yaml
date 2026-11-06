@@ -1,0 +1,33 @@
+# A stay in whole-day (MAG-733): the planning asks the hour of arrival instead of estimating a trip.
+# Same trick as 06-planning-trips.yaml: only matches once the agenda, with the stay, is in the history.
+# The accent of « Gîte » may reach the history escaped (\u00ee): the patterns do not depend on it.
+name: planning-stay-arrival
+description: The daily planning schedules the « Arrivée · Gîte » question for a whole-day stay with a place.
+
+match:
+  user_matches: "C'est le début de la journée du (\\d{4}-\\d{2}-\\d{2})"
+  history_contains: "Vallet"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+summary\W+G.{1,8}te maison'
+
+turns:
+  - tools:
+      - name: list_instructions
+        input: {kind: planning}
+      - name: get_events_by_date
+        input: {date: "${today}"}
+      - name: list_proactions
+        input: {from: "${today}", to: "${today}"}
+  - tools:
+      - name: date_time
+        input: {action: now}
+  - tools:
+      - name: list_trips
+        input: {date: "${today}"}
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Demande à l'utilisateur vers quelle heure il arrive au Gîte (événement \\1) : « Vers quelle heure arrivez-vous à Vallet ? » Choix : 15 h, 16 h, 18 h, Autre heure, Pas de trajet."
+          scheduled_at: "${today}T18:00:00+01:00"
+          summary: "Arrivée · Gîte maison de Vallet"
+  - text: "Question d'arrivée programmée pour le séjour."

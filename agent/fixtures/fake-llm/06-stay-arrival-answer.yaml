@@ -1,0 +1,17 @@
+# The answer « 16 h » to the question « Vers quelle heure arrivez-vous… » (MAG-733): the trip is
+# estimated then kept with arriveAt. The event id is the one the question's prompt carried.
+name: stay-arrival-answer
+description: 16 h answers the arrival question, the trip is kept with arriveAt and decidedBy=user.
+
+match:
+  user_matches: "^16 ?h"
+  history_matches: 'événement ([0-9A-HJKMNP-TV-Z]{26})'
+
+turns:
+  - tools:
+      - name: estimate_trip
+        input: {eventId: '\1', modes: [drive, transit], origin: position, arriveAt: "${today}T16:00:00+01:00"}
+  - tools:
+      - name: set_trip
+        input: {eventId: '\1', mode: drive, origin: position, decidedBy: user, arriveAt: "${today}T16:00:00+01:00"}
+  - text: "C'est noté : trajet enregistré pour une arrivée à 16 h."

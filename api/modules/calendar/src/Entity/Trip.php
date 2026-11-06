@@ -98,6 +98,10 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
     private \DateTimeImmutable $computedAt;
 
+    /** The arrival the user gave, for a whole-day event which has no start hour (a stay); null otherwise. */
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $arriveAt = null;
+
     /** When {@see \Maggie\Calendar\Reminder\TripCheckSource} last re-checked the trip; not part of the payload. */
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $lastCheckedAt = null;
@@ -131,6 +135,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
         $this->carLongitude = $estimate->carLongitude;
         $this->originDecidedBy = $decidedBy;
         $this->computedAt = $computedAt;
+        $this->arriveAt = $estimate->arriveAt;
 
         return $this;
     }
@@ -216,6 +221,11 @@ class Trip implements MercurePublishable, OwnedThroughInterface
         return $this->computedAt;
     }
 
+    public function getArriveAt(): ?\DateTimeImmutable
+    {
+        return $this->arriveAt;
+    }
+
     #[Ignore]
     public function getLastCheckedAt(): ?\DateTimeImmutable
     {
@@ -246,6 +256,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
             'carLongitude' => $this->carLongitude,
             'originDecidedBy' => $this->originDecidedBy->value,
             'computedAt' => $this->computedAt->format(\DATE_ATOM),
+            'arriveAt' => $this->arriveAt?->format(\DATE_ATOM),
         ], $changedProperties);
     }
 }

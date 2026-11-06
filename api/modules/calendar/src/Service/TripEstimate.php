@@ -24,6 +24,7 @@ final readonly class TripEstimate
         public bool $parkingKnown,
         public ?float $carLatitude = null,
         public ?float $carLongitude = null,
+        public ?\DateTimeImmutable $arriveAt = null,
     ) {
     }
 
@@ -43,6 +44,9 @@ final readonly class TripEstimate
             'navigationUrl' => $this->navigationUrl,
             'parkingKnown' => $this->parkingKnown,
         ];
+        if (null !== $this->arriveAt) {
+            $estimate['arriveAt'] = $this->arriveAt->format(\DATE_ATOM);
+        }
         if (null !== $this->carLatitude && null !== $this->carLongitude) {
             $estimate['carLatitude'] = $this->carLatitude;
             $estimate['carLongitude'] = $this->carLongitude;

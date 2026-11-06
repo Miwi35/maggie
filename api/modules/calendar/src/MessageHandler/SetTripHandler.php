@@ -9,6 +9,7 @@ use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Exception\InvalidTripException;
 use Maggie\Calendar\Message\SetTripCommand;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Calendar\Service\TripPlanner;
 use Maggie\Calendar\UseCase\SetTrip;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Uid\Ulid;
@@ -34,6 +35,6 @@ class SetTripHandler
             throw new InvalidTripException('eventId', "no event of yours has the id {$command->eventId}.");
         }
 
-        return $this->setTrip->execute($event, $command->mode, $command->origin, $command->decidedBy);
+        return $this->setTrip->execute($event, $command->mode, $command->origin, $command->decidedBy, null === $command->arriveAt ? null : TripPlanner::parseArriveAt($command->arriveAt));
     }
 }
