@@ -21,7 +21,7 @@ test.describe('A control that did nothing', () => {
 
     const stored = await waitForIndexed<{ summary: string }>(
       api,
-      '/api/events',
+      '/api/events?itemsPerPage=200',
       (event) => event.summary === 'Rendez-vous dentiste (contrôle)',
       { what: 'The renamed event' },
     )

@@ -32,9 +32,17 @@ async function replanProactions(api: APIRequestContext): Promise<ListedProaction
 
 /** Nothing pending: the dedup would swallow the replan the journey waits for. */
 async function clearPendingReplans(api: APIRequestContext): Promise<void> {
+  // The event's creation files its own replan asynchronously: wait for it, so it cannot land after the snapshot.
+  await expect
+    .poll(async () => (await replanProactions(api)).length, { message: 'the replan due to the creation should have been filed' })
+    .toBeGreaterThan(0)
+
   for (const proaction of (await replanProactions(api)).filter((candidate) => candidate.status === 'pending')) {
     const cancelled = await callMcpTool(api, 'cancel_proaction', { id: proaction.id })
-    expect(cancelled.error, JSON.stringify(cancelled)).toBeUndefined()
+    // The worker may have run it between the list and the cancel: then it is no longer pending.
+    if (cancelled.error !== undefined && !JSON.stringify(cancelled).includes('not found')) {
+      expect(cancelled.error, JSON.stringify(cancelled)).toBeUndefined()
+    }
   }
 }
 
