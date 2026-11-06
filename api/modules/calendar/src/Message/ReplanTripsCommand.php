@@ -22,6 +22,8 @@ final readonly class ReplanTripsCommand
     public const EVENT_DELETED = 'event_deleted';
     public const POSITION_MOVED = 'position_moved';
     public const CAR_MOVED = 'car_moved';
+    /** The check before a departure found a trip only Maggie can choose for (MAG-730). */
+    public const DEPARTURE_CHECK = 'departure_check';
 
     public function __construct(
         public string $userId,

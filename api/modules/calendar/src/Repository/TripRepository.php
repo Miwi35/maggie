@@ -47,6 +47,28 @@ class TripRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Trips leaving within `$window` whose event has not started: the candidates of a check
+     * before departure (MAG-730). A cancelled event is not.
+     *
+     * @return list<Trip>
+     */
+    public function findLeavingWithin(\DateTimeImmutable $now, \DateInterval $window): array
+    {
+        /* @var list<Trip> */
+        return $this->createQueryBuilder('t')
+            ->join('t.event', 'e')
+            ->where('t.departAt > :now AND t.departAt <= :limit')
+            ->andWhere('e.startAt > :now')
+            ->andWhere('e.status != :cancelled')
+            ->setParameter('now', $now, Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('limit', $now->add($window), Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('cancelled', EventStatus::Cancelled)
+            ->orderBy('t.departAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /** @return list<Trip> the user's trips leaving within [$from, $to), by departure */
     public function findLeavingBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {

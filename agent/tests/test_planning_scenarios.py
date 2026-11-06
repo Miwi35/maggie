@@ -144,37 +144,17 @@ async def replan(day: date) -> dict:
         )
 
 
-async def check(prompt: str) -> dict:
-    with patch("app.llm.runner.record_llm_usage"):
-        return await run_tool_loop(
-            "Tu es Maggie.",
-            [{"role": "user", "content": prompt}],
-            OFFERED,
-            client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
-            user_id=USER,
-            model="fake",
-            source="proaction",
-            max_iterations=PROACTION_MAX_ITERATIONS,
-        )
-
-
 class TestTheMorningCardOfTrips:
-    async def test_the_trip_is_estimated_kept_by_car_and_two_checks_are_posted(self, trip_api):
+    async def test_the_trip_is_estimated_and_kept_by_car_and_no_check_is_posted(self, trip_api):
         result = await plan(TRIP_DAY)
 
         assert tools_called(result)[4:] == [
             "list_trips",
             "estimate_trip",
             "set_trip",
-            "schedule_proaction",
-            "schedule_proaction",
         ]
         assert trip_api.trips[DENTIST_ID]["mode"] == "drive"
-        assert [(p["summary"], p["scheduledAt"]) for p in trip_api.of(USER)] == [
-            ("Check départ · Dentiste", "2030-11-14T13:04:00+01:00"),
-            ("Check départ · Dentiste", "2030-11-14T13:24:00+01:00"),
-        ]
+        assert trip_api.of(USER) == []
 
     async def test_a_day_without_a_place_to_go_posts_nothing(self, trip_api):
         trip_api.agenda[TRIP_DAY.isoformat()] = []
@@ -192,29 +172,3 @@ class TestTheMorningCardOfTrips:
         assert tools_called(result) == ["list_trips", "get_events_by_date", "estimate_trip", "set_trip"]
         assert ("estimate_trip", {"eventId": DENTIST_ID, "modes": ["drive", "walk"], "origin": "position"}, USER) in trip_api.calls
         assert trip_api.trips[DENTIST_ID]["departAt"] == "2030-11-14T14:34:00+01:00"
-
-    async def test_a_check_moves_the_trip_and_replaces_the_two_checks(self, trip_api):
-        prompt = f"Dentiste (événement {DENTIST_ID}) : le départ approche, recalcule le trajet depuis la position réelle."
-        for at in ("2030-11-14T13:04:00+01:00", "2030-11-14T13:24:00+01:00"):
-            trip_api.seed(USER, prompt=prompt, at=at, summary="Check départ · Dentiste")
-        trip_api.seed(USER, prompt="Prépare le dîner", at="2030-11-14T17:00:00+01:00", summary="Dîner")
-        trip_api.depart_at["drive"] = "14:34"
-
-        result = await check(prompt)
-
-        assert tools_called(result) == [
-            "list_trips",
-            "estimate_trip",
-            "set_trip",
-            "list_proactions",
-            "cancel_proaction",
-            "cancel_proaction",
-            "schedule_proaction",
-            "schedule_proaction",
-        ]
-        assert trip_api.trips[DENTIST_ID]["departAt"] == "2030-11-14T14:34:00+01:00"
-        assert [(p["summary"], p["scheduledAt"], p["prompt"]) for p in trip_api.of(USER)] == [
-            ("Check départ · Dentiste", "2030-11-14T14:04:00+01:00", prompt),
-            ("Check départ · Dentiste", "2030-11-14T14:24:00+01:00", prompt),
-            ("Dîner", "2030-11-14T17:00:00+01:00", "Prépare le dîner"),
-        ]

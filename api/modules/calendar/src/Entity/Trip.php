@@ -98,6 +98,10 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
     private \DateTimeImmutable $computedAt;
 
+    /** When {@see \Maggie\Calendar\Reminder\TripCheckSource} last re-checked the trip; not part of the payload. */
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $lastCheckedAt = null;
+
     public function __construct(Event $event)
     {
         $this->id = new Ulid();
@@ -210,6 +214,17 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     public function getComputedAt(): \DateTimeImmutable
     {
         return $this->computedAt;
+    }
+
+    #[Ignore]
+    public function getLastCheckedAt(): ?\DateTimeImmutable
+    {
+        return $this->lastCheckedAt;
+    }
+
+    public function markChecked(\DateTimeImmutable $at): void
+    {
+        $this->lastCheckedAt = $at;
     }
 
     /** @return array<string, mixed> */

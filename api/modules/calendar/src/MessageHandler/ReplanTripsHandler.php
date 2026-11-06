@@ -100,6 +100,7 @@ final class ReplanTripsHandler
             ReplanTripsCommand::EVENT_DELETED => 'Raison : un événement d\'aujourd\'hui vient d\'être supprimé.',
             ReplanTripsCommand::POSITION_MOVED => 'Raison : l\'utilisateur est ailleurs que là d\'où le prochain trajet a été calculé (plus de 300 m).',
             ReplanTripsCommand::CAR_MOVED => 'Raison : la voiture n\'est plus là où le prochain trajet l\'a prise en compte (plus de 300 m).',
+            ReplanTripsCommand::DEPARTURE_CHECK => 'Raison : le départ approche et le recalcul du trajet demande un choix.',
             default => "Raison : {$reason}.",
         };
     }

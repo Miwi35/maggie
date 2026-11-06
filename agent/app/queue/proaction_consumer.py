@@ -16,7 +16,7 @@ from app.proactions import api as proactions_api
 from app.proactions.api import Proaction
 from app.queue.connection import PROACTION_QUEUE, get_channel
 from app.queue.message_notification import notify_message
-from app.trips import is_silent_trip_run
+from app.trips import is_retired_trip_check, is_silent_trip_run
 from app.tts.voice_message import message_screen
 from app.user_timezone import resolve_user_timezone
 
@@ -103,6 +103,11 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             "toolCalls": result.get("tool_calls", []),
             "simulatedTools": result.get("simulated_tools", []),
         }
+
+    if is_retired_trip_check(proaction.summary):
+        # Programmed before MAG-730 moved the checks to the API's cron: nothing left to do, no model woken.
+        await _record(proaction, "completed", response="")
+        return {"status": "completed", "message": None, "toolCalls": []}
 
     started_at = datetime.now(UTC)
     clock = time.monotonic()

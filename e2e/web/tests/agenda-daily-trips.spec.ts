@@ -5,8 +5,8 @@ import { callMcpTool } from '../helpers/mcp.js'
 /**
  * The morning card of the trips — MAG-657 (« Partir à l'heure », part 8, extends MAG-100).
  *
- * No screen yet: Maggie plans the day's trips (estimate, keep by car, two checks before the
- * departure) and plans them again when an event moves. Asserted on `/api/trips` and on
+ * No screen yet: Maggie plans the day's trips (estimate, keep by car; the checks before the
+ * departure are the API's cron, MAG-730) and plans them again when an event moves. Asserted on `/api/trips` and on
  * `list_proactions`. The model is the fake (`06-planning-trips.yaml`, `06-replan-trips.yaml`)
  * and Google is WireMock, as in agenda-trips.spec.ts: a walk to the car 4 min, the drive 14, the
  * walk from the dentist's parking 3, 5 minutes of margin — an event at 14:00 leaves at 13:34.
@@ -58,7 +58,7 @@ async function run(api: APIRequestContext, message: string): Promise<void> {
   expect(response.status(), `the proaction failed: ${await response.text()}`).toBe(200)
 }
 
-test('the planning keeps the trip by car and posts two checks, and an event that moves slides its departure', async ({ api }) => {
+test('the planning keeps the trip by car and posts no check, and an event that moves slides its departure', async ({ api }) => {
   // The planning is an agent run: more than the default 90 s on a loaded runner.
   test.setTimeout(180_000)
   const day = parisDay()
@@ -98,11 +98,8 @@ test('the planning keeps the trip by car and posts two checks, and an event that
   expect(trip!.mode).toBe('drive')
   expect(new Date(trip!.departAt).getTime()).toBe(new Date(parisTime(day, '13:34:00')).getTime())
 
-  const checks = await proactionsOf(api, CHECK_SUMMARY)
-  expect(checks.map((check) => new Date(check.scheduledAt).getTime()).sort()).toEqual([
-    new Date(parisTime(day, '13:04:00')).getTime(),
-    new Date(parisTime(day, '13:24:00')).getTime(),
-  ])
+  // The checks before the departure are the API's cron: the planning posts none.
+  expect(await proactionsOf(api, CHECK_SUMMARY)).toEqual([])
 
   // The move does not wake Maggie: the API computes the trip again itself and keeps the new departure.
   const moved = await callMcpTool(api, 'update_event', {

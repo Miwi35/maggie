@@ -369,15 +369,15 @@ class TestProactionConsumer:
             screen=None,
         )
 
-    async def test_a_trip_check_says_nothing_in_the_chat_and_is_recorded_completed(self):
-        """MAG-657: a « Check départ » works on the trips; the departure alert is the API's, not a chat message."""
+    async def test_a_retired_trip_check_completes_without_waking_the_model(self):
+        """MAG-730: a « Check départ » programmed before the API's cron took over runs, and does nothing."""
         claimed = API_PROACTION | {"id": "pro-9", "status": "running", "summary": "Check départ · Dentiste"}
 
         consumed = await _consume(
             {"response": "Le trajet tient.", "tool_calls": []}, body=json.dumps(claimed).encode()
         )
 
-        consumed.gateway.proaction.assert_called_once_with(claimed["prompt"], "user-1", summary="Check départ · Dentiste")
+        consumed.gateway.proaction.assert_not_called()
         consumed.messages.create.assert_not_called()
         assert consumed.proactions.record.await_args.args[1] == "completed"
 
@@ -428,8 +428,8 @@ class TestProactionConsumer:
 
         assert consumed.publisher.publish.await_args.args[1]["silent"] is False
 
-    @pytest.mark.parametrize("summary", ["Replanifier les trajets", "Check départ · Dentiste"])
-    async def test_a_trip_replan_or_check_is_told_to_the_screens_as_silent(self, summary):
+    @pytest.mark.parametrize("summary", ["Replanifier les trajets"])
+    async def test_a_trip_replan_is_told_to_the_screens_as_silent(self, summary):
         """MAG-680: its answer is a log; the admin must not turn it into an interruption."""
         consumed = await _consume({"response": "Rien à recalculer.", "tool_calls": []}, summary=summary)
 
