@@ -7,9 +7,11 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.BodyMeasurement
+import com.maggie.app.data.model.DailyBalance
 import com.maggie.app.data.model.DailyEnergy
 import com.maggie.app.data.repository.BodyMeasurementRepository
 import com.maggie.app.data.repository.DailyEnergyRepository
+import com.maggie.app.data.repository.NutritionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -35,12 +37,14 @@ data class SuiviUiState(
     val energyFailed: Boolean = false,
     /** The day tapped on the Pas or Énergie cards, or on a day column of Poids; `null` is today. */
     val selectedDate: LocalDate? = null,
+    /** Today's « Bilan du jour » (MAG-748), the card Suivi opens on; `null` until read, or when it could not be. */
+    val balance: DailyBalance? = null,
     val error: String? = null,
     val message: String? = null,
 )
 
 /**
- * « Santé › Suivi » (MAG-706): the weighings behind the Poids card, the period it shows, the column chosen, and
+ * « Santé › Suivi » (MAG-706): today's « Bilan du jour » on top (MAG-748), the weighings behind the Poids card, the period it shows, the column chosen, and
  * « Écarter ». Both lists — the weighings and, for the Pas and Énergie cards (MAG-746), the daily energy — are read
  * once for the longest period: changing the period asks nothing of the API. The [clock]
  * says today and the time zone the days are read in.
@@ -48,6 +52,7 @@ data class SuiviUiState(
 class SuiviViewModel(
     private val repository: BodyMeasurementRepository,
     private val energyRepository: DailyEnergyRepository,
+    private val nutritionRepository: NutritionRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
     val clock: Clock = Clock.systemDefaultZone(),
@@ -74,6 +79,13 @@ class SuiviViewModel(
                 .coalescedAndRechecked()
                 .collect { load(showLoading = false) }
         }
+        // « Mangé » in Nutrition, or a dish Maggie records, moves the bilan card on the way back to Suivi.
+        viewModelScope.launch {
+            val userId = authRepository.getUserId() ?: return@launch
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.FOOD_INTAKES))
+                .catch { /* MercureService reconnects by itself */ }
+                .collect { loadBalance() }
+        }
     }
 
     fun refresh() {
@@ -88,6 +100,13 @@ class SuiviViewModel(
             }
             .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = MESSAGE_LOAD) }
         loadEnergy()
+        loadBalance()
+    }
+
+    /** The bilan card is extra: a failure leaves it out and says nothing, the weighings are the screen's. */
+    private suspend fun loadBalance() {
+        nutritionRepository.getDailyBalance(today.toString())
+            .onSuccess { _uiState.value = _uiState.value.copy(balance = it) }
     }
 
     private suspend fun loadEnergy() {

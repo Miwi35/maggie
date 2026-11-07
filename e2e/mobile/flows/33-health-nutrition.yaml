@@ -1,0 +1,70 @@
+appId: com.maggie.app.e2e
+name: 33-health-nutrition
+tags:
+  - health
+---
+# Santé › Nutrition, from the phone (MAG-748, journey « Santé »).
+#
+# Étant donné un déjeuner de 515 kcal prévu aujourd'hui, créé par l'API
+# Quand j'ouvre Santé › Nutrition et j'appuie sur « Mangé »
+# Alors le bilan affiche Mangé 515 et Prévu 0
+#
+# A new user, so the only meal is the one `scripts/nutrition-api.js` plans: a recipe of one
+# serving with 100 g of an ingredient at 515 kcal per 100 g, for TODAY's lunch (the stack's day).
+# Its profile is empty, so no expenditure is expected; the figures are matched up to « Prévu » either way.
+#
+# What is not here: the balance's sign, the ± 150 kcal band and its colours, the seven days, the
+# macros, a refused « Mangé », delete, the add form and the tablet's layout (`NutritionScreenTest`,
+# `NutritionViewModelTest`, `NutritionBalanceTest`), the bilan atop Suivi (`SuiviScreenTest`), the
+# link (`DeepLinksTest`), and the admin's side of the same API.
+
+- runFlow: ../subflows/new-user.yaml
+
+- runScript:
+    file: ../scripts/nutrition-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      TODAY: ${TODAY}
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/33-health-nutrition.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+# Santé › Nutrition: the bilan first, the lunch still planned.
+- openLink: "maggie-e2e://health/nutrition"
+- extendedWaitUntil:
+    visible:
+      id: "nutrition"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "nutrition_balance_figures"
+      text: "Mangé 0 · Prévu 515 .*kcal"
+    timeout: 20000
+
+# « Mangé » on the planned lunch, at the foot of the journal.
+- scrollUntilVisible:
+    element:
+      id: "nutrition_eat_${output.nutritionMealId}"
+- tapOn:
+    id: "nutrition_eat_${output.nutritionMealId}"
+
+# The day is read again: the lunch is in the journal as a « Repas », its kcal moved from Prévu to Mangé.
+- extendedWaitUntil:
+    visible: "[0-9]{2}:[0-9]{2} · Repas"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "nutrition_balance_figures"
+    direction: UP
+- extendedWaitUntil:
+    visible:
+      id: "nutrition_balance_figures"
+      text: "Mangé 515 · Prévu 0 .*kcal"
+    timeout: 10000

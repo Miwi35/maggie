@@ -1897,6 +1897,35 @@ object UiTags {
     const val WEIGHT_EXCLUDE = "weight_exclude"
 
     /**
+     * « Santé › Nutrition » (MAG-748): the screen and its empty state; the « Bilan du jour » card (also at the top of
+     * Suivi), its value, its « Mangé · Prévu · Dépensé » line and the profile hint; the « 7 jours » chart, the macros;
+     * the journal, its empty line, each intake row and its delete button, each planned meal and its « Mangé » button;
+     * « Ajouter » and its dialog's fields.
+     */
+    const val NUTRITION = "nutrition"
+    const val NUTRITION_EMPTY = "nutrition_empty"
+    const val NUTRITION_BALANCE = "nutrition_balance"
+    const val NUTRITION_BALANCE_VALUE = "nutrition_balance_value"
+    const val NUTRITION_BALANCE_FIGURES = "nutrition_balance_figures"
+    const val NUTRITION_PROFILE_HINT = "nutrition_profile_hint"
+    const val NUTRITION_WEEK = "nutrition_week"
+    const val NUTRITION_MACROS = "nutrition_macros"
+    const val NUTRITION_JOURNAL = "nutrition_journal"
+    const val NUTRITION_JOURNAL_EMPTY = "nutrition_journal_empty"
+    const val NUTRITION_INTAKE_PREFIX = "nutrition_intake_"
+    const val NUTRITION_INTAKE_DELETE_PREFIX = "nutrition_delete_"
+    const val NUTRITION_PLANNED_PREFIX = "nutrition_planned_"
+    const val NUTRITION_EAT_PREFIX = "nutrition_eat_"
+    const val NUTRITION_ADD = "nutrition_add"
+    const val NUTRITION_ADD_DIALOG = "nutrition_add_dialog"
+    const val NUTRITION_ADD_LABEL = "nutrition_add_label"
+    const val NUTRITION_ADD_KCAL = "nutrition_add_kcal"
+    const val NUTRITION_ADD_PROTEIN = "nutrition_add_protein"
+    const val NUTRITION_ADD_CARBS = "nutrition_add_carbs"
+    const val NUTRITION_ADD_FAT = "nutrition_add_fat"
+    const val NUTRITION_ADD_SAVE = "nutrition_add_save"
+
+    /**
      * « Santé › Configuration » (MAG-707): the screen and its empty state; the « Besoin du jour » card, its need, basal
      * metabolism and factor; « Calculé · Saisi »; Sexe, the Âge, Taille, Poids and typed-need steppers (each with
      * `_minus`, `_value`, `_plus`), the activity chips; then « Objectif de pas », the two window times, the session
@@ -1933,6 +1962,10 @@ object UiTags {
 
     fun suiviPeriod(key: String) = SUIVI_PERIOD_PREFIX + key
     fun weightColumn(index: Int) = WEIGHT_COLUMN_PREFIX + index
+    fun nutritionIntake(id: String) = NUTRITION_INTAKE_PREFIX + id
+    fun nutritionIntakeDelete(id: String) = NUTRITION_INTAKE_DELETE_PREFIX + id
+    fun nutritionPlanned(mealId: String) = NUTRITION_PLANNED_PREFIX + mealId
+    fun nutritionEat(mealId: String) = NUTRITION_EAT_PREFIX + mealId
 
     fun sportWeekDay(dayOfMonth: Int) = SPORT_WEEK_DAY_PREFIX + dayOfMonth
     fun workoutRow(id: String) = WORKOUT_ROW_PREFIX + id

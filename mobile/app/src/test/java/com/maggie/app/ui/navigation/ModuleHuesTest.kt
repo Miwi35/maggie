@@ -43,7 +43,7 @@ class ModuleHuesTest {
 
     @Test
     fun `Santé's screens are coral (MAG-705, MAG-706, MAG-707)`() {
-        listOf(Screen.HealthSuivi.route, Screen.HealthSport.route, Screen.HealthSportForm.route, Screen.HealthConfiguration.route)
+        listOf(Screen.HealthSuivi.route, Screen.HealthNutrition.route, Screen.HealthSport.route, Screen.HealthSportForm.route, Screen.HealthConfiguration.route)
             .forEach { assertEquals(it, ModuleHue.HEALTH, moduleHueOf(it)) }
     }
 
