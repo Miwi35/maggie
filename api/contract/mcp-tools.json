@@ -4009,6 +4009,39 @@
         },
         "description": "Give a line of a recipe another product, without breaking its steps: the steps that used the old ingredient use the new one. ingredientId is the ingredient the recipe line has now; give the new one as withIngredientId or withCiqualAlimCode; quantity and unit are optional (kept when omitted). The text of the steps is never rewritten on a deduction: the answer lists textSuggestions ({position, before, after}) for the steps that cite the old name or quantity — pass rewriteText true only when the user asked for the texts to follow."
     },
+    "save_bilan_step": {
+        "name": "save_bilan_step",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "day": {
+                    "type": "string"
+                },
+                "step": {
+                    "type": "string"
+                },
+                "answers": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                },
+                "instructions": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "day",
+                "step"
+            ]
+        },
+        "description": "Record where the evening review (« Bilan du soir ») stands, at every passage from one step to the next, so any device resumes it there. day is the day of the review, YYYY-MM-DD. step is one of journee, finance, sante, consignes, demain, in that order. answers (optional) is {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note} and instructions (optional) a list of {id, text, kind: reminder|task|instruction, targetId?}: when omitted, what is already stored for the same day is kept; a new day starts from nothing. Returns the status as saved, or {error}."
+    },
     "save_place": {
         "name": "save_place",
         "inputSchema": {

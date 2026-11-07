@@ -1,0 +1,21 @@
+# The bilan-soir proaction, come due (MAG-749): the skill is loaded, the review opens at the Journée step
+# without writing the status — the user's first answer does. The relance is the consumer's rule, not a scenario.
+name: bilan-soir-proaction
+description: The evening proaction opens the review.
+
+match:
+  user_contains: ["[Proaction due maintenant]", "compétence bilan-soir"]
+
+turns:
+  - tools:
+      - name: get_skill
+        input: {name: bilan-soir}
+  - tools:
+      - name: get_activity_status
+        input: {activity: bilan}
+  - tools:
+      - name: get_events_by_date
+        input: {date: '${today}'}
+      - name: get_tasks
+        input: {view: today}
+  - text: "Bonsoir monsieur, c'est l'heure de faire le point sur la journée. Première étape : voilà ce qui était prévu aujourd'hui et les tâches qui restent. On commence ?"

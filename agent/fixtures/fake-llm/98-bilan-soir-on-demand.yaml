@@ -1,0 +1,25 @@
+# « On fait le point » opens the evening review at the Journée step (MAG-749, extends MAG-99): the run loads
+# the bilan-soir skill, reads where the review stands, writes the step `journee` (activity-status/bilan),
+# then reads the day — the agenda done, the tasks — and says it for the ear, with no Markdown.
+name: bilan-soir-on-demand
+description: The evening review asked for in the chat, opened at the Journée step.
+
+match:
+  user_contains: "on fait le point"
+
+turns:
+  - tools:
+      - name: get_skill
+        input: {name: bilan-soir}
+  - tools:
+      - name: get_activity_status
+        input: {activity: bilan}
+  - tools:
+      - name: save_bilan_step
+        input: {day: '${today}', step: journee}
+  - tools:
+      - name: get_events_by_date
+        input: {date: '${today}'}
+      - name: get_tasks
+        input: {view: today}
+  - text: "Très bien, on fait le point. Première étape, la journée : voilà ce qui était prévu aujourd'hui et les tâches qui restent. Pour chacune, dites-moi si c'est fait, pour demain, ou pour plus tard."
