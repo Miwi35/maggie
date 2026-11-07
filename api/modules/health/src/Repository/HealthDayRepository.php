@@ -36,12 +36,13 @@ class HealthDayRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** @return list<string> the dates (YYYY-MM-DD) the user has a journal row on */
-    public function datesOf(User $user): array
+    /** @return list<string> the dates (YYYY-MM-DD) the user has a journal row on, the oldest first */
+    public function datesOf(User|string $user): array
     {
         $rows = $this->createQueryBuilder('d')
             ->select('d.date')
-            ->andWhere('d.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('d.user = :user')->setParameter('user', $user instanceof User ? $user->getId() : $user, 'ulid')
+            ->orderBy('d.date', 'ASC')
             ->getQuery()
             ->getArrayResult();
 

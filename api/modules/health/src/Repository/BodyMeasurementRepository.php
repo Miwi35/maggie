@@ -90,6 +90,25 @@ class BodyMeasurementRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * The weight known on a day (MAG-750): the latest weighing not set aside
+     * taken before $before, whatever its day; null when there is none yet.
+     */
+    public function latestWeighingBefore(User $user, \DateTimeImmutable $before): ?BodyMeasurement
+    {
+        /* @var BodyMeasurement|null */
+        return $this->createQueryBuilder('m')
+            ->andWhere('m.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('m.excluded = false')
+            ->andWhere('m.weight IS NOT NULL')
+            ->andWhere('m.measuredAt < :before')->setParameter('before', $before, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('m.measuredAt', 'DESC')
+            ->addOrderBy('m.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** The user's measurement, or null — also for an id that is not a ULID. */
     public function findOneOfUser(User|string $user, string $measurementId): ?BodyMeasurement
     {
