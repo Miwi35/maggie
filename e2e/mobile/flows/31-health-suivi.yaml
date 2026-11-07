@@ -87,6 +87,9 @@ tags:
 - scrollUntilVisible:
     element:
       id: "energy_card"
+- scrollUntilVisible:
+    element:
+      id: "energy_workouts"
 - extendedWaitUntil:
     visible:
       id: "energy_base"
