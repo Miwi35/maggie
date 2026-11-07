@@ -246,6 +246,14 @@ class TestShippedSkills:
         assert "moment:bilan-soir" in bilan
         for rule in ("schedule_proaction", "create_task", "add_instruction", "Provenance `bilan-soir`", "Tu hésites"):
             assert rule in bilan
+        for literal in (
+            "(bilan-soir)",
+            "Provenance : bilan-soir",
+            "jamais sans `targetId`",
+            'appelle quand même `add_instruction`',
+            "ne le calcule pas de tête",
+        ):
+            assert literal in bilan
 
     async def test_the_owners_copy_is_never_overwritten(self, agent_db):
         index = _index()
@@ -270,6 +278,10 @@ class TestSupersededShippedSkills:
         await index.rebuild()
 
         assert "Provenance `bilan-soir`" in (await index.get("bilan-soir") or "")
+
+    def test_the_version_deployed_by_mag_753_is_listed(self):
+        deployed = "865ed7bb25d31d55f85997030f664206cf77025ec70ce468b508b8af08779911"
+        assert deployed in SUPERSEDED_BUILTIN_BODIES["bilan-soir"]
 
     async def test_an_edited_copy_is_kept(self, agent_db):
         index = _index()
