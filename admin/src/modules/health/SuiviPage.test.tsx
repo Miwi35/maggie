@@ -45,11 +45,12 @@ const ENERGY_ROW = (date: string, over: Record<string, unknown> = {}) => ({
 })
 
 /** The daily energy of the range asked: one row per day, today with 8 000 steps. */
-function stubEnergy(options: { fail?: boolean; withSteps?: boolean } = {}) {
-  const { fail = false, withSteps = true } = options
+function stubEnergy(options: { fail?: boolean; withSteps?: boolean; journal?: unknown[] } = {}) {
+  const { fail = false, withSteps = true, journal = [] } = options
   const fetcher = vi.fn((url: string) => {
     if (fail) return Promise.resolve(new Response('{}', { status: 500 }))
-    const { searchParams } = new URL(url, 'http://localhost')
+    const { pathname, searchParams } = new URL(url, 'http://localhost')
+    if (pathname === '/api/health/days') return Promise.resolve(new Response(JSON.stringify({ days: journal }), { status: 200 }))
     const from = searchParams.get('from') ?? ''
     const to = searchParams.get('to') ?? ''
     const rows = []
@@ -68,6 +69,10 @@ function stubEnergy(options: { fail?: boolean; withSteps?: boolean } = {}) {
 
   return fetcher
 }
+
+const reads = (fetcher: ReturnType<typeof stubEnergy>, path: string) =>
+  fetcher.mock.calls.map(([url]) => String(url)).filter((url) => url.startsWith(`${path}?`))
+const energyReads = (fetcher: ReturnType<typeof stubEnergy>) => reads(fetcher, '/api/health/daily-energy')
 
 function renderPage(listed: unknown[] = [TODAY, YESTERDAY, EXCLUDED, OLDER, EARLY], overrides: Partial<DataProvider> = {}) {
   const getList = vi.fn(() => Promise.resolve({ data: listed, total: listed.length }))
@@ -242,12 +247,12 @@ describe('SuiviPage', () => {
 
     const steps = await screen.findByRole('region', { name: 'Pas' })
     await waitFor(() => expect(within(steps).getAllByTestId('steps-bar')).toHaveLength(30))
-    expect(String(fetcher.mock.calls.at(-1)?.[0])).toBe('/api/health/daily-energy?from=2026-09-22&to=2026-10-21')
+    expect(String(energyReads(fetcher).at(-1))).toBe('/api/health/daily-energy?from=2026-09-22&to=2026-10-21')
     expect(within(steps).getByTestId('steps-value')).toHaveTextContent('8 000')
 
     await user.click(within(screen.getByRole('radiogroup', { name: 'Période' })).getByRole('radio', { name: '7 j' }))
     await waitFor(() => expect(within(steps).getAllByTestId('steps-bar')).toHaveLength(7))
-    expect(String(fetcher.mock.calls.at(-1)?.[0])).toBe('/api/health/daily-energy?from=2026-10-15&to=2026-10-21')
+    expect(String(energyReads(fetcher).at(-1))).toBe('/api/health/daily-energy?from=2026-10-15&to=2026-10-21')
   })
 
   test('picking a day updates both cards; changing the period resets it', async () => {
@@ -267,6 +272,31 @@ describe('SuiviPage', () => {
 
     await user.click(within(screen.getByRole('radiogroup', { name: 'Période' })).getByRole('radio', { name: '90 j' }))
     await waitFor(() => expect(within(steps).getByTestId('steps-label')).toHaveTextContent('Moyenne par jour'))
+  })
+
+  test('the Moral · fatigue card reads the journal over the period and follows the chosen day', async () => {
+    const user = userEvent.setup()
+    const fetcher = stubEnergy({
+      journal: [
+        { id: '01J20', date: '2026-10-20', mood: 5, fatigue: 6 },
+        { id: '01J21', date: '2026-10-21', mood: 7, fatigue: 4 },
+      ],
+    })
+    renderPage()
+
+    const mood = await screen.findByRole('region', { name: 'Moral · fatigue' })
+    await waitFor(() => expect(within(mood).getByTestId('mood-value')).toHaveTextContent('7'))
+    expect(within(mood).getByTestId('fatigue-value')).toHaveTextContent('4')
+    expect(within(mood).getAllByTestId('mood-column')).toHaveLength(30)
+    expect(reads(fetcher, '/api/health/days')).toEqual(['/api/health/days?from=2026-09-22&to=2026-10-21'])
+
+    await user.click(within(screen.getByRole('region', { name: 'Pas' })).getByRole('button', { name: 'mar. 20 oct. : pas de donnée' }))
+    expect(within(mood).getByTestId('mood-label')).toHaveTextContent('mar. 20 oct.')
+    expect(within(mood).getByTestId('mood-value')).toHaveTextContent('5')
+
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Période' })).getByRole('radio', { name: '7 j' }))
+    await waitFor(() => expect(within(mood).getAllByTestId('mood-column')).toHaveLength(7))
+    expect(reads(fetcher, '/api/health/days').at(-1)).toBe('/api/health/days?from=2026-10-15&to=2026-10-21')
   })
 
   test('the Pas card is sober when no day has steps', async () => {

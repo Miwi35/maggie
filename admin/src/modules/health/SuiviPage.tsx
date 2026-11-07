@@ -7,58 +7,20 @@ import { BODY_MEASUREMENT_TOPICS, BODY_MEASUREMENTS } from './bodyMeasurementsAp
 import type { BodyMeasurement } from './bodyMeasurementsApi'
 import { useDailyEnergy } from './dailyEnergyApi'
 import { energyRange } from './dailyEnergySeries'
+import { useHealthDays } from './healthDaysApi'
+import { PeriodPicker } from './PeriodPicker'
 import { SuiviBalanceBanner } from './SuiviBalanceBanner'
 import { SuiviEnergyCard } from './SuiviEnergyCard'
 import { SuiviMeasurementForm } from './SuiviMeasurementForm'
+import { SuiviMoodCard } from './SuiviMoodCard'
 import { SuiviStepsCard } from './SuiviStepsCard'
 import { SuiviWeighingsCard } from './SuiviWeighingsCard'
 import { SuiviWeightCard } from './SuiviWeightCard'
-import { columns, DEFAULT_PERIOD, PERIOD_LABELS, PERIODS, readStart, weighingsOf } from './suiviSeries'
+import { columns, DEFAULT_PERIOD, readStart, weighingsOf } from './suiviSeries'
 import type { Period } from './suiviSeries'
 
 /** Two weighings a day over a year and its trend days, and room to spare: the plan's cap per page. */
 const MAX_READ = 1000
-
-interface PeriodPickerProps {
-  period: Period
-  onChange: (period: Period) => void
-}
-
-/** « 7 j · 30 j · 90 j · 1 an », one of them checked. */
-const PeriodPicker = ({ period, onChange }: PeriodPickerProps) => (
-  <Box role="radiogroup" aria-label="Période" sx={{ display: 'flex', gap: '2px', p: '3px', borderRadius: 2.5, bgcolor: 'background.default' }}>
-    {PERIODS.map((candidate) => {
-      const checked = candidate === period
-
-      return (
-        <Box
-          key={candidate}
-          component="button"
-          type="button"
-          role="radio"
-          aria-checked={checked}
-          onClick={() => onChange(candidate)}
-          sx={(theme) => ({
-            appearance: 'none',
-            border: 0,
-            m: 0,
-            font: 'inherit',
-            cursor: 'pointer',
-            height: 30,
-            px: 1.75,
-            borderRadius: 2,
-            fontSize: 13,
-            fontVariantNumeric: 'tabular-nums',
-            bgcolor: checked ? theme.palette.veilleuse.raised : 'transparent',
-            color: checked ? theme.palette.text.primary : theme.palette.veilleuse.caption,
-          })}
-        >
-          {PERIOD_LABELS[candidate]}
-        </Box>
-      )
-    })}
-  </Box>
-)
 
 interface BoardProps {
   period: Period
@@ -71,7 +33,7 @@ const SuiviBoard = ({ period, onPeriod, now }: BoardProps) => {
   // null: the last column, today's.
   const [selected, setSelected] = useState<number | null>(null)
   // The weighing being edited is kept as it was opened: an event must not rewrite what is being typed.
-  // null: the whole period for « Pas », today for « Énergie ».
+  // null: the whole period for « Pas », today for « Énergie » and « Moral · fatigue ».
   const [energyDay, setEnergyDay] = useState<number | null>(null)
   const [form, setForm] = useState<{ measurement?: BodyMeasurement } | null>(null)
 
@@ -80,6 +42,8 @@ const SuiviBoard = ({ period, onPeriod, now }: BoardProps) => {
   const weighings = useMemo(() => weighingsOf([...measurements], period, now), [measurements, period, now])
   const { from, to } = useMemo(() => energyRange(period, now), [period, now])
   const energy = useDailyEnergy(from, to)
+  // Read once, as the energy: the page's one stream is the weighings' (MAG-473).
+  const journal = useHealthDays(from, to)
   const current = selected === null || selected >= cols.length ? cols.length - 1 : selected
 
   return (
@@ -105,9 +69,10 @@ const SuiviBoard = ({ period, onPeriod, now }: BoardProps) => {
           onEdit={(measurement) => setForm({ measurement })}
         />
       </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1.75, minWidth: 0 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(3, minmax(0, 1fr))' }, gap: 1.75, minWidth: 0 }}>
         <SuiviStepsCard state={energy} today={to} selected={energyDay} onSelect={setEnergyDay} />
         <SuiviEnergyCard state={energy} today={to} selected={energyDay} onSelect={setEnergyDay} />
+        <SuiviMoodCard state={journal} from={from} to={to} selected={energyDay} onSelect={setEnergyDay} />
       </Box>
       <SuiviMeasurementForm open={form !== null} measurement={form?.measurement} onClose={() => setForm(null)} />
     </Box>
