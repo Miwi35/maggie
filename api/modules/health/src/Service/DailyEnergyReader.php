@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Health\Service;
 
 use Maggie\Core\Entity\User;
-use Maggie\Health\Entity\DailyActivity;
-use Maggie\Health\Entity\Workout;
-use Maggie\Health\Enum\WorkoutSource;
 use Maggie\Health\Repository\DailyActivityRepository;
 use Maggie\Health\Repository\WorkoutRepository;
 

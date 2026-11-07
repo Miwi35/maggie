@@ -133,6 +133,7 @@ final class RecordedResponseContractTest extends WebTestCase
         'workouts.collection' => '/api/workouts',
         'body-measurements.collection' => '/api/body-measurements',
         'health_profile.me' => '/api/health/profile',
+        'health_daily_energy.read' => '/api/health/daily-energy?from=2026-10-20&to=2026-10-21',
     ];
 
     private KernelBrowser $client;

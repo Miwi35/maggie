@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.health
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -39,10 +40,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -56,6 +60,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.LocalDate
+import com.maggie.app.data.model.DailyEnergy
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -73,8 +79,9 @@ import com.maggie.app.ui.uiTagRoot
 /**
  * « Santé › Suivi » (MAG-706, mockups Suivi-Tel and Suivi-Tablette): the period selector — under the header on a
  * phone, in it on a tablet — and the Poids card: the weighings as dots (7 j, 30 j), the 7-day trend in coral, the
- * column chosen with its values in the header. A long press on a weighed day sets its weighing aside. The other cards
- * of the mockups (Nutrition, Pas, Énergie, Moral · fatigue) are not delivered: no placeholder stands for them.
+ * column chosen with its values in the header. A long press on a weighed day sets its weighing aside. The Pas and Énergie cards
+ * (MAG-746) follow the same period and the same day. The other cards of the mockups (Nutrition, Moral · fatigue) are
+ * not delivered: no placeholder stands for them.
  */
 @Composable
 fun SuiviScreen(
@@ -115,6 +122,8 @@ private fun SuiviContent(viewModel: SuiviViewModel, expanded: Boolean, modifier:
     val chart = remember(uiState.measurements, uiState.period, today) {
         weightChart(uiState.measurements, uiState.period, today, viewModel.zone)
     }
+    val energy = remember(uiState.energy, uiState.period, today) { energyWindow(uiState.energy, uiState.period, today) }
+    val day = selectedEnergy(energy, uiState.selectedDate)
 
     ErrorSnackbar(
         error = uiState.error,
@@ -148,8 +157,14 @@ private fun SuiviContent(viewModel: SuiviViewModel, expanded: Boolean, modifier:
                 Column(modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
                     WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, large = true)
                 }
-                // The right column of the mockup holds Nutrition and Énergie, not delivered: it stays empty.
-                Spacer(modifier = Modifier.weight(1f))
+                // The right column of the mockup holds Nutrition, not delivered: Pas and Énergie take its place.
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    StepsCard(energy, day, uiState, today, viewModel::selectDay, large = true)
+                    EnergyCard(energy, day, uiState, today, viewModel::selectDay, large = true)
+                }
             }
             else -> Column(
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
@@ -157,6 +172,8 @@ private fun SuiviContent(viewModel: SuiviViewModel, expanded: Boolean, modifier:
             ) {
                 PeriodSelector(uiState.period, viewModel::selectPeriod, segmentWidth = null, height = 36.dp)
                 WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, large = false)
+                StepsCard(energy, day, uiState, today, viewModel::selectDay, large = false)
+                EnergyCard(energy, day, uiState, today, viewModel::selectDay, large = false)
             }
         }
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
@@ -346,5 +363,182 @@ private fun WeightCurve(chart: WeightChart, dots: Color, trend: Color, large: Bo
                 style = Stroke(width = (if (large) 3.dp else 2.5.dp).toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
             )
         }
+    }
+}
+
+private fun dayTitle(day: DailyEnergy?, today: LocalDate): String {
+    val date = day?.let { runCatching { LocalDate.parse(it.date) }.getOrNull() } ?: return ""
+    return if (date == today) "Aujourd’hui" else dayLabel(date)
+}
+
+/** What a card says while the energy is read, or when it could not be: a sober line, never a verdict. */
+@Composable
+private fun EnergyPlaceholder(title: String, text: String, tag: String, large: Boolean) {
+    val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
+    MaggieCard(modifier = Modifier.fillMaxWidth().semantics { contentDescription = title }.testTag(tag)) {
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(title, fontSize = if (large) 15.sp else 14.sp, color = surface.textMuted)
+            Text(text, fontSize = 13.sp, color = surface.caption)
+        }
+    }
+}
+
+/**
+ * The bars of a window, one per day, the chosen one shaded; a tap on the chart chooses the day under the finger.
+ * [draw] paints a day's bar of [width] at [x].
+ */
+@Composable
+private fun DayBars(
+    window: List<DailyEnergy>,
+    selected: DailyEnergy?,
+    onSelect: (LocalDate) -> Unit,
+    height: Dp,
+    draw: DrawScope.(day: DailyEnergy, x: Float, width: Float) -> Unit,
+) {
+    val shade = (if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight).text.copy(alpha = 0.07f)
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height)
+            .pointerInput(window) {
+                detectTapGestures { tap ->
+                    val index = (tap.x / size.width * window.size).toInt().coerceIn(0, window.lastIndex)
+                    onSelect(LocalDate.parse(window[index].date))
+                }
+            },
+    ) {
+        val slot = size.width / window.size
+        val bar = (slot * 0.7f).coerceAtLeast(1f)
+        window.forEachIndexed { i, day ->
+            if (day.date == selected?.date) drawRect(shade, Offset(i * slot, 0f), Size(slot, size.height))
+            draw(day, i * slot + (slot - bar) / 2f, bar)
+        }
+    }
+}
+
+/**
+ * The Pas card (MAG-746): the steps of each day of the period as bars, the chosen day's figure — today's by default —
+ * and the mean of the days that have any. No steps at all in the period: « Aucune donnée de pas », nothing projected.
+ */
+@Composable
+private fun StepsCard(
+    window: List<DailyEnergy>,
+    day: DailyEnergy?,
+    state: SuiviUiState,
+    today: LocalDate,
+    onSelect: (LocalDate) -> Unit,
+    large: Boolean,
+) {
+    val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
+    val accent = MaterialTheme.colorScheme.primary
+    when {
+        state.energyFailed && !state.energyLoaded ->
+            return EnergyPlaceholder("Pas", "Les pas n'ont pas pu être chargés.", UiTags.STEPS_CARD, large)
+        !state.energyLoaded -> return EnergyPlaceholder("Pas", "Chargement…", UiTags.STEPS_CARD, large)
+        !hasSteps(window) ->
+            return EnergyPlaceholder("Pas", "Aucune donnée de pas", UiTags.STEPS_EMPTY, large)
+    }
+    val top = window.maxOf { it.steps ?: 0 }.coerceAtLeast(1)
+    MaggieCard(modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Pas" }.testTag(UiTags.STEPS_CARD)) {
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (large) 10.dp else 8.dp),
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                Text("Pas", fontSize = if (large) 15.sp else 14.sp, color = surface.textMuted)
+                Text(dayTitle(day, today), fontSize = 12.sp, color = surface.caption)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
+                Text(
+                    day?.steps?.let(::formatCount) ?: DASH,
+                    fontSize = if (large) 30.sp else 26.sp,
+                    fontWeight = FontWeight.Light,
+                    modifier = Modifier.testTag(UiTags.STEPS_VALUE),
+                )
+                Text(
+                    "· moy. " + (averageSteps(window)?.let(::formatCount) ?: DASH) + " /j",
+                    fontSize = if (large) 14.sp else 13.sp,
+                    color = surface.textMuted,
+                )
+            }
+            DayBars(window, day, onSelect, if (large) 120.dp else 76.dp) { d, x, width ->
+                val h = (d.steps ?: 0) / top.toFloat() * size.height
+                drawRect(accent, Offset(x, size.height - h), Size(width, h))
+            }
+        }
+    }
+}
+
+/**
+ * The Énergie card (MAG-746): each day's stack — base, pas, séances — and, for the chosen day, the API's total, never
+ * a sum made here. A day without a base (profile incomplete) stacks what exists and shows « — » as its total.
+ */
+@Composable
+private fun EnergyCard(
+    window: List<DailyEnergy>,
+    day: DailyEnergy?,
+    state: SuiviUiState,
+    today: LocalDate,
+    onSelect: (LocalDate) -> Unit,
+    large: Boolean,
+) {
+    val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
+    val colors = MaterialTheme.colorScheme
+    val base = surface.caption.copy(alpha = 0.55f)
+    val steps = colors.primary
+    val workouts = colors.tertiary
+    when {
+        state.energyFailed && !state.energyLoaded ->
+            return EnergyPlaceholder("Énergie", "L'énergie n'a pas pu être chargée.", UiTags.ENERGY_CARD, large)
+        !state.energyLoaded -> return EnergyPlaceholder("Énergie", "Chargement…", UiTags.ENERGY_CARD, large)
+    }
+    val top = maxStack(window).coerceAtLeast(1)
+    val parts = day?.let(::energyParts)
+    MaggieCard(modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Énergie" }.testTag(UiTags.ENERGY_CARD)) {
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (large) 10.dp else 8.dp),
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                Text("Énergie", fontSize = if (large) 15.sp else 14.sp, color = surface.textMuted)
+                Text(dayTitle(day, today), fontSize = 12.sp, color = surface.caption)
+            }
+            Text(
+                formatKcal(day?.expendedKcal),
+                fontSize = if (large) 30.sp else 26.sp,
+                fontWeight = FontWeight.Light,
+                modifier = Modifier.testTag(UiTags.ENERGY_TOTAL),
+            )
+            DayBars(window, day, onSelect, if (large) 120.dp else 76.dp) { d, x, width ->
+                val p = energyParts(d)
+                var bottom = size.height
+                listOf(p.base to base, p.steps to steps, p.workouts to workouts).forEach { (kcal, color) ->
+                    val h = kcal / top.toFloat() * size.height
+                    drawRect(color, Offset(x, bottom - h), Size(width, h))
+                    bottom -= h
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                EnergyLegend("Base", day?.bmrKcal, base, UiTags.ENERGY_BASE)
+                EnergyLegend("Pas", day?.stepsKcal, steps, UiTags.ENERGY_STEPS)
+                EnergyLegend("Séances", parts?.workouts, workouts, UiTags.ENERGY_WORKOUTS)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnergyLegend(label: String, kcal: Int?, color: Color, tag: String) {
+    val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.semantics(mergeDescendants = true) {}.testTag(tag),
+    ) {
+        Box(Modifier.width(8.dp).height(8.dp).clip(RoundedCornerShape(2.dp)).background(color))
+        Text("$label ${kcal?.let(::formatCount) ?: DASH}", fontSize = 12.sp, color = surface.caption)
     }
 }
