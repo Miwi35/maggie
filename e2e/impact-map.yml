@@ -852,6 +852,9 @@ mobile:
   e2e/mobile/flows/33-health-nutrition.yaml:
     areas: [health, cookbook]
     paths: [e2e/mobile/scripts/nutrition-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
+  e2e/mobile/flows/34-health-journal.yaml:
+    areas: [health]
+    paths: [e2e/mobile/scripts/health-journal-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/29-finance-cushion-share.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/cushion-share-api.js, api/fixtures/e2e/69-finance-cushion-share.yaml]
