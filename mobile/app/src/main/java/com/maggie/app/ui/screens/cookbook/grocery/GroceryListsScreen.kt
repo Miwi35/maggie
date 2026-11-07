@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.theme.readableTextOn
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.ui.UiTags
@@ -93,6 +94,8 @@ fun GroceryScreen(
     onOpenItemHandled: () -> Unit = {},
     // Set when the item opens in the detail pane beside the list instead of a sheet (MAG-263).
     onOpenItemInPane: ((GroceryItem) -> Unit)? = null,
+    // Ciqual foods offered by « Ajouter un article » when no product matches (MAG-759).
+    onSearchCiqual: (suspend (String) -> List<CiqualFood>)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val recurringState by recurringViewModel.uiState.collectAsState()
@@ -401,6 +404,8 @@ fun GroceryScreen(
             recipeNeed = uiState.recipeNeed,
             onProductChosen = { product -> viewModel.loadRecipeNeed(product?.takeIf { it.packagingUnit != null }?.id) },
             error = uiState.addError,
+            onSearchCiqual = onSearchCiqual,
+            onCreateProductFromCiqual = onSearchCiqual?.let { { food -> viewModel.createProductFromCiqual(food) } },
         )
     }
 

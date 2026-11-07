@@ -1,0 +1,43 @@
+appId: com.maggie.app.e2e
+name: 20-grocery-product-search
+tags:
+  - grocery
+---
+# « Ajouter un article » finds an existing product whatever the case, the accents
+# or a plural s/x (MAG-759): « timbre du voisins » proposes « Timbres du voisin »,
+# the product the seed gives the neighbour. Nothing is written: the sheet is closed
+# without adding.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/20-grocery-product-search.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: grocery
+- extendedWaitUntil:
+    visible:
+      id: "grocery"
+    timeout: 20000
+
+- tapOn: "Ajouter un article"
+- extendedWaitUntil:
+    visible: "Nom du produit"
+    timeout: 20000
+- tapOn: "Nom du produit"
+- extendedWaitUntil:
+    visible: "Retour"
+    timeout: 20000
+- tapOn:
+    id: "product_search"
+- inputText: "TIMBRE du voisins"
+- extendedWaitUntil:
+    visible: "Timbres du voisin"
+    timeout: 20000

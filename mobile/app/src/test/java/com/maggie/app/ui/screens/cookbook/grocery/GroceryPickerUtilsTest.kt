@@ -50,6 +50,44 @@ class GroceryPickerUtilsTest {
     }
 
     @Test
+    fun `filterProducts finds a singular product from its plural, whatever the case`() {
+        val leek = listOf(Product(id = "p9", name = "Poireau", category = ProductCategory.PRODUCE))
+        assertEquals(listOf("p9"), filterProducts("poireaux", leek).map { it.id })
+        assertEquals(listOf("p9"), filterProducts("Poireaux", leek).map { it.id })
+        assertEquals(listOf("p9"), filterProducts("POIREAU", leek).map { it.id })
+    }
+
+    @Test
+    fun `filterProducts ignores accents on both sides`() {
+        val cream = listOf(Product(id = "p8", name = "Crème fraîche", category = ProductCategory.DAIRY))
+        assertEquals(listOf("p8"), filterProducts("creme fraiche", cream).map { it.id })
+        assertEquals(listOf("p8"), filterProducts("Crèmes fraîches", cream).map { it.id })
+        val plain = listOf(Product(id = "p7", name = "Creme", category = ProductCategory.DAIRY))
+        assertEquals(listOf("p7"), filterProducts("crème", plain).map { it.id })
+    }
+
+    @Test
+    fun `filterProducts finds a singular product from a plural query`() {
+        val poireau = Product(id = "p9", name = "Poireau", category = ProductCategory.PRODUCE)
+        for (query in listOf("poireaux", "Poireaux", "POIREAU", "poireau")) {
+            assertEquals(query, listOf(poireau), filterProducts(query, listOf(poireau) + products))
+        }
+    }
+
+    @Test
+    fun `filterProducts ignores accents`() {
+        val creme = Product(id = "p8", name = "Crème fraîche", category = ProductCategory.DAIRY)
+        assertEquals(listOf(creme), filterProducts("creme fraiche", listOf(creme) + products))
+        assertEquals(listOf(creme), filterProducts("Crèmes fraîches", listOf(creme) + products))
+    }
+
+    @Test
+    fun `categoryForCiqualGroup maps a food group`() {
+        assertEquals(ProductCategory.PRODUCE, categoryForCiqualGroup("fruits, légumes, légumineuses et oléagineux"))
+        assertEquals(ProductCategory.OTHER, categoryForCiqualGroup(null))
+    }
+
+    @Test
     fun `filterProducts limits to 10 results`() {
         val manyProducts = (1..20).map {
             Product(id = "p$it", name = "Test Product $it", category = ProductCategory.OTHER)

@@ -2,6 +2,7 @@ package com.maggie.app.data.repository
 
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.ProductCreateRequest
+import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.ProductQuery
@@ -12,6 +13,10 @@ class ProductRepository(
 ) {
     suspend fun getProducts(query: ProductQuery = ProductQuery()): Result<List<Product>> = runCatching {
         apiService.getProducts(query)
+    }
+
+    suspend fun searchCiqualFoods(query: String): Result<List<CiqualFood>> = runCatching {
+        apiService.searchCiqualFoods(query)
     }
 
     suspend fun getProduct(id: String): Result<Product> = runCatching {

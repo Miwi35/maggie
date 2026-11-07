@@ -6,9 +6,11 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.api.EndErrandRemainingItem
+import com.maggie.app.data.api.ProductCreateRequest
 import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.AisleSummary
+import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Product
@@ -400,6 +402,18 @@ class GroceryViewModel(
                 _uiState.value = _uiState.value.copy(recipeNeed = need.takeIf { it.recipeNeed != null || it.meals.isNotEmpty() })
             }
         }
+    }
+
+    suspend fun searchCiqualFoods(query: String): List<CiqualFood> =
+        productRepository.searchCiqualFoods(query).getOrDefault(emptyList())
+
+    /** The product that carries a Ciqual food, created on the spot so the line joins it; null when the API refused. */
+    suspend fun createProductFromCiqual(food: CiqualFood): Product? {
+        val created = productRepository.createProduct(
+            ProductCreateRequest(name = food.alimNameFr, category = categoryForCiqualGroup(food.alimGroupNameFr).name.lowercase(), ciqualAlimCode = food.alimCode),
+        ).getOrNull() ?: return null
+        _uiState.value = _uiState.value.copy(products = _uiState.value.products + created)
+        return created
     }
 
     fun addItem(

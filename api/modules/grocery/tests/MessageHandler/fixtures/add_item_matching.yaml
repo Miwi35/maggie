@@ -1,0 +1,15 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-matching@example.com
+    googleId: google-grocery-matching
+    name: Grocery Matching User
+
+Maggie\Grocery\Entity\Product:
+  leek:
+    name: Poireau
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+  cream:
+    name: Crème fraîche
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Dairy)>'
+    user: '@test_user'
