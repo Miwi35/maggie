@@ -4,8 +4,10 @@ import com.maggie.app.BuildConfig
 import com.maggie.app.data.fcm.PushActionKind
 import com.maggie.app.data.fcm.PushChannels
 import com.maggie.app.data.model.Notification
+import com.maggie.app.data.model.NotificationInteraction
 import com.maggie.app.data.model.PendingApproval
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -247,5 +249,74 @@ class InterruptionsTest {
                 """{"@id":"/api/notifications/n-2","id":"n-2","type":"reminder","title":"t","expiresAt":"2099-01-01T00:00:00+00:00"}""",
             ),
         )
+    }
+
+    // --- MAG-717 ---
+
+    @Test
+    fun `a question notification becomes a choice with its boxes and its question`() {
+        val payload = Interruptions.of(
+            Notification(
+                id = "n-q",
+                type = "question",
+                title = "Quels jours ?",
+                interaction = NotificationInteraction(kind = "choice", options = listOf("Lundi", "Mardi"), multiple = true, questionId = "q-1"),
+            ),
+        )!!
+
+        val interaction = payload.interaction!!
+        assertEquals("choice", interaction.kind)
+        assertEquals(listOf("Lundi", "Mardi"), interaction.options)
+        assertTrue(interaction.multiple)
+        assertEquals("q-1", interaction.questionId)
+        assertTrue(payload.isChoice)
+        assertTrue(payload.isAnswerableChoice)
+        assertEquals(emptyList<PushActionKind>(), payload.actions())
+    }
+
+    @Test
+    fun `a question with one choice reads multiple as false`() {
+        val payload = Interruptions.of(
+            Notification(id = "n-q", type = "question", title = "t", interaction = NotificationInteraction("choice", listOf("A", "B"), questionId = "q")),
+        )!!
+
+        assertFalse(payload.interaction!!.multiple)
+    }
+
+    @Test
+    fun `a choice without a question id cannot be answered here`() {
+        val payload = Interruptions.of(
+            Notification(id = "n-q", type = "question", title = "t", interaction = NotificationInteraction("choice", listOf("A", "B"))),
+        )!!
+
+        assertFalse(payload.isAnswerableChoice)
+    }
+
+    @Test
+    fun `a notification without interaction has none`() {
+        assertNull(Interruptions.of(Notification(id = "n", title = "t"))!!.interaction)
+    }
+
+    @Test
+    fun `a task reminder carries its task and offers Ouvrir la tâche and Plus tard`() {
+        val payload = Interruptions.of(
+            Notification(id = "n-t", type = "task_due", title = "Ranger le garage", body = "Dans 10 min · 14:30", relatedEntityIri = "/api/tasks/01HX"),
+        )!!
+
+        assertEquals("01HX", payload.taskId)
+        assertTrue(payload.showsTask)
+        assertEquals(listOf(PushActionKind.GO, PushActionKind.LATER), payload.actions())
+        assertEquals("$scheme://task/01HX", payload.link)
+    }
+
+    @Test
+    fun `a nudge on a task is a task reminder too`() {
+        assertTrue(Interruptions.of(Notification(id = "n", type = "task_nudge", title = "t", relatedEntityIri = "/api/tasks/01HX"))!!.showsTask)
+    }
+
+    @Test
+    fun `a reminder of anything else than a task shows no task card`() {
+        assertFalse(Interruptions.of(Notification(id = "n", type = "reminder", title = "t", relatedEntityIri = "/api/events/01HX"))!!.showsTask)
+        assertFalse(Interruptions.of(Notification(id = "n", type = "proaction", title = "t", relatedEntityIri = "/api/tasks/01HX"))!!.showsTask)
     }
 }

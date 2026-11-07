@@ -31,6 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.QuestionBlock
+import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.TaskBlock
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.chat.ApprovalItem
 import com.maggie.app.ui.screens.chat.ChatListItem
@@ -54,6 +57,14 @@ fun ChatMessageList(
     onEditMessage: (String) -> Unit = {},
     /** Thumbs under Maggie's answers when set: id, rating (`null` to take it back) (MAG-23). */
     onRateMessage: ((id: String, rating: String?) -> Unit)? = null,
+    /** The boxes ticked on the questions of the thread, the ones being answered and the one that failed (MAG-717). */
+    checkedChoices: Map<String, Set<String>> = emptyMap(),
+    answeringQuestionIds: Set<String> = emptySet(),
+    failedQuestionId: String? = null,
+    onToggleChoice: (questionId: String, option: String) -> Unit = { _, _ -> },
+    onAnswerQuestion: (questionId: String) -> Unit = {},
+    loadTask: suspend (String) -> Task? = { null },
+    onOpenTask: (String) -> Unit = {},
 ) {
     val lazy = listState.lazy
     val scope = rememberCoroutineScope()
@@ -158,24 +169,41 @@ fun ChatMessageList(
                             )
                         }
                     }
-                    is ChatListItem.MessageItem -> {
-                        MessageBubble(
-                            message = item.message,
-                            onClick = { onMessageTapped(item.message.id) },
-                            isHighlighted = item.isHighlighted,
-                            thumbnail = item.thumbnail,
-                            onDelete = { onDeleteMessage(item.message.id) },
-                            onEdit = if (item.message.id == editableMessageId) {
-                                { onEditMessage(item.message.id) }
-                            } else {
-                                null
-                            },
-                            // Thumbs on every answer of Maggie's here; ChatViewModel.rateMessage ignores
-                            // one still being written (its `pending_` id), so only a stored answer is rated.
-                            onRate = onRateMessage?.takeIf { item.message.role == "assistant" }?.let { rate ->
-                                { rating -> rate(item.message.id, rating) }
-                            },
-                        )
+                    is ChatListItem.MessageItem -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val blocks = item.message.shownBlocks
+                        if (blocks.isEmpty() || item.message.content.isNotBlank()) {
+                            MessageBubble(
+                                message = item.message,
+                                onClick = { onMessageTapped(item.message.id) },
+                                isHighlighted = item.isHighlighted,
+                                thumbnail = item.thumbnail,
+                                onDelete = { onDeleteMessage(item.message.id) },
+                                onEdit = if (item.message.id == editableMessageId) {
+                                    { onEditMessage(item.message.id) }
+                                } else {
+                                    null
+                                },
+                                // Thumbs on every answer of Maggie's here; ChatViewModel.rateMessage ignores
+                                // one still being written (its `pending_` id), so only a stored answer is rated.
+                                onRate = onRateMessage?.takeIf { item.message.role == "assistant" }?.let { rate ->
+                                    { rating -> rate(item.message.id, rating) }
+                                },
+                            )
+                        }
+                        blocks.forEach { block ->
+                            when (block) {
+                                is QuestionBlock -> QuestionCard(
+                                    block = block,
+                                    checked = checkedChoices[block.id].orEmpty(),
+                                    onToggle = { onToggleChoice(block.id, it) },
+                                    onSubmit = { onAnswerQuestion(block.id) },
+                                    answering = block.id in answeringQuestionIds,
+                                    failed = failedQuestionId == block.id,
+                                )
+                                is TaskBlock -> TaskBlockCard(block.id, loadTask, onOpen = { onOpenTask(block.id) })
+                                else -> Unit
+                            }
+                        }
                     }
                     is ChatListItem.StreamingMessage -> {
                         MessageBubble(

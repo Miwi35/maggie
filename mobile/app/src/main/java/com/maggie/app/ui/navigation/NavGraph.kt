@@ -1261,6 +1261,7 @@ fun NavGraph() {
                         onMicClick = ::startVoiceMode,
                         onOpenThreads = { showContextSheet = true },
                         onClosePanel = { chatPanelOpen = false },
+                        onOpenTask = { navController.navigate(DeepLinks.taskRoute(it)) },
                     )
                 }
             } else {
@@ -1460,6 +1461,7 @@ fun NavGraph() {
                             viewModel = chatViewModel,
                             draft = DeepLinks.chatDraft(linked),
                             messageId = DeepLinks.chatMessageId(linked),
+                            onOpenTask = { navController.navigate(DeepLinks.taskRoute(it)) },
                         )
                     }
                     composable(
@@ -2416,6 +2418,10 @@ fun NavGraph() {
             voiceManager = if (voiceModeActive) voiceManager else null,
             onOpenThreads = { showContextSheet = true },
             onMicClick = ::startVoiceMode,
+            onOpenTask = {
+                showChatSheet = false
+                navController.navigate(DeepLinks.taskRoute(it))
+            },
         )
     }
 

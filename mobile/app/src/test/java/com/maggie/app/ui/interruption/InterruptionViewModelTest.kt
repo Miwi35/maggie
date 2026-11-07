@@ -9,6 +9,7 @@ import com.maggie.app.data.fcm.PushPayload
 import com.maggie.app.data.interruption.InterruptionCenter
 import com.maggie.app.data.interruption.Interruptions
 import com.maggie.app.data.model.Notification
+import com.maggie.app.data.model.NotificationInteraction
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -354,5 +355,133 @@ class InterruptionViewModelTest {
         assertEquals(listOf("a"), postponed.map { it.notificationId })
         assertNull(shown())
         coVerify(exactly = 0) { handler.handle(any(), any(), any(), any()) }
+    }
+
+    // --- MAG-717: the same question as the chat, ticked in the interruption ---
+
+    private fun question(multiple: Boolean = true, id: String = "n-q") = Interruptions.of(
+        Notification(
+            id = id,
+            type = "question",
+            title = "Quels jours ?",
+            interaction = NotificationInteraction(kind = "choice", options = listOf("Lundi", "Mardi", "Mercredi"), multiple = multiple, questionId = "q-1"),
+        ),
+    )!!
+
+    @Test
+    fun `ticking boxes on a multiple question keeps them all`() {
+        center.offer(question())
+
+        viewModel.toggle("Mercredi")
+        viewModel.toggle("Lundi")
+
+        assertEquals(setOf("Lundi", "Mercredi"), viewModel.uiState.value.checked)
+    }
+
+    @Test
+    fun `a question with one choice keeps only the last tick`() {
+        center.offer(question(multiple = false))
+
+        viewModel.toggle("Lundi")
+        viewModel.toggle("Mardi")
+
+        assertEquals(setOf("Mardi"), viewModel.uiState.value.checked)
+    }
+
+    @Test
+    fun `an option the question does not offer is ignored`() {
+        center.offer(question())
+
+        viewModel.toggle("Dimanche")
+
+        assertTrue(viewModel.uiState.value.checked.isEmpty())
+    }
+
+    @Test
+    fun `the ticks do not follow to the next interruption`() {
+        center.offer(question())
+        center.offer(message("b"))
+        viewModel.toggle("Lundi")
+
+        center.close("n-q")
+
+        assertTrue(viewModel.uiState.value.checked.isEmpty())
+    }
+
+    @Test
+    fun `Valider sends the choices in the order of the question and closes it`() = runTest {
+        coEvery { handler.answerQuestion(any(), any()) } returns PushOutcome.Closed
+        center.offer(question())
+        center.offer(message("b"))
+        viewModel.toggle("Mercredi")
+        viewModel.toggle("Lundi")
+
+        viewModel.submit()
+
+        coVerify { handler.answerQuestion(match { it.notificationId == "n-q" }, listOf("Lundi", "Mercredi")) }
+        assertEquals("b", shown())
+        assertEquals(listOf("n-q"), dismissed)
+    }
+
+    @Test
+    fun `Valider with nothing ticked sends nothing`() = runTest {
+        center.offer(question())
+
+        viewModel.submit()
+
+        coVerify(exactly = 0) { handler.answerQuestion(any(), any()) }
+        assertEquals("n-q", shown())
+    }
+
+    @Test
+    fun `a question that could not be sent stays with its ticks and says why`() = runTest {
+        coEvery { handler.answerQuestion(any(), any()) } returns PushOutcome.Retry("Maggie est injoignable. Réessayez.")
+        center.offer(question())
+        viewModel.toggle("Lundi")
+
+        viewModel.submit()
+
+        assertEquals("n-q", shown())
+        assertEquals("Maggie est injoignable. Réessayez.", viewModel.uiState.value.note)
+        assertEquals(setOf("Lundi"), viewModel.uiState.value.checked)
+        assertFalse(viewModel.uiState.value.busy)
+    }
+
+    @Test
+    fun `Plus tard on a question postpones it without answering`() = runTest {
+        center.offer(question())
+        viewModel.toggle("Lundi")
+
+        viewModel.answer(PushActionKind.LATER)
+
+        assertEquals(listOf("n-q"), postponed.map { it.notificationId })
+        coVerify(exactly = 0) { handler.answerQuestion(any(), any()) }
+    }
+
+    @Test
+    fun `Ouvrir la tâche of a reminder opens the task and closes the interruption`() = runTest {
+        val reminder = Interruptions.of(
+            Notification(id = "n-t", type = "task_due", title = "Ranger le garage", body = "C'est l'heure · 14:30", relatedEntityIri = "/api/tasks/01KNZ8J6AGQ0K5D3WXYZ123456"),
+        )!!
+        center.offer(reminder)
+
+        viewModel.events.test {
+            viewModel.answer(PushActionKind.GO)
+
+            val event = awaitItem() as InterruptionEvent.OpenLink
+            assertEquals("${BuildConfig.DEEP_LINK_SCHEME}://task/01KNZ8J6AGQ0K5D3WXYZ123456", event.payload.link)
+        }
+        assertNull(shown())
+    }
+
+    @Test
+    fun `Plus tard on a reminder postpones it`() = runTest {
+        center.offer(
+            Interruptions.of(Notification(id = "n-t", type = "task_due", title = "Ranger", relatedEntityIri = "/api/tasks/01KNZ8J6AGQ0K5D3WXYZ123456"))!!,
+        )
+
+        viewModel.answer(PushActionKind.LATER)
+
+        assertEquals(listOf("n-t"), postponed.map { it.notificationId })
     }
 }

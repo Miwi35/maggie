@@ -12,6 +12,10 @@ data class PushInteraction(
     val kind: String? = null,
     val completable: Boolean = false,
     val options: List<String> = emptyList(),
+    /** Several options may be ticked (MAG-717). */
+    val multiple: Boolean = false,
+    /** The question to answer through `/agent/questions/{id}/answer`; without it a choice cannot be answered here. */
+    val questionId: String? = null,
 )
 
 /**
@@ -93,6 +97,8 @@ data class PushPayload(
     val messageId: String? = null,
     /** Quiet hours (MAG-687): posted without sound or vibration. */
     val silent: Boolean = false,
+    /** A task reminder at a precise time (MAG-717): the toaster shows the task's card and « Ouvrir la tâche », never its list. */
+    val showsTask: Boolean = false,
 ) {
     /** Delivered late (a push held back for hours), an alert is over once its [expiresAt] has passed. */
     fun isExpired(now: Instant): Boolean = expiresAt != null && !expiresAt.isAfter(now)
@@ -139,6 +145,7 @@ data class PushPayload(
         return when {
             reminderId != null -> reminderActions.mapNotNull(PushActionKind::ofReminderKey).distinct().take(MAX_ACTIONS)
             shortageId != null -> listOf(PushActionKind.ADD_TO_LIST, PushActionKind.LATER)
+            showsTask -> listOf(PushActionKind.GO, PushActionKind.LATER)
             isDeparture -> listOfNotNull(PushActionKind.GO.takeIf { PushIntents.isNavigable(link) }, PushActionKind.ALREADY_ON_THE_WAY)
             kind == "ack" -> if (interaction?.completable == true) listOf(PushActionKind.DONE, PushActionKind.LATER) else listOf(PushActionKind.OK)
             kind == "action" -> seenOrOpened()

@@ -114,6 +114,7 @@ class TestRunToolLoop:
             "response": "Bonjour",
             "tool_calls": [],
             "blocks": [],
+            "ui_blocks": [],
             "usage": {"input_tokens": 10, "output_tokens": 5},
         }
         client.messages.create.assert_awaited_once()

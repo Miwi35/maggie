@@ -110,6 +110,9 @@ object DeepLinks {
 
     fun patternsFor(route: String): List<String> = PATTERNS[route].orEmpty()
 
+    /** The route that opens this task's sheet, as a link would (MAG-717). */
+    fun taskRoute(id: String) = TASK_ROUTE.replace("{$ARG_ID}", id)
+
     /** The route that opens this event in the Agenda, as a link would. */
     fun eventRoute(id: String) = EVENT_ROUTE.replace("{$ARG_ID}", id)
 

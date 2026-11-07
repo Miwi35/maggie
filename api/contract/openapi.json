@@ -22442,7 +22442,8 @@
                             "finance",
                             "cooking_timer",
                             "departure",
-                            "message"
+                            "message",
+                            "question"
                         ]
                     },
                     "title": {
@@ -22475,6 +22476,29 @@
                         ],
                         "items": {
                             "type": "string"
+                        }
+                    },
+                    "interaction": {
+                        "description": "The question a `question` notification puts, answered from the interruption (MAG-717):\n`kind` is `choice`, `options` the labels to tick, `multiple` whether several may be, and\n`questionId` the id `/agent/questions/{id}/answer` takes. Null on every other notification.",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "anyOf": [
+                                {
+                                    "type": "boolean"
+                                },
+                                {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                {
+                                    "type": "string"
+                                }
+                            ]
                         }
                     },
                     "readAt": {
@@ -22526,7 +22550,8 @@
                             "finance",
                             "cooking_timer",
                             "departure",
-                            "message"
+                            "message",
+                            "question"
                         ]
                     },
                     "title": {
@@ -22559,6 +22584,29 @@
                         ],
                         "items": {
                             "type": "string"
+                        }
+                    },
+                    "interaction": {
+                        "description": "The question a `question` notification puts, answered from the interruption (MAG-717):\n`kind` is `choice`, `options` the labels to tick, `multiple` whether several may be, and\n`questionId` the id `/agent/questions/{id}/answer` takes. Null on every other notification.",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "anyOf": [
+                                {
+                                    "type": "boolean"
+                                },
+                                {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                {
+                                    "type": "string"
+                                }
+                            ]
                         }
                     },
                     "readAt": {
@@ -22610,7 +22658,8 @@
                             "finance",
                             "cooking_timer",
                             "departure",
-                            "message"
+                            "message",
+                            "question"
                         ]
                     },
                     "title": {
@@ -22643,6 +22692,29 @@
                         ],
                         "items": {
                             "type": "string"
+                        }
+                    },
+                    "interaction": {
+                        "description": "The question a `question` notification puts, answered from the interruption (MAG-717):\n`kind` is `choice`, `options` the labels to tick, `multiple` whether several may be, and\n`questionId` the id `/agent/questions/{id}/answer` takes. Null on every other notification.",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "anyOf": [
+                                {
+                                    "type": "boolean"
+                                },
+                                {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                {
+                                    "type": "string"
+                                }
+                            ]
                         }
                     },
                     "readAt": {
@@ -22699,7 +22771,8 @@
                                     "finance",
                                     "cooking_timer",
                                     "departure",
-                                    "message"
+                                    "message",
+                                    "question"
                                 ]
                             },
                             "title": {
@@ -22732,6 +22805,29 @@
                                 ],
                                 "items": {
                                     "type": "string"
+                                }
+                            },
+                            "interaction": {
+                                "description": "The question a `question` notification puts, answered from the interruption (MAG-717):\n`kind` is `choice`, `options` the labels to tick, `multiple` whether several may be, and\n`questionId` the id `/agent/questions/{id}/answer` takes. Null on every other notification.",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "type": "boolean"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ]
                                 }
                             },
                             "readAt": {

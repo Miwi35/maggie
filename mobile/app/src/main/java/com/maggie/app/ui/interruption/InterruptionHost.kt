@@ -73,6 +73,10 @@ fun InterruptionHost(
                 note = state.note,
                 reducedMotion = reducedMotion,
                 onAction = viewModel::answer,
+                checked = state.checked,
+                onToggle = viewModel::toggle,
+                onSubmit = viewModel::submit,
+                loadTask = viewModel::loadTask,
             )
         }
     }

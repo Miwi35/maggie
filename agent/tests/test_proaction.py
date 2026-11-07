@@ -103,7 +103,7 @@ class TestProactionRoute:
         assert response.status_code == 200
         assert response.json()["response"] == "Pense au plombier."
         messages.create.assert_awaited_once_with(
-            user_id="test-user", role="assistant", content="Pense au plombier.", context_id="ctx-1", blocks=None
+            user_id="test-user", role="assistant", content="Pense au plombier.", context_id="ctx-1", blocks=None, ui_blocks=None
         )
         summarizer.maybe_summarize.assert_awaited_once_with("ctx-1")
         # That the stored message reaches the caller at all — what it carries is the
@@ -118,7 +118,7 @@ class TestProactionRoute:
 
         assert response.status_code == 200
         messages.create.assert_awaited_once_with(
-            user_id="test-user", role="assistant", content="Pense au plombier.", context_id=None, blocks=None
+            user_id="test-user", role="assistant", content="Pense au plombier.", context_id=None, blocks=None, ui_blocks=None
         )
         summarizer.maybe_summarize.assert_not_awaited()
 
@@ -366,6 +366,7 @@ class TestProactionConsumer:
             content="C'est l'heure d'appeler le plombier !",
             context_id=None,
             blocks=None,
+            ui_blocks=None,
             screen=None,
         )
 
@@ -399,6 +400,7 @@ class TestProactionConsumer:
             content="C'est l'heure d'appeler le plombier !",
             context_id="ctx-1",
             blocks=None,
+            ui_blocks=None,
             screen=None,
         )
 

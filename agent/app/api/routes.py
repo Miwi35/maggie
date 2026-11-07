@@ -39,6 +39,7 @@ from app.llm.gateway import LLMGateway
 from app.llm.image import ChatImage
 from app.llm.message_reply import ReplyTo, grant_approval_answer, with_reply
 from app.llm.models import CHAT, model_for
+from app.llm.questions import choices_message
 from app.llm.replace import abandon_approvals, withdraw_turn
 from app.llm.runner import run_tool_loop
 from app.llm.screen_context import split as split_screen_context
@@ -239,6 +240,30 @@ def _forget_chat(flight: tuple[str, str], task: asyncio.Task) -> None:
         task.exception()
 
 
+async def _store_reply(user_id: str, result: dict):
+    # Both halves in the thread the question was routed into (MAG-13), and the thread
+    # re-summarized — the same two sinks as `POST /agent/proaction` below. Before this,
+    # nothing on this path was ever tagged: the exchange existed outside every thread, so
+    # the Mind panel never saw it and no summary could be written from it.
+    context_id = result.get("context_id")
+    assistant_msg = await message_repo.create(
+        user_id=user_id,
+        role="assistant",
+        content=result["response"],
+        context_id=context_id,
+        # And what its tools said, so the next message of the thread sees the calls rather
+        # than making them again (MAG-211).
+        blocks=result.get("blocks"),
+        ui_blocks=result.get("ui_blocks"),
+    )
+    # Not on a turn the model never answered: the summary would be a second call, as
+    # doomed as the first, with the user still waiting on this request — and it would read
+    # an apology as if it were the conversation.
+    if context_id and not result.get("error"):
+        await context_summarizer.maybe_summarize(context_id)
+    return assistant_msg
+
+
 async def _answer_chat(request: ChatRequest, user_id: str, said: str, screen: str | None) -> ChatResponse:
     user_msg = await message_repo.create(
         user_id=user_id, role="user", content=said, has_image=request.image is not None
@@ -254,25 +279,7 @@ async def _answer_chat(request: ChatRequest, user_id: str, said: str, screen: st
         in_car=request.in_car,
     )
 
-    # Both halves in the thread the question was routed into (MAG-13), and the thread
-    # re-summarized — the same two sinks as `POST /agent/proaction` below. Before this,
-    # nothing on this path was ever tagged: the exchange existed outside every thread, so
-    # the Mind panel never saw it and no summary could be written from it.
-    context_id = result.get("context_id")
-    assistant_msg = await message_repo.create(
-        user_id=user_id,
-        role="assistant",
-        content=result["response"],
-        context_id=context_id,
-        # And what its tools said, so the next message of the thread sees the calls rather
-        # than making them again (MAG-211).
-        blocks=result.get("blocks"),
-    )
-    # Not on a turn the model never answered: the summary would be a second call, as
-    # doomed as the first, with the user still waiting on this request — and it would read
-    # an apology as if it were the conversation.
-    if context_id and not result.get("error"):
-        await context_summarizer.maybe_summarize(context_id)
+    assistant_msg = await _store_reply(user_id, result)
 
     return ChatResponse(
         response=result["response"],
@@ -472,6 +479,7 @@ async def proaction(request: ChatRequest, user_id: str = Depends(get_current_use
         content=result["response"],
         context_id=context_id,
         blocks=result.get("blocks"),
+        ui_blocks=result.get("ui_blocks"),
     )
     if context_id:
         await context_summarizer.maybe_summarize(context_id)
@@ -563,6 +571,45 @@ async def announce_approved_action(action: PendingAction, result: str) -> None:
             await context_summarizer.maybe_summarize(action.context_id)
     except Exception as e:
         logger.error(f"Announcement of approved action {action.id} failed: {e}")
+
+
+class QuestionAnswer(BaseModel):
+    choices: list[str] = Field(min_length=1)
+
+
+async def _resume_after_answer(user_id: str, said: str, user_msg_id: str) -> None:
+    try:
+        result = await llm_gateway.chat(said, user_id, exclude_message_id=user_msg_id)
+        await _store_reply(user_id, result)
+    except Exception as e:
+        logger.error(f"Turn resumed after the answer {user_msg_id} failed: {e}")
+
+
+@router.post("/questions/{question_id}/answer")
+async def answer_question(
+    question_id: str,
+    answer: QuestionAnswer,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user_id),
+):
+    """The owner ticks the boxes of a question Maggie asked, in the chat or from an interruption (MAG-717).
+
+    The question is marked answered under a row lock, so two devices answering at once get a 409 for the
+    second. The answer reads « A · B » in the thread as a message of the owner's, and Maggie's turn resumes
+    from it in the background.
+    """
+    status, question_msg, block = await message_repo.answer_question(user_id, question_id, answer.choices)
+    if status == "unknown":
+        raise HTTPException(status_code=404, detail="Question not found")
+    if status == "answered":
+        raise HTTPException(status_code=409, detail="Question already answered")
+    if status == "invalid":
+        raise HTTPException(status_code=400, detail="Choices must be distinct options of the question")
+
+    said = choices_message(block["answered"])
+    user_msg = await message_repo.create(user_id=user_id, role="user", content=said, context_id=question_msg.context_id)
+    background_tasks.add_task(_resume_after_answer, user_id, said, user_msg.id)
+    return block
 
 
 @router.get("/approvals")

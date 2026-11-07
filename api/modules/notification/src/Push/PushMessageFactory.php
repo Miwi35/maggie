@@ -212,7 +212,7 @@ class PushMessageFactory
             NotificationType::Approval => self::CHANNEL_APPROVALS,
             NotificationType::ConsentExpiring, NotificationType::Finance => self::CHANNEL_FINANCE,
             NotificationType::Departure => self::CHANNEL_DEPARTURE,
-            NotificationType::Proaction, NotificationType::Grocery, NotificationType::Message => self::CHANNEL_CHAT,
+            NotificationType::Proaction, NotificationType::Grocery, NotificationType::Message, NotificationType::Question => self::CHANNEL_CHAT,
         };
     }
 

@@ -144,6 +144,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 # into the same thread — so what it looked up is replayed there too
                 # (MAG-211).
                 blocks=result.get("blocks"),
+                ui_blocks=result.get("ui_blocks"),
                 screen=screen,
             )
             # Out of any conversation: the user is told, never failing a proaction already delivered.

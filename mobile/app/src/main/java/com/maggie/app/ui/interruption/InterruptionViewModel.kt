@@ -7,7 +7,9 @@ import com.maggie.app.data.fcm.PushActionKind
 import com.maggie.app.data.fcm.PushOutcome
 import com.maggie.app.data.fcm.PushPayload
 import com.maggie.app.data.interruption.InterruptionCenter
+import com.maggie.app.data.interruption.isAnswerableChoice
 import com.maggie.app.data.interruption.key
+import com.maggie.app.data.model.Task
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +26,8 @@ data class InterruptionUiState(
     val busy: Boolean = false,
     /** Why the last answer did not go through. */
     val note: String? = null,
+    /** The boxes ticked on a question (MAG-717). */
+    val checked: Set<String> = emptySet(),
 )
 
 /** What the screen hosting the interruption must do once an answer is given. */
@@ -48,25 +52,56 @@ class InterruptionViewModel(
     private val handler: PushActionHandler,
     /** Takes down the system notification a push left in the tray before the app was opened. */
     private val dismiss: (PushPayload) -> Unit = {},
+    private val loadTask: suspend (String) -> Task? = { null },
     private val postpone: (PushPayload) -> Unit,
 ) : ViewModel() {
 
     private val busy = MutableStateFlow<String?>(null)
     private val failure = MutableStateFlow<Pair<String, String>?>(null)
+    private val ticked = MutableStateFlow<Pair<String, Set<String>>?>(null)
     private val _events = Channel<InterruptionEvent>(Channel.UNLIMITED)
 
     val events: Flow<InterruptionEvent> = _events.receiveAsFlow()
 
-    val uiState: StateFlow<InterruptionUiState> = combine(center.current, busy, failure) { payload, busyKey, failed ->
+    val uiState: StateFlow<InterruptionUiState> = combine(center.current, busy, failure, ticked) { payload, busyKey, failed, boxes ->
         InterruptionUiState(
             payload = payload,
             busy = payload != null && busyKey == payload.key,
             note = failed?.takeIf { payload != null && it.first == payload.key }?.second,
+            checked = boxes?.takeIf { payload != null && it.first == payload.key }?.second.orEmpty(),
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, InterruptionUiState())
 
     /** True once per interruption, across screens: coming back to the app with it still on screen must not ring again. */
     fun announce(key: String): Boolean = center.announce(key)
+
+    suspend fun loadTask(id: String): Task? = loadTask.invoke(id)
+
+    /** Ticks or unticks [option]; a question that takes one choice keeps the last tick. */
+    fun toggle(option: String) {
+        val payload = center.current.value ?: return
+        val interaction = payload.interaction?.takeIf { payload.isAnswerableChoice && option in it.options } ?: return
+        if (busy.value == payload.key) return
+        val current = ticked.value?.takeIf { it.first == payload.key }?.second.orEmpty()
+        val next = when {
+            option in current -> current - option
+            interaction.multiple -> current + option
+            else -> setOf(option)
+        }
+        ticked.value = payload.key to next
+        failure.value = null
+    }
+
+    /** « Valider »: sends the ticked options, in the order the question lists them, and closes the interruption. */
+    fun submit() {
+        val payload = center.current.value ?: return
+        val key = payload.key
+        val options = payload.interaction?.options.orEmpty()
+        val boxes = ticked.value?.takeIf { it.first == key }?.second.orEmpty()
+        val choices = options.filter { it in boxes }
+        if (choices.isEmpty() || busy.value == key) return
+        viewModelScope.launch { settle(payload) { handler.answerQuestion(payload, choices) } }
+    }
 
     fun answer(kind: PushActionKind) {
         val payload = center.current.value ?: return
@@ -103,21 +138,24 @@ class InterruptionViewModel(
                 handler.answerInBackground(kind, payload)
                 _events.trySend(InterruptionEvent.OpenLink(payload))
             }
-            else -> viewModelScope.launch {
-                busy.value = key
-                failure.value = null
-                try {
-                    when (val outcome = handler.handle(kind, payload)) {
-                        is PushOutcome.Retry -> failure.value = key to outcome.message
-                        PushOutcome.Closed, PushOutcome.Postponed, is PushOutcome.Settled, is PushOutcome.Rewarded -> {
-                            center.close(key)
-                            dismiss(payload)
-                        }
-                    }
-                } finally {
-                    busy.value = null
+            else -> viewModelScope.launch { settle(payload) { handler.handle(kind, payload) } }
+        }
+    }
+
+    private suspend fun settle(payload: PushPayload, answer: suspend () -> PushOutcome) {
+        val key = payload.key
+        busy.value = key
+        failure.value = null
+        try {
+            when (val outcome = answer()) {
+                is PushOutcome.Retry -> failure.value = key to outcome.message
+                PushOutcome.Closed, PushOutcome.Postponed, is PushOutcome.Settled, is PushOutcome.Rewarded -> {
+                    center.close(key)
+                    dismiss(payload)
                 }
             }
+        } finally {
+            busy.value = null
         }
     }
 

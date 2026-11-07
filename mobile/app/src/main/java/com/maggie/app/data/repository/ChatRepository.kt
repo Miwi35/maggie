@@ -7,6 +7,7 @@ import com.maggie.app.data.local.dao.ChatMessageDao
 import com.maggie.app.data.local.entity.ChatMessageEntity
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.QuestionBlock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -77,6 +78,9 @@ class ChatRepository(
     suspend fun handleMercureMessage(message: ChatMessage) {
         chatMessageDao.upsert(ChatMessageEntity.fromModel(message))
     }
+
+    suspend fun answerQuestion(id: String, choices: List<String>, channel: String): Result<QuestionBlock> =
+        runCatching { apiService.answerQuestion(id, choices, channel) }
 
     /** Load the most recent messages (API-first, Room fallback). */
     suspend fun loadRecentMessages(limit: Int = 20): List<ChatMessage> {
