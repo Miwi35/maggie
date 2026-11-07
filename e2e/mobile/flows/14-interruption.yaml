@@ -69,7 +69,7 @@ tags:
     id: "home_screen"
 
 # The morning task alert (MAG-410): the cron files a `task_due` notification titled « Dans 3 j : … »;
-# the open app says it with « Fait » (which completes the task) and « Plus tard »; opening the task
+# the open app says it with the task's card, « Ouvrir la tâche » and « Plus tard » (MAG-717); opening the task
 # from the notification, and the cron run itself, are the JVM tests' and the smoke journey's (the
 # seeded task's id is not known to a scripted scenario).
 - runScript:
@@ -81,7 +81,7 @@ tags:
       id: "interruption"
     timeout: 40000
 - assertVisible: "Dans 3 j : Appeler le garage"
-- assertVisible: "Fait"
+- assertVisible: "Ouvrir la tâche"
 - tapOn:
     id: "interruption_later"
 - extendedWaitUntil:
