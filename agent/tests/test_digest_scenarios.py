@@ -42,6 +42,7 @@ OFFERED = [
         "get_tasks",
         "manage_meals",
         "send_voice_message",
+        "get_activity_status",
     )
 ]
 
@@ -147,3 +148,17 @@ class TestTheMorningDigest:
         [weather] = [call for call in journal_tool_calls(result["tool_calls"]) if call["name"] == "get_weather"]
         assert weather["error"] == WEATHER_DOWN
         assert json.loads(weather["result"]) == {"error": WEATHER_DOWN}
+
+
+class TestTheConsignesOfLastNight:
+    async def test_the_digest_reads_the_bilan_and_opens_with_its_consignes_section(self, api):
+        api._get_activity_status = lambda arguments, user_id: {
+            "activity": "bilan",
+            "origin": {"kind": "day", "id": "2030-11-13"},
+            "state": {"step": "demain", "instructions": [{"id": "c1", "text": "Appeler le garage", "kind": "reminder"}]},
+        }
+
+        result = await run("[Proaction due maintenant] Fais le digest du matin (digest MAG-753).")
+
+        assert ("get_activity_status", {"activity": "bilan"}, USER) in api.calls
+        assert "Tes consignes d'hier soir" in result["response"]

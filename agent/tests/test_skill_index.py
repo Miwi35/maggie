@@ -227,6 +227,8 @@ class TestShippedSkills:
             assert tool in digest
         assert 'screen: "digest"' in digest
         assert digest.index("**Météo**") < digest.index("**Agenda**") < digest.index("**Finance**")
+        assert digest.index("**Météo**") < digest.index("**Tes consignes d'hier soir**") < digest.index("**Agenda**")
+        assert 'activity: "bilan"' in digest
         assert index.store.load("digest") is not None
 
     async def test_the_bilan_soir_skill_names_its_five_steps_in_order_and_its_tools(self, agent_db):
@@ -241,6 +243,8 @@ class TestShippedSkills:
             assert tool in bilan
         assert "sans verdict" in bilan
         assert "moment:bilan-soir" in bilan
+        for rule in ("schedule_proaction", "create_task", "add_instruction", "Provenance `bilan-soir`", "Tu hésites"):
+            assert rule in bilan
 
     async def test_the_owners_copy_is_never_overwritten(self, agent_db):
         index = _index()
