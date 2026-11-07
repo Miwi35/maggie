@@ -272,7 +272,11 @@ private fun ReminderRows(
                             .fillMaxWidth()
                             .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     )
-                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.uiTagRoot(),
+                    ) {
                         delays.forEach { delay ->
                             DropdownMenuItem(
                                 text = { Text(delay.label) },
