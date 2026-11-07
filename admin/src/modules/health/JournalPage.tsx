@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNotify } from 'react-admin'
 import Box from '@mui/material/Box'
 import { useMercure } from '../../hooks/useMercure'
@@ -34,6 +34,11 @@ export const JournalPage = () => {
   const { refresh: refreshEntry, replace: replaceEntry } = entry
   // Only the last write's answer is shown: an earlier one arriving late would undo it.
   const writes = useRef(0)
+  // The day shown now: a write answered after the user moved to another day must not land on it.
+  const shownDay = useRef(day)
+  useEffect(() => {
+    shownDay.current = day
+  }, [day])
 
   const refreshAll = useCallback(() => {
     refreshDays()
@@ -48,7 +53,7 @@ export const JournalPage = () => {
       const write = ++writes.current
       const result = await patchHealthDay(day, change)
       if (result.ok) {
-        if (write === writes.current) replaceEntry(result.day)
+        if (write === writes.current && result.day.date === shownDay.current) replaceEntry(result.day)
         refreshDays()
 
         return true
