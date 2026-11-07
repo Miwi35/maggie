@@ -64,6 +64,7 @@ executionOrder:
     - finance-todo
     - 19-finance-contacts
     - 19-grocery-packagings
+    - 20-grocery-product-search
     - 20-product-sheet
     - 21-product-filters
     - 20-finance-upcoming
