@@ -43,9 +43,16 @@ class SaveBilanStepTool
             ? json_decode($stored->getState(), true, 512, JSON_THROW_ON_ERROR)
             : [];
 
+        $answers ??= $previous['answers'] ?? [];
+        if ([] === $answers) {
+            $answers = new \stdClass();
+        } elseif (array_is_list($answers)) {
+            $answers = ['tasks' => $answers];
+        }
+
         $state = [
             'step' => $step,
-            'answers' => $answers ?? $previous['answers'] ?? new \stdClass(),
+            'answers' => $answers,
             'instructions' => $instructions ?? $previous['instructions'] ?? [],
         ];
         $encoded = json_encode($state, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
