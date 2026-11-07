@@ -16,10 +16,21 @@
     <!-- The service that follows the position while the owner moves or drives (MAG-666). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Health Connect (MAG-708): the watch's séances, pesées, pas and dépense active, read every hour in the
+         background; Maggie's own séances written there so the watch's apps do not count them twice. -->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_BODY_FAT" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
 
     <queries>
         <intent><action android:name="android.settings.VOICE_INPUT_SETTINGS" /></intent>
         <intent><action android:name="android.settings.MANAGE_DEFAULT_APPS_SETTINGS" /></intent>
+        <!-- Health Connect's app before Android 14 (MAG-708) -->
+        <package android:name="com.google.android.apps.healthdata" />
     </queries>
 
     <application
@@ -74,6 +85,28 @@
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:excludeFromRecents="true" />
+
+        <!-- Why Maggie asks for the Health Connect permissions (MAG-708): opened by Health Connect's own screen. -->
+        <activity
+            android:name=".ui.screens.health.HealthPermissionsRationaleActivity"
+            android:exported="true"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <!-- The same explanation, from the system's permission usage screen (Android 14+). -->
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".ui.screens.health.HealthPermissionsRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
 
         <service
             android:name=".data.fcm.MaggieFcmService"

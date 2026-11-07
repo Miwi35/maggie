@@ -12,6 +12,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.health.FakeHealthConnectGateway
+import com.maggie.app.data.health.FakeHealthSyncScheduler
+import com.maggie.app.data.health.HealthConnectAvailability
+import com.maggie.app.data.health.HealthConnectPermissions
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.HealthProfile
 import com.maggie.app.data.repository.HealthProfileRepository
@@ -46,6 +50,8 @@ class ConfigurationScreenTest {
     val compose = ScreenRule()
 
     private val repository = mockk<HealthProfileRepository>()
+    private val gateway = FakeHealthConnectGateway()
+    private val scheduler = FakeHealthSyncScheduler()
     private val clock = Clock.fixed(Instant.parse("2026-10-30T08:00:00Z"), ZoneId.of("Europe/Paris"))
 
     private val profile = HealthProfile(
@@ -74,7 +80,7 @@ class ConfigurationScreenTest {
         coEvery { auth.getUserId() } returns "user-1"
         val mercure = mockk<MercureService>()
         every { mercure.subscribe(any()) } returns emptyFlow()
-        return ConfigurationViewModel(repository, mercure, auth, clock)
+        return ConfigurationViewModel(repository, mercure, auth, gateway, scheduler, clock)
     }
 
     private fun waitForCard() =
@@ -229,9 +235,36 @@ class ConfigurationScreenTest {
         coEvery { repository.getProfile() } returns Result.failure(RuntimeException("offline"))
         val auth = mockk<AuthRepository>().also { coEvery { it.getUserId() } returns "user-1" }
         val mercure = mockk<MercureService>().also { every { it.subscribe(any()) } returns emptyFlow() }
-        compose.setContent { ConfigurationScreen(ConfigurationViewModel(repository, mercure, auth, clock)) }
+        compose.setContent { ConfigurationScreen(ConfigurationViewModel(repository, mercure, auth, gateway, scheduler, clock)) }
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.CONFIGURATION_EMPTY).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Profil indisponible").assertIsDisplayed()
+    }
+
+    @Test
+    fun `permissions refused, the steps' source reads Non connecté and a tap asks Health Connect for them`() {
+        gateway.granted = emptySet()
+        compose.setContent { ConfigurationScreen(viewModel()) }
+        waitForCard()
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Non connecté ›").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag(UiTags.PROFILE_STEP_SOURCE).performScrollTo().assertTextEquals("Non connecté ›")
+        compose.onNodeWithTag(UiTags.PROFILE_STEP_SOURCE).performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf(HealthConnectPermissions.ALL), gateway.requested)
+    }
+
+    @Test
+    fun `Health Connect not installed reads Non connecté too, and a tap does not ask for permissions`() {
+        gateway.available = HealthConnectAvailability.NOT_INSTALLED
+        compose.setContent { ConfigurationScreen(viewModel()) }
+        waitForCard()
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Non connecté ›").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag(UiTags.PROFILE_STEP_SOURCE).performScrollTo().performClick()
+        compose.waitForIdle()
+
+        assertEquals(emptyList<Set<String>>(), gateway.requested)
     }
 }
