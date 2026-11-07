@@ -4,7 +4,7 @@ from datetime import datetime
 import anthropic
 
 from app.llm.capabilities import generate_capability_summary
-from app.llm.client import create_llm_client, llm_configured
+from app.llm.client import client_for, create_llm_client, llm_configured
 from app.llm.contexts import active_contexts_section, resolve_context, route_message
 from app.llm.directives import behavior_directives_section
 from app.llm.dry_run import DryRunToolRouter
@@ -181,7 +181,7 @@ class LLMGateway:
                 system_prompt,
                 messages,
                 tools,
-                client=self.client,
+                client=await client_for(user_id, self.client),
                 tool_router=tool_router,
                 user_id=user_id,
                 model=model,
@@ -315,7 +315,7 @@ class LLMGateway:
                 system_prompt,
                 messages,
                 tools,
-                client=self.client,
+                client=await client_for(user_id, self.client),
                 tool_router=self.tool_router,
                 user_id=user_id,
                 model=model_for(CHAT),

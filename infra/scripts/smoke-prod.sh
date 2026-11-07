@@ -327,6 +327,8 @@ done
 
 cleanup_smoke_data
 
+# The technical account is served by the fake model (MAG-732): the provider branch below is a safety
+# net that should never trigger for it, and the tool call and the title are always checked.
 if [ -n "$provider_reason" ]; then
   # The model's provider refused the call — an exhausted credit, a refused key, an
   # overload. Neither the code nor the deployment is at fault: rolling back would

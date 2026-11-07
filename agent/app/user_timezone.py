@@ -3,6 +3,7 @@ import logging
 import time
 from zoneinfo import ZoneInfo
 
+from app.auth import TECHNICAL_ACCOUNT_EMAILS
 from app.config import settings
 from app.mcp.client import mcp_client
 
@@ -59,3 +60,19 @@ async def resolve_user_email(user_id: str) -> str | None:
         logger.warning(f"Email of user {user_id} unreadable: {e!r}")
         return None
     return email.strip().lower() if isinstance(email, str) and email.strip() else None
+
+
+# An account's email never changes, so a read answer is kept for good; an unreadable one is not.
+_technical: dict[str, bool] = {}
+
+
+async def is_technical_account(user_id: str) -> bool:
+    """Whether the user is the smoke or the recette account. Unreadable email: not technical, and asked again."""
+    known = _technical.get(user_id)
+    if known is not None:
+        return known
+    email = await resolve_user_email(user_id)
+    if email is None:
+        return False
+    _technical[user_id] = email in TECHNICAL_ACCOUNT_EMAILS
+    return _technical[user_id]

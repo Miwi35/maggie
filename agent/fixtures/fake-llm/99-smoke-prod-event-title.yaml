@@ -1,0 +1,17 @@
+# The production smoke test (MAG-106, MAG-732): the technical account asks for the title of the
+# event created a moment ago, identified by its description. The fake calls the real tool and
+# reads the title off the real result, so the check still proves tool, API and agent are wired.
+# Matches the question of infra/scripts/smoke-prod.sh (QUESTION).
+name: smoke-prod-event-title
+description: Call get_upcoming_events without a query, answer with the smoke event's title.
+
+match:
+  user_contains: "get_upcoming_events sans query"
+
+results_matches: 'summary\W+(Rendez-vous smoke \d+)\W+description\W+code \d+'
+
+turns:
+  - tools:
+      - name: get_upcoming_events
+        input: {}
+  - text: "Le titre exact de l'événement est « \\1 »."
