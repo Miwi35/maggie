@@ -34,6 +34,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Product
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
@@ -47,12 +50,32 @@ fun ProductPickerDialog(
     /** null hides the « Utiliser … » row: the caller needs a real product (the recurring items). */
     onSelectCustomLabel: ((String) -> Unit)?,
     onDismiss: () -> Unit,
+    /** Ciqual foods offered when no product matches; null hides them (the recurring items need a real product). */
+    onSearchCiqual: (suspend (String) -> List<CiqualFood>)? = null,
+    onSelectCiqualFood: ((CiqualFood) -> Unit)? = null,
 ) {
     var searchQuery by remember { mutableStateOf(initialQuery) }
     val focusRequester = remember { FocusRequester() }
 
     val filteredProducts = remember(searchQuery, products) {
         filterProducts(searchQuery, products)
+    }
+
+    var ciqualFoods by remember { mutableStateOf<List<CiqualFood>>(emptyList()) }
+    LaunchedEffect(searchQuery, filteredProducts.isEmpty()) {
+        val query = searchQuery.trim()
+        if (onSearchCiqual == null || onSelectCiqualFood == null || !filteredProducts.isEmpty() || query.length < 2) {
+            ciqualFoods = emptyList()
+            return@LaunchedEffect
+        }
+        delay(300)
+        ciqualFoods = try {
+            onSearchCiqual(query)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -145,6 +168,23 @@ fun ProductPickerDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                        }
+                        HorizontalDivider()
+                    }
+
+                    items(ciqualFoods) { food ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectCiqualFood?.invoke(food) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        ) {
+                            Text(text = food.alimNameFr, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = "Ciqual" + (food.alimGroupNameFr?.let { " \u00b7 $it" } ?: ""),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         HorizontalDivider()
                     }

@@ -1787,6 +1787,7 @@ fun NavGraph() {
                                         } else {
                                             null
                                         },
+                                        onSearchCiqual = { query -> apiService.searchCiqualFoods(query) },
                                     )
                                 }
                             },

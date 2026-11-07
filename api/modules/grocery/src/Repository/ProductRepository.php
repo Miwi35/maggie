@@ -45,6 +45,42 @@ class ProductRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * The user's product a free label names, ignoring case, accents and a simple plural
+     * (« poireaux » finds « Poireau »); an exact spelling wins over a plural match.
+     */
+    public function findByLabel(User $user, string $label): ?Product
+    {
+        $exact = self::labelKey($label, false);
+        $loose = self::labelKey($label, true);
+        $plural = null;
+        foreach ($this->findByUser($user) as $product) {
+            if (self::labelKey($product->getName(), false) === $exact) {
+                return $product;
+            }
+            if (null === $plural && self::labelKey($product->getName(), true) === $loose) {
+                $plural = $product;
+            }
+        }
+
+        return $plural;
+    }
+
+    private static function labelKey(string $label, bool $singular): string
+    {
+        $key = strtr(mb_strtolower(trim($label)), [
+            'à' => 'a', 'â' => 'a', 'ä' => 'a', 'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'î' => 'i', 'ï' => 'i', 'ô' => 'o', 'ö' => 'o', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ç' => 'c', 'ÿ' => 'y', 'œ' => 'oe', 'æ' => 'ae',
+        ]);
+        $words = preg_split('/\s+/u', $key) ?: [$key];
+        if ($singular) {
+            $words = array_map(static fn (string $w): string => mb_strlen($w) > 3 ? rtrim($w, 'sx') : $w, $words);
+        }
+
+        return implode(' ', $words);
+    }
+
     /** @return Product[] */
     public function findByCategory(ProductCategory $category): array
     {

@@ -26,10 +26,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.RecipeNeedResponse
@@ -50,7 +53,11 @@ fun AddItemSheet(
     onProductChosen: (Product?) -> Unit = {},
     // Why the API refused the line; the sheet stays open on what was typed.
     error: String? = null,
+    // Ciqual foods offered when no product matches; choosing one makes a product linked to it (null: not offered).
+    onSearchCiqual: (suspend (String) -> List<CiqualFood>)? = null,
+    onCreateProductFromCiqual: (suspend (CiqualFood) -> Product?)? = null,
 ) {
+    val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var label by remember { mutableStateOf("") }
@@ -211,23 +218,25 @@ fun AddItemSheet(
         }
     }
 
+    fun chooseProduct(product: Product) {
+        label = product.name
+        selectedProduct = product
+        draft = initialQuantityDraft(product)
+        onProductChosen(product)
+        selectedCategory = product.category
+        resolvePreferredStore(product, stores)?.let { store ->
+            selectedStoreId = store.id
+            storeText = store.name
+        }
+        showProductPicker = false
+    }
+
     // Product picker dialog
     if (showProductPicker) {
         ProductPickerDialog(
             products = products,
             initialQuery = label,
-            onSelectProduct = { product ->
-                label = product.name
-                selectedProduct = product
-                draft = initialQuantityDraft(product)
-                onProductChosen(product)
-                selectedCategory = product.category
-                resolvePreferredStore(product, stores)?.let { store ->
-                    selectedStoreId = store.id
-                    storeText = store.name
-                }
-                showProductPicker = false
-            },
+            onSelectProduct = { product -> chooseProduct(product) },
             onSelectCustomLabel = { customLabel ->
                 label = customLabel
                 selectedProduct = null
@@ -236,6 +245,23 @@ fun AddItemSheet(
                 showProductPicker = false
             },
             onDismiss = { showProductPicker = false },
+            onSearchCiqual = onSearchCiqual,
+            onSelectCiqualFood = onCreateProductFromCiqual?.let { create ->
+                { food ->
+                    scope.launch {
+                        val created = create(food)
+                        if (created != null) {
+                            chooseProduct(created)
+                        } else {
+                            label = food.alimNameFr
+                            selectedProduct = null
+                            draft = QuantityDraft()
+                            onProductChosen(null)
+                            showProductPicker = false
+                        }
+                    }
+                }
+            },
         )
     }
 

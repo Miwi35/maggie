@@ -7,6 +7,7 @@ import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
+import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
@@ -147,6 +148,23 @@ class GroceryViewModelTest {
 
         val shown = viewModel.uiState.value.storeGroups.flatMap { it.items }.map { it.id }
         assertEquals(listOf("due-rest", "today-rest", "no-date"), shown)
+    }
+
+    @Test
+    fun `a Ciqual food becomes a product linked to its code`() = runTest {
+        val created = Product(id = "p1", name = "Poireau, cru", category = ProductCategory.PRODUCE)
+        val linked = created.copy(ciqualAlimCode = "20056")
+        coEvery { productRepository.createProduct(any()) } returns Result.success(linked)
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        val result = viewModel.createProductFromCiqual(
+            CiqualFood(alimCode = "20056", alimNameFr = "Poireau, cru", alimGroupNameFr = "fruits, légumes, légumineuses et oléagineux"),
+        )
+
+        assertEquals(linked, result)
+        coVerify { productRepository.createProduct(match { it.name == "Poireau, cru" && it.category == "produce" && it.ciqualAlimCode == "20056" }) }
+        assertEquals(listOf(linked), viewModel.uiState.value.products)
     }
 
     @Test

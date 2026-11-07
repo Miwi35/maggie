@@ -464,6 +464,7 @@ data class ProductCreateRequest(
     val preferredStore: String? = null,
     val fallbackStore: String? = null,
     val shelfLifeDays: Int? = null,
+    val ciqualAlimCode: String? = null,
 )
 
 @Serializable
