@@ -30,6 +30,9 @@ OFFERED = [
         "save_bilan_step",
         "get_events_by_date",
         "get_tasks",
+        "create_task",
+        "schedule_proaction",
+        "add_instruction",
     )
 ]
 
@@ -135,6 +138,7 @@ class BilanApi(FakeProactionApi):
     """The simulated API with the bilan's status: written by save_bilan_step, read by get_activity_status."""
 
     status: dict | None = None
+    tasks: list[dict] = []
 
     def _get_activity_status(self, arguments: dict, user_id: str | None) -> dict | None:
         return self.status
@@ -143,7 +147,7 @@ class BilanApi(FakeProactionApi):
         self.status = {
             "activity": "bilan",
             "origin": {"kind": "day", "id": arguments["day"]},
-            "state": {"step": arguments["step"]},
+            "state": {"step": arguments["step"], "instructions": arguments.get("instructions", [])},
         }
         return {"success": True, "status": self.status}
 
@@ -153,11 +157,19 @@ class BilanApi(FakeProactionApi):
     def _get_tasks(self, arguments: dict, user_id: str | None) -> dict:
         return {"tasks": [{"id": "t1", "title": "Appeler le garage"}]}
 
+    def _create_task(self, arguments: dict, user_id: str | None) -> dict:
+        self.tasks.append(arguments)
+        return {"success": True, "task": {"id": "t2", **arguments}}
+
 
 @pytest.fixture()
 def api():
-    fake = BilanApi()
+    fake = BilanApi(now=datetime(2020, 1, 1, tzinfo=UTC))
+    fake.tasks = []
+    learned = AsyncMock(return_value=SimpleNamespace(to_dict=lambda: {"id": "i-1"}))
+    fake.learned = learned
     with (
+        patch("app.llm.tools.instruction_repo.store", learned),
         patch("app.llm.tools.mcp_client", fake),
         patch("app.llm.tools.skill_index.get", AsyncMock(return_value="---\nname: bilan-soir\n---\n\nLe bilan.")),
     ):
@@ -199,3 +211,27 @@ class TestTheProactionOpening:
         assert "save_bilan_step" not in names(result)
         assert api.status is None
         assert result["response"]
+
+
+class TestTheConsignes:
+    DICTATED = "Pour demain : rappelle-moi d'appeler le garage à 9 h, ajoute acheter du pain, et le mardi je pars plus tôt"
+
+    async def test_each_consigne_is_classed_and_carries_the_bilan_soir_provenance(self, api):
+        result = await say(self.DICTATED)
+
+        assert names(result) == ["schedule_proaction", "create_task", "add_instruction", "save_bilan_step"]
+        [proaction] = api.of(USER)
+        assert proaction["scheduledAt"].endswith("T09:00:00+01:00")
+        assert "bilan-soir" in proaction["prompt"]
+        [task] = api.tasks
+        assert task["title"] == "Acheter du pain" and "bilan-soir" in task["description"]
+        api.learned.assert_awaited_once()
+        assert api.learned.await_args.kwargs["kind"].value == "planning"
+        assert "bilan-soir" in api.learned.await_args.args[1]
+
+    async def test_the_bilan_status_keeps_the_three_kinds_for_the_digest(self, api):
+        await say(self.DICTATED)
+
+        kinds = [instruction["kind"] for instruction in api.status["state"]["instructions"]]
+        assert kinds == ["reminder", "task", "instruction"]
+        assert api.status["state"]["step"] == "consignes"

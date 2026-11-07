@@ -48,3 +48,40 @@ test('« on fait le point » opens the review at the Journée step and writes th
   expect(stored.origin.kind).toBe('day')
   expect(stored.state.step).toBe('journee')
 })
+
+/**
+ * The Consignes step — MAG-753 (Bilan du soir, part 5, extends MAG-99).
+ *
+ * Given the fake model and the scenario `98-bilan-soir-consignes.yaml`, When I dictate three consignes,
+ * Then they are classed — a dated reminder, a task due tomorrow, a rule learned — each with the
+ * `bilan-soir` provenance, and `activity-status/bilan` keeps the three kinds for the next digest.
+ */
+test('consignes dictated at the Consignes step are classed and kept for the digest', async ({ page, api, session }) => {
+  await new HomePage(page).open()
+
+  const body = await page.evaluate(
+    async ({ token }) => {
+      const response = await fetch('/agent/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          message: "Rappelle-moi d'appeler le garage à 9 h, ajoute acheter du pain, et le mardi je pars plus tôt",
+          idempotency_key: `e2e-consignes-${Math.random().toString(36).slice(2)}`,
+        }),
+      })
+      return response.text()
+    },
+    { token: session.token },
+  )
+  const events = parseAgUiStream(body)
+
+  const called = calledTools(events)
+  expect(called).toEqual(expect.arrayContaining(['schedule_proaction', 'create_task', 'add_instruction', 'save_bilan_step']))
+  expect(toolResults(events).every((result) => result.status === 'success')).toBe(true)
+
+  const status = await api.get('/api/activity-status/bilan')
+  expect(status.status(), await status.text()).toBe(200)
+  const stored = (await status.json()) as { state: { step: string; instructions: { kind: string }[] } }
+  expect(stored.state.step).toBe('consignes')
+  expect(stored.state.instructions.map((instruction) => instruction.kind)).toEqual(['reminder', 'task', 'instruction'])
+})

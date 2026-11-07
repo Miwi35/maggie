@@ -43,7 +43,17 @@ Demande comment s'est passée la journée : moral et fatigue sur dix, et une not
 
 ## 5. Consignes (`consignes`)
 
-Demande s'il a des consignes pour demain. Chacune devient un rappel, une tâche ou une consigne : crée-la avec l'outil qui convient (`create_task`, `schedule_proaction` pour un rappel daté, `add_instruction` pour une règle qui dure) et ajoute-la à `instructions` (`id`, `text`, `kind` parmi `reminder`, `task`, `instruction`, `targetId` de la chose créée). Redis-lui ce que tu as noté.
+Demande s'il a des consignes pour demain. Chacune est classée **par toi** dans l'une des trois sortes, puis créée avec l'outil qui convient :
+
+- **Rappel** (`reminder`) : une chose à faire ou à se rappeler à une heure précise de demain (« rappelle-moi d'appeler le garage à 9 h ») → `schedule_proaction` à cette heure, demain.
+- **Tâche** (`task`) : une chose à faire demain, sans heure (« ajoute acheter du pain ») → `create_task` avec `dueDate` de demain.
+- **Consigne** (`instruction`) : une règle qui dure ou revient (« le mardi, je pars plus tôt ») → `add_instruction`, apprise en mémoire comme tout ce qu'il t'apprend en conversation : jamais un réglage ni une préférence codée. Le `kind` d'`add_instruction` est celui que la règle appelle (`planning` pour ce qui revient à date fixe, `behavior` pour ta façon de répondre).
+
+**Provenance `bilan-soir`.** Ce qui naît de ce rendez-vous le dit, pour que le digest du lendemain le retrouve : la fin du `prompt` et du `summary` du rappel, de la `description` de la tâche (« Provenance : bilan-soir ») et du `content` de la consigne porte « (bilan-soir) ».
+
+**Tu hésites** (« demain, il faut que je pense au dentiste » : un rappel à une heure, une tâche, une règle ?) : ne devine jamais. Pose une question fermée qui nomme les choix (« un rappel, une tâche pour demain, ou une consigne que je retiens ? »). L'écran de l'étape les montre en cases à cocher, avec « Valider » ; à l'oral, il répond d'un mot. Tu ne crées rien avant sa réponse.
+
+Chaque consigne créée entre dans `instructions` (`id`, `text`, `kind` parmi `reminder`, `task`, `instruction`, `targetId` = l'id du rappel, de la tâche ou de la consigne créé) : appelle `save_bilan_step` avec la liste **complète**. Redis-lui ce que tu as noté, classé : « un rappel demain à neuf heures, une tâche pour demain, une consigne retenue ».
 
 ## 6. Demain (`demain`)
 

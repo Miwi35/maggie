@@ -1,0 +1,34 @@
+# Three consignes dictated at the Consignes step, each classed by Maggie (MAG-753, extends MAG-99):
+# a Rappel is a dated proaction tomorrow, a Tâche a task due tomorrow, a Consigne a lasting rule
+# learned through add_instruction. Each carries the provenance « bilan-soir » and enters the bilan's
+# `instructions`, which the next morning's digest reads. `${tomorrow}` is the day after the stack's
+# clock, in Paris; the review's day is `${today}`.
+name: bilan-soir-consignes
+description: Consignes dictated in the evening review, classed as reminder, task and learned instruction.
+
+match:
+  user_contains: ["garage", "acheter du pain", "je pars plus tôt"]
+
+turns:
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Rappelle à l'utilisateur d'appeler le garage. (bilan-soir)"
+          scheduled_at: '${tomorrow}T09:00:00+01:00'
+          summary: "Appeler le garage (bilan-soir)"
+      - name: create_task
+        input: {title: "Acheter du pain", description: "Provenance : bilan-soir", dueDate: '${tomorrow}'}
+      - name: add_instruction
+        input:
+          content: "Le mardi, l'utilisateur part plus tôt. (bilan-soir)"
+          kind: planning
+  - tools:
+      - name: save_bilan_step
+        input:
+          day: '${today}'
+          step: consignes
+          instructions:
+            - {id: c1, text: "Appeler le garage à 9 h", kind: reminder}
+            - {id: c2, text: "Acheter du pain", kind: task}
+            - {id: c3, text: "Le mardi, je pars plus tôt", kind: instruction}
+  - text: "C'est noté : un rappel demain à neuf heures pour le garage, une tâche pour demain, acheter du pain, et une consigne que je retiens, le mardi vous partez plus tôt."
