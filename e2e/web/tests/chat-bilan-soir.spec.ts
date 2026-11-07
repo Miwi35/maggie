@@ -76,7 +76,7 @@ test('consignes dictated at the Consignes step are classed and kept for the dige
   const events = parseAgUiStream(body)
 
   const called = calledTools(events)
-  expect(called).toEqual(expect.arrayContaining(['schedule_proaction', 'create_task', 'add_instruction', 'save_bilan_step']))
+  expect(called.filter((name) => name === 'add_bilan_consigne')).toHaveLength(3)
   expect(toolResults(events).every((result) => result.status === 'success')).toBe(true)
 
   const status = await api.get('/api/activity-status/bilan')

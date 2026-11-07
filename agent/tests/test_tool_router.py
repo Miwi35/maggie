@@ -18,7 +18,7 @@ from app.llm.tools import (
 from app.policy.engine import PolicyEngine
 
 NUM_MEMORY_TOOLS = len(MEMORY_TOOLS)
-NUM_INSTRUCTION_TOOLS = len(INSTRUCTION_TOOLS)
+NUM_INSTRUCTION_TOOLS = len(INSTRUCTION_TOOLS) + 1  # + add_bilan_consigne (MAG-753)
 NUM_SKILL_TOOLS = len(SKILL_TOOLS)
 NUM_DATE_TIME_TOOLS = len(DATE_TIME_TOOLS)
 NUM_ANSWER_TOOLS = 1  # answer_approval (MAG-683)
