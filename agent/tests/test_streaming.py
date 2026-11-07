@@ -21,7 +21,7 @@ class TestStreamingGateway:
     @pytest.mark.asyncio
     async def test_no_client_returns_error(self):
         """When no API key is configured, emit error text."""
-        with patch("app.llm.streaming.settings") as mock_settings:
+        with patch("app.llm.client.settings") as mock_settings:
             mock_settings.anthropic_api_key = ""
             gw = StreamingGateway()
             assert gw.client is None

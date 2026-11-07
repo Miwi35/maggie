@@ -18,7 +18,6 @@ from app.auth import (
     require_proaction_trigger,
     require_service_token,
 )
-from app.config import settings
 from app.db.chat_read_state_repository import UnknownMessage, chat_read_state_repo
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
@@ -39,6 +38,7 @@ from app.llm.duplicates import find_duplicated_turn, find_settled_answer, normal
 from app.llm.gateway import LLMGateway
 from app.llm.image import ChatImage
 from app.llm.message_reply import ReplyTo, grant_approval_answer, with_reply
+from app.llm.models import CHAT, model_for
 from app.llm.replace import abandon_approvals, withdraw_turn
 from app.llm.runner import run_tool_loop
 from app.llm.screen_context import split as split_screen_context
@@ -549,7 +549,7 @@ async def announce_approved_action(action: PendingAction, result: str) -> None:
             client=llm_gateway.client,
             tool_router=llm_gateway.tool_router,
             user_id=action.user_id,
-            model=settings.anthropic_model,
+            model=model_for(CHAT),
             call_type="approval",
             source="approval",
             context_id=action.context_id,

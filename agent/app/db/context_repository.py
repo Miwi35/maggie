@@ -55,6 +55,8 @@ class ContextRepository:
             await conn.execute(
                 text("ALTER TABLE instruction ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'planning'")
             )
+            # MAG-731 — the model a journaled run spoke to.
+            await conn.execute(text("ALTER TABLE agent_journal_run ADD COLUMN IF NOT EXISTS model VARCHAR(64)"))
             # MAG-7 — the readable sentence of a held action. Null on the older ones.
             await conn.execute(text("ALTER TABLE agent_pending_action ADD COLUMN IF NOT EXISTS summary TEXT"))
             # MAG-344 — the idempotency key of a message, and the turn answering it.

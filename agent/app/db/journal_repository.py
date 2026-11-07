@@ -138,6 +138,7 @@ class JournalRepository:
                 error=error,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                model=(result or {}).get("model"),
             )
         )
 
@@ -173,6 +174,7 @@ class JournalRepository:
                 error=error,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                model=(result or {}).get("model"),
             )
         )
 

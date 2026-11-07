@@ -352,7 +352,7 @@ async def stream_turn(client, question: str, offered: list[dict] = OFFERED) -> t
     router = ToolRouter()
 
     with (
-        patch("app.llm.streaming.settings") as settings,
+        patch("app.llm.streaming.model_for", return_value="fake"),
         patch("app.llm.streaming.message_repo") as message_repo,
         patch("app.llm.history.message_repo") as history_repo,
         patch("app.llm.history.context_repo") as history_contexts,
@@ -366,7 +366,6 @@ async def stream_turn(client, question: str, offered: list[dict] = OFFERED) -> t
         prompt_skills.refresh = AsyncMock()
         prompt_skills.get_skills_index.return_value = ""
         prompt_skills.skills_for_moment.return_value = ""
-        settings.anthropic_model = "fake"
         tool_log.append_tool_call = AsyncMock()
         persisted = MagicMock()
         persisted.id = "msg-1"

@@ -26,6 +26,7 @@ from app.db.style_proposal_model import StyleProposal, StyleProposalStatus
 from app.db.style_proposal_repository import style_proposal_repo
 from app.db.user_setting_repository import user_setting_repo
 from app.llm.client import create_llm_client, llm_configured
+from app.llm.models import UTILITY, model_for
 from app.metrics import record_llm_usage, usage_kwargs
 
 logger = logging.getLogger(__name__)
@@ -151,14 +152,14 @@ class StyleSynthesizer:
         t0 = time.monotonic()
         try:
             response = await self.client.messages.create(
-                model=settings.anthropic_fast_model,
+                model=model_for(UTILITY),
                 max_tokens=MAX_SYNTHESIS_TOKENS,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": "\n\n".join(parts)}],
             )
         except Exception:
             record_llm_usage(
-                model=settings.anthropic_fast_model,
+                model=model_for(UTILITY),
                 call_type="style_synthesis",
                 input_tokens=0,
                 output_tokens=0,
@@ -168,7 +169,7 @@ class StyleSynthesizer:
             raise
 
         record_llm_usage(
-            model=settings.anthropic_fast_model,
+            model=model_for(UTILITY),
             call_type="style_synthesis",
             duration_seconds=time.monotonic() - t0,
             **usage_kwargs(response.usage),

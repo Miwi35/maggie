@@ -26,7 +26,8 @@ data:
   GOOGLE_GEOCODING_URL: https://maps.googleapis.com/maps/api/geocode/json
   JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
   JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
-  ANTHROPIC_MODEL: claude-haiku-4-5-20251001
+  ANTHROPIC_MODEL: claude-sonnet-5-5
+  ANTHROPIC_FAST_MODEL: claude-haiku-4-5-20251001
   # Bank data provider. The application id is public — it travels as the JWT
   # key id — like the Google client id above. The signing key itself is
   # mounted from the bank-keys secret, which no deploy touches.

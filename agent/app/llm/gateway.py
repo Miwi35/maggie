@@ -3,7 +3,6 @@ from datetime import datetime
 
 import anthropic
 
-from app.config import settings
 from app.llm.capabilities import generate_capability_summary
 from app.llm.client import create_llm_client, llm_configured
 from app.llm.contexts import active_contexts_section, resolve_context, route_message
@@ -12,6 +11,7 @@ from app.llm.dry_run import DryRunToolRouter
 from app.llm.history import build_history, strip_thread_label
 from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
+from app.llm.models import CHAT, model_for, proaction_run
 from app.llm.prompt_cache import build_system
 from app.llm.provider_status import PROVIDER_UNAVAILABLE, alert_owner, provider_reason
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
@@ -175,6 +175,7 @@ class LLMGateway:
         messages = [{"role": "user", "content": content}]
         tool_router = DryRunToolRouter(self.tool_router) if dry_run else self.tool_router
 
+        model = model_for(proaction_run(silent=silent, summary=summary, prompt=prompt))
         try:
             result = await run_tool_loop(
                 system_prompt,
@@ -183,7 +184,7 @@ class LLMGateway:
                 client=self.client,
                 tool_router=tool_router,
                 user_id=user_id,
-                model=settings.anthropic_model,
+                model=model,
                 call_type="proaction",
                 source="proaction",
                 max_iterations=PROACTION_MAX_ITERATIONS,
@@ -198,6 +199,7 @@ class LLMGateway:
             logger.error(f"Proaction connection error: {e}")
             return {"response": "Unable to reach the AI service.", "tool_calls": [], "error": str(e)}
 
+        result["model"] = model
         if dry_run:
             result["dry_run"] = True
             result["simulated_tools"] = tool_router.simulated
@@ -316,7 +318,7 @@ class LLMGateway:
                 client=self.client,
                 tool_router=self.tool_router,
                 user_id=user_id,
-                model=settings.anthropic_model,
+                model=model_for(CHAT),
                 call_type="chat",
                 source=source,
                 context_id=context_id,
