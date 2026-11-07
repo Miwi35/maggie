@@ -1,0 +1,24 @@
+# « J'ai mangé une salade César à midi » (MAG-748).
+#
+# A dish told to Maggie goes in the food journal of Santé › Nutrition with
+# manage_food_intakes: the moment is today at noon, the figures are hers,
+# estimated, and the source is the conversation. The fake does not read the
+# result: the journey reads the journal and the day's balance back from the API.
+name: health-food-intake
+description: Record a Caesar salad eaten at noon in the food journal.
+
+match:
+  user_matches: '^j.ai mang[ée] une salade c[ée]sar [àa] midi\W*$'
+
+turns:
+  - tools:
+      - name: manage_food_intakes
+        input:
+          action: create
+          eatenAt: '${today}T12:00:00+01:00'
+          label: Salade César
+          kcal: 450
+          proteinG: 25
+          carbsG: 20
+          fatG: 30
+  - text: "C'est noté : une salade César à midi, environ 450 kcal (estimation)."
