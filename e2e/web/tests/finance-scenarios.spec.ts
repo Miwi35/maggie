@@ -7,19 +7,25 @@ import { FinanceProjectsPage } from '../pages/FinanceProjectsPage.js'
 /**
  * The scenarios of the projects (MAG-551, extends MAG-102).
  *
- * The seed has two projects; the journey adds two of its own so the three
+ * An account of its own (`standard` profile, MAG-757): the current scenario it
+ * sets would otherwise be read by `finance-projects`, whose planning follows
+ * the current scenario.
+ *
+ * The account starts with the seed's two projects; the journey adds two of its own so the three
  * offered scenarios (Rapide, Équilibré, Qualité de vie) have something to
  * order, and removes them in `finally`. No scenario is current at first. The
  * journey makes « Rapide » current, compares the scenarios, then makes one of
  * its own current instead, and the badge and the banner follow. A stored copy
  * of an offered scenario cannot be deleted through the API: it stays, with no
- * current scenario, which every other journey tolerates.
+ * current scenario.
  *
  * The second journey (MAG-552) adds the total early repayment of the seeded
  * « Crédit voiture » to a scenario of its own: the repayment shows in the list
  * with the real gain the API figures (remaining interest − IRA) and its effect
  * on N. « Prêt immo » belongs to the stock account, not to this one.
  */
+
+test.use({ journeyAccount: 'standard' })
 
 test.describe.configure({ mode: 'serial' })
 
