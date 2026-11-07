@@ -1,0 +1,94 @@
+# MAG-750's scenario, made-up figures: test_user is a man of 40 (1986), 180 cm
+# — with his weighings, a basal metabolism around 1 650. The 20th: two
+# weighings (07:00 then 08:30), 8 000 steps and 400 active kcal, a watch run of
+# 32 minutes seen by Health Connect, an apple of 78 kcal. The 21st: a typed
+# walk of 40 minutes, nothing else. The 22nd: a planned ride only. other_user
+# has rows on the 20th to prove every reading is filtered by user. The journal
+# rows themselves are laid down by the events as the fixtures are flushed.
+Maggie\Core\Entity\User:
+  test_user:
+    email: health-day-test@example.com
+    googleId: google-health-day-test
+    name: Health Day Test User
+  other_user:
+    email: health-day-other@example.com
+    googleId: google-health-day-other
+    name: Other Health Day User
+
+Maggie\Health\Entity\HealthProfile:
+  profile:
+    user: '@test_user'
+    sex: '<(Maggie\Health\Enum\Sex::Male)>'
+    birthYear: 1986
+    heightCm: 180
+
+Maggie\Health\Entity\BodyMeasurement:
+  first_weighing_20:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-20T07:00:00+02:00"))>'
+    weightKg: 72.4
+    bodyFatPercent: 21.3
+    user: '@test_user'
+  second_weighing_20:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-20T08:30:00+02:00"))>'
+    weightKg: 71.9
+    bodyFatPercent: 20.8
+    user: '@test_user'
+  others_weighing_20:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-20T06:00:00+02:00"))>'
+    weightKg: 95.0
+    user: '@other_user'
+
+Maggie\Health\Entity\DailyActivity:
+  day_20:
+    date: '<(new \DateTimeImmutable("2026-10-20"))>'
+    steps: 8000
+    activeKcal: 400
+    user: '@test_user'
+
+Maggie\Health\Entity\Workout:
+  watch_run_20:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course du matin
+    startedAt: '<(new \DateTimeImmutable("2026-10-20T07:10:00+02:00"))>'
+    durationMinutes: 32
+    kcal: 300
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+    externalId: hc-run-1
+    user: '@test_user'
+  typed_walk_21:
+    type: '<(Maggie\Health\Enum\WorkoutType::Walk)>'
+    title: Marche
+    startedAt: '<(new \DateTimeImmutable("2026-10-21T18:00:00+02:00"))>'
+    durationMinutes: 40
+    kcal: 200
+    source: '<(Maggie\Health\Enum\WorkoutSource::Manual)>'
+    user: '@test_user'
+  planned_ride_22:
+    type: '<(Maggie\Health\Enum\WorkoutType::Bike)>'
+    title: Vélo prévu
+    startedAt: '<(new \DateTimeImmutable("2026-10-22T10:00:00+02:00"))>'
+    durationMinutes: 60
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    user: '@test_user'
+
+Maggie\Health\Entity\FoodIntake:
+  apple_20:
+    date: '<(new \DateTimeImmutable("2026-10-20"))>'
+    eatenAt: '<(new \DateTimeImmutable("2026-10-20T16:00:00+02:00"))>'
+    label: Pomme
+    kcal: 78
+    proteinG: 0.4
+    carbsG: 18.0
+    fatG: 0.3
+    source: '<(Maggie\Health\Enum\FoodIntakeSource::Manual)>'
+    user: '@test_user'
+  others_snack_20:
+    date: '<(new \DateTimeImmutable("2026-10-20"))>'
+    eatenAt: '<(new \DateTimeImmutable("2026-10-20T10:00:00+02:00"))>'
+    label: Croissant
+    kcal: 400
+    proteinG: 8.0
+    carbsG: 45.0
+    fatG: 21.0
+    source: '<(Maggie\Health\Enum\FoodIntakeSource::Manual)>'
+    user: '@other_user'

@@ -176,6 +176,9 @@ framework:
             'Maggie\Health\Message\UpdateFoodIntakeCommand': sync
             'Maggie\Health\Message\DeleteFoodIntakeCommand': sync
             'Maggie\Health\Event\FoodIntakeRecorded': sync
+            'Maggie\Health\Message\RefreshHealthDayCommand': sync
+            'Maggie\Health\Message\UpdateHealthDayCommand': sync
+            'Maggie\Health\Event\HealthDaySourceChanged': sync
             'Maggie\Finance\Message\ChangeScenarioCommand': sync
             'Maggie\Finance\Message\CreateOperationCommand': sync
             'Maggie\Finance\Message\UpdateOperationCommand': sync

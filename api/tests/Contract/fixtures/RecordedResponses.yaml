@@ -649,6 +649,19 @@ Maggie\Health\Entity\FoodIntake:
     source: '<(Maggie\Health\Enum\FoodIntakeSource::Manual)>'
     user: '@recorded_user'
 
+# The health journal (MAG-750): the 20th's figures are laid down from the
+# weighings, the run and Health Connect's day above as they are flushed; its
+# mood, fatigue and note were told to Maggie. The 21st has a weighing only.
+Maggie\Health\Entity\HealthDay:
+  recorded_health_day:
+    user: '@recorded_user'
+    date: '<(new \DateTimeImmutable("2026-10-20"))>'
+    mood: 7
+    fatigue: 4
+    note: Bonne séance, un peu fatigué le soir.
+    __calls:
+      - noted: ['<(Maggie\Health\Enum\HealthDayAuthor::Maggie)>', '<(new \DateTimeImmutable("2026-10-20T21:42:00+02:00"))>']
+
 # The health profile (MAG-707), every field off its default: its weight is the
 # latest weighing not set aside above (72.4 kg), its age read on the recording's
 # fixed day.
