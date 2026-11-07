@@ -54,7 +54,7 @@ from app.memory.encoder import memory_encoder as default_encoder
 from app.memory.service import MemoryService, memory_service
 from app.memory.ulid import is_ulid
 from app.metrics import record_llm_usage, usage_kwargs
-from app.user_timezone import resolve_user_email, resolve_user_timezone
+from app.user_timezone import is_technical_account, resolve_user_email, resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -408,6 +408,8 @@ class NightKeeper:
         """
         service = self.service
         if self.client is None or not service.enabled or not is_ulid(user_id):
+            return None
+        if await is_technical_account(user_id):
             return None
         async with self._locks.setdefault(user_id, asyncio.Lock()):
             try:

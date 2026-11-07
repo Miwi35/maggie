@@ -27,7 +27,7 @@ from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE
-from app.llm.client import create_llm_client, llm_configured
+from app.llm.client import client_for, create_llm_client, llm_configured
 from app.llm.models import UTILITY, model_for
 from app.metrics import record_llm_usage, usage_kwargs
 
@@ -119,7 +119,7 @@ class ContextSummarizer:
             if not messages:
                 return None
 
-            summary = await self._ask(ctx.label, ctx.summary, _transcript(messages))
+            summary = await self._ask(ctx.user_id, ctx.label, ctx.summary, _transcript(messages))
             if not summary:
                 return None
 
@@ -133,7 +133,7 @@ class ContextSummarizer:
             logger.warning(f"Failed to summarize context {context_id}: {e}")
             return None
 
-    async def _ask(self, label: str, previous: str | None, transcript: str) -> str:
+    async def _ask(self, user_id: str, label: str, previous: str | None, transcript: str) -> str:
         """One call to the fast model. The previous summary goes in, so a pass stays incremental."""
         parts = [f"Fil : {label}"]
         if previous:
@@ -146,7 +146,7 @@ class ContextSummarizer:
 
         t0 = time.monotonic()
         try:
-            response = await self.client.messages.create(
+            response = await (await client_for(user_id, self.client)).messages.create(
                 model=model_for(UTILITY),
                 max_tokens=MAX_SUMMARY_TOKENS,
                 system=SYSTEM_PROMPT,

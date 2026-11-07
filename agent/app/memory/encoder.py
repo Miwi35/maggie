@@ -32,7 +32,7 @@ from app.db.context_model import ConversationContext
 from app.db.context_repository import context_repo
 from app.db.memory_index_repository import IndexedFile
 from app.db.message_repository import message_repo
-from app.llm.client import create_llm_client, llm_configured
+from app.llm.client import client_for, create_llm_client, llm_configured
 from app.llm.models import UTILITY, model_for
 from app.memory import carte as carte_mod
 from app.memory import conversations, fiches, paths
@@ -288,7 +288,7 @@ class PassageEncoder:
         try:
             carte_now = carte_mod.parse(file_text).carte
             listed = await service.fiches(user_id)
-            answer = await self._ask(build_request(str(ctx.label or "sans titre"), carte_now, listed, passage))
+            answer = await self._ask(user_id, build_request(str(ctx.label or "sans titre"), carte_now, listed, passage))
             proposal = parse_proposal(answer)
         except (ProposalError, UnreadableFile) as e:
             self._failed(context_id, last)
@@ -459,11 +459,11 @@ class PassageEncoder:
         )
         return f"écrite {written['chemin']}"
 
-    async def _ask(self, request: str) -> str:
+    async def _ask(self, user_id: str, request: str) -> str:
         model = model_for(UTILITY)
         t0 = time.monotonic()
         try:
-            response = await self.client.messages.create(
+            response = await (await client_for(user_id, self.client)).messages.create(
                 model=model,
                 max_tokens=MAX_TOKENS,
                 system=SYSTEM_PROMPT,

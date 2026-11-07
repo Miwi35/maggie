@@ -25,7 +25,7 @@ from app.db.message_repository import message_repo
 from app.db.style_proposal_model import StyleProposal, StyleProposalStatus
 from app.db.style_proposal_repository import style_proposal_repo
 from app.db.user_setting_repository import user_setting_repo
-from app.llm.client import create_llm_client, llm_configured
+from app.llm.client import client_for, create_llm_client, llm_configured
 from app.llm.models import UTILITY, model_for
 from app.metrics import record_llm_usage, usage_kwargs
 
@@ -122,6 +122,7 @@ class StyleSynthesizer:
             directives = await instruction_repo.find_by_user(user_id, kind=InstructionKind.BEHAVIOR)
             proposals = await style_proposal_repo.find_by_user(user_id)
             proposed = await self._ask(
+                user_id,
                 exchanges,
                 current=[d.content for d in directives],
                 pending=[p.content for p in proposals if p.status != StyleProposalStatus.REJECTED],
@@ -138,7 +139,7 @@ class StyleSynthesizer:
             return []
 
     async def _ask(
-        self, exchanges: list[str], *, current: list[str], pending: list[str], rejected: list[str]
+        self, user_id: str, exchanges: list[str], *, current: list[str], pending: list[str], rejected: list[str]
     ) -> list[dict]:
         parts = []
         if current:
@@ -151,7 +152,7 @@ class StyleSynthesizer:
 
         t0 = time.monotonic()
         try:
-            response = await self.client.messages.create(
+            response = await (await client_for(user_id, self.client)).messages.create(
                 model=model_for(UTILITY),
                 max_tokens=MAX_SYNTHESIS_TOKENS,
                 system=SYSTEM_PROMPT,

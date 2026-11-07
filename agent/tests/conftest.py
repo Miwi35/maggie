@@ -29,6 +29,16 @@ def no_last_exchange_lookup():
 
 
 @pytest.fixture(autouse=True)
+def nobody_is_technical():
+    """Keep the account lookup (MAG-732) off the MCP client: unless a test says otherwise, every user is an owner."""
+    with (
+        patch("app.llm.client.is_technical_account", AsyncMock(return_value=False)),
+        patch("app.memory.night.is_technical_account", AsyncMock(return_value=False)),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def no_duplicate_lookup(request):
     """Keep the « same message again » look-up (MAG-386) off the database in tests that mock the repository.
 

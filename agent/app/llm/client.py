@@ -11,6 +11,7 @@ import anthropic
 
 from app.config import settings
 from app.llm.fake import FakeAnthropicClient
+from app.user_timezone import is_technical_account
 
 logger = logging.getLogger(__name__)
 
@@ -32,3 +33,22 @@ def create_llm_client():
         logger.info("LLM_PROVIDER=fake — answers come from the scenario fixtures, not from Claude")
         return FakeAnthropicClient()
     return anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+
+_technical_client: FakeAnthropicClient | None = None
+
+
+async def client_for(user_id: str, default):
+    """The client for this user's call: the scripted fake for a technical account, `default` for anyone else.
+
+    The automatic tests of production (smoke, recette) never spend the model's credit (MAG-732).
+    Works without an API key, since the fake needs none.
+    """
+    if not await is_technical_account(user_id):
+        return default
+    if isinstance(default, FakeAnthropicClient):
+        return default
+    global _technical_client
+    if _technical_client is None:
+        _technical_client = FakeAnthropicClient()
+    return _technical_client

@@ -17,7 +17,7 @@ from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID
 from app.llm.capabilities import generate_capability_summary
 from app.llm.claim_guard import ClaimGuard, Verdict, question_of
-from app.llm.client import create_llm_client, llm_configured
+from app.llm.client import client_for, create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
 from app.llm.contexts import active_contexts_section, route_message
 from app.llm.directives import behavior_directives_section
@@ -262,7 +262,7 @@ class StreamingGateway:
             t0 = time.monotonic()
             try:
                 # Use streaming API
-                stream = self.client.messages.stream(
+                stream = (await client_for(user_id, self.client)).messages.stream(
                     model=model_for(CHAT),
                     max_tokens=4096,
                     system=system_prompt,

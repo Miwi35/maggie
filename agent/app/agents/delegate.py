@@ -3,7 +3,7 @@ import logging
 from fnmatch import fnmatchcase
 
 from app.agents.registry import SubagentDefinition, subagent_registry
-from app.llm.client import create_llm_client, llm_configured
+from app.llm.client import client_for, create_llm_client, llm_configured
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
 from app.llm.web_search import WEB_SEARCH_TOOL, with_web_search
@@ -90,7 +90,7 @@ async def handle_delegate(arguments: dict, user_id: str) -> str:
         system,
         [{"role": "user", "content": task}],
         tools,
-        client=_llm_client(),
+        client=await client_for(user_id, _llm_client()),
         tool_router=ScopedToolRouter(router, {t["name"] for t in tools}),
         user_id=user_id,
         model=definition.model_id,

@@ -32,6 +32,7 @@ from app.db.context_model import ContextStatus
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE
+from app.llm.client import client_for
 from app.llm.models import UTILITY, model_for
 from app.metrics import record_llm_usage
 
@@ -346,6 +347,7 @@ async def resolve_context(client, text: str, user_id: str, *, message_id: str | 
     """
     if client is None:
         return None
+    client = await client_for(user_id, client)
 
     try:
         contexts = await context_repo.find_active(user_id)
