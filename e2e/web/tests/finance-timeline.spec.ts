@@ -15,6 +15,8 @@ import { FinanceTimelinePage } from '../pages/FinanceTimelinePage.js'
  * the answer on its month — Indépendance on the N date — and states the hypotheses.
  */
 
+test.use({ journeyAccount: 'standard' })
+
 interface Line {
   scenarioId: string | null
   name: string
