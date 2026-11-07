@@ -244,14 +244,13 @@ class TestShippedSkills:
             assert tool in bilan
         assert "sans verdict" in bilan
         assert "moment:bilan-soir" in bilan
-        for rule in ("schedule_proaction", "create_task", "add_instruction", "Provenance `bilan-soir`", "Tu hésites"):
+        for rule in ("add_bilan_consigne", "`reminder`", "`task`", "`instruction`", "Tu hésites"):
             assert rule in bilan
         for literal in (
-            "(bilan-soir)",
-            "Provenance : bilan-soir",
-            "jamais sans `targetId`",
-            'appelle quand même `add_instruction`',
+            "scheduled_at",
+            "due_date",
             "ne le calcule pas de tête",
+            "jamais un article de la liste de courses",
         ):
             assert literal in bilan
 
@@ -277,10 +276,16 @@ class TestSupersededShippedSkills:
             assert "bilan-soir" in await index.seed_builtin()
         await index.rebuild()
 
-        assert "Provenance `bilan-soir`" in (await index.get("bilan-soir") or "")
+        assert "add_bilan_consigne" in (await index.get("bilan-soir") or "")
 
-    def test_the_version_deployed_by_mag_753_is_listed(self):
-        deployed = "865ed7bb25d31d55f85997030f664206cf77025ec70ce468b508b8af08779911"
+    @pytest.mark.parametrize(
+        "deployed",
+        [
+            "865ed7bb25d31d55f85997030f664206cf77025ec70ce468b508b8af08779911",
+            "8264ba9b4dadac5cb127765ad977ced1f6ec3ea459ff139a60f4d64ceb96ddc7",
+        ],
+    )
+    def test_the_versions_deployed_by_mag_753_are_listed(self, deployed):
         assert deployed in SUPERSEDED_BUILTIN_BODIES["bilan-soir"]
 
     async def test_an_edited_copy_is_kept(self, agent_db):

@@ -2,6 +2,7 @@ import json
 import logging
 
 from app.agents.registry import subagent_registry
+from app.bilan_consigne import BILAN_CONSIGNE_TOOL, handle_add_bilan_consigne
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.pending_action_repository import pending_action_repo
@@ -359,6 +360,7 @@ async def _handle_delegate(arguments: dict, user_id: str) -> str:
 
 _NATIVE_HANDLERS = {
     "add_instruction": _handle_add_instruction,
+    "add_bilan_consigne": handle_add_bilan_consigne,
     "list_instructions": _handle_list_instructions,
     "delete_instruction": _handle_delete_instruction,
     "create_skill": _handle_create_skill,
@@ -410,6 +412,18 @@ A2A_ALLOWED_TOOLS = frozenset(
 EXECUTOR_ONLY_MCP_TOOLS = frozenset({"claim_due_proactions", "record_proaction_result"})
 
 
+def _native_tools() -> list[dict]:
+    return [
+        *MEMORY_TOOLS,
+        *INSTRUCTION_TOOLS,
+        BILAN_CONSIGNE_TOOL,
+        *SKILL_TOOLS,
+        *DATE_TIME_TOOLS,
+        ANSWER_APPROVAL_TOOL,
+        *VOICE_TOOLS,
+    ]
+
+
 def _native_tool_names() -> frozenset[str]:
     """Every tool the agent serves itself: an MCP tool by the same name is not offered.
 
@@ -417,7 +431,7 @@ def _native_tool_names() -> frozenset[str]:
     native name to the agent's own handler anyway. Proactions are not among them: the API
     serves them (MAG-327).
     """
-    native = [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS, ANSWER_APPROVAL_TOOL, *VOICE_TOOLS]
+    native = _native_tools()
     return frozenset({tool["name"] for tool in native} | {"delegate"})
 
 
@@ -446,11 +460,7 @@ class ToolRouter:
             source: Who the tools are for. `a2a` gets the read-only MCP tools and nothing else.
         """
         a2a = source == A2A_SOURCE
-        tools = (
-            []
-            if a2a
-            else [*MEMORY_TOOLS, *INSTRUCTION_TOOLS, *SKILL_TOOLS, *DATE_TIME_TOOLS, ANSWER_APPROVAL_TOOL, *VOICE_TOOLS]
-        )
+        tools = [] if a2a else _native_tools()
 
         if not a2a and subagent_registry.agents:
             tools.append(delegate_tool_definition())

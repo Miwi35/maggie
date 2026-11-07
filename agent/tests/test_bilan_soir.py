@@ -33,6 +33,7 @@ OFFERED = [
         "create_task",
         "schedule_proaction",
         "add_instruction",
+        "add_bilan_consigne",
     )
 ]
 
@@ -171,6 +172,8 @@ def api():
     with (
         patch("app.llm.tools.instruction_repo.store", learned),
         patch("app.llm.tools.mcp_client", fake),
+        patch("app.bilan_consigne.mcp_client", fake),
+        patch("app.bilan_consigne.instruction_repo.store", learned),
         patch("app.llm.tools.skill_index.get", AsyncMock(return_value="---\nname: bilan-soir\n---\n\nLe bilan.")),
     ):
         yield fake
@@ -219,7 +222,7 @@ class TestTheConsignes:
     async def test_each_consigne_is_classed_and_carries_the_bilan_soir_provenance(self, api):
         result = await say(self.DICTATED)
 
-        assert names(result) == ["schedule_proaction", "create_task", "add_instruction", "save_bilan_step"]
+        assert names(result) == ["add_bilan_consigne"] * 3
         [proaction] = api.of(USER)
         assert proaction["scheduledAt"].endswith("T09:00:00+01:00")
         assert "bilan-soir" in proaction["prompt"]
@@ -235,3 +238,44 @@ class TestTheConsignes:
         kinds = [instruction["kind"] for instruction in api.status["state"]["instructions"]]
         assert kinds == ["reminder", "task", "instruction"]
         assert api.status["state"]["step"] == "consignes"
+
+    async def test_every_status_entry_points_to_what_was_created(self, api):
+        await say(self.DICTATED)
+
+        [proaction] = api.of(USER)
+        targets = [i["targetId"] for i in api.status["state"]["instructions"]]
+        assert targets == [proaction["id"], "t2", "i-1"]
+        assert [i["id"] for i in api.status["state"]["instructions"]] == ["1", "2", "3"]
+
+
+class TestTheConsigneTool:
+    async def test_a_new_day_starts_the_list_afresh(self, api):
+        api.status = {
+            "origin": {"kind": "day", "id": "2000-01-01"},
+            "state": {"step": "demain", "instructions": [{"id": "1", "text": "vieux", "kind": "task", "targetId": "x"}]},
+        }
+
+        out = await ToolRouter().call_tool(
+            "add_bilan_consigne",
+            {"day": "2030-11-14", "kind": "task", "text": "Acheter du pain", "due_date": "2030-11-15"},
+            user_id=USER,
+        )
+
+        assert json.loads(out)["consigne"]["id"] == "1"
+        assert [i["text"] for i in api.status["state"]["instructions"]] == ["Acheter du pain"]
+
+    async def test_a_reminder_without_a_time_creates_nothing(self, api):
+        out = await ToolRouter().call_tool(
+            "add_bilan_consigne", {"day": "2030-11-14", "kind": "reminder", "text": "Appeler le garage"}, user_id=USER
+        )
+
+        assert "scheduled_at" in json.loads(out)["error"]
+        assert api.of(USER) == [] and api.status is None
+
+    async def test_an_unknown_kind_is_refused(self, api):
+        out = await ToolRouter().call_tool(
+            "add_bilan_consigne", {"day": "2030-11-14", "kind": "idée", "text": "x"}, user_id=USER
+        )
+
+        assert "error" in json.loads(out)
+        assert api.status is None

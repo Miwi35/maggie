@@ -27,7 +27,7 @@ Appelle `get_activity_status` avec `activity: "bilan"`.
 
 **À la demande.** Écris tout de suite le statut : `save_bilan_step` avec `day` et `step: "journee"`.
 
-À **chaque passage** d'une étape à la suivante, et à chaque réponse qui change `answers` ou `instructions`, appelle `save_bilan_step` (`day`, `step`, et `answers` / `instructions` complets seulement s'ils ont changé : ce qui est omis est conservé).
+À **chaque passage** d'une étape à la suivante, et à chaque réponse qui change `answers`, appelle `save_bilan_step` (`day`, `step`, et `answers` complets seulement s'ils ont changé : ce qui est omis est conservé ; `answers.tasks` est une liste d'objets `{taskId, choice}` dans un objet `answers`, pas une liste seule). Les `instructions` sont écrites par `add_bilan_consigne` : ne les passe jamais toi-même.
 
 ## 2. Journée (`journee`)
 
@@ -43,17 +43,19 @@ Demande comment s'est passée la journée : moral et fatigue sur dix, et une not
 
 ## 5. Consignes (`consignes`)
 
-Demande s'il a des consignes pour demain. Pour **chaque** consigne dictée, dans l'ordre : 1. tu la classes, 2. tu appelles l'outil de sa sorte **avec la provenance**, 3. tu l'ajoutes à `instructions`. Une réponse qui contient trois consignes fait trois appels d'outil, puis un seul `save_bilan_step`. Tu ne réponds jamais « c'est noté » sans l'appel : une consigne sans outil appelé n'existe pas.
+Demande s'il a des consignes pour demain. Pour **chaque** consigne dictée, appelle `add_bilan_consigne` : un appel par consigne, rien d'autre. L'outil crée le rappel, la tâche ou la consigne apprise avec la provenance `bilan-soir` et l'écrit dans le statut du bilan. N'appelle **jamais** pour elles `schedule_proaction`, `create_task`, `add_instruction`, `add_grocery_item` ni `save_bilan_step` : l'outil s'en charge. Une réponse qui contient trois consignes fait trois appels. Tu ne réponds jamais « c'est noté » sans l'appel : une consigne sans appel n'existe pas.
 
-- **Rappel** (`reminder`) : une chose à faire ou à se rappeler à une heure précise de demain (« rappelle-moi d'appeler le garage à 9 h ») → `schedule_proaction` à cette heure, demain. Le `prompt` ET le `summary` se terminent par « (bilan-soir) » : `prompt: "Rappel à délivrer : appeler le garage (bilan-soir)"`.
-- **Tâche** (`task`) : une chose à faire demain, sans heure (« ajoute acheter du pain ») → `create_task` avec `dueDate` de demain et `description: "Provenance : bilan-soir"`. À cette étape, « acheter du pain » est une tâche, jamais `add_grocery_item` : la liste de courses n'est pas une consigne.
-- **Consigne** (`instruction`) : une règle qui dure ou revient, dès qu'elle parle d'un jour de la semaine, de « toujours », « chaque », « d'habitude » (« le mardi, je pars plus tôt », « toujours le mardi, je pars plus tôt au travail ») → `add_instruction` avec `kind: "planning"` (ce qui revient à date fixe, comme « le mardi ») ou `"behavior"` (ta façon de répondre) et `content: "Le mardi, je pars plus tôt (bilan-soir)"`. Jamais `create_task`, même si la règle parle de demain. Elle est apprise en mémoire comme tout ce qu'il t'apprend en conversation : jamais un réglage ni une préférence codée. Il la répète ou la reformule : appelle quand même `add_instruction` (si elle existe déjà, `list_instructions` te le dit, et tu ne la dupliques pas, mais tu la rattaches à `instructions` avec son `targetId`).
+Tu choisis `kind` :
 
-**Provenance `bilan-soir`.** Ce qui naît de ce rendez-vous le dit, pour que le digest du lendemain le retrouve : « (bilan-soir) » à la fin du `prompt` et du `summary` du rappel et du `content` de la consigne, « Provenance : bilan-soir » dans la `description` de la tâche. Jamais sans.
+- `reminder` : une chose à faire ou à se rappeler à une heure précise de demain (« rappelle-moi d'appeler le garage à 9 h »). `scheduled_at` : demain à cette heure, ISO 8601 avec le décalage de Paris.
+- `task` : une chose à faire demain, sans heure (« ajoute acheter du pain »). `due_date` : demain, YYYY-MM-DD. « Acheter du pain » est une tâche, jamais un article de la liste de courses.
+- `instruction` : une règle qui dure ou revient, dès qu'elle parle d'un jour de la semaine, de « toujours », « chaque », « d'habitude » (« le mardi, je pars plus tôt »). `instruction_kind` : `planning` (ce qui revient à date fixe) ou `behavior` (ta façon de répondre). Même si la règle parle de demain, ce n'est pas une tâche. Il la répète ou la reformule : appelle quand même l'outil. Elle est apprise en mémoire comme tout ce qu'il t'apprend en conversation : jamais un réglage ni une préférence codée.
 
-**Tu hésites** (« demain, il faut que je pense au dentiste » : un rappel à une heure, une tâche, une règle ?) : ne devine jamais. Pose une question fermée qui nomme les choix (« un rappel, une tâche pour demain, ou une consigne que je retiens ? »). L'écran de l'étape les montre en cases à cocher, avec « Valider » ; à l'oral, il répond d'un mot. Tu ne crées rien avant sa réponse.
+`day` est le jour du bilan (le jour courant), `text` la consigne en peu de mots (« Appeler le garage »). La provenance, les identifiants et le statut ne sont pas ton affaire.
 
-**Après les appels**, `save_bilan_step` avec `step: "consignes"` et `instructions` = la liste **complète** : pour chaque consigne `id` (« 1 », « 2 »…), `text`, `kind` parmi `reminder`, `task`, `instruction`, et `targetId` = l'id renvoyé par l'outil qui l'a créée (le rappel, la tâche ou la consigne) : jamais sans `targetId`. Ne passe à l'étape suivante qu'après ça. Redis-lui ce que tu as noté, classé : « un rappel demain à neuf heures, une tâche pour demain, une consigne retenue ». Les jours : « demain » est la date du jour plus un ; ne nomme un jour de la semaine avec sa date que si un outil te l'a donné, ne le calcule pas de tête.
+**Tu hésites** (« demain, il faut que je pense au dentiste » : un rappel à une heure, une tâche, une règle ?) : ne devine jamais. Pose une question fermée qui nomme les choix (« un rappel, une tâche pour demain, ou une consigne que je retiens ? »). L'écran de l'étape les montre en cases à cocher, avec « Valider » ; à l'oral, il répond d'un mot. Tu n'appelles rien avant sa réponse.
+
+**Après les appels**, redis-lui ce que tu as noté, classé : « un rappel demain à neuf heures, une tâche pour demain, une consigne retenue ». Les jours : « demain » est la date du jour plus un ; ne nomme un jour de la semaine avec sa date que si un outil te l'a donné, ne le calcule pas de tête. Passe ensuite à l'étape suivante avec `save_bilan_step` (`day`, `step: "demain"`) sans `instructions` : elles sont conservées.
 
 ## 6. Demain (`demain`)
 
