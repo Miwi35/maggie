@@ -2,6 +2,7 @@
 # skill, reads the day through MCP — the weather from the simulated Open-Meteo (70 % of rain), the
 # agenda, the trips, the tasks, the meals — then sends the vocal with `screen: "digest"` and answers
 # the written digest. The consumer stores that answer on the digest too, and its notification opens it.
+# Its tasks name the one scheduled « ce soir » (MAG-718): `get_tasks` today carries the day's programmation.
 #
 # The figures are the Open-Meteo stub's (.docker/e2e/wiremock/mappings/open-meteo.json): the fake
 # reads no tool result, so a weather in error still gets this text — the journal is where it shows.
@@ -31,4 +32,4 @@ turns:
         input:
           text: "Bonjour monsieur. Il pleuvra probablement aujourd'hui, prenez de quoi vous couvrir. Je vous ai écrit le détail de la journée. (digest MAG-709)"
           screen: digest
-  - text: "**Météo** : entre 9,5 et 18,5 °C, pluie probable (70 %) : prenez de quoi vous couvrir.\n\n**Agenda** : votre journée est dans le fil, je vous ai aussi envoyé un vocal. (digest MAG-709)"
+  - text: "**Météo** : entre 9,5 et 18,5 °C, pluie probable (70 %) : prenez de quoi vous couvrir.\n\n**Agenda** : votre journée est dans le fil, je vous ai aussi envoyé un vocal.\n\n**Tâches** : ce soir, la préparation du weekend. (digest MAG-709)"

@@ -726,46 +726,62 @@ if [ -n "$recurring_notified" ]; then
 else
   fail "the cron wrote no notification for '$recurring_title' — is the series still expanded?"
 fi
-
 # ---------------------------------------------------------------------------
-step "11b. A critical task due in three days becomes a « Dans 3 j » notification"
+step "11b. A task at a precise time is reminded « Dans 30 min », a morning alert no longer"
 # ---------------------------------------------------------------------------
-# MAG-410. Same bargain as the reminders above: the producer is the cron, which no
-# browser can run. The user's morning is set to the minute the stack's clock reads
-# in Paris (the seeded users' timezone), so the cron has no hour to wait for; the
-# task is created for three days from that Paris day.
-paris_now="$(TZ=Europe/Paris date -d "@$now_epoch" +%H:%M)"
+# MAG-718. Same bargain as the reminders above: the producer is the cron, which no
+# browser can run. A task planned 30 minutes from the stack's clock in Paris (the
+# seeded users' timezone), reminded 30 minutes before, falls now. A critical task
+# due in three days with no planned day no longer becomes a notification: it waits
+# for the digest, in the « à programmer » list.
+timed_at_epoch=$((now_epoch + 1800))
+timed_day="$(TZ=Europe/Paris date -d "@$timed_at_epoch" +%F)"
+timed_time="$(TZ=Europe/Paris date -d "@$timed_at_epoch" +%H:%M)"
 # Three calendar days on the Paris wall clock, not 3 * 86400 s: a clock change in between is 23 or 25 hours.
 # No "+" before "3 days": after a time, GNU date reads it as a UTC offset and adds one day only.
 task_due_day="$(TZ=Europe/Paris date -d "$(TZ=Europe/Paris date -d "@$now_epoch" '+%F %T') 3 days" +%F)"
 task_title="Tâche smoke $(date -u -d "@$now_epoch" +%H%M%S)"
+unplanned_title="Tâche à programmer $(date -u -d "@$now_epoch" +%H%M%S)"
 
 # The stack's clock is the real one: no quiet hours (MAG-510, the same start and end) and the
 # widest daily cap, or a run at night or on a busy day would rightly send nothing.
-assert_eq "$paris_now" \
+assert_eq "00:00" \
   "$(curl -sS -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
-    -d "$(jq -nc --arg t "$paris_now" '{morningTime: $t, quietStart: "00:00", quietEnd: "00:00", reminderDailyCap: 12}')" \
-    "$BASE_URL/api/task-settings/me" | jq -r '.morningTime // empty')" \
-  "the user's morning is now"
+    -d '{"quietStart":"00:00","quietEnd":"00:00","reminderDailyCap":12}' \
+    "$BASE_URL/api/task-settings/me" | jq -r '.quietStart // empty')" \
+  "the user has no quiet hours"
 
 task_created="$(curl -sS -X POST "${AUTH[@]}" \
   -H 'Content-Type: application/ld+json' -H 'Accept: application/ld+json' \
-  -d "$(jq -nc --arg s "$task_title" --arg d "$task_due_day" \
-    '{title: $s, dueDate: $d, criticality: "critical", priority: "medium"}')" \
+  -d "$(jq -nc --arg s "$task_title" --arg d "$timed_day" --arg t "$timed_time" \
+    '{title: $s, priority: "medium", scheduledDate: $d, scheduledMoment: "time", scheduledTime: $t, reminders: [30]}')" \
   "$BASE_URL/api/tasks")"
 task_id="$(printf '%s' "$task_created" | jq -r '.id // empty')"
 if [ -n "$task_id" ]; then
-  pass "the critical task was created, due in three days"
+  pass "the task was created, at $timed_time with a reminder 30 min before"
 else
   fail "could not create the task — response: $(printf '%s' "$task_created" | head -c 300)"
 fi
 
+unplanned_created="$(curl -sS -X POST "${AUTH[@]}" \
+  -H 'Content-Type: application/ld+json' -H 'Accept: application/ld+json' \
+  -d "$(jq -nc --arg s "$unplanned_title" --arg d "$task_due_day" \
+    '{title: $s, dueDate: $d, criticality: "critical", priority: "medium"}')" \
+  "$BASE_URL/api/tasks")"
+unplanned_id="$(printf '%s' "$unplanned_created" | jq -r '.id // empty')"
+if [ -n "$unplanned_id" ]; then
+  pass "the critical task was created, due in three days, with no planned day"
+else
+  fail "could not create the task — response: $(printf '%s' "$unplanned_created" | head -c 300)"
+fi
+
 "${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
 
-task_alerts_of() {
+alerts_of() {
   curl -sS "${AUTH[@]}" -H 'Accept: application/ld+json' "$BASE_URL/api/notifications?itemsPerPage=100" \
-    | jq -c --arg iri "/api/tasks/$task_id" '[.member[] | select(.type == "task_due" and .relatedEntityIri == $iri)]'
+    | jq -c --arg iri "/api/tasks/$1" '[.member[] | select(.relatedEntityIri == $iri)]'
 }
+task_alerts_of() { alerts_of "$task_id"; }
 
 task_notified=""
 for _ in $(seq 1 60); do
@@ -778,25 +794,26 @@ for _ in $(seq 1 60); do
 done
 
 if [ -n "$task_notified" ]; then
-  pass "the morning cron produced the task alert"
+  pass "the cron produced the task's reminder"
 else
-  fail "the cron wrote no notification for '$task_title' — is the morning time read in the user's timezone?"
+  fail "the cron wrote no notification for '$task_title' — is the precise time read in the user's timezone?"
 fi
 
 assert_eq task_due "$(printf '%s' "$task_notifications" | jq -r '.[0].type // empty')" \
   "the notification carries the task-due kind"
-# Its words come from a bank (MAG-510): they name the task, and the days left.
-assert_eq yes "$(printf '%s' "$task_notifications" | jq -r --arg t "« $task_title »" '.[0].title | if contains($t) and contains("3 j") then "yes" else . end')" \
-  "the alert names the task and its three days"
+assert_eq "$task_title" "$(printf '%s' "$task_notifications" | jq -r '.[0].title // empty')" \
+  "the reminder names the task"
+assert_eq "Dans 30 min · $timed_time" "$(printf '%s' "$task_notifications" | jq -r '.[0].body // empty')" \
+  "the reminder says how long before its time"
 assert_eq "start,done,tomorrow" "$(printf '%s' "$task_notifications" | jq -r '.[0].actions | join(",")')" \
-  "the alert offers « Je m'y mets », « Fait », « Demain »"
-assert_eq "/api/tasks/$task_id" "$(printf '%s' "$task_notifications" | jq -r '.[0].relatedEntityIri // empty')" \
-  "the notification points back at the task"
+  "the reminder offers « Je m'y mets », « Fait », « Demain »"
 
-# The cron runs every minute: a second run in the same morning says nothing more.
+# The cron runs every minute: a second run in the same minute says nothing more.
 "${COMPOSE[@]}" exec -T php bin/console --env=e2e maggie:notification:check-reminders >/dev/null
 sleep 5
-assert_eq 1 "$(task_alerts_of | jq -r 'length')" "a second run of the cron alerts nobody twice"
+assert_eq 1 "$(task_alerts_of | jq -r 'length')" "a second run of the cron reminds nobody twice"
+assert_eq 0 "$(alerts_of "$unplanned_id" | jq -r 'length')" \
+  "the critical task with no planned day sends no morning alert"
 
 # Back to the default morning: the account is shared with the journeys that follow.
 curl -sS -o /dev/null -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \

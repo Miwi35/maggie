@@ -503,6 +503,21 @@ class FullCalendarViewModel(
             }
     }
 
+    /** The undone tasks with a scheduled day in the range, on that day (MAG-718); none in a module's own view. */
+    private fun taskEvents(): List<ExpandedEvent> {
+        if (module != null) return emptyList()
+        val range = getVisibleRange()
+        val days = visibleDays()
+        return _uiState.value.tasks
+            .filter { !it.isDone }
+            .mapNotNull { scheduledTaskEvent(it, DateRanges.zone) }
+            .filter { event ->
+                val start = event.startAt?.let(Instant::parse)
+                if (start != null) start >= range.start && start < range.end else event.startDate?.let { it in days } == true
+            }
+            .sortedBy { it.sortKey }
+    }
+
     private fun expandForCurrentRange() {
         val range = getVisibleRange()
         val enabledAgendas = _uiState.value.enabledAgendas
@@ -513,7 +528,7 @@ class FullCalendarViewModel(
                 val agendaId = event.agendaIri?.removePrefix("/api/agendas/")
                 agendaId == null || agendaId in enabledAgendas
             }
-        _uiState.value = _uiState.value.copy(expandedEvents = expanded + mealEvents() + proactionEvents())
+        _uiState.value = _uiState.value.copy(expandedEvents = expanded + mealEvents() + proactionEvents() + taskEvents())
     }
 
     fun createAgenda(name: String, color: String?, description: String?) {

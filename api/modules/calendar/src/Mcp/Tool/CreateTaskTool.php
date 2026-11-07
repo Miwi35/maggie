@@ -13,7 +13,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_task', description: 'Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD. To make it a subtask, give parentId — the id of a task that is not a subtask itself (one level only). estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie, Google never sees them.')]
+#[McpTool(name: 'create_task', description: 'Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD. To make it a subtask, give parentId — the id of a task that is not a subtask itself (one level only). estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie, Google never sees them. dueDate is the deadline (« avant samedi », « pour samedi au plus tard »); scheduledDate (YYYY-MM-DD) is the day the user plans to do it (« mets-la vendredi »), which puts it in that day\'s agenda and today\'s tasks; scheduledMoment is morning, afternoon, evening, or time with scheduledTime HH:MM (« vendredi à 18 h »); reminders, only with time, are minutes before it (0: at the time) — left out, one at the time.')]
 class CreateTaskTool
 {
     public function __construct(
@@ -23,6 +23,7 @@ class CreateTaskTool
     ) {
     }
 
+    /** @param list<int>|null $reminders */
     public function __invoke(
         string $title,
         ?string $description = null,
@@ -32,6 +33,10 @@ class CreateTaskTool
         ?string $parentId = null,
         ?int $estimatedMinutes = null,
         ?string $firstStep = null,
+        ?string $scheduledDate = null,
+        ?string $scheduledMoment = null,
+        ?string $scheduledTime = null,
+        ?array $reminders = null,
     ): string {
         try {
             $user = $this->userContext->getUser();
@@ -40,6 +45,7 @@ class CreateTaskTool
             }
 
             $dueDateObj = null !== $dueDate ? TaskJson::day($dueDate) : null;
+            $scheduledDateObj = null !== $scheduledDate ? TaskJson::day($scheduledDate, 'scheduledDate') : null;
 
             $envelope = $this->bus->dispatch(new CreateTaskCommand(
                 userId: (string) $user->getId(),
@@ -51,6 +57,10 @@ class CreateTaskTool
                 parentId: $parentId,
                 estimatedMinutes: $estimatedMinutes,
                 firstStep: $firstStep,
+                scheduledDate: $scheduledDateObj,
+                scheduledMoment: $scheduledMoment,
+                scheduledTime: $scheduledTime,
+                reminders: $reminders,
             ));
 
             /** @var Task $task */

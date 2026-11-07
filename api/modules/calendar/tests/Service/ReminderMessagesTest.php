@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\Tests\Service;
 
-use Maggie\Calendar\Enum\TaskAlertReason;
 use Maggie\Calendar\Service\ReminderMessages;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -27,16 +26,11 @@ class ReminderMessagesTest extends TestCase
         yield 'drole' => ['drole'];
     }
 
-    public function testTheBanksHoldTenNudgesAndThreeAlertsPerReasonForEachTone(): void
+    public function testTheBanksHoldTenNudgesForEachTone(): void
     {
+        self::assertSame(['doux', 'direct', 'drole'], array_keys(ReminderMessages::NUDGE));
         foreach (ReminderMessages::NUDGE as $bank) {
             self::assertCount(10, $bank);
-        }
-        foreach (ReminderMessages::DUE as $reason) {
-            self::assertSame(['doux', 'direct', 'drole'], array_keys($reason));
-            foreach ($reason as $bank) {
-                self::assertCount(3, $bank);
-            }
         }
     }
 
@@ -60,23 +54,6 @@ class ReminderMessagesTest extends TestCase
         }
 
         self::assertGreaterThan(5, \count($seen), 'the bank is drawn from, not one message');
-    }
-
-    public function testThirtyAlertsInARowNeverRepeatTheMessage(): void
-    {
-        $messages = self::seeded();
-        $previous = null;
-
-        for ($i = 0; $i < 30; ++$i) {
-            $drawn = $messages->due('direct', TaskAlertReason::Overdue, 4, 'Rendre le livre', $previous['key'] ?? null);
-            self::assertStringStartsWith('due.overdue.direct.', $drawn['key']);
-            self::assertStringContainsString('« Rendre le livre »', $drawn['message']);
-            self::assertStringNotContainsString('{', $drawn['message']);
-            if (null !== $previous) {
-                self::assertNotSame($previous['key'], $drawn['key']);
-            }
-            $previous = $drawn;
-        }
     }
 
     public function testTheRoutineBankHoldsSixMessagesPerTone(): void
@@ -118,14 +95,6 @@ class ReminderMessagesTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         self::seeded()->routine('sec', ['x'], null);
-    }
-
-    public function testTheDaysAreWrittenIn(): void
-    {
-        $drawn = self::seeded()->due('doux', TaskAlertReason::DaysBefore, 3, 'Déclarer les impôts', null);
-
-        self::assertStringContainsString('3 j', $drawn['message']);
-        self::assertStringStartsWith('due.daysBefore.doux.', $drawn['key']);
     }
 
     public function testALongTitleIsCutSoTheWholeFitsANotificationTitle(): void

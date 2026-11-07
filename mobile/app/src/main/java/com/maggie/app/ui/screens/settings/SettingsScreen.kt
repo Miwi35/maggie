@@ -246,7 +246,7 @@ private fun SettingsList(
             SettingsRow(
                 icon = Icons.Outlined.TaskAlt,
                 title = "Tâches",
-                subtitle = "Alertes",
+                subtitle = "Rappels",
                 onClick = { onSectionClick(SettingsSection.TASKS) },
                 modifier = Modifier.testTag(UiTags.SETTINGS_TASKS),
             )
