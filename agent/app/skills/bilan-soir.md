@@ -46,8 +46,8 @@ Demande comment s'est passée la journée : moral et fatigue sur dix, et une not
 Demande s'il a des consignes pour demain. Chacune est classée **par toi** dans l'une des trois sortes, puis créée avec l'outil qui convient :
 
 - **Rappel** (`reminder`) : une chose à faire ou à se rappeler à une heure précise de demain (« rappelle-moi d'appeler le garage à 9 h ») → `schedule_proaction` à cette heure, demain.
-- **Tâche** (`task`) : une chose à faire demain, sans heure (« ajoute acheter du pain ») → `create_task` avec `dueDate` de demain.
-- **Consigne** (`instruction`) : une règle qui dure ou revient (« le mardi, je pars plus tôt ») → `add_instruction`, apprise en mémoire comme tout ce qu'il t'apprend en conversation : jamais un réglage ni une préférence codée. Le `kind` d'`add_instruction` est celui que la règle appelle (`planning` pour ce qui revient à date fixe, `behavior` pour ta façon de répondre).
+- **Tâche** (`task`) : une chose à faire demain, sans heure (« ajoute acheter du pain ») → `create_task` avec `dueDate` de demain. À cette étape, « acheter du pain » est une tâche, jamais `add_grocery_item` : la liste de courses n'est pas une consigne.
+- **Consigne** (`instruction`) : une règle qui dure ou revient (« le mardi, je pars plus tôt ») → `add_instruction` (jamais `create_task`, même si la règle parle de demain), apprise en mémoire comme tout ce qu'il t'apprend en conversation : jamais un réglage ni une préférence codée. Le `kind` d'`add_instruction` est celui que la règle appelle (`planning` pour ce qui revient à date fixe, `behavior` pour ta façon de répondre).
 
 **Provenance `bilan-soir`.** Ce qui naît de ce rendez-vous le dit, pour que le digest du lendemain le retrouve : la fin du `prompt` et du `summary` du rappel, de la `description` de la tâche (« Provenance : bilan-soir ») et du `content` de la consigne porte « (bilan-soir) ».
 

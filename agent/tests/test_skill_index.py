@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -6,7 +7,7 @@ import pytest
 
 from app.db.skill_model import Skill
 from app.llm.gateway import LLMGateway
-from app.skills.index import SkillEntry, SkillIndex
+from app.skills.index import SUPERSEDED_BUILTIN_BODIES, SkillEntry, SkillIndex
 from app.memory.agent_memory import MemoryBlocks
 
 
@@ -253,6 +254,30 @@ class TestShippedSkills:
         assert await index.seed_builtin() == ["bilan-soir"]
 
         assert "Mon digest à moi" in (await index.get("digest") or "")
+
+
+class TestSupersededShippedSkills:
+    """A stored copy that still equals an earlier shipped text takes the new one (MAG-753)."""
+
+    async def test_an_untouched_earlier_shipped_copy_is_replaced(self, agent_db):
+        index = _index()
+        old_body = "Ancien texte livré"
+        await index.create("bilan-soir", "ancien", [], old_body, user_id="u")
+        digest = hashlib.sha256(old_body.encode()).hexdigest()
+
+        with patch.dict(SUPERSEDED_BUILTIN_BODIES, {"bilan-soir": frozenset({digest})}):
+            assert "bilan-soir" in await index.seed_builtin()
+        await index.rebuild()
+
+        assert "Provenance `bilan-soir`" in (await index.get("bilan-soir") or "")
+
+    async def test_an_edited_copy_is_kept(self, agent_db):
+        index = _index()
+        await index.create("bilan-soir", "le mien", [], "Mon bilan édité", user_id="u")
+
+        await index.seed_builtin()
+
+        assert "Mon bilan édité" in (await index.get("bilan-soir") or "")
 
 
 class TestSystemPromptSkills:

@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,6 +16,13 @@ LEGACY_SKILLS_DIR = Path("/app/data/skills")
 # The skills shipped with Maggie (MAG-709, the digest): written into the skills folder when it has none of
 # that name, then they are the owner's like any other — his edits are never overwritten.
 BUILTIN_SKILLS_DIR = Path(__file__).parent
+# SHA-256 of the body of every earlier shipped version of a skill. A stored copy that still matches one of them
+# was never edited by the owner, so the seed replaces it with the current shipped text (MAG-753). When you
+# change a shipped skill, add the hash of the version you replace.
+SUPERSEDED_BUILTIN_BODIES: dict[str, frozenset[str]] = {
+    "bilan-soir": frozenset({"ed40d96f0d7bac6c24d07ef51b07f7aec5d36bb0746c72acc4979ef9347da73f"}),
+    "digest": frozenset({"bc2f376bbaadcda64d1549e0eef3873c3116258d1c6be567301617de4a344cbd"}),
+}
 
 # When a skill applies, as its tags say (MAG-345): `moment:chat`, `moment:proaction`, `moment:planification`.
 # The skills of the moment a prompt is built for are given in full; the others stay in the index.
@@ -75,7 +83,9 @@ class SkillIndex:
     async def seed_builtin(self, directory: Path = BUILTIN_SKILLS_DIR) -> list[str]:
         """Write the shipped skills that are missing into the skills folder and the table; the names written.
 
-        A skill of the same name already there — the owner's copy, edited or not — is left as it is. One
+        A skill of the same name already there is left as it is, unless it is still an earlier shipped text
+        (`SUPERSEDED_BUILTIN_BODIES`): untouched by the owner, it takes the new text. An edited copy is never
+        overwritten. One
         the owner deleted comes back at the next start: to stop the digest, its directive is what goes.
         """
         seeded: list[str] = []
@@ -85,7 +95,8 @@ class SkillIndex:
                 if parsed is None:
                     continue
                 entry, body = parsed
-                if await self.repo.get(entry.name) is not None:
+                existing = await self.repo.get(entry.name)
+                if existing is not None and not _is_superseded(entry.name, existing.content):
                     continue
                 await self.store.save(entry.name, entry.description, entry.tags, body.strip())
                 await self.repo.upsert(entry.name, entry.description, entry.tags, body.strip())
@@ -202,3 +213,8 @@ def _entry(skill: Skill) -> SkillEntry:
 
 
 skill_index = SkillIndex()
+
+
+def _is_superseded(name: str, content: str) -> bool:
+    digest = hashlib.sha256(content.strip().encode("utf-8")).hexdigest()
+    return digest in SUPERSEDED_BUILTIN_BODIES.get(name, frozenset())
