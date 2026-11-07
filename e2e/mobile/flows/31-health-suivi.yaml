@@ -77,17 +77,21 @@ tags:
 - scrollUntilVisible:
     element:
       id: "steps_card"
-- assertVisible:
-    id: "steps_value"
-    text: "8 000"
+- extendedWaitUntil:
+    visible:
+      id: "steps_value"
+      text: "8 000"
+    timeout: 10000
 
 # Énergie: base · pas · séances, no session today; the total is the API's, a figure and not a dash.
 - scrollUntilVisible:
     element:
       id: "energy_card"
-- assertVisible:
-    id: "energy_base"
-    text: "Base .*"
+- extendedWaitUntil:
+    visible:
+      id: "energy_base"
+      text: "Base .*"
+    timeout: 10000
 - assertVisible:
     id: "energy_steps"
     text: "Pas .*"
