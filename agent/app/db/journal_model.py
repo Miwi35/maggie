@@ -46,6 +46,8 @@ class JournalRun(AgentBase):
     error = Column(Text, nullable=True)
     input_tokens = Column(Integer, nullable=False, default=0)
     output_tokens = Column(Integer, nullable=False, default=0)
+    # The model the run spoke to (MAG-731); null on the runs kept before the column existed.
+    model = Column(String(64), nullable=True)
 
     def to_dict(self) -> dict:
         return {
@@ -65,4 +67,5 @@ class JournalRun(AgentBase):
             "error": self.error,
             "inputTokens": int(self.input_tokens or 0),
             "outputTokens": int(self.output_tokens or 0),
+            "model": self.model,
         }

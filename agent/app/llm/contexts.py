@@ -28,11 +28,11 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from app.config import settings
 from app.db.context_model import ContextStatus
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE
+from app.llm.models import UTILITY, model_for
 from app.metrics import record_llm_usage
 
 logger = logging.getLogger(__name__)
@@ -259,13 +259,13 @@ async def _ask_router(client, system: str, prompt: str) -> dict:
     """One call to the fast model, its answer parsed. Raises on anything but a JSON object."""
     t0 = time.monotonic()
     response = await client.messages.create(
-        model=settings.anthropic_fast_model,
+        model=model_for(UTILITY),
         max_tokens=200,
         system=system,
         messages=[{"role": "user", "content": prompt}],
     )
     record_llm_usage(
-        model=settings.anthropic_fast_model,
+        model=model_for(UTILITY),
         call_type="context_resolve",
         input_tokens=response.usage.input_tokens,
         output_tokens=response.usage.output_tokens,

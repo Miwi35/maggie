@@ -28,12 +28,12 @@ from datetime import UTC, date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from app.config import settings
 from app.db.context_model import ConversationContext
 from app.db.context_repository import context_repo
 from app.db.memory_index_repository import IndexedFile
 from app.db.message_repository import message_repo
 from app.llm.client import create_llm_client, llm_configured
+from app.llm.models import UTILITY, model_for
 from app.memory import carte as carte_mod
 from app.memory import conversations, fiches, paths
 from app.memory.carte import Carte, UnreadableFile
@@ -460,7 +460,7 @@ class PassageEncoder:
         return f"écrite {written['chemin']}"
 
     async def _ask(self, request: str) -> str:
-        model = settings.anthropic_fast_model
+        model = model_for(UTILITY)
         t0 = time.monotonic()
         try:
             response = await self.client.messages.create(

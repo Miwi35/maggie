@@ -28,6 +28,7 @@ from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE
 from app.llm.client import create_llm_client, llm_configured
+from app.llm.models import UTILITY, model_for
 from app.metrics import record_llm_usage, usage_kwargs
 
 logger = logging.getLogger(__name__)
@@ -146,14 +147,14 @@ class ContextSummarizer:
         t0 = time.monotonic()
         try:
             response = await self.client.messages.create(
-                model=settings.anthropic_fast_model,
+                model=model_for(UTILITY),
                 max_tokens=MAX_SUMMARY_TOKENS,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": "\n\n".join(parts)}],
             )
         except Exception:
             record_llm_usage(
-                model=settings.anthropic_fast_model,
+                model=model_for(UTILITY),
                 call_type="context_summary",
                 input_tokens=0,
                 output_tokens=0,
@@ -163,7 +164,7 @@ class ContextSummarizer:
             raise
 
         record_llm_usage(
-            model=settings.anthropic_fast_model,
+            model=model_for(UTILITY),
             call_type="context_summary",
             duration_seconds=time.monotonic() - t0,
             **usage_kwargs(response.usage),

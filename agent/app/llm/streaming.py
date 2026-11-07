@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 import anthropic
 from sqlalchemy.exc import IntegrityError
 
-from app.config import settings
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID
@@ -26,6 +25,7 @@ from app.llm.gateway import API_ERROR_MESSAGE
 from app.llm.history import build_history, label_settled, strip_thread_label
 from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
+from app.llm.models import CHAT, model_for
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.provider_status import alert_owner, note_provider_failure, note_provider_success, provider_reason
 from app.llm.tool_blocks import record
@@ -263,7 +263,7 @@ class StreamingGateway:
             try:
                 # Use streaming API
                 stream = self.client.messages.stream(
-                    model=settings.anthropic_model,
+                    model=model_for(CHAT),
                     max_tokens=4096,
                     system=system_prompt,
                     messages=messages,
@@ -339,7 +339,7 @@ class StreamingGateway:
                     duration = time.monotonic() - t0
                     await note_provider_success()
                     record_llm_usage(
-                        model=settings.anthropic_model,
+                        model=model_for(CHAT),
                         call_type="chat_stream",
                         duration_seconds=duration,
                         **usage_kwargs(response.usage),
@@ -485,7 +485,7 @@ class StreamingGateway:
             except Exception as e:
                 duration = time.monotonic() - t0
                 record_llm_usage(
-                    model=settings.anthropic_model,
+                    model=model_for(CHAT),
                     call_type="chat_stream",
                     input_tokens=0,
                     output_tokens=0,

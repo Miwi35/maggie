@@ -932,7 +932,7 @@ class TestTheRealStreamingGateway:
         client = build_client(fixtures_dir)
 
         with (
-            patch("app.llm.streaming.settings") as settings,
+            patch("app.llm.streaming.model_for", return_value="fake"),
             patch("app.llm.streaming.message_repo") as message_repo,
             patch("app.llm.history.message_repo") as history_repo,
             patch("app.llm.history.context_repo") as history_contexts,
@@ -940,9 +940,6 @@ class TestTheRealStreamingGateway:
             patch("app.llm.contexts.context_repo") as context_repo,
             patch("app.llm.streaming.record_llm_usage"),
         ):
-            settings.anthropic_api_key = ""
-            settings.llm_provider = "fake"
-            settings.anthropic_model = "fake"
             # The route persists the user message before streaming, so history
             # is where `chat_stream` finds it — returning an empty history here
             # would have the fake answering an empty question.
