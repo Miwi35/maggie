@@ -5,6 +5,8 @@ import com.maggie.app.data.repository.ProviderStatusRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -24,6 +26,9 @@ class ProviderStatusViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val repository = mockk<ProviderStatusRepository>()
 
+    // The polling loop never ends; runTest would advance virtual time forever waiting for it.
+    private fun ProviderStatusViewModel.stopPolling() = viewModelScope.cancel()
+
     @Before
     fun setUp() = Dispatchers.setMain(dispatcher)
 
@@ -41,6 +46,7 @@ class ProviderStatusViewModelTest {
         assertEquals("Crédit Anthropic épuisé", viewModel.banner.value.subtitle)
         assertEquals("Recharger", viewModel.banner.value.action)
         assertEquals("https://console.anthropic.com/settings/billing", viewModel.banner.value.url)
+        viewModel.stopPolling()
     }
 
     @Test
@@ -54,6 +60,7 @@ class ProviderStatusViewModelTest {
         assertEquals("Clé Anthropic refusée", viewModel.banner.value.subtitle)
         assertEquals("Ouvrir la console", viewModel.banner.value.action)
         assertEquals("https://console.anthropic.com/settings/keys", viewModel.banner.value.url)
+        viewModel.stopPolling()
     }
 
     @Test
@@ -64,6 +71,7 @@ class ProviderStatusViewModelTest {
         runCurrent()
 
         assertEquals(ProviderBanner.Ok, viewModel.banner.value)
+        viewModel.stopPolling()
     }
 
     @Test
@@ -81,18 +89,20 @@ class ProviderStatusViewModelTest {
         runCurrent()
 
         assertEquals(ProviderBanner.Ok, viewModel.banner.value)
+        viewModel.stopPolling()
     }
 
     @Test
     fun `while ok it does not poll`() = runTest(dispatcher) {
         coEvery { repository.get() } returns Result.success(ProviderStatus("ok"))
 
-        ProviderStatusViewModel(repository)
+        val viewModel = ProviderStatusViewModel(repository)
         runCurrent()
         advanceTimeBy(ProviderStatusViewModel.POLL_MS * 3)
         runCurrent()
 
         coVerify(exactly = 1) { repository.get() }
+        viewModel.stopPolling()
     }
 
     @Test
@@ -108,5 +118,6 @@ class ProviderStatusViewModelTest {
         runCurrent()
 
         assertEquals(ProviderBanner.Credit, viewModel.banner.value)
+        viewModel.stopPolling()
     }
 }
