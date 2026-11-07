@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Health\MessageHandler;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Health\Entity\FoodIntake;
@@ -47,7 +48,12 @@ class CreateFoodIntakeHandler
         $intake = null === $command->mealId ? $this->food($command) : $this->meal($user, $command->mealId, $command->eatenAt);
         $intake->setUser($user);
 
-        return $this->saveFoodIntake->execute($intake);
+        try {
+            return $this->saveFoodIntake->execute($intake);
+        } catch (UniqueConstraintViolationException) {
+            // Two « Mangé » at once (the admin and the phone): the second is refused like any other.
+            throw new DuplicateFoodIntakeException();
+        }
     }
 
     private function meal(User $user, string $mealId, ?string $eatenAt): FoodIntake

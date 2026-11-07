@@ -333,6 +333,52 @@ class FoodIntakeApiTest extends WebTestCase
         self::assertSame('Pomme', $this->em()->find(FoodIntake::class, $this->id('apple_4'))?->getLabel());
     }
 
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function refusedPatches(): iterable
+    {
+        yield 'an emptied macro' => [['proteinG' => null]];
+        yield 'an emptied moment' => [['eatenAt' => null]];
+        yield 'an emptied kcal' => [['kcal' => null]];
+        yield 'another meal' => [['mealId' => '01JZZZZZZZZZZZZZZZZZZZZZZZ']];
+        yield 'a Ciqual food set afterwards' => [['ciqualCode' => '20020']];
+    }
+
+    /**
+     * Never a 500, never an intake changed: a meal given back to the planned
+     * ones by a PATCH would let it be eaten twice.
+     *
+     * @param array<string, mixed> $body
+     */
+    #[DataProvider('refusedPatches')]
+    public function testAPatchThatEmptiesAFigureOrMovesTheOriginIsA400(array $body): void
+    {
+        $this->login();
+
+        $this->send('PATCH', '/api/health/food-intakes/'.$this->id('apple_4'), $body);
+
+        self::assertResponseStatusCodeSame(400);
+        $apple = $this->em()->find(FoodIntake::class, $this->id('apple_4'));
+        self::assertInstanceOf(FoodIntake::class, $apple);
+        self::assertSame(78, $apple->getKcal());
+        self::assertSame(0.4, $apple->getProteinG());
+        self::assertNull($apple->getMealId());
+        self::assertNull($apple->getCiqualCode());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testAMealsIntakeKeepsItsMeal(): void
+    {
+        $this->login();
+        $this->send('POST', '/api/health/food-intakes', ['mealId' => $this->id('lunch_5')]);
+        $id = $this->response()['id'];
+
+        $this->send('PATCH', '/api/health/food-intakes/'.$id, ['mealId' => null]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame($this->id('lunch_5'), $this->em()->find(FoodIntake::class, $id)?->getMealId());
+        self::assertSame(0, $this->balance()['plannedKcal']);
+    }
+
     public function testDeleteRemovesTheIntakeAndPublishes(): void
     {
         $this->login();
