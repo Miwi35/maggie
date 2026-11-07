@@ -1,0 +1,24 @@
+{
+    "days": [
+        {
+            "date": "2026-03-15",
+            "eatenKcal": 0,
+            "plannedKcal": 0,
+            "expendedKcal": 1652,
+            "balanceKcal": -1652,
+            "proteinG": 0,
+            "carbsG": 0,
+            "fatG": 0
+        },
+        {
+            "date": "2026-03-16",
+            "eatenKcal": 78,
+            "plannedKcal": 340,
+            "expendedKcal": 1652,
+            "balanceKcal": -1234,
+            "proteinG": 12.9,
+            "carbsG": 89.5,
+            "fatG": 1.8
+        }
+    ]
+}

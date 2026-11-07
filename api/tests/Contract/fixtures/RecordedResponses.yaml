@@ -622,6 +622,22 @@ Maggie\Health\Entity\DailyActivity:
     activeKcal: 400
     user: '@recorded_user'
 
+# The food journal (MAG-748): an apple typed by hand on the recorded meal's
+# day, every optional field filled; the meal itself stays planned.
+Maggie\Health\Entity\FoodIntake:
+  recorded_food_intake:
+    date: '<(new \DateTimeImmutable("2026-03-16"))>'
+    eatenAt: '<(new \DateTimeImmutable("2026-03-16T16:00:00+01:00"))>'
+    ciqualCode: '13039'
+    label: Pomme
+    quantityGrams: 150.0
+    kcal: 78
+    proteinG: 0.4
+    carbsG: 18.5
+    fatG: 0.3
+    source: '<(Maggie\Health\Enum\FoodIntakeSource::Manual)>'
+    user: '@recorded_user'
+
 # The health profile (MAG-707), every field off its default: its weight is the
 # latest weighing not set aside above (72.4 kg), its age read on the recording's
 # fixed day.

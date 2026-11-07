@@ -153,6 +153,12 @@ class TestManageToolsWithTheDeleteAction:
         assert summary == "Supprimer la pesée"
         mcp.call_tool.assert_not_awaited()
 
+    async def test_a_food_intake_is_named_without_a_lookup_its_list_needs_a_day(self, mcp):
+        summary = await build_summary("manage_food_intakes", {"action": "delete", "foodIntakeId": ULID}, "user-1")
+
+        assert summary == "Supprimer l'entrée du journal alimentaire"
+        mcp.call_tool.assert_not_awaited()
+
     async def test_an_aisle_is_named_without_a_lookup_its_list_needs_a_store(self, mcp):
         summary = await build_summary("manage_aisles", {"action": "delete", "aisleId": ULID}, "user-1")
 

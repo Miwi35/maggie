@@ -104,3 +104,47 @@ Maggie\Health\Entity\BodyMeasurement:
     weightKg: 72.2
     bodyFatPercent: 21.3
     source: '<(Maggie\Health\Enum\MeasurementSource::Manual)>'
+
+# The Santé › Nutrition journey (MAG-748): one recipe of the owner's whose
+# serving is 515 kcal — 250 g of quinoa at 120 kcal and 100 g of chicken at
+# 215 —, 38 g of protein, 53 g of carbs and 16 g of fat. No meal: each
+# journey plans its own lunch today and removes it, so that no other journey
+# finds it in the week's meals or the grocery list.
+Maggie\Cookbook\Entity\Ingredient:
+  e2e_health_ingredient_quinoa:
+    name: Quinoa cuit
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    kcalPer100g: 120.0
+    proteinPer100g: 4.4
+    carbsPer100g: 21.2
+    fatPer100g: 2.0
+    user: '@e2e_user'
+  e2e_health_ingredient_chicken:
+    name: Poulet rôti
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Meat)>'
+    defaultUnit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+    kcalPer100g: 215.0
+    proteinPer100g: 27.0
+    carbsPer100g: 0.0
+    fatPer100g: 11.0
+    user: '@e2e_user'
+
+Maggie\Cookbook\Entity\Recipe:
+  e2e_health_recipe_bowl:
+    name: Bol quinoa poulet
+    servings: 1
+    tags: ['santé']
+    user: '@e2e_user'
+
+Maggie\Cookbook\Entity\RecipeIngredient:
+  e2e_health_bowl_quinoa:
+    recipe: '@e2e_health_recipe_bowl'
+    ingredient: '@e2e_health_ingredient_quinoa'
+    quantity: 250
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'
+  e2e_health_bowl_chicken:
+    recipe: '@e2e_health_recipe_bowl'
+    ingredient: '@e2e_health_ingredient_chicken'
+    quantity: 100
+    unit: '<(Maggie\Grocery\Enum\Unit::Gram)>'

@@ -1,0 +1,55 @@
+{
+    "@context": "/api/contexts/FoodIntake",
+    "@id": "/api/health/food-intakes",
+    "@type": "Collection",
+    "totalItems": 1,
+    "member": [
+        {
+            "@id": "/api/health/food-intakes/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "FoodIntake",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "date": "2026-03-16",
+            "eatenAt": "2026-03-16T15:00:00+00:00",
+            "ciqualCode": "13039",
+            "label": "Pomme",
+            "quantityGrams": 150,
+            "kcal": 78,
+            "proteinG": 0.4,
+            "carbsG": 18.5,
+            "fatG": 0.3,
+            "source": "manual",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/health/food-intakes{?date[before],date[strictly_before],date[after],date[strictly_after]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "date[before]",
+                "property": "date",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "date[strictly_before]",
+                "property": "date",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "date[after]",
+                "property": "date",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "date[strictly_after]",
+                "property": "date",
+                "required": false
+            }
+        ]
+    }
+}

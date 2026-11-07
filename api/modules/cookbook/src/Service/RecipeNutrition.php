@@ -19,23 +19,48 @@ final class RecipeNutrition
     /** Null when no line of the recipe can be counted. */
     public static function kcalPerServing(Recipe $recipe): ?int
     {
+        return self::perServing($recipe)['kcal'] ?? null;
+    }
+
+    /**
+     * The kcal and the three macros of one serving (MAG-748), from the lines {@see kcalPerServing()}
+     * counts: a counted line with no protein, carbs or fat figure brings none of it. Null when no
+     * line can be counted.
+     *
+     * @return array{kcal: int, proteinG: float, carbsG: float, fatG: float}|null
+     */
+    public static function perServing(Recipe $recipe): ?array
+    {
         $servings = $recipe->getServings();
         if ($servings <= 0) {
             return null;
         }
 
-        $total = 0.0;
+        $kcal = $protein = $carbs = $fat = 0.0;
         $counted = 0;
         foreach ($recipe->getIngredients() as $line) {
             $grams = self::GRAMS[$line->getUnit()->value] ?? null;
-            $kcal = $line->getIngredient()->getKcalPer100g();
-            if (null === $grams || null === $kcal) {
+            $food = $line->getIngredient();
+            if (null === $grams || null === $food->getKcalPer100g()) {
                 continue;
             }
-            $total += $line->getQuantity() * $grams / 100 * $kcal;
+            $hundreds = $line->getQuantity() * $grams / 100;
+            $kcal += $hundreds * $food->getKcalPer100g();
+            $protein += $hundreds * ($food->getProteinPer100g() ?? 0.0);
+            $carbs += $hundreds * ($food->getCarbsPer100g() ?? 0.0);
+            $fat += $hundreds * ($food->getFatPer100g() ?? 0.0);
             ++$counted;
         }
 
-        return 0 === $counted ? null : (int) round($total / $servings);
+        if (0 === $counted) {
+            return null;
+        }
+
+        return [
+            'kcal' => (int) round($kcal / $servings),
+            'proteinG' => round($protein / $servings, 1),
+            'carbsG' => round($carbs / $servings, 1),
+            'fatG' => round($fat / $servings, 1),
+        ];
     }
 }

@@ -20,9 +20,18 @@ deptrac:
     - name: Finance
       collectors:
         - { type: classNameRegex, value: '#^Maggie\\Finance\\#' }
+    # The ports Santé declares (MAG-748): the cookbook implements them, and
+    # sees nothing else of Health.
+    - name: HealthPort
+      collectors:
+        - { type: classNameRegex, value: '#^Maggie\\Health\\Port\\#' }
     - name: Health
       collectors:
-        - { type: classNameRegex, value: '#^Maggie\\Health\\#' }
+        - type: bool
+          must:
+            - { type: classNameRegex, value: '#^Maggie\\Health\\#' }
+          must_not:
+            - { type: classNameRegex, value: '#^Maggie\\Health\\Port\\#' }
     - name: Cookbook
       collectors:
         - { type: classNameRegex, value: '#^Maggie\\Cookbook\\#' }
@@ -50,8 +59,9 @@ deptrac:
     Notification: [Core]
     Calendar: [Core, Notification]
     Finance: [Core, Calendar, Notification]
-    Health: [Core]
+    Health: [Core, HealthPort]
+    HealthPort: [Core]
     Grocery: [Core, GroceryCatalogue]
     GroceryCatalogue: [Core, Grocery]
-    Cookbook: [Core, Calendar, Notification, GroceryCatalogue]
+    Cookbook: [Core, Calendar, Notification, GroceryCatalogue, HealthPort]
     MealGrocery: [Core, Calendar, Notification, Cookbook, Grocery, GroceryCatalogue]
