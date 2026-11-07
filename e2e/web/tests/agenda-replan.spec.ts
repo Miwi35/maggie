@@ -33,12 +33,13 @@ async function replanProactions(api: APIRequestContext): Promise<ListedProaction
 /**
  * The creation of an event of today with a place files its own replan, and the agent runs it (the fake model keeps a
  * drive trip with set_trip). Cancelling it races that run, which then changes the trip under the journey: let it end.
+ * The agent claims due proactions once a minute, so the wait covers a full period plus the run.
  */
 async function letCreationReplanRun(api: APIRequestContext, eventId: string): Promise<void> {
   await expect
     .poll(
       async () => (await replanProactions(api)).find((proaction) => proaction.prompt.includes(eventId))?.status,
-      { message: 'the replan due to the creation should have been filed, then run', timeout: 45_000 },
+      { message: 'the replan due to the creation should have been filed, then run', timeout: 90_000 },
     )
     .toMatch(/^(completed|failed)$/)
 }
@@ -64,7 +65,7 @@ const createdEvents: string[] = []
 // One account is shared by the tests: the replan dedup is per user, so they run one after the other.
 test.describe.configure({ mode: 'default' })
 
-test.setTimeout(120_000)
+test.setTimeout(240_000)
 
 test.afterEach(async ({ replanUser }) => {
   const { api } = replanUser
