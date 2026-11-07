@@ -185,6 +185,34 @@ describe('JournalPage', () => {
     await waitFor(() => expect(within(table()).getByTestId(`journal-row-${TODAY}`)).toHaveTextContent(/^Aujourd’hui7471,6 kg/))
   })
 
+  test('two scores clicked in a row are sent one after the other, and the entry keeps both', async () => {
+    const user = userEvent.setup()
+    const fetcher = stubApi({ days: [TODAY_ENTRY] })
+    const answer = fetcher.getMockImplementation()!
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    fetcher.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      // The first PATCH answers only once the second click is in.
+      if (init.method === 'PATCH' && patches(fetcher).length === 1) await gate
+
+      return answer(url, init)
+    })
+    renderPage()
+
+    await within(entry()).findByTestId('journal-weight-value')
+    await user.click(within(scale('Moral')).getByRole('radio', { name: '7' }))
+    await user.click(within(scale('Fatigue')).getByRole('radio', { name: '4' }))
+
+    expect(patches(fetcher)).toHaveLength(1)
+    release()
+
+    await waitFor(() => expect(patches(fetcher)).toHaveLength(2))
+    await waitFor(() => expect(within(scale('Fatigue')).getByRole('radio', { name: '4' })).toHaveAttribute('aria-checked', 'true'))
+    expect(within(scale('Moral')).getByRole('radio', { name: '7' })).toHaveAttribute('aria-checked', 'true')
+  })
+
   test('the checked score, clicked again, clears it', async () => {
     const user = userEvent.setup()
     const fetcher = stubApi({ days: [{ ...TODAY_ENTRY, mood: 7 }] })

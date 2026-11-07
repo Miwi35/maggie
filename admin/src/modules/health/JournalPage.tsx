@@ -34,6 +34,9 @@ export const JournalPage = () => {
   const { refresh: refreshEntry, replace: replaceEntry } = entry
   // Only the last write's answer is shown: an earlier one arriving late would undo it.
   const writes = useRef(0)
+  // The writes go one after the other: two at once on a day not in the journal would both lay it down,
+  // and the answer of one carries the other field as it was before.
+  const queue = useRef<Promise<unknown>>(Promise.resolve())
   // The day shown now: a write answered after the user moved to another day must not land on it.
   const shownDay = useRef(day)
   useEffect(() => {
@@ -51,7 +54,9 @@ export const JournalPage = () => {
   const patch = useCallback(
     async (change: HealthDayPatch): Promise<boolean> => {
       const write = ++writes.current
-      const result = await patchHealthDay(day, change)
+      const sent = queue.current.then(() => patchHealthDay(day, change))
+      queue.current = sent.catch(() => undefined)
+      const result = await sent
       if (result.ok) {
         if (write === writes.current && result.day.date === shownDay.current) replaceEntry(result.day)
         refreshDays()

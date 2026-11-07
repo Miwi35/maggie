@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
@@ -53,6 +55,12 @@ class JournalViewModel(
     val zone: ZoneId get() = clock.zone
 
     val today: LocalDate get() = LocalDate.now(clock)
+
+    // The writes go one after the other: two at once on a day the journal does not hold yet would both lay it down,
+    // and the answer of one carries the other field as it was before.
+    private val writes = Mutex()
+
+    private var pendingWrites = 0
 
     init {
         refresh()
@@ -133,7 +141,11 @@ class JournalViewModel(
 
     private fun currentEntry(): HealthDay = _uiState.value.entry ?: HealthDay(date = _uiState.value.date.toString())
 
-    /** Shown at once; the API's entry replaces it, or the one before comes back with the reason it refused. */
+    /**
+     * Shown at once; the writes are sent one after the other. Once the last one answers, the API's entry replaces
+     * what is shown — an earlier answer would undo a later tap still on its way. A refusal brings the entry before
+     * back, with the reason.
+     */
     private fun write(
         before: HealthDay,
         optimistic: HealthDay,
@@ -142,23 +154,28 @@ class JournalViewModel(
         send: suspend (String) -> Result<HealthDay>,
     ) {
         val date = before.date
+        val isNote = saved != null
         _uiState.value = _uiState.value.copy(entry = optimistic, error = null)
+        pendingWrites++
         viewModelScope.launch {
-            send(date)
+            val result = writes.withLock { send(date) }
+            pendingWrites--
+            val isLast = pendingWrites == 0
+            result
                 .onSuccess { day ->
                     val state = _uiState.value
                     _uiState.value = state.copy(
-                        entry = if (state.date.toString() == day.date) day else state.entry,
+                        entry = if (isLast && state.date.toString() == day.date) day else state.entry,
                         days = withDay(state.days, day),
-                        savingNote = false,
+                        savingNote = if (isNote) false else state.savingNote,
                         message = saved ?: state.message,
                     )
                 }
                 .onFailure { failure ->
                     val state = _uiState.value
                     _uiState.value = state.copy(
-                        entry = if (state.date.toString() == date) before else state.entry,
-                        savingNote = false,
+                        entry = if (isLast && state.date.toString() == date) before else state.entry,
+                        savingNote = if (isNote) false else state.savingNote,
                         error = refusal(failure, fallback),
                     )
                 }

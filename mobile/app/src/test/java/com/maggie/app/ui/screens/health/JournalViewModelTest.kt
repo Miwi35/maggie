@@ -167,6 +167,31 @@ class JournalViewModelTest {
     }
 
     @Test
+    fun `two pastilles tapped in a row are sent one after the other, and the entry ends with both`() = runTest {
+        val moodAnswer = CompletableDeferred<Result<HealthDay>>()
+        coEvery { repository.setMood("2026-11-07", 7) } coAnswers { moodAnswer.await() }
+        coEvery { repository.setFatigue("2026-11-07", 4) } returns Result.success(today.copy(mood = 7, fatigue = 4))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.pickMood(7)
+        viewModel.pickFatigue(4)
+        advanceUntilIdle()
+
+        // The fatigue waits for the mood's answer; both show meanwhile.
+        coVerify(exactly = 0) { repository.setFatigue(any(), any()) }
+        assertEquals(7, viewModel.uiState.value.entry!!.mood)
+        assertEquals(4, viewModel.uiState.value.entry!!.fatigue)
+
+        moodAnswer.complete(Result.success(today.copy(mood = 7)))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.setFatigue("2026-11-07", 4) }
+        assertEquals(7, viewModel.uiState.value.entry!!.mood)
+        assertEquals(4, viewModel.uiState.value.entry!!.fatigue)
+    }
+
+    @Test
     fun `a scale refused puts the previous value back with the API's reason`() = runTest {
         coEvery { repository.setMood(any(), any()) } returns Result.failure(ApiRefusalException(400, "mood: must be between 1 and 10."))
         val viewModel = viewModel()
