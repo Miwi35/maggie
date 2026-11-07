@@ -11,11 +11,17 @@ import { ROUTES } from './routes.js'
  * as `weight-label`, `weight-value` (« 72,4 kg »), `weight-trend`, `weight-fat`;
  * each column is a button named « Aujourd’hui : 72,4 kg, tendance 72,1 kg ».
  * A row of « Pesées » is `weighing-row-<ulid>`.
+ *
+ * The cards « Pas » and « Énergie » (MAG-746) share the period: `steps-value`
+ * (the period's average, or the chosen day's), `steps-bar`; `energy-total`,
+ * `energy-detail` (« base … · pas … · séances … »), `energy-bar`.
  */
 export class HealthSuiviPage extends AdminShell {
   readonly period: Locator
   readonly weightCard: Locator
   readonly weighings: Locator
+  readonly stepsCard: Locator
+  readonly energyCard: Locator
   readonly addButton: Locator
   readonly form: Locator
 
@@ -24,6 +30,8 @@ export class HealthSuiviPage extends AdminShell {
     this.period = this.content.getByRole('radiogroup', { name: 'Période' })
     this.weightCard = this.content.getByRole('region', { name: 'Poids', exact: true })
     this.weighings = this.content.getByRole('region', { name: 'Pesées', exact: true })
+    this.stepsCard = this.content.getByRole('region', { name: 'Pas', exact: true })
+    this.energyCard = this.content.getByRole('region', { name: 'Énergie', exact: true })
     this.addButton = this.weighings.getByRole('button', { name: 'Ajouter une pesée', exact: true })
     this.form = page.getByRole('dialog')
   }

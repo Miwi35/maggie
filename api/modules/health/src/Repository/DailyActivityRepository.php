@@ -27,4 +27,17 @@ class DailyActivityRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /** @return list<DailyActivity> the days from $from to $to included, the oldest first */
+    public function findInRange(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        /* @var list<DailyActivity> */
+        return $this->createQueryBuilder('a')
+            ->andWhere('a.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('a.date >= :from')->setParameter('from', $from, Types::DATE_IMMUTABLE)
+            ->andWhere('a.date <= :to')->setParameter('to', $to, Types::DATE_IMMUTABLE)
+            ->orderBy('a.date', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

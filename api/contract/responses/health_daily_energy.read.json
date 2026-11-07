@@ -1,0 +1,20 @@
+[
+    {
+        "date": "2026-10-20",
+        "steps": 8000,
+        "activeKcal": 400,
+        "bmrKcal": 1652,
+        "workoutKcal": 386,
+        "stepsKcal": 14,
+        "expendedKcal": 2052
+    },
+    {
+        "date": "2026-10-21",
+        "steps": null,
+        "activeKcal": null,
+        "bmrKcal": 1652,
+        "workoutKcal": 0,
+        "stepsKcal": null,
+        "expendedKcal": 1652
+    }
+]

@@ -1,0 +1,80 @@
+# MAG-746's scenario: test_user is a man of 40 (1986), 180 cm, 71.8 kg — a
+# basal metabolism of 1 648. The 20th: 8 000 steps, 400 active kcal, one watch
+# session of 300 seen by Health Connect. The 21st: a typed session of 200 kcal
+# with no externalId. The 22nd: nothing but a planned session. other_user's
+# rows on the same days prove the reading is filtered by user.
+Maggie\Core\Entity\User:
+  test_user:
+    email: daily-energy-test@example.com
+    googleId: google-daily-energy-test
+    name: Daily Energy Test User
+  other_user:
+    email: daily-energy-other@example.com
+    googleId: google-daily-energy-other
+    name: Other Daily Energy User
+
+Maggie\Health\Entity\HealthProfile:
+  profile:
+    user: '@test_user'
+    sex: '<(Maggie\Health\Enum\Sex::Male)>'
+    birthYear: 1986
+    heightCm: 180
+
+Maggie\Health\Entity\BodyMeasurement:
+  weighing:
+    measuredAt: '<(new \DateTimeImmutable("2026-10-19T07:00:00+02:00"))>'
+    weightKg: 71.8
+    user: '@test_user'
+
+Maggie\Health\Entity\DailyActivity:
+  day_20:
+    date: '<(new \DateTimeImmutable("2026-10-20"))>'
+    steps: 8000
+    activeKcal: 400
+    user: '@test_user'
+  others_day_20:
+    date: '<(new \DateTimeImmutable("2026-10-20"))>'
+    steps: 999
+    activeKcal: 99
+    user: '@other_user'
+
+Maggie\Health\Entity\Workout:
+  watch_run:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course du matin
+    startedAt: '<(new \DateTimeImmutable("2026-10-20T07:10:00+02:00"))>'
+    durationMinutes: 32
+    kcal: 300
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+    externalId: hc-run-1
+    user: '@test_user'
+  typed_walk:
+    type: '<(Maggie\Health\Enum\WorkoutType::Walk)>'
+    title: Marche
+    startedAt: '<(new \DateTimeImmutable("2026-10-21T18:00:00+02:00"))>'
+    durationMinutes: 40
+    kcal: 200
+    source: '<(Maggie\Health\Enum\WorkoutSource::Manual)>'
+    user: '@test_user'
+  planned_bike:
+    type: '<(Maggie\Health\Enum\WorkoutType::Bike)>'
+    title: Vélo prévu
+    startedAt: '<(new \DateTimeImmutable("2026-10-22T10:00:00+02:00"))>'
+    durationMinutes: 60
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    user: '@test_user'
+  late_swim:
+    type: '<(Maggie\Health\Enum\WorkoutType::Swim)>'
+    title: Natation tardive
+    startedAt: '<(new \DateTimeImmutable("2026-10-23T23:30:00+02:00"))>'
+    durationMinutes: 60
+    source: '<(Maggie\Health\Enum\WorkoutSource::Manual)>'
+    user: '@test_user'
+  others_walk:
+    type: '<(Maggie\Health\Enum\WorkoutType::Walk)>'
+    title: Marche
+    startedAt: '<(new \DateTimeImmutable("2026-10-21T18:00:00+02:00"))>'
+    durationMinutes: 40
+    kcal: 500
+    source: '<(Maggie\Health\Enum\WorkoutSource::Manual)>'
+    user: '@other_user'

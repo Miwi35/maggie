@@ -5,7 +5,11 @@ import { LiveList } from '../../components/list/LiveList'
 import type { LiveConfig } from '../../hooks/liveList'
 import { BODY_MEASUREMENT_TOPICS, BODY_MEASUREMENTS } from './bodyMeasurementsApi'
 import type { BodyMeasurement } from './bodyMeasurementsApi'
+import { useDailyEnergy } from './dailyEnergyApi'
+import { energyRange } from './dailyEnergySeries'
+import { SuiviEnergyCard } from './SuiviEnergyCard'
 import { SuiviMeasurementForm } from './SuiviMeasurementForm'
+import { SuiviStepsCard } from './SuiviStepsCard'
 import { SuiviWeighingsCard } from './SuiviWeighingsCard'
 import { SuiviWeightCard } from './SuiviWeightCard'
 import { columns, DEFAULT_PERIOD, PERIOD_LABELS, PERIODS, readStart, weighingsOf } from './suiviSeries'
@@ -66,11 +70,15 @@ const SuiviBoard = ({ period, onPeriod, now }: BoardProps) => {
   // null: the last column, today's.
   const [selected, setSelected] = useState<number | null>(null)
   // The weighing being edited is kept as it was opened: an event must not rewrite what is being typed.
+  // null: the whole period for « Pas », today for « Énergie ».
+  const [energyDay, setEnergyDay] = useState<number | null>(null)
   const [form, setForm] = useState<{ measurement?: BodyMeasurement } | null>(null)
 
   const measurements = useMemo(() => data ?? [], [data])
   const cols = useMemo(() => columns(measurements, period, now), [measurements, period, now])
   const weighings = useMemo(() => weighingsOf([...measurements], period, now), [measurements, period, now])
+  const { from, to } = useMemo(() => energyRange(period, now), [period, now])
+  const energy = useDailyEnergy(from, to)
   const current = selected === null || selected >= cols.length ? cols.length - 1 : selected
 
   return (
@@ -80,6 +88,7 @@ const SuiviBoard = ({ period, onPeriod, now }: BoardProps) => {
           period={period}
           onChange={(next) => {
             setSelected(null)
+            setEnergyDay(null)
             onPeriod(next)
           }}
         />
@@ -92,6 +101,10 @@ const SuiviBoard = ({ period, onPeriod, now }: BoardProps) => {
           onAdd={() => setForm({})}
           onEdit={(measurement) => setForm({ measurement })}
         />
+      </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1.75, minWidth: 0 }}>
+        <SuiviStepsCard state={energy} today={to} selected={energyDay} onSelect={setEnergyDay} />
+        <SuiviEnergyCard state={energy} today={to} selected={energyDay} onSelect={setEnergyDay} />
       </Box>
       <SuiviMeasurementForm open={form !== null} measurement={form?.measurement} onClose={() => setForm(null)} />
     </Box>

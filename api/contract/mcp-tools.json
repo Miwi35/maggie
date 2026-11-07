@@ -633,6 +633,25 @@
         },
         "description": "Read where the user stands in an activity left in progress, to resume at the right place. activity is cuisine, comptes or bilan (the evening review: step, answers, instructions). Returns the status {activity, origin, state, startedAt, updatedAt}, or null when nothing is in progress. A pure read."
     },
+    "get_daily_energy": {
+        "name": "get_daily_energy",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "from",
+                "to"
+            ]
+        },
+        "description": "Read the user's energy expenditure day by day (Santé › Suivi), from and to included (YYYY-MM-DD, at most 400 days). Returns {days: [...]}, one per local day, each {date, steps, activeKcal, bmrKcal, workoutKcal, stepsKcal, expendedKcal}. steps and activeKcal are Health Connect's of the day (null without data), already de-duplicated; bmrKcal is the basal metabolism (null while the health profile is incomplete); workoutKcal is the kcal of the day's done sessions; stepsKcal is activeKcal minus the sessions Health Connect already counted, never negative; expendedKcal = bmrKcal + activeKcal, plus the sessions Health Connect has not seen (a session typed by hand, kcal or MET × weight × duration) — sessions are never added twice. expendedKcal is null while bmrKcal is."
+    },
     "get_day_plan": {
         "name": "get_day_plan",
         "inputSchema": {

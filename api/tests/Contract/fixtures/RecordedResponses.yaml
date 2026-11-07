@@ -613,6 +613,15 @@ Maggie\Health\Entity\BodyMeasurement:
     excluded: true
     user: '@recorded_user'
 
+# The consolidated daily energy (MAG-746): a day of Health Connect on the 20th,
+# next to the run above; the 21st has none, so its steps and active energy are null.
+Maggie\Health\Entity\DailyActivity:
+  recorded_daily_activity:
+    date: '<(new \DateTimeImmutable("2026-10-20"))>'
+    steps: 8000
+    activeKcal: 400
+    user: '@recorded_user'
+
 # The health profile (MAG-707), every field off its default: its weight is the
 # latest weighing not set aside above (72.4 kg), its age read on the recording's
 # fixed day.

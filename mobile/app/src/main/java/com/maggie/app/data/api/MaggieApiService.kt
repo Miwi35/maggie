@@ -161,6 +161,7 @@ import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.Workout
 import com.maggie.app.data.model.BodyMeasurement
+import com.maggie.app.data.model.DailyEnergy
 import com.maggie.app.data.model.HealthProfile
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
@@ -2917,6 +2918,15 @@ class MaggieApiService(
             contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))
             setBody(BodyMeasurementExcludeRequest(excluded))
+        }.orRefusal().body()
+    }
+
+    // Santé — dépense consolidée (MAG-746): plain JSON list, one row per local day from [from] to [to] (YYYY-MM-DD, 400 days at most)
+    suspend fun getDailyEnergy(from: String, to: String): List<DailyEnergy> {
+        return client.get("$baseUrl/api/health/daily-energy") {
+            accept(ContentType.Application.Json)
+            url.parameters.append("from", from)
+            url.parameters.append("to", to)
         }.orRefusal().body()
     }
 
