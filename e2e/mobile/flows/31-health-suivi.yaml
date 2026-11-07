@@ -90,17 +90,12 @@ tags:
 - scrollUntilVisible:
     element:
       id: "energy_workouts"
+# The legend's id sits on a merged node whose text Maestro reads on its child: match the text.
 - extendedWaitUntil:
-    visible:
-      id: "energy_base"
-      text: "Base .*"
+    visible: "Base [0-9 ]+"
     timeout: 10000
-- assertVisible:
-    id: "energy_steps"
-    text: "Pas .*"
-- assertVisible:
-    id: "energy_workouts"
-    text: "Séances 0"
+- assertVisible: "Pas [0-9 ]+"
+- assertVisible: "Séances 0"
 - assertVisible:
     id: "energy_total"
     text: "[0-9 ]+ kcal"
