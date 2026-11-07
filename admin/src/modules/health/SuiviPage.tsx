@@ -7,6 +7,7 @@ import { BODY_MEASUREMENT_TOPICS, BODY_MEASUREMENTS } from './bodyMeasurementsAp
 import type { BodyMeasurement } from './bodyMeasurementsApi'
 import { useDailyEnergy } from './dailyEnergyApi'
 import { energyRange } from './dailyEnergySeries'
+import { SuiviBalanceBanner } from './SuiviBalanceBanner'
 import { SuiviEnergyCard } from './SuiviEnergyCard'
 import { SuiviMeasurementForm } from './SuiviMeasurementForm'
 import { SuiviStepsCard } from './SuiviStepsCard'
@@ -83,7 +84,9 @@ const SuiviBoard = ({ period, onPeriod, now }: BoardProps) => {
 
   return (
     <Box data-testid="suivi-board" sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, py: 1 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        <SuiviBalanceBanner />
+        <Box sx={{ flex: 1 }} />
         <PeriodPicker
           period={period}
           onChange={(next) => {

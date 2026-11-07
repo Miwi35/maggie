@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/index.js'
 import { e2eNow } from '../fixtures/clock.js'
+import { HealthNutritionPage } from '../pages/HealthNutritionPage.js'
 import { HealthSuiviPage } from '../pages/HealthSuiviPage.js'
 
 /**
@@ -68,4 +69,21 @@ test('Santé › Suivi shows the synced steps and the energy detail — MAG-746'
 
   await expect(suivi.stepsCard.getByTestId('steps-value')).toHaveText(/^8\s000$/)
   await expect(suivi.energyCard.getByTestId('energy-detail')).toHaveText(/^base .* · pas .* · séances .*$/)
+})
+
+/**
+ * Santé › Suivi s'ouvre sur le bilan du jour — MAG-748.
+ *
+ * Given le seed, When j'ouvre Santé › Suivi, Then le bandeau « Bilan du jour » est à côté du titre,
+ * And un clic dessus ouvre Santé › Nutrition.
+ */
+test('Santé › Suivi opens on today’s balance, which opens Santé › Nutrition — MAG-748', async ({ page }) => {
+  const suivi = new HealthSuiviPage(page)
+  await suivi.open()
+
+  await expect(suivi.balanceBanner).toBeVisible()
+  await suivi.balanceBanner.click()
+
+  await expect(page).toHaveURL(/#\/health\/nutrition$/)
+  await expect(new HealthNutritionPage(page).balanceCard).toBeVisible()
 })
