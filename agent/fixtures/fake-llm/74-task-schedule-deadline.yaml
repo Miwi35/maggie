@@ -1,0 +1,19 @@
+# « Le dossier CAF, c'est pour vendredi au plus tard » (MAG-718): « au plus tard », « avant … »
+# name the deadline — `dueDate` — and leave the programmation alone. Friday on purpose, the same
+# day as 74-task-schedule-evening.yaml: what tells them apart is the field, not the day.
+name: task-schedule-deadline
+description: Set the named task's deadline to Friday, without scheduling it.
+
+match:
+  user_matches: "dossier CAF.*vendredi au plus tard"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+title\W+Dossier CAF\W+description'
+
+turns:
+  - tools:
+      - name: get_tasks
+        input: {status: pending}
+  - tools:
+      - name: update_task
+        input: {id: '\1', dueDate: '${friday}'}
+  - text: "C'est fait : le dossier CAF a pour échéance vendredi."

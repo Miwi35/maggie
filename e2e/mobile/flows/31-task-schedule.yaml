@@ -1,0 +1,143 @@
+appId: com.maggie.app.e2e
+name: 31-task-schedule
+tags:
+  - calendar
+---
+# « Programmée » of a task (MAG-718, extends the tasks journey MAG-98).
+#
+# Étant donné une tâche sans date
+# Quand j'ouvre sa fiche, je la modifie, choisis « Demain » pour « Programmée » puis « Heure précise » 18:00
+# Alors « Rappels » apparaît, l'API tient demain à 18:00 avec « À l'heure », et la tâche est dans
+# l'agenda de demain
+#
+# A new user: the task is the only one, written by `scripts/task-schedule-api.js`, opened by its
+# link (`maggie-e2e://task/<id>`, the sheet over the Agenda). The clock opens on 18:00 when no time
+# is set, so it is only confirmed: a dial is no target a flow can aim at (`12-event-date-picker`).
+#
+# What is not here: the moments' menu, « Soir » hiding the reminders, the merge-patch the form sends,
+# « Après-demain », the read lines of the sheet and the day items of the agenda (`TaskFormScreenTest`,
+# `TaskScheduleTest`, `DateTimeFieldsScreenTest`, `TaskDetailScreenTest`, `ScheduledTaskEventTest`,
+# `CalendarViewModelTest`).
+
+- runFlow: ../subflows/new-user.yaml
+
+- evalScript: ${output.title = 'Appeler le garage ' + (Math.floor(Math.random() * 90000) + 10000)}
+
+- runScript:
+    file: ../scripts/task-schedule-api.js
+    env:
+      ACTION: create
+      EMAIL: ${output.journeyEmail}
+      TITLE: ${output.title}
+      TODAY: ${TODAY}
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/31-task-schedule.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+# The sheet, then its pencil: the form.
+- openLink: "maggie-e2e://task/${output.taskId}"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail_edit"
+    timeout: 30000
+- tapOn:
+    id: "task_detail_edit"
+- extendedWaitUntil:
+    visible:
+      id: "task_form_scheduled"
+    timeout: 20000
+
+# « Programmée » › « Demain »: one touch picks the day and closes the picker; « Moment » appears.
+- tapOn:
+    id: "task_form_scheduled"
+- extendedWaitUntil:
+    visible:
+      id: "picker_tomorrow"
+    timeout: 20000
+- tapOn:
+    id: "picker_tomorrow"
+- extendedWaitUntil:
+    visible:
+      id: "task_form_moment"
+    timeout: 20000
+- assertNotVisible:
+    id: "task_form_reminders"
+
+# « Moment » › « Heure précise »: the 24 h clock, confirmed on 18:00; the field reads the time.
+- tapOn:
+    id: "task_form_moment"
+- extendedWaitUntil:
+    visible:
+      id: "task_form_moment_time"
+    timeout: 20000
+- tapOn:
+    id: "task_form_moment_time"
+- extendedWaitUntil:
+    visible:
+      id: "picker_confirm"
+    timeout: 20000
+- tapOn:
+    id: "picker_confirm"
+- extendedWaitUntil:
+    visible:
+      id: "task_form_moment"
+      text: "Moment, 18:00"
+    timeout: 20000
+
+# « Rappels » only at a precise time, « À l'heure » by default.
+- scrollUntilVisible:
+    element:
+      id: "task_form_reminders"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "À l'heure"
+    timeout: 20000
+
+- tapOn:
+    id: "task_form_submit"
+
+- runScript:
+    file: ../scripts/task-schedule-api.js
+    env:
+      ACTION: expect
+      EMAIL: ${output.journeyEmail}
+      TITLE: ${output.title}
+      TODAY: ${TODAY}
+      TASK_ID: ${output.taskId}
+
+# Tomorrow's agenda: the day view of today, one day on, then down the hours to 18:00.
+- runFlow: ../subflows/open-calendar.yaml
+- tapOn:
+    id: "calendar_day_${TODAY}"
+- extendedWaitUntil:
+    visible:
+      id: "calendar_day_view_${TODAY}"
+    timeout: 20000
+- tapOn:
+    id: "calendar_next"
+- extendedWaitUntil:
+    visible:
+      id: "calendar_day_view_${output.tomorrow}"
+    timeout: 20000
+- repeat:
+    while:
+      notVisible:
+        id: "calendar_event_${output.tomorrow}"
+        text: ".*${output.title}.*"
+    times: 8
+    commands:
+      - swipe:
+          start: 25%, 60%
+          end: 25%, 35%
+- extendedWaitUntil:
+    visible:
+      id: "calendar_event_${output.tomorrow}"
+      text: ".*${output.title}.*"
+    timeout: 20000

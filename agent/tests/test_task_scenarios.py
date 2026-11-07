@@ -187,3 +187,63 @@ class TestMag714:
 
         assert "answer_task_reminder" not in called(result)
         assert called(result) == ["get_tasks"]
+
+
+class FakeScheduleApi(FakeTaskApi):
+    """The pending tasks, in TaskJson's key order: id, title, then description (MAG-718)."""
+
+    IDS = {
+        "Préparation du weekend": "01K6ZQ8R1V3J9F0C2M4N5P6T80",
+        "Appel au garage": "01K6ZQ8R1V3J9F0C2M4N5P6T81",
+        "Dossier CAF": "01K6ZQ8R1V3J9F0C2M4N5P6T82",
+    }
+
+    async def call_tool(self, name: str, arguments: dict, user_id: str | None = None) -> str:
+        self.calls.append((name, dict(arguments)))
+        if name == "get_tasks":
+            tasks = [{"id": task_id, "title": title, "description": None} for title, task_id in self.IDS.items()]
+            return json.dumps({"tasks": tasks, "count": len(tasks)})
+        return json.dumps({"success": True})
+
+
+@pytest.fixture()
+def schedule_api():
+    fake = FakeScheduleApi()
+    with patch("app.llm.tools.mcp_client", fake):
+        yield fake
+
+
+async def written(api: FakeScheduleApi, message: str) -> dict:
+    """What `update_task` received, after the read that gave the id."""
+    result = await ask([{"role": "user", "content": message}])
+
+    assert called(result) == ["get_tasks", "update_task"]
+    return api.calls[-1][1]
+
+
+class TestScheduledOrDue:
+    """MAG-718: the day he plans to do it is the programmation, « au plus tard » the deadline."""
+
+    async def test_friday_evening_schedules_the_task_on_the_evening(self, schedule_api):
+        args = await written(schedule_api, "Mets la préparation du weekend vendredi soir")
+
+        assert args == {
+            "id": schedule_api.IDS["Préparation du weekend"],
+            "scheduledDate": expand_days("${friday}"),
+            "scheduledMoment": "evening",
+        }
+
+    async def test_friday_at_six_schedules_the_time_and_leaves_the_default_reminder(self, schedule_api):
+        args = await written(schedule_api, "Mets l'appel au garage vendredi à 18 h")
+
+        assert args == {
+            "id": schedule_api.IDS["Appel au garage"],
+            "scheduledDate": expand_days("${friday}"),
+            "scheduledMoment": "time",
+            "scheduledTime": "18:00",
+        }
+
+    async def test_at_the_latest_sets_the_deadline_and_no_programmation(self, schedule_api):
+        args = await written(schedule_api, "Le dossier CAF, c'est pour vendredi au plus tard")
+
+        assert args == {"id": schedule_api.IDS["Dossier CAF"], "dueDate": expand_days("${friday}")}

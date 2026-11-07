@@ -11,10 +11,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\DayPlan;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Entity\TaskReminder;
-use Maggie\Calendar\Entity\TaskSettings;
 use Maggie\Calendar\Enum\TaskCriticality;
+use Maggie\Calendar\Enum\TaskMoment;
 use Maggie\Calendar\Enum\TaskPriority;
-use Maggie\Calendar\Service\ReminderMessages;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Entity\UserPreference;
 use Maggie\Notification\Entity\Notification;
@@ -29,13 +28,14 @@ use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Uid\Ulid;
 
 /**
- * « Tâche due » (MAG-410): on the user's morning, `maggie:notification:check-reminders`
- * files one `task_due` notification per task the alert schedule picks
- * ({@see \Maggie\Calendar\Service\TaskAlertSchedule}), once per task and per day,
- * in words drawn from a bank (MAG-510).
+ * « Tâche due » (MAG-410, MAG-718): `maggie:notification:check-reminders` files
+ * one `task_due` notification at each reminder of a task planned at a precise
+ * time, minutes before it as an event — and nothing on a morning anymore: the
+ * morning alerts of {@see \Maggie\Calendar\Service\TaskAlertSchedule} are the
+ * digest's to tell.
  *
  * The clock is pinned: 2026-10-13 06:00 UTC is 08:00 in Paris (CEST), the
- * default morning of the default timezone.
+ * morning of old of the default timezone.
  */
 final class CheckRemindersTaskDueTest extends KernelTestCase
 {
@@ -65,7 +65,7 @@ final class CheckRemindersTaskDueTest extends KernelTestCase
         parent::tearDown();
     }
 
-    public function testEachTaskTheScheduleAlertsGetsOneNotificationWithItsReason(): void
+    public function testNoMorningAlertGoesOutAnymore(): void
     {
         $user = $this->user('alice@example.com');
         $this->task($user, 'Déclarer les impôts', TaskCriticality::Critical, '+3 days');
@@ -75,187 +75,136 @@ final class CheckRemindersTaskDueTest extends KernelTestCase
 
         $this->runCron();
 
-        self::assertSame(
-            ['daysBefore · Déclarer les impôts', 'dueDay · Payer la cantine', 'overdue · Rendre le livre'],
-            $this->titles(),
-        );
-        $notification = $this->notificationOn('Déclarer les impôts');
-        self::assertSame(NotificationType::TaskDue, $notification->getType());
-        // Reworded from the bank (MAG-510): the days are in the words, never « En retard ».
-        self::assertContains($notification->getTitle(), array_map(
-            static fn (string $m): string => str_replace(['{titre}', '{jours}'], ['Déclarer les impôts', '3'], $m),
-            ReminderMessages::DUE['daysBefore'][TaskSettings::DEFAULT_TONE],
-        ));
-        self::assertSame(['start', 'done', 'tomorrow'], $notification->getActions());
-        self::assertNotNull($notification->getReminderId());
-        self::assertNull($notification->getReadAt());
-        self::assertSame($user->getId()->toRfc4122(), $notification->getUser()->getId()->toRfc4122());
-        foreach ($this->em()->getRepository(Notification::class)->findAll() as $sent) {
-            self::assertStringNotContainsStringIgnoringCase('retard', $sent->getTitle());
-        }
-
-        $this->assertMercureUpdatePublished('/api/notifications/');
-        $this->assertElasticsearchIndexDispatched(Notification::class);
-        self::assertSame(3, $this->pushesRequested(), 'one push per notification');
+        self::assertSame([], $this->notifications());
+        self::assertSame(0, $this->pushesRequested());
     }
 
-    public function testLowDoneUndatedAndFarTasksAreNotAlerted(): void
+    public function testATaskAtAPreciseTimeIsRemindedAtEachDelay(): void
     {
         $user = $this->user('alice@example.com');
-        $this->task($user, 'Basse, dans deux jours', TaskCriticality::Low, '+2 days');
-        $this->task($user, 'Loin', TaskCriticality::Critical, '+10 days');
-        $this->task($user, 'Sans date', TaskCriticality::Critical, null);
-        $this->task($user, 'Faite', TaskCriticality::Critical, '+0 days')->setCompletedAt(new \DateTimeImmutable());
+        $this->timed($user, 'Rendez-vous kiné', '+0 days', '10:00', [30]);
         $this->flushAndReset();
 
+        $this->at('2026-10-13 07:29:00 UTC');
+        $this->runCron();
+        self::assertSame([], $this->notifications(), '09:29 in Paris');
+
+        $this->at('2026-10-13 07:30:00 UTC');
         $this->runCron();
 
-        self::assertSame([], $this->titles());
-        $this->assertMercureUpdateCount(0);
-        self::assertSame(0, $this->pushesRequested());
+        $notification = $this->notificationOn('Rendez-vous kiné');
+        self::assertSame(NotificationType::TaskDue, $notification->getType());
+        self::assertSame('Rendez-vous kiné', $notification->getTitle());
+        self::assertSame('Dans 30 min · 10:00', $notification->getBody());
+        self::assertSame(['start', 'done', 'tomorrow'], $notification->getActions());
+        self::assertNotNull($notification->getReminderId());
+        self::assertSame($user->getId()->toRfc4122(), $notification->getUser()->getId()->toRfc4122());
+        $this->assertMercureUpdatePublished('/api/notifications/');
+        $this->assertElasticsearchIndexDispatched(Notification::class);
+        self::assertSame(1, $this->pushesRequested(), 'one push per notification');
     }
 
     public function testASecondRunTheMinuteAfterCreatesNothingMore(): void
     {
         $user = $this->user('alice@example.com');
-        $this->task($user, 'Payer la cantine', TaskCriticality::Medium, '+0 days');
+        $this->timed($user, 'Rendez-vous kiné', '+0 days', '10:00', [0]);
         $this->flushAndReset();
 
+        $this->at('2026-10-13 08:00:00 UTC');
         $this->runCron();
-        $this->at('2026-10-13 06:01:00 UTC');
+        $this->at('2026-10-13 08:01:00 UTC');
         $this->runCron();
 
-        self::assertSame(['dueDay · Payer la cantine'], $this->titles());
+        self::assertSame(['Rendez-vous kiné'], $this->titles());
         self::assertSame(1, $this->pushesRequested());
     }
 
-    public function testTheNextMorningAlertsAgainATaskStillLate(): void
+    public function testAMissedMinuteStillRemindsOnceWithinTheGracePeriod(): void
     {
         $user = $this->user('alice@example.com');
-        $this->task($user, 'Rendre le livre', TaskCriticality::High, '-2 days');
+        $this->timed($user, 'Rendez-vous kiné', '+0 days', '10:00', [0]);
         $this->flushAndReset();
 
+        $this->at('2026-10-13 08:09:00 UTC');
         $this->runCron();
-        $this->at('2026-10-14 06:00:00 UTC');
+        $this->at('2026-10-13 08:10:00 UTC');
         $this->runCron();
 
-        self::assertSame(['overdue · Rendre le livre', 'overdue · Rendre le livre'], $this->titles());
+        self::assertSame(['Rendez-vous kiné'], $this->titles());
     }
 
-    public function testNothingFiresOutsideTheMorning(): void
+    public function testTheGracePeriodEndsTenMinutesAfterTheReminder(): void
     {
         $user = $this->user('alice@example.com');
-        $this->task($user, 'Payer la cantine', TaskCriticality::Medium, '+0 days');
+        $this->timed($user, 'Rendez-vous kiné', '+0 days', '10:00', [0]);
         $this->flushAndReset();
 
-        $this->at('2026-10-13 05:59:00 UTC');
-        $this->runCron();
-        $this->at('2026-10-13 09:00:00 UTC');
+        $this->at('2026-10-13 08:10:00 UTC');
         $this->runCron();
 
         self::assertSame([], $this->titles());
     }
 
-    public function testAMissedMinuteStillAlertsOnceWithinTheGracePeriod(): void
+    public function testAReminderADayBeforeFallsOnTheDayBefore(): void
     {
         $user = $this->user('alice@example.com');
-        $this->task($user, 'Payer la cantine', TaskCriticality::Medium, '+0 days');
+        $this->timed($user, 'Vol pour Lyon', '+1 days', '10:00', [1440]);
         $this->flushAndReset();
 
-        $this->at('2026-10-13 06:09:00 UTC');
-        $this->runCron();
-        $this->at('2026-10-13 06:10:00 UTC');
+        $this->at('2026-10-13 08:00:00 UTC');
         $this->runCron();
 
-        self::assertSame(['dueDay · Payer la cantine'], $this->titles());
+        self::assertSame(['Vol pour Lyon'], $this->titles());
+        self::assertSame('Dans 1 j · 10:00', $this->notificationOn('Vol pour Lyon')->getBody());
     }
 
-    public function testTheGracePeriodEndsTenMinutesAfterTheMorning(): void
-    {
-        $user = $this->user('alice@example.com');
-        $this->task($user, 'Payer la cantine', TaskCriticality::Medium, '+0 days');
-        $this->flushAndReset();
-
-        $this->at('2026-10-13 06:10:00 UTC');
-        $this->runCron();
-
-        self::assertSame([], $this->titles());
-    }
-
-    public function testAUserWhoChoseHalfPastNineIsAlertedAtHalfPastNineInTheirOwnZone(): void
-    {
-        $late = $this->user('late@example.com');
-        $this->settings($late, '09:30');
-        $this->task($late, 'Tâche tardive', TaskCriticality::Medium, '+0 days');
-        $default = $this->user('alice@example.com');
-        $this->task($default, 'Tâche de 8 h', TaskCriticality::Medium, '+0 days');
-        $this->flushAndReset();
-
-        $this->at(self::MORNING);
-        $this->runCron();
-        self::assertSame(['dueDay · Tâche de 8 h'], $this->titles(), '08:00 in Paris: the default morning only');
-
-        $this->at('2026-10-13 07:30:00 UTC');
-        $this->runCron();
-        self::assertSame(['dueDay · Tâche de 8 h', 'dueDay · Tâche tardive'], $this->titles(), '09:30 in Paris: the late one too');
-    }
-
-    public function testAMorningInTheQuietHoursIsAlertedWhenTheyEnd(): void
-    {
-        $early = $this->user('early@example.com');
-        $this->settings($early, '07:30');
-        $this->task($early, 'Tâche matinale', TaskCriticality::Medium, '+0 days');
-        $this->flushAndReset();
-
-        $this->at('2026-10-13 05:30:00 UTC');
-        $this->runCron();
-        self::assertSame([], $this->titles(), '07:30 in Paris is quiet until 08:00');
-
-        $this->at(self::MORNING);
-        $this->runCron();
-        self::assertSame(['dueDay · Tâche matinale'], $this->titles(), 'max(morning, end of the quiet hours)');
-    }
-
-    public function testTheMorningIsThatOfTheUsersTimezone(): void
+    public function testTheTimeIsThatOfTheUsersTimezone(): void
     {
         $user = $this->user('newyork@example.com');
         $this->timezone($user, 'America/New_York');
-        $this->task($user, 'Appeler maman', TaskCriticality::Medium, '+0 days');
+        $this->timed($user, 'Appeler maman', '+0 days', '10:00', [0]);
         $this->flushAndReset();
 
-        $this->at(self::MORNING);
+        $this->at('2026-10-13 08:00:00 UTC');
         $this->runCron();
-        self::assertSame([], $this->titles(), '08:00 in Paris is 02:00 in New York');
+        self::assertSame([], $this->titles(), '10:00 in Paris is 04:00 in New York');
 
-        $this->at('2026-10-13 12:00:00 UTC');
+        $this->at('2026-10-13 14:00:00 UTC');
         $this->runCron();
-        self::assertSame(['dueDay · Appeler maman'], $this->titles(), '08:00 in New York (EDT)');
+        self::assertSame(['Appeler maman'], $this->titles(), '10:00 in New York (EDT)');
     }
 
-    public function testATaskIsDueOnTheDayOfItsOwner(): void
+    public function testATaskMovedToAnotherTimeIsRemindedAtTheNewOneOnly(): void
     {
-        $user = $this->user('auckland@example.com');
-        $this->timezone($user, 'Pacific/Auckland');
-        // 08:00 on the 13th in Auckland (NZDT) is still the 12th for the server in UTC.
-        $this->task($user, 'Due là-bas aujourd\'hui', TaskCriticality::Medium, '+0 days');
+        $user = $this->user('alice@example.com');
+        $task = $this->timed($user, 'Rendez-vous kiné', '+0 days', '10:00', [0]);
         $this->flushAndReset();
 
-        $this->at('2026-10-12 19:00:00 UTC');
-        $this->runCron();
+        $moved = $this->em()->find(Task::class, $task->getId());
+        self::assertInstanceOf(Task::class, $moved);
+        $moved->setScheduledTime('11:00');
+        $this->flushAndReset();
 
-        self::assertSame(['dueDay · Due là-bas aujourd\'hui'], $this->titles());
+        $this->at('2026-10-13 08:00:00 UTC');
+        $this->runCron();
+        self::assertSame([], $this->titles(), '10:00 is no longer its time');
+
+        $this->at('2026-10-13 09:00:00 UTC');
+        $this->runCron();
+        self::assertSame(['Rendez-vous kiné'], $this->titles());
     }
 
-    public function testEachUserIsAlertedOnTheirOwnTasksOnly(): void
+    public function testEachUserIsRemindedOfTheirOwnTasksOnly(): void
     {
-        $this->task($this->user('alice@example.com'), 'De Alice', TaskCriticality::Medium, '+0 days');
-        $this->task($this->user('bob@example.com'), 'De Bob', TaskCriticality::Medium, '+0 days');
+        $this->timed($this->user('alice@example.com'), 'De Alice', '+0 days', '10:00', [0]);
+        $this->timed($this->user('bob@example.com'), 'De Bob', '+0 days', '10:00', [0]);
         $this->flushAndReset();
 
+        $this->at('2026-10-13 08:00:00 UTC');
         $this->runCron();
 
-        self::assertSame(['dueDay · De Alice'], $this->titlesOf('alice@example.com'));
-        self::assertSame(['dueDay · De Bob'], $this->titlesOf('bob@example.com'));
+        self::assertSame(['De Alice'], $this->titlesOf('alice@example.com'));
+        self::assertSame(['De Bob'], $this->titlesOf('bob@example.com'));
     }
 
     public function testNothingIsCreatedForAUserWhoTurnedNotificationsOff(): void
@@ -263,31 +212,14 @@ final class CheckRemindersTaskDueTest extends KernelTestCase
         $user = $this->user('silent@example.com');
         $preference = (new UserPreference())->setUser($user)->setNotificationsEnabled(false);
         $this->em()->persist($preference);
-        $this->task($user, 'Payer la cantine', TaskCriticality::Medium, '+0 days');
+        $this->timed($user, 'Rendez-vous kiné', '+0 days', '10:00', [0]);
         $this->flushAndReset();
 
+        $this->at('2026-10-13 08:00:00 UTC');
         $this->runCron();
 
         self::assertSame([], $this->titles());
         self::assertSame(0, $this->pushesRequested());
-    }
-
-    public function testTheUsersAlertScheduleDecidesWhatIsAlerted(): void
-    {
-        $user = $this->user('alice@example.com');
-        $this->em()->persist((new TaskSettings())->setUser($user)->setAlertSchedule(
-            \Maggie\Calendar\Service\TaskAlertSchedule::merge(
-                \Maggie\Calendar\Service\TaskAlertSchedule::DEFAULTS,
-                ['critical' => ['daysBefore' => [], 'dueDay' => false, 'overdueEveryDays' => null]],
-            ),
-        ));
-        $this->task($user, 'Silencieuse', TaskCriticality::Critical, '+0 days');
-        $this->task($user, 'Bavarde', TaskCriticality::Medium, '+0 days');
-        $this->flushAndReset();
-
-        $this->runCron();
-
-        self::assertSame(['dueDay · Bavarde'], $this->titles());
     }
 
     public function testAtAfterBreakfastTheCronNudgesTheTaskNowOfAConfirmedDayOnce(): void
@@ -342,11 +274,6 @@ final class CheckRemindersTaskDueTest extends KernelTestCase
         $this->em()->persist((new UserPreference())->setUser($user)->setTimezone($timezone));
     }
 
-    private function settings(User $user, string $morningTime): void
-    {
-        $this->em()->persist((new TaskSettings())->setUser($user)->setMorningTime($morningTime));
-    }
-
     /** @param string|null $due a relative day to the pinned morning, in the Paris calendar */
     private function task(User $user, string $title, TaskCriticality $criticality, ?string $due): Task
     {
@@ -359,6 +286,24 @@ final class CheckRemindersTaskDueTest extends KernelTestCase
         $this->em()->persist($task);
 
         return $task;
+    }
+
+    /**
+     * @param string    $day       a relative day to the pinned morning, in the Paris calendar
+     * @param list<int> $reminders
+     */
+    private function timed(User $user, string $title, string $day, string $time, array $reminders): Task
+    {
+        $task = $this->task($user, $title, TaskCriticality::Medium, null)
+            ->schedule((new \DateTimeImmutable('2026-10-13', new \DateTimeZone('UTC')))->modify($day), TaskMoment::Time, $time, $reminders);
+
+        return $task;
+    }
+
+    /** @return list<Notification> */
+    private function notifications(): array
+    {
+        return $this->em()->getRepository(Notification::class)->findBy(['type' => NotificationType::TaskDue]);
     }
 
     private function flushAndReset(): void
@@ -384,8 +329,7 @@ final class CheckRemindersTaskDueTest extends KernelTestCase
     }
 
     /**
-     * The alerts sent, as « reason · task »: the words are drawn from a bank,
-     * the reason is the bank of the reminder's message key.
+     * The reminders sent, by the title of their task.
      *
      * @return list<string>
      */
@@ -402,8 +346,7 @@ final class CheckRemindersTaskDueTest extends KernelTestCase
             self::assertInstanceOf(TaskReminder::class, $reminder);
             $task = $this->em()->find(Task::class, Ulid::fromString($reminder->getSubjectId()));
             self::assertInstanceOf(Task::class, $task);
-            self::assertStringContainsString('« '.$task->getTitle().' »', $notification->getTitle());
-            $titles[] = explode('.', (string) $reminder->getMessageKey())[1].' · '.$task->getTitle();
+            $titles[] = $task->getTitle();
         }
         sort($titles);
 

@@ -535,6 +535,10 @@ object UiTags {
     /** The « OK » of the date and time pickers — a window of their own. */
     const val PICKER_CONFIRM = "picker_confirm"
 
+    /** The date picker's shortcuts (MAG-718): « Demain », « Après-demain ». */
+    const val PICKER_TOMORROW = "picker_tomorrow"
+    const val PICKER_AFTER_TOMORROW = "picker_after_tomorrow"
+
     /** Calendar toolbar — the « next » arrow and the Mois / Semaine switches. */
     const val CALENDAR_NEXT = "calendar_next"
     const val CALENDAR_VIEW_WEEK = "calendar_view_week"
@@ -1241,8 +1245,8 @@ object UiTags {
      * « Valeurs par défaut » and the « Enregistré » that follows every save — on both screens.
      */
     const val SETTINGS_TASKS = "settings_tasks"
-    const val SETTINGS_TASKS_MORNING = "settings_tasks_morning"
     const val SETTINGS_TASKS_EVENING = "settings_tasks_evening"
+    const val SETTINGS_TASKS_DIGEST_HELP = "settings_tasks_digest_help"
     const val SETTINGS_TASKS_CHIP_PREFIX = "settings_tasks_chip_"
     const val SETTINGS_TASKS_OVERDUE_PREFIX = "settings_tasks_overdue_"
     const val SETTINGS_TASKS_DEFAULTS = "settings_tasks_defaults"
@@ -1825,6 +1829,15 @@ object UiTags {
     const val TASK_FORM_DELETE = "task_form_delete"
     const val TASK_DETAIL_EDIT = "task_detail_edit"
     const val TASK_DETAIL_DONE = "task_detail_done"
+
+    /** The dates card of the task form (MAG-718): « Échéance », « Programmée », its « Moment » and its menu items, « Rappels ». */
+    const val TASK_FORM_DUE = "task_form_due"
+    const val TASK_FORM_SCHEDULED = "task_form_scheduled"
+    const val TASK_FORM_MOMENT = "task_form_moment"
+    const val TASK_FORM_MOMENT_PREFIX = "task_form_moment_"
+    const val TASK_FORM_REMINDERS = "task_form_reminders"
+
+    fun taskFormMoment(moment: String): String = TASK_FORM_MOMENT_PREFIX + moment
     const val EVENT_DESCRIPTION = "event_description"
 
     /** Markdown fields (MAG-713): the bar above the keyboard, its buttons, the reading view's check boxes and « n/m » counter. */

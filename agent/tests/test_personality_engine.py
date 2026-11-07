@@ -387,4 +387,21 @@ async def test_the_shipped_prompt_files_a_remind_me_to_do_as_a_task():
     assert "ce matin ou vendredi" in errand
     assert "schedule_proaction" in next(line for line in prompt.splitlines() if "ce que MAGGIE doit faire" in line)
     mandatory = next(line for line in prompt.splitlines() if "n'est permise qu'après l'appel réussi" in line)
-    assert "create_task à échéance ou schedule_proaction" in mandatory and "date_time" in mandatory
+    assert "create_task à échéance" in mandatory and "schedule_proaction" in mandatory and "date_time" in mandatory
+
+
+@pytest.mark.asyncio
+async def test_the_shipped_prompt_tells_the_planned_day_from_the_deadline():
+    """MAG-718: « vendredi soir » and « à 18 h » schedule the task, « au plus tard » sets its deadline."""
+    engine = PersonalityEngine()
+
+    with patch("app.personality.engine.personality_repo") as mock_repo:
+        mock_repo.get = AsyncMock(return_value=None)
+        prompt = await engine.get_system_prompt("user-1")
+
+    rule = next(line for line in prompt.splitlines() if "TÂCHES, PROGRAMMÉE OU ÉCHÉANCE :" in line)
+    assert "scheduledDate" in rule and "scheduledMoment evening" in rule
+    assert 'scheduledTime "18:00"' in rule and "[30]" in rule
+    assert "pour samedi au plus tard" in rule and "dueDate" in rule
+    errand = next(line for line in prompt.splitlines() if "d'aller FAIRE X" in line)
+    assert "alerte du matin" not in errand

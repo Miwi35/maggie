@@ -73,8 +73,10 @@ import com.maggie.app.ui.uiTagRoot
 import kotlin.math.roundToInt
 
 /**
- * Réglages › Tâches (MAG-407): « Heure du matin » and « Heure du soir » (MAG-500), then when each urgency alerts,
- * then « Rappels et récompenses » (MAG-508, its reminders MAG-510). Every change is saved as it is made; no help text, the owner's choice.
+ * Réglages › Tâches › Rappels (MAG-407, MAG-718): « Heure du soir » (MAG-500), then per urgency « À programmer »
+ * (the days before the due date, while the task has no scheduled day) and « Pas faite » — read by the morning
+ * digest, never sent at an hour of their own, so the morning's hour left the screen — then « Rappels et
+ * récompenses » (MAG-508, its reminders MAG-510). Every change is saved as it is made.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,10 +85,11 @@ internal fun TaskAlertsSection(viewModel: SettingsViewModel, onBack: () -> Unit)
     val tasks = uiState.tasks
     var confirmDefaults by remember { mutableStateOf(false) }
 
-    TaskSettingsPage(title = "Tâches", tasks = tasks, onBack = onBack, onRetry = viewModel::loadTaskSettings) {
+    TaskSettingsPage(title = "Rappels", tasks = tasks, onBack = onBack, onRetry = viewModel::loadTaskSettings) {
         val settings = tasks.settings ?: return@TaskSettingsPage
-        TimeRow(label = "Heure du matin", tag = UiTags.SETTINGS_TASKS_MORNING, time = settings.morningTime, onPick = viewModel::setMorningTime)
         TimeRow(label = "Heure du soir", tag = UiTags.SETTINGS_TASKS_EVENING, time = settings.eveningTime, onPick = viewModel::setEveningTime)
+        HorizontalDivider()
+        HelpText(TaskSettingsChoices.DIGEST_HELP, tag = UiTags.SETTINGS_TASKS_DIGEST_HELP)
         TaskSettingsChoices.URGENCY_LABELS.forEach { (urgency, label) ->
             val rule = settings.alertSchedule[urgency] ?: return@forEach
             HorizontalDivider()
@@ -377,7 +380,7 @@ private fun SwitchRow(label: String, checked: Boolean, tag: String, onChange: (B
     }
 }
 
-/** One urgency: its days before the due day as chips in its colour, then « En retard ». */
+/** One urgency: « À programmer », its days before the due day as chips in its colour, then « Pas faite » (MAG-718). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun UrgencyAlerts(
@@ -395,7 +398,8 @@ private fun UrgencyAlerts(
             Spacer(modifier = Modifier.width(8.dp))
             Text(label, style = MaterialTheme.typography.titleMedium)
         }
-        Text("Jours avant l'échéance", style = MaterialTheme.typography.labelLarge)
+        Text(TaskSettingsChoices.TO_SCHEDULE_LABEL, style = MaterialTheme.typography.labelLarge)
+        HelpText(TaskSettingsChoices.TO_SCHEDULE_HELP)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TaskSettingsChoices.DAYS_BEFORE.forEach { days ->
                 UrgencyChip(
@@ -416,6 +420,17 @@ private fun UrgencyAlerts(
         }
         OverdueDropdown(urgency = urgency, every = rule.overdueEveryDays, onChoose = onOverdue)
     }
+}
+
+/** One short line of help, under what it explains (MAG-718). */
+@Composable
+private fun HelpText(text: String, tag: String? = null) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = if (tag != null) Modifier.testTag(tag) else Modifier,
+    )
 }
 
 @Composable
@@ -446,7 +461,7 @@ private fun OverdueDropdown(urgency: String, every: Int?, onChoose: (Int?) -> Un
             value = TaskSettingsChoices.overdueLabel(every),
             onValueChange = {},
             readOnly = true,
-            label = { Text("En retard") },
+            label = { Text(TaskSettingsChoices.UNDONE_LABEL) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable)

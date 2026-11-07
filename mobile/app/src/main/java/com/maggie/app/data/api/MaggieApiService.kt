@@ -254,6 +254,13 @@ data class TaskCreateRequest(
     val estimatedMinutes: Int? = null,
     /** The first concrete gesture (MAG-497). */
     val firstStep: String? = null,
+    /** The day it is planned for, `YYYY-MM-DD`, and its moment (MAG-718); see [Task.scheduledMoment]. */
+    val scheduledDate: String? = null,
+    val scheduledMoment: String? = null,
+    /** `HH:MM`, only with the moment `time`. */
+    val scheduledTime: String? = null,
+    /** Minutes before [scheduledTime]; left out (null) the API defaults a `time` to « À l'heure ». */
+    val reminders: List<Int>? = null,
 )
 
 @Serializable

@@ -550,6 +550,33 @@ class CalendarViewModelTest {
         assertTrue(viewModel.uiState.value.agendas.none { it.name == "Repas" })
     }
 
+    /** MAG-718: a scheduled task is on its scheduled day, not its due day; at its time when it has one. */
+    @Test
+    fun `the day view holds the tasks scheduled that day, at their time or as day items, not those only due then`() = runTest {
+        val atSix = Task(id = "01SIX", title = "Appeler le garage", dueDate = "2026-06-20", scheduledDate = "2026-06-15", scheduledMoment = "time", scheduledTime = "18:00", reminders = listOf(0))
+        val evening = Task(id = "01EVE", title = "Préparer le weekend", scheduledDate = "2026-06-15", scheduledMoment = "evening")
+        val dueOnly = Task(id = "01DUE", title = "Payer la cantine", dueDate = "2026-06-15")
+        val otherDay = Task(id = "01OTH", title = "Tondre", dueDate = "2026-06-15", scheduledDate = "2026-06-16", scheduledMoment = "morning")
+        stubRepositories(tasks = listOf(atSix, evening, dueOnly, otherDay))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.setViewType(CalendarViewType.DAY)
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+
+        val shown = viewModel.uiState.value.expandedEvents.associateBy { it.id }
+        assertEquals(setOf("01SIX", "01EVE"), shown.keys)
+        // 18:00 in Paris, summer time: 16:00 UTC, half an hour long without an estimate.
+        assertEquals("2026-06-15T16:00:00Z", shown.getValue("01SIX").startAt)
+        assertEquals("2026-06-15T16:30:00Z", shown.getValue("01SIX").endAt)
+        assertEquals("Appeler le garage", shown.getValue("01SIX").summary)
+        assertTrue(shown.getValue("01EVE").allDay)
+        assertEquals(java.time.LocalDate.of(2026, 6, 15), shown.getValue("01EVE").startDate)
+        assertEquals("Soir : Préparer le weekend", shown.getValue("01EVE").summary)
+        assertEquals(setOf("__tasks__"), shown.values.mapNotNull { it.agendaIri }.toSet())
+    }
+
     /** MAG-382: a day is its dates. The 14th's event, which midnight UTC used to drag into the 15th, stays on the 14th. */
     @Test
     fun `the day view holds the all-day events of its date only, and the meals as dates`() = runTest {
