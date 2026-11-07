@@ -139,7 +139,8 @@ final class E2eUserControllerTest extends KernelTestCase
         self::assertNotNull($user);
 
         $recipes = $this->entityManager()->getRepository(Recipe::class)->findBy(['user' => $user]);
-        self::assertEqualsCanonicalizing(['Gratin de courgettes', 'Pâtes à la tomate'], array_map(static fn (Recipe $r): string => $r->getName(), $recipes));
+        // The « Bol quinoa poulet » since MAG-748, for the Santé › Nutrition journey.
+        self::assertEqualsCanonicalizing(['Bol quinoa poulet', 'Gratin de courgettes', 'Pâtes à la tomate'], array_map(static fn (Recipe $r): string => $r->getName(), $recipes));
         self::assertGreaterThan(0, $this->entityManager()->getRepository(Account::class)->count(['user' => $user]));
         self::assertGreaterThan(0, $this->entityManager()->getRepository(Agenda::class)->count(['user' => $user]));
 
@@ -197,8 +198,8 @@ final class E2eUserControllerTest extends KernelTestCase
         $firstOwner = $this->entityManager()->getRepository(User::class)->find($first['user']['id']);
         $secondOwner = $this->entityManager()->getRepository(User::class)->find($second['user']['id']);
 
-        self::assertCount(2, $repository->findBy(['user' => $firstOwner]));
-        self::assertCount(2, $repository->findBy(['user' => $secondOwner]));
+        self::assertCount(3, $repository->findBy(['user' => $firstOwner]));
+        self::assertCount(3, $repository->findBy(['user' => $secondOwner]));
         self::assertSame(
             $this->rows(Recipe::class),
             $repository->count(['user' => $firstOwner]) + $repository->count(['user' => $secondOwner])
