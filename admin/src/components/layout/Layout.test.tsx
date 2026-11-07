@@ -23,6 +23,7 @@ vi.mock('../chat/ChatWidget', () => ({
 vi.mock('../maggie/MaggieInterruptionHost', () => ({ MaggieInterruptionHost: () => null }))
 vi.mock('./AppBar', () => ({ CustomAppBar: () => null }))
 vi.mock('./Breadcrumbs', () => ({ Breadcrumbs: () => null, PageHeading: () => null }))
+vi.mock('./ProviderBanner', () => ({ ProviderBanner: () => null }))
 vi.mock('./ThemePreferenceSync', () => ({ ThemePreferenceSync: () => null }))
 vi.mock('./Menu', () => ({ CustomMenu: () => null }))
 vi.mock('./Sidebar', () => ({ CustomSidebar: () => null }))
