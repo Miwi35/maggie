@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -17,6 +18,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +33,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.components.DateField
+import com.maggie.app.ui.components.FIELD_RADIUS
+import com.maggie.app.ui.components.LabeledField
+import com.maggie.app.ui.components.filledFieldColors
 import com.maggie.app.util.RruleUtils
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -107,16 +112,19 @@ fun RecurrencePicker(
             expanded = freqExpanded,
             onExpandedChange = { freqExpanded = it },
         ) {
-            OutlinedTextField(
-                value = FREQ_OPTIONS.find { it.value == freq }?.label ?: "Ne se répète pas",
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Répéter") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = freqExpanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            )
+            LabeledField(label = "Répéter", modifier = Modifier.fillMaxWidth()) {
+                TextField(
+                    value = FREQ_OPTIONS.find { it.value == freq }?.label ?: "Ne se répète pas",
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = freqExpanded) },
+                    shape = RoundedCornerShape(FIELD_RADIUS),
+                    colors = filledFieldColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                )
+            }
             ExposedDropdownMenu(
                 expanded = freqExpanded,
                 onDismissRequest = { freqExpanded = false },

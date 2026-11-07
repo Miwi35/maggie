@@ -535,6 +535,9 @@ object UiTags {
     const val EVENT_START_TIME = "event_start_time"
     const val EVENT_END_DATE = "event_end_date"
     const val EVENT_SAVE = "event_save"
+    const val EVENT_ALL_DAY = "event_all_day"
+    const val EVENT_REMINDERS = "event_reminders"
+    const val EVENT_REMINDER_CUSTOM = "event_reminder_custom"
 
     /** The « OK » of the date and time pickers — a window of their own. */
     const val PICKER_CONFIRM = "picker_confirm"
