@@ -16,9 +16,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.BodyMeasurement
+import com.maggie.app.data.model.DailyBalance
 import com.maggie.app.data.model.DailyEnergy
 import com.maggie.app.data.repository.BodyMeasurementRepository
 import com.maggie.app.data.repository.DailyEnergyRepository
+import com.maggie.app.data.repository.NutritionRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.ui.UiTags
@@ -49,6 +51,7 @@ class SuiviScreenTest {
 
     private val repository = mockk<BodyMeasurementRepository>()
     private val energyRepository = mockk<DailyEnergyRepository>()
+    private val nutritionRepository = mockk<NutritionRepository>()
     private val clock = Clock.fixed(Instant.parse("2026-10-21T08:15:30Z"), ZoneId.of("Europe/Paris"))
 
     private val today = BodyMeasurement("today", "2026-10-21T07:12:00+02:00", weightKg = 72.4, bodyFatPercent = 21.3)
@@ -59,18 +62,23 @@ class SuiviScreenTest {
         energy: List<DailyEnergy> = listOf(
             DailyEnergy("2026-10-21", steps = 8000, activeKcal = 400, bmrKcal = 1648, workoutKcal = 0, stepsKcal = 14, expendedKcal = 1662),
         ),
+        balance: DailyBalance = DailyBalance("2026-10-21", eatenKcal = 1500, plannedKcal = 480, expendedKcal = 1662, balanceKcal = 318),
     ): SuiviViewModel {
         coEvery { repository.getBodyMeasurements(any()) } returns Result.success(measurements)
+        coEvery { nutritionRepository.getDailyBalance(any()) } returns Result.success(balance)
         coEvery { energyRepository.getDailyEnergy(any(), any()) } returns Result.success(energy)
         val auth = mockk<AuthRepository>()
         coEvery { auth.getUserId() } returns "user-1"
         val mercure = mockk<MercureService>()
         every { mercure.subscribe(any()) } returns emptyFlow()
-        return SuiviViewModel(repository, energyRepository, mercure, auth, clock)
+        return SuiviViewModel(repository, energyRepository, nutritionRepository, mercure, auth, clock)
     }
 
     private fun waitForCard() =
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.WEIGHT_CARD).fetchSemanticsNodes().isNotEmpty() }
+
+    private fun waitForBilan() =
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.NUTRITION_BALANCE).fetchSemanticsNodes().isNotEmpty() }
 
     private fun assertAbsent(text: String) =
         assertEquals("« $text » is not delivered", 0, compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().size)
@@ -95,7 +103,7 @@ class SuiviScreenTest {
     }
 
     @Test
-    fun `the header is Santé, Suivi, and its menu lists Suivi then Sport`() {
+    fun `the header is Santé, Suivi, and its menu lists Suivi, Nutrition, then Sport`() {
         val picked = mutableListOf<HealthSection>()
         compose.setContent { SuiviScreen(viewModel(), onSelectSection = { picked += it }) }
         waitForCard()
@@ -104,6 +112,7 @@ class SuiviScreenTest {
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
         assertTopToBottom(
             "Suivi" to compose.onNodeWithTag(UiTags.breadcrumbMenu("suivi")),
+            "Nutrition" to compose.onNodeWithTag(UiTags.breadcrumbMenu("nutrition")),
             "Sport" to compose.onNodeWithTag(UiTags.breadcrumbMenu("sport")),
         )
         compose.onNodeWithTag(UiTags.breadcrumbMenu("sport")).performClick()
@@ -112,11 +121,13 @@ class SuiviScreenTest {
     }
 
     @Test
-    fun `the period selector comes first, 30 days chosen, then the Poids card with today's values`() {
+    fun `the bilan comes first, then the period selector, 30 days chosen, then the Poids card with today's values`() {
         compose.setContent { SuiviScreen(viewModel()) }
         waitForCard()
+        waitForBilan()
 
         assertTopToBottom(
+            "bilan" to compose.onNodeWithTag(UiTags.NUTRITION_BALANCE),
             "periods" to compose.onNodeWithTag(UiTags.SUIVI_PERIODS),
             "card" to compose.onNodeWithTag(UiTags.WEIGHT_CARD),
         )
@@ -137,7 +148,7 @@ class SuiviScreenTest {
         compose.setContent { SuiviScreen(viewModel()) }
         waitForCard()
 
-        listOf("Moral", "Nutrition", "fatigue").forEach(::assertAbsent)
+        listOf("Moral", "fatigue").forEach(::assertAbsent)
     }
 
     @Test
@@ -188,7 +199,8 @@ class SuiviScreenTest {
         coEvery { energyRepository.getDailyEnergy(any(), any()) } returns Result.success(emptyList())
         val auth = mockk<AuthRepository>().also { coEvery { it.getUserId() } returns "user-1" }
         val mercure = mockk<MercureService>().also { every { it.subscribe(any()) } returns emptyFlow() }
-        compose.setContent { SuiviScreen(SuiviViewModel(repository, energyRepository, mercure, auth, clock)) }
+        coEvery { nutritionRepository.getDailyBalance(any()) } returns Result.failure(RuntimeException("offline"))
+        compose.setContent { SuiviScreen(SuiviViewModel(repository, energyRepository, nutritionRepository, mercure, auth, clock)) }
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.SUIVI_EMPTY).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Pesées indisponibles").assertIsDisplayed()
@@ -208,6 +220,39 @@ class SuiviScreenTest {
         // The card fills the left half; the selector sits at the right of the header, above the content.
         assert(card.right <= root.center.x + 1f) { "card $card overflows the left column of $root" }
         assert(periods.bottom <= root.top + 1f) { "periods $periods are not in the header" }
-        listOf("Moral", "Nutrition").forEach(::assertAbsent)
+        assertAbsent("Moral")
+        waitForBilan()
+        // The bilan atop the right column, the Poids card's neighbour.
+        val bilan = compose.onNodeWithTag(UiTags.NUTRITION_BALANCE).fetchSemanticsNode().boundsInRoot
+        assert(bilan.left >= root.center.x - 1f) { "bilan $bilan is not in the right column of $root" }
+    }
+
+    @Test
+    fun `the bilan card shows today's balance and its figures, and a tap opens Nutrition (MAG-748)`() {
+        val picked = mutableListOf<HealthSection>()
+        compose.setContent { SuiviScreen(viewModel(), onSelectSection = { picked += it }) }
+        waitForCard()
+        waitForBilan()
+
+        compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_VALUE, useUnmergedTree = true).assertTextEquals("+318 kcal")
+        compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_FIGURES, useUnmergedTree = true).assertTextEquals("Mangé 1 500 · Prévu 480 · Dépensé 1 662 kcal")
+        compose.onNodeWithTag(UiTags.NUTRITION_BALANCE).performClick()
+
+        assertEquals(listOf(HealthSection.NUTRITION), picked)
+    }
+
+    @Test
+    fun `without a profile the bilan card shows eaten and planned and leads to Configuration`() {
+        val picked = mutableListOf<HealthSection>()
+        val noProfile = DailyBalance("2026-10-21", eatenKcal = 500, plannedKcal = 300)
+        compose.setContent { SuiviScreen(viewModel(balance = noProfile), onSelectSection = { picked += it }) }
+        waitForCard()
+        waitForBilan()
+
+        compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_VALUE, useUnmergedTree = true).assertTextEquals("800 kcal")
+        compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_FIGURES, useUnmergedTree = true).assertTextEquals("Mangé 500 · Prévu 300 kcal")
+        compose.onNodeWithText("Complétez votre profil pour voir le bilan").performClick()
+
+        assertEquals(listOf(HealthSection.CONFIGURATION), picked)
     }
 }

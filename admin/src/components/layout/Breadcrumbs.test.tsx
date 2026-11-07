@@ -69,6 +69,14 @@ describe('Breadcrumbs', () => {
     expect(screen.getByText('Suivi')).toHaveAttribute('aria-current', 'page')
   })
 
+  test('the food journal reads « Santé › Nutrition », Nutrition being the current page', () => {
+    renderAt('/health/nutrition')
+
+    expect(labels()).toEqual(['Santé', 'Nutrition'])
+    expect(screen.getByRole('link', { name: 'Santé' })).toHaveAttribute('href', '/health/suivi')
+    expect(screen.getByText('Nutrition')).toHaveAttribute('aria-current', 'page')
+  })
+
   test('the health settings read « Santé › Configuration », Configuration being the current page', () => {
     renderAt('/health/configuration')
 
@@ -342,6 +350,7 @@ describe('PageHeading — the h1 of every page', () => {
     ['/finance/dashboard', 'Finance'],
     ['/workouts', 'Sport'],
     ['/health/suivi', 'Suivi'],
+    ['/health/nutrition', 'Nutrition'],
     ['/health/configuration', 'Configuration'],
     ['/accounts', 'Comptes'],
     ['/settings/preferences', 'Préférences'],

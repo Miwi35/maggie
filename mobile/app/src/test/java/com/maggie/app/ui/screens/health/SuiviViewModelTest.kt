@@ -5,9 +5,11 @@ import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.BodyMeasurement
+import com.maggie.app.data.model.DailyBalance
 import com.maggie.app.data.model.DailyEnergy
 import com.maggie.app.data.repository.BodyMeasurementRepository
 import com.maggie.app.data.repository.DailyEnergyRepository
+import com.maggie.app.data.repository.NutritionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -39,6 +41,9 @@ class SuiviViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private val repository = mockk<BodyMeasurementRepository>()
     private val energyRepository = mockk<DailyEnergyRepository>()
+    private val nutritionRepository = mockk<NutritionRepository>()
+    private val foodPushes = MutableSharedFlow<MercureEvent>()
+    private val bilan = DailyBalance("2026-10-21", eatenKcal = 515, plannedKcal = 0, expendedKcal = 2195, balanceKcal = -1680)
     private val authRepository = mockk<AuthRepository>()
     private val mercureService = mockk<MercureService>()
     private val pushes = MutableSharedFlow<MercureEvent>()
@@ -56,6 +61,8 @@ class SuiviViewModelTest {
         coEvery { energyRepository.getDailyEnergy(any(), any()) } returns Result.success(listOf(energyDay))
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns pushes
+        every { mercureService.subscribe(MercureTopics.userScoped("user-1", MercureTopics.FOOD_INTAKES)) } returns foodPushes
+        coEvery { nutritionRepository.getDailyBalance(any()) } returns Result.success(bilan)
     }
 
     @After
@@ -63,7 +70,7 @@ class SuiviViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = SuiviViewModel(repository, energyRepository, mercureService, authRepository, clock)
+    private fun viewModel() = SuiviViewModel(repository, energyRepository, nutritionRepository, mercureService, authRepository, clock)
 
     @Test
     fun `loading, then the weighings of the last year, 30 days shown`() = runTest {
@@ -243,5 +250,41 @@ class SuiviViewModelTest {
 
         assertEquals(java.time.LocalDate.parse("2026-10-19"), viewModel.uiState.value.selectedDate)
         assertNull(viewModel.uiState.value.selectedIndex)
+    }
+
+    @Test
+    fun `Suivi reads today's bilan for the card it opens on (MAG-748)`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { nutritionRepository.getDailyBalance("2026-10-21") }
+        assertEquals(bilan, viewModel.uiState.value.balance)
+    }
+
+    @Test
+    fun `a bilan that cannot be read leaves the card out and the weighings alone`() = runTest {
+        coEvery { nutritionRepository.getDailyBalance(any()) } returns Result.failure(RuntimeException("offline"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.balance)
+        assertNull(state.error)
+        assertTrue(state.hasLoaded)
+        assertEquals(2, state.measurements.size)
+    }
+
+    @Test
+    fun `a food intake pushed moves the bilan without reading the weighings again`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val moved = bilan.copy(eatenKcal = 595, balanceKcal = -1600)
+        coEvery { nutritionRepository.getDailyBalance(any()) } returns Result.success(moved)
+
+        foodPushes.emit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+
+        assertEquals(moved, viewModel.uiState.value.balance)
+        coVerify(exactly = 1) { repository.getBodyMeasurements(any()) }
     }
 }

@@ -75,6 +75,9 @@ export const FINANCE_DASHBOARD_PATH = '/finance/dashboard'
 /** Santé › Suivi (MAG-706): a page of its own, the weighings' resource has no list of its own. */
 export const HEALTH_SUIVI_PATH = '/health/suivi'
 
+/** Santé › Nutrition (MAG-748): the day's balance, its macros and the food journal, right after Suivi. */
+export const HEALTH_NUTRITION_PATH = '/health/nutrition'
+
 /** Santé › Configuration (MAG-707): the profile, the day's need and the activity settings, the last part of Santé. */
 export const HEALTH_CONFIGURATION_PATH = '/health/configuration'
 
@@ -181,7 +184,7 @@ const financeParts = (): NavPart[] => [
 
 /**
  * The modules of the mockup (MAG-620, `charte/Admin-Cible`), in the sidebar's
- * order, Réglages last. Santé opens on Suivi (MAG-706), then Sport (MAG-705), Configuration last (MAG-707); Loisirs joins the table with its module.
+ * order, Réglages last. Santé opens on Suivi (MAG-706), then Nutrition (MAG-748), Sport (MAG-705), Configuration last (MAG-707); Loisirs joins the table with its module.
  */
 export const NAVIGATION: NavModule[] = [
   {
@@ -220,9 +223,10 @@ export const NAVIGATION: NavModule[] = [
   },
   {
     label: 'Santé',
-    // Suivi (MAG-706) is the module's home, before Sport; Configuration (MAG-707) is the last part.
+    // Suivi (MAG-706) is the module's home, then Nutrition (MAG-748), before Sport; Configuration (MAG-707) is the last part.
     parts: [
       { label: 'Suivi', path: HEALTH_SUIVI_PATH },
+      { label: 'Nutrition', path: HEALTH_NUTRITION_PATH },
       resourcePart('Sport', 'workouts'),
       { label: 'Configuration', path: HEALTH_CONFIGURATION_PATH },
     ],

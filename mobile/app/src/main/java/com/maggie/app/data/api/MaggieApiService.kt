@@ -162,7 +162,10 @@ import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.data.model.User
 import com.maggie.app.data.model.Workout
 import com.maggie.app.data.model.BodyMeasurement
+import com.maggie.app.data.model.DailyBalance
+import com.maggie.app.data.model.DailyBalanceRange
 import com.maggie.app.data.model.DailyEnergy
+import com.maggie.app.data.model.FoodIntake
 import com.maggie.app.data.model.HealthProfile
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
@@ -767,6 +770,24 @@ data class BodyMeasurementWriteRequest(
 /** « Écarter » (MAG-706): the merge-patch `PATCH` that sets aside a weighing, or takes it back with `false`. */
 @Serializable
 data class BodyMeasurementExcludeRequest(val excluded: Boolean)
+
+/** « Mangé » (MAG-748): the planned meal alone; the API copies one serving of each recipe, once per meal. */
+@Serializable
+data class FoodIntakeMealRequest(val mealId: String)
+
+/**
+ * A food typed by hand (MAG-748): [eatenAt] an ISO date-time with its offset, [kcal] an integer. A macro left null is
+ * not sent, and the API counts it 0.
+ */
+@Serializable
+data class FoodIntakeWriteRequest(
+    val eatenAt: String,
+    val label: String,
+    val kcal: Int,
+    val proteinG: Double? = null,
+    val carbsG: Double? = null,
+    val fatG: Double? = null,
+)
 
 /**
  * `POST /api/finance/projects/preview` (MAG-553): a project as at creation, but its dependencies are plain ids,
@@ -2929,6 +2950,54 @@ class MaggieApiService(
             url.parameters.append("from", from)
             url.parameters.append("to", to)
         }.orRefusal().body()
+    }
+
+    // Santé — bilan du jour (MAG-748): plain JSON, the day's eaten, planned and spent kcal with its planned meals
+    suspend fun getDailyBalance(date: String): DailyBalance {
+        return client.get("$baseUrl/api/health/daily-balance") {
+            accept(ContentType.Application.Json)
+            url.parameters.append("date", date)
+        }.orRefusal().body()
+    }
+
+    /** One row per day from [from] to [to] (YYYY-MM-DD, 31 days at most), without the planned meals. */
+    suspend fun getDailyBalances(from: String, to: String): List<DailyBalance> {
+        return client.get("$baseUrl/api/health/daily-balance") {
+            accept(ContentType.Application.Json)
+            url.parameters.append("from", from)
+            url.parameters.append("to", to)
+        }.orRefusal().body<DailyBalanceRange>().days
+    }
+
+    // Santé — journal alimentaire (MAG-748): the intakes of the days from [from] to [to] (YYYY-MM-DD), by eatenAt
+    suspend fun getFoodIntakes(from: String, to: String): List<FoodIntake> {
+        return client.get("$baseUrl/api/health/food-intakes") {
+            accept(ContentType("application", "ld+json"))
+            url.parameters.append("date[after]", from)
+            url.parameters.append("date[before]", to)
+            withoutPagination()
+        }.orRefusal().body<ApiCollection<FoodIntake>>().member
+    }
+
+    /** « Mangé »: a second one for the same meal is a 400 whose `detail` says so. */
+    suspend fun eatPlannedMeal(mealId: String): FoodIntake {
+        return client.post("$baseUrl/api/health/food-intakes") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(FoodIntakeMealRequest(mealId))
+        }.orRefusal().body()
+    }
+
+    suspend fun createFoodIntake(request: FoodIntakeWriteRequest): FoodIntake {
+        return client.post("$baseUrl/api/health/food-intakes") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun deleteFoodIntake(id: String) {
+        client.delete("$baseUrl/api/health/food-intakes/$id").orRefusal()
     }
 
     // Santé — profil (MAG-707): plain JSON, with its defaults before it is ever written; a refused value (400) says why in `error`

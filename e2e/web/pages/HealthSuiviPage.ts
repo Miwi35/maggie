@@ -15,6 +15,8 @@ import { ROUTES } from './routes.js'
  * The cards « Pas » and « Énergie » (MAG-746) share the period: `steps-value`
  * (the period's average, or the chosen day's), `steps-bar`; `energy-total`,
  * `energy-detail` (« base … · pas … · séances … »), `energy-bar`.
+ *
+ * Next to the title, the « Bilan du jour » banner (MAG-748) opens Santé › Nutrition.
  */
 export class HealthSuiviPage extends AdminShell {
   readonly period: Locator
@@ -24,6 +26,7 @@ export class HealthSuiviPage extends AdminShell {
   readonly energyCard: Locator
   readonly addButton: Locator
   readonly form: Locator
+  readonly balanceBanner: Locator
 
   constructor(page: Page) {
     super(page)
@@ -34,6 +37,7 @@ export class HealthSuiviPage extends AdminShell {
     this.energyCard = this.content.getByRole('region', { name: 'Énergie', exact: true })
     this.addButton = this.weighings.getByRole('button', { name: 'Ajouter une pesée', exact: true })
     this.form = page.getByRole('dialog')
+    this.balanceBanner = this.content.getByTestId('suivi-balance-banner')
   }
 
   async open(): Promise<void> {

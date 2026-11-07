@@ -134,6 +134,9 @@ final class RecordedResponseContractTest extends WebTestCase
         'body-measurements.collection' => '/api/body-measurements',
         'health_profile.me' => '/api/health/profile',
         'health_daily_energy.read' => '/api/health/daily-energy?from=2026-10-20&to=2026-10-21',
+        'health_food_intakes.collection' => '/api/health/food-intakes',
+        'health_daily_balance.read' => '/api/health/daily-balance?date=2026-03-16',
+        'health_daily_balance.range' => '/api/health/daily-balance?from=2026-03-15&to=2026-03-16',
     ];
 
     private KernelBrowser $client;

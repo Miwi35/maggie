@@ -21,3 +21,7 @@ services:
     Maggie\Cookbook\EventListener\IngredientDiscriminatorListener:
         tags:
             - { name: doctrine.event_listener, event: loadClassMetadata }
+
+    # Santé's ports (MAG-748), declared by the health module, implemented here.
+    Maggie\Health\Port\MealNutritionInterface: '@Maggie\Cookbook\Health\MealNutrition'
+    Maggie\Health\Port\FoodCatalogInterface: '@Maggie\Cookbook\Health\CiqualFoodCatalog'

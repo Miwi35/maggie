@@ -1,0 +1,21 @@
+{
+    "date": "2026-03-16",
+    "eatenKcal": 78,
+    "plannedKcal": 340,
+    "expendedKcal": 1652,
+    "balanceKcal": -1234,
+    "proteinG": 12.9,
+    "carbsG": 89.5,
+    "fatG": 1.8,
+    "plannedMeals": [
+        {
+            "mealId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "slot": "dinner",
+            "label": "Recorded meal",
+            "kcal": 340,
+            "proteinG": 12.5,
+            "carbsG": 71,
+            "fatG": 1.5
+        }
+    ]
+}

@@ -161,6 +161,10 @@ final class QueryParameterContractTest extends WebTestCase
         '/api/body-measurements' => [
             'measuredAt[after]' => 'admin Santé › Suivi, the measurements of the period shown (MAG-706)',
         ],
+        '/api/health/food-intakes' => [
+            'date[after]' => 'admin and mobile Santé › Nutrition, the day\'s journal (MAG-748)',
+            'date[before]' => 'admin and mobile Santé › Nutrition, the day\'s journal (MAG-748)',
+        ],
     ];
 
     private KernelBrowser $client;

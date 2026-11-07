@@ -585,6 +585,41 @@ class TestMatching:
         assert first.content[0].input == {"stepGoal": 10000}
         assert "10 000 pas" in second.content[0].text
 
+    async def test_the_food_intake_scenario_records_the_salad_at_noon_today(self):
+        """97-health-food-intake.yaml (MAG-748): `manage_food_intakes` create, today at noon, her figures."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        question = "J'ai mangé une salade César à midi"
+
+        async def turn(rounds: list[dict]):
+            return await client.messages.create(
+                model="fake",
+                max_tokens=1024,
+                system="Tu es Maggie.",
+                tools=[{"name": "manage_food_intakes"}],
+                messages=[{"role": "user", "content": question}, *rounds],
+            )
+
+        first = await turn([])
+        second = await turn(
+            [
+                {"role": "assistant", "content": [{"type": "tool_use", "id": "t0", "name": "manage_food_intakes", "input": {}}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t0", "content": '{"success": true}'}]},
+            ]
+        )
+
+        today = datetime.now(ZoneInfo("Europe/Paris")).date().isoformat()
+        assert first.content[0].name == "manage_food_intakes"
+        assert first.content[0].input == {
+            "action": "create",
+            "eatenAt": f"{today}T12:00:00+01:00",
+            "label": "Salade César",
+            "kcal": 450,
+            "proteinG": 25,
+            "carbsG": 20,
+            "fatG": 30,
+        }
+        assert "salade César" in second.content[0].text
+
     async def test_the_early_repayment_scenario_acts_on_the_loan_its_list_returned(self):
         """91-loans-early-repayment.yaml (MAG-522): the update and the simulation carry the id of « Prêt immo »."""
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)

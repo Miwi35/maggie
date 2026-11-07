@@ -3,6 +3,7 @@ import {
   FINANCE_DASHBOARD_PATH,
   FINANCE_MENUS,
   HEALTH_CONFIGURATION_PATH,
+  HEALTH_NUTRITION_PATH,
   HEALTH_SUIVI_PATH,
   NAVIGATION,
   financeAspectPath,
@@ -282,17 +283,20 @@ describe('the sidebar table', () => {
     ])
   })
 
-  test('Santé opens on Suivi, listed before Sport, Configuration last', () => {
+  test('Santé opens on Suivi, then Nutrition, listed before Sport, Configuration last', () => {
     const health = SIDEBAR.find((module) => module.label === 'Santé')
 
     expect(health?.path).toBe(HEALTH_SUIVI_PATH)
     expect(health?.entries.map((entry) => [entry.label, entry.path])).toEqual([
       ['Suivi', '/health/suivi'],
+      ['Nutrition', HEALTH_NUTRITION_PATH],
       ['Sport', '/workouts'],
       ['Configuration', HEALTH_CONFIGURATION_PATH],
     ])
     expect(labels('/health/suivi')).toEqual(['Santé', 'Suivi'])
     expect(sidebarEntryOf('/health/suivi')).toBe('/health/suivi')
+    expect(labels(HEALTH_NUTRITION_PATH)).toEqual(['Santé', 'Nutrition'])
+    expect(sidebarEntryOf(HEALTH_NUTRITION_PATH)).toBe('/health/nutrition')
     expect(labels(HEALTH_CONFIGURATION_PATH)).toEqual(['Santé', 'Configuration'])
     expect(sidebarEntryOf(HEALTH_CONFIGURATION_PATH)).toBe('/health/configuration')
   })

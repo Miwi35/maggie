@@ -4734,6 +4734,483 @@
                 }
             }
         },
+        "/api/health/food-intakes": {
+            "get": {
+                "operationId": "api_healthfood-intakes_get_collection",
+                "tags": [
+                    "FoodIntake"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FoodIntake collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "FoodIntake.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/FoodIntake.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/FoodIntake"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/FoodIntake.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of FoodIntake resources.",
+                "description": "Retrieves the collection of FoodIntake resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 1000
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "date[before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "date[strictly_before]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "date[after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "date[strictly_after]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_healthfood-intakes_post",
+                "tags": [
+                    "FoodIntake"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "FoodIntake resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FoodIntake.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FoodIntake"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FoodIntake.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a FoodIntake resource.",
+                "description": "Creates a FoodIntake resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new FoodIntake resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FoodIntake"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FoodIntake"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FoodIntake"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/health/food-intakes/{id}": {
+            "get": {
+                "operationId": "api_healthfood-intakes_id_get",
+                "tags": [
+                    "FoodIntake"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FoodIntake resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FoodIntake.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FoodIntake"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FoodIntake.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a FoodIntake resource.",
+                "description": "Retrieves a FoodIntake resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FoodIntake identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_healthfood-intakes_id_delete",
+                "tags": [
+                    "FoodIntake"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "FoodIntake resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the FoodIntake resource.",
+                "description": "Removes the FoodIntake resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FoodIntake identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "api_healthfood-intakes_id_patch",
+                "tags": [
+                    "FoodIntake"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FoodIntake resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FoodIntake.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FoodIntake"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FoodIntake.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the FoodIntake resource.",
+                "description": "Updates the FoodIntake resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FoodIntake identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated FoodIntake resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FoodIntake.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/grocery_lists": {
             "get": {
                 "operationId": "api_grocery_lists_get_collection",
@@ -18078,6 +18555,329 @@
                         "required": [
                             "summary"
                         ]
+                    }
+                ]
+            },
+            "FoodIntake": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "date": {
+                        "readOnly": true,
+                        "description": "The local day the intake counts for, YYYY-MM-DD: the meal's day, or the day of eatenAt in Paris.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-11-07"
+                    },
+                    "eatenAt": {
+                        "description": "When it was eaten: ISO 8601 with offset, e.g. 2026-11-07T12:30:00+01:00. Required without mealId; with mealId it defaults to now.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "mealId": {
+                        "description": "The planned meal eaten (« Mangé »): its figures are copied, one serving of each recipe. Once per meal. Set on creation only.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "ciqualCode": {
+                        "description": "The Ciqual food eaten: with quantityGrams, the figures are computed from Ciqual unless given.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "label": {
+                        "description": "What was eaten, e.g. « Salade César ». A meal's title, or the Ciqual food's name, when not given.",
+                        "type": "string"
+                    },
+                    "quantityGrams": {
+                        "description": "Grams eaten, e.g. 150.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "kcal": {
+                        "description": "Kilocalories, an integer from 0 to 10000.",
+                        "type": "integer"
+                    },
+                    "proteinG": {
+                        "description": "Proteins in grams; 0 when not given.",
+                        "type": "number"
+                    },
+                    "carbsG": {
+                        "description": "Carbohydrates in grams; 0 when not given.",
+                        "type": "number"
+                    },
+                    "fatG": {
+                        "description": "Fat in grams; 0 when not given.",
+                        "type": "number"
+                    },
+                    "source": {
+                        "readOnly": true,
+                        "description": "meal (« Mangé »), manual (typed) or conversation (told to Maggie).",
+                        "default": "manual",
+                        "type": "string",
+                        "enum": [
+                            "meal",
+                            "manual",
+                            "conversation"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                }
+            },
+            "FoodIntake.html": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "date": {
+                        "readOnly": true,
+                        "description": "The local day the intake counts for, YYYY-MM-DD: the meal's day, or the day of eatenAt in Paris.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-11-07"
+                    },
+                    "eatenAt": {
+                        "description": "When it was eaten: ISO 8601 with offset, e.g. 2026-11-07T12:30:00+01:00. Required without mealId; with mealId it defaults to now.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "mealId": {
+                        "description": "The planned meal eaten (« Mangé »): its figures are copied, one serving of each recipe. Once per meal. Set on creation only.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "ciqualCode": {
+                        "description": "The Ciqual food eaten: with quantityGrams, the figures are computed from Ciqual unless given.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "label": {
+                        "description": "What was eaten, e.g. « Salade César ». A meal's title, or the Ciqual food's name, when not given.",
+                        "type": "string"
+                    },
+                    "quantityGrams": {
+                        "description": "Grams eaten, e.g. 150.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "kcal": {
+                        "description": "Kilocalories, an integer from 0 to 10000.",
+                        "type": "integer"
+                    },
+                    "proteinG": {
+                        "description": "Proteins in grams; 0 when not given.",
+                        "type": "number"
+                    },
+                    "carbsG": {
+                        "description": "Carbohydrates in grams; 0 when not given.",
+                        "type": "number"
+                    },
+                    "fatG": {
+                        "description": "Fat in grams; 0 when not given.",
+                        "type": "number"
+                    },
+                    "source": {
+                        "readOnly": true,
+                        "description": "meal (« Mangé »), manual (typed) or conversation (told to Maggie).",
+                        "default": "manual",
+                        "type": "string",
+                        "enum": [
+                            "meal",
+                            "manual",
+                            "conversation"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                }
+            },
+            "FoodIntake.jsonMergePatch": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "date": {
+                        "readOnly": true,
+                        "description": "The local day the intake counts for, YYYY-MM-DD: the meal's day, or the day of eatenAt in Paris.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-11-07"
+                    },
+                    "eatenAt": {
+                        "description": "When it was eaten: ISO 8601 with offset, e.g. 2026-11-07T12:30:00+01:00. Required without mealId; with mealId it defaults to now.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "mealId": {
+                        "description": "The planned meal eaten (« Mangé »): its figures are copied, one serving of each recipe. Once per meal. Set on creation only.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "ciqualCode": {
+                        "description": "The Ciqual food eaten: with quantityGrams, the figures are computed from Ciqual unless given.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "label": {
+                        "description": "What was eaten, e.g. « Salade César ». A meal's title, or the Ciqual food's name, when not given.",
+                        "type": "string"
+                    },
+                    "quantityGrams": {
+                        "description": "Grams eaten, e.g. 150.",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "kcal": {
+                        "description": "Kilocalories, an integer from 0 to 10000.",
+                        "type": "integer"
+                    },
+                    "proteinG": {
+                        "description": "Proteins in grams; 0 when not given.",
+                        "type": "number"
+                    },
+                    "carbsG": {
+                        "description": "Carbohydrates in grams; 0 when not given.",
+                        "type": "number"
+                    },
+                    "fatG": {
+                        "description": "Fat in grams; 0 when not given.",
+                        "type": "number"
+                    },
+                    "source": {
+                        "readOnly": true,
+                        "description": "meal (« Mangé »), manual (typed) or conversation (told to Maggie).",
+                        "default": "manual",
+                        "type": "string",
+                        "enum": [
+                            "meal",
+                            "manual",
+                            "conversation"
+                        ]
+                    },
+                    "user": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    }
+                }
+            },
+            "FoodIntake.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "date": {
+                                "readOnly": true,
+                                "description": "The local day the intake counts for, YYYY-MM-DD: the meal's day, or the day of eatenAt in Paris.",
+                                "type": "string",
+                                "format": "date",
+                                "example": "2026-11-07"
+                            },
+                            "eatenAt": {
+                                "description": "When it was eaten: ISO 8601 with offset, e.g. 2026-11-07T12:30:00+01:00. Required without mealId; with mealId it defaults to now.",
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "mealId": {
+                                "description": "The planned meal eaten (« Mangé »): its figures are copied, one serving of each recipe. Once per meal. Set on creation only.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "ciqualCode": {
+                                "description": "The Ciqual food eaten: with quantityGrams, the figures are computed from Ciqual unless given.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "label": {
+                                "description": "What was eaten, e.g. « Salade César ». A meal's title, or the Ciqual food's name, when not given.",
+                                "type": "string"
+                            },
+                            "quantityGrams": {
+                                "description": "Grams eaten, e.g. 150.",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            },
+                            "kcal": {
+                                "description": "Kilocalories, an integer from 0 to 10000.",
+                                "type": "integer"
+                            },
+                            "proteinG": {
+                                "description": "Proteins in grams; 0 when not given.",
+                                "type": "number"
+                            },
+                            "carbsG": {
+                                "description": "Carbohydrates in grams; 0 when not given.",
+                                "type": "number"
+                            },
+                            "fatG": {
+                                "description": "Fat in grams; 0 when not given.",
+                                "type": "number"
+                            },
+                            "source": {
+                                "readOnly": true,
+                                "description": "meal (« Mangé »), manual (typed) or conversation (told to Maggie).",
+                                "default": "manual",
+                                "type": "string",
+                                "enum": [
+                                    "meal",
+                                    "manual",
+                                    "conversation"
+                                ]
+                            },
+                            "user": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            }
+                        }
                     }
                 ]
             },
@@ -31589,6 +32389,10 @@
         {
             "name": "BodyMeasurement",
             "description": "Resource 'BodyMeasurement' operations."
+        },
+        {
+            "name": "FoodIntake",
+            "description": "Resource 'FoodIntake' operations."
         },
         {
             "name": "Workout",

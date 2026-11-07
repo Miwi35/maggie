@@ -191,7 +191,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // MAG-406: the three whose order « Aujourd'hui » is read in. Twelve since
         // MAG-510: the reminders account's « Appeler le garagiste ».
         self::assertSame(12, $this->rowsOf(Task::class));
-        self::assertSame(7, $this->rowsOf(Recipe::class));
+        // Eight since MAG-748: the owner's « Bol quinoa poulet », 515 kcal a serving.
+        self::assertSame(8, $this->rowsOf(Recipe::class));
         // Five on the owner's list, three on the shopper's, six on the Courses card's (MAG-563),
         // one on the dictation account's (MAG-745).
         self::assertSame(15, $this->rowsOf(GroceryItem::class));
@@ -265,7 +266,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         // empty list without saying why.
         self::assertSame(4, $this->rowsOf(Agenda::class, ['user' => $user]));
         self::assertSame(10, $this->rowsOf(Task::class, ['user' => $user]));
-        self::assertSame(2, $this->rowsOf(Recipe::class, ['user' => $user]));
+        self::assertSame(3, $this->rowsOf(Recipe::class, ['user' => $user]));
         self::assertSame(3, $this->rowsOf(Errand::class, ['user' => $user]));
         self::assertSame(2, $this->rowsOf(Account::class, ['user' => $user]));
         self::assertSame(16, $this->rowsOf(Transaction::class, ['user' => $user]));

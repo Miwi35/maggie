@@ -7,9 +7,11 @@ import org.junit.Test
 class HealthNavigationTest {
 
     @Test
-    fun `Santé has three sections, Suivi, Sport, then Configuration last, and lists no placeholder`() {
-        assertEquals(listOf("suivi", "sport", "configuration"), HealthSection.entries.map { it.key })
-        assertEquals(listOf("Suivi", "Sport", "Configuration"), HealthSection.entries.map { it.label })
+    fun `Santé has four sections, Suivi, Nutrition, Sport, then Configuration last, and lists no placeholder`() {
+        assertEquals(listOf("suivi", "nutrition", "sport", "configuration"), HealthSection.entries.map { it.key })
+        assertEquals(listOf("Suivi", "Nutrition", "Sport", "Configuration"), HealthSection.entries.map { it.label })
+        assertEquals(Screen.HealthNutrition.route, HealthSection.NUTRITION.route)
+        assertEquals("health/nutrition", Screen.HealthNutrition.route)
         assertEquals(Screen.HealthConfiguration.route, HealthSection.CONFIGURATION.route)
         assertEquals("health/configuration", Screen.HealthConfiguration.route)
         assertEquals(Screen.HealthSuivi.route, HealthSection.SUIVI.route)
@@ -36,6 +38,7 @@ class HealthNavigationTest {
     @Test
     fun `pageOf names the section a route wears the breadcrumb of`() {
         assertEquals(HealthSection.SUIVI, HealthSection.pageOf(Screen.HealthSuivi.route))
+        assertEquals(HealthSection.NUTRITION, HealthSection.pageOf(Screen.HealthNutrition.route))
         assertEquals(HealthSection.SPORT, HealthSection.pageOf(Screen.HealthSport.route))
         assertEquals(HealthSection.CONFIGURATION, HealthSection.pageOf(Screen.HealthConfiguration.route))
     }
@@ -51,6 +54,7 @@ class HealthNavigationTest {
     fun `byKey finds a section by the key of its breadcrumb entry`() {
         assertEquals(HealthSection.SPORT, HealthSection.byKey("sport"))
         assertEquals(HealthSection.SUIVI, HealthSection.byKey("suivi"))
+        assertEquals(HealthSection.NUTRITION, HealthSection.byKey("nutrition"))
         assertEquals(HealthSection.CONFIGURATION, HealthSection.byKey("configuration"))
         assertNull(HealthSection.byKey("sleep"))
     }

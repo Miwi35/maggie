@@ -172,6 +172,10 @@ framework:
             'Maggie\Health\Message\DeleteBodyMeasurementCommand': sync
             'Maggie\Health\Message\UpdateHealthProfileCommand': sync
             'Maggie\Health\Message\SyncHealthDataCommand': sync
+            'Maggie\Health\Message\CreateFoodIntakeCommand': sync
+            'Maggie\Health\Message\UpdateFoodIntakeCommand': sync
+            'Maggie\Health\Message\DeleteFoodIntakeCommand': sync
+            'Maggie\Health\Event\FoodIntakeRecorded': sync
             'Maggie\Finance\Message\ChangeScenarioCommand': sync
             'Maggie\Finance\Message\CreateOperationCommand': sync
             'Maggie\Finance\Message\UpdateOperationCommand': sync

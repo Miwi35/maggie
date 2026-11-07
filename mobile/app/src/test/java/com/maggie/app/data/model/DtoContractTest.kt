@@ -64,6 +64,10 @@ class DtoContractTest {
         // Only GET /api/finance/peer-debts (MAG-455) carries a créance's history; the API Platform resource
         // and the my-share / debt endpoints do not. The test of that recording asserts the field itself.
         "PeerDebt" to setOf("history"),
+        // Only a « Mangé » intake names its meal; the recorded journal holds one food typed by hand (MAG-748).
+        "FoodIntake" to setOf("mealId"),
+        // The range of daily-balance leaves the planned meals out by design: only `?date=` lists them (MAG-748).
+        "DailyBalance (range)" to setOf("plannedMeals"),
     )
 
     // The agent's messages are not recorded in api/contract/responses (that suite records the API
@@ -891,6 +895,49 @@ class DtoContractTest {
         assertEquals(2052, days.first().expendedKcal)
         assertNull(days.last().steps)
         assertNull(days.last().stepsKcal)
+    }
+
+    @Test
+    fun `the daily balance deserialises from the recorded response, planned meals included (MAG-748)`() {
+        assertItemContract("health_daily_balance.read", serializer<DailyBalance>(), "DailyBalance")
+        val body = readRecording("health_daily_balance.read")
+        val meals = body["plannedMeals"]!!.jsonArray
+        assertTrue("The recording has no planned meal, so it proves nothing about them.", meals.isNotEmpty())
+        assertDeclaredFieldsExist("PlannedMeal", serializer<PlannedMeal>(), meals.flatMap { it.jsonObject.keys }.toSet(), "health_daily_balance.read")
+
+        val balance = json.decodeFromJsonElement(serializer<DailyBalance>(), body)
+        assertEquals(78, balance.eatenKcal)
+        assertEquals(340, balance.plannedKcal)
+        assertEquals(1652, balance.expendedKcal)
+        assertEquals(-1234, balance.balanceKcal)
+        assertEquals(12.9, balance.proteinG, 0.001)
+        // `71` on the wire for 71.0: a Double reads it.
+        assertEquals(71.0, balance.plannedMeals.single().carbsG, 0.001)
+        assertEquals("dinner", balance.plannedMeals.single().slot)
+    }
+
+    @Test
+    fun `the daily balance range deserialises from the recorded response (MAG-748)`() {
+        val body = readRecording("health_daily_balance.range")
+        val rows = body["days"]!!.jsonArray
+        assertTrue("The recording has no day, so it proves nothing.", rows.isNotEmpty())
+        assertDeclaredFieldsExist("DailyBalance (range)", serializer<DailyBalance>(), rows.flatMap { it.jsonObject.keys }.toSet(), "health_daily_balance.range")
+
+        val days = json.decodeFromJsonElement(serializer<DailyBalanceRange>(), body).days
+        assertEquals(listOf("2026-03-15", "2026-03-16"), days.map { it.date })
+        assertEquals(-1652, days.first().balanceKcal)
+        assertEquals(0.0, days.first().proteinG, 0.001)
+    }
+
+    @Test
+    fun `food intakes deserialise from the recorded response (MAG-748)`() {
+        assertCollectionContract("health_food_intakes", serializer<FoodIntake>(), "FoodIntake")
+        val intake = json.decodeFromJsonElement(ApiCollection.serializer(serializer<FoodIntake>()), readRecording("health_food_intakes.collection")).member.single()
+        assertEquals("Pomme", intake.label)
+        assertEquals(78, intake.kcal)
+        assertEquals(150.0, intake.quantityGrams!!, 0.001)
+        assertEquals(FoodIntake.SOURCE_MANUAL, intake.source)
+        assertEquals("2026-03-16T15:00:00+00:00", intake.eatenAt)
     }
 
     @Test

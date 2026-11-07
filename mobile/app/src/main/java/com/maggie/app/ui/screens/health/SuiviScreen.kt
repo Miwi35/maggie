@@ -80,8 +80,9 @@ import com.maggie.app.ui.uiTagRoot
  * « Santé › Suivi » (MAG-706, mockups Suivi-Tel and Suivi-Tablette): the period selector — under the header on a
  * phone, in it on a tablet — and the Poids card: the weighings as dots (7 j, 30 j), the 7-day trend in coral, the
  * column chosen with its values in the header. A long press on a weighed day sets its weighing aside. The Pas and Énergie cards
- * (MAG-746) follow the same period and the same day. The other cards of the mockups (Nutrition, Moral · fatigue) are
- * not delivered: no placeholder stands for them.
+ * (MAG-746) follow the same period and the same day. Today's « Bilan du jour » (MAG-748) opens the screen — above
+ * the period selector on a phone, atop the right column on a tablet — and a tap on it opens Nutrition. The card
+ * « Moral · fatigue » of the mockups is not delivered: no placeholder stands for it.
  */
 @Composable
 fun SuiviScreen(
@@ -110,12 +111,17 @@ fun SuiviScreen(
             )
         },
     ) { paddingValues ->
-        SuiviContent(viewModel, expanded, Modifier.padding(paddingValues))
+        SuiviContent(viewModel, expanded, onSelectSection, Modifier.padding(paddingValues))
     }
 }
 
 @Composable
-private fun SuiviContent(viewModel: SuiviViewModel, expanded: Boolean, modifier: Modifier = Modifier) {
+private fun SuiviContent(
+    viewModel: SuiviViewModel,
+    expanded: Boolean,
+    onSelectSection: (HealthSection) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val today = viewModel.today
@@ -124,6 +130,17 @@ private fun SuiviContent(viewModel: SuiviViewModel, expanded: Boolean, modifier:
     }
     val energy = remember(uiState.energy, uiState.period, today) { energyWindow(uiState.energy, uiState.period, today) }
     val day = selectedEnergy(energy, uiState.selectedDate)
+    // Suivi opens on the day's bilan (MAG-748): a tap opens Nutrition, the profile hint Configuration.
+    val bilan: @Composable () -> Unit = {
+        uiState.balance?.let { balance ->
+            BalanceCard(
+                balance = balance,
+                onCompleteProfile = { onSelectSection(HealthSection.CONFIGURATION) },
+                compact = true,
+                onOpen = { onSelectSection(HealthSection.NUTRITION) },
+            )
+        }
+    }
 
     ErrorSnackbar(
         error = uiState.error,
@@ -157,11 +174,12 @@ private fun SuiviContent(viewModel: SuiviViewModel, expanded: Boolean, modifier:
                 Column(modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
                     WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, large = true)
                 }
-                // The right column of the mockup holds Nutrition, not delivered: Pas and Énergie take its place.
+                // The right column of the mockup holds Nutrition: its bilan on top, then Pas and Énergie.
                 Column(
                     modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    bilan()
                     StepsCard(energy, day, uiState, today, viewModel::selectDay, large = true)
                     EnergyCard(energy, day, uiState, today, viewModel::selectDay, large = true)
                 }
@@ -170,6 +188,7 @@ private fun SuiviContent(viewModel: SuiviViewModel, expanded: Boolean, modifier:
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                bilan()
                 PeriodSelector(uiState.period, viewModel::selectPeriod, segmentWidth = null, height = 36.dp)
                 WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, large = false)
                 StepsCard(energy, day, uiState, today, viewModel::selectDay, large = false)
