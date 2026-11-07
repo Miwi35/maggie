@@ -59,6 +59,7 @@ object MercureTopics {
     const val FINANCE_SCENARIOS = "finance/scenarios"
     const val FOOD_INTAKES = "health/food-intakes"
     const val GROCERY_LISTS = "grocery_lists"
+    const val HEALTH_DAYS = "health/days"
     const val HEALTH_PROFILE = "health-profile"
     const val INGREDIENTS = "ingredients"
     const val LOANS = "loans"
@@ -104,6 +105,7 @@ object MercureTopics {
         FINANCE_SCENARIOS,
         FOOD_INTAKES,
         GROCERY_LISTS,
+        HEALTH_DAYS,
         HEALTH_PROFILE,
         INGREDIENTS,
         LOANS,

@@ -94,6 +94,7 @@ import com.maggie.app.data.repository.WorkoutRepository
 import com.maggie.app.data.repository.BodyMeasurementRepository
 import com.maggie.app.data.repository.DailyEnergyRepository
 import com.maggie.app.data.repository.NutritionRepository
+import com.maggie.app.data.repository.HealthDayRepository
 import com.maggie.app.data.repository.HealthProfileRepository
 import com.maggie.app.data.repository.HealthSyncRepository
 import com.maggie.app.data.repository.ProjectRepository
@@ -147,6 +148,7 @@ import com.maggie.app.ui.screens.finance.PlacementViewModel
 import com.maggie.app.ui.screens.health.SportViewModel
 import com.maggie.app.ui.screens.health.SuiviViewModel
 import com.maggie.app.ui.screens.health.NutritionViewModel
+import com.maggie.app.ui.screens.health.JournalViewModel
 import com.maggie.app.ui.screens.health.ConfigurationViewModel
 import com.maggie.app.ui.screens.finance.FinanceTimelineViewModel
 import com.maggie.app.ui.screens.finance.ProjectViewModel
@@ -437,6 +439,7 @@ class MaggieApp : Application() {
             single { HealthProfileRepository(get()) }
             single { DailyEnergyRepository(get()) }
             single { NutritionRepository(get()) }
+            single { HealthDayRepository(get()) }
             single { ReviewRepository(get()) }
             single { FinanceDashboardRepository(get()) }
             single { UpcomingRepository(get()) }
@@ -550,8 +553,9 @@ class MaggieApp : Application() {
             viewModel { FinanceTimelineViewModel(get()) }
             viewModel { PlacementViewModel(get(), get(), get()) }
             viewModel { SportViewModel(get(), get(), get()) }
-            viewModel { SuiviViewModel(get(), get(), get(), get(), get()) }
+            viewModel { SuiviViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { NutritionViewModel(get(), get(), get()) }
+            viewModel { JournalViewModel(get(), get(), get()) }
             viewModel { ConfigurationViewModel(get(), get(), get(), get(), get()) }
             viewModel { CookingViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { CookingGroceryViewModel(get(), get(), get(), get()) }

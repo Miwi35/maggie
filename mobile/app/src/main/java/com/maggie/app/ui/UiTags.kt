@@ -1953,6 +1953,41 @@ object UiTags {
     const val NUTRITION_ADD_SAVE = "nutrition_add_save"
 
     /**
+     * « Santé › Journal » (MAG-750): the screen and its empty state; the day's header and its arrows; the « Moral » and
+     * « Fatigue » scales and each pastille (`journal_mood_7`, `journal_fatigue_4`), « avec Maggie · 21:42 »; the note
+     * and « Enregistrer »; the indicators card, each row and its value; « Jours précédents », its empty line and each
+     * day (`journal_past_2026-11-06`). Then the « Moral · fatigue » card of Suivi, its two legend values and its empty line.
+     */
+    const val JOURNAL = "journal"
+    const val JOURNAL_EMPTY = "journal_empty"
+    const val JOURNAL_TITLE = "journal_title"
+    const val JOURNAL_PREVIOUS = "journal_previous"
+    const val JOURNAL_NEXT = "journal_next"
+    const val JOURNAL_MOOD = "journal_mood"
+    const val JOURNAL_FATIGUE = "journal_fatigue"
+    const val JOURNAL_MOOD_PREFIX = "journal_mood_"
+    const val JOURNAL_FATIGUE_PREFIX = "journal_fatigue_"
+    const val JOURNAL_NOTED_BY = "journal_noted_by"
+    const val JOURNAL_NOTE = "journal_note"
+    const val JOURNAL_NOTE_SAVE = "journal_note_save"
+    const val JOURNAL_FIGURES = "journal_figures"
+    const val JOURNAL_WEIGHT = "journal_weight"
+    const val JOURNAL_WEIGHT_VALUE = "journal_weight_value"
+    const val JOURNAL_STEPS = "journal_steps"
+    const val JOURNAL_STEPS_VALUE = "journal_steps_value"
+    const val JOURNAL_BALANCE = "journal_balance"
+    const val JOURNAL_BALANCE_VALUE = "journal_balance_value"
+    const val JOURNAL_SPORT = "journal_sport"
+    const val JOURNAL_SPORT_VALUE = "journal_sport_value"
+    const val JOURNAL_HISTORY = "journal_history"
+    const val JOURNAL_HISTORY_EMPTY = "journal_history_empty"
+    const val JOURNAL_PAST_PREFIX = "journal_past_"
+    const val MOOD_CARD = "mood_card"
+    const val MOOD_VALUE = "mood_value"
+    const val FATIGUE_VALUE = "fatigue_value"
+    const val MOOD_EMPTY = "mood_empty"
+
+    /**
      * « Santé › Configuration » (MAG-707): the screen and its empty state; the « Besoin du jour » card, its need, basal
      * metabolism and factor; « Calculé · Saisi »; Sexe, the Âge, Taille, Poids and typed-need steppers (each with
      * `_minus`, `_value`, `_plus`), the activity chips; then « Objectif de pas », the two window times, the session
@@ -1993,6 +2028,9 @@ object UiTags {
     fun nutritionIntakeDelete(id: String) = NUTRITION_INTAKE_DELETE_PREFIX + id
     fun nutritionPlanned(mealId: String) = NUTRITION_PLANNED_PREFIX + mealId
     fun nutritionEat(mealId: String) = NUTRITION_EAT_PREFIX + mealId
+    fun journalMood(value: Int) = JOURNAL_MOOD_PREFIX + value
+    fun journalFatigue(value: Int) = JOURNAL_FATIGUE_PREFIX + value
+    fun journalPast(date: String) = JOURNAL_PAST_PREFIX + date
 
     fun sportWeekDay(dayOfMonth: Int) = SPORT_WEEK_DAY_PREFIX + dayOfMonth
     fun workoutRow(id: String) = WORKOUT_ROW_PREFIX + id

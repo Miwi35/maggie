@@ -91,3 +91,4 @@ executionOrder:
     - 32-health-configuration
     - 33-health-nutrition
     - 31-task-schedule
+    - 34-health-journal
