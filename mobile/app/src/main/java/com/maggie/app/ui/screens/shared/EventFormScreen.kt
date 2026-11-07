@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -14,9 +15,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,6 +32,10 @@ import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FIELD_RADIUS
+import com.maggie.app.ui.components.LabeledField
+import com.maggie.app.ui.components.LabeledTextField
+import com.maggie.app.ui.components.filledFieldColors
 import com.maggie.app.ui.components.markdown.MarkdownEditor
 import com.maggie.app.util.RruleUtils
 import kotlinx.serialization.json.Json
@@ -65,7 +70,7 @@ data class EventFormFields(
         location = location.ifBlank { null },
         agenda = agendaIri,
         rrule = rrule,
-        reminders = reminders,
+        reminders = reminders.takeUnless { dates.allDay },
     )
 
     /**
@@ -81,7 +86,7 @@ data class EventFormFields(
         put("agenda", agendaIri)
         put(
             "reminders",
-            reminders?.let { Json.encodeToJsonElement(EventReminders.serializer(), it) } ?: JsonNull,
+            reminders.takeUnless { dates.allDay }?.let { Json.encodeToJsonElement(EventReminders.serializer(), it) } ?: JsonNull,
         )
         rrule?.let { put("rrule", it) }
     }
@@ -154,26 +159,27 @@ fun EventFormScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            OutlinedTextField(
+            LabeledTextField(
+                label = "Titre",
                 value = fields.summary,
                 onValueChange = { fields = fields.copy(summary = it) },
-                label = { Text("Titre") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().testTag(UiTags.EVENT_TITLE),
+                modifier = Modifier.testTag(UiTags.EVENT_TITLE),
             )
 
             EventDateFields(form = fields.dates, onChange = { fields = fields.copy(dates = it) })
 
             if (seriesRrule != null) {
-                OutlinedTextField(
-                    value = RruleUtils.rruleToFrenchText(seriesRrule),
-                    onValueChange = {},
-                    readOnly = true,
-                    enabled = false,
-                    label = { Text("Répéter") },
-                    supportingText = { Text("La règle de la série ne se change pas depuis une occurrence.") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                LabeledField(label = "Répéter", modifier = Modifier.fillMaxWidth()) {
+                    TextField(
+                        value = RruleUtils.rruleToFrenchText(seriesRrule),
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = false,
+                        shape = RoundedCornerShape(FIELD_RADIUS),
+                        colors = filledFieldColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             } else {
                 RecurrencePicker(
                     value = fields.rrule,
@@ -182,7 +188,9 @@ fun EventFormScreen(
                 )
             }
 
-            ReminderPicker(value = fields.reminders, onChange = { fields = fields.copy(reminders = it) })
+            if (!fields.dates.allDay) {
+                ReminderPicker(value = fields.reminders, onChange = { fields = fields.copy(reminders = it) })
+            }
 
             AgendaPickerField(
                 agendas = agendas,
@@ -191,12 +199,10 @@ fun EventFormScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
+            LabeledTextField(
+                label = "Lieu",
                 value = fields.location,
                 onValueChange = { fields = fields.copy(location = it) },
-                label = { Text("Lieu") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
             )
 
             MarkdownEditor(

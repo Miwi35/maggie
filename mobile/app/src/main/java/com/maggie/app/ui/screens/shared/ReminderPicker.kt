@@ -1,23 +1,34 @@
 package com.maggie.app.ui.screens.shared
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,10 +36,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.EventReminders
+import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FIELD_RADIUS
+import com.maggie.app.ui.components.LabeledField
+import com.maggie.app.ui.components.LabeledTextField
+import com.maggie.app.ui.components.filledFieldColors
+import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.data.model.remindersFrom
 import com.maggie.app.data.model.remindersOf
 
@@ -60,24 +79,129 @@ fun reminderDelayLabel(minutes: Int): String =
 fun remindersText(reminders: EventReminders?): String? =
     remindersOf(reminders).takeIf { it.isNotEmpty() }?.joinToString(", ") { reminderDelayLabel(it) }
 
+/** What an event offers, as Google does: minutes before the start; anything else is « Personnaliser… ». */
+private val EVENT_OPTIONS = listOf(5, 10, 15, 30, 60, 1440)
+
 /**
- * The reminders of an event: a row per delay, added and removed one at a time.
- *
- * Until MAG-121 nothing but Google's import could fill this field, so the app
- * could show a reminder and never set one. What it emits is the shape the API
- * stores — built by `remindersFrom`, never by hand, because a bare list stores
- * fine and fires nothing.
- *
- * Controlled with no state of its own beyond which dropdown is open: the whole
- * state is the list of delays, which the screen owning the form already holds.
+ * The reminders of an event in one « Rappels » field (MAG-719): it opens a sheet of boxes, several
+ * can be ticked, and « Personnaliser… » adds a delay of one's own. What it emits is the shape the
+ * API stores — built by `remindersFrom`, never by hand, because a bare list stores fine and
+ * fires nothing. Controlled: the list of delays is the whole state.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReminderPicker(
     value: EventReminders?,
     onChange: (EventReminders?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ReminderRows(minutes = remindersOf(value), delays = DELAYS, emit = { onChange(remindersFrom(it)) }, modifier = modifier)
+    var open by remember { mutableStateOf(false) }
+    var custom by remember { mutableStateOf(false) }
+    val minutes = remindersOf(value)
+    val text = remindersText(value) ?: "Aucun"
+    val shown = (EVENT_OPTIONS + minutes.filter { it !in EVENT_OPTIONS }.sorted())
+    val full = minutes.size >= MAX_REMINDERS
+
+    LabeledField(label = "Rappels", modifier = modifier.fillMaxWidth()) {
+        Box {
+            TextField(
+                value = text,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
+                shape = RoundedCornerShape(FIELD_RADIUS),
+                colors = filledFieldColors(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .testTag(UiTags.EVENT_REMINDERS)
+                    .semantics { contentDescription = "Rappels, $text" }
+                    .clickable(onClickLabel = "Choisir : Rappels", role = Role.Button) { open = true },
+            )
+        }
+    }
+
+    if (open) {
+        ModalBottomSheet(onDismissRequest = { open = false }, modifier = Modifier.uiTagRoot()) {
+            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+                shown.forEach { delay ->
+                    val checked = delay in minutes
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = checked,
+                                enabled = checked || !full,
+                                role = Role.Checkbox,
+                                onValueChange = { on ->
+                                    val next = if (on) (minutes + delay).sorted() else minutes - delay
+                                    onChange(remindersFrom(next))
+                                },
+                            )
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        Checkbox(checked = checked, onCheckedChange = null, enabled = checked || !full)
+                        Text(reminderDelayLabel(delay), modifier = Modifier.padding(start = 16.dp))
+                    }
+                }
+                TextButton(
+                    onClick = {
+                        open = false
+                        custom = true
+                    },
+                    enabled = !full,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                ) { Text("Personnaliser…") }
+            }
+        }
+    }
+
+    if (custom) {
+        CustomReminderDialog(
+            onConfirm = { delay ->
+                custom = false
+                if (delay > 0 && delay !in minutes) onChange(remindersFrom((minutes + delay).sorted()))
+            },
+            onDismiss = { custom = false },
+        )
+    }
+}
+
+private val CUSTOM_UNITS = listOf("minutes" to 1, "heures" to 60, "jours" to 1440)
+
+/** A delay of one's own: a number and its unit, handed over in minutes. */
+@Composable
+private fun CustomReminderDialog(onConfirm: (Int) -> Unit, onDismiss: () -> Unit) {
+    var amount by remember { mutableStateOf("30") }
+    var unit by remember { mutableStateOf(CUSTOM_UNITS.first().second) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rappel personnalisé") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LabeledTextField(
+                    label = "Délai avant le début",
+                    value = amount,
+                    onValueChange = { amount = it.filter(Char::isDigit).take(4) },
+                    modifier = Modifier.testTag(UiTags.EVENT_REMINDER_CUSTOM),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CUSTOM_UNITS.forEach { (label, factor) ->
+                        FilterChip(selected = unit == factor, onClick = { unit = factor }, label = { Text(label) })
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm((amount.toIntOrNull() ?: 0) * unit) }) { Text("OK") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+        modifier = Modifier.uiTagRoot(),
+    )
 }
 
 /** « À l'heure »: a task's reminder at its very time (MAG-718), which an event's list does not offer. */

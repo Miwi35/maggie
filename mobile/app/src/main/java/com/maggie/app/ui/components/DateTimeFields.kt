@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
@@ -23,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -107,17 +109,31 @@ private fun PickerField(
     supportingText: String?,
     tag: String?,
     onClear: (() -> Unit)?,
+    filled: Boolean,
 ) {
     Box(modifier = modifier) {
-        OutlinedTextField(
-            value = text,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            isError = isError,
-            supportingText = supportingText?.let { { Text(it) } },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (filled) {
+            // The label is drawn above by the caller (LabeledField); only the semantics below carry it.
+            TextField(
+                value = text,
+                onValueChange = {},
+                readOnly = true,
+                isError = isError,
+                shape = RoundedCornerShape(FIELD_RADIUS),
+                colors = filledFieldColors(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            OutlinedTextField(
+                value = text,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(label) },
+                isError = isError,
+                supportingText = supportingText?.let { { Text(it) } },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -139,7 +155,8 @@ private fun PickerField(
  * A date, shown « mer. 8 oct. 2026 » and chosen in a calendar (Monday first, in French).
  * [onClear] makes the date optional: it adds a button that empties the field. [quickPicks]
  * puts « Demain » and « Après-demain » above the calendar (MAG-718): one touch picks the day
- * and closes it; anything else is chosen in the calendar.
+ * and closes it; anything else is chosen in the calendar. [filled] draws the field as the
+ * mock-ups' filled surface, without its label (a [LabeledField] above carries it).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -153,6 +170,7 @@ fun DateField(
     supportingText: String? = null,
     tag: String? = null,
     quickPicks: Boolean = false,
+    filled: Boolean = false,
 ) {
     var open by remember { mutableStateOf(false) }
 
@@ -165,6 +183,7 @@ fun DateField(
         supportingText = supportingText,
         tag = tag,
         onClear = onClear,
+        filled = filled,
     )
 
     if (open) {
@@ -236,6 +255,7 @@ fun TimeField(
     modifier: Modifier = Modifier,
     isError: Boolean = false,
     tag: String? = null,
+    filled: Boolean = false,
 ) {
     var open by remember { mutableStateOf(false) }
 
@@ -248,6 +268,7 @@ fun TimeField(
         supportingText = null,
         tag = tag,
         onClear = null,
+        filled = filled,
     )
 
     if (open) {
