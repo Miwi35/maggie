@@ -1047,6 +1047,7 @@ final class RecordedResponseContractTest extends WebTestCase
             parkingKnown: true,
             carLatitude: 38.7227,
             carLongitude: -9.14,
+            arriveAt: new \DateTimeImmutable('2026-03-15 10:00:00 UTC'),
         ), TripDecider::Maggie, new \DateTimeImmutable('2026-03-15 08:00:00 UTC')));
         $em->flush();
 

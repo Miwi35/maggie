@@ -6,6 +6,7 @@ namespace Maggie\Calendar\Service;
 
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\TripDecider;
+use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Exception\InvalidTripException;
 use Maggie\Calendar\Routing\RoutingException;
 use Maggie\Calendar\UseCase\SetTrip;
@@ -15,6 +16,7 @@ use Maggie\Calendar\UseCase\SetTrip;
  * the origin the user chose, kept. A `departAt` that moved by more than
  * {@see self::DEPART_TOLERANCE_MINUTES} is kept; a failed computation, or a trip that grew by more
  * than {@see self::DURATION_GROWTH_MINUTES}, is a choice for Maggie, since another mode may now be better.
+ * A return keeps the `departAt` the user fixed (MAG-734): only its duration and arrival are recomputed.
  */
 class TripRecheck
 {
@@ -33,7 +35,9 @@ class TripRecheck
         $decidedBy = $trip->getOriginDecidedBy();
 
         try {
-            $estimate = $this->planner->estimate($event, $trip->getMode(), $this->origin($trip), $trip->getArriveAt());
+            $estimate = TripLeg::Return === $trip->getLeg()
+                ? $this->planner->estimate($event, $trip->getMode(), TripOrigin::POSITION, null, TripLeg::Return, $trip->getDepartAt())
+                : $this->planner->estimate($event, $trip->getMode(), $this->origin($trip), $trip->getArriveAt());
         } catch (InvalidTripException|RoutingException) {
             return TripRecheckOutcome::NeedsChoice;
         }
@@ -42,7 +46,10 @@ class TripRecheck
             return TripRecheckOutcome::NeedsChoice;
         }
 
-        $moved = abs($estimate->departAt->getTimestamp() - $trip->getDepartAt()->getTimestamp());
+        // A return leaves when the user said: it is its arrival that slides.
+        $moved = TripLeg::Return === $trip->getLeg()
+            ? abs(($estimate->arriveAt?->getTimestamp() ?? 0) - ($trip->getArriveAt()?->getTimestamp() ?? 0))
+            : abs($estimate->departAt->getTimestamp() - $trip->getDepartAt()->getTimestamp());
         if ($moved <= self::DEPART_TOLERANCE_MINUTES * 60) {
             return TripRecheckOutcome::Unchanged;
         }

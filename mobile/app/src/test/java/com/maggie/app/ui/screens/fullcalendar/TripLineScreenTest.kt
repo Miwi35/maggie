@@ -52,11 +52,11 @@ class TripLineScreenTest {
         originLabel = origin,
     )
 
-    private fun show(trips: List<Trip>, now: Instant = morning, onGo: (Trip) -> Unit = {}) {
+    private fun show(trips: List<Trip>, now: Instant = morning, onGo: (Trip) -> Unit = {}, events: List<ExpandedEvent> = listOf(lunch, dentist)) {
         compose.setContent {
             DayTimelineView(
                 currentDate = day,
-                events = listOf(lunch, dentist),
+                events = events,
                 onNavigateForward = {},
                 onNavigateBackward = {},
                 trips = trips,
@@ -75,6 +75,22 @@ class TripLineScreenTest {
             "Dentiste" to compose.onNodeWithText("Dentiste"),
             "line" to compose.onNodeWithText("Partir à 13:34 · depuis la maison"),
         )
+    }
+
+    @Test
+    fun `the return of a whole-day stay reads Retour with its departure and arrival`() {
+        val stay = ExpandedEvent(
+            id = "stay",
+            summary = "Gîte du Pouldu",
+            allDay = true,
+            startDate = day.minusDays(2),
+            endDate = day.plusDays(1),
+        )
+        val back = trip("stay", "2026-06-15T11:00:00+02:00").copy(leg = "return", arriveAt = "2026-06-15T11:14:00+02:00", originLabel = "")
+
+        show(listOf(back), events = listOf(stay))
+
+        compose.onNodeWithText("Retour · Partir à 11:00 · arrivée 11:14").assertIsDisplayed()
     }
 
     @Test

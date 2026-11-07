@@ -9,6 +9,7 @@ REPLAN_SUMMARY = "Replanifier les trajets"
 QUESTION_SUMMARY_PREFIX = "Où pars-tu · "
 PARKING_SUMMARY_PREFIX = "Où se garer · "
 ARRIVAL_SUMMARY_PREFIX = "Arrivée · "
+RETURN_SUMMARY_PREFIX = "Retour · "
 
 # A departAt that moves by less than this is not worth a new set_trip.
 DEPART_TOLERANCE_MINUTES = 2
@@ -53,6 +54,7 @@ def planning_trips_rules(day: str) -> str:
         f"« {QUESTION_SUMMARY_PREFIX}<titre> ») : « Je repasse à la maison ou j'enchaîne ? » avec, pour chaque choix, "
         "l'heure de départ qu'il donne ; il peut répondre « Plus tard ». "
         f"{stay_rules(day)}"
+        f"{return_rules(day)}"
         "Ne repose pas de trajet qui existe déjà ; les vérifications avant le départ sont faites par l'API, "
         "ne programme aucun check."
     )
@@ -79,6 +81,28 @@ def stay_rules(day: str) -> str:
     )
 
 
+def return_rules(day: str) -> str:
+    """The way home at the end of a stay has no event at home to fix its hour: ask when the user leaves (MAG-734)."""
+    return (
+        "g) Retour de séjour. Un événement en journée entière (allDay) qui a un lieu et dont le dernier jour est "
+        f"{day} ou le lendemain n'a pas de trajet `return` (list_trips ne le montre pas avec leg=return) : "
+        "demande l'heure de départ du lieu, ne l'invente pas. Sans lieu, ne demande rien. "
+        "Sans maison connue (list_places n'en donne pas), ne pose pas la question : dis-le en une ligne dans "
+        "ton compte rendu (« Retour · <titre> : pas de maison connue »). "
+        f"Si une proaction « {RETURN_SUMMARY_PREFIX}<titre> » "
+        "existe déjà pour lui (list_proactions sur toute la durée du séjour, faite, annulée ou à venir), "
+        "ne la repose pas : l'utilisateur a déjà répondu, « Pas de trajet » compris. "
+        "Sinon pose avec schedule_proaction, non silencieuse, dans quelques minutes si le séjour finit "
+        f"{day}, ce soir s'il finit le lendemain, le résumé « {RETURN_SUMMARY_PREFIX}<titre> » et un prompt qui cite "
+        "l'id de l'événement : une interruption avec choix « À quelle heure repartez-vous de <lieu court> ? » "
+        "et les choix 10 h, 11 h, 12 h, « Autre heure », « Pas de trajet ». "
+        "Réponse : une heure → set_trip avec leg=return, departAt (ISO 8601, heure de Paris, le dernier jour) et "
+        "decidedBy=user, sans origine (le trajet part du lieu et rentre à la maison) ; le mode se choisit comme pour "
+        "un aller (estimate_trip avec leg=return et le même departAt d'abord) ; « Autre heure » → demande l'heure ; "
+        "« Pas de trajet » → n'enregistre rien. "
+    )
+
+
 def trip_run_rules() -> str:
     """The preamble of a replan, which replaces the execution preamble: no message for the chat."""
     return (
@@ -95,5 +119,7 @@ def trip_run_rules() -> str:
         "ou si le mode choisi n'est plus le meilleur, "
         "enregistre-le avec set_trip, et pour un trajet d'origine choisie par l'utilisateur avec la même origine et "
         "decidedBy=user (sans quoi son choix serait perdu) ; sinon ne touche à rien. "
+        "Un trajet de retour (leg=return) garde le departAt que l'utilisateur a fixé : l'API recalcule seule sa durée, "
+        "n'y touche pas. "
         "Ne demande pas de confirmation : agis directement."
     )

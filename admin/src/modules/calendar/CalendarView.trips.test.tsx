@@ -124,6 +124,25 @@ describe('CalendarView — trip line under the event', { timeout: 60_000 }, () =
     )
   })
 
+  test('the return of a whole-day stay shows under it, Retour before the hours', async () => {
+    const stay = {
+      ...event('01STAY', 'Gîte du Pouldu', at(0)),
+      allDay: true,
+      startDate: '2037-01-15',
+      endDate: '2037-01-16',
+      startAt: null,
+      endAt: null,
+    }
+    serve([stay], () => [
+      trip('01STAY', at(11), { leg: 'return', arriveAt: at(11, 14).toISOString(), steps: [] }),
+    ])
+    render(<CalendarView />)
+    await openDayView()
+
+    const line = await screen.findByText('Retour · Partir à 11:00 · arrivée 11:14')
+    expect(line.closest('.fc-event')).toHaveTextContent('Gîte du Pouldu')
+  })
+
   test('shows nothing for an event with no trip', async () => {
     serve([DENTIST], () => [])
     render(<CalendarView />)

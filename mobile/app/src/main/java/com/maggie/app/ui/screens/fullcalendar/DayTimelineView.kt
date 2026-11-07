@@ -49,7 +49,7 @@ fun DayTimelineView(
 
     // Read when the day is drawn or its trips change: the « Parti à » switch is not a ticking clock.
     val now = remember(trips) { clock() }
-    val tripByEvent = remember(trips) { trips.associateBy { it.eventId } }
+    val tripsByEvent = remember(trips) { trips.groupBy { it.eventId } }
     val nextTripId = remember(trips, now) {
         trips.filter { it.departInstant?.isAfter(now) == true }.minByOrNull { it.departInstant!! }?.id
     }
@@ -80,6 +80,20 @@ fun DayTimelineView(
             tag = UiTags.calendarAllDay(currentDate),
             onEventClick = onEventClick,
         )
+
+        // The return of a stay: its day has no hour to hang the line on, so it sits under the all-day row.
+        allDayEvents.forEach { event ->
+            tripsByEvent[event.id].orEmpty().filter { it.isReturn }.forEach { trip ->
+                TripLine(
+                    trip = trip,
+                    now = now,
+                    zone = zone,
+                    isNext = trip.id == nextTripId,
+                    modifier = Modifier.padding(horizontal = HOUR_LABEL_WIDTH),
+                    onGo = { onTripGo(trip) },
+                )
+            }
+        }
 
         if (allDayEvents.isNotEmpty()) {
             HorizontalDivider()
@@ -115,18 +129,19 @@ fun DayTimelineView(
 
                 // The trip line sits under the event it leads to
                 timedEvents.forEach { event ->
-                    val trip = tripByEvent[event.id] ?: return@forEach
                     val (topOffset, height) = calculateEventPosition(event, currentDate, zone)
-                    TripLine(
-                        trip = trip,
-                        now = now,
-                        zone = zone,
-                        isNext = trip.id == nextTripId,
-                        modifier = Modifier
-                            .offset(y = topOffset + height.coerceAtLeast(20.dp))
-                            .padding(horizontal = 4.dp),
-                        onGo = { onTripGo(trip) },
-                    )
+                    tripsByEvent[event.id].orEmpty().forEach { trip ->
+                        TripLine(
+                            trip = trip,
+                            now = now,
+                            zone = zone,
+                            isNext = trip.id == nextTripId,
+                            modifier = Modifier
+                                .offset(y = topOffset + height.coerceAtLeast(20.dp))
+                                .padding(horizontal = 4.dp),
+                            onGo = { onTripGo(trip) },
+                        )
+                    }
                 }
 
                 // Now indicator

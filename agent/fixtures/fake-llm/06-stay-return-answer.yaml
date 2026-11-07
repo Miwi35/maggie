@@ -1,0 +1,17 @@
+# The answer « 11 h » to the question « À quelle heure repartez-vous… » (MAG-734): the return is
+# estimated then kept with leg=return and departAt. The event id is the one the question's prompt carried.
+name: stay-return-answer
+description: 11 h answers the return question, the trip is kept with leg=return, departAt and decidedBy=user.
+
+match:
+  user_matches: "^11 ?h"
+  history_matches: 'À quelle heure repartez-vous.*événement ([0-9A-HJKMNP-TV-Z]{26})'
+
+turns:
+  - tools:
+      - name: estimate_trip
+        input: {eventId: '\1', modes: [drive, transit], leg: return, departAt: "${tomorrow}T11:00:00+01:00"}
+  - tools:
+      - name: set_trip
+        input: {eventId: '\1', mode: drive, leg: return, decidedBy: user, departAt: "${tomorrow}T11:00:00+01:00"}
+  - text: "C'est noté : retour à 11 h."

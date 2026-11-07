@@ -10,6 +10,7 @@ use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\EventStatus;
+use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Time\DayBound;
@@ -71,7 +72,8 @@ class EventRepository extends ServiceEntityRepository
             ->andWhere('e.rrule IS NULL')
             ->andWhere('e.startAt >= :from AND e.startAt < :to')
             ->andWhere("e.location IS NOT NULL AND e.location != ''")
-            ->andWhere('NOT EXISTS (SELECT t.id FROM '.Trip::class.' t WHERE t.event = e)')
+            ->andWhere('NOT EXISTS (SELECT t.id FROM '.Trip::class.' t WHERE t.event = e AND t.leg = :outbound)')
+            ->setParameter('outbound', TripLeg::Outbound)
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('cancelled', EventStatus::Cancelled)
             ->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)

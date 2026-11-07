@@ -20,6 +20,8 @@ interface Trip {
   originKind: string
   originLabel: string
   originDecidedBy: string
+  leg?: string
+  arriveAt?: string | null
 }
 
 const HOME = { latitude: 48.11, longitude: -1.68 }
@@ -69,6 +71,46 @@ test('the trip Maggie keeps is listed on its day, and goes with its event', asyn
   expect(after.status()).toBe(200)
   const left = ((await after.json()) as { member: Trip[] }).member
   expect(left.map((candidate) => candidate.id)).not.toContain(trip!.id)
+})
+
+/**
+ * MAG-734: the return of a stay. The user fixes the hour (« 11 h »), the trip goes from the stay's
+ * place to the home and `/api/trips` — which the phone and the admin read — lists it as a `return`
+ * with its departure and arrival.
+ */
+test('the return of a whole-day stay leaves at the hour the user chose and is listed as a return', async ({ api }) => {
+  const day = parisDay()
+  const lastDay = parisDay(new Date(e2eNow().getTime() + 86_400_000))
+  const created = await callMcpTool(api, 'create_event', {
+    title: 'Gîte du Pouldu',
+    all_day: true,
+    start_date: day,
+    end_date: lastDay,
+    location: '5 allée du Sourire Fictif, 35000 Rennes',
+  })
+  expect(created.error, JSON.stringify(created)).toBeUndefined()
+  const eventId = (created.event as { id: string }).id
+
+  const kept = await callMcpTool(api, 'set_trip', {
+    eventId,
+    mode: 'drive',
+    leg: 'return',
+    departAt: parisTime(day, '11:00:00'),
+    decidedBy: 'user',
+  })
+  expect(kept.error, JSON.stringify(kept)).toBeUndefined()
+
+  const listed = await api.get(`/api/trips?date=${day}`, { headers: { Accept: 'application/ld+json' } })
+  expect(listed.status()).toBe(200)
+  const trips = ((await listed.json()) as { member: Trip[] }).member
+  const trip = trips.find((candidate) => candidate.event === `/api/events/${eventId}`)
+  expect(trip, JSON.stringify(trips)).toBeDefined()
+  expect(trip!.leg).toBe('return')
+  expect(new Date(trip!.departAt).getTime()).toBe(new Date(parisTime(day, '11:00:00')).getTime())
+  expect(new Date(trip!.arriveAt!).getTime()).toBe(new Date(trip!.departAt).getTime() + trip!.durationMinutes * 60_000)
+  expect(trip!.originDecidedBy).toBe('user')
+
+  expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
 
 test('a day that is not a day is refused', async ({ api }) => {

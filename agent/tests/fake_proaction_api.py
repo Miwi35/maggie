@@ -140,16 +140,18 @@ class FakeProactionApi:
         if event is None:
             return {"error": f"no event of yours has the id {arguments.get('eventId')}.", "field": "eventId"}
         day = event["startDate"][:10]
+        leg = arguments.get("leg", "outbound")
         trip = {
             "eventId": event["id"],
+            "leg": leg,
             "mode": arguments["mode"],
-            "origin": {"kind": arguments["origin"]},
+            "origin": {"kind": arguments.get("origin", "event")},
             "originDecidedBy": arguments.get("decidedBy", "maggie"),
-            "departAt": f"{day}T{self.depart_at[arguments['mode']]}:00+01:00",
+            "departAt": arguments.get("departAt") or f"{day}T{self.depart_at[arguments['mode']]}:00+01:00",
         }
         if arguments.get("arriveAt"):
             trip["arriveAt"] = arguments["arriveAt"]
-        self.trips[event["id"]] = trip
+        self.trips[event["id"] if leg == "outbound" else f"{event['id']}:{leg}"] = trip
         return {"success": True, "trip": trip}
 
     def _list_trips(self, arguments: dict, user_id: str | None) -> dict:

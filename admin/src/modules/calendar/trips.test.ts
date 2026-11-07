@@ -35,8 +35,24 @@ test('stepIcon: a pictogram per kind, a pin for the unknown', () => {
 test('tripsByEvent: indexes by the event IRI', () => {
   const byEvent = tripsByEvent([trip(), trip({ id: 't2', event: '/api/events/e2' })])
 
-  expect(byEvent.get('/api/events/e2')?.id).toBe('t2')
+  expect(byEvent.get('/api/events/e2')?.[0].id).toBe('t2')
   expect(byEvent.get('/api/events/e3')).toBeUndefined()
+})
+
+test('tripsByEvent: an outbound and a return of one event are both kept', () => {
+  const byEvent = tripsByEvent([trip(), trip({ id: 't2', leg: 'return' })])
+
+  expect(byEvent.get('/api/events/e1')?.map((t) => t.id)).toEqual(['t1', 't2'])
+})
+
+test('departureText: a return reads Retour with its departure and arrival', () => {
+  const depart = new Date(2026, 10, 2, 11, 0)
+  const arrive = new Date(2026, 10, 2, 11, 14)
+
+  expect(departureText(trip({ leg: 'return', departAt: depart.toISOString(), arriveAt: arrive.toISOString() }))).toBe(
+    'Retour · Partir à 11:00 · arrivée 11:14',
+  )
+  expect(departureText(trip({ leg: 'return', departAt: depart.toISOString() }))).toBe('Retour · Partir à 11:00')
 })
 
 test.each([
