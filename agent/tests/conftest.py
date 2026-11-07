@@ -264,6 +264,40 @@ def no_journal_write(request):
         yield
 
 
+@pytest.fixture(autouse=True)
+def no_provider_state_write(request):
+    """Keep the provider status (MAG-727) off the database in tests that call the model for something else."""
+    if "provider_db" in request.fixturenames:
+        yield
+        return
+    with (
+        patch("app.db.provider_state_repository.provider_state_repo.mark_down", AsyncMock()),
+        patch("app.db.provider_state_repository.provider_state_repo.mark_ok", AsyncMock()),
+    ):
+        yield
+
+
+@pytest.fixture()
+def provider_db():
+    """In-memory database behind the provider status repository (real queries, no mocks)."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.db.provider_state_model import ProviderState
+
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    ProviderState.__table__.create(engine)
+    factory = sessionmaker(engine, expire_on_commit=False)
+
+    def open_session():
+        return _SyncSessionAsAsync(factory())
+
+    with patch("app.db.provider_state_repository.agent_session", open_session):
+        yield factory
+    engine.dispose()
+
+
 @pytest.fixture()
 def journal_db():
     """In-memory database behind the journal repository (real queries, no mocks)."""

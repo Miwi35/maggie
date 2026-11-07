@@ -418,6 +418,11 @@ web:
     areas: [realtime, grocery, cookbook, finance]
   e2e/web/tests/home.spec.ts:
     areas: [dashboard]
+  e2e/web/tests/provider-banner.spec.ts:
+    areas: [dashboard]
+    paths:
+      - 'admin/src/components/layout/ProviderBanner.tsx'
+      - 'agent/app/llm/provider_status.py'
   e2e/web/tests/home-tasks.spec.ts:
     areas: [dashboard, calendar]
     paths: [api/fixtures/e2e/64-home-tasks.yaml]

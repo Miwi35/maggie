@@ -64,6 +64,8 @@ import com.maggie.app.data.repository.AgendaRepository
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.CalendarCacheFeed
 import com.maggie.app.data.repository.ChatUnreadRepository
+import com.maggie.app.data.repository.ProviderStatusRepository
+import com.maggie.app.ui.components.ProviderStatusViewModel
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.GroceryCardRepository
@@ -384,6 +386,7 @@ class MaggieApp : Application() {
             single { TaskRepository(get(), get()) }
             single { RoutineRepository(get()) }
             single { ChatUnreadRepository(get(), get(), get()) }
+            single { ProviderStatusRepository(get()) }
             single { ChatRepository(get(), get()) }
             single { ApprovalRepository(get(), get(), get()) }
             single { AgendaRepository(get(), get()) }
@@ -449,6 +452,7 @@ class MaggieApp : Application() {
             // ViewModels
             viewModel { LoginViewModel(get()) }
             viewModel { HomeViewModel() }
+            viewModel { ProviderStatusViewModel(get()) }
             viewModel { DrawerSummaryViewModel(get(), get(), get(), get(), get()) }
             viewModel { GroceryHomeViewModel(get()) }
             viewModel { TasksCardViewModel(get(), get(), get()) }

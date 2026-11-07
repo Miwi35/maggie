@@ -29,6 +29,7 @@ from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
+from app.db.provider_state_repository import provider_state_repo
 from app.db.style_proposal_model import StyleProposalStatus
 from app.db.style_proposal_repository import style_proposal_repo
 from app.db.user_data import purge_user_data
@@ -175,6 +176,18 @@ class SkillUpdate(BaseModel):
 @router.get("/health")
 async def health():
     return {"status": "ok", "service": "maggie-agent-hub"}
+
+
+class ProviderStatusResponse(BaseModel):
+    status: Literal["ok", "credit", "auth"]
+    since: datetime | None = None
+
+
+@router.get("/provider-status", response_model=ProviderStatusResponse)
+async def provider_status(user_id: str = Depends(get_current_user_id)):
+    """Whether Maggie can reach the model: the banner of the apps reads this (MAG-727). Global to the account."""
+    status, since = await provider_state_repo.get()
+    return ProviderStatusResponse(status=status, since=since)
 
 
 # The `/chat` calls being answered, by user and normalized text: a repeat of one shares its
