@@ -1,6 +1,6 @@
 import { getToken } from '../../auth/session'
 import { daysBetween, parseDay } from '../../dates'
-import type { TaskData } from './TaskEditDialog'
+import type { TaskData } from './TaskFormDialog'
 
 export const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost/api').replace(/\/$/, '')
 
@@ -127,21 +127,6 @@ export async function setTaskDone(id: string, done: boolean): Promise<void> {
   if (!response.ok) {
     throw new Error(`Tâche : ${response.status}`)
   }
-}
-
-/** Creates a task from its title, and its due day (`YYYY-MM-DD`) when it has one; resolves to its id. */
-export async function createTask(title: string, dueDate?: string): Promise<string> {
-  const response = await fetch(`${apiUrl}/tasks`, {
-    method: 'POST',
-    headers: headers({ 'Content-Type': 'application/ld+json' }),
-    body: JSON.stringify({ title, ...(dueDate ? { dueDate } : {}) }),
-  })
-  if (!response.ok) {
-    throw new Error(`Tâche : ${response.status}`)
-  }
-  const body = (await response.json().catch(() => ({}))) as { id?: string }
-
-  return String(body.id ?? '')
 }
 
 /** The whole task, as the edit form wants it — the day only carries what it draws. */

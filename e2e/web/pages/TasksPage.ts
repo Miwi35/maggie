@@ -30,8 +30,10 @@ export class TasksPage extends AdminShell {
   readonly heading: Locator
   /** « Tâches · jeudi 15 octobre », above the list. */
   readonly title: Locator
-  /** « Ajouter une tâche »: « Appeler le garage demain » creates a task due tomorrow (MAG-644). */
-  readonly quickAdd: Locator
+  /** « + Nouvelle tâche », above the list: opens the form in creation (MAG-723). */
+  readonly newTask: Locator
+  /** The form of a task, « Nouvelle tâche » or « Modifier la tâche » (MAG-723). */
+  readonly form: Locator
   /** « Routines », the link to the routines from the page's header. */
   readonly routinesLink: Locator
   /** The sheet of a task, a 420 px panel beside the list (MAG-644). */
@@ -84,7 +86,8 @@ export class TasksPage extends AdminShell {
     super(page)
     this.heading = this.content.getByRole('heading', { level: 1 })
     this.title = this.content.getByText(/^Tâches · /)
-    this.quickAdd = this.content.getByRole('textbox', { name: 'Ajouter une tâche' })
+    this.newTask = this.content.getByRole('button', { name: '+ Nouvelle tâche', exact: true })
+    this.form = page.getByRole('dialog', { name: /^(Nouvelle tâche|Modifier la tâche)$/ })
     this.routinesLink = this.content.getByRole('link', { name: 'Routines', exact: true })
     this.sheet = page.getByRole('complementary', { name: 'Fiche de la tâche' })
     this.now = this.content.getByRole('region', { name: 'Maintenant' })

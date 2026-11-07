@@ -390,7 +390,7 @@ export class CalendarPage extends AdminShell {
     await dialog.getByLabel(/Titre/).fill(task.title)
 
     if (task.criticality) {
-      await this.choose(dialog, 'Criticité', task.criticality)
+      await dialog.getByRole('group', { name: 'Criticité' }).getByRole('button', { name: task.criticality, exact: true }).click()
     }
 
     if (task.dueDate) {
