@@ -73,6 +73,10 @@ class DailyBalanceApiTest extends WebTestCase
             'proteinG' => 20.0,
             'carbsG' => 50.0,
             'fatG' => 25.0,
+            'plannedMeals' => [
+                ['mealId' => (string) $this->getFixture('lunch_5')->getId(), 'slot' => 'lunch', 'label' => 'Bol du midi', 'kcal' => 515, 'proteinG' => 20.0, 'carbsG' => 50.0, 'fatG' => 25.0],
+                ['mealId' => (string) $this->getFixture('dinner_5')->getId(), 'slot' => 'dinner', 'label' => 'Plat mystère', 'kcal' => null, 'proteinG' => 0.0, 'carbsG' => 0.0, 'fatG' => 0.0],
+            ],
         ], $this->get('?date=2026-11-05'));
         self::assertResponseIsSuccessful();
     }
@@ -99,5 +103,6 @@ class DailyBalanceApiTest extends WebTestCase
         self::assertSame(['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07'], array_column($days, 'date'));
         self::assertSame([0, 0, 0, 78, 0, 0, 0], array_column($days, 'eatenKcal'));
         self::assertSame(515, $days[4]['plannedKcal']);
+        self::assertArrayNotHasKey('plannedMeals', $days[4]);
     }
 }

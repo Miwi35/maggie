@@ -40,7 +40,7 @@ final class FoodIntakeJson
         return array_map(self::of(...), $intakes);
     }
 
-    /** @return array<string, mixed> */
+    /** @return array{mealId: string, slot: string, label: string, kcal: ?int, proteinG: float, carbsG: float, fatG: float} */
     public static function planned(MealPortion $meal): array
     {
         return [

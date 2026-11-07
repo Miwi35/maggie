@@ -188,6 +188,7 @@ class FoodIntakeApiTest extends WebTestCase
         $after = $this->balance();
         self::assertSame(0, $after['plannedKcal']);
         self::assertSame(515, $after['eatenKcal']);
+        self::assertSame([$this->id('dinner_5')], array_column($after['plannedMeals'], 'mealId'));
     }
 
     public function testEatingTheSameMealTwiceIsRefusedWithoutASecondIntake(): void

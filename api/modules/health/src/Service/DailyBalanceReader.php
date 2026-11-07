@@ -29,7 +29,10 @@ final class DailyBalanceReader
     }
 
     /**
-     * @return array{date: string, eatenKcal: int, plannedKcal: int, expendedKcal: ?int, balanceKcal: ?int, proteinG: float, carbsG: float, fatG: float}
+     * The day's balance and the planned meals it counts, each with what « Mangé » would copy:
+     * the journal's « Mangé » rows, so that no client recomputes a recipe.
+     *
+     * @return array{date: string, eatenKcal: int, plannedKcal: int, expendedKcal: ?int, balanceKcal: ?int, proteinG: float, carbsG: float, fatG: float, plannedMeals: list<array{mealId: string, slot: string, label: string, kcal: ?int, proteinG: float, carbsG: float, fatG: float}>}
      *
      * @throws \InvalidArgumentException naming the parameter, for the caller to refuse
      */
@@ -37,7 +40,17 @@ final class DailyBalanceReader
     {
         DailyEnergyReader::day('date', $date);
 
-        return $this->range($user, $date, $date)[0];
+        return $this->range($user, $date, $date)[0] + [
+            'plannedMeals' => array_map(static fn (MealPortion $meal): array => [
+                'mealId' => $meal->mealId,
+                'slot' => $meal->slot,
+                'label' => $meal->label,
+                'kcal' => $meal->kcal,
+                'proteinG' => $meal->proteinG,
+                'carbsG' => $meal->carbsG,
+                'fatG' => $meal->fatG,
+            ], $this->plannedMeals($user, $date)),
+        ];
     }
 
     /**

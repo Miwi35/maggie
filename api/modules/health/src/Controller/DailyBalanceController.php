@@ -14,8 +14,9 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * The day's calorie balance (MAG-748): `GET /api/health/daily-balance?date=`
- * for one day, or `?from=&to=` for `{days: [...]}`, at most 31 — the seven
- * days' bars of Santé › Nutrition.
+ * for one day, with the planned meals not eaten yet (`plannedMeals`, the
+ * journal's « Mangé » rows), or `?from=&to=` for `{days: [...]}`, at most 31,
+ * without them — the seven days' bars of Santé › Nutrition.
  */
 final class DailyBalanceController
 {
