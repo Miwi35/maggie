@@ -106,6 +106,38 @@ class SaveBilanStepToolTest extends KernelTestCase
         self::assertSame($instructions, $state['instructions']);
     }
 
+    public function testMovingOnWithoutAnyAnswerYetStillWrites(): void
+    {
+        $this->loginUser($this->getFixture('test_user'));
+        $this->call('2026-10-25', 'journee');
+
+        $result = $this->call('2026-10-25', 'finance');
+
+        self::assertTrue($result['success'], json_encode($result));
+        self::assertSame('finance', json_decode($this->stored()->getState(), true)['step']);
+    }
+
+    public function testEmptyAnswersSentByTheModelAreAnEmptyObject(): void
+    {
+        $this->loginUser($this->getFixture('test_user'));
+
+        $result = $this->call('2026-10-25', 'finance', []);
+
+        self::assertTrue($result['success'], json_encode($result));
+        self::assertSame('finance', json_decode($this->stored()->getState(), true)['step']);
+    }
+
+    public function testAListOfTasksSentAsAnswersIsReadAsTheTaskAnswers(): void
+    {
+        $this->loginUser($this->getFixture('test_user'));
+        $tasks = [['taskId' => 't1', 'choice' => 'done']];
+
+        $result = $this->call('2026-10-25', 'finance', $tasks);
+
+        self::assertTrue($result['success'], json_encode($result));
+        self::assertSame(['tasks' => $tasks], json_decode($this->stored()->getState(), true)['answers']);
+    }
+
     public function testANewDayStartsFromNothing(): void
     {
         $this->loginUser($this->getFixture('test_user'));
