@@ -8,9 +8,14 @@ tags:
 # Étant donné un compte neuf et ses pesées créées par l'API
 # Quand j'ouvre Santé › Suivi et je choisis 30 j
 # Alors la carte Poids affiche les pesées : aujourd'hui 71,8 kg et 21,3 % de masse grasse
+# Et, avec un jour de Health Connect (8 000 pas, 400 kcal actives, MAG-746), la carte Pas affiche 8 000
+# et la carte Énergie empile base · pas · séances, son total étant celui de l'API
 #
 # A new user, so the only weighings are the three `scripts/body-measurements-api.js` writes:
 # 72,9 kg five days ago, 72,4 kg two days ago, 71,8 kg today (TODAY, the stack's day).
+#
+# The Health Connect day is pushed by `scripts/health-energy-api.js` (the e2e flavor has no
+# Health Connect), with a profile complete enough for a basal metabolism.
 #
 # What is not here: the trend's arithmetic, the 90 j and 1 an buckets, the labels and the axis
 # (`WeightChartTest`), the column tapped, « Écarter », the Mercure refresh, the tablet's layout
@@ -21,6 +26,12 @@ tags:
 
 - runScript:
     file: ../scripts/body-measurements-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      TODAY: ${TODAY}
+
+- runScript:
+    file: ../scripts/health-energy-api.js
     env:
       EMAIL: ${output.journeyEmail}
       TODAY: ${TODAY}
@@ -61,3 +72,30 @@ tags:
     timeout: 10000
 - assertVisible: "71,8 kg"
 - assertVisible: ".*21,3 % MG.*"
+
+# Pas: today's 8 000 steps, the figure of the day chosen.
+- scrollUntilVisible:
+    element:
+      id: "steps_card"
+- extendedWaitUntil:
+    visible:
+      id: "steps_value"
+      text: "8 000"
+    timeout: 10000
+
+# Énergie: base · pas · séances, no session today; the total is the API's, a figure and not a dash.
+- scrollUntilVisible:
+    element:
+      id: "energy_card"
+- scrollUntilVisible:
+    element:
+      id: "energy_workouts"
+# The legend's id sits on a merged node whose text Maestro reads on its child: match the text.
+- extendedWaitUntil:
+    visible: "Base [0-9 ]+"
+    timeout: 10000
+- assertVisible: "Pas [0-9 ]+"
+- assertVisible: "Séances 0"
+- assertVisible:
+    id: "energy_total"
+    text: "[0-9 ]+ kcal"

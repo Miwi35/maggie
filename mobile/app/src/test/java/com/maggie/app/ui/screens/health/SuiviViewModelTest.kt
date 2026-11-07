@@ -5,7 +5,9 @@ import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.BodyMeasurement
+import com.maggie.app.data.model.DailyEnergy
 import com.maggie.app.data.repository.BodyMeasurementRepository
+import com.maggie.app.data.repository.DailyEnergyRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -36,6 +38,7 @@ class SuiviViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private val repository = mockk<BodyMeasurementRepository>()
+    private val energyRepository = mockk<DailyEnergyRepository>()
     private val authRepository = mockk<AuthRepository>()
     private val mercureService = mockk<MercureService>()
     private val pushes = MutableSharedFlow<MercureEvent>()
@@ -44,10 +47,13 @@ class SuiviViewModelTest {
     private val today = BodyMeasurement("today", "2026-10-21T07:12:00+02:00", weightKg = 72.4, bodyFatPercent = 21.3)
     private val monday = BodyMeasurement("monday", "2026-10-19T07:05:00+02:00", weightKg = 72.8)
 
+    private val energyDay = DailyEnergy("2026-10-21", steps = 8000, activeKcal = 400, bmrKcal = 1648, workoutKcal = 0, stepsKcal = 14, expendedKcal = 1662)
+
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         coEvery { repository.getBodyMeasurements(any()) } returns Result.success(listOf(today, monday))
+        coEvery { energyRepository.getDailyEnergy(any(), any()) } returns Result.success(listOf(energyDay))
         coEvery { authRepository.getUserId() } returns "user-1"
         every { mercureService.subscribe(any()) } returns pushes
     }
@@ -57,7 +63,7 @@ class SuiviViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = SuiviViewModel(repository, mercureService, authRepository, clock)
+    private fun viewModel() = SuiviViewModel(repository, energyRepository, mercureService, authRepository, clock)
 
     @Test
     fun `loading, then the weighings of the last year, 30 days shown`() = runTest {
@@ -151,5 +157,91 @@ class SuiviViewModelTest {
 
         assertFalse(viewModel.uiState.value.measurements.first { it.id == "today" }.excluded)
         assertEquals(SuiviViewModel.MESSAGE_EXCLUDE, viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `the energy is read once for the last 365 days, today included`() = runTest {
+        val viewModel = viewModel()
+        assertFalse(viewModel.uiState.value.energyLoaded)
+
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.energyLoaded)
+        assertFalse(state.energyFailed)
+        assertEquals(listOf(energyDay), state.energy)
+        coVerify(exactly = 1) { energyRepository.getDailyEnergy("2025-10-22", "2026-10-21") }
+    }
+
+    @Test
+    fun `an energy that cannot be read is flagged and leaves the weighings alone`() = runTest {
+        coEvery { energyRepository.getDailyEnergy(any(), any()) } returns Result.failure(RuntimeException("offline"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.energyFailed)
+        assertFalse(viewModel.uiState.value.energyLoaded)
+        assertTrue(viewModel.uiState.value.hasLoaded)
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a retry that succeeds clears the energy failure`() = runTest {
+        coEvery { energyRepository.getDailyEnergy(any(), any()) } returns Result.failure(RuntimeException("offline"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        coEvery { energyRepository.getDailyEnergy(any(), any()) } returns Result.success(listOf(energyDay))
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.energyLoaded)
+        assertFalse(viewModel.uiState.value.energyFailed)
+    }
+
+    @Test
+    fun `a period change asks nothing of the energy API and resets the day`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectDay(java.time.LocalDate.parse("2026-10-19"))
+
+        viewModel.selectPeriod(SuiviPeriod.QUARTER)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.selectedDate)
+        coVerify(exactly = 1) { energyRepository.getDailyEnergy(any(), any()) }
+    }
+
+    @Test
+    fun `a day tapped on the energy cards chooses that day and its Poids column`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectDay(java.time.LocalDate.parse("2026-10-19"))
+
+        assertEquals(java.time.LocalDate.parse("2026-10-19"), viewModel.uiState.value.selectedDate)
+        assertEquals(27, viewModel.uiState.value.selectedIndex)
+    }
+
+    @Test
+    fun `a Poids column of one day chooses that day for the energy cards`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectColumn(27)
+
+        assertEquals(java.time.LocalDate.parse("2026-10-19"), viewModel.uiState.value.selectedDate)
+    }
+
+    @Test
+    fun `a day tapped over a 90 day period has no Poids column to follow it`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectPeriod(SuiviPeriod.QUARTER)
+
+        viewModel.selectDay(java.time.LocalDate.parse("2026-10-19"))
+
+        assertEquals(java.time.LocalDate.parse("2026-10-19"), viewModel.uiState.value.selectedDate)
+        assertNull(viewModel.uiState.value.selectedIndex)
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Health\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Health\Entity\Workout;
@@ -64,5 +65,24 @@ class WorkoutRepository extends ServiceEntityRepository
     public function findOneByExternalId(User|string $user, string $externalId): ?Workout
     {
         return $this->findOneBy(['user' => $user, 'externalId' => $externalId]);
+    }
+
+    /**
+     * The sessions done (not planned) that started from $from included to
+     * $before excluded, each bound read as an instant.
+     *
+     * @return list<Workout>
+     */
+    public function findDoneInRange(User $user, \DateTimeImmutable $from, \DateTimeImmutable $before): array
+    {
+        /* @var list<Workout> */
+        return $this->createQueryBuilder('w')
+            ->andWhere('w.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('w.source != :planned')->setParameter('planned', WorkoutSource::Planned)
+            ->andWhere('w.startedAt >= :from')->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
+            ->andWhere('w.startedAt < :before')->setParameter('before', $before, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('w.startedAt', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 }

@@ -33,6 +33,42 @@ const OLDER = measurement('01OLD', at(10, 15), 73.0, null)
 // Before the 30 days: read for the trend of the first column, not listed.
 const EARLY = measurement('01EARLY', at(9, 20), 74.0, null)
 
+const ENERGY_ROW = (date: string, over: Record<string, unknown> = {}) => ({
+  date,
+  steps: null,
+  activeKcal: null,
+  bmrKcal: 1700,
+  workoutKcal: 0,
+  stepsKcal: null,
+  expendedKcal: 1700,
+  ...over,
+})
+
+/** The daily energy of the range asked: one row per day, today with 8 000 steps. */
+function stubEnergy(options: { fail?: boolean; withSteps?: boolean } = {}) {
+  const { fail = false, withSteps = true } = options
+  const fetcher = vi.fn((url: string) => {
+    if (fail) return Promise.resolve(new Response('{}', { status: 500 }))
+    const { searchParams } = new URL(url, 'http://localhost')
+    const from = searchParams.get('from') ?? ''
+    const to = searchParams.get('to') ?? ''
+    const rows = []
+    for (let d = new Date(`${from}T12:00:00Z`); d <= new Date(`${to}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
+      const date = d.toISOString().slice(0, 10)
+      rows.push(
+        date === to && withSteps
+          ? ENERGY_ROW(date, { steps: 8000, activeKcal: 400, stepsKcal: 250, expendedKcal: 1950 })
+          : ENERGY_ROW(date),
+      )
+    }
+
+    return Promise.resolve(new Response(JSON.stringify(rows), { status: 200 }))
+  })
+  vi.stubGlobal('fetch', fetcher)
+
+  return fetcher
+}
+
 function renderPage(listed: unknown[] = [TODAY, YESTERDAY, EXCLUDED, OLDER, EARLY], overrides: Partial<DataProvider> = {}) {
   const getList = vi.fn(() => Promise.resolve({ data: listed, total: listed.length }))
   const update = vi.fn((_resource: string, params: { data: Record<string, unknown>; previousData: Record<string, unknown> }) =>
@@ -64,8 +100,12 @@ describe('SuiviPage', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 9, 21, 15, 0))
+    stubEnergy()
   })
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
 
   test('the period is a radiogroup, 30 j checked, and reads from six days before the period, 1 000 at most', async () => {
     const user = userEvent.setup()
@@ -193,5 +233,54 @@ describe('SuiviPage', () => {
     renderPage([], { getList: (() => Promise.reject(new Error('boom'))) as unknown as DataProvider['getList'] })
 
     expect(await screen.findByText('Erreur : les pesées n’ont pas pu être chargées.')).toBeInTheDocument()
+  })
+
+  test('the Pas and Énergie cards read the period ending today, and read again when it changes', async () => {
+    const user = userEvent.setup()
+    const fetcher = stubEnergy()
+    renderPage()
+
+    const steps = await screen.findByRole('region', { name: 'Pas' })
+    await waitFor(() => expect(within(steps).getAllByTestId('steps-bar')).toHaveLength(30))
+    expect(String(fetcher.mock.calls.at(-1)?.[0])).toBe('/api/health/daily-energy?from=2026-09-22&to=2026-10-21')
+    expect(within(steps).getByTestId('steps-value')).toHaveTextContent('8 000')
+
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Période' })).getByRole('radio', { name: '7 j' }))
+    await waitFor(() => expect(within(steps).getAllByTestId('steps-bar')).toHaveLength(7))
+    expect(String(fetcher.mock.calls.at(-1)?.[0])).toBe('/api/health/daily-energy?from=2026-10-15&to=2026-10-21')
+  })
+
+  test('picking a day updates both cards; changing the period resets it', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const steps = await screen.findByRole('region', { name: 'Pas' })
+    const energy = screen.getByRole('region', { name: 'Énergie' })
+    await waitFor(() => expect(within(energy).getByTestId('energy-total')).toHaveTextContent('1 950 kcal'))
+    expect(within(energy).getByTestId('energy-detail')).toHaveTextContent('base 1 700 kcal · pas 250 kcal · séances 0 kcal')
+
+    await user.click(await within(steps).findByRole('button', { name: 'mar. 20 oct. : pas de donnée' }))
+    expect(within(steps).getByTestId('steps-label')).toHaveTextContent('mar. 20 oct.')
+    expect(within(steps).getByTestId('steps-value')).toHaveTextContent('—')
+    expect(within(energy).getByTestId('energy-label')).toHaveTextContent('mar. 20 oct.')
+    expect(within(energy).getByTestId('energy-total')).toHaveTextContent('1 700 kcal')
+
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Période' })).getByRole('radio', { name: '90 j' }))
+    await waitFor(() => expect(within(steps).getByTestId('steps-label')).toHaveTextContent('Moyenne par jour'))
+  })
+
+  test('the Pas card is sober when no day has steps', async () => {
+    stubEnergy({ withSteps: false })
+    renderPage()
+
+    expect(await screen.findByText('Aucune donnée de pas')).toBeInTheDocument()
+  })
+
+  test('says in French when the energy cannot be read', async () => {
+    stubEnergy({ fail: true })
+    renderPage()
+
+    expect(await screen.findByText('Erreur : l’énergie n’a pas pu être chargée.')).toBeInTheDocument()
+    expect(screen.getByText('Erreur : les pas n’ont pas pu être chargés.')).toBeInTheDocument()
   })
 })

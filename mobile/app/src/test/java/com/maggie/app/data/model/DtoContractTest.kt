@@ -880,6 +880,20 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the daily energy deserialises from the recorded response (MAG-746)`() {
+        val file = File(repositoryRoot(), "api/contract/responses/health_daily_energy.read.json")
+        assertTrue("The recording ${file.absolutePath} is missing: UPDATE_CONTRACT=1 task wt:test:api -- --testsuite Contract", file.isFile)
+        val rows = Json.parseToJsonElement(file.readText()).jsonArray
+        val days = rows.map { json.decodeFromJsonElement(serializer<DailyEnergy>(), it) }
+
+        assertDeclaredFieldsExist("DailyEnergy", serializer<DailyEnergy>(), rows.flatMap { it.jsonObject.keys }.toSet(), "health_daily_energy.read")
+        assertEquals(8000, days.first().steps)
+        assertEquals(2052, days.first().expendedKcal)
+        assertNull(days.last().steps)
+        assertNull(days.last().stepsKcal)
+    }
+
+    @Test
     fun `recurring operations deserialise from the recorded response`() =
         assertCollectionContract("recurring_operations", serializer<RecurringOperationRecord>(), "RecurringOperationRecord")
 

@@ -7,13 +7,16 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.BodyMeasurement
+import com.maggie.app.data.model.DailyEnergy
 import com.maggie.app.data.repository.BodyMeasurementRepository
+import com.maggie.app.data.repository.DailyEnergyRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 data class SuiviUiState(
     /** The weighings of the last year and the six days before it, newest first, excluded ones included. */
@@ -24,17 +27,27 @@ data class SuiviUiState(
     val period: SuiviPeriod = SuiviPeriod.DEFAULT,
     /** The column tapped; `null` is the last one, today. */
     val selectedIndex: Int? = null,
+    /** The days of the last year, oldest first, as the API sends them: the Pas and Énergie cards (MAG-746). */
+    val energy: List<DailyEnergy> = emptyList(),
+    /** True once the energy answered; false with [energyFailed] unset means it is still being read. */
+    val energyLoaded: Boolean = false,
+    /** The energy could not be read: its cards say so, the Poids card is not affected. */
+    val energyFailed: Boolean = false,
+    /** The day tapped on the Pas or Énergie cards, or on a day column of Poids; `null` is today. */
+    val selectedDate: LocalDate? = null,
     val error: String? = null,
     val message: String? = null,
 )
 
 /**
  * « Santé › Suivi » (MAG-706): the weighings behind the Poids card, the period it shows, the column chosen, and
- * « Écarter ». The list is read once for the longest period: changing the period asks nothing of the API. The [clock]
+ * « Écarter ». Both lists — the weighings and, for the Pas and Énergie cards (MAG-746), the daily energy — are read
+ * once for the longest period: changing the period asks nothing of the API. The [clock]
  * says today and the time zone the days are read in.
  */
 class SuiviViewModel(
     private val repository: BodyMeasurementRepository,
+    private val energyRepository: DailyEnergyRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
     val clock: Clock = Clock.systemDefaultZone(),
@@ -74,16 +87,35 @@ class SuiviViewModel(
                 _uiState.value = _uiState.value.copy(measurements = fresh, isLoading = false, hasLoaded = true)
             }
             .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = MESSAGE_LOAD) }
+        loadEnergy()
+    }
+
+    private suspend fun loadEnergy() {
+        val to = today
+        energyRepository.getDailyEnergy(to.minusDays(ENERGY_HISTORY_DAYS - 1L).toString(), to.toString())
+            .onSuccess { _uiState.value = _uiState.value.copy(energy = it, energyLoaded = true, energyFailed = false) }
+            .onFailure { _uiState.value = _uiState.value.copy(energyFailed = true) }
     }
 
     /** A new period shows its last column, today. */
     fun selectPeriod(period: SuiviPeriod) {
         if (period == _uiState.value.period) return
-        _uiState.value = _uiState.value.copy(period = period, selectedIndex = null)
+        _uiState.value = _uiState.value.copy(period = period, selectedIndex = null, selectedDate = null)
     }
 
+    /** On a one-day column the day follows: the Pas and Énergie cards show it too. */
     fun selectColumn(index: Int) {
-        _uiState.value = _uiState.value.copy(selectedIndex = index)
+        val period = _uiState.value.period
+        val date = if (period.perDay && index in 0 until period.dayCount) energyStart(period, today).plusDays(index.toLong()) else null
+        _uiState.value = _uiState.value.copy(selectedIndex = index, selectedDate = date)
+    }
+
+    /** A bar of the Pas or Énergie cards: the Poids card follows when it has a column for that day. */
+    fun selectDay(date: LocalDate) {
+        val period = _uiState.value.period
+        val offset = ChronoUnit.DAYS.between(energyStart(period, today), date).toInt()
+        val column = if (period.perDay && offset in 0 until period.dayCount) offset else null
+        _uiState.value = _uiState.value.copy(selectedDate = date, selectedIndex = column)
     }
 
     /** « Écarter »: the weighing is dimmed at once and leaves the trend; it comes back with the reason if the API refuses. */
