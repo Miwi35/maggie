@@ -62,4 +62,22 @@ class GroceryTickQueueTest {
         coVerify(exactly = 0) { repository.checkItem(any(), any()) }
         assertTrue(queue.pendingMissing.value.isEmpty())
     }
+
+    @Test
+    fun `offline, an untick goes before a missing mark and a tick after it`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val sent = mutableListOf<String>()
+        coEvery { repository.checkItem(any(), any()) } answers { sent += "check:${firstArg<String>()}:${secondArg<Boolean>()}"; Result.success(Unit) }
+        coEvery { repository.markMissing(any(), any()) } answers { sent += "missing:${firstArg<String>()}"; Result.success(Unit) }
+        val queue = GroceryTickQueue(repository, CoroutineScope(dispatcher))
+
+        // Marked in its store then ticked in the fallback; another one unticked then marked.
+        queue.markMissing("a", true)
+        queue.tick("a", true)
+        queue.tick("b", false)
+        queue.markMissing("b", true)
+        queue.flush()
+
+        assertEquals(listOf("check:b:false", "missing:a", "missing:b", "check:a:true"), sent)
+    }
 }

@@ -45,16 +45,26 @@ class GroceryTickQueue(
         scope.launch { flush() }
     }
 
-    /** Sends what waits, one article after the other; a failed one stays for the next call. */
+    /**
+     * Sends what waits, one article after the other; a failed one stays for the next call. Unticks go first, then
+     * the « Manquant » marks, then the ticks: the API refuses to mark a ticked article missing, and every order the
+     * screen allows — untick then mark, mark then tick in the fallback store — holds in that one.
+     */
     suspend fun flush() = sending.withLock {
-        for ((id, checked) in _pending.value) {
-            repository.checkItem(id, checked).onSuccess {
-                _pending.update { now -> if (now[id] == checked) now - id else now }
-            }
-        }
+        sendTicks(checked = false)
         for ((id, missing) in _pendingMissing.value) {
             repository.markMissing(id, missing).onSuccess {
                 _pendingMissing.update { now -> if (now[id] == missing) now - id else now }
+            }
+        }
+        sendTicks(checked = true)
+    }
+
+    private suspend fun sendTicks(checked: Boolean) {
+        for ((id, asked) in _pending.value) {
+            if (asked != checked) continue
+            repository.checkItem(id, asked).onSuccess {
+                _pending.update { now -> if (now[id] == asked) now - id else now }
             }
         }
     }
