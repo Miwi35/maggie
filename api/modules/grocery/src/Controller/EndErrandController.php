@@ -45,10 +45,16 @@ final class EndErrandController
             return new JsonResponse(['error' => 'storeId must be a string'], Response::HTTP_BAD_REQUEST);
         }
 
+        $paidAmountCents = $body['paidAmountCents'] ?? null;
+        if (null !== $paidAmountCents && (!\is_int($paidAmountCents) || $paidAmountCents < 0)) {
+            return new JsonResponse(['error' => 'paidAmountCents must be a whole number of cents, zero or more'], Response::HTTP_BAD_REQUEST);
+        }
+
         try {
             $envelope = $this->messageBus->dispatch(new EndErrandCommand(
                 userId: (string) $user->getId(),
                 storeId: $storeId,
+                paidAmountCents: $paidAmountCents,
             ));
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
@@ -101,6 +107,7 @@ final class EndErrandController
                 'id' => (string) $errand->getId(),
                 'storeName' => $errand->getStoreName(),
                 'itemCount' => $errand->getItemCount(),
+                'paidAmountCents' => $errand->getPaidAmountCents(),
             ], $result->errands),
         ]);
     }

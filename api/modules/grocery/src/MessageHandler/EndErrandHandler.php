@@ -11,6 +11,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Entity\Product;
 use Maggie\Grocery\Entity\PurchasedItem;
 use Maggie\Grocery\Enum\ProductStockState;
+use Maggie\Grocery\Exception\InvalidErrandException;
 use Maggie\Grocery\Message\EndErrandCommand;
 use Maggie\Grocery\Message\EndErrandResult;
 use Maggie\Grocery\Repository\GroceryListRepository;
@@ -30,6 +31,16 @@ class EndErrandHandler
     {
         $user = $this->userRepository->find($command->userId)
             ?? throw new \DomainException('User not found.');
+
+        // A till is one store's: without a store, the errands of several shops could not tell whose amount it is.
+        if (null !== $command->paidAmountCents) {
+            if ($command->paidAmountCents < 0) {
+                throw new InvalidErrandException('paidAmountCents must be zero or more.');
+            }
+            if (null === $command->storeId) {
+                throw new InvalidErrandException('paidAmountCents needs a storeId.');
+            }
+        }
 
         $list = $this->groceryListRepository->findOrCreateForUser($user);
 
@@ -72,7 +83,8 @@ class EndErrandHandler
                 $errands[$storeKey] = (new Errand())
                     ->setUser($user)
                     ->setStore($store)
-                    ->setEndedAt($endedAt);
+                    ->setEndedAt($endedAt)
+                    ->setPaidAmountCents($command->paidAmountCents);
                 $this->em->persist($errands[$storeKey]);
             }
             $errands[$storeKey]->addItem(PurchasedItem::fromGroceryItem($item));

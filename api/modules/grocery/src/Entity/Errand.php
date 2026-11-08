@@ -83,6 +83,10 @@ class Errand implements MercurePublishable, OwnedByUserInterface, IndexableInter
     #[IndexedField(type: 'integer')]
     private int $itemCount = 0;
 
+    /** What was paid at the till, in cents, as the owner typed it on finishing the store (MAG-765); null when not given. */
+    #[ORM\Column(nullable: true)]
+    private ?int $paidAmountCents = null;
+
     /** @var Collection<int, PurchasedItem> */
     #[ORM\OneToMany(targetEntity: PurchasedItem::class, mappedBy: 'errand', cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['position' => 'ASC'])]
@@ -148,6 +152,18 @@ class Errand implements MercurePublishable, OwnedByUserInterface, IndexableInter
         return $this->itemCount;
     }
 
+    public function getPaidAmountCents(): ?int
+    {
+        return $this->paidAmountCents;
+    }
+
+    public function setPaidAmountCents(?int $paidAmountCents): static
+    {
+        $this->paidAmountCents = $paidAmountCents;
+
+        return $this;
+    }
+
     /** @return Collection<int, PurchasedItem> */
     public function getItems(): Collection
     {
@@ -186,6 +202,7 @@ class Errand implements MercurePublishable, OwnedByUserInterface, IndexableInter
             'storeName' => $this->storeName,
             'endedAt' => $this->endedAt->format(\DateTimeInterface::ATOM),
             'itemCount' => $this->itemCount,
+            'paidAmountCents' => $this->paidAmountCents,
             'items' => array_values($this->items->map(static fn (PurchasedItem $item) => $item->toPayload())->toArray()),
         ], $changedProperties);
     }

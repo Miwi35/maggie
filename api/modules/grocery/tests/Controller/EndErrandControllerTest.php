@@ -53,6 +53,63 @@ class EndErrandControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidAmounts(): iterable
+    {
+        yield 'negative' => [-1];
+        yield 'not whole' => [42.8];
+        yield 'a string' => ['42,80'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidAmounts')]
+    public function testInvalidPaidAmountReturns400(mixed $amount): void
+    {
+        $this->loadFixtures('end_errand.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('POST', '/api/grocery/end-errand', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode(['storeId' => (string) $this->getFixture('store_lidl')->getId(), 'paidAmountCents' => $amount], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(400);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame([], $em->getRepository(Errand::class)->findAll());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testAnAmountWithoutAStoreReturns400(): void
+    {
+        $this->loadFixtures('end_errand.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('POST', '/api/grocery/end-errand', [], [], array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            $this->authHeaders(),
+        ), json_encode(['paidAmountCents' => 4280], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(400);
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testThePaidAmountIsStoredOnTheErrandOfTheStore(): void
+    {
+        $this->loadFixtures('end_errand.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $data = $this->endErrand(['storeId' => (string) $this->getFixture('store_lidl')->getId(), 'paidAmountCents' => 4280]);
+
+        self::assertCount(1, $data['errands']);
+        self::assertSame(4280, $data['errands'][0]['paidAmountCents']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $errand = $em->find(Errand::class, $data['errands'][0]['id']);
+        self::assertSame(4280, $errand->getPaidAmountCents());
+        $this->assertMercureUpdatePublished('/api/errands/'.$errand->getId());
+        $this->assertElasticsearchIndexDispatchedFor(Errand::class, (string) $errand->getId());
+    }
+
     public function testEndErrandForStoreRemovesOnlyCheckedItemsOfThatStore(): void
     {
         $this->loadFixtures('end_errand.yaml');
@@ -263,7 +320,7 @@ class EndErrandControllerTest extends WebTestCase
         $data = $this->endErrand(['storeId' => $storeId]);
 
         self::assertCount(1, $data['errands']);
-        self::assertSame(['storeName' => 'Carrefour', 'itemCount' => 3], array_diff_key($data['errands'][0], ['id' => true]));
+        self::assertSame(['storeName' => 'Carrefour', 'itemCount' => 3, 'paidAmountCents' => null], array_diff_key($data['errands'][0], ['id' => true]));
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
