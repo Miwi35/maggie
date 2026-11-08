@@ -169,13 +169,13 @@ tags:
       id: "bilan_tomorrow_card"
     timeout: 20000
 - assertVisible: "Dentiste"
-- assertVisible: "D’où partez-vous pour"
+- assertVisible: ".*D’où partez-vous pour.*"
 
 # « De la maison »: Maggie keeps tomorrow's trip, the next question is the mode.
 - tapOn:
     id: "bilan_ask_0"
 - extendedWaitUntil:
-    visible: "Comment allez-vous"
+    visible: ".*Comment allez-vous.*"
     timeout: 30000
 - assertVisible: "Départ pour dentiste"
 - runScript:
@@ -198,7 +198,7 @@ tags:
       id: "bilan_counter"
       text: "Demain · 5 sur 5"
     timeout: 20000
-- assertNotVisible: "D’où partez-vous pour"
+- assertNotVisible: ".*D’où partez-vous pour.*"
 
 # « Bonne nuit » ends the review.
 - tapOn:
