@@ -14,12 +14,15 @@ tags:
 # Et quand je lance la tournée, le premier magasin montre son article, que je coche : la progression passe à 1 / 1
 # (« Le magasin en cours », MAG-763)
 # Et quand je le décoche puis le marque « Manquant », il quitte l'Épicerie du coin : son repli, les Halles du voisin,
-#   vient plus loin dans la tournée (« Manquant », MAG-764). Le voir arriver dans les Halles avec « manquant chez … »
-#   attend « magasin suivant » (MAG-765), qui étend ce parcours ; `GroceryRunViewModelTest` le couvre d'ici là.
+#   vient plus loin dans la tournée (« Manquant », MAG-764)
+# Et quand je termine l'Épicerie avec 42,80 €, les Halles s'ouvrent avec les Timbres, « manquant chez … », que je
+#   prends ; le Poireau, lui, manque et son repli est déjà passé : quand je termine les Halles, l'étape « Manquants sans
+#   repli » le montre, et « Prochaine fois » ferme l'activité en le laissant dans la liste (MAG-765).
 #
 # Signed in as the neighbour, like `08`: the seed gives it a line in each shop. What a JVM test cannot see is the
 # real drag on the real list and the immersive window. What is not here: each transition of the tour
-# (`GroceryRunViewModelTest`), what the screen draws on a tablet (`GroceryRunScreenTest`).
+# (`GroceryRunViewModelTest`), what the screen draws on a tablet (`GroceryRunScreenTest`), « Supprimer », the amount
+# stored on the errand (`EndErrandControllerTest`).
 
 - launchApp:
     clearState: true
@@ -103,3 +106,66 @@ tags:
     notVisible:
       text: "Timbres du voisin"
     timeout: 10000
+
+# « Terminer le magasin » (MAG-765): the summary, then « Montant payé », then the next store of the tour.
+- tapOn:
+    id: "grocery_run_finish"
+- extendedWaitUntil:
+    visible:
+      id: "grocery_run_recap"
+    timeout: 10000
+- assertVisible:
+    text: ".*à prendre chez Halles du voisin.*"
+- tapOn:
+    id: "grocery_run_paid"
+- inputText: "42,80"
+- runFlow: ../subflows/hide-keyboard.yaml
+- tapOn:
+    id: "grocery_run_recap_confirm"
+- extendedWaitUntil:
+    visible:
+      id: "grocery_run_tour_progress"
+      text: "Magasin 2 sur 2"
+    timeout: 20000
+
+# The Halles: the stamps came with « manquant chez … » and are taken; the leek is missing with its fallback behind.
+- extendedWaitUntil:
+    visible:
+      text: "Timbres du voisin"
+    timeout: 10000
+- tapOn:
+    text: "Timbres du voisin"
+- tapOn:
+    text: "Manquant"
+- extendedWaitUntil:
+    visible:
+      text: ".*pas de repli.*"
+    timeout: 10000
+- tapOn:
+    id: "grocery_run_finish"
+- extendedWaitUntil:
+    visible:
+      id: "grocery_run_recap_confirm"
+    timeout: 10000
+- tapOn:
+    id: "grocery_run_recap_confirm"
+
+# « Manquants sans repli », asked once, at the end: « Prochaine fois » keeps the leek, and the activity closes.
+- extendedWaitUntil:
+    visible:
+      id: "grocery_run_leftovers"
+    timeout: 20000
+- assertVisible:
+    text: "Poireau du voisin"
+- tapOn:
+    text: "Prochaine fois"
+- extendedWaitUntil:
+    visible:
+      id: "grocery_run_end"
+    timeout: 10000
+- tapOn:
+    id: "grocery_run_end_close"
+- extendedWaitUntil:
+    visible:
+      text: ".*Poireau du voisin.*"
+    timeout: 20000

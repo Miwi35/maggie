@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.ScreenRule
@@ -49,6 +50,12 @@ class GroceryRunScreenTest {
         start = { log += "start" },
         retry = { log += "retry" },
         dismissQuit = { log += "stay" },
+        openRecap = { log += "recap" },
+        closeRecap = { log += "back" },
+        setPaidAmount = { log += "paid:$it" },
+        finishStore = { log += "finish" },
+        keepForNextTime = { log += "next:$it" },
+        remove = { log += "remove:$it" },
     )
 
     private val stores = listOf(RunStore("s-u", "Super U", 2), RunStore("s-b", "Biocoop", 1), RunStore("s-m", "Marché", 1))
@@ -275,5 +282,73 @@ class GroceryRunScreenTest {
 
         compose.onNodeWithTag(UiTags.groceryRunMissingTag("i-1"), useUnmergedTree = true).assertTextEquals("manquant · pas de repli")
         compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("2 / 4")
+    }
+
+    @Test
+    fun `Terminer le magasin asks for the summary`() {
+        draw(storeState())
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_FINISH).assertTextEquals("Terminer le magasin").performClick()
+
+        assertEquals(listOf("recap"), log)
+    }
+
+    @Test
+    fun `the summary lists what was taken, the missing articles and where they go, then Montant payé`() {
+        val moved = storeItems[2].copy(store = Store("s-b", "Biocoop"), missingFromStore = Store("s-u", "Super U"), missingAt = "2026-11-08T10:00:00+00:00")
+        draw(storeState(pendingMissing = mapOf("i-1" to true)).let { it.copy(recap = true, items = storeItems.map { item -> if (item.id == "i-3") moved else item }) })
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP).assertIsDisplayed()
+        compose.onNodeWithText("Pris · 1 article").assertIsDisplayed()
+        compose.onNodeWithText("Beurre").assertIsDisplayed()
+        compose.onNodeWithText("Manquants · 2 articles").assertIsDisplayed()
+        compose.onNodeWithText("pas de repli · à décider à la fin").assertIsDisplayed()
+        compose.onNodeWithText("à prendre chez Biocoop").assertIsDisplayed()
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_PAID).performTextInput("42,80")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_CONFIRM).performClick()
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_BACK).performClick()
+        assertEquals(listOf("paid:42,80", "finish", "back"), log)
+    }
+
+    @Test
+    fun `an amount that is not in euros says so`() {
+        draw(storeState().copy(recap = true, paidAmount = "quarante", amountInvalid = true))
+
+        compose.onNodeWithText("Un montant en euros, par exemple 42,80").assertIsDisplayed()
+    }
+
+    private fun leftoverState() = storeState(pendingMissing = mapOf("i-1" to true)).let {
+        it.copy(run = it.run.copy(current = null, done = listOf("s-u", "s-b", "s-m"), finished = true))
+    }
+
+    @Test
+    fun `Manquants sans repli offers Prochaine fois or Supprimer for each one`() {
+        draw(leftoverState())
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_LEFTOVERS).assertIsDisplayed()
+        compose.onNodeWithText("Pain").assertIsDisplayed()
+        compose.onNodeWithText("manquant chez Super U").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.groceryRunNextTime("i-1")).performClick()
+        compose.onNodeWithTag(UiTags.groceryRunRemove("i-1")).performClick()
+        assertEquals(listOf("next:i-1", "remove:i-1"), log)
+    }
+
+    @Test
+    @Config(qualifiers = "w891dp-h411dp-land")
+    fun `in landscape the step Manquants sans repli shows the same choices`() {
+        draw(leftoverState())
+
+        compose.onNodeWithTag(UiTags.groceryRunNextTime("i-1")).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.groceryRunRemove("i-1")).assertIsDisplayed()
+    }
+
+    @Test
+    fun `Fin closes the activity`() {
+        draw(leftoverState().copy(ended = true, load = GroceryRunLoad.EMPTY))
+
+        compose.onNodeWithText("Courses terminées").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_END_CLOSE).performClick()
+        assertEquals(1, quits)
     }
 }

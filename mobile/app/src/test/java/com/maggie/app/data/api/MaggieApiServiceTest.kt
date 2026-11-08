@@ -449,6 +449,29 @@ class MaggieApiServiceTest {
         assertEquals(listOf("Riz"), response.restockedProducts.map { it.name })
     }
 
+    @Test
+    fun `endErrand sends the amount paid in cents, and leaves it out when not given`() = runBlocking {
+        val bodies = mutableListOf<String>()
+        val client = HttpClient(
+            MockEngine { request ->
+                bodies += (request.body as TextContent).text
+                respond(
+                    content = ByteReadChannel("""{"success":true}"""),
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                )
+            },
+        ) {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
+        }
+
+        MaggieApiService(client).endErrand(EndErrandRequest(storeId = "store-corner", paidAmountCents = 4280))
+        MaggieApiService(client).endErrand(EndErrandRequest(storeId = "store-corner"))
+
+        assertTrue(bodies[0].contains("\"paidAmountCents\":4280"))
+        assertFalse(bodies[1].contains("paidAmountCents"))
+    }
+
     /** The account's list is infinite-scrolled (MAG-436): one page of its own lines, newest first, never the whole. */
     @Test
     fun `getTransactions asks for one page of the account and reads its total`() = runBlocking {

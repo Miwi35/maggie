@@ -52,6 +52,22 @@ data class GroceryRunUiState(
     val mealTags: Map<String, String> = emptyMap(),
     /** « Manquant » marks made and not yet received by the API: article id → missing or not (MAG-764). */
     val pendingMissing: Map<String, Boolean> = emptyMap(),
+    /** The summary of « Terminer le magasin » is open (MAG-765). */
+    val recap: Boolean = false,
+    /** « Montant payé » as typed, in euros: « 42,80 »; empty when not given. */
+    val paidAmount: String = "",
+    /** [paidAmount] is not an amount in euros. */
+    val amountInvalid: Boolean = false,
+    /** The store is being finished: `end-errand` is on its way. */
+    val finishing: Boolean = false,
+    /** Finishing the store failed (network, or a tick still waiting): the summary stays, « Valider » again. */
+    val finishFailed: Boolean = false,
+    /** « Supprimer » asked on a missing article without a fallback, and not yet received by the API. */
+    val removing: Set<String> = emptySet(),
+    /** A « Supprimer » the API refused: the article stays, the choice is asked again. */
+    val removeFailed: Boolean = false,
+    /** The screen « Fin »: the tour is over and every missing article without a fallback has its answer. */
+    val ended: Boolean = false,
 ) {
     fun isChecked(item: GroceryItem): Boolean = pending[item.id] ?: item.checked
 
@@ -83,6 +99,40 @@ data class GroceryRunUiState(
     val current: RunStore? get() = run.current?.let(byId::get)
 
     val canStart: Boolean get() = tour.isNotEmpty()
+
+    private fun RunPlace?.name(): String? = this?.storeId?.let(byId::get)?.name
+
+    /** What the summary of « Terminer le magasin » lists as taken: the ticked articles of the store being done. */
+    val recapTaken: List<RecapLine> get() = currentItems.filter(::isChecked).map { RecapLine(it.id.orEmpty(), it.label, it.runQuantity()) }
+
+    /** The missing articles of the store being done, and the store each one goes to; null when it has no fallback in the tour. */
+    val recapMissing: List<RecapLine> get() = items
+        .filter { it.origin?.id == run.current && isMissing(it) }
+        .map { item -> RecapLine(item.id.orEmpty(), item.label, item.runQuantity(), place(item)?.takeIf { it.storeId != run.current }.name()) }
+
+    /**
+     * « Manquants sans repli » (MAG-765): the missing articles of the tour's stores that found no store further in
+     * the tour; one that moved to its fallback is not one of them.
+     */
+    val leftovers: List<RecapLine> get() = items
+        .filter { item ->
+            item.id != null && item.id !in removing && isMissing(item) && item.origin?.id in run.tour &&
+                place(item)?.missing == RunMissing.NoFallback
+        }
+        .map { RecapLine(it.id.orEmpty(), it.label, it.runQuantity(), it.origin?.name) }
+}
+
+/** An article as the end of a store or of the tour lists it; [store] is where it goes, or comes from. */
+data class RecapLine(val id: String, val label: String, val quantity: String?, val store: String? = null)
+
+/** The store an article was planned in: the one it was missing from once the API moved it to its fallback. */
+private val GroceryItem.origin get() = missingFromStore ?: store
+
+/** « 42,80 » → 4280; null when it is not an amount in euros with at most two decimals. */
+fun euroCents(text: String): Int? {
+    val match = Regex("""^(\d{1,6})(?:[.,](\d{1,2}))?$""").matchEntire(text.trim().removeSuffix("€").trim()) ?: return null
+    val (euros, cents) = match.destructured
+    return euros.toInt() * 100 + cents.padEnd(2, '0').toInt()
 }
 
 /**
@@ -173,9 +223,91 @@ class GroceryRunViewModel(
         update(run.copy(current = first))
     }
 
+    /** « Terminer le magasin »: the summary of the store being done opens, with an empty « Montant payé ». */
+    fun openRecap() {
+        if (_uiState.value.run.current == null) return
+        _uiState.update { it.copy(recap = true, paidAmount = "", amountInvalid = false, finishFailed = false) }
+    }
+
+    /** « Retour »: back to the store, nothing sent. */
+    fun closeRecap() = _uiState.update { it.copy(recap = false, finishFailed = false) }
+
+    fun setPaidAmount(text: String) = _uiState.update { it.copy(paidAmount = text, amountInvalid = false) }
+
+    /**
+     * « Valider » (MAG-765): the ticks still waiting are sent first, so the API archives every article taken; then
+     * `end-errand` with the store and the amount paid, and the next store of the tour opens — after the last one,
+     * « Manquants sans repli », or « Fin » when there is none.
+     */
+    fun finishStore() {
+        val state = _uiState.value
+        val storeId = state.run.current ?: return
+        if (state.finishing) return
+        val cents = if (state.paidAmount.isBlank()) null else euroCents(state.paidAmount)
+        if (state.paidAmount.isNotBlank() && cents == null) {
+            _uiState.update { it.copy(amountInvalid = true) }
+            return
+        }
+        _uiState.update { it.copy(finishing = true, finishFailed = false) }
+        viewModelScope.launch {
+            tickQueue.flush()
+            val waiting = tickQueue.pending.value.isNotEmpty() || tickQueue.pendingMissing.value.isNotEmpty()
+            if (waiting || listRepository.endErrand(storeId, cents).isFailure) {
+                _uiState.update { it.copy(finishing = false, finishFailed = true) }
+                return@launch
+            }
+            val run = _uiState.value.run
+            val next = run.nextAfter(storeId)
+            _uiState.update { it.copy(finishing = false, recap = false, paidAmount = "") }
+            update(run.copy(current = next, done = run.done + storeId, finished = next == null))
+            listRepository.getGroceryList().getOrNull()?.let { show(it, _uiState.value.run) }
+            endIfAnswered()
+        }
+    }
+
+    /** « Prochaine fois » on a missing article without a fallback: its mark goes, it stays on the list for next time. */
+    fun keepForNextTime(itemId: String) {
+        if (_uiState.value.leftovers.none { it.id == itemId }) return
+        tickQueue.markMissing(itemId, false)
+        // Read as the API will store it, so the mark does not come back once the queue has sent it.
+        _uiState.update { state ->
+            state.copy(
+                pendingMissing = tickQueue.pendingMissing.value,
+                items = state.items.map { if (it.id == itemId) it.copy(store = it.origin, missingFromStore = null, missingAt = null) else it },
+            )
+        }
+        endIfAnswered()
+    }
+
+    /** « Supprimer » on a missing article without a fallback: it leaves the list. */
+    fun remove(itemId: String) {
+        if (_uiState.value.leftovers.none { it.id == itemId }) return
+        _uiState.update { it.copy(removing = it.removing + itemId, removeFailed = false) }
+        viewModelScope.launch {
+            val removed = listRepository.deleteItem(itemId).isSuccess
+            _uiState.update {
+                if (removed) {
+                    it.copy(removing = it.removing - itemId, items = it.items.filter { item -> item.id != itemId })
+                } else {
+                    it.copy(removing = it.removing - itemId, removeFailed = true)
+                }
+            }
+            endIfAnswered()
+        }
+    }
+
+    // « Fin »: the tour is over and no missing article waits for its answer; the activity status is closed.
+    private fun endIfAnswered() {
+        val state = _uiState.value
+        if (state.ended || !state.run.finished || state.removing.isNotEmpty() || state.leftovers.isNotEmpty()) return
+        _uiState.update { it.copy(ended = true) }
+        statusRepository.delete(GROCERY_RUN_ACTIVITY)
+    }
+
     /** The ✕ or the back: true when the activity can be left now, false when « Quitter les courses ? » is asked. */
     fun requestQuit(): Boolean {
         val state = _uiState.value
+        if (state.ended) return true
         if (state.checkedSinceStart == 0 && state.pending.isEmpty() && state.pendingMissing.isEmpty()) return true
         _uiState.update { it.copy(quitAsked = true) }
         return false
@@ -189,6 +321,7 @@ class GroceryRunViewModel(
     }
 
     private fun write(run: GroceryRunState) {
+        if (_uiState.value.ended) return
         val id = listId ?: return
         statusRepository.put(GROCERY_RUN_ACTIVITY, GroceryRunState.origin(id), run.toJson())
     }
@@ -202,6 +335,7 @@ class GroceryRunViewModel(
             }
             val saved = statusRepository.get(GROCERY_RUN_ACTIVITY).getOrNull()
             show(list, GroceryRunState.from(saved))
+            endIfAnswered()
             loadTags()
         }
     }
@@ -226,7 +360,7 @@ class GroceryRunViewModel(
 
     // A change elsewhere moves the counts and the ticks, never the session's choices; a failed read keeps the screen as it is.
     private suspend fun refresh() {
-        if (_uiState.value.load !in setOf(GroceryRunLoad.READY, GroceryRunLoad.EMPTY)) return
+        if (_uiState.value.ended || _uiState.value.load !in setOf(GroceryRunLoad.READY, GroceryRunLoad.EMPTY)) return
         val list = listRepository.getGroceryList().getOrNull() ?: return
         show(list, _uiState.value.run)
         loadTags()

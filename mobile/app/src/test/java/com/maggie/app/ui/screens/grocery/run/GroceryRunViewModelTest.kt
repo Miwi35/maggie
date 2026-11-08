@@ -502,4 +502,208 @@ class GroceryRunViewModelTest {
 
         assertTrue(vm.uiState.value.pendingMissing.isEmpty())
     }
+
+    // « Terminer le magasin » (MAG-765): in Super U, Beurre is taken, Pain has no fallback, Lait falls back to Biocoop.
+    private val butter = GroceryItem(id = "i-4", label = "Beurre", store = superU, position = 4, checked = true)
+
+    /** The list as the API reads it once Pain and Lait are marked missing in Super U. */
+    private fun markedList(vararg extra: GroceryItem) = GroceryList(
+        "list-1",
+        missingList().items.map {
+            when (it.id) {
+                "i-1" -> it.copy(missingFromStore = superU, missingAt = "2026-11-08T10:00:00+00:00")
+                "i-3" -> it.copy(store = biocoop, missingFromStore = superU, missingAt = "2026-11-08T10:00:00+00:00")
+                else -> it
+            }
+        } + extra,
+    )
+
+    private suspend fun kotlinx.coroutines.test.TestScope.finishing(
+        list: GroceryList = markedList(butter),
+        tour: List<String> = listOf("s-u", "s-b"),
+        current: String = "s-u",
+        done: List<String> = emptyList(),
+        finished: Boolean = false,
+    ): GroceryRunViewModel {
+        coEvery { lists.getGroceryList() } returns Result.success(list)
+        coEvery { lists.markMissing(any(), any()) } returns Result.success(Unit)
+        coEvery { lists.endErrand(any(), any()) } returns Result.success(com.maggie.app.data.api.EndErrandResponse(success = true))
+        coEvery { lists.deleteItem(any()) } returns Result.success(Unit)
+        every { status.delete("courses") } returns Unit
+        val state = GroceryRunState(tour = tour, current = current.takeIf { !finished }, done = done, finished = finished)
+        coEvery { status.get("courses") } returns Result.success(saved(state.toJson()))
+        val vm = viewModel()
+        advanceUntilIdle()
+        return vm
+    }
+
+    @Test
+    fun `Terminer le magasin sums up what was taken and where each missing article goes`() = runTest {
+        val vm = finishing()
+
+        vm.openRecap()
+
+        assertTrue(vm.uiState.value.recap)
+        assertEquals(listOf("Beurre"), vm.uiState.value.recapTaken.map { it.label })
+        assertEquals(listOf("Pain" to null, "Lait" to "Biocoop"), vm.uiState.value.recapMissing.map { it.label to it.store })
+        vm.closeRecap()
+        assertFalse(vm.uiState.value.recap)
+    }
+
+    @Test
+    fun `Valider ends the store's errand with the amount in cents, then opens the next store`() = runTest {
+        val vm = finishing()
+        vm.openRecap()
+
+        vm.setPaidAmount("42,80")
+        vm.finishStore()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { lists.endErrand("s-u", 4280) }
+        assertFalse(vm.uiState.value.recap)
+        assertEquals("Biocoop", vm.uiState.value.current?.name)
+        assertEquals(GroceryRunState(tour = listOf("s-u", "s-b"), current = "s-b", done = listOf("s-u")), written.last())
+        // Super U keeps its place in the tour: « Magasin 2 sur 2 ».
+        assertEquals(2 to 2, vm.uiState.value.tourPosition)
+    }
+
+    @Test
+    fun `no amount ends the errand without one`() = runTest {
+        val vm = finishing()
+        vm.openRecap()
+
+        vm.finishStore()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { lists.endErrand("s-u", null) }
+    }
+
+    @Test
+    fun `an amount that is not in euros is refused before anything is sent`() = runTest {
+        val vm = finishing()
+        vm.openRecap()
+
+        vm.setPaidAmount("quarante")
+        vm.finishStore()
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.amountInvalid)
+        assertTrue(vm.uiState.value.recap)
+        coVerify(exactly = 0) { lists.endErrand(any(), any()) }
+    }
+
+    @Test
+    fun `a failed end keeps the summary and the store, to validate again`() = runTest {
+        val vm = finishing()
+        coEvery { lists.endErrand(any(), any()) } returns Result.failure(java.io.IOException("offline"))
+        vm.openRecap()
+
+        vm.finishStore()
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.finishFailed)
+        assertTrue(vm.uiState.value.recap)
+        assertEquals("Super U", vm.uiState.value.current?.name)
+    }
+
+    @Test
+    fun `a tick still waiting is sent before the errand ends, and one that cannot be sent stops it`() = runTest {
+        val vm = finishing(markedList(butter, GroceryItem(id = "i-5", label = "Sel", store = superU, position = 5)))
+        coEvery { lists.checkItem("i-5", true) } returns Result.failure(java.io.IOException("offline"))
+        vm.check("i-5")
+        vm.openRecap()
+
+        vm.finishStore()
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.finishFailed)
+        coVerify(exactly = 0) { lists.endErrand(any(), any()) }
+
+        coEvery { lists.checkItem("i-5", true) } returns Result.success(Unit)
+        vm.finishStore()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { lists.endErrand("s-u", null) }
+    }
+
+    @Test
+    fun `after the last store, Manquants sans repli lists the missing articles that found no store, not the moved ones`() = runTest {
+        val vm = finishing(current = "s-b", done = listOf("s-u"))
+        vm.openRecap()
+
+        vm.finishStore()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { lists.endErrand("s-b", null) }
+        assertTrue(vm.uiState.value.run.finished)
+        assertNull(vm.uiState.value.run.current)
+        assertEquals(listOf("Pain" to "Super U"), vm.uiState.value.leftovers.map { it.label to it.store })
+        assertFalse(vm.uiState.value.ended)
+        assertTrue(written.last().finished)
+    }
+
+    @Test
+    fun `Prochaine fois takes the mark off and leaves the article on the list, then the activity ends`() = runTest {
+        val vm = finishing(finished = true, done = listOf("s-u", "s-b"))
+
+        vm.keepForNextTime("i-1")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { lists.markMissing("i-1", false) }
+        coVerify(exactly = 0) { lists.deleteItem(any()) }
+        assertTrue(vm.uiState.value.leftovers.isEmpty())
+        assertTrue(vm.uiState.value.ended)
+        verify(exactly = 1) { status.delete("courses") }
+        assertTrue(vm.requestQuit())
+    }
+
+    @Test
+    fun `Supprimer takes the article off the list, then the activity ends`() = runTest {
+        val vm = finishing(finished = true, done = listOf("s-u", "s-b"))
+
+        vm.remove("i-1")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { lists.deleteItem("i-1") }
+        coVerify(exactly = 0) { lists.markMissing(any(), any()) }
+        assertTrue(vm.uiState.value.ended)
+        verify(exactly = 1) { status.delete("courses") }
+    }
+
+    @Test
+    fun `a Supprimer the API refuses keeps the article and asks again`() = runTest {
+        val vm = finishing(finished = true, done = listOf("s-u", "s-b"))
+        coEvery { lists.deleteItem("i-1") } returns Result.failure(java.io.IOException("offline"))
+
+        vm.remove("i-1")
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.removeFailed)
+        assertEquals(listOf("Pain"), vm.uiState.value.leftovers.map { it.label })
+        assertFalse(vm.uiState.value.ended)
+    }
+
+    @Test
+    fun `a last store with no missing article left goes straight to Fin`() = runTest {
+        val vm = finishing(GroceryList("list-1", listOf(butter)), tour = listOf("s-u"))
+        vm.openRecap()
+        coEvery { lists.getGroceryList() } returns Result.success(GroceryList("list-1", emptyList()))
+
+        vm.finishStore()
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.ended)
+        verify(exactly = 1) { status.delete("courses") }
+    }
+
+    @Test
+    fun `euros are read with a comma or a dot, up to two decimals`() {
+        assertEquals(4280, euroCents("42,80"))
+        assertEquals(4280, euroCents("42.8"))
+        assertEquals(4200, euroCents(" 42 € "))
+        assertEquals(5, euroCents("0,05"))
+        assertNull(euroCents("42,805"))
+        assertNull(euroCents("-3"))
+        assertNull(euroCents("quarante"))
+    }
 }
