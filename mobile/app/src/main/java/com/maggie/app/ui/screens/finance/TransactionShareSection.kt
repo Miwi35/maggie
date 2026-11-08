@@ -97,7 +97,6 @@ private fun ShareEditorContent(share: ShareEditor, actions: ShareSheetActions, c
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text("Dépense partagée", style = MaterialTheme.typography.bodyLarge)
-            ShareHint("Seule ta part compte dans tes enveloppes")
         }
         Switch(
             checked = share.enabled,

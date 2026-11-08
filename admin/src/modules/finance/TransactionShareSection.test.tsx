@@ -150,12 +150,12 @@ describe('TransactionShareSection', () => {
     expect(screen.queryByRole('switch', { name: 'Dépense partagée' })).not.toBeInTheDocument()
   })
 
-  test('a spend not shared shows the switch off and its helper', async () => {
+  test('a spend not shared shows the switch off, with no helper text', async () => {
     renderSection()
 
     const toggle = await screen.findByRole('switch', { name: 'Dépense partagée' })
     expect(toggle).not.toBeChecked()
-    expect(screen.getByText('Seule ta part compte dans tes enveloppes.')).toBeInTheDocument()
+    expect(screen.queryByText(/Seule ta part/)).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Ta part (€)')).not.toBeInTheDocument()
   })
 

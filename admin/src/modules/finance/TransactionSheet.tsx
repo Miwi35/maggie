@@ -91,12 +91,6 @@ const Section = ({ name, children }: { name: TransactionSheetSection; children: 
   </Box>
 )
 
-const ComingSoon = ({ children }: { children: string }) => (
-  <Typography variant="body2" color="text.secondary">
-    {children}
-  </Typography>
-)
-
 /**
  * Attributes the spend to an event (Hellfest 2026): it keeps its category but
  * leaves the monthly and annual envelopes. Saved with « Enregistrer ».
@@ -232,7 +226,7 @@ const SheetBody = ({ saveError }: { saveError: string | null }) => {
         shared={record.myShareCents !== null && record.myShareCents !== undefined}
       />
     ),
-    jugement: <ComingSoon>Bientôt : dire si cette dépense était un bon choix.</ComingSoon>,
+    jugement: null,
     note: (
       <MarkdownInput
         source="note"

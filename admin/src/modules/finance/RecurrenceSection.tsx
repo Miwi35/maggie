@@ -106,9 +106,6 @@ export const RecurrenceSection = ({ record }: { record: RaRecord }) => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'flex-start' }}>
-      <Typography variant="body2" color="text.secondary">
-        Cette ligne n’appartient à aucune opération récurrente.
-      </Typography>
       {allSeries.length > 0 && (
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <TextField
