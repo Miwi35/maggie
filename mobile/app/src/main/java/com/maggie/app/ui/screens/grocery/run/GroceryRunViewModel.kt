@@ -176,7 +176,8 @@ class GroceryRunViewModel(
                 return@launch
             }
             val saved = statusRepository.get(GROCERY_RUN_ACTIVITY).getOrNull()
-            show(list, GroceryRunState.from(saved), loadTags())
+            show(list, GroceryRunState.from(saved))
+            loadTags()
         }
     }
 
@@ -202,16 +203,18 @@ class GroceryRunViewModel(
     private suspend fun refresh() {
         if (_uiState.value.load !in setOf(GroceryRunLoad.READY, GroceryRunLoad.EMPTY)) return
         val list = listRepository.getGroceryList().getOrNull() ?: return
-        show(list, _uiState.value.run, loadTags())
+        show(list, _uiState.value.run)
+        loadTags()
     }
 
-    // The meals of the week ahead; a failed read only leaves the « pour : … » tags out.
-    private suspend fun loadTags(): Map<String, String> {
+    // The meals of the week ahead, after the list is shown: a slow or failed read only leaves the « pour : … » tags out.
+    private suspend fun loadTags() {
         val day = today()
-        return listRepository.getMealNeeds(day.toString(), day.plusDays(TAG_DAYS - 1).toString()).getOrNull()?.runTags(day).orEmpty()
+        val tags = listRepository.getMealNeeds(day.toString(), day.plusDays(TAG_DAYS - 1).toString()).getOrNull()?.runTags(day) ?: return
+        _uiState.update { it.copy(mealTags = tags) }
     }
 
-    private fun show(list: GroceryList?, saved: GroceryRunState?, tags: Map<String, String>) {
+    private fun show(list: GroceryList?, saved: GroceryRunState?) {
         val day = today()
         val lines = list?.items.orEmpty().filter { !isDeferred(it, day) && it.store != null }
         // A store whose last article was just ticked stays while it is the one being done: finishing it is its own step.
@@ -232,7 +235,6 @@ class GroceryRunViewModel(
                 load = if (stores.isEmpty()) GroceryRunLoad.EMPTY else GroceryRunLoad.READY,
                 stores = stores,
                 items = lines,
-                mealTags = tags,
                 run = run,
                 checkedSinceStart = (checked - baseline).coerceAtLeast(0),
             )
