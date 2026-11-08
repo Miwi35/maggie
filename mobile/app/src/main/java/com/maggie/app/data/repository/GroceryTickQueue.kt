@@ -46,25 +46,30 @@ class GroceryTickQueue(
     }
 
     /**
-     * Sends what waits, one article after the other; a failed one stays for the next call. Unticks go first, then
-     * the « Manquant » marks, then the ticks: the API refuses to mark a ticked article missing, and every order the
-     * screen allows — untick then mark, mark then tick in the fallback store — holds in that one.
+     * Sends what waits, one article after the other; a failed one stays for the next call. The API refuses to mark
+     * a ticked article missing, and the screen only marks one it shows unticked: so an article marked missing is
+     * unticked first, whatever its last tick says, and its tick waits until the mark is received.
      */
     suspend fun flush() = sending.withLock {
-        sendTicks(checked = false)
+        val marking = _pendingMissing.value.filterValues { it }.keys
+        sendTicks { id, checked -> !checked && id !in marking }
+        for (id in marking) {
+            repository.checkItem(id, false).onSuccess { _pending.update { now -> if (now[id] == false) now - id else now } }
+        }
         for ((id, missing) in _pendingMissing.value) {
             repository.markMissing(id, missing).onSuccess {
                 _pendingMissing.update { now -> if (now[id] == missing) now - id else now }
             }
         }
-        sendTicks(checked = true)
+        val refused = _pendingMissing.value.filterValues { it }.keys
+        sendTicks { id, checked -> id !in refused && (checked || id in marking) }
     }
 
-    private suspend fun sendTicks(checked: Boolean) {
-        for ((id, asked) in _pending.value) {
-            if (asked != checked) continue
-            repository.checkItem(id, asked).onSuccess {
-                _pending.update { now -> if (now[id] == asked) now - id else now }
+    private suspend fun sendTicks(which: (String, Boolean) -> Boolean) {
+        for ((id, checked) in _pending.value) {
+            if (!which(id, checked)) continue
+            repository.checkItem(id, checked).onSuccess {
+                _pending.update { now -> if (now[id] == checked) now - id else now }
             }
         }
     }
