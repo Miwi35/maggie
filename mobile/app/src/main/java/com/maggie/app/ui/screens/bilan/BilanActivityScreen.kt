@@ -177,7 +177,7 @@ private fun BilanError(onRetry: () -> Unit, onQuit: () -> Unit) {
         Button(
             onClick = onQuit,
             modifier = Modifier.height(48.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.08f), contentColor = MaterialTheme.colorScheme.onSurface),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), contentColor = MaterialTheme.colorScheme.onSurface),
         ) { Text("Quitter") }
     }
 }
@@ -246,7 +246,7 @@ private fun BilanPhone(
                     .size(52.dp)
                     .alpha(if (first) 0.35f else 1f)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.08f))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                     .clickable(enabled = !first, role = Role.Button, onClick = onPrevious)
                     .semantics { contentDescription = "Précédent" }
                     .testTag(UiTags.BILAN_PREVIOUS),
@@ -343,7 +343,7 @@ private fun BilanTablet(
                     Box(Modifier.size(42.dp).clip(CircleShape).background(primary), contentAlignment = Alignment.Center) {
                         Icon(Icons.Default.Mic, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
                     }
-                    Text("Répondre", fontSize = 16.sp, color = Color(0xFFE4E0EC))
+                    Text("Répondre", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -355,7 +355,7 @@ private fun BilanTablet(
                     .height(59.dp)
                     .alpha(if (first) 0.35f else 1f)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.08f))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                     .clickable(enabled = !first, role = Role.Button, onClick = onPrevious)
                     .testTag(UiTags.BILAN_PREVIOUS)
                     .padding(horizontal = 26.dp),
@@ -392,7 +392,7 @@ private fun CloseButton(size: Dp, icon: Dp, onClick: () -> Unit) {
         modifier = Modifier
             .size(size)
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.06f))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = "Quitter l’activité" }
             .testTag(UiTags.BILAN_QUIT),
@@ -461,7 +461,7 @@ private fun Orb(size: Dp, ring: Dp, glow: Dp) {
             .drawBehind { drawCircle(primary.copy(alpha = 0.12f), radius = this.size.minDimension / 2 + ring.toPx()) }
             .shadow(glow, CircleShape, ambientColor = primary, spotColor = primary)
             .clip(CircleShape)
-            .background(Brush.radialGradient(listOf(Color(0xFFC7B5FF), Color(0xFF6E55D9))))
+            .background(Brush.radialGradient(listOf(MaggieTokens.Brand.primaryHover, MaggieTokens.Brand.primaryLight)))
             .semantics { contentDescription = "Maggie" },
     )
 }
@@ -473,7 +473,7 @@ private fun AskButton(index: Int, ask: BilanAsk, height: Dp, fontSize: TextUnit,
         modifier = modifier
             .height(height)
             .clip(CircleShape)
-            .background(if (ask.selected) primary else Color.White.copy(alpha = 0.08f))
+            .background(if (ask.selected) primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
             .clickable(role = Role.Button, onClick = ask.onPick)
             .testTag(UiTags.BILAN_ASK_PREFIX + index)
             .padding(horizontal = horizontal),
