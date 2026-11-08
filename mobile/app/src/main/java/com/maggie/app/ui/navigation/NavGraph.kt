@@ -141,6 +141,8 @@ import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.SummaryBlock
 import com.maggie.app.ui.screens.bilan.BilanActivityScreen
 import com.maggie.app.ui.screens.bilan.BilanActivityViewModel
+import com.maggie.app.ui.screens.bilan.BilanJourneeViewModel
+import com.maggie.app.ui.screens.bilan.rememberJourneeSlots
 import com.maggie.app.ui.screens.cookbook.cooking.CookingActivityScreen
 import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
 import com.maggie.app.ui.screens.cookbook.cooking.CookingGroceryViewModel
@@ -795,10 +797,15 @@ private fun CookingActivityPage(navController: NavController, onOpenMaggie: () -
 // Out of NavGraph's body for the same reason as ReviewActivityPage.
 @Composable
 private fun BilanActivityPage(navController: NavController, onAnswerByVoice: () -> Unit) {
+    val viewModel = koinViewModel<BilanActivityViewModel>()
+    val journee = koinViewModel<BilanJourneeViewModel>()
+    val state by viewModel.uiState.collectAsState()
+    val slots = rememberJourneeSlots(journee, state.session, viewModel::recordTaskChoice)
     BilanActivityScreen(
-        viewModel = koinViewModel<BilanActivityViewModel>(),
+        viewModel = viewModel,
         onQuit = { navController.popBackStack() },
         onAnswerByVoice = onAnswerByVoice,
+        slots = slots,
     )
 }
 

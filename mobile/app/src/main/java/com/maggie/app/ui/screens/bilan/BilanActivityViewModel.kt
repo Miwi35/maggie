@@ -90,6 +90,14 @@ class BilanActivityViewModel(
         write(moved)
     }
 
+    /** Writes one task's [choice] into `answers.tasks` at once, on the same tap as the task's own change; `null` takes it back. */
+    fun recordTaskChoice(taskId: String, choice: String?) {
+        val session = _uiState.value.session ?: return
+        val updated = session.withTaskChoice(taskId, choice)
+        _uiState.update { it.copy(session = updated) }
+        write(updated)
+    }
+
     private fun goodNight() {
         statusRepository.delete(BILAN_ACTIVITY)
         _uiState.update { it.copy(finished = true) }
