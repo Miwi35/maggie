@@ -10,6 +10,10 @@ import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.ActivityStatusRepository
 import com.maggie.app.data.repository.GroceryListRepository
+import com.maggie.app.data.model.AisleSummary
+import com.maggie.app.data.model.GroceryRecipeNeed
+import com.maggie.app.data.repository.GroceryTickQueue
+import kotlinx.coroutines.CoroutineScope
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -41,6 +45,7 @@ class GroceryRunViewModelTest {
     private lateinit var status: ActivityStatusRepository
     private lateinit var mercure: MercureService
     private lateinit var auth: AuthRepository
+    private lateinit var queue: GroceryTickQueue
     private val stream = MutableSharedFlow<MercureEvent>()
     private val written = mutableListOf<GroceryRunState>()
 
@@ -67,10 +72,13 @@ class GroceryRunViewModelTest {
         status = mockk()
         mercure = mockk()
         auth = mockk()
+        queue = GroceryTickQueue(lists, CoroutineScope(dispatcher))
         coEvery { auth.getUserId() } returns "user-1"
         every { mercure.subscribe(any()) } returns stream
         every { mercure.reconnections(any()) } returns emptyFlow()
         coEvery { lists.getGroceryList() } returns Result.success(list())
+        coEvery { lists.getMealNeeds(any(), any()) } returns Result.success(emptyList())
+        coEvery { lists.checkItem(any(), any()) } returns Result.success(Unit)
         coEvery { status.get("courses") } returns Result.success(null)
         every { status.put("courses", any(), any()) } answers {
             written += checkNotNull(GroceryRunState.from(saved(thirdArg())))
@@ -86,7 +94,7 @@ class GroceryRunViewModelTest {
     private fun saved(state: kotlinx.serialization.json.JsonObject, listId: String = "list-1") =
         ActivityStatus("courses", ActivityOrigin("list", listId), state, "2026-11-08T10:00:00+00:00", "2026-11-08T10:00:00+00:00")
 
-    private fun viewModel() = GroceryRunViewModel(lists, status, mercure, auth, today = { LocalDate.of(2026, 11, 8) })
+    private fun viewModel() = GroceryRunViewModel(lists, status, mercure, auth, queue, today = { LocalDate.of(2026, 11, 8) })
 
     private fun GroceryRunViewModel.tour() = uiState.value.tour.map { it.name }
 
@@ -243,5 +251,127 @@ class GroceryRunViewModelTest {
         advanceUntilIdle()
 
         assertEquals(GroceryRunLoad.READY, vm.uiState.value.load)
+    }
+
+    private val frais = AisleSummary("a-1", "Frais", 1)
+    private val epicerie = AisleSummary("a-2", "Épicerie", 2)
+
+    private fun runList() = GroceryList(
+        id = "list-1",
+        items = listOf(
+            GroceryItem(id = "i-1", label = "Pain", store = superU, position = 1),
+            GroceryItem(id = "i-2", label = "Pâtes", store = superU, aisle = epicerie, position = 2),
+            GroceryItem(id = "i-3", label = "Lait", store = superU, aisle = frais, position = 3),
+            GroceryItem(id = "i-4", label = "Beurre", store = superU, aisle = frais, position = 4, checked = true),
+        ),
+    )
+
+    private suspend fun kotlinx.coroutines.test.TestScope.started(): GroceryRunViewModel {
+        coEvery { lists.getGroceryList() } returns Result.success(runList())
+        coEvery { status.get("courses") } returns Result.success(saved(GroceryRunState(tour = listOf("s-u"), current = "s-u").toJson()))
+        val vm = viewModel()
+        advanceUntilIdle()
+        return vm
+    }
+
+    @Test
+    fun `the store being done lists its articles by aisle in the store's order, Sans rayon last, ticked ones sinking`() = runTest {
+        val vm = started()
+
+        val aisles = vm.uiState.value.currentAisles
+        assertEquals(listOf("Frais", "Épicerie", null), aisles.map { it.name })
+        assertEquals(listOf("Lait", "Beurre"), aisles[0].lines.map { it.label })
+        assertEquals(listOf(false, true), aisles[0].lines.map { it.checked })
+        assertEquals(RunProgress(1, 4), vm.uiState.value.progress)
+        assertEquals(1 to 1, vm.uiState.value.tourPosition)
+    }
+
+    @Test
+    fun `ticking an article shows it ticked at once and sends it to the API`() = runTest {
+        val vm = started()
+
+        vm.check("i-3")
+        assertEquals(RunProgress(2, 4), vm.uiState.value.progress)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { lists.checkItem("i-3", true) }
+        assertTrue(queue.pending.value.isEmpty())
+    }
+
+    @Test
+    fun `unticking a ticked article sends the opposite`() = runTest {
+        val vm = started()
+
+        vm.check("i-4")
+        assertEquals(RunProgress(0, 4), vm.uiState.value.progress)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { lists.checkItem("i-4", false) }
+    }
+
+    @Test
+    fun `a tick made offline is kept, then sent once when the network is back`() = runTest {
+        val vm = started()
+        coEvery { lists.checkItem("i-3", true) } returns Result.failure(java.io.IOException("offline"))
+
+        vm.check("i-3")
+        advanceUntilIdle()
+        assertEquals(mapOf("i-3" to true), vm.uiState.value.pending)
+        assertEquals(RunProgress(2, 4), vm.uiState.value.progress)
+        assertFalse(vm.requestQuit())
+
+        coEvery { lists.checkItem("i-3", true) } returns Result.success(Unit)
+        queue.flush()
+        queue.flush()
+        advanceUntilIdle()
+
+        // One failed try, one success: the second flush finds nothing left to send.
+        coVerify(exactly = 2) { lists.checkItem("i-3", true) }
+        assertTrue(vm.uiState.value.pending.isEmpty())
+    }
+
+    @Test
+    fun `a tick on an article gone from the list is dropped`() = runTest {
+        val vm = started()
+        coEvery { lists.checkItem("i-3", true) } returns Result.failure(java.io.IOException("offline"))
+        vm.check("i-3")
+        advanceUntilIdle()
+
+        coEvery { lists.getGroceryList() } returns Result.success(GroceryList("list-1", runList().items.filter { it.id != "i-3" }))
+        stream.emit(MercureEvent(id = "1", data = "{}"))
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.pending.isEmpty())
+    }
+
+    @Test
+    fun `an article a meal uses carries the soonest meal`() = runTest {
+        coEvery { lists.getMealNeeds("2026-11-08", "2026-11-14") } returns Result.success(
+            listOf(
+                GroceryRecipeNeed("p-1", "Lait", "2026-11-08", "dinner", "m-1", "Bœuf bourguignon"),
+                GroceryRecipeNeed("p-1", "Lait", "2026-11-09", "lunch", "m-2", "Gratin"),
+            ),
+        )
+        coEvery { lists.getGroceryList() } returns Result.success(
+            GroceryList("list-1", listOf(GroceryItem(id = "i-3", label = "Lait", store = superU, product = com.maggie.app.data.model.Product(id = "p-1", name = "Lait", category = com.maggie.app.data.model.ProductCategory.DAIRY)))),
+        )
+        coEvery { status.get("courses") } returns Result.success(saved(GroceryRunState(tour = listOf("s-u"), current = "s-u").toJson()))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals("ce soir · bœuf bourguignon", vm.uiState.value.currentAisles.single().lines.single().forMeal)
+    }
+
+    @Test
+    fun `a store whose last article is ticked stays while it is the one being done`() = runTest {
+        coEvery { lists.getGroceryList() } returns Result.success(
+            GroceryList("list-1", listOf(GroceryItem(id = "i-1", label = "Pain", store = superU, checked = true), GroceryItem(id = "i-2", label = "Lait", store = biocoop))),
+        )
+        coEvery { status.get("courses") } returns Result.success(saved(GroceryRunState(tour = listOf("s-u", "s-b"), current = "s-u").toJson()))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals("Super U", vm.uiState.value.current?.name)
+        assertEquals(RunProgress(1, 1), vm.uiState.value.progress)
     }
 }

@@ -11,6 +11,8 @@ tags:
 # Quand je lance les courses depuis Courses › Liste
 # Alors la tournée montre les deux magasins dans l'ordre habituel, sans la barre de Maggie
 # Et quand je fais glisser « Épicerie du coin » au-dessus de « Halles du voisin », l'ordre change
+# Et quand je lance la tournée, le premier magasin montre son article, que je coche : la progression passe à 1 / 1
+# (« Le magasin en cours », MAG-763)
 #
 # Signed in as the neighbour, like `08`: the seed gives it a line in each shop. What a JVM test cannot see is the
 # real drag on the real list and the immersive window. What is not here: each transition of the tour
@@ -62,4 +64,24 @@ tags:
     visible:
       text: "Halles du voisin"
       below: "Épicerie du coin"
+    timeout: 10000
+
+# The store being done: its article, ticked with a thumb.
+- tapOn:
+    id: "grocery_run_go"
+- extendedWaitUntil:
+    visible:
+      id: "grocery_run_items"
+    timeout: 20000
+- assertVisible:
+    text: "Timbres du voisin"
+- assertVisible:
+    id: "grocery_run_store_progress"
+    text: "0 / 1"
+- tapOn:
+    text: "Timbres du voisin"
+- extendedWaitUntil:
+    visible:
+      id: "grocery_run_store_progress"
+      text: "1 / 1"
     timeout: 10000

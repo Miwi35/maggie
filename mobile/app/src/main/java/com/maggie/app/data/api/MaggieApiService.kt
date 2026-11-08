@@ -3367,13 +3367,13 @@ class MaggieApiService(
      * What the meals from [from] to [to] (`YYYY-MM-DD`, both included) need of the products the owner is low on or out
      * of, one entry per meal and product, by date then lunch before dinner (MAG-590); 404 when the module is absent.
      */
-    suspend fun getGroceryRecipeNeeds(from: String, to: String): List<GroceryRecipeNeed> {
+    suspend fun getGroceryRecipeNeeds(from: String, to: String, missing: Boolean = true): List<GroceryRecipeNeed> {
         return client.get("$baseUrl/api/grocery/recipe-needs") {
             accept(ContentType.Application.Json)
             withoutPagination()
             url.parameters.append("from", from)
             url.parameters.append("to", to)
-            url.parameters.append("missing", "true")
+            url.parameters.append("missing", missing.toString())
         }.orRefusal().body<ApiCollection<GroceryRecipeNeed>>().member
     }
 

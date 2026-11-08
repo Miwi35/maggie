@@ -76,6 +76,7 @@ import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.GroceryCardRepository
 import com.maggie.app.data.repository.GroceryListRepository
+import com.maggie.app.data.repository.GroceryTickQueue
 import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.NotificationRepository
@@ -422,6 +423,7 @@ class MaggieApp : Application() {
             single { IngredientRepository(get()) }
             single { MealRepository(get()) }
             single { GroceryListRepository(get()) }
+            single { GroceryTickQueue(get()) }
             single { ProductRepository(get()) }
             single { StoreRepository(get()) }
             single { RecurringGroceryRepository(get()) }
@@ -568,7 +570,7 @@ class MaggieApp : Application() {
             viewModel { BilanActivityViewModel(get(), get(), get()) }
             viewModel { BilanJourneeViewModel(get(), get()) }
             viewModel { BilanResumeViewModel(get(), get(), get()) }
-            viewModel { GroceryRunViewModel(get(), get(), get(), get()) }
+            viewModel { GroceryRunViewModel(get(), get(), get(), get(), get()) }
             viewModel { GroceryRunResumeViewModel(get(), get(), get()) }
             viewModel { ReviewActivityViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { PeriodReviewViewModel(get()) }

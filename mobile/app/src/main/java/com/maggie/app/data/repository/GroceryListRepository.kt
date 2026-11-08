@@ -8,6 +8,7 @@ import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.api.ReorderEntry
 import com.maggie.app.data.api.ReorderGroceryItemsRequest
 import com.maggie.app.data.model.GroceryList
+import com.maggie.app.data.model.GroceryRecipeNeed
 import com.maggie.app.data.model.PurchaseSuggestion
 import com.maggie.app.data.model.RecipeNeedResponse
 
@@ -52,6 +53,11 @@ class GroceryListRepository(
     /** « Pour les recettes de la semaine »: what the next seven days of meals need of a product (MAG-573). */
     suspend fun getRecipeNeed(productId: String): Result<RecipeNeedResponse> = runCatching {
         apiService.getRecipeNeed(productId)
+    }
+
+    /** The ingredients the meals from [from] to [to] (`YYYY-MM-DD`) use, soonest meal first (MAG-763). */
+    suspend fun getMealNeeds(from: String, to: String): Result<List<GroceryRecipeNeed>> = runCatching {
+        apiService.getGroceryRecipeNeeds(from, to, missing = false)
     }
 
     suspend fun reorderItems(items: List<ReorderEntry>): Result<Unit> = runCatching {
