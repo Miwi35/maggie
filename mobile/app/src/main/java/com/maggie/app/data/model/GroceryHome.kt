@@ -73,6 +73,8 @@ data class GroceryRecipeNeed(
     val slot: String,
     /** The meal that needs it (MAG-591). */
     val mealId: String = "",
+    /** Its title: « Bœuf bourguignon » (MAG-763). */
+    val mealName: String = "",
 )
 
 data class GroceryHomeRecipeNeed(

@@ -1,6 +1,13 @@
 package com.maggie.app.ui.screens.grocery.run
 
 import androidx.compose.ui.test.assertIsDisplayed
+import com.maggie.app.data.model.Store
+import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.GroceryItem
+import com.maggie.app.data.model.CookbookUnit
+import com.maggie.app.data.model.AisleSummary
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -36,6 +43,7 @@ class GroceryRunScreenTest {
     private var quits = 0
 
     private val actions = GroceryRunActions(
+        check = { log += "check:$it" },
         setVisited = { id, visited -> log += "visit:$id:$visited" },
         start = { log += "start" },
         retry = { log += "retry" },
@@ -154,5 +162,81 @@ class GroceryRunScreenTest {
         draw(state(load = GroceryRunLoad.EMPTY))
 
         compose.onNodeWithTag(UiTags.GROCERY_RUN_EMPTY).assertIsDisplayed()
+    }
+
+    private val milk = Product(id = "p-milk", name = "Lait", category = ProductCategory.DAIRY)
+    private val rice = Product(
+        id = "p-rice", name = "Riz", category = ProductCategory.GRAIN,
+        packagingUnit = CookbookUnit.PACK, packagingSize = 500f, packagingSizeUnit = CookbookUnit.G,
+    )
+    private val storeItems = listOf(
+        GroceryItem(id = "i-1", label = "Pain", store = stores[0].let { Store(it.id, it.name) }, position = 1),
+        GroceryItem(id = "i-2", label = "Riz", store = Store("s-u", "Super U"), product = rice, quantity = 2f, aisle = AisleSummary("a-2", "Épicerie", 2), position = 2),
+        GroceryItem(id = "i-3", label = "Lait", store = Store("s-u", "Super U"), product = milk, aisle = AisleSummary("a-1", "Frais", 1), position = 3),
+        GroceryItem(id = "i-4", label = "Beurre", store = Store("s-u", "Super U"), aisle = AisleSummary("a-1", "Frais", 1), position = 4, checked = true),
+    )
+
+    private fun storeState(tags: Map<String, String> = emptyMap(), pending: Map<String, Boolean> = emptyMap()) = GroceryRunUiState(
+        load = GroceryRunLoad.READY,
+        stores = stores,
+        run = GroceryRunState(tour = listOf("s-u", "s-b", "s-m"), current = "s-u"),
+        items = storeItems,
+        pending = pending,
+        mealTags = tags,
+    )
+
+    @Test
+    fun `the store lists its aisles in the store's order, Sans rayon last`() {
+        draw(storeState())
+
+        assertTopToBottom(
+            "Frais" to compose.onNodeWithText("Frais"),
+            "Épicerie" to compose.onNodeWithText("Épicerie"),
+            "Sans rayon" to compose.onNodeWithText("Sans rayon"),
+        )
+        assertTopToBottom(
+            "Lait" to compose.onNodeWithText("Lait"),
+            "Beurre" to compose.onNodeWithText("Beurre"),
+        )
+    }
+
+    @Test
+    fun `a line shows its quantity with its packaging, and a box of at least 64 dp`() {
+        draw(storeState())
+
+        compose.onNodeWithText("2 paquets de 500 g").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.groceryRunLine("i-2")).assertHeightIsAtLeast(64.dp)
+    }
+
+    @Test
+    fun `the pour pill shows only on an article a meal uses`() {
+        draw(storeState(tags = mapOf("p-milk" to "ce soir · bœuf bourguignon")))
+
+        compose.onNodeWithText("pour : ce soir · bœuf bourguignon").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.groceryRunFor("i-2")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the progress shows the store and the tour`() {
+        draw(storeState())
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("1 / 4")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_TOUR_PROGRESS).assertTextEquals("Magasin 1 sur 3")
+    }
+
+    @Test
+    fun `a pending tick shows the article ticked in the progress`() {
+        draw(storeState(pending = mapOf("i-3" to true)))
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("2 / 4")
+    }
+
+    @Test
+    fun `tapping a line asks to tick it`() {
+        draw(storeState())
+
+        compose.onNodeWithTag(UiTags.groceryRunLine("i-3")).performClick()
+
+        assertEquals(listOf("check:i-3"), log)
     }
 }
