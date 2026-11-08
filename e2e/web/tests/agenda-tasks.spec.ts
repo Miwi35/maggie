@@ -878,12 +878,17 @@ test('a subtask is ticked off from its parent, which stays open', async ({ page,
   // would otherwise start on the tick the first attempt left.
   await reopenTask(api, firstId)
 
-  const calendar = new CalendarPage(page)
-  await calendar.open()
-  await calendar.chooseView('Jour')
+  const board = new TasksPage(page)
+  await board.goto(ROUTES.tasks)
+  const openSheet = async () => {
+    await board.row(title).getByRole('button', { name: `Ouvrir ${title}`, exact: true }).click()
+    await expect(board.sheet).toBeVisible()
 
-  const dialog = await openTask(calendar, title)
-  await expect(dialog.getByLabel('Notes')).toHaveValue('Les cartons sont à la cave')
+    return board.sheet
+  }
+
+  const dialog = await openSheet()
+  await expect(dialog.getByText('Les cartons sont à la cave')).toBeVisible()
 
   const subtasks = dialog.getByRole('region', { name: 'Sous-tâches' })
   await expect(subtasks.getByRole('checkbox')).toHaveCount(2)
@@ -908,26 +913,13 @@ test('a subtask is ticked off from its parent, which stays open', async ({ page,
     'the other subtask was completed too',
   ).toBeNull()
 
-  // The state holds once the page and the form are read again from the API.
-  await dialog.getByRole('button', { name: 'Annuler' }).click()
-  await expect(dialog).toBeHidden()
-  await calendar.open()
-  await calendar.chooseView('Jour')
-  const reopened = await openTask(calendar, title)
+  // The state holds once the page and the sheet are read again from the API.
+  await page.reload()
+  const reopened = await openSheet()
   const again = reopened.getByRole('region', { name: 'Sous-tâches' })
   await expect(again.getByRole('checkbox', { name: 'Réserver le camion' })).toBeChecked()
   await expect(again.getByRole('checkbox', { name: "Changer d'adresse à la banque" })).not.toBeChecked()
 })
-
-/** Opens the edit form of the task drawn as `title`: chip, detail card, pencil. */
-async function openTask(calendar: CalendarPage, title: string) {
-  await calendar.openFoldableChip(title)
-  await calendar.editFromPopover()
-  const dialog = calendar.editTaskDialog
-  await expect(dialog).toBeVisible()
-
-  return dialog
-}
 
 /** Reopens a task through the API and waits for the collection to agree. */
 async function reopenTask(api: APIRequestContext, taskId: string): Promise<void> {
