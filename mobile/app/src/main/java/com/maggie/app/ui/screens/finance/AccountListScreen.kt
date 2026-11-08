@@ -83,12 +83,7 @@ fun AccountListScreen(
     Scaffold(
         modifier = Modifier.uiTagRoot(),
         topBar = {
-            FinanceTopBar(Screen.AccountList.route, actions = {
-                // The people behind the transfers live with the accounts (MAG-450).
-                IconButton(onClick = onOpenContacts, modifier = Modifier.testTag(UiTags.ACCOUNTS_CONTACTS)) {
-                    Icon(Icons.Default.Person, contentDescription = "Contacts")
-                }
-            })
+            FinanceTopBar(Screen.AccountList.route)
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
@@ -119,6 +114,13 @@ fun AccountListScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    item(key = "contacts") {
+                        // The people behind the transfers live with the accounts (MAG-450).
+                        TextButton(onClick = onOpenContacts, modifier = Modifier.testTag(UiTags.ACCOUNTS_CONTACTS)) {
+                            Icon(Icons.Default.Person, contentDescription = null)
+                            Text("Contacts", modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
                     lastSync?.let { label ->
                         item(key = "last-sync") {
                             Text(

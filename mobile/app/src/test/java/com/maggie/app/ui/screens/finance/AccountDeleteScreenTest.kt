@@ -1,7 +1,10 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import com.maggie.app.ui.UiTags
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -11,6 +14,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,6 +34,22 @@ class AccountDeleteScreenTest {
         )
         compose.setContent { AccountListScreen(viewModel = viewModel, onBack = {}) }
         return viewModel
+    }
+
+    @Test
+    fun `the header carries no contacts icon, the contacts open from the list`() {
+        val opened = mutableListOf<Unit>()
+        val viewModel = mockk<AccountViewModel>(relaxed = true)
+        every { viewModel.uiState } returns MutableStateFlow(
+            AccountUiState(accounts = listOf(Account(id = "a1", name = "Livret", bank = "Boursorama"))),
+        )
+        compose.setContent { AccountListScreen(viewModel = viewModel, onBack = {}, onOpenContacts = { opened.add(Unit) }) }
+
+        val header = compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).getBoundsInRoot()
+        val contacts = compose.onNodeWithTag(UiTags.ACCOUNTS_CONTACTS)
+        assertTrue(contacts.getBoundsInRoot().top >= header.bottom)
+        contacts.performClick()
+        assertEquals(1, opened.size)
     }
 
     @Test
