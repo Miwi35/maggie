@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { KeyboardEvent } from 'react'
 import { useNotify } from 'react-admin'
 import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
@@ -8,25 +7,24 @@ import Button from '@mui/material/Button'
 import Pagination from '@mui/material/Pagination'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { addDays, localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { TaskBravoBanner, TaskPalier } from './TaskBravo'
 import { TaskDay } from './TaskDay'
-import { TaskEditDialog } from './TaskEditDialog'
+import { TaskFormDialog } from './TaskFormDialog'
+import { TaskSheet } from './TaskSheet'
 import { TaskEvening } from './TaskEvening'
 import { TaskList } from './TaskList'
 import type { ListedTask } from './TaskList'
 import { TaskMorning } from './TaskMorning'
 import { TaskRoutines } from './TaskRoutines'
-import { claimEvening, claimMorning, DAY_SLOTS, dayTasks, eveningDue, fetchDayPlan, fetchDayTimes, morningDue, saveDayPlan } from './dayPlan'
+import { claimEvening, claimMorning, dayTasks, eveningDue, fetchDayPlan, fetchDayTimes, morningDue } from './dayPlan'
 import type { DayPlan } from './dayPlan'
 import { fetchDayReview } from './dayReview'
-import { parseQuickAdd } from './quickAdd'
 import { DEFAULT_CHEER, fetchReward, fetchRewardCheer, parseReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
-import { createTask, fetchTask, fetchTaskView, findTaskView, setTaskDone, TASK_TOPICS } from './taskViews'
+import { fetchTask, fetchTaskView, findTaskView, setTaskDone, TASK_TOPICS } from './taskViews'
 import type { TaskView, ViewTask } from './taskViews'
 
 const PAGE_SIZE = 30
@@ -64,6 +62,9 @@ const viewOfPath = (pathname: string): BoardView => {
 
 const TITLE_DATE = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
+/** The data provider wants the IRI as id. */
+const withIri = (task: ViewTask | null): ViewTask | null => (task ? { ...task, id: task['@id'] ?? task.id } : null)
+
 interface TasksPageProps {
   view: BoardView
 }
@@ -89,8 +90,7 @@ const TasksPage = ({ view }: TasksPageProps) => {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
-  const [title, setTitle] = useState('')
-  const [creating, setCreating] = useState(false)
+  const [form, setForm] = useState<{ task: ViewTask | null } | null>(null)
   const [editing, setEditing] = useState<ViewTask | null>(null)
   const [day, setDay] = useState<DayPlan | null>(null)
   const [dayFailed, setDayFailed] = useState(false)
@@ -290,41 +290,22 @@ const TasksPage = ({ view }: TasksPageProps) => {
       .catch((error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' }))
   }
 
-  // « Appeler le garage demain » (MAG-644): the closing day word is the due day. Without one, the task is due
-  // today on « Aujourd'hui » (and takes a free place of the day), tomorrow on « À venir », and no day elsewhere:
-  // « Aujourd'hui » lists only what is due today or before, so an undated task would vanish from it.
-  const create = () => {
-    const parsed = parseQuickAdd(title, today)
-    if (!parsed.title || creating) return
-    const dueDate = parsed.dueDate ?? (view === 'today' ? today : view === 'upcoming' ? addDays(today, 1) : undefined)
-    setCreating(true)
-    createTask(parsed.title, dueDate)
-      .then((id) => {
-        setTitle('')
-        const slots = day?.slots.map((slot) => slot.task.id) ?? []
-        const forToday = !dueDate || dueDate === today
-        if (view === 'today' && id && forToday && slots.length < DAY_SLOTS) {
-          return saveDayPlan(today, [...slots, id]).then(showDay)
-        }
-        if (dueDate && dueDate !== today) {
-          notify(`Tâche ajoutée pour le ${new Date(`${dueDate}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`, {
-            type: 'success',
-          })
-        }
-        reload()
-      })
-      .catch((error: Error) => {
-        notify(`Erreur: ${error.message}`, { type: 'error' })
-        reload()
-      })
-      .finally(() => setCreating(false))
+  // Memoised: a new object each render would reset the forms.
+  const sheetTask = useMemo(() => withIri(editing), [editing])
+  const formTask = useMemo(() => withIri(form?.task ?? null), [form])
+
+  // After a write: the list is reloaded and the sheet, if open, shows the task as it now is (gone: closed).
+  const refreshSheet = () => {
+    reload()
+    if (!editing) return
+    fetchTask(editing.id)
+      .then(setEditing)
+      .catch(() => setEditing(null))
   }
 
-  const onTitleKey = (event: KeyboardEvent) => {
-    if (event.key !== 'Enter') return
-    event.preventDefault()
-    create()
-  }
+  // « Aujourd'hui » lists only what is due today or before, so a task made there is due today, and tomorrow on
+  // « À venir »: it would vanish from the view it was made in.
+  const defaultDueDate = view === 'today' ? today : view === 'upcoming' ? addDays(today, 1) : undefined
 
   const pages = Math.ceil(total / PAGE_SIZE)
   const canAdd = view === 'today' || view === 'upcoming' || view === 'someday'
@@ -387,17 +368,9 @@ const TasksPage = ({ view }: TasksPageProps) => {
           Tâches · {TITLE_DATE.format(new Date())}
         </Typography>
         {canAdd && (
-          <TextField
-            label="Ajouter une tâche"
-            placeholder="Appeler le garage demain"
-            size="small"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={onTitleKey}
-            // The day is rewritten with the new task: never from a day that was not read.
-            disabled={creating || (view === 'today' && !day)}
-            sx={{ width: { xs: '100%', md: 360 } }}
-          />
+          <Button variant="contained" onClick={() => setForm({ task: null })}>
+            + Nouvelle tâche
+          </Button>
         )}
         {view !== 'routines' && (
           <Button component={RouterLink} to={VIEW_PATHS.routines} color="inherit">
@@ -423,17 +396,24 @@ const TasksPage = ({ view }: TasksPageProps) => {
           )}
         </Box>
 
-        {editing && view !== 'routines' && (
-          <TaskEditDialog
-            variant="panel"
-            open
-            // The data provider wants the IRI as id.
-            task={{ ...editing, id: editing['@id'] ?? editing.id }}
+        {sheetTask && view !== 'routines' && (
+          <TaskSheet
+            task={sheetTask}
+            today={today}
             onClose={() => setEditing(null)}
-            onUpdated={reload}
+            onEdit={() => setForm({ task: editing })}
+            onChanged={refreshSheet}
           />
         )}
       </Box>
+
+      <TaskFormDialog
+        open={form !== null}
+        task={formTask}
+        defaultDueDate={defaultDueDate}
+        onClose={() => setForm(null)}
+        onSaved={refreshSheet}
+      />
 
       {palier && <TaskPalier reward={palier} animate={cheer.animation} onClose={() => setPalier(null)} />}
 

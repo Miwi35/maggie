@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TaskFocus } from './TaskFocus'
 import type { DayTask } from './dayPlan'
-import type { TaskData } from './TaskEditDialog'
+import type { TaskData } from './TaskFormDialog'
 
 const mockNotify = vi.fn()
 const dataProvider = { getList: vi.fn(), update: vi.fn(), create: vi.fn() }

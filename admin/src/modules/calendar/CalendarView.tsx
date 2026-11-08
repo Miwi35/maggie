@@ -57,8 +57,7 @@ import type { DatesSetArg, EventContentArg, EventInput } from '@fullcalendar/cor
 import { TripLine } from './TripLine'
 import { isReturn, tripsByEvent, type Trip } from './trips'
 import { EventCreateDialog } from './EventCreateDialog'
-import { TaskCreateDialog } from './TaskCreateDialog'
-import { TaskEditDialog, type TaskData } from './TaskEditDialog'
+import { TaskFormDialog, type TaskData } from './TaskFormDialog'
 import { EventDetailPopover } from './EventDetailPopover'
 import { REVIEW_ACTIVITY, eventTitle } from '../finance/reviewActivity'
 import { EventEditDialog } from './EventEditDialog'
@@ -2407,11 +2406,12 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         defaultAllDay={dialogAllDay}
       />
 
-      <TaskCreateDialog
+      <TaskFormDialog
         open={taskDialogOpen}
+        task={null}
         onClose={() => setTaskDialogOpen(false)}
-        onCreated={handleCreated}
-        defaultDueDate={dialogStart}
+        onSaved={handleCreated}
+        defaultDueDate={dialogStart ? localDay(dialogStart) : undefined}
       />
 
       <EventDetailPopover
@@ -2432,11 +2432,11 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         onSubmit={handleEventEditSubmit}
       />
 
-      <TaskEditDialog
+      <TaskFormDialog
         open={editingTask !== null}
         task={editingTask}
         onClose={() => setEditingTask(null)}
-        onUpdated={handleCreated}
+        onSaved={handleCreated}
       />
 
       {/* Recurrence confirmation dialog */}

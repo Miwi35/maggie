@@ -184,7 +184,7 @@ describe('CalendarView — the handles the agenda journeys use', { timeout: 60_0
     const dialog = await screen.findByRole('dialog', { name: 'Nouvelle tâche' })
     expect(within(dialog).getByLabelText(/Titre/)).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Échéance')).toBeInTheDocument()
-    expect(within(dialog).getByRole('combobox', { name: 'Criticité' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('group', { name: 'Criticité' })).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Créer' })).toBeInTheDocument()
   })
 

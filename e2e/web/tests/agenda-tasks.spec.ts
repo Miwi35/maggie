@@ -26,6 +26,9 @@ interface StoredTask {
   title?: string
   dueDate?: string | null
   completedAt?: string | null
+  scheduledDate?: string | null
+  scheduledTime?: string | null
+  reminders?: number[]
 }
 
 /** A task as the day sends it (MAG-497). */
@@ -271,11 +274,10 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
  *
  * The views are sub-entries of the menu with their numbers and a route each; the page is titled with
  * the day, lists its tasks in the full width with an Urgence and an Échéance column, opens a task in a
- * panel beside the list rather than a dialog over it, and adds a task from its header: a date word
- * at the end of the title (« demain ») sets the due day. « À venir » is used for the writes, so the
+ * panel beside the list rather than a dialog over it, and adds a task from « + Nouvelle tâche » (MAG-723), whose form plans it on a day and an hour with reminders. « À venir » is used for the writes, so the
  * day of the other journeys is left alone.
  */
-test('the views are menu entries with their numbers, a task opens in a panel, and a quick add with « demain » lands in « À venir »', async ({ page, api }) => {
+test('the views are menu entries with their numbers, a task opens in a panel, and « + Nouvelle tâche » plans one with a reminder', async ({ page, api }) => {
   const title = perAttempt('Rappeler le plombier')
   const tomorrow = daysFrom(parisDay(), 1)
   const board = new TasksPage(page)
@@ -303,19 +305,30 @@ test('the views are menu entries with their numbers, a task opens in a panel, an
     await expect(board.content.getByText('Échéance', { exact: true })).toBeVisible()
     const before = await board.count('À venir')
 
-    // When I type « … demain » in the header and validate…
-    await board.quickAdd.fill(`${title} demain`)
-    await board.quickAdd.press('Enter')
+    // When I click « + Nouvelle tâche », type a title, plan it tomorrow at 18:00 with a reminder 30 minutes before…
+    await expect(board.content.getByRole('textbox', { name: 'Ajouter une tâche' })).toHaveCount(0)
+    await board.newTask.click()
+    await expect(board.form).toBeVisible()
+    await board.form.getByLabel(/Titre/).fill(title)
+    await board.form.getByLabel('Programmée').fill(tomorrow)
+    await board.form.getByRole('button', { name: 'Heure précise' }).click()
+    await board.form.getByLabel(/Heure/).fill('18:00')
+    await board.form.getByRole('combobox', { name: 'Rappels' }).click()
+    await page.getByRole('option', { name: '30 minutes avant' }).click()
+    await page.keyboard.press('Escape')
+    await board.form.getByRole('button', { name: 'Créer' }).click()
+    await expect(board.form).toBeHidden()
 
-    // …then the task is listed, without the date word in its title, due tomorrow…
+    // …then the task is listed…
     await expect(board.row(title)).toHaveCount(1)
-    await expect(board.quickAdd).toHaveValue('')
     await expect(board.row(title).getByTestId('urgency-badge')).toBeVisible()
     const stored = await waitForIndexed<StoredTask>(api, '/api/tasks?itemsPerPage=100', (task) => task.title === title, {
       what: `The task "${title}"`,
     })
     createdId = stored.id
-    expect(stored.dueDate?.slice(0, 10)).toBe(tomorrow)
+    expect(stored.scheduledDate?.slice(0, 10)).toBe(tomorrow)
+    expect(stored.scheduledTime).toBe('18:00')
+    expect(stored.reminders).toEqual([30])
     // …and the menu's number follows.
     await expect.poll(() => board.count('À venir'), { message: 'the « À venir » number should follow the add' }).toBeGreaterThan(before)
 
@@ -328,7 +341,10 @@ test('the views are menu entries with their numbers, a task opens in a panel, an
     // When I open it, the sheet is a panel beside the list, not a dialog over it.
     await board.row(title).getByRole('button', { name: `Ouvrir ${title}`, exact: true }).click()
     await expect(board.sheet).toBeVisible()
-    await expect(board.sheet.getByRole('heading', { name: 'Modifier la tâche' })).toBeVisible()
+    await expect(board.sheet.getByRole('heading', { name: title })).toBeVisible()
+    await expect(board.sheet.getByText(/· 18:00/)).toBeVisible()
+    await expect(board.sheet.getByText('30 minutes avant')).toBeVisible()
+    await expect(board.sheet.getByRole('textbox')).toHaveCount(0)
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(board.row(title)).toBeVisible()
     await board.sheet.getByRole('button', { name: 'Fermer la fiche' }).click()
@@ -862,12 +878,17 @@ test('a subtask is ticked off from its parent, which stays open', async ({ page,
   // would otherwise start on the tick the first attempt left.
   await reopenTask(api, firstId)
 
-  const calendar = new CalendarPage(page)
-  await calendar.open()
-  await calendar.chooseView('Jour')
+  const board = new TasksPage(page)
+  await board.goto(ROUTES.tasks)
+  const openSheet = async () => {
+    await board.row(title).getByRole('button', { name: `Ouvrir ${title}`, exact: true }).click()
+    await expect(board.sheet).toBeVisible()
 
-  const dialog = await openTask(calendar, title)
-  await expect(dialog.getByLabel('Notes')).toHaveValue('Les cartons sont à la cave')
+    return board.sheet
+  }
+
+  const dialog = await openSheet()
+  await expect(dialog.getByText('Les cartons sont à la cave')).toBeVisible()
 
   const subtasks = dialog.getByRole('region', { name: 'Sous-tâches' })
   await expect(subtasks.getByRole('checkbox')).toHaveCount(2)
@@ -892,26 +913,13 @@ test('a subtask is ticked off from its parent, which stays open', async ({ page,
     'the other subtask was completed too',
   ).toBeNull()
 
-  // The state holds once the page and the form are read again from the API.
-  await dialog.getByRole('button', { name: 'Annuler' }).click()
-  await expect(dialog).toBeHidden()
-  await calendar.open()
-  await calendar.chooseView('Jour')
-  const reopened = await openTask(calendar, title)
+  // The state holds once the page and the sheet are read again from the API.
+  await page.reload()
+  const reopened = await openSheet()
   const again = reopened.getByRole('region', { name: 'Sous-tâches' })
   await expect(again.getByRole('checkbox', { name: 'Réserver le camion' })).toBeChecked()
   await expect(again.getByRole('checkbox', { name: "Changer d'adresse à la banque" })).not.toBeChecked()
 })
-
-/** Opens the edit form of the task drawn as `title`: chip, detail card, pencil. */
-async function openTask(calendar: CalendarPage, title: string) {
-  await calendar.openFoldableChip(title)
-  await calendar.editFromPopover()
-  const dialog = calendar.editTaskDialog
-  await expect(dialog).toBeVisible()
-
-  return dialog
-}
 
 /** Reopens a task through the API and waits for the collection to agree. */
 async function reopenTask(api: APIRequestContext, taskId: string): Promise<void> {
