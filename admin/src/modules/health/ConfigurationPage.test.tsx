@@ -128,6 +128,10 @@ describe('ConfigurationPage', () => {
     const window = within(activity).getByRole('group', { name: 'Maggie propose entre' })
     expect(within(window).getByLabelText('Maggie propose à partir de')).toHaveValue('08:00')
     expect(within(window).getByLabelText('Maggie propose jusqu’à')).toHaveValue('20:00')
+    // Recette (8 Nov.): the times were squeezed to « 08: ». Each keeps its own width (`field-sizing: content`, which jsdom drops), inside one field as on the mockup.
+    for (const time of within(window).getAllByLabelText(/^Maggie propose/)) {
+      expect(getComputedStyle(time.parentElement as HTMLElement).flexShrink).toBe('0')
+    }
     expect(within(activity).getByLabelText('Durée d’une session')).toHaveDisplayValue('20 min')
     expect(within(activity).getByLabelText('Source des pas')).toHaveDisplayValue('Health Connect')
     expect(
