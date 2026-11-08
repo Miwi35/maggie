@@ -1,0 +1,74 @@
+appId: com.maggie.app.e2e
+name: 33-bilan-soir
+tags:
+  - dashboard
+---
+# The Bilan de la journée activity (MAG-751, extends the Cuisine activity journey 27-cooking-launch).
+#
+# Étant donné un compte sans bilan en cours
+# Quand j'ouvre le bilan par son lien (celui de l'interruption du soir), il s'ouvre sur « Journée · 1 sur 5 »,
+#   sans la barre de Maggie
+# Et quand je tape « Suivant », l'étape est « Finance · 2 sur 5 »
+# Et quand je tape ✕, aucune question : je suis sur l'Accueil, dont la carte « Bilan de la journée » dit
+#   « Étape Finance » avec « Reprendre »
+# Alors « Reprendre » rouvre le bilan sur « Finance · 2 sur 5 »
+#
+# What a JVM test cannot see is the real activity in the real window, the deep link and the status
+# held by the API. What is not here: each transition (`BilanActivityViewModelTest`), the phone and tablet
+# layouts (`BilanActivityScreenTest`), the card's rules and the next-morning cut (`BilanHomeCardTest`,
+# `BilanResumeViewModelTest`). The interruption itself, which Maggie sends in the evening, has no clock to wait
+# for in a journey: its link is opened directly.
+
+- runFlow: ../subflows/new-user.yaml
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/33-bilan-soir.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://activity/bilan"
+- extendedWaitUntil:
+    visible:
+      id: "bilan_activity"
+    timeout: 20000
+# Android's own « Viewing full screen » notice covers the top until dismissed.
+- tapOn:
+    text: "Got it"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "bilan_counter"
+      text: "Journée · 1 sur 5"
+    timeout: 20000
+- assertNotVisible:
+    id: "chat_open"
+
+- tapOn:
+    id: "bilan_next"
+- extendedWaitUntil:
+    visible:
+      id: "bilan_counter"
+      text: "Finance · 2 sur 5"
+    timeout: 20000
+
+# ✕: no question, the status stays where it was.
+- tapOn:
+    id: "bilan_quit"
+- assertNotVisible: "Quitter"
+- extendedWaitUntil:
+    visible:
+      id: "home_bilan_resume"
+    timeout: 20000
+- assertVisible: "Étape Finance"
+
+- tapOn: "Reprendre"
+- extendedWaitUntil:
+    visible:
+      id: "bilan_counter"
+      text: "Finance · 2 sur 5"
+    timeout: 20000

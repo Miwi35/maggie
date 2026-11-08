@@ -768,6 +768,8 @@ mobile:
   e2e/mobile/flows/27-cooking-launch.yaml:
     areas: [cookbook]
     paths: [e2e/mobile/scripts/recipe-api.js]
+  e2e/mobile/flows/33-bilan-soir.yaml:
+    areas: [dashboard]
   e2e/mobile/flows/15-task-subtasks.yaml:
     areas: [calendar, dashboard]
   e2e/mobile/flows/17-tasks-views.yaml:
