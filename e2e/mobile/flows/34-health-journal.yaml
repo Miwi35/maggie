@@ -105,13 +105,13 @@ tags:
 - extendedWaitUntil:
     visible: "Moral · fatigue"
     timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "fatigue_value"
+# The legend's id sits on a merged node whose text Maestro reads on its child: match the text.
 - extendedWaitUntil:
-    visible:
-      id: "mood_value"
-      text: "Moral 7"
+    visible: "Moral 7"
     timeout: 10000
 - extendedWaitUntil:
-    visible:
-      id: "fatigue_value"
-      text: "Fatigue 4"
+    visible: "Fatigue 4"
     timeout: 10000
