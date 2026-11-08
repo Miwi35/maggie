@@ -6,6 +6,8 @@ import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -34,8 +36,41 @@ class GroceryHomeCardScreenTest {
     private fun store(name: String?, shown: Int, more: Int = 0) =
         GroceryHomeStore(id = name?.lowercase(), name = name, count = shown + more, items = lines(shown), more = more)
 
-    private fun draw(ui: GroceryHomeUiState, onOpen: () -> Unit = {}, onRetry: () -> Unit = {}) =
-        compose.setContent { GroceryHomeCardContent(ui, onOpen, onRetry) }
+    private fun draw(
+        ui: GroceryHomeUiState,
+        onOpen: () -> Unit = {},
+        onRetry: () -> Unit = {},
+        resume: Boolean = false,
+        onLaunch: () -> Unit = {},
+    ) = compose.setContent { GroceryHomeCardContent(ui, onOpen, onRetry, resume, onLaunch) }
+
+    private fun filled() = GroceryHomeUiState(GroceryHomeState(count = 1, stores = listOf(store("Supermarché", 1))), isLoading = false)
+
+    @Test
+    fun `the card offers to launch the Courses activity (MAG-762)`() {
+        var launched = 0
+        var opened = 0
+        draw(filled(), onOpen = { opened++ }, onLaunch = { launched++ })
+
+        compose.onNodeWithContentDescription("Lancer les courses").performClick()
+
+        assertEquals(1, launched)
+        assertEquals(0, opened)
+    }
+
+    @Test
+    fun `a tour in progress is resumed from the card`() {
+        draw(filled(), resume = true)
+
+        compose.onNodeWithContentDescription("Reprendre les courses").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an empty card has no launch button`() {
+        draw(GroceryHomeUiState(isLoading = false, failed = true))
+
+        compose.onAllNodesWithContentDescription("Lancer les courses").assertCountEquals(0)
+    }
 
     @Test
     fun `a shop draws its five lines and the rest as « + 1 »`() {

@@ -13,6 +13,7 @@ enum class ModuleHue(internal val hue: Pair<Color, Color>) {
     FINANCE(MaggieTokens.Module.finance),
     TASKS(MaggieTokens.Module.taches),
     CUISINE(MaggieTokens.Module.cuisine),
+    COURSES(MaggieTokens.Module.courses),
     HEALTH(MaggieTokens.Module.sport),
 }
 

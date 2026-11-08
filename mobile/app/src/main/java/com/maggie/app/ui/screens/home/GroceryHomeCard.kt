@@ -25,6 +25,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.GroceryHomeLine
+import com.maggie.app.data.model.HomeDay
 import com.maggie.app.data.model.GroceryHomeState
 import com.maggie.app.data.model.GroceryHomeStore
 import com.maggie.app.data.model.neededLabel
@@ -34,6 +35,7 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.screens.cookbook.grocery.formatQuantity
 import com.maggie.app.ui.screens.cookbook.grocery.unitLabel
+import com.maggie.app.ui.screens.grocery.run.GroceryRunResumeViewModel
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -42,14 +44,30 @@ import org.koin.androidx.compose.koinViewModel
  * The card does not follow « Demain »: the list is the same whatever the day.
  */
 @Composable
-fun GroceryHomeCard(viewModel: GroceryHomeViewModel = koinViewModel()) {
+fun GroceryHomeCard(
+    viewModel: GroceryHomeViewModel = koinViewModel(),
+    resumeViewModel: GroceryRunResumeViewModel = koinViewModel(),
+) {
     val ui by viewModel.uiState.collectAsState()
+    val resume by resumeViewModel.resume.collectAsState()
     val open = LocalHomeNavigation.current
-    GroceryHomeCardContent(ui = ui, onOpen = { open(Screen.Grocery.route) }, onRetry = viewModel::refresh)
+    GroceryHomeCardContent(
+        ui = ui,
+        onOpen = { open(Screen.Grocery.route) },
+        onRetry = viewModel::refresh,
+        resume = resume,
+        onLaunch = { open(Screen.GroceryRun.route) },
+    )
 }
 
 @Composable
-internal fun GroceryHomeCardContent(ui: GroceryHomeUiState, onOpen: () -> Unit, onRetry: () -> Unit) {
+internal fun GroceryHomeCardContent(
+    ui: GroceryHomeUiState,
+    onOpen: () -> Unit,
+    onRetry: () -> Unit,
+    resume: Boolean = false,
+    onLaunch: () -> Unit = {},
+) {
     ReportHomeCard(HomeModules.GROCERY, ui.status)
     if (ui.status == HomeCardStatus.EMPTY) return
 
@@ -62,7 +80,19 @@ internal fun GroceryHomeCardContent(ui: GroceryHomeUiState, onOpen: () -> Unit, 
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when {
-                state != null && !state.isEmpty -> GroceryHomeBody(state)
+                state != null && !state.isEmpty -> {
+                    GroceryHomeBody(state)
+                    // « ▶ Lancer » the tour (MAG-762), « ▶ Reprendre » when one is in progress.
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        ActivityLaunchButton(
+                            module = HomeModules.GROCERY,
+                            activity = "les courses",
+                            day = HomeDay.TODAY,
+                            onLaunch = onLaunch,
+                            resume = resume,
+                        )
+                    }
+                }
                 ui.failed && !ui.isLoading -> Unit
                 else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }

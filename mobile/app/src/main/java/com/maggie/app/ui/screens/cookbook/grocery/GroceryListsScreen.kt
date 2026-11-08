@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
@@ -90,6 +91,8 @@ fun GroceryScreen(
     recurringViewModel: RecurringGroceryViewModel,
     // « Courses passées », in the « ⋮ » menu of the list (MAG-488, MAG-627).
     onNavigateToPastErrands: () -> Unit = {},
+    // « Lancer les courses » (MAG-762): opens the Courses activity.
+    onLaunchRun: () -> Unit = {},
     openItemId: String? = null,
     onOpenItemHandled: () -> Unit = {},
     // Set when the item opens in the detail pane beside the list instead of a sheet (MAG-263).
@@ -154,6 +157,10 @@ fun GroceryScreen(
                     selectedKey = "list",
                     onSelect = { if (it.key == "recurring") showRecurring = true },
                     trailing = {
+                      Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onLaunchRun, modifier = Modifier.testTag(UiTags.GROCERY_RUN_OPEN)) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Lancer les courses")
+                        }
                         Box {
                             IconButton(onClick = { menuExpanded = true }, modifier = Modifier.testTag(UiTags.GROCERY_MENU)) {
                                 Icon(Icons.Default.MoreVert, contentDescription = "Menu")
@@ -173,6 +180,7 @@ fun GroceryScreen(
                                 )
                             }
                         }
+                      }
                     },
                 )
             }

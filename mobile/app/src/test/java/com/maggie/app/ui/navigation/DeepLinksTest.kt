@@ -46,6 +46,11 @@ class DeepLinksTest {
     }
 
     @Test
+    fun `the Courses activity opens from courses run (MAG-762)`() {
+        assertEquals(listOf("$scheme://courses/run"), DeepLinks.patternsFor(Screen.GroceryRun.route))
+    }
+
+    @Test
     fun `the Cuisine activity opens from activity cooking with a meal or a recipe (MAG-580)`() {
         assertEquals(
             listOf("$scheme://activity/cooking?meal={meal}&recipe={recipe}"),

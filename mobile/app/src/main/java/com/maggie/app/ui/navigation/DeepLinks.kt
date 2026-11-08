@@ -96,6 +96,7 @@ object DeepLinks {
         Screen.Independence.route to listOf("$SCHEME://finance/planning/independence"),
         Screen.FinanceReviewActivity.route to listOf("$SCHEME://finance/review/activity"),
         Screen.BilanActivity.route to listOf("$SCHEME://activity/bilan"),
+        Screen.GroceryRun.route to listOf("$SCHEME://courses/run"),
         Screen.CookingActivity.route to listOf("$SCHEME://activity/cooking?$ARG_MEAL={$ARG_MEAL}&$ARG_RECIPE={$ARG_RECIPE}"),
         // Santé › Suivi (MAG-706), Nutrition (MAG-748), Journal (MAG-750), Sport (MAG-705) and Configuration (MAG-707).
         Screen.HealthSuivi.route to listOf("$SCHEME://health/suivi"),

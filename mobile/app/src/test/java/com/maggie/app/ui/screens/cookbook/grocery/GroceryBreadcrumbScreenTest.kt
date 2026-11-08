@@ -66,13 +66,24 @@ class GroceryBreadcrumbScreenTest {
         nextDueAt = "2026-10-20",
     )
 
-    private fun showList(fake: FakeGrocery = FakeGrocery(), onPastErrands: () -> Unit = {}) {
+    @Test
+    fun `the list launches the Courses activity (MAG-762)`() {
+        var launched = 0
+        showList(onLaunchRun = { launched++ })
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_OPEN).performClick()
+
+        assertEquals(1, launched)
+    }
+
+    private fun showList(fake: FakeGrocery = FakeGrocery(), onPastErrands: () -> Unit = {}, onLaunchRun: () -> Unit = {}) {
         compose.setContent {
             CompositionLocalProvider(LocalGroceryNav provides nav) {
                 GroceryScreen(
                     viewModel = fake.viewModel,
                     recurringViewModel = fake.recurring.viewModel,
                     onNavigateToPastErrands = onPastErrands,
+                    onLaunchRun = onLaunchRun,
                 )
             }
         }
