@@ -130,6 +130,20 @@ class BilanActivityViewModelTest {
     }
 
     @Test
+    fun `an answer is written into answers at once and resuming keeps it with the other answers`() = runTest(testDispatcher) {
+        stored = status("2026-11-08", """{"step":"sante","answers":{"mood":7}}""")
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.recordAnswer("fatigue", 4)
+
+        assertEquals(4, vm.uiState.value.session?.answerInt("fatigue"))
+        assertEquals(7, vm.uiState.value.session?.answerInt("mood"))
+        assertEquals("""{"mood":7,"fatigue":4}""", puts.single().second.getValue("answers").toString())
+        assertEquals("sante", puts.single().second.getValue("step").jsonPrimitive.content)
+    }
+
+    @Test
     fun `previous and the segments move back and forth, the first step has no previous`() = runTest(testDispatcher) {
         stored = status("2026-11-08", """{"step":"sante"}""")
         val vm = viewModel()

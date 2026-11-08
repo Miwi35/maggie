@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.LocalDate
 
@@ -55,6 +56,17 @@ data class BilanSession(val day: LocalDate, val step: BilanStep, val state: Json
         if (choice == null) tasks.remove(taskId) else tasks[taskId] = choice
         val list = JsonArray(tasks.map { (id, c) -> JsonObject(mapOf("taskId" to JsonPrimitive(id), "choice" to JsonPrimitive(c))) })
         return copy(state = JsonObject(state + ("answers" to JsonObject(answers + ("tasks" to list)))))
+    }
+
+    /** A whole-number answer of `answers` (`mood`, `fatigue`), or null when it has not been given. */
+    fun answerInt(key: String): Int? =
+        (state["answers"] as? JsonObject)?.get(key)?.let { it as? JsonPrimitive }?.intOrNull
+
+    /** The session with `answers[key]` set to [value] — `null` removes it; the other answers stay untouched. */
+    fun withAnswer(key: String, value: Int?): BilanSession {
+        val answers = state["answers"] as? JsonObject ?: JsonObject(emptyMap())
+        val updated = if (value == null) answers - key else answers + (key to JsonPrimitive(value))
+        return copy(state = JsonObject(state + ("answers" to JsonObject(updated))))
     }
 
     fun statusOrigin() = ActivityOrigin(DAY_KIND, day.toString())

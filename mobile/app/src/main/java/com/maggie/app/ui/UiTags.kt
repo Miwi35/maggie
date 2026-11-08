@@ -1496,6 +1496,10 @@ object UiTags {
     const val BILAN_TASK_LATER_SUFFIX = "_later"
     const val BILAN_TASKS_COUNT = "bilan_tasks_count"
     const val BILAN_TASKS_MESSAGE = "bilan_tasks_message"
+    const val BILAN_SANTE_CARD_PREFIX = "bilan_sante_card_"
+    const val BILAN_SANTE_MOOD_PREFIX = "bilan_sante_mood_"
+    const val BILAN_SANTE_FATIGUE_PREFIX = "bilan_sante_fatigue_"
+    const val BILAN_SANTE_ERROR = "bilan_sante_error"
     const val HOME_BILAN_RESUME = "home_bilan_resume"
 
     // The frame every activity shares (MAG-580): the activity itself, Maggie and ✕.
@@ -2077,6 +2081,8 @@ object UiTags {
     fun nutritionIntakeDelete(id: String) = NUTRITION_INTAKE_DELETE_PREFIX + id
     fun nutritionPlanned(mealId: String) = NUTRITION_PLANNED_PREFIX + mealId
     fun nutritionEat(mealId: String) = NUTRITION_EAT_PREFIX + mealId
+    fun bilanSanteMood(value: Int) = BILAN_SANTE_MOOD_PREFIX + value
+    fun bilanSanteFatigue(value: Int) = BILAN_SANTE_FATIGUE_PREFIX + value
     fun journalMood(value: Int) = JOURNAL_MOOD_PREFIX + value
     fun journalFatigue(value: Int) = JOURNAL_FATIGUE_PREFIX + value
     fun journalPast(date: String) = JOURNAL_PAST_PREFIX + date

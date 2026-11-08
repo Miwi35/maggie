@@ -98,6 +98,14 @@ class BilanActivityViewModel(
         write(updated)
     }
 
+    /** Writes a whole-number answer (`mood`, `fatigue`) into `answers` at once, on the same tap as the journal's own write; `null` takes it back. */
+    fun recordAnswer(key: String, value: Int?) {
+        val session = _uiState.value.session ?: return
+        val updated = session.withAnswer(key, value)
+        _uiState.update { it.copy(session = updated) }
+        write(updated)
+    }
+
     private fun goodNight() {
         statusRepository.delete(BILAN_ACTIVITY)
         _uiState.update { it.copy(finished = true) }

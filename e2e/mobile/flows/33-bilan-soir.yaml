@@ -13,6 +13,8 @@ tags:
 #   « Étape Finance » avec « Reprendre »
 # Et la tâche non faite du jour, rangée par « Demain », a son échéance à demain (MAG-752)
 # Alors « Reprendre » rouvre le bilan sur « Finance · 2 sur 5 »
+# Et à l'étape Santé (MAG-754), quand je touche Moral 7 et Fatigue 4, puis ✕ et « Reprendre », les deux restent
+#   choisis, et Santé › Journal montre 7 et 4
 #
 # What a JVM test cannot see is the real activity in the real window, the deep link and the status
 # held by the API. What is not here: each transition (`BilanActivityViewModelTest`), the phone and tablet
@@ -96,3 +98,58 @@ tags:
       id: "bilan_counter"
       text: "Finance · 2 sur 5"
     timeout: 20000
+
+# Santé (MAG-754): each tap is written to the journal at once and kept in the bilan's answers.
+- tapOn:
+    id: "bilan_next"
+- extendedWaitUntil:
+    visible:
+      id: "bilan_counter"
+      text: "Santé · 3 sur 5"
+    timeout: 20000
+- tapOn:
+    id: "bilan_sante_mood_7"
+- tapOn:
+    id: "bilan_sante_fatigue_4"
+- extendedWaitUntil:
+    visible:
+      id: "bilan_sante_mood_7"
+      checked: true
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "bilan_sante_fatigue_4"
+      checked: true
+    timeout: 10000
+
+# Reprendre keeps them.
+- tapOn:
+    id: "bilan_quit"
+- extendedWaitUntil:
+    visible:
+      id: "home_bilan_resume"
+    timeout: 20000
+- tapOn: "Reprendre"
+- extendedWaitUntil:
+    visible:
+      id: "bilan_sante_mood_7"
+      checked: true
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "bilan_sante_fatigue_4"
+      checked: true
+    timeout: 10000
+
+# Santé › Journal: the entry of the day carries them.
+- openLink: "maggie-e2e://health/journal"
+- extendedWaitUntil:
+    visible:
+      id: "journal_mood_7"
+      checked: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "journal_fatigue_4"
+      checked: true
+    timeout: 10000

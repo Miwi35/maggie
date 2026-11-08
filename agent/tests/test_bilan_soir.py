@@ -34,6 +34,10 @@ OFFERED = [
         "schedule_proaction",
         "add_instruction",
         "add_bilan_consigne",
+        "get_daily_balance",
+        "get_daily_energy",
+        "get_health_day",
+        "update_health_day",
     )
 ]
 
@@ -140,6 +144,7 @@ class BilanApi(FakeProactionApi):
 
     status: dict | None = None
     tasks: list[dict] = []
+    health_day: dict | None = None
 
     def _get_activity_status(self, arguments: dict, user_id: str | None) -> dict | None:
         return self.status
@@ -148,9 +153,26 @@ class BilanApi(FakeProactionApi):
         self.status = {
             "activity": "bilan",
             "origin": {"kind": "day", "id": arguments["day"]},
-            "state": {"step": arguments["step"], "instructions": arguments.get("instructions", [])},
+            "state": {
+                "step": arguments["step"],
+                "instructions": arguments.get("instructions", []),
+                **({"answers": arguments["answers"]} if "answers" in arguments else {}),
+            },
         }
         return {"success": True, "status": self.status}
+
+    def _get_daily_balance(self, arguments: dict, user_id: str | None) -> dict:
+        return {"date": arguments["date"], "eatenKcal": 1806, "expendedKcal": 2118, "balanceKcal": -312}
+
+    def _get_daily_energy(self, arguments: dict, user_id: str | None) -> dict:
+        return {"days": [{"date": arguments["from"], "steps": 8420}]}
+
+    def _get_health_day(self, arguments: dict, user_id: str | None) -> dict:
+        return {"day": {"date": arguments["date"], "mood": None, "fatigue": None}}
+
+    def _update_health_day(self, arguments: dict, user_id: str | None) -> dict:
+        self.health_day = arguments
+        return {"success": True, "day": arguments}
 
     def _get_events_by_date(self, arguments: dict, user_id: str | None) -> dict:
         return {"events": []}
@@ -246,6 +268,40 @@ class TestTheConsignes:
         targets = [i["targetId"] for i in api.status["state"]["instructions"]]
         assert targets == [proaction["id"], "t2", "i-1"]
         assert [i["id"] for i in api.status["state"]["instructions"]] == ["1", "2", "3"]
+
+
+class TestTheSanteStep:
+    ANSWER = "Mon moral à 7 et ma fatigue à 4"
+
+    async def test_mood_and_fatigue_are_written_to_the_journal_of_the_day(self, api):
+        result = await say(self.ANSWER)
+
+        assert names(result) == [
+            "get_daily_balance",
+            "get_daily_energy",
+            "get_health_day",
+            "update_health_day",
+            "save_bilan_step",
+        ]
+        assert api.health_day is not None
+        assert (api.health_day["mood"], api.health_day["fatigue"]) == (7, 4)
+        assert api.health_day["date"] == datetime.now(ZoneInfo("Europe/Paris")).date().isoformat()
+
+    async def test_the_answers_are_kept_in_the_bilan_status_for_a_resume(self, api):
+        await say(self.ANSWER)
+
+        assert api.status["state"]["step"] == "sante"
+        assert api.status["state"]["answers"] == {"mood": 7, "fatigue": 4}
+
+    async def test_the_skill_asks_a_value_off_the_scale_again_and_says_the_figures_without_verdict(self):
+        from pathlib import Path
+
+        skill = (Path(bilan.__file__).parent / "skills" / "bilan-soir.md").read_text(encoding="utf-8")
+        step = skill.split("## 4. Santé")[1].split("## 5.")[0]
+
+        assert "hors de 1 à 10" in step and "n'appelle pas" in step
+        assert "sans verdict" in step
+        assert "update_health_day" in step
 
 
 class TestTheConsigneTool:

@@ -39,7 +39,14 @@ Appelle `get_finance_scores` avec `date`. Dis où en est la semaine en une phras
 
 ## 4. Santé (`sante`)
 
-Demande comment s'est passée la journée : moral et fatigue sur dix, et une note libre s'il veut. Enregistre-les dans `answers` (`mood`, `fatigue`, `note`). S'il ne veut pas répondre, passe.
+Lis la journée de santé, sans rien inventer : `get_daily_balance` avec `date` (kcal mangées, dépensées, bilan), `get_daily_energy` avec `from` et `to` égaux à `date` (les pas), `get_health_day` avec `date` (séance, pesée, moral et fatigue déjà notés). Dis en une ou deux phrases ce qui existe : le bilan calorique, les pas, la séance, le poids, **sans verdict** (ni « bien », ni « mal », ni « attention », ni conseil, ni objectif à atteindre ; encourage sans culpabiliser). Une valeur absente (pas de source de pas, pas de pesée) : ne la mentionne pas, ne la réclame pas. Un outil en erreur : saute ce constat en une phrase, sans bloquer.
+
+Pose ensuite **quand même** les deux questions : le moral, puis la fatigue, chacun sur dix (10 = le meilleur moral, 10 = la plus grande fatigue). L'écran de l'étape les montre en dix boutons ; à l'oral, il répond d'un nombre. Si moral et fatigue sont déjà dans `get_health_day` ou dans `state.answers` (bilan repris), ne les redemande pas : redis-les.
+
+- Une valeur entière de 1 à 10 : appelle `update_health_day` avec `date` (le jour du bilan) et `mood` ou `fatigue` (ou les deux). N'invente jamais un chiffre : « plutôt bien » sans nombre, tu demandes le nombre.
+- Une valeur hors de 1 à 10, ou qui n'est pas un nombre entier : **n'appelle pas** l'outil, redemande-la (« sur dix, de un à dix ? »). Une erreur de l'outil (`field`) se redemande de même.
+- Après l'écriture, appelle `save_bilan_step` (`day`, `step: "sante"`, `answers` avec `mood` et `fatigue` donnés jusque-là ; les `answers.tasks` déjà recueillis sont à repasser avec).
+- Une note libre, s'il veut garder quelque chose (« note que… ») : `update_health_day` avec `note`, ses mots. Il ne veut pas répondre : passe, sans insister.
 
 ## 5. Consignes (`consignes`)
 

@@ -1,0 +1,25 @@
+# The Santé step answered by voice or text (MAG-754, extends MAG-99): Maggie reads the day's figures, the owner says
+# his mood and fatigue on ten, she writes them in the health journal (the entry then reads « avec Maggie ») and keeps
+# them in the bilan's answers. The fake reads no tool result, so the sentence is scripted; that the figures are said
+# with no verdict and a value off 1–10 asked again, is the skill's rule, judged on the real model.
+name: bilan-soir-sante
+description: Mood and fatigue given at the Santé step of the evening review, written in the health journal.
+
+match:
+  user_contains: ["moral à 7", "fatigue à 4"]
+
+turns:
+  - tools:
+      - name: get_daily_balance
+        input: {date: '${today}'}
+      - name: get_daily_energy
+        input: {from: '${today}', to: '${today}'}
+      - name: get_health_day
+        input: {date: '${today}'}
+  - tools:
+      - name: update_health_day
+        input: {date: '${today}', mood: 7, fatigue: 4}
+  - tools:
+      - name: save_bilan_step
+        input: {day: '${today}', step: sante, answers: {mood: 7, fatigue: 4}}
+  - text: "C'est noté : un moral à sept et une fatigue à quatre. On passe aux consignes pour demain ?"

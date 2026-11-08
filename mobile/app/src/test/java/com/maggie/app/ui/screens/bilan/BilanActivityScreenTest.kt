@@ -4,10 +4,13 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.HealthDay
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.tap
 import com.maggie.app.ui.UiTags
@@ -102,6 +105,30 @@ class BilanActivityScreenTest {
         compose.onNodeWithText("Il reste deux tâches.").assertIsDisplayed()
         compose.onNodeWithText("Oui, demain").tap()
         assertEquals(listOf("demain"), picked)
+    }
+
+    @Test
+    fun `the Santé step shows the figures, the chosen scores and writes a tap`() {
+        val moods = mutableListOf<Int>()
+        val fatigues = mutableListOf<Int>()
+        val figures = santeFigures(HealthDay(date = "2026-11-08", steps = 8420), java.time.ZoneId.of("Europe/Paris"))
+        val slots = BilanSlots(
+            content = mapOf(
+                BilanStep.SANTE to {
+                    SanteContent(figures, mood = 7, fatigue = null, error = null, onMood = { moods += it }, onFatigue = { fatigues += it })
+                },
+            ),
+        )
+        draw(ready(BilanStep.SANTE), slots)
+
+        compose.onNodeWithTag(UiTags.BILAN_SANTE_CARD_PREFIX + "steps").assertTextContains("8 420", substring = true)
+        compose.onNodeWithTag(UiTags.BILAN_SANTE_CARD_PREFIX + "weight").assertTextContains("—", substring = true)
+        compose.onNodeWithTag(UiTags.bilanSanteMood(7)).assertIsSelected()
+        compose.onNodeWithTag(UiTags.bilanSanteFatigue(4)).assertIsNotSelected()
+        compose.onNodeWithTag(UiTags.bilanSanteFatigue(4)).tap()
+        compose.onNodeWithTag(UiTags.bilanSanteMood(3)).tap()
+        assertEquals(listOf(4), fatigues)
+        assertEquals(listOf(3), moods)
     }
 
     @Test
