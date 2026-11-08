@@ -107,6 +107,16 @@ describe('WorkoutList', () => {
     expect(await screen.findByTestId('workout-detail-01RUN')).toBeInTheDocument()
   })
 
+  test('lays out three cards of their own, the chart 230 px high so its bars have room (recette, 8 Nov.)', async () => {
+    renderList()
+
+    const chart = await screen.findByRole('region', { name: 'Minutes par semaine' })
+    await screen.findByTestId('workout-detail-01RUN')
+    // The list's page is no card itself: the three cards detach from the background, not from one block.
+    expect(screen.getByTestId('workouts-board').closest('.MuiCard-root')).toBeNull()
+    expect(getComputedStyle(chart).height).toBe('230px')
+  })
+
   test('a row shows the formats of the mockup', async () => {
     renderList()
 

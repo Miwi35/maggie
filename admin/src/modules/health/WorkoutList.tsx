@@ -154,7 +154,8 @@ const WorkoutsBoard = ({ filters, onFilters, withChart }: BoardProps) => {
         </Button>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 2fr) minmax(0, 1fr)' }, gridTemplateRows: { md: 'auto 230px auto' }, gap: 1.75, minWidth: 0 }}>
+      {/* The mockup's grid under its header: the chart above the table, the selected workout down the right column. */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 2fr) minmax(0, 1fr)' }, gridTemplateRows: { md: '230px auto' }, gap: 1.75, minWidth: 0 }}>
         {withChart ? <WeeklyMinutesCard /> : <Box />}
 
         {selected && <WorkoutDetail key={selected.id} workout={selected} onEdit={() => setForm({ workout: selected })} onDeleted={() => setSelectedId(null)} />}
@@ -275,6 +276,8 @@ export const WorkoutList = ({ withChart = true }: { withChart?: boolean }) => {
       pagination={false}
       empty={false}
       queryOptions={queryOptions}
+      // No card around the board: its three cards detach from the page's background, as on the mockup.
+      component="div"
     >
       <WorkoutsBoard filters={filters} onFilters={setFilters} withChart={withChart} />
     </LiveList>

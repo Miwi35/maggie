@@ -299,7 +299,7 @@ describe('CustomMenu — the modules of the mockup', () => {
     ])
   })
 
-  test('opens Santé with Suivi, then Nutrition and Journal, before Sport and Configuration last, the current entry in the hue of the module', async () => {
+  test('opens Santé in the mockup order — Suivi, Sport, Nutrition, Journal, Configuration last —, the current entry in the hue of the module', async () => {
     stubPersonality('Maggie')
     renderMenuAt('/workouts')
 
@@ -310,7 +310,7 @@ describe('CustomMenu — the modules of the mockup', () => {
     expect(suivi).toHaveAttribute('href', '/health/suivi')
     expect(suivi).not.toHaveClass('Mui-selected')
     const santé = hrefs().indexOf('/health/suivi')
-    expect(hrefs().slice(santé, santé + 6)).toEqual(['/health/suivi', '/health/suivi', '/health/nutrition', '/health/journal', '/workouts', '/health/configuration'])
+    expect(hrefs().slice(santé, santé + 6)).toEqual(['/health/suivi', '/health/suivi', '/workouts', '/health/nutrition', '/health/journal', '/health/configuration'])
     expect(screen.getByRole('menuitem', { name: 'Nutrition' })).not.toHaveClass('Mui-selected')
     expect(screen.getByRole('menuitem', { name: 'Journal' })).not.toHaveClass('Mui-selected')
     expect(screen.getByRole('menuitem', { name: 'Configuration' })).not.toHaveClass('Mui-selected')
