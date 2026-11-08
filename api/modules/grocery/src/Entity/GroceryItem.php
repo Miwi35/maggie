@@ -70,6 +70,15 @@ class GroceryItem implements SeasonalLine
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $buyAfter = null;
 
+    /** When the article was found missing in a store, null while it is not (MAG-764). */
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $missingAt = null;
+
+    /** The store it was missing from, where unmarking puts it back (MAG-764). */
+    #[ORM\ManyToOne(targetEntity: Store::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Store $missingFromStore = null;
+
     #[ORM\Column(options: ['default' => 0])]
     private int $position = 0;
 
@@ -268,6 +277,57 @@ class GroceryItem implements SeasonalLine
     public function setBuyAfter(?\DateTimeImmutable $buyAfter): static
     {
         $this->buyAfter = $buyAfter;
+
+        return $this;
+    }
+
+    public function getMissingAt(): ?\DateTimeImmutable
+    {
+        return $this->missingAt;
+    }
+
+    public function getMissingFromStore(): ?Store
+    {
+        return $this->missingFromStore;
+    }
+
+    /**
+     * Missing in the store it was planned in: remembers that store and moves
+     * the line to the product's fallback store, when it has another one. A
+     * line already missing is left as it is (an offline queue may resend).
+     */
+    public function markMissing(\DateTimeImmutable $at): static
+    {
+        if ($this->checked) {
+            throw new \DomainException("A checked grocery item cannot be missing: {$this->id}");
+        }
+        if (null !== $this->missingAt) {
+            return $this;
+        }
+
+        $this->missingAt = $at;
+        $this->missingFromStore = $this->store;
+
+        $fallback = $this->product?->getFallbackStore();
+        if (null !== $fallback && $fallback !== $this->store) {
+            $this->store = $fallback;
+        }
+
+        return $this;
+    }
+
+    /** Found after all: back to the store it was missing from, when that store still exists. */
+    public function clearMissing(): static
+    {
+        if (null === $this->missingAt) {
+            return $this;
+        }
+
+        if (null !== $this->missingFromStore) {
+            $this->store = $this->missingFromStore;
+        }
+        $this->missingFromStore = null;
+        $this->missingAt = null;
 
         return $this;
     }

@@ -44,6 +44,7 @@ class GroceryRunScreenTest {
 
     private val actions = GroceryRunActions(
         check = { log += "check:$it" },
+        markMissing = { log += "missing:$it" },
         setVisited = { id, visited -> log += "visit:$id:$visited" },
         start = { log += "start" },
         retry = { log += "retry" },
@@ -176,12 +177,17 @@ class GroceryRunScreenTest {
         GroceryItem(id = "i-4", label = "Beurre", store = Store("s-u", "Super U"), aisle = AisleSummary("a-1", "Frais", 1), position = 4, checked = true),
     )
 
-    private fun storeState(tags: Map<String, String> = emptyMap(), pending: Map<String, Boolean> = emptyMap()) = GroceryRunUiState(
+    private fun storeState(
+        tags: Map<String, String> = emptyMap(),
+        pending: Map<String, Boolean> = emptyMap(),
+        pendingMissing: Map<String, Boolean> = emptyMap(),
+    ) = GroceryRunUiState(
         load = GroceryRunLoad.READY,
         stores = stores,
         run = GroceryRunState(tour = listOf("s-u", "s-b", "s-m"), current = "s-u"),
         items = storeItems,
         pending = pending,
+        pendingMissing = pendingMissing,
         mealTags = tags,
     )
 
@@ -238,5 +244,36 @@ class GroceryRunScreenTest {
         compose.onNodeWithTag(UiTags.groceryRunLine("i-3")).performClick()
 
         assertEquals(listOf("check:i-3"), log)
+    }
+
+    @Test
+    fun `Manquant on a line asks to mark it, and a ticked line has none`() {
+        draw(storeState())
+
+        compose.onNodeWithTag(UiTags.groceryRunMissing("i-3")).performClick()
+
+        assertEquals(listOf("missing:i-3"), log)
+        compose.onNodeWithTag(UiTags.groceryRunMissing("i-4")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `an article moved from an earlier store shows manquant chez that store, with Annuler`() {
+        val moved = GroceryItem(
+            id = "i-7", label = "Crème", store = Store("s-b", "Biocoop"), missingFromStore = Store("s-u", "Super U"),
+            missingAt = "2026-11-08T10:00:00+00:00", position = 1,
+        )
+        draw(storeState().let { it.copy(items = it.items + moved, run = it.run.copy(current = "s-b")) })
+
+        compose.onNodeWithTag(UiTags.groceryRunMissingTag("i-7"), useUnmergedTree = true).assertTextEquals("manquant chez Super U")
+        compose.onNodeWithTag(UiTags.groceryRunMissing("i-7")).assertTextEquals("Annuler").performClick()
+        assertEquals(listOf("missing:i-7"), log)
+    }
+
+    @Test
+    fun `a missing article without a fallback stays, marked pas de repli and counted as done`() {
+        draw(storeState(pendingMissing = mapOf("i-1" to true)))
+
+        compose.onNodeWithTag(UiTags.groceryRunMissingTag("i-1"), useUnmergedTree = true).assertTextEquals("manquant · pas de repli")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("2 / 4")
     }
 }

@@ -143,6 +143,8 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
                 'storeId' => null !== $item->getStore() ? (string) $item->getStore()->getId() : null,
                 'buyAfter' => $item->getBuyAfter()?->format('Y-m-d'),
                 'position' => $item->getPosition(),
+                'missingAt' => $item->getMissingAt()?->format('c'),
+                'missingFromStoreId' => null !== $item->getMissingFromStore() ? (string) $item->getMissingFromStore()->getId() : null,
             ])->toArray(),
         ];
     }
@@ -182,6 +184,12 @@ class GroceryList implements MercurePublishable, OwnedByUserInterface, Indexable
                 'inSeason' => $item->getInSeason(),
                 'buyAfter' => $item->getBuyAfter()?->format('Y-m-d'),
                 'position' => $item->getPosition(),
+                'missingAt' => $item->getMissingAt()?->format('c'),
+                'missingFromStore' => null !== $item->getMissingFromStore() ? [
+                    'id' => (string) $item->getMissingFromStore()->getId(),
+                    'name' => $item->getMissingFromStore()->getName(),
+                    'visitOrder' => $item->getMissingFromStore()->getVisitOrder(),
+                ] : null,
             ])->toArray()),
             'createdAt' => $this->createdAt->format('c'),
             'updatedAt' => $this->updatedAt->format('c'),

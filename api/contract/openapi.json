@@ -19076,6 +19076,25 @@
                         ],
                         "format": "date-time"
                     },
+                    "missingAt": {
+                        "readOnly": true,
+                        "description": "When the article was found missing in a store, null while it is not (MAG-764).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "missingFromStore": {
+                        "readOnly": true,
+                        "description": "The store it was missing from, where unmarking puts it back (MAG-764).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "position": {
                         "default": 0,
                         "type": "integer"
@@ -19247,6 +19266,25 @@
                         ],
                         "format": "date-time"
                     },
+                    "missingAt": {
+                        "readOnly": true,
+                        "description": "When the article was found missing in a store, null while it is not (MAG-764).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "missingFromStore": {
+                        "readOnly": true,
+                        "description": "The store it was missing from, where unmarking puts it back (MAG-764).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "position": {
                         "default": 0,
                         "type": "integer"
@@ -19417,6 +19455,25 @@
                             "null"
                         ],
                         "format": "date-time"
+                    },
+                    "missingAt": {
+                        "readOnly": true,
+                        "description": "When the article was found missing in a store, null while it is not (MAG-764).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "missingFromStore": {
+                        "readOnly": true,
+                        "description": "The store it was missing from, where unmarking puts it back (MAG-764).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
                     },
                     "position": {
                         "default": 0,
