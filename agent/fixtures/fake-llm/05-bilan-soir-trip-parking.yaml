@@ -1,0 +1,10 @@
+# The parking answered in the Demain step (MAG-755): nothing to call, the place keeps its parking only when the
+# owner gives an address (« Je précise », by voice).
+name: bilan-soir-trip-parking
+description: The parking answered in the street or in a car park is acknowledged.
+
+match:
+  user_matches: "^Bilan du soir, trajet de demain · événement ([0-9A-HJKMNP-TV-Z]{26}) .*je me gare"
+
+turns:
+  - text: "C'est noté pour le stationnement."

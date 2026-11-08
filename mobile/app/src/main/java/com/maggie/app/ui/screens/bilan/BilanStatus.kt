@@ -72,6 +72,18 @@ data class BilanSession(val day: LocalDate, val step: BilanStep, val state: Json
     fun statusOrigin() = ActivityOrigin(DAY_KIND, day.toString())
 
     fun statusState() = JsonObject(state + ("step" to JsonPrimitive(step.wire)))
+
+    /** The trip questions already answered (`answers.trips`, keys of [tripAnswerKey]): « Reprendre » skips them. */
+    fun answeredTrips(): Set<String> =
+        (state["answers"] as? JsonObject)?.get("trips").let { it as? JsonArray }
+            ?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet().orEmpty()
+
+    /** This session with [key] added to `answers.trips`, the rest of `answers` untouched. */
+    fun withTripAnswer(key: String): BilanSession {
+        val answers = (state["answers"] as? JsonObject) ?: JsonObject(emptyMap())
+        val trips = JsonArray((answeredTrips() + key).sorted().map(::JsonPrimitive))
+        return copy(state = JsonObject(state + ("answers" to JsonObject(answers + ("trips" to trips)))))
+    }
 }
 
 /**

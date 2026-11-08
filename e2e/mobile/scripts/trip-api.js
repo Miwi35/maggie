@@ -7,14 +7,16 @@
 // parking 3 — leaving at 13:34 for 14:00, at 14:34 for 15:00.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL, E2E_LOGIN_TOKEN and TODAY from `run.sh`):
-//   ACTION    create | move
+//   ACTION    create | move | create-tomorrow | expect-tomorrow
 //   SUMMARY   create: the event's title
 //   EVENT_ID  move: the id `create` returned
 //   EMAIL     the account, default the one the app signs in as (e2e@maggie.local)
 //
 // `create` files the event today at 14:00 (Paris), counted from `TODAY` and not from the
 // script's clock so a pinned `E2E_NOW` is followed, parks the car 300 m from home and keeps
-// the drive from home. `move` pushes the event to 15:00 and keeps the trip again.
+// the drive from home. `create-tomorrow` files the same event tomorrow with no trip (the evening review's Demain
+// step asks for it); `expect-tomorrow` reads back that tomorrow's trip to EVENT_ID has its origin decided by the user.
+// `move` pushes the event to 15:00 and keeps the trip again.
 
 (function () {
 const base = E2E_BASE_URL
@@ -136,6 +138,34 @@ if (ACTION === 'create') {
     end_time: '16:00',
   })
   keepTheDriveFromHome(EVENT_ID)
+} else if (ACTION === 'create-tomorrow') {
+  const parts = today.split('-').map(Number)
+  const tomorrow = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + 1)).toISOString().slice(0, 10)
+  // A journey's own user starts with no agenda, and an event needs one.
+  if (tool('manage_agendas', { action: 'list' }).count === 0) {
+    tool('manage_agendas', { action: 'create', name: 'Perso', timeZone: 'Europe/Paris', isDefault: true })
+  }
+  const created = tool('create_event', {
+    title: SUMMARY,
+    start_date: tomorrow,
+    start_time: '14:00',
+    end_date: tomorrow,
+    end_time: '15:00',
+    location: '5 allée du Sourire Fictif, 35000 Rennes',
+  })
+  output.eventId = created.event.id
+} else if (ACTION === 'expect-tomorrow') {
+  const parts = today.split('-').map(Number)
+  const tomorrow = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + 1)).toISOString().slice(0, 10)
+  const trip = tool('list_trips', { date: tomorrow }).trips.filter(function (t) {
+    return t.eventId === EVENT_ID
+  })[0]
+  if (!trip) {
+    fail('no trip kept for tomorrow\'s event ' + EVENT_ID)
+  }
+  if (trip.originDecidedBy !== 'user') {
+    fail('the origin was decided by ' + trip.originDecidedBy + ', not by the user')
+  }
 } else {
   fail('unknown ACTION')
 }

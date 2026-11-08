@@ -144,9 +144,10 @@ import com.maggie.app.ui.screens.bilan.BilanActivityViewModel
 import com.maggie.app.ui.screens.bilan.BilanJourneeViewModel
 import com.maggie.app.ui.screens.bilan.rememberJourneeSlots
 import com.maggie.app.ui.screens.bilan.BilanSanteViewModel
-import com.maggie.app.ui.screens.bilan.BilanSlots
 import com.maggie.app.ui.screens.bilan.rememberSanteSlots
 import com.maggie.app.util.DateRanges
+import com.maggie.app.ui.screens.bilan.BilanTomorrowViewModel
+import com.maggie.app.ui.screens.bilan.rememberTomorrowSlots
 import com.maggie.app.ui.screens.cookbook.cooking.CookingActivityScreen
 import com.maggie.app.ui.screens.grocery.run.GroceryRunScreen
 import com.maggie.app.ui.screens.grocery.run.GroceryRunViewModel
@@ -820,11 +821,8 @@ private fun BilanActivityPage(navController: NavController, onAnswerByVoice: () 
     val state by viewModel.uiState.collectAsState()
     val journeeSlots = rememberJourneeSlots(journee, state.session, viewModel::recordTaskChoice)
     val santeSlots = rememberSanteSlots(koinViewModel<BilanSanteViewModel>(), state.session, DateRanges.zone, viewModel::recordAnswer)
-    val slots = BilanSlots(
-        content = journeeSlots.content + santeSlots.content,
-        say = journeeSlots.say + santeSlots.say,
-        asks = journeeSlots.asks + santeSlots.asks,
-    )
+    val slots = journeeSlots + santeSlots +
+        rememberTomorrowSlots(viewModel, koinViewModel<BilanTomorrowViewModel>(), onAnswerByVoice)
     BilanActivityScreen(
         viewModel = viewModel,
         onQuit = { navController.popBackStack() },

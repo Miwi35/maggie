@@ -1,0 +1,14 @@
+# The Demain step of the evening review asks « D'où partez-vous ? » and the owner taps « De la maison » (MAG-755).
+# The app sends the answer with the event's id; Maggie keeps tomorrow's trip with decidedBy=user, so the morning
+# planning keeps the origin. These files sort before the generic scenarios (« Dentiste » would match others).
+name: bilan-soir-trip-origin-home
+description: The origin answered « de la maison » is kept as tomorrow's trip, decidedBy user.
+
+match:
+  user_matches: "^Bilan du soir, trajet de demain · événement ([0-9A-HJKMNP-TV-Z]{26}) .*je pars de la maison"
+
+turns:
+  - tools:
+      - name: set_trip
+        input: {eventId: '\1', mode: drive, origin: home, decidedBy: user}
+  - text: "C'est noté : demain, vous partez de la maison."

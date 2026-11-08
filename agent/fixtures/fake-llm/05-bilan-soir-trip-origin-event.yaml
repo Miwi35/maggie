@@ -1,0 +1,12 @@
+# « Non, je reste en ville »: the trip starts where the previous event is (MAG-755).
+name: bilan-soir-trip-origin-event
+description: The origin answered « de l'événement … » is kept as event:<id>, decidedBy user.
+
+match:
+  user_matches: "^Bilan du soir, trajet de demain · événement ([0-9A-HJKMNP-TV-Z]{26}) .*je pars de l’événement ([0-9A-HJKMNP-TV-Z]{26}) "
+
+turns:
+  - tools:
+      - name: set_trip
+        input: {eventId: '\1', mode: drive, origin: 'event:\2', decidedBy: user}
+  - text: "C'est noté : vous partez de votre rendez-vous précédent."

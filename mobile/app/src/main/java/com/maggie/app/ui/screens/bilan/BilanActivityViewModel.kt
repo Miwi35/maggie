@@ -106,6 +106,15 @@ class BilanActivityViewModel(
         write(updated)
     }
 
+    /** Remembers that the trip question [key] was answered, so resuming the bilan does not ask it again. */
+    fun recordTripAnswer(key: String) {
+        val session = _uiState.value.session ?: return
+        if (key in session.answeredTrips()) return
+        val recorded = session.withTripAnswer(key)
+        _uiState.update { it.copy(session = recorded) }
+        write(recorded)
+    }
+
     private fun goodNight() {
         statusRepository.delete(BILAN_ACTIVITY)
         _uiState.update { it.copy(finished = true) }
