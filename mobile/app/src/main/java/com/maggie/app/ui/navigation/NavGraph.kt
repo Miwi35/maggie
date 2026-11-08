@@ -144,6 +144,8 @@ import com.maggie.app.ui.screens.bilan.BilanActivityViewModel
 import com.maggie.app.ui.screens.bilan.BilanJourneeViewModel
 import com.maggie.app.ui.screens.bilan.rememberJourneeSlots
 import com.maggie.app.ui.screens.cookbook.cooking.CookingActivityScreen
+import com.maggie.app.ui.screens.grocery.run.GroceryRunScreen
+import com.maggie.app.ui.screens.grocery.run.GroceryRunViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
 import com.maggie.app.ui.screens.cookbook.cooking.CookingGroceryViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingViewModel
@@ -338,6 +340,9 @@ sealed class Screen(val route: String, val label: String) {
     }
     /** Activité Comptes · la revue (MAG-456): full screen, outside the Finance menus, so drawn without chrome. */
     data object FinanceReviewActivity : Screen("finance/review/activity", "Revue du mois")
+
+    /** Activité Courses (MAG-762): full screen, `maggie://courses/run`. */
+    data object GroceryRun : Screen("courses/run", "Courses")
     /**
      * Activité Cuisine (MAG-580): full screen, outside the menus, so drawn without chrome. `meal` or `recipe` says
      * what it cooks.
@@ -780,6 +785,15 @@ private fun ReviewActivityPage(navController: NavController, onOpenMaggie: () ->
         onQuit = { navController.popBackStack() },
         onOpenMaggie = onOpenMaggie,
         onOpen = { route -> navController.navigate(route) { launchSingleTop = true } },
+    )
+}
+
+@Composable
+private fun GroceryRunPage(navController: NavController, onOpenMaggie: () -> Unit) {
+    GroceryRunScreen(
+        viewModel = koinViewModel<GroceryRunViewModel>(),
+        onQuit = { navController.popBackStack() },
+        onOpenMaggie = onOpenMaggie,
     )
 }
 
@@ -1855,6 +1869,9 @@ fun NavGraph() {
                                         onNavigateToPastErrands = {
                                             navController.navigate(Screen.PastErrands.route) { launchSingleTop = true }
                                         },
+                                        onLaunchRun = {
+                                            navController.navigate(Screen.GroceryRun.route) { launchSingleTop = true }
+                                        },
                                         onOpenItemInPane = if (paneShown) {
                                             { groceryPaneItemId = it.id }
                                         } else {
@@ -2270,6 +2287,9 @@ fun NavGraph() {
                     }
                     composable(Screen.BilanActivity.route, deepLinks = DeepLinks.forRoute(Screen.BilanActivity.route)) {
                         BilanActivityPage(navController, onAnswerByVoice = ::startVoiceMode)
+                    }
+                    composable(Screen.GroceryRun.route, deepLinks = DeepLinks.forRoute(Screen.GroceryRun.route)) {
+                        GroceryRunPage(navController, onOpenMaggie = ::openChat)
                     }
                     composable(Screen.Independence.route, deepLinks = DeepLinks.forRoute(Screen.Independence.route)) {
                         IndependenceScreen(koinViewModel<FinanceDashboardViewModel>())

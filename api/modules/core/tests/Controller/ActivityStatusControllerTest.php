@@ -377,6 +377,26 @@ class ActivityStatusControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(201);
     }
 
+    public function testACoursesTourIsKeptAsSentAndRefusesAnotherOriginKind(): void
+    {
+        $topic = '/api/activity-status/courses';
+        $state = ['tour' => ['store-b', 'store-a'], 'current' => null, 'skipped' => ['store-c']];
+
+        $created = $this->request('PUT', self::ENDPOINT.'/courses', ['origin' => ['kind' => 'list', 'id' => 'list-1'], 'state' => $state]);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('courses', $created['activity']);
+        self::assertSame($state, $created['state']);
+        $this->assertMercurePublishedOnce($topic);
+        $this->assertNoElasticsearchIndexDispatched(ActivityStatus::class);
+
+        $this->resetMercure();
+        $this->request('PUT', self::ENDPOINT.'/courses', ['origin' => ['kind' => 'meal', 'id' => 'list-1'], 'state' => $state]);
+
+        self::assertResponseStatusCodeSame(400);
+        $this->assertMercureUpdateCount(0);
+    }
+
     private function assertElasticsearchDeleteDispatchedNowhere(): void
     {
         $deletes = array_filter(

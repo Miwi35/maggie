@@ -1503,6 +1503,26 @@ object UiTags {
     const val ACTIVITY_MAGGIE = "activity_maggie"
     const val ACTIVITY_QUIT = "activity_quit"
 
+    // Activité Courses (MAG-762): the tour, a store's row and its two choices, « C'est parti », the current store, « Quitter les courses ? ».
+    const val GROCERY_RUN_OPEN = "grocery_run_open"
+    const val GROCERY_RUN_LOADING = "grocery_run_loading"
+    const val GROCERY_RUN_ERROR = "grocery_run_error"
+    const val GROCERY_RUN_RETRY = "grocery_run_retry"
+    const val GROCERY_RUN_EMPTY = "grocery_run_empty"
+    const val GROCERY_RUN_TOUR = "grocery_run_tour"
+    const val GROCERY_RUN_GO = "grocery_run_go"
+    const val GROCERY_RUN_CURRENT = "grocery_run_current"
+    const val GROCERY_RUN_QUIT_DIALOG = "grocery_run_quit_dialog"
+    const val GROCERY_RUN_QUIT_CONFIRM = "grocery_run_quit_confirm"
+    const val GROCERY_RUN_QUIT_STAY = "grocery_run_quit_stay"
+    private const val GROCERY_RUN_STORE_PREFIX = "grocery_run_store_"
+    private const val GROCERY_RUN_VISIT_PREFIX = "grocery_run_visit_"
+    private const val GROCERY_RUN_SKIP_PREFIX = "grocery_run_skip_"
+
+    fun groceryRunStore(storeId: String) = GROCERY_RUN_STORE_PREFIX + storeId
+    fun groceryRunVisit(storeId: String) = GROCERY_RUN_VISIT_PREFIX + storeId
+    fun groceryRunSkip(storeId: String) = GROCERY_RUN_SKIP_PREFIX + storeId
+
     // Activité Cuisine (MAG-580): « Pour combien ? », « On sort tout », a step, « Bon appétit » and the states between.
     const val COOKING_LOADING = "cooking_loading"
     const val COOKING_ERROR = "cooking_error"

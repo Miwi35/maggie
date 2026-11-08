@@ -29,6 +29,11 @@ class ModuleHuesTest {
     }
 
     @Test
+    fun `the Courses activity keeps the Cuisine hue (MAG-762)`() {
+        assertEquals(ModuleHue.COURSES, moduleHueOf(Screen.GroceryRun.route))
+    }
+
+    @Test
     fun `the Cuisine activity is periwinkle (MAG-580)`() {
         assertEquals(ModuleHue.CUISINE, moduleHueOf(Screen.CookingActivity.route))
     }

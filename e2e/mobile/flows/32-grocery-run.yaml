@@ -1,0 +1,65 @@
+appId: com.maggie.app.e2e
+name: 32-grocery-run
+tags:
+  - grocery
+  - layout
+---
+# The Courses activity's « Tournée » (MAG-762, extends 27-cooking-launch for the activity frame).
+#
+# Étant donné deux magasins qui ont des articles à prendre (la graine du voisin : « Halles du voisin » puis
+#   « Épicerie du coin », dans l'ordre habituel)
+# Quand je lance les courses depuis Courses › Liste
+# Alors la tournée montre les deux magasins dans l'ordre habituel, sans la barre de Maggie
+# Et quand je fais glisser « Épicerie du coin » au-dessus de « Halles du voisin », l'ordre change
+#
+# Signed in as the neighbour, like `08`: the seed gives it a line in each shop. What a JVM test cannot see is the
+# real drag on the real list and the immersive window. What is not here: each transition of the tour
+# (`GroceryRunViewModelTest`), what the screen draws on a tablet (`GroceryRunScreenTest`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/32-grocery-run.yaml
+      e2e_email: e2e-other@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: grocery
+- extendedWaitUntil:
+    visible:
+      id: "grocery_run_open"
+    timeout: 20000
+- tapOn:
+    id: "grocery_run_open"
+
+# The tour, in the shops' habitual order.
+- extendedWaitUntil:
+    visible:
+      id: "grocery_run_tour"
+    timeout: 20000
+# Android's own « Viewing full screen » notice covers the top until dismissed.
+- tapOn:
+    text: "Got it"
+    optional: true
+- assertNotVisible:
+    id: "chat_open"
+- assertVisible:
+    text: "Épicerie du coin"
+    below: "Halles du voisin"
+
+# The second shop dragged to the top: the session's order changes.
+- swipe:
+    from:
+      text: "Déplacer Épicerie du coin"
+    direction: UP
+    duration: 2000
+- extendedWaitUntil:
+    visible:
+      text: "Halles du voisin"
+      below: "Épicerie du coin"
+    timeout: 10000
