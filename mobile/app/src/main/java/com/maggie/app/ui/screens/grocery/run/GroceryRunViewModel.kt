@@ -50,15 +50,24 @@ data class GroceryRunUiState(
     val pending: Map<String, Boolean> = emptyMap(),
     /** Product id → « ce soir · bœuf bourguignon ». */
     val mealTags: Map<String, String> = emptyMap(),
+    /** « Manquant » marks made and not yet received by the API: article id → missing or not (MAG-764). */
+    val pendingMissing: Map<String, Boolean> = emptyMap(),
 ) {
     fun isChecked(item: GroceryItem): Boolean = pending[item.id] ?: item.checked
 
-    private val currentItems: List<GroceryItem> get() = items.filter { it.store?.id == run.current }
+    fun isMissing(item: GroceryItem): Boolean = pendingMissing[item.id] ?: (item.missingAt != null)
 
-    /** The articles of the store being done, by aisle in the order of the store. */
-    val currentAisles: List<RunAisle> get() = runAisles(currentItems, ::isChecked, mealTags)
+    private fun place(item: GroceryItem): RunPlace? = item.runPlace(isMissing(item), run.tour)
 
-    val progress: RunProgress get() = RunProgress(currentItems.count(::isChecked), currentItems.size)
+    private val currentItems: List<GroceryItem> get() = items.filter { place(it)?.storeId == run.current }
+
+    /** The articles of the store being done, by aisle in the order of the store; a missing one moves with [place]. */
+    val currentAisles: List<RunAisle> get() = runAisles(currentItems, ::isChecked, mealTags) { place(it)?.missing }
+
+    val progress: RunProgress get() = RunProgress(
+        currentItems.count { isChecked(it) || place(it)?.missing == RunMissing.NoFallback },
+        currentItems.size,
+    )
 
     /** « Magasin k sur N »: the place of the store being done in the tour. */
     val tourPosition: Pair<Int, Int>? get() = run.current?.let { run.tour.indexOf(it) }?.takeIf { it >= 0 }?.let { it + 1 to run.tour.size }
@@ -102,6 +111,7 @@ class GroceryRunViewModel(
         load()
         followList()
         viewModelScope.launch { tickQueue.pending.collect { pending -> _uiState.update { it.copy(pending = pending) } } }
+        viewModelScope.launch { tickQueue.pendingMissing.collect { marks -> _uiState.update { it.copy(pendingMissing = marks) } } }
     }
 
     /** A tap on an article's box: ticked becomes unticked and the other way round, shown at once, sent when the network allows. */
@@ -110,6 +120,20 @@ class GroceryRunViewModel(
         val item = state.items.firstOrNull { it.id == itemId } ?: return
         tickQueue.tick(itemId, !state.isChecked(item))
         _uiState.update { it.copy(pending = tickQueue.pending.value) }
+    }
+
+    /**
+     * « Manquant » on an article of the store being done, or « Annuler » on a missing one (MAG-764): shown at once —
+     * in its fallback store when that one comes later in the tour — and sent when the network allows. A ticked
+     * article is not missing.
+     */
+    fun markMissing(itemId: String) {
+        val state = _uiState.value
+        val item = state.items.firstOrNull { it.id == itemId } ?: return
+        val missing = !state.isMissing(item)
+        if (missing && state.isChecked(item)) return
+        tickQueue.markMissing(itemId, missing)
+        _uiState.update { it.copy(pendingMissing = tickQueue.pendingMissing.value) }
     }
 
     /** « Réessayer ». */
@@ -151,7 +175,8 @@ class GroceryRunViewModel(
 
     /** The ✕ or the back: true when the activity can be left now, false when « Quitter les courses ? » is asked. */
     fun requestQuit(): Boolean {
-        if (_uiState.value.checkedSinceStart == 0 && _uiState.value.pending.isEmpty()) return true
+        val state = _uiState.value
+        if (state.checkedSinceStart == 0 && state.pending.isEmpty() && state.pendingMissing.isEmpty()) return true
         _uiState.update { it.copy(quitAsked = true) }
         return false
     }
@@ -219,10 +244,12 @@ class GroceryRunViewModel(
         val lines = list?.items.orEmpty().filter { !isDeferred(it, day) && it.store != null }
         // A store whose last article was just ticked stays while it is the one being done: finishing it is its own step.
         val keep = saved?.current
-        val stores = lines.groupBy { it.store!!.id }
+        // A missing article is counted in its own store, not in the fallback the API moved it to: the fallback is
+        // only where it is taken when that store is in today's tour (MAG-764).
+        val stores = lines.groupBy { it.homeStore.id }
             .filter { (id, items) -> id == keep || items.any { !it.checked } }
             .values
-            .map { items -> items.first().store!! to items.count { !it.checked } }
+            .map { items -> items.first().homeStore to items.count { !it.checked } }
             .sortedWith(compareBy({ it.first.visitOrder }, { it.first.name }))
             .map { (store, count) -> RunStore(store.id, store.name, count) }
         val checked = list?.items.orEmpty().count { it.checked && it.store != null }
@@ -241,6 +268,8 @@ class GroceryRunViewModel(
         }
         if (stores.isNotEmpty() && run != saved) write(run)
     }
+
+    private val GroceryItem.homeStore get() = missingFromStore ?: store!!
 
     private companion object {
         const val TAG_DAYS = 7L

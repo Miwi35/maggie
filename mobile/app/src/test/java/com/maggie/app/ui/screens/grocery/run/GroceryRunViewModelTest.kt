@@ -374,4 +374,132 @@ class GroceryRunViewModelTest {
         assertEquals("Super U", vm.uiState.value.current?.name)
         assertEquals(RunProgress(1, 1), vm.uiState.value.progress)
     }
+
+    // « Manquant » (MAG-764): Lait's product falls back to Biocoop, Pain's has no fallback.
+    private fun missingList(vararg extra: GroceryItem) = GroceryList(
+        "list-1",
+        listOf(
+            GroceryItem(id = "i-1", label = "Pain", store = superU, position = 1),
+            GroceryItem(
+                id = "i-3", label = "Lait", store = superU, position = 3,
+                product = com.maggie.app.data.model.Product(id = "p-1", name = "Lait", category = com.maggie.app.data.model.ProductCategory.DAIRY, fallbackStore = "/api/stores/s-b"),
+            ),
+            GroceryItem(id = "i-9", label = "Œufs", store = biocoop, position = 1),
+        ) + extra,
+    )
+
+    private suspend fun kotlinx.coroutines.test.TestScope.inSuperU(list: GroceryList = missingList(), tour: List<String> = listOf("s-u", "s-b"), skipped: List<String> = emptyList()): GroceryRunViewModel {
+        coEvery { lists.getGroceryList() } returns Result.success(list)
+        coEvery { lists.markMissing(any(), any()) } returns Result.success(Unit)
+        coEvery { status.get("courses") } returns Result.success(saved(GroceryRunState(tour = tour, current = "s-u", skipped = skipped).toJson()))
+        val vm = viewModel()
+        advanceUntilIdle()
+        return vm
+    }
+
+    private fun GroceryRunViewModel.line(id: String) = uiState.value.currentAisles.flatMap { it.lines }.firstOrNull { it.id == id }
+
+    private fun GroceryRunViewModel.lineIn(storeId: String, id: String) = uiState.value
+        .let { it.copy(run = it.run.copy(current = storeId)) }
+        .currentAisles.flatMap { it.lines }.firstOrNull { it.id == id }
+
+    @Test
+    fun `a missing article whose fallback comes later in the tour moves there, missing from its store`() = runTest {
+        val vm = inSuperU()
+        // Offline: the mark stays on the device, so the tour below reads it as it was asked.
+        coEvery { lists.markMissing("i-3", true) } returns Result.failure(java.io.IOException("offline"))
+
+        vm.markMissing("i-3")
+        assertNull(vm.line("i-3"))
+        assertEquals(RunProgress(0, 1), vm.uiState.value.progress)
+        assertEquals(RunMissing.MovedFrom("Super U"), vm.lineIn("s-b", "i-3")?.missing)
+        advanceUntilIdle()
+        coVerify(exactly = 1) { lists.markMissing("i-3", true) }
+
+        // Biocoop dragged before Super U: the fallback no longer comes later, so the article waits in Super U.
+        vm.move(1, 0)
+        assertNull(vm.lineIn("s-b", "i-3"))
+        assertEquals(RunMissing.NoFallback, vm.line("i-3")?.missing)
+    }
+
+    @Test
+    fun `the API's moved article shows in the fallback store with manquant chez`() = runTest {
+        val moved = missingList().items.map {
+            if (it.id == "i-3") it.copy(store = biocoop, missingFromStore = superU, missingAt = "2026-11-08T10:00:00+00:00") else it
+        }
+        coEvery { lists.getGroceryList() } returns Result.success(GroceryList("list-1", moved))
+        coEvery { status.get("courses") } returns Result.success(saved(GroceryRunState(tour = listOf("s-u", "s-b"), current = "s-b").toJson()))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(RunMissing.MovedFrom("Super U"), vm.line("i-3")?.missing)
+        assertEquals(RunProgress(0, 2), vm.uiState.value.progress)
+        // Its own store still counts it for the tour: it is where it was missing.
+        assertEquals(listOf("s-u", "s-b"), vm.uiState.value.tour.map { it.id })
+    }
+
+    @Test
+    fun `a missing article without a fallback stays in its store, marked pas de repli and done`() = runTest {
+        val vm = inSuperU()
+
+        vm.markMissing("i-1")
+
+        assertEquals(RunMissing.NoFallback, vm.line("i-1")?.missing)
+        assertEquals(RunProgress(1, 2), vm.uiState.value.progress)
+    }
+
+    @Test
+    fun `a fallback store left out of the tour leaves the article in its store, pas de repli`() = runTest {
+        val vm = inSuperU(tour = listOf("s-u"), skipped = listOf("s-b"))
+
+        vm.markMissing("i-3")
+
+        assertEquals(RunMissing.NoFallback, vm.line("i-3")?.missing)
+    }
+
+    @Test
+    fun `Annuler gives the article back to its store and sends it`() = runTest {
+        val moved = missingList().items.map {
+            if (it.id == "i-3") it.copy(store = biocoop, missingFromStore = superU, missingAt = "2026-11-08T10:00:00+00:00") else it
+        }
+        val vm = inSuperU(GroceryList("list-1", moved))
+        assertEquals(RunMissing.MovedFrom("Super U"), vm.lineIn("s-b", "i-3")?.missing)
+
+        vm.markMissing("i-3")
+
+        assertNull(vm.lineIn("s-b", "i-3"))
+        assertNull(checkNotNull(vm.line("i-3")).missing)
+        advanceUntilIdle()
+        coVerify(exactly = 1) { lists.markMissing("i-3", false) }
+    }
+
+    @Test
+    fun `a ticked article cannot be marked missing`() = runTest {
+        val vm = inSuperU()
+        vm.check("i-1")
+
+        vm.markMissing("i-1")
+        advanceUntilIdle()
+
+        assertNull(vm.line("i-1")?.missing)
+        coVerify(exactly = 0) { lists.markMissing(any(), any()) }
+    }
+
+    @Test
+    fun `a missing mark made offline is kept, then sent when the network is back`() = runTest {
+        val vm = inSuperU()
+        coEvery { lists.markMissing("i-1", true) } returns Result.failure(java.io.IOException("offline"))
+
+        vm.markMissing("i-1")
+        advanceUntilIdle()
+        assertEquals(mapOf("i-1" to true), vm.uiState.value.pendingMissing)
+        assertEquals(RunMissing.NoFallback, vm.line("i-1")?.missing)
+        assertFalse(vm.requestQuit())
+
+        coEvery { lists.markMissing("i-1", true) } returns Result.success(Unit)
+        queue.flush()
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.pendingMissing.isEmpty())
+    }
 }

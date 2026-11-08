@@ -18,7 +18,42 @@ data class RunLine(
     val checked: Boolean,
     /** « ce soir · bœuf bourguignon », shown as « pour : … »; null when no meal uses the article. */
     val forMeal: String?,
-)
+    /** How the article shows once marked « Manquant » (MAG-764); null when it is not. */
+    val missing: RunMissing? = null,
+) {
+    /** Nothing left to do with it in this store: taken, or missing with nowhere else to go today. */
+    val done: Boolean get() = checked || missing == RunMissing.NoFallback
+}
+
+/** A missing article (MAG-764), as the store it shows in reads it. */
+sealed interface RunMissing {
+    /** It moved here, its fallback further in the tour: « manquant chez [store] ». */
+    data class MovedFrom(val store: String) : RunMissing
+
+    /** No fallback further in the tour: it stays in its store, « manquant · pas de repli ». */
+    data object NoFallback : RunMissing
+}
+
+/** The store an article is taken from today, and how it shows when missing. */
+data class RunPlace(val storeId: String, val missing: RunMissing?)
+
+/**
+ * Where the article stands in today's [tour]: in its store, or — [missing] — in its product's fallback store when
+ * that one comes later in the tour, else still in its store, « pas de repli ». The API has already moved a missing
+ * article to its fallback (`store`, its own store in `missingFromStore`); one marked offline still waits for it,
+ * so its product's fallback is read instead. Null for an article without a store.
+ */
+fun GroceryItem.runPlace(missing: Boolean, tour: List<String>): RunPlace? {
+    val origin = missingFromStore ?: store ?: return null
+    if (!missing) return RunPlace(origin.id, null)
+    val fallback = if (missingAt != null) store?.id?.takeIf { it != origin.id } else product?.fallbackStore?.substringAfterLast('/')
+    val to = fallback?.let(tour::indexOf) ?: -1
+    return if (to >= 0 && to > tour.indexOf(origin.id)) {
+        RunPlace(fallback!!, RunMissing.MovedFrom(origin.name))
+    } else {
+        RunPlace(origin.id, RunMissing.NoFallback)
+    }
+}
 
 /** An aisle of the store and its articles; [name] is null for « Sans rayon ». */
 data class RunAisle(val id: String?, val name: String?, val lines: List<RunLine>)
@@ -62,12 +97,13 @@ fun List<GroceryRecipeNeed>.runTags(today: LocalDate): Map<String, String> {
 
 /**
  * The articles of one store, aisle by aisle in the order of the store, « Sans rayon » last; inside an aisle the
- * ones still to take come first and the ticked ones sink, in their place order.
+ * ones still to take come first and the ticked ones — and the missing ones with no fallback — sink, in their place order.
  */
 fun runAisles(
     items: List<GroceryItem>,
     isChecked: (GroceryItem) -> Boolean,
     tags: Map<String, String>,
+    missing: (GroceryItem) -> RunMissing? = { null },
 ): List<RunAisle> = items
     .filter { it.id != null }
     .groupBy { it.aisle?.id }
@@ -79,7 +115,6 @@ fun runAisles(
             id = aisle?.id,
             name = aisle?.name,
             lines = lines
-                .sortedWith(compareBy({ isChecked(it) }, { it.position }))
                 .map {
                     RunLine(
                         id = it.id.orEmpty(),
@@ -87,7 +122,10 @@ fun runAisles(
                         quantity = it.runQuantity(),
                         checked = isChecked(it),
                         forMeal = it.product?.id?.let(tags::get),
-                    )
-                },
+                        missing = missing(it),
+                    ) to it.position
+                }
+                .sortedWith(compareBy({ it.first.done }, { it.second }))
+                .map { it.first },
         )
     }

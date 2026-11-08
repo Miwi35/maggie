@@ -13,6 +13,9 @@ tags:
 # Et quand je fais glisser « Épicerie du coin » au-dessus de « Halles du voisin », l'ordre change
 # Et quand je lance la tournée, le premier magasin montre son article, que je coche : la progression passe à 1 / 1
 # (« Le magasin en cours », MAG-763)
+# Et quand je le décoche puis le marque « Manquant », il quitte l'Épicerie du coin : son repli, les Halles du voisin,
+#   vient plus loin dans la tournée (« Manquant », MAG-764). Le voir arriver dans les Halles avec « manquant chez … »
+#   attend « magasin suivant » (MAG-765), qui étend ce parcours ; `GroceryRunViewModelTest` le couvre d'ici là.
 #
 # Signed in as the neighbour, like `08`: the seed gives it a line in each shop. What a JVM test cannot see is the
 # real drag on the real list and the immersive window. What is not here: each transition of the tour
@@ -84,4 +87,19 @@ tags:
     visible:
       id: "grocery_run_store_progress"
       text: "1 / 1"
+    timeout: 10000
+
+# « Manquant » (MAG-764): untick, then mark it missing; its fallback comes later in the tour, so it leaves this shop.
+- tapOn:
+    text: "Timbres du voisin"
+- extendedWaitUntil:
+    visible:
+      id: "grocery_run_store_progress"
+      text: "0 / 1"
+    timeout: 10000
+- tapOn:
+    text: "Manquant"
+- extendedWaitUntil:
+    notVisible:
+      text: "Timbres du voisin"
     timeout: 10000

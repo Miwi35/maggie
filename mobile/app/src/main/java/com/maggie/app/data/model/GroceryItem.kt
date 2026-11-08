@@ -25,4 +25,8 @@ data class GroceryItem(
     val aisle: AisleSummary? = null,
     // Whether its product is in season this month (MAG-494); null: no season, no badge.
     val inSeason: Boolean? = null,
+    // Set when the article was marked missing in a store (MAG-764); [missingFromStore] is that store, and
+    // [store] is then the product's fallback when it has one.
+    val missingAt: String? = null,
+    val missingFromStore: Store? = null,
 )

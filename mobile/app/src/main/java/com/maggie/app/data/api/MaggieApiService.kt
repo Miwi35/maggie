@@ -2030,6 +2030,13 @@ class MaggieApiService(
         client.delete("$baseUrl/api/grocery_items/$itemId")
     }
 
+    /** « Manquant » in the Courses activity (MAG-764): the API moves the article to its product's fallback store. */
+    suspend fun markGroceryItemMissing(itemId: String, missing: Boolean) {
+        val url = "$baseUrl/api/grocery_items/$itemId/missing"
+        val response = if (missing) client.post(url) else client.delete(url)
+        if (!response.status.isSuccess()) throw IllegalStateException("Missing grocery item $itemId: HTTP ${response.status.value}")
+    }
+
     // Past errands (MAG-488)
     /**
      * One page of the past errands, the most recent first (the API's default order). Paged and

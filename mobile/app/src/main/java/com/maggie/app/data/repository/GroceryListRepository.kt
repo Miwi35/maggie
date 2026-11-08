@@ -24,6 +24,10 @@ class GroceryListRepository(
         apiService.patchGroceryItem(itemId, checked)
     }
 
+    suspend fun markMissing(itemId: String, missing: Boolean): Result<Unit> = runCatching {
+        apiService.markGroceryItemMissing(itemId, missing)
+    }
+
     suspend fun deleteItem(itemId: String): Result<Unit> = runCatching {
         apiService.deleteGroceryItem(itemId)
     }

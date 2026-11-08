@@ -44,4 +44,22 @@ class GroceryTickQueueTest {
 
         assertEquals(mapOf("a" to false), queue.pending.value)
     }
+
+    @Test
+    fun `a missing mark is sent, the last one asked wins, and it leaves the queue`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        coEvery { repository.markMissing("a", any()) } returns Result.failure(IOException("offline"))
+        val queue = GroceryTickQueue(repository, CoroutineScope(dispatcher))
+
+        queue.markMissing("a", true)
+        queue.markMissing("a", false)
+        advanceUntilIdle()
+        assertEquals(mapOf("a" to false), queue.pendingMissing.value)
+
+        coEvery { repository.markMissing("a", false) } returns Result.success(Unit)
+        queue.flush()
+
+        coVerify(exactly = 0) { repository.checkItem(any(), any()) }
+        assertTrue(queue.pendingMissing.value.isEmpty())
+    }
 }

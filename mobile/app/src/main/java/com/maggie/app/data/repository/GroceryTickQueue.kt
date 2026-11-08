@@ -11,9 +11,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * The ticks of the Courses activity (MAG-763): each one is shown at once and kept here until the API has it, so a
- * tick made without network is sent when it comes back, once. The last state asked of an article wins.
- * The queue outlives the screen; it does not outlive the process.
+ * The ticks of the Courses activity (MAG-763) and its « Manquant » marks (MAG-764): each one is shown at once and
+ * kept here until the API has it, so one made without network is sent when it comes back, once. The last state
+ * asked of an article wins. The queue outlives the screen; it does not outlive the process.
  */
 class GroceryTickQueue(
     private val repository: GroceryListRepository,
@@ -24,10 +24,20 @@ class GroceryTickQueue(
     /** Article id → the state asked and not yet received by the API. */
     val pending: StateFlow<Map<String, Boolean>> = _pending
 
+    private val _pendingMissing = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+
+    /** Article id → missing or not, asked and not yet received by the API. */
+    val pendingMissing: StateFlow<Map<String, Boolean>> = _pendingMissing
+
     private val sending = Mutex()
 
     fun tick(itemId: String, checked: Boolean) {
         _pending.update { it + (itemId to checked) }
+        flushLater()
+    }
+
+    fun markMissing(itemId: String, missing: Boolean) {
+        _pendingMissing.update { it + (itemId to missing) }
         flushLater()
     }
 
@@ -42,10 +52,16 @@ class GroceryTickQueue(
                 _pending.update { now -> if (now[id] == checked) now - id else now }
             }
         }
+        for ((id, missing) in _pendingMissing.value) {
+            repository.markMissing(id, missing).onSuccess {
+                _pendingMissing.update { now -> if (now[id] == missing) now - id else now }
+            }
+        }
     }
 
     /** Articles that no longer exist on the list: their tick is dropped. */
     fun retainOnly(existing: Set<String>) {
         _pending.update { now -> now.filterKeys { it in existing } }
+        _pendingMissing.update { now -> now.filterKeys { it in existing } }
     }
 }

@@ -64,6 +64,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 /** What the screen can ask of the activity; the ViewModel's actions, apart from it so a test can watch them. */
 class GroceryRunActions(
     val check: (String) -> Unit = {},
+    val markMissing: (String) -> Unit = {},
     val setVisited: (String, Boolean) -> Unit = { _, _ -> },
     val move: (Int, Int) -> Unit = { _, _ -> },
     val start: () -> Unit = {},
@@ -73,6 +74,7 @@ class GroceryRunActions(
     companion object {
         fun of(viewModel: GroceryRunViewModel) = GroceryRunActions(
             check = viewModel::check,
+            markMissing = viewModel::markMissing,
             setVisited = viewModel::setVisited,
             move = viewModel::move,
             start = viewModel::start,
@@ -182,7 +184,7 @@ private fun GroceryRunCurrentStore(state: GroceryRunUiState, store: RunStore, ac
                             modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
                         )
                     }
-                    items(aisle.lines, key = { it.id }) { line -> RunLineRow(line, actions.check) }
+                    items(aisle.lines, key = { it.id }) { line -> RunLineRow(line, actions.check, actions.markMissing) }
                 }
             }
         }
@@ -225,7 +227,7 @@ private fun StoreHeader(state: GroceryRunUiState, store: RunStore) {
 }
 
 @Composable
-private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit) {
+private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit, onMissing: (String) -> Unit) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier = Modifier
@@ -253,7 +255,7 @@ private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit) {
             Text(
                 text = line.label,
                 style = MaterialTheme.typography.titleMedium,
-                color = if (line.checked) muted else MaterialTheme.colorScheme.onSurface,
+                color = if (line.done) muted else MaterialTheme.colorScheme.onSurface,
                 textDecoration = if (line.checked) TextDecoration.LineThrough else null,
             )
             line.quantity?.let {
@@ -270,6 +272,30 @@ private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit) {
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                         .testTag(UiTags.groceryRunFor(line.id)),
                 )
+            }
+            line.missing?.let { missing ->
+                Text(
+                    text = when (missing) {
+                        is RunMissing.MovedFrom -> "manquant chez ${missing.store}"
+                        RunMissing.NoFallback -> "manquant · pas de repli"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                        .testTag(UiTags.groceryRunMissingTag(line.id)),
+                )
+            }
+        }
+        // A ticked article was found: only a missing one can be given back to its store.
+        if (!line.checked) {
+            TextButton(
+                onClick = { onMissing(line.id) },
+                modifier = Modifier.heightIn(min = 48.dp).testTag(UiTags.groceryRunMissing(line.id)),
+            ) {
+                Text(if (line.missing == null) "Manquant" else "Annuler")
             }
         }
     }
