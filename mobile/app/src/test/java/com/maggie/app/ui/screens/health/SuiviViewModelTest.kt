@@ -7,8 +7,10 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.BodyMeasurement
 import com.maggie.app.data.model.DailyBalance
 import com.maggie.app.data.model.DailyEnergy
+import com.maggie.app.data.model.HealthDay
 import com.maggie.app.data.repository.BodyMeasurementRepository
 import com.maggie.app.data.repository.DailyEnergyRepository
+import com.maggie.app.data.repository.HealthDayRepository
 import com.maggie.app.data.repository.NutritionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -43,6 +45,9 @@ class SuiviViewModelTest {
     private val energyRepository = mockk<DailyEnergyRepository>()
     private val nutritionRepository = mockk<NutritionRepository>()
     private val foodPushes = MutableSharedFlow<MercureEvent>()
+    private val healthDayRepository = mockk<HealthDayRepository>()
+    private val healthDayPushes = MutableSharedFlow<MercureEvent>()
+    private val noted = HealthDay(id = "day-1", date = "2026-10-20", mood = 7, fatigue = 4)
     private val bilan = DailyBalance("2026-10-21", eatenKcal = 515, plannedKcal = 0, expendedKcal = 2195, balanceKcal = -1680)
     private val authRepository = mockk<AuthRepository>()
     private val mercureService = mockk<MercureService>()
@@ -63,6 +68,8 @@ class SuiviViewModelTest {
         every { mercureService.subscribe(any()) } returns pushes
         every { mercureService.subscribe(MercureTopics.userScoped("user-1", MercureTopics.FOOD_INTAKES)) } returns foodPushes
         coEvery { nutritionRepository.getDailyBalance(any()) } returns Result.success(bilan)
+        every { mercureService.subscribe(MercureTopics.userScoped("user-1", MercureTopics.HEALTH_DAYS)) } returns healthDayPushes
+        coEvery { healthDayRepository.getDays(any(), any()) } returns Result.success(listOf(noted))
     }
 
     @After
@@ -70,7 +77,7 @@ class SuiviViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = SuiviViewModel(repository, energyRepository, nutritionRepository, mercureService, authRepository, clock)
+    private fun viewModel() = SuiviViewModel(repository, energyRepository, nutritionRepository, healthDayRepository, mercureService, authRepository, clock)
 
     @Test
     fun `loading, then the weighings of the last year, 30 days shown`() = runTest {
@@ -285,6 +292,49 @@ class SuiviViewModelTest {
         advanceUntilIdle()
 
         assertEquals(moved, viewModel.uiState.value.balance)
+        coVerify(exactly = 1) { repository.getBodyMeasurements(any()) }
+    }
+
+    @Test
+    fun `the journal's days of the last year are read once, for the Moral · fatigue card (MAG-750)`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.healthDaysLoaded)
+        assertFalse(state.healthDaysFailed)
+        assertEquals(listOf(noted), state.healthDays)
+        coVerify(exactly = 1) { healthDayRepository.getDays("2025-10-22", "2026-10-21") }
+
+        viewModel.selectPeriod(SuiviPeriod.WEEK)
+        advanceUntilIdle()
+        coVerify(exactly = 1) { healthDayRepository.getDays(any(), any()) }
+    }
+
+    @Test
+    fun `a journal that cannot be read fails its card alone`() = runTest {
+        coEvery { healthDayRepository.getDays(any(), any()) } returns Result.failure(RuntimeException("offline"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.healthDaysFailed)
+        assertFalse(state.healthDaysLoaded)
+        assertTrue(state.hasLoaded)
+        assertNull(state.error)
+    }
+
+    @Test
+    fun `a day pushed on the health-days topic moves the card without reading the weighings again`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val today = HealthDay(id = "day-2", date = "2026-10-21", mood = 5, fatigue = 8)
+        coEvery { healthDayRepository.getDays(any(), any()) } returns Result.success(listOf(noted, today))
+
+        healthDayPushes.emit(MercureEvent(data = "{}"))
+        advanceUntilIdle()
+
+        assertEquals(listOf(noted, today), viewModel.uiState.value.healthDays)
         coVerify(exactly = 1) { repository.getBodyMeasurements(any()) }
     }
 }

@@ -17,6 +17,10 @@ import { ROUTES } from './routes.js'
  * `energy-detail` (« base … · pas … · séances … »), `energy-bar`.
  *
  * Next to the title, the « Bilan du jour » banner (MAG-748) opens Santé › Nutrition.
+ *
+ * The « Moral · fatigue » card (MAG-750) follows the same period: `mood-value`,
+ * `fatigue-value` (the chosen day's, today by default), a `mood-column` per day
+ * named « Aujourd’hui : moral 7, fatigue 4 ».
  */
 export class HealthSuiviPage extends AdminShell {
   readonly period: Locator
@@ -24,6 +28,7 @@ export class HealthSuiviPage extends AdminShell {
   readonly weighings: Locator
   readonly stepsCard: Locator
   readonly energyCard: Locator
+  readonly moodCard: Locator
   readonly addButton: Locator
   readonly form: Locator
   readonly balanceBanner: Locator
@@ -35,6 +40,7 @@ export class HealthSuiviPage extends AdminShell {
     this.weighings = this.content.getByRole('region', { name: 'Pesées', exact: true })
     this.stepsCard = this.content.getByRole('region', { name: 'Pas', exact: true })
     this.energyCard = this.content.getByRole('region', { name: 'Énergie', exact: true })
+    this.moodCard = this.content.getByRole('region', { name: 'Moral · fatigue', exact: true })
     this.addButton = this.weighings.getByRole('button', { name: 'Ajouter une pesée', exact: true })
     this.form = page.getByRole('dialog')
     this.balanceBanner = this.content.getByTestId('suivi-balance-banner')

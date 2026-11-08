@@ -9,8 +9,10 @@ import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.BodyMeasurement
 import com.maggie.app.data.model.DailyBalance
 import com.maggie.app.data.model.DailyEnergy
+import com.maggie.app.data.model.HealthDay
 import com.maggie.app.data.repository.BodyMeasurementRepository
 import com.maggie.app.data.repository.DailyEnergyRepository
+import com.maggie.app.data.repository.HealthDayRepository
 import com.maggie.app.data.repository.NutritionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,20 +41,28 @@ data class SuiviUiState(
     val selectedDate: LocalDate? = null,
     /** Today's « Bilan du jour » (MAG-748), the card Suivi opens on; `null` until read, or when it could not be. */
     val balance: DailyBalance? = null,
+    /** The journal's days of the last year, oldest first, as the API sends them: the « Moral · fatigue » card (MAG-750). */
+    val healthDays: List<HealthDay> = emptyList(),
+    /** True once the journal answered; false with [healthDaysFailed] unset means it is still being read. */
+    val healthDaysLoaded: Boolean = false,
+    /** The journal could not be read: its card says so, the others are not affected. */
+    val healthDaysFailed: Boolean = false,
     val error: String? = null,
     val message: String? = null,
 )
 
 /**
  * « Santé › Suivi » (MAG-706): today's « Bilan du jour » on top (MAG-748), the weighings behind the Poids card, the period it shows, the column chosen, and
- * « Écarter ». Both lists — the weighings and, for the Pas and Énergie cards (MAG-746), the daily energy — are read
- * once for the longest period: changing the period asks nothing of the API. The [clock]
+ * « Écarter ». The lists — the weighings, for the Pas and Énergie cards (MAG-746) the daily energy, for the « Moral ·
+ * fatigue » card (MAG-750) the journal's days — are read once for the longest period: changing the period asks nothing
+ * of the API. The [clock]
  * says today and the time zone the days are read in.
  */
 class SuiviViewModel(
     private val repository: BodyMeasurementRepository,
     private val energyRepository: DailyEnergyRepository,
     private val nutritionRepository: NutritionRepository,
+    private val healthDayRepository: HealthDayRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
     val clock: Clock = Clock.systemDefaultZone(),
@@ -86,6 +96,13 @@ class SuiviViewModel(
                 .catch { /* MercureService reconnects by itself */ }
                 .collect { loadBalance() }
         }
+        // A mood or a fatigue noted in the Journal, or by Maggie, moves the « Moral · fatigue » card.
+        viewModelScope.launch {
+            val userId = authRepository.getUserId() ?: return@launch
+            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.HEALTH_DAYS))
+                .catch { /* MercureService reconnects by itself */ }
+                .collect { loadHealthDays() }
+        }
     }
 
     fun refresh() {
@@ -101,6 +118,14 @@ class SuiviViewModel(
             .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = MESSAGE_LOAD) }
         loadEnergy()
         loadBalance()
+        loadHealthDays()
+    }
+
+    private suspend fun loadHealthDays() {
+        val to = today
+        healthDayRepository.getDays(to.minusDays(ENERGY_HISTORY_DAYS - 1L).toString(), to.toString())
+            .onSuccess { _uiState.value = _uiState.value.copy(healthDays = it, healthDaysLoaded = true, healthDaysFailed = false) }
+            .onFailure { _uiState.value = _uiState.value.copy(healthDaysFailed = true) }
     }
 
     /** The bilan card is extra: a failure leaves it out and says nothing, the weighings are the screen's. */

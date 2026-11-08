@@ -18,6 +18,7 @@
     "FinanceDashboardSnapshot": "/users/{userId}/api/finance_dashboard_snapshots/{id}",
     "FoodIntake": "/users/{userId}/api/health/food-intakes/{id}",
     "GroceryList": "/users/{userId}/api/grocery_lists/{id}",
+    "HealthDay": "/users/{userId}/api/health/days/{id}",
     "HealthProfile": "/users/{userId}/api/health-profile/{id}",
     "Ingredient": "/users/{userId}/api/ingredients/{id}",
     "Loan": "/users/{userId}/api/loans/{id}",

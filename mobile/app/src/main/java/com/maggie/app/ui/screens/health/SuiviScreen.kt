@@ -44,6 +44,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -62,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
 import com.maggie.app.data.model.DailyEnergy
+import com.maggie.app.data.model.HealthDay
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
@@ -72,6 +74,7 @@ import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.HealthSection
 import com.maggie.app.ui.navigation.LocalModuleBar
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.chartColor
 import com.maggie.app.ui.theme.isMaggieDark
 import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.uiTagRoot
@@ -81,8 +84,9 @@ import com.maggie.app.ui.uiTagRoot
  * phone, in it on a tablet — and the Poids card: the weighings as dots (7 j, 30 j), the 7-day trend in coral, the
  * column chosen with its values in the header. A long press on a weighed day sets its weighing aside. The Pas and Énergie cards
  * (MAG-746) follow the same period and the same day. Today's « Bilan du jour » (MAG-748) opens the screen — above
- * the period selector on a phone, atop the right column on a tablet — and a tap on it opens Nutrition. The card
- * « Moral · fatigue » of the mockups is not delivered: no placeholder stands for it.
+ * the period selector on a phone, atop the right column on a tablet — and a tap on it opens Nutrition. The fourth
+ * card, « Moral · fatigue » (MAG-750), draws the journal's scales over the same period — last on a phone, under Poids
+ * on a tablet.
  */
 @Composable
 fun SuiviScreen(
@@ -130,6 +134,7 @@ private fun SuiviContent(
     }
     val energy = remember(uiState.energy, uiState.period, today) { energyWindow(uiState.energy, uiState.period, today) }
     val day = selectedEnergy(energy, uiState.selectedDate)
+    val moods = remember(uiState.healthDays, uiState.period, today) { moodWindow(uiState.healthDays, uiState.period, today) }
     // Suivi opens on the day's bilan (MAG-748): a tap opens Nutrition, the profile hint Configuration.
     val bilan: @Composable () -> Unit = {
         uiState.balance?.let { balance ->
@@ -173,6 +178,8 @@ private fun SuiviContent(
             ) {
                 Column(modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
                     WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, large = true)
+                    Spacer(Modifier.height(14.dp))
+                    MoodCard(moods, uiState, today, viewModel::selectDay, large = true)
                 }
                 // The right column of the mockup holds Nutrition: its bilan on top, then Pas and Énergie.
                 Column(
@@ -193,6 +200,7 @@ private fun SuiviContent(
                 WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, large = false)
                 StepsCard(energy, day, uiState, today, viewModel::selectDay, large = false)
                 EnergyCard(energy, day, uiState, today, viewModel::selectDay, large = false)
+                MoodCard(moods, uiState, today, viewModel::selectDay, large = false)
             }
         }
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
@@ -561,3 +569,114 @@ private fun EnergyLegend(label: String, kcal: Int?, color: Color, tag: String) {
         Text("$label ${kcal?.let(::formatCount) ?: DASH}", fontSize = 12.sp, color = surface.caption)
     }
 }
+
+/**
+ * « Moral · fatigue » (MAG-750): the journal's two scales over the period on 0–10 — the mood a solid amber line, the
+ * fatigue a dotted blue one, both from the chart palette, never a verdict — and the chosen day's values. A line
+ * bridges the days left blank; a tap chooses the day under the finger, as on Pas and Énergie.
+ */
+@Composable
+private fun MoodCard(
+    window: List<HealthDay>,
+    state: SuiviUiState,
+    today: LocalDate,
+    onSelect: (LocalDate) -> Unit,
+    large: Boolean,
+) {
+    val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
+    val dark = isMaggieDark()
+    val mood = chartColor(MOOD_SLOT, dark)
+    val fatigue = chartColor(FATIGUE_SLOT, dark)
+    val title = "Moral · fatigue"
+    when {
+        state.healthDaysFailed && !state.healthDaysLoaded ->
+            return EnergyPlaceholder(title, "Le journal n'a pas pu être chargé.", UiTags.MOOD_CARD, large)
+        !state.healthDaysLoaded -> return EnergyPlaceholder(title, "Chargement…", UiTags.MOOD_CARD, large)
+        !hasScales(window) -> return EnergyPlaceholder(title, "Rien de noté sur la période", UiTags.MOOD_EMPTY, large)
+    }
+    val chosen = window.firstOrNull { it.date == state.selectedDate?.toString() } ?: window.last()
+    val chosenDate = LocalDate.parse(chosen.date)
+    MaggieCard(modifier = Modifier.fillMaxWidth().semantics { contentDescription = title }.testTag(UiTags.MOOD_CARD)) {
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (large) 10.dp else 8.dp),
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                Text(title, fontSize = if (large) 15.sp else 14.sp, color = surface.textMuted)
+                Text(if (chosenDate == today) "Aujourd’hui" else dayLabel(chosenDate), fontSize = 12.sp, color = surface.caption)
+            }
+            val shade = surface.text.copy(alpha = 0.07f)
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (large) 120.dp else 76.dp)
+                    .pointerInput(window) {
+                        detectTapGestures { tap ->
+                            val index = (tap.x / size.width * window.size).toInt().coerceIn(0, window.lastIndex)
+                            onSelect(LocalDate.parse(window[index].date))
+                        }
+                    },
+            ) {
+                val slot = size.width / window.size
+                val selectedIndex = window.indexOf(chosen)
+                if (selectedIndex >= 0) drawRect(shade, Offset(selectedIndex * slot, 0f), Size(slot, size.height))
+                fun x(i: Int) = (i + 0.5f) * slot
+                fun y(v: Int) = size.height - v.coerceIn(0, SCALE_TOP) / SCALE_TOP.toFloat() * size.height
+                val width = (if (large) 2.5.dp else 2.dp).toPx()
+                scaleLine(window.map { it.mood }, ::x, ::y, mood, Stroke(width, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                scaleLine(
+                    window.map { it.fatigue },
+                    ::x,
+                    ::y,
+                    fatigue,
+                    Stroke(width, cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 5.dp.toPx()))),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                ScaleLegend("Moral", chosen.mood, mood, dashed = false, tag = UiTags.MOOD_VALUE)
+                ScaleLegend("Fatigue", chosen.fatigue, fatigue, dashed = true, tag = UiTags.FATIGUE_VALUE)
+            }
+        }
+    }
+}
+
+/** One scale's line through the days that have a value; one lone value is a dot. */
+private fun DrawScope.scaleLine(values: List<Int?>, x: (Int) -> Float, y: (Int) -> Float, color: Color, stroke: Stroke) {
+    val points = values.mapIndexedNotNull { i, v -> v?.let { Offset(x(i), y(it)) } }
+    if (points.isEmpty()) return
+    if (points.size == 1) {
+        drawCircle(color, stroke.width * 1.2f, points.single())
+        return
+    }
+    val path = Path()
+    points.forEachIndexed { i, p -> if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y) }
+    drawPath(path, color, style = stroke)
+}
+
+@Composable
+private fun ScaleLegend(label: String, value: Int?, color: Color, dashed: Boolean, tag: String) {
+    val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.semantics(mergeDescendants = true) {}.testTag(tag),
+    ) {
+        Canvas(Modifier.width(16.dp).height(8.dp)) {
+            drawLine(
+                color,
+                Offset(0f, size.height / 2),
+                Offset(size.width, size.height / 2),
+                strokeWidth = 2.dp.toPx(),
+                pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 3.dp.toPx())) else null,
+            )
+        }
+        Text("$label ${value ?: DASH}", fontSize = 12.sp, color = surface.caption)
+    }
+}
+
+/** The palette's gold for the mood, its blue for the fatigue (1-based slots of [MaggieTokens.chartCategorical]). */
+private const val MOOD_SLOT = 3
+private const val FATIGUE_SLOT = 4
+
+/** The top of the card's scale: 0–10, whatever the period holds. */
+private const val SCALE_TOP = 10

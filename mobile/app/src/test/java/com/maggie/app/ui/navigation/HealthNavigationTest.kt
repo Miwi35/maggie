@@ -7,9 +7,11 @@ import org.junit.Test
 class HealthNavigationTest {
 
     @Test
-    fun `Santé has four sections, Suivi, Nutrition, Sport, then Configuration last, and lists no placeholder`() {
-        assertEquals(listOf("suivi", "nutrition", "sport", "configuration"), HealthSection.entries.map { it.key })
-        assertEquals(listOf("Suivi", "Nutrition", "Sport", "Configuration"), HealthSection.entries.map { it.label })
+    fun `Santé has five sections, Suivi, Nutrition, Journal, Sport, then Configuration last, and lists no placeholder`() {
+        assertEquals(listOf("suivi", "nutrition", "journal", "sport", "configuration"), HealthSection.entries.map { it.key })
+        assertEquals(listOf("Suivi", "Nutrition", "Journal", "Sport", "Configuration"), HealthSection.entries.map { it.label })
+        assertEquals(Screen.HealthJournal.route, HealthSection.JOURNAL.route)
+        assertEquals("health/journal", Screen.HealthJournal.route)
         assertEquals(Screen.HealthNutrition.route, HealthSection.NUTRITION.route)
         assertEquals("health/nutrition", Screen.HealthNutrition.route)
         assertEquals(Screen.HealthConfiguration.route, HealthSection.CONFIGURATION.route)
@@ -29,6 +31,7 @@ class HealthNavigationTest {
     fun `the sections are siblings over Suivi`() {
         assertEquals(HealthSectionAction("health/sport", popToHome = true), healthSectionAction(HealthSection.SPORT, homeInBackStack = true))
         assertEquals(HealthSectionAction("health/suivi", popToHome = false), healthSectionAction(HealthSection.SUIVI, homeInBackStack = false))
+        assertEquals(HealthSectionAction("health/journal", popToHome = true), healthSectionAction(HealthSection.JOURNAL, homeInBackStack = true))
         assertEquals(
             HealthSectionAction("health/configuration", popToHome = true),
             healthSectionAction(HealthSection.CONFIGURATION, homeInBackStack = true),
@@ -39,6 +42,7 @@ class HealthNavigationTest {
     fun `pageOf names the section a route wears the breadcrumb of`() {
         assertEquals(HealthSection.SUIVI, HealthSection.pageOf(Screen.HealthSuivi.route))
         assertEquals(HealthSection.NUTRITION, HealthSection.pageOf(Screen.HealthNutrition.route))
+        assertEquals(HealthSection.JOURNAL, HealthSection.pageOf(Screen.HealthJournal.route))
         assertEquals(HealthSection.SPORT, HealthSection.pageOf(Screen.HealthSport.route))
         assertEquals(HealthSection.CONFIGURATION, HealthSection.pageOf(Screen.HealthConfiguration.route))
     }
@@ -55,6 +59,7 @@ class HealthNavigationTest {
         assertEquals(HealthSection.SPORT, HealthSection.byKey("sport"))
         assertEquals(HealthSection.SUIVI, HealthSection.byKey("suivi"))
         assertEquals(HealthSection.NUTRITION, HealthSection.byKey("nutrition"))
+        assertEquals(HealthSection.JOURNAL, HealthSection.byKey("journal"))
         assertEquals(HealthSection.CONFIGURATION, HealthSection.byKey("configuration"))
         assertNull(HealthSection.byKey("sleep"))
     }

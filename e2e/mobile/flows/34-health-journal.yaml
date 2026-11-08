@@ -1,0 +1,117 @@
+appId: com.maggie.app.e2e
+name: 34-health-journal
+tags:
+  - health
+---
+# Santé › Journal, from the phone (MAG-750, journey « Santé »).
+#
+# Étant donné une pesée de 71,6 kg aujourd'hui, créée par l'API
+# Quand j'ouvre Santé › Journal et je note moral 7, fatigue 4 et une note
+# Alors l'entrée du jour affiche 71,6 kg et mes notes
+# Et Santé › Suivi affiche la carte Moral · fatigue
+#
+# A new user, so the journal holds one day: the one `scripts/health-journal-api.js` lays down
+# with its weighing of 71,6 kg TODAY (the stack's day), polled until the API has it.
+#
+# What is not here: the arrows and a past day chosen, a scale emptied, a refused value, « avec
+# Maggie », the indicators opening their sections, the Mercure refresh and the tablet's layout
+# (`JournalScreenTest`, `JournalViewModelTest`), the card's lines and colours (`SuiviScreenTest`),
+# the link (`DeepLinksTest`), and the admin's side of the same API.
+
+- runFlow: ../subflows/new-user.yaml
+
+- runScript:
+    file: ../scripts/health-journal-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      TODAY: ${TODAY}
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/34-health-journal.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+# Santé › Journal: today's entry, its weighing among the indicators.
+- openLink: "maggie-e2e://health/journal"
+- extendedWaitUntil:
+    visible:
+      id: "journal"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "journal_title"
+      text: "Aujourd’hui .*"
+    timeout: 20000
+
+# Moral 7, Fatigue 4: each tap writes at once.
+- tapOn:
+    id: "journal_mood_7"
+- tapOn:
+    id: "journal_fatigue_4"
+
+# The note, then « Enregistrer ».
+- tapOn:
+    id: "journal_note"
+- inputText: "Bonne marche MAG-750"
+- runFlow: ../subflows/hide-keyboard.yaml
+- tapOn:
+    id: "journal_note_save"
+- extendedWaitUntil:
+    visible: "Note enregistrée"
+    timeout: 10000
+
+# The entry, as the API answered it: the weighing and the notes.
+- scrollUntilVisible:
+    element:
+      id: "journal_weight_value"
+- extendedWaitUntil:
+    visible:
+      id: "journal_weight_value"
+      text: "71,6 kg.*"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "journal_mood"
+    direction: UP
+- extendedWaitUntil:
+    visible:
+      id: "journal_mood_7"
+      checked: true
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "journal_fatigue_4"
+      checked: true
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Bonne marche MAG-750"
+    timeout: 10000
+
+# Santé › Suivi: the fourth card, today's mood and fatigue in its legend.
+- openLink: "maggie-e2e://health/suivi"
+- extendedWaitUntil:
+    visible:
+      id: "suivi"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "mood_card"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Moral · fatigue"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "fatigue_value"
+# The legend's id sits on a merged node whose text Maestro reads on its child: match the text.
+- extendedWaitUntil:
+    visible: "Moral 7"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Fatigue 4"
+    timeout: 10000

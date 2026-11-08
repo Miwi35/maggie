@@ -965,6 +965,38 @@ class DtoContractTest {
     }
 
     @Test
+    fun `a health journal day deserialises from the recorded response, every field by its name (MAG-750)`() {
+        assertItemContract("health_days.read", serializer<HealthDay>(), "HealthDay")
+
+        val day = json.decodeFromJsonElement(serializer<HealthDay>(), readRecording("health_days.read"))
+        assertEquals("2026-10-20", day.date)
+        assertNotNull(day.id)
+        assertEquals(7, day.mood)
+        assertEquals(4, day.fatigue)
+        assertEquals("Bonne séance, un peu fatigué le soir.", day.note)
+        assertEquals(HealthDay.NOTED_BY_MAGGIE, day.notedBy)
+        assertEquals("2026-10-20T19:42:00+00:00", day.notedAt)
+        assertEquals(8000, day.steps)
+        assertEquals(32, day.sportMinutes)
+        assertNull(day.weightKg)
+    }
+
+    @Test
+    fun `the health journal range deserialises from the recorded response, oldest first (MAG-750)`() {
+        val body = readRecording("health_days.range")
+        val rows = body["days"]!!.jsonArray
+        assertTrue("The recording has no day, so it proves nothing.", rows.isNotEmpty())
+        assertDeclaredFieldsExist("HealthDay", serializer<HealthDay>(), rows.flatMap { it.jsonObject.keys }.toSet(), "health_days.range")
+
+        val days = json.decodeFromJsonElement(serializer<HealthDayRange>(), body).days
+        assertEquals(listOf("2026-10-20", "2026-10-21"), days.map { it.date })
+        assertEquals(72.4, days.last().weightKg!!, 0.001)
+        assertEquals(21.3, days.last().bodyFatPercent!!, 0.001)
+        assertEquals("2026-10-21T05:12:00+00:00", days.last().weighedAt)
+        assertNull(days.last().mood)
+    }
+
+    @Test
     fun `food intakes deserialise from the recorded response (MAG-748)`() {
         assertCollectionContract("health_food_intakes", serializer<FoodIntake>(), "FoodIntake")
         val intake = json.decodeFromJsonElement(ApiCollection.serializer(serializer<FoodIntake>()), readRecording("health_food_intakes.collection")).member.single()

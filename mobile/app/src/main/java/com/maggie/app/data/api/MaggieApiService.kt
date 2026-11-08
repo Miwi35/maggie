@@ -167,6 +167,8 @@ import com.maggie.app.data.model.DailyBalance
 import com.maggie.app.data.model.DailyBalanceRange
 import com.maggie.app.data.model.DailyEnergy
 import com.maggie.app.data.model.FoodIntake
+import com.maggie.app.data.model.HealthDay
+import com.maggie.app.data.model.HealthDayRange
 import com.maggie.app.data.model.HealthProfile
 import com.maggie.app.data.model.UserPreference
 import io.ktor.client.HttpClient
@@ -3009,6 +3011,31 @@ class MaggieApiService(
 
     suspend fun deleteFoodIntake(id: String) {
         client.delete("$baseUrl/api/health/food-intakes/$id").orRefusal()
+    }
+
+    // Santé — journal (MAG-750): plain JSON, only the days the journal holds from [from] to [to] (YYYY-MM-DD, 400 days at most)
+    suspend fun getHealthDays(from: String, to: String): List<HealthDay> {
+        return client.get("$baseUrl/api/health/days") {
+            accept(ContentType.Application.Json)
+            url.parameters.append("from", from)
+            url.parameters.append("to", to)
+        }.orRefusal().body<HealthDayRange>().days
+    }
+
+    /** A day the journal does not hold answers with its date and everything else null. */
+    suspend fun getHealthDay(date: String): HealthDay {
+        return client.get("$baseUrl/api/health/days/$date") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /** Only the keys of [changes] are written — `mood`, `fatigue`, `note`, a JSON null empties one; a value off 1–10 is a 400 with its `error`. */
+    suspend fun updateHealthDay(date: String, changes: JsonObject): HealthDay {
+        return client.patch("$baseUrl/api/health/days/$date") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(changes)
+        }.orRefusal().body()
     }
 
     // Santé — profil (MAG-707): plain JSON, with its defaults before it is ever written; a refused value (400) says why in `error`

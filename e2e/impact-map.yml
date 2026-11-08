@@ -278,6 +278,7 @@ areas:
     - e2e/web/pages/HealthSuiviPage.ts
     - e2e/web/pages/HealthConfigurationPage.ts
     - e2e/web/pages/HealthNutritionPage.ts
+    - e2e/web/pages/HealthJournalPage.ts
   notification:
     - api/modules/notification/**
     - api/fixtures/e2e/60-notification.yaml
@@ -569,6 +570,8 @@ web:
   e2e/web/tests/health-nutrition.spec.ts:
     areas: [health, cookbook]
     paths: [api/fixtures/e2e/70-health.yaml]
+  e2e/web/tests/health-journal.spec.ts:
+    areas: [health]
   e2e/web/tests/health-nutrition-chat.spec.ts:
     areas: [health, chat]
     paths: [agent/fixtures/fake-llm/97-health-food-intake.yaml]
@@ -849,6 +852,9 @@ mobile:
   e2e/mobile/flows/33-health-nutrition.yaml:
     areas: [health, cookbook]
     paths: [e2e/mobile/scripts/nutrition-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
+  e2e/mobile/flows/34-health-journal.yaml:
+    areas: [health]
+    paths: [e2e/mobile/scripts/health-journal-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/29-finance-cushion-share.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/cushion-share-api.js, api/fixtures/e2e/69-finance-cushion-share.yaml]

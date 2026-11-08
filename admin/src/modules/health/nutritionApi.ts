@@ -69,8 +69,13 @@ const JSON_LD = { Accept: 'application/ld+json' }
 /**
  * A read kept in step: `refresh` reads again, and only the last read asked for
  * writes (`useMonthBalance`). The previous answer stays on screen meanwhile.
+ * `replace` puts a write's answer in its place; a read still on its way is dropped.
  */
-function useRead<T>(path: string, parse: (body: unknown) => T, headers: Record<string, string> = {}): Loaded<T> & { refresh: () => void } {
+export function useRead<T>(
+  path: string,
+  parse: (body: unknown) => T,
+  headers: Record<string, string> = {},
+): Loaded<T> & { refresh: () => void; replace: (data: T) => void } {
   const [state, setState] = useState<{ path: string; loaded: Loaded<T> } | null>(null)
   const latest = useRef(0)
   const parseRef = useRef(parse)
@@ -98,9 +103,17 @@ function useRead<T>(path: string, parse: (body: unknown) => T, headers: Record<s
     }
   }, [refresh])
 
+  const replace = useCallback(
+    (data: T) => {
+      latest.current += 1
+      setState({ path, loaded: { status: 'ready', data } })
+    },
+    [path],
+  )
+
   const loaded: Loaded<T> = state?.path === path ? state.loaded : { status: 'loading' }
 
-  return { ...loaded, refresh }
+  return { ...loaded, refresh, replace }
 }
 
 const asBalance = (body: unknown): DailyBalance => {

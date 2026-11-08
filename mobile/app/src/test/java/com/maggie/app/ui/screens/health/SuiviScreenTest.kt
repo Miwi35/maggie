@@ -18,8 +18,10 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.BodyMeasurement
 import com.maggie.app.data.model.DailyBalance
 import com.maggie.app.data.model.DailyEnergy
+import com.maggie.app.data.model.HealthDay
 import com.maggie.app.data.repository.BodyMeasurementRepository
 import com.maggie.app.data.repository.DailyEnergyRepository
+import com.maggie.app.data.repository.HealthDayRepository
 import com.maggie.app.data.repository.NutritionRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.assertTopToBottom
@@ -40,8 +42,8 @@ import java.time.Instant
 import java.time.ZoneId
 
 /**
- * « Santé › Suivi » as drawn (MAG-706): the breadcrumb, the period selector, the Poids card and only it — the other
- * cards of the mockup are not delivered and leave no trace. Today is Wednesday 21 October 2026.
+ * « Santé › Suivi » as drawn (MAG-706): the breadcrumb, the period selector, the Poids card, Pas and Énergie (MAG-746),
+ * the bilan (MAG-748) and « Moral · fatigue » (MAG-750). Today is Wednesday 21 October 2026.
  */
 @RunWith(AndroidJUnit4::class)
 class SuiviScreenTest {
@@ -52,6 +54,7 @@ class SuiviScreenTest {
     private val repository = mockk<BodyMeasurementRepository>()
     private val energyRepository = mockk<DailyEnergyRepository>()
     private val nutritionRepository = mockk<NutritionRepository>()
+    private val healthDayRepository = mockk<HealthDayRepository>()
     private val clock = Clock.fixed(Instant.parse("2026-10-21T08:15:30Z"), ZoneId.of("Europe/Paris"))
 
     private val today = BodyMeasurement("today", "2026-10-21T07:12:00+02:00", weightKg = 72.4, bodyFatPercent = 21.3)
@@ -63,7 +66,12 @@ class SuiviScreenTest {
             DailyEnergy("2026-10-21", steps = 8000, activeKcal = 400, bmrKcal = 1648, workoutKcal = 0, stepsKcal = 14, expendedKcal = 1662),
         ),
         balance: DailyBalance = DailyBalance("2026-10-21", eatenKcal = 1500, plannedKcal = 480, expendedKcal = 1662, balanceKcal = 318),
+        healthDays: List<HealthDay> = listOf(
+            HealthDay(id = "d1", date = "2026-10-19", mood = 6, fatigue = 5),
+            HealthDay(id = "d2", date = "2026-10-21", mood = 7, fatigue = 4),
+        ),
     ): SuiviViewModel {
+        coEvery { healthDayRepository.getDays(any(), any()) } returns Result.success(healthDays)
         coEvery { repository.getBodyMeasurements(any()) } returns Result.success(measurements)
         coEvery { nutritionRepository.getDailyBalance(any()) } returns Result.success(balance)
         coEvery { energyRepository.getDailyEnergy(any(), any()) } returns Result.success(energy)
@@ -71,7 +79,7 @@ class SuiviScreenTest {
         coEvery { auth.getUserId() } returns "user-1"
         val mercure = mockk<MercureService>()
         every { mercure.subscribe(any()) } returns emptyFlow()
-        return SuiviViewModel(repository, energyRepository, nutritionRepository, mercure, auth, clock)
+        return SuiviViewModel(repository, energyRepository, nutritionRepository, healthDayRepository, mercure, auth, clock)
     }
 
     private fun waitForCard() =
@@ -80,8 +88,8 @@ class SuiviScreenTest {
     private fun waitForBilan() =
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.NUTRITION_BALANCE).fetchSemanticsNodes().isNotEmpty() }
 
-    private fun assertAbsent(text: String) =
-        assertEquals("« $text » is not delivered", 0, compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().size)
+    private fun waitForMood() =
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.MOOD_VALUE).fetchSemanticsNodes().isNotEmpty() }
 
     @Test
     fun `the Pas and Énergie cards show today's figures from the API`() {
@@ -144,11 +152,40 @@ class SuiviScreenTest {
     }
 
     @Test
-    fun `the cards not delivered are absent, without a placeholder`() {
+    fun `the fourth card, Moral · fatigue, comes last and shows today's mood and fatigue (MAG-750)`() {
         compose.setContent { SuiviScreen(viewModel()) }
         waitForCard()
+        waitForMood()
 
-        listOf("Moral", "fatigue").forEach(::assertAbsent)
+        compose.onNodeWithText("Moral · fatigue").assertExists()
+        compose.onNodeWithTag(UiTags.MOOD_VALUE).assertTextContains("Moral 7")
+        compose.onNodeWithTag(UiTags.FATIGUE_VALUE).assertTextContains("Fatigue 4")
+        assertTopToBottom(
+            "energy" to compose.onNodeWithTag(UiTags.ENERGY_CARD),
+            "mood" to compose.onNodeWithTag(UiTags.MOOD_CARD),
+        )
+    }
+
+    @Test
+    fun `a tap on a day of Pas shows that day on the Moral · fatigue card too`() {
+        val viewModel = viewModel()
+        compose.setContent { SuiviScreen(viewModel) }
+        waitForCard()
+        waitForMood()
+
+        compose.runOnIdle { viewModel.selectDay(java.time.LocalDate.parse("2026-10-19")) }
+
+        compose.onNodeWithTag(UiTags.MOOD_VALUE).assertTextContains("Moral 6")
+        compose.onNodeWithTag(UiTags.FATIGUE_VALUE).assertTextContains("Fatigue 5")
+    }
+
+    @Test
+    fun `without a mood or a fatigue in the period the card says so, with no line and no verdict`() {
+        compose.setContent { SuiviScreen(viewModel(healthDays = emptyList())) }
+        waitForCard()
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.MOOD_EMPTY).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Rien de noté sur la période").assertExists()
     }
 
     @Test
@@ -200,7 +237,8 @@ class SuiviScreenTest {
         val auth = mockk<AuthRepository>().also { coEvery { it.getUserId() } returns "user-1" }
         val mercure = mockk<MercureService>().also { every { it.subscribe(any()) } returns emptyFlow() }
         coEvery { nutritionRepository.getDailyBalance(any()) } returns Result.failure(RuntimeException("offline"))
-        compose.setContent { SuiviScreen(SuiviViewModel(repository, energyRepository, nutritionRepository, mercure, auth, clock)) }
+        coEvery { healthDayRepository.getDays(any(), any()) } returns Result.success(emptyList())
+        compose.setContent { SuiviScreen(SuiviViewModel(repository, energyRepository, nutritionRepository, healthDayRepository, mercure, auth, clock)) }
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.SUIVI_EMPTY).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Pesées indisponibles").assertIsDisplayed()
@@ -220,7 +258,6 @@ class SuiviScreenTest {
         // The card fills the left half; the selector sits at the right of the header, above the content.
         assert(card.right <= root.center.x + 1f) { "card $card overflows the left column of $root" }
         assert(periods.bottom <= root.top + 1f) { "periods $periods are not in the header" }
-        assertAbsent("Moral")
         waitForBilan()
         // The bilan atop the right column, the Poids card's neighbour.
         val bilan = compose.onNodeWithTag(UiTags.NUTRITION_BALANCE).fetchSemanticsNode().boundsInRoot
