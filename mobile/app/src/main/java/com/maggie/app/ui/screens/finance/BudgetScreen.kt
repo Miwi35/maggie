@@ -168,19 +168,17 @@ private fun BudgetContent(
     val topBar: @Composable () -> Unit = {
         FinanceTopBar(
             Screen.BudgetList.route,
-            actions = {
-                BudgetMenu(
-                    onAdjust = onAdjust,
-                    onRollOver = { viewModel.rollOverPreviousPeriod() },
-                    rollOverEnabled = !uiState.isRollingOver,
-                )
-            },
             subviewsTrailing = {
                 MonthSwitch(
                     year = uiState.year,
                     month = uiState.month,
                     onPrevious = { viewModel.shiftPeriod(-1) },
                     onNext = { viewModel.shiftPeriod(1) },
+                )
+                BudgetMenu(
+                    onAdjust = onAdjust,
+                    onRollOver = { viewModel.rollOverPreviousPeriod() },
+                    rollOverEnabled = !uiState.isRollingOver,
                 )
             },
         )

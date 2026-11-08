@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
@@ -28,6 +29,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -162,6 +164,15 @@ class BudgetTreeScreenTest {
         compose.onNodeWithContentDescription("Reconduire le mois précédent").assertDoesNotExist()
         compose.onNodeWithTag(UiTags.BUDGET_ADJUST_OPEN).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.BUDGET_MENU).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the menu sits in the row of the sub-views, under the breadcrumb, not in the header`() {
+        open(adjustments = mockk(relaxed = true))
+
+        val header = compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).getBoundsInRoot()
+        val menu = compose.onNodeWithTag(UiTags.BUDGET_MENU).getBoundsInRoot()
+        assertTrue(menu.top >= header.bottom)
     }
 
     @Test
