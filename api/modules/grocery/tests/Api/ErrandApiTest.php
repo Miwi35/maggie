@@ -140,6 +140,17 @@ class ErrandApiTest extends WebTestCase
         self::assertSame(['piece', 'piece'], array_column($body['items'], 'unit'));
     }
 
+    public function testTheAmountPaidIsReadBack(): void
+    {
+        $errand = $this->errand('test_user', 'store_carrefour', '2026-10-02 18:00', ['Lait']);
+        $errand->setPaidAmountCents(4280);
+        self::getContainer()->get('doctrine.orm.entity_manager')->flush();
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        self::assertSame(4280, $this->get('/api/errands/'.$errand->getId())['paidAmountCents'] ?? null);
+        self::assertSame([4280], array_column($this->get('/api/errands')['member'], 'paidAmountCents'));
+    }
+
     public function testAnotherUsersErrandIsNotFound(): void
     {
         $errand = $this->errand('other_user', 'other_store', '2026-10-03 09:00', ['Café']);

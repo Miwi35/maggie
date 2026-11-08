@@ -85,6 +85,7 @@ class Errand implements MercurePublishable, OwnedByUserInterface, IndexableInter
 
     /** What was paid at the till, in cents, as the owner typed it on finishing the store (MAG-765); null when not given. */
     #[ORM\Column(nullable: true)]
+    #[IndexedField(type: 'integer')]
     private ?int $paidAmountCents = null;
 
     /** @var Collection<int, PurchasedItem> */
@@ -189,6 +190,7 @@ class Errand implements MercurePublishable, OwnedByUserInterface, IndexableInter
             'storeName' => $this->storeName,
             'endedAt' => $this->endedAt->format('c'),
             'itemCount' => $this->itemCount,
+            'paidAmountCents' => $this->paidAmountCents,
             'storeId' => null !== $this->store ? (string) $this->store->getId() : null,
             'userId' => (string) $this->user->getId(),
         ];
