@@ -187,7 +187,7 @@ const financeParts = (): NavPart[] => [
 
 /**
  * The modules of the mockup (MAG-620, `charte/Admin-Cible`), in the sidebar's
- * order, Réglages last. Santé opens on Suivi (MAG-706), then Nutrition (MAG-748), Journal (MAG-750), Sport (MAG-705), Configuration last (MAG-707); Loisirs joins the table with its module.
+ * order, Réglages last. Santé follows `Admin-Sport`: Suivi (MAG-706), Sport (MAG-705), Nutrition (MAG-748), Journal (MAG-750), Configuration last (MAG-707); Loisirs joins the table with its module.
  */
 export const NAVIGATION: NavModule[] = [
   {
@@ -226,12 +226,12 @@ export const NAVIGATION: NavModule[] = [
   },
   {
     label: 'Santé',
-    // Suivi (MAG-706) is the module's home, then Nutrition (MAG-748) and Journal (MAG-750), before Sport; Configuration (MAG-707) is the last part.
+    // The mockup's order (`Admin-Sport`): Suivi, Sport, Activité, Nutrition, Journal, Configuration — Activité joins after Sport with its part.
     parts: [
       { label: 'Suivi', path: HEALTH_SUIVI_PATH },
+      resourcePart('Sport', 'workouts'),
       { label: 'Nutrition', path: HEALTH_NUTRITION_PATH },
       { label: 'Journal', path: HEALTH_JOURNAL_PATH },
-      resourcePart('Sport', 'workouts'),
       { label: 'Configuration', path: HEALTH_CONFIGURATION_PATH },
     ],
   },

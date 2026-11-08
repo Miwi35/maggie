@@ -32,7 +32,8 @@ export const WeeklyMinutesCard = () => {
     <Box
       component="section"
       aria-label="Minutes par semaine"
-      sx={{ borderRadius: 4, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0, minHeight: 0 }}
+      // 230 px as on `Admin-Sport`: the bars are a share of this height, an auto height left them none.
+      sx={{ height: 230, boxSizing: 'border-box', borderRadius: 4, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0, minHeight: 0 }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 15, fontWeight: 500 }}>
         <span>Minutes par semaine</span>

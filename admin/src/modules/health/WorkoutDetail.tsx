@@ -118,7 +118,7 @@ export const WorkoutDetail = ({ workout, onEdit, onDeleted }: WorkoutDetailProps
       component="section"
       aria-label="Séance"
       data-testid={`workout-detail-${workoutUlid(workout.id)}`}
-      sx={{ gridRow: { md: '2 / 4' }, gridColumn: { md: 2 }, borderRadius: 4, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}
+      sx={{ gridRow: { md: '1 / 3' }, gridColumn: { md: 2 }, borderRadius: 4, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <WorkoutIcon type={workout.type} size={44} />

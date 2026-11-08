@@ -284,15 +284,15 @@ describe('the sidebar table', () => {
     ])
   })
 
-  test('Santé opens on Suivi, then Nutrition and Journal, listed before Sport, Configuration last', () => {
+  test('Santé follows the mockup: Suivi, Sport, Nutrition, Journal, Configuration last', () => {
     const health = SIDEBAR.find((module) => module.label === 'Santé')
 
     expect(health?.path).toBe(HEALTH_SUIVI_PATH)
     expect(health?.entries.map((entry) => [entry.label, entry.path])).toEqual([
       ['Suivi', '/health/suivi'],
+      ['Sport', '/workouts'],
       ['Nutrition', HEALTH_NUTRITION_PATH],
       ['Journal', HEALTH_JOURNAL_PATH],
-      ['Sport', '/workouts'],
       ['Configuration', HEALTH_CONFIGURATION_PATH],
     ])
     expect(labels('/health/suivi')).toEqual(['Santé', 'Suivi'])
