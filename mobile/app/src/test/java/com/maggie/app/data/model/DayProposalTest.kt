@@ -57,8 +57,8 @@ class DayProposalTest {
     @Test
     fun `each reason has its word`() {
         assertEquals(
-            listOf("reportée", "à faire aujourd'hui", "urgent", "pour demain", "rapide", "quand tu veux"),
-            listOf("postponed", "dueToday", "urgent", "dueTomorrow", "quick", "whenever").map(ProposalReason::label),
+            listOf("prévue aujourd'hui", "reportée", "à faire aujourd'hui", "urgent", "pour demain", "rapide", "quand tu veux"),
+            listOf("scheduled", "postponed", "dueToday", "urgent", "dueTomorrow", "quick", "whenever").map(ProposalReason::label),
         )
     }
 }

@@ -10,7 +10,9 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\DayPlan;
+use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Entity\TaskSettings;
+use Maggie\Calendar\Enum\TaskMoment;
 use Maggie\Core\Entity\User;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -224,6 +226,23 @@ class DayProposalApiTest extends WebTestCase
         self::assertSame($this->id('free_1'), $stored->getTaskIds()[1]);
         $this->assertMercureUpdatePublished('/api/day_plans/'.$stored->getId());
         $this->assertNoElasticsearchIndexDispatched(DayPlan::class);
+    }
+
+    /** Recette return (MAG-718): a task scheduled a later day is not proposed, one scheduled that day is in d'office. */
+    public function testATaskScheduledTomorrowIsNotProposedAndOneScheduledTodayIsIn(): void
+    {
+        $tomorrow = $this->em()->find(Task::class, $this->getFixture('free_1')->getId());
+        $tomorrow?->setScheduledDate(new \DateTimeImmutable('2026-10-15'))->setScheduledMoment(TaskMoment::Morning);
+        $today = $this->em()->find(Task::class, $this->getFixture('free_3')->getId());
+        $today?->setScheduledDate(new \DateTimeImmutable(self::DAY))->setScheduledMoment(TaskMoment::Evening);
+        $this->em()->flush();
+
+        $proposal = $this->propose();
+        $titles = array_merge(self::titles($proposal['slots']), self::titles($proposal['reserveRanked']));
+
+        self::assertNotContains('Trier le courrier', $titles);
+        self::assertContains('Ranger le garage', self::titles($proposal['slots']));
+        self::assertContains('scheduled', array_column($proposal['slots'], 'reason'));
     }
 
     public function testAnotherUsersTasksAreNeverProposed(): void

@@ -85,9 +85,10 @@ export async function saveDayPlan(date: string, taskIds: string[], confirm = tru
 }
 
 /** Why a task is proposed, in the order of the rule's tiers (MAG-498). */
-export type ProposalReason = 'postponed' | 'dueToday' | 'urgent' | 'dueTomorrow' | 'quick' | 'whenever'
+export type ProposalReason = 'scheduled' | 'postponed' | 'dueToday' | 'urgent' | 'dueTomorrow' | 'quick' | 'whenever'
 
 export const REASON_LABELS: Record<ProposalReason, string> = {
+  scheduled: 'prévue aujourd’hui',
   postponed: 'reportée',
   dueToday: 'à faire aujourd’hui',
   urgent: 'urgent',
