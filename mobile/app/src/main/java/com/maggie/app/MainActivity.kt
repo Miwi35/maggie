@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -41,7 +42,9 @@ class MainActivity : FragmentActivity() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .uiTagRoot(),
+                        .uiTagRoot()
+                        // Edge-to-edge on API 35 ignores adjustResize: without this the keyboard covers the focused field.
+                        .imePadding(),
                 ) {
                     NavGraph()
                 }

@@ -1,10 +1,16 @@
 package com.maggie.app.ui.components.markdown
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -13,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
@@ -65,6 +72,20 @@ class MarkdownComponentsTest {
     private fun Host(start: String, onText: (String) -> Unit = {}) {
         var text by remember { mutableStateOf(start) }
         MarkdownEditor(value = text, onValueChange = { text = it; onText(it) }, label = "Notes")
+    }
+
+    @Test
+    fun `a field below the fold scrolls into view with its bar when it takes the focus`() {
+        compose.setContent {
+            Column(Modifier.height(300.dp).verticalScroll(rememberScrollState())) {
+                Spacer(Modifier.height(200.dp))
+                Host("")
+            }
+        }
+
+        compose.onNode(hasSetTextAction()).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.MARKDOWN_TOOLBAR).assertIsDisplayed()
     }
 
     @Test
