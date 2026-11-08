@@ -141,6 +141,10 @@ if (ACTION === 'create') {
 } else if (ACTION === 'create-tomorrow') {
   const parts = today.split('-').map(Number)
   const tomorrow = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + 1)).toISOString().slice(0, 10)
+  // A journey's own user starts with no agenda, and an event needs one.
+  if (tool('manage_agendas', { action: 'list' }).count === 0) {
+    tool('manage_agendas', { action: 'create', name: 'Perso', timeZone: 'Europe/Paris', isDefault: true })
+  }
   const created = tool('create_event', {
     title: SUMMARY,
     start_date: tomorrow,
