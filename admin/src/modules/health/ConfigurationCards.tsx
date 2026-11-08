@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box'
 import type { ReactNode } from 'react'
 import { useId } from 'react'
-import { FigureField, SelectField, TimeInput } from './ConfigurationFields'
+import { FieldBox, FigureField, SelectField, TimeInput } from './ConfigurationFields'
 import {
   ACTIVITY_FACTORS,
   ACTIVITY_LABELS,
@@ -221,7 +221,7 @@ export const ActivityCard = ({ profile, save }: { profile: HealthProfile; save: 
           <Box component="span" id={windowLabel} sx={{ fontSize: 13, color: 'text.secondary' }}>
             Maggie propose entre
           </Box>
-          <Box role="group" aria-labelledby={windowLabel} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <FieldBox labelledBy={windowLabel}>
             <TimeInput
               name="Maggie propose à partir de"
               value={profile.suggestionWindowStart}
@@ -235,7 +235,7 @@ export const ActivityCard = ({ profile, save }: { profile: HealthProfile; save: 
               value={profile.suggestionWindowEnd}
               onSave={(suggestionWindowEnd) => save({ suggestionWindowEnd })}
             />
-          </Box>
+          </FieldBox>
         </Box>
         <SelectField
           label="Durée d’une session"

@@ -124,6 +124,13 @@ export const SelectField = <T extends string | number>({ label, value, options, 
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 
+/** The mockup's `.in` box around fields drawn as one, as « 08:00 – 20:00 ». */
+export const FieldBox = ({ labelledBy, children }: { labelledBy: string; children: ReactNode }) => (
+  <Box role="group" aria-labelledby={labelledBy} sx={(theme) => ({ ...inputSx(theme), display: 'flex', alignItems: 'center', gap: 0.75 })}>
+    {children}
+  </Box>
+)
+
 /**
  * A time, saved when the field is left (or on Enter) and only as a whole
  * `HH:MM`: a browser's time field is valid after each keystroke, so saving on
@@ -151,7 +158,15 @@ export const TimeInput = ({ name, value, onSave }: { name: string; value: string
         if (event.key === 'Enter') commit()
       }}
       inputProps={{ 'aria-label': name }}
-      sx={(theme) => ({ ...inputSx(theme), width: 'auto', flex: 1, minWidth: 0 })}
+      sx={{
+        fontSize: 15,
+        fontVariantNumeric: 'tabular-nums',
+        flexShrink: 0,
+        // As wide as the time it shows, « 08:00 » or « 08:00 AM » by the browser's locale.
+        '& input': { p: 0, fieldSizing: 'content' },
+        // The picker icon would take the room of the digits (« 08: »): the time is typed, as on the mockup.
+        '& input::-webkit-calendar-picker-indicator': { display: 'none' },
+      }}
     />
   )
 }
