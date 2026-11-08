@@ -1491,6 +1491,11 @@ object UiTags {
     const val BILAN_LOADING = "bilan_loading"
     const val BILAN_ERROR = "bilan_error"
     const val BILAN_RETRY = "bilan_retry"
+    const val BILAN_TASK_PREFIX = "bilan_task_"
+    const val BILAN_TASK_TOMORROW_SUFFIX = "_tomorrow"
+    const val BILAN_TASK_LATER_SUFFIX = "_later"
+    const val BILAN_TASKS_COUNT = "bilan_tasks_count"
+    const val BILAN_TASKS_MESSAGE = "bilan_tasks_message"
     const val HOME_BILAN_RESUME = "home_bilan_resume"
 
     // The frame every activity shares (MAG-580): the activity itself, Maggie and ✕.

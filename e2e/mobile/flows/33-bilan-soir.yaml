@@ -11,6 +11,7 @@ tags:
 # Et quand je tape « Suivant », l'étape est « Finance · 2 sur 5 »
 # Et quand je tape ✕, aucune question : je suis sur l'Accueil, dont la carte « Bilan de la journée » dit
 #   « Étape Finance » avec « Reprendre »
+# Et la tâche non faite du jour, rangée par « Demain », a son échéance à demain (MAG-752)
 # Alors « Reprendre » rouvre le bilan sur « Finance · 2 sur 5 »
 #
 # What a JVM test cannot see is the real activity in the real window, the deep link and the status
@@ -20,6 +21,13 @@ tags:
 # for in a journey: its link is opened directly.
 
 - runFlow: ../subflows/new-user.yaml
+
+- runScript:
+    file: ../scripts/bilan-tasks-api.js
+    env:
+      ACTION: setup
+      TODAY: ${TODAY}
+      EMAIL: ${output.journeyEmail}
 
 - launchApp:
     clearState: true
@@ -47,6 +55,22 @@ tags:
     timeout: 20000
 - assertNotVisible:
     id: "chat_open"
+
+# Journée (MAG-752): the task left is put off to tomorrow, and the task itself carries it.
+- extendedWaitUntil:
+    visible:
+      id: "bilan_task_${output.taskId}"
+    timeout: 20000
+- tapOn:
+    id: "bilan_task_${output.taskId}_tomorrow"
+- runScript:
+    file: ../scripts/bilan-tasks-api.js
+    env:
+      ACTION: expect
+      EXPECT: tomorrow
+      TODAY: ${TODAY}
+      EMAIL: ${output.journeyEmail}
+      TASK_ID: ${output.taskId}
 
 - tapOn:
     id: "bilan_next"

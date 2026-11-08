@@ -112,6 +112,24 @@ class BilanActivityViewModelTest {
     }
 
     @Test
+    fun `a task choice is written into answers tasks at once, the other answers untouched`() = runTest(testDispatcher) {
+        stored = status("2026-11-08", """{"step":"journee","answers":{"mood":7}}""")
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.recordTaskChoice("t-1", "tomorrow")
+        vm.recordTaskChoice("t-2", "later")
+        vm.recordTaskChoice("t-1", "later")
+
+        val answers = puts.last().second.getValue("answers").jsonObject
+        assertEquals(7, answers.getValue("mood").jsonPrimitive.content.toInt())
+        assertEquals(mapOf("t-1" to "later", "t-2" to "later"), vm.uiState.value.session!!.taskChoices())
+        assertEquals(3, puts.size)
+        vm.recordTaskChoice("t-2", null)
+        assertEquals(mapOf("t-1" to "later"), vm.uiState.value.session!!.taskChoices())
+    }
+
+    @Test
     fun `previous and the segments move back and forth, the first step has no previous`() = runTest(testDispatcher) {
         stored = status("2026-11-08", """{"step":"sante"}""")
         val vm = viewModel()

@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.bilan
 
 import com.maggie.app.data.model.ActivityOrigin
 import com.maggie.app.data.model.ActivityStatus
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -37,6 +38,24 @@ enum class BilanStep(val wire: String, val label: String, val heading: String) {
  */
 data class BilanSession(val day: LocalDate, val step: BilanStep, val state: JsonObject = JsonObject(emptyMap())) {
     fun at(next: BilanStep) = copy(step = next)
+
+    /** `answers.tasks` as `taskId → choice` (`done`, `tomorrow`, `later`). */
+    fun taskChoices(): Map<String, String> =
+        (state["answers"] as? JsonObject)?.get("tasks")?.let { it as? JsonArray }.orEmpty().mapNotNull { entry ->
+            val item = entry as? JsonObject ?: return@mapNotNull null
+            val id = item["taskId"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val choice = item["choice"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            id to choice
+        }.toMap()
+
+    /** The session with [taskId]'s [choice] in `answers.tasks` — `null` removes it; the other answers stay untouched. */
+    fun withTaskChoice(taskId: String, choice: String?): BilanSession {
+        val answers = state["answers"] as? JsonObject ?: JsonObject(emptyMap())
+        val tasks = taskChoices().toMutableMap()
+        if (choice == null) tasks.remove(taskId) else tasks[taskId] = choice
+        val list = JsonArray(tasks.map { (id, c) -> JsonObject(mapOf("taskId" to JsonPrimitive(id), "choice" to JsonPrimitive(c))) })
+        return copy(state = JsonObject(state + ("answers" to JsonObject(answers + ("tasks" to list)))))
+    }
 
     fun statusOrigin() = ActivityOrigin(DAY_KIND, day.toString())
 
