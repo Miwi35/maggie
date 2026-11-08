@@ -17,6 +17,8 @@ export interface FinanceHomeState {
   week: HomeRing
   month: HomeRing
   toQualifyCount: number
+  /** The review of the month just ended is not done: the card offers to launch it. */
+  reviewReady: boolean
   nextProject: HomeNextProject | null
   accountCount: number
   envelopeCount: number
@@ -39,6 +41,7 @@ export function composeFinanceState(dashboard: FinanceDashboard): FinanceHomeSta
     week: ring(dashboard.scores.week.rhythm),
     month: ring(dashboard.scores.month.rhythm),
     toQualifyCount: dashboard.todo.toSortCount,
+    reviewReady: dashboard.todo.reviewReady,
     nextProject: next
       ? {
           projectId: next.projectId,

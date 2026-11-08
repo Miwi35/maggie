@@ -190,6 +190,23 @@ test("the review's line on the Accueil carries a ▶ Lancer that opens the activ
 })
 
 /**
+ * A review due is launched from the Finance card (MAG-568, recette 8 nov.): the review of the month just
+ * ended is not done (`e2e-balance`: a line of last month nobody rated), though no appointment sits on
+ * today's agenda (it falls on the 25th). The card carries a ▶ Lancer that opens the activity; « Demain » none.
+ */
+test('a review due puts a ▶ Lancer on the Finance card, today only', async ({ balanceUser }) => {
+  const { page } = balanceUser
+  const home = new HomePage(page)
+  await home.open()
+
+  await page.getByRole('link', { name: /^Lancer Revue d/ }).click()
+  await expect(page).toHaveURL(/\/finance\/review\/activity/)
+
+  await home.open('tomorrow')
+  await expect(page.getByRole('link', { name: /^Lancer / })).toHaveCount(0)
+})
+
+/**
  * The empty cards (MAG-594, extends MAG-101): a card with nothing to say for the chosen day is not
  * drawn, no title, no frame. An account of its own, with the `empty` profile (no meal, no
  * shopping line, no task, no event, no account): the Accueil says one calm sentence; a task

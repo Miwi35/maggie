@@ -9,6 +9,8 @@ data class FinanceHomeState(
     val month: FinanceHomeRing = FinanceHomeRing(),
     /** Lines the review still has to qualify; the card shows a pill only above zero. */
     val toQualifyCount: Int = 0,
+    /** The review of the month just ended is not done: the card offers its ▶ Lancer. */
+    val reviewReady: Boolean = false,
     /** The first project of the current scenario's planning; null with none. */
     val nextProject: FinanceHomeProject? = null,
     /** Accounts and envelopes the user has: with neither, the card is not drawn (MAG-594). */
@@ -23,6 +25,7 @@ data class FinanceHomeState(
             week = FinanceHomeRing.from(dashboard.scores?.week?.rhythm ?: Rhythm()),
             month = FinanceHomeRing.from(dashboard.scores?.month?.rhythm ?: Rhythm()),
             toQualifyCount = dashboard.todo.toSortCount,
+            reviewReady = dashboard.todo.reviewReady,
             nextProject = dashboard.nextProject?.let {
                 FinanceHomeProject(
                     projectId = it.projectId,

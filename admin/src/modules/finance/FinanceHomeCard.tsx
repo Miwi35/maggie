@@ -6,11 +6,14 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
 import { Link as RouterLink } from 'react-router-dom'
+import { ActivityLaunchButton } from '../home/ActivityLaunchButton'
 import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
+import type { HomeDay } from '../home/homeDay'
 import { formatCents } from './accountTypes'
 import { durationLabel, purchaseLabel } from './nextProject'
+import { REVIEW_ACTIVITY_PATH, reviewTitle } from './reviewActivity'
 import { reviewLink } from './reviewFilter'
 import { useFinanceCardState } from './useFinanceCardState'
 import { ringShares } from './useFinanceScores'
@@ -28,7 +31,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
  * Finance Dashboard; it does not follow « Demain ». Drawn as soon as there is an
  * account or an envelope, not before (MAG-594).
  */
-export const FinanceHomeCard = () => {
+export const FinanceHomeCard = ({ day = 'today' }: { day?: HomeDay }) => {
   const { state, loading, error, retry } = useFinanceCardState()
   const status = homeCardStatus({ state, loading, error }, isEmpty)
   useReportHomeCard('finance', status)
@@ -37,7 +40,7 @@ export const FinanceHomeCard = () => {
 
   return (
     <HomeCard module="finance" title="Finance" to="/finance/dashboard">
-      {state && !isEmpty(state) ? <Body state={state} /> : !error && loading ? <Loading /> : null}
+      {state && !isEmpty(state) ? <Body state={state} day={day} /> : !error && loading ? <Loading /> : null}
       {error && <HomeCardError onRetry={() => void retry()} />}
     </HomeCard>
   )
@@ -53,25 +56,32 @@ const Loading = () => (
   </Box>
 )
 
-const Body = ({ state }: { state: FinanceHomeState }) => (
+const Body = ({ state, day }: { state: FinanceHomeState; day: HomeDay }) => (
   <Stack spacing={1.5}>
     <Stack direction="row" spacing={2} justifyContent="space-around">
       <Ring period="week" title="Semaine" ring={state.week} />
       <Ring period="month" title="Mois" ring={state.month} />
     </Stack>
-    {state.toQualifyCount > 0 && (
-      <Box>
-        <Chip
-          component={RouterLink}
-          to={reviewLink({ state: 'unrecognised', period: 'all' })}
-          clickable
-          size="small"
-          color="warning"
-          variant="outlined"
-          label={`${state.toQualifyCount} à qualifier`}
-          data-testid="home-finance-to-qualify"
-        />
-      </Box>
+    {(state.toQualifyCount > 0 || (state.reviewReady && day === 'today')) && (
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+        {state.toQualifyCount > 0 ? (
+          <Chip
+            component={RouterLink}
+            to={reviewLink({ state: 'unrecognised', period: 'all' })}
+            clickable
+            size="small"
+            color="warning"
+            variant="outlined"
+            label={`${state.toQualifyCount} à qualifier`}
+            data-testid="home-finance-to-qualify"
+          />
+        ) : (
+          <span />
+        )}
+        {state.reviewReady && (
+          <ActivityLaunchButton module="finance" activity={reviewTitle(new Date())} day={day} to={REVIEW_ACTIVITY_PATH} />
+        )}
+      </Stack>
     )}
     {state.nextProject && <NextProject project={state.nextProject} />}
   </Stack>

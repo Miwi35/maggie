@@ -50,6 +50,14 @@ class FinanceHomeTest {
     }
 
     @Test
+    fun `a review due in the dashboard is carried to the card`() {
+        val due = dashboard().copy(todo = FinanceTodo(reviewReady = true))
+
+        assertEquals(true, FinanceHomeState.from(due).reviewReady)
+        assertEquals(false, FinanceHomeState.from(dashboard()).reviewReady)
+    }
+
+    @Test
     fun `no next project in the dashboard is none on the card`() {
         assertNull(FinanceHomeState.from(dashboard(nextProject = null)).nextProject)
     }
