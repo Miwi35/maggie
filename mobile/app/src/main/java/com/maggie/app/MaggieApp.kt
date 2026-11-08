@@ -160,6 +160,8 @@ import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.TreasuryViewModel
 import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingGroceryViewModel
+import com.maggie.app.ui.screens.bilan.BilanActivityViewModel
+import com.maggie.app.ui.screens.bilan.BilanResumeViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingResumeViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
@@ -560,6 +562,8 @@ class MaggieApp : Application() {
             viewModel { CookingViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { CookingGroceryViewModel(get(), get(), get(), get()) }
             viewModel { CookingResumeViewModel(get(), get(), get(), get()) }
+            viewModel { BilanActivityViewModel(get(), get(), get()) }
+            viewModel { BilanResumeViewModel(get(), get(), get()) }
             viewModel { ReviewActivityViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { PeriodReviewViewModel(get()) }
             viewModel { FinanceDashboardViewModel(get(), get(), get(), get(), get()) }

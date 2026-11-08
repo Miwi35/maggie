@@ -56,6 +56,11 @@ class DeepLinksTest {
     }
 
     @Test
+    fun `the Bilan de la journée opens from activity bilan (MAG-751)`() {
+        assertEquals(listOf("$scheme://activity/bilan"), DeepLinks.patternsFor(Screen.BilanActivity.route))
+    }
+
+    @Test
     fun `the treasury screen opens from finance treasury`() {
         assertEquals(listOf("$scheme://finance/treasury"), DeepLinks.patternsFor(Screen.Treasury.route))
     }

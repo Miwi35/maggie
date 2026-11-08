@@ -13,6 +13,7 @@ object HomeModules {
     const val HEALTH = "health"
     const val FINANCE = "finance"
     const val LEISURE = "leisure"
+    const val BILAN = "bilan"
 }
 
 /**
@@ -37,6 +38,8 @@ val LocalHomeNavigation = staticCompositionLocalOf<(String) -> Unit> { {} }
  */
 object HomeCardRegistry {
     val entries: List<HomeCardEntry> = listOf(
+        // MAG-751: « Reprendre » the evening review left open, until the next morning.
+        HomeCardEntry(HomeModules.BILAN) { day -> BilanHomeCard(day) },
         HomeCardEntry(HomeModules.GROCERY) { GroceryHomeCard() },
         // MAG-561: today's tasks and the routines of the moment.
         HomeCardEntry(HomeModules.TASKS) { day -> TasksHomeCard(day) },

@@ -139,6 +139,8 @@ import com.maggie.app.ui.screens.finance.MonthBalanceViewModel
 import com.maggie.app.ui.screens.finance.BlockState
 import com.maggie.app.ui.screens.finance.FinanceSummaryViewModel
 import com.maggie.app.ui.screens.finance.SummaryBlock
+import com.maggie.app.ui.screens.bilan.BilanActivityScreen
+import com.maggie.app.ui.screens.bilan.BilanActivityViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingActivityScreen
 import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
 import com.maggie.app.ui.screens.cookbook.cooking.CookingGroceryViewModel
@@ -351,6 +353,8 @@ sealed class Screen(val route: String, val label: String) {
             CookingOrigin.Kind.RECIPE -> ofRecipe(origin.id)
         }
     }
+    /** Activité Bilan de la journée (MAG-751): full screen, outside the menus, so drawn without chrome. */
+    data object BilanActivity : Screen("activity/bilan", "Bilan de la journée")
     data object FinanceDashboard : Screen("finance_dashboard", "Finance")
     /** Planification · Indépendance (MAG-537): the independence counter and the net saving capacity, a sub-view of its own. */
     data object Independence : Screen("finance_independence", "Indépendance")
@@ -785,6 +789,16 @@ private fun CookingActivityPage(navController: NavController, onOpenMaggie: () -
         groceryViewModel = koinViewModel<CookingGroceryViewModel>(),
         onQuit = { navController.popBackStack() },
         onOpenMaggie = onOpenMaggie,
+    )
+}
+
+// Out of NavGraph's body for the same reason as ReviewActivityPage.
+@Composable
+private fun BilanActivityPage(navController: NavController, onAnswerByVoice: () -> Unit) {
+    BilanActivityScreen(
+        viewModel = koinViewModel<BilanActivityViewModel>(),
+        onQuit = { navController.popBackStack() },
+        onAnswerByVoice = onAnswerByVoice,
     )
 }
 
@@ -2246,6 +2260,9 @@ fun NavGraph() {
                         deepLinks = DeepLinks.forRoute(Screen.CookingActivity.route),
                     ) {
                         CookingActivityPage(navController, onOpenMaggie = ::openChat)
+                    }
+                    composable(Screen.BilanActivity.route, deepLinks = DeepLinks.forRoute(Screen.BilanActivity.route)) {
+                        BilanActivityPage(navController, onAnswerByVoice = ::startVoiceMode)
                     }
                     composable(Screen.Independence.route, deepLinks = DeepLinks.forRoute(Screen.Independence.route)) {
                         IndependenceScreen(koinViewModel<FinanceDashboardViewModel>())

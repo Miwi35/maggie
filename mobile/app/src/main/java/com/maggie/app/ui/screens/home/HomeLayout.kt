@@ -42,10 +42,12 @@ object HomeLayout {
         HomeModules.LEISURE,
     )
 
+    private val LAUNCH_CARDS = cards(HomeModules.BILAN)
+
     val file: HomeLayoutFile = HomeLayoutFile(
         mapOf(
-            HomeFormat.PHONE to mapOf(HomeSlot.LAUNCH to emptyList(), HomeSlot.CARD to SPEC_ORDER),
-            HomeFormat.TABLET to mapOf(HomeSlot.LAUNCH to emptyList(), HomeSlot.CARD to SPEC_ORDER),
+            HomeFormat.PHONE to mapOf(HomeSlot.LAUNCH to LAUNCH_CARDS, HomeSlot.CARD to SPEC_ORDER),
+            HomeFormat.TABLET to mapOf(HomeSlot.LAUNCH to LAUNCH_CARDS, HomeSlot.CARD to SPEC_ORDER),
             HomeFormat.KIOSK to mapOf(HomeSlot.KIOSK_TILE to SPEC_ORDER),
         ),
     )
