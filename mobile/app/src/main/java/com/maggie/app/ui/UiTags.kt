@@ -1477,6 +1477,22 @@ object UiTags {
     const val REVIEW_ACTIVITY_RESTART = "review_activity_restart"
     const val REVIEW_ACTIVITY_REMAINING = "review_activity_remaining"
 
+    // The Bilan de la journée (MAG-751).
+    const val BILAN_ACTIVITY = "bilan_activity"
+    const val BILAN_QUIT = "bilan_quit"
+    const val BILAN_COUNTER = "bilan_counter"
+    const val BILAN_SEGMENT_PREFIX = "bilan_segment_"
+    const val BILAN_SAY = "bilan_say"
+    const val BILAN_MIC = "bilan_mic"
+    const val BILAN_PREVIOUS = "bilan_previous"
+    const val BILAN_NEXT = "bilan_next"
+    const val BILAN_ASK_PREFIX = "bilan_ask_"
+    const val BILAN_SLOT_PREFIX = "bilan_slot_"
+    const val BILAN_LOADING = "bilan_loading"
+    const val BILAN_ERROR = "bilan_error"
+    const val BILAN_RETRY = "bilan_retry"
+    const val HOME_BILAN_RESUME = "home_bilan_resume"
+
     // The frame every activity shares (MAG-580): the activity itself, Maggie and ✕.
     const val ACTIVITY_SCAFFOLD = "activity_scaffold"
     const val ACTIVITY_MAGGIE = "activity_maggie"
