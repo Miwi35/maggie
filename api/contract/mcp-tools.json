@@ -4203,10 +4203,7 @@
                     "type": "string"
                 },
                 "answers": {
-                    "type": [
-                        "array",
-                        "null"
-                    ],
+                    "type": "object",
                     "default": null
                 },
                 "instructions": {

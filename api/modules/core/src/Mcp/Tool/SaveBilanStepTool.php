@@ -12,6 +12,7 @@ use Maggie\Core\Message\SaveActivityStatusCommand;
 use Maggie\Core\Repository\ActivityStatusRepository;
 use Maggie\Core\Service\BilanStateValidator;
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -30,8 +31,13 @@ class SaveBilanStepTool
      * @param array<string, mixed>|null       $answers
      * @param list<array<string, mixed>>|null $instructions
      */
-    public function __invoke(string $day, string $step, ?array $answers = null, ?array $instructions = null): string
-    {
+    public function __invoke(
+        string $day,
+        string $step,
+        #[Schema(type: 'object')]
+        ?array $answers = null,
+        ?array $instructions = null,
+    ): string {
         try {
             $user = $this->userContext->requireUser();
         } catch (MissingMcpUserException $e) {

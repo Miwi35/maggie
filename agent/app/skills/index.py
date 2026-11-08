@@ -25,6 +25,8 @@ SUPERSEDED_BUILTIN_BODIES: dict[str, frozenset[str]] = {
             "865ed7bb25d31d55f85997030f664206cf77025ec70ce468b508b8af08779911",
             "ed40d96f0d7bac6c24d07ef51b07f7aec5d36bb0746c72acc4979ef9347da73f",
             "8264ba9b4dadac5cb127765ad977ced1f6ec3ea459ff139a60f4d64ceb96ddc7",
+            "4903109d55706a5aa4244cb89d1cb5f8c1e09b6551c8372af1a1eedc28d1f583",
+            "f0ca77921f11b4b33e37dcfc281cb02bd3a83266144c9865f4506ec072f36d6a",
         }
     ),
     "digest": frozenset({"bc2f376bbaadcda64d1549e0eef3873c3116258d1c6be567301617de4a344cbd"}),

@@ -1,5 +1,6 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, parisDay } from '../fixtures/index.js'
 import { assistantText, calledTools, parseAgUiStream, toolResults } from '../helpers/agui.js'
+import { HealthJournalPage } from '../pages/HealthJournalPage.js'
 import { HomePage } from '../pages/HomePage.js'
 
 /**
@@ -84,4 +85,51 @@ test('consignes dictated at the Consignes step are classed and kept for the dige
   const stored = (await status.json()) as { state: { step: string; instructions: { kind: string }[] } }
   expect(stored.state.step).toBe('consignes')
   expect(stored.state.instructions.map((instruction) => instruction.kind)).toEqual(['reminder', 'task', 'instruction'])
+})
+
+/**
+ * The Santé step — MAG-754 (Bilan du soir, part 6, extends MAG-99).
+ *
+ * Given the fake model and the scenario `98-bilan-soir-sante.yaml`, When I answer moral 7 and fatigue 4,
+ * Then today's entry of the health journal carries them, written by Maggie, the bilan's answers keep them
+ * for « Reprendre », and Santé › Journal shows « avec Maggie ».
+ */
+test('mood and fatigue given at the Santé step are written in the health journal by Maggie', async ({ page, api, session }) => {
+  const today = parisDay()
+  await new HomePage(page).open()
+
+  const body = await page.evaluate(
+    async ({ token }) => {
+      const response = await fetch('/agent/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          message: 'Mon moral à 7 et ma fatigue à 4',
+          idempotency_key: `e2e-sante-${Math.random().toString(36).slice(2)}`,
+        }),
+      })
+      return response.text()
+    },
+    { token: session.token },
+  )
+  const events = parseAgUiStream(body)
+
+  expect(calledTools(events)).toContain('update_health_day')
+  expect(toolResults(events).every((result) => result.status === 'success')).toBe(true)
+
+  const day = await api.get(`/api/health/days/${today}`, { headers: { Accept: 'application/json' } })
+  expect(day.status(), await day.text()).toBe(200)
+  expect(await day.json()).toMatchObject({ mood: 7, fatigue: 4, notedBy: 'maggie' })
+
+  const status = await api.get('/api/activity-status/bilan')
+  expect(status.status(), await status.text()).toBe(200)
+  const stored = (await status.json()) as { state: { step: string; answers: { mood: number; fatigue: number } } }
+  expect(stored.state.step).toBe('sante')
+  expect(stored.state.answers).toEqual({ mood: 7, fatigue: 4 })
+
+  const journal = new HealthJournalPage(page)
+  await journal.open()
+  await expect(journal.score('Moral', 7)).toHaveAttribute('aria-checked', 'true')
+  await expect(journal.score('Fatigue', 4)).toHaveAttribute('aria-checked', 'true')
+  await expect(journal.entry.getByTestId('journal-noted-by')).toContainText('avec Maggie')
 })
