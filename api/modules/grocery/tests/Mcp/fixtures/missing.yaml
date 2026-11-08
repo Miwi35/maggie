@@ -1,0 +1,80 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: grocery-test@example.com
+    googleId: google-grocery-test
+    name: Grocery Test User
+  other_user:
+    email: other-grocery@example.com
+    googleId: google-other-grocery
+    name: Other Grocery User
+
+Maggie\Grocery\Entity\Store:
+  supermarket:
+    name: Supermarché
+    visitOrder: 1
+    user: '@test_user'
+  greengrocer:
+    name: Primeur
+    visitOrder: 2
+    user: '@test_user'
+  other_store:
+    name: Magasin de l'autre
+    visitOrder: 1
+    user: '@other_user'
+
+Maggie\Grocery\Entity\Product:
+  product_tomato:
+    name: Tomates
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Produce)>'
+    user: '@test_user'
+    preferredStore: '@supermarket'
+    fallbackStore: '@greengrocer'
+  product_rice:
+    name: Riz
+    category: '<(Maggie\Grocery\Enum\ProductCategory::Grain)>'
+    user: '@test_user'
+    preferredStore: '@supermarket'
+
+Maggie\Grocery\Entity\GroceryList:
+  grocery_list:
+    user: '@test_user'
+  other_list:
+    user: '@other_user'
+
+Maggie\Grocery\Entity\GroceryItem:
+  item_tomato:
+    groceryList: '@grocery_list'
+    product: '@product_tomato'
+    quantity: 3
+    unit: '<(Maggie\Grocery\Enum\Unit::Piece)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@supermarket'
+    position: 1
+  item_rice:
+    groceryList: '@grocery_list'
+    product: '@product_rice'
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Pack)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@supermarket'
+    position: 2
+  item_checked:
+    groceryList: '@grocery_list'
+    customLabel: Lait
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    checked: true
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@supermarket'
+    position: 3
+  other_item:
+    groceryList: '@other_list'
+    customLabel: Lait du voisin
+    quantity: 1
+    unit: '<(Maggie\Grocery\Enum\Unit::Liter)>'
+    checked: false
+    source: '<(Maggie\Grocery\Enum\GroceryItemSource::Manual)>'
+    store: '@other_store'
+    position: 1

@@ -114,6 +114,7 @@ framework:
             'Maggie\Grocery\Event\RecurringGroceryItemDue': sync
             'Maggie\Grocery\Message\AddGroceryItemCommand': sync
             'Maggie\Grocery\Message\CheckGroceryItemCommand': sync
+            'Maggie\Grocery\Message\MarkGroceryItemMissingCommand': sync
             'Maggie\Grocery\Message\EndErrandCommand': sync
             'Maggie\Grocery\Message\SnoozePurchaseSuggestionCommand': sync
             'Maggie\Grocery\Message\MoveToFallbackCommand': sync
