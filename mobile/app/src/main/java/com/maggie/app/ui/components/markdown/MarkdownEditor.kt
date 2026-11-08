@@ -3,6 +3,10 @@ package com.maggie.app.ui.components.markdown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -58,7 +62,15 @@ fun MarkdownEditor(
         onValueChange(next.text)
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val bringIntoView = remember { BringIntoViewRequester() }
+    // The field and its bar move together into view when the keyboard opens or the text grows.
+    LaunchedEffect(focused, field.text) { if (focused) {
+            withFrameNanos { }
+            bringIntoView.bringIntoView()
+        }
+    }
+
+    Column(modifier = Modifier.bringIntoViewRequester(bringIntoView), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         OutlinedTextField(
             value = shown,
             onValueChange = { edit(MarkdownFormat.onChange(shown, it)) },
