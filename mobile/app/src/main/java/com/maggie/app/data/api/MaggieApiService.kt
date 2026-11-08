@@ -5,6 +5,7 @@ import com.maggie.app.data.model.AcceptRecurringSuggestionsRequest
 import com.maggie.app.data.model.AcceptRecurringSuggestionsResult
 import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.ProviderStatus
+import com.maggie.app.data.model.QuestionBlock
 import com.maggie.app.data.model.AccountIncidents
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.AgUiEvent
@@ -282,6 +283,9 @@ data class AgendaCreateRequest(
 data class GoogleCalendarImportRequest(
     val googleCalendarId: String,
 )
+
+@Serializable
+data class QuestionAnswerRequest(val choices: List<String>)
 
 @Serializable
 data class MessageContextResponse(val messages: List<ChatMessage> = emptyList())
@@ -3496,6 +3500,18 @@ class MaggieApiService(
         }
         if (!response.status.isSuccess()) throw ApprovalDecisionException(response.status.value)
         return response.body()
+    }
+
+    /**
+     * Answers a question block of the chat (MAG-717): 200 gives the block with `answered` set, 400 an option
+     * it does not offer, 409 a question already answered ([ApiRefusalException]).
+     */
+    suspend fun answerQuestion(id: String, choices: List<String>, channel: String = "chat"): QuestionBlock {
+        return client.post("$baseUrl/agent/questions/$id/answer") {
+            url.parameters.append("channel", channel)
+            contentType(ContentType.Application.Json)
+            setBody(QuestionAnswerRequest(choices))
+        }.orRefusal().body()
     }
 
     // TTS — agent endpoint

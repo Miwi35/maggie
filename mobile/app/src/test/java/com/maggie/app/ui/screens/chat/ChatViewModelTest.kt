@@ -13,6 +13,7 @@ import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.ChatUnread
 import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.data.model.PendingApproval
+import com.maggie.app.data.model.QuestionBlock
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.ChatUnreadRepository
@@ -3021,5 +3022,184 @@ class ChatViewModelTest {
 
         assertEquals(0, viewModel.uiState.value.awaitingApprovalCount)
         assertTrue(viewModel.uiState.value.pendingApprovals.isEmpty())
+    }
+
+    // --- MAG-717: a question with boxes to tick, in the thread ---
+
+    private val question = QuestionBlock(id = "q-1", text = "Quels jours ?", options = listOf("Lundi", "Mardi", "Mercredi"), multiple = true)
+    private val single = QuestionBlock(id = "q-2", text = "Quand ?", options = listOf("Matin", "Soir"))
+
+    private fun threadWithQuestions() {
+        coEvery { repository.loadRecentMessages(any()) } returns sampleMessages + ChatMessage(
+            id = "msg-3",
+            role = "assistant",
+            content = "",
+            createdAt = "2026-02-15T10:01:00Z",
+            blocks = listOf(question, single),
+        )
+    }
+
+    @Test
+    fun `ticking boxes on a multiple question keeps them all`() = runTest {
+        threadWithQuestions()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleChoice("q-1", "Lundi")
+        viewModel.toggleChoice("q-1", "Mercredi")
+
+        assertEquals(setOf("Lundi", "Mercredi"), viewModel.uiState.value.checkedChoices["q-1"])
+    }
+
+    @Test
+    fun `ticking a box again unticks it`() = runTest {
+        threadWithQuestions()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleChoice("q-1", "Lundi")
+        viewModel.toggleChoice("q-1", "Lundi")
+
+        assertEquals(emptySet<String>(), viewModel.uiState.value.checkedChoices["q-1"])
+    }
+
+    @Test
+    fun `a question with one choice keeps only the last box ticked`() = runTest {
+        threadWithQuestions()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleChoice("q-2", "Matin")
+        viewModel.toggleChoice("q-2", "Soir")
+
+        assertEquals(setOf("Soir"), viewModel.uiState.value.checkedChoices["q-2"])
+    }
+
+    @Test
+    fun `a box the question does not offer is ignored`() = runTest {
+        threadWithQuestions()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleChoice("q-1", "Dimanche")
+
+        assertTrue(viewModel.uiState.value.checkedChoices.isEmpty())
+    }
+
+    @Test
+    fun `validating sends the ticked boxes in the order of the question and marks it answered`() = runTest {
+        threadWithQuestions()
+        coEvery { repository.answerQuestion("q-1", listOf("Lundi", "Mercredi"), "chat") } returns
+            Result.success(question.copy(answered = listOf("Lundi", "Mercredi")))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.toggleChoice("q-1", "Mercredi")
+        viewModel.toggleChoice("q-1", "Lundi")
+
+        viewModel.answerQuestion("q-1")
+        advanceUntilIdle()
+
+        coVerify { repository.answerQuestion("q-1", listOf("Lundi", "Mercredi"), "chat") }
+        val blocks = viewModel.uiState.value.messages.last().blocks
+        assertEquals(listOf("Lundi", "Mercredi"), (blocks[0] as QuestionBlock).answered)
+        assertNull((blocks[1] as QuestionBlock).answered)
+        assertFalse(viewModel.uiState.value.checkedChoices.containsKey("q-1"))
+        assertTrue(viewModel.uiState.value.answeringQuestionIds.isEmpty())
+    }
+
+    @Test
+    fun `validating with nothing ticked sends nothing`() = runTest {
+        threadWithQuestions()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.answerQuestion("q-1")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { repository.answerQuestion(any(), any(), any()) }
+    }
+
+    @Test
+    fun `the answer on its way locks the question`() = runTest {
+        threadWithQuestions()
+        val reply = CompletableDeferred<Result<QuestionBlock>>()
+        coEvery { repository.answerQuestion("q-1", any(), "chat") } coAnswers { reply.await() }
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.toggleChoice("q-1", "Lundi")
+
+        viewModel.answerQuestion("q-1")
+        advanceUntilIdle()
+        viewModel.toggleChoice("q-1", "Mardi")
+        viewModel.answerQuestion("q-1")
+        advanceUntilIdle()
+
+        assertEquals(setOf("q-1"), viewModel.uiState.value.answeringQuestionIds)
+        assertEquals(setOf("Lundi"), viewModel.uiState.value.checkedChoices["q-1"])
+        coVerify(exactly = 1) { repository.answerQuestion(any(), any(), any()) }
+    }
+
+    @Test
+    fun `a refused answer leaves the boxes ticked and flags the question`() = runTest {
+        threadWithQuestions()
+        coEvery { repository.answerQuestion("q-1", any(), "chat") } returns Result.failure(IllegalStateException("HTTP 409"))
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.toggleChoice("q-1", "Lundi")
+
+        viewModel.answerQuestion("q-1")
+        advanceUntilIdle()
+
+        assertEquals("q-1", viewModel.uiState.value.failedQuestionId)
+        assertEquals(setOf("Lundi"), viewModel.uiState.value.checkedChoices["q-1"])
+        assertTrue(viewModel.uiState.value.answeringQuestionIds.isEmpty())
+        assertNull((viewModel.uiState.value.messages.last().blocks[0] as QuestionBlock).answered)
+    }
+
+    @Test
+    fun `an answered question takes no more ticks`() = runTest {
+        coEvery { repository.loadRecentMessages(any()) } returns sampleMessages + ChatMessage(
+            id = "msg-3", role = "assistant", content = "", createdAt = "2026-02-15T10:01:00Z",
+            blocks = listOf(question.copy(answered = listOf("Mardi"))),
+        )
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleChoice("q-1", "Lundi")
+
+        assertTrue(viewModel.uiState.value.checkedChoices.isEmpty())
+    }
+
+    @Test
+    fun `a choice given from the interruption shows in the thread through Mercure, and the question reads answered`() = runTest {
+        threadWithQuestions()
+        val topic = chatTopic()
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        topic.emit(echo("u-77", "user", "Lundi · Mercredi"))
+        topic.emit(
+            MercureEvent(
+                data = """{"id":"msg-3","role":"assistant","content":"","createdAt":"2026-02-15T10:01:00Z","blocks":[
+                    {"type":"question","id":"q-1","text":"Quels jours ?","options":["Lundi","Mardi","Mercredi"],"multiple":true,"answered":["Lundi","Mercredi"]},
+                    {"type":"question","id":"q-2","text":"Quand ?","options":["Matin","Soir"],"multiple":false,"answered":null}]}""",
+            ),
+        )
+        advanceUntilIdle()
+
+        val messages = viewModel.uiState.value.messages
+        assertTrue(messages.any { it.id == "u-77" && it.role == "user" && it.content == "Lundi · Mercredi" })
+        val blocks = messages.first { it.id == "msg-3" }.blocks
+        assertEquals(listOf("Lundi", "Mercredi"), (blocks[0] as QuestionBlock).answered)
+        assertNull((blocks[1] as QuestionBlock).answered)
+    }
+
+    @Test
+    fun `a task card loads its task by id`() = runTest {
+        val tasks = mockk<com.maggie.app.data.repository.TaskRepository>()
+        coEvery { tasks.findTask("t-1") } returns com.maggie.app.data.model.Task(id = "t-1", title = "Ranger le garage")
+        viewModel = ChatViewModel(repository, mercureService, unreadRepository, authRepository, approvalRepository, center, tasks = tasks)
+
+        assertEquals("Ranger le garage", viewModel.loadTask("t-1")?.title)
     }
 }

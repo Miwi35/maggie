@@ -77,6 +77,17 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame(['priority' => 'high'], $message['android']);
     }
 
+    public function testAQuestionCarriesItsBoxesInData(): void
+    {
+        $interaction = ['kind' => 'choice', 'options' => ['A', 'B'], 'multiple' => true, 'questionId' => 'Q1'];
+        $notification = $this->notification(NotificationType::Question, 'Maggie a une question', 'Que fait-on ?')->setInteraction($interaction);
+
+        $message = (new PushMessageFactory())->build($notification, 't');
+
+        self::assertSame($interaction, json_decode($message['data']['interaction'], true, 512, JSON_THROW_ON_ERROR));
+        self::assertArrayNotHasKey('interaction', (new PushMessageFactory())->build($this->notification(NotificationType::Message, 'Titre'), 't')['data']);
+    }
+
     public function testAChatMessageOpensTheConversationAtThatMessage(): void
     {
         $notification = $this->notification(NotificationType::Message, 'Maggie', 'Salut', '/chat?message=01JMSG0123456789ABCDEFGHJK');

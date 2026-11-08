@@ -1,0 +1,19 @@
+# Both boxes ticked (MAG-717): the answer reads « A · B » in the thread, and she creates the task
+# with its list, the deadline, and the programmation at 18:00 with the default reminder at the time.
+name: task-ask-weekend-answered
+description: "Both options ticked make one task: checkbox description, Friday due date, scheduled Friday 18:00."
+
+match:
+  user_matches: "^Une tâche avec la liste · La programmer vendredi à 18 h, avec un rappel$"
+
+turns:
+  - tools:
+      - name: create_task
+        input:
+          title: "Préparer le weekend"
+          description: "- [ ] Chargeur\n- [ ] Passeport\n- [ ] Clés"
+          dueDate: "${friday}"
+          scheduledDate: "${friday}"
+          scheduledMoment: time
+          scheduledTime: "18:00"
+  - text: "C'est fait : la tâche est créée avec sa liste, programmée vendredi à 18 h, et je vous le rappellerai à l'heure."

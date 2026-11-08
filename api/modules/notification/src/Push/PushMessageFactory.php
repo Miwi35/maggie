@@ -112,6 +112,8 @@ class PushMessageFactory
             'cookingTimerId' => $this->cookingTimerId($notification->getRelatedEntityIri()),
             // The chat message to open (MAG-687).
             'messageId' => $this->messageId($notification->getRelatedEntityIri()),
+            // The boxes of a question (MAG-717), as the JSON the phone decodes into its interaction.
+            'interaction' => null === $notification->getInteraction() ? null : json_encode($notification->getInteraction(), JSON_THROW_ON_ERROR),
             'silent' => $silent ? '1' : null,
             // Past it the app says nothing (MAG-679): a phone that was offline gets the alert late.
             'expiresAt' => $notification->getExpiresAt()?->format('c'),
@@ -212,7 +214,7 @@ class PushMessageFactory
             NotificationType::Approval => self::CHANNEL_APPROVALS,
             NotificationType::ConsentExpiring, NotificationType::Finance => self::CHANNEL_FINANCE,
             NotificationType::Departure => self::CHANNEL_DEPARTURE,
-            NotificationType::Proaction, NotificationType::Grocery, NotificationType::Message => self::CHANNEL_CHAT,
+            NotificationType::Proaction, NotificationType::Grocery, NotificationType::Message, NotificationType::Question => self::CHANNEL_CHAT,
         };
     }
 

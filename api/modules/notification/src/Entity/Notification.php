@@ -106,6 +106,16 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $actions = null;
 
+    /**
+     * The question a `question` notification puts, answered from the interruption (MAG-717):
+     * `kind` is `choice`, `options` the labels to tick, `multiple` whether several may be, and
+     * `questionId` the id `/agent/questions/{id}/answer` takes. Null on every other notification.
+     *
+     * @var array{kind: string, options: list<string>, multiple: bool, questionId: string}|null
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $interaction = null;
+
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $readAt = null;
@@ -229,6 +239,20 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
         return $this;
     }
 
+    /** @return array{kind: string, options: list<string>, multiple: bool, questionId: string}|null */
+    public function getInteraction(): ?array
+    {
+        return $this->interaction;
+    }
+
+    /** @param array{kind: string, options: list<string>, multiple: bool, questionId: string}|null $interaction */
+    public function setInteraction(?array $interaction): static
+    {
+        $this->interaction = $interaction;
+
+        return $this;
+    }
+
     public function getReadAt(): ?\DateTimeImmutable
     {
         return $this->readAt;
@@ -271,6 +295,7 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
             'relatedEntityIri' => $this->relatedEntityIri,
             'reminderId' => $this->reminderId,
             'actions' => $this->actions,
+            'interaction' => $this->interaction,
             'userId' => (string) $this->user->getId(),
         ];
     }
@@ -286,6 +311,7 @@ class Notification implements OwnedByUserInterface, MercurePublishable, Indexabl
             'relatedEntityIri' => $this->relatedEntityIri,
             'reminderId' => $this->reminderId,
             'actions' => $this->getActions(),
+            'interaction' => $this->interaction,
             'readAt' => $this->readAt?->format('c'),
             'expiresAt' => $this->expiresAt?->format('c'),
             'createdAt' => $this->createdAt->format('c'),

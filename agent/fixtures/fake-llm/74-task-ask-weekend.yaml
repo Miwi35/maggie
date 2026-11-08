@@ -1,0 +1,17 @@
+# « Je dois penser à prendre X, Y pour ce weekend » (MAG-717): the request does not say what he
+# expects, so she asks with boxes to tick (a task with the list, a planned one) instead of guessing.
+name: task-ask-weekend
+description: An ambiguous « je dois penser à prendre… » is answered by ask_owner, two options, several tickable.
+
+match:
+  user_matches: "dois penser à prendre.*weekend"
+
+turns:
+  - tools:
+      - name: ask_owner
+        input:
+          text: "Qu'est-ce que je fais de cette liste pour le weekend ?"
+          options:
+            - "Une tâche avec la liste"
+            - "La programmer vendredi à 18 h, avec un rappel"
+          multiple: true

@@ -71,6 +71,24 @@ class PushActionHandler(
         }
     }
 
+    /** « Valider » of a question (MAG-717): the choices go to the agent, the notification is read whatever the outcome but a retry. */
+    suspend fun answerQuestion(payload: PushPayload, choices: List<String>): PushOutcome {
+        val questionId = payload.interaction?.questionId ?: return PushOutcome.Settled(QUESTION_SETTLED)
+        val outcome = try {
+            apiService.answerQuestion(questionId, choices, "notification")
+            PushOutcome.Closed
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiRefusalException) {
+            if (e.status in FINAL_STATUSES) PushOutcome.Settled(QUESTION_SETTLED) else PushOutcome.Retry(UNREACHABLE)
+        } catch (e: Exception) {
+            Log.w(TAG, "Question answer failed: ${e.message}")
+            PushOutcome.Retry(UNREACHABLE)
+        }
+        if (outcome !is PushOutcome.Retry) runCatching { apiService.markNotificationRead(payload.notificationId) }
+        return outcome
+    }
+
     /**
      * Answers [kind] without waiting: « Je m'y mets » opens the app on the Focus, and the answer
      * must not hold the screen nor be lost when the activity goes.
@@ -193,6 +211,7 @@ class PushActionHandler(
         private const val UNREACHABLE = "Maggie est injoignable. Réessayez."
         private const val REMINDER_SETTLED = "Ce rappel n'est plus en attente."
         private const val SHORTAGE_SETTLED = "Ce manquant n'est plus à signaler."
+        private const val QUESTION_SETTLED = "Cette question n'est plus en attente."
         private const val TICKED = "C'est fait."
 
         /** The reminder cannot take this answer, now or later: 400 unknown button, 404 gone, 409 refused. */

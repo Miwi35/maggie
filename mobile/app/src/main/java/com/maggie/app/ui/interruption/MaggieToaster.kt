@@ -51,7 +51,11 @@ import androidx.compose.ui.unit.sp
 import com.maggie.app.R
 import com.maggie.app.data.fcm.PushActionKind
 import com.maggie.app.data.fcm.PushPayload
+import com.maggie.app.data.interruption.isAnswerableChoice
 import com.maggie.app.data.interruption.key
+import com.maggie.app.data.model.Task
+import com.maggie.app.ui.components.ChoiceBoxes
+import com.maggie.app.ui.components.TaskBlockCard
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.isMaggieDark
@@ -80,6 +84,10 @@ fun MaggieToaster(
     reducedMotion: Boolean,
     onAction: (PushActionKind) -> Unit,
     modifier: Modifier = Modifier,
+    checked: Set<String> = emptySet(),
+    onToggle: (String) -> Unit = {},
+    onSubmit: () -> Unit = {},
+    loadTask: suspend (String) -> Task? = { null },
 ) {
     val dark = isMaggieDark()
     val surface = if (dark) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
@@ -152,13 +160,27 @@ fun MaggieToaster(
                     Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
 
+                val choice = payload.interaction?.takeIf { payload.isAnswerableChoice }
+                if (choice != null) {
+                    ChoiceBoxes(options = choice.options, checked = checked, enabled = !busy, onToggle = onToggle)
+                }
+                payload.taskId?.takeIf { payload.showsTask }?.let { id ->
+                    TaskBlockCard(id, loadTask, onOpen = { onAction(PushActionKind.GO) })
+                }
+
                 // The answers sit together on one line, the refusal before the primary action; « Plus tard » is
                 // the way out underneath, so nothing dangles alone at the end of a wrapped row.
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    primary.withIndex().sortedBy { if (it.value == PushActionKind.DENY) 0 else 1 }.forEach { (index, kind) ->
+                    if (choice != null) {
+                        Button(
+                            onClick = onSubmit,
+                            enabled = !busy && checked.isNotEmpty(),
+                            modifier = Modifier.weight(1f).testTag(UiTags.INTERRUPTION_ACTION),
+                        ) { Text("Valider") }
+                    } else primary.withIndex().sortedBy { if (it.value == PushActionKind.DENY) 0 else 1 }.forEach { (index, kind) ->
                         Button(
                             onClick = { onAction(kind) },
                             enabled = !busy,
@@ -179,7 +201,11 @@ fun MaggieToaster(
 }
 
 private fun labelOf(kind: PushActionKind, payload: PushPayload): String =
-    if (kind == PushActionKind.GO) payload.actionLabel ?: kind.label else kind.label
+    when {
+        kind == PushActionKind.GO && payload.showsTask -> "Ouvrir la tâche"
+        kind == PushActionKind.GO -> payload.actionLabel ?: kind.label
+        else -> kind.label
+    }
 
 @Composable
 private fun Avatar(scale: Float, reducedMotion: Boolean) {

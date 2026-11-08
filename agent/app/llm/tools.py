@@ -7,6 +7,7 @@ from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.pending_action_repository import pending_action_repo
 from app.llm.message_reply import ANSWER_APPROVAL_TOOL, handle_answer_approval
+from app.llm.questions import ASK_OWNER, ASK_OWNER_TOOL, handle_ask_owner
 from app.llm.time_tool import DATE_TIME_TOOLS, handle_date_time
 from app.mcp.client import mcp_client
 from app.memory import conversations
@@ -420,6 +421,7 @@ def _native_tools() -> list[dict]:
         *SKILL_TOOLS,
         *DATE_TIME_TOOLS,
         ANSWER_APPROVAL_TOOL,
+        ASK_OWNER_TOOL,
         *VOICE_TOOLS,
     ]
 
@@ -503,6 +505,11 @@ class ToolRouter:
         held = await self._apply_policy(name, arguments, user_id, source, context_id)
         if held is not None:
             return held
+
+        if name == ASK_OWNER:
+            if user_id is None:
+                return json.dumps({"error": "user_id required for native tools"})
+            return await handle_ask_owner(arguments, user_id, source)
 
         if name in _THREAD_HANDLERS:
             if user_id is None:

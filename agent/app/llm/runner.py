@@ -6,6 +6,7 @@ import anthropic
 from app.llm.claim_guard import ClaimGuard, Verdict, question_of
 from app.llm.prompt_cache import cache_tools
 from app.llm.provider_status import note_provider_failure, note_provider_success
+from app.llm.questions import asked_question, blocks_of
 from app.llm.tool_blocks import record
 from app.llm.web_search import PAUSE_TURN, answer_text, with_sources
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
@@ -110,7 +111,7 @@ async def run_tool_loop(
                 text_response = guard.honest_answer()
             else:
                 text_response = with_sources(text_response, response.content)
-            return {"response": text_response, "tool_calls": tool_calls_made, "blocks": blocks, "usage": usage}
+            return _outcome(text_response, tool_calls_made, blocks, usage)
 
         messages.append({"role": "assistant", "content": response.content})
 
@@ -133,4 +134,18 @@ async def run_tool_loop(
         # block objects, which no column can store.
         blocks.extend(record(round_calls))
 
-    return {"response": ITERATION_LIMIT_MESSAGE, "tool_calls": tool_calls_made, "blocks": blocks, "usage": usage}
+        if question := asked_question(tool_calls_made):
+            # The turn ends on the question: the owner's answer is what Maggie waits for (MAG-717).
+            return _outcome(question["text"], tool_calls_made, blocks, usage)
+
+    return _outcome(ITERATION_LIMIT_MESSAGE, tool_calls_made, blocks, usage)
+
+
+def _outcome(response: str, tool_calls: list[dict], blocks: list[dict], usage: dict) -> dict:
+    return {
+        "response": response,
+        "tool_calls": tool_calls,
+        "blocks": blocks,
+        "ui_blocks": blocks_of(tool_calls),
+        "usage": usage,
+    }

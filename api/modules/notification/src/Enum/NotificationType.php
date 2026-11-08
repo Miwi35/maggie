@@ -29,4 +29,6 @@ enum NotificationType: string
     case Departure = 'departure';
     /** A chat message from Maggie outside a conversation in progress (MAG-687). */
     case Message = 'message';
+    /** Maggie hesitates and puts a question with boxes to tick, answered by `/agent/questions/{id}/answer` (MAG-717). */
+    case Question = 'question';
 }

@@ -218,6 +218,56 @@ class NotificationToolsTest extends KernelTestCase
         self::assertCount(1, $pushes);
     }
 
+    public function testCreateAQuestionNotificationKeepsItsChoices(): void
+    {
+        $this->loadFixtures('notification.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())(
+            'create',
+            type: 'question',
+            title: 'Maggie a une question',
+            body: 'Que fait-on de la liste ?',
+            interaction: ['options' => ['Une tâche avec la liste', ' La programmer ', 'Une tâche avec la liste', ''], 'multiple' => true, 'questionId' => 'Q1', 'kind' => 'x'],
+        ), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['created']);
+        $stored = $this->notificationTitled('Maggie a une question');
+        self::assertSame('question', $stored->getType()->value);
+        self::assertSame(
+            ['kind' => 'choice', 'options' => ['Une tâche avec la liste', 'La programmer'], 'multiple' => true, 'questionId' => 'Q1'],
+            $stored->getInteraction(),
+        );
+        self::assertSame($stored->getInteraction(), $data['notification']['interaction']);
+        $this->assertMercureUpdatePublished('/notifications/');
+    }
+
+    public function testCreateAQuestionNotificationWithoutTwoOptionsIsRefused(): void
+    {
+        $this->loadFixtures('notification.yaml');
+        $this->loginFixtureUser();
+
+        $data = json_decode(($this->tool())(
+            'create',
+            type: 'question',
+            title: 'Maggie a une question',
+            interaction: ['options' => ['Seule'], 'multiple' => false, 'questionId' => 'Q1'],
+        ), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertNull($this->notificationTitled('Maggie a une question'));
+    }
+
+    public function testInteractionIsKeptOnlyForAQuestion(): void
+    {
+        $this->loadFixtures('notification.yaml');
+        $this->loginFixtureUser();
+
+        ($this->tool())('create', type: 'message', title: 'Maggie dit', interaction: ['options' => ['A', 'B'], 'questionId' => 'Q1']);
+
+        self::assertNull($this->notificationTitled('Maggie dit')->getInteraction());
+    }
+
     private function notificationTitled(string $title): ?Notification
     {
         $em = self::getContainer()->get('doctrine.orm.entity_manager');

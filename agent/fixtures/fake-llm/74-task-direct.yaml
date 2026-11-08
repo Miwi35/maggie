@@ -1,0 +1,12 @@
+# « Ajoute une tâche pour… » (MAG-717): a clear request is executed at once, no question.
+name: task-direct
+description: A clear task request creates the task directly; the task card follows the answer.
+
+match:
+  user_matches: "ajoute une tâche pour (?:appeler|rappeler) le plombier"
+
+turns:
+  - tools:
+      - name: create_task
+        input: {title: "Appeler le plombier"}
+  - text: "C'est fait : la tâche « Appeler le plombier » est créée."

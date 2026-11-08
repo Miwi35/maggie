@@ -42,7 +42,7 @@ import com.maggie.app.ui.components.MindContent
 import com.maggie.app.ui.components.rememberChatListState
 
 @Composable
-fun ChatScreen(viewModel: ChatViewModel, draft: String = "", messageId: String? = null) {
+fun ChatScreen(viewModel: ChatViewModel, draft: String = "", messageId: String? = null, onOpenTask: (String) -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()
     var input by remember { mutableStateOf("") }
     ChatDisplayed(viewModel)
@@ -114,6 +114,13 @@ fun ChatScreen(viewModel: ChatViewModel, draft: String = "", messageId: String? 
                     onDeny = viewModel::deny,
                     onDismissApproval = viewModel::dismissApproval,
                     onRateMessage = viewModel::rateMessage,
+                    checkedChoices = uiState.checkedChoices,
+                    answeringQuestionIds = uiState.answeringQuestionIds,
+                    failedQuestionId = uiState.failedQuestionId,
+                    onToggleChoice = viewModel::toggleChoice,
+                    onAnswerQuestion = { viewModel.answerQuestion(it) },
+                    loadTask = viewModel::loadTask,
+                    onOpenTask = onOpenTask,
                 )
                 ChatTab.MIND -> MindContent(
                     agentState = uiState.agentState,

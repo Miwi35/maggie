@@ -15,9 +15,12 @@ import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.ChatUnread
 import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.data.model.PendingApproval
+import com.maggie.app.data.model.QuestionBlock
+import com.maggie.app.data.model.Task
 import com.maggie.app.data.repository.ApprovalRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.ChatUnreadRepository
+import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.ui.components.approvalQuestion
 import com.maggie.app.ui.screens.contexts.ThreadEvent
 import com.maggie.app.util.ChatDateFormatter
@@ -112,6 +115,12 @@ data class ChatUiState(
      * why (MAG-23); `null` once it is sent or skipped. The comment dialog renders from it.
      */
     val commentingMessageId: String? = null,
+    /** The boxes ticked on each unanswered question of the thread, by question id (MAG-717). */
+    val checkedChoices: Map<String, Set<String>> = emptyMap(),
+    /** Questions whose answer is on its way: their button waits. */
+    val answeringQuestionIds: Set<String> = emptySet(),
+    /** The question whose last answer did not reach the agent: it is answerable again. */
+    val failedQuestionId: String? = null,
 ) {
     /** The badge of the Mind tab: the held actions that can still be answered. */
     val awaitingApprovalCount: Int get() = pendingApprovals.count { it.approval.isPending }
@@ -127,6 +136,7 @@ class ChatViewModel(
     private val interruptions: InterruptionCenter = InterruptionCenter(),
     // Whether the phone is projecting to Android Auto right now (MAG-684): read when a message is sent.
     private val inCar: () -> Boolean = { false },
+    private val tasks: TaskRepository? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatUiState())
     private val askedApprovals = mutableSetOf<String>()
@@ -1042,6 +1052,63 @@ class ChatViewModel(
         )
     }
 
+    suspend fun loadTask(id: String): Task? = tasks?.findTask(id)
+
+    /** Ticks or unticks [option] of a question still waiting; a question with one choice keeps only the last tick. */
+    fun toggleChoice(questionId: String, option: String) {
+        val question = questionBlock(questionId)?.takeIf { !it.isAnswered && option in it.options } ?: return
+        if (questionId in _uiState.value.answeringQuestionIds) return
+        val checked = _uiState.value.checkedChoices[questionId].orEmpty()
+        val next = when {
+            option in checked -> checked - option
+            question.multiple -> checked + option
+            else -> setOf(option)
+        }
+        _uiState.value = _uiState.value.copy(
+            checkedChoices = _uiState.value.checkedChoices + (questionId to next),
+            failedQuestionId = null,
+        )
+    }
+
+    /** « Valider »: sends [choices] (the ticked boxes by default, in the order the question lists them). */
+    fun answerQuestion(questionId: String, choices: List<String>? = null) {
+        val question = questionBlock(questionId)?.takeIf { !it.isAnswered } ?: return
+        if (questionId in _uiState.value.answeringQuestionIds) return
+        val given = choices ?: _uiState.value.checkedChoices[questionId].orEmpty().let { ticked -> question.options.filter { it in ticked } }
+        if (given.isEmpty()) return
+
+        _uiState.value = _uiState.value.copy(
+            answeringQuestionIds = _uiState.value.answeringQuestionIds + questionId,
+            failedQuestionId = null,
+        )
+        viewModelScope.launch {
+            repository.answerQuestion(questionId, given, "chat")
+                .onSuccess { applyQuestion(it) }
+                .onFailure { e ->
+                    Log.w(TAG, "Question $questionId not answered: ${e.message}")
+                    _uiState.value = _uiState.value.copy(failedQuestionId = questionId)
+                }
+            _uiState.value = _uiState.value.copy(answeringQuestionIds = _uiState.value.answeringQuestionIds - questionId)
+        }
+    }
+
+    private fun questionBlock(id: String): QuestionBlock? =
+        _uiState.value.messages.flatMap { it.blocks }.filterIsInstance<QuestionBlock>().firstOrNull { it.id == id }
+
+    private fun applyQuestion(answered: QuestionBlock) {
+        _uiState.value = _uiState.value.copy(
+            messages = _uiState.value.messages.map { message ->
+                if (message.blocks.none { it is QuestionBlock && it.id == answered.id }) {
+                    message
+                } else {
+                    message.copy(blocks = message.blocks.map { if (it is QuestionBlock && it.id == answered.id) answered else it })
+                }
+            },
+            checkedChoices = _uiState.value.checkedChoices - answered.id,
+        )
+        rebuildDisplayItems()
+    }
+
     /** Locks the card at once, then confirms with the agent; a failure unlocks it with an error. */
     fun approve(id: String) = decide(id, ApprovalDecision.APPROVE)
 
@@ -1406,8 +1473,8 @@ class ChatViewModel(
                         // Append to in-memory list if not already present
                         val current = _uiState.value.messages
                         val known = current.firstOrNull { it.id == message.id }
-                        if (known != null && known.content != message.content) {
-                            // Cut short after being shown whole (MAG-223): what is stored wins.
+                        if (known != null && (known.content != message.content || known.blocks != message.blocks)) {
+                            // Cut short after being shown whole (MAG-223), or a question answered elsewhere (MAG-717): what is stored wins.
                             _uiState.value = _uiState.value.copy(messages = current.withMessage(message))
                             rebuildDisplayItems()
                         } else if (known == null) {

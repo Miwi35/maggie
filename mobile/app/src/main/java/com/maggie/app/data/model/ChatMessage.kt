@@ -27,8 +27,12 @@ data class ChatMessage(
     val feedbackComment: String? = null,
     /** The voice message this one is, when Maggie sent it as audio (MAG-685): the text is its transcript. */
     val audio: AudioAttachment? = null,
+    /** The questions and task cards the message carries (MAG-717), in order; unknown kinds are not drawn. */
+    val blocks: List<ChatBlock> = emptyList(),
 ) {
     val isDecision: Boolean get() = role == DECISION_ROLE
+
+    val shownBlocks: List<ChatBlock> get() = blocks.filter { it is QuestionBlock || it is TaskBlock }
 }
 
 /**

@@ -838,6 +838,17 @@ object UiTags {
 
     fun approvalDetails(id: String) = APPROVAL_DETAILS_PREFIX + id
 
+    /** Chat and interruption — a question with boxes to tick (MAG-717), suffixed by the question's id. */
+    const val QUESTION_CARD_PREFIX = "question_card_"
+    const val QUESTION_SUBMIT_PREFIX = "question_submit_"
+    const val TASK_CARD_PREFIX = "task_card_"
+
+    fun questionCard(id: String) = QUESTION_CARD_PREFIX + id
+
+    fun questionSubmit(id: String) = QUESTION_SUBMIT_PREFIX + id
+
+    fun taskCard(id: String) = TASK_CARD_PREFIX + id
+
     fun drawerItem(route: String) = DRAWER_ITEM_PREFIX + route
     fun drawerLine(route: String) = "drawer_line_$route"
     fun drawerCount(route: String) = "drawer_count_$route"

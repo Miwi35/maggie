@@ -20,6 +20,8 @@ final readonly class CreateNotificationCommand
         public array $actions = [],
         /** From then on it is no longer worth saying: a departure alert stops when its event starts (MAG-679). */
         public ?\DateTimeImmutable $expiresAt = null,
+        /** @var array{kind: string, options: list<string>, multiple: bool, questionId: string}|null the question a `question` notification puts (MAG-717) */
+        public ?array $interaction = null,
     ) {
     }
 }

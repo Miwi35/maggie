@@ -110,6 +110,8 @@ class ContextRepository:
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS audio JSONB"))
             # MAG-709 — the screen a message belongs on (`digest`): its notification opens there.
             await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS screen VARCHAR(16)"))
+            # MAG-717 — what a message shows besides its text: a question with boxes, the card of a task.
+            await conn.execute(text("ALTER TABLE agent_message ADD COLUMN IF NOT EXISTS ui_blocks JSONB"))
             await conn.execute(
                 text("ALTER TABLE agent_user_setting ADD COLUMN IF NOT EXISTS style_synthesized_at TIMESTAMPTZ")
             )

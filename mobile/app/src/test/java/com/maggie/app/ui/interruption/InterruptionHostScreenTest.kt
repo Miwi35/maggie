@@ -3,6 +3,8 @@ package com.maggie.app.ui.interruption
 import com.maggie.app.data.fcm.PushActionKind
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -11,6 +13,10 @@ import com.maggie.app.data.fcm.PushOutcome
 import com.maggie.app.data.fcm.PushPayload
 import com.maggie.app.data.interruption.InterruptionAlert
 import com.maggie.app.data.interruption.InterruptionCenter
+import com.maggie.app.data.interruption.Interruptions
+import com.maggie.app.data.model.Notification
+import com.maggie.app.data.model.NotificationInteraction
+import com.maggie.app.data.model.Task
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
@@ -155,6 +161,72 @@ class InterruptionHostScreenTest {
         compose.waitForIdle()
 
         coVerify { handler.handle(PushActionKind.ADD_TO_LIST, match { it.shortageId == "01HZX3K9P2M7Q4R8S5T6V0W1AB" }, any(), any()) }
+        compose.onNodeWithTag(UiTags.INTERRUPTION).assertDoesNotExist()
+    }
+
+    private fun question(multiple: Boolean = true) = Interruptions.of(
+        Notification(
+            id = "n-q",
+            type = "question",
+            title = "Quels jours ?",
+            interaction = NotificationInteraction("choice", listOf("Lundi", "Mardi"), multiple = multiple, questionId = "q-1"),
+        ),
+    )!!
+
+    @Test
+    fun `a question shows its boxes, Valider waits for a tick and sends the choices (MAG-717)`() {
+        coEvery { handler.answerQuestion(any(), any()) } returns PushOutcome.Closed
+        host()
+        center.offer(question())
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Quels jours ?").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.INTERRUPTION_ACTION).assertIsNotEnabled()
+
+        compose.onNodeWithText("Lundi").performClick()
+        compose.onNodeWithText("Mardi").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.INTERRUPTION_ACTION).assertIsEnabled().performClick()
+        compose.waitForIdle()
+
+        coVerify { handler.answerQuestion(match { it.notificationId == "n-q" }, listOf("Lundi", "Mardi")) }
+        compose.onNodeWithTag(UiTags.INTERRUPTION).assertDoesNotExist()
+    }
+
+    @Test
+    fun `Plus tard on a question postpones it (MAG-717)`() {
+        host()
+        center.offer(question())
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.INTERRUPTION_LATER).performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf("n-q"), postponed.map { it.notificationId })
+    }
+
+    @Test
+    fun `a task reminder shows the sentence, the task card and Ouvrir la tâche (MAG-717)`() {
+        val task = Task(id = "01HX", title = "Ranger le garage", description = "- [ ] a\n- [ ] b", dueDate = "2026-11-12")
+        val viewModel = InterruptionViewModel(center, handler, postpone = { postponed += it }, loadTask = { task })
+        compose.setContent {
+            InterruptionHost(onOpenLink = { links += it }, onOpenChat = {}, viewModel = viewModel, alert = InterruptionAlert { })
+        }
+        center.offer(
+            Interruptions.of(
+                Notification(id = "n-t", type = "task_due", title = "C'est l'heure", body = "Ranger le garage · 14:30", relatedEntityIri = "/api/tasks/01HX"),
+            )!!,
+        )
+        compose.waitForIdle()
+
+        compose.onNodeWithText("C'est l'heure").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.taskCard("01HX")).assertIsDisplayed()
+        compose.onNodeWithText("0/2").assertIsDisplayed()
+
+        compose.onNodeWithText("Ouvrir la tâche").performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf("n-t"), links.map { it.notificationId })
         compose.onNodeWithTag(UiTags.INTERRUPTION).assertDoesNotExist()
     }
 }

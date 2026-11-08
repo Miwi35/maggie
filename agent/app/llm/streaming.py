@@ -28,6 +28,7 @@ from app.llm.last_exchange import last_exchange_section
 from app.llm.models import CHAT, model_for
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.provider_status import alert_owner, note_provider_failure, note_provider_success, provider_reason
+from app.llm.questions import asked_question, blocks_of
 from app.llm.tool_blocks import record
 from app.llm.tools import ToolRouter
 from app.llm.web_search import (
@@ -250,6 +251,7 @@ class StreamingGateway:
         # the context's `tool_calls_log` below, which is a list of names for the Mind
         # panel: this is what the calls said.
         blocks: list[dict] = []
+        ui_blocks: list[dict] = []
 
         # Single message ID across all iterations so the frontend sees one message bubble
         msg_id = answer_message_id(user_msg_id)
@@ -454,6 +456,14 @@ class StreamingGateway:
                     # The same round as plain data, which is what a column can hold:
                     # `response_content` is the SDK's own block objects.
                     blocks.extend(record(round_calls))
+                    ui_blocks.extend(blocks_of(tool_use_blocks))
+                    if question := asked_question(tool_use_blocks):
+                        # The turn ends on the question; what was streamed before gives way to it (MAG-717).
+                        answer = question["text"]
+                        yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
+                        text_started = True
+                        yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
+                        break
                     # Continue loop for more iterations
                     continue
 
@@ -532,6 +542,7 @@ class StreamingGateway:
                     # read it instead of calling them again (MAG-211). The error path falls
                     # here too, with the rounds that did run before it: they happened.
                     blocks=blocks,
+                    ui_blocks=ui_blocks,
                 )
             except IntegrityError:
                 # A turn taken up again after the first one had already stored its answer.

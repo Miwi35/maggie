@@ -31,6 +31,9 @@ fun PushPayload.asMessageOfMaggie(): PushPayload =
 /** A question put to the owner with answers to choose from (MAG-712): the bell lists it until it is answered. */
 val PushPayload.isChoice: Boolean get() = approvalId == null && interaction?.options?.isNotEmpty() == true
 
+/** A choice the toaster can answer itself (MAG-717): boxes to tick and « Valider », through its question. */
+val PushPayload.isAnswerableChoice: Boolean get() = isChoice && interaction?.questionId != null
+
 /** A question Maggie waits on: it goes ahead of the messages. */
 val PushPayload.isQuestion: Boolean get() = approvalId != null || interaction?.kind == "confirm"
 
@@ -68,6 +71,7 @@ object Interruptions {
     private val FINANCE_SCREENS = setOf("", "accounts", "budgets", "categories", "rules", "rule-suggestions", "banks", "cushion", "savings-advances", "loans", "review")
     private val ENTITY_PATH = Regex("^/api/([a-z_]+)/([0-9A-Za-z-]{1,64})$")
     private val COOKING_TIMER_PATH = Regex("^/api/cooking/timers/([0-9A-Za-z-]{1,64})$")
+    private val TASK_PATH = Regex("^/api/tasks/([0-9A-Za-z-]{1,64})$")
     private val SHORTAGE_PATH = Regex("^/api/shortage-alerts/([0-9A-Za-z]{26})$")
     private val FINANCE_PATH = Regex("^/finance(?:/([a-z-]+))?/?$")
 
@@ -79,6 +83,7 @@ object Interruptions {
         // A departure alert is raised by the system, with its full screen (MAG-658): the toaster would say it twice.
         if ((notification.isRead && !again) || notification.type == "approval" || notification.type == PushPayload.DEPARTURE_TYPE || notification.title.isBlank()) return null
         val (link, label) = linkOf(notification.relatedEntityIri, scheme)
+        val taskId = taskReminderIdOf(notification)
         return PushPayload(
             notificationId = notification.id,
             type = notification.type,
@@ -88,9 +93,18 @@ object Interruptions {
             link = link,
             actionLabel = label,
             approvalId = null,
-            interaction = null,
+            interaction = notification.interaction?.takeIf { it.kind == "choice" }
+                ?.let { PushInteraction(kind = it.kind, options = it.options, multiple = it.multiple, questionId = it.questionId) },
             shortageId = shortageIdOf(notification),
+            taskId = taskId,
+            showsTask = taskId != null,
         )
+    }
+
+    /** The task a `task_due` or `task_nudge` notification reminds of (MAG-717), read from its IRI; null for any other. */
+    fun taskReminderIdOf(notification: Notification): String? {
+        if (notification.type != "task_due" && notification.type != "task_nudge") return null
+        return TASK_PATH.matchEntire(notification.relatedEntityIri.orEmpty())?.groupValues?.get(1)
     }
 
     /** The shortage alert a grocery notification announces (MAG-570), read from its IRI; null for any other. */

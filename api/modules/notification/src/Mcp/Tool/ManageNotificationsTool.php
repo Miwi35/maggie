@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_notifications', description: 'Create, list, mark as read, or delete notifications. Use create to reach the user on their own devices (push notification): a proaction you took or an approval you are waiting for — type is one of proaction, approval, reminder, task_due, grocery, finance, message (a chat message you write outside a conversation in progress: relatedEntityIri /chat?message={id} opens it); give a short title, an optional body, and relatedEntityIri (e.g. /api/events/{id}, /api/tasks/{id}, /finance/banks) so tapping it opens the right screen. Use unreadOnly to see what still needs attention.')]
+#[McpTool(name: 'manage_notifications', description: 'Create, list, mark as read, or delete notifications. Use create to reach the user on their own devices (push notification): a proaction you took or an approval you are waiting for — type is one of proaction, approval, reminder, task_due, grocery, finance, message (a chat message you write outside a conversation in progress: relatedEntityIri /chat?message={id} opens it), question (a question with boxes to tick, given interaction {kind: choice, options, multiple, questionId}); give a short title, an optional body, and relatedEntityIri (e.g. /api/events/{id}, /api/tasks/{id}, /finance/banks) so tapping it opens the right screen. Use unreadOnly to see what still needs attention.')]
 class ManageNotificationsTool
 {
     public function __construct(
@@ -27,6 +27,7 @@ class ManageNotificationsTool
     ) {
     }
 
+    /** @param array<string, mixed>|null $interaction */
     public function __invoke(
         string $action,
         ?string $notificationId = null,
@@ -36,10 +37,11 @@ class ManageNotificationsTool
         ?string $title = null,
         ?string $body = null,
         ?string $relatedEntityIri = null,
+        ?array $interaction = null,
     ): string {
         try {
             return match ($action) {
-                'create' => $this->create($type, $title, $body, $relatedEntityIri),
+                'create' => $this->create($type, $title, $body, $relatedEntityIri, $interaction),
                 'list' => $this->list($unreadOnly, $limit),
                 'mark_read' => $this->markRead($notificationId),
                 'delete' => $this->delete($notificationId),
@@ -54,7 +56,8 @@ class ManageNotificationsTool
         }
     }
 
-    private function create(?string $type, ?string $title, ?string $body, ?string $relatedEntityIri): string
+    /** @param array<string, mixed>|null $interaction */
+    private function create(?string $type, ?string $title, ?string $body, ?string $relatedEntityIri, ?array $interaction): string
     {
         $user = $this->userContext->requireUser();
 
@@ -76,12 +79,22 @@ class ManageNotificationsTool
             return json_encode(['error' => 'relatedEntityIri is 500 characters at most.'], JSON_THROW_ON_ERROR);
         }
 
+        if (NotificationType::Question->value === $type) {
+            $interaction = self::choice($interaction);
+            if (null === $interaction) {
+                return json_encode(['error' => 'a question needs interaction: {kind: choice, options: [2 to 6 labels], multiple: bool, questionId}.'], JSON_THROW_ON_ERROR);
+            }
+        } else {
+            $interaction = null;
+        }
+
         $envelope = $this->bus->dispatch(new CreateNotificationCommand(
             type: $type,
             title: $title,
             body: null === $body || '' === trim($body) ? null : trim($body),
             relatedEntityIri: $relatedEntityIri,
             userId: (string) $user->getId(),
+            interaction: $interaction,
         ));
 
         $notification = $envelope->last(HandledStamp::class)?->getResult();
@@ -139,8 +152,32 @@ class ManageNotificationsTool
             'title' => $notification->getTitle(),
             'body' => $notification->getBody(),
             'relatedEntityIri' => $notification->getRelatedEntityIri(),
+            'interaction' => $notification->getInteraction(),
             'readAt' => $notification->getReadAt()?->format('c'),
             'createdAt' => $notification->getCreatedAt()->format('c'),
         ];
+    }
+
+    /**
+     * @param array<string, mixed>|null $interaction
+     *
+     * @return array{kind: string, options: list<string>, multiple: bool, questionId: string}|null
+     */
+    private static function choice(?array $interaction): ?array
+    {
+        $options = $interaction['options'] ?? null;
+        $questionId = $interaction['questionId'] ?? null;
+        if (!\is_array($options) || !\is_string($questionId) || '' === $questionId) {
+            return null;
+        }
+        $options = array_values(array_unique(array_filter(
+            array_map(static fn (mixed $option) => \is_string($option) ? trim($option) : '', $options),
+            static fn (string $option) => '' !== $option,
+        )));
+        if (\count($options) < 2 || \count($options) > 6) {
+            return null;
+        }
+
+        return ['kind' => 'choice', 'options' => $options, 'multiple' => true === ($interaction['multiple'] ?? false), 'questionId' => $questionId];
     }
 }

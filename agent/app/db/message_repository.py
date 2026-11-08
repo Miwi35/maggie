@@ -12,6 +12,10 @@ from app.mercure.publisher import MercurePublisher
 logger = logging.getLogger(__name__)
 
 
+# How many of the newest messages carrying blocks are searched for a question's id.
+QUESTION_LOOKBACK = 200
+
+
 class MessageRepository:
     """Async message persistence using SQLAlchemy + asyncpg.
 
@@ -45,6 +49,7 @@ class MessageRepository:
         decision: dict | None = None,
         audio: dict | None = None,
         screen: str | None = None,
+        ui_blocks: list[dict] | None = None,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
 
@@ -74,6 +79,7 @@ class MessageRepository:
                 decision=decision,
                 audio=audio,
                 screen=screen,
+                ui_blocks=ui_blocks or None,
             )
             if turn_lease_until is not None:
                 msg.turn_status = TURN_RUNNING
@@ -96,6 +102,61 @@ class MessageRepository:
         await conversations.record(msg)
 
         return msg
+
+    async def answer_question(
+        self, user_id: str, question_id: str, choices: list[str]
+    ) -> tuple[str, Message | None, dict | None]:
+        """Settle the question block `question_id` of one of the user's messages, once (MAG-717).
+
+        Returns `(status, message, block)`: `ok`, `unknown`, `answered` (someone got there first) or
+        `invalid` (a choice that is not an option, or several for a single-choice question). The row
+        is locked, so two answers at once cannot both win. The updated message is published: every
+        client replaces the card with its answered state.
+        """
+        async with agent_session() as session:
+            result = await session.execute(
+                select(Message)
+                .where(
+                    Message.user_id == user_id,
+                    Message.role == "assistant",
+                    Message.ui_blocks.is_not(None),
+                )
+                .order_by(Message.created_at.desc())
+                .limit(QUESTION_LOOKBACK)
+                .with_for_update()
+            )
+            msg = next(
+                (
+                    m
+                    for m in result.scalars()
+                    if any(b.get("type") == "question" and b.get("id") == question_id for b in m.ui_blocks or [])
+                ),
+                None,
+            )
+            if msg is None:
+                return "unknown", None, None
+            blocks = [dict(b) for b in msg.ui_blocks or []]
+            block = next(b for b in blocks if b.get("type") == "question" and b.get("id") == question_id)
+            if block.get("answered") is not None:
+                return "answered", msg, block
+            options = block.get("options") or []
+            if (
+                not choices
+                or len(set(choices)) != len(choices)
+                or any(choice not in options for choice in choices)
+                or (not block.get("multiple") and len(choices) != 1)
+            ):
+                return "invalid", msg, block
+            block["answered"] = [option for option in options if option in choices]
+            msg.ui_blocks = blocks
+            await session.commit()
+            await session.refresh(msg)
+
+        try:
+            await self.publisher.publish(topics.for_user(topics.CHAT, user_id), msg.to_dict())
+        except Exception as e:
+            logger.warning(f"Failed to publish answered question to Mercure: {e}")
+        return "ok", msg, block
 
     async def get(self, message_id: str) -> Message | None:
         async with agent_session() as session:

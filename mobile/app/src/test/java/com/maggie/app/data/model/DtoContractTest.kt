@@ -73,6 +73,41 @@ class DtoContractTest {
     // The agent's messages are not recorded in api/contract/responses (that suite records the API
     // Platform side only): this is the literal shape agent/app/db/models.py `audio_attachment`
     // writes in the history and on Mercure (MAG-685), so it proves the DTO's names, not the agent's.
+    // The blocks are the shape agent/app/db/models.py writes for a message (MAG-717).
+    @Test
+    fun `a message reads its question and task blocks, and skips a block it does not know (MAG-717)`() {
+        val body = """{"id":"m2","role":"assistant","content":"","createdAt":"2026-11-07T08:00:00Z","blocks":[
+            {"type":"question","id":"q1","text":"Quels jours ?","options":["Lundi","Mardi"],"multiple":true,"answered":null},
+            {"type":"question","id":"q2","text":"Quand ?","options":["Matin"],"multiple":false,"answered":["Matin"]},
+            {"type":"task","id":"01KNZ8J6AGQ0K5D3WXYZ123456"},
+            {"type":"chart","id":"c1","series":[1,2]}]}"""
+        val message = Json { ignoreUnknownKeys = true }.decodeFromString<ChatMessage>(body)
+
+        assertEquals(4, message.blocks.size)
+        val shown = message.shownBlocks
+        assertEquals(3, shown.size)
+        val open = shown[0] as QuestionBlock
+        assertEquals(listOf("Lundi", "Mardi"), open.options)
+        assertTrue(open.multiple)
+        assertNull(open.answered)
+        assertEquals(listOf("Matin"), (shown[1] as QuestionBlock).answered)
+        assertEquals("01KNZ8J6AGQ0K5D3WXYZ123456", (shown[2] as TaskBlock).id)
+        assertTrue(Json { ignoreUnknownKeys = true }.decodeFromString<ChatMessage>("""{"role":"user","content":"x"}""").blocks.isEmpty())
+    }
+
+    @Test
+    fun `a notification reads its choice interaction (MAG-717)`() {
+        val body = """{"id":"n1","type":"question","title":"Quels jours ?","interaction":{"kind":"choice","options":["Lundi","Mardi"],"multiple":true,"questionId":"q1"}}"""
+        val notification = Json { ignoreUnknownKeys = true }.decodeFromString<Notification>(body)
+
+        val interaction = notification.interaction!!
+        assertEquals("choice", interaction.kind)
+        assertEquals(listOf("Lundi", "Mardi"), interaction.options)
+        assertTrue(interaction.multiple)
+        assertEquals("q1", interaction.questionId)
+        assertNull(Json { ignoreUnknownKeys = true }.decodeFromString<Notification>("""{"id":"n2","title":"t","interaction":null}""").interaction)
+    }
+
     @Test
     fun `a voice message reads its audio attachment under the names the agent sends (MAG-686)`() {
         val body = """{"id":"m1","role":"assistant","content":"Bonjour","createdAt":"2026-10-29T08:00:00Z",

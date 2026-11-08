@@ -286,9 +286,15 @@ Maggie\Grocery\Entity\RecurringGroceryItem:
 Maggie\Notification\Entity\Notification:
   recorded_unread_notification:
     user: '@recorded_user'
-    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    type: '<(Maggie\Notification\Enum\NotificationType::Question)>'
     title: Recorded unread notification
     body: The body the client renders
+    # The choice a question interruption carries (MAG-717).
+    interaction:
+      kind: choice
+      options: ['Une tâche avec la liste', 'La programmer']
+      multiple: true
+      questionId: '01JQQQQQQQQQQQQQQQQQQQQQQQ'
     relatedEntityIri: '/api/events/01JAAAAAAAAAAAAAAAAAAAAAAA'
     # Far ahead, so the recording never depends on today (MAG-679).
     expiresAt: '<(new \DateTimeImmutable("2099-01-01"))>'

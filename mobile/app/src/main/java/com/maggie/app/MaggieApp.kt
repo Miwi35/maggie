@@ -488,7 +488,7 @@ class MaggieApp : Application() {
             viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel {
                 val car = get<SharedCarConnection>()
-                ChatViewModel(get(), get(), get(), get(), get(), get(), inCar = car::isConnected)
+                ChatViewModel(get(), get(), get(), get(), get(), get(), inCar = car::isConnected, tasks = get())
             }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
@@ -504,9 +504,11 @@ class MaggieApp : Application() {
                 )
             }
             viewModel {
+                val tasks = get<TaskRepository>()
                 InterruptionViewModel(
                     get(),
                     get(),
+                    loadTask = { tasks.findTask(it) },
                     postpone = { PushNotifier(androidContext()).postpone(it) },
                     dismiss = { PushNotifier(androidContext()).close(it.systemTag) },
                 )

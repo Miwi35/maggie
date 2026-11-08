@@ -20,11 +20,20 @@
             "@type": "Notification",
             "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
-            "type": "reminder",
+            "type": "question",
             "title": "Recorded unread notification",
             "body": "The body the client renders",
             "relatedEntityIri": "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "actions": [],
+            "interaction": {
+                "kind": "choice",
+                "options": [
+                    "Une tâche avec la liste",
+                    "La programmer"
+                ],
+                "multiple": true,
+                "questionId": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            },
             "expiresAt": "2099-01-01T00:00:00+00:00",
             "createdAt": "2026-01-01T00:00:00+00:00"
         }

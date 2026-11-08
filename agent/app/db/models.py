@@ -75,6 +75,9 @@ class Message(AgentBase):
     # again once the retention purge has taken the audio away: the transcript stays as `content`.
     # `none_as_null`: None is SQL NULL, not JSON `null`, so « has no audio » is `IS NULL`.
     audio = Column(JSONB(none_as_null=True), nullable=True)
+    # What the message shows besides its text (MAG-717): a question with boxes to tick, the card of a task
+    # it created. Published as `blocks` in `to_dict()`; the tool rounds above are another column.
+    ui_blocks = Column(JSONB(none_as_null=True), nullable=True)
     # The screen the message belongs on (MAG-709): `digest` for the morning digest, chosen by the model
     # as the skill says. Null on every other message: its notification opens the thread.
     screen = Column(String(16), nullable=True)
@@ -115,4 +118,6 @@ class Message(AgentBase):
             payload["audio"] = attachment
         if self.screen:
             payload["screen"] = self.screen
+        if self.ui_blocks:
+            payload["blocks"] = self.ui_blocks
         return payload
