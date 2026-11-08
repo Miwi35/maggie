@@ -6,6 +6,7 @@ namespace Maggie\Calendar\Tests\Service;
 
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Enum\TaskCriticality;
+use Maggie\Calendar\Enum\TaskMoment;
 use Maggie\Calendar\Enum\TaskUrgencyLevel;
 use Maggie\Calendar\Service\DayProposalRule;
 use PHPUnit\Framework\TestCase;
@@ -130,6 +131,44 @@ class DayProposalRuleTest extends TestCase
         $proposal = DayProposalRule::propose([$done], [$this->task('a', minutes: 20)], $this->day, 30);
 
         self::assertSame(['a', 'done'], self::titles($proposal['slots']), 'the done one takes a slot, not the 30 minutes');
+    }
+
+    private function scheduled(string $title, string $on, TaskMoment $moment = TaskMoment::Evening, ?int $minutes = null): Task
+    {
+        return $this->task($title, minutes: $minutes)->setScheduledDate(new \DateTimeImmutable($on))->setScheduledMoment($moment);
+    }
+
+    public function testATaskScheduledALaterDayIsNeitherProposedNorInTheReserve(): void
+    {
+        $proposal = DayProposalRule::propose([], [
+            $this->scheduled('parcel', '2026-10-16'),
+            $this->scheduled('picnic', '2026-10-20'),
+            $this->task('free', score: 10),
+        ], $this->day, 600);
+
+        self::assertSame(['free'], self::titles($proposal['slots']));
+        self::assertSame([], $proposal['reserve']);
+    }
+
+    public function testATaskScheduledADayGoneByAndNotDoneIsStillACandidate(): void
+    {
+        $proposal = DayProposalRule::propose([], [$this->scheduled('yesterday', '2026-10-13')], $this->day, 600);
+
+        self::assertSame(['yesterday'], self::titles($proposal['slots']));
+        self::assertSame('quick', DayProposalRule::reason($proposal['slots'][0], $this->day));
+    }
+
+    public function testATaskScheduledTodayComesFirstWhateverTheFreeTime(): void
+    {
+        $proposal = DayProposalRule::propose([], [
+            $this->task('urgent', urgency: TaskUrgencyLevel::Critical, score: 900),
+            $this->scheduled('tonight', '2026-10-14', minutes: 60),
+            $this->scheduled('this morning', '2026-10-14', TaskMoment::Morning, minutes: 45),
+        ], $this->day, 30);
+
+        self::assertSame(['this morning', 'tonight'], self::titles($proposal['slots']), 'both in, though 105 minutes exceed the 30 free');
+        self::assertSame(['urgent'], self::titles($proposal['reserve']));
+        self::assertSame('scheduled', DayProposalRule::reason($this->scheduled('a', '2026-10-14'), $this->day));
     }
 
     public function testShortestFirstKeepsTheRankOrderOnATie(): void

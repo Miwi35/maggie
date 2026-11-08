@@ -62,6 +62,7 @@ data class ProposalEntry(
 /** The badges that say why a task is proposed, by the API's `reason`. */
 object ProposalReason {
     fun label(reason: String): String = when (reason) {
+        "scheduled" -> "prévue aujourd'hui"
         "postponed" -> "reportée"
         "dueToday" -> "à faire aujourd'hui"
         "urgent" -> "urgent"

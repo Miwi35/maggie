@@ -14,15 +14,18 @@ use Maggie\Calendar\Enum\TaskUrgencyLevel;
  * the open tasks and the free time, which five to propose. No clock, no
  * database, no model — the judgement of Maggie comes later on the same shape.
  *
- * Candidates are ranked by tier: put off, due today, urgent (urgency critical
- * or high, or a critical task), due tomorrow, the rest — each tier by the
- * order score. The day is filled up to five while the estimated minutes fit
- * the free time, at least one task; the ones kept come out shortest first.
+ * Candidates are ranked by tier: scheduled that day (MAG-718), put off, due
+ * today, urgent (urgency critical or high, or a critical task), due tomorrow,
+ * the rest — each tier by the order score. A task scheduled a later day is no
+ * candidate at all. The day is filled up to five while the estimated minutes
+ * fit the free time, at least one task — the tasks scheduled that day go in
+ * whatever their minutes; the ones kept come out shortest first.
  */
 final class DayProposalRule
 {
     public const DEFAULT_MINUTES = 15;
 
+    public const SCHEDULED = 'scheduled';
     public const POSTPONED = 'postponed';
     public const DUE_TODAY = 'dueToday';
     public const URGENT = 'urgent';
@@ -45,6 +48,7 @@ final class DayProposalRule
     public static function reason(Task $task, \DateTimeImmutable $today): string
     {
         return match (self::tier($task, $today)) {
+            -1 => self::SCHEDULED,
             0 => self::POSTPONED,
             1 => self::DUE_TODAY,
             2 => self::URGENT,
@@ -62,15 +66,18 @@ final class DayProposalRule
     {
         $byTier = [];
         foreach ($candidates as $task) {
+            if ($task->getScheduledDate()?->format('Y-m-d') > $today->format('Y-m-d')) {
+                continue;
+            }
             $byTier[self::tier($task, $today)][] = $task;
         }
         ksort($byTier);
 
         $ranked = [];
-        foreach ($byTier as $tasks) {
+        foreach ($byTier as $tier => $tasks) {
             usort($tasks, static fn (Task $a, Task $b): int => [$b->getOrderScore() ?? 0, null === $a->getDueDate(), $a->getDueDate()?->format('Y-m-d'), $a->getPosition() ?? "\u{10FFFF}", (string) $a->getId()]
                 <=> [$a->getOrderScore() ?? 0, null === $b->getDueDate(), $b->getDueDate()?->format('Y-m-d'), $b->getPosition() ?? "\u{10FFFF}", (string) $b->getId()]);
-            array_push($ranked, ...$tasks);
+            array_push($ranked, ...(-1 === $tier ? TodayTasks::byMoment($tasks) : $tasks));
         }
 
         return $ranked;
@@ -92,7 +99,7 @@ final class DayProposalRule
 
         while ([] !== $ranked && \count($chosen) < DayPlan::MAX_SLOTS) {
             $minutes = self::minutes($ranked[0]);
-            if ([] !== $chosen && $total + $minutes > $freeMinutes) {
+            if ([] !== $chosen && !self::isScheduledOn($ranked[0], $today) && $total + $minutes > $freeMinutes) {
                 break;
             }
             $total += $minutes;
@@ -106,8 +113,16 @@ final class DayProposalRule
         return ['slots' => array_column($indexed, 0), 'reserve' => $ranked];
     }
 
+    private static function isScheduledOn(Task $task, \DateTimeImmutable $day): bool
+    {
+        return $task->getScheduledDate()?->format('Y-m-d') === $day->format('Y-m-d');
+    }
+
     private static function tier(Task $task, \DateTimeImmutable $today): int
     {
+        if (self::isScheduledOn($task, $today)) {
+            return -1;
+        }
         if (null !== $task->getPostponedSince()) {
             return 0;
         }
