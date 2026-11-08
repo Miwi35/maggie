@@ -182,10 +182,6 @@ export const NatureSection = ({
             </>
           ) : (
             <>
-              <Typography variant="body2" color="text.secondary">
-                Un virement entre deux de vos comptes, ou un paiement rejeté par la banque, n’est ni une dépense ni une
-                recette : il ne compte dans aucun chiffre.
-              </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button disabled={saving} onClick={() => startMarking('internal')}>
                   C’est un virement interne

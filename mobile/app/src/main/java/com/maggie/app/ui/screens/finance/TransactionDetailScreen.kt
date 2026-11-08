@@ -148,7 +148,7 @@ fun TransactionDetailScreen(
                         TransactionSheetSection.Classement -> ClassementSection(state, actions, categories, provenance, oneOffEnvelopeName)
                         TransactionSheetSection.Recurrence -> RecurrenceSection(state, actions, seriesName)
                         TransactionSheetSection.Partage -> ShareSection(state, actions.share, actions.debt, actions.peer)
-                        TransactionSheetSection.Jugement -> EmptySlot("Pas encore disponible")
+                        TransactionSheetSection.Jugement -> Unit
                         TransactionSheetSection.Note -> NoteSection(state, actions)
                     }
                 }
@@ -173,10 +173,6 @@ private fun SheetSection(section: TransactionSheetSection, content: @Composable 
     }
 }
 
-@Composable
-private fun EmptySlot(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
 
 @Composable
 private fun SourceText(transaction: Transaction) {

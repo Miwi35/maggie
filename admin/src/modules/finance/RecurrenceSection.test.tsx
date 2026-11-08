@@ -93,7 +93,7 @@ describe('RecurrenceSection', () => {
   test('a free line attaches to an existing series, written at once', async () => {
     const user = userEvent.setup()
     renderSection({ ...LINE, recurringOperation: null })
-    expect(await screen.findByText(/n’appartient à aucune opération récurrente/)).toBeInTheDocument()
+    expect(screen.queryByText(/n’appartient à aucune opération récurrente/)).not.toBeInTheDocument()
     const attach = await screen.findByRole('button', { name: 'Rattacher à cette série' })
     expect(attach).toBeDisabled()
 
@@ -125,7 +125,7 @@ describe('RecurrenceSection', () => {
       </AdminContext>
     )
     const { rerender } = render(view({ ...LINE, recurringOperation: null }))
-    expect(await screen.findByText(/n’appartient à aucune opération récurrente/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Rattacher à cette série' })).toBeInTheDocument()
 
     rerender(view({ ...LINE, recurringOperation: SERIES[0].id, recurringOccurrenceOn: '2026-10-12' }))
 

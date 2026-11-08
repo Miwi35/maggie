@@ -200,9 +200,6 @@ export const TransactionShareSection = ({ transactionId, label }: { transactionI
         control={<Switch checked={enabled} disabled={saving} onChange={(_, checked) => toggle(checked)} />}
         label="Dépense partagée"
       />
-      <Typography variant="body2" color="text.secondary">
-        Seule ta part compte dans tes enveloppes.
-      </Typography>
 
       {enabled && (
         <Box sx={{ mt: 2 }}>
