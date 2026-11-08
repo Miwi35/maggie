@@ -22,6 +22,8 @@ from tests.fake_proaction_api import FakeProactionApi
 
 USER = "user-1"
 DAY = date(2030, 11, 14)
+EVENT_ID = "01HZX3Q8R5T6V7W8X9Y0Z1A2B3"
+PREVIOUS_ID = "01HZX3Q8R5T6V7W8X9Y0Z1A2B4"
 OFFERED = [
     {"name": name, "input_schema": {}}
     for name in (
@@ -38,6 +40,7 @@ OFFERED = [
         "get_daily_energy",
         "get_health_day",
         "update_health_day",
+        "set_trip",
     )
 ]
 
@@ -145,6 +148,11 @@ class BilanApi(FakeProactionApi):
     status: dict | None = None
     tasks: list[dict] = []
     health_day: dict | None = None
+    trips: list[dict] = []
+
+    def _set_trip(self, arguments: dict, user_id: str | None) -> dict:
+        self.trips.append(arguments)
+        return {"success": True, "trip": {"id": "trip-1", **arguments}}
 
     def _get_activity_status(self, arguments: dict, user_id: str | None) -> dict | None:
         return self.status
@@ -189,6 +197,7 @@ class BilanApi(FakeProactionApi):
 def api():
     fake = BilanApi(now=datetime(2020, 1, 1, tzinfo=UTC))
     fake.tasks = []
+    fake.trips = []
     learned = AsyncMock(return_value=SimpleNamespace(to_dict=lambda: {"id": "i-1"}))
     fake.learned = learned
     with (
@@ -335,3 +344,37 @@ class TestTheConsigneTool:
 
         assert "error" in json.loads(out)
         assert api.status is None
+
+
+
+class TestTheTripAnswersOfTheDemainStep:
+    @staticmethod
+    def answer(text: str, event_id: str = EVENT_ID) -> str:
+        return f"Bilan du soir, trajet de demain · événement {event_id} « Dentiste » : {text}."
+
+    async def test_the_home_origin_is_kept_by_the_user(self, api):
+        result = await say(self.answer("je pars de la maison"))
+
+        assert names(result) == ["set_trip"]
+        assert api.trips == [{"eventId": EVENT_ID, "mode": "drive", "origin": "home", "decidedBy": "user"}]
+
+    async def test_the_position_origin_is_kept_by_the_user(self, api):
+        await say(self.answer("je pars de ma position"))
+
+        assert api.trips == [{"eventId": EVENT_ID, "mode": "drive", "origin": "position", "decidedBy": "user"}]
+
+    async def test_staying_in_town_starts_from_the_previous_event(self, api):
+        await say(self.answer(f"je pars de l’événement {PREVIOUS_ID} « Déjeuner »"))
+
+        assert api.trips == [{"eventId": EVENT_ID, "mode": "drive", "origin": f"event:{PREVIOUS_ID}", "decidedBy": "user"}]
+
+    async def test_the_mode_answer_changes_the_mode(self, api):
+        await say(self.answer("j’y vais en transports"))
+
+        assert api.trips[0]["mode"] == "transit"
+
+    async def test_the_parking_answer_calls_nothing(self, api):
+        result = await say(self.answer("je me gare dans la rue"))
+
+        assert names(result) == []
+        assert api.trips == []

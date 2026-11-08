@@ -85,7 +85,9 @@ class BilanSlots(
     val content: Map<BilanStep, @Composable ColumnScope.(BilanLayout) -> Unit> = emptyMap(),
     val say: Map<BilanStep, String> = emptyMap(),
     val asks: Map<BilanStep, List<BilanAsk>> = emptyMap(),
-)
+) {
+    operator fun plus(other: BilanSlots) = BilanSlots(content + other.content, say + other.say, asks + other.asks)
+}
 
 private val DEFAULT_SAY = mapOf(
     BilanStep.JOURNEE to "Voyons votre journée.",

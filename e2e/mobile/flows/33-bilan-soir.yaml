@@ -16,6 +16,12 @@ tags:
 # Et à l'étape Santé (MAG-754), quand je touche Moral 7 et Fatigue 4, puis ✕ et « Reprendre », les deux restent
 #   choisis, et Santé › Journal montre 7 et 4
 #
+# MAG-755, the Demain step: étant donné un Dentiste demain, avec un lieu et sans trajet, quand j'arrive à
+# « Demain · 5 sur 5 », le programme montre le Dentiste et Maggie demande d'où je pars; je tape « De la maison »,
+# elle enregistre le trajet (faux modèle, vrai `set_trip`), la question suivante est celle du mode et le
+# départ apparaît au programme; le trajet est lu côté API avec une origine décidée par moi (la carte du matin la
+# garde). Terminer par « Bonne nuit » clôt le bilan : la carte de l'Accueil disparaît.
+#
 # What a JVM test cannot see is the real activity in the real window, the deep link and the status
 # held by the API. What is not here: each transition (`BilanActivityViewModelTest`), the phone and tablet
 # layouts (`BilanActivityScreenTest`), the card's rules and the next-morning cut (`BilanHomeCardTest`,
@@ -29,6 +35,13 @@ tags:
     env:
       ACTION: setup
       TODAY: ${TODAY}
+      EMAIL: ${output.journeyEmail}
+
+- runScript:
+    file: ../scripts/trip-api.js
+    env:
+      ACTION: create-tomorrow
+      SUMMARY: "Dentiste"
       EMAIL: ${output.journeyEmail}
 
 - launchApp:
@@ -140,6 +153,60 @@ tags:
       id: "bilan_sante_fatigue_4"
       checked: true
     timeout: 10000
+
+# The Demain step (MAG-755).
+- tapOn:
+    id: "bilan_next"
+- tapOn:
+    id: "bilan_next"
+- extendedWaitUntil:
+    visible:
+      id: "bilan_counter"
+      text: "Demain · 5 sur 5"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "bilan_tomorrow_card"
+    timeout: 20000
+- assertVisible: "Dentiste"
+- assertVisible: "D’où partez-vous pour"
+
+# « De la maison »: Maggie keeps tomorrow's trip, the next question is the mode.
+- tapOn:
+    id: "bilan_ask_0"
+- extendedWaitUntil:
+    visible: "Comment allez-vous"
+    timeout: 30000
+- assertVisible: "Départ pour dentiste"
+- runScript:
+    file: ../scripts/trip-api.js
+    env:
+      ACTION: expect-tomorrow
+      EVENT_ID: ${output.eventId}
+      EMAIL: ${output.journeyEmail}
+
+# Quitting and resuming does not ask the origin again.
+- tapOn:
+    id: "bilan_quit"
+- extendedWaitUntil:
+    visible:
+      id: "home_bilan_resume"
+    timeout: 20000
+- tapOn: "Reprendre"
+- extendedWaitUntil:
+    visible:
+      id: "bilan_counter"
+      text: "Demain · 5 sur 5"
+    timeout: 20000
+- assertNotVisible: "D’où partez-vous pour"
+
+# « Bonne nuit » ends the review.
+- tapOn:
+    id: "bilan_next"
+- extendedWaitUntil:
+    notVisible:
+      id: "bilan_activity"
+    timeout: 20000
 
 # Santé › Journal: the entry of the day carries them.
 - openLink: "maggie-e2e://health/journal"

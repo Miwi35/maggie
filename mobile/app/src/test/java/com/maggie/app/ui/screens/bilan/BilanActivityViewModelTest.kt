@@ -235,4 +235,22 @@ class BilanActivityViewModelTest {
         assertTrue(vm.uiState.value.finished)
         verify(exactly = 0) { repository.delete(BILAN_ACTIVITY) }
     }
+
+    @Test
+    fun `a trip answer is written beside the step and survives a change of step`() = runTest(testDispatcher) {
+        stored = status("2026-11-08", """{"step":"demain","answers":{"tasks":[]}}""")
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.recordTripAnswer("e1:origin")
+        vm.recordTripAnswer("e1:origin")
+        vm.previous()
+        advanceUntilIdle()
+
+        val written = puts.last().second
+        assertEquals("consignes", written["step"]!!.jsonPrimitive.content)
+        assertEquals(setOf("e1:origin"), vm.uiState.value.session!!.answeredTrips())
+        assertTrue(written["answers"]!!.jsonObject.containsKey("tasks"))
+        assertEquals(2, puts.size)
+    }
 }

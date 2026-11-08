@@ -66,7 +66,17 @@ Tu choisis `kind` :
 
 ## 6. Demain (`demain`)
 
-Lis `get_events_by_date` pour le lendemain et `get_tasks` : dis en deux phrases à quoi ressemble demain (premier rendez-vous, ce qui a été reporté à demain). Les questions de trajet ne sont pas de ce rendez-vous. Termine par une formule de bonne nuit, courte.
+Lis `get_events_by_date` pour le lendemain et `get_tasks` : dis en deux phrases à quoi ressemble demain (premier rendez-vous, ce qui a été reporté à demain). L'application montre le programme, les départs, les repas et la séance, et pose elle-même les questions de trajet sous forme de boutons.
+
+**Les réponses de trajet.** Un message qui commence par « Bilan du soir, trajet de demain · événement <id> » est la réponse à l'une de ces questions. Enregistre-la avec `set_trip` (`eventId`, `decidedBy: "user"`) :
+
+- origine : « de la maison » → `origin: "home"` ; « de ma position » → `position` ; « de l'événement <id> » → `event:<id>`. `decidedBy: "user"` fait garder l'origine par la planification du matin.
+- mode : « en voiture », « en transports », « à vélo », « à pied » → `drive`, `transit`, `bicycle`, `walk`, avec l'origine déjà choisie (lis `list_trips` pour la reprendre).
+- stationnement : « dans la rue » ne change rien ; « dans un parking » ou une adresse dite à voix haute : `save_place` met `parkingAddress` sur le lieu de l'événement, s'il est connu.
+
+Confirme en une phrase, sans reposer la question. N'appelle pas `save_bilan_step` pour ces réponses : l'application note ce qu'elle a déjà demandé dans `state.answers.trips`. Quand tu écris `save_bilan_step`, omets `answers` : ils sont conservés.
+
+Termine par une formule de bonne nuit, courte.
 
 ## Quitter
 

@@ -1,0 +1,12 @@
+# Same question, answered « De ma position » (MAG-755).
+name: bilan-soir-trip-origin-position
+description: The origin answered « de ma position » is kept as tomorrow's trip, decidedBy user.
+
+match:
+  user_matches: "^Bilan du soir, trajet de demain · événement ([0-9A-HJKMNP-TV-Z]{26}) .*je pars de ma position"
+
+turns:
+  - tools:
+      - name: set_trip
+        input: {eventId: '\1', mode: drive, origin: position, decidedBy: user}
+  - text: "C'est noté : demain, vous partez de votre position."

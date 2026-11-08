@@ -1,0 +1,12 @@
+# The mode answered in the Demain step (MAG-755): « Transports » here; the other modes read the same way.
+name: bilan-soir-trip-mode
+description: The mode answered « en transports » replaces tomorrow's trip mode, the origin chosen kept.
+
+match:
+  user_matches: "^Bilan du soir, trajet de demain · événement ([0-9A-HJKMNP-TV-Z]{26}) .*j’y vais en transports"
+
+turns:
+  - tools:
+      - name: set_trip
+        input: {eventId: '\1', mode: transit, origin: position, decidedBy: user}
+  - text: "C'est noté : demain, vous y allez en transports."
