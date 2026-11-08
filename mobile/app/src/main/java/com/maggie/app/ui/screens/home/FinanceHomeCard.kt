@@ -39,8 +39,10 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.FinanceHomeProject
 import com.maggie.app.data.model.FinanceHomeRing
 import com.maggie.app.data.model.FinanceHomeState
+import com.maggie.app.data.model.HomeDay
 import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.progressLabel
+import com.maggie.app.data.model.reviewTitle
 import com.maggie.app.data.model.toQualifyLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.SpentRingCanvas
@@ -53,6 +55,7 @@ import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.screens.finance.ganttMonthLabel
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.maggieSurface
+import java.time.LocalDate
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -63,14 +66,26 @@ import org.koin.androidx.compose.koinViewModel
  * It is drawn as soon as there is an account or an envelope, not before (MAG-594).
  */
 @Composable
-fun FinanceHomeCard(viewModel: FinanceHomeViewModel = koinViewModel()) {
+fun FinanceHomeCard(day: HomeDay = HomeDay.TODAY, viewModel: FinanceHomeViewModel = koinViewModel()) {
     val ui by viewModel.uiState.collectAsState()
     val open = LocalHomeNavigation.current
-    FinanceHomeCardContent(ui = ui, onOpen = { open(Screen.FinanceDashboard.route) }, onRetry = viewModel::refresh)
+    FinanceHomeCardContent(
+        ui = ui,
+        onOpen = { open(Screen.FinanceDashboard.route) },
+        onRetry = viewModel::refresh,
+        day = day,
+        onLaunch = { open(Screen.FinanceReviewActivity.route) },
+    )
 }
 
 @Composable
-internal fun FinanceHomeCardContent(ui: FinanceHomeUiState, onOpen: () -> Unit, onRetry: () -> Unit) {
+internal fun FinanceHomeCardContent(
+    ui: FinanceHomeUiState,
+    onOpen: () -> Unit,
+    onRetry: () -> Unit,
+    day: HomeDay = HomeDay.TODAY,
+    onLaunch: () -> Unit = {},
+) {
     ReportHomeCard(HomeModules.FINANCE, ui.status)
     if (ui.status == HomeCardStatus.EMPTY) return
 
@@ -83,7 +98,7 @@ internal fun FinanceHomeCardContent(ui: FinanceHomeUiState, onOpen: () -> Unit, 
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             when {
-                state != null && !state.isEmpty -> FinanceHomeBody(state, onOpen)
+                state != null && !state.isEmpty -> FinanceHomeBody(state, onOpen, day, onLaunch)
                 ui.failed && !ui.isLoading -> Unit
                 else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
@@ -93,7 +108,7 @@ internal fun FinanceHomeCardContent(ui: FinanceHomeUiState, onOpen: () -> Unit, 
 }
 
 @Composable
-private fun FinanceHomeBody(state: FinanceHomeState, onOpen: () -> Unit) {
+private fun FinanceHomeBody(state: FinanceHomeState, onOpen: () -> Unit, day: HomeDay, onLaunch: () -> Unit) {
     // One compact row, as the mock-up draws it: the two rings, then what waits to be qualified at the far end.
     // On a narrow phone the pill goes under the rings, whole, rather than cut beside them (MAG-675).
     RingsAndPill(modifier = Modifier.fillMaxWidth()) {
@@ -107,6 +122,17 @@ private fun FinanceHomeBody(state: FinanceHomeState, onOpen: () -> Unit) {
                 color = financeRhythmColor("above", isDark()),
                 tag = UiTags.HOME_FINANCE_TO_QUALIFY,
                 onClick = onOpen,
+            )
+        }
+    }
+    // The review of the month just ended is due: ▶ Lancer opens it, today only (the pill draws nothing for tomorrow).
+    if (state.reviewReady) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            ActivityLaunchButton(
+                module = HomeModules.FINANCE,
+                activity = reviewTitle(LocalDate.now()),
+                day = day,
+                onLaunch = onLaunch,
             )
         }
     }

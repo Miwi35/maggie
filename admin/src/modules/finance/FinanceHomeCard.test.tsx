@@ -18,11 +18,11 @@ const Where = () => {
   return <output data-testid="where">{pathname + search}</output>
 }
 
-const renderCard = (theme = veilleuseLightTheme) =>
+const renderCard = (theme = veilleuseLightTheme, day: 'today' | 'tomorrow' = 'today') =>
   render(
     <MemoryRouter initialEntries={['/']}>
       <ThemeProvider theme={theme}>
-        <FinanceHomeCard />
+        <FinanceHomeCard day={day} />
         <Where />
       </ThemeProvider>
     </MemoryRouter>,
@@ -74,6 +74,29 @@ describe('FinanceHomeCard', () => {
     expect(within(ringOf('month')).getByTestId('home-finance-spent').textContent).toMatch(/210,00\s€/)
     expect(within(ringOf('month')).getByTestId('home-finance-expected').textContent).toMatch(/Attendu 180,00\s€/)
     expect(ringOf('week')).toHaveAccessibleName(/Semaine : 45,00\s€ dépensés, 40,00\s€ attendus/)
+  })
+
+  test('a review due puts a ▶ Lancer on the card that opens the review activity, today only', async () => {
+    const due = dashboard({ todo: { ...dashboardFixture().todo, reviewReady: true } })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(due)))
+    const { unmount } = renderCard()
+
+    const launch = await screen.findByRole('link', { name: /^Lancer Revue d/ })
+    expect(launch.getAttribute('href')).toBe('/finance/review/activity')
+    unmount()
+
+    renderCard(veilleuseLightTheme, 'tomorrow')
+    await screen.findAllByTestId('home-finance-ring')
+    expect(screen.queryByRole('link', { name: /^Lancer/ })).toBeNull()
+  })
+
+  test('no ▶ Lancer while no review is due', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok(dashboard())))
+    renderCard()
+
+    await screen.findAllByTestId('home-finance-ring')
+
+    expect(screen.queryByRole('link', { name: /^Lancer/ })).toBeNull()
   })
 
   test('is not drawn at all with no account and no envelope', async () => {

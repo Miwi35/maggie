@@ -21,6 +21,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.FinanceHomeProject
 import com.maggie.app.data.model.FinanceHomeRing
 import com.maggie.app.data.model.FinanceHomeState
+import com.maggie.app.data.model.HomeDay
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.screentest.ScreenRule
@@ -50,8 +51,13 @@ class FinanceHomeCardScreenTest {
     private val above = FinanceHomeRing(spentCents = 125599, expectedSpentCents = 93000, plannedCents = 93000)
     private val project = FinanceHomeProject("p1", "Voyage", 100000, 25000, "2027-03")
 
-    private fun draw(ui: FinanceHomeUiState, onOpen: () -> Unit = {}, onRetry: () -> Unit = {}) =
-        compose.setContent { FinanceHomeCardContent(ui, onOpen, onRetry) }
+    private fun draw(
+        ui: FinanceHomeUiState,
+        onOpen: () -> Unit = {},
+        onRetry: () -> Unit = {},
+        day: HomeDay = HomeDay.TODAY,
+        onLaunch: () -> Unit = {},
+    ) = compose.setContent { FinanceHomeCardContent(ui, onOpen, onRetry, day, onLaunch) }
 
     private fun loaded(state: FinanceHomeState) = FinanceHomeUiState(state, isLoading = false)
 
@@ -60,6 +66,22 @@ class FinanceHomeCardScreenTest {
         draw(loaded(FinanceHomeState(week = onTrack, month = onTrack)))
 
         compose.onNodeWithTag(UiTags.homeCard(HomeModules.FINANCE)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a review due puts a Lancer on the card today, and it launches the review`() {
+        var launched = 0
+        draw(loaded(FinanceHomeState(accountCount = 1, reviewReady = true, week = onTrack, month = onTrack)), onLaunch = { launched++ })
+
+        compose.onNodeWithTag(UiTags.homeLaunch(HomeModules.FINANCE)).assertIsDisplayed().performClick()
+
+        assertEquals(1, launched)
+    }
+
+    @Test
+    fun `no Lancer on tomorrow, nor while no review is due`() {
+        draw(loaded(FinanceHomeState(accountCount = 1, reviewReady = true, week = onTrack, month = onTrack)), day = HomeDay.TOMORROW)
+        compose.onNodeWithTag(UiTags.homeLaunch(HomeModules.FINANCE)).assertDoesNotExist()
     }
 
     @Test
