@@ -1,6 +1,14 @@
 package com.maggie.app.ui.components
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.onRoot
+import com.maggie.app.ui.interruption.InterruptionsUiState
+import org.junit.Assert.assertTrue
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
@@ -234,5 +242,32 @@ class ModuleBreadcrumbScreenTest {
         val bounds = compose.onNodeWithTag(UiTags.subview("all")).fetchSemanticsNode().boundsInRoot
         assertEquals(36f, bounds.height / compose.density.density, 0.6f)
         assertEquals(1, compose.onAllNodesWithTag(UiTags.SUBVIEW_ROW).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    @Config(qualifiers = "w240dp-h740dp-xxhdpi")
+    fun `the bell stays whole at the right of the bar beside a screen's own action`() {
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalHeaderActions provides { HeaderActions(InterruptionsUiState(), InterruptionsActions(), onSearch = {}) },
+            ) {
+                ModuleBreadcrumb(
+                    module = "Finance",
+                    sections = listOf(BreadcrumbSection("treasury", "Trésorerie")),
+                    currentKey = "treasury",
+                    onSelectSection = {},
+                    onOpenDrawer = {},
+                    actions = {
+                        IconButton(onClick = {}) { Icon(Icons.Default.Person, contentDescription = "Contacts") }
+                    },
+                )
+            }
+        }
+
+        val bell = compose.onNodeWithTag(UiTags.HEADER_BELL).fetchSemanticsNode()
+        val rootWidth = compose.onRoot().fetchSemanticsNode().size.width
+        val left = bell.positionInRoot.x
+        assertEquals(48f, bell.size.width / compose.density.density, 0.6f)
+        assertTrue("the bell is cut at the right edge", left + bell.size.width <= rootWidth + 0.5f)
     }
 }

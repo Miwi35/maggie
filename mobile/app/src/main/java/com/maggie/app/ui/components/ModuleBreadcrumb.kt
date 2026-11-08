@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxSize
@@ -110,53 +111,59 @@ fun ModuleBreadcrumb(
         } else {
             Box(modifier = Modifier.width(12.dp))
         }
-        Text(
-            text = module,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            modifier = Modifier.testTag(UiTags.BREADCRUMB_MODULE),
-        )
-        Icon(
-            Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = caption,
-            modifier = Modifier.padding(horizontal = 2.dp),
-        )
-        Row(
-            modifier = Modifier
-                .sizeIn(minHeight = TOUCH_TARGET)
-                .semantics {
-                    role = Role.Button
-                    contentDescription = "$module, section ${current.label} : changer de section"
-                }
-                .clickable { expanded = true }
-                .padding(horizontal = 4.dp)
-                .testTag(UiTags.BREADCRUMB_SECTION),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        // The title gives way, never the icons: the bell must stay whole at the right edge.
+        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = current.label,
-                color = accent,
+                text = module,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.testTag(UiTags.BREADCRUMB_MODULE),
             )
-            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = accent)
-            if (expanded) {
-                SectionsMenu(
-                    sections = sections,
-                    currentKey = current.key,
-                    accent = accent,
-                    onSelect = { section ->
-                        expanded = false
-                        onSelectSection(section)
-                    },
-                    onDismiss = { expanded = false },
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = caption,
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+            Row(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .sizeIn(minHeight = TOUCH_TARGET)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "$module, section ${current.label} : changer de section"
+                    }
+                    .clickable { expanded = true }
+                    .padding(horizontal = 4.dp)
+                    .testTag(UiTags.BREADCRUMB_SECTION),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = current.label,
+                    color = accent,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = accent)
+                if (expanded) {
+                    SectionsMenu(
+                        sections = sections,
+                        currentKey = current.key,
+                        accent = accent,
+                        onSelect = { section ->
+                            expanded = false
+                            onSelectSection(section)
+                        },
+                        onDismiss = { expanded = false },
+                    )
+                }
             }
         }
-        Box(modifier = Modifier.weight(1f))
         actions()
         LocalHeaderActions.current.invoke(this)
     }
