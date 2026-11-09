@@ -8,8 +8,12 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -93,37 +97,48 @@ class TaskSettingsScreenTest {
     }
 
     @Test
-    fun `the reminders show each urgency's chips and when it reminds an undone task, with no morning hour (MAG-718)`() {
+    fun `the reminders read like the mock-up - breadcrumb, one card per urgency, no help text, no morning hour (MAG-718)`() {
         open(loaded)
 
+        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_BREADCRUMB).assertTextEquals("RÉGLAGES › TÂCHES")
         compose.onNodeWithText("Rappels").assertIsDisplayed()
-        compose.onNodeWithText("Heure du matin").assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_DIGEST_HELP).assertTextContains("Lus par le digest du matin")
+        listOf("critical" to "Critique", "high" to "Haute", "normal" to "Normale").forEach { (urgency, label) ->
+            val card = compose.onNodeWithTag(UiTags.settingsTasksUrgency(urgency)).performScrollTo()
+            listOf(label, "À programmer", "Pas faite").forEach { card.assert(hasAnyDescendant(hasText(it))) }
+        }
         compose.onAllNodesWithText("À programmer").assertCountEquals(3)
-        compose.onAllNodesWithText("tant que la tâche n'a pas de date programmée").assertCountEquals(3)
         listOf("J-7", "J-3", "J-2", "J-1", "Jour J").forEach { chip ->
             compose.onAllNodesWithText(chip).assertCountEquals(3)
         }
-        compose.onNodeWithTag(UiTags.settingsTasksOverdue("critical")).assertTextContains("Pas faite")
-        compose.onNodeWithText("En retard").assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.SETTINGS_TASKS_EVENING).assertTextContains("Heure du soir").assertTextContains("21:00")
         compose.onNodeWithTag(UiTags.settingsTasksChip("critical", 3)).assertIsSelected()
         compose.onNodeWithTag(UiTags.settingsTasksChip("critical", 7)).assertIsNotSelected()
         compose.onNodeWithTag(UiTags.settingsTasksChip("critical", null)).assertIsSelected()
         compose.onNodeWithTag(UiTags.settingsTasksChip("high", null)).performScrollTo().assertIsNotSelected()
-        compose.onNodeWithTag(UiTags.settingsTasksOverdue("critical")).assertTextContains("Chaque matin")
-        // A value no option offers is shown as it is.
-        compose.onNodeWithTag(UiTags.settingsTasksOverdue("high")).performScrollTo().assertTextContains("Tous les 5 jours")
-        compose.onNodeWithTag(UiTags.settingsTasksOverdue("normal")).performScrollTo().assertTextContains("Jamais")
 
-        listOf("Vide : jamais", "Enregistrer", "Enregistré").forEach {
-            compose.onNodeWithText(it).assertDoesNotExist()
-        }
+        listOf(
+            "Heure du matin",
+            "Lus par le digest du matin",
+            "tant que la tâche n'a pas de date programmée",
+            "En retard",
+            "Vide : jamais",
+            "Enregistrer",
+            "Enregistré",
+        ).forEach { compose.onNodeWithText(it).assertDoesNotExist() }
         compose.onNodeWithText("Basse", substring = true).assertDoesNotExist()
     }
 
     @Test
-    fun `a chip switches its day through the ViewModel`() {
+    fun `the cards come first, « Heure du soir » under « Rappels et récompenses » (MAG-718)`() {
+        open(loaded)
+
+        val normal = compose.onNodeWithTag(UiTags.settingsTasksUrgency("normal")).performScrollTo().fetchSemanticsNode().boundsInRoot
+        val evening = compose.onNodeWithTag(UiTags.SETTINGS_TASKS_EVENING).performScrollTo()
+            .assertTextContains("Heure du soir").assertTextContains("21:00").fetchSemanticsNode().boundsInRoot
+        assertTrue("« Heure du soir » is under the cards", evening.top >= normal.bottom)
+    }
+
+    @Test
+    fun `a day switches through the ViewModel`() {
         val viewModel = open(loaded)
 
         compose.onNodeWithTag(UiTags.settingsTasksChip("critical", 7)).performClick()
@@ -134,17 +149,24 @@ class TaskSettingsScreenTest {
     }
 
     @Test
-    fun `Pas faite offers its four choices and sends the one picked`() {
+    fun `Pas faite is four buttons, the stored one selected, and sends the one picked (MAG-718)`() {
         val viewModel = open(loaded)
 
-        compose.onNodeWithTag(UiTags.settingsTasksOverdue("high")).performScrollTo().performClick()
-        // « Jamais » and « Chaque matin » are also other urgencies' values: each choice is at least there.
-        listOf("Jamais", "Chaque matin", "Tous les 2 jours", "Chaque semaine").forEach {
-            assertTrue(it, compose.onAllNodesWithText(it).fetchSemanticsNodes().isNotEmpty())
+        listOf(null to "Jamais", 1 to "Chaque matin", 2 to "Tous les 2 jours", 7 to "Chaque semaine").forEach { (every, text) ->
+            compose.onNodeWithTag(UiTags.settingsTasksOverdueOption("normal", every)).performScrollTo().assertTextEquals(text)
         }
-        compose.onNodeWithText("Chaque semaine").performClick()
+        compose.onNodeWithTag(UiTags.settingsTasksOverdueOption("critical", 1)).performScrollTo().assertIsSelected()
+        compose.onNodeWithTag(UiTags.settingsTasksOverdueOption("critical", null)).assertIsNotSelected()
+        compose.onNodeWithTag(UiTags.settingsTasksOverdueOption("normal", null)).performScrollTo().assertIsSelected()
+        // A value no option offers is shown as it is, selected.
+        compose.onNodeWithTag(UiTags.settingsTasksOverdueOption("high", 5)).performScrollTo()
+            .assertTextEquals("Tous les 5 jours").assertIsSelected()
+
+        compose.onNodeWithTag(UiTags.settingsTasksOverdueOption("high", 7)).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.settingsTasksOverdueOption("critical", 1)).performScrollTo().performClick()
 
         verify(exactly = 1) { viewModel.setOverdueEvery("high", 7) }
+        verify(exactly = 0) { viewModel.setOverdueEvery("critical", any()) }
     }
 
     @Test

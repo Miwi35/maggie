@@ -9,33 +9,33 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardDoubleArrowUp
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -56,11 +56,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import com.maggie.app.data.model.AlertRule
 import com.maggie.app.data.model.TaskOrderPreviewItem
 import com.maggie.app.data.model.TaskSettings
@@ -73,10 +76,10 @@ import com.maggie.app.ui.uiTagRoot
 import kotlin.math.roundToInt
 
 /**
- * Réglages › Tâches › Rappels (MAG-407, MAG-718): « Heure du soir » (MAG-500), then per urgency « À programmer »
- * (the days before the due date, while the task has no scheduled day) and « Pas faite » — read by the morning
- * digest, never sent at an hour of their own, so the morning's hour left the screen — then « Rappels et
- * récompenses » (MAG-508, its reminders MAG-510). Every change is saved as it is made.
+ * Réglages › Tâches › Rappels (MAG-407, MAG-718), as `Reglages-Alertes` draws it: one card per urgency, its
+ * pill, « À programmer » (the days before the due date) and « Pas faite » — read by the morning digest, at no
+ * hour of their own. Below the mock-up's cards, what the screen held before it: « Rappels et récompenses »
+ * with « Heure du soir » (MAG-500, MAG-508, MAG-510). Every change is saved as it is made.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,14 +88,16 @@ internal fun TaskAlertsSection(viewModel: SettingsViewModel, onBack: () -> Unit)
     val tasks = uiState.tasks
     var confirmDefaults by remember { mutableStateOf(false) }
 
-    TaskSettingsPage(title = "Rappels", tasks = tasks, onBack = onBack, onRetry = viewModel::loadTaskSettings) {
+    TaskSettingsPage(
+        title = "Rappels",
+        breadcrumb = "Réglages › Tâches",
+        tasks = tasks,
+        onBack = onBack,
+        onRetry = viewModel::loadTaskSettings,
+    ) {
         val settings = tasks.settings ?: return@TaskSettingsPage
-        TimeRow(label = "Heure du soir", tag = UiTags.SETTINGS_TASKS_EVENING, time = settings.eveningTime, onPick = viewModel::setEveningTime)
-        HorizontalDivider()
-        HelpText(TaskSettingsChoices.DIGEST_HELP, tag = UiTags.SETTINGS_TASKS_DIGEST_HELP)
         TaskSettingsChoices.URGENCY_LABELS.forEach { (urgency, label) ->
             val rule = settings.alertSchedule[urgency] ?: return@forEach
-            HorizontalDivider()
             UrgencyAlerts(
                 urgency = urgency,
                 label = label,
@@ -102,8 +107,9 @@ internal fun TaskAlertsSection(viewModel: SettingsViewModel, onBack: () -> Unit)
                 onOverdue = { every -> viewModel.setOverdueEvery(urgency, every) },
             )
         }
-        HorizontalDivider()
+        HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
         Text("Rappels et récompenses", style = MaterialTheme.typography.titleMedium)
+        TimeRow(label = "Heure du soir", tag = UiTags.SETTINGS_TASKS_EVENING, time = settings.eveningTime, onPick = viewModel::setEveningTime)
         RemindersSettings(settings = settings, viewModel = viewModel)
         RewardsSettings(
             animation = settings.rewardAnimation,
@@ -168,7 +174,10 @@ internal fun TaskOrderSection(viewModel: SettingsViewModel, onBack: () -> Unit) 
     }
 }
 
-/** The frame of both screens: « Enregistré » in the bar, a failed save at the bottom, the loading and its retry. */
+/**
+ * The frame of both screens: [breadcrumb] over the [title] when there is one, « Enregistré » in the bar, a failed
+ * save at the bottom, the loading and its retry.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TaskSettingsPage(
@@ -176,12 +185,27 @@ private fun TaskSettingsPage(
     tasks: TaskSettingsUiState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    breadcrumb: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                title = {
+                    if (breadcrumb == null) {
+                        Text(title)
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                breadcrumb.uppercase(),
+                                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.14.em),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag(UiTags.SETTINGS_TASKS_BREADCRUMB),
+                            )
+                            Text(title)
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -380,7 +404,17 @@ private fun SwitchRow(label: String, checked: Boolean, tag: String, onChange: (B
     }
 }
 
-/** One urgency: « À programmer », its days before the due day as chips in its colour, then « Pas faite » (MAG-718). */
+/** The pill's arrow of each urgency, as the mock-up draws it: two chevrons, one, a dash. */
+private fun urgencyPillIcon(urgency: String): ImageVector = when (urgency) {
+    "critical" -> Icons.Default.KeyboardDoubleArrowUp
+    "high" -> Icons.Default.KeyboardArrowUp
+    else -> Icons.Default.Remove
+}
+
+/**
+ * One urgency's card (MAG-718): its pill — arrow and word in its colour —, « À programmer » and the days before the
+ * due day as five buttons filled with that colour when on, then « Pas faite » and its choices, one button each.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun UrgencyAlerts(
@@ -392,17 +426,33 @@ private fun UrgencyAlerts(
     onOverdue: (Int?) -> Unit,
 ) {
     val color = urgencyColor(urgency)
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(12.dp).background(color, CircleShape))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.titleMedium)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp))
+            .padding(16.dp)
+            .testTag(UiTags.settingsTasksUrgency(urgency)),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .height(28.dp)
+                .background(color.copy(alpha = 0.16f), CircleShape)
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(urgencyPillIcon(urgency), contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, color = color)
         }
-        Text(TaskSettingsChoices.TO_SCHEDULE_LABEL, style = MaterialTheme.typography.labelLarge)
-        HelpText(TaskSettingsChoices.TO_SCHEDULE_HELP)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            TaskSettingsChoices.TO_SCHEDULE_LABEL,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             TaskSettingsChoices.DAYS_BEFORE.forEach { days ->
-                UrgencyChip(
+                DayButton(
                     text = TaskSettingsChoices.dayLabel(days),
                     selected = days in rule.daysBefore,
                     color = color,
@@ -410,7 +460,7 @@ private fun UrgencyAlerts(
                     onClick = { onToggleDay(days) },
                 )
             }
-            UrgencyChip(
+            DayButton(
                 text = TaskSettingsChoices.DUE_DAY_LABEL,
                 selected = rule.dueDay,
                 color = color,
@@ -418,71 +468,73 @@ private fun UrgencyAlerts(
                 onClick = onToggleDueDay,
             )
         }
-        OverdueDropdown(urgency = urgency, every = rule.overdueEveryDays, onChoose = onOverdue)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                TaskSettingsChoices.UNDONE_LABEL,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FlowRow(
+                modifier = Modifier.testTag(UiTags.settingsTasksOverdue(urgency)),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                TaskSettingsChoices.overdueOptions(rule.overdueEveryDays).forEach { (value, text) ->
+                    val selected = value == rule.overdueEveryDays
+                    OverdueButton(
+                        text = text,
+                        selected = selected,
+                        tag = UiTags.settingsTasksOverdueOption(urgency, value),
+                        onClick = { if (!selected) onOverdue(value) },
+                    )
+                }
+            }
+        }
     }
 }
 
-/** One short line of help, under what it explains (MAG-718). */
+/** A day before the due day, a fifth of the row: filled with the urgency's [color] when on. */
 @Composable
-private fun HelpText(text: String, tag: String? = null) {
-    Text(
-        text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = if (tag != null) Modifier.testTag(tag) else Modifier,
-    )
-}
-
-@Composable
-private fun UrgencyChip(text: String, selected: Boolean, color: Color, tag: String, onClick: () -> Unit) {
-    val onColor = readableTextOn(color)
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(text) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = color,
-            selectedLabelColor = onColor,
-        ),
-        modifier = Modifier.testTag(tag),
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun OverdueDropdown(urgency: String, every: Int?, onChoose: (Int?) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = Modifier.fillMaxWidth(),
+private fun RowScope.DayButton(text: String, selected: Boolean, color: Color, tag: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .height(44.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            .selectable(selected = selected, role = Role.Checkbox, onClick = onClick)
+            .testTag(tag),
+        contentAlignment = Alignment.Center,
     ) {
-        OutlinedTextField(
-            value = TaskSettingsChoices.overdueLabel(every),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(TaskSettingsChoices.UNDONE_LABEL) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth()
-                .testTag(UiTags.settingsTasksOverdue(urgency)),
+        Text(
+            text,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) readableTextOn(color) else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.uiTagRoot(),
-        ) {
-            TaskSettingsChoices.overdueOptions(every).forEach { (value, text) ->
-                DropdownMenuItem(
-                    text = { Text(text) },
-                    onClick = {
-                        expanded = false
-                        if (value != every) onChoose(value)
-                    },
-                )
-            }
-        }
+    }
+}
+
+/** A choice of « Pas faite », a pill: the text's colour fills the one chosen. */
+@Composable
+private fun OverdueButton(text: String, selected: Boolean, tag: String, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .height(36.dp)
+            .clip(CircleShape)
+            .background(if (selected) scheme.onSurface else scheme.onSurface.copy(alpha = 0.06f))
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 12.dp)
+            .testTag(tag),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (selected) scheme.background else scheme.onSurfaceVariant,
+            maxLines = 1,
+        )
     }
 }
 

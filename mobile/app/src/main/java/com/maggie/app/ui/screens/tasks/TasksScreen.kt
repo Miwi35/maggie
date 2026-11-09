@@ -49,10 +49,14 @@ internal fun emptyTextOf(view: TaskView): String = when (view) {
 
 /**
  * « Aujourd'hui (3) », a menu entry: the count comes with every read of a view, so the other views stay true.
- * « Aujourd'hui » counts what is left of the day (MAG-497), not every task due.
+ * « Aujourd'hui » counts what is left of the day (MAG-497), not every task due; a day with no slot yet — not
+ * chosen this morning — counts the today view instead, so a task scheduled today is counted (MAG-718).
  */
-internal fun tabCountOf(view: TaskView, state: TasksUiState): Int? =
-    if (view == TaskView.TODAY) state.day?.left else state.counts?.get(view)
+internal fun tabCountOf(view: TaskView, state: TasksUiState): Int? {
+    if (view != TaskView.TODAY) return state.counts?.get(view)
+    val day = state.day ?: return state.counts?.today
+    return if (day.slots.isEmpty()) state.counts?.today ?: day.left else day.left
+}
 
 internal fun tabLabelOf(view: TaskView, state: TasksUiState): String =
     tabCountOf(view, state)?.let { "${view.label} ($it)" } ?: view.label

@@ -83,6 +83,9 @@ class UiTagsTest {
         assertEquals("settings_tasks_chip_critical_d3", UiTags.settingsTasksChip("critical", 3))
         assertEquals("settings_tasks_chip_normal_due", UiTags.settingsTasksChip("normal", null))
         assertEquals("settings_tasks_overdue_high", UiTags.settingsTasksOverdue("high"))
+        assertEquals("settings_tasks_overdue_high_e7", UiTags.settingsTasksOverdueOption("high", 7))
+        assertEquals("settings_tasks_overdue_high_never", UiTags.settingsTasksOverdueOption("high", null))
+        assertEquals("settings_tasks_urgency_critical", UiTags.settingsTasksUrgency("critical"))
         assertEquals("settings_task_order_timePressure", UiTags.settingsTaskOrder("timePressure"))
         assertEquals("settings_tasks_tone_drole", UiTags.settingsTasksTone("drole"))
         // « Mes moments » (MAG-510): `17-task-settings.yaml` spells them by the API's moment.

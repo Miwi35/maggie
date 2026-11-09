@@ -1258,13 +1258,15 @@ object UiTags {
     const val SETTINGS_AGENT = "settings_agent"
 
     /**
-     * Settings > Tâches (MAG-407): the row of the list, « Heure du matin », the chips of the
-     * days before the due day ([settingsTasksChip]), « En retard » ([settingsTasksOverdue]),
+     * Settings > Tâches > Rappels (MAG-407, MAG-718): the row of the list, « Réglages › Tâches » over the title,
+     * « Heure du soir », an urgency's card ([settingsTasksUrgency]), its days before the due day
+     * ([settingsTasksChip]), « Pas faite » ([settingsTasksOverdue]) and its choices ([settingsTasksOverdueOption]),
      * « Valeurs par défaut » and the « Enregistré » that follows every save — on both screens.
      */
     const val SETTINGS_TASKS = "settings_tasks"
+    const val SETTINGS_TASKS_BREADCRUMB = "settings_tasks_breadcrumb"
     const val SETTINGS_TASKS_EVENING = "settings_tasks_evening"
-    const val SETTINGS_TASKS_DIGEST_HELP = "settings_tasks_digest_help"
+    const val SETTINGS_TASKS_URGENCY_PREFIX = "settings_tasks_urgency_"
     const val SETTINGS_TASKS_CHIP_PREFIX = "settings_tasks_chip_"
     const val SETTINGS_TASKS_OVERDUE_PREFIX = "settings_tasks_overdue_"
     const val SETTINGS_TASKS_DEFAULTS = "settings_tasks_defaults"
@@ -1299,6 +1301,12 @@ object UiTags {
         SETTINGS_TASKS_CHIP_PREFIX + urgency + "_" + (days?.let { "d$it" } ?: "due")
 
     fun settingsTasksOverdue(urgency: String): String = SETTINGS_TASKS_OVERDUE_PREFIX + urgency
+
+    /** A choice of « Pas faite » for [urgency]: `never`, else `e` and its [every] days (`e1`, `e2`, `e7`). */
+    fun settingsTasksOverdueOption(urgency: String, every: Int?): String =
+        settingsTasksOverdue(urgency) + "_" + (every?.let { "e$it" } ?: "never")
+
+    fun settingsTasksUrgency(urgency: String): String = SETTINGS_TASKS_URGENCY_PREFIX + urgency
 
     /**
      * Settings > « Ce qui passe en premier » (MAG-407): the row of the list, a slider per group
