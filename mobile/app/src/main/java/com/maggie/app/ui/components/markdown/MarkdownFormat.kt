@@ -20,6 +20,33 @@ sealed interface MdBlock {
 /** A piece of a line: plain, bold, italic or a link when [url] is set. */
 data class MdSpan(val text: String, val bold: Boolean = false, val italic: Boolean = false, val url: String? = null)
 
+enum class MdStyleKind { BOLD, ITALIC, HEADING, LINK, DONE }
+
+/** A style over the editor's displayed text, [start, end) in displayed offsets; [level] is a title's. */
+data class MdStyle(val start: Int, val end: Int, val kind: MdStyleKind, val level: Int = 0)
+
+/** The check box of the editor's [index]-th box line; [at] is its place holder's offset in the displayed text. */
+data class MdBox(val index: Int, val checked: Boolean, val at: Int)
+
+/**
+ * A Markdown text as the editor shows it while editing: marks hidden (`- [ ] `, `# `, `**`), bullets drawn
+ * as `•`, two blanks where a check box is drawn over. [src] gives, for each displayed char, its offset in the
+ * stored text, which maps the cursor both ways.
+ */
+class MdVisual(val text: String, val styles: List<MdStyle>, val boxes: List<MdBox>, private val src: IntArray, private val originalLength: Int, val originalText: String) {
+    fun toDisplayed(original: Int): Int {
+        var lo = 0
+        var hi = src.size
+        while (lo < hi) {
+            val mid = (lo + hi) / 2
+            if (src[mid] < original) lo = mid + 1 else hi = mid
+        }
+        return lo
+    }
+
+    fun toOriginal(displayed: Int): Int = if (displayed >= src.size) originalLength else src[displayed]
+}
+
 /**
  * Markdown GFM kept as the stored text: `- [ ]` / `- [x]`, `- `, `**bold**`, `# `, `[text](url)`.
  * Pure functions, so the reading view and the editor's toolbar are tested without Compose.
@@ -97,6 +124,74 @@ object MarkdownFormat {
         return out
     }
 
+    /** The text as the editor draws it (MAG-713): same lines, marks hidden, list items and titles dressed. */
+    fun visual(text: String): MdVisual {
+        val out = StringBuilder()
+        val src = ArrayList<Int>()
+        val styles = mutableListOf<MdStyle>()
+        val boxes = mutableListOf<MdBox>()
+        fun put(c: Char, at: Int) {
+            out.append(c)
+            src += at
+        }
+        var checks = 0
+        var lineAt = 0
+        val lines = text.split("\n")
+        lines.forEachIndexed { n, line ->
+            val item = itemPattern.matchEntire(line)
+            val heading = headingPattern.matchEntire(line)
+            var from = 0
+            var checked = false
+            var level = 0
+            when {
+                item != null -> {
+                    val indent = item.groupValues[1].length
+                    for (i in 0 until indent) put(line[i], lineAt + i)
+                    if (item.groupValues[2].isNotEmpty()) {
+                        checked = item.groupValues[2][1] != ' '
+                        boxes += MdBox(checks++, checked, out.length)
+                        put('\u2003', lineAt + indent)
+                        put('\u2003', lineAt + indent + 1)
+                    } else {
+                        put('•', lineAt + indent)
+                        put(' ', lineAt + indent + 1)
+                    }
+                    from = item.groups[3]!!.range.first
+                }
+                heading != null -> {
+                    from = heading.groups[2]!!.range.first
+                    level = heading.groupValues[1].length
+                }
+            }
+            val contentStart = out.length
+            var cursor = from
+            for (m in inlinePattern.findAll(line, from)) {
+                for (i in cursor until m.range.first) put(line[i], lineAt + i)
+                when {
+                    m.groups[1] != null || m.groups[2] != null -> {
+                        val mark = if (m.groups[1] != null) 2 else 1
+                        val inner = m.groups[if (mark == 2) 1 else 2]!!.range
+                        val start = out.length
+                        for (i in inner) put(line[i], lineAt + i)
+                        styles += MdStyle(start, out.length, if (mark == 2) MdStyleKind.BOLD else MdStyleKind.ITALIC)
+                    }
+                    else -> {
+                        val start = out.length
+                        for (i in m.range) put(line[i], lineAt + i)
+                        styles += MdStyle(start, out.length, MdStyleKind.LINK)
+                    }
+                }
+                cursor = m.range.last + 1
+            }
+            for (i in cursor until line.length) put(line[i], lineAt + i)
+            if (level > 0) styles += MdStyle(contentStart, out.length, MdStyleKind.HEADING, level)
+            if (checked) styles += MdStyle(contentStart, out.length, MdStyleKind.DONE)
+            if (n < lines.lastIndex) put('\n', lineAt + line.length)
+            lineAt += line.length + 1
+        }
+        return MdVisual(out.toString(), styles, boxes, src.toIntArray(), text.length, text)
+    }
+
     // --- Toolbar -----------------------------------------------------------------------------
 
     private fun lineStart(text: String, at: Int) = text.lastIndexOf('\n', at - 1) + 1
@@ -166,6 +261,7 @@ object MarkdownFormat {
      * empty item leaves the list. [old] is the field before the key, [new] after it.
      */
     fun onChange(old: TextFieldValue, new: TextFieldValue): TextFieldValue {
+        backspaceInMark(old, new)?.let { return it }
         val at = new.selection.start
         val typedEnter = new.selection.collapsed && new.text.length == old.text.length + 1 && at > 0 &&
             new.text[at - 1] == '\n' && new.text.removeRange(at - 1, at) == old.text
@@ -182,5 +278,23 @@ object MarkdownFormat {
             return TextFieldValue(new.text.removeRange(lineBegin, at), TextRange(lineBegin))
         }
         return TextFieldValue(new.text.substring(0, at) + marker + new.text.substring(at), TextRange(at + marker.length))
+    }
+
+    // The marks are hidden in the editor: a backspace that bites into one takes the whole mark off.
+    private fun backspaceInMark(old: TextFieldValue, new: TextFieldValue): TextFieldValue? {
+        val at = new.selection.start
+        if (!new.selection.collapsed || new.text.length != old.text.length - 1 || at >= old.text.length ||
+            old.text.removeRange(at, at + 1) != new.text || old.text[at] == '\n'
+        ) {
+            return null
+        }
+        val start = lineStart(old.text, at)
+        val line = old.text.substring(start, lineEnd(old.text, at))
+        val prefix = prefixOf(line)
+        if (prefix.kind == Kind.NONE) return null
+        val from = start + prefix.indent.length
+        val to = start + line.length - prefix.rest.length
+        if (at !in from until to) return null
+        return TextFieldValue(old.text.removeRange(from, to), TextRange(from))
     }
 }

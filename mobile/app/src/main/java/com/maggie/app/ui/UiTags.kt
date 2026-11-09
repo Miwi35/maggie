@@ -1926,6 +1926,9 @@ object UiTags {
     /** The reading view's check boxes, in order from 0. */
     fun markdownCheckbox(index: Int) = MARKDOWN_CHECKBOX_PREFIX + index
 
+    /** The editor's own check boxes, drawn over the field's text, in order from 0. */
+    fun markdownEditCheckbox(index: Int) = "markdown_edit_checkbox_$index"
+
     /**
      * « Santé › Sport » (MAG-705): the screen, « + », the week card and its seven days, the list and a row, the empty
      * state; the detail (sheet on a phone, pane on a tablet) with its « Modifier » and « Supprimer »; the form's fields

@@ -105,4 +105,26 @@ class MarkdownComponentsTest {
         compose.onNodeWithTag(UiTags.MARKDOWN_HEADING).performClick()
         assertEquals("# Douche", last)
     }
+
+    @Test
+    fun `the editor draws real boxes that tick while editing`() {
+        var last = ""
+        compose.setContent { Host("- [ ] Douche solaire\n- [x] Pompe", onText = { last = it }) }
+
+        compose.onNodeWithTag(UiTags.markdownEditCheckbox(0)).assertIsOff()
+        compose.onNodeWithTag(UiTags.markdownEditCheckbox(1)).assertIsOn()
+        compose.onNodeWithText("Douche solaire", substring = true).assertIsDisplayed()
+
+        compose.onNodeWithTag(UiTags.markdownEditCheckbox(0)).performClick()
+        assertEquals("- [x] Douche solaire\n- [x] Pompe", last)
+        compose.onNodeWithTag(UiTags.markdownEditCheckbox(0)).assertIsOn()
+    }
+
+    @Test
+    fun `the editor shows no Markdown marks`() {
+        compose.setContent { Host("# Courses\nun **gras**\n- lait") }
+
+        compose.onNodeWithText("Courses\nun gras\n• lait", substring = true).assertIsDisplayed()
+    }
 }
+
