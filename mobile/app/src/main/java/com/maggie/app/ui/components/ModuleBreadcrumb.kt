@@ -116,7 +116,7 @@ fun ModuleBreadcrumb(
         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = module,
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -126,7 +126,7 @@ fun ModuleBreadcrumb(
                 Icons.Default.ChevronRight,
                 contentDescription = null,
                 tint = caption,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(16.dp),
             )
             Row(
                 modifier = Modifier
@@ -144,13 +144,13 @@ fun ModuleBreadcrumb(
                 Text(
                     text = current.label,
                     color = accent,
-                    fontSize = 18.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
                 if (expanded) {
                     SectionsMenu(
                         sections = sections,
