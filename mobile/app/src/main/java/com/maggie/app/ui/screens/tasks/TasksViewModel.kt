@@ -10,6 +10,7 @@ import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayReview
 import com.maggie.app.data.model.DayRoutine
+import com.maggie.app.data.model.DaySlot
 import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Reward
 import com.maggie.app.data.model.RoutineDayView
@@ -120,6 +121,11 @@ enum class EveningOutcome(val label: String) {
  */
 data class EveningState(
     val day: DayPlan,
+    /**
+     * Today's slots are written back by « Mettre de côté » and « Annuler »; not when the day had none and the
+     * evening reviews the tasks of the day instead (MAG-766): there is nothing of the day to write.
+     */
+    val writesToday: Boolean = true,
     val todayIds: List<String> = day.taskIds,
     val tomorrowIds: List<String>? = null,
     val outcomes: Map<String, EveningOutcome> = emptyMap(),
@@ -148,6 +154,31 @@ data class EveningState(
 
     /** « Demain » waits for tomorrow to be read, and is refused once it holds five others. */
     fun canGoTomorrow(taskId: String): Boolean = tomorrowIds != null && !isTomorrowFull(taskId)
+}
+
+/**
+ * The day the evening reviews: its slots, or — none written, as no morning fills them since MAG-766 — the tasks of
+ * the day, top-level, in the list's order.
+ */
+internal fun eveningDayOf(day: DayPlan, tasks: List<Task>?): DayPlan {
+    if (day.slots.isNotEmpty() || tasks.isNullOrEmpty()) return day
+    val slots = tasks.filterNot { it.isSubtask }.mapIndexed { i, task ->
+        DaySlot(
+            position = i + 1,
+            task = DayTask(
+                id = task.id,
+                title = task.title,
+                estimatedMinutes = task.estimatedMinutes,
+                firstStep = task.firstStep,
+                completedAt = task.completedAt,
+                dueDate = task.dueDate,
+                postponedSince = task.postponedSince,
+                urgency = task.urgency,
+                criticality = task.criticality,
+            ),
+        )
+    }
+    return day.copy(slots = slots, now = slots.firstOrNull { !it.task.isDone }, done = slots.count { it.task.isDone }, total = slots.size)
 }
 
 /** [ids] with [id] back where it stood in [original], after the last one before it still there. */
@@ -376,9 +407,10 @@ class TasksViewModel(
 
     /** « Le soir » on the day, or by itself after the evening time: the day as it stands, tomorrow read now. */
     fun openEvening() {
-        val day = _uiState.value.day ?: return
+        val plan = _uiState.value.day ?: return
+        val day = eveningDayOf(plan, _uiState.value.todayTasks)
         if (_uiState.value.evening != null || day.total == 0) return
-        _uiState.update { it.copy(evening = EveningState(day = day), message = null) }
+        _uiState.update { it.copy(evening = EveningState(day = day, writesToday = plan.slots.isNotEmpty()), message = null) }
         starsJob?.cancel()
         starsJob = viewModelScope.launch {
             val animate = rewards.animationAllowed()
@@ -439,7 +471,8 @@ class TasksViewModel(
                 if (previous == EveningOutcome.ASIDE) {
                     taskRepository.setDueDate(taskId, task.dueDate).getOrThrow()
                     reached = EveningOutcome.LATER
-                    todayIds = taskRepository.setDaySlots(today, restoreAt(todayIds, taskId, evening.day.taskIds)).getOrThrow().taskIds
+                    val restored = restoreAt(todayIds, taskId, evening.day.taskIds)
+                    todayIds = if (evening.writesToday) taskRepository.setDaySlots(today, restored).getOrThrow().taskIds else restored
                 }
                 if (outcome == EveningOutcome.TOMORROW) {
                     val before = tomorrowIds ?: evening.tomorrowIds.orEmpty()
@@ -448,7 +481,7 @@ class TasksViewModel(
                 if (outcome == EveningOutcome.ASIDE) {
                     taskRepository.setDueDate(taskId, null).getOrThrow()
                     reached = EveningOutcome.ASIDE
-                    todayIds = taskRepository.setDaySlots(today, todayIds - taskId).getOrThrow().taskIds
+                    todayIds = if (evening.writesToday) taskRepository.setDaySlots(today, todayIds - taskId).getOrThrow().taskIds else todayIds - taskId
                 }
                 reached = outcome
             }.rethrowCancellation()
@@ -612,7 +645,7 @@ class TasksViewModel(
             .onFailure { e -> failed(e, "Impossible de charger les tâches du jour.") }
         day.await().onSuccess { plan ->
             _uiState.update { it.copy(day = plan) }
-            if (eveningDue(plan)) openEvening()
+            if (eveningDue(eveningDayOf(plan, _uiState.value.todayTasks))) openEvening()
         }
         routines.await()
     }

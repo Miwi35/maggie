@@ -768,6 +768,35 @@ class TasksViewModelTest {
     }
 
     @Test
+    fun `a day with no slot written reviews the tasks of the day in the evening (MAG-766)`() = runTest {
+        val doneLate = late.copy(completedAt = doneAt)
+        serve(TaskView.TODAY, canteen)
+        serveDoneToday(doneLate)
+        serveDay(day(emptyList()))
+        coEvery { taskRepository.getEveningTime() } returns Result.success("21:00")
+        coEvery { taskRepository.getDayReview(today) } returns Result.success(DayReview(id = "rv", date = today.toString()))
+        coEvery { taskRepository.getDayPlan(tomorrow) } returns Result.success(day(emptyList()).copy(date = tomorrow.toString()))
+        coEvery { taskRepository.setDueDate("t2", null) } returns Result.success(canteen.copy(dueDate = null))
+        val viewModel = createViewModel(now = LocalTime.of(21, 5))
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        val evening = viewModel.uiState.value.evening
+        assertNotNull(evening)
+        assertEquals(listOf("t1"), evening!!.done.map { it.id })
+        assertEquals(listOf("t2"), evening.left.map { it.id })
+
+        // Set aside: its due day goes, and no slot of the day is written, there being none.
+        viewModel.chooseOutcome("t2", EveningOutcome.ASIDE)
+        advanceUntilIdle()
+
+        coVerify { taskRepository.setDueDate("t2", null) }
+        coVerify(exactly = 0) { taskRepository.setDaySlots(today, any(), any()) }
+        assertEquals(EveningOutcome.ASIDE, viewModel.uiState.value.evening?.outcomeOf("t2"))
+        assertEquals(listOf("t1"), viewModel.uiState.value.evening?.todayIds)
+    }
+
+    @Test
     fun `the evening does not open before the evening time`() = runTest {
         val viewModel = openEvening(now = LocalTime.of(20, 59))
 
