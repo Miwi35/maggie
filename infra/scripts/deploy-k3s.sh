@@ -13,6 +13,7 @@ set -euo pipefail
 #                    with the new image, then kubectl apply -k
 #   4. Wait        — rollout status on every Maggie deployment
 #   5. Post-deploy — data repairs, migrations, ES mapping + reindex
+#                    + orphan purge
 #   6. Verify      — pod list + healthcheck
 #
 # The revisions the deployments had before phase 3 are recorded for
@@ -217,6 +218,15 @@ fi
 log "Phase 5d: Reindexing Elasticsearch..."
 if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:elasticsearch:reindex --all --no-interaction; then
   warn "ES reindex failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:elasticsearch:reindex --all"
+fi
+
+# --all rebuilds the documents of existing rows but leaves those of deleted
+# rows, and the smoke suite's coherence check fails on them: a drift that grew
+# between two deploys rolled MAG-758's fix back. Only the documents
+# whose row is gone are removed; the database is not touched.
+log "Phase 5d2: Removing the Elasticsearch documents of deleted rows..."
+if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:elasticsearch:reindex --orphans --no-interaction; then
+  warn "ES orphan purge failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:elasticsearch:reindex --orphans"
 fi
 
 # Google keeps pushing to the address a channel was created with (MAG-193), and
