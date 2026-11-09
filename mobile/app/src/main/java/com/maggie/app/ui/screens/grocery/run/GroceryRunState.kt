@@ -17,7 +17,8 @@ private val stateJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
 /**
  * Courses' `state` in the activity status (MAG-762): the session's tour, the store being done, the stores left
- * out for today. It never touches `Store.visitOrder`: the habitual order stays the owner's.
+ * out for today, the stores finished (MAG-765) and whether the tour is over. It never touches `Store.visitOrder`:
+ * the habitual order stays the owner's.
  */
 @Serializable
 data class GroceryRunState(
@@ -27,17 +28,32 @@ data class GroceryRunState(
     val current: String? = null,
     /** The stores of « pas aujourd'hui ». */
     val skipped: List<String> = emptyList(),
+    /** The stores of [tour] finished (« Terminer le magasin »), in the order they were (MAG-765). */
+    val done: List<String> = emptyList(),
+    /** The last store is finished: the step « Manquants sans repli » is on (MAG-765). */
+    val finished: Boolean = false,
 ) {
     fun toJson(): JsonObject = stateJson.encodeToJsonElement(serializer(), this).jsonObject
 
-    /** [tour] and [skipped] as they stand once the stores that hold articles are [habitual] (in the habitual order). */
+    /**
+     * [tour] and [skipped] as they stand once the stores that hold articles are [habitual] (in the habitual order).
+     * A finished store keeps its place in the tour, articles left or not, so « Magasin k sur N » does not move.
+     */
     fun reconciledWith(habitual: List<String>): GroceryRunState {
         val known = habitual.toSet()
-        val kept = tour.filter { it in known }.distinct()
+        val kept = tour.filter { it in known || it in done }.distinct()
         val left = skipped.filter { it in known && it !in kept }.distinct()
         var merged = kept
-        habitual.filter { it !in kept && it !in left }.forEach { merged = merged.insertedInHabitualOrder(it, habitual) }
-        return GroceryRunState(merged, current?.takeIf { it in merged }, left)
+        // Once the tour is over, a store that holds articles again waits for the next one.
+        if (!finished) habitual.filter { it !in kept && it !in left }.forEach { merged = merged.insertedInHabitualOrder(it, habitual) }
+        return GroceryRunState(merged, current?.takeIf { it in merged }, left, done.filter { it in merged }, finished)
+    }
+
+    /** The store opened once [current] is finished: the next one of the tour not finished yet, null after the last. */
+    fun nextAfter(storeId: String): String? {
+        val over = done + storeId
+        val at = tour.indexOf(storeId)
+        return tour.drop(at + 1).firstOrNull { it !in over } ?: tour.firstOrNull { it !in over }
     }
 
     companion object {

@@ -61,7 +61,7 @@ class ErrandToolsTest extends KernelTestCase
         self::assertSame(1, $ended['remainingCount']);
         self::assertCount(1, $ended['errands']);
         $errandId = $ended['errands'][0]['id'];
-        self::assertSame(['storeName' => 'Carrefour Market', 'itemCount' => 1], array_diff_key($ended['errands'][0], ['id' => true]));
+        self::assertSame(['storeName' => 'Carrefour Market', 'itemCount' => 1, 'paidAmountCents' => null], array_diff_key($ended['errands'][0], ['id' => true]));
 
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $em->clear();
@@ -88,6 +88,25 @@ class ErrandToolsTest extends KernelTestCase
         // A name, not a pattern: « % » matches no store named so.
         $wildcard = $this->call(self::getContainer()->get(ListPastErrandsTool::class), store: '%');
         self::assertSame(['errands' => [], 'count' => 0], $wildcard);
+    }
+
+    public function testEndErrandRecordsWhatWasPaidAtTheStoresTill(): void
+    {
+        $this->loadFixtures('errands.yaml');
+        $this->loginFixtureUser();
+        self::getContainer()->get('doctrine.orm.entity_manager')->clear();
+        $storeId = (string) $this->getFixture('carrefour')->getId();
+
+        $refused = $this->call(self::getContainer()->get(EndErrandTool::class), storeId: $storeId, paidAmountCents: -5);
+        self::assertStringContainsString('zero or more', $refused['error']);
+
+        $ended = $this->call(self::getContainer()->get(EndErrandTool::class), storeId: $storeId, paidAmountCents: 4280);
+
+        self::assertSame(4280, $ended['errands'][0]['paidAmountCents']);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        self::assertSame(4280, $em->find(Errand::class, $ended['errands'][0]['id'])->getPaidAmountCents());
+        $this->assertMercureUpdatePublished('/api/errands/'.$ended['errands'][0]['id']);
     }
 
     public function testAnotherUsersErrandsAreNotListed(): void

@@ -1524,6 +1524,16 @@ object UiTags {
     const val GROCERY_RUN_TOUR_PROGRESS = "grocery_run_tour_progress"
     const val GROCERY_RUN_ITEMS = "grocery_run_items"
     const val GROCERY_RUN_SIDE_TOUR = "grocery_run_side_tour"
+    const val GROCERY_RUN_FINISH = "grocery_run_finish"
+    const val GROCERY_RUN_RECAP = "grocery_run_recap"
+    const val GROCERY_RUN_PAID = "grocery_run_paid"
+    const val GROCERY_RUN_RECAP_BACK = "grocery_run_recap_back"
+    const val GROCERY_RUN_RECAP_CONFIRM = "grocery_run_recap_confirm"
+    const val GROCERY_RUN_LEFTOVERS = "grocery_run_leftovers"
+    const val GROCERY_RUN_END = "grocery_run_end"
+    const val GROCERY_RUN_END_CLOSE = "grocery_run_end_close"
+    private const val GROCERY_RUN_NEXT_TIME_PREFIX = "grocery_run_next_time_"
+    private const val GROCERY_RUN_REMOVE_PREFIX = "grocery_run_remove_"
     private const val GROCERY_RUN_LINE_PREFIX = "grocery_run_line_"
     private const val GROCERY_RUN_FOR_PREFIX = "grocery_run_for_"
     private const val GROCERY_RUN_MISSING_PREFIX = "grocery_run_mark_missing_"
@@ -1539,6 +1549,8 @@ object UiTags {
     fun groceryRunMissingTag(itemId: String) = GROCERY_RUN_MISSING_TAG_PREFIX + itemId
     fun groceryRunVisit(storeId: String) = GROCERY_RUN_VISIT_PREFIX + storeId
     fun groceryRunSkip(storeId: String) = GROCERY_RUN_SKIP_PREFIX + storeId
+    fun groceryRunNextTime(itemId: String) = GROCERY_RUN_NEXT_TIME_PREFIX + itemId
+    fun groceryRunRemove(itemId: String) = GROCERY_RUN_REMOVE_PREFIX + itemId
 
     // Activité Cuisine (MAG-580): « Pour combien ? », « On sort tout », a step, « Bon appétit » and the states between.
     const val COOKING_LOADING = "cooking_loading"

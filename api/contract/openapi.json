@@ -17699,6 +17699,13 @@
                         "default": 0,
                         "type": "integer"
                     },
+                    "paidAmountCents": {
+                        "description": "What was paid at the till, in cents, as the owner typed it on finishing the store (MAG-765); null when not given.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
                     "items": {
                         "type": "array",
                         "items": {
@@ -17746,6 +17753,13 @@
                         "readOnly": true,
                         "default": 0,
                         "type": "integer"
+                    },
+                    "paidAmountCents": {
+                        "description": "What was paid at the till, in cents, as the owner typed it on finishing the store (MAG-765); null when not given.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     },
                     "items": {
                         "type": "array",
@@ -17798,6 +17812,13 @@
                                 "readOnly": true,
                                 "default": 0,
                                 "type": "integer"
+                            },
+                            "paidAmountCents": {
+                                "description": "What was paid at the till, in cents, as the owner typed it on finishing the store (MAG-765); null when not given.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             },
                             "items": {
                                 "type": "array",

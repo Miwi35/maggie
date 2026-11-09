@@ -1064,6 +1064,8 @@ data class ReorderEntry(
 @Serializable
 data class EndErrandRequest(
     val storeId: String? = null,
+    /** What was paid at the store's till, in cents (MAG-765); left out when not given. */
+    val paidAmountCents: Int? = null,
 )
 
 @Serializable

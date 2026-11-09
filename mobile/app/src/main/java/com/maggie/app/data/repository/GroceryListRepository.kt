@@ -102,7 +102,8 @@ class GroceryListRepository(
         apiService.snoozeGrocerySuggestion(productId)
     }
 
-    suspend fun endErrand(storeId: String? = null): Result<EndErrandResponse> = runCatching {
-        apiService.endErrand(EndErrandRequest(storeId = storeId))
+    /** Ends the errand of [storeId] (every store when null); [paidAmountCents] is what was paid at its till (MAG-765). */
+    suspend fun endErrand(storeId: String? = null, paidAmountCents: Int? = null): Result<EndErrandResponse> = runCatching {
+        apiService.endErrand(EndErrandRequest(storeId = storeId, paidAmountCents = paidAmountCents))
     }
 }
