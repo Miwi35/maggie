@@ -56,9 +56,12 @@ tags:
     element:
       text: ".*Sources des rentes à venir.*"
     timeout: 30000
-- extendedWaitUntil:
-    visible: ".*Placements · [0-9]+ · ≈.*mois à terme.*"
-    timeout: 20000
-- extendedWaitUntil:
-    visible: ".*Simulation · retrait de 4 % par an sur le capital placé.*"
-    timeout: 10000
+# The heading can land at the screen's edge (foldable): scroll to the rows themselves.
+- scrollUntilVisible:
+    element:
+      text: ".*Placements · [0-9]+ · ≈.*mois à terme.*"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: ".*Simulation · retrait de 4 % par an sur le capital placé.*"
+    timeout: 30000
