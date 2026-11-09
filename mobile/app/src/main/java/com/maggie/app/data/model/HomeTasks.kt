@@ -54,6 +54,8 @@ data class HomeTask(
     val done: Boolean = false,
     val overdueDays: Int? = null,
     val parentId: String? = null,
+    /** `HH:MM` when the task is planned at a precise hour (MAG-718), else null. */
+    val time: String? = null,
 ) {
     val isSubtask: Boolean get() = parentId != null
 }

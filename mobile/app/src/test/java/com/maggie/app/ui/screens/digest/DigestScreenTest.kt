@@ -18,6 +18,7 @@ import com.maggie.app.data.model.CuisineHomeState
 import com.maggie.app.data.model.FinanceHomeRing
 import com.maggie.app.data.model.FinanceHomeState
 import com.maggie.app.data.model.HomeTask
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.HomeTasks
 import com.maggie.app.data.model.Weather
 import com.maggie.app.screentest.ScreenRule
@@ -46,7 +47,7 @@ class DigestScreenTest {
         message = ChatMessage(id = "m1", role = "assistant", content = "[warmly] Bonjour, voici votre journée."),
         weather = Weather(minC = 5.0, maxC = 12.0, rainProbability = 20.0, windKmh = 15.0, condition = "partly_cloudy"),
         agenda = AgendaHomeState("2026-10-27", listOf(AgendaHomeEvent(id = "e1", summary = "Dentiste", startAt = "2026-10-27T09:00:00+01:00"))),
-        tasks = HomeTasks(tasks = listOf(HomeTask("t1", "Appeler Paul", overdueDays = 1)), total = 1),
+        tasks = HomeTasks(tasks = listOf(HomeTask("t1", "Appeler Paul", overdueDays = 1), HomeTask("t2", "Appeler le garage", time = "10:00")), total = 2),
         cuisine = CuisineHomeState(listOf(CuisineHomeSlot("lunch", listOf(CuisineHomeMeal("ml", "Soupe", 2, listOf("Soupe")))), CuisineHomeSlot("dinner"))),
         finance = FinanceHomeState(week = FinanceHomeRing(spentCents = 20_000, expectedSpentCents = 30_000, plannedCents = 50_000), accountCount = 1),
     )
@@ -61,7 +62,7 @@ class DigestScreenTest {
         draw(full)
 
         compose.onNodeWithTag(UiTags.DIGEST_DATE).assertTextEquals("Mardi 27 octobre")
-        compose.onNodeWithTag(UiTags.DIGEST_GREETING).assertTextEquals("Bonjour")
+        compose.onNodeWithTag(UiTags.DIGEST_GREETING).assertTextEquals("Bonjour monsieur")
         compose.onNodeWithTag(UiTags.DIGEST_MESSAGE_TEXT).assertTextEquals("Bonjour, voici votre journée.")
         val tops = listOf(
             top(UiTags.DIGEST_DATE), top(UiTags.DIGEST_GREETING), top(UiTags.VOICE_PLAY), top(UiTags.DIGEST_MESSAGE_TEXT), top(UiTags.DIGEST_WEATHER),
@@ -80,6 +81,21 @@ class DigestScreenTest {
         compose.onNodeWithText("reportée hier").assertIsDisplayed()
         compose.onNodeWithText("Déjeuner").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.DIGEST_FINANCE_WEEK).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a task planned at an hour shows it on the left`() {
+        draw(full)
+
+        compose.onNodeWithText("10:00").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the finance card reads the week as spent over planned`() {
+        draw(full)
+
+        compose.onNodeWithText("Semaine").assertIsDisplayed()
+        compose.onNodeWithText("${formatCentsRounded(20_000)} / ${formatCentsRounded(50_000)}").assertIsDisplayed()
     }
 
     @Test

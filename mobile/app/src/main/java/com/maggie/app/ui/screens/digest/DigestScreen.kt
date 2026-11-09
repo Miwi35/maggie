@@ -49,6 +49,7 @@ import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.screens.home.HomeCard
 import com.maggie.app.ui.screens.home.HomeModules
+import com.maggie.app.ui.screens.home.homeModuleColor
 import com.maggie.app.ui.screens.home.rowTimeLabel
 import com.maggie.app.ui.screens.tasks.lateLabel
 import com.maggie.app.util.DateRanges
@@ -123,7 +124,7 @@ internal fun DigestContent(
 private fun Greeting(ui: DigestUiState) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         MaggieAvatar(size = 40.dp)
-        Text("Bonjour", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag(UiTags.DIGEST_GREETING))
+        Text("Bonjour monsieur", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag(UiTags.DIGEST_GREETING))
     }
     ui.voice?.let { voice -> voice.audio?.let { VoiceBubble(messageId = voice.id, audio = it, playback = rememberVoicePlayback()) } }
     val text = ui.message?.let { stripDeliveryTags(it.content) }.orEmpty()
@@ -178,7 +179,11 @@ private fun TripRow(trip: Trip, title: String?, zone: java.time.ZoneId, now: jav
 private fun TasksDigestCard(tasks: List<HomeTask>, onOpen: () -> Unit) {
     HomeCard(title = "Tâches", module = HomeModules.TASKS, onOpen = onOpen) {
         tasks.forEach { task ->
-            Column(modifier = Modifier.padding(vertical = 2.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+              if (task.time != null) {
+                Text(task.time, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(64.dp))
+              }
+              Column(modifier = Modifier.weight(1f)) {
                 Text(task.title, style = MaterialTheme.typography.bodyMedium)
                 val late = task.overdueDays?.takeIf { it > 0 && !task.done }
                 if (late != null) {
@@ -188,6 +193,7 @@ private fun TasksDigestCard(tasks: List<HomeTask>, onOpen: () -> Unit) {
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
+              }
             }
         }
     }
@@ -216,11 +222,14 @@ private fun FinanceDigestCard(week: FinanceHomeRing, onOpen: () -> Unit) {
         val planned = week.plannedCents.coerceAtLeast(1).toFloat()
         val spent = (week.spentCents / planned).coerceIn(0f, 1f)
         val expected = (week.expectedSpentCents / planned).coerceIn(0f, 1f)
-        Text(
-            text = "Semaine : ${formatCentsRounded(week.spentCents)} dépensés sur ${formatCentsRounded(week.plannedCents)}",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Semaine", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = "${formatCentsRounded(week.spentCents)} / ${formatCentsRounded(week.plannedCents)}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
         Spacer(Modifier.height(8.dp))
         WeekBar(spent = spent, expected = expected)
     }
@@ -229,9 +238,9 @@ private fun FinanceDigestCard(week: FinanceHomeRing, onOpen: () -> Unit) {
 /** The week as a bar: what was spent, and a tick at where the day stands (what was expected by now). */
 @Composable
 private fun WeekBar(spent: Float, expected: Float) {
-    val track = MaterialTheme.colorScheme.surfaceVariant
-    val fill = MaterialTheme.colorScheme.primary
     val tick = MaterialTheme.colorScheme.onSurface
+    val track = tick.copy(alpha = 0.15f)
+    val fill = homeModuleColor(HomeModules.FINANCE)
     Box(modifier = Modifier.fillMaxWidth().height(12.dp).testTag(UiTags.DIGEST_FINANCE_WEEK)) {
         Box(Modifier.fillMaxSize().clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp)).background(track))
         Box(Modifier.fillMaxWidth(spent).fillMaxSize().clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp)).background(fill))
