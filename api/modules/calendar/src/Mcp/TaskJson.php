@@ -33,6 +33,7 @@ final class TaskJson
             'links' => $task->getLinks(),
             'estimatedMinutes' => $task->getEstimatedMinutes(),
             'firstStep' => $task->getFirstStep(),
+            'timed' => $task->isTimed(),
             'postponedSince' => $task->getPostponedSince()?->format('Y-m-d'),
         ];
     }

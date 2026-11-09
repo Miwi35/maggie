@@ -218,6 +218,12 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     #[ApiProperty(description: 'The first small step that starts the task. Maggie\'s own: Google never sees it.')]
     private ?string $firstStep = null;
 
+    /** Done with a timer, for `estimatedMinutes` (MAG-766). Maggie's own, like `estimatedMinutes`. */
+    #[ORM\Column(options: ['default' => false])]
+    #[IndexedField(type: 'boolean')]
+    #[ApiProperty(description: 'The task is done with a timer, for estimatedMinutes (« méditer 20 min »). Maggie\'s own: Google never sees it.')]
+    private bool $timed = false;
+
     /**
      * Computed on each read, never stored nor indexed: it depends on the day
      * (MAG-405). {@see \Maggie\Calendar\Serializer\TaskComputedFieldsNormalizer}
@@ -455,6 +461,18 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
         return $this;
     }
 
+    public function isTimed(): bool
+    {
+        return $this->timed;
+    }
+
+    public function setTimed(bool $timed): static
+    {
+        $this->timed = $timed;
+
+        return $this;
+    }
+
     #[ApiProperty(
         writable: false,
         description: 'The day the task has been put off since: its due day once past, or the first past day it was planned and not done. Null when done or not put off. Shown as « reportée », never as a reproach. Computed on read.',
@@ -546,6 +564,7 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'links' => $this->links,
             'estimatedMinutes' => $this->estimatedMinutes,
             'firstStep' => $this->firstStep,
+            'timed' => $this->timed,
             'priority' => $this->priority->value,
             'criticality' => $this->criticality->value,
             'userId' => (string) $this->user->getId(),
@@ -569,6 +588,7 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'links' => $this->links,
             'estimatedMinutes' => $this->estimatedMinutes,
             'firstStep' => $this->firstStep,
+            'timed' => $this->timed,
         ], $changedProperties, ['completedAt' => 'isDone']);
     }
 }

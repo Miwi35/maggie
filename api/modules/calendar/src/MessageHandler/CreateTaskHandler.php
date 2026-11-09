@@ -57,6 +57,7 @@ class CreateTaskHandler
         TaskEstimate::check($command->estimatedMinutes, $command->firstStep);
         $task->setEstimatedMinutes($command->estimatedMinutes);
         $task->setFirstStep(TaskEstimate::firstStep($command->firstStep));
+        $task->setTimed($command->timed);
         if (null !== $command->parentId) {
             $task->setParent($this->hierarchy->parentFor(null, $user, $command->parentId));
         }

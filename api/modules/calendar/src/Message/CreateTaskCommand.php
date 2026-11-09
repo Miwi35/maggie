@@ -21,6 +21,7 @@ final readonly class CreateTaskCommand
         public ?string $scheduledMoment = null,
         public ?string $scheduledTime = null,
         public ?array $reminders = null,
+        public bool $timed = false,
     ) {
     }
 }

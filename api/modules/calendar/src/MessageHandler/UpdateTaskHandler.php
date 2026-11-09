@@ -86,6 +86,9 @@ class UpdateTaskHandler
         } elseif ($command->clears('firstStep')) {
             $task->setFirstStep(null);
         }
+        if (null !== $command->timed) {
+            $task->setTimed($command->timed);
+        }
 
         // A new parent, or none: the task goes last among its new siblings
         // unless the command says where.
@@ -130,7 +133,7 @@ class UpdateTaskHandler
 
         // Only Maggie's own fields changed: nothing for Google.
         $ownOnly = [] === $changedFields && null === $command->priority && null === $command->criticality
-            && ($scheduleChanged || null !== $command->estimatedMinutes || null !== $command->firstStep
+            && ($scheduleChanged || null !== $command->estimatedMinutes || null !== $command->firstStep || null !== $command->timed
                 || $command->clears('estimatedMinutes') || $command->clears('firstStep'));
 
         if ($task->isGoogleSynced() && !$ownOnly) {

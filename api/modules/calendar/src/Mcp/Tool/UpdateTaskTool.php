@@ -15,7 +15,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'update_task', description: 'Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. Due date format: YYYY-MM-DD. parentId makes it a subtask of that task (one level only), position sets its order among its siblings. estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie. dueDate is the deadline (« avant samedi », « pour samedi au plus tard »); scheduledDate (YYYY-MM-DD) is the day the user plans to do it (« mets-la vendredi »), which puts it in that day\'s agenda and today\'s tasks; scheduledMoment is morning, afternoon, evening (« vendredi soir »), or time with scheduledTime HH:MM (« vendredi à 18 h »); reminders, only with time, are minutes before it (0: at the time) — left out when setting a time, one at the time; another moment drops the time and the reminders. To empty an optional field, list its name in clear (description, dueDate, parent — parent makes it a top-level task again —, estimatedMinutes, firstStep, scheduledDate — the whole programmation —, scheduledMoment — the day only stays).')]
+#[McpTool(name: 'update_task', description: 'Update an existing task. Only provided fields will be updated. Set done=true to mark as completed, done=false to reopen. Due date format: YYYY-MM-DD. parentId makes it a subtask of that task (one level only), position sets its order among its siblings. estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie. dueDate is the deadline (« avant samedi », « pour samedi au plus tard »); scheduledDate (YYYY-MM-DD) is the day the user plans to do it (« mets-la vendredi »), which puts it in that day\'s agenda and today\'s tasks; scheduledMoment is morning, afternoon, evening (« vendredi soir »), or time with scheduledTime HH:MM (« vendredi à 18 h »); reminders, only with time, are minutes before it (0: at the time) — left out when setting a time, one at the time; another moment drops the time and the reminders. timed: true when the task is done with a timer for estimatedMinutes (« méditer 20 min », « 30 min de rameur »); a mere estimate (« appeler le garage, 10 min ») is never timed. To empty an optional field, list its name in clear (description, dueDate, parent — parent makes it a top-level task again —, estimatedMinutes, firstStep, scheduledDate — the whole programmation —, scheduledMoment — the day only stays).')]
 class UpdateTaskTool
 {
     public function __construct(
@@ -47,6 +47,7 @@ class UpdateTaskTool
         ?string $scheduledMoment = null,
         ?string $scheduledTime = null,
         ?array $reminders = null,
+        ?bool $timed = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -83,6 +84,7 @@ class UpdateTaskTool
                 scheduledMoment: $scheduledMoment,
                 scheduledTime: $scheduledTime,
                 reminders: $reminders,
+                timed: $timed,
             ));
 
             /** @var Task $task */

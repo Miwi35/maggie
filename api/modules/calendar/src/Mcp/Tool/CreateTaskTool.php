@@ -13,7 +13,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_task', description: 'Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD. To make it a subtask, give parentId — the id of a task that is not a subtask itself (one level only). estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie, Google never sees them. dueDate is the deadline (« avant samedi », « pour samedi au plus tard »); scheduledDate (YYYY-MM-DD) is the day the user plans to do it (« mets-la vendredi »), which puts it in that day\'s agenda and today\'s tasks; scheduledMoment is morning, afternoon, evening, or time with scheduledTime HH:MM (« vendredi à 18 h »); reminders, only with time, are minutes before it (0: at the time) — left out, one at the time.')]
+#[McpTool(name: 'create_task', description: 'Create a new task. Priority: low/medium/high. Criticality: low/medium/high/critical. Due date format: YYYY-MM-DD. To make it a subtask, give parentId — the id of a task that is not a subtask itself (one level only). estimatedMinutes (1 to 1440) is how long it should take, firstStep the first small gesture that starts it; both stay in Maggie, Google never sees them. dueDate is the deadline (« avant samedi », « pour samedi au plus tard »); scheduledDate (YYYY-MM-DD) is the day the user plans to do it (« mets-la vendredi »), which puts it in that day\'s agenda and today\'s tasks; scheduledMoment is morning, afternoon, evening, or time with scheduledTime HH:MM (« vendredi à 18 h »); reminders, only with time, are minutes before it (0: at the time) — left out, one at the time. timed: true when the task is done with a timer for estimatedMinutes (« méditer 20 min », « 30 min de rameur »); a mere estimate (« appeler le garage, 10 min ») is never timed.')]
 class CreateTaskTool
 {
     public function __construct(
@@ -37,6 +37,7 @@ class CreateTaskTool
         ?string $scheduledMoment = null,
         ?string $scheduledTime = null,
         ?array $reminders = null,
+        ?bool $timed = null,
     ): string {
         try {
             $user = $this->userContext->getUser();
@@ -61,6 +62,7 @@ class CreateTaskTool
                 scheduledMoment: $scheduledMoment,
                 scheduledTime: $scheduledTime,
                 reminders: $reminders,
+                timed: $timed ?? false,
             ));
 
             /** @var Task $task */

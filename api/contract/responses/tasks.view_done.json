@@ -31,6 +31,7 @@
             "links": [],
             "estimatedMinutes": null,
             "firstStep": null,
+            "timed": false,
             "overdueDays": null,
             "urgency": "low",
             "orderScore": 0,

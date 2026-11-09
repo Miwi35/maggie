@@ -63,6 +63,7 @@ class UpdateTaskProcessor implements ProcessorInterface
             scheduledTime: null === $previous || $data->getScheduledTime() !== $previous->getScheduledTime() ? $data->getScheduledTime() : null,
             // Sent, even unchanged: an empty list at a new precise time is no reminder, not the default one.
             reminders: null === $previous || $data->getReminders() !== $previous->getReminders() || $this->sends('reminders') ? $data->getReminders() : null,
+            timed: null === $previous || $data->isTimed() !== $previous->isTimed() ? $data->isTimed() : null,
         );
 
         // The deserializer applied the patch to the managed entity, the parent

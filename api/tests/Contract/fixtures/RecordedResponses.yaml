@@ -87,6 +87,8 @@ Maggie\Calendar\Entity\Task:
     dueDate: '<(new \DateTimeImmutable("2026-03-20 10:00"))>'
     position: '00000000000000000000'
     estimatedMinutes: 20
+    # Done with a timer for its 20 minutes (MAG-766): the non-default value recorded.
+    timed: true
     firstStep: Ouvrir le dossier
     # Planned at a precise time the day before it is due (MAG-718): the four fields recorded.
     scheduledDate: '<(new \DateTimeImmutable("2026-03-19"))>'
