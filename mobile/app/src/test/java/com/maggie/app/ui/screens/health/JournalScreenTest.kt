@@ -199,7 +199,7 @@ class JournalScreenTest {
     }
 
     @Test
-    fun `the header is Santé, Journal, between Nutrition and Sport in its menu`() {
+    fun `the header is Santé, Journal, after Sport and Nutrition in its menu`() {
         val picked = mutableListOf<HealthSection>()
         compose.setContent { JournalScreen(viewModel(), onSelectSection = { picked += it }) }
         waitForEntry()
@@ -207,9 +207,9 @@ class JournalScreenTest {
         compose.onNodeWithText("Santé").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
         assertTopToBottom(
+            "Sport" to compose.onNodeWithTag(UiTags.breadcrumbMenu("sport")),
             "Nutrition" to compose.onNodeWithTag(UiTags.breadcrumbMenu("nutrition")),
             "Journal" to compose.onNodeWithTag(UiTags.breadcrumbMenu("journal")),
-            "Sport" to compose.onNodeWithTag(UiTags.breadcrumbMenu("sport")),
             "Configuration" to compose.onNodeWithTag(UiTags.breadcrumbMenu("configuration")),
         )
         compose.onNodeWithTag(UiTags.breadcrumbMenu("nutrition")).performClick()

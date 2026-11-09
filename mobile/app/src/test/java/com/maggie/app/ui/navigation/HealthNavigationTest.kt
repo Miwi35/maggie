@@ -7,9 +7,9 @@ import org.junit.Test
 class HealthNavigationTest {
 
     @Test
-    fun `Santé has five sections, Suivi, Nutrition, Journal, Sport, then Configuration last, and lists no placeholder`() {
-        assertEquals(listOf("suivi", "nutrition", "journal", "sport", "configuration"), HealthSection.entries.map { it.key })
-        assertEquals(listOf("Suivi", "Nutrition", "Journal", "Sport", "Configuration"), HealthSection.entries.map { it.label })
+    fun `Santé has five sections in the mockup's order, Suivi, Sport, Nutrition, Journal, then Configuration last`() {
+        assertEquals(listOf("suivi", "sport", "nutrition", "journal", "configuration"), HealthSection.entries.map { it.key })
+        assertEquals(listOf("Suivi", "Sport", "Nutrition", "Journal", "Configuration"), HealthSection.entries.map { it.label })
         assertEquals(Screen.HealthJournal.route, HealthSection.JOURNAL.route)
         assertEquals("health/journal", Screen.HealthJournal.route)
         assertEquals(Screen.HealthNutrition.route, HealthSection.NUTRITION.route)

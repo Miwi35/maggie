@@ -250,7 +250,7 @@ class NutritionScreenTest {
     }
 
     @Test
-    fun `the header is Santé, Nutrition, second of its menu`() {
+    fun `the header is Santé, Nutrition, after Suivi and Sport in its menu`() {
         val picked = mutableListOf<HealthSection>()
         compose.setContent { NutritionScreen(viewModel(), onSelectSection = { picked += it }) }
         waitForBilan()
@@ -259,8 +259,8 @@ class NutritionScreenTest {
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
         assertTopToBottom(
             "Suivi" to compose.onNodeWithTag(UiTags.breadcrumbMenu("suivi")),
-            "Nutrition" to compose.onNodeWithTag(UiTags.breadcrumbMenu("nutrition")),
             "Sport" to compose.onNodeWithTag(UiTags.breadcrumbMenu("sport")),
+            "Nutrition" to compose.onNodeWithTag(UiTags.breadcrumbMenu("nutrition")),
         )
         compose.onNodeWithTag(UiTags.breadcrumbMenu("suivi")).performClick()
 
