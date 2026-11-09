@@ -124,8 +124,8 @@ tags:
     id: "grocery_run_recap_confirm"
 - extendedWaitUntil:
     visible:
-      id: "grocery_run_tour_progress"
-      text: "Magasin 2 sur 2"
+      id: "grocery_run_finish"
+      text: "Terminer Halles du voisin"
     timeout: 20000
 
 # The Halles: the stamps came with « manquant chez … » and are taken; the leek is missing with its fallback behind.

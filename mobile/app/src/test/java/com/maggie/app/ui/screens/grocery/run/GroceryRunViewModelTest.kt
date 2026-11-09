@@ -299,6 +299,18 @@ class GroceryRunViewModelTest {
     }
 
     @Test
+    fun `a tick the API has received stays shown while no refresh has come`() = runTest {
+        val vm = started()
+
+        vm.check("i-3")
+        advanceUntilIdle()
+
+        assertTrue(queue.pending.value.isEmpty())
+        assertEquals(RunProgress(2, 4), vm.uiState.value.progress)
+        assertTrue(vm.uiState.value.recapTaken.any { it.id == "i-3" })
+    }
+
+    @Test
     fun `unticking a ticked article sends the opposite`() = runTest {
         val vm = started()
 

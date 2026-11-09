@@ -160,8 +160,15 @@ class GroceryRunViewModel(
     init {
         load()
         followList()
-        viewModelScope.launch { tickQueue.pending.collect { pending -> _uiState.update { it.copy(pending = pending) } } }
+        viewModelScope.launch { tickQueue.pending.collect(::onPending) }
         viewModelScope.launch { tickQueue.pendingMissing.collect { marks -> _uiState.update { it.copy(pendingMissing = marks) } } }
+    }
+
+    // A tick the API has received leaves the queue: it is kept on the article until the next read of the list says it.
+    private fun onPending(pending: Map<String, Boolean>) = _uiState.update { state ->
+        val received = state.pending.filter { (id, _) -> id !in pending }
+        val items = if (received.isEmpty()) state.items else state.items.map { item -> received[item.id]?.let { item.copy(checked = it) } ?: item }
+        state.copy(pending = pending, items = items)
     }
 
     /** A tap on an article's box: ticked becomes unticked and the other way round, shown at once, sent when the network allows. */
@@ -169,7 +176,7 @@ class GroceryRunViewModel(
         val state = _uiState.value
         val item = state.items.firstOrNull { it.id == itemId } ?: return
         tickQueue.tick(itemId, !state.isChecked(item))
-        _uiState.update { it.copy(pending = tickQueue.pending.value) }
+        onPending(tickQueue.pending.value)
     }
 
     /**
