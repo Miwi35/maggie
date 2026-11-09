@@ -70,7 +70,7 @@ class TasksEveningScreenTest {
         coEvery { repository.getDayPlan(today) } returns Result.success(day)
         coEvery { repository.getDayPlan(today.plusDays(1)) } returns Result.success(dayOf(today.plusDays(1), tomorrow))
         coEvery { repository.getTaskView(TaskView.TODAY, null) } returns Result.success(TaskViewResponse())
-        coEvery { repository.getMorningTime() } returns Result.success("08:00")
+        coEvery { repository.getCompletedBetween(any(), any(), any()) } returns emptyList()
         coEvery { repository.getEveningTime() } returns Result.success("21:00")
         coEvery { repository.getTaskSettings() } returns Result.failure(IllegalStateException("offline"))
         coEvery { repository.getStars(null) } returns Result.success(Stars(month = "2026-10", count = 5, total = 12))

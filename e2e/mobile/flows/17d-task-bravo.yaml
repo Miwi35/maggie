@@ -2,33 +2,27 @@ appId: com.maggie.app.e2e
 name: 17d-task-bravo
 tags:
   - calendar
-onFlowComplete:
-  - runScript:
-      file: ../scripts/bravo-api.js
-      env:
-        ACTION: cleanup
-        TODAY: ${TODAY}
-        EMAIL: e2e-other@maggie.local
 ---
-# The bravo of a task done (MAG-508, extends MAG-100): a tick from « Mes 5 » opens it.
+# The bravo of a task done (MAG-508, extends MAG-100): a tick from « Aujourd'hui » opens it.
 #
 # Given today's day holding five tasks of the journey's own, the first two done
-# (`scripts/bravo-api.js`), when the third is ticked from « Mes 5 », then the Bravo shows
+# (`scripts/bravo-api.js`), when the third is ticked from the list (MAG-766), then the Bravo shows
 # « … · faite », a message and the day bar, the reward is stored as a star, and « Retour à ma
 # journée » is the only way on — no « Suivante » (MAG-716) — and goes back to the day.
 #
-# It signs in as the seed's second user, like the other journeys of the day; `onFlowComplete`
-# deletes the tasks and empties the day even when a step failed. The message bank, the
+# A new user (MAG-766): its five tasks are the only ones of the day, so the bar reads « 3 sur 5 ». The message bank, the
 # shooting stars and the switches of the vibration and the sound are `RewardApiTest`'s,
 # `BravoViewModelTest`'s and `BravoScreenTest`'s; the shooting star of a full day is the
 # Playwright journey's.
+
+- runFlow: ../subflows/new-user.yaml
 
 - runScript:
     file: ../scripts/bravo-api.js
     env:
       ACTION: setup
       TODAY: ${TODAY}
-      EMAIL: e2e-other@maggie.local
+      EMAIL: ${output.journeyEmail}
 
 - launchApp:
     clearState: true
@@ -36,7 +30,7 @@ onFlowComplete:
       all: allow
     arguments:
       e2e_journey: e2e/mobile/flows/17d-task-bravo.yaml
-      e2e_email: e2e-other@maggie.local
+      e2e_email: ${output.journeyEmail}
 
 - runFlow: ../subflows/sign-in.yaml
 
@@ -49,22 +43,16 @@ onFlowComplete:
       id: "tasks"
     timeout: 20000
 
-# The day: « Maintenant » on the third, two of five done.
+# The day: the third among the tasks of the day, two of five done.
 - extendedWaitUntil:
     visible:
-      id: "tasks_now"
+      id: "tasks_today_check_${output.thirdId}"
     timeout: 30000
 - assertVisible: ".*Bravo 3 MAG-508.*"
 
-# Ticked from « Mes 5 »: the Bravo, with the task, a message and the day so far.
-- scrollUntilVisible:
-    element:
-      id: "tasks_slot_3"
-    timeout: 20000
+# Ticked from the list (MAG-766): the Bravo, with the task, a message and the day so far.
 - tapOn:
-    id: "tasks_slot_check_.*"
-    childOf:
-      id: "tasks_slot_3"
+    id: "tasks_today_check_${output.thirdId}"
 - extendedWaitUntil:
     visible:
       id: "bravo"
@@ -82,7 +70,7 @@ onFlowComplete:
     env:
       ACTION: expect-reward
       TODAY: ${TODAY}
-      EMAIL: e2e-other@maggie.local
+      EMAIL: ${output.journeyEmail}
 
 # No « Suivante » (MAG-716): « Retour à ma journée » is the only button, and goes back to the day.
 - assertNotVisible: ".*Suivante.*"
@@ -92,6 +80,6 @@ onFlowComplete:
     id: "bravo_back"
 - extendedWaitUntil:
     visible:
-      id: "tasks_now"
+      id: "tasks_ring"
     timeout: 20000
 - assertVisible: ".*Bravo 4 MAG-508.*"

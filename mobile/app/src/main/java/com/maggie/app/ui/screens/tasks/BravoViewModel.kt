@@ -2,11 +2,12 @@ package com.maggie.app.ui.screens.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.Stars
+import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.TasksOfDay
+import com.maggie.app.data.repository.tasksOfDay
 import com.maggie.app.data.reward.Celebration
 import com.maggie.app.data.reward.TaskRewards
-import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.util.DateRanges
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,8 +25,8 @@ data class BravoUiState(
     val title: String = "",
     /** Its reward with the user's animation switch; null while it is read, or when it earned none. */
     val celebration: Celebration? = null,
-    /** The day once the tick was taken, for its count. Null while read or unreadable. */
-    val day: DayPlan? = null,
+    /** The tasks of the day once the tick was taken, for « n sur N » (MAG-766). Null while read or unreadable. */
+    val day: TasksOfDay? = null,
     /** The month's constellation once the tick was taken, the new star in it; null while read or unreadable. */
     val stars: Stars? = null,
     /** The reward and the day are being read: the circle waits for them, to know whether it may move. */
@@ -52,7 +53,7 @@ class BravoViewModel(
         if (_uiState.value.taskId == request.taskId) return
         _uiState.value = BravoUiState(taskId = request.taskId, title = request.title, isLoading = true)
         viewModelScope.launch {
-            val day = async { taskRepository.getDayPlan(today()).getOrNull() }
+            val day = async { taskRepository.tasksOfDay(today()).getOrNull() }
             val stars = async { taskRepository.getStars().getOrNull() }
             val celebration = rewards.celebrate(request.taskId)
             val read = day.await()

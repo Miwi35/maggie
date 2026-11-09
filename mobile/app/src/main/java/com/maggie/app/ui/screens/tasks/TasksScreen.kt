@@ -49,13 +49,11 @@ internal fun emptyTextOf(view: TaskView): String = when (view) {
 
 /**
  * « Aujourd'hui (3) », a menu entry: the count comes with every read of a view, so the other views stay true.
- * « Aujourd'hui » counts what is left of the day (MAG-497), not every task due; a day with no slot yet — not
- * chosen this morning — counts the today view instead, so a task scheduled today is counted (MAG-718).
+ * « Aujourd'hui » counts what is left of the tasks of the day (MAG-766), a tick counted at once.
  */
 internal fun tabCountOf(view: TaskView, state: TasksUiState): Int? {
     if (view != TaskView.TODAY) return state.counts?.get(view)
-    val day = state.day ?: return state.counts?.today
-    return if (day.slots.isEmpty()) state.counts?.today ?: day.left else day.left
+    return state.todayTasks?.count { !it.isDone } ?: state.counts?.today
 }
 
 internal fun tabLabelOf(view: TaskView, state: TasksUiState): String =
@@ -73,9 +71,9 @@ internal fun tabsOf(withRoutines: Boolean): List<TaskView?> =
 
 /**
  * Tasks in four views (MAG-408), as the admin shows them, chosen from the header (MAG-626). The
- * list is the API's: its order, its views, subtasks after their parent; « Aujourd'hui » is the day (MAG-497, [DayContent]).
- * [onTaskClick] opens the detail, a sheet or the pane beside the list, which the caller draws;
- * [onFocus] opens the Focus (MAG-499) on a task of the day; [onBravo] the Bravo (MAG-508) on a task
+ * list is the API's: its order, its views, subtasks after their parent; « Aujourd'hui » is the tasks of the day
+ * (MAG-766, [DayContent]). [onTaskClick] opens the detail, a sheet or the pane beside the list, which the caller draws;
+ * [onTimer] opens the Focus (MAG-499) of a timed task, its timer on; [onBravo] the Bravo (MAG-508) on a task
  * of the day just ticked. A task ticked in another view shows its reward as a banner instead.
  * [routines] draws the « Routines » view (MAG-511), next to « Aujourd'hui »; without it, no such entry.
  * The floating « + » (MAG-721) calls [onCreateTask] with the day the view gives a new task (none for « Aujourd'hui »).
@@ -87,7 +85,7 @@ fun TasksScreen(
     onTaskClick: (Task) -> Unit,
     onCreateTask: (dueDay: String?) -> Unit,
     modifier: Modifier = Modifier,
-    onFocus: (taskId: String) -> Unit = {},
+    onTimer: (taskId: String) -> Unit = {},
     onBravo: (BravoRequest) -> Unit = {},
     routines: (@Composable () -> Unit)? = null,
 ) {
@@ -177,15 +175,12 @@ fun TasksScreen(
                             )
                         }
                         else -> {
-                            val day = state.day
-                            val morning = state.morning
+                            val todayTasks = state.todayTasks
                             val evening = state.evening
                             if (state.view == TaskView.TODAY && evening != null) {
                                 EveningContent(evening = evening, viewModel = viewModel)
-                            } else if (state.view == TaskView.TODAY && morning != null) {
-                                MorningContent(morning = morning, viewModel = viewModel)
-                            } else if (state.view == TaskView.TODAY && day != null) {
-                                DayContent(day = day, state = state, viewModel = viewModel, onFocus = onFocus)
+                            } else if (state.view == TaskView.TODAY && todayTasks != null) {
+                                DayContent(tasks = todayTasks, state = state, viewModel = viewModel, onTimer = onTimer)
                             } else {
                                 TaskList(state = state, viewModel = viewModel, onTaskClick = onTaskClick)
                             }

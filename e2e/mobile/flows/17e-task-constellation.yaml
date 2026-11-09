@@ -13,7 +13,7 @@ onFlowComplete:
 # The constellation of the month (MAG-509, extends MAG-100): a tick adds a star.
 #
 # Given four stars this month and seven last month (the seed) and today's day holding one task
-# (`scripts/stars-api.js`), when the task is ticked from « Mes 5 », then the Bravo draws the
+# (`scripts/stars-api.js`), when the task is ticked from « Aujourd'hui » (MAG-766), then the Bravo draws the
 # constellation of the month at « 5 étoiles », the API counts five and twelve in all, and, back on
 # the day, the task carries its star.
 #
@@ -52,7 +52,7 @@ onFlowComplete:
 # The day holds the one task, not done yet, so no star on it.
 - scrollUntilVisible:
     element:
-      id: "tasks_slot_1"
+      id: "tasks_today_check_${output.taskId}"
     timeout: 20000
 - extendedWaitUntil:
     visible: ".*Étoile MAG-509.*"
@@ -60,11 +60,9 @@ onFlowComplete:
 - assertNotVisible:
     id: "task_star"
 
-# Ticked from « Mes 5 »: the Bravo, with the constellation of the month and its five stars.
+# Ticked from the list: the Bravo, with the constellation of the month and its five stars.
 - tapOn:
-    id: "tasks_slot_check_.*"
-    childOf:
-      id: "tasks_slot_1"
+    id: "tasks_today_check_${output.taskId}"
 - extendedWaitUntil:
     visible:
       id: "bravo"

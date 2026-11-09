@@ -269,6 +269,8 @@ data class TaskCreateRequest(
     val scheduledTime: String? = null,
     /** Minutes before [scheduledTime]; left out (null) the API defaults a `time` to « À l'heure ». */
     val reminders: List<Int>? = null,
+    /** Done with a timer, for [estimatedMinutes] (MAG-766). */
+    val timed: Boolean = false,
 )
 
 @Serializable

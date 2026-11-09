@@ -636,42 +636,21 @@ object UiTags {
     fun tasksCheck(id: String) = TASKS_CHECK_PREFIX + id
 
     /**
-     * « Aujourd'hui » is the day (MAG-497): the « Maintenant » card, its box and « Juste 10 minutes »;
-     * the ring; each slot suffixed by its position (1 to 5), its box and its menu by the task's id,
-     * « Remettre dans la réserve » in that menu; the reserve's header, each of its tasks and the
-     * button that puts one in the day by the task's id, and when the five are taken the menu's
-     * « À la place de … » entries by the slot's position; the day's own add field and its button.
+     * « Aujourd'hui » (MAG-766): the list, the ring; each task of the day by id — its row, its box, its « quand »
+     * pill, its urgency pill and the timer of a timed task.
      */
-    const val TASKS_NOW = "tasks_now"
-    const val TASKS_NOW_CHECK = "tasks_now_check"
-    const val TASKS_NOW_FOCUS = "tasks_now_focus"
+    const val TASKS_TODAY = "tasks_today"
     const val TASKS_RING = "tasks_ring"
-    const val TASKS_SLOT_PREFIX = "tasks_slot_"
-    const val TASKS_SLOT_CHECK_PREFIX = "tasks_slot_check_"
-    const val TASKS_SLOT_MENU_PREFIX = "tasks_slot_menu_"
-    const val TASKS_SLOT_REMOVE = "tasks_slot_remove"
-    const val TASKS_RESERVE_TOGGLE = "tasks_reserve_toggle"
-    const val TASKS_RESERVE_ITEM_PREFIX = "tasks_reserve_item_"
-    const val TASKS_RESERVE_ADD_PREFIX = "tasks_reserve_add_"
-    const val TASKS_REPLACE_PREFIX = "tasks_replace_"
-
-    /**
-     * « Ta journée » (MAG-498): the morning's proposal, its time bar, each row and its swap button by
-     * position (1 to 5), the reserve line, « C'est parti » and « Plus tard »; « Changer » on the day.
-     */
-    const val TASKS_MORNING = "tasks_morning"
-    const val TASKS_MORNING_TIME = "tasks_morning_time"
-    const val TASKS_MORNING_SLOT_PREFIX = "tasks_morning_slot_"
-    const val TASKS_MORNING_SWAP_PREFIX = "tasks_morning_swap_"
-    const val TASKS_MORNING_RESERVE = "tasks_morning_reserve"
-    const val TASKS_MORNING_GO = "tasks_morning_go"
-    const val TASKS_MORNING_LATER = "tasks_morning_later"
-    const val TASKS_CHANGE = "tasks_change"
+    const val TASKS_TODAY_ROW_PREFIX = "tasks_today_row_"
+    const val TASKS_TODAY_CHECK_PREFIX = "tasks_today_check_"
+    const val TASKS_TODAY_WHEN_PREFIX = "tasks_today_when_"
+    const val TASKS_TODAY_URGENCY_PREFIX = "tasks_today_urgency_"
+    const val TASKS_TODAY_TIMER_PREFIX = "tasks_today_timer_"
 
     /**
      * « Le soir » (MAG-500): the review, its list of what is done, each task left by id with its three
      * ways out and « Annuler », each « Qu'est-ce qui t'a aidé ? » choice by value, « Bonne nuit » and
-     * « Plus tard »; « Le soir » on the day.
+     * « Plus tard ».
      */
     const val TASKS_EVENING = "tasks_evening"
     const val TASKS_EVENING_DONE = "tasks_evening_done"
@@ -681,7 +660,6 @@ object UiTags {
     const val TASKS_EVENING_HELPED_PREFIX = "tasks_evening_helped_"
     const val TASKS_EVENING_GOOD_NIGHT = "tasks_evening_good_night"
     const val TASKS_EVENING_LATER = "tasks_evening_later"
-    const val TASKS_EVENING_OPEN = "tasks_evening_open"
 
     fun tasksEveningLeft(taskId: String) = TASKS_EVENING_LEFT_PREFIX + taskId
 
@@ -692,26 +670,20 @@ object UiTags {
 
     fun tasksEveningHelped(value: String) = TASKS_EVENING_HELPED_PREFIX + value
 
-    fun tasksMorningSlot(position: Int) = TASKS_MORNING_SLOT_PREFIX + position
+    fun tasksTodayRow(id: String) = TASKS_TODAY_ROW_PREFIX + id
 
-    fun tasksMorningSwap(position: Int) = TASKS_MORNING_SWAP_PREFIX + position
+    fun tasksTodayCheck(id: String) = TASKS_TODAY_CHECK_PREFIX + id
 
-    fun tasksSlot(position: Int) = TASKS_SLOT_PREFIX + position
+    fun tasksTodayWhen(id: String) = TASKS_TODAY_WHEN_PREFIX + id
 
-    fun tasksSlotCheck(id: String) = TASKS_SLOT_CHECK_PREFIX + id
+    fun tasksTodayUrgency(id: String) = TASKS_TODAY_URGENCY_PREFIX + id
 
-    fun tasksSlotMenu(id: String) = TASKS_SLOT_MENU_PREFIX + id
-
-    fun tasksReserveItem(id: String) = TASKS_RESERVE_ITEM_PREFIX + id
-
-    fun tasksReserveAdd(id: String) = TASKS_RESERVE_ADD_PREFIX + id
-
-    fun tasksReplace(position: Int) = TASKS_REPLACE_PREFIX + position
+    fun tasksTodayTimer(id: String) = TASKS_TODAY_TIMER_PREFIX + id
 
     /**
      * The Focus (MAG-499): the screen, the timer's ring and its time, the button that starts, pauses,
      * resumes or restarts it, the first step, each petit pas' box suffixed by its id, « Je bloque »
-     * with its add field, « C'est fait » and « Plus tard »; from the day, the slot menu's « Focus ».
+     * with its add field, « C'est fait » and « Plus tard ».
      */
     const val FOCUS = "focus"
     const val FOCUS_TIMER_TOGGLE = "focus_timer_toggle"
@@ -729,7 +701,6 @@ object UiTags {
     const val FOCUS_ADD_SUBMIT = "focus_add_submit"
     const val FOCUS_DONE = "focus_done"
     const val FOCUS_LATER = "focus_later"
-    const val TASKS_SLOT_FOCUS = "tasks_slot_focus"
 
     fun focusStep(id: String) = FOCUS_STEP_PREFIX + id
 
@@ -818,8 +789,9 @@ object UiTags {
     /** A task's urgency, its icon and its word (MAG-406): on the dashboard's rows and in the detail. */
     const val TASK_URGENCY = "task_urgency"
 
-    /** A task's create and edit screens (MAG-497): « Durée estimée » and « Premier pas ». */
+    /** A task's create and edit screens (MAG-497): « Durée », « Chronométrée » (MAG-766) and « Premier pas ». */
     const val TASK_ESTIMATE = "task_estimate"
+    const val TASK_TIMED = "task_timed"
     const val TASK_FIRST_STEP = "task_first_step"
 
     /** Chat — a held action's card and its buttons, suffixed by the approval's id (MAG-7). */

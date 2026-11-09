@@ -85,7 +85,7 @@ onFlowComplete:
           timeout: 30000
       - extendedWaitUntil:
           visible:
-            id: "tasks_now"
+            id: "tasks_today"
           timeout: 30000
       - runScript:
           file: ../scripts/day-review-api.js
@@ -110,7 +110,7 @@ onFlowComplete:
       DEST: tasks
 - extendedWaitUntil:
     visible:
-      id: "tasks_now"
+      id: "tasks_today"
     timeout: 30000
 - assertNotVisible:
     id: "tasks_evening"

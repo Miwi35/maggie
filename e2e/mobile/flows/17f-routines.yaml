@@ -18,7 +18,7 @@ onFlowComplete:
 # Then « Routines · matin » (MAG-512, extends MAG-100): a daily routine « au réveil » is a pill above
 # the day of « Aujourd'hui », ticked in one tap (the home's routines are the Accueil's Tâches card,
 # MAG-561). The stack's clock is pinned at noon in CI (`e2e/clock.sh ci`): the moment reached
-# is the wake one, whose hour is before noon. The ring and « Maintenant » never count it, and no star
+# is the wake one, whose hour is before noon. The ring never counts it, and no star
 # comes of it: `TasksViewModelTest`'s.
 #
 # The spec says « chaque mardi ». The stack's clock is not frozen on a weekday (`TODAY` is the
@@ -138,16 +138,6 @@ onFlowComplete:
     file: ../subflows/open-tasks-view.yaml
     env:
       VIEW: today
-# The seed's day is not confirmed: « Ta journée » may open first, « Plus tard » leaves it.
-# « Plus tard » ends « Ta journée »: below the fold on a tablet (MAG-571).
-- runFlow:
-    when:
-      visible:
-        id: "detail_pane"
-    file: ../subflows/scroll-list-end.yaml
-- tapOn:
-    id: "tasks_morning_later"
-    optional: true
 - extendedWaitUntil:
     visible:
       id: "routines_band"

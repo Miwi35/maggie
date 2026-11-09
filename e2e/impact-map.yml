@@ -781,7 +781,7 @@ mobile:
     paths: [e2e/mobile/scripts/task-schedule-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/17b-tasks-day.yaml:
     areas: [calendar]
-    paths: [e2e/mobile/scripts/day-plan-api.js]
+    paths: [e2e/mobile/scripts/today-tasks-api.js]
   e2e/mobile/flows/17c-task-focus.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/focus-api.js]

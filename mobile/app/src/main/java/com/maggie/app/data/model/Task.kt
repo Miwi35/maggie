@@ -41,6 +41,8 @@ data class Task(
     val scheduledTime: String? = null,
     /** Minutes before [scheduledTime], 0 at the time (MAG-718); empty unless the moment is `time`. */
     val reminders: List<Int> = emptyList(),
+    /** Done with a timer, for [estimatedMinutes] (« méditer 20 min », MAG-766): the day offers its timer. A mere estimate is not timed. */
+    val timed: Boolean = false,
 ) {
     val isDone: Boolean get() = completedAt != null
 

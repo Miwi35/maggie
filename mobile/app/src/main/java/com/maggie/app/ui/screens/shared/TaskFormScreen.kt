@@ -61,6 +61,7 @@ fun TaskFormScreen(
     var schedule by remember { mutableStateOf(TaskSchedule.of(task)) }
     var estimate by remember { mutableStateOf(task?.estimatedMinutes?.toString().orEmpty()) }
     var firstStep by remember { mutableStateOf(task?.firstStep.orEmpty()) }
+    var timed by remember { mutableStateOf(task?.timed ?: false) }
     val canSave = title.isNotBlank() && TaskEstimate.isValid(estimate)
 
     fun save() {
@@ -74,6 +75,7 @@ fun TaskFormScreen(
                     dueDate = TaskDueDate.toApi(dueDate),
                     estimatedMinutes = TaskEstimate.toApi(estimate),
                     firstStep = TaskEstimate.firstStepToApi(firstStep),
+                    timed = timed,
                     scheduledDate = schedule.scheduledDate,
                     scheduledMoment = schedule.scheduledMoment,
                     scheduledTime = schedule.scheduledTime,
@@ -92,6 +94,7 @@ fun TaskFormScreen(
                     // An emptied field clears the task's: null is sent, not left out.
                     put("estimatedMinutes", TaskEstimate.toApi(estimate))
                     put("firstStep", TaskEstimate.firstStepToApi(firstStep))
+                    put("timed", timed)
                     // Every key of the programmation, cleared ones as null or [] (MAG-718).
                     schedule.writeTo(this)
                 },
@@ -159,6 +162,8 @@ fun TaskFormScreen(
                 onEstimateChange = { estimate = it },
                 firstStep = firstStep,
                 onFirstStepChange = { firstStep = it },
+                timed = timed,
+                onTimedChange = { timed = it },
             )
 
             MarkdownEditor(

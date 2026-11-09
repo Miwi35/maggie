@@ -25,6 +25,7 @@ data class TaskEntity(
     val scheduledMoment: String? = null,
     val scheduledTime: String? = null,
     val reminders: List<Int> = emptyList(),
+    val timed: Boolean = false,
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
 ) {
     fun toModel(): Task = Task(
@@ -44,6 +45,7 @@ data class TaskEntity(
         scheduledMoment = scheduledMoment,
         scheduledTime = scheduledTime,
         reminders = reminders,
+        timed = timed,
     )
 
     companion object {
@@ -65,6 +67,7 @@ data class TaskEntity(
                 scheduledMoment = task.scheduledMoment,
                 scheduledTime = task.scheduledTime,
                 reminders = task.reminders,
+                timed = task.timed,
                 syncStatus = syncStatus,
             )
     }

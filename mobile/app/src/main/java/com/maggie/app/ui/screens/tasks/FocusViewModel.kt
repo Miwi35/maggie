@@ -55,7 +55,11 @@ class FocusViewModel(
 
     private var tickJob: Job? = null
 
-    fun open(taskId: String) {
+    /**
+     * The Focus of [taskId]. [withTimer]: opened from the timer of a timed task (MAG-766) — the timer is on, set to
+     * the task's minutes, and running as soon as the task is read.
+     */
+    fun open(taskId: String, withTimer: Boolean = false) {
         if (_uiState.value.taskId == taskId) return
         stopTicking()
         _uiState.value = FocusUiState(taskId = taskId, isLoading = true)
@@ -63,7 +67,8 @@ class FocusViewModel(
             taskRepository.fetchTask(taskId)
                 .onSuccess { task ->
                     if (_uiState.value.taskId != taskId) return@onSuccess
-                    _uiState.update { it.copy(task = task, isLoading = false) }
+                    _uiState.update { it.copy(task = task, isLoading = false, timerEnabled = withTimer) }
+                    if (withTimer) run(FocusTimer(totalMs = durationMsOf(task)).started(clock()))
                     loadSteps(taskId)
                 }
                 .onFailure {

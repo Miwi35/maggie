@@ -95,6 +95,23 @@ class FocusViewModelTest {
     }
 
     @Test
+    fun `opened from the timer of a timed task, the timer is on and running at its minutes (MAG-766)`() = runTest(testDispatcher) {
+        coEvery { repository.fetchTask("t1") } returns Result.success(focused.copy(estimatedMinutes = 20, timed = true))
+        val viewModel = viewModel()
+        viewModel.open("t1", withTimer = true)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.timerEnabled)
+        assertEquals(1_200_000L, state.timer.totalMs)
+        assertEquals(FocusTimerPhase.RUNNING, state.phase)
+
+        elapse(60_000)
+        assertEquals(1_140_000L, viewModel.uiState.value.remainingMs)
+        viewModel.close()
+    }
+
+    @Test
     fun `activating the timer on a task with 15 minutes sets the ring to 15 00`() = runTest(testDispatcher) {
         coEvery { repository.fetchTask("t1") } returns Result.success(focused.copy(estimatedMinutes = 15))
         val viewModel = opened()
