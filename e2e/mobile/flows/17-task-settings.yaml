@@ -20,7 +20,7 @@ tags:
 # « Pas faite » (MAG-718, « En retard » before), the sliders and their preview, the defaults, a refused save and the re-read on
 # a Mercure message are the JVM's business (`SettingsViewModelTest`, `TaskSettingsScreenTest`).
 #
-# A chip is a `FilterChip` (role Checkbox): Android reports it `checked`, never `selected`.
+# A day is a `selectable` button (role Checkbox): Android reports it `checked`, never `selected`.
 
 - runScript:
     file: ../scripts/task-settings-api.js
