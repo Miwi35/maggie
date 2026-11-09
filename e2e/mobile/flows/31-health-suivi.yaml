@@ -87,10 +87,9 @@ tags:
 - scrollUntilVisible:
     element:
       id: "energy_card"
-- scrollUntilVisible:
-    element:
-      id: "energy_workouts"
 # The legend's id sits on a merged node whose text Maestro reads on its child: match the text.
+- scrollUntilVisible:
+    element: "Séances [0-9 ]+"
 - extendedWaitUntil:
     visible: "Base [0-9 ]+"
     timeout: 10000
