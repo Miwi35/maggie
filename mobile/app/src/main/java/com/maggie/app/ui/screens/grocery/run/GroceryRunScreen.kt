@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +47,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -130,6 +131,7 @@ fun GroceryRunContent(
         onQuit = onQuit,
         onOpenMaggie = onOpenMaggie,
         immersion = immersion,
+        progress = { GroceryRunProgress(state) },
     ) {
         val current = state.current
         when {
@@ -164,6 +166,37 @@ fun GroceryRunContent(
                     }
                 },
             )
+        }
+    }
+}
+
+/** The header: « Courses · n magasins » and one segment per store of the tour, the store being done filled up to. */
+@Composable
+private fun GroceryRunProgress(state: GroceryRunUiState) {
+    val total = state.tour.size
+    if (state.load != GroceryRunLoad.READY || total == 0 || state.ended) return
+    val done = state.run.current?.let { state.run.tour.indexOf(it) }?.coerceAtLeast(0) ?: 0
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = "Courses · " + if (total == 1) "1 magasin" else "$total magasins",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            modifier = Modifier.testTag(UiTags.GROCERY_RUN_HEADER),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+            repeat(total) { index ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .background(
+                            if (index <= done && state.run.current != null) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceContainerHighest,
+                            RoundedCornerShape(2.dp),
+                        ),
+                )
+            }
         }
     }
 }
@@ -355,15 +388,21 @@ private fun GroceryRunTour(state: GroceryRunUiState, actions: GroceryRunActions)
     val reorder = rememberReorderableLazyListState(listState) { from, to -> actions.move(from.index, to.index) }
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(modifier = Modifier.widthIn(max = if (tablet) 720.dp else 560.dp).fillMaxSize().padding(horizontal = 16.dp)) {
+            Text(
+                text = "Votre tournée",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 8.dp),
+            )
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth().testTag(UiTags.GROCERY_RUN_TOUR),
                 contentPadding = PaddingValues(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                itemsIndexed(tour, key = { _, store -> store.id }) { _, store ->
+                itemsIndexed(tour, key = { _, store -> store.id }) { index, store ->
                     ReorderableItem(reorder, key = store.id) { dragging ->
-                        StoreRow(store, visited = true, dragging = dragging, actions = actions, handle = {
+                        StoreRow(store, position = index + 1, dragging = dragging, actions = actions, handle = {
                             Box(
                                 modifier = Modifier.size(48.dp).draggableHandle(),
                                 contentAlignment = Alignment.Center,
@@ -378,62 +417,80 @@ private fun GroceryRunTour(state: GroceryRunUiState, actions: GroceryRunActions)
                     }
                 }
                 itemsIndexed(skipped, key = { _, store -> store.id }) { _, store ->
-                    StoreRow(store, visited = false, dragging = false, actions = actions, handle = { Box(Modifier.size(48.dp)) })
+                    StoreRow(store, position = null, dragging = false, actions = actions, handle = { Box(Modifier.size(48.dp)) })
                 }
             }
-            MainButton("C'est parti", UiTags.GROCERY_RUN_GO, enabled = state.canStart, onClick = actions.start)
+            MainButton(
+                text = tour.firstOrNull()?.let { "Commencer par ${it.name}" } ?: "Commencer",
+                tag = UiTags.GROCERY_RUN_GO,
+                enabled = state.canStart,
+                onClick = actions.start,
+            )
         }
     }
 }
 
+/** A store of the tour: the big box says whether it is visited today, then its name, its count, its place and the handle. */
 @Composable
 private fun StoreRow(
     store: RunStore,
-    visited: Boolean,
+    position: Int?,
     dragging: Boolean,
     actions: GroceryRunActions,
     handle: @Composable () -> Unit,
 ) {
+    val visited = position != null
     Surface(
         modifier = Modifier.fillMaxWidth().alpha(if (visited) 1f else 0.7f).testTag(UiTags.groceryRunStore(store.id)),
         shape = RoundedCornerShape(16.dp),
         color = if (dragging) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                handle()
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = store.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .toggleable(
+                        value = visited,
+                        role = Role.Checkbox,
+                        onValueChange = { actions.setVisited(store.id, !visited) },
                     )
-                    Text(
-                        text = articlesLabel(store.count),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    .semantics { contentDescription = if (visited) "Pas aujourd'hui : ${store.name}" else "Je visite ${store.name}" }
+                    .testTag(if (visited) UiTags.groceryRunSkip(store.id) else UiTags.groceryRunVisit(store.id)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(if (visited) MaterialTheme.colorScheme.primary else Color.Transparent, RoundedCornerShape(10.dp))
+                        .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (visited) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
                 }
             }
-            Row(
-                modifier = Modifier.padding(start = 48.dp, top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(
-                    selected = visited,
-                    onClick = { actions.setVisited(store.id, true) },
-                    label = { Text("Je le visite") },
-                    modifier = Modifier.height(48.dp).testTag(UiTags.groceryRunVisit(store.id)),
+            Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                Text(
+                    text = store.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                FilterChip(
-                    selected = !visited,
-                    onClick = { actions.setVisited(store.id, false) },
-                    label = { Text("Pas aujourd'hui") },
-                    modifier = Modifier.height(48.dp).testTag(UiTags.groceryRunSkip(store.id)),
+                Text(
+                    text = articlesLabel(store.count),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (position != null) {
+                Text(
+                    text = position.toString(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp).testTag(UiTags.groceryRunPosition(store.id)),
+                )
+            }
+            handle()
         }
     }
 }
