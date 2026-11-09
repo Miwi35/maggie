@@ -23,7 +23,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Weather
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTokens
 import kotlin.math.roundToInt
+
+private val WEATHER_BLUE = MaggieTokens.Signal.info
 
 /**
  * The Météo card of the Digest (MAG-710), kept plain: the max in big and the min under it, the word for the weather
@@ -37,7 +40,7 @@ fun WeatherCard(weather: Weather, modifier: Modifier = Modifier) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("● Météo", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Text("● Météo", style = MaterialTheme.typography.titleMedium, color = WEATHER_BLUE)
             Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     weather.degrees(weather.maxC)?.let {

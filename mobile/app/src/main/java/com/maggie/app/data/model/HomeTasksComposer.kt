@@ -69,6 +69,7 @@ object HomeTasksComposer {
         done = done,
         overdueDays = if (done) null else overdueDays,
         parentId = parent?.substringAfterLast('/')?.takeIf { it.isNotBlank() },
+        time = scheduledAt?.toString(),
     )
 
     private fun DayRoutine.toRow() = HomeRoutine(id = id, title = title, anchor = anchor, time = time, checked = checked)

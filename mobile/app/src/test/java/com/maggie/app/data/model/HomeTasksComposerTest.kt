@@ -209,4 +209,13 @@ class HomeTasksComposerTest {
         assertEquals(2, card.more)
         assertTrue(card.tasks.none { it.done })
     }
+
+    @Test
+    fun `a task planned at an hour carries it to its row`() {
+        val timed = Task(id = "t", title = "Appeler", scheduledDate = "2026-10-23", scheduledMoment = "time", scheduledTime = "10:00")
+
+        val card = HomeTasksComposer.today(listOf(timed, task("b")), emptyList(), noRoutines, dayMoments, LocalTime.NOON)
+
+        assertEquals(listOf("10:00", null), card.tasks.map { it.time })
+    }
 }
