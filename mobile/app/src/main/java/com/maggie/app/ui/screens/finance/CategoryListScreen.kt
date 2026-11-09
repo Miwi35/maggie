@@ -36,9 +36,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.CategoryRow
 import com.maggie.app.data.model.categoryKindLabel
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
@@ -117,8 +119,8 @@ private fun CategoryTreeScreen(
 
     Scaffold(
         topBar = {
-            FinanceTopBar(Screen.CategoryList.route, actions = {
-                IconButton(onClick = onOpenRules) {
+            FinanceTopBar(Screen.CategoryList.route, subviewsTrailing = {
+                IconButton(onClick = onOpenRules, modifier = Modifier.testTag(UiTags.CATEGORY_RULES)) {
                     Icon(
                         Icons.AutoMirrored.Filled.Rule,
                         contentDescription = "Règles de catégorisation",

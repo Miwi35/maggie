@@ -5,6 +5,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsOn
@@ -68,6 +70,20 @@ class CategoryListScreenTest {
             CategoryListScreen(viewModel = categories.viewModel, onBack = {})
         }
         compose.waitForIdle()
+    }
+
+    @Test
+    fun `the rules icon ends the row of sub-views, not the header`() {
+        var opened = 0
+        compose.setContent {
+            CategoryListScreen(viewModel = FakeCategories().viewModel, onBack = {}, onOpenRules = { opened++ })
+        }
+        compose.waitForIdle()
+
+        compose.onNode(
+            hasTestTag(UiTags.CATEGORY_RULES).and(hasAnyAncestor(hasTestTag(UiTags.SUBVIEW_ROW_TRAILING))),
+        ).assertIsDisplayed().performClick()
+        assertEquals(1, opened)
     }
 
     @Test
