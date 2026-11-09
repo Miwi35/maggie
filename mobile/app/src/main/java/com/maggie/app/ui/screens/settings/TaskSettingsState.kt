@@ -41,11 +41,9 @@ object TaskSettingsChoices {
 
     fun dayLabel(days: Int): String = "J-$days"
 
-    /** The reminders' group titles and help (MAG-718): they feed the morning digest, at no hour of their own. */
+    /** The reminders' group titles (MAG-718): they feed the morning digest, at no hour of their own. */
     const val TO_SCHEDULE_LABEL = "À programmer"
-    const val TO_SCHEDULE_HELP = "tant que la tâche n'a pas de date programmée"
     const val UNDONE_LABEL = "Pas faite"
-    const val DIGEST_HELP = "Lus par le digest du matin"
 
     /** « Pas faite » (« En retard » before MAG-718): never, then every n days. */
     val OVERDUE_OPTIONS: List<Pair<Int?, String>> = listOf(

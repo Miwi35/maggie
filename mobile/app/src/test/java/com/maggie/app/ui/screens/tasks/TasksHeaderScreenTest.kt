@@ -12,6 +12,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.DayPlan
+import com.maggie.app.data.model.DaySlot
 import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
@@ -102,7 +103,8 @@ class TasksHeaderScreenTest {
 
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
 
-        compose.onNodeWithTag(UiTags.breadcrumbMenu("today")).assertTextContains("Aujourd'hui (0)")
+        // The day has no slot yet: « Aujourd'hui » counts the today view, a task scheduled today included (MAG-718).
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("today")).assertTextContains("Aujourd'hui (1)")
         compose.onNodeWithTag(UiTags.breadcrumbMenu(ROUTINES_TAB)).assertTextEquals("Routines")
         compose.onNodeWithTag(UiTags.breadcrumbMenu("upcoming")).assertTextContains("À venir (2)")
         compose.onNodeWithTag(UiTags.breadcrumbMenu("someday")).assertTextContains("Un jour (3)")
@@ -168,5 +170,16 @@ class TasksHeaderScreenTest {
     fun `a view label is its name, and its count when it has one`() {
         assertEquals("Un jour", TaskView.SOMEDAY.label)
         assertEquals("Faites", tabLabelOf(TaskView.DONE, TasksUiState()))
+    }
+
+    @Test
+    fun `Aujourd'hui counts the day's slots once chosen, the today view before (MAG-718)`() {
+        val counts = TaskViewCounts(today = 1)
+        val empty = DayPlan(id = "day", date = today.toString())
+        val chosen = empty.copy(slots = listOf(DaySlot(position = 1, task = DayTask(id = "d1", title = "Appeler le garage"))), total = 1, done = 1)
+
+        assertEquals(1, tabCountOf(TaskView.TODAY, TasksUiState(day = empty, counts = counts)))
+        assertEquals(0, tabCountOf(TaskView.TODAY, TasksUiState(day = chosen, counts = counts)))
+        assertEquals(1, tabCountOf(TaskView.TODAY, TasksUiState(counts = counts)))
     }
 }
