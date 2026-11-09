@@ -40,7 +40,7 @@ use Symfony\Component\Uid\Ulid;
 #[Indexed(index: 'notifications', module: 'notification')]
 #[ApiResource(
     operations: [
-        new GetCollection(order: ['createdAt' => 'DESC'], provider: ElasticsearchCollectionProvider::class),
+        new GetCollection(order: ['createdAt' => 'DESC', 'id' => 'DESC'], provider: ElasticsearchCollectionProvider::class),
         new Get(provider: ElasticsearchItemProvider::class),
         new Patch(processor: MarkReadProcessor::class),
         new Delete(processor: DeleteNotificationProcessor::class),
