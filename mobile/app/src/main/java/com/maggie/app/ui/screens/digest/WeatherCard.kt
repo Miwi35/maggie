@@ -17,16 +17,16 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Weather
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTokens
 import kotlin.math.roundToInt
 
-private val WEATHER_BLUE = Color(0xFF8FB8FF)
+private val WEATHER_BLUE = MaggieTokens.Signal.info
 
 /**
  * The Météo card of the Digest (MAG-710), kept plain: the max in big and the min under it, the word for the weather
