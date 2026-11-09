@@ -158,11 +158,11 @@ data class EveningState(
 
 /**
  * The day the evening reviews: its slots, or — none written, as no morning fills them since MAG-766 — the tasks of
- * the day, top-level, in the list's order.
+ * the day, the rows of the list in its order.
  */
 internal fun eveningDayOf(day: DayPlan, tasks: List<Task>?): DayPlan {
     if (day.slots.isNotEmpty() || tasks.isNullOrEmpty()) return day
-    val slots = tasks.filterNot { it.isSubtask }.mapIndexed { i, task ->
+    val slots = tasks.mapIndexed { i, task ->
         DaySlot(
             position = i + 1,
             task = DayTask(
