@@ -25,6 +25,7 @@
             "links": [],
             "estimatedMinutes": 20,
             "firstStep": "Ouvrir le dossier",
+            "timed": true,
             "overdueDays": 33,
             "urgency": "critical",
             "orderScore": 111,
@@ -50,6 +51,7 @@
                     "link": "https://mail.google.com/mail/#all/abc"
                 }
             ],
+            "timed": false,
             "urgency": "low",
             "orderScore": 3,
             "done": false,
@@ -66,6 +68,7 @@
             "reminders": [],
             "position": "00000000000000000002",
             "links": [],
+            "timed": false,
             "urgency": "low",
             "orderScore": 3,
             "done": false,
@@ -82,6 +85,7 @@
             "reminders": [],
             "completedAt": "2026-03-19T10:00:00+00:00",
             "links": [],
+            "timed": false,
             "urgency": "low",
             "orderScore": 0,
             "done": true,

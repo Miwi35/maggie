@@ -36,7 +36,8 @@ import com.maggie.app.data.local.entity.TaskEntity
     // 15: tasks carry their estimated duration and first step (MAG-497).
     // 16: a voice message carries its audio attachment (MAG-686).
     // 17: tasks carry their scheduled day, moment, time and reminders (MAG-718).
-    version = 17,
+    // 18: a task says whether it is timed (MAG-766).
+    version = 18,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

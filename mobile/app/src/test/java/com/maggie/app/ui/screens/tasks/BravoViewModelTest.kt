@@ -1,14 +1,15 @@
 package com.maggie.app.ui.screens.tasks
 
 import com.maggie.app.data.model.AlertRule
-import com.maggie.app.data.model.DayPlan
-import com.maggie.app.data.model.DaySlot
-import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Reward
 import com.maggie.app.data.model.Stars
+import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.data.model.TaskSettingsValues
+import com.maggie.app.data.model.TaskView
+import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.TasksOfDay
 import com.maggie.app.data.reward.RewardFeedback
 import com.maggie.app.data.reward.TaskRewards
 import io.mockk.coEvery
@@ -94,24 +95,22 @@ class BravoViewModelTest {
         defaults = values,
     )
 
-    /** Five slots, the first three done: « Maintenant » is the 4th, 10 minutes. */
-    private fun day(doneCount: Int = 3): DayPlan {
+    /** Five tasks of the day (MAG-766), the first [doneCount] done. */
+    private fun day(doneCount: Int = 3): TasksOfDay {
         val tasks = listOf(
-            DayTask(id = "d1", title = "Renvoyer le formulaire"),
-            DayTask(id = "d2", title = "Arroser"),
-            DayTask(id = "d3", title = "Sortir les poubelles"),
-            DayTask(id = "d4", title = "Appeler le garage", estimatedMinutes = 10),
-            DayTask(id = "d5", title = "Acheter du pain"),
+            Task(id = "d1", title = "Renvoyer le formulaire"),
+            Task(id = "d2", title = "Arroser"),
+            Task(id = "d3", title = "Sortir les poubelles"),
+            Task(id = "d4", title = "Appeler le garage", estimatedMinutes = 10),
+            Task(id = "d5", title = "Acheter du pain"),
         ).mapIndexed { i, task -> if (i < doneCount) task.copy(completedAt = "2026-10-15T08:00:00Z") else task }
-        val slots = tasks.mapIndexed { i, task -> DaySlot(position = i + 1, task = task) }
-        return DayPlan(
-            id = "day",
-            date = today.toString(),
-            slots = slots,
-            now = slots.firstOrNull { !it.task.isDone },
-            done = doneCount,
-            total = slots.size,
-        )
+        return TasksOfDay(tasks.filterNot { it.isDone } + tasks.filter { it.isDone })
+    }
+
+    /** The today view and the tasks done today as [day] holds them. */
+    private fun serveDay(day: TasksOfDay) {
+        coEvery { repository.getTaskView(TaskView.TODAY, null) } returns Result.success(TaskViewResponse(member = day.tasks.filterNot { it.isDone }))
+        coEvery { repository.getCompletedBetween(any(), any(), any()) } returns day.tasks.filter { it.isDone }
     }
 
     @Before
@@ -121,7 +120,7 @@ class BravoViewModelTest {
         feedback = mockk(relaxed = true)
         coEvery { repository.getTaskReward("d1") } returns Result.success(reward)
         coEvery { repository.getTaskSettings() } returns Result.success(settings())
-        coEvery { repository.getDayPlan(today) } returns Result.success(day())
+        serveDay(day())
         coEvery { repository.getStars() } returns Result.success(stars)
     }
 

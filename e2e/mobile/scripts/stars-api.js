@@ -65,12 +65,14 @@ if (ACTION === 'setup') {
   cleanup()
   const created = http.post(base + '/api/tasks', {
     headers: { Authorization: 'Bearer ' + token, Accept: 'application/ld+json', 'Content-Type': 'application/ld+json' },
-    body: JSON.stringify({ title: 'Étoile ' + marker }),
+    // Planned today: « Aujourd'hui » lists it (MAG-766).
+    body: JSON.stringify({ title: 'Étoile ' + marker, scheduledDate: TODAY }),
   })
   if (!created.ok) {
     fail('POST /api/tasks answered ' + created.status + ': ' + created.body)
   }
-  const day = writeDay([JSON.parse(created.body).id])
+  output.taskId = JSON.parse(created.body).id
+  const day = writeDay([output.taskId])
   if (day.total !== 1) {
     fail('the day holds ' + day.total + ' slots after the PUT, expected 1')
   }

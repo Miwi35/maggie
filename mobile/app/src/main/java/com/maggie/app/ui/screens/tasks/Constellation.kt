@@ -131,7 +131,7 @@ private fun StarDot(latest: Boolean, animate: Boolean) {
     }
 }
 
-/** The star a done task carries in « Mes 5 », with its name for the screen reader. */
+/** The star a done task carries in « Aujourd'hui », with its name for the screen reader. */
 @Composable
 internal fun TaskStar(modifier: Modifier = Modifier) {
     Icon(

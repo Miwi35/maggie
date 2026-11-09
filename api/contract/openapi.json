@@ -29464,6 +29464,11 @@
                             "null"
                         ]
                     },
+                    "timed": {
+                        "description": "The task is done with a timer, for estimatedMinutes (« méditer 20 min »). Maggie's own: Google never sees it.",
+                        "default": false,
+                        "type": "boolean"
+                    },
                     "overdueDays": {
                         "readOnly": true,
                         "description": "Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user's timezone.",
@@ -29680,6 +29685,11 @@
                             "null"
                         ]
                     },
+                    "timed": {
+                        "description": "The task is done with a timer, for estimatedMinutes (« méditer 20 min »). Maggie's own: Google never sees it.",
+                        "default": false,
+                        "type": "boolean"
+                    },
                     "overdueDays": {
                         "readOnly": true,
                         "description": "Days late: the due day is past and the task is not done. Null otherwise. Computed on read, in the user's timezone.",
@@ -29895,6 +29905,11 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "timed": {
+                        "description": "The task is done with a timer, for estimatedMinutes (« méditer 20 min »). Maggie's own: Google never sees it.",
+                        "default": false,
+                        "type": "boolean"
                     },
                     "overdueDays": {
                         "readOnly": true,
@@ -30113,6 +30128,11 @@
                                     "string",
                                     "null"
                                 ]
+                            },
+                            "timed": {
+                                "description": "The task is done with a timer, for estimatedMinutes (« méditer 20 min »). Maggie's own: Google never sees it.",
+                                "default": false,
+                                "type": "boolean"
                             },
                             "overdueDays": {
                                 "readOnly": true,

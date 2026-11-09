@@ -1623,7 +1623,9 @@ fun NavGraph() {
                                         selectedTask = it
                                     },
                                     onCreateTask = { dueDay -> createTask(dueDay) },
-                                    onFocus = {
+                                    // A timed task's timer (MAG-766): its Focus, the timer running at its minutes.
+                                    onTimer = {
+                                        focusViewModel.open(it, withTimer = true)
                                         focusTaskId = it
                                         navController.navigate(Screen.TaskFocus.route) { launchSingleTop = true }
                                     },

@@ -95,13 +95,13 @@ class UiTagsTest {
         assertEquals(UiTags.SETTINGS_TASKS_REMINDER_CAP + "_plus", UiTags.SETTINGS_TASKS_REMINDER_CAP_PLUS)
     }
 
-    /** `e2e/mobile/flows/17b-tasks-day.yaml` spells the day's slots and the reserve's rows by hand (MAG-497). */
+    /** `e2e/mobile/flows/17b-tasks-day.yaml` spells the tasks of the day by hand (MAG-766). */
     @Test
-    fun `the day's slots are suffixed by position, its tasks by id`() {
-        assertEquals("tasks_slot_3", UiTags.tasksSlot(3))
-        assertEquals("tasks_slot_check_01ABC", UiTags.tasksSlotCheck("01ABC"))
-        assertEquals("tasks_reserve_item_01ABC", UiTags.tasksReserveItem("01ABC"))
-        assertEquals("tasks_reserve_add_01ABC", UiTags.tasksReserveAdd("01ABC"))
-        assertEquals("tasks_replace_2", UiTags.tasksReplace(2))
+    fun `the tasks of the day are suffixed by id`() {
+        assertEquals("tasks_today_row_01ABC", UiTags.tasksTodayRow("01ABC"))
+        assertEquals("tasks_today_check_01ABC", UiTags.tasksTodayCheck("01ABC"))
+        assertEquals("tasks_today_when_01ABC", UiTags.tasksTodayWhen("01ABC"))
+        assertEquals("tasks_today_urgency_01ABC", UiTags.tasksTodayUrgency("01ABC"))
+        assertEquals("tasks_today_timer_01ABC", UiTags.tasksTodayTimer("01ABC"))
     }
 }

@@ -247,3 +247,23 @@ class TestScheduledOrDue:
         args = await written(schedule_api, "Le dossier CAF, c'est pour vendredi au plus tard")
 
         assert args == {"id": schedule_api.IDS["Dossier CAF"], "dueDate": expand_days("${friday}")}
+
+
+class TestTimedTask:
+    """MAG-766: « médite 20 minutes ce soir » is done with a timer, for those 20 minutes."""
+
+    async def test_meditating_20_minutes_tonight_creates_a_timed_task_on_the_evening(self, api):
+        result = await ask([{"role": "user", "content": "Médite 20 minutes ce soir"}])
+
+        assert called(result) == ["create_task"]
+        _, args = api.calls[0]
+        assert args["timed"] is True
+        assert args["estimatedMinutes"] == 20
+        assert args == {
+            "title": "Méditer",
+            "estimatedMinutes": 20,
+            "timed": True,
+            "scheduledDate": expand_days("${today}"),
+            "scheduledMoment": "evening",
+        }
+        assert "au minuteur" in result["response"]

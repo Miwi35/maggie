@@ -3,6 +3,8 @@ package com.maggie.app.ui.screens.shared
 import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -19,11 +21,14 @@ import com.maggie.app.util.DateRanges
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -111,6 +116,44 @@ class TaskFormScreenTest {
 
         assertEquals(listOf("Acheter du pain"), created.map { it.title })
         assertEquals("2026-10-16", created.single().dueDate)
+    }
+
+    @Test
+    fun `« Chronométrée » beside « Durée » creates a timed task (MAG-766)`() {
+        val created = mutableListOf<TaskCreateRequest>()
+        showCreate(onCreate = { created += it })
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_TITLE).performTextInput("Méditer")
+        compose.onNodeWithTag(UiTags.TASK_ESTIMATE).performScrollTo().performTextInput("20")
+        compose.onNodeWithTag(UiTags.TASK_TIMED).performScrollTo().assertIsOff().performClick()
+        compose.onNodeWithTag(UiTags.TASK_TIMED).assertIsOn()
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+
+        assertTrue(created.single().timed)
+        assertEquals(20, created.single().estimatedMinutes)
+    }
+
+    @Test
+    fun `a duration alone is not timed (MAG-766)`() {
+        val created = mutableListOf<TaskCreateRequest>()
+        showCreate(onCreate = { created += it })
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_TITLE).performTextInput("Appeler le garage")
+        compose.onNodeWithTag(UiTags.TASK_ESTIMATE).performScrollTo().performTextInput("10")
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+
+        assertFalse(created.single().timed)
+    }
+
+    @Test
+    fun `« Chronométrée » turned off on a timed task sends timed false (MAG-766)`() {
+        val updates = mutableListOf<JsonObject>()
+        showEdit(onUpdate = { updates += it }, task = task.copy(timed = true, estimatedMinutes = 20))
+
+        compose.onNodeWithTag(UiTags.TASK_TIMED).performScrollTo().assertIsOn().performClick()
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+
+        assertFalse(updates.single().getValue("timed").jsonPrimitive.boolean)
     }
 
     @Test

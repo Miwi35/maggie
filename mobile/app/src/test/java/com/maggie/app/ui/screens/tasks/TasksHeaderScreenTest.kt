@@ -12,8 +12,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.DayPlan
-import com.maggie.app.data.model.DaySlot
 import com.maggie.app.data.model.DayTask
+import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
 import com.maggie.app.data.model.TaskViewResponse
@@ -51,11 +51,16 @@ class TasksHeaderScreenTest {
         val day = DayPlan(id = "day", date = today.toString(), reserve = listOf(DayTask(id = "r1", title = "Trier les photos")))
         val repository = mockk<TaskRepository>()
         coEvery { repository.getDayPlan(today) } returns Result.success(day)
-        coEvery { repository.getTaskView(TaskView.TODAY, null) } returns
-            Result.success(TaskViewResponse(counts = TaskViewCounts(today = 1, upcoming = 2, someday = 3, done = 4)))
+        coEvery { repository.getTaskView(TaskView.TODAY, null) } returns Result.success(
+            TaskViewResponse(
+                member = listOf(Task(id = "t1", title = "Appeler le garage")),
+                totalItems = 1,
+                counts = TaskViewCounts(today = 1, upcoming = 2, someday = 3, done = 4),
+            ),
+        )
         coEvery { repository.getTaskView(TaskView.UPCOMING, null) } returns
             Result.success(TaskViewResponse(counts = TaskViewCounts(today = 1, upcoming = 2, someday = 3, done = 4)))
-        coEvery { repository.getMorningTime() } returns Result.failure(IllegalStateException("offline"))
+        coEvery { repository.getCompletedBetween(any(), any(), any()) } returns emptyList()
         coEvery { repository.getEveningTime() } returns Result.failure(IllegalStateException("offline"))
         val auth = mockk<AuthRepository>()
         every { auth.token } returns flowOf("jwt")
@@ -146,10 +151,11 @@ class TasksHeaderScreenTest {
     }
 
     @Test
-    fun `the day reads « Réserve · 1 » and has no add line`() {
+    fun `the day lists its tasks, with no reserve and no add line (MAG-766)`() {
         show()
 
-        compose.onNodeWithText("Réserve · 1").assertIsDisplayed()
+        compose.onNodeWithText("Appeler le garage").assertIsDisplayed()
+        compose.onNodeWithText("Réserve", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Ajouter une tâche").assertDoesNotExist()
     }
 
@@ -173,13 +179,11 @@ class TasksHeaderScreenTest {
     }
 
     @Test
-    fun `Aujourd'hui counts the day's slots once chosen, the today view before (MAG-718)`() {
+    fun `Aujourd'hui counts the tasks of the day left, the today view before they are read (MAG-766)`() {
         val counts = TaskViewCounts(today = 1)
-        val empty = DayPlan(id = "day", date = today.toString())
-        val chosen = empty.copy(slots = listOf(DaySlot(position = 1, task = DayTask(id = "d1", title = "Appeler le garage"))), total = 1, done = 1)
+        val tasks = listOf(Task(id = "t1", title = "Appeler le garage"), Task(id = "t2", title = "Méditer", completedAt = "2026-10-15T07:00:00Z"))
 
-        assertEquals(1, tabCountOf(TaskView.TODAY, TasksUiState(day = empty, counts = counts)))
-        assertEquals(0, tabCountOf(TaskView.TODAY, TasksUiState(day = chosen, counts = counts)))
+        assertEquals(1, tabCountOf(TaskView.TODAY, TasksUiState(todayTasks = tasks, counts = TaskViewCounts(today = 5))))
         assertEquals(1, tabCountOf(TaskView.TODAY, TasksUiState(counts = counts)))
     }
 }

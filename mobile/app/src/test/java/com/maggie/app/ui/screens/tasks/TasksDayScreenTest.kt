@@ -1,24 +1,27 @@
 package com.maggie.app.ui.screens.tasks
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.DayPlan
-import com.maggie.app.data.model.DaySlot
 import com.maggie.app.data.model.DayTask
+import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewResponse
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.reward.TaskRewards
 import com.maggie.app.screentest.ScreenRule
-import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
 import io.mockk.every
@@ -32,9 +35,9 @@ import org.junit.runner.RunWith
 import java.time.LocalDate
 
 /**
- * « Aujourd'hui » as the day (MAG-497), over the real ViewModel and a faked repository: « Maintenant »
- * with its first step and estimate, the ring, the five in order with « reportée » in words, and the
- * reserve folded under its count until asked for. `17b-tasks-day` adds a task on a device.
+ * « Aujourd'hui » as the tasks of the day (MAG-766, mock-up `Tac-Main`), over the real ViewModel and a faked
+ * repository: each task with its box and no number, the « quand » and urgency pills, the timer of a timed task
+ * only, a task done struck without pills, and no reserve. `17b-tasks-day` plays it on a device.
  */
 @RunWith(AndroidJUnit4::class)
 class TasksDayScreenTest {
@@ -42,124 +45,148 @@ class TasksDayScreenTest {
     @get:Rule
     val compose = ScreenRule()
 
+    /** A Thursday. */
     private val today = LocalDate.of(2026, 10, 15)
 
-    private val form = DayTask(
-        id = "d1",
-        title = "Renvoyer le formulaire de la mutuelle",
-        estimatedMinutes = 10,
-        firstStep = "Ouvrir le dossier",
-        postponedSince = "2026-10-12",
+    private val garage = Task(
+        id = "t1",
+        title = "Appeler le garagiste",
+        scheduledDate = "2026-10-15",
+        scheduledMoment = Task.MOMENT_TIME,
+        scheduledTime = "10:00",
         urgency = "high",
+        estimatedMinutes = 10,
     )
-    private val tax = DayTask(id = "d2", title = "Payer l'impôt", postponedSince = "2026-10-12", urgency = "critical")
-    private val bins = DayTask(id = "d3", title = "Sortir les poubelles", completedAt = "2026-10-15T07:00:00Z")
-    private val photos = DayTask(id = "r1", title = "Trier les photos de vacances", postponedSince = "2026-10-14")
+    private val mutuelle = Task(id = "t2", title = "Renvoyer le dossier de la mutuelle", dueDate = "2026-10-15", urgency = "critical")
+    private val meditate = Task(
+        id = "t3",
+        title = "Méditer",
+        scheduledDate = "2026-10-15",
+        scheduledMoment = Task.MOMENT_EVENING,
+        timed = true,
+        estimatedMinutes = 20,
+        urgency = "normal",
+    )
+    private val papers = Task(id = "t4", title = "Trier les papiers de la banque", scheduledDate = "2026-10-15", dueDate = "2026-10-23", urgency = "normal")
+    private val parcel = Task(id = "t5", title = "Renvoyer le colis", completedAt = "2026-10-15T07:12:00Z", timed = true, estimatedMinutes = 5)
+    private val photos = DayTask(id = "r1", title = "Trier les photos de vacances")
 
     private fun show(
-        slotted: List<DayTask>,
-        reserve: List<DayTask> = listOf(photos),
-        onFocus: (String) -> Unit = {},
+        open: List<Task> = listOf(garage, mutuelle, meditate, papers),
+        done: List<Task> = listOf(parcel),
+        onTimer: (String) -> Unit = {},
     ): TasksViewModel {
-        val slots = slotted.mapIndexed { i, task -> DaySlot(position = i + 1, task = task) }
-        val day = DayPlan(
-            id = "day",
-            date = today.toString(),
-            slots = slots,
-            now = slots.firstOrNull { !it.task.isDone },
-            reserve = reserve,
-            done = slots.count { it.task.isDone },
-            total = slots.size,
-        )
+        // The server as the ticks leave it: a task ticked leaves the today view for those done today.
+        val ticked = mutableSetOf<String>()
         val repository = mockk<TaskRepository>()
-        coEvery { repository.getDayPlan(today) } returns Result.success(day)
-        coEvery { repository.getTaskView(TaskView.TODAY, null) } returns Result.success(TaskViewResponse())
-        coEvery { repository.getMorningTime() } returns Result.failure(IllegalStateException("offline"))
+        coEvery { repository.getDayPlan(today) } returns Result.success(DayPlan(id = "day", date = today.toString(), reserve = listOf(photos)))
+        coEvery { repository.getTaskView(TaskView.TODAY, null) } answers {
+            val left = open.filter { it.id !in ticked }
+            Result.success(TaskViewResponse(member = left, totalItems = left.size))
+        }
+        coEvery { repository.getCompletedBetween(any(), any(), any()) } answers {
+            open.filter { it.id in ticked }.map { it.copy(completedAt = "2026-10-15T08:00:00Z") } + done
+        }
         coEvery { repository.getEveningTime() } returns Result.failure(IllegalStateException("offline"))
+        coEvery { repository.toggleDone(any(), any()) } answers {
+            val id = firstArg<String>()
+            if (secondArg<Boolean>()) ticked += id else ticked -= id
+            Result.success(open.first { it.id == id })
+        }
+        coEvery { repository.getTaskReward(any()) } returns Result.success(null)
         val auth = mockk<AuthRepository>()
         every { auth.token } returns flowOf("jwt")
         coEvery { auth.getUserId() } returns "u1"
         val mercure = mockk<MercureService>()
         every { mercure.subscribe(any()) } returns emptyFlow()
         val viewModel = TasksViewModel(repository, mercure, auth, TaskRewards(repository, mockk(relaxed = true)), offlineRoutines(), today = { today })
-        compose.setContent { TasksScreen(viewModel = viewModel, onTaskClick = {}, onCreateTask = {}, onFocus = onFocus) }
+        compose.setContent { TasksScreen(viewModel = viewModel, onTaskClick = {}, onCreateTask = {}, onTimer = onTimer) }
         compose.waitForIdle()
         return viewModel
     }
 
-    @Test
-    fun `« Maintenant » shows the first task not done, its first step and its estimate`() {
-        show(listOf(bins, form, tax))
+    private fun pillOf(taskId: String, text: String) =
+        compose.onNode(hasText(text) and hasAnyAncestor(hasTestTag(UiTags.tasksTodayRow(taskId))), useUnmergedTree = true)
 
-        compose.onNodeWithTag(UiTags.TASKS_NOW).assertIsDisplayed()
-        compose.onNodeWithText("Ouvrir le dossier").assertIsDisplayed()
-        compose.onNodeWithText("Juste 10 minutes").assertIsDisplayed()
-        compose.onNodeWithContentDescription("1 sur 3 tâches faites").assertIsDisplayed()
+    @Test
+    fun `every task of the day has its box, with no number, no « C'est parti », no « Plus tard » and no reserve`() {
+        show()
+
+        listOf("t1", "t2", "t3", "t4").forEach { compose.onNodeWithTag(UiTags.tasksTodayCheck(it)).performScrollTo().assertIsOff() }
+        compose.onNodeWithTag(UiTags.tasksTodayCheck("t5")).performScrollTo().assertIsOn()
+        compose.onNodeWithContentDescription("1 sur 5 tâches faites").assertIsDisplayed()
+        listOf("C'est parti", "Plus tard", "Maintenant", "Mes 5", "Changer", "Le soir", "1", "2").forEach {
+            compose.onNodeWithText(it, useUnmergedTree = true).assertDoesNotExist()
+        }
+        compose.onNodeWithText("Réserve", substring = true, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
-    fun `the five in order, « reportée » in words and a critical task with its own mark`() {
-        show(listOf(form, tax, bins))
+    fun `the « quand » pill says the time, the moment, a deadline today or another day`() {
+        show()
 
-        compose.onNodeWithText("Mes 5").assertIsDisplayed()
-        assertTopToBottom(
-            "slot 1" to compose.onNodeWithTag(UiTags.tasksSlot(1)),
-            "slot 2" to compose.onNodeWithTag(UiTags.tasksSlot(2)),
-            "slot 3" to compose.onNodeWithTag(UiTags.tasksSlot(3)),
-        )
-        compose.onNodeWithText("reportée depuis lundi", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("critique", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("En retard", substring = true, useUnmergedTree = true).assertDoesNotExist()
+        pillOf("t1", "à 10:00").assertExists()
+        pillOf("t3", "ce soir").assertExists()
+        pillOf("t2", "avant ce soir").assertExists()
+        pillOf("t4", "limite jeu. 23").assertDoesNotExist()
+        pillOf("t4", "limite ven. 23").assertExists()
     }
 
     @Test
-    fun `a task done carries its star in Mes 5, a task left carries none (MAG-509)`() {
-        show(listOf(form, bins))
+    fun `the urgency pill is drawn for Critique and Haute only`() {
+        show()
 
-        compose.onNode(hasTestTag(UiTags.TASK_STAR) and hasAnyAncestor(hasTestTag(UiTags.tasksSlot(1))), useUnmergedTree = true).assertDoesNotExist()
-        compose.onNode(hasTestTag(UiTags.TASK_STAR) and hasAnyAncestor(hasTestTag(UiTags.tasksSlot(2))), useUnmergedTree = true).assertExists()
+        pillOf("t2", "Critique").assertExists()
+        pillOf("t1", "Haute").assertExists()
+        compose.onNodeWithTag(UiTags.tasksTodayUrgency("t3"), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.tasksTodayUrgency("t4"), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Normale", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
-    fun `the reserve is folded under its count until its header is tapped`() {
-        show(listOf(form))
+    fun `only a timed task not done has a timer, which opens its Focus`() {
+        val timers = mutableListOf<String>()
+        show(onTimer = { timers += it })
 
-        compose.onNodeWithText("Réserve · 1").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.tasksReserveItem("r1")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.tasksTodayTimer("t1")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.tasksTodayTimer("t5")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.tasksTodayTimer("t3")).performScrollTo().assertIsDisplayed()
+        pillOf("t3", "20 min").assertExists()
 
-        compose.onNodeWithTag(UiTags.TASKS_RESERVE_TOGGLE).performClick()
-        compose.onNode(hasTestTag(UiTags.TASKS)).assertIsDisplayed()
-        compose.onNodeWithText("Trier les photos de vacances").assertIsDisplayed()
-        compose.onNodeWithText("reportée depuis hier", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.tasksTodayTimer("t3")).performClick()
+
+        assertEquals(listOf("t3"), timers)
     }
 
     @Test
-    fun `an empty day has no « Maintenant » and no ring, but its reserve`() {
-        show(emptyList())
+    fun `a task done is struck without pills and says when it was done`() {
+        show()
 
-        compose.onNodeWithTag(UiTags.TASKS_NOW).assertDoesNotExist()
+        pillOf("t5", "faite à 9 h 12").assertExists()
+        // The star it earned (MAG-509).
+        compose.onNode(hasTestTag(UiTags.TASK_STAR) and hasAnyAncestor(hasTestTag(UiTags.tasksTodayRow("t5"))), useUnmergedTree = true).assertExists()
+        compose.onNode(hasTestTag(UiTags.TASK_STAR) and hasAnyAncestor(hasTestTag(UiTags.tasksTodayRow("t1"))), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.tasksTodayWhen("t5"), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.tasksTodayUrgency("t5"), useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a task ticked from the list moves the ring`() {
+        show()
+
+        compose.onNodeWithTag(UiTags.tasksTodayCheck("t2")).performScrollTo().performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.tasksTodayCheck("t2")).assertIsOn()
+        compose.onNodeWithContentDescription("2 sur 5 tâches faites").assertExists()
+    }
+
+    @Test
+    fun `a day with no task has no ring and says so, and there is no reserve`() {
+        show(open = emptyList(), done = emptyList())
+
         compose.onNodeWithTag(UiTags.TASKS_RING).assertDoesNotExist()
-        compose.onNodeWithText("Réserve · 1").assertIsDisplayed()
-    }
-
-    @Test
-    fun `« Juste 10 minutes » opens the Focus on the task of « Maintenant »`() {
-        val focused = mutableListOf<String>()
-        show(listOf(bins, form, tax), onFocus = { focused += it })
-
-        compose.onNodeWithTag(UiTags.TASKS_NOW_FOCUS).performClick()
-
-        assertEquals(listOf("d1"), focused)
-    }
-
-    @Test
-    fun `the menu of a slot offers the Focus on that slot's task`() {
-        val focused = mutableListOf<String>()
-        show(listOf(form, tax), onFocus = { focused += it })
-
-        compose.onNodeWithTag(UiTags.tasksSlotMenu("d2")).performClick()
-        compose.onNodeWithTag(UiTags.TASKS_SLOT_FOCUS).performClick()
-
-        assertEquals(listOf("d2"), focused)
+        compose.onNodeWithText("Rien à faire aujourd'hui.").assertIsDisplayed()
+        compose.onNodeWithText("Réserve", substring = true).assertDoesNotExist()
     }
 }

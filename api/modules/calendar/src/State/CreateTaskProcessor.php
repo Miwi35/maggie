@@ -49,6 +49,7 @@ class CreateTaskProcessor implements ProcessorInterface
                 scheduledTime: $data->getScheduledTime(),
                 // Left out, a precise time gets its default reminder; sent empty, none.
                 reminders: $this->sends('reminders') ? $data->getReminders() : null,
+                timed: $data->isTimed(),
             ));
         } catch (HandlerFailedException $e) {
             if ($e->getPrevious() instanceof InvalidTaskParentException || $e->getPrevious() instanceof InvalidTaskScheduleException) {

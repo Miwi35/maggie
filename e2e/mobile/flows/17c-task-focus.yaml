@@ -12,10 +12,11 @@ onFlowComplete:
 ---
 # The Focus (MAG-499): one task of the day, its first step, an optional ring and its petits pas.
 #
-# Given today's day whose first task has a first step and two subtasks (`scripts/focus-api.js`
-# PUTs /api/day-plans/{TODAY}), when « Juste 10 minutes » is tapped, a petit pas ticked, the ring
-# started and « C'est fait » tapped, then the Focus gives the day back, the task done, and
-# « Maintenant » shows the next task. The script reads the day back to check it in the database.
+# Given today's day whose first task is timed for 10 min, with a first step and two subtasks
+# (`scripts/focus-api.js` PUTs /api/day-plans/{TODAY}), when its timer « 10 min » is tapped from
+# « Aujourd'hui » (MAG-766), the ring runs at once; a pause, a petit pas ticked and « C'est fait »,
+# then the Focus gives the day back, the task done, the next one still there. The script reads the
+# day back to check it in the database.
 #
 # It signs in as the seed's second user, like `17b-tasks-day`, and `onFlowComplete` deletes what
 # it made even when a step failed. The timer's arithmetic, « Je bloque » and « Plus tard » are
@@ -44,13 +45,14 @@ onFlowComplete:
       DEST: tasks
 - extendedWaitUntil:
     visible:
-      id: "tasks_now"
+      id: "tasks_today_timer_${output.firstId}"
     timeout: 30000
 - assertVisible: ".*Focus 1 MAG-499.*"
 
-# « Juste 10 minutes »: the task, its first step marked « 2 min », the ring at 10:00, the petits pas.
+# The timer of a timed task (MAG-766): the Focus, its first step marked « 2 min », the ring running
+# from 10:00, the petits pas.
 - tapOn:
-    id: "tasks_now_focus"
+    id: "tasks_today_timer_${output.firstId}"
 - extendedWaitUntil:
     visible:
       id: "focus"
@@ -60,25 +62,19 @@ onFlowComplete:
     id: "focus_first_step"
 - assertVisible: "Ouvrir le courrier"
 - assertVisible: "2 min"
-# The timer is an option (MAG-716): no ring until « Activer le minuteur ». Its time is read
-# through the ring's description, not through its text.
-- assertNotVisible:
-    id: "focus_ring"
-- tapOn:
-    id: "focus_timer_toggle"
+# Opened from the timer, the ring is on and already runs (MAG-716 makes it an option elsewhere).
 - extendedWaitUntil:
-    visible: ".*Minuteur.*10:00.*"
+    visible:
+      id: "focus_ring"
     timeout: 10000
-- assertVisible: ".*Pas A MAG-499.*"
-- assertVisible: ".*Pas B MAG-499.*"
-
-# The ring runs, and pauses.
-- tapOn:
-    id: "focus_start"
 - extendedWaitUntil:
     visible:
       id: "focus_pause"
     timeout: 10000
+- assertVisible: ".*Pas A MAG-499.*"
+- assertVisible: ".*Pas B MAG-499.*"
+
+# The ring pauses.
 - tapOn:
     id: "focus_pause"
 - extendedWaitUntil:
@@ -105,10 +101,10 @@ onFlowComplete:
 - tapOn:
     id: "bravo_back"
 
-# Back on the day: « Maintenant » follows.
+# Back on the day: the next task is still there.
 - extendedWaitUntil:
     visible:
-      id: "tasks_now"
+      id: "tasks_ring"
     timeout: 20000
 - extendedWaitUntil:
     visible: ".*Focus 2 MAG-499.*"

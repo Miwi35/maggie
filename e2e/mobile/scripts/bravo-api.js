@@ -1,7 +1,8 @@
 // The day of the bravo journey, over HTTP (MAG-508).
 //
-// `setup` gives the day five tasks of its own, the first two done, so a tick from « Mes 5 »
-// is the third of five; the fourth has its minutes, for the day's next task. `expect-reward`
+// `setup` gives the day five tasks of its own, planned today so « Aujourd'hui » lists them (MAG-766),
+// the first two done, so a tick from the list is the third of five; the fourth has its minutes.
+// It sets output.thirdId, the task the journey ticks. `expect-reward`
 // reads back the reward the tick laid down: one star, a message. `cleanup` deletes every task of
 // the journey (its titles carry MAG-508) and empties the day; `setup` runs it first, so a failed
 // run leaves nothing behind for the next.
@@ -53,7 +54,7 @@ function writeDay(taskIds) {
 function createTask(title, estimatedMinutes) {
   const response = http.post(base + '/api/tasks', {
     headers: { Authorization: 'Bearer ' + token, Accept: 'application/ld+json', 'Content-Type': 'application/ld+json' },
-    body: JSON.stringify({ title: title, estimatedMinutes: estimatedMinutes }),
+    body: JSON.stringify({ title: title, estimatedMinutes: estimatedMinutes, scheduledDate: TODAY }),
   })
   if (!response.ok) {
     fail('POST /api/tasks answered ' + response.status + ': ' + response.body)
@@ -65,7 +66,9 @@ function tick(id) {
   const response = http.request(base + '/api/tasks/' + id, {
     method: 'PATCH',
     headers: { Authorization: 'Bearer ' + token, Accept: 'application/ld+json', 'Content-Type': 'application/merge-patch+json' },
-    body: JSON.stringify({ completedAt: new Date().toISOString() }),
+    // The seed's day, not the host's: the phone and the API live on TODAY, so a tick dated by
+    // the runner's clock would not be « done today ».
+    body: JSON.stringify({ completedAt: TODAY + 'T08:00:00Z' }),
   })
   if (!response.ok) {
     fail('PATCH /api/tasks/' + id + ' answered ' + response.status + ': ' + response.body)
@@ -94,6 +97,7 @@ if (ACTION === 'setup') {
   }
   tick(ids[0])
   tick(ids[1])
+  output.thirdId = ids[2]
 } else if (ACTION === 'expect-reward') {
   const third = readDay().slots[2]
   if (!third || third.task.completedAt === null) {

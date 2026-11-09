@@ -2,38 +2,34 @@ appId: com.maggie.app.e2e
 name: 17b-tasks-day
 tags:
   - calendar
-onFlowComplete:
-  - runScript:
-      file: ../scripts/day-plan-api.js
-      env:
-        ACTION: cleanup
-        TODAY: ${TODAY}
-        EMAIL: e2e-other@maggie.local
 ---
-# « Aujourd'hui » is the day (MAG-497): five tasks at most, « Maintenant » on the first one
-# not done, the ring, and the rest in a reserve folded under its count.
+# « Aujourd'hui » as the tasks of the day (MAG-766, extends the tasks journey MAG-98).
 #
-# Given today's day holding five tasks of the journey's own (`scripts/day-plan-api.js`
-# PUTs /api/day-plans/{TODAY}) and a sixth due three days ago, when a task is added with the « + », then it waits in the reserve — the five keep their slots, which the script
-# reads back — and the task due on a past day reads « reportée », never late in red.
+# Étant donné une tâche à 10:00 en urgence Haute, et « Méditer » chronométrée de 20 min
+# Quand j'ouvre Tâches › Aujourd'hui
+# Alors « à 10:00 » et « Haute » sont affichés, et seule « Méditer » porte « 20 min »
+# Quand je coche la première
+# Alors l'anneau passe à « 1 sur 2 »
 #
-# It signs in as the seed's second user, so the day and the reserve of the main one, which
-# `17-tasks-views` reads, stay as the seed made them; `onFlowComplete` deletes the tasks
-# and empties the day even when a step failed. The wording of « reportée » (hier, the
-# weekday, the date) is `TaskPostponedTest`'s; ticking, replacing a slot and putting a
-# task back in the reserve are `TasksViewModelTest`'s and `TasksDayScreenTest`'s.
+# A new user: the two tasks are its only ones, written by `scripts/today-tasks-api.js`. The tick
+# opens the Bravo (MAG-508); « Retour à ma journée » brings the day back, the ring moved, and the
+# script reads the task done in the database.
 #
-# Then « Changer » (MAG-498): the day is confirmed (the setup PUT), so « Ta journée » does not
-# open by itself; asked for, it proposes the five with their minutes and the time against the free
-# time, a swap takes the next task of the reserve, and « C'est parti » writes the five and gives
-# way to the day. The rule and the auto-open are `DayProposalRuleTest`'s and `TasksViewModelTest`'s.
+# What is not here: each pill's wording, the deadline pills, a task done struck without pills, the
+# reserve, a tick refused, the Focus opened timer on (`TodayRowsTest`, `TasksDayScreenTest`,
+# `TasksViewModelTest`, `FocusViewModelTest`).
+
+- runFlow: ../subflows/new-user.yaml
+
+- evalScript: ${output.tag = 'MAG-766 ' + (Math.floor(Math.random() * 90000) + 10000)}
 
 - runScript:
-    file: ../scripts/day-plan-api.js
+    file: ../scripts/today-tasks-api.js
     env:
-      ACTION: setup
+      ACTION: create
+      EMAIL: ${output.journeyEmail}
+      TAG: ${output.tag}
       TODAY: ${TODAY}
-      EMAIL: e2e-other@maggie.local
 
 - launchApp:
     clearState: true
@@ -41,7 +37,7 @@ onFlowComplete:
       all: allow
     arguments:
       e2e_journey: e2e/mobile/flows/17b-tasks-day.yaml
-      e2e_email: e2e-other@maggie.local
+      e2e_email: ${output.journeyEmail}
 
 - runFlow: ../subflows/sign-in.yaml
 
@@ -54,86 +50,62 @@ onFlowComplete:
       id: "tasks"
     timeout: 20000
 
-# The day: « Maintenant » on the first slot, the ring, the five in order.
+# The day: both tasks with their box, the ring at « 0 sur 2 », no « C'est parti ».
 - extendedWaitUntil:
     visible:
-      id: "tasks_now"
+      id: "tasks_today_check_${output.garageId}"
     timeout: 30000
 - assertVisible:
     id: "tasks_ring"
+- assertVisible: ".*0 sur 2.*"
+- assertNotVisible: ".*C'est parti.*"
+
+# « à 10:00 » and « Haute » in the garage task's pills, no timer on it.
 - assertVisible:
-    id: "tasks_slot_1"
-- assertVisible: ".*Jour 1 MAG-497.*"
+    text: "à 10:00"
+    childOf:
+      id: "tasks_today_when_${output.garageId}"
+- assertVisible:
+    text: "Haute"
+    childOf:
+      id: "tasks_today_urgency_${output.garageId}"
+- assertNotVisible:
+    id: "tasks_today_timer_${output.garageId}"
 
-# Added with the floating « + » while the five are taken: it waits in the reserve.
-- tapOn:
-    id: "tasks_add"
-- tapOn:
-    id: "task_form_title"
-- inputText: "Ajout MAG-497"
-- tapOn:
-    id: "task_form_submit"
-- runScript:
-    file: ../scripts/day-plan-api.js
-    env:
-      ACTION: expect-reserve
-      TODAY: ${TODAY}
-      TITLE: Ajout MAG-497
-      EMAIL: e2e-other@maggie.local
-
-# The reserve is folded until its header is tapped. The list is scrolled by hand, in its own
-# pane: `scrollUntilVisible` swipes from the screen's centre, the tablet's detail pane
-# (MAG-571, `subflows/scroll-list-end.yaml`).
-- runFlow: ../subflows/scroll-list-end.yaml
-- tapOn:
-    id: "tasks_reserve_toggle"
-- runFlow: ../subflows/scroll-list-end.yaml
-- extendedWaitUntil:
-    visible: ".*Ajout MAG-497.*"
-    timeout: 20000
-
-# Due three days ago and never done: « reportée », in words, under its title.
-- extendedWaitUntil:
-    visible: ".*Passée MAG-497.*"
+# Only « Méditer » has the timer, « 20 min ».
+- scrollUntilVisible:
+    element:
+      id: "tasks_today_timer_${output.meditateId}"
     timeout: 20000
 - extendedWaitUntil:
     visible:
-      text: ".*reportée depuis.*"
-      below: ".*Passée MAG-497.*"
-    timeout: 20000
-- assertNotVisible: ".*En retard.*"
+      text: "20 min"
+      childOf:
+        id: "tasks_today_timer_${output.meditateId}"
+    timeout: 10000
 
-# « Changer »: the morning's proposal, on demand.
+# Ticked from the list: the Bravo, then back to the day, the ring at « 1 sur 2 ».
 - runFlow: ../subflows/scroll-list-top.yaml
 - tapOn:
-    id: "tasks_change"
+    id: "tasks_today_check_${output.garageId}"
 - extendedWaitUntil:
     visible:
-      id: "tasks_morning"
-    timeout: 30000
-- assertVisible:
-    id: "tasks_morning_time"
-- assertVisible:
-    id: "tasks_morning_slot_1"
-- assertVisible:
-    id: "tasks_morning_go"
-
-# A swap takes the next of the reserve (the put-off task heads it); nothing is written
-# before « C'est parti ».
-- tapOn:
-    id: "tasks_morning_swap_1"
-- extendedWaitUntil:
-    visible: ".*reportée.*"
+      id: "bravo"
     timeout: 20000
-# The button is at the foot of the list, under the tablet's taskbar until it is scrolled up.
-- runFlow: ../subflows/scroll-list-end.yaml
 - tapOn:
-    id: "tasks_morning_go"
-- extendedWaitUntil:
-    notVisible:
-      id: "tasks_morning"
-    timeout: 30000
+    id: "bravo_back"
 - extendedWaitUntil:
     visible:
-      id: "tasks_now"
-    timeout: 30000
+      id: "tasks_ring"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*1 sur 2.*"
+    timeout: 20000
+- runScript:
+    file: ../scripts/today-tasks-api.js
+    env:
+      ACTION: expect-done
+      EMAIL: ${output.journeyEmail}
+      TAG: ${output.tag}
+      TODAY: ${TODAY}
+      TASK_ID: ${output.garageId}

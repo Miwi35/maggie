@@ -29,6 +29,7 @@ final readonly class UpdateTaskCommand
         public ?string $scheduledMoment = null,
         public ?string $scheduledTime = null,
         public ?array $reminders = null,
+        public ?bool $timed = null,
     ) {
     }
 }

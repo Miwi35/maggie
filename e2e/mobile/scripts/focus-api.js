@@ -1,8 +1,9 @@
 // The Focus journey, over HTTP (MAG-499).
 //
-// `setup` gives today's day two tasks of its own: « Focus 1 » with a first step and two subtasks
-// (the petits pas), « Focus 2 » after it. `expect-done` reads the day back: « Focus 1 » is done, both
-// its petits pas are as the phone left them, and « Maintenant » is « Focus 2 ». `cleanup` deletes every
+// `setup` gives today's day two tasks of its own, planned today so « Aujourd'hui » lists them (MAG-766):
+// « Focus 1 », timed for 10 min, with a first step and two subtasks (the petits pas), « Focus 2 » after
+// it. It sets output.firstId. `expect-done` reads the day back: « Focus 1 » is done and « Focus 2 » is
+// the one left. `cleanup` deletes every
 // task of the journey (titles carry MAG-499; the petits pas go with their parent, by cascade) and empties the day; `setup` runs it first.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
@@ -85,10 +86,17 @@ function cleanup() {
 
 if (ACTION === 'setup') {
   cleanup()
-  const first = createTask({ title: 'Focus 1 ' + marker, firstStep: 'Ouvrir le courrier' })
+  const first = createTask({
+    title: 'Focus 1 ' + marker,
+    firstStep: 'Ouvrir le courrier',
+    estimatedMinutes: 10,
+    timed: true,
+    scheduledDate: TODAY,
+  })
+  output.firstId = first.id
   createTask({ title: 'Pas A ' + marker, parent: '/api/tasks/' + first.id })
   createTask({ title: 'Pas B ' + marker, parent: '/api/tasks/' + first.id })
-  const second = createTask({ title: 'Focus 2 ' + marker })
+  const second = createTask({ title: 'Focus 2 ' + marker, scheduledDate: TODAY })
   const day = writeDay([first.id, second.id])
   if (day.total !== 2) {
     fail('the day holds ' + day.total + ' slots after the PUT, expected 2')
@@ -105,7 +113,7 @@ if (ACTION === 'setup') {
     } else if (!first.task.completedAt) {
       problem = '"Focus 1" is not done'
     } else if (!day.now || day.now.task.title !== 'Focus 2 ' + marker) {
-      problem = '« Maintenant » is ' + (day.now ? day.now.task.title : 'empty') + ', expected "Focus 2"'
+      problem = 'the task left is ' + (day.now ? day.now.task.title : 'none') + ', expected "Focus 2"'
     }
     if (problem === null) {
       break

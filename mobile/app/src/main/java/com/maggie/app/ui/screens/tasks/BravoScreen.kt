@@ -65,7 +65,7 @@ internal fun dayBarLabelOf(done: Int, total: Int): String = "${ringLabelOf(done,
 private const val BANNER_MS = 4_000L
 
 /**
- * The Bravo (MAG-508), after a task of the day ticked from « Mes 5 », « Maintenant » or the Focus:
+ * The Bravo (MAG-508), after a task of the day ticked from « Aujourd'hui » (MAG-766) or the Focus:
  * a green circle that appears, small stars, « {titre} · faite », the reward's message, the month's
  * constellation, the day's bar, and « Retour à ma journée ». Nothing moves
  * when the user turned the animation off or the system removes animations.
