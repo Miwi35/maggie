@@ -146,6 +146,13 @@ object MaggieTokens {
         val info = Color(0xFF8FB8FF)
         val critical = Color(0xFFA68BFF)
         val neutral = Color(0xFF8E899C)
+
+        /** A deadline that falls today (MAG-766), the mock-up's amber. */
+        val dueToday = Color(0xFFF4CF6E)
+
+        /** A neutral label, on [labelFill]: the charter keeps the violet for Maggie (MAG-766). */
+        val label = Color(0xFFE4E0EC)
+        val labelFill = Color(0x14FFFFFF)
     }
 
     /** Where spending stands against its pace (`RhythmStatus`), as (light, dark). */

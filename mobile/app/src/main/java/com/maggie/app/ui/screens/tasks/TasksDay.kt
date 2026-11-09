@@ -239,12 +239,6 @@ private fun urgencyColorOf(chip: UrgencyChip): Color = when (chip) {
     UrgencyChip.HIGH -> MaggieTokens.Signal.warning
 }
 
-/** The amber of a deadline that falls today, the mock-up's `#F4CF6E`. */
-private val DueTodayAmber = Color(0xFFF4CF6E)
-
-/** Every other « quand » pill is neutral, the mock-up's `#E4E0EC` on white 8 %: the charter keeps the violet for Maggie. */
-private val WhenNeutral = Color(0xFFE4E0EC)
-
 @Composable
 private fun WhenPill(chip: WhenChip, modifier: Modifier = Modifier) {
     val icon = when (chip.kind) {
@@ -253,9 +247,9 @@ private fun WhenPill(chip: WhenChip, modifier: Modifier = Modifier) {
         WhenKind.DUE_TODAY, WhenKind.DUE -> Icons.Default.Flag
     }
     if (chip.kind == WhenKind.DUE_TODAY) {
-        Pill(text = chip.label, icon = icon, color = DueTodayAmber, background = DueTodayAmber.copy(alpha = 0.16f), modifier = modifier)
+        Pill(text = chip.label, icon = icon, color = MaggieTokens.Signal.dueToday, background = MaggieTokens.Signal.dueToday.copy(alpha = 0.16f), modifier = modifier)
     } else {
-        Pill(text = chip.label, icon = icon, color = WhenNeutral, background = Color.White.copy(alpha = 0.08f), modifier = modifier)
+        Pill(text = chip.label, icon = icon, color = MaggieTokens.Signal.label, background = MaggieTokens.Signal.labelFill, modifier = modifier)
     }
 }
 

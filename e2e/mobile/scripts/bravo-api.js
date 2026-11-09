@@ -66,7 +66,9 @@ function tick(id) {
   const response = http.request(base + '/api/tasks/' + id, {
     method: 'PATCH',
     headers: { Authorization: 'Bearer ' + token, Accept: 'application/ld+json', 'Content-Type': 'application/merge-patch+json' },
-    body: JSON.stringify({ completedAt: new Date().toISOString() }),
+    // The seed's day, not the host's: the phone and the API live on TODAY, so a tick dated by
+    // the runner's clock would not be « done today ».
+    body: JSON.stringify({ completedAt: TODAY + 'T08:00:00Z' }),
   })
   if (!response.ok) {
     fail('PATCH /api/tasks/' + id + ' answered ' + response.status + ': ' + response.body)

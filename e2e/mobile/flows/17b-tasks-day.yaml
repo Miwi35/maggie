@@ -60,13 +60,15 @@ tags:
 - assertVisible: ".*0 sur 2.*"
 - assertNotVisible: ".*C'est parti.*"
 
-# « à 10:00 » and « Haute » on the garage task (its row is one clickable node), no timer on it.
+# « à 10:00 » and « Haute » in the garage task's pills, no timer on it.
 - assertVisible:
-    id: "tasks_today_row_${output.garageId}"
-    text: ".*à 10:00.*"
+    text: "à 10:00"
+    childOf:
+      id: "tasks_today_when_${output.garageId}"
 - assertVisible:
-    id: "tasks_today_row_${output.garageId}"
-    text: ".*Haute.*"
+    text: "Haute"
+    childOf:
+      id: "tasks_today_urgency_${output.garageId}"
 - assertNotVisible:
     id: "tasks_today_timer_${output.garageId}"
 
@@ -77,8 +79,9 @@ tags:
     timeout: 20000
 - extendedWaitUntil:
     visible:
-      id: "tasks_today_timer_${output.meditateId}"
-      text: ".*20 min.*"
+      text: "20 min"
+      childOf:
+        id: "tasks_today_timer_${output.meditateId}"
     timeout: 10000
 
 # Ticked from the list: the Bravo, then back to the day, the ring at « 1 sur 2 ».

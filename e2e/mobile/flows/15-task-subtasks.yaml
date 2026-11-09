@@ -47,11 +47,11 @@ tags:
       id: "tasks_today"
     timeout: 30000
 
-# Its row also says « avant ce soir »: the title is matched within it.
+# The title exactly: a pattern would also match the box's « Marquer comme faite « … » » and tick it.
 - scrollUntilVisible:
-    element: ".*Préparer le déménagement.*"
+    element: "Préparer le déménagement"
     timeout: 30000
-- tapOn: ".*Préparer le déménagement.*"
+- tapOn: "Préparer le déménagement"
 
 - extendedWaitUntil:
     visible: "Les cartons sont à la cave"
