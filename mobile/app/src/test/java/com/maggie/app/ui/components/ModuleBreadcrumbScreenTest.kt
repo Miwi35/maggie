@@ -270,4 +270,26 @@ class ModuleBreadcrumbScreenTest {
         assertEquals(48f, bell.size.width / compose.density.density, 0.6f)
         assertTrue("the bell is cut at the right edge", left + bell.size.width <= rootWidth + 0.5f)
     }
+
+    @Test
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    fun `the month selector and the menu stay compact so the pills are not cropped at 360 dp`() {
+        compose.setContent {
+            SubviewRow(
+                items = listOf(SubviewItem("month", "Mois"), SubviewItem("outside", "Hors budget")),
+                selectedKey = "month",
+                onSelect = {},
+                trailing = {
+                    com.maggie.app.ui.screens.finance.MonthSwitch(year = 2026, month = 11, onPrevious = {}, onNext = {})
+                    com.maggie.app.ui.screens.finance.BudgetMenu(onAdjust = null, onRollOver = {}, rollOverEnabled = true)
+                },
+            )
+        }
+        val density = compose.density.density
+        fun widthDp(matcher: androidx.compose.ui.test.SemanticsMatcher) =
+            compose.onNode(matcher).fetchSemanticsNode().size.width / density
+        assertTrue(widthDp(hasContentDescription("Mois précédent")) <= 36.5f)
+        assertTrue(widthDp(hasContentDescription("Mois suivant")) <= 36.5f)
+        assertTrue(widthDp(hasTestTag(UiTags.BUDGET_MENU)) <= 36.5f)
+    }
 }

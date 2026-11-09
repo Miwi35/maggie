@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -115,7 +116,7 @@ fun ModuleBreadcrumb(
         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = module,
-                fontSize = 20.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -125,7 +126,7 @@ fun ModuleBreadcrumb(
                 Icons.Default.ChevronRight,
                 contentDescription = null,
                 tint = caption,
-                modifier = Modifier.padding(horizontal = 2.dp),
+                modifier = Modifier.size(20.dp),
             )
             Row(
                 modifier = Modifier
@@ -136,20 +137,20 @@ fun ModuleBreadcrumb(
                         contentDescription = "$module, section ${current.label} : changer de section"
                     }
                     .clickable { expanded = true }
-                    .padding(horizontal = 4.dp)
+                    .padding(start = 2.dp)
                     .testTag(UiTags.BREADCRUMB_SECTION),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = current.label,
                     color = accent,
-                    fontSize = 20.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = accent)
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
                 if (expanded) {
                     SectionsMenu(
                         sections = sections,
@@ -339,7 +340,7 @@ fun SubviewRow(
                         this.selected = selected
                     }
                     .clickable { onSelect(item) }
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = if (trailing != null) 12.dp else 16.dp)
                     .testTag(UiTags.subview(item.key)),
                 contentAlignment = Alignment.Center,
             ) {
