@@ -83,7 +83,36 @@ class GroceryRunScreenTest {
         compose.onNodeWithTag(UiTags.GROCERY_RUN_TOUR).assertIsDisplayed()
         assertHabitualOrder()
         compose.onNodeWithText("2 articles").assertIsDisplayed()
-        compose.onNodeWithText("C'est parti").assertIsDisplayed()
+        compose.onNodeWithText("Commencer par Super U").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the tour reads as the mockup, title, header and position of each store`() {
+        draw(state())
+
+        compose.onNodeWithText("Votre tournée").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER).assertTextEquals("Courses · 3 magasins")
+        compose.onNodeWithTag(UiTags.groceryRunPosition("s-m")).assertTextEquals("3")
+        assertTopToBottom(
+            "Votre tournée" to compose.onNodeWithText("Votre tournée"),
+            "Super U" to compose.onNodeWithText("Super U"),
+        )
+    }
+
+    @Test
+    fun `the button names the first store of the session order`() {
+        draw(state(GroceryRunState(tour = listOf("s-m", "s-u", "s-b"))))
+
+        compose.onNodeWithText("Commencer par Marché").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a skipped store has an empty box that brings it back`() {
+        draw(state(GroceryRunState(tour = listOf("s-u"), skipped = listOf("s-b"))))
+
+        compose.onNodeWithTag(UiTags.groceryRunVisit("s-b")).performClick()
+
+        assertEquals(listOf("visit:s-b:true"), log)
     }
 
     @Test
@@ -119,7 +148,7 @@ class GroceryRunScreenTest {
     }
 
     @Test
-    fun `the choice buttons and C'est parti act`() {
+    fun `the store boxes and the start button act`() {
         draw(state())
 
         compose.onNodeWithTag(UiTags.groceryRunSkip("s-b")).performClick()
