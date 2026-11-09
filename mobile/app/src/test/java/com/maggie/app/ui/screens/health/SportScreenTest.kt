@@ -1,7 +1,15 @@
 package com.maggie.app.ui.screens.health
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -9,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
@@ -24,6 +33,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,7 +43,7 @@ import java.time.Instant
 import java.time.ZoneId
 
 /**
- * « Santé › Sport » as drawn (MAG-705): the breadcrumb and « + », « Cette semaine » with its seven days, the sessions done
+ * « Santé › Sport » as drawn (MAG-705): the breadcrumb, the floating « + », « Cette semaine » with its seven days, the sessions done
  * newest first, the detail in a sheet; on a tablet every session, planned ones too, beside the detail of the first.
  * The week is the one of Wednesday 21 October 2026.
  */
@@ -66,14 +76,18 @@ class SportScreenTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.workoutRow(id)).fetchSemanticsNodes().isNotEmpty() }
 
     @Test
-    fun `the header is Santé, Sport, with a button to add a session`() {
+    fun `the header is Santé, Sport, and the session is added by the floating button, not from the header`() {
         val opened = mutableListOf<String?>()
         compose.setContent { SportScreen(viewModel(), onOpenForm = { opened += it }) }
         waitForRow("run")
 
-        compose.onNodeWithText("Santé").assertIsDisplayed()
-        compose.onNodeWithText("Sport").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Ajouter une séance").performClick()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_MODULE).assertTextEquals("Santé")
+        compose.onNode(hasTestTag(UiTags.BREADCRUMB_SECTION).and(hasText("Sport"))).assertIsDisplayed()
+        // Only one « + », the 56 dp floating one, below the week card rather than in the header above it (MAG-720).
+        compose.onAllNodesWithContentDescription("Ajouter une séance").assertCountEquals(1)
+        val fab = compose.onNodeWithTag(UiTags.SPORT_ADD).assertIsDisplayed().assertWidthIsEqualTo(56.dp).assertHeightIsEqualTo(56.dp)
+        assertTrue(fab.getBoundsInRoot().top > compose.onNodeWithTag(UiTags.SPORT_WEEK).getBoundsInRoot().bottom)
+        fab.performClick()
 
         assertEquals(listOf<String?>(null), opened)
     }
@@ -166,12 +180,17 @@ class SportScreenTest {
     }
 
     @Test
-    fun `without a session the screen offers to add one`() {
+    fun `without a session the screen keeps the week card and the floating button`() {
         val opened = mutableListOf<String?>()
         compose.setContent { SportScreen(viewModel(emptyList()), onOpenForm = { opened += it }) }
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.SPORT_EMPTY).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Ajouter une séance").performClick()
+        compose.onNodeWithText("Cette semaine").assertIsDisplayed()
+        compose.onNodeWithText("0 faite · 0 prévue").assertIsDisplayed()
+        compose.onNodeWithContentDescription("M 21").assertExists()
+        compose.onNodeWithText("Séances").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.SPORT_EMPTY).assertTextContains("Aucune séance", substring = true)
+        compose.onNodeWithTag(UiTags.SPORT_ADD).assertIsDisplayed().performClick()
 
         assertEquals(listOf<String?>(null), opened)
     }

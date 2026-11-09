@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -23,12 +25,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -54,7 +52,9 @@ import com.maggie.app.data.model.Workout
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
+import com.maggie.app.ui.components.FabModule
 import com.maggie.app.ui.components.MaggieCard
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.ModuleBreadcrumb
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
@@ -67,7 +67,8 @@ import java.time.ZoneId
 /**
  * « Santé › Sport » (MAG-705): « Cette semaine » (seven days, done filled, planned ringed), then the sessions, newest
  * first. A phone lists the sessions done and opens one in a sheet; an expanded window lists them all (planned ones
- * too) beside the detail of the selected one, the first by default. « + » opens the form.
+ * too) beside the detail of the selected one, the first by default. The floating « + » opens the form; the header holds only
+ * the drawer, the breadcrumb, the loupe and the bell (MAG-720). Without a session the week card stays.
  */
 @Composable
 fun SportScreen(
@@ -85,13 +86,11 @@ fun SportScreen(
                 currentKey = HealthSection.SPORT.key,
                 onSelectSection = { picked -> HealthSection.byKey(picked.key)?.takeIf { it != HealthSection.SPORT }?.let(onSelectSection) },
                 onOpenDrawer = bar.onOpenDrawer,
-                actions = {
-                    IconButton(onClick = { onOpenForm(null) }, modifier = Modifier.testTag(UiTags.SPORT_ADD)) {
-                        Icon(Icons.Default.Add, contentDescription = "Ajouter une séance")
-                    }
-                    bar.actions(this)
-                },
+                actions = bar.actions,
             )
+        },
+        floatingActionButton = {
+            ModuleFab(FabModule.SPORT, "Ajouter une séance", onClick = { onOpenForm(null) }, tag = UiTags.SPORT_ADD)
         },
     ) { paddingValues ->
         SportContent(viewModel, onOpenForm, expanded, Modifier.padding(paddingValues))
@@ -140,14 +139,7 @@ internal fun SportContent(
                 actionLabel = "Réessayer",
                 onAction = viewModel::refresh,
             )
-            listed.isEmpty() -> EmptyState(
-                modifier = Modifier.testTag(UiTags.SPORT_EMPTY),
-                title = "Aucune séance",
-                description = "Ajoutez une séance : un type, une durée, et si vous le voulez une distance et un ressenti.",
-                actionLabel = "Ajouter une séance",
-                onAction = { onOpenForm(null) },
-            )
-            expanded -> {
+            expanded && listed.isNotEmpty() -> {
                 val shown = listed.firstOrNull { it.id == uiState.selectedId } ?: listed.first()
                 Row(modifier = Modifier.fillMaxSize()) {
                     SessionList(
@@ -229,9 +221,21 @@ private fun SessionList(
                 modifier = Modifier.padding(top = 12.dp, bottom = 4.dp, start = 8.dp),
             )
         }
+        if (workouts.isEmpty()) {
+            item(key = "empty") {
+                Text(
+                    "Aucune séance. Touchez + pour en ajouter une.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp).testTag(UiTags.SPORT_EMPTY),
+                )
+            }
+        }
         items(workouts, key = { it.id }) { workout ->
             WorkoutRow(workout, zone, selected = highlight && workout.id == selectedId) { onSelect(workout.id) }
         }
+        // Clear of the floating « + ».
+        item(key = "fab-space") { Spacer(Modifier.height(72.dp)) }
     }
 }
 
