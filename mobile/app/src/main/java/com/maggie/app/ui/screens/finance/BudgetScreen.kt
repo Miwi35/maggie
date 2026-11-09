@@ -35,6 +35,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -366,17 +370,27 @@ internal fun MonthSwitch(
     onNext: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onPrevious) {
+        CompactIconButton(onClick = onPrevious) {
             Icon(Icons.Default.ChevronLeft, contentDescription = "Mois précédent")
         }
         Text(
             text = monthLabel(month),
             style = MaterialTheme.typography.titleSmall,
+            fontSize = 13.sp,
             maxLines = 1,
         )
-        IconButton(onClick = onNext) {
+        CompactIconButton(onClick = onNext) {
             Icon(Icons.Default.ChevronRight, contentDescription = "Mois suivant")
         }
+    }
+}
+
+/** A 36 dp icon button: the end of the sub-views row on 360 dp has no room for 48 dp ones. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun CompactIconButton(modifier: Modifier = Modifier, onClick: () -> Unit, content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+        IconButton(onClick = onClick, modifier = modifier.size(36.dp), content = content)
     }
 }
 
@@ -912,7 +926,7 @@ internal fun ToQualifyRow(pile: ToSortPile?, onOpen: () -> Unit) {
 internal fun BudgetMenu(onAdjust: (() -> Unit)?, onRollOver: () -> Unit, rollOverEnabled: Boolean) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { expanded = true }, modifier = Modifier.testTag(UiTags.BUDGET_MENU)) {
+        CompactIconButton(onClick = { expanded = true }, modifier = Modifier.testTag(UiTags.BUDGET_MENU)) {
             Icon(Icons.Default.MoreVert, contentDescription = "Menu")
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.uiTagRoot()) {
