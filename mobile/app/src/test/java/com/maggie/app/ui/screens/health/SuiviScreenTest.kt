@@ -111,7 +111,7 @@ class SuiviScreenTest {
     }
 
     @Test
-    fun `the header is Santé, Suivi, and its menu lists Suivi, Nutrition, then Sport`() {
+    fun `the header is Santé, Suivi, and its menu lists Suivi, Sport, then Nutrition`() {
         val picked = mutableListOf<HealthSection>()
         compose.setContent { SuiviScreen(viewModel(), onSelectSection = { picked += it }) }
         waitForCard()
@@ -120,8 +120,8 @@ class SuiviScreenTest {
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
         assertTopToBottom(
             "Suivi" to compose.onNodeWithTag(UiTags.breadcrumbMenu("suivi")),
-            "Nutrition" to compose.onNodeWithTag(UiTags.breadcrumbMenu("nutrition")),
             "Sport" to compose.onNodeWithTag(UiTags.breadcrumbMenu("sport")),
+            "Nutrition" to compose.onNodeWithTag(UiTags.breadcrumbMenu("nutrition")),
         )
         compose.onNodeWithTag(UiTags.breadcrumbMenu("sport")).performClick()
 

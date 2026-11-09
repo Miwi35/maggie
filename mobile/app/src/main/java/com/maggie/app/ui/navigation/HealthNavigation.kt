@@ -9,9 +9,9 @@ import com.maggie.app.ui.components.BreadcrumbSection
  */
 enum class HealthSection(val key: String, val label: String, val route: String) {
     SUIVI("suivi", "Suivi", Screen.HealthSuivi.route),
+    SPORT("sport", "Sport", Screen.HealthSport.route),
     NUTRITION("nutrition", "Nutrition", Screen.HealthNutrition.route),
     JOURNAL("journal", "Journal", Screen.HealthJournal.route),
-    SPORT("sport", "Sport", Screen.HealthSport.route),
     CONFIGURATION("configuration", "Configuration", Screen.HealthConfiguration.route),
     ;
 
