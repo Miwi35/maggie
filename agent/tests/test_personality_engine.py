@@ -405,3 +405,17 @@ async def test_the_shipped_prompt_tells_the_planned_day_from_the_deadline():
     assert "pour samedi au plus tard" in rule and "dueDate" in rule
     errand = next(line for line in prompt.splitlines() if "d'aller FAIRE X" in line)
     assert "alerte du matin" not in errand
+
+
+@pytest.mark.asyncio
+async def test_the_shipped_prompt_tells_a_timed_task_from_an_estimate():
+    """MAG-766: « méditer 20 min » is done with a timer, « appeler le garage, 10 min » only estimated."""
+    engine = PersonalityEngine()
+
+    with patch("app.personality.engine.personality_repo") as mock_repo:
+        mock_repo.get = AsyncMock(return_value=None)
+        prompt = await engine.get_system_prompt("user-1")
+
+    rule = next(line for line in prompt.splitlines() if "TÂCHES, CHRONOMÉTRÉE :" in line)
+    assert "timed true" in rule and "estimatedMinutes" in rule
+    assert "méditer 20 min" in rule and "appeler le garage, 10 min" in rule and "jamais timed" in rule

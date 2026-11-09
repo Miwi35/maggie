@@ -1,0 +1,15 @@
+# « Médite 20 minutes ce soir » (MAG-766): the 20 minutes are the task itself, done with a timer —
+# `timed` with `estimatedMinutes` = that length — planned this evening (`scheduledDate` today and
+# the evening, as MAG-718 programs a task). A mere estimate (« appeler le garage, 10 min ») would
+# fill estimatedMinutes alone. `${today}` is the Paris day of the stack clock.
+name: task-timed-meditate
+description: A timed task, 20 minutes on the timer, planned this evening.
+
+match:
+  user_matches: "m[ée]dite 20 minutes ce soir"
+
+turns:
+  - tools:
+      - name: create_task
+        input: {title: Méditer, estimatedMinutes: 20, timed: true, scheduledDate: '${today}', scheduledMoment: evening}
+  - text: "C'est noté : méditer 20 minutes ce soir, au minuteur."

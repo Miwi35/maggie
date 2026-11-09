@@ -222,6 +222,8 @@ finds nothing. The fake logs an error when a scenario searches while `web_search
 `update_task`, only when the replayed `get_tasks` result is in the history (`history_matches` captures the
 task id). The fake cannot compute a date, so any text or argument of a scenario may carry `${today}` and
 `${tomorrow}`: both are expanded to the Paris calendar day of the stack's clock.
+`74-task-timed-meditate.yaml` answers « Médite 20 minutes ce soir » with one `create_task` (MAG-766): `timed` true,
+`estimatedMinutes` 20 (the timer's length), planned today in the evening.
 
 **Projects** (MAG-519). `91-projects-create.yaml` creates « Voyage au Japon » with a deadline through
 `manage_projects`. Reordering takes every project id, which a run cannot capture from its own results: « Mets
