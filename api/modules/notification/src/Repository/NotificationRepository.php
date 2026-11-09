@@ -32,6 +32,7 @@ class NotificationRepository extends ServiceEntityRepository
             ->andWhere('n.readAt IS NULL')
             ->setParameter('user', $user->getId(), 'ulid')
             ->orderBy('n.createdAt', 'DESC')
+            ->addOrderBy('n.id', 'DESC')
             ->getQuery()
             ->getResult();
     }
@@ -59,6 +60,7 @@ class NotificationRepository extends ServiceEntityRepository
             ->where('n.user = :user')
             ->setParameter('user', $user->getId(), 'ulid')
             ->orderBy('n.createdAt', 'DESC')
+            ->addOrderBy('n.id', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
