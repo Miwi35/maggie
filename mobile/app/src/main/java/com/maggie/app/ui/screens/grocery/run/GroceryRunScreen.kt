@@ -4,7 +4,9 @@ import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,6 +24,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -78,8 +82,8 @@ class GroceryRunActions(
     val closeRecap: () -> Unit = {},
     val setPaidAmount: (String) -> Unit = {},
     val finishStore: () -> Unit = {},
-    val keepForNextTime: (String) -> Unit = {},
-    val remove: (String) -> Unit = {},
+    val choose: (String, LeftoverChoice) -> Unit = { _, _ -> },
+    val endRun: () -> Unit = {},
 ) {
     companion object {
         fun of(viewModel: GroceryRunViewModel) = GroceryRunActions(
@@ -94,8 +98,8 @@ class GroceryRunActions(
             closeRecap = viewModel::closeRecap,
             setPaidAmount = viewModel::setPaidAmount,
             finishStore = viewModel::finishStore,
-            keepForNextTime = viewModel::keepForNextTime,
-            remove = viewModel::remove,
+            choose = viewModel::choose,
+            endRun = viewModel::endRun,
         )
     }
 }
@@ -135,7 +139,7 @@ fun GroceryRunContent(
     ) {
         val current = state.current
         when {
-            state.ended -> GroceryRunEnd(onQuit)
+            state.ended -> GroceryRunEnd(state, onQuit)
             state.load == GroceryRunLoad.LOADING ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(modifier = Modifier.testTag(UiTags.GROCERY_RUN_LOADING))
@@ -514,161 +518,287 @@ private fun RunPanel(tag: String, content: @Composable androidx.compose.foundati
     }
 }
 
+/** A big number and what it counts, as the summary of a store shows them. */
 @Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+private fun RowScope.CountTile(count: Int, label: String, color: Color, tag: String) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.weight(1f).semantics(mergeDescendants = true) {}.testTag(tag),
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(count.toString(), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Light, color = color)
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** A card of lines: an article or a store on the left, what became of it on the right. */
+@Composable
+private fun RecapCard(content: @Composable ColumnScope.() -> Unit) {
+    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp), content = content)
+    }
+}
+
+@Composable
+private fun RecapCardRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        content = content,
     )
 }
 
 @Composable
-private fun RecapRow(line: RecapLine, detail: String?) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(line.label, style = MaterialTheme.typography.titleMedium)
-        listOfNotNull(line.quantity, detail).takeIf { it.isNotEmpty() }?.let {
-            Text(it.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+private fun Chip(text: String, tag: String? = null) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onErrorContainer,
+        maxLines = 1,
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(999.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+            .then(if (tag != null) Modifier.testTag(tag) else Modifier),
+    )
 }
 
-/** « Terminer le magasin » (MAG-765): what was taken, the missing articles and where they go, and « Montant payé ». */
+@Composable
+private fun StepTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.headlineMedium,
+        modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 6.dp),
+    )
+}
+
+/**
+ * « Terminer le magasin » (MAG-765), as the mockup draws it: « <magasin>, c'est fait », the counts taken and missing,
+ * where each missing article goes, « Montant payé », then the next store of the tour. The back returns to the store.
+ */
 @Composable
 private fun GroceryRunRecap(state: GroceryRunUiState, store: RunStore, actions: GroceryRunActions) {
-    val taken = state.recapTaken
+    BackHandler(onBack = actions.closeRecap)
     val missing = state.recapMissing
     RunPanel(UiTags.GROCERY_RUN_RECAP) {
-        Text(
-            text = "Terminer ${store.name}",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(vertical = 8.dp)) {
-            item(key = "taken") { SectionTitle("Pris · ${articlesLabel(taken.size)}") }
-            items(taken, key = { "taken-${it.id}" }) { RecapRow(it, null) }
-            if (missing.isNotEmpty()) {
-                item(key = "missing") { SectionTitle("Manquants · ${articlesLabel(missing.size)}") }
-                items(missing, key = { "missing-${it.id}" }) { line ->
-                    RecapRow(line, line.store?.let { "à prendre chez $it" } ?: "pas de repli · à décider à la fin")
-                }
-            }
-            item(key = "paid") {
-                OutlinedTextField(
-                    value = state.paidAmount,
-                    onValueChange = actions.setPaidAmount,
-                    label = { Text("Montant payé") },
-                    placeholder = { Text("facultatif") },
-                    suffix = { Text("€") },
-                    singleLine = true,
-                    isError = state.amountInvalid,
-                    supportingText = if (state.amountInvalid) {
-                        { Text("Un montant en euros, par exemple 42,80") }
-                    } else {
-                        null
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag(UiTags.GROCERY_RUN_PAID),
-                )
-            }
-            if (state.finishFailed) {
-                item(key = "failed") {
-                    Text(
-                        "Impossible de terminer le magasin. Vérifie le réseau et valide à nouveau.",
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp),
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item(key = "title") { StepTitle("${store.name}, c'est fait") }
+            item(key = "counts") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CountTile(state.recapTaken.size, "pris", MaterialTheme.colorScheme.primary, UiTags.GROCERY_RUN_RECAP_TAKEN)
+                    CountTile(
+                        missing.size,
+                        if (missing.size > 1) "manquants" else "manquant",
+                        MaterialTheme.colorScheme.error,
+                        UiTags.GROCERY_RUN_RECAP_MISSING,
                     )
                 }
             }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = actions.closeRecap,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(bottom = 8.dp)
-                    .height(mainButtonHeight(LocalConfiguration.current.smallestScreenWidthDp))
-                    .testTag(UiTags.GROCERY_RUN_RECAP_BACK),
-            ) {
-                Text("Retour", style = MaterialTheme.typography.titleMedium)
+            if (missing.isNotEmpty()) {
+                item(key = "missing") {
+                    RecapCard {
+                        missing.forEach { line ->
+                            RecapCardRow {
+                                Text(line.label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                                Chip(line.store?.let { "→ $it" } ?: "pas de repli", UiTags.groceryRunRecapGoes(line.id))
+                            }
+                        }
+                    }
+                }
             }
-            Button(
-                onClick = actions.finishStore,
-                enabled = !state.finishing,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(bottom = 8.dp)
-                    .height(mainButtonHeight(LocalConfiguration.current.smallestScreenWidthDp))
-                    .testTag(UiTags.GROCERY_RUN_RECAP_CONFIRM),
-            ) {
-                Text("Valider", style = MaterialTheme.typography.titleMedium)
+            item(key = "paid") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SectionLabel("Montant payé")
+                    OutlinedTextField(
+                        value = state.paidAmount,
+                        onValueChange = actions.setPaidAmount,
+                        placeholder = { Text("0,00") },
+                        suffix = { Text("€") },
+                        singleLine = true,
+                        isError = state.amountInvalid,
+                        textStyle = MaterialTheme.typography.headlineSmall,
+                        supportingText = if (state.amountInvalid) {
+                            { Text("Un montant en euros, par exemple 42,80") }
+                        } else {
+                            null
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Montant payé chez ${store.name}, en euros" }
+                            .testTag(UiTags.GROCERY_RUN_PAID),
+                    )
+                }
+            }
+            if (state.finishFailed) {
+                item(key = "failed") {
+                    Text("Impossible de terminer le magasin. Vérifie le réseau et réessaie.", color = MaterialTheme.colorScheme.error)
+                }
             }
         }
+        MainButton(
+            text = state.nextStore?.let { "Magasin suivant · ${it.name}" } ?: "Finir les courses",
+            tag = UiTags.GROCERY_RUN_RECAP_CONFIRM,
+            enabled = !state.finishing,
+            onClick = actions.finishStore,
+        )
     }
 }
 
-/** « Manquants sans repli » (MAG-765): once the last store is finished, each one gets « Prochaine fois » or « Supprimer ». */
+/**
+ * « Pas trouvés » (MAG-765): once the last store is finished, the missing articles no store of the tour had; each
+ * one gets « Prochaine fois » or « Supprimer », then « Finir les courses » applies them.
+ */
 @Composable
 private fun GroceryRunLeftovers(state: GroceryRunUiState, actions: GroceryRunActions) {
     RunPanel(UiTags.GROCERY_RUN_LEFTOVERS) {
+        StepTitle("Pas trouvés")
         Text(
-            text = "Manquants sans repli",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        Text(
-            text = "Aucun magasin de la tournée ne les avait. On les garde pour la prochaine fois ?",
-            style = MaterialTheme.typography.bodyMedium,
+            text = "aucun autre magasin de la tournée",
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
         )
         if (state.removeFailed) {
             Text("Impossible de supprimer l'article. Réessaie.", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
         }
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(state.leftovers, key = { it.id }) { line ->
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        RecapRow(line, line.store?.let { "manquant chez $it" })
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = { actions.keepForNextTime(line.id) },
-                                modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag(UiTags.groceryRunNextTime(line.id)),
-                            ) {
-                                Text("Prochaine fois")
-                            }
-                            OutlinedButton(
-                                onClick = { actions.remove(line.id) },
-                                modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag(UiTags.groceryRunRemove(line.id)),
-                            ) {
-                                Text("Supprimer")
-                            }
-                        }
-                    }
+            items(state.leftovers, key = { it.id }) { line -> LeftoverRow(line, state.choices[line.id], actions.choose) }
+        }
+        MainButton("Finir les courses", UiTags.GROCERY_RUN_END_RUN, enabled = state.canEndRun, onClick = actions.endRun)
+    }
+}
+
+@Composable
+private fun LeftoverRow(line: RecapLine, choice: LeftoverChoice?, onChoose: (String, LeftoverChoice) -> Unit) {
+    val removed = choice == LeftoverChoice.REMOVE
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = line.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (removed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    textDecoration = if (removed) TextDecoration.LineThrough else null,
+                )
+                listOfNotNull(line.store?.let { "manquant chez $it" }, line.quantity).takeIf { it.isNotEmpty() }?.let {
+                    Text(it.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.selectableGroup().semantics { contentDescription = "${line.label} : que faire ?" },
+            ) {
+                val colors = MaterialTheme.colorScheme
+                ChoicePill(
+                    "Prochaine fois", choice == LeftoverChoice.NEXT_TIME, colors.primary, colors.onPrimary, UiTags.groceryRunNextTime(line.id),
+                ) { onChoose(line.id, LeftoverChoice.NEXT_TIME) }
+                ChoicePill(
+                    "Supprimer", removed, colors.errorContainer, colors.onErrorContainer, UiTags.groceryRunRemove(line.id),
+                ) { onChoose(line.id, LeftoverChoice.REMOVE) }
             }
         }
     }
 }
 
-/** « Fin » (MAG-765): the tour is over, the activity is closed. */
 @Composable
-private fun GroceryRunEnd(onClose: () -> Unit) {
+private fun RowScope.ChoicePill(text: String, selected: Boolean, color: Color, onColor: Color, tag: String, onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = if (selected) color else MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = if (selected) onColor else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .weight(1f)
+            .height(52.dp)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .testTag(tag),
+    ) {
+        Box(contentAlignment = Alignment.Center) { Text(text, style = MaterialTheme.typography.bodyLarge) }
+    }
+}
+
+/** « 6240 » → « 62,40 € ». */
+internal fun eurosLabel(cents: Int): String = "%d,%02d €".format(cents / 100, cents % 100)
+
+/** « 13 pris · 1 vers Biocoop »: what a finished store gave. */
+internal fun StoreEnd.summary(): String =
+    (listOf("$taken pris") + movedTo.groupingBy { it }.eachCount().map { (store, count) -> "$count vers $store" }).joinToString(" · ")
+
+/**
+ * « Courses finies » (MAG-765): each store of the tour with what was taken, where its missing articles went and the
+ * amount paid, the articles kept for next time, then « Stock à jour ». The activity is closed.
+ */
+@Composable
+private fun GroceryRunEnd(state: GroceryRunUiState, onClose: () -> Unit) {
     RunPanel(UiTags.GROCERY_RUN_END) {
-        Column(
+        LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            contentPadding = PaddingValues(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
-            Text("Courses terminées", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-            Text("La liste est à jour.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            item(key = "title") { StepTitle("Courses finies") }
+            if (state.run.ends.isNotEmpty()) {
+                item(key = "stores") {
+                    RecapCard {
+                        state.run.ends.forEach { end ->
+                            RecapCardRow(Modifier.heightIn(min = 56.dp).semantics(mergeDescendants = true) {}.testTag(UiTags.groceryRunEndStore(end.storeId))) {
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(end.name, style = MaterialTheme.typography.bodyLarge)
+                                    Text(end.summary(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                end.paidCents?.let { Text(eurosLabel(it), style = MaterialTheme.typography.titleMedium) }
+                            }
+                        }
+                    }
+                }
+            }
+            if (state.keptForNextTime.isNotEmpty()) {
+                item(key = "next") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SectionLabel("Prochaine fois")
+                        RecapCard {
+                            state.keptForNextTime.forEach { line ->
+                                RecapCardRow {
+                                    Text(line.label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                                    Text("reste sur la liste", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            item(key = "stock") {
+                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.heightIn(min = 56.dp).padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Text("Stock à jour", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
         }
         MainButton("Fermer", UiTags.GROCERY_RUN_END_CLOSE, onClick = onClose)
     }

@@ -16,8 +16,9 @@ tags:
 # Et quand je le décoche puis le marque « Manquant », il quitte l'Épicerie du coin : son repli, les Halles du voisin,
 #   vient plus loin dans la tournée (« Manquant », MAG-764)
 # Et quand je termine l'Épicerie avec 42,80 €, les Halles s'ouvrent avec les Timbres, « manquant chez … », que je
-#   prends ; le Poireau, lui, manque et son repli est déjà passé : quand je termine les Halles, l'étape « Manquants sans
-#   repli » le montre, et « Prochaine fois » ferme l'activité en le laissant dans la liste (MAG-765).
+#   prends ; le Poireau, lui, manque et son repli est déjà passé : quand je termine les Halles, l'étape « Pas trouvés »
+#   le montre ; je choisis « Prochaine fois », puis « Finir les courses » : « Courses finies » récapitule les deux
+#   magasins (42,80 € à l'Épicerie) et le Poireau, qui reste dans la liste (MAG-765, retour de recette).
 #
 # Signed in as the neighbour, like `08`: the seed gives it a line in each shop. What a JVM test cannot see is the
 # real drag on the real list and the immersive window. What is not here: each transition of the tour
@@ -115,13 +116,15 @@ tags:
       id: "grocery_run_recap"
     timeout: 10000
 - assertVisible:
-    text: ".*à prendre chez Halles du voisin.*"
+    text: "Épicerie du coin, c'est fait"
+- assertVisible:
+    text: "→ Halles du voisin"
 - tapOn:
     id: "grocery_run_paid"
 - inputText: "42,80"
 - runFlow: ../subflows/hide-keyboard.yaml
 - tapOn:
-    id: "grocery_run_recap_confirm"
+    text: "Magasin suivant · Halles du voisin"
 - extendedWaitUntil:
     visible:
       text: "Terminer Halles du voisin"
@@ -151,24 +154,34 @@ tags:
     id: "grocery_run_finish"
 - extendedWaitUntil:
     visible:
-      id: "grocery_run_recap_confirm"
+      text: "Finir les courses"
     timeout: 10000
 - tapOn:
-    id: "grocery_run_recap_confirm"
+    text: "Finir les courses"
 
-# « Manquants sans repli », asked once, at the end: « Prochaine fois » keeps the leek, and the activity closes.
+# « Pas trouvés », asked once, at the end: « Prochaine fois » is chosen, then « Finir les courses » closes the activity.
 - extendedWaitUntil:
     visible:
       id: "grocery_run_leftovers"
     timeout: 20000
 - assertVisible:
+    text: "aucun autre magasin de la tournée"
+- assertVisible:
     text: "Poireau du voisin"
 - tapOn:
     text: "Prochaine fois"
+- tapOn:
+    id: "grocery_run_end_run"
 - extendedWaitUntil:
     visible:
-      id: "grocery_run_end"
+      text: "Courses finies"
     timeout: 10000
+- assertVisible:
+    text: ".*42,80 €.*"
+- assertVisible:
+    text: "reste sur la liste"
+- assertVisible:
+    text: "Stock à jour"
 - tapOn:
     id: "grocery_run_end_close"
 - extendedWaitUntil:

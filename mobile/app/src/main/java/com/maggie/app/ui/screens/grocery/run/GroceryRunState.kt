@@ -30,8 +30,10 @@ data class GroceryRunState(
     val skipped: List<String> = emptyList(),
     /** The stores of [tour] finished (« Terminer le magasin »), in the order they were (MAG-765). */
     val done: List<String> = emptyList(),
-    /** The last store is finished: the step « Manquants sans repli » is on (MAG-765). */
+    /** The last store is finished: the step « Pas trouvés » is on (MAG-765). */
     val finished: Boolean = false,
+    /** What each finished store gave, for « Courses finies » (MAG-765). */
+    val ends: List<StoreEnd> = emptyList(),
 ) {
     fun toJson(): JsonObject = stateJson.encodeToJsonElement(serializer(), this).jsonObject
 
@@ -46,7 +48,7 @@ data class GroceryRunState(
         var merged = kept
         // Once the tour is over, a store that holds articles again waits for the next one.
         if (!finished) habitual.filter { it !in kept && it !in left }.forEach { merged = merged.insertedInHabitualOrder(it, habitual) }
-        return GroceryRunState(merged, current?.takeIf { it in merged }, left, done.filter { it in merged }, finished)
+        return GroceryRunState(merged, current?.takeIf { it in merged }, left, done.filter { it in merged }, finished, ends)
     }
 
     /** The store opened once [current] is finished: the next one of the tour not finished yet, null after the last. */
@@ -66,6 +68,19 @@ data class GroceryRunState(
         fun origin(listId: String) = ActivityOrigin(GROCERY_RUN_ORIGIN_KIND, listId)
     }
 }
+
+/**
+ * A store finished (MAG-765): its name as it was, the number of articles taken, the store each missing article went
+ * to — one name per article — and the amount paid, in cents, when given.
+ */
+@Serializable
+data class StoreEnd(
+    val storeId: String,
+    val name: String,
+    val taken: Int,
+    val movedTo: List<String> = emptyList(),
+    val paidCents: Int? = null,
+)
 
 /** [storeId] placed before the first store of the tour that comes after it in the [habitual] order. */
 internal fun List<String>.insertedInHabitualOrder(storeId: String, habitual: List<String>): List<String> {

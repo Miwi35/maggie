@@ -629,7 +629,15 @@ class GroceryRunViewModelTest {
         coVerify(exactly = 1) { lists.endErrand("s-u", 4280) }
         assertFalse(vm.uiState.value.recap)
         assertEquals("Biocoop", vm.uiState.value.current?.name)
-        assertEquals(GroceryRunState(tour = listOf("s-u", "s-b"), current = "s-b", done = listOf("s-u")), written.last())
+        assertEquals(
+            GroceryRunState(
+                tour = listOf("s-u", "s-b"),
+                current = "s-b",
+                done = listOf("s-u"),
+                ends = listOf(StoreEnd("s-u", "Super U", taken = 1, movedTo = listOf("Biocoop"), paidCents = 4280)),
+            ),
+            written.last(),
+        )
         // Super U keeps its place in the tour: « Magasin 2 sur 2 ».
         assertEquals(2 to 2, vm.uiState.value.tourPosition)
     }
@@ -710,44 +718,85 @@ class GroceryRunViewModelTest {
     }
 
     @Test
-    fun `Prochaine fois takes the mark off and leaves the article on the list, then the activity ends`() = runTest {
-        val vm = finishing(finished = true, done = listOf("s-u", "s-b"))
+    fun `the summary's button names the next store of the tour, and Finir les courses after the last`() = runTest {
+        assertEquals("Biocoop", finishing().uiState.value.nextStore?.name)
+        assertNull(finishing(current = "s-b", done = listOf("s-u")).uiState.value.nextStore)
+    }
 
-        vm.keepForNextTime("i-1")
+    @Test
+    fun `Prochaine fois is only chosen, and Finir les courses takes the mark off and leaves the article on the list`() = runTest {
+        val vm = finishing(finished = true, done = listOf("s-u", "s-b"))
+        assertFalse(vm.uiState.value.canEndRun)
+
+        vm.choose("i-1", LeftoverChoice.NEXT_TIME)
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { lists.markMissing(any(), any()) }
+        assertFalse(vm.uiState.value.ended)
+        assertTrue(vm.uiState.value.canEndRun)
+
+        vm.endRun()
         advanceUntilIdle()
 
         coVerify(exactly = 1) { lists.markMissing("i-1", false) }
         coVerify(exactly = 0) { lists.deleteItem(any()) }
         assertTrue(vm.uiState.value.leftovers.isEmpty())
+        assertEquals(listOf("Pain"), vm.uiState.value.keptForNextTime.map { it.label })
         assertTrue(vm.uiState.value.ended)
         verify(exactly = 1) { status.delete("courses") }
         assertTrue(vm.requestQuit())
     }
 
     @Test
-    fun `Supprimer takes the article off the list, then the activity ends`() = runTest {
+    fun `Supprimer is only chosen, and Finir les courses takes the article off the list`() = runTest {
         val vm = finishing(finished = true, done = listOf("s-u", "s-b"))
 
-        vm.remove("i-1")
+        vm.choose("i-1", LeftoverChoice.NEXT_TIME)
+        vm.choose("i-1", LeftoverChoice.REMOVE)
+        advanceUntilIdle()
+        coVerify(exactly = 0) { lists.deleteItem(any()) }
+
+        vm.endRun()
         advanceUntilIdle()
 
         coVerify(exactly = 1) { lists.deleteItem("i-1") }
         coVerify(exactly = 0) { lists.markMissing(any(), any()) }
+        assertTrue(vm.uiState.value.keptForNextTime.isEmpty())
         assertTrue(vm.uiState.value.ended)
         verify(exactly = 1) { status.delete("courses") }
     }
 
     @Test
-    fun `a Supprimer the API refuses keeps the article and asks again`() = runTest {
+    fun `a Supprimer the API refuses keeps the article and lets the tour be finished again`() = runTest {
         val vm = finishing(finished = true, done = listOf("s-u", "s-b"))
         coEvery { lists.deleteItem("i-1") } returns Result.failure(java.io.IOException("offline"))
+        vm.choose("i-1", LeftoverChoice.REMOVE)
 
-        vm.remove("i-1")
+        vm.endRun()
         advanceUntilIdle()
 
         assertTrue(vm.uiState.value.removeFailed)
         assertEquals(listOf("Pain"), vm.uiState.value.leftovers.map { it.label })
         assertFalse(vm.uiState.value.ended)
+
+        coEvery { lists.deleteItem("i-1") } returns Result.success(Unit)
+        vm.endRun()
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.ended)
+    }
+
+    @Test
+    fun `Courses finies keeps what each store gave, the amount included`() = runTest {
+        val vm = finishing(GroceryList("list-1", listOf(butter)), tour = listOf("s-u"))
+        vm.openRecap()
+        vm.setPaidAmount("62,40")
+        coEvery { lists.getGroceryList() } returns Result.success(GroceryList("list-1", emptyList()))
+
+        vm.finishStore()
+        advanceUntilIdle()
+
+        assertEquals(listOf(StoreEnd("s-u", "Super U", taken = 1, paidCents = 6240)), vm.uiState.value.run.ends)
     }
 
     @Test
