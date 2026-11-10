@@ -1,6 +1,9 @@
 package com.maggie.app.ui.screens.tasks
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasAnyAncestor
@@ -188,5 +191,37 @@ class TasksDayScreenTest {
         compose.onNodeWithTag(UiTags.TASKS_RING).assertDoesNotExist()
         compose.onNodeWithText("Rien à faire aujourd'hui.").assertIsDisplayed()
         compose.onNodeWithText("Réserve", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the progress is a card with the ring, the count and its sentence`() {
+        show()
+
+        compose.onNodeWithContentDescription("1 sur 5 tâches faites").assertIsDisplayed()
+        compose.onNode(hasText("La journée est lancée, à ton rythme.") and hasAnyAncestor(hasTestTag(UiTags.TASKS_RING))).assertIsDisplayed()
+        val ring = compose.onNodeWithTag(UiTags.TASKS_RING).getBoundsInRoot()
+        val root = compose.onRoot().getBoundsInRoot()
+        assertEquals(16.dp, ring.left)
+        assertEquals(root.right - 16.dp, ring.right)
+    }
+
+    @Test
+    fun `the ring's sentence follows the day`() {
+        assertEquals("Une seule suffit pour lancer la journée.", ringPhraseOf(0, 3))
+        assertEquals("La journée est lancée, à ton rythme.", ringPhraseOf(1, 3))
+        assertEquals("Tout est fait pour aujourd’hui.", ringPhraseOf(3, 3))
+    }
+
+    @Test
+    fun `each task is a card inside the 16 dp margins, its timer within it`() {
+        show()
+
+        val root = compose.onRoot().getBoundsInRoot()
+        val row = compose.onNodeWithTag(UiTags.tasksTodayRow("t3")).performScrollTo().getBoundsInRoot()
+        val timer = compose.onNodeWithTag(UiTags.tasksTodayTimer("t3")).getBoundsInRoot()
+        assertEquals(16.dp, row.left)
+        assertEquals(root.right - 16.dp, row.right)
+        assert(row.bottom - row.top >= 68.dp) { "a card is 68 dp at least, got ${row.bottom - row.top}" }
+        assert(timer.right <= row.right - 12.dp) { "the timer stays inside its card: ${timer.right} > ${row.right - 12.dp}" }
     }
 }
