@@ -30,7 +30,7 @@ data class GroceryRunState(
     val skipped: List<String> = emptyList(),
     /** The stores of [tour] finished (« Terminer le magasin »), in the order they were (MAG-765). */
     val done: List<String> = emptyList(),
-    /** The last store is finished: the step « Manquants sans repli » is on (MAG-765). */
+    /** The last store is finished: the step « Pas trouvés » is on (MAG-765). */
     val finished: Boolean = false,
     /** What each finished store gave, for « Courses finies » (MAG-765). */
     val ends: List<StoreEnd> = emptyList(),

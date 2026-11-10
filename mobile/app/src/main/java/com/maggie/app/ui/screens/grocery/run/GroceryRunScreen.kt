@@ -648,7 +648,7 @@ private fun GroceryRunRecap(state: GroceryRunUiState, store: RunStore, actions: 
             }
             if (state.finishFailed) {
                 item(key = "failed") {
-                    Text("Impossible de terminer le magasin. Vérifie le réseau et valide à nouveau.", color = MaterialTheme.colorScheme.error)
+                    Text("Impossible de terminer le magasin. Vérifie le réseau et réessaie.", color = MaterialTheme.colorScheme.error)
                 }
             }
         }

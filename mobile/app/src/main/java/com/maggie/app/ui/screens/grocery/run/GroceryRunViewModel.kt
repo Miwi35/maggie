@@ -65,7 +65,7 @@ data class GroceryRunUiState(
     val amountInvalid: Boolean = false,
     /** The store is being finished: `end-errand` is on its way. */
     val finishing: Boolean = false,
-    /** Finishing the store failed (network, or a tick still waiting): the summary stays, « Valider » again. */
+    /** Finishing the store failed (network, or a tick still waiting): the summary stays, to finish again. */
     val finishFailed: Boolean = false,
     /** « Pas trouvés »: the answer chosen for each missing article without a fallback, applied by « Finir les courses ». */
     val choices: Map<String, LeftoverChoice> = emptyMap(),
@@ -120,7 +120,7 @@ data class GroceryRunUiState(
         .map { item -> RecapLine(item.id.orEmpty(), item.label, item.runQuantity(), place(item)?.takeIf { it.storeId != run.current }.name()) }
 
     /**
-     * « Manquants sans repli » (MAG-765): the missing articles of the tour's stores that found no store further in
+     * « Pas trouvés » (MAG-765): the missing articles of the tour's stores that found no store further in
      * the tour; one that moved to its fallback is not one of them.
      */
     val leftovers: List<RecapLine> get() = items
@@ -258,15 +258,15 @@ class GroceryRunViewModel(
         _uiState.update { it.copy(recap = true, paidAmount = "", amountInvalid = false, finishFailed = false) }
     }
 
-    /** « Retour »: back to the store, nothing sent. */
+    /** The back on the summary: back to the store, nothing sent. */
     fun closeRecap() = _uiState.update { it.copy(recap = false, finishFailed = false) }
 
     fun setPaidAmount(text: String) = _uiState.update { it.copy(paidAmount = text, amountInvalid = false) }
 
     /**
-     * « Valider » (MAG-765): the ticks still waiting are sent first, so the API archives every article taken; then
+     * « Magasin suivant » or, after the last store, « Finir les courses » (MAG-765): the ticks still waiting are sent first, so the API archives every article taken; then
      * `end-errand` with the store and the amount paid, and the next store of the tour opens — after the last one,
-     * « Manquants sans repli », or « Fin » when there is none.
+     * « Pas trouvés », or « Courses finies » when there is none.
      */
     fun finishStore() {
         val state = _uiState.value
