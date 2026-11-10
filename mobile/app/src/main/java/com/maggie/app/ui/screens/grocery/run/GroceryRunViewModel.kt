@@ -99,6 +99,11 @@ data class GroceryRunUiState(
         currentItems.size,
     )
 
+    /** The articles of the whole tour taken out of its articles, « 7 / 14 » at the right of the header. */
+    val tourProgress: RunProgress get() = items.mapNotNull { item -> place(item)?.takeIf { it.storeId in run.tour }?.let { item to it } }.let { placed ->
+        RunProgress(placed.count { (item, place) -> isChecked(item) || place.missing == RunMissing.NoFallback }, placed.size)
+    }
+
     /** « Magasin k sur N »: the place of the store being done in the tour. */
     val tourPosition: Pair<Int, Int>? get() = run.current?.let { run.tour.indexOf(it) }?.takeIf { it >= 0 }?.let { it + 1 to run.tour.size }
 

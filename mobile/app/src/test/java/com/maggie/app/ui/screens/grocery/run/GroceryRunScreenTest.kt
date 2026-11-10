@@ -254,9 +254,9 @@ class GroceryRunScreenTest {
         draw(storeState())
 
         assertTopToBottom(
-            "Frais" to compose.onNodeWithText("Frais"),
-            "Épicerie" to compose.onNodeWithText("Épicerie"),
-            "Sans rayon" to compose.onNodeWithText("Sans rayon"),
+            "FRAIS" to compose.onNodeWithText("FRAIS"),
+            "ÉPICERIE" to compose.onNodeWithText("ÉPICERIE"),
+            "SANS RAYON" to compose.onNodeWithText("SANS RAYON"),
         )
         assertTopToBottom(
             "Lait" to compose.onNodeWithText("Lait"),
@@ -284,15 +284,24 @@ class GroceryRunScreenTest {
     fun `the progress shows the store and the tour`() {
         draw(storeState())
 
-        compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("1 / 4")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("1 / 4 ici")
         compose.onNodeWithText("Magasin 1 sur 3").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the header names the store with its place in the tour and counts the tour's articles, no bar under the title`() {
+        draw(storeState())
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER).assertTextEquals("Super U · 1 / 3")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER_COUNT).assertTextEquals("1 / 4")
+        compose.onNodeWithText("Courses").assertDoesNotExist()
     }
 
     @Test
     fun `a pending tick shows the article ticked in the progress`() {
         draw(storeState(pending = mapOf("i-3" to true)))
 
-        compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("2 / 4")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("2 / 4 ici")
     }
 
     @Test
@@ -332,7 +341,7 @@ class GroceryRunScreenTest {
         draw(storeState(pendingMissing = mapOf("i-1" to true)))
 
         compose.onNodeWithTag(UiTags.groceryRunMissingTag("i-1"), useUnmergedTree = true).assertTextEquals("manquant · pas de repli")
-        compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("2 / 4")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("2 / 4 ici")
     }
 
     @Test

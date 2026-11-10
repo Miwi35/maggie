@@ -4,6 +4,10 @@ import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.layout.Arrangement
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
@@ -35,7 +39,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -67,6 +70,9 @@ import com.maggie.app.ui.theme.ModuleHue
 import com.maggie.app.ui.uiTagRoot
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+
+private val RunMuted = Color(0xFF8E899C)
+private val RunMutedText = Color(0xFFABA6B8)
 
 /** What the screen can ask of the activity; the ViewModel's actions, apart from it so a test can watch them. */
 class GroceryRunActions(
@@ -183,15 +189,16 @@ private fun GroceryRunProgress(state: GroceryRunUiState) {
     val done = state.run.current?.let { state.run.tour.indexOf(it) }?.coerceAtLeast(0) ?: 0
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            val position = if (state.run.finished) null else state.tourPosition
             Text(
-                text = "Courses",
+                text = if (position != null) "${state.current?.name.orEmpty()} · ${position.first} / ${position.second}" else "Courses",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 modifier = Modifier.weight(1f).testTag(UiTags.GROCERY_RUN_HEADER),
             )
             Text(
-                text = articlesLabel(state.tour.sumOf { it.count }),
+                text = if (position != null) state.tourProgress.let { "${it.checked} / ${it.total}" } else articlesLabel(state.tour.sumOf { it.count }),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -239,20 +246,26 @@ private fun GroceryRunCurrentStore(state: GroceryRunUiState, store: RunStore, ac
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth().testTag(UiTags.GROCERY_RUN_ITEMS),
                 contentPadding = PaddingValues(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 state.currentAisles.forEach { aisle ->
                     item(key = "aisle-${aisle.id}") {
                         Text(
-                            text = aisle.name ?: "Sans rayon",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                            text = (aisle.name ?: "Sans rayon").uppercase(),
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, letterSpacing = 1.7.sp),
+                            color = RunMuted,
+                            modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp),
                         )
                     }
                     items(aisle.lines, key = { it.id }) { line -> RunLineRow(line, actions.check, actions.markMissing) }
                 }
             }
-            MainButton("Terminer ${store.name}", UiTags.GROCERY_RUN_FINISH, onClick = actions.openRecap)
+            MainButton(
+                "Terminer ${store.name}",
+                UiTags.GROCERY_RUN_FINISH,
+                onClick = actions.openRecap,
+                muted = state.progress.checked < state.progress.total,
+            )
         }
         if (landscape) SideTour(state)
     }
@@ -272,15 +285,12 @@ private fun StoreHeader(state: GroceryRunUiState, store: RunStore) {
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = "${progress.checked} / ${progress.total}",
-                style = MaterialTheme.typography.titleMedium,
+                text = "${progress.checked} / ${progress.total} ici",
+                style = MaterialTheme.typography.bodyMedium,
+                color = RunMuted,
                 modifier = Modifier.testTag(UiTags.GROCERY_RUN_STORE_PROGRESS),
             )
         }
-        LinearProgressIndicator(
-            progress = { if (progress.total == 0) 0f else progress.checked.toFloat() / progress.total },
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        )
     }
 }
 
@@ -290,8 +300,13 @@ private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit, onMissing: (Str
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
+            .heightIn(min = 76.dp)
+            .background(
+                if (line.checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceContainer,
+                RoundedCornerShape(20.dp),
+            )
             .toggleable(value = line.checked, role = Role.Checkbox, onValueChange = { onCheck(line.id) })
+            .padding(end = 8.dp)
             .testTag(UiTags.groceryRunLine(line.id)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -349,11 +364,17 @@ private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit, onMissing: (Str
         }
         // A ticked article was found: only a missing one can be given back to its store.
         if (!line.checked) {
-            TextButton(
-                onClick = { onMissing(line.id) },
-                modifier = Modifier.heightIn(min = 48.dp).testTag(UiTags.groceryRunMissing(line.id)),
+            Box(
+                modifier = Modifier
+                    .height(44.dp)
+                    .background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(999.dp))
+                    .clip(RoundedCornerShape(999.dp))
+                    .clickable(role = Role.Button, onClick = { onMissing(line.id) })
+                    .padding(horizontal = 12.dp)
+                    .testTag(UiTags.groceryRunMissing(line.id)),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(if (line.missing == null) "Manquant" else "Annuler")
+                Text(if (line.missing == null) "Manquant" else "Annuler", fontSize = 14.sp, color = RunMutedText)
             }
         }
     }
@@ -521,10 +542,15 @@ private fun StoreRow(
 }
 
 @Composable
-private fun MainButton(text: String, tag: String, enabled: Boolean = true, onClick: () -> Unit) {
+private fun MainButton(text: String, tag: String, enabled: Boolean = true, muted: Boolean = false, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         enabled = enabled,
+        colors = if (muted) {
+            ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.08f), contentColor = Color(0xFFF3F1F8))
+        } else {
+            ButtonDefaults.buttonColors()
+        },
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 8.dp)
