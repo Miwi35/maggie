@@ -32,6 +32,9 @@ enum class GroceryRunLoad {
     READY,
 }
 
+/** The answer given to a missing article without a fallback, at the end of the tour (MAG-765). */
+enum class LeftoverChoice { NEXT_TIME, REMOVE }
+
 /** A store with articles to take, as the tour lists it. */
 data class RunStore(val id: String, val name: String, val count: Int)
 
@@ -64,10 +67,14 @@ data class GroceryRunUiState(
     val finishing: Boolean = false,
     /** Finishing the store failed (network, or a tick still waiting): the summary stays, « Valider » again. */
     val finishFailed: Boolean = false,
-    /** « Supprimer » asked on a missing article without a fallback, and not yet received by the API. */
-    val removing: Set<String> = emptySet(),
-    /** A « Supprimer » the API refused: the article stays, the choice is asked again. */
+    /** « Pas trouvés »: the answer chosen for each missing article without a fallback, applied by « Finir les courses ». */
+    val choices: Map<String, LeftoverChoice> = emptyMap(),
+    /** « Finir les courses » is applying the answers. */
+    val closing: Boolean = false,
+    /** A « Supprimer » the API refused: the article stays, « Finir les courses » again. */
     val removeFailed: Boolean = false,
+    /** The articles kept for next time, as « Courses finies » lists them. */
+    val keptForNextTime: List<RecapLine> = emptyList(),
     /** The screen « Fin »: the tour is over and every missing article without a fallback has its answer. */
     val ended: Boolean = false,
 ) {
@@ -118,10 +125,16 @@ data class GroceryRunUiState(
      */
     val leftovers: List<RecapLine> get() = items
         .filter { item ->
-            item.id != null && item.id !in removing && isMissing(item) && item.origin?.id in run.tour &&
+            item.id != null && isMissing(item) && item.origin?.id in run.tour &&
                 place(item)?.missing == RunMissing.NoFallback
         }
         .map { RecapLine(it.id.orEmpty(), it.label, it.runQuantity(), it.origin?.name) }
+
+    /** « Finir les courses » once each article of « Pas trouvés » has its answer. */
+    val canEndRun: Boolean get() = !closing && leftovers.all { it.id in choices }
+
+    /** The store the summary's button opens next; null after the last one, where it reads « Finir les courses ». */
+    val nextStore: RunStore? get() = run.current?.let(run::nextAfter)?.let(byId::get)
 }
 
 /** An article as the end of a store or of the tour lists it; [store] is where it goes, or comes from. */
@@ -264,6 +277,7 @@ class GroceryRunViewModel(
             _uiState.update { it.copy(amountInvalid = true) }
             return
         }
+        val end = StoreEnd(storeId, state.current?.name.orEmpty(), state.recapTaken.size, state.recapMissing.mapNotNull { it.store }, cents)
         _uiState.update { it.copy(finishing = true, finishFailed = false) }
         viewModelScope.launch {
             tickQueue.flush()
@@ -275,38 +289,45 @@ class GroceryRunViewModel(
             val run = _uiState.value.run
             val next = run.nextAfter(storeId)
             _uiState.update { it.copy(finishing = false, recap = false, paidAmount = "") }
-            update(run.copy(current = next, done = run.done + storeId, finished = next == null))
+            update(run.copy(current = next, done = run.done + storeId, finished = next == null, ends = run.ends.filter { it.storeId != storeId } + end))
             listRepository.getGroceryList().getOrNull()?.let { show(it, _uiState.value.run) }
             endIfAnswered()
         }
     }
 
-    /** « Prochaine fois » on a missing article without a fallback: its mark goes, it stays on the list for next time. */
-    fun keepForNextTime(itemId: String) {
+    /** « Prochaine fois » or « Supprimer » on an article of « Pas trouvés »: only chosen, applied by « Finir les courses ». */
+    fun choose(itemId: String, choice: LeftoverChoice) {
         if (_uiState.value.leftovers.none { it.id == itemId }) return
-        tickQueue.markMissing(itemId, false)
-        onPendingMissing(tickQueue.pendingMissing.value)
-        // Read as the API will store it, so the mark does not come back once the queue has sent it.
-        _uiState.update { state ->
-            state.copy(
-                items = state.items.map { if (it.id == itemId) it.copy(store = it.origin, missingFromStore = null, missingAt = null) else it },
-            )
-        }
-        endIfAnswered()
+        _uiState.update { it.copy(choices = it.choices + (itemId to choice), removeFailed = false) }
     }
 
-    /** « Supprimer » on a missing article without a fallback: it leaves the list. */
-    fun remove(itemId: String) {
-        if (_uiState.value.leftovers.none { it.id == itemId }) return
-        _uiState.update { it.copy(removing = it.removing + itemId, removeFailed = false) }
+    /**
+     * « Finir les courses » (MAG-765): « Prochaine fois » takes the mark off and leaves the article on the list,
+     * « Supprimer » takes it off the list; then « Courses finies ». A « Supprimer » the API refuses keeps the
+     * article on the step, to finish again.
+     */
+    fun endRun() {
+        val state = _uiState.value
+        if (!state.run.finished || state.ended || !state.canEndRun) return
+        val leftovers = state.leftovers
+        val kept = leftovers.filter { state.choices[it.id] == LeftoverChoice.NEXT_TIME }
+        val toRemove = leftovers.filter { state.choices[it.id] == LeftoverChoice.REMOVE }.map { it.id }
+        _uiState.update { it.copy(closing = true, removeFailed = false) }
+        kept.forEach { tickQueue.markMissing(it.id, false) }
+        onPendingMissing(tickQueue.pendingMissing.value)
         viewModelScope.launch {
-            val removed = listRepository.deleteItem(itemId).isSuccess
-            _uiState.update {
-                if (removed) {
-                    it.copy(removing = it.removing - itemId, items = it.items.filter { item -> item.id != itemId })
-                } else {
-                    it.copy(removing = it.removing - itemId, removeFailed = true)
-                }
+            val removed = toRemove.filter { listRepository.deleteItem(it).isSuccess }.toSet()
+            val keptIds = kept.map { it.id }.toSet()
+            _uiState.update { s ->
+                s.copy(
+                    closing = false,
+                    removeFailed = removed.size < toRemove.size,
+                    keptForNextTime = s.keptForNextTime + kept,
+                    // Read as the API will store it, so the mark does not come back once the queue has sent it.
+                    items = s.items
+                        .filter { it.id !in removed }
+                        .map { if (it.id in keptIds) it.copy(store = it.origin, missingFromStore = null, missingAt = null) else it },
+                )
             }
             endIfAnswered()
         }
@@ -315,7 +336,7 @@ class GroceryRunViewModel(
     // « Fin »: the tour is over and no missing article waits for its answer; the activity status is closed.
     private fun endIfAnswered() {
         val state = _uiState.value
-        if (state.ended || !state.run.finished || state.removing.isNotEmpty() || state.leftovers.isNotEmpty()) return
+        if (state.ended || !state.run.finished || state.closing || state.leftovers.isNotEmpty()) return
         _uiState.update { it.copy(ended = true) }
         statusRepository.delete(GROCERY_RUN_ACTIVITY)
     }

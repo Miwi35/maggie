@@ -9,6 +9,8 @@ import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.AisleSummary
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -54,8 +56,8 @@ class GroceryRunScreenTest {
         closeRecap = { log += "back" },
         setPaidAmount = { log += "paid:$it" },
         finishStore = { log += "finish" },
-        keepForNextTime = { log += "next:$it" },
-        remove = { log += "remove:$it" },
+        choose = { id, choice -> log += "choose:$id:$choice" },
+        endRun = { log += "end" },
     )
 
     private val stores = listOf(RunStore("s-u", "Super U", 2), RunStore("s-b", "Biocoop", 1), RunStore("s-m", "Marché", 1))
@@ -323,21 +325,35 @@ class GroceryRunScreenTest {
     }
 
     @Test
-    fun `the summary lists what was taken, the missing articles and where they go, then Montant payé`() {
+    fun `the summary reads as the mockup, the counts, where the missing articles go, Montant payé and the next store`() {
         val moved = storeItems[2].copy(store = Store("s-b", "Biocoop"), missingFromStore = Store("s-u", "Super U"), missingAt = "2026-11-08T10:00:00+00:00")
         draw(storeState(pendingMissing = mapOf("i-1" to true)).let { it.copy(recap = true, items = storeItems.map { item -> if (item.id == "i-3") moved else item }) })
 
-        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP).assertIsDisplayed()
-        compose.onNodeWithText("Pris · 1 article").assertIsDisplayed()
-        compose.onNodeWithText("Beurre").assertIsDisplayed()
-        compose.onNodeWithText("Manquants · 2 articles").assertIsDisplayed()
-        compose.onNodeWithText("pas de repli · à décider à la fin").assertIsDisplayed()
-        compose.onNodeWithText("à prendre chez Biocoop").assertIsDisplayed()
+        compose.onNodeWithText("Super U, c'est fait").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_TAKEN).assertTextEquals("1", "pris")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_MISSING).assertTextEquals("2", "manquants")
+        compose.onNodeWithTag(UiTags.groceryRunRecapGoes("i-3"), useUnmergedTree = true).assertTextEquals("→ Biocoop")
+        compose.onNodeWithTag(UiTags.groceryRunRecapGoes("i-1"), useUnmergedTree = true).assertTextEquals("pas de repli")
+        compose.onNodeWithText("MONTANT PAYÉ").assertIsDisplayed()
+        compose.onNodeWithText("Retour").assertDoesNotExist()
+        compose.onNodeWithText("Valider").assertDoesNotExist()
+        assertTopToBottom(
+            "Super U, c'est fait" to compose.onNodeWithText("Super U, c'est fait"),
+            "pris" to compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_TAKEN),
+            "Lait" to compose.onNodeWithText("Lait"),
+            "Montant payé" to compose.onNodeWithTag(UiTags.GROCERY_RUN_PAID),
+        )
 
         compose.onNodeWithTag(UiTags.GROCERY_RUN_PAID).performTextInput("42,80")
-        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_CONFIRM).performClick()
-        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_BACK).performClick()
-        assertEquals(listOf("paid:42,80", "finish", "back"), log)
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_CONFIRM).assertTextEquals("Magasin suivant · Biocoop").performClick()
+        assertEquals(listOf("paid:42,80", "finish"), log)
+    }
+
+    @Test
+    fun `the last store's summary ends with Finir les courses`() {
+        draw(storeState().let { it.copy(recap = true, run = it.run.copy(done = listOf("s-b", "s-m"))) })
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_CONFIRM).assertTextEquals("Finir les courses")
     }
 
     @Test
@@ -352,20 +368,40 @@ class GroceryRunScreenTest {
     }
 
     @Test
-    fun `Manquants sans repli offers Prochaine fois or Supprimer for each one`() {
+    fun `Pas trouvés reads as the mockup, with no sentence, and offers Prochaine fois or Supprimer for each one`() {
         draw(leftoverState())
 
         compose.onNodeWithTag(UiTags.GROCERY_RUN_LEFTOVERS).assertIsDisplayed()
+        compose.onNodeWithText("Pas trouvés").assertIsDisplayed()
+        compose.onNodeWithText("aucun autre magasin de la tournée").assertIsDisplayed()
+        compose.onNodeWithText("Manquants sans repli").assertDoesNotExist()
+        compose.onNodeWithText("On les garde", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Pain").assertIsDisplayed()
         compose.onNodeWithText("manquant chez Super U").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.groceryRunNextTime("i-1")).performClick()
         compose.onNodeWithTag(UiTags.groceryRunRemove("i-1")).performClick()
-        assertEquals(listOf("next:i-1", "remove:i-1"), log)
+        assertEquals(listOf("choose:i-1:NEXT_TIME", "choose:i-1:REMOVE"), log)
+    }
+
+    @Test
+    fun `Finir les courses waits for an answer to each one`() {
+        draw(leftoverState())
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_END_RUN).assertTextEquals("Finir les courses").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the answer chosen is selected, and Finir les courses ends the tour`() {
+        draw(leftoverState().copy(choices = mapOf("i-1" to LeftoverChoice.NEXT_TIME)))
+
+        compose.onNodeWithTag(UiTags.groceryRunNextTime("i-1")).assertIsSelected()
+        compose.onNodeWithTag(UiTags.groceryRunRemove("i-1")).assertIsNotSelected()
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_END_RUN).performClick()
+        assertEquals(listOf("end"), log)
     }
 
     @Test
     @Config(qualifiers = "w891dp-h411dp-land")
-    fun `in landscape the step Manquants sans repli shows the same choices`() {
+    fun `in landscape the step Pas trouvés shows the same choices`() {
         draw(leftoverState())
 
         compose.onNodeWithTag(UiTags.groceryRunNextTime("i-1")).assertIsDisplayed()
@@ -373,10 +409,30 @@ class GroceryRunScreenTest {
     }
 
     @Test
-    fun `Fin closes the activity`() {
-        draw(leftoverState().copy(ended = true, load = GroceryRunLoad.EMPTY))
+    fun `Courses finies sums up each store, the articles kept for next time, then Stock à jour, and Fermer closes`() {
+        val ends = listOf(
+            StoreEnd("s-u", "Super U", taken = 13, movedTo = listOf("Biocoop"), paidCents = 6240),
+            StoreEnd("s-b", "Biocoop", taken = 6, paidCents = 1890),
+            StoreEnd("s-m", "Marché", taken = 2),
+        )
+        draw(
+            leftoverState().let {
+                it.copy(ended = true, load = GroceryRunLoad.EMPTY, run = it.run.copy(ends = ends), keptForNextTime = listOf(RecapLine("i-1", "Pain", null, "Super U")))
+            },
+        )
 
-        compose.onNodeWithText("Courses terminées").assertIsDisplayed()
+        compose.onNodeWithText("Courses finies").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.groceryRunEndStore("s-u")).assertTextEquals("Super U", "13 pris · 1 vers Biocoop", "62,40 €")
+        compose.onNodeWithTag(UiTags.groceryRunEndStore("s-b")).assertTextEquals("Biocoop", "6 pris", "18,90 €")
+        compose.onNodeWithTag(UiTags.groceryRunEndStore("s-m")).assertTextEquals("Marché", "2 pris")
+        compose.onNodeWithText("PROCHAINE FOIS").assertIsDisplayed()
+        compose.onNodeWithText("reste sur la liste").assertIsDisplayed()
+        assertTopToBottom(
+            "Courses finies" to compose.onNodeWithText("Courses finies"),
+            "Super U" to compose.onNodeWithTag(UiTags.groceryRunEndStore("s-u")),
+            "Pain" to compose.onNodeWithText("Pain"),
+            "Stock à jour" to compose.onNodeWithText("Stock à jour"),
+        )
         compose.onNodeWithTag(UiTags.GROCERY_RUN_END_CLOSE).performClick()
         assertEquals(1, quits)
     }
