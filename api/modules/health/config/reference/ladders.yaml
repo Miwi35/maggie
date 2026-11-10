@@ -1,0 +1,144 @@
+# Progression ladders (MAG-774): steps from the softest (position 1) to the hardest.
+# Step fields: exercise, targetSets, targetMin, targetMax, advanceAt (per set, in the exercise's unit),
+# doubleProgression (true: move up in load, not in step), softer (an intermediate easier slug, or null).
+ladders:
+  - slug: vertical-pull
+    pattern: vertical_pull
+    name: Tirage vertical
+    branch: main
+    steps:
+      - {exercise: active-hang, targetSets: 3, targetMin: 15, targetMax: 30, advanceAt: 30, doubleProgression: false, softer: null}
+      - {exercise: scapular-pull-up, targetSets: 3, targetMin: 5, targetMax: 10, advanceAt: 10, doubleProgression: false, softer: null}
+      - {exercise: arch-hang, targetSets: 3, targetMin: 10, targetMax: 20, advanceAt: 20, doubleProgression: false, softer: null}
+      - {exercise: pull-up-negative, targetSets: 3, targetMin: 3, targetMax: 6, advanceAt: 6, doubleProgression: false, softer: null}
+      - {exercise: assisted-pull-up, targetSets: 3, targetMin: 5, targetMax: 8, advanceAt: 8, doubleProgression: false, softer: jumping-pull-up}
+      - {exercise: pull-up, targetSets: 3, targetMin: 4, targetMax: 8, advanceAt: 8, doubleProgression: false, softer: null}
+      - {exercise: weighted-pull-up, targetSets: 3, targetMin: 4, targetMax: 8, advanceAt: 8, doubleProgression: true, softer: null}
+  - slug: horizontal-pull
+    pattern: horizontal_pull
+    name: Tirage horizontal
+    branch: main
+    steps:
+      - {exercise: bent-knee-table-row, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+      - {exercise: table-row, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+      - {exercise: feet-elevated-table-row, targetSets: 3, targetMin: 6, targetMax: 10, advanceAt: 10, doubleProgression: false, softer: null}
+  - slug: horizontal-pull-weighted-bag
+    pattern: horizontal_pull
+    name: Tirage horizontal, sac lesté
+    branch: weighted_bag
+    steps:
+      - {exercise: bent-over-bag-row, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: true, softer: null}
+      - {exercise: one-arm-bag-row, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: true, softer: null}
+  - slug: vertical-push
+    pattern: vertical_push
+    name: Poussée verticale
+    branch: main
+    steps:
+      - {exercise: incline-pike-push-up, targetSets: 3, targetMin: 6, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+      - {exercise: pike-push-up, targetSets: 3, targetMin: 6, targetMax: 10, advanceAt: 10, doubleProgression: false, softer: null}
+      - {exercise: feet-elevated-pike-push-up, targetSets: 3, targetMin: 5, targetMax: 8, advanceAt: 8, doubleProgression: false, softer: null}
+      - {exercise: wall-handstand-hold, targetSets: 3, targetMin: 15, targetMax: 30, advanceAt: 30, doubleProgression: false, softer: null}
+  - slug: vertical-push-weighted-bag
+    pattern: vertical_push
+    name: Poussée verticale, sac lesté
+    branch: weighted_bag
+    steps:
+      - {exercise: bag-overhead-press, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: true, softer: null}
+      - {exercise: one-arm-bag-press, targetSets: 3, targetMin: 6, targetMax: 10, advanceAt: 10, doubleProgression: true, softer: null}
+  - slug: horizontal-push
+    pattern: horizontal_push
+    name: Poussée horizontale
+    branch: main
+    steps:
+      - {exercise: wall-push-up, targetSets: 3, targetMin: 10, targetMax: 20, advanceAt: 20, doubleProgression: false, softer: null}
+      - {exercise: incline-push-up, targetSets: 3, targetMin: 8, targetMax: 15, advanceAt: 15, doubleProgression: false, softer: null}
+      - {exercise: knee-push-up, targetSets: 3, targetMin: 8, targetMax: 15, advanceAt: 15, doubleProgression: false, softer: null}
+      - {exercise: push-up, targetSets: 3, targetMin: 8, targetMax: 15, advanceAt: 15, doubleProgression: false, softer: null}
+      - {exercise: feet-elevated-push-up, targetSets: 3, targetMin: 6, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+  - slug: horizontal-push-weighted-bag
+    pattern: horizontal_push
+    name: Poussée horizontale, sac lesté
+    branch: weighted_bag
+    steps:
+      - {exercise: weighted-push-up, targetSets: 3, targetMin: 6, targetMax: 12, advanceAt: 12, doubleProgression: true, softer: null}
+  - slug: horizontal-push-dips
+    pattern: horizontal_push
+    name: Poussée horizontale, dips
+    branch: dips
+    steps:
+      - {exercise: bench-dip, targetSets: 3, targetMin: 8, targetMax: 15, advanceAt: 15, doubleProgression: false, softer: null}
+      - {exercise: dip-negative, targetSets: 3, targetMin: 3, targetMax: 6, advanceAt: 6, doubleProgression: false, softer: null}
+      - {exercise: parallel-bar-dip, targetSets: 3, targetMin: 4, targetMax: 8, advanceAt: 8, doubleProgression: false, softer: null}
+      - {exercise: weighted-dip, targetSets: 3, targetMin: 4, targetMax: 8, advanceAt: 8, doubleProgression: true, softer: null}
+  - slug: squat
+    pattern: squat
+    name: Squat
+    branch: main
+    steps:
+      - {exercise: box-squat, targetSets: 3, targetMin: 10, targetMax: 15, advanceAt: 15, doubleProgression: false, softer: null}
+      - {exercise: air-squat, targetSets: 3, targetMin: 10, targetMax: 20, advanceAt: 20, doubleProgression: false, softer: null}
+      - {exercise: tempo-squat, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+      - {exercise: box-pistol-squat, targetSets: 3, targetMin: 3, targetMax: 8, advanceAt: 8, doubleProgression: false, softer: null}
+  - slug: squat-weighted-bag
+    pattern: squat
+    name: Squat, sac lesté
+    branch: weighted_bag
+    steps:
+      - {exercise: goblet-squat, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: true, softer: null}
+      - {exercise: bag-front-squat, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: true, softer: null}
+  - slug: hinge
+    pattern: hinge
+    name: Charnière de hanche
+    branch: main
+    steps:
+      - {exercise: glute-bridge, targetSets: 3, targetMin: 10, targetMax: 20, advanceAt: 20, doubleProgression: false, softer: null}
+      - {exercise: single-leg-glute-bridge, targetSets: 3, targetMin: 8, targetMax: 15, advanceAt: 15, doubleProgression: false, softer: null}
+      - {exercise: chair-hip-thrust, targetSets: 3, targetMin: 8, targetMax: 15, advanceAt: 15, doubleProgression: false, softer: null}
+      - {exercise: single-leg-romanian-deadlift, targetSets: 3, targetMin: 6, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+  - slug: hinge-weighted-bag
+    pattern: hinge
+    name: Charnière de hanche, sac lesté
+    branch: weighted_bag
+    steps:
+      - {exercise: bag-romanian-deadlift, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: true, softer: null}
+      - {exercise: bag-single-leg-romanian-deadlift, targetSets: 3, targetMin: 6, targetMax: 10, advanceAt: 10, doubleProgression: true, softer: null}
+  - slug: lunge
+    pattern: lunge
+    name: Fente
+    branch: main
+    steps:
+      - {exercise: supported-split-squat, targetSets: 3, targetMin: 6, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+      - {exercise: split-squat, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+      - {exercise: reverse-lunge, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+      - {exercise: bulgarian-split-squat, targetSets: 3, targetMin: 6, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+  - slug: lunge-weighted-bag
+    pattern: lunge
+    name: Fente, sac lesté
+    branch: weighted_bag
+    steps:
+      - {exercise: goblet-split-squat, targetSets: 3, targetMin: 8, targetMax: 12, advanceAt: 12, doubleProgression: true, softer: null}
+      - {exercise: weighted-bulgarian-split-squat, targetSets: 3, targetMin: 6, targetMax: 10, advanceAt: 10, doubleProgression: true, softer: null}
+  - slug: core-anterior
+    pattern: core_anterior
+    name: Gainage antérieur
+    branch: main
+    steps:
+      - {exercise: dead-bug, targetSets: 3, targetMin: 6, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+      - {exercise: plank, targetSets: 3, targetMin: 20, targetMax: 45, advanceAt: 45, doubleProgression: false, softer: null}
+      - {exercise: hollow-hold, targetSets: 3, targetMin: 15, targetMax: 30, advanceAt: 30, doubleProgression: false, softer: null}
+      - {exercise: hanging-knee-raise, targetSets: 3, targetMin: 6, targetMax: 12, advanceAt: 12, doubleProgression: false, softer: null}
+      - {exercise: hanging-leg-raise, targetSets: 3, targetMin: 5, targetMax: 10, advanceAt: 10, doubleProgression: false, softer: null}
+  - slug: core-lateral
+    pattern: core_lateral
+    name: Gainage latéral
+    branch: main
+    steps:
+      - {exercise: side-plank-knees, targetSets: 3, targetMin: 15, targetMax: 30, advanceAt: 30, doubleProgression: false, softer: null}
+      - {exercise: side-plank, targetSets: 3, targetMin: 20, targetMax: 45, advanceAt: 45, doubleProgression: false, softer: null}
+      - {exercise: side-plank-hip-dip, targetSets: 3, targetMin: 8, targetMax: 15, advanceAt: 15, doubleProgression: false, softer: null}
+  - slug: core-lateral-weighted-bag
+    pattern: core_lateral
+    name: Gainage latéral, sac lesté
+    branch: weighted_bag
+    steps:
+      - {exercise: suitcase-carry, targetSets: 3, targetMin: 15, targetMax: 30, advanceAt: 30, doubleProgression: true, softer: null}

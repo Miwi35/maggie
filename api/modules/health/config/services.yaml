@@ -9,3 +9,7 @@ services:
             - '../src/Entity/'
             - '../src/Enum/'
             - '../src/MaggieHealthBundle.php'
+
+    Maggie\Health\Service\ExerciseCatalog:
+        arguments:
+            $referenceDir: '%kernel.project_dir%/modules/health/config/reference'
