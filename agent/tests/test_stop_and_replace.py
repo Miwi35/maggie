@@ -259,7 +259,7 @@ class TestStoppingATurn:
 
 class TestAStoppedTurnKeepsWhatItDid:
     @staticmethod
-    async def _run(gw, stopped, release):
+    async def _run(gw, stopped, release, started):
         with (
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.context_repo") as thread,
@@ -279,9 +279,9 @@ class TestAStoppedTurnKeepsWhatItDid:
                     pass
 
             task = asyncio.create_task(consume())
-            await asyncio.sleep(0.05)
+            await started.wait()
             task.cancel()
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0)
             release.set()
             with pytest.raises(asyncio.CancelledError):
                 await task
@@ -290,19 +290,21 @@ class TestAStoppedTurnKeepsWhatItDid:
     @staticmethod
     def _gateway():
         release = asyncio.Event()
+        started = asyncio.Event()
         gw = TestWhatTheToolsSaidIsStored._gateway("create_event")
 
         async def slow_tool(*_args, **_kwargs):
+            started.set()
             await release.wait()
             return EVENT_CREATED
 
         gw.tool_router.call_tool = slow_tool
-        return gw, release
+        return gw, release, started
 
     async def test_a_tool_already_acting_is_let_finish_and_recorded_on_an_interrupted_answer(self):
-        gw, release = self._gateway()
+        gw, release, started = self._gateway()
 
-        create = await self._run(gw, lambda: True, release)
+        create = await self._run(gw, lambda: True, release, started)
 
         create.assert_awaited_once()
         kwargs = create.await_args.kwargs
@@ -312,9 +314,9 @@ class TestAStoppedTurnKeepsWhatItDid:
         assert done_actions(kwargs["blocks"]) == ["create_event({\"includeDeferred\":false})"]
 
     async def test_a_cancellation_that_is_not_the_users_keeps_nothing(self):
-        gw, release = self._gateway()
+        gw, release, started = self._gateway()
 
-        create = await self._run(gw, lambda: False, release)
+        create = await self._run(gw, lambda: False, release, started)
 
         create.assert_not_awaited()
 
