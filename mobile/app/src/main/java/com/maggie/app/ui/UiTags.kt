@@ -1503,6 +1503,8 @@ object UiTags {
     const val GROCERY_RUN_QUIT_STAY = "grocery_run_quit_stay"
     const val GROCERY_RUN_STORE_PROGRESS = "grocery_run_store_progress"
     const val GROCERY_RUN_HEADER = "grocery_run_header"
+    const val GROCERY_RUN_HEADER_COUNT = "grocery_run_header_count"
+    const val GROCERY_RUN_REORDERED = "grocery_run_reordered"
     const val GROCERY_RUN_ITEMS = "grocery_run_items"
     const val GROCERY_RUN_SIDE_TOUR = "grocery_run_side_tour"
     const val GROCERY_RUN_FINISH = "grocery_run_finish"
