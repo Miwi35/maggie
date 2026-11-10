@@ -87,9 +87,11 @@ tags:
       id: "fasting_state"
       text: "Fenêtre ouverte"
     timeout: 10000
+# The label is a child of the button, not its text.
 - assertVisible:
-    id: "fasting_protocol"
     text: "16:8"
+    childOf:
+      id: "fasting_protocol"
 
 # « 16:8 » opens the sheet: 18:6, « Enregistrer ».
 - tapOn:
@@ -110,6 +112,7 @@ tags:
     timeout: 10000
 - extendedWaitUntil:
     visible:
-      id: "fasting_protocol"
       text: "18:6"
+      childOf:
+        id: "fasting_protocol"
     timeout: 10000

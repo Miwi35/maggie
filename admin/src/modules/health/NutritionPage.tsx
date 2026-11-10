@@ -5,12 +5,11 @@ import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import { useMercure } from '../../hooks/useMercure'
 import { parisDay } from './dailyEnergySeries'
 import { FastingCard } from './FastingCard'
 import { FAST_DAYS, useFasting } from './fasting'
 import { HEALTH_DAY_TOPICS, useHealthDays } from './healthDaysApi'
-import { HEALTH_PROFILE_TOPICS, useHealthProfile } from './healthProfileApi'
+import { useHealthProfile } from './healthProfileApi'
 import type { HealthProfilePatch } from './healthProfileApi'
 import { NutritionAddForm } from './NutritionAddForm'
 import { NutritionBalanceCard } from './NutritionBalanceCard'
@@ -20,6 +19,9 @@ import { createIntake, deleteIntake, NUTRITION_TOPICS, useBalanceRange, useDaily
 import type { FoodIntake, IntakePayload, WriteResult } from './nutritionApi'
 import { cardSx, dayLabel, formatGrams, shiftDay, weekRange } from './nutritionBalance'
 import type { DailyBalance } from './nutritionBalance'
+
+/** The page's topics besides the profile's, on its one stream. */
+const PAGE_TOPICS = [...NUTRITION_TOPICS, ...HEALTH_DAY_TOPICS]
 
 const LOAD_ERROR = 'Erreur : le bilan du jour n’a pas pu être chargé.'
 const ADD_ERROR = 'Erreur : l’aliment n’a pas été ajouté.'
@@ -94,7 +96,6 @@ export const NutritionPage = () => {
   const { refresh: refreshIntakes } = intakes
 
   // The fast (MAG-770): the profile holds the protocol, the API computes the day's window and the night fasts.
-  const { profile, save } = useHealthProfile()
   const fasting = useFasting(day)
   const fastDays = useHealthDays(shiftDay(day, -(FAST_DAYS - 1)), day)
   const { refresh: refreshFasting } = fasting
@@ -108,11 +109,9 @@ export const NutritionPage = () => {
     refreshFastDays()
   }, [refreshBalance, refreshWeek, refreshIntakes, refreshFasting, refreshFastDays])
 
-  // The journal is served by Doctrine: an event may be read back at once.
-  useMercure(NUTRITION_TOPICS, refreshDay)
-  // A protocol changed elsewhere (the phone, Maggie) moves the window; a day's entry carries its night fast.
-  useMercure(HEALTH_PROFILE_TOPICS, refreshFasting)
-  useMercure(HEALTH_DAY_TOPICS, refreshFastDays)
+  // One stream for the page, the profile's: the journal is served by Doctrine (an event may be read
+  // back at once), a protocol changed elsewhere moves the window, a day's entry carries its night fast.
+  const { profile, save } = useHealthProfile({ topics: PAGE_TOPICS, onEvent: refreshDay })
 
   const saveFasting = useCallback(
     async (patch: HealthProfilePatch): Promise<boolean> => {

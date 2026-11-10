@@ -13,6 +13,11 @@ import type { ReactElement } from 'react'
 type Subscriber = { current: (data?: string) => void }
 
 const handlers = new Map<string, Set<Subscriber>>()
+// One entry per `useMercure` mounted: in the browser, one EventSource each (shared when the topics are the same).
+const streams = new Map<string, number>()
+
+/** The streams the rendered screen holds open: over HTTP/1.1 each takes one of the six connections (MAG-473). */
+export const openStreams = (): number => streams.size
 
 export const mercureModule = {
   useMercure: (topics: string[], onMessage: (data?: string) => void) => {
@@ -27,9 +32,13 @@ export const mercureModule = {
       const entry: Subscriber = { current: (data) => subscriber.current(data) }
       const subscribed = key.split('|')
       for (const topic of subscribed) handlers.set(topic, (handlers.get(topic) ?? new Set()).add(entry))
+      streams.set(key, (streams.get(key) ?? 0) + 1)
 
       return () => {
         for (const topic of subscribed) handlers.get(topic)?.delete(entry)
+        const left = (streams.get(key) ?? 1) - 1
+        if (left === 0) streams.delete(key)
+        else streams.set(key, left)
       }
     }, [key])
   },
