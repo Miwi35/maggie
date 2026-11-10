@@ -35,9 +35,12 @@ import com.maggie.app.ui.theme.inModule
 /** The header's buttons — the activity's own, Maggie, ✕ — are all this big. */
 internal val HEADER_BUTTON = 56.dp
 
+/** The ✕ at the start of the header, for the activities whose mockup puts it there. */
+private val QUIT_FIRST_BUTTON = 48.dp
+
 /**
  * The frame every activity shares (MAG-580): the whole screen, kept on, with no app chrome; a header with
- * the activity's own [progress] and [actions], Maggie and ✕; the system's back, which does what ✕ does.
+ * the activity's own [progress] and [actions], Maggie and ✕ (at the start with [quitFirst]); the system's back, which does what ✕ does.
  *
  * The background is the night with the module's colour as a radial halo (MAG-617); no activity draws its own.
  *
@@ -54,6 +57,7 @@ fun ActivityScaffold(
     immersion: ActivityImmersion = rememberWindowImmersion(),
     progress: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
+    quitFirst: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     DisposableEffect(immersion) {
@@ -75,7 +79,15 @@ fun ActivityScaffold(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(modifier = Modifier.weight(1f)) { progress() }
+                    if (quitFirst) {
+                        IconButton(
+                            onClick = onQuit,
+                            modifier = Modifier.size(QUIT_FIRST_BUTTON).testTag(UiTags.ACTIVITY_QUIT),
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Quitter $name")
+                        }
+                    }
+                    Box(modifier = Modifier.weight(1f).padding(horizontal = if (quitFirst) 8.dp else 0.dp)) { progress() }
                     actions()
                     FilledTonalIconButton(
                         onClick = onOpenMaggie,
@@ -83,11 +95,13 @@ fun ActivityScaffold(
                     ) {
                         Icon(Icons.Outlined.AutoAwesome, contentDescription = "Demander à Maggie")
                     }
-                    IconButton(
-                        onClick = onQuit,
-                        modifier = Modifier.size(HEADER_BUTTON).testTag(UiTags.ACTIVITY_QUIT),
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "Quitter $name")
+                    if (!quitFirst) {
+                        IconButton(
+                            onClick = onQuit,
+                            modifier = Modifier.size(HEADER_BUTTON).testTag(UiTags.ACTIVITY_QUIT),
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Quitter $name")
+                        }
                     }
                 }
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), content = content)

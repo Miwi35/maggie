@@ -32,6 +32,9 @@ enum class GroceryRunLoad {
     READY,
 }
 
+/** A line of the tour screen: a store, visited today or left out. */
+data class RunRow(val store: RunStore, val visited: Boolean)
+
 /** The answer given to a missing article without a fallback, at the end of the tour (MAG-765). */
 enum class LeftoverChoice { NEXT_TIME, REMOVE }
 
@@ -77,6 +80,8 @@ data class GroceryRunUiState(
     val keptForNextTime: List<RecapLine> = emptyList(),
     /** The screen « Fin »: the tour is over and every missing article without a fallback has its answer. */
     val ended: Boolean = false,
+    /** Articles the owner ticked in this session and has not unticked: leaving asks while there is one. */
+    val ticked: Set<String> = emptySet(),
 ) {
     fun isChecked(item: GroceryItem): Boolean = pending[item.id] ?: item.checked
 
@@ -104,6 +109,21 @@ data class GroceryRunUiState(
 
     /** The stores of « pas aujourd'hui », in their habitual order. */
     val skipped: List<RunStore> get() = stores.filter { it.id in run.skipped }
+
+    /**
+     * The tour screen's rows: a store left out stays at its habitual place, the stores visited fill the other
+     * places in the order of the session.
+     */
+    val rows: List<RunRow> get() {
+        val visited = tour.iterator()
+        val rows = stores.mapNotNull { store ->
+            if (store.id in run.skipped) RunRow(store, false) else if (visited.hasNext()) RunRow(visited.next(), true) else null
+        }
+        return rows + visited.asSequence().map { RunRow(it, true) }
+    }
+
+    /** The session order is not the habitual one: « ordre du jour ». */
+    val reordered: Boolean get() = tour.map { it.id } != stores.map { it.id }.filter { it in run.tour }
 
     val current: RunStore? get() = run.current?.let(byId::get)
 
@@ -197,7 +217,9 @@ class GroceryRunViewModel(
     fun check(itemId: String) {
         val state = _uiState.value
         val item = state.items.firstOrNull { it.id == itemId } ?: return
-        tickQueue.tick(itemId, !state.isChecked(item))
+        val ticked = !state.isChecked(item)
+        tickQueue.tick(itemId, ticked)
+        _uiState.update { it.copy(ticked = if (ticked) it.ticked + itemId else it.ticked - itemId) }
         onPending(tickQueue.pending.value)
     }
 
@@ -237,12 +259,14 @@ class GroceryRunViewModel(
         update(changed)
     }
 
-    /** A store dragged to another place of the tour: the session's order only. */
+    /** A store dragged to another row of the tour screen: the session's order only; a store left out does not move. */
     fun move(from: Int, to: Int) {
-        val run = _uiState.value.run
-        if (from !in run.tour.indices || to !in run.tour.indices || from == to) return
-        val tour = run.tour.toMutableList().apply { add(to, removeAt(from)) }
-        update(run.copy(tour = tour))
+        val state = _uiState.value
+        val rows = state.rows
+        if (from !in rows.indices || to !in rows.indices || from == to || !rows[from].visited) return
+        val tour = rows.toMutableList().apply { add(to, removeAt(from)) }.filter { it.visited }.map { it.store.id }
+        if (tour == state.run.tour) return
+        update(state.run.copy(tour = tour))
     }
 
     /** « C'est parti »: the first store of the tour is opened. */
@@ -345,7 +369,7 @@ class GroceryRunViewModel(
     fun requestQuit(): Boolean {
         val state = _uiState.value
         if (state.ended) return true
-        if (state.checkedSinceStart == 0 && state.pending.isEmpty() && state.pendingMissing.isEmpty()) return true
+        if (state.checkedSinceStart == 0 && state.ticked.isEmpty() && state.pending.isEmpty() && state.pendingMissing.isEmpty()) return true
         _uiState.update { it.copy(quitAsked = true) }
         return false
     }

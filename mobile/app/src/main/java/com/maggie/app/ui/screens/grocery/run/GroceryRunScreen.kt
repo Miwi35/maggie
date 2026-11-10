@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.grocery.run
 
 import android.content.res.Configuration
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +23,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -47,7 +47,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
@@ -136,6 +135,7 @@ fun GroceryRunContent(
         onOpenMaggie = onOpenMaggie,
         immersion = immersion,
         progress = { GroceryRunProgress(state) },
+        quitFirst = true,
     ) {
         val current = state.current
         when {
@@ -174,20 +174,29 @@ fun GroceryRunContent(
     }
 }
 
-/** The header: « Courses · n magasins » and one segment per store of the tour, the store being done filled up to. */
+/** The header: « Courses », the articles of the tour, and one segment per store of the tour, the store being done filled up to. */
 @Composable
 private fun GroceryRunProgress(state: GroceryRunUiState) {
     val total = state.tour.size
     if (state.load != GroceryRunLoad.READY || total == 0 || state.ended) return
     val done = state.run.current?.let { state.run.tour.indexOf(it) }?.coerceAtLeast(0) ?: 0
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = "Courses · " + if (total == 1) "1 magasin" else "$total magasins",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            modifier = Modifier.testTag(UiTags.GROCERY_RUN_HEADER),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Courses",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                modifier = Modifier.weight(1f).testTag(UiTags.GROCERY_RUN_HEADER),
+            )
+            Text(
+                text = articlesLabel(state.tour.sumOf { it.count }),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.testTag(UiTags.GROCERY_RUN_HEADER_COUNT),
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
             repeat(total) { index ->
                 Box(
@@ -379,41 +388,55 @@ private fun RowScope.SideTour(state: GroceryRunUiState) {
 private fun GroceryRunTour(state: GroceryRunUiState, actions: GroceryRunActions) {
     val tablet = LocalConfiguration.current.smallestScreenWidthDp >= 600
     val tour = state.tour
-    val skipped = state.skipped
     val listState = rememberLazyListState()
     val reorder = rememberReorderableLazyListState(listState) { from, to -> actions.move(from.index, to.index) }
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(modifier = Modifier.widthIn(max = if (tablet) 720.dp else 560.dp).fillMaxSize().padding(horizontal = 16.dp)) {
-            Text(
-                text = "Votre tournée",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Votre tournée",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                if (state.reordered) {
+                    Text(
+                        text = "ordre du jour",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .testTag(UiTags.GROCERY_RUN_REORDERED),
+                    )
+                }
+            }
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth().testTag(UiTags.GROCERY_RUN_TOUR),
                 contentPadding = PaddingValues(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                itemsIndexed(tour, key = { _, store -> store.id }) { index, store ->
+                items(state.rows, key = { it.store.id }) { row ->
+                    val store = row.store
                     ReorderableItem(reorder, key = store.id) { dragging ->
-                        StoreRow(store, position = index + 1, dragging = dragging, actions = actions, handle = {
-                            Box(
-                                modifier = Modifier.size(48.dp).draggableHandle(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    Icons.Default.DragIndicator,
-                                    contentDescription = "Déplacer ${store.name}",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        })
+                        if (row.visited) {
+                            StoreRow(store, position = state.run.tour.indexOf(store.id) + 1, dragging = dragging, actions = actions, handle = {
+                                Box(
+                                    modifier = Modifier.size(48.dp).draggableHandle(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Default.DragIndicator,
+                                        contentDescription = "Déplacer ${store.name}",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            })
+                        } else {
+                            StoreRow(store, position = null, dragging = false, actions = actions, handle = {})
+                        }
                     }
-                }
-                itemsIndexed(skipped, key = { _, store -> store.id }) { _, store ->
-                    StoreRow(store, position = null, dragging = false, actions = actions, handle = { Box(Modifier.size(48.dp)) })
                 }
             }
             MainButton(
@@ -437,9 +460,14 @@ private fun StoreRow(
 ) {
     val visited = position != null
     Surface(
-        modifier = Modifier.fillMaxWidth().alpha(if (visited) 1f else 0.7f).testTag(UiTags.groceryRunStore(store.id)),
+        modifier = Modifier.fillMaxWidth().testTag(UiTags.groceryRunStore(store.id)),
         shape = RoundedCornerShape(16.dp),
-        color = if (dragging) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainer,
+        color = when {
+            !visited -> Color.Transparent
+            dragging -> MaterialTheme.colorScheme.surfaceContainerHighest
+            else -> MaterialTheme.colorScheme.surfaceContainer
+        },
+        border = if (visited) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(

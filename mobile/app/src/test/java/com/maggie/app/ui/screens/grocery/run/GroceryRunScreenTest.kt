@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.grocery.run
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.layout.positionInRoot
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.Product
@@ -93,7 +94,9 @@ class GroceryRunScreenTest {
         draw(state())
 
         compose.onNodeWithText("Votre tournée").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER).assertTextEquals("Courses · 3 magasins")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER).assertTextEquals("Courses")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER_COUNT).assertTextEquals("4 articles")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_REORDERED).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.groceryRunPosition("s-m")).assertTextEquals("3")
         assertTopToBottom(
             "Votre tournée" to compose.onNodeWithText("Votre tournée"),
@@ -138,15 +141,30 @@ class GroceryRunScreenTest {
     }
 
     @Test
-    fun `a store left out comes after the tour`() {
+    fun `a store left out stays at its place, without position or handle`() {
         draw(state(GroceryRunState(tour = listOf("s-u", "s-m"), skipped = listOf("s-b"))))
 
-        assertTopToBottom(
-            "Super U" to compose.onNodeWithText("Super U"),
-            "Marché" to compose.onNodeWithText("Marché"),
-            "Biocoop" to compose.onNodeWithText("Biocoop"),
-        )
+        assertHabitualOrder()
         compose.onNodeWithContentDescription("Déplacer Super U").assertExists()
+        compose.onNodeWithContentDescription("Déplacer Biocoop").assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.groceryRunPosition("s-b")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.groceryRunPosition("s-m")).assertTextEquals("2")
+    }
+
+    @Test
+    fun `the ordre du jour pill shows once the session order is not the habitual one`() {
+        draw(state(GroceryRunState(tour = listOf("s-m", "s-u", "s-b"))))
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_REORDERED).assertTextEquals("ordre du jour")
+    }
+
+    @Test
+    fun `the cross comes first in the header, before the title`() {
+        draw(state())
+
+        val x = listOf(UiTags.ACTIVITY_QUIT, UiTags.GROCERY_RUN_HEADER, UiTags.ACTIVITY_MAGGIE)
+            .map { compose.onNodeWithTag(it).fetchSemanticsNode().positionInRoot.x }
+        assertEquals(x.sorted(), x)
     }
 
     @Test

@@ -239,6 +239,67 @@ class GroceryRunViewModelTest {
     }
 
     @Test
+    fun `leaving asks as soon as an article is ticked, even when the API has it and no read has come`() = runTest {
+        val vm = started()
+
+        vm.check("i-3")
+        advanceUntilIdle()
+
+        assertTrue(queue.pending.value.isEmpty())
+        assertFalse(vm.requestQuit())
+        assertTrue(vm.uiState.value.quitAsked)
+    }
+
+    @Test
+    fun `leaving is direct again once the only ticked article is unticked`() = runTest {
+        val vm = started()
+        vm.check("i-3")
+        advanceUntilIdle()
+        vm.check("i-3")
+        advanceUntilIdle()
+
+        assertTrue(vm.requestQuit())
+    }
+
+    @Test
+    fun `a store left out stays at its place in the rows, and the others keep their order`() = runTest {
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.setVisited("s-b", false)
+
+        assertEquals(listOf("Super U", "Biocoop", "Marché"), vm.uiState.value.rows.map { it.store.name })
+        assertEquals(listOf(true, false, true), vm.uiState.value.rows.map { it.visited })
+    }
+
+    @Test
+    fun `dragging over a store left out reorders the visited ones only`() = runTest {
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.setVisited("s-b", false)
+
+        vm.move(2, 0)
+
+        assertEquals(listOf("Marché", "Super U"), vm.tour())
+        assertEquals(listOf("Marché", "Biocoop", "Super U"), vm.uiState.value.rows.map { it.store.name })
+        vm.move(1, 0)
+        assertEquals(listOf("Marché", "Super U"), vm.tour())
+    }
+
+    @Test
+    fun `the ordre du jour pill shows once the session order differs from the habitual one`() = runTest {
+        val vm = viewModel()
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.reordered)
+
+        vm.move(1, 0)
+        assertTrue(vm.uiState.value.reordered)
+
+        vm.move(1, 0)
+        assertFalse(vm.uiState.value.reordered)
+    }
+
+    @Test
     fun `an unreachable API shows the error and Réessayer reads again`() = runTest {
         coEvery { lists.getGroceryList() } returns Result.failure(java.io.IOException("offline"))
         val vm = viewModel()
