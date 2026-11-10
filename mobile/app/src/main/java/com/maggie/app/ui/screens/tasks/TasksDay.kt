@@ -72,7 +72,7 @@ internal fun ringPhraseOf(done: Int, total: Int): String = when {
 
 /** The cards' side margin: a row, its timer included, never reaches the screen's edge (recette, 10 nov.). */
 private val CARD_MARGIN = 16.dp
-private val ROW_RADIUS = 20.dp
+private val TODAY_ROW_RADIUS = 20.dp
 
 /**
  * « Aujourd'hui » (MAG-766, mock-up `Tac-Main`): the routines band (MAG-512) when some are to tick, the ring, and the
@@ -100,7 +100,7 @@ internal fun DayContent(
             }
         }
         if (state.todayTotal > 0) {
-            item(key = "ring") { DayRing(done = state.todayDone, total = state.todayTotal) }
+            item(key = "ring") { DayRing(done = state.todayDone, total = state.todayTotal, phrase = ringPhraseOf(state.todayDone, state.todayTotal)) }
             item(key = "today_label") {
                 Text(
                     text = "AUJOURD’HUI",
@@ -135,14 +135,13 @@ internal fun DayContent(
 
 /**
  * The day's progress card (mock-up `Tac-Main`): a 76 dp ring of [total] segments, [done] of them filled, « n sur N »
- * and the sentence under it.
+ * and, on the day's list only, the [phrase] under it — the evening review has none.
  */
 @Composable
-internal fun DayRing(done: Int, total: Int) {
+internal fun DayRing(done: Int, total: Int, phrase: String? = null) {
     val filled = MaterialTheme.colorScheme.primary
     val empty = maggieSurface().track
     val label = ringLabelOf(done, total)
-    val phrase = ringPhraseOf(done, total)
     MaggieCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -173,7 +172,7 @@ internal fun DayRing(done: Int, total: Int) {
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(text = label, style = MaterialTheme.typography.titleLarge, modifier = Modifier.clearAndSetSemantics { })
-                Text(text = phrase, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                phrase?.let { Text(text = it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }
@@ -203,7 +202,7 @@ private fun TodayRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = if (task.isSubtask) CARD_MARGIN + 16.dp else CARD_MARGIN, end = CARD_MARGIN, top = 4.dp, bottom = 4.dp)
-            .clip(RoundedCornerShape(ROW_RADIUS))
+            .clip(RoundedCornerShape(TODAY_ROW_RADIUS))
             .background(maggieSurface().paper)
             .clickable { onOpen(task.id) }
             .heightIn(min = 68.dp)

@@ -97,6 +97,8 @@ class TasksEveningScreenTest {
 
         compose.onNodeWithTag(UiTags.TASKS_EVENING).assertIsDisplayed()
         compose.onNodeWithContentDescription("3 sur 5 tâches faites").assertIsDisplayed()
+        // The day's sentence is the list's, not the evening's (MAG-766).
+        compose.onNodeWithText(ringPhraseOf(3, 5)).assertDoesNotExist()
         assertTopToBottom(
             "done" to compose.onNodeWithTag(UiTags.TASKS_EVENING_DONE),
             "train" to compose.onNodeWithTag(UiTags.tasksEveningLeft("d4")),
