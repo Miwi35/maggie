@@ -263,7 +263,7 @@ class GroceryRunScreenTest {
         draw(storeState())
 
         compose.onNodeWithTag(UiTags.GROCERY_RUN_STORE_PROGRESS).assertTextEquals("1 / 4")
-        compose.onNodeWithTag(UiTags.GROCERY_RUN_TOUR_PROGRESS).assertTextEquals("Magasin 1 sur 3")
+        compose.onNodeWithText("Magasin 1 sur 3").assertDoesNotExist()
     }
 
     @Test
@@ -317,7 +317,7 @@ class GroceryRunScreenTest {
     fun `Terminer le magasin asks for the summary`() {
         draw(storeState())
 
-        compose.onNodeWithTag(UiTags.GROCERY_RUN_FINISH).assertTextEquals("Terminer le magasin").performClick()
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_FINISH).assertTextEquals("Terminer Super U").performClick()
 
         assertEquals(listOf("recap"), log)
     }

@@ -238,7 +238,7 @@ private fun GroceryRunCurrentStore(state: GroceryRunUiState, store: RunStore, ac
                     items(aisle.lines, key = { it.id }) { line -> RunLineRow(line, actions.check, actions.markMissing) }
                 }
             }
-            MainButton("Terminer le magasin", UiTags.GROCERY_RUN_FINISH, onClick = actions.openRecap)
+            MainButton("Terminer ${store.name}", UiTags.GROCERY_RUN_FINISH, onClick = actions.openRecap)
         }
         if (landscape) SideTour(state)
     }
@@ -248,14 +248,6 @@ private fun GroceryRunCurrentStore(state: GroceryRunUiState, store: RunStore, ac
 private fun StoreHeader(state: GroceryRunUiState, store: RunStore) {
     val progress = state.progress
     Column(modifier = Modifier.padding(top = 8.dp)) {
-        state.tourPosition?.let { (position, total) ->
-            Text(
-                text = "Magasin $position sur $total",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(UiTags.GROCERY_RUN_TOUR_PROGRESS),
-            )
-        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = store.name,
