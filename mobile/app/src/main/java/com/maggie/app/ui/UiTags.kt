@@ -2023,6 +2023,19 @@ object UiTags {
     const val NUTRITION_ADD_FAT = "nutrition_add_fat"
     const val NUTRITION_ADD_SAVE = "nutrition_add_save"
 
+    /** The intermittent fast of Santé › Nutrition (MAG-770): its card, its sheet, the tablet's 14 nights. */
+    const val FASTING_CARD = "fasting_card"
+    const val FASTING_STATE = "fasting_state"
+    const val FASTING_REMAINING = "fasting_remaining"
+    const val FASTING_PROTOCOL = "fasting_protocol"
+    const val FASTING_SPAN = "fasting_span"
+    const val FASTING_NIGHT = "fasting_night"
+    const val FASTING_SHEET = "fasting_sheet"
+    const val FASTING_PROTOCOL_PREFIX = "fasting_protocol_"
+    const val FASTING_WINDOW_START = "fasting_window_start"
+    const val FASTING_SAVE = "fasting_save"
+    const val FASTING_HISTORY = "fasting_history"
+
     /**
      * « Santé › Journal » (MAG-750): the screen and its empty state; the day's header and its arrows; the « Moral » and
      * « Fatigue » scales and each pastille (`journal_mood_7`, `journal_fatigue_4`), « avec Maggie · 21:42 »; the note
@@ -2099,6 +2112,7 @@ object UiTags {
     fun nutritionIntakeDelete(id: String) = NUTRITION_INTAKE_DELETE_PREFIX + id
     fun nutritionPlanned(mealId: String) = NUTRITION_PLANNED_PREFIX + mealId
     fun nutritionEat(mealId: String) = NUTRITION_EAT_PREFIX + mealId
+    fun fastingProtocol(key: String) = FASTING_PROTOCOL_PREFIX + key
     fun bilanSanteMood(value: Int) = BILAN_SANTE_MOOD_PREFIX + value
     fun bilanSanteFatigue(value: Int) = BILAN_SANTE_FATIGUE_PREFIX + value
     fun journalMood(value: Int) = JOURNAL_MOOD_PREFIX + value

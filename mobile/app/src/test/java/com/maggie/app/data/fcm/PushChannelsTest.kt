@@ -73,6 +73,11 @@ class PushChannelsTest {
     }
 
     @Test
+    fun `a fasting reminder lands on the reminders channel (MAG-770)`() {
+        assertEquals(PushChannels.REMINDERS, PushChannels.forType("health"))
+    }
+
+    @Test
     fun `a routine reminder lands on the reminders channel (MAG-512)`() {
         assertEquals(PushChannels.REMINDERS, PushChannels.forType("routine"))
     }

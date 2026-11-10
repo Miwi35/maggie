@@ -25,6 +25,8 @@ data class HealthDay(
     val note: String? = null,
     val notedBy: String? = null,
     val notedAt: String? = null,
+    /** The fast that ended that day, from the day before's last intake to its first (MAG-770); null without both. */
+    val nightFastMinutes: Int? = null,
 ) {
     companion object {
         const val NOTED_BY_USER = "user"

@@ -982,6 +982,25 @@ class DtoContractTest {
     }
 
     @Test
+    fun `the day's fast deserialises from the recorded response, every field by its name (MAG-770)`() {
+        assertItemContract("health_fasting.read", serializer<FastingStatus>(), "FastingStatus")
+
+        val fasting = json.decodeFromJsonElement(serializer<FastingStatus>(), readRecording("health_fasting.read"))
+        assertEquals("2026-03-16", fasting.date)
+        assertNotNull("The recording's protocol is not one the app knows: ${fasting.protocol}", FastingProtocol.byKey(fasting.protocol))
+        assertNotNull(fasting.windowStart)
+        assertNotNull(fasting.windowEnd)
+    }
+
+    @Test
+    fun `the health profile carries its fast under the names the API sends (MAG-770)`() {
+        val profile = json.decodeFromJsonElement(serializer<HealthProfile>(), readRecording("health_profile.me"))
+
+        assertNotNull(FastingProtocol.byKey(profile.fastingProtocol))
+        assertTrue(Regex("\\d{2}:\\d{2}").matches(profile.fastingWindowStart))
+    }
+
+    @Test
     fun `the health journal range deserialises from the recorded response, oldest first (MAG-750)`() {
         val body = readRecording("health_days.range")
         val rows = body["days"]!!.jsonArray
