@@ -197,6 +197,8 @@ class GroceryRunScreenTest {
         draw(state(quitAsked = true))
 
         compose.onNodeWithText("Quitter les courses ?").assertIsDisplayed()
+        compose.onNodeWithText("Ce qui est coché est gardé.").assertIsDisplayed()
+        compose.onNodeWithText("Continuer").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.GROCERY_RUN_QUIT_STAY).performClick()
         compose.onNodeWithTag(UiTags.GROCERY_RUN_QUIT_CONFIRM).performClick()
 

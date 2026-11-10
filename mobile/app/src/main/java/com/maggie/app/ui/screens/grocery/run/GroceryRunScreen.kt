@@ -159,6 +159,7 @@ fun GroceryRunContent(
                 onDismissRequest = actions.dismissQuit,
                 modifier = Modifier.uiTagRoot().testTag(UiTags.GROCERY_RUN_QUIT_DIALOG),
                 title = { Text("Quitter les courses ?") },
+                text = { Text("Ce qui est coché est gardé.") },
                 confirmButton = {
                     TextButton(onClick = onConfirmQuit, modifier = Modifier.testTag(UiTags.GROCERY_RUN_QUIT_CONFIRM)) {
                         Text("Quitter")
@@ -166,7 +167,7 @@ fun GroceryRunContent(
                 },
                 dismissButton = {
                     TextButton(onClick = actions.dismissQuit, modifier = Modifier.testTag(UiTags.GROCERY_RUN_QUIT_STAY)) {
-                        Text("Rester")
+                        Text("Continuer")
                     }
                 },
             )
