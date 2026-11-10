@@ -63,6 +63,13 @@ class HealthProfile implements MercurePublishable, OwnedByUserInterface
 
     public const DEFAULT_SESSION_MINUTES = 20;
 
+    /** Fasting hours : eating window hours (MAG-770), the protocols the screens offer. */
+    public const FASTING_PROTOCOLS = ['14:10' => 10, '16:8' => 8, '18:6' => 6, '20:4' => 4];
+
+    public const DEFAULT_FASTING_PROTOCOL = '16:8';
+
+    public const DEFAULT_FASTING_WINDOW_START = '12:00';
+
     #[ORM\Id]
     #[ORM\Column(type: 'ulid')]
     private Ulid $id;
@@ -105,6 +112,14 @@ class HealthProfile implements MercurePublishable, OwnedByUserInterface
 
     #[ORM\Column(length: 16, enumType: StepSource::class, options: ['default' => 'none'])]
     private StepSource $stepSource = StepSource::None;
+
+    /** One of {@see self::FASTING_PROTOCOLS}, null when the user does not fast. */
+    #[ORM\Column(length: 5, nullable: true, options: ['default' => self::DEFAULT_FASTING_PROTOCOL])]
+    private ?string $fastingProtocol = self::DEFAULT_FASTING_PROTOCOL;
+
+    /** « HH:MM », local time: when the eating window opens. */
+    #[ORM\Column(length: 5, options: ['default' => self::DEFAULT_FASTING_WINDOW_START])]
+    private string $fastingWindowStart = self::DEFAULT_FASTING_WINDOW_START;
 
     /** The latest weighing not set aside, given by {@see self::observe()}: never stored. */
     private ?float $weightKg = null;
@@ -265,6 +280,36 @@ class HealthProfile implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getFastingProtocol(): ?string
+    {
+        return $this->fastingProtocol;
+    }
+
+    public function setFastingProtocol(?string $fastingProtocol): static
+    {
+        $this->fastingProtocol = $fastingProtocol;
+
+        return $this;
+    }
+
+    public function getFastingWindowStart(): string
+    {
+        return $this->fastingWindowStart;
+    }
+
+    public function setFastingWindowStart(string $fastingWindowStart): static
+    {
+        $this->fastingWindowStart = $fastingWindowStart;
+
+        return $this;
+    }
+
+    /** Hours of the eating window, null when the user does not fast. */
+    public function getFastingWindowHours(): ?int
+    {
+        return null === $this->fastingProtocol ? null : self::FASTING_PROTOCOLS[$this->fastingProtocol] ?? null;
+    }
+
     /** Gives the profile what it does not store: the latest weight and the current year. */
     public function observe(?float $weightKg, int $currentYear): static
     {
@@ -321,6 +366,8 @@ class HealthProfile implements MercurePublishable, OwnedByUserInterface
             'suggestionWindowEnd' => $this->suggestionWindowEnd,
             'sessionMinutes' => $this->sessionMinutes,
             'stepSource' => $this->stepSource->value,
+            'fastingProtocol' => $this->fastingProtocol,
+            'fastingWindowStart' => $this->fastingWindowStart,
         ];
     }
 

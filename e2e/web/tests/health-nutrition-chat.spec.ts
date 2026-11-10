@@ -59,3 +59,41 @@ test('Maggie records a dish told in conversation in the food journal — MAG-748
     }
   }
 })
+
+/**
+ * « Je passe au 18:6 à partir de 13 h », then « Arrête le jeûne » — MAG-770.
+ *
+ * The intermittent fast is two fields of the health profile: `97-health-fasting-protocol.yaml`
+ * and `97-health-fasting-stop.yaml` script the model's side; what is proved is the chain through
+ * the real `update_health_profile` and what the API stored. The profile is put back afterwards.
+ */
+test('Maggie changes then stops the intermittent fast — MAG-770', async ({ page, api }) => {
+  const fasting = async () =>
+    (await (await api.get('/api/health/profile')).json()) as { fastingProtocol?: string | null; fastingWindowStart?: string }
+
+  try {
+    const nutrition = new HealthNutritionPage(page)
+    await nutrition.open()
+    const chat = new ChatPanel(page)
+
+    let events = await chat.send('Je passe au 18:6 à partir de 13 h')
+    expect(calledTools(events), 'the profile tool never ran — did the scenario stop matching?').toEqual(['update_health_profile'])
+    expect(toolResults(events)).toEqual([expect.objectContaining({ toolName: 'update_health_profile', status: 'success' })])
+    await expect
+      .poll(async () => {
+        const profile = await fasting()
+
+        return { protocol: profile.fastingProtocol, start: profile.fastingWindowStart }
+      }, { message: 'the 18:6 protocol was not stored', timeout: 30_000 })
+      .toEqual({ protocol: '18:6', start: '13:00' })
+
+    events = await chat.send('Arrête le jeûne')
+    expect(calledTools(events), 'the profile tool never ran — did the scenario stop matching?').toEqual(['update_health_profile'])
+    await expect
+      .poll(async () => (await fasting()).fastingProtocol, { message: 'the fast was not stopped', timeout: 30_000 })
+      .toBeNull()
+  } finally {
+    const restored = await api.patch('/api/health/profile', { data: { fastingProtocol: '16:8', fastingWindowStart: '12:00' } })
+    expect(restored.ok(), `PATCH /api/health/profile answered ${restored.status()}`).toBeTruthy()
+  }
+})

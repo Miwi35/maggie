@@ -139,6 +139,7 @@ final class RecordedResponseContractTest extends WebTestCase
         'health_daily_balance.range' => '/api/health/daily-balance?from=2026-03-15&to=2026-03-16',
         'health_days.range' => '/api/health/days?from=2026-10-19&to=2026-10-21',
         'health_days.read' => '/api/health/days/2026-10-20',
+        'health_fasting.read' => '/api/health/fasting?date=2026-03-16',
     ];
 
     private KernelBrowser $client;

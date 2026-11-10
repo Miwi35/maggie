@@ -26,7 +26,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * removes (MAG-750), whichever door saved them — the API, Maggie, the Health
  * Connect sync, a console command. A row moved to another day raises both
  * days: the one it left must forget it. A late figure (yesterday's steps
- * synced today) thus refreshes its own day.
+ * synced today) thus refreshes its own day. An intake raises the next day
+ * too, whose night's fast it may end (MAG-770).
  *
  * A weighing also moves the weight known on the days after it, and the
  * profile every day's basal metabolism: HealthJournalStale names the first
@@ -114,6 +115,13 @@ final class HealthDaySourcesListener
             $before = $uow->getEntityChangeSet($entity)[$field][0] ?? null;
             if ($before instanceof \DateTimeInterface) {
                 $dates[] = $this->note($userId, $before, $isInstant);
+            }
+
+            // An intake also moves the next day's night fast (MAG-770): the fast that ends there starts at the day's last intake.
+            if ($entity instanceof FoodIntake) {
+                foreach (array_filter($dates) as $date) {
+                    $this->note($userId, new \DateTimeImmutable($date.' +1 day'), false);
+                }
             }
 
             if ($entity instanceof BodyMeasurement) {

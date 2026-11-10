@@ -15,5 +15,7 @@
     "suggestionWindowStart": "07:30",
     "suggestionWindowEnd": "21:00",
     "sessionMinutes": 30,
-    "stepSource": "health_connect"
+    "stepSource": "health_connect",
+    "fastingProtocol": "16:8",
+    "fastingWindowStart": "12:00"
 }

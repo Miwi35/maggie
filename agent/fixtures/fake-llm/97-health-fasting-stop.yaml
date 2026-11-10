@@ -1,0 +1,16 @@
+# « Arrête le jeûne » (MAG-770).
+#
+# No more intermittent fast: update_health_profile with fastingProtocol none
+# (the tool cannot tell a null argument from a missing one). The window's
+# start is kept for a later restart. The journey reads the profile back.
+name: health-fasting-stop
+description: Stop the intermittent fast.
+
+match:
+  user_matches: '^arr[êe]te le je[ûu]ne\W*$'
+
+turns:
+  - tools:
+      - name: update_health_profile
+        input: {fastingProtocol: none}
+  - text: "C'est fait : plus de jeûne. Dites-le-moi quand vous voudrez reprendre."

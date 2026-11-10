@@ -18,6 +18,7 @@ final readonly class HealthDayFigures
         public ?int $eatenKcal = null,
         public ?int $expendedKcal = null,
         public ?int $sportMinutes = null,
+        public ?int $nightFastMinutes = null,
         public bool $hasSource = false,
     ) {
     }

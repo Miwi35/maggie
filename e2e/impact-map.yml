@@ -574,7 +574,10 @@ web:
     areas: [health]
   e2e/web/tests/health-nutrition-chat.spec.ts:
     areas: [health, chat]
-    paths: [agent/fixtures/fake-llm/97-health-food-intake.yaml]
+    paths:
+      - agent/fixtures/fake-llm/97-health-food-intake.yaml
+      - agent/fixtures/fake-llm/97-health-fasting-protocol.yaml
+      - agent/fixtures/fake-llm/97-health-fasting-stop.yaml
   e2e/web/tests/health-configuration.spec.ts:
     areas: [health, cookbook]
   e2e/web/tests/health-configuration-chat.spec.ts:

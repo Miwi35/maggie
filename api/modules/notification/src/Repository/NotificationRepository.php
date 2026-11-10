@@ -116,6 +116,25 @@ class NotificationRepository extends ServiceEntityRepository
         return (int) $result > 0;
     }
 
+    /** Whether this user was already told about this occurrence of a link, e.g. one eating window's end (MAG-770). */
+    public function occurrenceExists(User $user, NotificationType $type, string $relatedEntityIri, \DateTimeImmutable $occurrenceStartAt): bool
+    {
+        $result = $this->createQueryBuilder('n')
+            ->select('COUNT(n.id)')
+            ->where('n.user = :user')
+            ->andWhere('n.relatedEntityIri = :iri')
+            ->andWhere('n.type = :type')
+            ->andWhere('n.occurrenceStartAt = :at')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('iri', $relatedEntityIri)
+            ->setParameter('type', $type)
+            ->setParameter('at', $occurrenceStartAt, Types::DATETIMETZ_IMMUTABLE)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $result > 0;
+    }
+
     /**
      * What is still worth saying about an entity: the notifications that have not expired by $now.
      *

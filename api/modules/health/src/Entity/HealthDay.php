@@ -75,6 +75,10 @@ class HealthDay implements MercurePublishable, MercureItemKey, OwnedByUserInterf
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $sportMinutes = null;
 
+    /** The fast that ended this day: the day before's last intake to this day's first (MAG-770). */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $nightFastMinutes = null;
+
     #[ORM\Column(type: Types::SMALLINT, nullable: true)]
     private ?int $mood = null;
 
@@ -165,6 +169,11 @@ class HealthDay implements MercurePublishable, MercureItemKey, OwnedByUserInterf
         return $this->sportMinutes;
     }
 
+    public function getNightFastMinutes(): ?int
+    {
+        return $this->nightFastMinutes;
+    }
+
     /**
      * Lays down the computed columns. A column whose value is unchanged is
      * left alone, so that a refresh that finds nothing new changes nothing.
@@ -186,6 +195,7 @@ class HealthDay implements MercurePublishable, MercureItemKey, OwnedByUserInterf
         $this->eatenKcal = $figures->eatenKcal;
         $this->expendedKcal = $figures->expendedKcal;
         $this->sportMinutes = $figures->sportMinutes;
+        $this->nightFastMinutes = $figures->nightFastMinutes;
 
         return $this;
     }
@@ -269,6 +279,7 @@ class HealthDay implements MercurePublishable, MercureItemKey, OwnedByUserInterf
             'expendedKcal' => $this->expendedKcal,
             'balanceKcal' => null === $this->eatenKcal || null === $this->expendedKcal ? null : $this->eatenKcal - $this->expendedKcal,
             'sportMinutes' => $this->sportMinutes,
+            'nightFastMinutes' => $this->nightFastMinutes,
             'mood' => $this->mood,
             'fatigue' => $this->fatigue,
             'note' => $this->note,
@@ -295,6 +306,7 @@ class HealthDay implements MercurePublishable, MercureItemKey, OwnedByUserInterf
             'expendedKcal' => null,
             'balanceKcal' => null,
             'sportMinutes' => null,
+            'nightFastMinutes' => null,
             'mood' => null,
             'fatigue' => null,
             'note' => null,

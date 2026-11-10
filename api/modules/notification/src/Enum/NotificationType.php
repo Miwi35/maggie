@@ -31,4 +31,6 @@ enum NotificationType: string
     case Message = 'message';
     /** Maggie hesitates and puts a question with boxes to tick, answered by `/agent/questions/{id}/answer` (MAG-717). */
     case Question = 'question';
+    /** A health nudge: the eating window of the intermittent fast closes (MAG-770). */
+    case Health = 'health';
 }

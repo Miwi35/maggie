@@ -86,6 +86,37 @@ class HealthProfileToolsTest extends KernelTestCase
         self::assertSame(20, $stored->getSessionMinutes());
     }
 
+    public function testISwitchTo186From13hThenStopFasting(): void
+    {
+        $this->loginFixtureUser();
+
+        $data = $this->update(fastingProtocol: '18:6', fastingWindowStart: '13:00');
+
+        self::assertTrue($data['success']);
+        self::assertSame('18:6', $data['profile']['fastingProtocol']);
+        self::assertSame('13:00', $data['profile']['fastingWindowStart']);
+        $stored = $this->profileOf('test_user');
+        self::assertSame('18:6', $stored?->getFastingProtocol());
+        $this->assertMercureUpdatePublished('/api/health-profile/'.$stored?->getId());
+
+        $data = $this->update(fastingProtocol: 'none');
+
+        self::assertTrue($data['success']);
+        self::assertNull($data['profile']['fastingProtocol']);
+        self::assertNull($this->profileOf('test_user')?->getFastingProtocol());
+        self::assertSame('13:00', $this->profileOf('test_user')?->getFastingWindowStart());
+    }
+
+    public function testAnUnknownProtocolNamesItsField(): void
+    {
+        $this->loginFixtureUser();
+
+        $data = $this->update(fastingProtocol: '15:9');
+
+        self::assertSame('fastingProtocol', $data['field']);
+        self::assertNull($this->profileOf('test_user'));
+    }
+
     public function testTheReadGivesTheFiguresOfTheUsersOwnProfile(): void
     {
         $this->loginFixtureUser();

@@ -113,6 +113,19 @@ final class HealthProfileRules
         return $value;
     }
 
+    /** A known protocol, or null: no fasting. */
+    public function fastingProtocol(mixed $value): ?string
+    {
+        if (null === $value) {
+            return null;
+        }
+        if (!\is_string($value) || !isset(HealthProfile::FASTING_PROTOCOLS[$value])) {
+            throw new InvalidHealthProfileException('fastingProtocol', 'use '.implode(', ', array_keys(HealthProfile::FASTING_PROTOCOLS)).', or null for no fasting.');
+        }
+
+        return $value;
+    }
+
     public function stepSource(mixed $value): StepSource
     {
         return (\is_string($value) ? StepSource::tryFrom($value) : null)

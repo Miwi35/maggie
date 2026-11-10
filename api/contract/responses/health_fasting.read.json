@@ -1,0 +1,10 @@
+{
+    "date": "2026-03-16",
+    "protocol": "16:8",
+    "windowStart": "12:00",
+    "windowEnd": "20:00",
+    "openedAt": "2026-03-16T16:00:00+01:00",
+    "lastIntakeAt": "2026-03-16T16:00:00+01:00",
+    "state": "closed",
+    "nightFastMinutes": null
+}

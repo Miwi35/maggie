@@ -210,7 +210,7 @@ class PushMessageFactory
     private function channel(NotificationType $type): string
     {
         return match ($type) {
-            NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge, NotificationType::Routine, NotificationType::CookingTimer => self::CHANNEL_REMINDERS,
+            NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge, NotificationType::Routine, NotificationType::CookingTimer, NotificationType::Health => self::CHANNEL_REMINDERS,
             NotificationType::Approval => self::CHANNEL_APPROVALS,
             NotificationType::ConsentExpiring, NotificationType::Finance => self::CHANNEL_FINANCE,
             NotificationType::Departure => self::CHANNEL_DEPARTURE,
@@ -302,6 +302,11 @@ class PushMessageFactory
         // The routines of the day (MAG-512): « Aujourd'hui » of the tasks.
         if (1 === preg_match('#^/tasks/?$#', $path)) {
             return ['link' => sprintf('%s://tasks', $this->deepLinkScheme), 'label' => 'Voir les routines'];
+        }
+
+        // The eating window closes (MAG-770): Santé › Nutrition, where the fast is.
+        if (1 === preg_match('#^/health/nutrition/?$#', $path)) {
+            return ['link' => sprintf('%s://health/nutrition', $this->deepLinkScheme), 'label' => 'Ouvrir Nutrition'];
         }
 
         if (1 === preg_match('#^/finance(?:/([a-z-]+))?/?$#', $path, $m) && \in_array($m[1] ?? '', self::FINANCE_PATHS, true)) {

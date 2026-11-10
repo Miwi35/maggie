@@ -20,11 +20,12 @@ use Symfony\Component\Routing\Attribute\Route;
  * written, laid down on first write. Written here and not through an API
  * Platform `Patch` on an identifier-less path, which would build a fresh
  * entity (MeOperationContractTest). The PATCH applies the fields it is sent
- * and only those; a `weightKg` records a manual weighing.
+ * and only those; a `weightKg` records a manual weighing; `fastingProtocol`
+ * sent as null stops fasting (MAG-770).
  */
 final class HealthProfileController
 {
-    private const FIELDS = ['sex', 'birthYear', 'heightCm', 'weightKg', 'activityLevel', 'mode', 'enteredNeedKcal', 'stepGoal', 'suggestionWindowStart', 'suggestionWindowEnd', 'sessionMinutes', 'stepSource'];
+    private const FIELDS = ['sex', 'birthYear', 'heightCm', 'weightKg', 'activityLevel', 'mode', 'enteredNeedKcal', 'stepGoal', 'suggestionWindowStart', 'suggestionWindowEnd', 'sessionMinutes', 'stepSource', 'fastingProtocol', 'fastingWindowStart'];
 
     public function __construct(
         private readonly Security $security,
@@ -82,6 +83,8 @@ final class HealthProfileController
                 suggestionWindowEnd: $body['suggestionWindowEnd'] ?? null,
                 sessionMinutes: $body['sessionMinutes'] ?? null,
                 stepSource: $body['stepSource'] ?? null,
+                fastingProtocol: \array_key_exists('fastingProtocol', $body) && null === $body['fastingProtocol'] ? UpdateHealthProfileCommand::NO_FASTING : $body['fastingProtocol'] ?? null,
+                fastingWindowStart: $body['fastingWindowStart'] ?? null,
             ));
         } catch (HandlerFailedException $e) {
             // A refused value is the caller's; anything else is ours, and not theirs to read.
