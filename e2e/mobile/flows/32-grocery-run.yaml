@@ -124,7 +124,6 @@ tags:
     id: "grocery_run_recap_confirm"
 - extendedWaitUntil:
     visible:
-      id: "grocery_run_finish"
       text: "Terminer Halles du voisin"
     timeout: 20000
 
