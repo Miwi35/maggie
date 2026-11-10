@@ -52,6 +52,8 @@ data class GroceryRunUiState(
     val mealTags: Map<String, String> = emptyMap(),
     /** « Manquant » marks made and not yet received by the API: article id → missing or not (MAG-764). */
     val pendingMissing: Map<String, Boolean> = emptyMap(),
+    /** Marks the API has received and no read of the list says yet: article id → missing or not. */
+    val receivedMissing: Map<String, Boolean> = emptyMap(),
     /** The summary of « Terminer le magasin » is open (MAG-765). */
     val recap: Boolean = false,
     /** « Montant payé » as typed, in euros: « 42,80 »; empty when not given. */
@@ -71,7 +73,7 @@ data class GroceryRunUiState(
 ) {
     fun isChecked(item: GroceryItem): Boolean = pending[item.id] ?: item.checked
 
-    fun isMissing(item: GroceryItem): Boolean = pendingMissing[item.id] ?: (item.missingAt != null)
+    fun isMissing(item: GroceryItem): Boolean = pendingMissing[item.id] ?: receivedMissing[item.id] ?: (item.missingAt != null)
 
     private fun place(item: GroceryItem): RunPlace? = item.runPlace(isMissing(item), run.tour)
 
@@ -161,7 +163,14 @@ class GroceryRunViewModel(
         load()
         followList()
         viewModelScope.launch { tickQueue.pending.collect(::onPending) }
-        viewModelScope.launch { tickQueue.pendingMissing.collect { marks -> _uiState.update { it.copy(pendingMissing = marks) } } }
+        viewModelScope.launch { tickQueue.pendingMissing.collect(::onPendingMissing) }
+    }
+
+    // A mark the API has received leaves the queue: it is kept until a read of the list says it, as a read answered
+    // before the API had it would otherwise put « Manquant » back on the line.
+    private fun onPendingMissing(pending: Map<String, Boolean>) = _uiState.update { state ->
+        val received = state.pendingMissing.filter { (id, _) -> id !in pending }
+        state.copy(pendingMissing = pending, receivedMissing = state.receivedMissing - pending.keys + received)
     }
 
     // A tick the API has received leaves the queue: it is kept on the article until the next read of the list says it.
@@ -190,7 +199,7 @@ class GroceryRunViewModel(
         val missing = !state.isMissing(item)
         if (missing && state.isChecked(item)) return
         tickQueue.markMissing(itemId, missing)
-        _uiState.update { it.copy(pendingMissing = tickQueue.pendingMissing.value) }
+        onPendingMissing(tickQueue.pendingMissing.value)
     }
 
     /** « Réessayer ». */
@@ -276,10 +285,10 @@ class GroceryRunViewModel(
     fun keepForNextTime(itemId: String) {
         if (_uiState.value.leftovers.none { it.id == itemId }) return
         tickQueue.markMissing(itemId, false)
+        onPendingMissing(tickQueue.pendingMissing.value)
         // Read as the API will store it, so the mark does not come back once the queue has sent it.
         _uiState.update { state ->
             state.copy(
-                pendingMissing = tickQueue.pendingMissing.value,
                 items = state.items.map { if (it.id == itemId) it.copy(store = it.origin, missingFromStore = null, missingAt = null) else it },
             )
         }
@@ -398,8 +407,10 @@ class GroceryRunViewModel(
         listId = list?.id
         tickQueue.retainOnly(list?.items.orEmpty().mapNotNull { it.id }.toSet())
         val run = (saved ?: GroceryRunState()).reconciledWith(stores.map { it.id })
+        val read = lines.associateBy { it.id }
         _uiState.update {
             it.copy(
+                receivedMissing = it.receivedMissing.filter { (id, missing) -> read[id]?.let { item -> (item.missingAt != null) != missing } ?: false },
                 load = if (stores.isEmpty()) GroceryRunLoad.EMPTY else GroceryRunLoad.READY,
                 stores = stores,
                 items = lines,
