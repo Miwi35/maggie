@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -53,12 +54,25 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.util.DateRanges
 import java.time.LocalDate
 
 /** The ring's words, also what a screen reader says of it. */
 internal fun ringLabelOf(done: Int, total: Int): String = "$done sur $total"
+
+/** The sentence under the count (mock-up `Tac-Main`): what one more box means today. */
+internal fun ringPhraseOf(done: Int, total: Int): String = when {
+    done == 0 -> "Une seule suffit pour lancer la journée."
+    done >= total -> "Tout est fait pour aujourd’hui."
+    else -> "La journée est lancée, à ton rythme."
+}
+
+/** The cards' side margin: a row, its timer included, never reaches the screen's edge (recette, 10 nov.). */
+private val CARD_MARGIN = 16.dp
+private val TODAY_ROW_RADIUS = 20.dp
 
 /**
  * « Aujourd'hui » (MAG-766, mock-up `Tac-Main`): the routines band (MAG-512) when some are to tick, the ring, and the
@@ -86,13 +100,13 @@ internal fun DayContent(
             }
         }
         if (state.todayTotal > 0) {
-            item(key = "ring") { DayRing(done = state.todayDone, total = state.todayTotal) }
+            item(key = "ring") { DayRing(done = state.todayDone, total = state.todayTotal, phrase = ringPhraseOf(state.todayDone, state.todayTotal)) }
             item(key = "today_label") {
                 Text(
                     text = "AUJOURD’HUI",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+                    modifier = Modifier.padding(start = CARD_MARGIN + 4.dp, end = CARD_MARGIN, top = 8.dp, bottom = 4.dp),
                 )
             }
         }
@@ -119,39 +133,48 @@ internal fun DayContent(
     }
 }
 
-/** [total] segments, [done] of them filled: the count has its picture, and the words beside it. */
+/**
+ * The day's progress card (mock-up `Tac-Main`): a 76 dp ring of [total] segments, [done] of them filled, « n sur N »
+ * and, on the day's list only, the [phrase] under it — the evening review has none.
+ */
 @Composable
-internal fun DayRing(done: Int, total: Int) {
+internal fun DayRing(done: Int, total: Int, phrase: String? = null) {
     val filled = MaterialTheme.colorScheme.primary
-    val empty = MaterialTheme.colorScheme.surfaceVariant
+    val empty = maggieSurface().track
     val label = ringLabelOf(done, total)
-    Row(
+    MaggieCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .testTag(UiTags.TASKS_RING)
-            .clearAndSetSemantics { contentDescription = "$label tâches faites" },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = CARD_MARGIN, vertical = 8.dp)
+            .testTag(UiTags.TASKS_RING),
     ) {
-        Canvas(modifier = Modifier.size(44.dp)) {
-            val stroke = 6.dp.toPx()
-            val gap = if (total > 1) 10f else 0f
-            val sweep = 360f / total - gap
-            val inset = stroke / 2
-            for (segment in 0 until total) {
-                drawArc(
-                    color = if (segment < done) filled else empty,
-                    startAngle = -90f + segment * (360f / total) + gap / 2,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    topLeft = Offset(inset, inset),
-                    size = Size(size.width - stroke, size.height - stroke),
-                    style = Stroke(width = stroke),
-                )
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Canvas(modifier = Modifier.size(76.dp).clearAndSetSemantics { contentDescription = "$label tâches faites" }) {
+                val stroke = 8.dp.toPx()
+                val gap = if (total > 1) 10f else 0f
+                val sweep = 360f / total - gap
+                val inset = stroke / 2
+                for (segment in 0 until total) {
+                    drawArc(
+                        color = if (segment < done) filled else empty,
+                        startAngle = -90f + segment * (360f / total) + gap / 2,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        topLeft = Offset(inset, inset),
+                        size = Size(size.width - stroke, size.height - stroke),
+                        style = Stroke(width = stroke),
+                    )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(text = label, style = MaterialTheme.typography.titleLarge, modifier = Modifier.clearAndSetSemantics { })
+                phrase?.let { Text(text = it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
-        Text(text = label, style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -174,13 +197,17 @@ private fun TodayRow(
     val meta = TodayRows.metaOf(task, today)
     val timer = TodayRows.timerMinutesOf(task)
     val done = task.isDone
+    // A card per task (mock-up `Tac-Main`: `paper`, 20 dp corners, 68 dp at least), the timer inside it.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = if (task.isSubtask) 32.dp else 8.dp, end = 8.dp, top = 2.dp, bottom = 2.dp)
-            .heightIn(min = 56.dp)
-            .alpha(if (done) 0.6f else 1f)
+            .padding(start = if (task.isSubtask) CARD_MARGIN + 16.dp else CARD_MARGIN, end = CARD_MARGIN, top = 4.dp, bottom = 4.dp)
+            .clip(RoundedCornerShape(TODAY_ROW_RADIUS))
+            .background(maggieSurface().paper)
             .clickable { onOpen(task.id) }
+            .heightIn(min = 68.dp)
+            .padding(start = 4.dp, end = 12.dp)
+            .alpha(if (done) 0.6f else 1f)
             .testTag(UiTags.tasksTodayRow(task.id)),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
