@@ -17,7 +17,7 @@ class AndroidAutoDeclarationTest {
     private val app = ApplicationProvider.getApplicationContext<Application>()
 
     @Test
-    fun `the manifest points Android Auto at a descriptor that declares notifications`() {
+    fun `the manifest points Android Auto at a descriptor that declares notifications and media`() {
         val metaData = app.packageManager.getApplicationInfo(app.packageName, PackageManager.GET_META_DATA).metaData
         val resource = metaData.getInt("com.google.android.gms.car.application")
         assertTrue("meta-data com.google.android.gms.car.application is missing", resource != 0)
@@ -32,6 +32,6 @@ class AndroidAutoDeclarationTest {
         }
 
         assertEquals("automotiveApp", root)
-        assertEquals(listOf<String?>("notification"), uses)
+        assertEquals(listOf<String?>("notification", "media"), uses)
     }
 }

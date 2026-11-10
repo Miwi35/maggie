@@ -7,6 +7,8 @@ import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.BuildConfig
+import com.maggie.app.media.MaggieMediaService
+import com.maggie.app.ui.navigation.DeepLinks
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -116,6 +118,27 @@ class PushNotifierTest {
         assertNotNull("her portrait", message.person?.icon)
         assertEquals(NotificationCompat.CATEGORY_MESSAGE, shown().category)
         assertEquals(PushNotifier.GROUP_CONVERSATION, shown().group)
+    }
+
+    @Test
+    fun `the digest notification carries Écouter, which starts the media service`() {
+        val digest = PushPayload.from(
+            mapOf("notificationId" to "n-1", "type" to "message", "title" to "Maggie", "body" to "Bonjour", "link" to "${DeepLinks.SCHEME}://digest?message=m-1"),
+        )!!
+        notifier.show(digest)
+
+        val listen = shown().actions.first { it.title.toString() == "Écouter" }
+        val started = shadowOf(listen.actionIntent).savedIntent
+        assertEquals(MaggieMediaService::class.java.name, started.component?.className)
+        assertEquals(MaggieMediaService.ACTION_LISTEN, started.action)
+        assertTrue(shadowOf(listen.actionIntent).isForegroundService)
+    }
+
+    @Test
+    fun `a plain message has no Écouter`() {
+        notifier.show(chat("n-1", "Salut"))
+
+        assertFalse(buttons().contains("Écouter"))
     }
 
     @Test

@@ -73,6 +73,9 @@ import com.maggie.app.data.repository.ChatUnreadRepository
 import com.maggie.app.data.repository.ProviderStatusRepository
 import com.maggie.app.ui.components.ProviderStatusViewModel
 import com.maggie.app.data.repository.ChatRepository
+import com.maggie.app.media.DigestArtwork
+import com.maggie.app.media.DigestMediaLibrary
+import com.maggie.app.media.DigestSource
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.GroceryCardRepository
 import com.maggie.app.data.repository.GroceryListRepository
@@ -416,6 +419,16 @@ class MaggieApp : Application() {
             single { ChatUnreadRepository(get(), get(), get()) }
             single { ProviderStatusRepository(get()) }
             single { ChatRepository(get(), get()) }
+            single {
+                val api = get<MaggieApiService>()
+                DigestMediaLibrary(
+                    object : DigestSource {
+                        override suspend fun latestVoice() = api.getLatestDigestVoice()
+                        override suspend fun signedUrl(messageId: String) = api.getMessageAudio(messageId).url
+                    },
+                    artwork = { DigestArtwork.png },
+                )
+            }
             single { ApprovalRepository(get(), get(), get()) }
             single { AgendaRepository(get(), get()) }
             single { CalendarCacheFeed(get(), get(), get(), get()) }

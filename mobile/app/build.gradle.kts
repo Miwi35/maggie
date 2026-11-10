@@ -272,6 +272,10 @@ dependencies {
     // Reorderable
     implementation(libs.reorderable)
 
+    // Media service for Android Auto (MAG-773)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.session)
+
     // Koin (DI)
     implementation(libs.koin.android)
     implementation(libs.koin.compose)

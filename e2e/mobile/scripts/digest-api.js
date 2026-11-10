@@ -10,7 +10,9 @@
 //   SUMMARY  the title of today's event
 //   EMAIL    the account (the journey's own user)
 //
-// Sets output.digestMessageId: the written digest, which the deep link `digest?message=` opens.
+// Sets output.digestMessageId: the written digest, which the deep link `digest?message=` opens, and
+// output.digestVoiceId: the voice the car's media lists (MAG-773), read through the filtered
+// `GET /agent/messages?screen=digest&withAudio=true&limit=1` the media service calls.
 
 (function () {
 const base = E2E_BASE_URL
@@ -110,4 +112,14 @@ for (;;) {
   }
   pause(2000)
 }
+
+const voice = http.get(base + '/agent/messages?screen=digest&withAudio=true&limit=1', { headers: headers() })
+if (!voice.ok) {
+  fail('GET /agent/messages (digest voice) answered ' + voice.status + ': ' + voice.body)
+}
+const voices = JSON.parse(voice.body)
+if (voices.length !== 1 || voices[0].screen !== 'digest' || !voices[0].audio) {
+  fail('the last digest voice was not returned alone: ' + voice.body)
+}
+output.digestVoiceId = voices[0].id
 })()

@@ -1578,6 +1578,15 @@ class MaggieApiService(
         }.body()
     }
 
+    /** The newest voice message of the morning digest, whatever its day; null when there is none (MAG-773). */
+    suspend fun getLatestDigestVoice(): ChatMessage? {
+        return client.get("$baseUrl/agent/messages") {
+            url.parameters.append("screen", "digest")
+            url.parameters.append("withAudio", "true")
+            url.parameters.append("limit", "1")
+        }.orRefusal().body<List<ChatMessage>>().firstOrNull()
+    }
+
     /**
      * The short signed URL of a voice message's audio (MAG-686): the call is authenticated, the URL
      * it returns is not and goes to the player as it is. 403 for another user's message, 404 without audio.
