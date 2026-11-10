@@ -66,13 +66,14 @@ import com.maggie.app.ui.activity.ActivityImmersion
 import com.maggie.app.ui.activity.ActivityScaffold
 import com.maggie.app.ui.activity.rememberWindowImmersion
 import com.maggie.app.ui.screens.cookbook.cooking.mainButtonHeight
+import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.ModuleHue
 import com.maggie.app.ui.uiTagRoot
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
-private val RunMuted = Color(0xFF8E899C)
-private val RunMutedText = Color(0xFFABA6B8)
+private val RunMuted = MaggieTokens.surfaceDark.caption
+private val RunMutedText = MaggieTokens.surfaceDark.textMuted
 
 /** What the screen can ask of the activity; the ViewModel's actions, apart from it so a test can watch them. */
 class GroceryRunActions(
@@ -367,7 +368,7 @@ private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit, onMissing: (Str
             Box(
                 modifier = Modifier
                     .height(44.dp)
-                    .background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(999.dp))
+                    .background(MaggieTokens.surfaceDark.text.copy(alpha = 0.06f), RoundedCornerShape(999.dp))
                     .clip(RoundedCornerShape(999.dp))
                     .clickable(role = Role.Button, onClick = { onMissing(line.id) })
                     .padding(horizontal = 12.dp)
@@ -547,7 +548,7 @@ private fun MainButton(text: String, tag: String, enabled: Boolean = true, muted
         onClick = onClick,
         enabled = enabled,
         colors = if (muted) {
-            ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.08f), contentColor = Color(0xFFF3F1F8))
+            ButtonDefaults.buttonColors(containerColor = MaggieTokens.surfaceDark.text.copy(alpha = 0.08f), contentColor = MaggieTokens.surfaceDark.text)
         } else {
             ButtonDefaults.buttonColors()
         },
