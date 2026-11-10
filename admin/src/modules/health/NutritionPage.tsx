@@ -7,6 +7,11 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { useMercure } from '../../hooks/useMercure'
 import { parisDay } from './dailyEnergySeries'
+import { FastingCard } from './FastingCard'
+import { FAST_DAYS, useFasting } from './fasting'
+import { HEALTH_DAY_TOPICS, useHealthDays } from './healthDaysApi'
+import { HEALTH_PROFILE_TOPICS, useHealthProfile } from './healthProfileApi'
+import type { HealthProfilePatch } from './healthProfileApi'
 import { NutritionAddForm } from './NutritionAddForm'
 import { NutritionBalanceCard } from './NutritionBalanceCard'
 import { NutritionJournal } from './NutritionJournal'
@@ -71,7 +76,8 @@ const MacrosCard = ({ balance }: { balance: DailyBalance }) => (
  * Santé › Nutrition (MAG-748): the day's balance first, the 7 days, the
  * macros, then the journal — what was eaten and the planned meals not eaten
  * yet, with « Mangé » — and the free addition. Every figure is the API's; a
- * write, here or elsewhere (Maggie, the phone), reads the day again.
+ * write, here or elsewhere (Maggie, the phone), reads the day again. The
+ * « Jeûne » card (MAG-770) sits by the macros.
  */
 export const NutritionPage = () => {
   const notify = useNotify()
@@ -87,14 +93,36 @@ export const NutritionPage = () => {
   const { refresh: refreshWeek } = week
   const { refresh: refreshIntakes } = intakes
 
+  // The fast (MAG-770): the profile holds the protocol, the API computes the day's window and the night fasts.
+  const { profile, save } = useHealthProfile()
+  const fasting = useFasting(day)
+  const fastDays = useHealthDays(shiftDay(day, -(FAST_DAYS - 1)), day)
+  const { refresh: refreshFasting } = fasting
+  const { refresh: refreshFastDays } = fastDays
+
   const refreshDay = useCallback(() => {
     refreshBalance()
     refreshWeek()
     refreshIntakes()
-  }, [refreshBalance, refreshWeek, refreshIntakes])
+    refreshFasting()
+    refreshFastDays()
+  }, [refreshBalance, refreshWeek, refreshIntakes, refreshFasting, refreshFastDays])
 
   // The journal is served by Doctrine: an event may be read back at once.
   useMercure(NUTRITION_TOPICS, refreshDay)
+  // A protocol changed elsewhere (the phone, Maggie) moves the window; a day's entry carries its night fast.
+  useMercure(HEALTH_PROFILE_TOPICS, refreshFasting)
+  useMercure(HEALTH_DAY_TOPICS, refreshFastDays)
+
+  const saveFasting = useCallback(
+    async (patch: HealthProfilePatch): Promise<boolean> => {
+      const saved = await save(patch)
+      if (saved) refreshFasting()
+
+      return saved
+    },
+    [save, refreshFasting],
+  )
 
   const after = useCallback(
     (result: WriteResult, fallback: string): boolean => {
@@ -139,6 +167,7 @@ export const NutritionPage = () => {
           <NutritionBalanceCard day={balance.data} />
           <NutritionWeekCard state={week} day={day} today={today} />
           <MacrosCard balance={balance.data} />
+          <FastingCard profile={profile} fasting={fasting} days={fastDays} day={day} today={today} onSave={saveFasting} />
         </Box>
       )}
       <NutritionJournal

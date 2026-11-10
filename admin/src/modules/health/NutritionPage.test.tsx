@@ -9,6 +9,8 @@ import { veilleuseLightTheme } from '../../theme'
 import { NutritionPage } from './NutritionPage'
 import type { DailyBalance } from './nutritionBalance'
 import type { FoodIntake } from './nutritionApi'
+import type { FastingDay } from './fasting'
+import type { FastingProtocol } from './healthProfileApi'
 
 vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
 
@@ -45,11 +47,39 @@ const balanceOf = (over: Partial<DailyBalance> = {}): DailyBalance => ({
   ...over,
 })
 
+/** The profile's fast (MAG-770) and the window the API derives from it. */
+interface Fast {
+  fastingProtocol: FastingProtocol | null
+  fastingWindowStart: string
+}
+
+const WINDOW_HOURS: Record<FastingProtocol, number> = { '14:10': 10, '16:8': 8, '18:6': 6, '20:4': 4 }
+
+const fastingOf = (fast: Fast, over: Partial<FastingDay> = {}): FastingDay => {
+  const [hours, minutes] = fast.fastingWindowStart.split(':')
+  const end = fast.fastingProtocol === null ? 0 : (Number(hours) + WINDOW_HOURS[fast.fastingProtocol]) % 24
+
+  return {
+    date: TODAY,
+    protocol: fast.fastingProtocol,
+    windowStart: fast.fastingWindowStart,
+    windowEnd: `${String(end).padStart(2, '0')}:${minutes}`,
+    openedAt: '2026-10-21T12:10:00+02:00',
+    lastIntakeAt: '2026-10-21T12:10:00+02:00',
+    state: fast.fastingProtocol === null ? null : 'open',
+    nightFastMinutes: 965,
+    ...over,
+  }
+}
+
 interface Server {
   balance: DailyBalance | 'fail'
   intakes: FoodIntake[]
   /** What a POST answers; the default records it. */
   post?: (body: Record<string, unknown>) => Response
+  fast?: Fast
+  /** What a PATCH of the profile answers; the default applies it. */
+  patch?: (body: Record<string, unknown>) => Response
 }
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -82,6 +112,19 @@ function stubApi(server: Server) {
       server.intakes = server.intakes.filter((intake) => !pathname.endsWith(intake.id))
 
       return new Response(null, { status: 204 })
+    }
+    const fast = (server.fast ??= { fastingProtocol: '16:8', fastingWindowStart: '12:00' })
+    if (pathname === '/api/health/profile' && method === 'GET') return json({ id: '01PROFILE', ...fast })
+    if (pathname === '/api/health/profile' && method === 'PATCH') {
+      const body = JSON.parse(String(init.body)) as Record<string, unknown>
+      if (server.patch) return server.patch(body)
+      server.fast = { ...fast, ...body }
+
+      return json({ id: '01PROFILE', ...server.fast })
+    }
+    if (pathname === '/api/health/fasting') return json(fastingOf(fast))
+    if (pathname === '/api/health/days') {
+      return json({ days: [{ date: TODAY, nightFastMinutes: 965 }, { date: '2026-10-20', nightFastMinutes: 1000 }] })
     }
     if (pathname === '/ciqual/foods') {
       return json([
@@ -133,13 +176,17 @@ describe('NutritionPage', () => {
     expect(await screen.findByTestId('balance-value')).toHaveTextContent(/^−1\s307 kcal$/)
     expect(within(bilan()).getByTestId('balance-parts')).toHaveTextContent(/^Mangé 78 kcal · Prévu 515 kcal · Dépensé 1\s900 kcal$/)
     expect(within(bilan()).queryByTestId('balance-word')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))).toEqual([
-      'Bilan du jour',
-      '7 jours',
-      'Macros',
-      'Journal',
-      'Ajouter',
-    ])
+    await waitFor(() =>
+      expect(screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))).toEqual([
+        'Bilan du jour',
+        '7 jours',
+        'Macros',
+        'Jeûne',
+        'Jeûnes, 14 jours',
+        'Journal',
+        'Ajouter',
+      ]),
+    )
     expect(screen.getByTestId('nutrition-day')).toHaveTextContent('Aujourd’hui')
 
     await waitFor(() => expect(screen.getAllByTestId('week-day')).toHaveLength(7))
@@ -334,5 +381,100 @@ describe('NutritionPage', () => {
     renderPage()
 
     expect(await screen.findByText('Erreur : le bilan du jour n’a pas pu être chargé.')).toBeInTheDocument()
+  })
+
+  describe('Jeûne (MAG-770)', () => {
+    const card = () => screen.getByTestId('fasting-card')
+
+    test('an open window counts down to its end, with the day’s window and the night’s fast', async () => {
+      vi.setSystemTime(new Date(2026, 9, 21, 17, 40))
+      const fetcher = stubApi({ balance: balanceOf(), intakes: [] })
+      renderPage()
+
+      expect(await screen.findByTestId('fasting-status')).toHaveTextContent('fenêtre ouverte · 2 h 20 restantes')
+      expect(within(card()).getByRole('combobox', { name: 'Protocole' })).toHaveValue('16:8')
+      expect(screen.getByTestId('fasting-protocol')).toHaveValue('16:8')
+      expect(screen.getByTestId('fasting-window-start')).toHaveValue('12:00')
+      expect(screen.getByTestId('fasting-window')).toHaveTextContent('12 h 10 → 20 h 00')
+      expect(screen.getByTestId('fasting-night')).toHaveTextContent('16 h 05')
+      expect(calls(fetcher, 'GET', '/api/health/fasting')[0][0]).toBe('/api/health/fasting?date=2026-10-21')
+    })
+
+    test('« Jeûnes · 14 jours » draws 14 nights, the day in coral and a line at the protocol’s hours', async () => {
+      const fetcher = stubApi({ balance: balanceOf(), intakes: [] })
+      renderPage()
+
+      const chart = await screen.findByRole('region', { name: 'Jeûnes, 14 jours' })
+      await waitFor(() => expect(within(chart).getAllByTestId('fasting-bar')).toHaveLength(14))
+      const bars = within(chart).getAllByTestId('fasting-bar')
+      expect(bars[13]).toHaveAttribute('data-current', 'true')
+      expect(bars[13]).toHaveAccessibleName('mer. 21 oct. : 16 h 05')
+      expect(bars[13]).toHaveStyle({ backgroundColor: veilleuseLightTheme.palette.primary.main })
+      expect(bars[12]).toHaveAccessibleName('mar. 20 oct. : 16 h 40')
+      expect(bars[0]).toHaveAccessibleName('jeu. 8 oct. : pas de jeûne mesuré')
+      expect(within(chart).getByTestId('fasting-goal')).toHaveStyle({ bottom: '80.0%' })
+      expect(within(chart).getByTestId('fasting-chart-protocol')).toHaveTextContent('16:8')
+      expect(calls(fetcher, 'GET', '/api/health/days')[0][0]).toBe('/api/health/days?from=2026-10-08&to=2026-10-21')
+    })
+
+    test('a new protocol is PATCHed alone, then the day’s window is read again', async () => {
+      const user = userEvent.setup()
+      const fetcher = stubApi({ balance: balanceOf(), intakes: [] })
+      renderPage()
+      await waitFor(() => expect(screen.getByTestId('fasting-window')).toHaveTextContent('12 h 10 → 20 h 00'))
+
+      await user.selectOptions(screen.getByTestId('fasting-protocol'), '14:10')
+
+      await waitFor(() => expect(calls(fetcher, 'PATCH', '/api/health/profile')).toHaveLength(1))
+      expect(bodyOf(fetcher, 'PATCH', '/api/health/profile')).toEqual({ fastingProtocol: '14:10' })
+      await waitFor(() => expect(screen.getByTestId('fasting-window')).toHaveTextContent('12 h 10 → 22 h 00'))
+      expect(screen.getByTestId('fasting-protocol')).toHaveValue('14:10')
+    })
+
+    test('a new start of the window is PATCHed when the field is left', async () => {
+      const user = userEvent.setup()
+      const fetcher = stubApi({ balance: balanceOf(), intakes: [] })
+      renderPage()
+      const start = await screen.findByTestId('fasting-window-start')
+
+      await user.clear(start)
+      await user.type(start, '13:00')
+      await user.tab()
+
+      await waitFor(() => expect(calls(fetcher, 'PATCH', '/api/health/profile')).toHaveLength(1))
+      expect(bodyOf(fetcher, 'PATCH', '/api/health/profile')).toEqual({ fastingWindowStart: '13:00' })
+      await waitFor(() => expect(screen.getByTestId('fasting-window')).toHaveTextContent('12 h 10 → 21 h 00'))
+    })
+
+    test('a refused protocol says so and keeps the previous one', async () => {
+      const user = userEvent.setup()
+      const fetcher = stubApi({ balance: balanceOf(), intakes: [], patch: () => json({ error: 'Invalid fasting protocol.' }, 400) })
+      renderPage()
+      await screen.findByTestId('fasting-window')
+
+      await user.selectOptions(screen.getByTestId('fasting-protocol'), '20:4')
+
+      expect(await screen.findByText('Valeur refusée : rien n’a été enregistré.')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByTestId('fasting-protocol')).toHaveValue('16:8'))
+      expect(screen.getByTestId('fasting-window')).toHaveTextContent('12 h 10 → 20 h 00')
+      expect(calls(fetcher, 'PATCH', '/api/health/profile')).toHaveLength(1)
+    })
+
+    test('« Aucun » stops fasting: only the protocol is left, to take it up again', async () => {
+      const user = userEvent.setup()
+      const fetcher = stubApi({ balance: balanceOf(), intakes: [], fast: { fastingProtocol: '16:8', fastingWindowStart: '12:00' } })
+      renderPage()
+      await screen.findByTestId('fasting-window')
+
+      await user.selectOptions(screen.getByTestId('fasting-protocol'), 'Aucun')
+
+      await waitFor(() => expect(calls(fetcher, 'PATCH', '/api/health/profile')).toHaveLength(1))
+      expect(bodyOf(fetcher, 'PATCH', '/api/health/profile')).toEqual({ fastingProtocol: null })
+      await waitFor(() => expect(screen.queryByTestId('fasting-window')).not.toBeInTheDocument())
+      expect(screen.queryByTestId('fasting-window-start')).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Jeûnes, 14 jours' })).not.toBeInTheDocument()
+      expect(screen.queryByTestId('fasting-status')).not.toBeInTheDocument()
+      expect(screen.getByTestId('fasting-protocol')).toHaveValue('none')
+    })
   })
 })

@@ -69,4 +69,35 @@ describe('NutritionPage — live updates from Mercure', () => {
     const journal = screen.getByRole('region', { name: 'Journal' })
     expect(await within(journal).findByTestId('intake-row-01SALAD')).toHaveTextContent('Maggie')
   })
+
+  // MAG-770: the protocol changed elsewhere (the phone, Maggie) moves the day's window; a day's entry carries its night fast.
+  test.each([
+    ['the profile changed elsewhere', '/api/health-profile/{id}', '/api/health/fasting'],
+    ['a day of the journal changed', '/api/health/days/{date}', '/api/health/days'],
+  ])('%s reads the fast again', async (_name, topic, read) => {
+    const fetcher = vi.fn(async (url: string) => {
+      const { pathname, searchParams } = new URL(url, 'http://localhost')
+      if (pathname === '/api/health/daily-balance') return searchParams.has('date') ? json(balance(0)) : json({ days: [] })
+      if (pathname === '/api/health/food-intakes') return json({ member: [] })
+      if (pathname === '/api/health/profile') return json({ id: '01PROFILE', fastingProtocol: '16:8', fastingWindowStart: '12:00' })
+      if (pathname === '/api/health/days') return json({ days: [] })
+
+      return json({})
+    })
+    vi.stubGlobal('fetch', fetcher)
+    render(
+      <MemoryRouter>
+        <AdminContext dataProvider={testDataProvider()} theme={veilleuseLightTheme}>
+          <NutritionPage />
+        </AdminContext>
+      </MemoryRouter>,
+    )
+    await screen.findByTestId('fasting-card')
+    const reads = () => fetcher.mock.calls.filter(([url]) => new URL(url, 'http://localhost').pathname === read).length
+    await waitFor(() => expect(reads()).toBe(1))
+
+    await emitMercure(topic, { '@id': '/api/health-profile/01PROFILE', id: '01PROFILE', fastingProtocol: '14:10', fastingWindowStart: '12:00' })
+
+    await waitFor(() => expect(reads()).toBe(2))
+  })
 })

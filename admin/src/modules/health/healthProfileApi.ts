@@ -29,6 +29,10 @@ export const STEP_SOURCES = ['health_connect', 'none'] as const
 export type StepSource = (typeof STEP_SOURCES)[number]
 export type NeedMode = 'computed' | 'entered'
 
+/** Intermittent fasting (MAG-770): « 16:8 » is 16 h of fasting, a window of 8 h. */
+export const FASTING_PROTOCOLS = ['14:10', '16:8', '18:6', '20:4'] as const
+export type FastingProtocol = (typeof FASTING_PROTOCOLS)[number]
+
 export interface HealthProfile {
   id: string | null
   sex: Sex | null
@@ -47,6 +51,10 @@ export interface HealthProfile {
   suggestionWindowEnd: string
   sessionMinutes: number
   stepSource: StepSource
+  /** Null: no fasting. */
+  fastingProtocol: FastingProtocol | null
+  /** `12:00`, when the eating window opens. */
+  fastingWindowStart: string
 }
 
 /** What a PATCH may carry: the fields the API writes, one at a time from this page. */
@@ -65,6 +73,8 @@ export type HealthProfilePatch = Partial<
     | 'suggestionWindowEnd'
     | 'sessionMinutes'
     | 'stepSource'
+    | 'fastingProtocol'
+    | 'fastingWindowStart'
   >
 >
 

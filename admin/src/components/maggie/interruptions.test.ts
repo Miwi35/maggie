@@ -15,11 +15,12 @@ describe('notificationLink', () => {
     ['/finance/cushion', 'Ouvrir les finances', '/finance/cushion'],
     ['/chat?message=01K0MSG', 'Ouvrir la conversation', '/chat?message=01K0MSG'],
     ['/digest?message=01K0MSG', 'Voir le digest', '/chat?message=01K0MSG'],
+    ['/health/nutrition', 'Ouvrir Nutrition', '/health/nutrition'],
   ])('%s opens %s', (iri, label, path) => {
     expect(notificationLink(iri)).toEqual({ label, path })
   })
 
-  test.each([null, undefined, '', '/api/unknown/x', '/finance/nowhere', 'https://example.com/x', '/chat', '/chat?other=1', '/digest'])(
+  test.each([null, undefined, '', '/api/unknown/x', '/finance/nowhere', 'https://example.com/x', '/chat', '/chat?other=1', '/digest', '/health/elsewhere'])(
     'has no link for %s',
     (iri) => {
       expect(notificationLink(iri)).toBeNull()
