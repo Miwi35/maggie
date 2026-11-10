@@ -460,6 +460,61 @@ class GroceryRunViewModelTest {
         assertEquals(RunProgress(1, 2), vm.uiState.value.progress)
     }
 
+    // Recette refusée (MAG-764): the API received the mark, the queue let it go, and the line went back to « Manquant ».
+    @Test
+    fun `a missing mark the API has received stays shown while no read says it yet`() = runTest {
+        val vm = inSuperU()
+
+        vm.markMissing("i-1")
+        vm.markMissing("i-3")
+        advanceUntilIdle()
+
+        assertTrue(queue.pendingMissing.value.isEmpty())
+        assertEquals(RunMissing.NoFallback, vm.line("i-1")?.missing)
+        assertNull(vm.line("i-3"))
+        assertEquals(RunMissing.MovedFrom("Super U"), vm.lineIn("s-b", "i-3")?.missing)
+        assertEquals(RunProgress(1, 1), vm.uiState.value.progress)
+
+        // A read the API answered before it had the mark does not take it back.
+        stream.emit(MercureEvent(id = "1", data = "{}"))
+        advanceUntilIdle()
+        assertEquals(RunMissing.NoFallback, vm.line("i-1")?.missing)
+        assertEquals(RunMissing.MovedFrom("Super U"), vm.lineIn("s-b", "i-3")?.missing)
+    }
+
+    @Test
+    fun `a missing mark is read from the list once the API has it`() = runTest {
+        val vm = inSuperU()
+        vm.markMissing("i-1")
+        advanceUntilIdle()
+
+        val marked = missingList().items.map { if (it.id == "i-1") it.copy(missingFromStore = superU, missingAt = "2026-11-08T10:00:00+00:00") else it }
+        coEvery { lists.getGroceryList() } returns Result.success(GroceryList("list-1", marked))
+        stream.emit(MercureEvent(id = "1", data = "{}"))
+        advanceUntilIdle()
+        assertEquals(RunMissing.NoFallback, vm.line("i-1")?.missing)
+
+        // Cancelled elsewhere: the next read says so, and the line follows it.
+        coEvery { lists.getGroceryList() } returns Result.success(missingList())
+        stream.emit(MercureEvent(id = "2", data = "{}"))
+        advanceUntilIdle()
+        assertNull(vm.line("i-1")?.missing)
+    }
+
+    @Test
+    fun `a received Annuler stays shown while no read says it yet`() = runTest {
+        val moved = missingList().items.map {
+            if (it.id == "i-3") it.copy(store = biocoop, missingFromStore = superU, missingAt = "2026-11-08T10:00:00+00:00") else it
+        }
+        val vm = inSuperU(GroceryList("list-1", moved))
+
+        vm.markMissing("i-3")
+        advanceUntilIdle()
+
+        assertNull(vm.lineIn("s-b", "i-3"))
+        assertNull(checkNotNull(vm.line("i-3")).missing)
+    }
+
     @Test
     fun `a fallback store left out of the tour leaves the article in its store, pas de repli`() = runTest {
         val vm = inSuperU(tour = listOf("s-u"), skipped = listOf("s-b"))

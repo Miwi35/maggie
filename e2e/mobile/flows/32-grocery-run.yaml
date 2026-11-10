@@ -140,6 +140,13 @@ tags:
     visible:
       text: ".*pas de repli.*"
     timeout: 10000
+# Still there once the API has the mark and the list is read again (recette refusée, MAG-764).
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    text: ".*pas de repli.*"
+- assertVisible:
+    text: "Annuler"
 - tapOn:
     id: "grocery_run_finish"
 - extendedWaitUntil:
