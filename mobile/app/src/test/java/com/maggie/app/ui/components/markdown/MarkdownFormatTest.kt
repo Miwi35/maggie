@@ -160,5 +160,13 @@ class MarkdownFormatTest {
         assertEquals("x\na", MarkdownFormat.onChange(at("x\n- a", 4), at("x\n-a", 3)).text)
         assertEquals("- [ ] ab", MarkdownFormat.onChange(at("- [ ] abc", 9), at("- [ ] ab", 8)).text)
     }
-}
 
+    @Test
+    fun `a backspace before a bold text unwraps it instead of leaving a stray star`() {
+        assertEquals("Fort", MarkdownFormat.onChange(at("**Fort**", 2), at("*Fort**", 1)).text)
+        assertEquals(0, MarkdownFormat.onChange(at("**Fort**", 2), at("*Fort**", 1)).selection.start)
+        assertEquals("a\nGras b", MarkdownFormat.onChange(at("a\n**Gras** b", 4), at("a\n*Gras** b", 3)).text)
+        assertEquals("- [ ] Fort", MarkdownFormat.onChange(at("- [ ] **Fort**", 8), at("- [ ] *Fort**", 7)).text)
+        assertEquals("Fort", MarkdownFormat.onChange(at("*Fort*", 1), at("Fort*", 0)).text)
+    }
+}

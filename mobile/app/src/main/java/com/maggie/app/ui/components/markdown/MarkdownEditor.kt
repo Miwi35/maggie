@@ -38,15 +38,16 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatClear
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.CheckBox
-import androidx.compose.material.icons.filled.Title
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -57,7 +58,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -147,15 +147,17 @@ fun MarkdownEditor(
             },
         )
         if (focused && enabled) {
-            Row(
-                modifier = Modifier.fillMaxWidth().testTag(UiTags.MARKDOWN_TOOLBAR).horizontalScroll(rememberScrollState()),
-            ) {
-                ToolButton(Icons.Filled.CheckBox, "Case à cocher", UiTags.MARKDOWN_CHECK) { edit(MarkdownFormat.toggleCheck(shown)) }
-                ToolButton(Icons.AutoMirrored.Filled.FormatListBulleted, "Puces", UiTags.MARKDOWN_BULLET) { edit(MarkdownFormat.toggleBullet(shown)) }
-                ToolButton(Icons.Filled.FormatBold, "Gras", UiTags.MARKDOWN_BOLD) { edit(MarkdownFormat.bold(shown)) }
-                ToolButton(Icons.Filled.Title, "Titre", UiTags.MARKDOWN_HEADING) { edit(MarkdownFormat.toggleHeading(shown)) }
-                ToolButton(Icons.Filled.Link, "Lien", UiTags.MARKDOWN_LINK) { edit(MarkdownFormat.link(shown)) }
-                ToolButton(Icons.Filled.FormatClear, "Retirer la mise en forme", UiTags.MARKDOWN_CLEAR) { edit(MarkdownFormat.clear(shown)) }
+            Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).testTag(UiTags.MARKDOWN_TOOLBAR)) {
+                HorizontalDivider()
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    ToolButton("Case à cocher", UiTags.MARKDOWN_CHECK, { Icon(Icons.Filled.CheckBox, null) }) { edit(MarkdownFormat.toggleCheck(shown)) }
+                    ToolButton("Puces", UiTags.MARKDOWN_BULLET, { Icon(Icons.AutoMirrored.Filled.FormatListBulleted, null) }) { edit(MarkdownFormat.toggleBullet(shown)) }
+                    ToolButton("Gras", UiTags.MARKDOWN_BOLD, { Icon(Icons.Filled.FormatBold, null) }) { edit(MarkdownFormat.bold(shown)) }
+                    ToolButton("Titre", UiTags.MARKDOWN_HEADING, { Text("H", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }) { edit(MarkdownFormat.toggleHeading(shown)) }
+                    ToolButton("Lien", UiTags.MARKDOWN_LINK, { Icon(Icons.Filled.Link, null) }) { edit(MarkdownFormat.link(shown)) }
+                    Spacer(Modifier.weight(1f))
+                    ToolButton("Retirer la mise en forme", UiTags.MARKDOWN_CLEAR, { Icon(Icons.Filled.FormatClear, null) }) { edit(MarkdownFormat.clear(shown)) }
+                }
             }
         }
     }
@@ -237,8 +239,6 @@ private class MarkdownTransformation(private val visual: MdVisual, private val s
 }
 
 @Composable
-private fun ToolButton(icon: ImageVector, description: String, tag: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.testTag(tag)) {
-        Icon(icon, contentDescription = description)
-    }
+private fun ToolButton(description: String, tag: String, content: @Composable () -> Unit, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.testTag(tag).semantics { contentDescription = description }) { content() }
 }

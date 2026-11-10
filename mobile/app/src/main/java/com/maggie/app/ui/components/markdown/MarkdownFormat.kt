@@ -291,10 +291,24 @@ object MarkdownFormat {
         val start = lineStart(old.text, at)
         val line = old.text.substring(start, lineEnd(old.text, at))
         val prefix = prefixOf(line)
-        if (prefix.kind == Kind.NONE) return null
         val from = start + prefix.indent.length
         val to = start + line.length - prefix.rest.length
-        if (at !in from until to) return null
-        return TextFieldValue(old.text.removeRange(from, to), TextRange(from))
+        if (prefix.kind != Kind.NONE && at in from until to) {
+            return TextFieldValue(old.text.removeRange(from, to), TextRange(from))
+        }
+        // A bold or italic mark is hidden too: biting into one of its ends unwraps the whole text.
+        for (m in inlinePattern.findAll(line, to - start)) {
+            val group = when {
+                m.groups[1] != null -> m.groups[1]!!
+                m.groups[2] != null -> m.groups[2]!!
+                else -> continue
+            }
+            val offset = at - start
+            if (offset !in m.range.first until group.range.first && offset !in (group.range.last + 1)..m.range.last) continue
+            val inner = line.substring(group.range.first, group.range.last + 1)
+            val unwrapped = line.substring(0, m.range.first) + inner + line.substring(m.range.last + 1)
+            return TextFieldValue(old.text.substring(0, start) + unwrapped + old.text.substring(start + line.length), TextRange(start + m.range.first))
+        }
+        return null
     }
 }
