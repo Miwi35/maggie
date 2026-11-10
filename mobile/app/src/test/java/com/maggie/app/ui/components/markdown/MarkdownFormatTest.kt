@@ -122,4 +122,43 @@ class MarkdownFormatTest {
         val letter = TextFieldValue("- ab", TextRange(4))
         assertEquals(letter, MarkdownFormat.onChange(at("- a"), letter))
     }
+
+    @Test
+    fun `the editor draws marks away, boxes as blanks and bullets as dots`() {
+        val v = MarkdownFormat.visual("# Titre\n- [ ] a **b**\n- [x] c\n- d")
+
+        assertEquals("Titre\n\u2003\u2003a b\n\u2003\u2003c\n• d", v.text)
+        assertEquals(listOf(MdBox(0, false, 6), MdBox(1, true, 12)), v.boxes)
+        assertEquals(MdStyle(0, 5, MdStyleKind.HEADING, 1), v.styles.first())
+        assertEquals(true, v.styles.contains(MdStyle(10, 11, MdStyleKind.BOLD)))
+        assertEquals(true, v.styles.contains(MdStyle(14, 15, MdStyleKind.DONE)))
+    }
+
+    @Test
+    fun `a plain text is drawn as it is written`() {
+        val text = "Les cartons\n\n2 * 3 = 6"
+        assertEquals(text, MarkdownFormat.visual(text).text)
+        assertEquals(emptyList<MdBox>(), MarkdownFormat.visual(text).boxes)
+    }
+
+    @Test
+    fun `the cursor maps both ways around hidden marks`() {
+        val text = "- [ ] a\nb"
+        val v = MarkdownFormat.visual(text)
+
+        assertEquals(2, v.toDisplayed(6))
+        assertEquals(6, v.toOriginal(2))
+        assertEquals(0, v.toDisplayed(0))
+        assertEquals(text.length, v.toOriginal(v.text.length))
+        assertEquals(v.text.length, v.toDisplayed(text.length))
+    }
+
+    @Test
+    fun `a backspace in a hidden mark takes the whole mark off`() {
+        assertEquals("a", MarkdownFormat.onChange(at("- [ ] a", 6), at("- [ ]a", 5)).text)
+        assertEquals("a", MarkdownFormat.onChange(at("# a", 2), at("#a", 1)).text)
+        assertEquals("x\na", MarkdownFormat.onChange(at("x\n- a", 4), at("x\n-a", 3)).text)
+        assertEquals("- [ ] ab", MarkdownFormat.onChange(at("- [ ] abc", 9), at("- [ ] ab", 8)).text)
+    }
 }
+
