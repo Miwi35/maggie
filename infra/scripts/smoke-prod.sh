@@ -221,8 +221,10 @@ if [ -n "${ES_CHECK_CMD:-}" ]; then
   if [ "$es_ok" -eq 1 ]; then
     pass "app:elasticsearch:status --check is green"
   else
-    # The verdict is at the end of the output, after the cluster table.
-    fail "app:elasticsearch:status --check failed — $(printf '%s' "$es_output" | tail -c 300 | tr '\n' ' ')"
+    # The verdict is at the end of the output, after the cluster table; the
+    # drifting rows of the coherence table say which index to repair.
+    drift="$(printf '%s\n' "$es_output" | grep -E 'DRIFT|MISSING INDEX' | tr -s ' ' | tr '\n' ' ')"
+    fail "app:elasticsearch:status --check failed — ${drift:+$drift— }$(printf '%s' "$es_output" | tail -c 300 | tr '\n' ' ')"
   fi
 else
   printf '  - skipped: ES_CHECK_CMD is not set\n'
