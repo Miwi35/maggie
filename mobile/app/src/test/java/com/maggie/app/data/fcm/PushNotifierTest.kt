@@ -131,7 +131,7 @@ class PushNotifierTest {
         val started = shadowOf(listen.actionIntent).savedIntent
         assertEquals(MaggieMediaService::class.java.name, started.component?.className)
         assertEquals(MaggieMediaService.ACTION_LISTEN, started.action)
-        assertTrue(shadowOf(listen.actionIntent).isForegroundService)
+        assertTrue(shadowOf(listen.actionIntent).isService)
     }
 
     @Test

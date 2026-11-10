@@ -90,7 +90,9 @@ class MaggieMediaService : MediaLibraryService() {
         fun listenIntent(context: Context): Intent =
             Intent(context, MaggieMediaService::class.java).setAction(ACTION_LISTEN)
 
-        fun listenPendingIntent(context: Context, requestCode: Int): PendingIntent = PendingIntent.getForegroundService(
+        // A plain service start: media3 goes foreground by itself once playing, and a failed lookup stops the
+        // service without ever having promised a foreground notification.
+        fun listenPendingIntent(context: Context, requestCode: Int): PendingIntent = PendingIntent.getService(
             context,
             requestCode,
             listenIntent(context),
