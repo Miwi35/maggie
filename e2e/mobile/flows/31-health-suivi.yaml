@@ -88,8 +88,14 @@ tags:
     element:
       id: "energy_card"
 # The legend's id sits on a merged node whose text Maestro reads on its child: match the text.
-- scrollUntilVisible:
-    element: "Séances [0-9 ]+"
+# On the tablet the cards sit in two scrolling columns and `scrollUntilVisible` swipes from the screen's
+# centre, which is the left column (too short to scroll): swipe inside the right one, where Énergie is.
+- swipe:
+    start: 75%, 80%
+    end: 75%, 30%
+- extendedWaitUntil:
+    visible: "Séances [0-9 ]+"
+    timeout: 10000
 - extendedWaitUntil:
     visible: "Base [0-9 ]+"
     timeout: 10000
