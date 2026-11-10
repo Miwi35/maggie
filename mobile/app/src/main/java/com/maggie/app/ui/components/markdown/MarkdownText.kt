@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.foundation.background
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,24 +34,45 @@ import com.maggie.app.ui.UiTags
 /**
  * A Markdown text in reading (MAG-713): titles, bold, italic, bullets, links and check boxes. A plain
  * text reads as it is written. With [onTextChange] a check box ticks in place and hands back the text
- * rewritten (`- [ ]` → `- [x]`); without it the boxes are drawn and stay put.
+ * rewritten (`- [ ]` → `- [x]`); without it the boxes are drawn and stay put. With a [label] the text sits
+ * in a card headed by it, the « n/m » counter on its right.
  */
 @Composable
 fun MarkdownText(
     text: String,
     modifier: Modifier = Modifier,
     onTextChange: ((String) -> Unit)? = null,
+    label: String? = null,
 ) {
     val linkStyle = TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline))
     val body = MaterialTheme.typography.bodyMedium
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        MarkdownFormat.progress(text)?.let { (done, total) ->
-            Text(
-                text = "$done/$total",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.testTag(UiTags.MARKDOWN_COUNTER),
-            )
+    val progress = MarkdownFormat.progress(text)
+    val dark = isMaggieDark()
+    val checkColors = CheckboxDefaults.colors(
+        uncheckedColor = MaterialTheme.colorScheme.outline,
+        checkedColor = if (dark) MaggieTokens.Module.comptes.second else MaggieTokens.Module.comptes.first,
+    )
+    val frame = if (label != null) {
+        modifier.background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.medium).padding(12.dp)
+    } else {
+        modifier
+    }
+    Column(modifier = frame, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        if (label != null || progress != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (label != null) {
+                    Text(label.uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.weight(1f))
+                progress?.let { (done, total) ->
+                    Text(
+                        text = "$done/$total",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag(UiTags.MARKDOWN_COUNTER),
+                    )
+                }
+            }
         }
         MarkdownFormat.parse(text).forEach { block ->
             when (block) {
@@ -70,6 +95,7 @@ fun MarkdownText(
                             { change(MarkdownFormat.toggleCheckbox(text, block.index)) }
                         },
                         enabled = onTextChange != null,
+                        colors = checkColors,
                         modifier = Modifier.testTag(UiTags.markdownCheckbox(block.index)),
                     )
                     Text(

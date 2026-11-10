@@ -135,6 +135,7 @@ fun TaskDetailContent(
                 MarkdownText(
                     text = task.description,
                     onTextChange = onDescriptionChange,
+                    label = "Notes",
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
