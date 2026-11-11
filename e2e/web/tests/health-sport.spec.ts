@@ -1,4 +1,7 @@
 import { test, expect, e2eNow, parisDay, parisTime } from '../fixtures/index.js'
+import { getCollection } from '../helpers/api.js'
+import { calledTools, toolResults } from '../helpers/agui.js'
+import { ChatPanel } from '../pages/ChatPanel.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { HealthSportPage } from '../pages/HealthSportPage.js'
 import { HomePage } from '../pages/HomePage.js'
@@ -22,11 +25,17 @@ import { openSubscribed, publishOnHub } from '../helpers/mercure.js'
  * « Séance A » est à 18:30 dans l'agenda « Santé » ; When je la déplace à 19:00, Then Santé › Sport
  * la montre à 19:00.
  *
+<<<<<<< HEAD
  * MAG-772 extends it: Given une séance prévue hier à 18:00 et non faite, et la proposition de
  * rattrapage de Maggie (seed `71-workout-makeup.yaml`), When Maggie interrompt, Then trois
  * choix empilés « 30 min, plus doux », « 20 min, même intensité », « Demain » puis « Plus tard » ;
  * When je clique « Demain », Then l'interruption se ferme et Santé › Sport montre une séance
  * prévue demain.
+=======
+ * MAG-778 extends it: Given le faux modèle et le scénario « Prépare ma semaine de sport », When je l'écris
+ * dans le chat, Then Maggie répond avec les séances écrites, et Santé › Sport montre trois séances « Prévue »
+ * la semaine suivante, dans l'agenda « Santé ».
+>>>>>>> 5b109da25 (Add the coach sub-agent that prepares the sports week (MAG-778))
  */
 
 interface WorkoutRow {
@@ -37,6 +46,8 @@ interface WorkoutRow {
   durationMinutes: number
   distanceMeters: number | null
   source: string
+  title?: string
+  variant?: string | null
 }
 
 // The account of this journey alone: the week it reads is the one it wrote.
@@ -173,6 +184,7 @@ test.describe('A planned session in the « Santé » agenda — MAG-777', () => 
   })
 })
 
+<<<<<<< HEAD
 test.describe('Maggie proposes to make up the missed session — MAG-772', () => {
   // Its own seeded account: answering settles the proposal and plans a session.
   test.describe.configure({ mode: 'serial', retries: 0 })
@@ -216,5 +228,52 @@ test.describe('Maggie proposes to make up the missed session — MAG-772', () =>
     const sport = new HealthSportPage(page)
     await sport.open()
     await expect(page.getByText('Prévue').first()).toBeVisible()
+=======
+test.describe('The coach prepares the week — MAG-778', () => {
+  test('« Prépare ma semaine de sport » writes three planned sessions next week, calibration first', async ({ page, api }) => {
+    test.setTimeout(120_000)
+    const ld = { Accept: 'application/ld+json' }
+
+    // Given Santé › Sport open…
+    const sport = new HealthSportPage(page)
+    await sport.open()
+
+    // When I ask Maggie to prepare my sports week…
+    const events = await new ChatPanel(page).send('Prépare ma semaine de sport')
+
+    // Then she handed it to the coach and wrote the three sessions herself…
+    const tools = calledTools(events)
+    expect(tools, 'the coach was never consulted — did the scenario stop matching?').toContain('delegate')
+    expect(tools.filter((name) => name === 'manage_workouts')).toHaveLength(3)
+    expect(toolResults(events).filter((r) => r.toolName === 'manage_workouts').map((r) => r.status)).toEqual(['success', 'success', 'success'])
+
+    // …the API holds them as planned strength sessions with their exercises, the first one a calibration…
+    let planned: WorkoutRow[] = []
+    await expect
+      .poll(
+        async () => {
+          planned = (await getCollection<WorkoutRow>(api, '/api/workouts')).filter((row) => row.source === 'planned')
+          return planned.length
+        },
+        { message: 'the three planned sessions were not stored', timeout: 30_000 },
+      )
+      .toBe(3)
+    planned.sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+    expect(planned.map((row) => row.variant)).toEqual(['calibration', 'normal', 'normal'])
+    expect(planned.every((row) => row.type === 'strength' && row.event)).toBe(true)
+
+    // …in the « Santé » agenda…
+    const event = await api.get(String(planned[0].event), { headers: ld })
+    const agendaIri = ((await event.json()) as { agenda: string }).agenda
+    const agenda = await api.get(agendaIri, { headers: ld })
+    expect(((await agenda.json()) as { name: string }).name).toBe('Santé')
+
+    // …and Santé › Sport lists the three as « Prévue ».
+    await sport.open()
+    for (const row of planned) {
+      const id = row.id.split('/').pop() ?? row.id
+      await expect(sport.row(id)).toContainText('Prévue')
+    }
+>>>>>>> 5b109da25 (Add the coach sub-agent that prepares the sports week (MAG-778))
   })
 })

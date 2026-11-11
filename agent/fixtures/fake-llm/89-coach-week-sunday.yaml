@@ -1,0 +1,65 @@
+# The evening review of the last day of the week, step « demain » (MAG-778): Maggie asks the `coach` for the
+# next week, then writes the sessions as in 89-coach-week-chat.yaml. Matched by the sentence of the step, so the
+# other reviews' scenarios (98-bilan-soir-*) are untouched.
+name: coach-week-sunday
+description: Sunday's evening review hands next week's training to the coach, and Maggie writes it.
+
+match:
+  user_matches: '^bilan du soir, [ée]tape demain : on est dimanche\W*$'
+
+turns:
+  - tools:
+      - name: delegate
+        input:
+          agent: coach
+          task: "Prépare la semaine de sport de l'utilisateur : la semaine qui vient, du lundi au dimanche. Lis où il en est, son agenda de la semaine et ses séances déjà prévues, choisis le format (3 ou 2 séances), demande chaque prescription aux outils et rends-moi la semaine séance par séance (jour, heure, durée, titre, variante, exercices, une phrase de raison)."
+  - tools:
+      - name: manage_workouts
+        input:
+          action: create
+          type: strength
+          source: planned
+          title: Séance A
+          startedAt: '${next_monday}T18:30:00+01:00'
+          durationMinutes: 30
+          variant: calibration
+          exercises:
+            - {exercise: active-hang, step: 1, sets: 1, target: 30, targetMin: 15, targetMax: 30, restSeconds: 120, targetRir: 3}
+            - {exercise: bent-knee-table-row, step: 1, sets: 1, target: 8, targetMin: 5, targetMax: 12, restSeconds: 90, targetRir: 3}
+            - {exercise: incline-push-up, step: 2, sets: 1, target: 8, targetMin: 5, targetMax: 15, restSeconds: 90, targetRir: 3}
+            - {exercise: air-squat, step: 2, sets: 1, target: 15, targetMin: 8, targetMax: 15, restSeconds: 90, targetRir: 3}
+            - {exercise: single-leg-glute-bridge, step: 2, sets: 1, target: 12, targetMin: 8, targetMax: 12, restSeconds: 60, targetRir: 3}
+            - {exercise: plank, step: 2, sets: 1, target: 30, targetMin: 20, targetMax: 45, restSeconds: 60, targetRir: 3}
+      - name: manage_workouts
+        input:
+          action: create
+          type: strength
+          source: planned
+          title: Séance B
+          startedAt: '${next_wednesday}T18:30:00+01:00'
+          durationMinutes: 30
+          variant: normal
+          exercises:
+            - {exercise: scapular-pull-up, step: 2, sets: 2, target: 8, targetMin: 5, targetMax: 10, restSeconds: 90, targetRir: 3}
+            - {exercise: table-row, step: 2, sets: 2, target: 8, targetMin: 8, targetMax: 12, restSeconds: 90, targetRir: 3}
+            - {exercise: incline-push-up, step: 2, sets: 2, target: 8, targetMin: 8, targetMax: 15, restSeconds: 90, targetRir: 3}
+            - {exercise: air-squat, step: 2, sets: 2, target: 12, targetMin: 8, targetMax: 15, restSeconds: 90, targetRir: 3}
+            - {exercise: glute-bridge, step: 1, sets: 2, target: 12, targetMin: 10, targetMax: 15, restSeconds: 60, targetRir: 3}
+            - {exercise: side-plank-knees, step: 1, sets: 2, target: 20, targetMin: 15, targetMax: 30, restSeconds: 60, targetRir: 3}
+      - name: manage_workouts
+        input:
+          action: create
+          type: strength
+          source: planned
+          title: Séance A
+          startedAt: '${next_friday}T18:30:00+01:00'
+          durationMinutes: 30
+          variant: normal
+          exercises:
+            - {exercise: scapular-pull-up, step: 2, sets: 2, target: 8, targetMin: 5, targetMax: 10, restSeconds: 90, targetRir: 3}
+            - {exercise: table-row, step: 2, sets: 2, target: 8, targetMin: 8, targetMax: 12, restSeconds: 90, targetRir: 3}
+            - {exercise: incline-push-up, step: 2, sets: 2, target: 8, targetMin: 8, targetMax: 15, restSeconds: 90, targetRir: 3}
+            - {exercise: air-squat, step: 2, sets: 2, target: 12, targetMin: 8, targetMax: 15, restSeconds: 90, targetRir: 3}
+            - {exercise: glute-bridge, step: 1, sets: 2, target: 12, targetMin: 10, targetMax: 15, restSeconds: 60, targetRir: 3}
+            - {exercise: side-plank-knees, step: 1, sets: 2, target: 20, targetMin: 15, targetMax: 30, restSeconds: 60, targetRir: 3}
+  - text: "J'ai prévu trois séances la semaine prochaine, à 18 h 30, d'une demi-heure : lundi (Séance A, avec les tests de départ), mercredi (Séance B) et vendredi (Séance A). Les deux dernières restent prudentes, on les réajustera après les tests. Elles sont dans ton agenda Santé."

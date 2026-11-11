@@ -566,8 +566,16 @@ web:
   e2e/web/tests/meals-page.spec.ts:
     areas: [cookbook]
   e2e/web/tests/health-sport.spec.ts:
+<<<<<<< HEAD
     areas: [health, notification]
     paths: [api/fixtures/e2e/70-health.yaml, api/fixtures/e2e/71-workout-makeup.yaml]
+=======
+    areas: [health, chat]
+    paths:
+      - api/fixtures/e2e/70-health.yaml
+      - agent/fixtures/fake-llm/89-coach-week-chat.yaml
+      - agent/fixtures/fake-llm/89-coach-run-calibration.yaml
+>>>>>>> 5b109da25 (Add the coach sub-agent that prepares the sports week (MAG-778))
   e2e/web/tests/health-sync.spec.ts:
     areas: [health]
   e2e/web/tests/health-suivi.spec.ts:

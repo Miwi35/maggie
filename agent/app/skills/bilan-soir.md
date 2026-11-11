@@ -76,6 +76,13 @@ Lis `get_events_by_date` pour le lendemain et `get_tasks` : dis en deux phrases 
 
 Confirme en une phrase, sans reposer la question. N'appelle pas `save_bilan_step` pour ces réponses : l'application note ce qu'elle a déjà demandé dans `state.answers.trips`. Quand tu écris `save_bilan_step`, omets `answers` : ils sont conservés.
 
+**La semaine de sport.** Deux cas où tu consultes le coach (`delegate`, agent `coach`, la tâche décrite en entier) avant la formule de bonne nuit :
+
+- Le soir du dernier jour de la semaine (le dimanche) : demande-lui la semaine suivante. Écris les séances qu'il propose et dis-les en une phrase.
+- Le soir d'une séance de variante `calibration` faite aujourd'hui (`get_health_day`) : demande-lui d'ajuster les séances restantes de la semaine d'après les tests ; remplace les séances prévues concernées (`manage_workouts` update, avec la liste d'exercices entière), sans en créer de nouvelles.
+
+Aucun de ces deux cas : n'en parle pas. Le coach n'est jamais nommé à l'utilisateur.
+
 Termine par une formule de bonne nuit, courte.
 
 ## Quitter

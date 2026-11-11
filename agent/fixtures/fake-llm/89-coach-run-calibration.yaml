@@ -1,0 +1,32 @@
+# The coach's own run (MAG-778): the sub-agent `coach`, whose system prompt says « coach sportif de Maggie ». It reads
+# the training status (no program yet: the week is the calibration one), the week's agenda, the method's calibration
+# section, then one prescription per exercise, and answers with the week proposed, session by session. The figures
+# are the scenario's own: the tools run for real, the fake reads none of their results.
+name: coach-run-calibration
+description: The coach reads the status and the agenda, asks each prescription and proposes a calibration week.
+
+match:
+  system_contains: "coach sportif de Maggie"
+
+turns:
+  - tools:
+      - name: get_training_status
+        input: {date: '${next_monday}'}
+      - name: get_events_by_date
+        input: {date: '${next_monday}', endDate: '${next_sunday}'}
+      - name: get_coach_method
+        input: {section: calibrage}
+  - tools:
+      - name: get_next_prescription
+        input: {exercise: active-hang}
+      - name: get_next_prescription
+        input: {exercise: bent-knee-table-row}
+      - name: get_next_prescription
+        input: {exercise: incline-push-up}
+      - name: get_next_prescription
+        input: {exercise: air-squat}
+      - name: get_next_prescription
+        input: {exercise: single-leg-glute-bridge}
+      - name: get_next_prescription
+        input: {exercise: plank}
+  - text: "Semaine de calibrage, trois séances d'une demi-heure à 18 h 30, jours non consécutifs. Lundi : Séance A, variante calibration, les tests de départ (suspension, rowing incliné, pompes inclinées, squat, pont une jambe, planche), une série chacun à 2-3 répétitions en réserve ; première séance, on place les échelons. Mercredi : Séance B, variante normal, échelons bas, 2 séries, 2-3 RIR : prudente, à réajuster après les tests. Vendredi : Séance A, variante normal, même charge prudente. Aucune séance déjà prévue cette semaine-là."
