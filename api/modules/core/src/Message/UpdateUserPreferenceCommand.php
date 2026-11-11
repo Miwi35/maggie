@@ -20,6 +20,11 @@ final readonly class UpdateUserPreferenceCommand
         // "HH:MM" both, or "" both to clear the quiet hours (MAG-687); null leaves them as they are.
         public ?string $quietHoursStart = null,
         public ?string $quietHoursEnd = null,
+        // The daily rendezvous (MAG-787); null leaves each as it is.
+        public ?bool $morningDigestEnabled = null,
+        public ?string $morningDigestTime = null,
+        public ?bool $eveningReviewEnabled = null,
+        public ?string $eveningReviewTime = null,
     ) {
     }
 }

@@ -53,6 +53,19 @@ class UpdateUserPreferenceHandler
             $pref->setQuietHoursStart($start)->setQuietHoursEnd($end);
         }
 
+        if (null !== $command->morningDigestEnabled) {
+            $pref->setMorningDigestEnabled($command->morningDigestEnabled);
+        }
+        if (null !== $command->morningDigestTime) {
+            $pref->setMorningDigestTime($command->morningDigestTime);
+        }
+        if (null !== $command->eveningReviewEnabled) {
+            $pref->setEveningReviewEnabled($command->eveningReviewEnabled);
+        }
+        if (null !== $command->eveningReviewTime) {
+            $pref->setEveningReviewTime($command->eveningReviewTime);
+        }
+
         $pref->setUpdatedAt(new \DateTimeImmutable());
         $this->entityManager->flush();
 

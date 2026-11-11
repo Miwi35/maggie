@@ -13,6 +13,10 @@
         "01ARZ3NDEKTSV4RRFFQ69G5FAV"
     ],
     "notificationsEnabled": false,
+    "morningDigestEnabled": true,
+    "morningDigestTime": "07:00",
+    "eveningReviewEnabled": true,
+    "eveningReviewTime": "21:30",
     "createdAt": "2026-01-01T00:00:00+00:00",
     "updatedAt": "2026-01-01T00:00:00+00:00"
 }

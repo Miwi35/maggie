@@ -271,4 +271,77 @@ class UpdateUserPreferenceControllerTest extends WebTestCase
         $this->patch(['defaultCity' => str_repeat('a', 101)]);
         self::assertResponseStatusCodeSame(400);
     }
+
+    public function testTheDailyRendezvousAreSavedReturnedAndPublished(): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->patch(['morningDigestEnabled' => false, 'eveningReviewTime' => '22:15']);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertFalse($data['morningDigestEnabled']);
+        self::assertSame('07:00', $data['morningDigestTime']);
+        self::assertTrue($data['eveningReviewEnabled']);
+        self::assertSame('22:15', $data['eveningReviewTime']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(UserPreference::class, $this->getFixture('preference')->getId());
+        self::assertFalse($stored->getMorningDigestEnabled());
+        self::assertSame('22:15', $stored->getEveningReviewTime());
+        self::assertSame('07:00', $stored->getMorningDigestTime(), 'left out keeps it');
+
+        $this->assertMercureUpdatePublished('/api/user_preferences/');
+        $payloads = $this->mercurePayloadsOn('/api/user_preferences/'.$this->getFixture('preference')->getId());
+        self::assertNotEmpty($payloads);
+        $last = end($payloads);
+        self::assertFalse($last['morningDigestEnabled']);
+        self::assertSame('22:15', $last['eveningReviewTime']);
+    }
+
+    public function testTheGetCarriesTheDailyRendezvousDefaults(): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/user_preferences/me', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertTrue($data['morningDigestEnabled']);
+        self::assertSame('07:00', $data['morningDigestTime']);
+        self::assertTrue($data['eveningReviewEnabled']);
+        self::assertSame('21:30', $data['eveningReviewTime']);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function badRendezvous(): iterable
+    {
+        yield 'hour 25' => [['eveningReviewTime' => '25:00']];
+        yield 'null hour' => [['morningDigestTime' => null]];
+        yield 'seconds' => [['morningDigestTime' => '07:00:00']];
+        yield 'not a boolean' => [['eveningReviewEnabled' => 'no']];
+        yield 'null switch' => [['morningDigestEnabled' => null]];
+    }
+
+    /** @param array<string, mixed> $body */
+    #[\PHPUnit\Framework\Attributes\DataProvider('badRendezvous')]
+    public function testBadRendezvousAreRejectedAndChangeNothing(array $body): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->patch($body);
+
+        self::assertResponseStatusCodeSame(400);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(UserPreference::class, $this->getFixture('preference')->getId());
+        self::assertTrue($stored->getMorningDigestEnabled());
+        self::assertSame('07:00', $stored->getMorningDigestTime());
+        self::assertTrue($stored->getEveningReviewEnabled());
+        self::assertSame('21:30', $stored->getEveningReviewTime());
+    }
 }

@@ -32072,6 +32072,23 @@
                             "null"
                         ]
                     },
+                    "morningDigestEnabled": {
+                        "description": "The two daily rendezvous (MAG-787), laid down by the agent's code: \"HH:MM\" in the user's timezone.",
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "morningDigestTime": {
+                        "default": "07:00",
+                        "type": "string"
+                    },
+                    "eveningReviewEnabled": {
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "eveningReviewTime": {
+                        "default": "21:30",
+                        "type": "string"
+                    },
                     "createdAt": {
                         "readOnly": true,
                         "type": "string",
@@ -32140,6 +32157,23 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "morningDigestEnabled": {
+                        "description": "The two daily rendezvous (MAG-787), laid down by the agent's code: \"HH:MM\" in the user's timezone.",
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "morningDigestTime": {
+                        "default": "07:00",
+                        "type": "string"
+                    },
+                    "eveningReviewEnabled": {
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "eveningReviewTime": {
+                        "default": "21:30",
+                        "type": "string"
                     },
                     "createdAt": {
                         "readOnly": true,
@@ -32214,6 +32248,23 @@
                                     "string",
                                     "null"
                                 ]
+                            },
+                            "morningDigestEnabled": {
+                                "description": "The two daily rendezvous (MAG-787), laid down by the agent's code: \"HH:MM\" in the user's timezone.",
+                                "default": true,
+                                "type": "boolean"
+                            },
+                            "morningDigestTime": {
+                                "default": "07:00",
+                                "type": "string"
+                            },
+                            "eveningReviewEnabled": {
+                                "default": true,
+                                "type": "boolean"
+                            },
+                            "eveningReviewTime": {
+                                "default": "21:30",
+                                "type": "string"
                             },
                             "createdAt": {
                                 "readOnly": true,
