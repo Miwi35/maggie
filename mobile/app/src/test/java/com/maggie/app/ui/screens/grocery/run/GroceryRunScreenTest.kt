@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -421,11 +422,29 @@ class GroceryRunScreenTest {
         assertEquals(listOf("paid:42,80", "finish"), log)
     }
 
+    // Recette refusée (10 nov.): the mockup's « Magasin suivant · Biocoop › » carries a chevron after its text.
+    @Test
+    fun `Magasin suivant carries the mockup's chevron, Finir les courses has none`() {
+        draw(storeState().copy(recap = true))
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_CHEVRON, useUnmergedTree = true).assertIsDisplayed()
+    }
+
     @Test
     fun `the last store's summary ends with Finir les courses`() {
         draw(storeState().let { it.copy(recap = true, run = it.run.copy(done = listOf("s-b", "s-m"))) })
 
         compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_CONFIRM).assertTextEquals("Finir les courses")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_RECAP_CHEVRON, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    // Recette refusée (10 nov.): « Terminer » keeps « Super U · 1 / 3 » and the tour's count in the header.
+    @Test
+    fun `the summary keeps the store's header, its segment filled`() {
+        draw(storeState().copy(recap = true))
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER).assertTextEquals("Super U · 1 / 3")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER_COUNT).assertTextEquals("1 / 4")
+        assertEquals(listOf(true, false, false), storeState().copy(recap = true).progressSegments())
     }
 
     @Test
@@ -453,6 +472,16 @@ class GroceryRunScreenTest {
         compose.onNodeWithTag(UiTags.groceryRunNextTime("i-1")).performClick()
         compose.onNodeWithTag(UiTags.groceryRunRemove("i-1")).performClick()
         assertEquals(listOf("choose:i-1:NEXT_TIME", "choose:i-1:REMOVE"), log)
+    }
+
+    // Recette refusée (10 nov.): « Courses » and « N magasins », every segment filled, as the mockup draws « Sans repli ».
+    @Test
+    fun `Pas trouvés heads with Courses and the tour's stores, every segment filled`() {
+        draw(leftoverState())
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER).assertTextEquals("Courses")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER_COUNT).assertTextEquals("3 magasins")
+        assertEquals(listOf(true, true, true), leftoverState().progressSegments())
     }
 
     @Test
@@ -507,5 +536,19 @@ class GroceryRunScreenTest {
         )
         compose.onNodeWithTag(UiTags.GROCERY_RUN_END_CLOSE).performClick()
         assertEquals(1, quits)
+    }
+
+    // Recette refusée (10 nov.): « Courses finies » keeps the header, every segment filled, and a hairline between stores.
+    @Test
+    fun `Courses finies keeps the header and draws a hairline between the stores`() {
+        val ends = listOf(StoreEnd("s-u", "Super U", taken = 1), StoreEnd("s-b", "Biocoop", taken = 1), StoreEnd("s-m", "Marché", taken = 1))
+        // Every article bought: the list read once over holds none, nor their stores.
+        val state = leftoverState().let { it.copy(ended = true, load = GroceryRunLoad.EMPTY, stores = emptyList(), items = emptyList(), run = it.run.copy(ends = ends)) }
+        draw(state)
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER).assertTextEquals("Courses")
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_HEADER_COUNT).assertTextEquals("3 magasins")
+        assertEquals(listOf(true, true, true), state.progressSegments())
+        compose.onAllNodesWithTag(UiTags.GROCERY_RUN_END_DIVIDER, useUnmergedTree = true).assertCountEquals(2)
     }
 }

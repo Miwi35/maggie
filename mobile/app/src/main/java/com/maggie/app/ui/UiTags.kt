@@ -1516,6 +1516,8 @@ object UiTags {
     const val GROCERY_RUN_RECAP_TAKEN = "grocery_run_recap_taken"
     const val GROCERY_RUN_RECAP_MISSING = "grocery_run_recap_missing"
     const val GROCERY_RUN_RECAP_CONFIRM = "grocery_run_recap_confirm"
+    const val GROCERY_RUN_RECAP_CHEVRON = "grocery_run_recap_chevron"
+    const val GROCERY_RUN_END_DIVIDER = "grocery_run_end_divider"
     const val GROCERY_RUN_LEFTOVERS = "grocery_run_leftovers"
     const val GROCERY_RUN_END = "grocery_run_end"
     const val GROCERY_RUN_END_CLOSE = "grocery_run_end_close"
