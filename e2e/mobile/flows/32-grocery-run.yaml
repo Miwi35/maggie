@@ -84,13 +84,13 @@ tags:
     text: "Timbres du voisin"
 - assertVisible:
     id: "grocery_run_store_progress"
-    text: "0 / 1"
+    text: "0 / 1 ici"
 - tapOn:
     text: "Timbres du voisin"
 - extendedWaitUntil:
     visible:
       id: "grocery_run_store_progress"
-      text: "1 / 1"
+      text: "1 / 1 ici"
     timeout: 10000
 
 # « Manquant » (MAG-764): untick, then mark it missing; its fallback comes later in the tour, so it leaves this shop.
@@ -99,7 +99,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "grocery_run_store_progress"
-      text: "0 / 1"
+      text: "0 / 1 ici"
     timeout: 10000
 - tapOn:
     text: "Manquant"
