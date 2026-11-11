@@ -92,7 +92,7 @@ fun AgendaEventSheet(
                 Text(name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            if (expanded.launchesFinanceReview) {
+            if (expanded.launchesActivityToday(java.time.LocalDate.now(), java.time.ZoneId.systemDefault())) {
                 Button(
                     onClick = onLaunch,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(UiTags.HOME_AGENDA_LAUNCH),

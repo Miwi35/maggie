@@ -2925,6 +2925,34 @@ class MaggieApiService(
         }.orRefusal().body<ApiCollection<Workout>>().member.sortedBy { it.startedAt }
     }
 
+    /** The session filed in the agenda as [eventId] (MAG-779), `null` when the event is not a session's. */
+    suspend fun getWorkoutOfEvent(eventId: String): Workout? {
+        return client.get("$baseUrl/api/workouts") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("event", eventId)
+        }.orRefusal().body<ApiCollection<Workout>>().member.firstOrNull()
+    }
+
+    /** One session, `null` on 404 (MAG-779). */
+    suspend fun getWorkout(id: String): Workout? {
+        val response = client.get("$baseUrl/api/workouts/$id") {
+            accept(ContentType.Application.Json)
+        }
+        if (response.status.value == 404) return null
+        return response.orRefusal().body()
+    }
+
+    /** The sessions that hold the catalogue exercise [slug], newest first (MAG-779). */
+    suspend fun getWorkoutsWithExercise(slug: String): List<Workout> {
+        return client.get("$baseUrl/api/workouts") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("exercise", slug)
+            url.parameters.append("order[startedAt]", "desc")
+        }.orRefusal().body<ApiCollection<Workout>>().member
+    }
+
     suspend fun createWorkout(request: WorkoutWriteRequest): Workout {
         return client.post("$baseUrl/api/workouts") {
             contentType(ContentType.Application.Json)

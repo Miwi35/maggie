@@ -60,6 +60,10 @@ import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.HealthSection
 import com.maggie.app.ui.navigation.LocalModuleBar
+import com.maggie.app.ui.screens.health.sport.SportLaunch
+import com.maggie.app.ui.screens.health.sport.SportLaunchCard
+import com.maggie.app.ui.screens.health.sport.SportResume
+import com.maggie.app.ui.screens.health.sport.sportLaunchOf
 import com.maggie.app.ui.uiTagRoot
 import java.time.LocalDate
 import java.time.ZoneId
@@ -75,6 +79,8 @@ fun SportScreen(
     viewModel: SportViewModel,
     onOpenForm: (workoutId: String?) -> Unit,
     onSelectSection: (HealthSection) -> Unit = {},
+    sportResume: SportResume? = null,
+    onLaunch: (workoutId: String) -> Unit = {},
 ) {
     val expanded = rememberAppLayout().width == WindowWidth.EXPANDED
     val bar = LocalModuleBar.current
@@ -93,7 +99,7 @@ fun SportScreen(
             ModuleFab(FabModule.SPORT, "Ajouter une séance", onClick = { onOpenForm(null) }, tag = UiTags.SPORT_ADD)
         },
     ) { paddingValues ->
-        SportContent(viewModel, onOpenForm, expanded, Modifier.padding(paddingValues))
+        SportContent(viewModel, onOpenForm, expanded, Modifier.padding(paddingValues), sportResume, onLaunch)
     }
 }
 
@@ -104,6 +110,8 @@ internal fun SportContent(
     onOpenForm: (workoutId: String?) -> Unit,
     expanded: Boolean,
     modifier: Modifier = Modifier,
+    sportResume: SportResume? = null,
+    onLaunch: (String) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -126,6 +134,7 @@ internal fun SportContent(
     // The phone lists the sessions done; the tablet lists every one, planned included (decision 4).
     val listed = if (expanded) uiState.workouts else uiState.workouts.filterNot { it.isPlanned }
     val week = weekOf(uiState.workouts, today, zone)
+    val launch = sportLaunchOf(uiState.workouts, today, zone, sportResume, viewModel.clock.instant())
 
     Box(modifier = modifier.fillMaxSize().testTag(UiTags.SPORT)) {
         when {
@@ -148,6 +157,8 @@ internal fun SportContent(
                         selectedId = shown.id,
                         zone = zone,
                         highlight = true,
+                        launch = launch,
+                        onLaunch = onLaunch,
                         onSelect = viewModel::select,
                         modifier = Modifier.width(460.dp).fillMaxHeight(),
                     )
@@ -159,6 +170,8 @@ internal fun SportContent(
                             zone = zone,
                             onEdit = { onOpenForm(shown.id) },
                             onDelete = { viewModel.delete(shown.id) },
+                            launch = launch?.takeIf { it.workoutId == shown.id },
+                            onLaunch = onLaunch,
                         )
                     }
                 }
@@ -169,6 +182,8 @@ internal fun SportContent(
                 selectedId = null,
                 zone = zone,
                 highlight = false,
+                launch = launch,
+                onLaunch = onLaunch,
                 onSelect = viewModel::select,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -191,6 +206,11 @@ internal fun SportContent(
                     onOpenForm(sheetWorkout.id)
                 },
                 onDelete = { viewModel.delete(sheetWorkout.id) },
+                launch = launch?.takeIf { it.workoutId == sheetWorkout.id },
+                onLaunch = {
+                    viewModel.closeDetail()
+                    onLaunch(it)
+                },
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp).navigationBarsPadding(),
             )
         }
@@ -204,6 +224,8 @@ private fun SessionList(
     selectedId: String?,
     zone: ZoneId,
     highlight: Boolean,
+    launch: SportLaunch?,
+    onLaunch: (String) -> Unit,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -212,6 +234,7 @@ private fun SessionList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        if (launch != null) item(key = "launch") { SportLaunchCard(launch, onLaunch) }
         item(key = "week") { WeekCard(week) }
         item(key = "title") {
             Text(

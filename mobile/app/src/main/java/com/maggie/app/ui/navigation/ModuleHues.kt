@@ -47,7 +47,7 @@ internal fun moduleHueOf(route: String?): ModuleHue? = when {
     route in TASK_ROUTES -> ModuleHue.TASKS
     route in COOKING_ROUTES -> ModuleHue.CUISINE
     route == Screen.GroceryRun.route -> ModuleHue.COURSES
-    HealthSection.pageOf(route) != null || route == Screen.HealthSportForm.route -> ModuleHue.HEALTH
+    HealthSection.pageOf(route) != null || route == Screen.HealthSportForm.route || route == Screen.SportActivity.route -> ModuleHue.HEALTH
     else -> null
 }
 

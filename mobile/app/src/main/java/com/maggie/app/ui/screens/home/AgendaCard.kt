@@ -35,6 +35,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.ACTIVITY_SPORT
+import com.maggie.app.ui.screens.health.sport.SportResumeViewModel
 import com.maggie.app.data.model.AgendaHomeEvent
 import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.AgendaRow
@@ -98,6 +100,7 @@ fun AgendaCard(day: HomeDay, viewModel: AgendaHomeViewModel = koinViewModel()) {
     val ui by viewModel.uiState.collectAsState()
     val navigate = LocalHomeNavigation.current
     val compact = !rememberAppLayout().detailPaneFits
+    val sportResume by koinViewModel<SportResumeViewModel>().resume.collectAsState()
 
     LaunchedEffect(day) { viewModel.show(day) }
 
@@ -122,6 +125,7 @@ fun AgendaCard(day: HomeDay, viewModel: AgendaHomeViewModel = koinViewModel()) {
         onOpenEvent = { viewModel.open(it.id) },
         onLaunch = { route -> navigate(route) },
         onRetry = viewModel::retry,
+        resumeSport = sportResume != null,
     )
 
     ui.opened?.let { event ->
@@ -134,7 +138,7 @@ fun AgendaCard(day: HomeDay, viewModel: AgendaHomeViewModel = koinViewModel()) {
             },
             onLaunch = {
                 viewModel.close()
-                navigate(Screen.FinanceReviewActivity.route)
+                navigate(launchRouteFor(event.activity, event.id) ?: Screen.FinanceReviewActivity.route)
             },
         )
     }
@@ -152,6 +156,7 @@ internal fun AgendaCardContent(
     onOpenEvent: (AgendaHomeEvent) -> Unit,
     onLaunch: (String) -> Unit,
     onRetry: () -> Unit,
+    resumeSport: Boolean = false,
 ) {
     if (state != null && state.events.isEmpty()) return
 
@@ -165,10 +170,10 @@ internal fun AgendaCardContent(
             state == null -> Unit
             else -> {
                 val timeline = state.timeline(now, compact)
-                timeline.allDay.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch) }
-                timeline.past.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch) }
+                timeline.allDay.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch, resumeSport) }
+                timeline.past.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch, resumeSport) }
                 if (timeline.hasNowLine && now != null) NowLine(now)
-                timeline.following.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch) }
+                timeline.following.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch, resumeSport) }
                 if (timeline.hidden > 0) {
                     TextButton(
                         onClick = onOpenAgenda,
@@ -198,7 +203,7 @@ private fun NowLine(now: Instant) {
 }
 
 @Composable
-private fun AgendaRowItem(row: AgendaRow, date: String, now: Instant?, day: HomeDay, onOpen: (AgendaHomeEvent) -> Unit, onLaunch: (String) -> Unit) {
+private fun AgendaRowItem(row: AgendaRow, date: String, now: Instant?, day: HomeDay, onOpen: (AgendaHomeEvent) -> Unit, onLaunch: (String) -> Unit, resumeSport: Boolean) {
     val event = row.event
     val past = row.kind == AgendaRowKind.PAST
     val next = row.kind == AgendaRowKind.NEXT
@@ -211,7 +216,8 @@ private fun AgendaRowItem(row: AgendaRow, date: String, now: Instant?, day: Home
     }
     val details = listOfNotNull(event.locationShort, hint).joinToString(" · ")
 
-    val launchRoute = launchRouteFor(event.activity)
+    val launchRoute = launchRouteFor(event.activity, event.id)
+    val sport = event.activity == ACTIVITY_SPORT
 
     // The row's own tap and the ▶ are siblings, never nested: two buttons, each its own semantics node.
     Row(
@@ -266,10 +272,11 @@ private fun AgendaRowItem(row: AgendaRow, date: String, now: Instant?, day: Home
         // « ▶ Lancer » on an event that is an activity — today only; the pill draws nothing for tomorrow.
         if (launchRoute != null) {
             ActivityLaunchButton(
-                module = HomeModules.FINANCE,
+                module = if (sport) HomeModules.HEALTH else HomeModules.FINANCE,
                 activity = event.summary,
                 day = day,
                 onLaunch = { onLaunch(launchRoute) },
+                resume = sport && resumeSport,
                 modifier = Modifier.padding(end = 8.dp),
             )
         }

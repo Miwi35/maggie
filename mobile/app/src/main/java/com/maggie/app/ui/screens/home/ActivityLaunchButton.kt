@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.ACTIVITY_FINANCE_REVIEW
+import com.maggie.app.data.model.ACTIVITY_SPORT
 import com.maggie.app.data.model.HomeDay
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.navigation.Screen
@@ -41,10 +42,13 @@ private const val LAUNCH_OUTLINE_ALPHA = 0.4f
 /**
  * The route the activity an agenda event launches opens, from its `activity` field; null for an event that
  * is not one. A meal's line launches Cuisine from its own id (MAG-580), which an agenda event does not carry,
- * so the Cuisine card wires it; Sport has no activity yet.
+ * so the Cuisine card wires it; Sport opens the session filed under the event (MAG-779).
  */
-fun launchRouteFor(activity: String?): String? =
-    if (activity == ACTIVITY_FINANCE_REVIEW) Screen.FinanceReviewActivity.route else null
+fun launchRouteFor(activity: String?, eventId: String? = null): String? = when {
+    activity == ACTIVITY_FINANCE_REVIEW -> Screen.FinanceReviewActivity.route
+    activity == ACTIVITY_SPORT && eventId != null -> Screen.SportActivity.ofEvent(eventId)
+    else -> null
+}
 
 /**
  * The discreet « ▶ Lancer » on an agenda line or a module card of the Accueil: a 28 dp pill on the

@@ -123,7 +123,7 @@ fun EventDetailContent(
                 )
             }
 
-            if (event.launchesFinanceReview && onLaunch != null) {
+            if (event.launchesActivityToday(java.time.LocalDate.now(), java.time.ZoneId.systemDefault()) && onLaunch != null) {
                 Button(
                     onClick = onLaunch,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(UiTags.EVENT_LAUNCH_ACTIVITY),

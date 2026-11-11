@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.Workout
 import com.maggie.app.data.model.WorkoutExercise
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.screens.health.sport.SportLaunch
+import com.maggie.app.ui.screens.health.sport.SportLaunchButton
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.isMaggieDark
 import com.maggie.app.ui.theme.maggieSurface
@@ -75,6 +77,8 @@ fun WorkoutDetail(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    launch: SportLaunch? = null,
+    onLaunch: (workoutId: String) -> Unit = {},
 ) {
     var confirmingDelete by rememberSaveable(workout.id) { mutableStateOf(false) }
     if (confirmingDelete) {
@@ -136,6 +140,10 @@ fun WorkoutDetail(
         }
         workout.notes?.takeIf { it.isNotBlank() }?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        if (launch != null) {
+            SportLaunchButton(launch.buttonLabel, onClick = { onLaunch(launch.workoutId) }, modifier = Modifier.fillMaxWidth())
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
