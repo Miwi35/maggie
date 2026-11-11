@@ -24,6 +24,8 @@ use Maggie\Core\Entity\UserPreference;
 use Maggie\Finance\Doctrine\TransactionListener;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Project;
+use Maggie\Health\Doctrine\PlannedWorkoutListener;
+use Maggie\Health\Doctrine\SportEventListener;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -235,7 +237,7 @@ final class E2eUserControllerTest extends KernelTestCase
                 $this->entityManager(),
                 $container->get(E2eDateProvider::class),
                 $loader,
-                new FixtureEffects([$container->get(TransactionListener::class), $container->get(TodayEventListener::class)]),
+                new FixtureEffects([$container->get(TransactionListener::class), $container->get(TodayEventListener::class), $container->get(PlannedWorkoutListener::class), $container->get(SportEventListener::class)]),
                 new E2eFixtureCatalog($projectDir),
                 $indexer,
                 $projectDir,
