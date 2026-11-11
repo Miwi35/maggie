@@ -14244,6 +14244,73 @@
                     "required": true
                 }
             }
+        },
+        "/api/workout-makeups/{id}": {
+            "get": {
+                "operationId": "api_workout-makeups_id_get",
+                "tags": [
+                    "WorkoutMakeup"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "WorkoutMakeup resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkoutMakeup.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkoutMakeup"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkoutMakeup.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a WorkoutMakeup resource.",
+                "description": "Retrieves a WorkoutMakeup resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "WorkoutMakeup identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -22551,7 +22618,8 @@
                             "departure",
                             "message",
                             "question",
-                            "health"
+                            "health",
+                            "workout_makeup"
                         ]
                     },
                     "title": {
@@ -22660,7 +22728,8 @@
                             "departure",
                             "message",
                             "question",
-                            "health"
+                            "health",
+                            "workout_makeup"
                         ]
                     },
                     "title": {
@@ -22769,7 +22838,8 @@
                             "departure",
                             "message",
                             "question",
-                            "health"
+                            "health",
+                            "workout_makeup"
                         ]
                     },
                     "title": {
@@ -22883,7 +22953,8 @@
                                     "departure",
                                     "message",
                                     "question",
-                                    "health"
+                                    "health",
+                                    "workout_makeup"
                                 ]
                             },
                             "title": {
@@ -32363,6 +32434,48 @@
                             null
                         ]
                     },
+                    "keeps": {
+                        "readOnly": true,
+                        "description": "The planned session this session done keeps (read only, set by Maggie).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "streak": {
+                        "readOnly": true,
+                        "description": "The streak of planned sessions kept in a row once this one kept its own (read only; null when it keeps none).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "makeupOf": {
+                        "readOnly": true,
+                        "description": "The missed planned session this planned make-up replaces (read only).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "makeupOption": {
+                        "readOnly": true,
+                        "description": "How the make-up was chosen: softer, shorter or tomorrow (read only).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "softer",
+                            "shorter",
+                            "tomorrow",
+                            null
+                        ]
+                    },
                     "requestedExercises": {
                         "readOnly": true,
                         "description": "The `exercises` a request sent, as sent: the write path validates them\n({@see \\Maggie\\Health\\Service\\WorkoutRules::exercises()}). Null: not sent.",
@@ -32629,6 +32742,48 @@
                             "calibration",
                             "soft",
                             "deload",
+                            null
+                        ]
+                    },
+                    "keeps": {
+                        "readOnly": true,
+                        "description": "The planned session this session done keeps (read only, set by Maggie).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "streak": {
+                        "readOnly": true,
+                        "description": "The streak of planned sessions kept in a row once this one kept its own (read only; null when it keeps none).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "makeupOf": {
+                        "readOnly": true,
+                        "description": "The missed planned session this planned make-up replaces (read only).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "makeupOption": {
+                        "readOnly": true,
+                        "description": "How the make-up was chosen: softer, shorter or tomorrow (read only).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "softer",
+                            "shorter",
+                            "tomorrow",
                             null
                         ]
                     },
@@ -32901,6 +33056,48 @@
                             null
                         ]
                     },
+                    "keeps": {
+                        "readOnly": true,
+                        "description": "The planned session this session done keeps (read only, set by Maggie).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "streak": {
+                        "readOnly": true,
+                        "description": "The streak of planned sessions kept in a row once this one kept its own (read only; null when it keeps none).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "makeupOf": {
+                        "readOnly": true,
+                        "description": "The missed planned session this planned make-up replaces (read only).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "makeupOption": {
+                        "readOnly": true,
+                        "description": "How the make-up was chosen: softer, shorter or tomorrow (read only).",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "softer",
+                            "shorter",
+                            "tomorrow",
+                            null
+                        ]
+                    },
                     "requestedExercises": {
                         "readOnly": true,
                         "description": "The `exercises` a request sent, as sent: the write path validates them\n({@see \\Maggie\\Health\\Service\\WorkoutRules::exercises()}). Null: not sent.",
@@ -33169,6 +33366,48 @@
                                     null
                                 ]
                             },
+                            "keeps": {
+                                "readOnly": true,
+                                "description": "The planned session this session done keeps (read only, set by Maggie).",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "streak": {
+                                "readOnly": true,
+                                "description": "The streak of planned sessions kept in a row once this one kept its own (read only; null when it keeps none).",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "makeupOf": {
+                                "readOnly": true,
+                                "description": "The missed planned session this planned make-up replaces (read only).",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "makeupOption": {
+                                "readOnly": true,
+                                "description": "How the make-up was chosen: softer, shorter or tomorrow (read only).",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "softer",
+                                    "shorter",
+                                    "tomorrow",
+                                    null
+                                ]
+                            },
                             "requestedExercises": {
                                 "readOnly": true,
                                 "description": "The `exercises` a request sent, as sent: the write path validates them\n({@see \\Maggie\\Health\\Service\\WorkoutRules::exercises()}). Null: not sent.",
@@ -33312,6 +33551,220 @@
                             "startedAt",
                             "durationMinutes"
                         ]
+                    }
+                ]
+            },
+            "WorkoutMakeup": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "missed": {
+                        "description": "The planned session missed.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "missedAt": {
+                        "readOnly": true,
+                        "description": "When the missed session was to start.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "softerMinutes": {
+                        "description": "The minutes of the « softer » make-up.",
+                        "type": "integer"
+                    },
+                    "shorterMinutes": {
+                        "description": "The minutes of the « shorter » make-up.",
+                        "type": "integer"
+                    },
+                    "streak": {
+                        "description": "The streak the make-up keeps.",
+                        "type": "integer"
+                    },
+                    "chosenOption": {
+                        "readOnly": true,
+                        "description": "The option chosen: softer, shorter or tomorrow; null until chosen.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "softer",
+                            "shorter",
+                            "tomorrow",
+                            null
+                        ]
+                    },
+                    "chosenWorkout": {
+                        "readOnly": true,
+                        "description": "The planned make-up session the choice created.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "status": {
+                        "readOnly": true,
+                        "description": "proposed, chosen, or obsolete (the missed session was kept the same day after all).",
+                        "default": "proposed",
+                        "type": "string",
+                        "enum": [
+                            "proposed",
+                            "chosen",
+                            "obsolete"
+                        ]
+                    }
+                }
+            },
+            "WorkoutMakeup.html": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "missed": {
+                        "description": "The planned session missed.",
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "missedAt": {
+                        "readOnly": true,
+                        "description": "When the missed session was to start.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "softerMinutes": {
+                        "description": "The minutes of the « softer » make-up.",
+                        "type": "integer"
+                    },
+                    "shorterMinutes": {
+                        "description": "The minutes of the « shorter » make-up.",
+                        "type": "integer"
+                    },
+                    "streak": {
+                        "description": "The streak the make-up keeps.",
+                        "type": "integer"
+                    },
+                    "chosenOption": {
+                        "readOnly": true,
+                        "description": "The option chosen: softer, shorter or tomorrow; null until chosen.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "softer",
+                            "shorter",
+                            "tomorrow",
+                            null
+                        ]
+                    },
+                    "chosenWorkout": {
+                        "readOnly": true,
+                        "description": "The planned make-up session the choice created.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "status": {
+                        "readOnly": true,
+                        "description": "proposed, chosen, or obsolete (the missed session was kept the same day after all).",
+                        "default": "proposed",
+                        "type": "string",
+                        "enum": [
+                            "proposed",
+                            "chosen",
+                            "obsolete"
+                        ]
+                    }
+                }
+            },
+            "WorkoutMakeup.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "missed": {
+                                "description": "The planned session missed.",
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "missedAt": {
+                                "readOnly": true,
+                                "description": "When the missed session was to start.",
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "softerMinutes": {
+                                "description": "The minutes of the « softer » make-up.",
+                                "type": "integer"
+                            },
+                            "shorterMinutes": {
+                                "description": "The minutes of the « shorter » make-up.",
+                                "type": "integer"
+                            },
+                            "streak": {
+                                "description": "The streak the make-up keeps.",
+                                "type": "integer"
+                            },
+                            "chosenOption": {
+                                "readOnly": true,
+                                "description": "The option chosen: softer, shorter or tomorrow; null until chosen.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "softer",
+                                    "shorter",
+                                    "tomorrow",
+                                    null
+                                ]
+                            },
+                            "chosenWorkout": {
+                                "readOnly": true,
+                                "description": "The planned make-up session the choice created.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "status": {
+                                "readOnly": true,
+                                "description": "proposed, chosen, or obsolete (the missed session was kept the same day after all).",
+                                "default": "proposed",
+                                "type": "string",
+                                "enum": [
+                                    "proposed",
+                                    "chosen",
+                                    "obsolete"
+                                ]
+                            }
+                        }
                     }
                 ]
             }
@@ -33460,6 +33913,10 @@
         {
             "name": "Workout",
             "description": "Resource 'Workout' operations."
+        },
+        {
+            "name": "WorkoutMakeup",
+            "description": "Resource 'WorkoutMakeup' operations."
         },
         {
             "name": "Notification",

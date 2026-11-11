@@ -295,6 +295,7 @@ final class PushMessageFactoryTest extends TestCase
         yield 'grocery' => [NotificationType::Grocery, 'chat_v2'];
         yield 'cooking timer' => [NotificationType::CookingTimer, 'reminders_v2'];
         yield 'health' => [NotificationType::Health, 'reminders_v2'];
+        yield 'workout_makeup' => [NotificationType::WorkoutMakeup, 'reminders_v2'];
     }
 
     public function testACookingTimersEndIsTaggedOncePerTimerAndCarriesItsId(): void

@@ -30,6 +30,11 @@ final class WorkoutJson
             'externalId' => $workout->getExternalId(),
             'difficulty' => $workout->getDifficulty(),
             'variant' => $workout->getVariant()?->value,
+            // Ids, like workoutId: the planned session kept, the missed one made up.
+            'keeps' => null === $workout->getKeeps() ? null : (string) $workout->getKeeps()->getId(),
+            'streak' => $workout->getStreak(),
+            'makeupOf' => null === $workout->getMakeupOf() ? null : (string) $workout->getMakeupOf()->getId(),
+            'makeupOption' => $workout->getMakeupOption()?->value,
             'exercises' => $workout->getExercises(),
         ];
     }

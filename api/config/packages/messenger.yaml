@@ -181,6 +181,11 @@ framework:
             'Maggie\Health\Message\RefreshHealthDayCommand': sync
             'Maggie\Health\Message\UpdateHealthDayCommand': sync
             'Maggie\Health\Event\HealthDaySourceChanged': sync
+            'Maggie\Health\Event\PlannedWorkoutKept': sync
+            'Maggie\Health\Message\KeepPlannedWorkoutCommand': sync
+            'Maggie\Health\Event\PlannedWorkoutMissed': sync
+            'Maggie\Health\Message\ProposeWorkoutMakeupCommand': sync
+            'Maggie\Health\Message\ChooseWorkoutMakeupCommand': sync
             'Maggie\Finance\Message\ChangeScenarioCommand': sync
             'Maggie\Finance\Message\CreateOperationCommand': sync
             'Maggie\Finance\Message\UpdateOperationCommand': sync
