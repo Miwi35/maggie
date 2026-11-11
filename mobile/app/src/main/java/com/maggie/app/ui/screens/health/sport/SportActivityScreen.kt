@@ -388,7 +388,7 @@ private const val LOAD_STEP = 5.0
 private fun AdjustButton(label: String, m: SportMetrics, tag: String, onClick: () -> Unit) {
     Box(
         Modifier.height(m.adjust.dp).width((m.adjust * 1.5).dp)
-            .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(50))
             .clickable(role = Role.Button, onClick = onClick)
             .testTag(tag),
         contentAlignment = Alignment.Center,
@@ -439,7 +439,7 @@ private fun SportBottom(state: SportActivityUiState, exercise: WorkoutExercise, 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             SportButton(
                 "‹", Modifier.width(m.button.dp).semantics { contentDescription = "Étape précédente" }.testTag(UiTags.SPORT_ACTIVITY_BACK),
-                m, Color.White.copy(alpha = 0.08f), MaterialTheme.colorScheme.onSurface, 28, actions.onBack,
+                m, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), MaterialTheme.colorScheme.onSurface, 28, actions.onBack,
             )
             if (state.isHeld() && !resting) {
                 SportButton(
