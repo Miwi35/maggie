@@ -68,6 +68,8 @@ class DtoContractTest {
         "FoodIntake" to setOf("mealId"),
         // The range of daily-balance leaves the planned meals out by design: only `?date=` lists them (MAG-748).
         "DailyBalance (range)" to setOf("plannedMeals"),
+        // The recorded sets count reps and seconds; no recorded exercise is counted in metres (MAG-775).
+        "WorkoutSetDone" to setOf("meters"),
     )
 
     // The agent's messages are not recorded in api/contract/responses (that suite records the API
@@ -899,6 +901,28 @@ class DtoContractTest {
     @Test
     fun `workouts deserialise from the recorded response (MAG-705)`() =
         assertCollectionContract("workouts", serializer<Workout>(), "Workout")
+
+    @Test
+    fun `the exercises of a session and their sets deserialise from the recorded response (MAG-775)`() {
+        val members = readRecording("workouts.collection")["member"]!!.jsonArray.map { it.jsonObject }
+        val exercises = members.flatMap { it["exercises"]?.jsonArray.orEmpty() }.map { it.jsonObject }
+        assertTrue("No recorded session carries an exercise: the recording proves nothing about it.", exercises.isNotEmpty())
+        val sets = exercises.flatMap { it["done"]?.jsonArray.orEmpty() }.map { it.jsonObject }
+        assertTrue("No recorded exercise carries a set done: the recording proves nothing about it.", sets.isNotEmpty())
+
+        assertDeclaredFieldsExist("WorkoutExercise", serializer<WorkoutExercise>(), exercises.flatMap { it.keys }.toSet(), "workouts.collection")
+        assertDeclaredFieldsExist("WorkoutSetDone", serializer<WorkoutSetDone>(), sets.flatMap { it.keys }.toSet(), "workouts.collection")
+
+        val strength = json.decodeFromJsonElement(serializer<ApiCollection<Workout>>(), readRecording("workouts.collection"))
+            .member.single { it.exercises.isNotEmpty() }
+        assertEquals(7, strength.difficulty)
+        assertEquals("normal", strength.variant)
+        val squat = strength.exercises.first()
+        assertEquals("Squat gobelet au sac", squat.name)
+        assertEquals(10.0, squat.loadKg!!, 0.001)
+        assertEquals(9, squat.done.first().reps)
+        assertEquals(25, strength.exercises[1].done.last().seconds)
+    }
 
     @Test
     fun `body measurements deserialise from the recorded response (MAG-706)`() =

@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -31,7 +33,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.Workout
+import com.maggie.app.data.model.WorkoutExercise
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.uiTagRoot
 import java.time.ZoneId
 
@@ -60,7 +66,7 @@ internal fun WorkoutIcon(type: String, size: Int, modifier: Modifier = Modifier)
 
 /**
  * The detail of a session (MAG-705), in the phone's sheet and the tablet's pane: its type, title and date, the figures it
- * has, how it felt, then « Modifier » and « Supprimer » (the latter asks first).
+ * has, its prescribed exercises (MAG-775), how it felt, then « Modifier » and « Supprimer » (the latter asks first).
  */
 @Composable
 fun WorkoutDetail(
@@ -120,6 +126,8 @@ fun WorkoutDetail(
             }
         }
 
+        if (workout.exercises.isNotEmpty()) ExerciseList(workout.exercises)
+
         feeling?.let {
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Ressenti", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -148,5 +156,26 @@ private fun MetricTile(label: String, value: String, modifier: Modifier = Modifi
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, fontSize = 18.sp)
+    }
+}
+
+/** « Exercices », then one row per prescribed exercise: its name, and its dose on the right (MAG-775). */
+@Composable
+private fun ExerciseList(exercises: List<WorkoutExercise>) {
+    val surface = maggieSurface()
+    val hairline = surface.text.copy(alpha = if (isMaggieDark()) MaggieTokens.Divider.DARK else MaggieTokens.Divider.LIGHT)
+    Column(modifier = Modifier.fillMaxWidth().testTag(UiTags.WORKOUT_EXERCISES)) {
+        Text("Exercices", fontSize = 12.sp, color = surface.caption, modifier = Modifier.padding(bottom = 4.dp))
+        exercises.forEach { exercise ->
+            HorizontalDivider(color = hairline)
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).testTag(UiTags.WORKOUT_EXERCISE),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(exercise.name, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                Text(formatDose(exercise), fontSize = 15.sp, color = surface.textMuted)
+            }
+        }
     }
 }

@@ -1,6 +1,9 @@
 package com.maggie.app.ui.screens.health
 
 import com.maggie.app.data.model.Workout
+import com.maggie.app.data.model.WorkoutExercise
+import com.maggie.app.data.model.WorkoutSetDone
+import com.maggie.app.data.model.WorkoutUnit
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -52,3 +55,37 @@ fun parseDistanceMeters(text: String): Int? {
 /** « 5400 » metres back to the field: « 5,4 ». */
 fun distanceInput(meters: Int): String =
     BigDecimal(meters).movePointLeft(3).stripTrailingZeros().toPlainString().replace('.', ',')
+
+/** « 12,5 », « 10 »: kilograms in French decimals, a whole number without them. */
+private fun formatLoadKg(kg: Double): String =
+    BigDecimal.valueOf(kg).stripTrailingZeros().toPlainString().replace('.', ',')
+
+private fun unitSuffix(unit: String): String = when (unit) {
+    WorkoutUnit.SECONDS -> " s"
+    WorkoutUnit.METERS -> " m"
+    else -> ""
+}
+
+private fun WorkoutSetDone.count(unit: String): Int? = when (unit) {
+    WorkoutUnit.SECONDS -> seconds
+    WorkoutUnit.METERS -> meters
+    else -> reps
+}
+
+/**
+ * The dose of an exercise, the admin's rule (MAG-775): prescribed while nothing is done (« 3 × 5 », « 3 × 10 · 10 kg »,
+ * « 3 × 30 s »); once done, the sets performed — « 3 × 9 · 10 kg » when they are equal, with the load they share (or the
+ * prescribed one), « 8 · 8 · 7 » when they are not.
+ */
+fun formatDose(exercise: WorkoutExercise): String {
+    val suffix = unitSuffix(exercise.unit)
+    fun withLoad(text: String, kg: Double?) = if (kg != null) "$text · ${formatLoadKg(kg)} kg" else text
+    if (exercise.done.isEmpty()) return withLoad("${exercise.sets} × ${exercise.target}$suffix", exercise.loadKg)
+
+    val counts = exercise.done.map { it.count(exercise.unit) ?: 0 }
+    if (counts.distinct().size > 1) return counts.joinToString(" · ") { "$it$suffix" }
+
+    val loads = exercise.done.map { it.loadKg }.distinct()
+    val shared = loads.singleOrNull() ?: exercise.loadKg
+    return withLoad("${counts.size} × ${counts.first()}$suffix", shared)
+}
