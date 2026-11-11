@@ -95,12 +95,21 @@ test.describe('The sheet of a detailed session — MAG-775', () => {
 })
 
 test.describe('A planned session in the « Santé » agenda — MAG-777', () => {
-  // Its own account, made fresh for the test: today's 18:30 is this journey's alone.
-  test.use({ journeyAccount: 'standard' })
+  // An empty account, made fresh for the test: today's 18:30 is this journey's alone, and
+  // no seeded strength session sits within the 24 h the week's guard rails ask (MAG-776).
+  test.use({ journeyAccount: 'empty' })
 
   test('« Séance A » is at 18:30 in the Santé agenda, and moved to 19:00 there it starts at 19:00 in Santé › Sport', async ({ page, api }) => {
     const day = parisDay(e2eNow())
     const ld = { Accept: 'application/ld+json' }
+
+    // The empty account owns no agenda of its own, and module agendas stay out of the
+    // sidebar: a « Perso » gives the Agenda page the line it waits for.
+    const perso = await api.post('/api/agendas', {
+      headers: { ...ld, 'Content-Type': 'application/ld+json' },
+      data: { name: 'Perso', color: '#4285f4', timeZone: 'Europe/Paris' },
+    })
+    expect(perso.status(), `POST /api/agendas answered ${perso.status()}`).toBe(201)
 
     // Given a session planned today at 18:30 (written over HTTP: the seed's are history, filed nowhere).
     const created = await api.post('/api/workouts', {
