@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box'
-import CircularProgress from '@mui/material/CircularProgress'
+import Divider from '@mui/material/Divider'
 import LinearProgress from '@mui/material/LinearProgress'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
@@ -39,18 +39,30 @@ export const HealthCard = ({ day }: { day: HomeDay }) => {
 }
 
 const Body = ({ state }: { state: HealthHomeState }) => (
-  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-    {state.workout && <Workout workout={state.workout} />}
-    {state.steps && <Steps steps={state.steps} />}
-    {state.balance && <Balance balance={state.balance} day={state.day} />}
-    {state.fast && <Fast fast={state.fast} day={state.day} />}
+  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+    {[
+      state.workout && <Workout key="workout" workout={state.workout} />,
+      state.steps && <Steps key="steps" steps={state.steps} />,
+      state.balance && <Balance key="balance" balance={state.balance} day={state.day} />,
+      state.fast && <Fast key="fast" fast={state.fast} day={state.day} />,
+    ]
+      .filter(Boolean)
+      .flatMap((row, index) => (index === 0 ? [row] : [<Divider key={`d${index}`} />, row]))}
   </Box>
 )
 
-const Workout = ({ workout }: { workout: HealthWorkout }) => (
-  <Typography variant="body2" data-testid="home-health-workout">
-    {`${workout.title} · ${workout.time} · ${formatDuration(workout.durationMinutes)}`}
-  </Typography>
+const Line = ({ label, value, fraction, testId }: { label: string; value: string; fraction: number | null; testId: string }) => (
+  <Box data-testid={testId} sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1.5 }}>
+      <Typography variant="body2">{label}</Typography>
+      {value && (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'right' }}>
+          {value}
+        </Typography>
+      )}
+    </Box>
+    {fraction !== null && <Bar value={fraction * 100} label={label} />}
+  </Box>
 )
 
 const Bar = ({ value, label }: { value: number; label: string }) => (
@@ -62,61 +74,40 @@ const Bar = ({ value, label }: { value: number; label: string }) => (
   />
 )
 
+const Workout = ({ workout }: { workout: HealthWorkout }) => (
+  <Line label={workout.title} value={`${workout.time} · ${formatDuration(workout.durationMinutes)}`} fraction={null} testId="home-health-workout" />
+)
+
 const Steps = ({ steps }: { steps: HealthSteps }) => (
-  <Box data-testid="home-health-steps">
-    <Typography variant="body2">{`Pas · ${formatInteger(steps.count)} · objectif ${formatInteger(steps.goal)}`}</Typography>
-    <Bar value={(steps.count / steps.goal) * 100} label="Pas du jour" />
-  </Box>
+  <Line
+    label="Pas"
+    value={`${formatInteger(steps.count)} · objectif ${formatInteger(steps.goal)}`}
+    fraction={steps.count / steps.goal}
+    testId="home-health-steps"
+  />
 )
 
 const Balance = ({ balance, day }: { balance: HealthBalance; day: HomeDay }) => {
   const need = balance.needKcal === null ? '' : ` · besoin ${formatInteger(balance.needKcal)} kcal`
-  const text =
-    day === 'today'
-      ? `Bilan du jour · ${formatInteger(balance.kcal)} mangées${need}`
-      : `Calories projetées · ${formatInteger(balance.kcal)} kcal${balance.needKcal === null ? '' : ` · besoin ${formatInteger(balance.needKcal)} kcal`}`
 
   return (
-    <Box data-testid="home-health-balance">
-      <Typography variant="body2">{text}</Typography>
-      {balance.needKcal !== null && balance.needKcal > 0 && <Bar value={(balance.kcal / balance.needKcal) * 100} label="Bilan calorique" />}
-    </Box>
+    <Line
+      label={day === 'today' ? 'Bilan du jour' : 'Calories projetées'}
+      value={day === 'today' ? `${formatInteger(balance.kcal)} mangées${need}` : `${formatInteger(balance.kcal)} kcal${need}`}
+      fraction={balance.needKcal !== null && balance.needKcal > 0 ? balance.kcal / balance.needKcal : null}
+      testId="home-health-balance"
+    />
   )
 }
 
 const Fast = ({ fast, day }: { fast: HealthFast; day: HomeDay }) => {
-  let text: string
-  if (day === 'tomorrow') text = `Fenêtre prévue · ${fast.windowStart} – ${fast.windowEnd}`
-  else if (fast.state === 'closed') text = 'Fenêtre fermée'
-  else if (fast.state === 'open')
-    text = `Fenêtre ouverte · ferme à ${fast.windowEnd}${fast.minutesToEdge === null ? '' : ` · ${formatDuration(fast.minutesToEdge)}`}`
-  else text = `Jeûne en cours · ouvre à ${fast.windowStart}${fast.minutesToEdge === null ? '' : ` · ${formatDuration(fast.minutesToEdge)}`}`
+  const left = fast.minutesToEdge === null ? '' : ` · ${formatDuration(fast.minutesToEdge)}`
+  let label: string
+  let value: string
+  if (day === 'tomorrow') [label, value] = ['Fenêtre prévue', `${fast.windowStart} – ${fast.windowEnd}`]
+  else if (fast.state === 'closed') [label, value] = ['Fenêtre fermée', '']
+  else if (fast.state === 'open') [label, value] = ['Fenêtre ouverte', `ferme à ${fast.windowEnd}${left}`]
+  else [label, value] = ['Jeûne en cours', `ouvre à ${fast.windowStart}${left}`]
 
-  const ring = day === 'today' && fast.minutesToEdge !== null ? ringValue(fast) : null
-
-  return (
-    <Box data-testid="home-health-fast" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      {ring !== null && (
-        <CircularProgress
-          variant="determinate"
-          value={ring}
-          size={28}
-          thickness={5}
-          aria-label="Fenêtre de jeûne"
-          sx={(theme) => ({ color: moduleColor(theme, 'health'), flexShrink: 0 })}
-        />
-      )}
-      <Typography variant="body2">{text}</Typography>
-    </Box>
-  )
-}
-
-/** Share of the window left to its edge, over the window's length: a ring that empties as the edge nears. */
-function ringValue(fast: HealthFast): number {
-  const [sh, sm] = fast.windowStart.split(':').map(Number)
-  const [eh, em] = fast.windowEnd.split(':').map(Number)
-  let length = eh * 60 + em - (sh * 60 + sm)
-  if (length <= 0) length += 24 * 60
-
-  return Math.min(100, ((fast.minutesToEdge ?? 0) / length) * 100)
+  return <Line label={label} value={value} fraction={day === 'today' ? fast.progress : null} testId="home-health-fast" />
 }

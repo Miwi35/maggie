@@ -32,7 +32,7 @@ class HealthHomeStateTest {
         assertEquals(HealthHomeWorkout("W1", "Course", "18:30", 45), state.workout)
         assertEquals(HealthHomeSteps(6240, 8000), state.steps)
         assertEquals(HealthHomeBalance(1240, 1980), state.balance)
-        assertEquals(HealthHomeFast("open", "12:00", "20:00", 198), state.fast)
+        assertEquals(HealthHomeFast("open", "12:00", "20:00", 198, 1f - 198f / 480), state.fast)
     }
 
     @Test
@@ -79,5 +79,21 @@ class HealthHomeStateTest {
     @Test
     fun `a closed window has no countdown`() {
         assertNull(state(reads = reads(fasting = fasting.copy(state = "closed"))).fast?.minutesToEdge)
+    }
+
+    @Test
+    fun `fasting inside the window reads open, counting to the window end and never to tomorrow`() {
+        val fast = state(reads = reads(fasting = fasting.copy(state = "fasting")), now = LocalTime.of(12, 2)).fast
+
+        assertEquals("open", fast?.state)
+        assertEquals(478, fast?.minutesToEdge)
+    }
+
+    @Test
+    fun `fasting after the window counts to the next opening`() {
+        val fast = state(reads = reads(fasting = fasting.copy(state = "fasting")), now = LocalTime.of(21, 0)).fast
+
+        assertEquals("fasting", fast?.state)
+        assertEquals(15 * 60, fast?.minutesToEdge)
     }
 }

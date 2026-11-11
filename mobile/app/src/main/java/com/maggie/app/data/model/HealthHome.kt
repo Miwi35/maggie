@@ -13,8 +13,11 @@ data class HealthHomeSteps(val count: Int, val goal: Int)
 /** What was eaten today, or what is planned for tomorrow, against the need. */
 data class HealthHomeBalance(val kcal: Int, val needKcal: Int?)
 
-/** The eating window; [minutesToEdge] is the time to its next edge, today only. */
-data class HealthHomeFast(val state: String?, val windowStart: String, val windowEnd: String, val minutesToEdge: Int?)
+/**
+ * The eating window; [minutesToEdge] is the time to its next edge and [progress] the share of the current phase (window
+ * open, or the fast before it) already gone, today only.
+ */
+data class HealthHomeFast(val state: String?, val windowStart: String, val windowEnd: String, val minutesToEdge: Int?, val progress: Float? = null)
 
 /** What the reads give [HealthHomeState.from]; a part whose module answered 404 is null. */
 data class HealthHomeReads(
@@ -49,7 +52,9 @@ data class HealthHomeState(
             val steps = reads.energy?.steps
             val kcal = reads.balance?.let { if (today) it.eatenKcal else it.plannedKcal } ?: 0
             val fasting = reads.fasting
-            val state = fasting?.state
+            val windowStart = fasting?.windowStart
+            val windowEnd = fasting?.windowEnd
+            val state = if (fasting?.state != null && windowStart != null && windowEnd != null) effectiveState(fasting.state, windowStart, windowEnd, now) else fasting?.state
             return HealthHomeState(
                 today = today,
                 workout = planned?.let {
@@ -62,12 +67,34 @@ data class HealthHomeState(
                     null
                 },
                 balance = if (kcal > 0) HealthHomeBalance(kcal, profile?.needKcal) else null,
-                fast = if (profile?.fastingProtocol != null && fasting != null && (!today || state != null) && fasting.windowStart != null && fasting.windowEnd != null) {
-                    HealthHomeFast(if (today) state else null, fasting.windowStart, fasting.windowEnd, if (today && state != null) minutesToEdge(state, fasting.windowStart, fasting.windowEnd, now) else null)
+                fast = if (profile?.fastingProtocol != null && fasting != null && (!today || state != null) && windowStart != null && windowEnd != null) {
+                    fastOf(today, state, windowStart, windowEnd, now)
                 } else {
                     null
                 },
             )
+        }
+
+        private fun fastOf(today: Boolean, state: String?, windowStart: String, windowEnd: String, now: LocalTime): HealthHomeFast {
+            if (!today || state == null) return HealthHomeFast(null, windowStart, windowEnd, null)
+            val left = minutesToEdge(state, windowStart, windowEnd, now)
+            val window = windowLength(windowStart, windowEnd)
+            val phase = if (state == FastingStatus.STATE_OPEN) window else DAY - window
+            val progress = left?.let { (1f - it.toFloat() / phase).coerceIn(0f, 1f) }
+            return HealthHomeFast(state, windowStart, windowEnd, left, progress)
+        }
+
+        private fun windowLength(windowStart: String, windowEnd: String): Int {
+            val length = minutes(windowEnd) - minutes(windowStart)
+            return if (length <= 0) length + DAY else length
+        }
+
+        /** Without a meal the API says fasting, but inside the window the window is open: it closes at its end. */
+        private fun effectiveState(state: String, windowStart: String, windowEnd: String, now: LocalTime): String {
+            if (state != FastingStatus.STATE_FASTING) return state
+            val at = now.hour * 60 + now.minute
+            val sinceStart = (at - minutes(windowStart) + DAY) % DAY
+            return if (sinceStart < windowLength(windowStart, windowEnd)) FastingStatus.STATE_OPEN else state
         }
 
         private fun minutes(time: String): Int = time.split(":").let { it[0].toInt() * 60 + it[1].toInt() }
