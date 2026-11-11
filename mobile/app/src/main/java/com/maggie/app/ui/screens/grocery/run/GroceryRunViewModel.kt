@@ -101,14 +101,13 @@ data class GroceryRunUiState(
     private val currentItems: List<GroceryItem> get() = items.filter { place(it)?.storeId == run.current }
 
     /** [currentItems], and the missing ones of this store gone to a fallback further in the tour (the mockup's « ira à »). */
-    private val shownItems: List<GroceryItem> get() = items.mapNotNull { item ->
-        when {
-            place(item)?.storeId == run.current -> item
-            !goesFromCurrent(item) -> null
-            item.missingFromStore != null -> item.copy(aisle = homeAisles[item.id])
-            else -> item
-        }
-    }
+    private val shownItems: List<GroceryItem> get() = items
+        .filter { place(it)?.storeId == run.current || goesFromCurrent(it) }
+        // Moved by the API, shown in its own store (« ira à », or given back by « Annuler »): its own aisle, not the fallback's.
+        .map { item -> if (item.movedFrom(run.current)) item.copy(aisle = homeAisles[item.id]) else item }
+
+    private fun GroceryItem.movedFrom(storeId: String?): Boolean =
+        missingFromStore?.id.let { it != null && it == storeId && it != store?.id }
 
     private fun goesFromCurrent(item: GroceryItem): Boolean =
         item.origin?.id == run.current && isMissing(item) && place(item)?.storeId.let { it != null && it != run.current }

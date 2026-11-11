@@ -512,6 +512,12 @@ class GroceryRunViewModelTest {
         assertEquals("Frais", aisle.name)
         assertEquals(RunMissing.GoesTo("Biocoop"), vm.line("i-3")?.missing)
         assertEquals("Bazar", vm.uiState.value.let { it.copy(run = it.run.copy(current = "s-b")) }.currentAisles.single { a -> a.lines.any { it.id == "i-3" } }.name)
+
+        // « Annuler » before any read says it: back to take, still under its own aisle.
+        coEvery { lists.markMissing("i-3", false) } returns Result.failure(java.io.IOException("offline"))
+        vm.markMissing("i-3")
+        assertNull(vm.line("i-3")?.missing)
+        assertEquals("Frais", vm.uiState.value.currentAisles.single { a -> a.lines.any { it.id == "i-3" } }.name)
     }
 
     @Test
