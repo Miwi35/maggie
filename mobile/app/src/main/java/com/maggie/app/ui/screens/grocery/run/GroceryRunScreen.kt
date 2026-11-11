@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,6 +35,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material3.AlertDialog
@@ -44,7 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,6 +57,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -195,15 +199,27 @@ fun GroceryRunContent(
     }
 }
 
+/**
+ * One segment per store of the tour, filled up to the store being done; all filled once the tour is over
+ * (« Pas trouvés », « Courses finies »), as the mockup draws them.
+ */
+internal fun GroceryRunUiState.progressSegments(): List<Boolean> {
+    val total = run.tour.size
+    if (run.finished || ended) return List(total) { true }
+    val done = run.current?.let { run.tour.indexOf(it) } ?: -1
+    return List(total) { it <= done }
+}
+
 /** The header: « Courses », the articles of the tour, and one segment per store of the tour, the store being done filled up to. */
 @Composable
 private fun GroceryRunProgress(state: GroceryRunUiState) {
-    val total = state.tour.size
-    if (state.load != GroceryRunLoad.READY || total == 0 || state.ended) return
-    val done = state.run.current?.let { state.run.tour.indexOf(it) }?.coerceAtLeast(0) ?: 0
+    val over = state.run.finished || state.ended
+    // Once over, the list may hold no article any more: the tour is read from the run, not from the stores left.
+    val total = if (over) state.run.tour.size else state.tour.size
+    if (total == 0 || (!over && state.load != GroceryRunLoad.READY)) return
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val position = if (state.run.finished) null else state.tourPosition
+            val position = if (over) null else state.tourPosition
             Text(
                 text = if (position != null) "${state.current?.name.orEmpty()} · ${position.first} / ${position.second}" else "Courses",
                 style = MaterialTheme.typography.titleMedium,
@@ -212,7 +228,11 @@ private fun GroceryRunProgress(state: GroceryRunUiState) {
                 modifier = Modifier.weight(1f).testTag(UiTags.GROCERY_RUN_HEADER),
             )
             Text(
-                text = if (position != null) state.tourProgress.let { "${it.checked} / ${it.total}" } else articlesLabel(state.tour.sumOf { it.count }),
+                text = when {
+                    position != null -> state.tourProgress.let { "${it.checked} / ${it.total}" }
+                    over -> storesLabel(total)
+                    else -> articlesLabel(state.tour.sumOf { it.count })
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -220,13 +240,13 @@ private fun GroceryRunProgress(state: GroceryRunUiState) {
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-            repeat(total) { index ->
+            state.progressSegments().forEach { filled ->
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(4.dp)
                         .background(
-                            if (index <= done && state.run.current != null) MaterialTheme.colorScheme.primary
+                            if (filled) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.surfaceContainerHighest,
                             RoundedCornerShape(2.dp),
                         ),
@@ -629,7 +649,14 @@ private fun StoreRow(
 }
 
 @Composable
-private fun MainButton(text: String, tag: String, enabled: Boolean = true, muted: Boolean = false, onClick: () -> Unit) {
+private fun MainButton(
+    text: String,
+    tag: String,
+    enabled: Boolean = true,
+    muted: Boolean = false,
+    chevron: Boolean = false,
+    onClick: () -> Unit,
+) {
     Button(
         onClick = onClick,
         enabled = enabled,
@@ -645,6 +672,13 @@ private fun MainButton(text: String, tag: String, enabled: Boolean = true, muted
             .testTag(tag),
     ) {
         Text(text, style = MaterialTheme.typography.titleMedium)
+        if (chevron) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                modifier = Modifier.padding(start = 8.dp).size(20.dp).testTag(UiTags.GROCERY_RUN_RECAP_CHEVRON),
+            )
+        }
     }
 }
 
@@ -697,11 +731,11 @@ private fun RecapCardRow(modifier: Modifier = Modifier, content: @Composable Row
 private fun Chip(text: String, tag: String? = null) {
     Text(
         text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onErrorContainer,
+        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+        color = RunMissingColor,
         maxLines = 1,
         modifier = Modifier
-            .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(999.dp))
+            .background(RunMissingColor.copy(alpha = 0.14f), RoundedCornerShape(999.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp)
             .then(if (tag != null) Modifier.testTag(tag) else Modifier),
     )
@@ -747,7 +781,7 @@ private fun GroceryRunRecap(state: GroceryRunUiState, store: RunStore, actions: 
                     CountTile(
                         missing.size,
                         if (missing.size > 1) "manquants" else "manquant",
-                        MaterialTheme.colorScheme.error,
+                        RunMissingColor,
                         UiTags.GROCERY_RUN_RECAP_MISSING,
                     )
                 }
@@ -767,25 +801,10 @@ private fun GroceryRunRecap(state: GroceryRunUiState, store: RunStore, actions: 
             item(key = "paid") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SectionLabel("Montant payé")
-                    OutlinedTextField(
-                        value = state.paidAmount,
-                        onValueChange = actions.setPaidAmount,
-                        placeholder = { Text("0,00") },
-                        suffix = { Text("€") },
-                        singleLine = true,
-                        isError = state.amountInvalid,
-                        textStyle = MaterialTheme.typography.headlineSmall,
-                        supportingText = if (state.amountInvalid) {
-                            { Text("Un montant en euros, par exemple 42,80") }
-                        } else {
-                            null
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .semantics { contentDescription = "Montant payé chez ${store.name}, en euros" }
-                            .testTag(UiTags.GROCERY_RUN_PAID),
-                    )
+                    PaidField(state.paidAmount, store.name, state.amountInvalid, actions.setPaidAmount)
+                    if (state.amountInvalid) {
+                        Text("Un montant en euros, par exemple 42,80", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
             if (state.finishFailed) {
@@ -798,9 +817,50 @@ private fun GroceryRunRecap(state: GroceryRunUiState, store: RunStore, actions: 
             text = state.nextStore?.let { "Magasin suivant · ${it.name}" } ?: "Finir les courses",
             tag = UiTags.GROCERY_RUN_RECAP_CONFIRM,
             enabled = !state.finishing,
+            chevron = state.nextStore != null,
             onClick = actions.finishStore,
         )
     }
+}
+
+/**
+ * « Montant payé » as the mockup draws it: a filled field, 64 dp high, with no outline, light 28 sp figures and « € »
+ * at its right. An amount that is not one is underlined in the error colour.
+ */
+@Composable
+private fun PaidField(value: String, storeName: String, invalid: Boolean, onValueChange: (String) -> Unit) {
+    val textColor = MaterialTheme.colorScheme.onSurface
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Light, color = textColor),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "Montant payé chez $storeName, en euros" }
+            .testTag(UiTags.GROCERY_RUN_PAID),
+        decorationBox = { field ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(MaggieTokens.surfaceDark.raised)
+                    .then(if (invalid) Modifier.border(2.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(18.dp)) else Modifier)
+                    .padding(horizontal = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (value.isEmpty()) Text("0,00", fontSize = 28.sp, fontWeight = FontWeight.Light, color = RunMuted)
+                    field()
+                }
+                Text("€", fontSize = 22.sp, color = RunMutedText)
+            }
+        },
+    )
 }
 
 /**
@@ -902,7 +962,14 @@ private fun GroceryRunEnd(state: GroceryRunUiState, onClose: () -> Unit) {
             if (state.run.ends.isNotEmpty()) {
                 item(key = "stores") {
                     RecapCard {
-                        state.run.ends.forEach { end ->
+                        state.run.ends.forEachIndexed { index, end ->
+                            if (index > 0) {
+                                HorizontalDivider(
+                                    thickness = 1.dp,
+                                    color = MaggieTokens.surfaceDark.text.copy(alpha = MaggieTokens.Divider.DARK),
+                                    modifier = Modifier.testTag(UiTags.GROCERY_RUN_END_DIVIDER),
+                                )
+                            }
                             RecapCardRow(Modifier.heightIn(min = 56.dp).semantics(mergeDescendants = true) {}.testTag(UiTags.groceryRunEndStore(end.storeId))) {
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(end.name, style = MaterialTheme.typography.bodyLarge)
@@ -947,3 +1014,5 @@ private fun GroceryRunEnd(state: GroceryRunUiState, onClose: () -> Unit) {
 }
 
 internal fun articlesLabel(count: Int): String = if (count == 1) "1 article" else "$count articles"
+
+internal fun storesLabel(count: Int): String = if (count == 1) "1 magasin" else "$count magasins"
