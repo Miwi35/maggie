@@ -301,5 +301,6 @@ class SportActivityTest {
         assertEquals("health/sport/activity/w1", Screen.SportActivity.of("w1"))
         assertEquals("health/sport/activity/-?event=e1", Screen.SportActivity.ofEvent("e1"))
         assertTrue(DeepLinks.forRoute(Screen.SportActivity.route).isNotEmpty())
+        assertEquals("health/sport/activity-end", Screen.SportActivityEnd.route)
     }
 }
