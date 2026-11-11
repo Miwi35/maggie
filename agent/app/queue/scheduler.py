@@ -247,7 +247,8 @@ async def run_planning_cycle(gateway: LLMGateway, since: datetime) -> datetime:
         await plan_user(gateway, user_id)
     # Every account, instruction or not (MAG-787): after the model's planning, so a digest it laid down
     # from an instruction is moved to the set hour rather than doubled.
-    await sync_rendezvous(checked_until)
+    if settings.daily_rendezvous_enabled:
+        await sync_rendezvous(checked_until)
     return checked_until
 
 

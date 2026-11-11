@@ -566,6 +566,9 @@ services:
       CONTEXT_SUMMARY_EVERY_MESSAGES: "4"
       # A cold stack must not make the recall of a journey time out (the delay itself is unit tested).
       MEMORY_RECALL_TIMEOUT_SECONDS: "5"
+      # The morning digest and the evening review (MAG-787) are not laid down by the loop: every seeded
+      # account would get them in every journey. A journey asks with POST /e2e/rendezvous/{user}/sync.
+      DAILY_RENDEZVOUS_ENABLED: "false"
       # Twenty seconds of silence instead of five minutes, looked at every five seconds (MAG-15).
       # With the e2e clock pinned (CI) that never elapses, so the journey runs the pass itself
       # through POST /e2e/memory/{user}/encode. Only a thread matching 13-memory-encoding.yaml is

@@ -299,6 +299,15 @@ class TestPlanningCycle:
         gateway.proaction.assert_not_awaited()
         rendezvous.assert_awaited_once_with(checked_until)
 
+    async def test_the_e2e_stack_leaves_the_rendezvous_to_its_journeys(self, agent_db, monkeypatch, clock, rendezvous):
+        instants, _ = clock
+        monkeypatch.setattr(settings, "daily_rendezvous_enabled", False)
+        instants += [utc(2026, 10, 1, 10, 0), utc(2026, 10, 1, 10, 15)]
+
+        await scheduler.run_planning_cycle(AsyncMock(), utc(2026, 10, 1, 10, 0))
+
+        rendezvous.assert_not_awaited()
+
     async def test_a_moment_reached_while_the_model_was_busy_is_still_planned(self, agent_db, monkeypatch, clock):
         instants, sleeps = clock
         await instruction_repo.store("user-ny", "Rule 1")

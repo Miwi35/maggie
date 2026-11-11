@@ -144,7 +144,7 @@ async def cancel(user_id: str, proaction_id: str) -> None:
     await _call(CANCEL_TOOL, {"id": proaction_id}, user_id)
 
 
-async def list_daily_rendezvous() -> list[dict]:
-    """Every user's morning digest and evening review settings (MAG-787), read with the service token."""
-    data = await _call(RENDEZVOUS_TOOL, {}, None)
+async def list_daily_rendezvous(user_id: str | None = None) -> list[dict]:
+    """Every user's morning digest and evening review settings (MAG-787), read with the service token; or one's."""
+    data = await _call(RENDEZVOUS_TOOL, {}, user_id)
     return [u for u in data.get("users", []) if isinstance(u, dict)]

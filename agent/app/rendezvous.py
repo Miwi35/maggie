@@ -110,12 +110,12 @@ async def sync_user(user: dict, now: datetime) -> dict[str, int]:
     return done
 
 
-async def sync_rendezvous(now: datetime) -> dict[str, int]:
-    """Every non-technical account's rendezvous of the day, in line with their settings. Never raises:
-    a user whose proactions cannot be written now is tried again at the next cycle."""
+async def sync_rendezvous(now: datetime, user_id: str | None = None) -> dict[str, int]:
+    """Every non-technical account's rendezvous of the day, in line with their settings — or `user_id`'s alone.
+    Never raises: a user whose proactions cannot be written now is tried again at the next cycle."""
     total = {"scheduled": 0, "cancelled": 0}
     try:
-        users = await proactions_api.list_daily_rendezvous()
+        users = await proactions_api.list_daily_rendezvous(user_id)
     except Exception as e:
         logger.error(f"Could not read the daily rendezvous settings: {e}")
         return total

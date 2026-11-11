@@ -2,17 +2,20 @@
 against the simulated API: created, moved, cancelled, never doubled, never for a technical account."""
 
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from app import rendezvous
+from app import e2e, rendezvous
 from app.auth import RECETTE_ACCOUNT_EMAIL, SMOKE_ACCOUNT_EMAIL
 from app.bilan import BILAN_PROMPT, BILAN_RELANCE_SUMMARY, BILAN_SUMMARY
 from app.proactions import api as proactions_api_module
 from app.rendezvous import DIGEST_PROMPT, DIGEST_SUMMARY, sync_rendezvous
 from tests.fake_proaction_api import FakeProactionApi
 
-USER = "01JUSER0000000000000000001"
+USER = "01HZX3Q8R5T6V7W8X9Y0Z1A2B3"
 # 14 Nov. 2030, 05:00 in Paris.
 EARLY = datetime(2030, 11, 14, 4, 0, tzinfo=UTC)
 
@@ -154,7 +157,7 @@ class TestWhoGetsThem:
         assert api.of(USER) == []
 
     async def test_one_user_that_fails_does_not_stop_the_others(self, api, monkeypatch):
-        other = "01JUSER0000000000000000002"
+        other = "01HZX3Q8R5T6V7W8X9Y0Z1A2B4"
         api.rendezvous = [settings(userId="not-a-user"), settings(userId=other)]
         real = api._list_proactions
         monkeypatch.setattr(
@@ -169,6 +172,30 @@ class TestWhoGetsThem:
         api.down = True
 
         assert await at(api, EARLY) == {"scheduled": 0, "cancelled": 0}
+
+
+class TestOnDemand:
+    async def test_one_user_alone_is_laid_down(self, api):
+        other = "01HZX3Q8R5T6V7W8X9Y0Z1A2B4"
+        api.rendezvous = [settings(), settings(userId=other)]
+
+        await sync_rendezvous(EARLY, USER)
+
+        assert len(api.of(USER)) == 3
+        assert api.of(other) == []
+        assert ("list_daily_rendezvous", {}, USER) in api.calls
+
+    def test_the_e2e_route_lays_down_the_user_s_rendezvous(self, api, monkeypatch):
+        monkeypatch.setattr("app.e2e.settings.tts_provider", "fake")
+        monkeypatch.setattr("app.e2e.settings.e2e_login_token", "token")
+        monkeypatch.setattr(e2e, "sync_rendezvous", AsyncMock(return_value={"scheduled": 3, "cancelled": 0}))
+        app = FastAPI()
+        e2e.setup_e2e(app)
+
+        response = TestClient(app).post(f"/e2e/rendezvous/{USER}/sync", headers={"X-E2E-Token": "token"})
+
+        assert response.json() == {"scheduled": 3, "cancelled": 0}
+        assert e2e.sync_rendezvous.await_args.args[1] == USER
 
 
 def test_an_unreadable_hour_falls_back_to_the_default():

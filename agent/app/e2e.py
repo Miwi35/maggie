@@ -21,6 +21,7 @@ from app.memory.bucket import BucketError, FakeBucket
 from app.memory.night import memory_night
 from app.memory.service import memory_service
 from app.queue import scheduler
+from app.rendezvous import sync_rendezvous
 from app.skills.store import skill_files
 from app.tts.synthesis import fake_synthesis_requests, reset_fake_synthesis_requests
 
@@ -197,6 +198,16 @@ async def memory_encode(user_id: MemoryUser) -> dict[str, int]:
     """
     later = datetime.now(UTC) + timedelta(seconds=settings.memory_encode_after_seconds + 5)
     return {"encoded": await scheduler.run_memory_encoding(later, user_id)}
+
+
+@router.post("/rendezvous/{user_id}/sync")
+async def rendezvous_sync(user_id: MemoryUser) -> dict[str, int]:
+    """Lay down one user's morning digest and evening review now, as a planning cycle would (MAG-787).
+
+    The stack's loop leaves them out (`daily_rendezvous_enabled`), so the seeded accounts get none in
+    the journeys that do not ask for them.
+    """
+    return await sync_rendezvous(datetime.now(UTC), user_id)
 
 
 @router.post("/memory/{user_id}/night")

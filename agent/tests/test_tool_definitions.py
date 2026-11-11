@@ -39,9 +39,14 @@ class TestToolDefinitions:
         router = ToolRouter()
         with patch("app.llm.tools.mcp_client") as mcp:
             mcp.list_tools = AsyncMock(
-                return_value=[_mcp("claim_due_proactions"), _mcp("record_proaction_result"), _mcp("get_event")]
+                return_value=[
+                    _mcp("claim_due_proactions"),
+                    _mcp("record_proaction_result"),
+                    _mcp("list_daily_rendezvous"),
+                    _mcp("get_event"),
+                ]
             )
             names = {tool["name"] for tool in await router.get_tool_definitions()}
 
         assert "get_event" in names
-        assert not names & {"claim_due_proactions", "record_proaction_result"}
+        assert not names & {"claim_due_proactions", "record_proaction_result", "list_daily_rendezvous"}
