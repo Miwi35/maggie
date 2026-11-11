@@ -39,9 +39,7 @@ tags:
     visible:
       id: "sport_launch_card"
     timeout: 30000
-- assertVisible:
-    id: "sport_launch_button"
-    text: "Lancer"
+- assertVisible: "Lancer"
 - tapOn:
     id: "sport_launch_button"
 
@@ -79,7 +77,5 @@ tags:
       id: "sport_launch_card"
     timeout: 20000
 - extendedWaitUntil:
-    visible:
-      id: "sport_launch_button"
-      text: ".*Reprendre · 1/6.*"
+    visible: ".*Reprendre · 1/6.*"
     timeout: 20000
