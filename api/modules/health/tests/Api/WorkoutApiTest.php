@@ -433,4 +433,37 @@ class WorkoutApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertNull($this->reload('strength')->getExternalId());
     }
+
+    public function testTheEventFilterRequiresAuthentication(): void
+    {
+        $eventIri = '/api/events/'.$this->reload('planned')->getEvent()?->getId();
+
+        $this->send('GET', '/api/workouts?event='.urlencode($eventIri), authenticated: false);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testAnEventFindsItsPlannedSession(): void
+    {
+        // The planned walk was filed in the « Santé » agenda when the fixtures stored it (MAG-777).
+        $eventIri = '/api/events/'.$this->reload('planned')->getEvent()?->getId();
+        $this->login();
+
+        self::assertSame(['Marche rapide'], $this->titles('?event='.urlencode($eventIri)));
+
+        $this->send('GET', $this->iri('planned'));
+        self::assertSame($eventIri, $this->response()['event']);
+        $this->send('GET', $this->iri('run'));
+        self::assertNull($this->response()['event'] ?? null);
+    }
+
+    public function testTheEventIsNotWritable(): void
+    {
+        $eventIri = '/api/events/'.$this->reload('planned')->getEvent()?->getId();
+        $this->login();
+
+        $this->send('PATCH', $this->iri('run'), ['event' => $eventIri]);
+
+        self::assertNull($this->reload('run')->getEvent());
+    }
 }

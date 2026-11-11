@@ -97,7 +97,7 @@
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/workouts{?type,type[],source,source[],startedAt[before],startedAt[strictly_before],startedAt[after],startedAt[strictly_after],exercise,order[startedAt]}",
+        "template": "/api/workouts{?type,type[],source,source[],event,startedAt[before],startedAt[strictly_before],startedAt[after],startedAt[strictly_after],exercise,order[startedAt]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -122,6 +122,12 @@
                 "@type": "IriTemplateMapping",
                 "variable": "source[]",
                 "property": "source",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "event",
+                "property": "event",
                 "required": false
             },
             {

@@ -3,7 +3,7 @@
 `api/modules/*` are independent business modules. `api/deptrac.yaml` states who may depend on whom; `task api:lint` (and CI's *API Lint*) fails on any other `use`.
 
 ```
-Core ← Notification ← Calendar ← Finance
+Core ← Notification ← Calendar ← Finance, Health
 Core ← Grocery        Core, Notification ← Cookbook ──(catalogue only)──▶ Grocery
 Core, Calendar, Notification, Cookbook, Grocery ← MealGrocery  (the bridge)
 ```
