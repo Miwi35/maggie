@@ -90,6 +90,11 @@ ELEVENLABS_CREDITS = Counter(
     ["model"],
 )
 
+GRADIUM_CREDITS = Counter(
+    "maggie_gradium_credits_total",
+    "Gradium credits consumed by speech synthesis (one per character sent)",
+)
+
 TTS_FALLBACKS = Counter(
     "maggie_tts_fallbacks_total",
     "Sentences spoken by Edge because the chosen provider failed",

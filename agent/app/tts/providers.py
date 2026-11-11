@@ -1,16 +1,21 @@
 """The speech providers behind `synthesis.py`: Edge, ElevenLabs, and the silent one e2e runs on."""
 
 import asyncio
+import base64
+import json
 import logging
+import re
 from collections.abc import AsyncGenerator
 from typing import Literal, Protocol
 
+import aiohttp
 import edge_tts
 import httpx
+import lameenc
 from aiohttp import WSServerHandshakeError
 
 from app.config import settings
-from app.metrics import ELEVENLABS_CREDITS
+from app.metrics import ELEVENLABS_CREDITS, GRADIUM_CREDITS
 from app.tts.text import strip_delivery_tags
 
 logger = logging.getLogger(__name__)
@@ -33,6 +38,11 @@ HANDSHAKE_RETRY_DELAY_SECONDS = 0.5
 
 ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128"
 ELEVENLABS_LANGUAGE = "fr"
+
+GRADIUM_SAMPLE_RATE = 48000
+GRADIUM_MP3_BITRATE = 128
+# Gradium's free plan refuses a session longer than this.
+GRADIUM_MAX_SESSION_CHARACTERS = 1500
 
 
 class SpeechUnavailableError(Exception):
@@ -161,3 +171,100 @@ class ElevenLabsProvider:
             credits = len(text)
         ELEVENLABS_CREDITS.labels(model=model).inc(credits)
         logger.info("ElevenLabs synthesis: %d credits (%s, %d characters)", credits, model, len(text))
+
+
+def split_sentences(text: str, limit: int) -> list[str]:
+    """Cut `text` into pieces of at most `limit` characters, at sentence ends (a hard cut on a longer sentence)."""
+    pieces: list[str] = []
+    current = ""
+    for sentence in re.findall(r"[^.!?…\n]*[.!?…]+\s*|[^.!?…\n]+\s*|\n+", text):
+        while len(sentence) > limit:
+            cut = sentence.rfind(" ", 0, limit)
+            cut = cut if cut > 0 else limit
+            head, sentence = sentence[:cut], sentence[cut:]
+            if current and len(current) + len(head) > limit:
+                pieces.append(current)
+                current = ""
+            pieces.append(current + head)
+            current = ""
+        if current and len(current) + len(sentence) > limit:
+            pieces.append(current)
+            current = ""
+        current += sentence
+    if current:
+        pieces.append(current)
+    return [piece for piece in (p.strip() for p in pieces) if piece]
+
+
+class GradiumProvider:
+    name = "gradium"
+
+    async def stream(self, text: str, voice: str, usage: Usage) -> AsyncGenerator[bytes, None]:
+        if not settings.gradium_api_key:
+            raise ProviderFailedError("not_configured")
+        text = strip_delivery_tags(text)
+        if not text.strip():
+            return
+        started = False
+        try:
+            for piece in split_sentences(text, GRADIUM_MAX_SESSION_CHARACTERS):
+                async for chunk in self._session(piece, voice):
+                    started = True
+                    yield chunk
+        except TimeoutError as exc:
+            raise ProviderFailedError("timeout") from exc
+        except aiohttp.ClientError as exc:
+            if started:
+                raise
+            raise ProviderFailedError("error", type(exc).__name__) from exc
+        if not started:
+            raise ProviderFailedError("empty", "no audio from Gradium")
+
+    async def _session(self, text: str, voice: str) -> AsyncGenerator[bytes, None]:
+        """One WebSocket session: setup, the text, `end_of_stream`, then PCM chunks re-encoded as MP3."""
+        timeout = settings.gradium_timeout_seconds
+        encoder = lameenc.Encoder()
+        encoder.set_bit_rate(GRADIUM_MP3_BITRATE)
+        encoder.set_in_sample_rate(GRADIUM_SAMPLE_RATE)
+        encoder.set_channels(1)
+        encoder.set_quality(2)
+        async with (
+            aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None, sock_connect=timeout)) as session,
+            session.ws_connect(
+                settings.gradium_base_url,
+                headers={"x-api-key": settings.gradium_api_key},
+                timeout=aiohttp.ClientWSTimeout(ws_receive=timeout),
+            ) as ws,
+        ):
+            await ws.send_json({"type": "setup", "voice_id": voice, "model_name": "default", "output_format": "pcm"})
+            await ws.send_json({"type": "text", "text": text})
+            await ws.send_json({"type": "end_of_stream"})
+            GRADIUM_CREDITS.inc(len(text))
+            while True:
+                message = await asyncio.wait_for(ws.receive(), timeout)
+                if message.type != aiohttp.WSMsgType.TEXT:
+                    if message.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSED):
+                        break
+                    raise ProviderFailedError("error", f"websocket {message.type.name}")
+                data = json.loads(message.data)
+                kind = data.get("type")
+                if kind == "error":
+                    raise ProviderFailedError(_gradium_reason(data), str(data.get("message", ""))[:200])
+                if kind == "audio":
+                    mp3 = encoder.encode(base64.b64decode(data["audio"]))
+                    if mp3:
+                        yield bytes(mp3)
+                elif kind == "end_of_stream":
+                    break
+        tail = encoder.flush()
+        if tail:
+            yield bytes(tail)
+
+
+def _gradium_reason(data: dict) -> str:
+    code = data.get("code")
+    if code in (401, 403):
+        return "unauthorized"
+    if code in (402, 429):
+        return "quota"
+    return "error"

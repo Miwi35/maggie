@@ -1,9 +1,9 @@
 """Speech synthesis (ADR-014): one voice for Maggie, Edge as the safety net.
 
 `synthesize_speech` streams MP3 for the live voice; `synthesize_file` returns it whole for a
-voice message. The provider follows the voice: Claire is ElevenLabs, the others are Edge. When
-ElevenLabs fails to start a sentence — error, timeout, quota — that sentence is spoken by Edge,
-with a log and a GlitchTip signal: Maggie is never mute.
+voice message. The provider follows the voice: Claire is ElevenLabs, Armelle and Follette are
+Gradium, the others are Edge. When ElevenLabs or Gradium fails to start a sentence — error,
+timeout, quota — that sentence is spoken by Edge, with a log and a GlitchTip signal: Maggie is never mute.
 """
 
 import logging
@@ -18,6 +18,7 @@ from app.tts.providers import (
     EdgeProvider,
     ElevenLabsProvider,
     FakeProvider,
+    GradiumProvider,
     ProviderFailedError,
     SpeechUnavailableError,
     TtsProvider,
@@ -40,12 +41,16 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 CLAIRE_VOICE = "6vTyAgAT8PncODBcLjRf"
+ARMELLE_VOICE = "pkd14k7C5fDFWB7y"
+FOLLETTE_VOICE = "jZnnC5t8aWugoosb"
 EDGE_FALLBACK_VOICE = "fr-FR-DeniseNeural"
 DEFAULT_VOICE = CLAIRE_VOICE
 
-# Claire first, then the curated Edge French voices (fr-FR, fr-BE, fr-CA).
+# Claire first, then Armelle and Follette (Gradium), then the curated Edge French voices (fr-FR, fr-BE, fr-CA).
 VOICES = [
     {"id": CLAIRE_VOICE, "name": "Claire", "gender": "female", "locale": "fr-FR", "provider": "elevenlabs"},
+    {"id": ARMELLE_VOICE, "name": "Armelle", "gender": "female", "locale": "fr-FR", "provider": "gradium"},
+    {"id": FOLLETTE_VOICE, "name": "Follette", "gender": "female", "locale": "fr-FR", "provider": "gradium"},
     {"id": "fr-FR-DeniseNeural", "name": "Denise", "gender": "female", "locale": "fr-FR", "provider": "edge"},
     {"id": "fr-FR-EloiseNeural", "name": "Eloise", "gender": "female", "locale": "fr-FR", "provider": "edge"},
     {"id": "fr-FR-HenriNeural", "name": "Henri", "gender": "male", "locale": "fr-FR", "provider": "edge"},
@@ -60,6 +65,7 @@ _PROVIDER_OF_VOICE = {v["id"]: v["provider"] for v in VOICES}
 
 _edge = EdgeProvider()
 _elevenlabs = ElevenLabsProvider()
+_gradium = GradiumProvider()
 _fake = FakeProvider()
 
 
@@ -79,9 +85,9 @@ def _provider_for(voice: str) -> TtsProvider:
     """`TTS_PROVIDER` can force Edge or the fake one; otherwise the voice says who speaks it."""
     if settings.tts_provider == "fake":
         return _fake
-    if settings.tts_provider == "edge" or _PROVIDER_OF_VOICE.get(voice) != "elevenlabs":
+    if settings.tts_provider == "edge":
         return _edge
-    return _elevenlabs
+    return {"elevenlabs": _elevenlabs, "gradium": _gradium}.get(_PROVIDER_OF_VOICE.get(voice, ""), _edge)
 
 
 def _edge_voice(voice: str) -> str:
@@ -97,7 +103,7 @@ async def synthesize_speech(
     if provider is _edge:
         voice = _edge_voice(voice)
 
-    if provider is not _elevenlabs:
+    if provider is _edge or provider is _fake:
         async with aclosing(provider.stream(text, voice, usage)) as chunks:
             async for chunk in chunks:
                 yield chunk

@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     elevenlabs_model_live: str = "eleven_v4_turbo"
     # How long ElevenLabs may take to start answering before the sentence goes to Edge.
     elevenlabs_timeout_seconds: float = 8.0
+    # Empty means no Gradium account configured: its voices are spoken by Edge. EU region.
+    gradium_api_key: str = ""
+    gradium_base_url: str = "wss://eu.api.gradium.ai/api/speech/tts"
+    # How long Gradium may take to answer (connection, then each message) before the sentence goes to Edge.
+    gradium_timeout_seconds: float = 8.0
 
     # Voice messages (MAG-685): the MP3 is kept in the memory bucket, under `audio/`, this many days,
     # then purged — the message stays, its transcript as its text. A signed URL to play it lives
