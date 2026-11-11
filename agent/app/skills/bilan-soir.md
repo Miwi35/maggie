@@ -8,7 +8,7 @@ tags:
 - vocal
 ---
 
-Quand l'utilisateur dit « on fait le point », « faisons le bilan », « bilan de la journée », ou quand la proaction « Bilan de la journée » arrive (l'heure de coucher apprise, 21 h 30 à défaut).
+Quand l'utilisateur dit « on fait le point », « faisons le bilan », « bilan de la journée », ou quand la proaction « Bilan de la journée » arrive (à l'heure réglée dans Réglages › Maggie, 21 h 30 par défaut).
 
 Tout ce que tu dis est **écrit pour l'oral** : phrases courtes et naturelles, aucun Markdown, aucune liste à puces, les heures dites comme on les dit. Tu vouvoies. Une étape à la fois : tu poses ta question, tu attends la réponse.
 
