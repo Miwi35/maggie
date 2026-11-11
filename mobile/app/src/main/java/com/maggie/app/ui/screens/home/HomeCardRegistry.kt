@@ -44,6 +44,8 @@ object HomeCardRegistry {
         // MAG-561: today's tasks and the routines of the moment.
         HomeCardEntry(HomeModules.TASKS) { day -> TasksHomeCard(day) },
         HomeCardEntry(HomeModules.CUISINE) { day -> CuisineHomeCard(day) },
+        // MAG-566: the planned session, steps, calorie balance and fasting window.
+        HomeCardEntry(HomeModules.HEALTH) { day -> HealthHomeCard(day) },
         HomeCardEntry(HomeModules.FINANCE) { day -> FinanceHomeCard(day) },
         HomeCardEntry(HomeModules.AGENDA) { day -> AgendaCard(day) },
     )

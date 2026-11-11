@@ -2914,6 +2914,18 @@ class MaggieApiService(
         }.orRefusal().body<ApiCollection<Workout>>().member
     }
 
+    /** The sessions announced (`source=planned`) that start from [after] (included) to [before] (excluded), earliest first; ISO date-times with their offset. */
+    suspend fun getPlannedWorkouts(after: String, before: String): List<Workout> {
+        return client.get("$baseUrl/api/workouts") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("source", "planned")
+            url.parameters.append("startedAt[after]", after)
+            url.parameters.append("startedAt[before]", before)
+            url.parameters.append("order[startedAt]", "asc")
+        }.orRefusal().body<ApiCollection<Workout>>().member
+    }
+
     suspend fun createWorkout(request: WorkoutWriteRequest): Workout {
         return client.post("$baseUrl/api/workouts") {
             contentType(ContentType.Application.Json)

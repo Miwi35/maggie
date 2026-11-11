@@ -84,6 +84,7 @@ import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.NotificationRepository
 import com.maggie.app.data.repository.CuisineCardRepository
+import com.maggie.app.data.repository.HealthCardRepository
 import com.maggie.app.data.repository.AccountRepository
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.BankConnectionRepository
@@ -195,6 +196,7 @@ import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.screens.home.TasksCardViewModel
 import com.maggie.app.ui.screens.digest.DigestViewModel
 import com.maggie.app.ui.screens.home.CuisineHomeViewModel
+import com.maggie.app.ui.screens.home.HealthHomeViewModel
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.voice.MediaVoiceMessagePlayer
 import com.maggie.app.voice.VoicePlayback
@@ -469,6 +471,7 @@ class MaggieApp : Application() {
             single { AgendaCardRepository(get(), get(), get()) }
             single { GroceryCardRepository(get(), get(), get()) }
             single { CuisineCardRepository(get(), get(), get()) }
+            single { HealthCardRepository(get(), get(), get()) }
             single { FinanceCardRepository(get(), get(), get()) }
             single { MonthBalanceRepository(get()) }
             single { TransactionRepository(get()) }
@@ -502,6 +505,7 @@ class MaggieApp : Application() {
             viewModel { GroceryHomeViewModel(get()) }
             viewModel { TasksCardViewModel(get(), get(), get()) }
             viewModel { CuisineHomeViewModel(get()) }
+            viewModel { HealthHomeViewModel(get()) }
             viewModel { FinanceHomeViewModel(get()) }
             viewModel { AgendaHomeViewModel(get()) }
             viewModel { params -> DigestViewModel(params.getOrNull<String>(), get(), get(), get(), get(), get(), get(), get()) }
