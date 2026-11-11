@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Maggie\Health\MessageHandler;
 
 use Maggie\Health\Entity\Workout;
+use Maggie\Health\Enum\WorkoutSource;
+use Maggie\Health\Enum\WorkoutType;
 use Maggie\Health\Exception\DuplicateWorkoutException;
 use Maggie\Health\Message\UpdateWorkoutCommand;
 use Maggie\Health\Repository\WorkoutRepository;
+use Maggie\Health\Service\StrengthScheduleGuard;
 use Maggie\Health\Service\WorkoutRules;
 use Maggie\Health\UseCase\SaveWorkout;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -23,6 +26,7 @@ class UpdateWorkoutHandler
         private readonly SaveWorkout $saveWorkout,
         private readonly WorkoutRepository $workoutRepository,
         private readonly WorkoutRules $rules,
+        private readonly StrengthScheduleGuard $schedule,
     ) {
     }
 
@@ -47,6 +51,10 @@ class UpdateWorkoutHandler
         // The list kept is checked again: a session moved back to planned cannot keep what was done.
         $exercises = $this->rules->exercises($command->exercises ?? self::kept($workout), $source);
         $this->rules->assert($title, $duration, $distance, $kcal, $heartRate, $notes, $externalId);
+
+        if (WorkoutType::Strength === $type && WorkoutSource::Planned === $source) {
+            $this->schedule->assert($command->userId, (string) $workout->getId(), $startedAt, $exercises);
+        }
 
         if (null !== $externalId && $externalId !== $workout->getExternalId()) {
             $other = $this->workoutRepository->findOneByExternalId($command->userId, $externalId);

@@ -73,6 +73,49 @@ class WorkoutRepository extends ServiceEntityRepository
     }
 
     /**
+     * The strength sessions done (not planned), the most recent first, started
+     * before $before excluded when given.
+     *
+     * @return list<Workout>
+     */
+    public function findDoneStrength(User $user, ?\DateTimeImmutable $before = null): array
+    {
+        $qb = $this->createQueryBuilder('w')
+            ->andWhere('w.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('w.type = :type')->setParameter('type', WorkoutType::Strength)
+            ->andWhere('w.source != :planned')->setParameter('planned', WorkoutSource::Planned)
+            ->orderBy('w.startedAt', 'DESC');
+        if (null !== $before) {
+            $qb->andWhere('w.startedAt < :before')->setParameter('before', $before, Types::DATETIMETZ_IMMUTABLE);
+        }
+
+        /* @var list<Workout> */
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * The strength sessions, planned or done, started from $from included to
+     * $before excluded, the earliest first; `$except` is left out.
+     *
+     * @return list<Workout>
+     */
+    public function findStrengthInRange(User $user, \DateTimeImmutable $from, \DateTimeImmutable $before, ?string $except = null): array
+    {
+        $qb = $this->createQueryBuilder('w')
+            ->andWhere('w.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('w.type = :type')->setParameter('type', WorkoutType::Strength)
+            ->andWhere('w.startedAt >= :from')->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
+            ->andWhere('w.startedAt < :before')->setParameter('before', $before, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('w.startedAt', 'ASC');
+        if (null !== $except) {
+            $qb->andWhere('w.id != :except')->setParameter('except', $except, 'ulid');
+        }
+
+        /* @var list<Workout> */
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
      * The sessions done (not planned) that started from $from included to
      * $before excluded, each bound read as an instant.
      *

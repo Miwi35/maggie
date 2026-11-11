@@ -948,6 +948,25 @@
         },
         "description": "Read where the user's phone last was. Returns {position}: {latitude, longitude, accuracy (metres), capturedAt, ageMinutes} or null. Only GPS positions are kept (a network position, which can be kilometres off, is never stored), and the last GPS point stays the position whatever its age: a phone that has not moved for hours still has its last GPS point. Say how old the position is (ageMinutes) before relying on it. null when the phone never reported a GPS point: the user has to allow the position in the app."
     },
+    "get_next_prescription": {
+        "name": "get_next_prescription",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "exercise": {
+                    "type": "string"
+                },
+                "variant": {
+                    "type": "string",
+                    "default": "normal"
+                }
+            },
+            "required": [
+                "exercise"
+            ]
+        },
+        "description": "What to prescribe next for one exercise (Santé › Sport), by the coded progression rules: never compute a progression yourself, ask this. exercise: catalogue slug (see get_exercises); variant: normal (default), soft (same step, one set less, 3 reps in reserve, an eccentric exercise replaced by the previous step) or deload (half the sets, same step, 3 reps in reserve). Returns {prescription, reason, basedOn}: prescription is an exercise line ready for manage_workouts {exercise, name, unit, step, sets, target, targetMin, targetMax, loadKg, restSeconds, tempo, targetRir, cue} — its exercise can differ from the one asked (step_up, step_down, stagnation_variant, placement); reason says why, in a word: start, placement, more reps, more load, a tempo, step up or down, a lighter load, a softer variant, less volume, keep, soft or deload (say it in a sentence, never the rule); basedOn the ids of the sessions the rule read. Unknown slug or variant: {error}."
+    },
     "get_project_planning": {
         "name": "get_project_planning",
         "inputSchema": {
@@ -1052,6 +1071,21 @@
             }
         },
         "description": "Get tasks filtered by status. Status: pending (not done), done, overdue (past due date and not done), all. Optional days parameter limits upcoming scope. Tasks come highest orderScore first (done: most recently done first): cite them in that order. A view (given, status is ignored) is one tab of the task screen, each task in exactly one: \"today\" = not done, planned today (scheduledDate) or due today or late — the planned ones first by moment then time, then the others by orderScore —, each followed by its subtasks, and reminders: the day's list the morning digest tells, each {taskId, title, reason, days, urgency} — reason \"to_schedule\" (due in days days, 0 the due day, and no day planned yet: suggest planning it) or \"not_done\" (days late); \"upcoming\" = not done, due or planned after today, by day then orderScore; \"someday\" = not done, no due day nor day planned ahead, by priority then position; \"done\" = the 50 most recently done (total gives how many). counts gives the size of the four views. Use view \"today\" whenever the user asks about their day, their tasks or what is on: the late tasks and the urgent ones come first, already ranked by orderScore, so cite them in that order — late (overdueDays) before the others. Use view \"someday\" only to suggest a task to plan on a light day (few events, no high or critical urgency in today): it has no due day, so it is never late and never urgent by itself. Each task has urgency (low, normal, high, critical — computed from criticality and the due day, never set), orderScore (time pressure + criticality + priority), overdueDays (days late, null when not late) and parentId (the task it is a subtask of, or null), position (its order among its siblings, compared as a string), links (read from Google), dueDate (the deadline) as YYYY-MM-DD, and its programmation: scheduledDate (the day planned, YYYY-MM-DD), scheduledMoment (morning, afternoon, evening, or time with scheduledTime HH:MM) and reminders (minutes before the time)."
+    },
+    "get_training_status": {
+        "name": "get_training_status",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "date"
+            ]
+        },
+        "description": "Where the user stands in the strength program on one day (Santé › Sport), date YYYY-MM-DD. Returns {date, programWeek, phase, deload, stagnating, week, hardSetsByPattern}: programWeek counts from the first calibration session done (null before it); phase calibration (weeks 1-2), ramp_up (3-4) or normal; deload {due, reason scheduled (8 weeks) | stagnation (2 exercises or more stagnating) | hard_sessions (difficulty 9 or more twice in the week) | null, weeksSinceLast}: when due, plan the week's sessions with variant deload; stagnating the slugs without gain for more than 14 days; week {planned, done} the strength sessions of the Monday-Sunday week; hardSetsByPattern the sets done that week close to failure, per movement pattern. Invalid date: {error}."
     },
     "get_treasury_outlook": {
         "name": "get_treasury_outlook",
@@ -4071,7 +4105,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update or delete the user's workouts (running, walking, cycling, swimming, strength, climbing, other). action: list, create, update or delete. A workout has type (run, walk, bike, swim, strength, climbing, other), title, startedAt (ISO 8601 WITH time and offset, e.g. 2026-10-20T07:10:00+02:00 — never a date alone, ask the user for the hour), durationMinutes (whole minutes, 1 to 1440), distanceMeters (whole METRES, optional: 5.4 km is 5400), kcal (optional, 0 to 20000), avgHeartRate (optional, bpm, 20 to 250), feeling (optional: very_good, good, hard, very_hard), notes (optional), source (manual, watch, activity, estimated, planned; defaults to manual on create — planned is a session still to do) externalId (optional, unique per user, de-duplicates an import), difficulty (optional, how hard the whole session was, 1 to 10 — a session done only, refused on a planned one), variant (optional, a coach session: normal, calibration, soft, deload) and exercises (optional, the ordered list of the session's exercises, always sent WHOLE: the list given replaces the previous one, nothing is merged). Each exercise: exercise (a slug of get_exercises), step (its position on the ladder), sets, target (reps, seconds or metres per set, in the exercise's unit), targetMin, targetMax, restSeconds, tempo (optional, true = 3 s down and 1 s pause), loadKg (optional, only for a loadable exercise), targetRir (optional, 0 to 4), cue (optional, else the catalogue's), feeling (optional: too_easy, right, too_hard) and done (optional, the sets done, each {reps} or {seconds} or {meters} in the exercise's unit, plus loadKg if loadable) — feeling and done on a session done only. Read back, each exercise also has name and unit from the catalogue. list returns the most recent first and filters on type, source, exercise (a slug: the sessions holding it), after and before (ISO 8601 with offset, on startedAt), limit default 20, max 100. update and delete need workoutId; on update only the fields provided change (nothing is cleared, an optional field is edited in the admin). create needs type, title, startedAt and durationMinutes — nothing is deduced: ask the user for what is missing. Returns {workouts: [...]} for list and {success, workout} otherwise, each workout with typeLabel, feelingLabel and sourceLabel in French. A refused call changes nothing and answers {error, field?, current?}: current is the workout as it is now."
+        "description": "List, create, update or delete the user's workouts (running, walking, cycling, swimming, strength, climbing, other). action: list, create, update or delete. A workout has type (run, walk, bike, swim, strength, climbing, other), title, startedAt (ISO 8601 WITH time and offset, e.g. 2026-10-20T07:10:00+02:00 — never a date alone, ask the user for the hour), durationMinutes (whole minutes, 1 to 1440), distanceMeters (whole METRES, optional: 5.4 km is 5400), kcal (optional, 0 to 20000), avgHeartRate (optional, bpm, 20 to 250), feeling (optional: very_good, good, hard, very_hard), notes (optional), source (manual, watch, activity, estimated, planned; defaults to manual on create — planned is a session still to do) externalId (optional, unique per user, de-duplicates an import), difficulty (optional, how hard the whole session was, 1 to 10 — a session done only, refused on a planned one), variant (optional, a coach session: normal, calibration, soft, deload) and exercises (optional, the ordered list of the session's exercises, always sent WHOLE: the list given replaces the previous one, nothing is merged). Each exercise: exercise (a slug of get_exercises), step (its position on the ladder), sets, target (reps, seconds or metres per set, in the exercise's unit), targetMin, targetMax, restSeconds, tempo (optional, true = 3 s down and 1 s pause), loadKg (optional, only for a loadable exercise), targetRir (optional, 0 to 4), cue (optional, else the catalogue's), feeling (optional: too_easy, right, too_hard) and done (optional, the sets done, each {reps} or {seconds} or {meters} in the exercise's unit, plus loadKg if loadable) — feeling and done on a session done only. Read back, each exercise also has name and unit from the catalogue. list returns the most recent first and filters on type, source, exercise (a slug: the sessions holding it), after and before (ISO 8601 with offset, on startedAt), limit default 20, max 100. update and delete need workoutId; on update only the fields provided change (nothing is cleared, an optional field is edited in the admin). create needs type, title, startedAt and durationMinutes — nothing is deduced: ask the user for what is missing. Returns {workouts: [...]} for list and {success, workout} otherwise, each workout with typeLabel, feelingLabel and sourceLabel in French. A refused call changes nothing and answers {error, field?, current?}: current is the workout as it is now. A planned strength session is refused (error, field, current = the week's strength sessions) when the week already has 3, when it starts less than 24 h from another, or when it would be the third of the week with an eccentric exercise or less than 48 h from another one: propose another slot, nothing is moved."
     },
     "mark_grocery_item_missing": {
         "name": "mark_grocery_item_missing",
