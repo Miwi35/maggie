@@ -54,7 +54,9 @@ tags:
 - tapOn:
     text: "Got it"
     optional: true
-- assertVisible: "Tractions négatives"
+- extendedWaitUntil:
+    visible: "Tractions négatives"
+    timeout: 10000
 - assertVisible: "Échelon 4"
 - assertVisible:
     id: "sport_activity_counter"
