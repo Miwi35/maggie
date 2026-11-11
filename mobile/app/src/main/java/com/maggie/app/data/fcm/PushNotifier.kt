@@ -15,6 +15,7 @@ import androidx.core.app.RemoteInput
 import androidx.core.graphics.drawable.IconCompat
 import com.maggie.app.MainActivity
 import com.maggie.app.R
+import com.maggie.app.media.MaggieMediaService
 import com.maggie.app.ui.navigation.DeepLinks
 import com.maggie.app.ui.screens.departure.DepartureActivity
 import com.maggie.app.util.stripDeliveryTags
@@ -185,6 +186,10 @@ class PushNotifier(private val context: Context) {
         // « Y aller » of a departure hands the navigation link to Waze or Maps; the activity that does it also closes the notification.
         if (kind == PushActionKind.GO && payload.isDeparture) {
             return NotificationCompat.Action.Builder(0, kind.label, departureScreen(payload, go = true)).build()
+        }
+        // « Écouter » (MAG-773) starts the media service, which plays the digest and shows it in the car's media.
+        if (kind == PushActionKind.LISTEN) {
+            return NotificationCompat.Action.Builder(0, kind.label, MaggieMediaService.listenPendingIntent(context, requestCode(payload, kind.name))).build()
         }
         if (kind == PushActionKind.GO) {
             return NotificationCompat.Action.Builder(0, kind.label, openIntent(payload, toLink = true)).build()

@@ -694,9 +694,13 @@ async def get_messages(
     after: str | None = Query(default=None, description="ISO timestamp for incremental sync"),
     before: str | None = Query(default=None, description="Message ID for cursor pagination (older messages)"),
     limit: int = Query(default=20, ge=1, le=50, description="Number of messages to return"),
+    screen: str | None = Query(default=None, description="Only the messages of this screen, newest last (MAG-773)"),
+    with_audio: bool = Query(default=False, alias="withAudio", description="Only the voice messages (MAG-773)"),
 ):
     """Get conversation messages for a user with cursor-based pagination."""
-    if before:
+    if screen is not None or with_audio:
+        messages = await message_repo.find_recent_filtered(user_id, screen=screen, with_audio=with_audio, limit=limit)
+    elif before:
         messages = await message_repo.find_before(user_id, before_id=before, limit=limit)
     elif after:
         messages = await message_repo.find_after(user_id, after=after)

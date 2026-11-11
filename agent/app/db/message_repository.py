@@ -298,6 +298,21 @@ class MessageRepository:
             messages.reverse()  # chronological order
             return messages
 
+    async def find_recent_filtered(
+        self, user_id: str, screen: str | None = None, with_audio: bool = False, limit: int = 20
+    ) -> list[Message]:
+        """The user's newest messages of a screen and/or with audio, in chronological order (MAG-773)."""
+        async with agent_session() as session:
+            query = select(Message).where(Message.user_id == user_id)
+            if screen is not None:
+                query = query.where(Message.screen == screen)
+            if with_audio:
+                query = query.where(Message.audio.is_not(None))
+            result = await session.execute(query.order_by(Message.created_at.desc()).limit(limit))
+            messages = list(result.scalars().all())
+            messages.reverse()
+            return messages
+
     async def find_without_context(self, user_id: str) -> list[Message]:
         """Every message of a user that no thread holds, oldest first (the legacy import groups them by day)."""
         async with agent_session() as session:

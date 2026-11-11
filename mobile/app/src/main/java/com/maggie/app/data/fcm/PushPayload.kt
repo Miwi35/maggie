@@ -57,6 +57,9 @@ enum class PushActionKind(val label: String, val reminderKey: String? = null) {
     /** « Déjà en route » of a departure alert (MAG-658): the notification goes, nothing opens. */
     ALREADY_ON_THE_WAY("Déjà en route"),
 
+    /** « Écouter » of the morning digest's notification (MAG-773): the media service plays the last digest voice. */
+    LISTEN("Écouter"),
+
     /** « Marquer comme lu » of a conversation (MAG-682): never shown in the tray, Android Auto presses it after reading aloud. */
     MARK_AS_READ("Marquer comme lu"),
     ;
@@ -106,6 +109,9 @@ data class PushPayload(
     /** A message Maggie wrote in the conversation (MAG-687): a tap goes to it, nothing is said while the chat shows it. */
     val isMessage: Boolean get() = type == MESSAGE_TYPE
 
+    /** The morning digest (MAG-709): a message whose link opens the Digest screen. */
+    val isDigest: Boolean get() = isMessage && link?.startsWith(DIGEST_LINK_PREFIX) == true
+
     /** « Pars maintenant » (MAG-655): the alert that opens a full-screen interruption and a navigation app. */
     val isDeparture: Boolean get() = type == DEPARTURE_TYPE
     /** The system tag the app files it under, and the one a withdrawal names — its notification id, or `cooking-timer-{id}`. */
@@ -154,6 +160,7 @@ data class PushPayload(
             type == "approval" -> approvalButtons()
             type == "task_due" -> listOf(PushActionKind.DONE, PushActionKind.LATER)
             type == "reminder" -> seenOrOpened()
+            isDigest -> listOf(PushActionKind.LISTEN, PushActionKind.REPLY)
             channel == PushChannels.CHAT -> listOf(PushActionKind.REPLY)
             else -> seenOrOpened()
         }
@@ -178,6 +185,8 @@ data class PushPayload(
 
         /** `NotificationType::Message` (MAG-687). */
         const val MESSAGE_TYPE = "message"
+
+        private val DIGEST_LINK_PREFIX = "${DeepLinks.SCHEME}://digest"
 
         /** `NotificationType::Departure`. */
         const val DEPARTURE_TYPE = "departure"

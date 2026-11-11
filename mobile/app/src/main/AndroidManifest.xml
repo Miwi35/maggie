@@ -16,6 +16,8 @@
     <!-- The service that follows the position while the owner moves or drives (MAG-666). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- The digest played through the media service, in the car or from « Écouter » (MAG-773). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- Health Connect (MAG-708): the watch's séances, pesées, pas and dépense active, read every hour in the
          background; Maggie's own séances written there so the watch's apps do not count them twice. -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
@@ -113,6 +115,17 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Maggie as a media app (MAG-773): Android Auto and the system's media controls bind here to list and play the last digest. -->
+        <service
+            android:name=".media.MaggieMediaService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
 

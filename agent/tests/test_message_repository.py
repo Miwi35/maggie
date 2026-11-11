@@ -151,3 +151,35 @@ class TestCountByContext:
 
     async def test_an_unknown_thread_counts_zero(self, chat_db):
         assert await message_repo.count_by_context("ctx-unknown") == 0
+
+
+class TestFindRecentFiltered:
+    async def _voice(self, chat_db, content: str, minutes_ago: int, screen: str | None, user_id: str = "user-1"):
+        async with chat_db.session() as session:
+            session.add(
+                Message(
+                    user_id=user_id,
+                    role="assistant",
+                    content=content,
+                    screen=screen,
+                    audio={"type": "audio/mpeg", "durationMs": 1000, "size": 10},
+                    created_at=datetime.now(UTC) - timedelta(minutes=minutes_ago),
+                )
+            )
+            await session.commit()
+
+    async def test_the_last_digest_voice_only(self, chat_db):
+        await self._voice(chat_db, "digest lundi", 3000, "digest")
+        await self._voice(chat_db, "digest mardi", 100, "digest")
+        await self._voice(chat_db, "autre vocal", 10, None)
+        await _write(chat_db.session, None, "assistant", "digest écrit", 5)
+        await self._voice(chat_db, "digest d'un autre", 1, "digest", user_id="user-2")
+
+        messages = await message_repo.find_recent_filtered("user-1", screen="digest", with_audio=True, limit=1)
+
+        assert [m.content for m in messages] == ["digest mardi"]
+
+    async def test_no_digest_voice_is_empty(self, chat_db):
+        await _write(chat_db.session, None, "assistant", "digest écrit", 5)
+
+        assert await message_repo.find_recent_filtered("user-1", screen="digest", with_audio=True, limit=1) == []
