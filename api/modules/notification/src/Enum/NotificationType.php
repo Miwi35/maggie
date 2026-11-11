@@ -33,4 +33,6 @@ enum NotificationType: string
     case Question = 'question';
     /** A health nudge: the eating window of the intermittent fast closes (MAG-770). */
     case Health = 'health';
+    /** A planned workout was missed: make it up softer, shorter or tomorrow, answered by `/api/workout-makeups/{id}/choose` (MAG-771). */
+    case WorkoutMakeup = 'workout_makeup';
 }

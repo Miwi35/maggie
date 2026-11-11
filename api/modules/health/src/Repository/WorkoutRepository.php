@@ -10,6 +10,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Health\Entity\Workout;
 use Maggie\Health\Entity\WorkoutExercise;
+use Maggie\Health\Entity\WorkoutMakeup;
 use Maggie\Health\Enum\WorkoutSource;
 use Maggie\Health\Enum\WorkoutType;
 use Symfony\Component\Uid\Ulid;
@@ -132,5 +133,107 @@ class WorkoutRepository extends ServiceEntityRepository
             ->orderBy('w.startedAt', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /** The session done that keeps this planned one, if any (MAG-771). */
+    public function findKeeperOf(Workout $planned): ?Workout
+    {
+        return $this->findOneBy(['keeps' => $planned]);
+    }
+
+    /**
+     * The planned sessions a session done may still keep (MAG-771), started
+     * from $from included to $before excluded, the earliest first: not kept
+     * yet, and not replaced by a planned make-up (the make-up is kept instead).
+     *
+     * @return list<Workout>
+     */
+    public function findKeepablePlanned(User $user, \DateTimeImmutable $from, \DateTimeImmutable $before): array
+    {
+        /* @var list<Workout> */
+        return $this->createQueryBuilder('w')
+            ->andWhere('w.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('w.source = :planned')->setParameter('planned', WorkoutSource::Planned)
+            ->andWhere('w.startedAt >= :from')->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
+            ->andWhere('w.startedAt < :before')->setParameter('before', $before, Types::DATETIMETZ_IMMUTABLE)
+            ->andWhere('NOT EXISTS (SELECT 1 FROM '.Workout::class.' k WHERE k.keeps = w)')
+            ->andWhere('NOT EXISTS (SELECT 1 FROM '.Workout::class.' m WHERE m.makeupOf = w)')
+            ->orderBy('w.startedAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Every user's planned sessions that may have been missed (MAG-771):
+     * started from $from included to $before excluded, not make-ups
+     * themselves, not kept, with no make-up proposed yet.
+     *
+     * @return list<Workout>
+     */
+    public function findMissCandidates(\DateTimeImmutable $from, \DateTimeImmutable $before): array
+    {
+        /* @var list<Workout> */
+        return $this->createQueryBuilder('w')
+            ->andWhere('w.source = :planned')->setParameter('planned', WorkoutSource::Planned)
+            ->andWhere('w.makeupOf IS NULL')
+            ->andWhere('w.startedAt >= :from')->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
+            ->andWhere('w.startedAt < :before')->setParameter('before', $before, Types::DATETIMETZ_IMMUTABLE)
+            ->andWhere('NOT EXISTS (SELECT 1 FROM '.Workout::class.' k WHERE k.keeps = w)')
+            ->andWhere('NOT EXISTS (SELECT 1 FROM '.WorkoutMakeup::class.' p WHERE p.missed = w)')
+            ->orderBy('w.startedAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The user's planned sessions that are not make-ups, started before
+     * $before excluded, the most recent first: what a streak counts.
+     *
+     * @return list<Workout>
+     */
+    public function findPlannedOriginalsBefore(User $user, \DateTimeImmutable $before): array
+    {
+        /* @var list<Workout> */
+        return $this->createQueryBuilder('w')
+            ->andWhere('w.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('w.source = :planned')->setParameter('planned', WorkoutSource::Planned)
+            ->andWhere('w.makeupOf IS NULL')
+            ->andWhere('w.startedAt < :before')->setParameter('before', $before, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('w.startedAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The user's planned make-ups (MAG-771), whatever they replace.
+     *
+     * @return list<Workout>
+     */
+    public function findMakeups(User $user): array
+    {
+        /* @var list<Workout> */
+        return $this->createQueryBuilder('w')
+            ->andWhere('w.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('w.makeupOf IS NOT NULL')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return array<string, true> the ids (base 32) of the user's planned sessions kept by a session done */
+    public function findKeptIds(User $user): array
+    {
+        /** @var list<Workout> $keepers */
+        $keepers = $this->createQueryBuilder('w')
+            ->andWhere('w.user = :user')->setParameter('user', $user->getId(), 'ulid')
+            ->andWhere('w.keeps IS NOT NULL')
+            ->getQuery()
+            ->getResult();
+
+        $ids = [];
+        foreach ($keepers as $keeper) {
+            $ids[(string) $keeper->getKeeps()?->getId()] = true;
+        }
+
+        return $ids;
     }
 }

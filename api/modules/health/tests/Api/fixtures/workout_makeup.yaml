@@ -1,0 +1,88 @@
+# MAG-771's scenario, in Paris (UTC+1 in November): three planned sessions
+# kept in a row (streak 3), then a run planned Tuesday 10 at 18:30 for 45 min
+# that nothing keeps yet, and one planned Thursday 12. other_user's missed
+# session already has a proposal, which proves the isolation.
+Maggie\Core\Entity\User:
+  test_user:
+    email: makeup-test@example.com
+    googleId: google-makeup-test
+    name: Makeup Test User
+  other_user:
+    email: makeup-other@example.com
+    googleId: google-makeup-other
+    name: Other Makeup User
+
+Maggie\Health\Entity\Workout:
+  planned_1:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<(new \DateTimeImmutable("2026-11-02T18:30:00+01:00"))>'
+    durationMinutes: 45
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    user: '@test_user'
+  done_1:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<(new \DateTimeImmutable("2026-11-02T18:35:00+01:00"))>'
+    durationMinutes: 40
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+    keeps: '@planned_1'
+    streak: 1
+    user: '@test_user'
+  planned_2:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<(new \DateTimeImmutable("2026-11-04T18:30:00+01:00"))>'
+    durationMinutes: 45
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    user: '@test_user'
+  done_2:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<(new \DateTimeImmutable("2026-11-04T18:35:00+01:00"))>'
+    durationMinutes: 40
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+    keeps: '@planned_2'
+    streak: 2
+    user: '@test_user'
+  planned_3:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<(new \DateTimeImmutable("2026-11-06T18:30:00+01:00"))>'
+    durationMinutes: 45
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    user: '@test_user'
+  done_3:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<(new \DateTimeImmutable("2026-11-06T18:35:00+01:00"))>'
+    durationMinutes: 40
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+    keeps: '@planned_3'
+    streak: 3
+    user: '@test_user'
+  tuesday:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Fractionné
+    startedAt: '<(new \DateTimeImmutable("2026-11-10T18:30:00+01:00"))>'
+    durationMinutes: 45
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    user: '@test_user'
+  thursday:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<(new \DateTimeImmutable("2026-11-12T18:30:00+01:00"))>'
+    durationMinutes: 45
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    user: '@test_user'
+  other_planned:
+    type: '<(Maggie\Health\Enum\WorkoutType::Walk)>'
+    title: Marche
+    startedAt: '<(new \DateTimeImmutable("2026-11-09T18:00:00+01:00"))>'
+    durationMinutes: 30
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    user: '@other_user'
+
+Maggie\Health\Entity\WorkoutMakeup:
+  other_makeup:
+    __construct: ['@other_user', '@other_planned', 30, 15, 0]

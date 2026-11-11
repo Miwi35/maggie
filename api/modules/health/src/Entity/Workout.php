@@ -24,6 +24,7 @@ use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Health\Dto\WorkoutExerciseInput;
+use Maggie\Health\Enum\MakeupOption;
 use Maggie\Health\Enum\WorkoutFeeling;
 use Maggie\Health\Enum\WorkoutSource;
 use Maggie\Health\Enum\WorkoutType;
@@ -35,6 +36,7 @@ use Maggie\Health\State\DeleteWorkoutProcessor;
 use Maggie\Health\State\UpdateWorkoutProcessor;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -51,6 +53,8 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ORM\Entity(repositoryClass: WorkoutRepository::class)]
 #[ORM\Index(name: 'idx_workout_user_started_at', columns: ['user_id', 'started_at'])]
 #[ORM\UniqueConstraint(name: 'uniq_workout_user_external', columns: ['user_id', 'external_id'])]
+// A planned session is kept by one session done at most (MAG-771).
+#[ORM\UniqueConstraint(name: 'uniq_workout_keeps', columns: ['keeps_id'])]
 #[UniqueEntity(fields: ['user', 'externalId'], message: 'This externalId is already used by another workout.', ignoreNull: 'externalId')]
 #[ApiFilter(SearchFilter::class, properties: ['type' => 'exact', 'source' => 'exact'])]
 #[ApiFilter(DateFilter::class, properties: ['startedAt'])]
@@ -158,6 +162,26 @@ class Workout implements MercurePublishable, OwnedByUserInterface
     #[ORM\Column(length: 16, nullable: true, enumType: WorkoutVariant::class)]
     #[ApiProperty(description: 'A coach session\'s kind: normal, calibration, soft or deload.')]
     private ?WorkoutVariant $variant = null;
+
+    // Set by the rule, never written by a client (MAG-771): the planned session
+    // this session done keeps, and the streak once it did.
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ApiProperty(description: 'The planned session this session done keeps (read only, set by Maggie).', writable: false)]
+    private ?Workout $keeps = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    #[ApiProperty(description: 'The streak of planned sessions kept in a row once this one kept its own (read only; null when it keeps none).', writable: false)]
+    private ?int $streak = null;
+
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ApiProperty(description: 'The missed planned session this planned make-up replaces (read only).', writable: false)]
+    private ?Workout $makeupOf = null;
+
+    #[ORM\Column(length: 16, nullable: true, enumType: MakeupOption::class)]
+    #[ApiProperty(description: 'How the make-up was chosen: softer, shorter or tomorrow (read only).', writable: false)]
+    private ?MakeupOption $makeupOption = null;
 
     /** @var Collection<int, WorkoutExercise> */
     #[ORM\OneToMany(targetEntity: WorkoutExercise::class, mappedBy: 'workout', cascade: ['persist', 'remove'], orphanRemoval: true)]
@@ -339,6 +363,71 @@ class Workout implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getKeeps(): ?Workout
+    {
+        return $this->keeps;
+    }
+
+    public function setKeeps(?Workout $keeps): static
+    {
+        $this->keeps = $keeps;
+
+        return $this;
+    }
+
+    public function getStreak(): ?int
+    {
+        return $this->streak;
+    }
+
+    public function setStreak(?int $streak): static
+    {
+        $this->streak = $streak;
+
+        return $this;
+    }
+
+    public function getMakeupOf(): ?Workout
+    {
+        return $this->makeupOf;
+    }
+
+    public function setMakeupOf(?Workout $makeupOf): static
+    {
+        $this->makeupOf = $makeupOf;
+
+        return $this;
+    }
+
+    public function getMakeupOption(): ?MakeupOption
+    {
+        return $this->makeupOption;
+    }
+
+    public function setMakeupOption(?MakeupOption $makeupOption): static
+    {
+        $this->makeupOption = $makeupOption;
+
+        return $this;
+    }
+
+    #[Ignore]
+    public function isPlanned(): bool
+    {
+        return WorkoutSource::Planned === $this->source;
+    }
+
+    /** When it ends (or ended): its start plus its duration. */
+    public function endsAt(): \DateTimeImmutable
+    {
+        return $this->startedAt->modify(\sprintf('+%d minutes', $this->durationMinutes));
+    }
+
+    public static function iri(Workout $workout): string
+    {
+        return '/api/workouts/'.$workout->getId();
+    }
+
     public function getVariant(): ?WorkoutVariant
     {
         return $this->variant;
@@ -469,6 +558,10 @@ class Workout implements MercurePublishable, OwnedByUserInterface
             'externalId' => $this->externalId,
             'difficulty' => $this->difficulty,
             'variant' => $this->variant?->value,
+            'keeps' => null === $this->keeps ? null : self::iri($this->keeps),
+            'streak' => $this->streak,
+            'makeupOf' => null === $this->makeupOf ? null : self::iri($this->makeupOf),
+            'makeupOption' => $this->makeupOption?->value,
             'exercises' => $this->getExercises(),
         ], $changedProperties, self::PAYLOAD_KEYS);
     }

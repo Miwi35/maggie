@@ -210,7 +210,7 @@ class PushMessageFactory
     private function channel(NotificationType $type): string
     {
         return match ($type) {
-            NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge, NotificationType::Routine, NotificationType::CookingTimer, NotificationType::Health => self::CHANNEL_REMINDERS,
+            NotificationType::Reminder, NotificationType::TaskDue, NotificationType::TaskNudge, NotificationType::Routine, NotificationType::CookingTimer, NotificationType::Health, NotificationType::WorkoutMakeup => self::CHANNEL_REMINDERS,
             NotificationType::Approval => self::CHANNEL_APPROVALS,
             NotificationType::ConsentExpiring, NotificationType::Finance => self::CHANNEL_FINANCE,
             NotificationType::Departure => self::CHANNEL_DEPARTURE,

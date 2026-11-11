@@ -49,5 +49,6 @@
     "User": "/users/{userId}/api/users/{id}",
     "UserPreference": "/users/{userId}/api/user_preferences/{id}",
     "Utensil": "/users/{userId}/api/utensils/{id}",
-    "Workout": "/users/{userId}/api/workouts/{id}"
+    "Workout": "/users/{userId}/api/workouts/{id}",
+    "WorkoutMakeup": "/users/{userId}/api/workout-makeups/{id}"
 }
