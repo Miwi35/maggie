@@ -44,4 +44,16 @@ class SportFlowTest {
         assertEquals("Tenez", ringCaption(SportPhase.HOLD, true))
         assertEquals("Prêt", ringCaption(SportPhase.WORK, false))
     }
+
+    @Test
+    fun `the session is complete only once the last set of the last exercise holds its entry`() {
+        val flow = SportFlow(exercises)
+        val last = SportState(exerciseIndex = 2, setIndex = 1)
+        val noneDone = List(3) { emptyList<SportSetDone>() }
+        val lastDone = listOf(emptyList(), emptyList(), listOf(SportSetDone(seconds = 30), SportSetDone(seconds = 30)))
+        assertEquals(false, flow.isComplete(last.copy(done = noneDone)))
+        assertEquals(false, flow.isComplete(last.copy(done = listOf(emptyList(), emptyList(), listOf(SportSetDone(seconds = 30))))))
+        assertEquals(true, flow.isComplete(last.copy(done = lastDone)))
+        assertEquals(false, flow.isComplete(SportState(exerciseIndex = 0, setIndex = 2, done = lastDone)))
+    }
 }

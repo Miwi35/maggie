@@ -719,6 +719,44 @@ data class WorkoutWriteRequest(
     val notes: String?,
 )
 
+/** One exercise of a strength session as `POST`/`PATCH /api/workouts` take it (MAG-781): no `name` nor `unit`, the catalogue gives them. */
+@Serializable
+data class WorkoutExerciseWrite(
+    val exercise: String,
+    val step: Int,
+    val sets: Int,
+    val target: Int,
+    val targetMin: Int,
+    val targetMax: Int,
+    val restSeconds: Int,
+    val loadKg: Double? = null,
+    val tempo: Boolean = false,
+    val targetRir: Int? = null,
+    val cue: String? = null,
+    val feeling: String? = null,
+    val done: List<WorkoutSetWrite> = emptyList(),
+)
+
+/** A set done, one count in the exercise's unit. */
+@Serializable
+data class WorkoutSetWrite(val reps: Int? = null, val seconds: Int? = null, val meters: Int? = null, val loadKg: Double? = null)
+
+/** `POST /api/workouts`: the strength session the Sport activity has just done (MAG-781). */
+@Serializable
+data class SportWorkoutCreate(
+    val type: String,
+    val title: String,
+    val startedAt: String,
+    val durationMinutes: Int,
+    val source: String,
+    val exercises: List<WorkoutExerciseWrite>,
+    val variant: String? = null,
+)
+
+/** Merge-patch of the session done: how hard it was, and the exercises whole with their `feeling`. */
+@Serializable
+data class SportWorkoutFinish(val exercises: List<WorkoutExerciseWrite>, val difficulty: Int? = null)
+
 /** `PATCH /api/workouts/{id}` with the Health Connect id of the record Maggie wrote for it (MAG-708). */
 @Serializable
 data class WorkoutExternalIdRequest(val externalId: String)
@@ -2962,6 +3000,22 @@ class MaggieApiService(
     }
 
     suspend fun updateWorkout(id: String, request: WorkoutWriteRequest): Workout {
+        return client.patch("$baseUrl/api/workouts/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun createSportWorkout(request: SportWorkoutCreate): Workout {
+        return client.post("$baseUrl/api/workouts") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun finishSportWorkout(id: String, request: SportWorkoutFinish): Workout {
         return client.patch("$baseUrl/api/workouts/$id") {
             contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))

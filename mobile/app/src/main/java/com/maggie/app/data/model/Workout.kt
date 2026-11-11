@@ -26,6 +26,8 @@ data class Workout(
     val externalId: String? = null,
     val difficulty: Int? = null,
     val variant: String? = null,
+    /** The streak of planned sessions kept in a row once this session done kept its own (MAG-771); null when it keeps none. */
+    val streak: Int? = null,
     val exercises: List<WorkoutExercise> = emptyList(),
 ) {
     val isPlanned: Boolean get() = source == WorkoutSource.PLANNED
@@ -74,5 +76,6 @@ object WorkoutUnit {
 /** The keys of `WorkoutSource` that the app needs by name. */
 object WorkoutSource {
     const val MANUAL = "manual"
+    const val ACTIVITY = "activity"
     const val PLANNED = "planned"
 }

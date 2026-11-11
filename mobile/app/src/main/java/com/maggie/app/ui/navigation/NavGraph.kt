@@ -154,6 +154,7 @@ import com.maggie.app.ui.screens.grocery.run.GroceryRunViewModel
 import com.maggie.app.ui.screens.health.sport.SportActivityEndScreen
 import com.maggie.app.ui.screens.health.sport.SportActivityScreen
 import com.maggie.app.ui.screens.health.sport.SportActivityViewModel
+import com.maggie.app.ui.screens.health.sport.SportEndViewModel
 import com.maggie.app.ui.screens.health.sport.SportResumeViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
 import com.maggie.app.ui.screens.cookbook.cooking.CookingGroceryViewModel
@@ -323,7 +324,7 @@ sealed class Screen(val route: String, val label: String) {
         fun ofEvent(eventId: String): String =
             "health/sport/activity/${SportActivityViewModel.NO_WORKOUT}?${DeepLinks.ARG_EVENT}=$eventId"
     }
-    /** The end of the Sport activity (MAG-780 lands here after the last set; Fin de séance fills it). */
+    /** The end of the Sport activity (MAG-780 lands here after the last set; MAG-781 writes the session done and asks how it went). */
     data object SportActivityEnd : Screen("health/sport/activity-end", "Fin de séance")
     data object ProductList : Screen("products", "Produits")
     data object StoreList : Screen("stores", "Magasins")
@@ -844,7 +845,17 @@ private fun SportActivityPage(navController: NavController, onOpenMaggie: () -> 
 // Out of NavGraph's body for the same reason as ReviewActivityPage.
 @Composable
 private fun SportActivityEndPage(navController: NavController, onOpenMaggie: () -> Unit) {
-    SportActivityEndScreen(onQuit = { navController.popBackStack() }, onOpenMaggie = onOpenMaggie)
+    SportActivityEndScreen(
+        viewModel = koinViewModel<SportEndViewModel>(),
+        onQuit = { navController.popBackStack() },
+        onSaved = {
+            navController.navigate(Screen.HealthSport.route) {
+                popUpTo(Screen.SportActivityEnd.route) { inclusive = true }
+                launchSingleTop = true
+            }
+        },
+        onOpenMaggie = onOpenMaggie,
+    )
 }
 
 // Out of NavGraph's body for the same reason as ReviewActivityPage.

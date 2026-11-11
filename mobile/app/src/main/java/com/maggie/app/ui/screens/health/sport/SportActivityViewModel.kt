@@ -104,7 +104,7 @@ class SportActivityViewModel(
 
             this@SportActivityViewModel.flow = flow
             _uiState.update {
-                it.copy(load = SportLoad.READY, workout = workout, finished = settled.finished).withSession(settled.state, flow, clock(), resetReps = true)
+                it.copy(load = SportLoad.READY, workout = workout, finished = settled.finished || flow.isComplete(settled.state)).withSession(settled.state, flow, clock(), resetReps = true)
             }
             syncTicker()
             loadLastTimes(workout)

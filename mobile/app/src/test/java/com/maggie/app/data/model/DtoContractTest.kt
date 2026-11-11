@@ -70,6 +70,8 @@ class DtoContractTest {
         "DailyBalance (range)" to setOf("plannedMeals"),
         // The recorded sets count reps and seconds; no recorded exercise is counted in metres (MAG-775).
         "WorkoutSetDone" to setOf("meters"),
+        // Null until the rule keeps a planned session (MAG-771), and the API omits a null: the recorded sessions keep none.
+        "Workout" to setOf("streak"),
     )
 
     // The agent's messages are not recorded in api/contract/responses (that suite records the API

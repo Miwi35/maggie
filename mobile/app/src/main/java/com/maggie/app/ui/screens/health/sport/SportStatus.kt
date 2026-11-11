@@ -48,6 +48,8 @@ data class SportState(
     val timerRemaining: Int? = null,
     val loadKg: List<Double?> = emptyList(),
     val done: List<List<SportSetDone>> = emptyList(),
+    /** The session done, once the end screen created it (MAG-781): a replay finds it here and never creates a second one. */
+    val doneWorkoutId: String? = null,
 )
 
 fun SportState.toJson(): JsonObject = stateJson.encodeToJsonElement(SportState.serializer(), this).jsonObject

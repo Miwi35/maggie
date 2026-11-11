@@ -1541,6 +1541,30 @@ object UiTags {
     const val SPORT_ACTIVITY_HOLD = "sport_activity_hold"
     const val SPORT_ACTIVITY_PRIMARY = "sport_activity_primary"
     const val SPORT_ACTIVITY_END = "sport_activity_end"
+    const val SPORT_END_LOADING = "sport_end_loading"
+    const val SPORT_END_ERROR = "sport_end_error"
+    const val SPORT_END_RETRY = "sport_end_retry"
+    const val SPORT_END_MEDAL = "sport_end_medal"
+    const val SPORT_END_SUMMARY = "sport_end_summary"
+    const val SPORT_END_TITLE = "sport_end_title"
+    const val SPORT_END_STREAK = "sport_end_streak"
+    const val SPORT_END_STREAK_TEXT = "sport_end_streak_text"
+    const val SPORT_END_DIFFICULTY = "sport_end_difficulty"
+    const val SPORT_END_DIFFICULTY_VALUE = "sport_end_difficulty_value"
+
+    /** Suffixed with the number, 1 to 10. */
+    const val SPORT_END_DIFFICULTY_CELL_PREFIX = "sport_end_difficulty_cell_"
+    const val SPORT_END_EXERCISES = "sport_end_exercises"
+
+    /** Suffixed with the exercise's index. */
+    const val SPORT_END_ROW_PREFIX = "sport_end_row_"
+    const val SPORT_END_DOSE_PREFIX = "sport_end_dose_"
+    const val SPORT_END_DELTA_PREFIX = "sport_end_delta_"
+
+    /** Suffixed with the exercise's index, then `_too_easy`, `_right` or `_too_hard`. */
+    const val SPORT_END_FEELING_PREFIX = "sport_end_feeling_"
+    const val SPORT_END_SAVE = "sport_end_save"
+    const val SPORT_END_SAVE_ERROR = "sport_end_save_error"
     const val SPORT_LAUNCH_CARD = "sport_launch_card"
     const val SPORT_LAUNCH_BUTTON = "sport_launch_button"
     const val SPORT_LAUNCH_SUBTITLE = "sport_launch_subtitle"

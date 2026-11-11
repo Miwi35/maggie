@@ -22,6 +22,9 @@ class SportFlow(private val exercises: List<WorkoutExercise>) {
     fun isLastSet(state: SportState): Boolean =
         state.exerciseIndex == exercises.lastIndex && state.setIndex == exercise(state).sets - 1
 
+    /** Every set of the session is done: the last set of the last exercise holds its entry. */
+    fun isComplete(state: SportState): Boolean = isLastSet(state) && state.done.getOrNull(state.exerciseIndex)?.size == exercise(state).sets
+
     /** Seconds left on the running or paused timer; the target of a held exercise not started; null when there is no timer. */
     fun remaining(state: SportState, now: Instant): Int? {
         endsAt(state)?.let { return ceilSeconds(Duration.between(now, it).toMillis()) }

@@ -495,7 +495,7 @@ private fun ExerciseBlock(exercise: WorkoutExercise, lastTime: String?, nameSize
 
 /** « Quitter la séance ? »: the sets done are kept, the status stays for the resume. */
 @Composable
-private fun QuitDialog(expanded: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun QuitDialog(expanded: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.uiTagRoot().testTag(UiTags.SPORT_ACTIVITY_QUIT_DIALOG),
