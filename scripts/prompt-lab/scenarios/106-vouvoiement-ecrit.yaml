@@ -1,0 +1,12 @@
+# Relation: written exchanges use « vous », and « monsieur » sparingly.
+name: vouvoiement-ecrit
+description: An ordinary written exchange is in « vous », « monsieur » at most once.
+channel: chat
+
+steps:
+  - user_message: "Qu'est-ce que j'ai demain ?"
+    expected_tools: [get_upcoming_events]
+    expected_absent: [" tu ", " ton ", " ta ", " te "]
+    expected_behavior: >
+      Elle vouvoie le propriétaire, n'emploie « monsieur » qu'une fois au plus
+      et n'utilise aucun tutoiement.

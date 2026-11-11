@@ -51,6 +51,13 @@ prompt, never the data. Ids differ between runs (ULIDs), so assert on labels.
 The runner empties the agent's own database between scenarios: each one starts
 with no conversation history, no context and no memory.
 
+## Relation
+
+`100-merci` to `106-vouvoiement-ecrit` cover the relationship rather than the
+tools: thanks, closing, apology, varied confirmations, coming back after days,
+« vous ». They check the shape of the answer (MAG-789). They are played by hand
+with `task e2e:eval` (`only`) whenever the prompt changes, never in CI.
+
 ## Adding one
 
 Keep it about judgement. If the assertion would hold with any plausible wording,

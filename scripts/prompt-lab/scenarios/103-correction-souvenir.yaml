@@ -1,0 +1,18 @@
+# Relation: when Maggie is wrong about a remembered fact, she apologises briefly
+# and states the corrected fact.
+name: correction-souvenir
+description: A corrected memory gets a short apology and the fact restated.
+channel: chat
+
+steps:
+  - user_message: "Retiens que Françoise aime les roses."
+    expected_behavior: >
+      Elle confirme en une courte phrase.
+
+  - user_message: "Non, Françoise préfère les tulipes."
+    expected_contains: ["tulipes"]
+    expected_absent: ["cette nuit"]
+    expected_behavior: >
+      Elle s'excuse en quelques mots, redit le fait corrigé (Françoise préfère
+      les tulipes) et s'arrête là : sans justification, sans parler de ce
+      qu'elle fera « cette nuit » ni d'un traitement différé.

@@ -1,0 +1,12 @@
+# Relation: a goodnight closes the conversation, nothing is added.
+name: bonne-nuit
+description: A goodnight gets a goodnight and nothing else.
+channel: chat
+
+steps:
+  - user_message: "Bon, je vais me coucher."
+    forbidden_tools: [get_tasks, get_upcoming_events, get_grocery_list]
+    expected_absent: ["?", "demain"]
+    expected_behavior: >
+      Elle répond par une seule courte phrase du type « Bonne nuit, monsieur. »,
+      sans rappel, sans résumé de la journée, sans aperçu de demain et sans question.

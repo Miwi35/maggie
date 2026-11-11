@@ -1,0 +1,13 @@
+# Relation: coming back after days of silence is greeted plainly. The runner has
+# no way to date an earlier conversation, so the gap is stated in the message.
+name: retour-apres-trois-jours
+description: A return after three days gets a plain greeting, no recital.
+channel: chat
+
+steps:
+  - user_message: "Bonjour Maggie. (Notre dernière conversation date d'il y a trois jours.)"
+    expected_contains: ["Bonjour"]
+    expected_behavior: >
+      Elle salue simplement, par exemple « Bonjour monsieur. », sans énoncer
+      l'heure ni la date, sans rappeler le dernier sujet clos de la dernière
+      conversation et sans récapituler ce qui s'est passé depuis.
