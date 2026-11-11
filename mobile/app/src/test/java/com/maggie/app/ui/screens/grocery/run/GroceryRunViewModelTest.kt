@@ -492,6 +492,39 @@ class GroceryRunViewModelTest {
         coVerify(exactly = 1) { lists.markMissing("i-3", true) }
     }
 
+    // Cold review: once the API moves it, the article carries its fallback's aisle; its « ira à » line keeps its own.
+    @Test
+    fun `a line marked ira à stays under its own aisle once the API has moved it`() = runTest {
+        val bazar = AisleSummary("a-9", "Bazar", 9)
+        val vm = inSuperU(GroceryList("list-1", missingList().items.map { if (it.id == "i-3") it.copy(aisle = frais) else it }))
+        vm.askMissing("i-3")
+        vm.confirmMissing()
+        advanceUntilIdle()
+
+        val moved = missingList().items.map {
+            if (it.id == "i-3") it.copy(store = biocoop, missingFromStore = superU, missingAt = "2026-11-08T10:00:00+00:00", aisle = bazar) else it
+        }
+        coEvery { lists.getGroceryList() } returns Result.success(GroceryList("list-1", moved))
+        stream.emit(MercureEvent(id = "1", data = "{}"))
+        advanceUntilIdle()
+
+        val aisle = vm.uiState.value.currentAisles.single { aisle -> aisle.lines.any { it.id == "i-3" } }
+        assertEquals("Frais", aisle.name)
+        assertEquals(RunMissing.GoesTo("Biocoop"), vm.line("i-3")?.missing)
+        assertEquals("Bazar", vm.uiState.value.let { it.copy(run = it.run.copy(current = "s-b")) }.currentAisles.single { a -> a.lines.any { it.id == "i-3" } }.name)
+    }
+
+    @Test
+    fun `the sheet of an article ticked elsewhere closes and does not come back`() = runTest {
+        val vm = inSuperU()
+        vm.askMissing("i-1")
+
+        coEvery { lists.getGroceryList() } returns Result.success(GroceryList("list-1", missingList().items.map { if (it.id == "i-1") it.copy(checked = true) else it }))
+        stream.emit(MercureEvent(id = "1", data = "{}"))
+        advanceUntilIdle()
+        assertNull(vm.uiState.value.missingAsked)
+    }
+
     @Test
     fun `the sheet's Annuler leaves the article to take`() = runTest {
         val vm = inSuperU()

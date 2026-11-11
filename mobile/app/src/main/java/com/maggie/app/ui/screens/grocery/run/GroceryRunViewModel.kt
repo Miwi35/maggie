@@ -6,6 +6,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
+import com.maggie.app.data.model.AisleSummary
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.repository.ActivityStatusRepository
@@ -84,6 +85,11 @@ data class GroceryRunUiState(
     val ticked: Set<String> = emptySet(),
     /** The article whose « Manquant » sheet is open (MAG-764), not marked until the sheet says so. */
     val missingAsked: String? = null,
+    /**
+     * Each article's aisle as last read in its own store: the API gives a moved article its fallback's aisle, and its
+     * « ira à » line stays under its own aisle (MAG-764).
+     */
+    val homeAisles: Map<String, AisleSummary?> = emptyMap(),
 ) {
     fun isChecked(item: GroceryItem): Boolean = pending[item.id] ?: item.checked
 
@@ -95,7 +101,14 @@ data class GroceryRunUiState(
     private val currentItems: List<GroceryItem> get() = items.filter { place(it)?.storeId == run.current }
 
     /** [currentItems], and the missing ones of this store gone to a fallback further in the tour (the mockup's « ira à »). */
-    private val shownItems: List<GroceryItem> get() = items.filter { place(it)?.storeId == run.current || goesFromCurrent(it) }
+    private val shownItems: List<GroceryItem> get() = items.mapNotNull { item ->
+        when {
+            place(item)?.storeId == run.current -> item
+            !goesFromCurrent(item) -> null
+            item.missingFromStore != null -> item.copy(aisle = homeAisles[item.id])
+            else -> item
+        }
+    }
 
     private fun goesFromCurrent(item: GroceryItem): Boolean =
         item.origin?.id == run.current && isMissing(item) && place(item)?.storeId.let { it != null && it != run.current }
@@ -515,6 +528,9 @@ class GroceryRunViewModel(
         _uiState.update {
             it.copy(
                 receivedMissing = it.receivedMissing.filter { (id, missing) -> read[id]?.let { item -> (item.missingAt != null) != missing } ?: false },
+                // The sheet of an article gone from the list, or ticked elsewhere, does not come back with it.
+                missingAsked = it.missingAsked?.takeIf { id -> read[id]?.checked == false },
+                homeAisles = it.homeAisles + lines.filter { item -> item.missingFromStore == null }.mapNotNull { item -> item.id?.let { id -> id to item.aisle } },
                 load = if (stores.isEmpty()) GroceryRunLoad.EMPTY else GroceryRunLoad.READY,
                 stores = stores,
                 items = lines,
