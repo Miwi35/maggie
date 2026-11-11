@@ -825,7 +825,7 @@ private fun GroceryRunRecap(state: GroceryRunUiState, store: RunStore, actions: 
 
 /**
  * « Montant payé » as the mockup draws it: a filled field, 64 dp high, with no outline, light 28 sp figures and « € »
- * at its right. An amount that is not one is underlined in the error colour.
+ * at its right. An amount that is not one is outlined in the error colour.
  */
 @Composable
 private fun PaidField(value: String, storeName: String, invalid: Boolean, onValueChange: (String) -> Unit) {
