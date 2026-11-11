@@ -7,7 +7,7 @@ import { ROUTES } from './routes.js'
  * Santé › Sport (MAG-705): the weekly minutes, the workouts table and the
  * selected workout, with « Ajouter une séance » in the header.
  *
- * A row is `workout-row-<ulid>`; the bars of the chart are images named
+ * A row is `workout-row-<ulid>`, its sheet `workout-detail-<ulid>`; the bars of the chart are images named
  * « Semaine du 19 oct. : 32 min », the current week's being the last one.
  */
 export class HealthSportPage extends AdminShell {
@@ -30,6 +30,22 @@ export class HealthSportPage extends AdminShell {
 
   row(workoutId: string): Locator {
     return this.content.getByTestId(`workout-row-${workoutId}`)
+  }
+
+  /** Opens the sheet of a workout by its row's title (MAG-775). */
+  async select(workoutId: string): Promise<void> {
+    await this.row(workoutId).getByRole('button').first().click()
+    await expect(this.detail(workoutId)).toBeVisible()
+  }
+
+  /** The sheet of the selected workout, `workout-detail-<ulid>`. */
+  detail(workoutId: string): Locator {
+    return this.content.getByTestId(`workout-detail-${workoutId}`)
+  }
+
+  /** The « Exercices » block of a sheet: one `workout-exercise` row per exercise (MAG-775). */
+  exercises(workoutId: string): Locator {
+    return this.detail(workoutId).getByTestId('workout-exercises')
   }
 
   /** The minutes of the current week, read off its bar. */
