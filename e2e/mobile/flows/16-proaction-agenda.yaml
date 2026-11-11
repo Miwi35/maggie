@@ -75,8 +75,14 @@ tags:
       DEST: settings
 - tapOn:
     id: "settings_agent"
+# The rendezvous cards (MAG-787) open the screen: « Proactions » sits below them.
 - extendedWaitUntil:
-    visible: "Proactions"
+    visible:
+      id: "settings_digest_switch"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Proactions"
+    centerElement: true
     timeout: 20000
 - tapOn: "Proactions"
 - extendedWaitUntil:
